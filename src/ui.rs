@@ -1,16 +1,16 @@
 //! Drawing. Reads `App`, writes only the viewport size back into it.
 
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Paragraph};
+use ratatui::widgets::{Block, Clear, Paragraph};
 
-use crate::app::{App, Mode};
+use crate::app::{App, Focus, Mode};
 use crate::theme::Theme;
 use crate::wrap;
 
-/// Width of the (still empty) file tree pane.
+/// Width of the file tree pane.
 const TREE_W: u16 = 30;
 /// ponytail: a single line longer than this is truncated for rendering only.
 const MAX_RENDER_BYTES: usize = 20_000;
@@ -21,14 +21,136 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     frame.render_widget(Block::new().style(base), area);
 
     let [main, status] = Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).areas(area);
+    let tree_w = if app.show_tree { TREE_W } else { 0 };
     let [tree, code] =
-        Layout::horizontal([Constraint::Length(TREE_W), Constraint::Min(1)]).areas(main);
+        Layout::horizontal([Constraint::Length(tree_w), Constraint::Min(1)]).areas(main);
 
-    // Step 3 fills this; the border is here now so the layout never shifts again.
-    frame.render_widget(Block::bordered().title(app.root_name()).style(base), tree);
-
-    draw_code(frame, app, theme, code, base);
+    if app.show_tree {
+        draw_tree(frame, app, theme, tree, base);
+    }
+    if app.buf.path.is_some() {
+        draw_code(frame, app, theme, code, base);
+    } else {
+        let hint = Line::from(Span::styled(
+            " o: open file   ?: help",
+            base.fg(theme.gutter_fg),
+        ));
+        frame.render_widget(Paragraph::new(hint).style(base), code);
+    }
     draw_status(frame, app, theme, status);
+    if app.picker.is_some() {
+        draw_picker(frame, app, theme, area, base);
+    }
+}
+
+fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
+    let block = Block::bordered().title(app.root_name()).style(base);
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let focused = app.focus == Focus::Tree;
+    let visible = app.tree.visible();
+    let height = inner.height as usize;
+    let at = visible
+        .iter()
+        .position(|&i| i == app.tree.cursor)
+        .unwrap_or(0);
+    // Scroll the minimum amount that keeps the cursor row on screen.
+    app.tree_top = app.tree_top.min(at).max((at + 1).saturating_sub(height));
+
+    let width = inner.width as usize;
+    let rows: Vec<Line> = visible
+        .iter()
+        .skip(app.tree_top)
+        .take(height)
+        .map(|&i| {
+            let n = &app.tree.nodes[i];
+            let marker = match (n.is_dir, n.expanded) {
+                (true, true) => "\u{25be} ",
+                (true, false) => "\u{25b8} ",
+                (false, _) => "  ",
+            };
+            let text = format!("{}{marker}{}", "  ".repeat(n.depth), n.name());
+            let style = if i != app.tree.cursor {
+                base
+            } else if focused {
+                base.bg(theme.line_hl)
+            } else {
+                // The tree keeps its place while the code pane has the keys, just dimmed.
+                base.bg(theme.line_hl).fg(theme.gutter_fg)
+            };
+            let pad = width.saturating_sub(wrap::width(&text));
+            Line::from(vec![
+                Span::styled(text, style),
+                Span::styled(" ".repeat(pad), style),
+            ])
+        })
+        .collect();
+    frame.render_widget(Paragraph::new(rows).style(base), inner);
+}
+
+fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
+    let Some(picker) = &mut app.picker else {
+        return;
+    };
+    let [area] = Layout::horizontal([Constraint::Percentage(80)])
+        .flex(Flex::Center)
+        .areas(area);
+    let [area] = Layout::vertical([Constraint::Percentage(60)])
+        .flex(Flex::Center)
+        .areas(area);
+
+    let (matched, total) = picker.counts();
+    let block = Block::bordered()
+        .title(format!("{} ({matched}/{total})", picker.title))
+        .style(base);
+    let inner = block.inner(area);
+    frame.render_widget(Clear, area);
+    frame.render_widget(block, area);
+    if inner.height == 0 {
+        return;
+    }
+
+    let [prompt, list] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(inner);
+    frame.render_widget(
+        Paragraph::new(format!("> {}", picker.query)).style(base),
+        prompt,
+    );
+    frame.set_cursor_position((prompt.x + 2 + wrap::width(&picker.query) as u16, prompt.y));
+
+    let (rows, selected) = picker.window(list.height as usize);
+    let width = list.width as usize;
+    let lines: Vec<Line> = rows
+        .iter()
+        .enumerate()
+        .map(|(i, row)| {
+            let style = if i == selected {
+                base.bg(theme.line_hl)
+            } else {
+                base
+            };
+            let mut spans: Vec<Span> = row
+                .label
+                .chars()
+                .enumerate()
+                .map(|(c, ch)| {
+                    let matched = row.matched.binary_search(&(c as u32)).is_ok();
+                    let style = if matched {
+                        style.add_modifier(Modifier::BOLD)
+                    } else {
+                        style
+                    };
+                    Span::styled(ch.to_string(), style)
+                })
+                .collect();
+            spans.push(Span::styled(
+                " ".repeat(width.saturating_sub(wrap::width(&row.label))),
+                style,
+            ));
+            Line::from(spans)
+        })
+        .collect();
+    frame.render_widget(Paragraph::new(lines).style(base), list);
 }
 
 fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
@@ -106,7 +228,16 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
     let mut spans = vec![
         Span::styled(app.rel_path(), style.add_modifier(Modifier::BOLD)),
         Span::styled(
-            format!("  {}:{}  [code]", app.line + 1, app.display_col()),
+            format!(
+                "  {}:{}  [{}]",
+                app.line + 1,
+                app.display_col(),
+                if app.focus == Focus::Tree {
+                    "tree"
+                } else {
+                    "code"
+                }
+            ),
             style,
         ),
     ];
@@ -185,6 +316,63 @@ fn rows_between(app: &App, from: (usize, usize), to: (usize, usize)) -> Option<u
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+
+    use crate::app::{App, PickerKind};
+    use crate::buffer::Buffer;
+    use crate::tree::Tree;
+
+    #[test]
+    fn picker_overlay_renders_border_prompt_and_items() {
+        let files = ["src/app.rs", "src/wrap.rs"].map(PathBuf::from).to_vec();
+        let mut app = App::new(
+            PathBuf::from("/demo"),
+            Tree::default(),
+            files,
+            Buffer::empty(),
+            None,
+        );
+        app.open_picker(PickerKind::Files);
+        app.picker.as_mut().unwrap().settle();
+
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(60, 12)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+
+        let buf = terminal.backend().buffer();
+        let text: Vec<String> = (0..buf.area.height)
+            .map(|y| {
+                (0..buf.area.width)
+                    .map(|x| buf[(x, y)].symbol())
+                    .collect::<String>()
+                    .trim_end()
+                    .to_string()
+            })
+            .collect();
+        assert_eq!(text, SNAPSHOT);
+    }
+
+    /// The tree pane and the status bar frame the overlay; the overlay itself is the border,
+    /// the `>` prompt and the two items.
+    #[rustfmt::skip]
+    const SNAPSHOT: [&str; 12] = [
+        "┌demo────────────────────────┐ o: open file   ?: help",
+        "│                            │",
+        "│     ┌Files (2/2)───────────────────────────────────┐",
+        "│     │>                                             │",
+        "│     │src/app.rs                                    │",
+        "│     │src/wrap.rs                                   │",
+        "│     │                                              │",
+        "│     │                                              │",
+        "│     │                                              │",
+        "│     └──────────────────────────────────────────────┘",
+        "└────────────────────────────┘",
+        "demo/  1:1  [tree]",
+    ];
+
     #[test]
     fn gutter_width() {
         assert_eq!(super::digits(0), 1);

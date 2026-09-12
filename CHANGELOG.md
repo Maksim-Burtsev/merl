@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Home/End, Ctrl+Home/Ctrl+End, with a sticky target column.
 - Go to line via `:` or Ctrl+G; `q` and Ctrl+C quit, Esc closes the prompt.
 - Status bar showing the path relative to the project root, the cursor position, and the focused pane.
+- File tree in the left pane: `t` toggles it, Tab switches focus, Enter opens or expands,
+  Left/Right collapse and expand; the tree reveals whatever file is opened.
+- Fuzzy file picker (nucleo) on `o` / Ctrl+E, with matched characters highlighted.
+- Jump history: `[` and `]` walk back and forward through the positions a jump left behind.
 - Config file `~/.config/merl/config.toml` with a `theme` key.
 
 [Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/HEAD...HEAD

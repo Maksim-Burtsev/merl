@@ -13,6 +13,7 @@ anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 dirs = "6"
 ignore = "0.4"
+nucleo = "0.5"
 ratatui = "0.30"
 serde = { version = "1", features = ["derive"] }
 syntect = "5.3"

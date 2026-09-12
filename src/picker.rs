@@ -1,0 +1,245 @@
+//! The fuzzy-picker overlay: one nucleo matcher over a list of labelled targets.
+
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use nucleo::pattern::{CaseMatching, Normalization};
+use nucleo::{Config, Matcher, Nucleo};
+use ratatui::crossterm::event::KeyCode;
+
+/// One pickable target. `line` 0 means "no specific line", i.e. keep the file's start.
+#[derive(Clone, Debug)]
+pub struct PickItem {
+    pub label: String,
+    pub path: PathBuf,
+    pub line: usize,
+}
+
+/// One rendered row: the label plus the char indices that matched the query.
+pub struct Row {
+    pub label: String,
+    pub matched: Vec<u32>,
+}
+
+/// What a key did to the picker.
+pub enum Pick {
+    Stay,
+    Cancel,
+    Accept(PickItem),
+}
+
+pub struct Picker {
+    nucleo: Nucleo<PickItem>,
+    matcher: Matcher,
+    pub query: String,
+    pub selected: usize,
+    pub title: String,
+    /// List height of the last drawn frame, so PgUp/PgDn know how far a page is.
+    page: usize,
+}
+
+impl Picker {
+    /// `paths` switches on nucleo's path-aware scoring (it favours matches in the file name).
+    pub fn new(
+        title: impl Into<String>,
+        items: Vec<PickItem>,
+        paths: bool,
+        wake: Arc<dyn Fn() + Send + Sync>,
+    ) -> Self {
+        let config = if paths {
+            Config::DEFAULT.match_paths()
+        } else {
+            Config::DEFAULT
+        };
+        let nucleo = Nucleo::new(config, wake, None, 1);
+        let injector = nucleo.injector();
+        // The items arrive already sorted, so injecting them here keeps that order for the
+        // empty query and costs nothing worth a background thread.
+        for item in items {
+            injector.push(item, |it, cols| cols[0] = it.label.as_str().into());
+        }
+        Self {
+            nucleo,
+            matcher: Matcher::new(Config::DEFAULT),
+            query: String::new(),
+            selected: 0,
+            title: title.into(),
+            page: 10,
+        }
+    }
+
+    /// Test helper: runs the matcher to completion.
+    #[cfg(test)]
+    pub fn settle(&mut self) {
+        for _ in 0..100 {
+            if !self.nucleo.tick(10).running {
+                return;
+            }
+        }
+    }
+
+    /// Lets the matcher work for up to 10 ms. Returns `true` when the results changed.
+    pub fn tick(&mut self) -> bool {
+        self.nucleo.tick(10).changed
+    }
+
+    /// `(matched, total)` for the overlay title.
+    pub fn counts(&self) -> (u32, u32) {
+        let snap = self.nucleo.snapshot();
+        (snap.matched_item_count(), snap.item_count())
+    }
+
+    /// The rows to draw for a list `height` tall, plus the selected row's offset in them.
+    pub fn window(&mut self, height: usize) -> (Vec<Row>, usize) {
+        self.page = height.max(1);
+        let Self {
+            nucleo,
+            matcher,
+            selected,
+            ..
+        } = self;
+        let snap = nucleo.snapshot();
+        let total = snap.matched_item_count() as usize;
+        if total == 0 {
+            *selected = 0;
+            return (Vec::new(), 0);
+        }
+        *selected = (*selected).min(total - 1);
+        // Scroll the window so the selection is inside it.
+        let height = height.max(1).min(total);
+        let start = (*selected + 1).saturating_sub(height).min(total - height);
+        let pattern = snap.pattern().column_pattern(0);
+        let rows = snap
+            // matched_items panics on a range past the match count, so it is clamped above.
+            .matched_items(start as u32..(start + height) as u32)
+            .map(|item| {
+                let mut matched = Vec::new();
+                // Indices are only needed for what is on screen; scoring the whole list would
+                // be the expensive part.
+                pattern.indices(item.matcher_columns[0].slice(..), matcher, &mut matched);
+                matched.sort_unstable();
+                matched.dedup();
+                Row {
+                    label: item.data.label.clone(),
+                    matched,
+                }
+            })
+            .collect();
+        (rows, *selected - start)
+    }
+
+    fn accept(&self) -> Pick {
+        let snap = self.nucleo.snapshot();
+        match snap.get_matched_item(self.selected as u32) {
+            Some(item) => Pick::Accept(item.data.clone()),
+            None => Pick::Cancel,
+        }
+    }
+
+    fn set_query(&mut self, query: String) {
+        // nucleo can refine the previous result set instead of rescoring everything, but only
+        // when the new pattern extends the old one.
+        let append = query.starts_with(&self.query);
+        self.nucleo
+            .pattern
+            .reparse(0, &query, CaseMatching::Smart, Normalization::Smart, append);
+        self.query = query;
+        self.selected = 0;
+    }
+
+    pub fn key(&mut self, code: KeyCode, ctrl: bool) -> Pick {
+        let matched = self.counts().0 as usize;
+        let move_by = |sel: &mut usize, delta: isize| {
+            *sel = sel
+                .saturating_add_signed(delta)
+                .min(matched.saturating_sub(1));
+        };
+        match code {
+            KeyCode::Esc => return Pick::Cancel,
+            KeyCode::Enter => return self.accept(),
+            KeyCode::Up => move_by(&mut self.selected, -1),
+            KeyCode::Down => move_by(&mut self.selected, 1),
+            KeyCode::Char('p') if ctrl => move_by(&mut self.selected, -1),
+            KeyCode::Char('n') if ctrl => move_by(&mut self.selected, 1),
+            KeyCode::PageUp => move_by(&mut self.selected, -(self.page as isize)),
+            KeyCode::PageDown => move_by(&mut self.selected, self.page as isize),
+            KeyCode::Backspace => {
+                let mut q = self.query.clone();
+                q.pop();
+                self.set_query(q);
+            }
+            KeyCode::Char(c) if !ctrl => {
+                let q = format!("{}{c}", self.query);
+                self.set_query(q);
+            }
+            _ => {}
+        }
+        Pick::Stay
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn picker(labels: &[&str]) -> Picker {
+        let items = labels
+            .iter()
+            .map(|l| PickItem {
+                label: (*l).to_string(),
+                path: PathBuf::from(l),
+                line: 0,
+            })
+            .collect();
+        let mut p = Picker::new("Files", items, true, Arc::new(|| {}));
+        p.settle();
+        p
+    }
+
+    #[test]
+    fn filters_and_reports_match_positions() {
+        let mut p = picker(&["src/wrap.rs", "src/app.rs", "README.md"]);
+        assert_eq!(p.counts(), (3, 3));
+        for c in "wra".chars() {
+            p.key(KeyCode::Char(c), false);
+        }
+        p.settle();
+        assert_eq!(p.counts().0, 1);
+        let (rows, sel) = p.window(5);
+        assert_eq!(sel, 0);
+        assert_eq!(rows[0].label, "src/wrap.rs");
+        assert_eq!(rows[0].matched, [4, 5, 6]);
+        // Backspacing widens the result set again.
+        p.key(KeyCode::Backspace, false);
+        p.key(KeyCode::Backspace, false);
+        p.key(KeyCode::Backspace, false);
+        p.settle();
+        assert_eq!(p.counts().0, 3);
+    }
+
+    #[test]
+    fn movement_clamps_and_enter_accepts() {
+        let mut p = picker(&["a.rs", "b.rs"]);
+        p.key(KeyCode::Up, false);
+        assert_eq!(p.selected, 0);
+        for _ in 0..5 {
+            p.key(KeyCode::Down, false);
+        }
+        assert_eq!(p.selected, 1);
+        match p.key(KeyCode::Enter, false) {
+            Pick::Accept(it) => assert_eq!(it.label, "b.rs"),
+            _ => panic!("enter must accept"),
+        }
+        assert!(matches!(p.key(KeyCode::Esc, false), Pick::Cancel));
+    }
+
+    #[test]
+    fn window_scrolls_to_keep_the_selection_visible() {
+        let mut p = picker(&["a", "b", "c", "d", "e"]);
+        p.selected = 4;
+        let (rows, sel) = p.window(2);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[1].label, "e");
+        assert_eq!(sel, 1);
+    }
+}

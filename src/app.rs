@@ -1,24 +1,53 @@
 //! All editor state and every key binding. Rendering lives in `ui.rs`.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 use crate::buffer::Buffer;
+use crate::picker::{Pick, PickItem, Picker};
+use crate::tree::Tree;
 use crate::wrap;
 
 /// Shift+Up / Shift+Down jump distance.
 const SHIFT_LINES: usize = 3;
 
+/// Which picker is open. Later steps add symbols, search results and definitions here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PickerKind {
+    Files,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     Normal,
     Goto,
+    Picker(PickerKind),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Focus {
+    Tree,
+    Code,
 }
 
 pub struct App {
     pub root: PathBuf,
     pub buf: Buffer,
+    pub tree: Tree,
+    /// Every file under the root, sorted like the tree; the file picker's item list.
+    pub files: Vec<PathBuf>,
+    pub focus: Focus,
+    pub show_tree: bool,
+    /// First visible row of the tree pane, clamped by `ui`.
+    pub tree_top: usize,
+    pub picker: Option<Picker>,
+    /// Visited positions, oldest first; `hist_idx` points at the current one.
+    pub history: Vec<(PathBuf, usize, usize)>,
+    pub hist_idx: usize,
+    /// Wakes the event loop when nucleo has new results. Set by `main`.
+    pub wake: Arc<dyn Fn() + Send + Sync>,
     /// Cursor: file line, byte offset into that line, and the display column Up/Down aims for.
     pub line: usize,
     pub col: usize,
@@ -36,10 +65,30 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(root: PathBuf, buf: Buffer, line: Option<usize>) -> Self {
+    pub fn new(
+        root: PathBuf,
+        tree: Tree,
+        files: Vec<PathBuf>,
+        buf: Buffer,
+        line: Option<usize>,
+    ) -> Self {
+        let focus = if buf.path.is_some() {
+            Focus::Code
+        } else {
+            Focus::Tree
+        };
         let mut app = Self {
             root,
             buf,
+            tree,
+            files,
+            focus,
+            show_tree: true,
+            tree_top: 0,
+            picker: None,
+            history: Vec::new(),
+            hist_idx: 0,
+            wake: Arc::new(|| {}),
             line: 0,
             col: 0,
             want_x: 0,
@@ -54,6 +103,9 @@ impl App {
         };
         if let Some(n) = line {
             app.goto_line(n);
+        }
+        if let Some(path) = app.buf.path.clone() {
+            app.reveal(&path);
         }
         app
     }
@@ -234,6 +286,140 @@ impl App {
         self.center = true;
     }
 
+    // ---- opening files and jump history ----------------------------------
+
+    /// Puts the tree cursor on `path` (absolute) and expands everything above it.
+    fn reveal(&mut self, path: &Path) {
+        if let Ok(rel) = path.strip_prefix(&self.root) {
+            self.tree.reveal(rel);
+        }
+    }
+
+    /// Shows `path` at `line` (1-based; 0 means "keep the start of the file"). Reloading is
+    /// skipped when the file is already open, so this doubles as a plain cursor move.
+    fn open(&mut self, path: &Path, line: usize) {
+        if self.buf.path.as_deref() != Some(path) {
+            match Buffer::load(path) {
+                Ok(buf) => {
+                    self.buf = buf;
+                    (self.line, self.col, self.want_x) = (0, 0, 0);
+                    (self.top_line, self.top_row) = (0, 0);
+                }
+                Err(e) => {
+                    self.message = format!("{e:#}");
+                    return;
+                }
+            }
+        }
+        self.goto_line(line.max(1));
+        self.reveal(path);
+    }
+
+    fn pos(&self) -> Option<(PathBuf, usize, usize)> {
+        self.buf.path.clone().map(|p| (p, self.line, self.col))
+    }
+
+    fn hist_push(&mut self, pos: Option<(PathBuf, usize, usize)>) {
+        if let Some(pos) = pos
+            && self.history.last() != Some(&pos)
+        {
+            self.history.push(pos);
+        }
+    }
+
+    /// Opens `path` at `line` and records the jump: where we left from, then where we landed.
+    pub fn jump_to(&mut self, path: &Path, line: usize) {
+        if !self.history.is_empty() {
+            self.history.truncate(self.hist_idx + 1);
+        }
+        let from = self.pos();
+        self.open(path, line);
+        self.focus = Focus::Code;
+        if self.pos() == from {
+            return; // the jump went nowhere; nothing to remember
+        }
+        self.hist_push(from);
+        self.hist_push(self.pos());
+        self.hist_idx = self.history.len().saturating_sub(1);
+    }
+
+    /// `[` and `]`: walks the recorded positions without recording anything new.
+    fn hist_go(&mut self, delta: isize) {
+        let next = self
+            .hist_idx
+            .checked_add_signed(delta)
+            .filter(|i| *i < self.history.len());
+        let Some(i) = next else {
+            self.message = if delta < 0 {
+                "start of history".into()
+            } else {
+                "end of history".into()
+            };
+            return;
+        };
+        self.hist_idx = i;
+        let (path, line, col) = self.history[i].clone();
+        self.open(&path, line + 1);
+        self.focus = Focus::Code;
+        self.col = col.min(self.line_str().len());
+        self.sync_want_x();
+    }
+
+    // ---- pickers ---------------------------------------------------------
+
+    pub fn open_picker(&mut self, kind: PickerKind) {
+        let PickerKind::Files = kind;
+        let items = self
+            .files
+            .iter()
+            .map(|p| PickItem {
+                label: p.display().to_string(),
+                path: p.clone(),
+                line: 0,
+            })
+            .collect();
+        self.picker = Some(Picker::new("Files", items, true, self.wake.clone()));
+        self.mode = Mode::Picker(kind);
+    }
+
+    fn picker_key(&mut self, code: KeyCode, ctrl: bool) {
+        let Some(picker) = &mut self.picker else {
+            return;
+        };
+        match picker.key(code, ctrl) {
+            Pick::Stay => return,
+            Pick::Cancel => {}
+            Pick::Accept(item) => {
+                let path = self.root.join(&item.path);
+                self.jump_to(&path, item.line.max(1));
+            }
+        }
+        // Dropping the picker stops nucleo's workers.
+        self.picker = None;
+        self.mode = Mode::Normal;
+    }
+
+    // ---- tree ------------------------------------------------------------
+
+    fn tree_key(&mut self, code: KeyCode) {
+        match code {
+            KeyCode::Up => self.tree.up(),
+            KeyCode::Down => self.tree.down(),
+            KeyCode::Right => self.tree.expand(),
+            KeyCode::Left => self.tree.collapse(),
+            KeyCode::Enter => match self.tree.selected() {
+                Some(n) if n.is_dir => self.tree.toggle(),
+                // Opening from the tree keeps the focus there, like VS Code's preview tabs.
+                Some(n) => {
+                    let path = self.root.join(&n.path);
+                    self.jump_to(&path, 1);
+                }
+                None => {}
+            },
+            _ => {}
+        }
+    }
+
     // ---- keys ------------------------------------------------------------
 
     /// Handles one key. Returns `true` when merl should quit.
@@ -259,6 +445,10 @@ impl App {
         if ctrl && key.code == KeyCode::Char('c') {
             return true;
         }
+        if self.picker.is_some() {
+            self.picker_key(key.code, ctrl);
+            return false;
+        }
         if self.mode == Mode::Goto {
             self.goto_key(key.code);
             return false;
@@ -275,6 +465,23 @@ impl App {
                 self.mode = Mode::Goto;
                 self.goto.clear();
             }
+            KeyCode::Char('t') => {
+                self.show_tree = !self.show_tree;
+                if !self.show_tree {
+                    self.focus = Focus::Code;
+                }
+            }
+            KeyCode::Tab if self.show_tree => {
+                self.focus = match self.focus {
+                    Focus::Tree => Focus::Code,
+                    Focus::Code => Focus::Tree,
+                };
+            }
+            KeyCode::Char('o') if !ctrl => self.open_picker(PickerKind::Files),
+            KeyCode::Char('e') if ctrl => self.open_picker(PickerKind::Files),
+            KeyCode::Char('[') => self.hist_go(-1),
+            KeyCode::Char(']') => self.hist_go(1),
+            _ if self.focus == Focus::Tree => self.tree_key(key.code),
             KeyCode::Up if shift => self.move_line(-(SHIFT_LINES as isize)),
             KeyCode::Down if shift => self.move_line(SHIFT_LINES as isize),
             KeyCode::Up => self.move_line(-1),
@@ -316,7 +523,10 @@ impl App {
             }
             KeyCode::Enter => {
                 if let Ok(n) = self.goto.parse::<usize>() {
-                    self.goto_line(n);
+                    match self.buf.path.clone() {
+                        Some(path) => self.jump_to(&path, n),
+                        None => self.goto_line(n),
+                    }
                 }
                 self.mode = Mode::Normal;
                 self.goto.clear();
@@ -353,6 +563,8 @@ mod tests {
     fn app(text: &str) -> App {
         let mut a = App::new(
             PathBuf::from("/tmp"),
+            Tree::default(),
+            Vec::new(),
             Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), text.as_bytes()),
             None,
         );
@@ -414,6 +626,101 @@ mod tests {
         assert_eq!(a.col, 2);
         press(&mut a, KeyCode::Down, KeyModifiers::NONE);
         assert_eq!(a.col, 5);
+    }
+
+    /// Two small files in a scratch directory, for the jump-history tests.
+    fn files_app(tag: &str) -> (PathBuf, App) {
+        let dir = std::env::temp_dir().join(format!("merl-hist-{}-{tag}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        for name in ["a.rs", "b.rs"] {
+            std::fs::write(dir.join(name), "x\n".repeat(10)).unwrap();
+        }
+        let app = App::new(
+            dir.clone(),
+            Tree::default(),
+            Vec::new(),
+            Buffer::empty(),
+            None,
+        );
+        (dir, app)
+    }
+
+    #[test]
+    fn history_walks_back_and_forward() {
+        let (dir, mut a) = files_app("walk");
+        let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+        a.jump_to(&x, 1);
+        a.jump_to(&y, 1);
+        a.jump_to(&y, 5);
+        assert_eq!(
+            a.history,
+            [(x.clone(), 0, 0), (y.clone(), 0, 0), (y.clone(), 4, 0)]
+        );
+        assert_eq!(a.hist_idx, 2);
+
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!((a.buf.path.clone().unwrap(), a.line), (y.clone(), 0));
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!((a.buf.path.clone().unwrap(), a.line), (x.clone(), 0));
+        press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+        assert_eq!((a.buf.path.clone().unwrap(), a.line), (y.clone(), 0));
+        // Walking does not record anything.
+        assert_eq!(a.history.len(), 3);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn history_truncates_forward_and_stops_at_the_ends() {
+        let (dir, mut a) = files_app("ends");
+        let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(a.message, "start of history");
+        press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+        assert_eq!(a.message, "end of history");
+
+        a.jump_to(&x, 1);
+        a.jump_to(&y, 1);
+        a.jump_to(&y, 5);
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        // A jump from the middle of the history drops everything after it.
+        a.jump_to(&y, 8);
+        assert_eq!(a.history, [(x, 0, 0), (y, 7, 0)]);
+        assert_eq!(a.hist_idx, 1);
+        press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+        assert_eq!(a.message, "end of history");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn repeated_jumps_to_the_same_spot_are_not_recorded() {
+        let (dir, mut a) = files_app("dup");
+        let x = dir.join("a.rs");
+        a.jump_to(&x, 3);
+        a.jump_to(&x, 3);
+        a.jump_to(&x, 3);
+        assert_eq!(a.history, [(x, 2, 0)]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn tree_focus_keys_do_not_move_the_code_cursor() {
+        let mut a = app("aaa\nbbb\nccc\n");
+        a.focus = Focus::Tree;
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        assert_eq!(a.line, 0, "Down belongs to the tree while it has focus");
+        press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
+        assert_eq!(a.focus, Focus::Code);
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        assert_eq!(a.line, 1);
+        // `t` hides the tree and hands the keys to the code pane for good.
+        a.focus = Focus::Tree;
+        press(&mut a, KeyCode::Char('t'), KeyModifiers::NONE);
+        assert!(!a.show_tree);
+        assert_eq!(a.focus, Focus::Code);
+        press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
+        assert_eq!(a.focus, Focus::Code);
     }
 
     #[test]

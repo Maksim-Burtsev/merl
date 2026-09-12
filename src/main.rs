@@ -2,13 +2,16 @@
 
 mod app;
 mod buffer;
+mod picker;
 mod theme;
+mod tree;
 mod ui;
 mod wrap;
 
 use std::io::stdout;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
+use std::sync::mpsc::Sender;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -20,6 +23,14 @@ use ratatui::crossterm::{execute, terminal};
 
 use crate::app::App;
 use crate::buffer::Buffer;
+
+/// Everything the event loop wakes up for.
+enum Msg {
+    Key(ratatui::crossterm::event::KeyEvent),
+    Resize,
+    /// nucleo found new matches.
+    Redraw,
+}
 
 #[derive(Parser)]
 #[command(name = "merl", version, about = "Read-only terminal code navigator")]
@@ -51,7 +62,8 @@ fn run() -> Result<()> {
         Some(p) => Buffer::load(p)?,
         None => Buffer::empty(),
     };
-    let mut app = App::new(root, buf, line);
+    let (tree, files) = tree::build(&root);
+    let mut app = App::new(root, tree, files, buf, line);
 
     let mut terminal = ratatui::try_init()?;
     let enhanced = terminal::supports_keyboard_enhancement().unwrap_or(false);
@@ -73,12 +85,21 @@ fn run() -> Result<()> {
 
     // The key reader must start after the enhancement query, which blocks on a pending read.
     let (tx, rx) = mpsc::channel();
+    let keys: Sender<Msg> = tx.clone();
     std::thread::spawn(move || {
         while let Ok(ev) = ratatui::crossterm::event::read() {
-            if tx.send(ev).is_err() {
+            let msg = match ev {
+                Event::Key(k) => Msg::Key(k),
+                Event::Resize(..) => Msg::Resize,
+                _ => continue,
+            };
+            if keys.send(msg).is_err() {
                 break;
             }
         }
+    });
+    app.wake = std::sync::Arc::new(move || {
+        let _ = tx.send(Msg::Redraw);
     });
 
     let result = event_loop(&mut terminal, &mut app, &theme, &rx);
@@ -94,23 +115,27 @@ fn event_loop(
     terminal: &mut ratatui::DefaultTerminal,
     app: &mut App,
     theme: &theme::Theme,
-    rx: &mpsc::Receiver<Event>,
+    rx: &mpsc::Receiver<Msg>,
 ) -> Result<()> {
     let mut dirty = true;
     loop {
+        // nucleo matches in the background; poll it while its overlay is on screen.
+        if let Some(p) = &mut app.picker {
+            dirty |= p.tick();
+        }
         if dirty {
             terminal.draw(|f| ui::draw(f, app, theme))?;
             dirty = false;
         }
-        match rx.recv_timeout(Duration::from_millis(100)) {
-            Ok(Event::Key(k)) => {
+        let idle = if app.picker.is_some() { 10 } else { 100 };
+        match rx.recv_timeout(Duration::from_millis(idle)) {
+            Ok(Msg::Key(k)) => {
                 if app.key(k) {
                     return Ok(());
                 }
                 dirty = true;
             }
-            Ok(Event::Resize(..)) => dirty = true,
-            Ok(_) => {}
+            Ok(Msg::Resize) | Ok(Msg::Redraw) => dirty = true,
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
         }
