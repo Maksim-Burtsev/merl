@@ -3,6 +3,7 @@
 mod app;
 mod buffer;
 mod picker;
+mod search;
 mod theme;
 mod tree;
 mod ui;

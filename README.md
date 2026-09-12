@@ -51,6 +51,16 @@ merl --version
 | Tree: move / open / collapse-expand | Up/Down / Enter / Left/Right | |
 | Picker: move / accept / cancel | Up/Down (Ctrl+N/P) / Enter / Esc | |
 
+## How navigation works
+
+There is no language server and no index: every lookup is a regex over the files the tree walk
+found, run through [ripgrep](https://github.com/BurntSushi/ripgrep)'s library crates. `d` knows
+Python (`def`/`class`, module-level assignment) and Go (`func` with or without a receiver, `type`,
+`var`/`const`, `:=`) and searches only files with the same extension; in any other language it
+falls back to a whole-word search for the identifier. Searches are smart-case — an all-lowercase
+query ignores case, one uppercase letter makes it case-sensitive — and `/` and `s` take full
+regular expressions.
+
 ## Themes
 
 Three themes ship inside the binary as TextMate `.tmTheme` files, and syntect paints the code

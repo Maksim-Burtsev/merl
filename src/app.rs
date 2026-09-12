@@ -4,24 +4,50 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use regex::{Regex, RegexBuilder};
 
 use crate::buffer::Buffer;
 use crate::picker::{Pick, PickItem, Picker};
+use crate::search::{self, Hit};
 use crate::tree::Tree;
 use crate::wrap;
 
 /// Shift+Up / Shift+Down jump distance.
 const SHIFT_LINES: usize = 3;
+/// Longest hit text kept in a picker label; the rest is off the screen anyway.
+const MAX_LABEL_TEXT: usize = 120;
+/// Longest symbol name the symbol list pads to.
+const MAX_NAME_PAD: usize = 40;
 
-/// Which picker is open. Later steps add symbols, search results and definitions here.
+/// Which picker is open, and what its overlay is called.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PickerKind {
     Files,
+    Search,
+    Definitions,
+    Usages,
+    Symbols,
+}
+
+impl PickerKind {
+    fn title(self) -> &'static str {
+        match self {
+            Self::Files => "Files",
+            Self::Search => "Search",
+            Self::Definitions => "Definitions",
+            Self::Usages => "Usages",
+            Self::Symbols => "Symbols",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     Normal,
+    /// `/`: incremental find in the open file.
+    Find,
+    /// `s`: the project-search query.
+    Search,
     Goto,
     Picker(PickerKind),
 }
@@ -56,7 +82,14 @@ pub struct App {
     pub top_line: usize,
     pub top_row: usize,
     pub mode: Mode,
-    pub goto: String,
+    /// What has been typed into the `:`, `/` or `s>` prompt.
+    pub prompt: String,
+    /// Last pattern that compiled, kept for `n`/`N` and for painting the matches.
+    pub find_re: Option<Regex>,
+    /// The query in the find prompt does not compile; the prompt goes red.
+    pub find_bad: bool,
+    /// Where the cursor was when `/` was pressed: the start of the incremental search.
+    find_anchor: (usize, usize),
     pub message: String,
     /// Code text area, in cells, written by `ui::draw` before every frame.
     pub view_w: usize,
@@ -95,7 +128,10 @@ impl App {
             top_line: 0,
             top_row: 0,
             mode: Mode::Normal,
-            goto: String::new(),
+            prompt: String::new(),
+            find_re: None,
+            find_bad: false,
+            find_anchor: (0, 0),
             message: String::new(),
             view_w: 80,
             view_h: 24,
@@ -367,8 +403,7 @@ impl App {
 
     // ---- pickers ---------------------------------------------------------
 
-    pub fn open_picker(&mut self, kind: PickerKind) {
-        let PickerKind::Files = kind;
+    pub fn open_files_picker(&mut self) {
         let items = self
             .files
             .iter()
@@ -378,7 +413,18 @@ impl App {
                 line: 0,
             })
             .collect();
-        self.picker = Some(Picker::new("Files", items, true, self.wake.clone()));
+        // Only the file picker wants nucleo's path-aware scoring.
+        self.picker = Some(Picker::new(
+            PickerKind::Files.title(),
+            items,
+            true,
+            self.wake.clone(),
+        ));
+        self.mode = Mode::Picker(PickerKind::Files);
+    }
+
+    fn show_picker(&mut self, kind: PickerKind, items: Vec<PickItem>) {
+        self.picker = Some(Picker::new(kind.title(), items, false, self.wake.clone()));
         self.mode = Mode::Picker(kind);
     }
 
@@ -397,6 +443,299 @@ impl App {
         // Dropping the picker stops nucleo's workers.
         self.picker = None;
         self.mode = Mode::Normal;
+    }
+
+    // ---- find in file ----------------------------------------------------
+
+    /// Starts an incremental search from the current cursor position.
+    fn start_find(&mut self) {
+        self.mode = Mode::Find;
+        self.prompt.clear();
+        self.find_bad = false;
+        self.find_anchor = (self.line, self.col);
+    }
+
+    fn find_key(&mut self, code: KeyCode) {
+        match code {
+            KeyCode::Char(c) => {
+                self.prompt.push(c);
+                self.refresh_find();
+            }
+            KeyCode::Backspace => {
+                self.prompt.pop();
+                self.refresh_find();
+            }
+            // Enter keeps both the position and the pattern, so `n` carries on from here.
+            KeyCode::Enter => self.mode = Mode::Normal,
+            KeyCode::Esc => {
+                self.mode = Mode::Normal;
+                self.find_bad = false;
+                let (line, col) = self.find_anchor;
+                self.line = line.min(self.buf.lines.len() - 1);
+                self.col = col.min(self.line_str().len());
+                self.sync_want_x();
+            }
+            _ => {}
+        }
+    }
+
+    /// Recompiles the query (smart-case) and moves to the first match at or after the anchor.
+    /// A query that does not compile leaves the cursor and the last good pattern alone.
+    fn refresh_find(&mut self) {
+        if self.prompt.is_empty() {
+            self.find_bad = false;
+            return;
+        }
+        let insensitive = !self.prompt.chars().any(char::is_uppercase);
+        match RegexBuilder::new(&self.prompt)
+            .case_insensitive(insensitive)
+            .build()
+        {
+            Ok(re) => {
+                self.find_bad = false;
+                let (l, c) = self.find_anchor;
+                let hit = self
+                    .match_at_or_after(&re, l, c)
+                    .or_else(|| self.match_at_or_after(&re, 0, 0));
+                if let Some((l, c)) = hit {
+                    self.go_to_match(l, c);
+                }
+                self.find_re = Some(re);
+            }
+            Err(_) => self.find_bad = true,
+        }
+    }
+
+    /// `n` / `N`: the next or previous match, wrapping around the file.
+    fn step_find(&mut self, forward: bool) {
+        let Some(re) = self.find_re.clone() else {
+            self.message = "no pattern".into();
+            return;
+        };
+        let last = self.buf.lines.len() - 1;
+        let found = if forward {
+            let (l, c) = self.after_cursor();
+            self.match_at_or_after(&re, l, c)
+                .map(|p| (p, false))
+                .or_else(|| self.match_at_or_after(&re, 0, 0).map(|p| (p, true)))
+        } else {
+            self.match_before(&re, self.line, self.col)
+                .map(|p| (p, false))
+                .or_else(|| self.match_before(&re, last, usize::MAX).map(|p| (p, true)))
+        };
+        match found {
+            Some(((l, c), wrapped)) => {
+                self.go_to_match(l, c);
+                if wrapped {
+                    self.message = "wrapped".into();
+                }
+            }
+            None => self.message = "no match".into(),
+        }
+    }
+
+    /// First match starting at or after `(line, col)`, searching down the file.
+    fn match_at_or_after(&self, re: &Regex, line: usize, col: usize) -> Option<(usize, usize)> {
+        for (l, text) in self.buf.lines.iter().enumerate().skip(line) {
+            let from = if l == line { col.min(text.len()) } else { 0 };
+            if let Some(m) = re.find_at(text, from) {
+                return Some((l, m.start()));
+            }
+        }
+        None
+    }
+
+    /// Last match starting strictly before `(line, col)`, searching up the file.
+    fn match_before(&self, re: &Regex, line: usize, col: usize) -> Option<(usize, usize)> {
+        for l in (0..=line.min(self.buf.lines.len() - 1)).rev() {
+            let text = &self.buf.lines[l];
+            let limit = if l == line { col } else { usize::MAX };
+            if let Some(m) = re.find_iter(text).take_while(|m| m.start() < limit).last() {
+                return Some((l, m.start()));
+            }
+        }
+        None
+    }
+
+    /// One char past the cursor, so `n` cannot land on the match it is already sitting on.
+    fn after_cursor(&self) -> (usize, usize) {
+        let s = self.line_str();
+        if self.col < s.len() {
+            (self.line, next_char(s, self.col))
+        } else if self.line + 1 < self.buf.lines.len() {
+            (self.line + 1, 0)
+        } else {
+            (self.line, s.len())
+        }
+    }
+
+    fn go_to_match(&mut self, line: usize, col: usize) {
+        self.line = line;
+        self.col = col;
+        self.sync_want_x();
+        self.center = true;
+    }
+
+    // ---- project search, definitions, symbols, usages ---------------------
+
+    /// The open file's path relative to the root, for sorting and labels.
+    fn rel_current(&self) -> Option<PathBuf> {
+        let path = self.buf.path.as_ref()?;
+        Some(path.strip_prefix(&self.root).unwrap_or(path).to_path_buf())
+    }
+
+    /// Greps the project, optionally only the files with extension `ext`.
+    fn grep(
+        &self,
+        pattern: &str,
+        whole_word: bool,
+        smart_case: bool,
+        ext: Option<&str>,
+    ) -> Vec<Hit> {
+        let filtered: Vec<PathBuf>;
+        let files = match ext {
+            Some(ext) => {
+                filtered = self
+                    .files
+                    .iter()
+                    .filter(|p| p.extension().is_some_and(|e| e == ext))
+                    .cloned()
+                    .collect();
+                &filtered
+            }
+            None => &self.files,
+        };
+        let current = self.rel_current();
+        // The only pattern that can fail to compile is one the user typed; an empty result
+        // leaves the picker closed, which is what "no matches" looks like anyway.
+        search::grep_project(
+            &self.root,
+            files,
+            pattern,
+            whole_word,
+            smart_case,
+            current.as_deref(),
+        )
+        .unwrap_or_default()
+    }
+
+    fn word_under(&self) -> Option<String> {
+        search::word_at(self.line_str(), self.col).map(|(_, w)| w.to_string())
+    }
+
+    fn extension(&self) -> String {
+        self.buf
+            .path
+            .as_ref()
+            .and_then(|p| p.extension())
+            .map(|e| e.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    }
+
+    /// `rel/path:line: text` rows for a result picker.
+    fn hit_items(hits: Vec<Hit>) -> Vec<PickItem> {
+        hits.into_iter()
+            .map(|h| PickItem {
+                label: format!(
+                    "{}:{}: {}",
+                    h.path.display(),
+                    h.line,
+                    clip(h.text.trim(), MAX_LABEL_TEXT)
+                ),
+                path: h.path,
+                line: h.line,
+            })
+            .collect()
+    }
+
+    /// Enter in the `s>` prompt: a smart-case regex search over every file.
+    fn run_search(&mut self) {
+        let query = std::mem::take(&mut self.prompt);
+        self.mode = Mode::Normal;
+        if query.is_empty() {
+            return;
+        }
+        let hits = self.grep(&query, false, true, None);
+        if hits.is_empty() {
+            self.message = format!("no results for {query}");
+            return;
+        }
+        self.show_picker(PickerKind::Search, Self::hit_items(hits));
+    }
+
+    /// `d` / F12. Python and Go get their declaration patterns; anything else falls back to a
+    /// whole-word search for the identifier itself.
+    fn goto_definition(&mut self) {
+        let Some(word) = self.word_under() else {
+            return;
+        };
+        let ext = self.extension();
+        let patterns = search::def_patterns(&ext, &word);
+        let mut hits = if patterns.is_empty() {
+            self.grep(&regex::escape(&word), true, false, None)
+        } else {
+            self.grep(&patterns.join("|"), false, false, Some(&ext))
+        };
+        // Standing on one of the definitions is not a reason to go nowhere.
+        if hits.len() > 1 {
+            let here = self.rel_current();
+            hits.retain(|h| h.line != self.line + 1 || Some(&h.path) != here.as_ref());
+        }
+        match hits.len() {
+            0 => self.message = format!("no definition for {word}"),
+            1 => {
+                let path = self.root.join(&hits[0].path);
+                self.jump_to(&path, hits[0].line);
+            }
+            _ => self.show_picker(PickerKind::Definitions, Self::hit_items(hits)),
+        }
+    }
+
+    /// `u` / Shift+F12: every whole-word occurrence of the identifier, case-sensitive.
+    fn usages(&mut self) {
+        let Some(word) = self.word_under() else {
+            return;
+        };
+        let hits = self.grep(&regex::escape(&word), true, false, None);
+        if hits.is_empty() {
+            self.message = format!("no usages of {word}");
+            return;
+        }
+        self.show_picker(PickerKind::Usages, Self::hit_items(hits));
+    }
+
+    /// `D`: every declaration in the project, recomputed on each press.
+    fn symbols(&mut self) {
+        let hits = self.grep(search::SYMBOL_PATTERN, false, false, None);
+        let mut named: Vec<(String, Hit)> = hits
+            .into_iter()
+            .filter_map(|h| Some((search::symbol_name(&h.text)?.to_string(), h)))
+            .collect();
+        if named.is_empty() {
+            self.message = "no symbols".into();
+            return;
+        }
+        named.sort_by_cached_key(|(n, h)| (n.to_lowercase(), h.path.clone(), h.line));
+        let width = named
+            .iter()
+            .map(|(n, _)| wrap::width(n))
+            .max()
+            .unwrap_or(0)
+            .min(MAX_NAME_PAD);
+        let items = named
+            .into_iter()
+            .map(|(name, h)| PickItem {
+                label: format!(
+                    "{name}{}  {}:{}",
+                    " ".repeat(width.saturating_sub(wrap::width(&name))),
+                    h.path.display(),
+                    h.line
+                ),
+                path: h.path,
+                line: h.line,
+            })
+            .collect();
+        self.show_picker(PickerKind::Symbols, items);
     }
 
     // ---- tree ------------------------------------------------------------
@@ -449,9 +788,20 @@ impl App {
             self.picker_key(key.code, ctrl);
             return false;
         }
-        if self.mode == Mode::Goto {
-            self.goto_key(key.code);
-            return false;
+        match self.mode {
+            Mode::Goto => {
+                self.goto_key(key.code);
+                return false;
+            }
+            Mode::Find => {
+                self.find_key(key.code);
+                return false;
+            }
+            Mode::Search => {
+                self.search_key(key.code);
+                return false;
+            }
+            _ => {}
         }
 
         self.message.clear();
@@ -459,12 +809,23 @@ impl App {
             KeyCode::Char('q') => return true,
             KeyCode::Char('g') if ctrl => {
                 self.mode = Mode::Goto;
-                self.goto.clear();
+                self.prompt.clear();
             }
             KeyCode::Char(':') => {
                 self.mode = Mode::Goto;
-                self.goto.clear();
+                self.prompt.clear();
             }
+            KeyCode::Char('/') => self.start_find(),
+            KeyCode::Char('f') if ctrl => self.start_find(),
+            KeyCode::Char('n') if !ctrl => self.step_find(true),
+            KeyCode::Char('N') => self.step_find(false),
+            KeyCode::Char('s') => {
+                self.mode = Mode::Search;
+                self.prompt.clear();
+            }
+            KeyCode::Char('d') | KeyCode::F(12) if !shift => self.goto_definition(),
+            KeyCode::Char('u') | KeyCode::F(12) => self.usages(),
+            KeyCode::Char('D') => self.symbols(),
             KeyCode::Char('t') => {
                 self.show_tree = !self.show_tree;
                 if !self.show_tree {
@@ -477,8 +838,8 @@ impl App {
                     Focus::Code => Focus::Tree,
                 };
             }
-            KeyCode::Char('o') if !ctrl => self.open_picker(PickerKind::Files),
-            KeyCode::Char('e') if ctrl => self.open_picker(PickerKind::Files),
+            KeyCode::Char('o') if !ctrl => self.open_files_picker(),
+            KeyCode::Char('e') if ctrl => self.open_files_picker(),
             KeyCode::Char('[') => self.hist_go(-1),
             KeyCode::Char(']') => self.hist_go(1),
             _ if self.focus == Focus::Tree => self.tree_key(key.code),
@@ -517,26 +878,49 @@ impl App {
 
     fn goto_key(&mut self, code: KeyCode) {
         match code {
-            KeyCode::Char(c) if c.is_ascii_digit() => self.goto.push(c),
+            KeyCode::Char(c) if c.is_ascii_digit() => self.prompt.push(c),
             KeyCode::Backspace => {
-                self.goto.pop();
+                self.prompt.pop();
             }
             KeyCode::Enter => {
-                if let Ok(n) = self.goto.parse::<usize>() {
+                if let Ok(n) = self.prompt.parse::<usize>() {
                     match self.buf.path.clone() {
                         Some(path) => self.jump_to(&path, n),
                         None => self.goto_line(n),
                     }
                 }
                 self.mode = Mode::Normal;
-                self.goto.clear();
+                self.prompt.clear();
             }
             KeyCode::Esc => {
                 self.mode = Mode::Normal;
-                self.goto.clear();
+                self.prompt.clear();
             }
             _ => {}
         }
+    }
+
+    fn search_key(&mut self, code: KeyCode) {
+        match code {
+            KeyCode::Char(c) => self.prompt.push(c),
+            KeyCode::Backspace => {
+                self.prompt.pop();
+            }
+            KeyCode::Enter => self.run_search(),
+            KeyCode::Esc => {
+                self.mode = Mode::Normal;
+                self.prompt.clear();
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Cuts `s` to `max` chars, marking the cut.
+fn clip(s: &str, max: usize) -> String {
+    match s.char_indices().nth(max) {
+        Some((i, _)) => format!("{}\u{2026}", &s[..i]),
+        None => s.to_string(),
     }
 }
 
@@ -721,6 +1105,94 @@ mod tests {
         assert_eq!(a.focus, Focus::Code);
         press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
         assert_eq!(a.focus, Focus::Code);
+    }
+
+    fn typed(a: &mut App, text: &str) {
+        for c in text.chars() {
+            press(a, KeyCode::Char(c), KeyModifiers::NONE);
+        }
+    }
+
+    fn find(a: &mut App, query: &str) {
+        press(a, KeyCode::Char('/'), KeyModifiers::NONE);
+        typed(a, query);
+    }
+
+    #[test]
+    fn find_is_smart_case() {
+        let mut a = app("foo\nFoo\nbar\n");
+        // An all-lowercase query is case-insensitive: it stops on `Foo` under the anchor.
+        a.line = 1;
+        find(&mut a, "foo");
+        assert_eq!((a.line, a.col), (1, 0));
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(a.mode, Mode::Normal);
+
+        // One uppercase letter makes it case-sensitive: `foo` on line 1 is skipped.
+        a.line = 0;
+        find(&mut a, "Foo");
+        assert_eq!((a.line, a.col), (1, 0));
+    }
+
+    #[test]
+    fn next_and_prev_wrap_around() {
+        let mut a = app("foo\nbar\nfoo\n");
+        find(&mut a, "foo");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (0, 0));
+
+        press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (2, 0));
+        assert_eq!(a.message, "");
+        press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (0, 0));
+        assert_eq!(a.message, "wrapped");
+
+        press(&mut a, KeyCode::Char('N'), KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (2, 0));
+        assert_eq!(a.message, "wrapped");
+        press(&mut a, KeyCode::Char('N'), KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (0, 0));
+        assert_eq!(a.message, "");
+
+        let mut a = app("nothing here\n");
+        find(&mut a, "zzz");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
+        assert_eq!(a.message, "no match");
+    }
+
+    #[test]
+    fn invalid_regex_keeps_the_last_good_pattern() {
+        let mut a = app("foo\nbar\nfoo\n");
+        find(&mut a, "foo");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        a.line = 1;
+
+        find(&mut a, "[");
+        assert!(a.find_bad, "the prompt goes red");
+        assert_eq!((a.line, a.col), (1, 0), "the cursor does not move");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert!(!a.find_bad);
+        // `n` still walks the matches of the pattern that did compile.
+        press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (2, 0));
+    }
+
+    #[test]
+    fn esc_restores_the_anchor() {
+        let mut a = app("foo\nbar\nbaz\n");
+        a.line = 2;
+        a.col = 1;
+        find(&mut a, "foo");
+        assert_eq!(
+            (a.line, a.col),
+            (0, 0),
+            "incremental search moved the cursor"
+        );
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!(a.mode, Mode::Normal);
+        assert_eq!((a.line, a.col), (2, 1));
     }
 
     #[test]

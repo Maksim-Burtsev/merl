@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - File tree in the left pane: `t` toggles it, Tab switches focus, Enter opens or expands,
   Left/Right collapse and expand; the tree reveals whatever file is opened.
 - Fuzzy file picker (nucleo) on `o` / Ctrl+E, with matched characters highlighted.
+- Find in file with smart-case regex: `/` or Ctrl+F searches as you type, `n` / `N` step through
+  the matches with wraparound, and every match on screen is highlighted.
+- Project search, go to definition (Python, Go), symbols and usages via ripgrep's library crates:
+  `s`, `d` / F12, `D`, `u` / Shift+F12.
 - Jump history: `[` and `]` walk back and forward through the positions a jump left behind.
 - Config file `~/.config/merl/config.toml` with a `theme` key.
 

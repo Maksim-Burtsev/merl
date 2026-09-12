@@ -1,10 +1,13 @@
 //! Drawing. Reads `App`, writes only the viewport size back into it.
 
+use std::ops::Range;
+
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::{Modifier, Style};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Clear, Paragraph};
+use regex::Regex;
 
 use crate::app::{App, Focus, Mode};
 use crate::theme::Theme;
@@ -162,6 +165,7 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     app.buf.highlight_to(app.top_line + app.view_h, theme);
 
     let gutter_style = base.fg(theme.gutter_fg);
+    let find_style = Style::new().bg(theme.find_bg).fg(theme.find_fg);
     let hl = base.bg(theme.line_hl);
     let hl_gutter = gutter_style.bg(theme.line_hl);
 
@@ -172,6 +176,15 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
         let text = &app.buf.lines[l];
         let clipped = &text[..floor_boundary(text, MAX_RENDER_BYTES)];
         let spans = app.buf.hl.get(l).map_or(&[][..], Vec::as_slice);
+        // Find matches paint over the syntax colours, so they are merged into the span list.
+        let merged;
+        let spans = match app.find_re.as_ref().map(|re| matches(re, clipped)) {
+            Some(f) if !f.is_empty() => {
+                merged = with_find(spans, &f, find_style);
+                &merged[..]
+            }
+            _ => spans,
+        };
         let cursor_line = l == app.line;
         let (g, t) = if cursor_line {
             (hl_gutter, hl)
@@ -219,9 +232,21 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
 
 fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
     let style = Style::new().bg(theme.status_bg).fg(theme.status_fg);
-    if app.mode == Mode::Goto {
-        let text = format!(":{}", app.goto);
-        frame.set_cursor_position((area.x + text.chars().count() as u16, area.y));
+    let prefix = match app.mode {
+        Mode::Goto => ":",
+        Mode::Find => "/",
+        Mode::Search => "s>",
+        _ => "",
+    };
+    if !prefix.is_empty() {
+        let text = format!("{prefix}{}", app.prompt);
+        frame.set_cursor_position((area.x + wrap::width(&text) as u16, area.y));
+        // A query that does not compile stays on screen, in red, until it does.
+        let style = if app.find_bad {
+            style.fg(Color::Red)
+        } else {
+            style
+        };
         frame.render_widget(Paragraph::new(text).style(style), area);
         return;
     }
@@ -277,6 +302,40 @@ fn row_spans<'a>(
     out
 }
 
+/// Non-empty match ranges of `re` in one file line.
+fn matches(re: &Regex, text: &str) -> Vec<Range<usize>> {
+    re.find_iter(text)
+        .map(|m| m.range())
+        .filter(|r| !r.is_empty())
+        .collect()
+}
+
+/// Overlays `finds` (sorted, disjoint) on the syntax spans of one line: the syntax spans are
+/// cut around them, and the matches are added in `style`. The result stays sorted and disjoint,
+/// which is all [`row_spans`] needs.
+fn with_find(
+    hl: &[(Style, Range<usize>)],
+    finds: &[Range<usize>],
+    style: Style,
+) -> Vec<(Style, Range<usize>)> {
+    let mut out: Vec<(Style, Range<usize>)> = Vec::with_capacity(hl.len() + finds.len() * 2);
+    for (st, r) in hl {
+        let mut pos = r.start;
+        for f in finds.iter().filter(|f| f.end > r.start && f.start < r.end) {
+            if pos < f.start {
+                out.push((*st, pos..f.start));
+            }
+            pos = pos.max(f.end.min(r.end));
+        }
+        if pos < r.end {
+            out.push((*st, pos..r.end));
+        }
+    }
+    out.extend(finds.iter().map(|f| (style, f.clone())));
+    out.sort_by_key(|(_, r)| r.start);
+    out
+}
+
 fn digits(n: usize) -> usize {
     n.max(1).ilog10() as usize + 1
 }
@@ -321,7 +380,7 @@ mod tests {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
 
-    use crate::app::{App, PickerKind};
+    use crate::app::App;
     use crate::buffer::Buffer;
     use crate::tree::Tree;
 
@@ -335,7 +394,7 @@ mod tests {
             Buffer::empty(),
             None,
         );
-        app.open_picker(PickerKind::Files);
+        app.open_files_picker();
         app.picker.as_mut().unwrap().settle();
 
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -372,6 +431,30 @@ mod tests {
         "└────────────────────────────┘",
         "demo/  1:1  [tree]",
     ];
+
+    #[test]
+    fn find_spans_cut_the_syntax_spans_they_cover() {
+        use ratatui::style::{Color, Style};
+
+        let syntax = Style::new().fg(Color::Blue);
+        let find = Style::new().bg(Color::Yellow);
+        // "abcdefgh": one syntax span over 0..4, matches at 2..3 (inside it) and 5..6 (in the
+        // gap the highlighter left behind).
+        let out = super::with_find(&[(syntax, 0..4)], &[2..3, 5..6], find);
+        assert_eq!(
+            out,
+            [(syntax, 0..2), (find, 2..3), (syntax, 3..4), (find, 5..6),]
+        );
+        // Matches covering a whole span replace it.
+        assert_eq!(
+            super::with_find(&[(syntax, 0..4)], &[0..2, 2..6], find),
+            [(find, 0..2), (find, 2..6)]
+        );
+        assert_eq!(
+            super::with_find(&[(syntax, 0..4)], &[], find),
+            [(syntax, 0..4)]
+        );
+    }
 
     #[test]
     fn gutter_width() {

@@ -30,11 +30,9 @@ pub struct Theme {
     pub line_hl: Color,
     pub status_bg: Color,
     pub status_fg: Color,
-    // Used by find highlighting in a later step; parsed here so themes stay the single source.
-    #[allow(dead_code)]
     pub find_bg: Color,
-    #[allow(dead_code)]
     pub find_fg: Color,
+    /// Parsed so themes stay the single source of colour; merl has no selection to paint yet.
     #[allow(dead_code)]
     pub selection: Color,
     pub syntect: syntect::highlighting::Theme,
