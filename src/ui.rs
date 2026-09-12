@@ -44,6 +44,44 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     if app.picker.is_some() {
         draw_picker(frame, app, theme, area, base);
     }
+    if app.mode == Mode::Help {
+        draw_help(frame, theme, area, base);
+    }
+}
+
+/// `?`: the whole keymap, straight out of [`crate::app::KEYS`].
+fn draw_help(frame: &mut Frame, theme: &Theme, area: Rect, base: Style) {
+    let keys = crate::app::KEYS;
+    let key_w = keys.iter().map(|(k, _)| k.len()).max().unwrap_or(0);
+    let w = keys
+        .iter()
+        .map(|(_, a)| key_w + 4 + a.len())
+        .max()
+        .unwrap_or(0) as u16;
+    let [area] = Layout::horizontal([Constraint::Length((w + 4).min(area.width))])
+        .flex(Flex::Center)
+        .areas(area);
+    let [area] = Layout::vertical([Constraint::Length((keys.len() as u16 + 2).min(area.height))])
+        .flex(Flex::Center)
+        .areas(area);
+
+    let block = Block::bordered().title("merl — keys").style(base);
+    let inner = block.inner(area);
+    frame.render_widget(Clear, area);
+    frame.render_widget(block, area);
+    let lines: Vec<Line> = keys
+        .iter()
+        .map(|(key, action)| {
+            Line::from(vec![
+                Span::styled(
+                    format!(" {key:key_w$}  "),
+                    base.add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(*action, base.fg(theme.gutter_fg)),
+            ])
+        })
+        .collect();
+    frame.render_widget(Paragraph::new(lines).style(base), inner);
 }
 
 fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
@@ -270,6 +308,16 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
         spans.push(Span::styled(format!("  {}", app.message), style));
     }
     frame.render_widget(Paragraph::new(Line::from(spans)).style(style), area);
+    // With nothing to report, the right edge keeps `?` discoverable.
+    const HINT: &str = "? help ";
+    if app.message.is_empty() && area.width as usize > HINT.len() {
+        let hint = Rect {
+            x: area.right() - HINT.len() as u16,
+            width: HINT.len() as u16,
+            ..area
+        };
+        frame.render_widget(Paragraph::new(HINT).style(style), hint);
+    }
 }
 
 /// Cuts one wrapped row `r` of `text` into spans, taking colours from the line's highlighting
@@ -429,7 +477,7 @@ mod tests {
         "│     │                                              │",
         "│     └──────────────────────────────────────────────┘",
         "└────────────────────────────┘",
-        "demo/  1:1  [tree]",
+        "demo/  1:1  [tree]                                   ? help",
     ];
 
     #[test]

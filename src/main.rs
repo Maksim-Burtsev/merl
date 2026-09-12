@@ -17,6 +17,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use clap::Parser;
+use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use ratatui::crossterm::event::{
     Event, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
@@ -31,6 +32,8 @@ enum Msg {
     Resize,
     /// nucleo found new matches.
     Redraw,
+    /// Something changed in the directory of the open file.
+    Fs(notify::Event),
 }
 
 #[derive(Parser)]
@@ -99,11 +102,12 @@ fn run() -> Result<()> {
             }
         }
     });
+    let fs = tx.clone();
     app.wake = std::sync::Arc::new(move || {
         let _ = tx.send(Msg::Redraw);
     });
 
-    let result = event_loop(&mut terminal, &mut app, &theme, &rx);
+    let result = event_loop(&mut terminal, &mut app, &theme, &rx, fs);
 
     if enhanced {
         let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
@@ -117,13 +121,25 @@ fn event_loop(
     app: &mut App,
     theme: &theme::Theme,
     rx: &mpsc::Receiver<Msg>,
+    fs: Sender<Msg>,
 ) -> Result<()> {
+    // One watcher for the whole run, following the open file's directory. A failing watcher
+    // (too many open files, an unsupported filesystem) only costs auto-reload.
+    let mut watcher = notify::recommended_watcher(move |ev: notify::Result<notify::Event>| {
+        if let Ok(ev) = ev {
+            let _ = fs.send(Msg::Fs(ev));
+        }
+    })
+    .ok();
+    let mut watched: Option<PathBuf> = None;
+
     let mut dirty = true;
     loop {
         // nucleo matches in the background; poll it while its overlay is on screen.
         if let Some(p) = &mut app.picker {
             dirty |= p.tick();
         }
+        rewatch(watcher.as_mut(), &mut watched, app);
         if dirty {
             terminal.draw(|f| ui::draw(f, app, theme))?;
             dirty = false;
@@ -137,10 +153,47 @@ fn event_loop(
                 dirty = true;
             }
             Ok(Msg::Resize) | Ok(Msg::Redraw) => dirty = true,
+            Ok(Msg::Fs(ev)) => {
+                if concerns_open_file(app, &ev) {
+                    app.reload();
+                    dirty = true;
+                }
+            }
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
         }
     }
+}
+
+/// Watches the parent directory of the open file, non-recursively: editors save by writing a
+/// temporary file and renaming it over the original, which a watch on the file itself misses.
+fn rewatch(watcher: Option<&mut RecommendedWatcher>, watched: &mut Option<PathBuf>, app: &App) {
+    let dir = app.buf.path.as_deref().and_then(Path::parent);
+    if dir == watched.as_deref() {
+        return;
+    }
+    let Some(watcher) = watcher else { return };
+    if let Some(old) = watched.take() {
+        let _ = watcher.unwatch(&old);
+    }
+    if let Some(dir) = dir {
+        // Recorded even when the watch fails, so a directory that cannot be watched is not
+        // retried on every pass of the event loop.
+        let _ = watcher.watch(dir, RecursiveMode::NonRecursive);
+        *watched = Some(dir.to_path_buf());
+    }
+}
+
+/// Does this filesystem event touch the open file? FSEvents reports canonical `/private/...`
+/// paths, so only the file name is comparable.
+fn concerns_open_file(app: &App, ev: &notify::Event) -> bool {
+    if matches!(ev.kind, EventKind::Access(_)) {
+        return false;
+    }
+    let Some(name) = app.buf.path.as_deref().and_then(Path::file_name) else {
+        return false;
+    };
+    ev.paths.iter().any(|p| p.file_name() == Some(name))
 }
 
 /// Turns the CLI target into `(project root, file to open, 1-based line)`.

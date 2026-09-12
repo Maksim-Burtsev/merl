@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-12
+
 ### Added
 
 - Read-only file viewer with a line-number gutter and soft wrap at pane width.
@@ -27,5 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `s`, `d` / F12, `D`, `u` / Shift+F12.
 - Jump history: `[` and `]` walk back and forward through the positions a jump left behind.
 - Config file `~/.config/merl/config.toml` with a `theme` key.
+- Auto-reload: the open file is re-read when it changes on disk, keeping the cursor, the
+  scroll position, the jump history and the find pattern.
+- Help overlay on `?`, listing every binding; Esc in normal mode clears the find highlights.
 
-[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/HEAD...HEAD
+[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.1.0

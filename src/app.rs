@@ -19,6 +19,37 @@ const MAX_LABEL_TEXT: usize = 120;
 /// Longest symbol name the symbol list pads to.
 const MAX_NAME_PAD: usize = 40;
 
+/// Every binding, in the order the `?` overlay and the README table list them. Single source of
+/// truth: a test checks that the README says exactly this.
+pub const KEYS: &[(&str, &str)] = &[
+    ("o / Ctrl+E", "Open a file (fuzzy)"),
+    ("/ / Ctrl+F", "Find in the open file"),
+    ("n / N", "Next / previous match"),
+    ("s", "Search the project"),
+    ("d / F12", "Go to definition of the word under the cursor"),
+    ("D", "Project symbols (fuzzy)"),
+    ("u / Shift+F12", "Usages of the word under the cursor"),
+    ("[ / ]", "Back / forward in the jump history"),
+    (": / Ctrl+G", "Go to line"),
+    ("t", "Show or hide the file tree"),
+    ("Tab", "Switch focus between tree and code"),
+    ("Arrows", "Move the cursor"),
+    ("Shift+Up / Shift+Down", "Move three lines"),
+    ("Shift+Left / Shift+Right", "Move one word"),
+    ("PgUp / PgDn", "Move one screen"),
+    ("Home / End", "Start / end of the line"),
+    ("Ctrl+Home / Ctrl+End", "Start / end of the file"),
+    ("Esc", "Close an overlay, or clear the find highlights"),
+    ("?", "This help"),
+    ("q / Ctrl+C", "Quit"),
+    ("Tree: Up / Down", "Move"),
+    ("Tree: Enter", "Open the file, or expand the directory"),
+    ("Tree: Left / Right", "Collapse / expand"),
+    ("Picker: Up / Down, Ctrl+P / Ctrl+N", "Move"),
+    ("Picker: Enter", "Accept"),
+    ("Picker: Esc", "Cancel"),
+];
+
 /// Which picker is open, and what its overlay is called.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PickerKind {
@@ -50,6 +81,8 @@ pub enum Mode {
     Search,
     Goto,
     Picker(PickerKind),
+    /// `?`: the list of bindings, over everything else.
+    Help,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -349,6 +382,34 @@ impl App {
         }
         self.goto_line(line.max(1));
         self.reveal(path);
+    }
+
+    /// Re-reads the open file after it changed on disk. Cursor, scroll, history and find pattern
+    /// survive; the cursor is clamped to whatever the file is now.
+    pub fn reload(&mut self) {
+        let Some(path) = self.buf.path.clone() else {
+            return;
+        };
+        // Mid-save the file can be briefly gone; the rename that follows sends another event.
+        let Ok(bytes) = std::fs::read(&path) else {
+            return;
+        };
+        let buf = Buffer::from_bytes(path, &bytes);
+        if buf.lines == self.buf.lines {
+            return;
+        }
+        self.buf = buf;
+        let last = self.buf.lines.len() - 1;
+        self.line = self.line.min(last);
+        self.col = self.col.min(self.line_str().len());
+        while !self.line_str().is_char_boundary(self.col) {
+            self.col -= 1;
+        }
+        self.top_line = self.top_line.min(last);
+        self.top_row = self.top_row.min(self.rows(self.top_line).len() - 1);
+        self.sync_want_x();
+        self.clamp_scroll();
+        self.message = "reloaded".into();
     }
 
     fn pos(&self) -> Option<(PathBuf, usize, usize)> {
@@ -801,12 +862,26 @@ impl App {
                 self.search_key(key.code);
                 return false;
             }
+            Mode::Help => {
+                if matches!(
+                    key.code,
+                    KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q')
+                ) {
+                    self.mode = Mode::Normal;
+                }
+                return false;
+            }
             _ => {}
         }
 
         self.message.clear();
         match key.code {
             KeyCode::Char('q') => return true,
+            KeyCode::Char('?') => self.mode = Mode::Help,
+            KeyCode::Esc => {
+                self.find_re = None;
+                self.message = "find cleared".into();
+            }
             KeyCode::Char('g') if ctrl => {
                 self.mode = Mode::Goto;
                 self.prompt.clear();
@@ -1193,6 +1268,85 @@ mod tests {
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         assert_eq!(a.mode, Mode::Normal);
         assert_eq!((a.line, a.col), (2, 1));
+    }
+
+    #[test]
+    fn reload_clamps_the_cursor_into_a_shrunken_file() {
+        let dir = std::env::temp_dir().join(format!("merl-reload-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("f.txt");
+        std::fs::write(&path, "line\n".repeat(10)).unwrap();
+        let mut a = App::new(
+            dir.clone(),
+            Tree::default(),
+            Vec::new(),
+            Buffer::load(&path).unwrap(),
+            None,
+        );
+        a.view_w = 20;
+        a.view_h = 10;
+        a.line = 9;
+        a.col = 4;
+
+        // An event that changes nothing must not even report a reload.
+        a.reload();
+        assert_eq!(a.message, "");
+
+        std::fs::write(&path, "a\nb\nc\n").unwrap();
+        a.reload();
+        assert_eq!(a.buf.lines.len(), 3);
+        assert_eq!(a.line, 2);
+        assert_eq!(a.col, 1);
+        assert_eq!(a.message, "reloaded");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn help_opens_and_closes_and_esc_clears_the_find() {
+        let mut a = app("foo\nbar\n");
+        press(&mut a, KeyCode::Char('?'), KeyModifiers::NONE);
+        assert_eq!(a.mode, Mode::Help);
+        // Keys are inert while the overlay is up; `q` closes it instead of quitting.
+        assert!(!press(&mut a, KeyCode::Down, KeyModifiers::NONE));
+        assert_eq!((a.mode, a.line), (Mode::Help, 0));
+        assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+        assert_eq!(a.mode, Mode::Normal);
+
+        find(&mut a, "foo");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert!(a.find_re.is_some());
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert!(a.find_re.is_none());
+        assert_eq!(a.message, "find cleared");
+    }
+
+    /// The README key table and `KEYS` are the same list.
+    #[test]
+    fn readme_documents_every_key() {
+        let readme = include_str!("../README.md");
+        let section = readme
+            .split("\n## Keys\n")
+            .nth(1)
+            .expect("README has a Keys section")
+            .split("\n## ")
+            .next()
+            .unwrap();
+        let rows: Vec<&str> = section
+            .lines()
+            .filter(|l| l.starts_with('|'))
+            .filter_map(|l| l.split('|').nth(1))
+            .map(str::trim)
+            .filter(|c| !c.is_empty() && !c.starts_with('-') && *c != "Key")
+            .collect();
+        for (key, _) in KEYS {
+            assert!(rows.contains(key), "README is missing {key:?}");
+        }
+        for row in &rows {
+            assert!(
+                KEYS.iter().any(|(k, _)| k == row),
+                "README documents {row:?}, which is not a binding"
+            );
+        }
     }
 
     #[test]
