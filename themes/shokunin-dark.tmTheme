@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>name</key>
+	<string>Shokunin Dark</string>
+	<key>settings</key>
+	<array>
+		<dict>
+			<key>settings</key>
+			<dict>
+				<key>background</key>
+				<string>#151819</string>
+				<key>caret</key>
+				<string>#D7C4AA</string>
+				<key>findHighlight</key>
+				<string>#373734</string>
+				<key>foreground</key>
+				<string>#CFC2B0</string>
+				<key>gutter</key>
+				<string>#151819</string>
+				<key>gutterForeground</key>
+				<string>#686D67</string>
+				<key>lineHighlight</key>
+				<string>#1E2323</string>
+				<key>selection</key>
+				<string>#33424A</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Comment — sumi quiet</string>
+			<key>scope</key>
+			<string>comment, punctuation.definition.comment</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string>italic</string>
+				<key>foreground</key>
+				<string>#88877E</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Strings — tea green</string>
+			<key>scope</key>
+			<string>string, string.quoted, string.template, punctuation.definition.string</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#83BE8D</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Numbers and constants — kintsugi amber</string>
+			<key>scope</key>
+			<string>constant.numeric, variable.other.constant, support.constant, constant.other, constant.language.boolean, constant.language.json, constant.language.yaml</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string>bold</string>
+				<key>foreground</key>
+				<string>#D3A34D</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Python None — sumi keyword-like</string>
+			<key>scope</key>
+			<string>constant.language.python</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string>bold</string>
+				<key>foreground</key>
+				<string>#D7C4AA</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Keywords and control flow — warm sumi</string>
+			<key>scope</key>
+			<string>keyword, keyword.control, keyword.operator.word, keyword.other, storage.type.function.python, storage.type.class.python, storage.modifier.async.python, storage.type, storage.modifier</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string>bold</string>
+				<key>foreground</key>
+				<string>#D7C4AA</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Operators and punctuation — neutral ink</string>
+			<key>scope</key>
+			<string>keyword.operator, punctuation.separator, punctuation.terminator, punctuation.section, punctuation.accessor</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#A39C91</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Types and type hints — ume</string>
+			<key>scope</key>
+			<string>support.type, support.type.python, support.class.builtin.python, entity.name.type, entity.other.inherited-class, meta.function.typehint.python, meta.type.annotation.python, meta.annotation.python, storage.type.annotation.python</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string>bold</string>
+				<key>foreground</key>
+				<string>#D28AA0</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Classes — warm ink highlight</string>
+			<key>scope</key>
+			<string>entity.name.class, entity.name.type.class, support.class, meta.class.python entity.name.type.class, meta.class.python entity.name.class</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string>bold</string>
+				<key>foreground</key>
+				<string>#E0CEB4</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Functions and methods — asagi blue</string>
+			<key>scope</key>
+			<string>entity.name.function, entity.name.function.member, support.function, support.function.builtin, variable.function</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string>bold</string>
+				<key>foreground</key>
+				<string>#6FB7D7</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Decorators — dry wood</string>
+			<key>scope</key>
+			<string>entity.name.function.decorator, meta.function.decorator.python, punctuation.definition.decorator.python, keyword.operator.decorator.python</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string>bold</string>
+				<key>foreground</key>
+				<string>#D09161</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Properties and attributes — quiet structure</string>
+			<key>scope</key>
+			<string>variable.other.property, variable.other.object.property, meta.member.access, support.variable.property</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#AFB8B8</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Parameters — main ink</string>
+			<key>scope</key>
+			<string>variable.parameter, meta.function.parameters variable.parameter</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#CFC2B0</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Markup headings — warm ink highlight</string>
+			<key>scope</key>
+			<string>markup.heading, entity.name.section</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string>bold</string>
+				<key>foreground</key>
+				<string>#E0CEB4</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Markup links — asagi</string>
+			<key>scope</key>
+			<string>string.other.link, markup.underline.link</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#6FB7D7</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Markup inline code — kintsugi</string>
+			<key>scope</key>
+			<string>markup.inline.raw, markup.fenced_code</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#D3A34D</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Invalid — diagnostic red only</string>
+			<key>scope</key>
+			<string>invalid, invalid.illegal</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string>bold</string>
+				<key>foreground</key>
+				<string>#E06C75</string>
+			</dict>
+		</dict>
+	</array>
+</dict>
+</plist>

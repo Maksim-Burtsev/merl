@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Read-only file viewer with a line-number gutter and soft wrap at pane width.
+- Syntax highlighting (syntect, bat syntax set) with tokyonight-moon, shokunin-light,
+  shokunin-dark themes.
 - CLI: `merl`, `merl DIR`, `merl FILE`, `merl FILE:LINE`, `--theme NAME`, `--version`.
 - Project root resolution: the given directory, else the file's git toplevel, else its directory.
 - Cursor movement: arrows, Shift+Up/Down (3 lines), Shift+Left/Right (word jump), PgUp/PgDn,

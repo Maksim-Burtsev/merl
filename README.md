@@ -53,8 +53,23 @@ merl --version
 
 ## Themes
 
-`tokyonight-moon` (default), `shokunin-light`, `shokunin-dark`. TODO: the themes are still
-placeholders; embedded `.tmTheme` files and syntax highlighting land next.
+Three themes ship inside the binary as TextMate `.tmTheme` files, and syntect paints the code
+with them (syntax definitions come from [bat](https://github.com/sharkdp/bat)'s set, via
+`two-face`):
+
+| Name | |
+|---|---|
+| `tokyonight-moon` | default, dark |
+| `shokunin-light` | light |
+| `shokunin-dark` | dark |
+
+Pick one with `merl --theme NAME`, or set `theme` in the config file below. An unknown name exits
+with code 1 and lists the valid ones.
+
+`tokyonight-moon` is converted from [folke/tokyonight.nvim](https://github.com/folke/tokyonight.nvim)
+(Apache-2.0, see [themes/LICENSE-tokyonight](themes/LICENSE-tokyonight)). The two Shokunin themes
+are generated from the VS Code JSON sources in `tools/themes-src/` with
+`python3 tools/vscode2tmtheme.py in.json out.tmTheme "Name"`.
 
 ## Config
 

@@ -36,6 +36,8 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     app.view_w = (area.width as usize).saturating_sub(gutter_w).max(1);
     app.view_h = area.height as usize;
     app.clamp_scroll();
+    // Wrapping only ever costs rows, so this covers every visible line.
+    app.buf.highlight_to(app.top_line + app.view_h, theme);
 
     let gutter_style = base.fg(theme.gutter_fg);
     let hl = base.bg(theme.line_hl);
@@ -47,6 +49,7 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     while lines.len() < area.height as usize && l < app.buf.lines.len() {
         let text = &app.buf.lines[l];
         let clipped = &text[..floor_boundary(text, MAX_RENDER_BYTES)];
+        let spans = app.buf.hl.get(l).map_or(&[][..], Vec::as_slice);
         let cursor_line = l == app.line;
         let (g, t) = if cursor_line {
             (hl_gutter, hl)
@@ -65,15 +68,14 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
             } else {
                 " ".repeat(gutter_w)
             };
-            let mut body = clipped[r].to_string();
+            let mut row = vec![Span::styled(num, g)];
+            let pad = app.view_w.saturating_sub(wrap::width(&clipped[r.clone()]));
+            row.extend(row_spans(clipped, spans, &r, t));
             if cursor_line {
                 // Pad so the cursor-line background reaches the right edge of the pane.
-                body.push_str(&" ".repeat(app.view_w.saturating_sub(wrap::width(&body))));
+                row.push(Span::styled(" ".repeat(pad), t));
             }
-            lines.push(Line::from(vec![
-                Span::styled(num, g),
-                Span::styled(body, t),
-            ]));
+            lines.push(Line::from(row));
         }
         skip = 0;
         l += 1;
@@ -112,6 +114,36 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
         spans.push(Span::styled(format!("  {}", app.message), style));
     }
     frame.render_widget(Paragraph::new(Line::from(spans)).style(style), area);
+}
+
+/// Cuts one wrapped row `r` of `text` into spans, taking colours from the line's highlighting
+/// and everything else from `base` (which carries the pane or cursor-line background).
+fn row_spans<'a>(
+    text: &'a str,
+    hl: &[(Style, std::ops::Range<usize>)],
+    r: &std::ops::Range<usize>,
+    base: Style,
+) -> Vec<Span<'a>> {
+    let mut out = Vec::new();
+    let mut pos = r.start;
+    for (style, span) in hl {
+        if span.end <= r.start {
+            continue;
+        }
+        if span.start >= r.end {
+            break;
+        }
+        let (start, end) = (span.start.max(pos), span.end.min(r.end));
+        if pos < start {
+            out.push(Span::styled(&text[pos..start], base));
+        }
+        out.push(Span::styled(&text[start..end], base.patch(*style)));
+        pos = end;
+    }
+    if pos < r.end || out.is_empty() {
+        out.push(Span::styled(&text[pos..r.end], base));
+    }
+    out
 }
 
 fn digits(n: usize) -> usize {

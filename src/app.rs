@@ -353,10 +353,7 @@ mod tests {
     fn app(text: &str) -> App {
         let mut a = App::new(
             PathBuf::from("/tmp"),
-            Buffer {
-                path: Some(PathBuf::from("/tmp/f.txt")),
-                lines: text.lines().map(str::to_string).collect(),
-            },
+            Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), text.as_bytes()),
             None,
         );
         a.view_w = 20;
