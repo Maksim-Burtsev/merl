@@ -19,7 +19,7 @@ const MAX_HITS: usize = 5_000;
 
 /// Lines that look like a top-level declaration. The name is group 3; group 2 swallows a Go
 /// method receiver (`func (i Invoice) Total()`).
-pub const SYMBOL_PATTERN: &str = r"^\s*(def|class|func|type|fn|struct|enum|impl|trait|interface)\s+(\([^)]*\)\s*)?([A-Za-z_]\w*)";
+pub const SYMBOL_PATTERN: &str = r"^\s*(?:(?:export|default|async|pub(?:\([a-z]+\))?|static|unsafe|abstract)\s+)*(def|class|func|function|type|fn|struct|enum|impl|trait|interface)\s+(\([^)]*\)\s*)?([A-Za-z_]\w*)";
 
 /// One matching line. `path` is relative to the project root, `line` is 1-based.
 #[derive(Debug, Clone)]
@@ -281,6 +281,17 @@ mod tests {
             Some("render")
         );
         assert_eq!(symbol_name("    def total(self) -> int:"), Some("total"));
+        assert_eq!(
+            symbol_name("pub fn wrap_line(s: &str) {"),
+            Some("wrap_line")
+        );
+        assert_eq!(symbol_name("pub(crate) struct Hit {"), Some("Hit"));
+        assert_eq!(
+            symbol_name("export async function parse(x) {"),
+            Some("parse")
+        );
+        assert_eq!(symbol_name("export default class Foo {"), Some("Foo"));
+        assert_eq!(symbol_name("    return total"), None);
         assert_eq!(symbol_name("class Invoice:"), Some("Invoice"));
         assert_eq!(symbol_name("func (i Invoice) Total() int {"), Some("Total"));
         assert_eq!(symbol_name("func main() {"), Some("main"));

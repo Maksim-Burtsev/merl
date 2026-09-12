@@ -97,8 +97,8 @@ run through [ripgrep](https://github.com/BurntSushi/ripgrep)'s library crates. `
 (`def`/`class`, module-level assignment) and Go (`func` with or without a receiver, `type`,
 `var`/`const`, `:=`) and searches only files with the same extension; in any other language it
 falls back to a whole-word search for the identifier. `u` is that whole-word search, always. `D`
-lists every declaration a single regex can recognise (`def class func type fn struct enum impl
-trait interface`), recomputed on each press. Searches are smart-case — an all-lowercase query
+lists every declaration a single regex can recognise (`def class func function type fn struct
+enum impl trait interface`, with `export`/`pub`/`async` prefixes), recomputed on each press. Searches are smart-case — an all-lowercase query
 ignores case, one uppercase letter makes it case-sensitive — and `/` and `s` take full regular
 expressions.
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-12
+
+### Fixed
+
+- Symbol picker recognises `function` and declarations behind `export`, `pub`, `async` and similar prefixes (TypeScript, JavaScript, Rust `pub fn` were mostly missing).
+
 ## [0.1.0] - 2026-09-12
 
 ### Added
@@ -34,4 +40,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Help overlay on `?`, listing every binding; Esc in normal mode clears the find highlights.
 
 [Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.1.0...HEAD
+[0.1.1]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.1.0
