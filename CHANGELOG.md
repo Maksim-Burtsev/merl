@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- A plain Left / Right on a selection collapses it to its start / end without moving further,
+  as in VS Code; Up / Down still move from the cursor.
+
+### Fixed
+
+- Lines above a selection were painted with the selection background to the right edge.
+
+### Changed
+
 - The jump history now works like VS Code's: the current stop follows the cursor, so `[` goes
   back to where you were, not to where the last jump landed. A plain move farther than ten
   lines, Ctrl+D / Ctrl+U, `n` / `N` and find all add stops of their own; smaller moves update the

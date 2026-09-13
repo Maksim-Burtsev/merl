@@ -207,9 +207,9 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     let hl = base.bg(theme.line_hl);
     let hl_gutter = gutter_style.bg(theme.line_hl);
     let sel = base.bg(theme.selection);
-    // Lines strictly above the selection's last line are selected through their newline, so
+    // Selected lines above the selection's last line are selected through their newline, so
     // their background runs to the right edge like VS Code's.
-    let sel_last_line = app.selection().map(|(_, end)| end.0);
+    let sel_lines = app.selection().map(|(start, end)| (start.0, end.0));
 
     let mut lines: Vec<Line> = Vec::with_capacity(area.height as usize);
     let mut l = app.top_line;
@@ -236,7 +236,7 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
         let selected = app
             .selected_bytes(l)
             .map(|r| r.start..r.end.min(clipped.len()));
-        let pad_selected = sel_last_line.is_some_and(|last| l < last);
+        let pad_selected = sel_lines.is_some_and(|(first, last)| first <= l && l < last);
         for (i, r) in wrap::wrap_line(clipped, app.view_w).into_iter().enumerate() {
             if i < skip {
                 continue;
@@ -505,11 +505,12 @@ mod tests {
             PathBuf::from("/demo"),
             Tree::default(),
             Vec::new(),
-            Buffer::from_bytes(PathBuf::from("/demo/f.txt"), b"abcd\nef\nghij\n"),
+            Buffer::from_bytes(PathBuf::from("/demo/f.txt"), b"zz\nabcd\nef\nghij\n"),
             None,
         );
         app.show_tree = false;
         for (code, m) in [
+            (KeyCode::Down, KeyModifiers::NONE),
             (KeyCode::Right, KeyModifiers::NONE),
             (KeyCode::Right, KeyModifiers::NONE),
             (KeyCode::Down, KeyModifiers::SHIFT),
@@ -518,11 +519,12 @@ mod tests {
             app.key(KeyEvent::new(code, m));
         }
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-        let mut terminal = Terminal::new(TestBackend::new(12, 4)).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(12, 5)).unwrap();
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
         let buf = terminal.backend().buffer();
-        // Gutter is two cells; `#` marks a cell with the selection background.
-        let rows: Vec<String> = (0..3)
+        // Gutter is two cells; `#` marks a cell with the selection background. The line above
+        // the selection stays clean.
+        let rows: Vec<String> = (0..4)
             .map(|y| {
                 (0..buf.area.width)
                     .map(|x| {
@@ -535,7 +537,15 @@ mod tests {
                     .collect()
             })
             .collect();
-        assert_eq!(rows, ["....########", "..##########", "..##........"]);
+        assert_eq!(
+            rows,
+            [
+                "............",
+                "....########",
+                "..##########",
+                "..##........"
+            ]
+        );
     }
 
     #[test]

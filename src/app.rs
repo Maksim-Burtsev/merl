@@ -1065,6 +1065,17 @@ impl App {
             KeyCode::Right if shift && ctrl => self.extend(Self::line_end),
             KeyCode::Left if shift && alt => self.extend(Self::word_left),
             KeyCode::Right if shift && alt => self.extend(Self::word_right),
+            // A plain arrow on a selection collapses it to the matching end, VS Code style.
+            KeyCode::Left | KeyCode::Right if !shift && self.anchor.is_some() => {
+                let (start, end) = self.selection().unwrap();
+                (self.line, self.col) = if key.code == KeyCode::Left {
+                    start
+                } else {
+                    end
+                };
+                self.sync_want_x();
+                self.anchor = None;
+            }
             KeyCode::Left if shift => self.word_left(),
             KeyCode::Right if shift => self.word_right(),
             KeyCode::Left => self.left(),
@@ -1259,9 +1270,11 @@ mod tests {
             KeyModifiers::CONTROL | KeyModifiers::SHIFT,
         );
         assert_eq!((a.col, a.selection()), (7, Some(((0, 3), (0, 7)))));
-        // A plain arrow collapses the selection and moves on, VS Code style.
+        // A plain arrow collapses the selection to its end without moving on, VS Code style.
         press(&mut a, KeyCode::Right, KeyModifiers::NONE);
-        assert_eq!(((a.line, a.col), a.selection()), ((1, 0), None));
+        assert_eq!(((a.line, a.col), a.selection()), ((0, 7), None));
+        press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (1, 0));
         press(&mut a, KeyCode::Up, KeyModifiers::NONE);
         press(&mut a, KeyCode::End, KeyModifiers::NONE);
         press(
@@ -1270,6 +1283,16 @@ mod tests {
             KeyModifiers::CONTROL | KeyModifiers::SHIFT,
         );
         assert_eq!((a.col, a.selection()), (0, Some(((0, 0), (0, 7)))));
+        // Left collapses to the start, which is where the cursor already is: no move.
+        press(&mut a, KeyCode::Left, KeyModifiers::NONE);
+        assert_eq!(((a.line, a.col), a.selection()), ((0, 0), None));
+        press(
+            &mut a,
+            KeyCode::Right,
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+        );
+        press(&mut a, KeyCode::Left, KeyModifiers::NONE);
+        assert_eq!(((a.line, a.col), a.selection()), ((0, 0), None));
         // Shift+Left alone is still a plain word jump: it drops the selection.
         press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
         assert_eq!((a.col, a.selection()), (3, None));
