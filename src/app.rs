@@ -544,7 +544,12 @@ impl App {
     /// A query that does not compile leaves the cursor and the last good pattern alone.
     fn refresh_find(&mut self) {
         if self.prompt.is_empty() {
+            // Nothing to match: drop the previous pattern so its highlights go with it,
+            // and put the cursor back where the search started.
             self.find_bad = false;
+            self.find_re = None;
+            let (l, c) = self.find_anchor;
+            self.go_to_match(l, c);
             return;
         }
         let insensitive = !self.prompt.chars().any(char::is_uppercase);
@@ -1191,6 +1196,21 @@ mod tests {
     fn find(a: &mut App, query: &str) {
         press(a, KeyCode::Char('/'), KeyModifiers::NONE);
         typed(a, query);
+    }
+
+    #[test]
+    fn emptying_the_query_drops_the_pattern_and_returns_to_the_anchor() {
+        let mut a = app("foo\nbar\nbaz\n");
+        find(&mut a, "ba");
+        assert_eq!(a.line, 1);
+        assert!(a.find_re.is_some());
+        press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+        assert!(
+            a.find_re.is_none(),
+            "an empty query must not keep old highlights"
+        );
+        assert_eq!(a.line, 0, "cursor returns to the anchor");
     }
 
     #[test]
