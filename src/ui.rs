@@ -131,8 +131,9 @@ fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
             } else if focused {
                 base.bg(theme.line_hl)
             } else {
-                // The tree keeps its place while the code pane has the keys, just dimmed.
-                base.bg(theme.line_hl).fg(theme.gutter_fg)
+                // The tree keeps its place while the code pane has the keys. Only the
+                // background fades: the file name must stay readable (issue #8).
+                base.bg(theme.line_hl_dim)
             };
             let pad = width.saturating_sub(wrap::width(&text));
             Line::from(vec![

@@ -28,6 +28,8 @@ pub struct Theme {
     pub fg: Color,
     pub gutter_fg: Color,
     pub line_hl: Color,
+    /// The tree cursor row while the code pane has the keys: `line_hl` at half strength.
+    pub line_hl_dim: Color,
     pub status_bg: Color,
     pub status_fg: Color,
     pub find_bg: Color,
@@ -54,7 +56,10 @@ pub fn load(name: &str) -> Result<Theme> {
     // tmTheme colors carry an alpha byte; flattening it over the background is what an editor
     // shows. Without this tokyonight's `lineHighlight` (#00000030) paints pure black.
     let over_bg = |c: SynColor| rgb(composite(c, bg));
-    let line_hl = s.line_highlight.map_or_else(|| blend(fg, bg, 12), over_bg);
+    let line_hl_syn = s
+        .line_highlight
+        .map_or_else(|| mix(fg, bg, 12), |c| composite(c, bg));
+    let line_hl = rgb(line_hl_syn);
 
     Ok(Theme {
         bg: rgb(bg),
@@ -63,6 +68,7 @@ pub fn load(name: &str) -> Result<Theme> {
             .gutter_foreground
             .map_or_else(|| blend(fg, bg, 45), over_bg),
         line_hl,
+        line_hl_dim: blend(line_hl_syn, bg, 50),
         status_bg: line_hl,
         status_fg: rgb(fg),
         find_bg: s.find_highlight.map_or_else(|| blend(fg, bg, 35), over_bg),
@@ -185,5 +191,14 @@ mod tests {
         // 0x30/255 ≈ 19% black over #222436.
         assert!(r > 0x10 && g > 0x10 && b > 0x20, "{r:02x}{g:02x}{b:02x}");
         assert_ne!(t.gutter_fg, Color::Rgb(0x3b, 0x41, 0x5c));
+    }
+
+    #[test]
+    fn unfocused_tree_row_sits_between_the_background_and_the_cursor_row() {
+        for name in NAMES {
+            let t = load(name).unwrap();
+            assert_ne!(t.line_hl_dim, t.bg, "{name}");
+            assert_ne!(t.line_hl_dim, t.line_hl, "{name}");
+        }
     }
 }
