@@ -53,8 +53,13 @@ merl DIR             # a project directory
 merl FILE            # a single file
 merl FILE:LINE       # a file, positioned at a line
 merl --theme NAME    # override the configured theme
+merl --tutor         # interactive tutorial, ~10 minutes
 merl --version
 ```
+
+`merl --tutor` walks through every navigation key on a small Python project bundled in the binary:
+sixteen lessons, each one done when the key actually did what it says, on a copy in a temporary
+directory that is removed when you quit.
 
 The `FILE:LINE` form is what compilers, linters and grep already print, so a result can be pasted
 straight in:

@@ -6,7 +6,7 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Clear, Paragraph};
+use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
 use regex::Regex;
 
 use crate::app::{App, Focus, Mode};
@@ -23,7 +23,14 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     let base = Style::new().bg(theme.bg).fg(theme.fg);
     frame.render_widget(Block::new().style(base), area);
 
-    let [main, status] = Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).areas(area);
+    // The lesson panel is 0 rows tall outside `--tutor`, so nothing else moves.
+    let lesson_h = if app.tutor.is_some() { 3 } else { 0 };
+    let [main, lesson, status] = Layout::vertical([
+        Constraint::Min(1),
+        Constraint::Length(lesson_h),
+        Constraint::Length(1),
+    ])
+    .areas(area);
     let tree_w = if app.show_tree { TREE_W } else { 0 };
     let [tree, code] =
         Layout::horizontal([Constraint::Length(tree_w), Constraint::Min(1)]).areas(main);
@@ -39,6 +46,9 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
             base.fg(theme.gutter_fg),
         ));
         frame.render_widget(Paragraph::new(hint).style(base), code);
+    }
+    if app.tutor.is_some() {
+        draw_lesson(frame, app, theme, lesson, base);
     }
     draw_status(frame, app, theme, status);
     if app.picker.is_some() {
@@ -284,6 +294,38 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
         let x = area.x + (gutter_w + app.cursor_x()) as u16;
         frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
     }
+}
+
+/// `--tutor`: the current lesson, three rows above the status bar.
+fn draw_lesson(frame: &mut Frame, app: &App, theme: &Theme, area: Rect, base: Style) {
+    let Some(tutor) = &app.tutor else { return };
+    let lessons = crate::tutor::LESSONS;
+    let (title, text) = match lessons.get(tutor.step) {
+        Some(l) => (
+            format!(
+                " Tutor {}/{} \u{00b7} {}",
+                tutor.step + 1,
+                lessons.len(),
+                l.title
+            ),
+            l.text,
+        ),
+        None => (" Tutor \u{2713} done".to_string(), crate::tutor::DONE),
+    };
+    // The title row is a bar, so it is padded to the full width.
+    let pad = (area.width as usize).saturating_sub(wrap::width(&title));
+    let head = Style::new()
+        .bg(theme.status_bg)
+        .fg(theme.status_fg)
+        .add_modifier(Modifier::BOLD);
+    let lines = vec![
+        Line::from(Span::styled(format!("{title}{}", " ".repeat(pad)), head)),
+        Line::from(Span::styled(format!(" {text}"), base)),
+    ];
+    frame.render_widget(
+        Paragraph::new(lines).wrap(Wrap { trim: true }).style(base),
+        area,
+    );
 }
 
 fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
