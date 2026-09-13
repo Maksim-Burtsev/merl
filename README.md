@@ -23,7 +23,12 @@ you keeps changing. Today it only reads; editing is
 
 ## Demo
 
-<!-- TODO: screenshot -->
+<p align="center">
+  <img src="assets/demo.gif" alt="merl on a small Python project: fuzzy-open a file, find, go to definition, back, usages, project symbols, and the key help" width="900">
+</p>
+
+The project is the one `merl --tutor` uses. The recording is scripted in [`assets/demo.tape`](assets/demo.tape)
+for [vhs](https://github.com/charmbracelet/vhs), so it can be regenerated after a UI change.
 
 ## Install
 
