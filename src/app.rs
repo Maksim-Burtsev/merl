@@ -54,6 +54,8 @@ pub const KEYS: &[(&str, &str)] = &[
     ("Picker: Up / Down, Ctrl+P / Ctrl+N", "Move"),
     ("Picker: Enter", "Accept"),
     ("Picker: Esc", "Cancel"),
+    ("Picker: PgUp / PgDn", "Move one page"),
+    ("Help: Up / Down", "Scroll"),
 ];
 
 /// Which picker is open, and what its overlay is called.
@@ -142,6 +144,10 @@ pub struct App {
     center: bool,
     /// `--tutor` only: the running tutorial. `None` in a normal session.
     pub tutor: Option<Tutor>,
+    /// First row of the `?` overlay, clamped by `ui`.
+    pub help_top: usize,
+    /// Set by `main` when no file watcher could be started: auto-reload is off.
+    pub no_watch: bool,
 }
 
 impl App {
@@ -184,6 +190,8 @@ impl App {
             view_h: 24,
             center: false,
             tutor: None,
+            help_top: 0,
+            no_watch: false,
         };
         if let Some(n) = line {
             app.goto_line(n);
@@ -217,9 +225,9 @@ impl App {
         &self.buf.lines[self.line]
     }
 
-    /// Wrapped rows of file line `l` at the current viewport width.
+    /// Wrapped rows of file line `l` at the current viewport width, over the text `ui` draws.
     pub fn rows(&self, l: usize) -> Vec<std::ops::Range<usize>> {
-        wrap::wrap_line(&self.buf.lines[l], self.view_w)
+        wrap::wrap_line(self.buf.shown(l), self.view_w)
     }
 
     pub fn cursor_row(&self) -> usize {
@@ -297,31 +305,38 @@ impl App {
         self.col = col;
     }
 
+    /// A stored `(line, col)` made valid for the buffer as it is now: the line clamped to the
+    /// file, the col to the line and back onto a char boundary. Every position that outlives a
+    /// reload — history stops, the find anchor, the selection anchor — is read through here.
+    fn clamp_pos(&self, (line, col): (usize, usize)) -> (usize, usize) {
+        let line = line.min(self.buf.lines.len() - 1);
+        let s = &self.buf.lines[line];
+        let mut col = col.min(s.len());
+        while !s.is_char_boundary(col) {
+            col -= 1;
+        }
+        (line, col)
+    }
+
     /// The selection as ordered (line, col) ends: anchor and cursor, whichever comes first.
     pub fn selection(&self) -> Option<((usize, usize), (usize, usize))> {
-        let (l, c) = self.anchor?;
-        let a = (l.min(self.buf.lines.len() - 1), c);
+        let a = self.clamp_pos(self.anchor?);
         let b = (self.line, self.col);
         Some((a.min(b), a.max(b)))
     }
 
-    /// Bytes of line `l` inside the selection, clamped to the line (the anchor may outlive a
-    /// reload that shortened it).
+    /// Bytes of line `l` inside the selection.
     pub fn selected_bytes(&self, l: usize) -> Option<std::ops::Range<usize>> {
         let (start, end) = self.selection()?;
         if l < start.0 || l > end.0 {
             return None;
         }
-        let s = &self.buf.lines[l];
-        let clamp = |mut c: usize| {
-            c = c.min(s.len());
-            while !s.is_char_boundary(c) {
-                c -= 1;
-            }
-            c
+        let from = if l == start.0 { start.1 } else { 0 };
+        let to = if l == end.0 {
+            end.1
+        } else {
+            self.buf.lines[l].len()
         };
-        let from = if l == start.0 { clamp(start.1) } else { 0 };
-        let to = if l == end.0 { clamp(end.1) } else { s.len() };
         Some(from..to)
     }
 
@@ -487,7 +502,8 @@ impl App {
 
     /// Shows `path` at `line` (1-based; 0 means "keep the start of the file"). Reloading is
     /// skipped when the file is already open, so this doubles as a plain cursor move.
-    fn open(&mut self, path: &Path, line: usize) {
+    /// Returns `false`, with the error in the status bar, when the file cannot be read.
+    fn open(&mut self, path: &Path, line: usize) -> bool {
         if self.buf.path.as_deref() != Some(path) {
             match Buffer::load(path) {
                 Ok(buf) => {
@@ -498,12 +514,13 @@ impl App {
                 }
                 Err(e) => {
                     self.message = format!("{e:#}");
-                    return;
+                    return false;
                 }
             }
         }
         self.goto_line(line.max(1));
         self.reveal(path);
+        true
     }
 
     /// Re-reads the open file after it changed on disk. Cursor, scroll, history and find pattern
@@ -512,8 +529,10 @@ impl App {
         let Some(path) = self.buf.path.clone() else {
             return;
         };
-        // Mid-save the file can be briefly gone; the rename that follows sends another event.
+        // Mid-save the file can be briefly gone; the rename that follows sends another event
+        // and overwrites the message. Gone for good, the message stays.
         let Ok(bytes) = std::fs::read(&path) else {
+            self.message = "file gone".into();
             return;
         };
         let buf = Buffer::from_bytes(path, &bytes);
@@ -522,11 +541,7 @@ impl App {
         }
         self.buf = buf;
         let last = self.buf.lines.len() - 1;
-        self.line = self.line.min(last);
-        self.col = self.col.min(self.line_str().len());
-        while !self.line_str().is_char_boundary(self.col) {
-            self.col -= 1;
-        }
+        (self.line, self.col) = self.clamp_pos((self.line, self.col));
         self.top_line = self.top_line.min(last);
         self.top_row = self.top_row.min(self.rows(self.top_line).len() - 1);
         self.sync_want_x();
@@ -566,8 +581,9 @@ impl App {
 
     /// Opens `path` at `line` and makes it a stop in the jump history.
     pub fn jump_to(&mut self, path: &Path, line: usize) {
-        self.open(path, line);
-        self.focus = Focus::Code;
+        if self.open(path, line) {
+            self.focus = Focus::Code;
+        }
         self.hist_note(true);
     }
 
@@ -585,12 +601,17 @@ impl App {
             };
             return;
         };
-        self.hist_idx = i;
         let (path, line, col) = self.history[i].clone();
-        self.open(&path, line + 1);
+        if !self.open(&path, line + 1) {
+            return;
+        }
+        self.hist_idx = i;
         self.focus = Focus::Code;
-        self.col = col.min(self.line_str().len());
+        (self.line, self.col) = self.clamp_pos((self.line, col));
         self.sync_want_x();
+        // The stop follows the file: after a reload shortened it, this is where `[` lands,
+        // and `hist_note` must not read the clamp as a move that drops the forward history.
+        self.history[i] = (path, self.line, self.col);
     }
 
     // ---- pickers ---------------------------------------------------------
@@ -617,7 +638,13 @@ impl App {
     }
 
     pub(crate) fn show_picker(&mut self, kind: PickerKind, items: Vec<PickItem>) {
-        self.picker = Some(Picker::new(kind.title(), items, false, self.wake.clone()));
+        // The grep stops at MAX_HITS in file order: say so, or a missing hit looks absent.
+        let title = if items.len() >= search::MAX_HITS {
+            format!("{} (first {})", kind.title(), search::MAX_HITS)
+        } else {
+            kind.title().to_string()
+        };
+        self.picker = Some(Picker::new(title, items, false, self.wake.clone()));
         self.mode = Mode::Picker(kind);
     }
 
@@ -664,9 +691,7 @@ impl App {
             }
             KeyCode::Esc => {
                 self.mode = Mode::Normal;
-                let (line, col) = self.find_anchor;
-                self.line = line.min(self.buf.lines.len() - 1);
-                self.col = col.min(self.line_str().len());
+                (self.line, self.col) = self.clamp_pos(self.find_anchor);
                 self.sync_want_x();
             }
             _ => {}
@@ -681,7 +706,7 @@ impl App {
             // Nothing to match: drop the previous pattern so its highlights go with it,
             // and put the cursor back where the search started.
             self.find_re = None;
-            let (l, c) = self.find_anchor;
+            let (l, c) = self.clamp_pos(self.find_anchor);
             self.go_to_match(l, c);
             return;
         }
@@ -778,39 +803,32 @@ impl App {
         Some(path.strip_prefix(&self.root).unwrap_or(path).to_path_buf())
     }
 
-    /// Greps the project, optionally only the files with extension `ext`.
+    /// Greps the project, optionally only the files with extension `ext`. The open file is
+    /// always searched, even when the startup walk skipped it (hidden or ignored).
     fn grep(
         &self,
         pattern: &str,
         whole_word: bool,
         smart_case: bool,
         ext: Option<&str>,
-    ) -> Vec<Hit> {
-        let filtered: Vec<PathBuf>;
-        let files = match ext {
-            Some(ext) => {
-                filtered = self
-                    .files
-                    .iter()
-                    .filter(|p| p.extension().is_some_and(|e| e == ext))
-                    .cloned()
-                    .collect();
-                &filtered
-            }
-            None => &self.files,
-        };
+    ) -> anyhow::Result<Vec<Hit>> {
+        let wanted = |p: &Path| ext.is_none_or(|e| p.extension().is_some_and(|x| x == e));
+        let mut files: Vec<PathBuf> = self.files.iter().filter(|p| wanted(p)).cloned().collect();
         let current = self.rel_current();
-        // The only pattern that can fail to compile is one the user typed; an empty result
-        // leaves the picker closed, which is what "no matches" looks like anyway.
+        if let Some(cur) = &current
+            && wanted(cur)
+            && !files.contains(cur)
+        {
+            files.push(cur.clone());
+        }
         search::grep_project(
             &self.root,
-            files,
+            &files,
             pattern,
             whole_word,
             smart_case,
             current.as_deref(),
         )
-        .unwrap_or_default()
     }
 
     fn word_under(&self) -> Option<String> {
@@ -851,7 +869,13 @@ impl App {
         if query.is_empty() {
             return;
         }
-        let hits = self.grep(&query, false, true, None);
+        let hits = match self.grep(&query, false, true, None) {
+            Ok(hits) => hits,
+            Err(e) => {
+                self.message = format!("{e:#}");
+                return;
+            }
+        };
         if hits.is_empty() {
             self.message = format!("no results for {query}");
             return;
@@ -867,11 +891,13 @@ impl App {
         };
         let ext = self.extension();
         let patterns = search::def_patterns(&ext, &word);
+        // Escaped or built-in patterns always compile.
         let mut hits = if patterns.is_empty() {
             self.grep(&regex::escape(&word), true, false, None)
         } else {
             self.grep(&patterns.join("|"), false, false, Some(&ext))
-        };
+        }
+        .unwrap_or_default();
         // Standing on one of the definitions is not a reason to go nowhere.
         if hits.len() > 1 {
             let here = self.rel_current();
@@ -892,7 +918,9 @@ impl App {
         let Some(word) = self.word_under() else {
             return;
         };
-        let hits = self.grep(&regex::escape(&word), true, false, None);
+        let hits = self
+            .grep(&regex::escape(&word), true, false, None)
+            .unwrap_or_default();
         if hits.is_empty() {
             self.message = format!("no usages of {word}");
             return;
@@ -902,7 +930,9 @@ impl App {
 
     /// `D`: every declaration in the project, recomputed on each press.
     fn symbols(&mut self) {
-        let hits = self.grep(search::SYMBOL_PATTERN, false, false, None);
+        let hits = self
+            .grep(search::SYMBOL_PATTERN, false, false, None)
+            .unwrap_or_default();
         let mut named: Vec<(String, Hit)> = hits
             .into_iter()
             .filter_map(|h| Some((search::symbol_name(&h.text)?.to_string(), h)))
@@ -975,12 +1005,14 @@ impl App {
             return false;
         }
         let mut key = key;
-        // Legacy terminals report Alt+X as Esc followed by X; treat it that way so no binding
-        // on a letter can be reached by accident. Alt+arrow is unambiguous everywhere.
+        // Legacy terminals report Alt+X as Esc followed by X; treat it that way. When the Esc
+        // closes a picker, a prompt or the help, the letter belonged to that overlay and is
+        // dropped, so Alt+q over a picker cannot quit merl. Alt+arrow is unambiguous everywhere.
         if key.modifiers.contains(KeyModifiers::ALT) && matches!(key.code, KeyCode::Char(_)) {
             key.modifiers.remove(KeyModifiers::ALT);
+            let overlay = self.picker.is_some() || self.mode != Mode::Normal;
             self.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
-            return self.key(key);
+            return !overlay && self.key(key);
         }
         // In kitty mode `:`, `?` and `D` arrive with SHIFT set; legacy sends none.
         if matches!(key.code, KeyCode::Char(_)) {
@@ -1011,11 +1043,13 @@ impl App {
                 return false;
             }
             Mode::Help => {
-                if matches!(
-                    key.code,
-                    KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q')
-                ) {
-                    self.mode = Mode::Normal;
+                match key.code {
+                    KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q') => {
+                        self.mode = Mode::Normal;
+                    }
+                    KeyCode::Up => self.help_top = self.help_top.saturating_sub(1),
+                    KeyCode::Down => self.help_top += 1,
+                    _ => {}
                 }
                 return false;
             }
@@ -1032,7 +1066,10 @@ impl App {
         let before = (self.line, self.col);
         match key.code {
             KeyCode::Char('q') => return true,
-            KeyCode::Char('?') => self.mode = Mode::Help,
+            KeyCode::Char('?') => {
+                self.mode = Mode::Help;
+                self.help_top = 0;
+            }
             KeyCode::Esc => {
                 self.anchor = None;
                 self.find_re = None;
@@ -1095,11 +1132,11 @@ impl App {
             // A plain arrow on a selection collapses it to the matching end, VS Code style.
             KeyCode::Left | KeyCode::Right if !shift && self.anchor.is_some() => {
                 let (start, end) = self.selection().unwrap();
-                (self.line, self.col) = if key.code == KeyCode::Left {
+                (self.line, self.col) = self.clamp_pos(if key.code == KeyCode::Left {
                     start
                 } else {
                     end
-                };
+                });
                 self.sync_want_x();
                 self.anchor = None;
             }
@@ -1676,6 +1713,149 @@ mod tests {
         assert_eq!(a.line, 2);
         assert_eq!(a.col, 1);
         assert_eq!(a.message, "reloaded");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Every alias in `KEYS` reaches the same action as its primary key.
+    #[test]
+    fn aliases_reach_the_same_actions() {
+        let mut a = app("foo bar\n");
+        press(&mut a, KeyCode::F(12), KeyModifiers::NONE);
+        assert_eq!(a.message, "no definition for foo");
+        press(&mut a, KeyCode::F(12), KeyModifiers::SHIFT);
+        assert_eq!(a.message, "no usages of foo");
+        press(&mut a, KeyCode::Char('e'), KeyModifiers::CONTROL);
+        assert_eq!(a.mode, Mode::Picker(PickerKind::Files));
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert!(a.picker.is_none());
+        press(&mut a, KeyCode::Char('f'), KeyModifiers::CONTROL);
+        assert_eq!(a.mode, Mode::Find);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('g'), KeyModifiers::CONTROL);
+        assert_eq!(a.mode, Mode::Goto);
+    }
+
+    #[test]
+    fn help_scrolls_and_reopens_at_the_top() {
+        let mut a = app("foo\n");
+        press(&mut a, KeyCode::Char('?'), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+        assert_eq!(a.help_top, 1);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('?'), KeyModifiers::NONE);
+        assert_eq!(a.help_top, 0);
+    }
+
+    /// Alt+letter is Esc then the letter. Over a picker or a prompt the Esc closes it and the
+    /// letter is dropped: Alt+q must not quit, Alt+d must not run go-to-definition.
+    #[test]
+    fn alt_letter_over_an_overlay_only_closes_it() {
+        let mut a = app("foo\n");
+        press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+        assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT));
+        assert!((a.picker.is_none(), a.mode) == (true, Mode::Normal));
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::ALT);
+        assert_eq!((a.mode, a.message.as_str()), (Mode::Normal, ""));
+        // In normal mode the letter still counts.
+        assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT));
+    }
+
+    #[test]
+    fn a_bad_search_regex_is_reported_as_such() {
+        let mut a = app("foo(\n");
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "foo(");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert!(a.message.starts_with("bad pattern"), "{}", a.message);
+    }
+
+    /// The find anchor, the selection anchor and the history stops are byte positions taken
+    /// before a reload; reading them back must clamp to the file as it is now.
+    #[test]
+    fn stored_positions_survive_a_reload() {
+        let dir = std::env::temp_dir().join(format!("merl-stale-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("f.txt");
+        std::fs::write(&path, "abcdefghij\n".repeat(50)).unwrap();
+        let mut a = App::new(
+            dir.clone(),
+            Tree::default(),
+            Vec::new(),
+            Buffer::load(&path).unwrap(),
+            None,
+        );
+        a.jump_to(&path, 40);
+        a.col = 8;
+        press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        std::fs::write(&path, "éé\ny\n").unwrap();
+        a.reload();
+        // Empty query: back to the (clamped) find anchor.
+        typed(&mut a, "z");
+        press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (1, 0));
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        // A plain arrow collapses the selection to its clamped anchor.
+        press(&mut a, KeyCode::Left, KeyModifiers::NONE);
+        assert_eq!((a.line, a.col, a.selection()), (1, 0, None));
+        // `[` onto the stop at line 40 lands on the clamped line, rewrites that stop, and keeps
+        // the forward history instead of reading the clamp as a new move.
+        a.jump_to(&path, 1);
+        assert_eq!(a.history.len(), 4);
+        assert_eq!(a.history[1], (path.clone(), 40, 0));
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!((a.line, a.col, a.hist_idx), (1, 0, 1));
+        assert_eq!(a.history[1], (path.clone(), 1, 0));
+        assert_eq!(a.history.len(), 4);
+        press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+        assert_eq!(a.hist_idx, 2);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_stop_whose_file_is_gone_leaves_the_history_alone() {
+        let (dir, mut a) = files_app("gone");
+        let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+        a.jump_to(&x, 5);
+        a.jump_to(&y, 1);
+        std::fs::remove_file(&x).unwrap();
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!((at(&a), a.hist_idx, a.history.len()), ((y, 0), 1, 2));
+        assert!(a.message.contains("a.rs"), "{}", a.message);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A hidden or ignored file is not in the startup walk, but it is still the file under
+    /// the cursor: `u` finds the usages in it.
+    #[test]
+    fn the_open_file_is_searched_even_when_the_walk_skipped_it() {
+        let (dir, mut a) = files_app("hidden");
+        let x = dir.join("a.rs");
+        assert!(a.files.is_empty());
+        a.jump_to(&x, 1);
+        press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
+        assert_eq!(a.mode, Mode::Picker(PickerKind::Usages));
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert_eq!(p.counts().1, 40);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_truncated_result_list_says_so_in_its_title() {
+        let (dir, mut a) = files_app("truncated");
+        let x = dir.join("a.rs");
+        std::fs::write(&x, "x\n".repeat(search::MAX_HITS + 1)).unwrap();
+        a.jump_to(&x, 1);
+        press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert_eq!(p.title, format!("Usages (first {})", search::MAX_HITS));
+        assert_eq!(p.counts().1 as usize, search::MAX_HITS);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

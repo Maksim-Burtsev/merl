@@ -249,6 +249,8 @@ mod tests {
         "Picker: Up / Down, Ctrl+P / Ctrl+N",
         "Picker: Enter",
         "Picker: Esc",
+        "Picker: PgUp / PgDn",
+        "Help: Up / Down",
     ];
 
     #[test]
