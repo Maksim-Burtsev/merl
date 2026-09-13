@@ -2,7 +2,7 @@
 name = "merl"
 version = "0.2.0"
 edition = "2024"
-description = "Read-only terminal code navigator"
+description = "Keyboard-only code navigator for the terminal"
 license = "MIT"
 repository = "https://github.com/Maksim-Burtsev/merl"
 keywords = ["tui", "terminal", "viewer", "code", "navigator"]

@@ -4,7 +4,7 @@
 
 <h1 align="center">merl</h1>
 
-<p align="center">Read-only code navigator for the terminal — VS Code's reading half, without the window.</p>
+<p align="center">Code navigator for the terminal — VS Code's reading half, without the window.</p>
 
 <p align="center">
   <a href="https://github.com/Maksim-Burtsev/merl/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Maksim-Burtsev/merl/ci.yml?branch=master&label=ci" alt="CI"></a>
@@ -13,11 +13,13 @@
   <a href="https://doc.rust-lang.org/edition-guide/rust-2024/index.html"><img src="https://img.shields.io/badge/rust-2024%20edition-orange" alt="Rust 2024 edition"></a>
 </p>
 
-merl opens a codebase read-only: no text input, no undo, no clipboard, nothing it can save over.
-It is keyboard-only and terminal-agnostic — no mouse, no Cmd — so the same bindings work
-over SSH, in tmux, and in whatever terminal you happen to have. It is for reviewing code and
-walking a codebase in a terminal split next to a coding agent, where you read far more than you
-type and the file under you keeps changing.
+merl opens a codebase and gets you to the right line fast: fuzzy file open, project search,
+go to definition and usages, all on VS Code-shaped keys. It is keyboard-only and
+terminal-agnostic — no mouse, no Cmd — so the same bindings work over SSH, in tmux, and in
+whatever terminal you happen to have. It is for reviewing code and walking a codebase in a
+terminal split next to a coding agent, where you read far more than you type and the file under
+you keeps changing. Today it only reads; editing is
+[planned](https://github.com/Maksim-Burtsev/merl/issues/11).
 
 ## Demo
 
@@ -165,7 +167,7 @@ Ctrl+E, F12 — and nothing new to memorise. If you already live in vim, you do 
 
 ## Status
 
-v0.1, a personal tool made public. Issues are welcome; pull requests may wait.
+Early, a personal tool made public. Issues are welcome; pull requests may wait.
 
 ## License
 
