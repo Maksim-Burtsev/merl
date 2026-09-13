@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A welcome screen when merl starts without a file: the logo in the blues of the icon and the
+  keys that work before a file is open. It shrinks to the keys alone, then to a one-line hint,
+  when the pane is too small. (#9)
 - `merl --tutor`: a vimtutor-style tutorial inside merl. Sixteen lessons over a sample Python
   project bundled in the binary, each one advancing when the key did what the lesson asked; the
   unpacked copy lives in a temporary directory and is removed on exit.
