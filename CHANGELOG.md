@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Find in file (`/`) matches literal text, as in VS Code: `migrator(` hits `Migrator()` instead
+  of failing as an unclosed regex group. Smart case is unchanged; `s>` still takes a regex. (#5)
 - A plain Left / Right on a selection collapses it to its start / end without moving further,
   as in VS Code; Up / Down still move from the cursor.
 

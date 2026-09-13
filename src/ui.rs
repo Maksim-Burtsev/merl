@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Clear, Paragraph};
 use regex::Regex;
@@ -297,12 +297,6 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
     if !prefix.is_empty() {
         let text = format!("{prefix}{}", app.prompt);
         frame.set_cursor_position((area.x + wrap::width(&text) as u16, area.y));
-        // A query that does not compile stays on screen, in red, until it does.
-        let style = if app.find_bad {
-            style.fg(Color::Red)
-        } else {
-            style
-        };
         frame.render_widget(Paragraph::new(text).style(style), area);
         return;
     }

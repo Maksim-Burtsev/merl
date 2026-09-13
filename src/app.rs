@@ -129,10 +129,8 @@ pub struct App {
     pub mode: Mode,
     /// What has been typed into the `:`, `/` or `s>` prompt.
     pub prompt: String,
-    /// Last pattern that compiled, kept for `n`/`N` and for painting the matches.
+    /// The current query, kept for `n`/`N` and for painting the matches.
     pub find_re: Option<Regex>,
-    /// The query in the find prompt does not compile; the prompt goes red.
-    pub find_bad: bool,
     /// Where the cursor was when `/` was pressed: the start of the incremental search.
     find_anchor: (usize, usize),
     pub message: String,
@@ -176,7 +174,6 @@ impl App {
             mode: Mode::Normal,
             prompt: String::new(),
             find_re: None,
-            find_bad: false,
             find_anchor: (0, 0),
             message: String::new(),
             view_w: 80,
@@ -623,7 +620,6 @@ impl App {
     fn start_find(&mut self) {
         self.mode = Mode::Find;
         self.prompt.clear();
-        self.find_bad = false;
         self.find_anchor = (self.line, self.col);
     }
 
@@ -644,7 +640,6 @@ impl App {
             }
             KeyCode::Esc => {
                 self.mode = Mode::Normal;
-                self.find_bad = false;
                 let (line, col) = self.find_anchor;
                 self.line = line.min(self.buf.lines.len() - 1);
                 self.col = col.min(self.line_str().len());
@@ -654,36 +649,31 @@ impl App {
         }
     }
 
-    /// Recompiles the query (smart-case) and moves to the first match at or after the anchor.
-    /// A query that does not compile leaves the cursor and the last good pattern alone.
+    /// Recompiles the query and moves to the first match at or after the anchor.
+    /// The query is literal text with smart case, as in VS Code: `migrator(` hits `Migrator()`.
+    /// `s>` is the place for regexes.
     fn refresh_find(&mut self) {
         if self.prompt.is_empty() {
             // Nothing to match: drop the previous pattern so its highlights go with it,
             // and put the cursor back where the search started.
-            self.find_bad = false;
             self.find_re = None;
             let (l, c) = self.find_anchor;
             self.go_to_match(l, c);
             return;
         }
         let insensitive = !self.prompt.chars().any(char::is_uppercase);
-        match RegexBuilder::new(&self.prompt)
+        let re = RegexBuilder::new(&regex::escape(&self.prompt))
             .case_insensitive(insensitive)
             .build()
-        {
-            Ok(re) => {
-                self.find_bad = false;
-                let (l, c) = self.find_anchor;
-                let hit = self
-                    .match_at_or_after(&re, l, c)
-                    .or_else(|| self.match_at_or_after(&re, 0, 0));
-                if let Some((l, c)) = hit {
-                    self.go_to_match(l, c);
-                }
-                self.find_re = Some(re);
-            }
-            Err(_) => self.find_bad = true,
+            .expect("an escaped literal always compiles");
+        let (l, c) = self.find_anchor;
+        let hit = self
+            .match_at_or_after(&re, l, c)
+            .or_else(|| self.match_at_or_after(&re, 0, 0));
+        if let Some((l, c)) = hit {
+            self.go_to_match(l, c);
         }
+        self.find_re = Some(re);
     }
 
     /// `n` / `N`: the next or previous match, wrapping around the file.
@@ -1593,20 +1583,16 @@ mod tests {
     }
 
     #[test]
-    fn invalid_regex_keeps_the_last_good_pattern() {
-        let mut a = app("foo\nbar\nfoo\n");
-        find(&mut a, "foo");
+    fn find_is_literal_not_a_regex() {
+        let mut a = app("foo\nMigrator()\nbar\n");
+        find(&mut a, "migrator(");
+        assert_eq!((a.line, a.col), (1, 0));
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-        a.line = 1;
 
-        find(&mut a, "[");
-        assert!(a.find_bad, "the prompt goes red");
-        assert_eq!((a.line, a.col), (1, 0), "the cursor does not move");
-        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-        assert!(!a.find_bad);
-        // `n` still walks the matches of the pattern that did compile.
-        press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
-        assert_eq!((a.line, a.col), (2, 0));
+        find(&mut a, "f.o");
+        let re = a.find_re.as_ref().unwrap();
+        assert!(!re.is_match("foo"), "`.` is a dot, not any-char");
+        assert!(re.is_match("f.o"));
     }
 
     #[test]
