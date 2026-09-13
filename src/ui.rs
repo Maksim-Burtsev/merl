@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::{Modifier, Style};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
 use regex::Regex;
@@ -45,11 +45,7 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     if app.buf.path.is_some() {
         draw_code(frame, app, theme, code, base);
     } else {
-        let hint = Line::from(Span::styled(
-            " o: open file   ?: help",
-            base.fg(theme.gutter_fg),
-        ));
-        frame.render_widget(Paragraph::new(hint).style(base), code);
+        draw_welcome(frame, theme, code, base);
     }
     if app.tutor.is_some() {
         draw_lesson(frame, app, theme, lesson, base);
@@ -61,6 +57,108 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     if app.mode == Mode::Help {
         draw_help(frame, theme, area, base);
     }
+}
+
+/// The blues of `assets/icon.png`: beak, body, background. The logo fades through them top
+/// to bottom.
+const LOGO_COLORS: [Color; 3] = [
+    Color::Rgb(0x6c, 0x94, 0xfc),
+    Color::Rgb(0x4e, 0x72, 0xfc),
+    Color::Rgb(0x24, 0x39, 0xb5),
+];
+
+/// `merl` in a block font, six rows.
+const LOGO: &[&str] = &[
+    "███╗   ███╗███████╗██████╗ ██╗     ",
+    "████╗ ████║██╔════╝██╔══██╗██║     ",
+    "██╔████╔██║█████╗  ██████╔╝██║     ",
+    "██║╚██╔╝██║██╔══╝  ██╔══██╗██║     ",
+    "██║ ╚═╝ ██║███████╗██║  ██║███████╗",
+    "╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝",
+];
+
+/// Actions listed under the logo; the keys come from [`crate::app::KEYS`].
+const WELCOME_ACTIONS: [&str; 5] = [
+    "Open a file (fuzzy)",
+    "Search the project",
+    "Project symbols (fuzzy)",
+    "This help",
+    "Quit",
+];
+
+/// `(key, action)` rows of the welcome screen. Panics on an action `KEYS` no longer lists,
+/// which the test below turns into a failure.
+fn welcome_hints() -> Vec<(&'static str, &'static str)> {
+    WELCOME_ACTIONS
+        .iter()
+        .map(|a| {
+            let (k, _) = crate::app::KEYS
+                .iter()
+                .find(|(_, x)| x == a)
+                .unwrap_or_else(|| panic!("welcome action {a:?} is not in KEYS"));
+            (*k, *a)
+        })
+        .collect()
+}
+
+/// No file open: the logo and the keys that work without one, a little above the centre of
+/// the pane. Too small for the logo: the keys alone; too small for those: a one-line hint.
+fn draw_welcome(frame: &mut Frame, theme: &Theme, area: Rect, base: Style) {
+    let logo: &[&str] = LOGO;
+    let hints = welcome_hints();
+    let key_w = hints.iter().map(|(k, _)| k.len()).max().unwrap_or(0);
+    let hint_w = hints
+        .iter()
+        .map(|(_, a)| key_w + 3 + a.len())
+        .max()
+        .unwrap_or(0);
+    let logo_w = logo.iter().map(|l| wrap::width(l)).max().unwrap_or(0);
+
+    let (rows, w) = if area.height as usize >= logo.len() + 1 + hints.len()
+        && area.width as usize >= logo_w.max(hint_w)
+    {
+        (logo.len() + 1 + hints.len(), logo_w.max(hint_w))
+    } else if area.height as usize >= hints.len() && area.width as usize >= hint_w {
+        (hints.len(), hint_w)
+    } else {
+        let hint = Line::from(Span::styled(
+            " o: open file   ?: help",
+            base.fg(theme.gutter_fg),
+        ));
+        frame.render_widget(Paragraph::new(hint).style(base), area);
+        return;
+    };
+    let with_logo = rows > hints.len();
+
+    let mut lines: Vec<Line> = Vec::with_capacity(rows);
+    if with_logo {
+        // Left-align the logo inside the block, and colour it in three bands.
+        let band = logo.len().div_ceil(LOGO_COLORS.len());
+        for (i, l) in logo.iter().enumerate() {
+            let color = LOGO_COLORS[(i / band).min(LOGO_COLORS.len() - 1)];
+            lines.push(Line::from(Span::styled(*l, base.fg(color))));
+        }
+        lines.push(Line::default());
+    }
+    for (k, a) in &hints {
+        lines.push(Line::from(vec![
+            Span::styled(format!("{k:<key_w$}"), base.fg(LOGO_COLORS[0])),
+            Span::styled(format!("   {a}"), base),
+        ]));
+    }
+
+    // Two fifths of the free space above, three below: the block sits a little above the
+    // centre, where the eye expects it.
+    let top = (area.height as usize - rows) * 2 / 5;
+    let [_, block] = Layout::vertical([
+        Constraint::Length(top as u16),
+        Constraint::Length(rows as u16),
+    ])
+    .areas(area);
+    let [block] = Layout::horizontal([Constraint::Length(w as u16)])
+        .flex(Flex::Center)
+        .areas(block);
+    frame.render_widget(Paragraph::new(lines).style(base), block);
 }
 
 /// `?`: the whole keymap, straight out of [`crate::app::KEYS`].
@@ -531,6 +629,58 @@ mod tests {
     use crate::app::App;
     use crate::buffer::Buffer;
     use crate::tree::Tree;
+
+    fn rows(terminal: &Terminal<TestBackend>) -> Vec<String> {
+        let buf = terminal.backend().buffer();
+        (0..buf.area.height)
+            .map(|y| {
+                (0..buf.area.width)
+                    .map(|x| buf[(x, y)].symbol())
+                    .collect::<String>()
+                    .trim()
+                    .to_string()
+            })
+            .collect()
+    }
+
+    /// Every welcome action still exists in `KEYS`, the screen shows the key next to it, and a
+    /// pane too small for the logo drops the logo before it drops the keys.
+    #[test]
+    fn welcome_screen_lists_keys_and_shrinks_before_it_clips() {
+        let hints = super::welcome_hints();
+        assert_eq!(hints.len(), super::WELCOME_ACTIONS.len());
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mk = || {
+            App::new(
+                PathBuf::from("/demo"),
+                Tree::default(),
+                Vec::new(),
+                Buffer::empty(),
+                None,
+            )
+        };
+
+        let mut app = mk();
+        app.show_tree = false;
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        let text = rows(&terminal).join("\n");
+        for (k, a) in &hints {
+            assert!(text.contains(k) && text.contains(a), "{k} {a}\n{text}");
+        }
+        assert!(text.contains(super::LOGO[0].trim()), "no logo\n{text}");
+
+        let mut app = mk();
+        app.show_tree = false;
+        let mut terminal = Terminal::new(TestBackend::new(80, 8)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        let text = rows(&terminal).join("\n");
+        assert!(text.contains("Quit"), "keys must survive\n{text}");
+        assert!(
+            !text.contains(super::LOGO[0].trim()),
+            "logo must go first\n{text}"
+        );
+    }
 
     #[test]
     fn picker_overlay_renders_border_prompt_and_items() {
