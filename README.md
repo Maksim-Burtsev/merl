@@ -75,6 +75,7 @@ merl path/to/file.py:120
 | Arrows | Move the cursor |
 | Shift+Up / Shift+Down | Move three lines |
 | Shift+Left / Shift+Right | Move one word |
+| Ctrl+D / Ctrl+U | Move half a screen down / up |
 | PgUp / PgDn | Move one screen |
 | Home / End | Start / end of the line |
 | Ctrl+Home / Ctrl+End | Start / end of the file |

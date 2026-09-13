@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Ctrl+D / Ctrl+U move half a screen, cursor and viewport together (vim/less style).
+
 ### Fixed
 
 - Go to definition finds annotated Python assignments (`NAME: Final[int] = ...`).

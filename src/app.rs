@@ -36,6 +36,7 @@ pub const KEYS: &[(&str, &str)] = &[
     ("Arrows", "Move the cursor"),
     ("Shift+Up / Shift+Down", "Move three lines"),
     ("Shift+Left / Shift+Right", "Move one word"),
+    ("Ctrl+D / Ctrl+U", "Move half a screen down / up"),
     ("PgUp / PgDn", "Move one screen"),
     ("Home / End", "Start / end of the line"),
     ("Ctrl+Home / Ctrl+End", "Start / end of the file"),
@@ -285,6 +286,48 @@ impl App {
         let last = self.buf.lines.len() - 1;
         self.line = self.line.saturating_add_signed(delta).min(last);
         self.apply_want_x();
+    }
+
+    /// Ctrl+D / Ctrl+U: cursor and viewport both move half a screen, like vim and less,
+    /// so the cursor keeps its place on screen and half the context stays visible.
+    fn half_page(&mut self, dir: isize) {
+        let half = (self.view_h / 2).max(1);
+        let before = (self.line, self.cursor_row());
+        self.move_line(dir * half as isize);
+        let moved = self.rows_between(before, (self.line, self.cursor_row()));
+        let top = (self.top_line, self.top_row);
+        (self.top_line, self.top_row) = if dir < 0 {
+            self.back_rows(top, moved)
+        } else {
+            self.forward_rows(top, moved)
+        };
+    }
+
+    /// Wrapped rows from `a` to `b` (either order).
+    fn rows_between(&self, a: (usize, usize), b: (usize, usize)) -> usize {
+        let (lo, hi) = if a <= b { (a, b) } else { (b, a) };
+        let mut n = 0;
+        let mut cur = lo;
+        while cur < hi {
+            cur = self.forward_rows(cur, 1);
+            n += 1;
+        }
+        n
+    }
+
+    /// Walks `n` wrapped rows forwards from `(line, row)`, stopping at the end of the file.
+    fn forward_rows(&self, (mut line, mut row): (usize, usize), n: usize) -> (usize, usize) {
+        for _ in 0..n {
+            if row + 1 < self.rows(line).len() {
+                row += 1;
+            } else if line + 1 < self.buf.lines.len() {
+                line += 1;
+                row = 0;
+            } else {
+                break;
+            }
+        }
+        (line, row)
     }
 
     fn left(&mut self) {
@@ -903,6 +946,8 @@ impl App {
                 self.mode = Mode::Search;
                 self.prompt.clear();
             }
+            KeyCode::Char('d') if ctrl => self.half_page(1),
+            KeyCode::Char('u') if ctrl => self.half_page(-1),
             KeyCode::Char('d') | KeyCode::F(12) if !shift => self.goto_definition(),
             KeyCode::Char('u') | KeyCode::F(12) => self.usages(),
             KeyCode::Char('D') => self.symbols(),
@@ -1367,6 +1412,22 @@ mod tests {
                 "README documents {row:?}, which is not a binding"
             );
         }
+    }
+
+    #[test]
+    fn half_page_moves_cursor_and_viewport_together() {
+        let text: String = (0..40).map(|i| format!("line {i}\n")).collect();
+        let mut a = app(&text);
+        a.view_h = 10;
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+        assert_eq!(a.line, 5);
+        assert_eq!(a.top_line, 5, "viewport scrolls by the same amount");
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+        assert_eq!((a.line, a.top_line), (10, 10));
+        press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+        assert_eq!((a.line, a.top_line), (5, 5));
+        // Ctrl+D must not be mistaken for go-to-definition.
+        assert_eq!(a.message, "");
     }
 
     #[test]
