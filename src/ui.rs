@@ -207,7 +207,9 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     let hl = base.bg(theme.line_hl);
     let hl_gutter = gutter_style.bg(theme.line_hl);
     let sel = base.bg(theme.selection);
-    let selection = app.selection();
+    // Lines strictly above the selection's last line are selected through their newline, so
+    // their background runs to the right edge like VS Code's.
+    let sel_last_line = app.selection().map(|(_, end)| end.0);
 
     let mut lines: Vec<Line> = Vec::with_capacity(area.height as usize);
     let mut l = app.top_line;
@@ -226,12 +228,15 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
             _ => spans,
         };
         let cursor_line = l == app.line;
-        let selected = selection.as_ref().is_some_and(|r| r.contains(&l));
-        let (g, t) = match (selected, cursor_line) {
-            (true, _) => (gutter_style, sel),
-            (false, true) => (hl_gutter, hl),
-            (false, false) => (gutter_style, base),
+        let (g, t) = if cursor_line {
+            (hl_gutter, hl)
+        } else {
+            (gutter_style, base)
         };
+        let selected = app
+            .selected_bytes(l)
+            .map(|r| r.start..r.end.min(clipped.len()));
+        let pad_selected = sel_last_line.is_some_and(|last| l < last);
         for (i, r) in wrap::wrap_line(clipped, app.view_w).into_iter().enumerate() {
             if i < skip {
                 continue;
@@ -246,10 +251,20 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
             };
             let mut row = vec![Span::styled(num, g)];
             let pad = app.view_w.saturating_sub(wrap::width(&clipped[r.clone()]));
-            row.extend(row_spans(clipped, spans, &r, t));
-            if cursor_line || selected {
-                // Pad so the cursor-line background reaches the right edge of the pane.
-                row.push(Span::styled(" ".repeat(pad), t));
+            // The selected part of the row keeps its syntax colours on the selection background.
+            let (lo, hi) = match &selected {
+                Some(s) => (s.start.clamp(r.start, r.end), s.end.clamp(r.start, r.end)),
+                None => (r.end, r.end),
+            };
+            for (piece, style) in [(r.start..lo, t), (lo..hi, sel), (hi..r.end, t)] {
+                if !piece.is_empty() {
+                    row.extend(row_spans(clipped, spans, &piece, style));
+                }
+            }
+            if cursor_line || pad_selected {
+                // Pad so the line background reaches the right edge of the pane.
+                let style = if pad_selected { sel } else { t };
+                row.push(Span::styled(" ".repeat(pad), style));
             }
             lines.push(Line::from(row));
         }
@@ -482,6 +497,46 @@ mod tests {
         "└────────────────────────────┘",
         "demo/  1:1  [tree]                                   ? help",
     ];
+
+    #[test]
+    fn selection_background_covers_partial_edges_and_pads_inner_lines() {
+        use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let mut app = App::new(
+            PathBuf::from("/demo"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::from_bytes(PathBuf::from("/demo/f.txt"), b"abcd\nef\nghij\n"),
+            None,
+        );
+        app.show_tree = false;
+        for (code, m) in [
+            (KeyCode::Right, KeyModifiers::NONE),
+            (KeyCode::Right, KeyModifiers::NONE),
+            (KeyCode::Down, KeyModifiers::SHIFT),
+            (KeyCode::Down, KeyModifiers::SHIFT),
+        ] {
+            app.key(KeyEvent::new(code, m));
+        }
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(12, 4)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        let buf = terminal.backend().buffer();
+        // Gutter is two cells; `#` marks a cell with the selection background.
+        let rows: Vec<String> = (0..3)
+            .map(|y| {
+                (0..buf.area.width)
+                    .map(|x| {
+                        if buf[(x, y)].bg == theme.selection {
+                            '#'
+                        } else {
+                            '.'
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
+        assert_eq!(rows, ["....########", "..##########", "..##........"]);
+    }
 
     #[test]
     fn find_spans_cut_the_syntax_spans_they_cover() {

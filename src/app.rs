@@ -32,8 +32,13 @@ pub const KEYS: &[(&str, &str)] = &[
     ("t", "Show or hide the file tree"),
     ("Tab", "Switch focus between tree and code"),
     ("Arrows", "Move the cursor"),
-    ("Shift+Up / Shift+Down", "Extend the line selection"),
+    ("Shift+Up / Shift+Down", "Extend the selection by a line"),
     ("Shift+Left / Shift+Right", "Move one word"),
+    ("Alt+Shift+Left / Right", "Extend the selection by a word"),
+    (
+        "Ctrl+Shift+Left / Right",
+        "Extend the selection to the start / end of the line",
+    ),
     ("Ctrl+D / Ctrl+U", "Move half a screen down / up"),
     ("PgUp / PgDn", "Move one screen"),
     ("Home / End", "Start / end of the line"),
@@ -110,8 +115,8 @@ pub struct App {
     pub line: usize,
     pub col: usize,
     pub want_x: usize,
-    /// Line where Shift+Up/Down started; the selection runs from here to the cursor.
-    anchor: Option<usize>,
+    /// (line, col) where the selection started; it runs from here to the cursor.
+    anchor: Option<(usize, usize)>,
     /// Top of the viewport: a file line plus which wrapped row of it is first on screen.
     pub top_line: usize,
     pub top_row: usize,
@@ -283,16 +288,49 @@ impl App {
         self.col = col;
     }
 
-    /// Lines painted as selected: anchor to cursor, either order.
-    pub fn selection(&self) -> Option<std::ops::RangeInclusive<usize>> {
-        let a = self.anchor?.min(self.buf.lines.len() - 1);
-        Some(a.min(self.line)..=a.max(self.line))
+    /// The selection as ordered (line, col) ends: anchor and cursor, whichever comes first.
+    pub fn selection(&self) -> Option<((usize, usize), (usize, usize))> {
+        let (l, c) = self.anchor?;
+        let a = (l.min(self.buf.lines.len() - 1), c);
+        let b = (self.line, self.col);
+        Some((a.min(b), a.max(b)))
     }
 
-    /// Shift+Up / Shift+Down: VS Code's "read a line, mark it".
-    fn extend_selection(&mut self, delta: isize) {
-        self.anchor.get_or_insert(self.line);
-        self.move_line(delta);
+    /// Bytes of line `l` inside the selection, clamped to the line (the anchor may outlive a
+    /// reload that shortened it).
+    pub fn selected_bytes(&self, l: usize) -> Option<std::ops::Range<usize>> {
+        let (start, end) = self.selection()?;
+        if l < start.0 || l > end.0 {
+            return None;
+        }
+        let s = &self.buf.lines[l];
+        let clamp = |mut c: usize| {
+            c = c.min(s.len());
+            while !s.is_char_boundary(c) {
+                c -= 1;
+            }
+            c
+        };
+        let from = if l == start.0 { clamp(start.1) } else { 0 };
+        let to = if l == end.0 { clamp(end.1) } else { s.len() };
+        Some(from..to)
+    }
+
+    /// Shift+move, VS Code style: the anchor is set where the first extending move started and
+    /// the selection runs from there to wherever `mv` takes the cursor.
+    fn extend(&mut self, mv: fn(&mut Self)) {
+        self.anchor.get_or_insert((self.line, self.col));
+        mv(self);
+    }
+
+    fn line_start(&mut self) {
+        self.col = 0;
+        self.want_x = 0;
+    }
+
+    fn line_end(&mut self) {
+        self.col = self.line_str().len();
+        self.sync_want_x();
     }
 
     fn move_line(&mut self, delta: isize) {
@@ -891,8 +929,8 @@ impl App {
         }
         let mut key = key;
         // Legacy terminals report Alt+X as Esc followed by X; treat it that way so no binding
-        // can be reached by accident. merl itself never binds Alt.
-        if key.modifiers.contains(KeyModifiers::ALT) {
+        // on a letter can be reached by accident. Alt+arrow is unambiguous everywhere.
+        if key.modifiers.contains(KeyModifiers::ALT) && matches!(key.code, KeyCode::Char(_)) {
             key.modifiers.remove(KeyModifiers::ALT);
             self.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
             return self.key(key);
@@ -903,6 +941,7 @@ impl App {
         }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let shift = key.modifiers.contains(KeyModifiers::SHIFT);
+        let alt = key.modifiers.contains(KeyModifiers::ALT);
 
         if ctrl && key.code == KeyCode::Char('c') {
             return true;
@@ -937,8 +976,13 @@ impl App {
         }
 
         self.message.clear();
-        let extending = shift && matches!(key.code, KeyCode::Up | KeyCode::Down);
-        let before = self.line;
+        let extending = shift
+            && match key.code {
+                KeyCode::Up | KeyCode::Down => true,
+                KeyCode::Left | KeyCode::Right => ctrl || alt,
+                _ => false,
+            };
+        let before = (self.line, self.col);
         match key.code {
             KeyCode::Char('q') => return true,
             KeyCode::Char('?') => self.mode = Mode::Help,
@@ -985,10 +1029,14 @@ impl App {
             KeyCode::Char('[') => self.hist_go(-1),
             KeyCode::Char(']') => self.hist_go(1),
             _ if self.focus == Focus::Tree => self.tree_key(key.code),
-            KeyCode::Up if shift => self.extend_selection(-1),
-            KeyCode::Down if shift => self.extend_selection(1),
+            KeyCode::Up if shift => self.extend(|s| s.move_line(-1)),
+            KeyCode::Down if shift => self.extend(|s| s.move_line(1)),
             KeyCode::Up => self.move_line(-1),
             KeyCode::Down => self.move_line(1),
+            KeyCode::Left if shift && ctrl => self.extend(Self::line_start),
+            KeyCode::Right if shift && ctrl => self.extend(Self::line_end),
+            KeyCode::Left if shift && alt => self.extend(Self::word_left),
+            KeyCode::Right if shift && alt => self.extend(Self::word_right),
             KeyCode::Left if shift => self.word_left(),
             KeyCode::Right if shift => self.word_right(),
             KeyCode::Left => self.left(),
@@ -1005,18 +1053,12 @@ impl App {
                 self.col = self.line_str().len();
                 self.sync_want_x();
             }
-            KeyCode::Home => {
-                self.col = 0;
-                self.want_x = 0;
-            }
-            KeyCode::End => {
-                self.col = self.line_str().len();
-                self.sync_want_x();
-            }
+            KeyCode::Home => self.line_start(),
+            KeyCode::End => self.line_end(),
             _ => {}
         }
-        // Any cursor move other than Shift+Up/Down drops the selection.
-        if self.line != before && !extending {
+        // Any cursor move that is not an extending one drops the selection.
+        if (self.line, self.col) != before && !extending {
             self.anchor = None;
         }
         false
@@ -1148,25 +1190,74 @@ mod tests {
     }
 
     #[test]
-    fn shift_up_down_extend_a_line_selection() {
-        let mut a = app("a\nb\nc\nd\n");
+    fn shift_up_down_extend_a_selection_from_the_cursor_column() {
+        let mut a = app("abc\ndef\nghi\nj\n");
         assert_eq!(a.selection(), None);
+        press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Right, KeyModifiers::NONE);
         press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
         press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
-        assert_eq!((a.line, a.selection()), (2, Some(0..=2)));
+        assert_eq!((a.line, a.selection()), (2, Some(((0, 2), (2, 2)))));
+        // Per line, the bytes the renderer paints: partial edges, whole lines in between.
+        assert_eq!(a.selected_bytes(0), Some(2..3));
+        assert_eq!(a.selected_bytes(1), Some(0..3));
+        assert_eq!(a.selected_bytes(2), Some(0..2));
+        assert_eq!(a.selected_bytes(3), None);
         // Back over the anchor: the range flips, it never collapses to nothing.
         for _ in 0..3 {
             press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
         }
-        assert_eq!((a.line, a.selection()), (0, Some(0..=0)));
+        assert_eq!((a.line, a.selection()), (0, Some(((0, 2), (0, 2)))));
         // Any other cursor move drops it; Esc drops it too.
         press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
-        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Left, KeyModifiers::NONE);
         assert_eq!(a.selection(), None);
         press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
         assert!(a.selection().is_some());
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         assert_eq!(a.selection(), None);
+    }
+
+    #[test]
+    fn ctrl_shift_left_right_select_to_the_line_edges() {
+        let mut a = app("foo bar\nbaz");
+        for _ in 0..3 {
+            press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+        }
+        press(
+            &mut a,
+            KeyCode::Right,
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+        );
+        assert_eq!((a.col, a.selection()), (7, Some(((0, 3), (0, 7)))));
+        // A plain arrow collapses the selection and moves on, VS Code style.
+        press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+        assert_eq!(((a.line, a.col), a.selection()), ((1, 0), None));
+        press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+        press(&mut a, KeyCode::End, KeyModifiers::NONE);
+        press(
+            &mut a,
+            KeyCode::Left,
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+        );
+        assert_eq!((a.col, a.selection()), (0, Some(((0, 0), (0, 7)))));
+        // Shift+Left alone is still a plain word jump: it drops the selection.
+        press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+        assert_eq!((a.col, a.selection()), (3, None));
+    }
+
+    #[test]
+    fn alt_shift_left_right_select_by_word_without_touching_find() {
+        let mut a = app("foo bar_1 baz");
+        a.find_re = Some(Regex::new("foo").unwrap());
+        let m = KeyModifiers::ALT | KeyModifiers::SHIFT;
+        press(&mut a, KeyCode::Right, m);
+        press(&mut a, KeyCode::Right, m);
+        assert_eq!((a.col, a.selection()), (9, Some(((0, 0), (0, 9)))));
+        press(&mut a, KeyCode::Left, m);
+        assert_eq!((a.col, a.selection()), (4, Some(((0, 0), (0, 4)))));
+        assert!(a.find_re.is_some(), "Alt on an arrow is not an Esc");
+        assert_eq!(a.message, "");
     }
 
     #[test]

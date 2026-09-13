@@ -8,7 +8,7 @@ Read-only code navigator for the terminal — VS Code's reading half, without th
 [![Rust](https://img.shields.io/badge/rust-2024%20edition-orange)](https://doc.rust-lang.org/edition-guide/rust-2024/index.html)
 
 merl opens a codebase read-only: no text input, no undo, no clipboard, nothing it can save over.
-It is keyboard-only and terminal-agnostic — no mouse, no Cmd, no Alt — so the same bindings work
+It is keyboard-only and terminal-agnostic — no mouse, no Cmd — so the same bindings work
 over SSH, in tmux, and in whatever terminal you happen to have. It is for reviewing code and
 walking a codebase in a terminal split next to a coding agent, where you read far more than you
 type and the file under you keeps changing.
@@ -73,8 +73,10 @@ merl path/to/file.py:120
 | t | Show or hide the file tree |
 | Tab | Switch focus between tree and code |
 | Arrows | Move the cursor |
-| Shift+Up / Shift+Down | Extend the line selection |
+| Shift+Up / Shift+Down | Extend the selection by a line |
 | Shift+Left / Shift+Right | Move one word |
+| Alt+Shift+Left / Right | Extend the selection by a word |
+| Ctrl+Shift+Left / Right | Extend the selection to the start / end of the line |
 | Ctrl+D / Ctrl+U | Move half a screen down / up |
 | PgUp / PgDn | Move one screen |
 | Home / End | Start / end of the line |
