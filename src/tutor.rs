@@ -39,6 +39,9 @@ pub const FILES: &[(&str, &str)] = &[
 /// 1-based lines in `store.py` two lessons land on; the test checks them against the file.
 const CALL_LINE: usize = 13;
 const CLASS_LINE: usize = 9;
+/// The blank lines around `remove` in `store.py`, where the paragraph lessons land.
+const PARA_DOWN_LINE: usize = 47;
+const PARA_UP_LINE: usize = 38;
 
 fn at(app: &App, file: &str) -> bool {
     app.rel_path() == file
@@ -104,6 +107,17 @@ pub const LESSONS: &[Lesson] = &[
         title: "Go to line",
         text: "`:` (or Ctrl+G), then a number: type `42` and press Enter.",
         done: |a| a.line + 1 == 42,
+    },
+    Lesson {
+        title: "Next paragraph",
+        text: "`}` jumps to the next blank line. In code that is the end of the current \
+               function: press it once.",
+        done: |a| at(a, "store.py") && a.line + 1 == PARA_DOWN_LINE,
+    },
+    Lesson {
+        title: "Previous paragraph",
+        text: "`{` jumps to the previous blank line. Press it twice to reach the line above `remove`.",
+        done: |a| at(a, "store.py") && a.line + 1 == PARA_UP_LINE,
     },
     Lesson {
         title: "File tree",
@@ -208,6 +222,13 @@ mod tests {
             "{CLASS_LINE}"
         );
         assert!(store.lines().count() >= 42, "step 10 goes to line 42");
+        for n in [PARA_DOWN_LINE, PARA_UP_LINE] {
+            assert!(line(n).trim().is_empty(), "line {n} must be blank");
+        }
+        assert!(
+            line(PARA_UP_LINE + 1).contains("def remove"),
+            "{PARA_UP_LINE}"
+        );
     }
 
     /// Keys in `KEYS` that the tutorial deliberately skips: VS Code habits and the keys inside
@@ -336,13 +357,20 @@ mod tests {
         press(&mut a, KeyCode::Enter);
         done(&mut a);
 
-        // 11 and 12: the tree, then its focus
+        // 11 and 12: paragraph down, then up twice
+        press(&mut a, KeyCode::Char('}'));
+        done(&mut a);
+        press(&mut a, KeyCode::Char('{'));
+        press(&mut a, KeyCode::Char('{'));
+        done(&mut a);
+
+        // 13 and 14: the tree, then its focus
         press(&mut a, KeyCode::Char('t'));
         done(&mut a);
         press(&mut a, KeyCode::Tab);
         done(&mut a);
 
-        // 13: open a file from the tree
+        // 15: open a file from the tree
         for _ in 0..4 {
             press(&mut a, KeyCode::Up);
         }
@@ -351,11 +379,11 @@ mod tests {
         press(&mut a, KeyCode::Enter);
         done(&mut a);
 
-        // 14: hide the tree again
+        // 16: hide the tree again
         press(&mut a, KeyCode::Char('t'));
         done(&mut a);
 
-        // 15 and 16: help, and closing it
+        // 17 and 18: help, and closing it
         press(&mut a, KeyCode::Char('?'));
         done(&mut a);
         press(&mut a, KeyCode::Esc);
