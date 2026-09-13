@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-13
+
 ### Added
 
+- `{` / `}` jump to the previous / next paragraph (blank line), like vim; in code that is the
+  previous / next function without a parser. (#1)
 - A welcome screen when merl starts without a file: the logo in the blues of the icon and the
   keys that work before a file is open. It shrinks to the keys alone, then to a one-line hint,
   when the pane is too small. (#9)
@@ -22,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of failing as an unclosed regex group. Smart case is unchanged; `s>` still takes a regex. (#5)
 - A plain Left / Right on a selection collapses it to its start / end without moving further,
   as in VS Code; Up / Down still move from the cursor.
+- The jump history now works like VS Code's: the current stop follows the cursor, so `[` goes
+  back to where you were, not to where the last jump landed. A plain move farther than ten
+  lines, Ctrl+D / Ctrl+U, `n` / `N` and find all add stops of their own; smaller moves update the
+  current one. The history keeps the last fifty stops. Fixes #2.
+- Enter in the tree on the file that is already open keeps the cursor where it is.
 
 ### Fixed
 
@@ -44,17 +53,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The usages, definitions and `s>` search pickers draw each hit with the syntax colours of the
   line it quotes, the same ones the code view shows after jumping there. Only the rows on
   screen are highlighted, so a picker over thousands of hits stays cheap. Fixes #7.
-
-### Changed
-
-- The jump history now works like VS Code's: the current stop follows the cursor, so `[` goes
-  back to where you were, not to where the last jump landed. A plain move farther than ten
-  lines, Ctrl+D / Ctrl+U, `n` / `N` and find all add stops of their own; smaller moves update the
-  current one. The history keeps the last fifty stops. Fixes #2.
-- Enter in the tree on the file that is already open keeps the cursor where it is.
-
-### Fixed
-
 - A jump that went nowhere (`:` with the current line, for instance) erased the forward history.
 
 ## [0.2.0] - 2026-09-13
@@ -109,7 +107,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scroll position, the jump history and the find pattern.
 - Help overlay on `?`, listing every binding; Esc in normal mode clears the find highlights.
 
-[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.2.0
 [0.1.1]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.1.0
