@@ -11,7 +11,7 @@ use syntect::parsing::{ParseState, ScopeStack, SyntaxReference, SyntaxSet};
 
 use crate::theme::Theme;
 
-const TAB: &str = "    ";
+pub const TAB: &str = "    ";
 /// How far in we look for a NUL before calling a file binary.
 const SNIFF: usize = 8 * 1024;
 /// ponytail: syntect is sequential, so a huge file would have to be parsed from line 1 before
@@ -25,11 +25,14 @@ fn syntaxes() -> &'static SyntaxSet {
     SET.get_or_init(two_face::syntax::extra_newlines)
 }
 
+/// One line's highlighting: styles over byte ranges, in order.
+pub type Spans = Vec<(Style, Range<usize>)>;
+
 pub struct Buffer {
     pub path: Option<PathBuf>,
     pub lines: Vec<String>,
     /// Highlighted prefix: one entry per already-highlighted line, spans in byte ranges.
-    pub hl: Vec<Vec<(Style, Range<usize>)>>,
+    pub hl: Vec<Spans>,
     /// `None` when this buffer is not highlighted at all (binary, or too large).
     syntax: Option<&'static SyntaxReference>,
     /// syntect's carry-over state at the end of `hl`.

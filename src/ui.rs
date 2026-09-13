@@ -1,6 +1,8 @@
 //! Drawing. Reads `App`, writes only the viewport size back into it.
 
+use std::collections::HashMap;
 use std::ops::Range;
+use std::path::{Path, PathBuf};
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
@@ -10,6 +12,8 @@ use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
 use regex::Regex;
 
 use crate::app::{App, Focus, Mode};
+use crate::buffer::{Buffer, Spans};
+use crate::picker::PickItem;
 use crate::theme::Theme;
 use crate::wrap;
 
@@ -180,28 +184,56 @@ fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base
             } else {
                 base
             };
-            let mut spans: Vec<Span> = row
-                .label
-                .chars()
+            let label = &row.item.label;
+            let code = code_hl(&mut picker.bufs, &app.root, &row.item, theme);
+            let mut spans: Vec<Span> = label
+                .char_indices()
                 .enumerate()
-                .map(|(c, ch)| {
-                    let matched = row.matched.binary_search(&(c as u32)).is_ok();
-                    let style = if matched {
-                        style.add_modifier(Modifier::BOLD)
-                    } else {
-                        style
-                    };
+                .map(|(c, (b, ch))| {
+                    let mut style = style;
+                    if let (Some((hl, off)), Some(at)) = (&code, row.item.code_at)
+                        && b >= at
+                        && let Some((s, _)) = hl.iter().find(|(_, r)| r.contains(&(b - at + off)))
+                    {
+                        style = style.patch(*s);
+                    }
+                    if row.matched.binary_search(&(c as u32)).is_ok() {
+                        style = style.add_modifier(Modifier::BOLD);
+                    }
                     Span::styled(ch.to_string(), style)
                 })
                 .collect();
             spans.push(Span::styled(
-                " ".repeat(width.saturating_sub(wrap::width(&row.label))),
+                " ".repeat(width.saturating_sub(wrap::width(label))),
                 style,
             ));
             Line::from(spans)
         })
         .collect();
     frame.render_widget(Paragraph::new(lines).style(base), list);
+}
+
+/// The highlighting of the file line an item quotes, plus the byte offset of the quoted text
+/// in that line, so the picker row gets the same colours as the code view. `None` when the
+/// item has no code text or the file no longer contains what the label shows.
+fn code_hl<'a>(
+    bufs: &'a mut HashMap<PathBuf, Buffer>,
+    root: &Path,
+    item: &PickItem,
+    theme: &Theme,
+) -> Option<(&'a Spans, usize)> {
+    let quoted = item.label[item.code_at?..].trim_end_matches('\u{2026}');
+    let buf = bufs.entry(item.path.clone()).or_insert_with(|| {
+        Buffer::load(&root.join(&item.path)).unwrap_or_else(|_| Buffer::empty())
+    });
+    let idx = item.line.checked_sub(1)?;
+    let line = buf.lines.get(idx)?;
+    let off = line.len() - line.trim_start().len();
+    if line.get(off..off + quoted.len()) != Some(quoted) {
+        return None;
+    }
+    buf.highlight_to(idx, theme);
+    Some((buf.hl.get(idx)?, off))
 }
 
 fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
@@ -514,6 +546,41 @@ mod tests {
             })
             .collect();
         assert_eq!(text, SNAPSHOT);
+    }
+
+    /// A usages row is drawn with the colours of the file line it quotes: the `//!` comment
+    /// in the row must not be painted like the `path:line:` prefix in front of it.
+    #[test]
+    fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let mut app = App::new(root, Tree::default(), Vec::new(), Buffer::empty(), None);
+        let hits = vec![crate::search::Hit {
+            path: PathBuf::from("src/wrap.rs"),
+            line: 1,
+            text: std::fs::read_to_string(app.root.join("src/wrap.rs"))
+                .unwrap()
+                .lines()
+                .next()
+                .unwrap()
+                .to_string(),
+        }];
+        assert!(hits[0].text.starts_with("//!"), "{:?}", hits[0].text);
+        app.show_picker(crate::app::PickerKind::Usages, App::hit_items(hits));
+        app.picker.as_mut().unwrap().settle();
+
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+
+        let buf = terminal.backend().buffer();
+        let row = 4;
+        let x0 = (0..buf.area.width)
+            .find(|&x| buf[(x, row)].symbol() == "s")
+            .expect("row starts with src/wrap.rs");
+        let prefix = "src/wrap.rs:1: ";
+        let code_x = x0 + prefix.len() as u16;
+        assert_eq!(buf[(code_x, row)].symbol(), "/");
+        assert_ne!(buf[(code_x, row)].fg, buf[(x0, row)].fg);
     }
 
     /// The tree pane and the status bar frame the overlay; the overlay itself is the border,

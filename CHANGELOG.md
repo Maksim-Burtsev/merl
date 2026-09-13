@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Lines above a selection were painted with the selection background to the right edge.
+- The usages, definitions and `s>` search pickers draw each hit with the syntax colours of the
+  line it quotes, the same ones the code view shows after jumping there. Only the rows on
+  screen are highlighted, so a picker over thousands of hits stays cheap. Fixes #7.
 
 ### Changed
 

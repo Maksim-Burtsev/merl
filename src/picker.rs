@@ -1,5 +1,6 @@
 //! The fuzzy-picker overlay: one nucleo matcher over a list of labelled targets.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -7,17 +8,22 @@ use nucleo::pattern::{CaseMatching, Normalization};
 use nucleo::{Config, Matcher, Nucleo};
 use ratatui::crossterm::event::KeyCode;
 
+use crate::buffer::Buffer;
+
 /// One pickable target. `line` 0 means "no specific line", i.e. keep the file's start.
 #[derive(Clone, Debug)]
 pub struct PickItem {
     pub label: String,
     pub path: PathBuf,
     pub line: usize,
+    /// Byte offset in `label` where a copy of the file's line `line` (trimmed, maybe clipped)
+    /// starts, so the row can be drawn with that line's syntax colours. `None`: no code text.
+    pub code_at: Option<usize>,
 }
 
-/// One rendered row: the label plus the char indices that matched the query.
+/// One rendered row: the item plus the char indices of its label that matched the query.
 pub struct Row {
-    pub label: String,
+    pub item: PickItem,
     pub matched: Vec<u32>,
 }
 
@@ -36,6 +42,9 @@ pub struct Picker {
     pub title: String,
     /// List height of the last drawn frame, so PgUp/PgDn know how far a page is.
     page: usize,
+    /// Files of the rows drawn so far, highlighted up to the deepest row shown. Filled lazily by
+    /// `ui`, so a picker over thousands of hits only ever parses what is on screen.
+    pub bufs: HashMap<PathBuf, Buffer>,
 }
 
 impl Picker {
@@ -65,6 +74,7 @@ impl Picker {
             selected: 0,
             title: title.into(),
             page: 10,
+            bufs: HashMap::new(),
         }
     }
 
@@ -120,7 +130,7 @@ impl Picker {
                 matched.sort_unstable();
                 matched.dedup();
                 Row {
-                    label: item.data.label.clone(),
+                    item: item.data.clone(),
                     matched,
                 }
             })
@@ -187,6 +197,7 @@ mod tests {
             .iter()
             .map(|l| PickItem {
                 label: (*l).to_string(),
+                code_at: None,
                 path: PathBuf::from(l),
                 line: 0,
             })
@@ -207,7 +218,7 @@ mod tests {
         assert_eq!(p.counts().0, 1);
         let (rows, sel) = p.window(5);
         assert_eq!(sel, 0);
-        assert_eq!(rows[0].label, "src/wrap.rs");
+        assert_eq!(rows[0].item.label, "src/wrap.rs");
         assert_eq!(rows[0].matched, [4, 5, 6]);
         // Backspacing widens the result set again.
         p.key(KeyCode::Backspace, false);
@@ -239,7 +250,7 @@ mod tests {
         p.selected = 4;
         let (rows, sel) = p.window(2);
         assert_eq!(rows.len(), 2);
-        assert_eq!(rows[1].label, "e");
+        assert_eq!(rows[1].item.label, "e");
         assert_eq!(sel, 1);
     }
 }

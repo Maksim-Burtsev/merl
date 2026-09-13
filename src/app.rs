@@ -6,7 +6,7 @@ use std::sync::Arc;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use regex::{Regex, RegexBuilder};
 
-use crate::buffer::Buffer;
+use crate::buffer::{self, Buffer};
 use crate::picker::{Pick, PickItem, Picker};
 use crate::search::{self, Hit};
 use crate::tree::Tree;
@@ -584,6 +584,7 @@ impl App {
                 label: p.display().to_string(),
                 path: p.clone(),
                 line: 0,
+                code_at: None,
             })
             .collect();
         // Only the file picker wants nucleo's path-aware scoring.
@@ -596,7 +597,7 @@ impl App {
         self.mode = Mode::Picker(PickerKind::Files);
     }
 
-    fn show_picker(&mut self, kind: PickerKind, items: Vec<PickItem>) {
+    pub(crate) fn show_picker(&mut self, kind: PickerKind, items: Vec<PickItem>) {
         self.picker = Some(Picker::new(kind.title(), items, false, self.wake.clone()));
         self.mode = Mode::Picker(kind);
     }
@@ -806,18 +807,20 @@ impl App {
             .unwrap_or_default()
     }
 
-    /// `rel/path:line: text` rows for a result picker.
-    fn hit_items(hits: Vec<Hit>) -> Vec<PickItem> {
+    /// `rel/path:line: text` rows for a result picker. The text is normalized like `Buffer`
+    /// does (tabs to spaces) so `ui` can line it up with the file's highlighting.
+    pub(crate) fn hit_items(hits: Vec<Hit>) -> Vec<PickItem> {
         hits.into_iter()
-            .map(|h| PickItem {
-                label: format!(
-                    "{}:{}: {}",
-                    h.path.display(),
-                    h.line,
-                    clip(h.text.trim(), MAX_LABEL_TEXT)
-                ),
-                path: h.path,
-                line: h.line,
+            .map(|h| {
+                let label = format!("{}:{}: ", h.path.display(), h.line);
+                let code_at = Some(label.len());
+                let text = h.text.replace('\t', buffer::TAB);
+                PickItem {
+                    label: label + &clip(text.trim(), MAX_LABEL_TEXT),
+                    path: h.path,
+                    line: h.line,
+                    code_at,
+                }
             })
             .collect()
     }
@@ -907,6 +910,7 @@ impl App {
                 ),
                 path: h.path,
                 line: h.line,
+                code_at: None,
             })
             .collect();
         self.show_picker(PickerKind::Symbols, items);
