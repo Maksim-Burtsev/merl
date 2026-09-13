@@ -95,6 +95,11 @@ pub enum Focus {
     Code,
 }
 
+/// A plain cursor move closer than this many lines to the current stop updates it instead of
+/// adding a new one. VS Code's `TEXT_EDITOR_SELECTION_THRESHOLD`.
+const HIST_NEAR: usize = 10;
+const HIST_MAX: usize = 50;
+
 pub struct App {
     pub root: PathBuf,
     pub buf: Buffer,
@@ -106,7 +111,8 @@ pub struct App {
     /// First visible row of the tree pane, clamped by `ui`.
     pub tree_top: usize,
     pub picker: Option<Picker>,
-    /// Visited positions, oldest first; `hist_idx` points at the current one.
+    /// Stops of the jump history, oldest first; `hist_idx` is the current one and follows
+    /// the cursor (see `hist_note`).
     pub history: Vec<(PathBuf, usize, usize)>,
     pub hist_idx: usize,
     /// Wakes the event loop when nucleo has new results. Set by `main`.
@@ -183,6 +189,7 @@ impl App {
         if let Some(path) = app.buf.path.clone() {
             app.reveal(&path);
         }
+        app.hist_note(true);
         app
     }
 
@@ -511,31 +518,40 @@ impl App {
         self.buf.path.clone().map(|p| (p, self.line, self.col))
     }
 
-    fn hist_push(&mut self, pos: Option<(PathBuf, usize, usize)>) {
-        if let Some(pos) = pos
-            && self.history.last() != Some(&pos)
-        {
-            self.history.push(pos);
-        }
-    }
-
-    /// Opens `path` at `line` and records the jump: where we left from, then where we landed.
-    pub fn jump_to(&mut self, path: &Path, line: usize) {
-        if !self.history.is_empty() {
+    /// Records where the cursor is now, VS Code style: the current stop always tracks the
+    /// cursor. A plain move within `HIST_NEAR` lines just updates it; a farther move, another
+    /// file, or a `jump` (go to definition, `:`, find) becomes a new stop and drops the
+    /// forward history. Standing on the current stop records nothing, so walking with
+    /// `[` / `]` is silent.
+    fn hist_note(&mut self, jump: bool) {
+        let Some(pos) = self.pos() else {
+            return;
+        };
+        if let Some(cur) = self.history.get(self.hist_idx) {
+            if *cur == pos {
+                return;
+            }
+            if !jump && cur.0 == pos.0 && cur.1.abs_diff(pos.1) < HIST_NEAR {
+                self.history[self.hist_idx] = pos;
+                return;
+            }
             self.history.truncate(self.hist_idx + 1);
         }
-        let from = self.pos();
-        self.open(path, line);
-        self.focus = Focus::Code;
-        if self.pos() == from {
-            return; // the jump went nowhere; nothing to remember
+        self.history.push(pos);
+        if self.history.len() > HIST_MAX {
+            self.history.remove(0);
         }
-        self.hist_push(from);
-        self.hist_push(self.pos());
-        self.hist_idx = self.history.len().saturating_sub(1);
+        self.hist_idx = self.history.len() - 1;
     }
 
-    /// `[` and `]`: walks the recorded positions without recording anything new.
+    /// Opens `path` at `line` and makes it a stop in the jump history.
+    pub fn jump_to(&mut self, path: &Path, line: usize) {
+        self.open(path, line);
+        self.focus = Focus::Code;
+        self.hist_note(true);
+    }
+
+    /// `[` and `]`: walks the recorded stops.
     fn hist_go(&mut self, delta: isize) {
         let next = self
             .hist_idx
@@ -622,7 +638,10 @@ impl App {
                 self.refresh_find();
             }
             // Enter keeps both the position and the pattern, so `n` carries on from here.
-            KeyCode::Enter => self.mode = Mode::Normal,
+            KeyCode::Enter => {
+                self.mode = Mode::Normal;
+                self.hist_note(true);
+            }
             KeyCode::Esc => {
                 self.mode = Mode::Normal;
                 self.find_bad = false;
@@ -909,7 +928,10 @@ impl App {
             KeyCode::Left => self.tree.collapse(),
             KeyCode::Enter => match self.tree.selected() {
                 Some(n) if n.is_dir => self.tree.toggle(),
-                // Opening from the tree keeps the focus there, like VS Code's preview tabs.
+                // The file that is already open keeps its cursor, like VS Code's explorer.
+                Some(n) if self.buf.path.as_deref() == Some(&self.root.join(&n.path)) => {
+                    self.focus = Focus::Code;
+                }
                 Some(n) => {
                     let path = self.root.join(&n.path);
                     self.jump_to(&path, 1);
@@ -1001,8 +1023,14 @@ impl App {
             }
             KeyCode::Char('/') => self.start_find(),
             KeyCode::Char('f') if ctrl => self.start_find(),
-            KeyCode::Char('n') if !ctrl => self.step_find(true),
-            KeyCode::Char('N') => self.step_find(false),
+            KeyCode::Char('n') if !ctrl => {
+                self.step_find(true);
+                self.hist_note(true);
+            }
+            KeyCode::Char('N') => {
+                self.step_find(false);
+                self.hist_note(true);
+            }
             KeyCode::Char('s') => {
                 self.mode = Mode::Search;
                 self.prompt.clear();
@@ -1061,6 +1089,7 @@ impl App {
         if (self.line, self.col) != before && !extending {
             self.anchor = None;
         }
+        self.hist_note(false);
         false
     }
 
@@ -1277,7 +1306,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         for name in ["a.rs", "b.rs"] {
-            std::fs::write(dir.join(name), "x\n".repeat(10)).unwrap();
+            std::fs::write(dir.join(name), "x\n".repeat(40)).unwrap();
         }
         let app = App::new(
             dir.clone(),
@@ -1344,6 +1373,110 @@ mod tests {
         a.jump_to(&x, 3);
         a.jump_to(&x, 3);
         assert_eq!(a.history, [(x, 2, 0)]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    fn at(a: &App) -> (PathBuf, usize) {
+        (a.buf.path.clone().unwrap(), a.line)
+    }
+
+    #[test]
+    fn far_moves_become_stops_and_near_moves_update_the_current_one() {
+        let (dir, mut a) = files_app("wander");
+        let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+        a.jump_to(&x, 1);
+        a.jump_to(&y, 1);
+        // Three lines down is still "here": the current stop follows the cursor.
+        for _ in 0..3 {
+            press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        }
+        assert_eq!(a.history, [(x.clone(), 0, 0), (y.clone(), 3, 0)]);
+        // Half a page (12 lines) at once is somewhere else: a new stop.
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+        assert_eq!(
+            a.history,
+            [(x.clone(), 0, 0), (y.clone(), 3, 0), (y.clone(), 15, 0)]
+        );
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(at(&a), (y.clone(), 3));
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(at(&a), (x.clone(), 0));
+        press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (y, 15));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn wandering_after_going_back_moves_that_stop() {
+        let (dir, mut a) = files_app("stale");
+        let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+        a.jump_to(&x, 1);
+        a.jump_to(&y, 1);
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        for _ in 0..4 {
+            press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        }
+        press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(
+            at(&a),
+            (x, 4),
+            "back lands where the cursor was left, not where it arrived"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn find_next_is_a_stop_even_when_near() {
+        let (dir, mut a) = files_app("find");
+        let x = dir.join("a.rs");
+        a.jump_to(&x, 1);
+        find(&mut a, "x");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
+        assert_eq!(a.history, [(x.clone(), 0, 0), (x, 1, 0)]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_jump_that_goes_nowhere_keeps_the_forward_history() {
+        let (dir, mut a) = files_app("noop");
+        let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+        a.jump_to(&x, 1);
+        a.jump_to(&y, 1);
+        a.jump_to(&y, 5);
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        a.jump_to(&x, 1);
+        assert_eq!(a.history.len(), 3);
+        press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (y, 0));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn enter_on_the_open_file_in_the_tree_keeps_the_cursor() {
+        let (dir, mut a) = files_app("tree");
+        let x = dir.join("a.rs");
+        a.tree = crate::tree::build(&dir).0;
+        a.jump_to(&x, 5); // also puts the tree cursor on a.rs
+        a.focus = Focus::Tree;
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((at(&a), a.focus), ((x.clone(), 4), Focus::Code));
+        assert_eq!(a.history, [(x, 4, 0)]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn history_keeps_the_last_fifty_stops() {
+        let (dir, mut a) = files_app("cap");
+        let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+        for _ in 0..30 {
+            a.jump_to(&x, 1);
+            a.jump_to(&y, 1);
+        }
+        assert_eq!((a.history.len(), a.hist_idx), (50, 49));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

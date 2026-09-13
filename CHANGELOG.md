@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The jump history now works like VS Code's: the current stop follows the cursor, so `[` goes
+  back to where you were, not to where the last jump landed. A plain move farther than ten
+  lines, Ctrl+D / Ctrl+U, `n` / `N` and find all add stops of their own; smaller moves update the
+  current one. The history keeps the last fifty stops. Fixes #2.
+- Enter in the tree on the file that is already open keeps the cursor where it is.
+
+### Fixed
+
+- A jump that went nowhere (`:` with the current line, for instance) erased the forward history.
+
 ## [0.2.0] - 2026-09-13
 
 ### Added
