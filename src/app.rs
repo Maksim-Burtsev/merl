@@ -12,8 +12,6 @@ use crate::search::{self, Hit};
 use crate::tree::Tree;
 use crate::wrap;
 
-/// Shift+Up / Shift+Down jump distance.
-const SHIFT_LINES: usize = 3;
 /// Longest hit text kept in a picker label; the rest is off the screen anyway.
 const MAX_LABEL_TEXT: usize = 120;
 /// Longest symbol name the symbol list pads to.
@@ -34,13 +32,13 @@ pub const KEYS: &[(&str, &str)] = &[
     ("t", "Show or hide the file tree"),
     ("Tab", "Switch focus between tree and code"),
     ("Arrows", "Move the cursor"),
-    ("Shift+Up / Shift+Down", "Move three lines"),
+    ("Shift+Up / Shift+Down", "Extend the line selection"),
     ("Shift+Left / Shift+Right", "Move one word"),
     ("Ctrl+D / Ctrl+U", "Move half a screen down / up"),
     ("PgUp / PgDn", "Move one screen"),
     ("Home / End", "Start / end of the line"),
     ("Ctrl+Home / Ctrl+End", "Start / end of the file"),
-    ("Esc", "Close an overlay, or clear the find highlights"),
+    ("Esc", "Close an overlay, or clear selection and find"),
     ("?", "This help"),
     ("q / Ctrl+C", "Quit"),
     ("Tree: Up / Down", "Move"),
@@ -112,6 +110,8 @@ pub struct App {
     pub line: usize,
     pub col: usize,
     pub want_x: usize,
+    /// Line where Shift+Up/Down started; the selection runs from here to the cursor.
+    anchor: Option<usize>,
     /// Top of the viewport: a file line plus which wrapped row of it is first on screen.
     pub top_line: usize,
     pub top_row: usize,
@@ -159,6 +159,7 @@ impl App {
             line: 0,
             col: 0,
             want_x: 0,
+            anchor: None,
             top_line: 0,
             top_row: 0,
             mode: Mode::Normal,
@@ -280,6 +281,18 @@ impl App {
             used += wrap::char_width(c);
         }
         self.col = col;
+    }
+
+    /// Lines painted as selected: anchor to cursor, either order.
+    pub fn selection(&self) -> Option<std::ops::RangeInclusive<usize>> {
+        let a = self.anchor?.min(self.buf.lines.len() - 1);
+        Some(a.min(self.line)..=a.max(self.line))
+    }
+
+    /// Shift+Up / Shift+Down: VS Code's "read a line, mark it".
+    fn extend_selection(&mut self, delta: isize) {
+        self.anchor.get_or_insert(self.line);
+        self.move_line(delta);
     }
 
     fn move_line(&mut self, delta: isize) {
@@ -414,6 +427,7 @@ impl App {
             match Buffer::load(path) {
                 Ok(buf) => {
                     self.buf = buf;
+                    self.anchor = None;
                     (self.line, self.col, self.want_x) = (0, 0, 0);
                     (self.top_line, self.top_row) = (0, 0);
                 }
@@ -923,10 +937,13 @@ impl App {
         }
 
         self.message.clear();
+        let extending = shift && matches!(key.code, KeyCode::Up | KeyCode::Down);
+        let before = self.line;
         match key.code {
             KeyCode::Char('q') => return true,
             KeyCode::Char('?') => self.mode = Mode::Help,
             KeyCode::Esc => {
+                self.anchor = None;
                 self.find_re = None;
                 self.message = "find cleared".into();
             }
@@ -968,8 +985,8 @@ impl App {
             KeyCode::Char('[') => self.hist_go(-1),
             KeyCode::Char(']') => self.hist_go(1),
             _ if self.focus == Focus::Tree => self.tree_key(key.code),
-            KeyCode::Up if shift => self.move_line(-(SHIFT_LINES as isize)),
-            KeyCode::Down if shift => self.move_line(SHIFT_LINES as isize),
+            KeyCode::Up if shift => self.extend_selection(-1),
+            KeyCode::Down if shift => self.extend_selection(1),
             KeyCode::Up => self.move_line(-1),
             KeyCode::Down => self.move_line(1),
             KeyCode::Left if shift => self.word_left(),
@@ -997,6 +1014,10 @@ impl App {
                 self.sync_want_x();
             }
             _ => {}
+        }
+        // Any cursor move other than Shift+Up/Down drops the selection.
+        if self.line != before && !extending {
+            self.anchor = None;
         }
         false
     }
@@ -1124,6 +1145,28 @@ mod tests {
         let mut a = app("a\nb\n");
         press(&mut a, KeyCode::Char(':'), KeyModifiers::SHIFT);
         assert_eq!(a.mode, Mode::Goto);
+    }
+
+    #[test]
+    fn shift_up_down_extend_a_line_selection() {
+        let mut a = app("a\nb\nc\nd\n");
+        assert_eq!(a.selection(), None);
+        press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        assert_eq!((a.line, a.selection()), (2, Some(0..=2)));
+        // Back over the anchor: the range flips, it never collapses to nothing.
+        for _ in 0..3 {
+            press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
+        }
+        assert_eq!((a.line, a.selection()), (0, Some(0..=0)));
+        // Any other cursor move drops it; Esc drops it too.
+        press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        assert_eq!(a.selection(), None);
+        press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        assert!(a.selection().is_some());
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!(a.selection(), None);
     }
 
     #[test]

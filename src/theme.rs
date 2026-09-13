@@ -32,7 +32,7 @@ pub struct Theme {
     pub status_fg: Color,
     pub find_bg: Color,
     pub find_fg: Color,
-    /// Parsed so themes stay the single source of colour; merl has no selection to paint yet.
+    /// Background of the Shift+Up/Down line selection.
     #[allow(dead_code)]
     pub selection: Color,
     pub syntect: syntect::highlighting::Theme,

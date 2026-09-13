@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Ctrl+D / Ctrl+U move half a screen, cursor and viewport together (vim/less style).
+- Shift+Up / Shift+Down extend a line selection from where they started, VS Code style, painted
+  with the theme's `selection` colour. Any other cursor move, Esc or opening a file clears it.
+
+### Changed
+
+- Shift+Up / Shift+Down no longer jump three lines; Ctrl+D / Ctrl+U cover fast movement.
 
 ### Fixed
 

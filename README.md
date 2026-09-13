@@ -73,13 +73,13 @@ merl path/to/file.py:120
 | t | Show or hide the file tree |
 | Tab | Switch focus between tree and code |
 | Arrows | Move the cursor |
-| Shift+Up / Shift+Down | Move three lines |
+| Shift+Up / Shift+Down | Extend the line selection |
 | Shift+Left / Shift+Right | Move one word |
 | Ctrl+D / Ctrl+U | Move half a screen down / up |
 | PgUp / PgDn | Move one screen |
 | Home / End | Start / end of the line |
 | Ctrl+Home / Ctrl+End | Start / end of the file |
-| Esc | Close an overlay, or clear the find highlights |
+| Esc | Close an overlay, or clear selection and find |
 | ? | This help |
 | q / Ctrl+C | Quit |
 | Tree: Up / Down | Move |

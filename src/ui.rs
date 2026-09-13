@@ -206,6 +206,8 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     let find_style = Style::new().bg(theme.find_bg).fg(theme.find_fg);
     let hl = base.bg(theme.line_hl);
     let hl_gutter = gutter_style.bg(theme.line_hl);
+    let sel = base.bg(theme.selection);
+    let selection = app.selection();
 
     let mut lines: Vec<Line> = Vec::with_capacity(area.height as usize);
     let mut l = app.top_line;
@@ -224,10 +226,11 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
             _ => spans,
         };
         let cursor_line = l == app.line;
-        let (g, t) = if cursor_line {
-            (hl_gutter, hl)
-        } else {
-            (gutter_style, base)
+        let selected = selection.as_ref().is_some_and(|r| r.contains(&l));
+        let (g, t) = match (selected, cursor_line) {
+            (true, _) => (gutter_style, sel),
+            (false, true) => (hl_gutter, hl),
+            (false, false) => (gutter_style, base),
         };
         for (i, r) in wrap::wrap_line(clipped, app.view_w).into_iter().enumerate() {
             if i < skip {
@@ -244,7 +247,7 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
             let mut row = vec![Span::styled(num, g)];
             let pad = app.view_w.saturating_sub(wrap::width(&clipped[r.clone()]));
             row.extend(row_spans(clipped, spans, &r, t));
-            if cursor_line {
+            if cursor_line || selected {
                 // Pad so the cursor-line background reaches the right edge of the pane.
                 row.push(Span::styled(" ".repeat(pad), t));
             }
