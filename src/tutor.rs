@@ -210,6 +210,53 @@ mod tests {
         assert!(store.lines().count() >= 42, "step 10 goes to line 42");
     }
 
+    /// Keys in `KEYS` that the tutorial deliberately skips: VS Code habits and the keys inside
+    /// the tree and the pickers. A new row in `KEYS` fails this test until it is either taught by
+    /// a lesson or listed here on purpose.
+    const NOT_TAUGHT: &[&str] = &[
+        "Arrows",
+        "Shift+Up / Shift+Down",
+        "Alt+Shift+Left / Right",
+        "Ctrl+Shift+Left / Right",
+        "Ctrl+D / Ctrl+U",
+        "PgUp / PgDn",
+        "Home / End",
+        "Ctrl+Home / Ctrl+End",
+        "Tree: Up / Down",
+        "Tree: Enter",
+        "Tree: Left / Right",
+        "Picker: Up / Down, Ctrl+P / Ctrl+N",
+        "Picker: Enter",
+        "Picker: Esc",
+    ];
+
+    #[test]
+    fn every_key_is_taught_or_skipped_on_purpose() {
+        let text: String = LESSONS
+            .iter()
+            .map(|l| l.text)
+            .chain([DONE])
+            .collect::<Vec<_>>()
+            .join(" ");
+        // A key counts as taught when a lesson names it: in backticks, or as a word.
+        let taught: Vec<&str> = text
+            .split('`')
+            .skip(1)
+            .step_by(2)
+            .chain(text.split_whitespace())
+            .collect();
+        for (label, _) in crate::app::KEYS {
+            if NOT_TAUGHT.contains(label) {
+                continue;
+            }
+            assert!(
+                label.split(" / ").any(|k| taught.contains(&k)),
+                "`{label}` is in KEYS but no lesson mentions it: add a lesson to LESSONS, \
+                 or add it to NOT_TAUGHT if it is a VS Code habit"
+            );
+        }
+    }
+
     /// Drives the exact keys a learner types and checks that every lesson is reached.
     #[test]
     fn tutorial_is_completable() {
