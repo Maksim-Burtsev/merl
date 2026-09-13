@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-13
+
 ### Added
 
 - Ctrl+D / Ctrl+U move half a screen, cursor and viewport together (vim/less style).
@@ -57,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scroll position, the jump history and the find pattern.
 - Help overlay on `?`, listing every binding; Esc in normal mode clears the find highlights.
 
-[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.2.0
 [0.1.1]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.1.0
