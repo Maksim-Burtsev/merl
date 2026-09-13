@@ -41,6 +41,7 @@ pub const KEYS: &[(&str, &str)] = &[
         "Extend the selection to the start / end of the line",
     ),
     ("Ctrl+D / Ctrl+U", "Move half a screen down / up"),
+    ("{ / }", "Previous / next paragraph (blank line)"),
     ("PgUp / PgDn", "Move one screen"),
     ("Home / End", "Start / end of the line"),
     ("Ctrl+Home / Ctrl+End", "Start / end of the file"),
@@ -360,6 +361,24 @@ impl App {
         } else {
             self.forward_rows(top, moved)
         };
+    }
+
+    /// `{` / `}`: the previous / next blank line, like vim. A run of blank lines counts once, so
+    /// from a blank line the jump crosses the next paragraph instead of stopping next door.
+    /// In code, blank lines separate functions, so this is "next function" without a parser.
+    fn paragraph(&mut self, dir: isize) {
+        let blank = |l: &String| l.trim().is_empty();
+        let last = self.buf.lines.len() - 1;
+        let step = |l: usize| l.saturating_add_signed(dir).min(last);
+        let mut l = self.line;
+        while l != step(l) && blank(&self.buf.lines[l]) {
+            l = step(l);
+        }
+        while l != step(l) && !blank(&self.buf.lines[l]) {
+            l = step(l);
+        }
+        self.line = l;
+        self.apply_want_x();
     }
 
     /// Wrapped rows from `a` to `b` (either order).
@@ -1043,6 +1062,8 @@ impl App {
             }
             KeyCode::Char('d') if ctrl => self.half_page(1),
             KeyCode::Char('u') if ctrl => self.half_page(-1),
+            KeyCode::Char('{') => self.paragraph(-1),
+            KeyCode::Char('}') => self.paragraph(1),
             KeyCode::Char('d') | KeyCode::F(12) if !shift => self.goto_definition(),
             KeyCode::Char('u') | KeyCode::F(12) => self.usages(),
             KeyCode::Char('D') => self.symbols(),
@@ -1720,6 +1741,24 @@ mod tests {
         assert_eq!((a.line, a.top_line), (5, 5));
         // Ctrl+D must not be mistaken for go-to-definition.
         assert_eq!(a.message, "");
+    }
+
+    #[test]
+    fn paragraph_jumps_to_blank_lines() {
+        let mut a = app("a\nb\n\n  \nc\nd\n\ne\nf");
+        let go = |a: &mut App, c: char| press(a, KeyCode::Char(c), KeyModifiers::NONE);
+        go(&mut a, '}');
+        assert_eq!(a.line, 2);
+        go(&mut a, '}');
+        assert_eq!(a.line, 6, "a run of blank lines is one boundary");
+        go(&mut a, '}');
+        assert_eq!(a.line, 8, "no blank line left: the last line");
+        go(&mut a, '{');
+        assert_eq!(a.line, 6);
+        go(&mut a, '{');
+        assert_eq!(a.line, 3, "whitespace-only lines are blank");
+        go(&mut a, '{');
+        assert_eq!(a.line, 0, "no blank line left: the first line");
     }
 
     #[test]

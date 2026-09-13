@@ -89,6 +89,7 @@ merl path/to/file.py:120
 | Alt+Shift+Left / Right | Extend the selection by a word |
 | Ctrl+Shift+Left / Right | Extend the selection to the start / end of the line |
 | Ctrl+D / Ctrl+U | Move half a screen down / up |
+| { / } | Previous / next paragraph (blank line) |
 | PgUp / PgDn | Move one screen |
 | Home / End | Start / end of the line |
 | Ctrl+Home / Ctrl+End | Start / end of the file |
