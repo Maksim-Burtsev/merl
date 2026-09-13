@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `merl --tutor`: a vimtutor-style tutorial inside merl. Sixteen lessons over a sample Python
+  project bundled in the binary, each one advancing when the key did what the lesson asked; the
+  unpacked copy lives in a temporary directory and is removed on exit.
+
 ### Changed
 
 - Find in file (`/`) matches literal text, as in VS Code: `migrator(` hits `Migrator()` instead

@@ -6,6 +6,7 @@ mod picker;
 mod search;
 mod theme;
 mod tree;
+mod tutor;
 mod ui;
 mod wrap;
 
@@ -23,8 +24,9 @@ use ratatui::crossterm::event::{
 };
 use ratatui::crossterm::{execute, terminal};
 
-use crate::app::App;
+use crate::app::{App, Focus};
 use crate::buffer::Buffer;
+use crate::tutor::Tutor;
 
 /// Everything the event loop wakes up for.
 enum Msg {
@@ -44,6 +46,9 @@ struct Cli {
     /// Colour theme
     #[arg(long, value_name = "NAME")]
     theme: Option<String>,
+    /// Walk through every key on a bundled sample project (ignores the target)
+    #[arg(long)]
+    tutor: bool,
 }
 
 fn main() {
@@ -61,13 +66,23 @@ fn run() -> Result<()> {
     };
     let theme = theme::load(&name)?;
 
-    let (root, file, line) = resolve(cli.target.as_deref())?;
+    let (root, file, line) = if cli.tutor {
+        (tutor::extract()?, None, None)
+    } else {
+        resolve(cli.target.as_deref())?
+    };
     let buf = match &file {
         Some(p) => Buffer::load(p)?,
         None => Buffer::empty(),
     };
     let (tree, files) = tree::build(&root);
+    let dir = root.clone();
     let mut app = App::new(root, tree, files, buf, line);
+    if cli.tutor {
+        app.show_tree = false;
+        app.focus = Focus::Code;
+        app.tutor = Some(Tutor { step: 0, dir });
+    }
 
     let mut terminal = ratatui::try_init()?;
     let enhanced = terminal::supports_keyboard_enhancement().unwrap_or(false);
@@ -113,6 +128,10 @@ fn run() -> Result<()> {
         let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
     }
     ratatui::restore();
+    // Runs even when the loop returned an error: the sample project is ours to clean up.
+    if let Some(t) = &app.tutor {
+        let _ = std::fs::remove_dir_all(&t.dir);
+    }
     result
 }
 

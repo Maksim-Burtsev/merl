@@ -10,6 +10,7 @@ use crate::buffer::Buffer;
 use crate::picker::{Pick, PickItem, Picker};
 use crate::search::{self, Hit};
 use crate::tree::Tree;
+use crate::tutor::{self, Tutor};
 use crate::wrap;
 
 /// Longest hit text kept in a picker label; the rest is off the screen anyway.
@@ -138,6 +139,8 @@ pub struct App {
     pub view_w: usize,
     pub view_h: usize,
     center: bool,
+    /// `--tutor` only: the running tutorial. `None` in a normal session.
+    pub tutor: Option<Tutor>,
 }
 
 impl App {
@@ -179,6 +182,7 @@ impl App {
             view_w: 80,
             view_h: 24,
             center: false,
+            tutor: None,
         };
         if let Some(n) = line {
             app.goto_line(n);
@@ -936,6 +940,14 @@ impl App {
 
     /// Handles one key. Returns `true` when merl should quit.
     pub fn key(&mut self, key: KeyEvent) -> bool {
+        let quit = self.key_inner(key);
+        if !quit {
+            tutor::check(self);
+        }
+        quit
+    }
+
+    fn key_inner(&mut self, key: KeyEvent) -> bool {
         if key.kind != KeyEventKind::Press {
             return false;
         }
