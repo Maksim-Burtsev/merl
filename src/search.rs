@@ -93,7 +93,11 @@ impl Sink for Collect<'_> {
 pub fn def_patterns(ext: &str, word: &str) -> Vec<String> {
     let w = regex::escape(word);
     match ext {
-        "py" => vec![format!(r"^\s*(def|class)\s+{w}\b"), format!(r"^{w}\s*=")],
+        // The optional `: Type` group covers annotated assignments (`X: Final[int] = 1`).
+        "py" => vec![
+            format!(r"^\s*(def|class)\s+{w}\b"),
+            format!(r"^{w}\s*(:[^=]*)?="),
+        ],
         "go" => vec![
             format!(r"^func\s+(\([^)]*\)\s*)?{w}\("),
             format!(r"^type\s+{w}\b"),
@@ -141,7 +145,7 @@ pub fn word_at(line: &str, col: usize) -> Option<(Range<usize>, &str)> {
 mod tests {
     use super::*;
 
-    const PY: &str = "class Invoice:\n    def total(self):\n        return 0\n\n\ndef parse(t):\n    return Invoice()\n\n\nDEFAULT_LIMIT = 10\ntotal_foobar = 1\nprint(total_foobar, DEFAULT_LIMIT)\n";
+    const PY: &str = "class Invoice:\n    def total(self):\n        return 0\n\n\ndef parse(t):\n    return Invoice()\n\n\nDEFAULT_LIMIT = 10\ntotal_foobar = 1\nprint(total_foobar, DEFAULT_LIMIT)\nNAME_RE: Final[re.Pattern[str]] = re.compile(r\"x\")\n";
     const GO: &str = "package main\n\ntype Invoice struct{}\n\nfunc (i Invoice) Total() int { return 0 }\n\nfunc Parse(s string) Invoice { return Invoice{} }\n\nconst Limit = 10\n\nfunc main() {\n\tinv := Parse(\"x\")\n}\n";
 
     /// A throwaway project on disk; grep needs real files.
@@ -182,11 +186,16 @@ mod tests {
             [("a.py".into(), 6)]
         );
 
-        // `^W\s*=` catches module constants.
+        // `^W\s*(:[^=]*)?=` catches module constants, annotated or not.
         let pat = def_patterns("py", "DEFAULT_LIMIT").join("|");
         assert_eq!(
             lines(&grep(&dir, &py, &pat, false, false)),
             [("a.py".into(), 10)]
+        );
+        let pat = def_patterns("py", "NAME_RE").join("|");
+        assert_eq!(
+            lines(&grep(&dir, &py, &pat, false, false)),
+            [("a.py".into(), 13)]
         );
         std::fs::remove_dir_all(&dir).unwrap();
     }
