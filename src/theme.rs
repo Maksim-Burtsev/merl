@@ -9,7 +9,8 @@ use std::path::PathBuf;
 use anyhow::{Context, Result, bail};
 use ratatui::style::{Color, Modifier};
 use serde::Deserialize;
-use syntect::highlighting::{Color as SynColor, FontStyle, ThemeSet};
+use syntect::highlighting::{Color as SynColor, FontStyle, Highlighter, ThemeSet};
+use syntect::parsing::Scope;
 
 /// Every theme merl ships, in the order shown to the user.
 pub const NAMES: &[&str] = &["tokyonight-moon", "shokunin-light", "shokunin-dark"];
@@ -34,6 +35,10 @@ pub struct Theme {
     pub status_fg: Color,
     pub find_bg: Color,
     pub find_fg: Color,
+    /// The theme's signature colour, painted on the chrome the user navigates by: directory
+    /// names, the tree and picker frames, the file name in the status bar. Taken from the
+    /// colour the theme gives function names, so every theme has one without a new key.
+    pub accent: Color,
     /// Background of the Shift+Up/Down line selection.
     #[allow(dead_code)]
     pub selection: Color,
@@ -74,8 +79,16 @@ pub fn load(name: &str) -> Result<Theme> {
         find_bg: s.find_highlight.map_or_else(|| blend(fg, bg, 35), over_bg),
         find_fg: s.find_highlight_foreground.map_or_else(|| rgb(bg), over_bg),
         selection: s.selection.map_or_else(|| blend(fg, bg, 25), over_bg),
+        accent: rgb(function_color(&syntect).unwrap_or(fg)),
         syntect,
     })
+}
+
+/// The foreground the theme paints `entity.name.function` with, if it has a rule for it.
+fn function_color(theme: &syntect::highlighting::Theme) -> Option<SynColor> {
+    let scope = Scope::new("entity.name.function").ok()?;
+    let style = Highlighter::new(theme).style_for_stack(&[scope]);
+    (Some(style.foreground) != theme.settings.foreground).then_some(style.foreground)
 }
 
 /// Converts one syntect span style into a ratatui style. The span background is ignored: merl
@@ -191,6 +204,18 @@ mod tests {
         // 0x30/255 ≈ 19% black over #222436.
         assert!(r > 0x10 && g > 0x10 && b > 0x20, "{r:02x}{g:02x}{b:02x}");
         assert_ne!(t.gutter_fg, Color::Rgb(0x3b, 0x41, 0x5c));
+    }
+
+    #[test]
+    fn accent_is_the_function_colour_and_differs_from_the_text() {
+        // tokyonight-moon paints functions #82aaff, the blue LazyVim uses for directories.
+        let t = load("tokyonight-moon").unwrap();
+        assert_eq!(t.accent, Color::Rgb(0x82, 0xaa, 0xff));
+        for name in NAMES {
+            let t = load(name).unwrap();
+            assert_ne!(t.accent, t.fg, "{name}");
+            assert_ne!(t.accent, t.bg, "{name}");
+        }
     }
 
     #[test]

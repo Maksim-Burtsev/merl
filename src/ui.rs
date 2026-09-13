@@ -99,7 +99,12 @@ fn draw_help(frame: &mut Frame, theme: &Theme, area: Rect, base: Style) {
 }
 
 fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
-    let block = Block::bordered().title(app.root_name()).style(base);
+    let accent = base.fg(theme.accent);
+    let block = Block::bordered()
+        .title(app.root_name())
+        .border_style(accent)
+        .title_style(accent.add_modifier(Modifier::BOLD))
+        .style(base);
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -126,14 +131,16 @@ fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
                 (false, _) => "  ",
             };
             let text = format!("{}{marker}{}", "  ".repeat(n.depth), n.name());
+            // Directories carry the accent: they are what the eye scans the tree by.
+            let row = if n.is_dir { accent } else { base };
             let style = if i != app.tree.cursor {
-                base
+                row
             } else if focused {
-                base.bg(theme.line_hl)
+                row.bg(theme.line_hl)
             } else {
                 // The tree keeps its place while the code pane has the keys. Only the
                 // background fades: the file name must stay readable (issue #8).
-                base.bg(theme.line_hl_dim)
+                row.bg(theme.line_hl_dim)
             };
             let pad = width.saturating_sub(wrap::width(&text));
             Line::from(vec![
@@ -157,8 +164,11 @@ fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base
         .areas(area);
 
     let (matched, total) = picker.counts();
+    let accent = base.fg(theme.accent);
     let block = Block::bordered()
         .title(format!("{} ({matched}/{total})", picker.title))
+        .border_style(accent)
+        .title_style(accent.add_modifier(Modifier::BOLD))
         .style(base);
     let inner = block.inner(area);
     frame.render_widget(Clear, area);
@@ -376,7 +386,10 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
         return;
     }
     let mut spans = vec![
-        Span::styled(app.rel_path(), style.add_modifier(Modifier::BOLD)),
+        Span::styled(
+            app.rel_path(),
+            style.fg(theme.accent).add_modifier(Modifier::BOLD),
+        ),
         Span::styled(
             format!(
                 "  {}:{}  [{}]",
