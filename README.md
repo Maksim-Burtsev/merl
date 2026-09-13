@@ -1,11 +1,17 @@
-# merl
+<p align="center">
+  <img src="assets/icon.png" width="128" alt="merl">
+</p>
 
-Read-only code navigator for the terminal — VS Code's reading half, without the window.
+<h1 align="center">merl</h1>
 
-[![CI](https://img.shields.io/github/actions/workflow/status/Maksim-Burtsev/merl/ci.yml?branch=master&label=ci)](https://github.com/Maksim-Burtsev/merl/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Maksim-Burtsev/merl)](https://github.com/Maksim-Burtsev/merl/releases)
-[![License](https://img.shields.io/github/license/Maksim-Burtsev/merl)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-2024%20edition-orange)](https://doc.rust-lang.org/edition-guide/rust-2024/index.html)
+<p align="center">Read-only code navigator for the terminal — VS Code's reading half, without the window.</p>
+
+<p align="center">
+  <a href="https://github.com/Maksim-Burtsev/merl/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Maksim-Burtsev/merl/ci.yml?branch=master&label=ci" alt="CI"></a>
+  <a href="https://github.com/Maksim-Burtsev/merl/releases"><img src="https://img.shields.io/github/v/release/Maksim-Burtsev/merl" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Maksim-Burtsev/merl" alt="License"></a>
+  <a href="https://doc.rust-lang.org/edition-guide/rust-2024/index.html"><img src="https://img.shields.io/badge/rust-2024%20edition-orange" alt="Rust 2024 edition"></a>
+</p>
 
 merl opens a codebase read-only: no text input, no undo, no clipboard, nothing it can save over.
 It is keyboard-only and terminal-agnostic — no mouse, no Cmd — so the same bindings work
