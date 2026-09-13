@@ -65,7 +65,7 @@ merl --version
 ```
 
 `merl --tutor` walks through every navigation key on a small Python project bundled in the binary:
-sixteen lessons, each one done when the key actually did what it says, on a copy in a temporary
+eighteen lessons, each one done when the key actually did what it says, on a copy in a temporary
 directory that is removed when you quit.
 
 The `FILE:LINE` form is what compilers, linters and grep already print, so a result can be pasted
@@ -109,6 +109,8 @@ merl path/to/file.py:120
 | Picker: Up / Down, Ctrl+P / Ctrl+N | Move |
 | Picker: Enter | Accept |
 | Picker: Esc | Cancel |
+| Picker: PgUp / PgDn | Move one page |
+| Help: Up / Down | Scroll |
 
 `?` shows the same table inside merl.
 

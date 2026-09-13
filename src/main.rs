@@ -154,6 +154,7 @@ fn event_loop(
         }
     })
     .ok();
+    app.no_watch = watcher.is_none();
     let mut watched: Option<PathBuf> = None;
 
     let mut dirty = true;

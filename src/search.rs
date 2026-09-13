@@ -13,9 +13,10 @@ use grep_regex::RegexMatcherBuilder;
 use grep_searcher::{BinaryDetection, Searcher, SearcherBuilder, Sink, SinkMatch};
 use regex::Regex;
 
-/// ponytail: a hard stop instead of a streaming picker. 5 000 hits are already more than anyone
-/// scrolls through; raise it if a picker over the whole result set ever becomes the point.
-const MAX_HITS: usize = 5_000;
+/// ponytail: a hard stop instead of a streaming picker, taken in file order, so the picker
+/// title says "first N" when it hits. Raise it if a picker over the whole result set ever
+/// becomes the point.
+pub const MAX_HITS: usize = 5_000;
 
 /// Lines that look like a top-level declaration. The name is group 3; group 2 swallows a Go
 /// method receiver (`func (i Invoice) Total()`).

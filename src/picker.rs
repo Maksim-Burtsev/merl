@@ -228,6 +228,17 @@ mod tests {
         assert_eq!(p.counts().0, 3);
     }
 
+    /// `tick` is what the event loop polls; it must report the new results after a query
+    /// change, or the list on screen stays one keystroke behind.
+    #[test]
+    fn tick_reports_a_changed_result_set() {
+        let mut p = picker(&["src/wrap.rs", "src/app.rs"]);
+        p.key(KeyCode::Char('w'), false);
+        let changed = (0..100).any(|_| p.tick());
+        assert!(changed);
+        assert_eq!(p.counts().0, 1);
+    }
+
     #[test]
     fn movement_clamps_and_enter_accepts() {
         let mut p = picker(&["a.rs", "b.rs"]);

@@ -19,8 +19,6 @@ use crate::wrap;
 
 /// Width of the file tree pane.
 const TREE_W: u16 = 30;
-/// ponytail: a single line longer than this is truncated for rendering only.
-const MAX_RENDER_BYTES: usize = 20_000;
 
 pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     let area = frame.area();
@@ -55,7 +53,7 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
         draw_picker(frame, app, theme, area, base);
     }
     if app.mode == Mode::Help {
-        draw_help(frame, theme, area, base);
+        draw_help(frame, app, theme, area, base);
     }
 }
 
@@ -161,8 +159,9 @@ fn draw_welcome(frame: &mut Frame, theme: &Theme, area: Rect, base: Style) {
     frame.render_widget(Paragraph::new(lines).style(base), block);
 }
 
-/// `?`: the whole keymap, straight out of [`crate::app::KEYS`].
-fn draw_help(frame: &mut Frame, theme: &Theme, area: Rect, base: Style) {
+/// `?`: the whole keymap, straight out of [`crate::app::KEYS`]. Up / Down scroll it when the
+/// terminal is too short for the whole list.
+fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
     let keys = crate::app::KEYS;
     let key_w = keys.iter().map(|(k, _)| k.len()).max().unwrap_or(0);
     let w = keys
@@ -177,8 +176,15 @@ fn draw_help(frame: &mut Frame, theme: &Theme, area: Rect, base: Style) {
         .flex(Flex::Center)
         .areas(area);
 
-    let block = Block::bordered().title("merl — keys").style(base);
-    let inner = block.inner(area);
+    let inner = Block::bordered().inner(area);
+    let max_top = keys.len().saturating_sub(inner.height as usize);
+    app.help_top = app.help_top.min(max_top);
+    let title = if max_top > 0 {
+        "merl — keys (Up / Down to scroll)"
+    } else {
+        "merl — keys"
+    };
+    let block = Block::bordered().title(title).style(base);
     frame.render_widget(Clear, area);
     frame.render_widget(block, area);
     let lines: Vec<Line> = keys
@@ -193,7 +199,12 @@ fn draw_help(frame: &mut Frame, theme: &Theme, area: Rect, base: Style) {
             ])
         })
         .collect();
-    frame.render_widget(Paragraph::new(lines).style(base), inner);
+    frame.render_widget(
+        Paragraph::new(lines)
+            .style(base)
+            .scroll((app.help_top as u16, 0)),
+        inner,
+    );
 }
 
 fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
@@ -366,8 +377,7 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     let mut l = app.top_line;
     let mut skip = app.top_row;
     while lines.len() < area.height as usize && l < app.buf.lines.len() {
-        let text = &app.buf.lines[l];
-        let clipped = &text[..floor_boundary(text, MAX_RENDER_BYTES)];
+        let clipped = app.buf.shown(l);
         let spans = app.buf.hl.get(l).map_or(&[][..], Vec::as_slice);
         // Find matches paint over the syntax colours, so they are merged into the span list.
         let merged;
@@ -490,14 +500,15 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
         ),
         Span::styled(
             format!(
-                "  {}:{}  [{}]",
+                "  {}:{}  [{}]{}",
                 app.line + 1,
                 app.display_col(),
                 if app.focus == Focus::Tree {
                     "tree"
                 } else {
                     "code"
-                }
+                },
+                if app.no_watch { "  no auto-reload" } else { "" }
             ),
             style,
         ),
@@ -584,18 +595,6 @@ fn with_find(
 
 fn digits(n: usize) -> usize {
     n.max(1).ilog10() as usize + 1
-}
-
-/// Largest byte index <= `max` that is a char boundary of `s`.
-fn floor_boundary(s: &str, max: usize) -> usize {
-    if s.len() <= max {
-        return s.len();
-    }
-    let mut i = max;
-    while !s.is_char_boundary(i) {
-        i -= 1;
-    }
-    i
 }
 
 /// Number of wrapped rows from `from` to `to`, or `None` when `to` is above `from`.
@@ -836,6 +835,64 @@ mod tests {
         assert_eq!(
             super::with_find(&[(syntax, 0..4)], &[], find),
             [(syntax, 0..4)]
+        );
+    }
+
+    /// A line past the render clip: the cursor still sits on a drawn row of that line, not on
+    /// the row of the next line, so End on a minified file does not lose the cursor.
+    #[test]
+    fn cursor_stays_on_a_drawn_row_of_a_clipped_line() {
+        use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let text = format!("{}\nsecond\n", "a".repeat(30_000));
+        let mut app = App::new(
+            PathBuf::from("/demo"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::from_bytes(PathBuf::from("/demo/f.txt"), text.as_bytes()),
+            None,
+        );
+        app.show_tree = false;
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(82, 10)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        app.key(KeyEvent::new(KeyCode::End, KeyModifiers::NONE));
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        let y = terminal.get_cursor_position().unwrap().y;
+        let buf = terminal.backend().buffer();
+        assert_eq!(
+            buf[(2, y)].symbol(),
+            "a",
+            "cursor row is a row of the long line"
+        );
+        assert_eq!(
+            buf[(2, 0)].symbol(),
+            "a",
+            "the long line is what the view shows"
+        );
+    }
+
+    /// `?` on a terminal shorter than the key list scrolls instead of clipping.
+    #[test]
+    fn help_scrolls_to_the_last_binding() {
+        let mut app = App::new(
+            PathBuf::from("/demo"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::empty(),
+            None,
+        );
+        app.mode = crate::app::Mode::Help;
+        app.help_top = usize::MAX;
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(100, 12)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        let text = rows(&terminal).join("\n");
+        let (last_key, _) = crate::app::KEYS.last().unwrap();
+        assert!(text.contains(last_key), "{text}");
+        assert!(text.contains("to scroll"), "{text}");
+        assert!(
+            !text.contains("Open a file (fuzzy)"),
+            "first rows scrolled away\n{text}"
         );
     }
 

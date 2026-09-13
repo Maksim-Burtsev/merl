@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A welcome screen when merl starts without a file: the logo in the blues of the icon and the
   keys that work before a file is open. It shrinks to the keys alone, then to a one-line hint,
   when the pane is too small. (#9)
-- `merl --tutor`: a vimtutor-style tutorial inside merl. Sixteen lessons over a sample Python
+- `merl --tutor`: a vimtutor-style tutorial inside merl. Eighteen lessons over a sample Python
   project bundled in the binary, each one advancing when the key did what the lesson asked; the
   unpacked copy lives in a temporary directory and is removed on exit.
 
@@ -25,6 +25,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A reload that shortened the file no longer crashes merl when a position taken before it is
+  read back: Backspace to an empty `/` query, an arrow on a selection, `[` to an older stop.
+  `[` onto a stop the file no longer reaches lands on the clamped line and keeps the forward
+  history; a stop whose file is gone reports it and leaves the history alone.
+- A line longer than 20 000 bytes (minified JS, single-line JSON) is wrapped the same way by
+  the renderer and by the cursor arithmetic, so End no longer scrolls the line off the screen.
+- Alt+letter over a picker, a prompt or the help only closes it; the letter is dropped instead
+  of running a normal-mode binding (Alt+q used to quit).
+- `u`, `d` and `s` search the open file even when the startup walk skipped it (hidden or
+  ignored path opened by name).
+- A result list cut at 5 000 hits says `(first 5000)` in the picker title.
+- An invalid regex in `s>` is reported as `bad pattern`, not as `no results`.
+- `?` scrolls with Up / Down when the terminal is too short for the whole list.
+- The status bar says `no auto-reload` when no file watcher could be started, and `file gone`
+  when the open file disappears from disk.
 - Lines above a selection were painted with the selection background to the right edge.
 - The usages, definitions and `s>` search pickers draw each hit with the syntax colours of the
   line it quotes, the same ones the code view shows after jumping there. Only the rows on

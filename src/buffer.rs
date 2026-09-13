@@ -18,6 +18,9 @@ const SNIFF: usize = 8 * 1024;
 /// anything can be drawn. Past these limits merl shows plain text instead of stalling.
 const MAX_HL_LINES: usize = 30_000;
 const MAX_HL_BYTES: usize = 4 * 1024 * 1024;
+/// ponytail: a single line longer than this is shown truncated. Both the renderer and the
+/// cursor arithmetic wrap [`Buffer::shown`], so they agree on how many rows the line has.
+const MAX_SHOWN_BYTES: usize = 20_000;
 
 /// bat's syntax set, with the `\n`-terminated variants `highlight_line` expects.
 fn syntaxes() -> &'static SyntaxSet {
@@ -85,6 +88,12 @@ impl Buffer {
         }
     }
 
+    /// Line `l` as it is shown: the whole line, or its first [`MAX_SHOWN_BYTES`] bytes.
+    pub fn shown(&self, l: usize) -> &str {
+        let s = &self.lines[l];
+        &s[..floor_boundary(s, MAX_SHOWN_BYTES)]
+    }
+
     /// Extends the highlighted prefix so that `last` (a file line index) is covered.
     ///
     /// syntect's parser is sequential: line N needs the state left by line N-1, so the view can
@@ -121,6 +130,18 @@ impl Buffer {
             self.hl.push(spans);
         }
     }
+}
+
+/// Largest byte index <= `max` that is a char boundary of `s`.
+fn floor_boundary(s: &str, max: usize) -> usize {
+    if s.len() <= max {
+        return s.len();
+    }
+    let mut i = max;
+    while !s.is_char_boundary(i) {
+        i -= 1;
+    }
+    i
 }
 
 /// Syntax by file name, then by the first line (shebangs, `<?xml`), then plain text.
@@ -188,6 +209,14 @@ mod tests {
         }
         // A comment and a keyword must not end up the same colour.
         assert_ne!(b.hl[0][0].0.fg, b.hl[1][0].0.fg);
+    }
+
+    #[test]
+    fn shown_clips_a_huge_line_on_a_char_boundary() {
+        let text = "漢".repeat(MAX_SHOWN_BYTES / 3 + 1);
+        let b = load(text.as_bytes());
+        assert_eq!(b.shown(0).len(), MAX_SHOWN_BYTES / 3 * 3);
+        assert_eq!(load(b"short").shown(0), "short");
     }
 
     #[test]
