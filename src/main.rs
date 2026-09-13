@@ -39,7 +39,11 @@ enum Msg {
 }
 
 #[derive(Parser)]
-#[command(name = "merl", version, about = "Keyboard-only code navigator for the terminal")]
+#[command(
+    name = "merl",
+    version,
+    about = "Keyboard-only code navigator for the terminal"
+)]
 struct Cli {
     /// Directory, file, or file:LINE to open (default: the current directory)
     target: Option<String>,
