@@ -212,6 +212,20 @@ mod tests {
     }
 
     #[test]
+    fn rust_highlights_with_every_shipped_theme() {
+        let src = "/// doc\npub struct Order { n: u32 }\nfn main() { let s = \"x\"; }\n";
+        for name in crate::theme::NAMES {
+            let theme = crate::theme::load(name).unwrap();
+            let mut b = Buffer::from_bytes(PathBuf::from("a.rs"), src.as_bytes());
+            assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Rust"), "{name}");
+            b.highlight_to(2, &theme);
+            let colours: std::collections::HashSet<_> =
+                b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+            assert!(colours.len() > 1, "{name}: everything is one colour");
+        }
+    }
+
+    #[test]
     fn shown_clips_a_huge_line_on_a_char_boundary() {
         let text = "漢".repeat(MAX_SHOWN_BYTES / 3 + 1);
         let b = load(text.as_bytes());

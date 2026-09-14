@@ -20,7 +20,7 @@ pub const MAX_HITS: usize = 5_000;
 
 /// Lines that look like a top-level declaration. The name is group 3; group 2 swallows a Go
 /// method receiver (`func (i Invoice) Total()`).
-pub const SYMBOL_PATTERN: &str = r"^\s*(?:(?:export|default|async|pub(?:\([a-z]+\))?|static|unsafe|abstract)\s+)*(def|class|func|function|type|fn|struct|enum|impl|trait|interface)\s+(\([^)]*\)\s*)?([A-Za-z_]\w*)";
+pub const SYMBOL_PATTERN: &str = r#"^\s*(?:(?:export|default|async|pub(?:\([a-z]+\))?|static|unsafe|abstract|const|extern(?:\s+"[^"]*")?)\s+)*(def|class|func|function|type|fn|struct|enum|impl|trait|interface|mod|const|static|union|macro_rules!)(?:<[^>]*>)?\s+(\([^)]*\)\s*)?([A-Za-z_]\w*)"#;
 
 /// One matching line. `path` is relative to the project root, `line` is 1-based.
 #[derive(Debug, Clone)]
@@ -105,6 +105,15 @@ pub fn def_patterns(ext: &str, word: &str) -> Vec<String> {
             format!(r"^(var|const)\s+{w}\b"),
             format!(r"^\s*{w}\s*:="),
         ],
+        // `impl X` is a use of `X`, not its definition, so it is left out on purpose.
+        "rs" => {
+            let vis = r#"^\s*(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*"#;
+            vec![
+                format!(r"{vis}(?:fn|struct|enum|union|trait|type|const|static|mod)\s+{w}\b"),
+                format!(r"^\s*macro_rules!\s+{w}\b"),
+                format!(r"^\s*let\s+(?:mut\s+)?{w}\b"),
+            ]
+        }
         _ => Vec::new(),
     }
 }
@@ -147,6 +156,7 @@ mod tests {
     use super::*;
 
     const PY: &str = "class Invoice:\n    def total(self):\n        return 0\n\n\ndef parse(t):\n    return Invoice()\n\n\nDEFAULT_LIMIT = 10\ntotal_foobar = 1\nprint(total_foobar, DEFAULT_LIMIT)\nNAME_RE: Final[re.Pattern[str]] = re.compile(r\"x\")\n";
+    const RS: &str = "pub struct Order<T> {\n    items: Vec<T>,\n}\n\nimpl<T> Order<T> {\n    pub fn sum(&self) -> u32 { 0 }\n}\n\npub(crate) const MAX_ORDERS: usize = 10;\n\npub async fn parse_order(s: &str) -> Order<u8> {\n    let mut order = Order { items: vec![] };\n    order.items.push(1);\n    order\n}\n\nmacro_rules! order {\n    () => {};\n}\n\nmod orders;\n";
     const GO: &str = "package main\n\ntype Invoice struct{}\n\nfunc (i Invoice) Total() int { return 0 }\n\nfunc Parse(s string) Invoice { return Invoice{} }\n\nconst Limit = 10\n\nfunc main() {\n\tinv := Parse(\"x\")\n}\n";
 
     /// A throwaway project on disk; grep needs real files.
@@ -156,7 +166,15 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("a.py"), PY).unwrap();
         std::fs::write(dir.join("b.go"), GO).unwrap();
-        (dir, vec![PathBuf::from("a.py"), PathBuf::from("b.go")])
+        std::fs::write(dir.join("c.rs"), RS).unwrap();
+        (
+            dir,
+            vec![
+                PathBuf::from("a.py"),
+                PathBuf::from("b.go"),
+                PathBuf::from("c.rs"),
+            ],
+        )
     }
 
     fn grep(dir: &Path, files: &[PathBuf], pat: &str, word: bool, smart: bool) -> Vec<Hit> {
@@ -204,7 +222,7 @@ mod tests {
     #[test]
     fn go_def_patterns_cover_receivers_types_and_short_vars() {
         let (dir, files) = project("go");
-        let go = files[1..].to_vec();
+        let go = files[1..2].to_vec();
         for (word, line) in [("Invoice", 3), ("Total", 5), ("Parse", 7), ("Limit", 9)] {
             let pat = def_patterns("go", word).join("|");
             assert_eq!(
@@ -220,6 +238,33 @@ mod tests {
             [("b.go".into(), 12)]
         );
         assert!(def_patterns("txt", "inv").is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn rust_def_patterns_cover_items_behind_prefixes_and_lets() {
+        let (dir, files) = project("rs");
+        let rs = files[2..].to_vec();
+        for (word, line) in [
+            ("Order", 1), // the struct, not the `impl` block or the `Order { .. }` literal
+            ("sum", 6),
+            ("MAX_ORDERS", 9),
+            ("parse_order", 11),
+            ("orders", 21),
+        ] {
+            let pat = def_patterns("rs", word).join("|");
+            assert_eq!(
+                lines(&grep(&dir, &rs, &pat, false, false)),
+                [("c.rs".into(), line)],
+                "{word}"
+            );
+        }
+        // Both the `let mut` binding and the macro: the caller shows a picker.
+        let pat = def_patterns("rs", "order").join("|");
+        assert_eq!(
+            lines(&grep(&dir, &rs, &pat, false, false)),
+            [("c.rs".into(), 12), ("c.rs".into(), 17)]
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -306,6 +351,17 @@ mod tests {
         assert_eq!(symbol_name("func (i Invoice) Total() int {"), Some("Total"));
         assert_eq!(symbol_name("func main() {"), Some("main"));
         assert_eq!(symbol_name("type Invoice struct{}"), Some("Invoice"));
+        assert_eq!(symbol_name("impl<T> Order<T> {"), Some("Order"));
+        assert_eq!(
+            symbol_name("pub(crate) const MAX_ORDERS: usize = 10;"),
+            Some("MAX_ORDERS")
+        );
+        assert_eq!(symbol_name("static COUNT: u32 = 0;"), Some("COUNT"));
+        assert_eq!(symbol_name("const fn zero() -> u32 {"), Some("zero"));
+        assert_eq!(symbol_name("extern \"C\" fn c_call() {"), Some("c_call"));
+        assert_eq!(symbol_name("macro_rules! order {"), Some("order"));
+        assert_eq!(symbol_name("mod orders;"), Some("orders"));
+        assert_eq!(symbol_name("pub union Bits {"), Some("Bits"));
         assert_eq!(symbol_name("    return inv.render()"), None);
     }
 
