@@ -10,7 +10,7 @@ mod tutor;
 mod ui;
 mod wrap;
 
-use std::io::stdout;
+use std::io::{Write, stdout};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::mpsc::Sender;
@@ -21,7 +21,8 @@ use clap::Parser;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use ratatui::crossterm::cursor::SetCursorStyle;
 use ratatui::crossterm::event::{
-    Event, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+    DisableBracketedPaste, EnableBracketedPaste, Event, KeyboardEnhancementFlags,
+    PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
 use ratatui::crossterm::{execute, terminal};
 
@@ -32,6 +33,8 @@ use crate::tutor::Tutor;
 /// Everything the event loop wakes up for.
 enum Msg {
     Key(ratatui::crossterm::event::KeyEvent),
+    /// The terminal pasted text (bracketed paste).
+    Paste(String),
     Resize,
     /// nucleo found new matches.
     Redraw,
@@ -89,6 +92,7 @@ fn run() -> Result<()> {
     }
 
     let mut terminal = ratatui::try_init()?;
+    let _ = execute!(stdout(), EnableBracketedPaste);
     let enhanced = terminal::supports_keyboard_enhancement().unwrap_or(false);
     if enhanced {
         execute!(
@@ -113,6 +117,7 @@ fn run() -> Result<()> {
         while let Ok(ev) = ratatui::crossterm::event::read() {
             let msg = match ev {
                 Event::Key(k) => Msg::Key(k),
+                Event::Paste(text) => Msg::Paste(text),
                 Event::Resize(..) => Msg::Resize,
                 _ => continue,
             };
@@ -131,7 +136,11 @@ fn run() -> Result<()> {
     if enhanced {
         let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
     }
-    let _ = execute!(stdout(), SetCursorStyle::DefaultUserShape);
+    let _ = execute!(
+        stdout(),
+        SetCursorStyle::DefaultUserShape,
+        DisableBracketedPaste
+    );
     ratatui::restore();
     // Runs even when the loop returned an error: the sample project is ours to clean up.
     if let Some(t) = &app.tutor {
@@ -187,6 +196,16 @@ fn event_loop(
                 if app.key(k) {
                     return Ok(());
                 }
+                if let Some(text) = app.clipboard.take() {
+                    // OSC 52: the terminal puts it on the system clipboard, even over ssh.
+                    let mut out = stdout();
+                    let _ = write!(out, "\x1b]52;c;{}\x07", base64(text.as_bytes()));
+                    let _ = out.flush();
+                }
+                dirty = true;
+            }
+            Ok(Msg::Paste(text)) => {
+                app.paste(&text);
                 dirty = true;
             }
             Ok(Msg::Resize) | Ok(Msg::Redraw) => dirty = true,
@@ -265,6 +284,26 @@ fn split_line(target: &str) -> (&str, Option<usize>) {
     }
 }
 
+/// Standard base64 with padding; the stdlib has none and a dependency is more than this.
+fn base64(bytes: &[u8]) -> String {
+    const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let n = chunk
+            .iter()
+            .enumerate()
+            .fold(0u32, |n, (i, b)| n | (*b as u32) << (16 - 8 * i));
+        for i in 0..4 {
+            if i <= chunk.len() {
+                out.push(T[(n >> (18 - 6 * i)) as usize & 63] as char);
+            } else {
+                out.push('=');
+            }
+        }
+    }
+    out
+}
+
 fn git_toplevel(dir: &Path) -> Option<PathBuf> {
     dir.ancestors()
         .find(|d| d.join(".git").exists())
@@ -273,6 +312,15 @@ fn git_toplevel(dir: &Path) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn base64_matches_the_standard_alphabet_and_padding() {
+        assert_eq!(super::base64(b""), "");
+        assert_eq!(super::base64(b"f"), "Zg==");
+        assert_eq!(super::base64(b"fo"), "Zm8=");
+        assert_eq!(super::base64(b"foo"), "Zm9v");
+        assert_eq!(super::base64("hi\nтам".as_bytes()), "aGkK0YLQsNC8");
+    }
+
     #[test]
     fn splits_only_on_existing_paths() {
         assert_eq!(

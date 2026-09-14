@@ -40,6 +40,10 @@ pub const KEYS: &[(&str, &str)] = &[
     ),
     ("Ctrl+R", "Reload from disk, dropping unsaved edits"),
     ("Ctrl+Z / Ctrl+Y", "Undo / redo"),
+    (
+        "Edit: Ctrl+C / Ctrl+X",
+        "Copy / cut the selection, or the line, to the clipboard",
+    ),
     ("Arrows", "Move the cursor"),
     ("Shift+Up / Shift+Down", "Extend the selection by a line"),
     ("Shift+Left / Shift+Right", "Move one word"),
@@ -174,6 +178,8 @@ pub struct App {
     redo: Vec<Edit>,
     /// Set when the next edit must start its own undo step even if it continues the last one.
     undo_break: bool,
+    /// Text for the system clipboard, taken by `main` and sent to the terminal (OSC 52).
+    pub clipboard: Option<String>,
 }
 
 /// One undoable change: `old` lines from `line` on became `new`.
@@ -236,6 +242,7 @@ impl App {
             undo: Vec::new(),
             redo: Vec::new(),
             undo_break: false,
+            clipboard: None,
         };
         if let Some(n) = line {
             app.goto_line(n);
@@ -382,6 +389,15 @@ impl App {
             self.buf.lines[l].len()
         };
         Some(from..to)
+    }
+
+    /// The selected text, lines joined with `\n`.
+    fn selected_text(&self) -> Option<String> {
+        let (start, end) = self.selection()?;
+        let lines: Vec<&str> = (start.0..=end.0)
+            .map(|l| &self.buf.lines[l][self.selected_bytes(l).unwrap()])
+            .collect();
+        Some(lines.join("\n"))
     }
 
     /// Shift+move, VS Code style: the anchor is set where the first extending move started and
@@ -1097,6 +1113,27 @@ impl App {
                 self.mode = Mode::Normal;
                 self.flush();
             }
+            // Without a selection the whole line goes, as in VS Code.
+            KeyCode::Char('c' | 'x') if ctrl => {
+                let (from, to, text) = match self.selection() {
+                    Some((from, to)) => (from, to, self.selected_text().unwrap()),
+                    None if self.line + 1 < self.buf.lines.len() => (
+                        (self.line, 0),
+                        (self.line + 1, 0),
+                        format!("{}\n", self.line_str()),
+                    ),
+                    None => (
+                        (self.line, 0),
+                        (self.line, self.line_str().len()),
+                        self.line_str().to_string(),
+                    ),
+                };
+                self.clipboard = Some(text);
+                self.message = "copied".into();
+                if code == KeyCode::Char('x') {
+                    self.replace(from, to, "");
+                }
+            }
             KeyCode::Char(c) if !ctrl => self.insert(&c.to_string()),
             KeyCode::Enter => {
                 let head = &self.line_str()[..self.col];
@@ -1104,6 +1141,7 @@ impl App {
                 self.insert(&format!("\n{indent}"));
             }
             KeyCode::Tab => self.insert(if self.buf.tabs { "\t" } else { buffer::TAB }),
+            KeyCode::Backspace | KeyCode::Delete if self.anchor.is_some() => self.insert(""),
             KeyCode::Backspace => {
                 let from = if self.col > 0 {
                     (self.line, prev_char(self.line_str(), self.col))
@@ -1129,9 +1167,19 @@ impl App {
         true
     }
 
-    /// Inserts `text` at the cursor; a `\n` in it splits the line.
+    /// Inserts `text` at the cursor, or in place of the selection; a `\n` in it splits the line.
     fn insert(&mut self, text: &str) {
-        self.replace((self.line, self.col), (self.line, self.col), text);
+        let (from, to) = self
+            .selection()
+            .unwrap_or(((self.line, self.col), (self.line, self.col)));
+        self.replace(from, to, text);
+    }
+
+    /// Text the terminal pasted (Cmd+V): inserted while editing, ignored otherwise.
+    pub fn paste(&mut self, text: &str) {
+        if self.mode == Mode::Edit {
+            self.insert(&text.replace("\r\n", "\n").replace('\r', "\n"));
+        }
     }
 
     /// The one way the text changes: what lies between `from` and `to` (ordered (line, col))
@@ -1205,6 +1253,7 @@ impl App {
         self.buf.edited(l);
         self.dirty = true;
         self.last_edit = Some(Instant::now());
+        self.anchor = None;
         self.sync_want_x();
     }
 
@@ -1279,7 +1328,7 @@ impl App {
         let shift = key.modifiers.contains(KeyModifiers::SHIFT);
         let alt = key.modifiers.contains(KeyModifiers::ALT);
 
-        if ctrl && key.code == KeyCode::Char('c') {
+        if ctrl && key.code == KeyCode::Char('c') && self.mode != Mode::Edit {
             return true;
         }
         if self.picker.is_some() {
@@ -2074,6 +2123,51 @@ mod tests {
     }
 
     #[test]
+    fn typing_replaces_the_selection_and_the_clipboard_keys_copy_or_cut() {
+        let mut a = app("abc\ndef\nghi\n");
+        press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        assert_eq!(a.selection(), Some(((0, 1), (1, 1))));
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+        assert_eq!(a.clipboard.take().as_deref(), Some("bc\nd"));
+        assert_eq!(a.buf.lines.len(), 3, "copy leaves the text alone");
+        assert!(a.selection().is_some(), "and the selection");
+        typed(&mut a, "X");
+        assert_eq!(a.buf.lines, vec!["aXef", "ghi"]);
+        assert_eq!((a.line, a.col, a.selection()), (0, 2, None));
+        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        assert_eq!(a.buf.lines, vec!["abc", "def", "ghi"], "one step");
+        assert_eq!((a.line, a.col), (1, 1), "undo puts the cursor where it was");
+        // Delete on a selection removes it; Ctrl+X without one cuts the line.
+        press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+        press(
+            &mut a,
+            KeyCode::Right,
+            KeyModifiers::SHIFT | KeyModifiers::CONTROL,
+        );
+        press(&mut a, KeyCode::Delete, KeyModifiers::NONE);
+        assert_eq!(a.buf.lines[0], "a");
+        press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
+        assert_eq!(a.clipboard.take().as_deref(), Some("a\n"));
+        assert_eq!(a.buf.lines, vec!["def", "ghi"]);
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
+        assert_eq!(a.clipboard.take().as_deref(), Some("ghi"));
+        assert_eq!(a.buf.lines, vec!["def", ""]);
+        // Pasted text is inserted only while editing, with CRLF normalised.
+        a.paste("p\r\nq");
+        assert_eq!(a.buf.lines, vec!["def", "p", "q"]);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        a.paste("nope");
+        assert_eq!(a.buf.lines, vec!["def", "p", "q"]);
+        assert!(
+            press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL),
+            "Ctrl+C quits again"
+        );
+    }
+
+    #[test]
     fn readonly_and_clipped_lines_refuse_to_edit() {
         let mut a = App::new(
             PathBuf::from("/tmp"),
@@ -2128,10 +2222,15 @@ mod tests {
         typed(&mut a, "y");
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         assert_eq!(std::fs::read(&path).unwrap(), b"xya\r\nb\r\n");
-        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-        typed(&mut a, "z");
+        // Undo from navigation dirties the buffer again; quitting flushes it.
+        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        assert!(a.dirty);
         assert!(press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL));
-        assert_eq!(std::fs::read(&path).unwrap(), b"xyza\r\nb\r\n");
+        assert_eq!(
+            std::fs::read(&path).unwrap(),
+            b"a\r\nb\r\n",
+            "x and y were one step"
+        );
         // merl's own save is not a change to react to.
         a.reload(false);
         assert_eq!(a.message, "");

@@ -271,6 +271,7 @@ mod tests {
         "Picker: Esc",
         "Picker: PgUp / PgDn",
         "Help: Up / Down",
+        "Edit: Ctrl+C / Ctrl+X",
     ];
 
     #[test]
