@@ -226,6 +226,53 @@ mod tests {
         }
     }
 
+    /// Names, keys and sections the infrastructure grammars emit. A theme with no rule for one
+    /// paints it in the default foreground, which reads as no highlighting at all.
+    #[test]
+    fn infra_scopes_are_coloured_in_every_theme() {
+        // Whole stacks as the grammars emit them: a parent such as `meta.tag` often carries the
+        // colour, so a lone scope would not match what is drawn.
+        const STACKS: &[&str] = &[
+            "source.toml meta.tag.key.toml entity.name.tag.toml",
+            "source.toml meta.tag.table.toml entity.name.table.toml",
+            "source.ini meta.tag.section.ini entity.section.ini",
+            "source.nginx meta.context.server.nginx meta.context.location.nginx \
+             entity.name.context.location.nginx",
+            "source.nginx meta.context.server.nginx punctuation.definition.variable \
+             variable.other.nginx",
+            "source.terraform meta.block.terraform variable.declaration.terraform \
+             variable.other.readwrite.terraform",
+            "source.terraform variable.other.member.terraform",
+            "source.terraform constant.language.terraform",
+            "source.env variable.other.env",
+            "source.env constant.language.env",
+            "source.makefile variable.other.makefile",
+            "source.makefile meta.function.body.makefile source.shell variable.parameter.makefile",
+            "source.makefile meta.function.body.makefile source.shell \
+             meta.function-call.arguments.shell variable.language.automatic.makefile",
+            "source.dockerfile.bash variable.stage-name",
+            "source.dockerfile.bash entity.name.enum.tag-digest",
+            "source.dockerfile.bash source.shell variable.parameter.option.shell",
+            "source.yaml meta.property.yaml entity.name.other.anchor.yaml",
+            "source.yaml variable.other.alias.yaml",
+            "source.yaml constant.language.merge.yaml",
+            "text.git.ignore string.unquoted.git.ignore entity.name.pattern.git.ignore",
+        ];
+        for name in NAMES {
+            let t = load(name).unwrap();
+            let hl = Highlighter::new(&t.syntect);
+            for stack in STACKS {
+                let scopes: syntect::parsing::ScopeStack = stack.parse().unwrap();
+                let style = hl.style_for_stack(scopes.as_slice());
+                assert_ne!(
+                    Some(style.foreground),
+                    t.syntect.settings.foreground,
+                    "{name} leaves `{stack}` in the default colour"
+                );
+            }
+        }
+    }
+
     #[test]
     fn unfocused_tree_row_sits_between_the_background_and_the_cursor_row() {
         for name in NAMES {

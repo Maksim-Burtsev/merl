@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Highlighting for infrastructure files bat's set does not recognise by name: `.dockerignore` and
+  `CODEOWNERS` (Git Ignore), `Containerfile` and `Dockerfile.*`, `*.jsonc`, systemd units and
+  `.npmrc` (INI), `Procfile` and `yarn.lock` (YAML), `WORKSPACE` and `Tiltfile` (Starlark as
+  Python). (#16)
+
+### Changed
+
+- The file tree, `o` and project search include dotfiles (`.github/`, `.env`, `.dockerignore`);
+  `.gitignore` still applies and `.git` is skipped. (#16)
+- Dockerfiles use bat's `Dockerfile (with bash)` grammar: `RUN` lines are highlighted as shell and
+  instruction arguments are no longer drawn in the default colour. (#16)
+- All three themes colour the names infrastructure grammars emit: TOML keys and tables, INI
+  sections, Terraform attributes, `.env` keys, Makefile and nginx variables, Dockerfile stages
+  and image tags, YAML anchors and aliases. (#16)
+
 ## [0.3.0] - 2026-09-13
 
 ### Added

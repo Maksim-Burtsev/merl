@@ -1369,6 +1369,72 @@
 				<string>#82aaff</string>
 			</dict>
 		</dict>
+		<dict>
+			<key>name</key>
+			<string>Config keys</string>
+			<key>scope</key>
+			<string>variable.other.readwrite.terraform, variable.other.member.terraform, variable.other.env</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#4fd6be</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Config sections</string>
+			<key>scope</key>
+			<string>entity.name.table.toml, entity.name.context.location.nginx</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#82aaff</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Build and server variables</string>
+			<key>scope</key>
+			<string>variable.other.makefile, variable.other.nginx</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#ffc777</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Stages, anchors and aliases</string>
+			<key>scope</key>
+			<string>variable.stage-name, entity.name.other.anchor.yaml, variable.other.alias.yaml</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#86e1fc</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Image tags</string>
+			<key>scope</key>
+			<string>entity.name.enum.tag-digest</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#ff966c</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Ignore patterns</string>
+			<key>scope</key>
+			<string>entity.name.pattern.git.ignore</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#c3e88d</string>
+			</dict>
+		</dict>
 	</array>
 	<key>uuid</key>
 	<string>06f855e3-9fb7-4fb1-b790-aef06065f34e</string>

@@ -496,6 +496,84 @@
       }
     },
     {
+      "name": "Config keys — quiet structure",
+      "scope": [
+        "entity.name.tag.toml",
+        "variable.other.readwrite.terraform",
+        "variable.other.member.terraform",
+        "variable.other.env"
+      ],
+      "settings": {
+        "foreground": "#4E5962"
+      }
+    },
+    {
+      "name": "Config sections — sumi",
+      "scope": [
+        "entity.name.table.toml",
+        "entity.section.ini",
+        "entity.name.context.location.nginx"
+      ],
+      "settings": {
+        "foreground": "#3A3E44",
+        "fontStyle": "bold"
+      }
+    },
+    {
+      "name": "Build and server variables — dry wood",
+      "scope": [
+        "variable.other.makefile",
+        "variable.parameter.makefile",
+        "variable.language.automatic.makefile",
+        "variable.other.nginx"
+      ],
+      "settings": {
+        "foreground": "#8A4A1C"
+      }
+    },
+    {
+      "name": "Stages, anchors and aliases — asagi",
+      "scope": [
+        "variable.stage-name",
+        "entity.name.other.anchor.yaml",
+        "variable.other.alias.yaml"
+      ],
+      "settings": {
+        "foreground": "#006FAE"
+      }
+    },
+    {
+      "name": "Config literals — kintsugi amber",
+      "scope": [
+        "constant.language.merge.yaml",
+        "constant.language.env",
+        "constant.language.terraform",
+        "constant.language.makefile"
+      ],
+      "settings": {
+        "foreground": "#9A6000",
+        "fontStyle": "bold"
+      }
+    },
+    {
+      "name": "Image tags — tea green",
+      "scope": [
+        "entity.name.enum.tag-digest"
+      ],
+      "settings": {
+        "foreground": "#157A5B"
+      }
+    },
+    {
+      "name": "Command-line options — neutral ink",
+      "scope": [
+        "variable.parameter.option"
+      ],
+      "settings": {
+        "foreground": "#5C6268"
+      }
+    },
+    {
       "name": "Invalid — diagnostic red only",
       "scope": [
         "invalid",

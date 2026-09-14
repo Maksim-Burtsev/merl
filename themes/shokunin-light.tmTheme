@@ -212,6 +212,87 @@
 		</dict>
 		<dict>
 			<key>name</key>
+			<string>Config keys — quiet structure</string>
+			<key>scope</key>
+			<string>entity.name.tag.toml, variable.other.readwrite.terraform, variable.other.member.terraform, variable.other.env</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#4E5962</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Config sections — sumi</string>
+			<key>scope</key>
+			<string>entity.name.table.toml, entity.section.ini, entity.name.context.location.nginx</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string>bold</string>
+				<key>foreground</key>
+				<string>#3A3E44</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Build and server variables — dry wood</string>
+			<key>scope</key>
+			<string>variable.other.makefile, variable.parameter.makefile, variable.language.automatic.makefile, variable.other.nginx</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#8A4A1C</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Stages, anchors and aliases — asagi</string>
+			<key>scope</key>
+			<string>variable.stage-name, entity.name.other.anchor.yaml, variable.other.alias.yaml</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#006FAE</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Config literals — kintsugi amber</string>
+			<key>scope</key>
+			<string>constant.language.merge.yaml, constant.language.env, constant.language.terraform, constant.language.makefile</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string>bold</string>
+				<key>foreground</key>
+				<string>#9A6000</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Image tags — tea green</string>
+			<key>scope</key>
+			<string>entity.name.enum.tag-digest</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#157A5B</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Command-line options — neutral ink</string>
+			<key>scope</key>
+			<string>variable.parameter.option</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#5C6268</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
 			<string>Invalid — diagnostic red only</string>
 			<key>scope</key>
 			<string>invalid, invalid.illegal</string>

@@ -35,9 +35,12 @@ pub struct Tree {
 /// ponytail: startup snapshot. New or deleted files need a restart; a watcher over the whole
 /// tree would be a second source of truth for a read-only viewer.
 pub fn build(root: &Path) -> (Tree, Vec<PathBuf>) {
+    // Dotfiles are walked: `.github/`, `.env` and `.dockerignore` are part of a project.
+    // `.gitignore` still prunes caches; `.git` itself is never content.
     let mut entries: Vec<(PathBuf, bool)> = WalkBuilder::new(root)
-        .hidden(true)
+        .hidden(false)
         .require_git(false)
+        .filter_entry(|e| e.file_name() != ".git")
         .build()
         .filter_map(Result::ok)
         .filter_map(|e| {
@@ -174,19 +177,12 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("merl-tree-{}-{tag}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("src/deep")).unwrap();
-        std::fs::create_dir_all(dir.join(".hidden")).unwrap();
-        for f in [
-            "Zed.toml",
-            "aaa.rs",
-            "src/app.rs",
-            "src/deep/x.rs",
-            ".hidden/h",
-        ] {
+        for f in ["Zed.toml", "aaa.rs", "src/app.rs", "src/deep/x.rs"] {
             std::fs::write(dir.join(f), b"x").unwrap();
         }
         let (tree, files) = build(&dir);
         std::fs::remove_dir_all(&dir).unwrap();
-        // Directories first, then files, both case-insensitive; hidden entries are skipped.
+        // Directories first, then files, both case-insensitive.
         assert_eq!(
             tree.nodes.iter().map(Node::name).collect::<Vec<_>>(),
             ["src", "deep", "x.rs", "app.rs", "aaa.rs", "Zed.toml"]
@@ -234,5 +230,33 @@ mod tests {
             t.down();
         }
         assert_eq!(t.selected().unwrap().name(), "Zed.toml");
+    }
+
+    #[test]
+    fn dotfiles_are_walked_but_git_and_ignored_files_are_not() {
+        let dir = std::env::temp_dir().join(format!("merl-tree-{}-dot", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        for d in [".git", ".github/workflows", ".cache"] {
+            std::fs::create_dir_all(dir.join(d)).unwrap();
+        }
+        for (f, text) in [
+            (".git/HEAD", "ref: refs/heads/master"),
+            (".github/workflows/ci.yml", "on: push"),
+            (".env", "PORT=1"),
+            (".gitignore", ".cache/"),
+            (".cache/blob", "x"),
+        ] {
+            std::fs::write(dir.join(f), text).unwrap();
+        }
+        let (_, files) = build(&dir);
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(
+            files,
+            [
+                PathBuf::from(".github/workflows/ci.yml"),
+                PathBuf::from(".env"),
+                PathBuf::from(".gitignore"),
+            ]
+        );
     }
 }

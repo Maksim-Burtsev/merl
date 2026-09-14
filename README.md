@@ -167,7 +167,8 @@ ignores case, one uppercase letter makes it case-sensitive — and `/` and `s` t
 expressions.
 
 The file list comes from one `.gitignore`-respecting walk at startup and is not refreshed, so
-files created while merl is open show up after a restart. The open file itself is watched and
+files created while merl is open show up after a restart. Dotfiles are part of it — `.github/`,
+`.env`, `.dockerignore` — and only `.git` itself is skipped. The open file itself is watched and
 reloads on every change on disk, keeping the cursor, the scroll position and the jump history.
 
 ## Themes
@@ -184,6 +185,11 @@ with them (syntax definitions come from [bat](https://github.com/sharkdp/bat)'s 
 
 Pick one with `merl --theme NAME`, or set `theme` in the config file below. An unknown name exits
 with code 1 and lists the valid ones.
+
+The infrastructure half of a repository is highlighted too: Dockerfiles and `Containerfile` (with
+`RUN` lines as shell), compose, Kubernetes and CI YAML, Makefiles, Terraform, nginx, `.env`, TOML,
+INI and systemd units, `.dockerignore` and `CODEOWNERS`. Helm templates are read as plain YAML, so
+their `{{ }}` blocks are not highlighted as a template language.
 
 `tokyonight-moon` is converted from [folke/tokyonight.nvim](https://github.com/folke/tokyonight.nvim)
 (Apache-2.0, see [themes/LICENSE-tokyonight](themes/LICENSE-tokyonight)). The two Shokunin themes
