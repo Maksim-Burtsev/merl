@@ -12,7 +12,7 @@ exclude = ["/assets"]
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
-dirs = "6"
+dirs = "7"
 grep-matcher = "0.1"
 grep-regex = "0.1"
 grep-searcher = "0.1"
