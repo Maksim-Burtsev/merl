@@ -496,6 +496,84 @@
       }
     },
     {
+      "name": "Config keys — quiet structure",
+      "scope": [
+        "entity.name.tag.toml",
+        "variable.other.readwrite.terraform",
+        "variable.other.member.terraform",
+        "variable.other.env"
+      ],
+      "settings": {
+        "foreground": "#AFB8B8"
+      }
+    },
+    {
+      "name": "Config sections — warm ink highlight",
+      "scope": [
+        "entity.name.table.toml",
+        "entity.section.ini",
+        "entity.name.context.location.nginx"
+      ],
+      "settings": {
+        "foreground": "#E0CEB4",
+        "fontStyle": "bold"
+      }
+    },
+    {
+      "name": "Build and server variables — dry wood",
+      "scope": [
+        "variable.other.makefile",
+        "variable.parameter.makefile",
+        "variable.language.automatic.makefile",
+        "variable.other.nginx"
+      ],
+      "settings": {
+        "foreground": "#D09161"
+      }
+    },
+    {
+      "name": "Stages, anchors and aliases — asagi",
+      "scope": [
+        "variable.stage-name",
+        "entity.name.other.anchor.yaml",
+        "variable.other.alias.yaml"
+      ],
+      "settings": {
+        "foreground": "#6FB7D7"
+      }
+    },
+    {
+      "name": "Config literals — kintsugi amber",
+      "scope": [
+        "constant.language.merge.yaml",
+        "constant.language.env",
+        "constant.language.terraform",
+        "constant.language.makefile"
+      ],
+      "settings": {
+        "foreground": "#D3A34D",
+        "fontStyle": "bold"
+      }
+    },
+    {
+      "name": "Image tags — tea green",
+      "scope": [
+        "entity.name.enum.tag-digest"
+      ],
+      "settings": {
+        "foreground": "#83BE8D"
+      }
+    },
+    {
+      "name": "Command-line options — neutral ink",
+      "scope": [
+        "variable.parameter.option"
+      ],
+      "settings": {
+        "foreground": "#A39C91"
+      }
+    },
+    {
       "name": "Invalid — diagnostic red only",
       "scope": [
         "invalid",

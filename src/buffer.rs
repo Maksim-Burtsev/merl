@@ -216,11 +216,37 @@ fn floor_boundary(s: &str, max: usize) -> usize {
 /// Syntax by file name, then by the first line (shebangs, `<?xml`), then plain text.
 fn syntax_for(path: &Path, first_line: &str) -> &'static SyntaxReference {
     let set = syntaxes();
-    set.find_syntax_for_file(path)
-        .ok()
-        .flatten()
+    let found = known_name(path)
+        .and_then(|name| set.find_syntax_by_name(name))
+        .or_else(|| set.find_syntax_for_file(path).ok().flatten())
         .or_else(|| set.find_syntax_by_first_line(first_line))
-        .unwrap_or_else(|| set.find_syntax_plain_text())
+        .unwrap_or_else(|| set.find_syntax_plain_text());
+    // bat's plain Dockerfile grammar leaves every instruction's arguments unscoped, so most of
+    // the file would be drawn in the default colour; the bash variant scopes them.
+    if found.name == "Dockerfile" {
+        return set
+            .find_syntax_by_name("Dockerfile (with bash)")
+            .unwrap_or(found);
+    }
+    found
+}
+
+/// Infrastructure files bat's set has no name pattern for, mapped to the grammar that fits.
+fn known_name(path: &Path) -> Option<&'static str> {
+    let name = path.file_name()?.to_str()?;
+    let ext = name.rsplit_once('.').map_or("", |(_, ext)| ext);
+    Some(match (name, ext) {
+        // `.dockerignore`, and BuildKit's per-Dockerfile `app.Dockerfile.dockerignore`.
+        (_, "dockerignore") | ("CODEOWNERS", _) => "Git Ignore",
+        ("Containerfile", _) => "Dockerfile",
+        _ if name.starts_with("Dockerfile.") || name.starts_with("Containerfile.") => "Dockerfile",
+        (_, "jsonc") => "JSON",
+        (".npmrc", _) | (_, "service" | "timer" | "socket") => "INI",
+        ("Procfile" | "yarn.lock", _) => "YAML",
+        // Starlark.
+        ("WORKSPACE" | "Tiltfile", _) => "Python",
+        _ => return None,
+    })
 }
 
 #[cfg(test)]
@@ -359,5 +385,48 @@ mod tests {
     fn first_line_picks_the_syntax_when_the_name_cannot() {
         let b = Buffer::from_bytes(PathBuf::from("script"), b"#!/usr/bin/env python3\nx = 1\n");
         assert_eq!(b.syntax.unwrap().name, "Python");
+    }
+
+    #[test]
+    fn infra_files_get_their_grammar() {
+        for (name, syntax) in [
+            (".dockerignore", "Git Ignore"),
+            ("app.Dockerfile.dockerignore", "Git Ignore"),
+            ("CODEOWNERS", "Git Ignore"),
+            ("Dockerfile", "Dockerfile (with bash)"),
+            ("Dockerfile.prod", "Dockerfile (with bash)"),
+            ("prod.Dockerfile", "Dockerfile (with bash)"),
+            ("api.dockerfile", "Dockerfile (with bash)"),
+            ("Containerfile", "Dockerfile (with bash)"),
+            ("Containerfile.dev", "Dockerfile (with bash)"),
+            ("tsconfig.jsonc", "JSON"),
+            (".npmrc", "INI"),
+            ("merl.service", "INI"),
+            ("merl.timer", "INI"),
+            ("merl.socket", "INI"),
+            ("Procfile", "YAML"),
+            ("yarn.lock", "YAML"),
+            ("WORKSPACE", "Python"),
+            ("Tiltfile", "Python"),
+            // Already in bat's set; listed so a two-face upgrade cannot drop them silently.
+            ("docker-compose.yml", "YAML"),
+            ("Makefile", "Makefile"),
+            ("common.mk", "Makefile"),
+            ("main.tf", "Terraform"),
+            ("prod.tfvars", "Terraform"),
+            ("nginx.conf", "nginx"),
+            (".env", "DotENV"),
+            (".env.local", "DotENV"),
+            (".editorconfig", "INI"),
+            ("go.sum", "Gosum"),
+            ("poetry.lock", "TOML"),
+            ("Jenkinsfile", "Groovy"),
+        ] {
+            let b = Buffer::from_bytes(PathBuf::from(name), b"x\n");
+            assert_eq!(b.syntax.unwrap().name, syntax, "{name}");
+        }
+        // The first line still finds a Dockerfile, and it gets the bash variant too.
+        let b = Buffer::from_bytes(PathBuf::from("image"), b"FROM rust:1.80\n");
+        assert_eq!(b.syntax.unwrap().name, "Dockerfile (with bash)");
     }
 }
