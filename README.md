@@ -93,6 +93,7 @@ merl path/to/file.py:120
 | Enter | Edit at the cursor (Esc returns to navigation) |
 | Ctrl+S | Save now (edits are saved on their own after a pause) |
 | Ctrl+R | Reload from disk, dropping unsaved edits |
+| Ctrl+Z / Ctrl+Y | Undo / redo |
 | Arrows | Move the cursor |
 | Shift+Up / Shift+Down | Extend the selection by a line |
 | Shift+Left / Shift+Right | Move one word |
@@ -125,7 +126,8 @@ indents the way the file already does (tabs or four spaces, shown in the status 
 Home / End move, Shift+arrows select. The letter commands are letters again once you press Esc;
 the chord aliases (Ctrl+E, Ctrl+F, Ctrl+G, F12) work while editing.
 
-There is no save step: edits reach the disk `autosave_delay_ms` after the last keystroke, and
+Ctrl+Z and Ctrl+Y undo and redo, per file, for as long as it is open; a run of keystrokes on one
+line is one step, as in VS Code. There is no save step: edits reach the disk `autosave_delay_ms` after the last keystroke, and
 at once when you leave edit mode, switch files or quit. Ctrl+S saves now. A file that changes on
 disk under unsaved edits is not reloaded: the status bar says so, Ctrl+S keeps your version and
 Ctrl+R takes the disk's — VS Code's conflict prompt, with keys. Tabs, CRLF line endings and the

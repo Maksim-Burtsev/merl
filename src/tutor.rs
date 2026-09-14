@@ -159,6 +159,12 @@ pub const LESSONS: &[Lesson] = &[
         done: |a| a.mode == Mode::Normal && edited(a),
     },
     Lesson {
+        title: "Undo",
+        text: "Ctrl+Z takes an edit back, Ctrl+Y brings it again. Press Ctrl+Z once: the \
+               file is as it was, and a second later so is the disk.",
+        done: |a| a.mode == Mode::Normal && !edited(a),
+    },
+    Lesson {
         title: "Help",
         text: "`?` lists every key merl knows.",
         done: |a| a.mode == Mode::Help,
@@ -408,7 +414,14 @@ mod tests {
         assert!(saved.starts_with("# hi"), "{saved:?}");
         assert!(!a.dirty);
 
-        // 18 and 19: help, and closing it
+        // 18: undo, which reaches the disk on quit at the latest
+        a.key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
+        done(&mut a);
+        a.flush();
+        let saved = std::fs::read_to_string(dir.join("tests/test_store.py")).unwrap();
+        assert!(!saved.starts_with("# hi"), "{saved:?}");
+
+        // 19 and 20: help, and closing it
         press(&mut a, KeyCode::Char('?'));
         done(&mut a);
         press(&mut a, KeyCode::Esc);
