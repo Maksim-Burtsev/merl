@@ -883,8 +883,9 @@ impl App {
         self.show_picker(PickerKind::Search, Self::hit_items(hits));
     }
 
-    /// `d` / F12. Python and Go get their declaration patterns; anything else falls back to a
-    /// whole-word search for the identifier itself.
+    /// `d` / F12. Languages with declaration patterns get those, over files of the same
+    /// extension; anything else, or a word the patterns do not declare (a field, a variant, a
+    /// parameter), falls back to a whole-word search for the identifier itself.
     fn goto_definition(&mut self) {
         let Some(word) = self.word_under() else {
             return;
@@ -893,11 +894,16 @@ impl App {
         let patterns = search::def_patterns(&ext, &word);
         // Escaped or built-in patterns always compile.
         let mut hits = if patterns.is_empty() {
-            self.grep(&regex::escape(&word), true, false, None)
+            Vec::new()
         } else {
             self.grep(&patterns.join("|"), false, false, Some(&ext))
+                .unwrap_or_default()
+        };
+        if hits.is_empty() {
+            hits = self
+                .grep(&regex::escape(&word), true, false, None)
+                .unwrap_or_default();
         }
-        .unwrap_or_default();
         // Standing on one of the definitions is not a reason to go nowhere.
         if hits.len() > 1 {
             let here = self.rel_current();
