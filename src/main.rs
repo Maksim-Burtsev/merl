@@ -2,6 +2,7 @@
 
 mod app;
 mod buffer;
+mod git;
 mod picker;
 mod search;
 mod theme;
@@ -40,6 +41,8 @@ enum Msg {
     Redraw,
     /// Something changed in the directory of the open file.
     Fs(notify::Event),
+    /// `git diff` finished for the file at this path.
+    Diff(PathBuf, std::collections::HashMap<usize, git::Mark>),
 }
 
 #[derive(Parser)]
@@ -156,6 +159,7 @@ fn event_loop(
     rx: &mpsc::Receiver<Msg>,
     fs: Sender<Msg>,
 ) -> Result<()> {
+    let diff_tx = fs.clone();
     // One watcher for the whole run, following the open file's directory. A failing watcher
     // (too many open files, an unsupported filesystem) only costs auto-reload.
     let mut watcher = notify::recommended_watcher(move |ev: notify::Result<notify::Event>| {
@@ -176,6 +180,16 @@ fn event_loop(
         }
         dirty |= app.tick();
         rewatch(watcher.as_mut(), &mut watched, app);
+        if std::mem::take(&mut app.want_diff)
+            && let Some(path) = app.buf.path.clone()
+        {
+            // In a thread: git on a large repository can take longer than a frame.
+            let (tx, root) = (diff_tx.clone(), app.root.clone());
+            std::thread::spawn(move || {
+                let marks = git::marks(&root, &path);
+                let _ = tx.send(Msg::Diff(path, marks));
+            });
+        }
         // A bar cursor while editing, the terminal's own shape otherwise, like VS Code.
         if editing != (app.mode == Mode::Edit) {
             editing = !editing;
@@ -207,6 +221,12 @@ fn event_loop(
             Ok(Msg::Paste(text)) => {
                 app.paste(&text);
                 dirty = true;
+            }
+            Ok(Msg::Diff(path, marks)) => {
+                if app.buf.path == Some(path) {
+                    app.marks = marks;
+                    dirty = true;
+                }
             }
             Ok(Msg::Resize) | Ok(Msg::Redraw) => dirty = true,
             Ok(Msg::Fs(ev)) => {

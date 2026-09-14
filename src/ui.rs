@@ -13,6 +13,7 @@ use regex::Regex;
 
 use crate::app::{App, Focus, Mode};
 use crate::buffer::{Buffer, Spans};
+use crate::git::Mark;
 use crate::picker::PickItem;
 use crate::theme::Theme;
 use crate::wrap;
@@ -406,11 +407,19 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
                 break;
             }
             let num = if i == 0 {
-                format!("{:>w$} ", l + 1, w = gutter_w - 1)
+                format!("{:>w$}", l + 1, w = gutter_w - 1)
             } else {
-                " ".repeat(gutter_w)
+                " ".repeat(gutter_w - 1)
             };
-            let mut row = vec![Span::styled(num, g)];
+            // The column between the number and the text carries the git mark, VS Code style:
+            // green added, blue changed, red where lines were deleted.
+            let mark = match app.marks.get(&l) {
+                Some(Mark::Added) => Span::styled("\u{258e}", g.fg(Color::Green)),
+                Some(Mark::Changed) => Span::styled("\u{258e}", g.fg(Color::Blue)),
+                Some(Mark::DeletedBelow) => Span::styled("\u{2581}", g.fg(Color::Red)),
+                None => Span::styled(" ", g),
+            };
+            let mut row = vec![Span::styled(num, g), mark];
             let pad = app.view_w.saturating_sub(wrap::width(&clipped[r.clone()]));
             // The selected part of the row keeps its syntax colours on the selection background.
             let (lo, hi) = match &selected {
@@ -647,8 +656,11 @@ mod tests {
     use ratatui::backend::TestBackend;
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
+    use ratatui::style::Color;
+
     use crate::app::App;
     use crate::buffer::Buffer;
+    use crate::git::Mark;
     use crate::tree::Tree;
 
     fn rows(terminal: &Terminal<TestBackend>) -> Vec<String> {
@@ -947,6 +959,37 @@ mod tests {
             "{status:?}"
         );
         assert_eq!(terminal.get_cursor_position().unwrap().x, 2 + 4 + 7);
+    }
+
+    #[test]
+    fn git_marks_sit_between_the_number_and_the_text() {
+        let mut app = App::new(
+            PathBuf::from("/tmp"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\nc\nd\n"),
+            None,
+        );
+        app.show_tree = false;
+        app.marks = [
+            (0, Mark::Added),
+            (1, Mark::Changed),
+            (2, Mark::DeletedBelow),
+        ]
+        .into();
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(20, 5)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        let r = rows(&terminal);
+        let head = |i: usize| r[i].chars().take(3).collect::<String>();
+        assert_eq!(head(0), "1\u{258e}a");
+        assert_eq!(head(1), "2\u{258e}b");
+        assert_eq!(head(2), "3\u{2581}c");
+        assert_eq!(head(3), "4 d");
+        let buf = terminal.backend().buffer();
+        assert_eq!(buf[(1, 0)].fg, Color::Green);
+        assert_eq!(buf[(1, 1)].fg, Color::Blue);
+        assert_eq!(buf[(1, 2)].fg, Color::Red);
     }
 
     #[test]
