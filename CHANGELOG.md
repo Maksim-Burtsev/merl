@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Mocha / Latte, Flexoki dark / light, Melange dark / light, Nordfox, Dawnfox, Dayfox, Tokyonight
   Day and Bluloco Light. `tools/port-theme.sh` ports a colorscheme in one command, and a test
   fails on a theme that paints code, YAML, Dockerfiles, Makefiles or TOML in too few colours. (#18)
+- `T` picks a theme: the list repaints merl in the theme under the cursor as it moves, Enter keeps
+  it and writes `theme` to `~/.config/merl/config.toml` (the rest of the file stays), Esc puts
+  the old one back. Two new tutorial lessons teach it. (#18)
 
 ### Changed
 

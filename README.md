@@ -65,7 +65,7 @@ merl --version
 ```
 
 `merl --tutor` walks through every navigation key on a small Python project bundled in the binary:
-twenty-one lessons, each one done when the key actually did what it says, on a copy in a temporary
+twenty-three lessons, each one done when the key actually did what it says, on a copy in a temporary
 directory that is removed when you quit.
 
 The `FILE:LINE` form is what compilers, linters and grep already print, so a result can be pasted
@@ -89,6 +89,7 @@ merl path/to/file.py:120
 | [ / ] | Back / forward in the jump history |
 | : / Ctrl+G | Go to line |
 | t | Show or hide the file tree |
+| T | Pick a theme (live preview) |
 | Tab | Switch focus between tree and code |
 | Enter | Edit at the cursor (Esc returns to navigation) |
 | Ctrl+S | Save now (edits are saved on their own after a pause) |
@@ -214,8 +215,10 @@ light themes that look like paper rather than an inverted dark one.
 | `bluloco-light` | light | [uloco/bluloco.nvim](https://github.com/uloco/bluloco.nvim) |
 | `shokunin-light` | light | VS Code JSON in `tools/themes-src/` |
 
-Pick one with `merl --theme NAME`, or set `theme` in the config file below. An unknown name exits
-with code 1 and lists the valid ones.
+`T` lists them inside merl and repaints everything in the theme under the cursor as it moves:
+Enter keeps it and writes it to the config file below, Esc puts the old one back. `merl --theme
+NAME` overrides the config for one run; an unknown name exits with code 1 and lists the valid
+ones.
 
 The infrastructure half of a repository is highlighted too: Dockerfiles and `Containerfile` (with
 `RUN` lines as shell), compose, Kubernetes and CI YAML, Makefiles, Terraform, nginx, `.env`, TOML,

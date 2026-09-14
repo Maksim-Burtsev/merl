@@ -88,6 +88,8 @@ fn run() -> Result<()> {
     let dir = root.clone();
     let mut app = App::new(root, tree, files, buf, line);
     app.autosave = Duration::from_millis(config.autosave_delay_ms);
+    app.theme = name;
+    app.config = theme::config_path();
     if cli.tutor {
         app.show_tree = false;
         app.focus = Focus::Code;
@@ -134,7 +136,7 @@ fn run() -> Result<()> {
         let _ = tx.send(Msg::Redraw);
     });
 
-    let result = event_loop(&mut terminal, &mut app, &theme, &rx, fs);
+    let result = event_loop(&mut terminal, &mut app, theme, &rx, fs);
 
     if enhanced {
         let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
@@ -155,11 +157,12 @@ fn run() -> Result<()> {
 fn event_loop(
     terminal: &mut ratatui::DefaultTerminal,
     app: &mut App,
-    theme: &theme::Theme,
+    mut theme: theme::Theme,
     rx: &mpsc::Receiver<Msg>,
     fs: Sender<Msg>,
 ) -> Result<()> {
     let diff_tx = fs.clone();
+    let mut loaded = app.theme.clone();
     // One watcher for the whole run, following the open file's directory. A failing watcher
     // (too many open files, an unsupported filesystem) only costs auto-reload.
     let mut watcher = notify::recommended_watcher(move |ev: notify::Result<notify::Event>| {
@@ -200,8 +203,16 @@ fn event_loop(
             };
             let _ = execute!(stdout(), shape);
         }
+        // The theme picker previews by moving what `shown_theme` names, after a key or after
+        // nucleo re-sorted the list under the cursor.
+        if app.shown_theme() != loaded {
+            loaded = app.shown_theme().to_string();
+            theme = theme::load(&loaded)?;
+            app.buf.clear_hl();
+            dirty = true;
+        }
         if dirty {
-            terminal.draw(|f| ui::draw(f, app, theme))?;
+            terminal.draw(|f| ui::draw(f, app, &theme))?;
             dirty = false;
         }
         let idle = if app.picker.is_some() { 10 } else { 100 };

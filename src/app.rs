@@ -33,6 +33,7 @@ pub const KEYS: &[(&str, &str)] = &[
     ("[ / ]", "Back / forward in the jump history"),
     (": / Ctrl+G", "Go to line"),
     ("t", "Show or hide the file tree"),
+    ("T", "Pick a theme (live preview)"),
     ("Tab", "Switch focus between tree and code"),
     ("Enter", "Edit at the cursor (Esc returns to navigation)"),
     (
@@ -82,6 +83,7 @@ pub enum PickerKind {
     Definitions,
     Usages,
     Symbols,
+    Themes,
 }
 
 impl PickerKind {
@@ -92,6 +94,7 @@ impl PickerKind {
             Self::Definitions => "Definitions",
             Self::Usages => "Usages",
             Self::Symbols => "Symbols",
+            Self::Themes => "Themes",
         }
     }
 }
@@ -185,6 +188,10 @@ pub struct App {
     /// every load, save and reload; between an edit and its autosave they lag by a second.
     pub marks: HashMap<usize, crate::git::Mark>,
     pub want_diff: bool,
+    /// The theme in use, by name. Set by `main`; the theme picker previews others over it.
+    pub theme: String,
+    /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
+    pub config: Option<PathBuf>,
 }
 
 /// One undoable change: `old` lines from `line` on became `new`.
@@ -250,6 +257,8 @@ impl App {
             clipboard: None,
             marks: HashMap::new(),
             want_diff: true,
+            theme: crate::theme::DEFAULT.to_string(),
+            config: None,
         };
         if let Some(n) = line {
             app.goto_line(n);
@@ -738,6 +747,35 @@ impl App {
         self.mode = Mode::Picker(kind);
     }
 
+    /// `T`: every theme, with the cursor on the one in use.
+    fn open_themes_picker(&mut self) {
+        let items = crate::theme::names()
+            .map(|name| PickItem {
+                label: name.to_string(),
+                path: PathBuf::from(name),
+                line: 0,
+                code_at: None,
+            })
+            .collect();
+        self.show_picker(PickerKind::Themes, items);
+        if let Some(p) = &mut self.picker {
+            p.selected = crate::theme::names()
+                .position(|n| n == self.theme)
+                .unwrap_or(0);
+        }
+    }
+
+    /// The theme to draw with: the one under the cursor while the theme picker is open, so
+    /// moving previews it, and Esc, which drops the picker, puts `theme` back.
+    pub fn shown_theme(&self) -> &str {
+        match (&self.picker, self.mode) {
+            (Some(p), Mode::Picker(PickerKind::Themes)) => p
+                .current()
+                .map_or(self.theme.as_str(), |it| it.label.as_str()),
+            _ => &self.theme,
+        }
+    }
+
     fn picker_key(&mut self, code: KeyCode, ctrl: bool) {
         let Some(picker) = &mut self.picker else {
             return;
@@ -745,6 +783,16 @@ impl App {
         match picker.key(code, ctrl) {
             Pick::Stay => return,
             Pick::Cancel => {}
+            Pick::Accept(item) if self.mode == Mode::Picker(PickerKind::Themes) => {
+                self.theme = item.label;
+                self.message = match &self.config {
+                    Some(path) => match crate::theme::save(path, &self.theme) {
+                        Ok(()) => format!("theme {} saved", self.theme),
+                        Err(e) => format!("{e:#}"),
+                    },
+                    None => format!("theme {}", self.theme),
+                };
+            }
             Pick::Accept(item) => {
                 let path = self.root.join(&item.path);
                 self.jump_to(&path, item.line.max(1));
@@ -1432,6 +1480,7 @@ impl App {
                     self.focus = Focus::Code;
                 }
             }
+            KeyCode::Char('T') => self.open_themes_picker(),
             KeyCode::Tab if self.show_tree => {
                 self.focus = match self.focus {
                     Focus::Tree => Focus::Code,
@@ -1605,6 +1654,38 @@ mod tests {
         assert!(!press(&mut a, KeyCode::Esc, KeyModifiers::NONE));
         assert_eq!(a.mode, Mode::Normal);
         assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+    }
+
+    /// `T` previews the theme under the cursor without committing to it: Esc puts the one in
+    /// use back, Enter keeps the new one.
+    #[test]
+    fn theme_picker_previews_reverts_and_keeps() {
+        let names: Vec<&str> = crate::theme::names().collect();
+        let mut a = app("x\n");
+        a.theme = names[2].to_string();
+        press(&mut a, KeyCode::Char('T'), KeyModifiers::SHIFT);
+        a.picker.as_mut().unwrap().settle();
+        assert_eq!(a.mode, Mode::Picker(PickerKind::Themes));
+        assert_eq!(
+            a.shown_theme(),
+            names[2],
+            "the cursor starts on the theme in use"
+        );
+
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        assert_eq!((a.shown_theme(), a.theme.as_str()), (names[3], names[2]));
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!((a.shown_theme(), a.picker.is_none()), (names[2], true));
+
+        press(&mut a, KeyCode::Char('T'), KeyModifiers::NONE);
+        a.picker.as_mut().unwrap().settle();
+        press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.shown_theme(), a.theme.as_str()), (names[1], names[1]));
+        assert_eq!(
+            (a.mode, a.message.as_str()),
+            (Mode::Normal, "theme kanagawa-wave")
+        );
     }
 
     #[test]

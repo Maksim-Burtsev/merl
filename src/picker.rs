@@ -138,10 +138,16 @@ impl Picker {
         (rows, *selected - start)
     }
 
-    fn accept(&self) -> Pick {
+    /// The item under the cursor, if the query matches anything.
+    pub fn current(&self) -> Option<&PickItem> {
         let snap = self.nucleo.snapshot();
-        match snap.get_matched_item(self.selected as u32) {
-            Some(item) => Pick::Accept(item.data.clone()),
+        snap.get_matched_item(self.selected as u32)
+            .map(|item| item.data)
+    }
+
+    fn accept(&self) -> Pick {
+        match self.current() {
+            Some(item) => Pick::Accept(item.clone()),
             None => Pick::Cancel,
         }
     }

@@ -4,7 +4,7 @@
 //! theme the highlighter needs.
 
 use std::io::Cursor;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use ratatui::style::{Color, Modifier};
@@ -187,8 +187,32 @@ impl Default for Config {
     }
 }
 
-fn config_path() -> Option<PathBuf> {
+pub fn config_path() -> Option<PathBuf> {
     Some(dirs::home_dir()?.join(".config/merl/config.toml"))
+}
+
+/// Writes `theme = "NAME"` into the config file at `path`: over its `theme` line, or appended,
+/// so the rest of the file and its comments stay as they were. A missing file is created.
+pub fn save(path: &Path, name: &str) -> Result<()> {
+    let ctx = || format!("{}", path.display());
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(e).with_context(ctx),
+    };
+    let line = format!("theme = \"{name}\"");
+    let re = regex::Regex::new(r"(?m)^[ \t]*theme[ \t]*=.*$").expect("a valid regex");
+    let text = if re.is_match(&text) {
+        re.replace(&text, regex::NoExpand(&line)).into_owned()
+    } else if text.is_empty() || text.ends_with('\n') {
+        format!("{text}{line}\n")
+    } else {
+        format!("{text}\n{line}\n")
+    };
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).with_context(ctx)?;
+    }
+    std::fs::write(path, text).with_context(ctx)
 }
 
 /// Reads `~/.config/merl/config.toml`. A missing file is not an error; a broken one is.
@@ -265,6 +289,30 @@ mod tests {
                 assert!(colours.len() >= 3, "{name} paints {file} in {colours:?}");
             }
         }
+    }
+
+    #[test]
+    fn save_rewrites_only_the_theme_line() {
+        let dir = std::env::temp_dir().join(format!("merl-config-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("merl/config.toml");
+        let read = || std::fs::read_to_string(&path).unwrap();
+
+        save(&path, "dayfox").unwrap();
+        assert_eq!(read(), "theme = \"dayfox\"\n", "a missing file is created");
+
+        std::fs::write(&path, "# mine\ntheme = \"nordfox\"\n# end\n").unwrap();
+        save(&path, "dawnfox").unwrap();
+        assert_eq!(read(), "# mine\ntheme = \"dawnfox\"\n# end\n");
+
+        std::fs::write(&path, "# no theme yet").unwrap();
+        save(&path, "rose-pine").unwrap();
+        assert_eq!(read(), "# no theme yet\ntheme = \"rose-pine\"\n");
+        assert_eq!(
+            toml::from_str::<Config>(&read()).unwrap().theme,
+            "rose-pine"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
