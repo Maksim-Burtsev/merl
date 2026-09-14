@@ -1,0 +1,32 @@
+version: 2
+
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    # A week for a bad release to be yanked before it reaches a PR.
+    cooldown:
+      default-days: 7
+    # Patch and minor bumps arrive as one PR; majors (including 0.x minors) one PR each.
+    groups:
+      cargo:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: ci
+      include: scope
