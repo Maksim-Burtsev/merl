@@ -26,6 +26,7 @@ pub struct Tutor {
 
 /// The sample project, as it sits in `tutor/notes/`.
 pub const FILES: &[(&str, &str)] = &[
+    ("Makefile", include_str!("../tutor/notes/Makefile")),
     ("cli.py", include_str!("../tutor/notes/cli.py")),
     ("config.py", include_str!("../tutor/notes/config.py")),
     ("models.py", include_str!("../tutor/notes/models.py")),
@@ -42,6 +43,8 @@ const CLASS_LINE: usize = 9;
 /// The blank lines around `remove` in `store.py`, where the paragraph lessons land.
 const PARA_DOWN_LINE: usize = 47;
 const PARA_UP_LINE: usize = 38;
+/// 1-based line of the `lint` target in `Makefile`, where the Makefile lesson lands.
+const MAKE_LINT_LINE: usize = 6;
 
 fn at(app: &App, file: &str) -> bool {
     app.rel_path() == file
@@ -139,7 +142,7 @@ pub const LESSONS: &[Lesson] = &[
     },
     Lesson {
         title: "Open from the tree",
-        text: "Up four times to `tests`, Right to expand it, Down to test_store.py, Enter.",
+        text: "Up five times to `tests`, Right to expand it, Down to test_store.py, Enter.",
         done: |a| {
             at(
                 a,
@@ -163,6 +166,12 @@ pub const LESSONS: &[Lesson] = &[
         text: "Ctrl+Z takes an edit back, Ctrl+Y brings it again. Press Ctrl+Z once: the \
                file is as it was, and a second later so is the disk.",
         done: |a| a.mode == Mode::Normal && !edited(a),
+    },
+    Lesson {
+        title: "Definitions outside code",
+        text: "`d` reads Makefiles, Terraform, Dockerfiles and YAML too. Open the Makefile with \
+               `o`, go to line 3 with `:`, press End to stand on `lint`, then `d`.",
+        done: |a| at(a, "Makefile") && a.line + 1 == MAKE_LINT_LINE,
     },
     Lesson {
         title: "Help",
@@ -211,6 +220,9 @@ mod tests {
     use super::*;
     use crate::buffer::Buffer;
 
+    /// The `test: lint` line in `Makefile`, which the Makefile lesson names in its text.
+    const MAKE_TEST_LINE: usize = 3;
+
     /// One key, with the picker's matcher run to completion first — the event loop ticks it
     /// between keys, so a test that does not would navigate an empty result list.
     fn press(a: &mut App, code: KeyCode) {
@@ -248,6 +260,22 @@ mod tests {
         assert!(
             line(PARA_UP_LINE + 1).contains("def remove"),
             "{PARA_UP_LINE}"
+        );
+        let make = FILES.iter().find(|(n, _)| *n == "Makefile").unwrap().1;
+        let make_line = |n: usize| make.lines().nth(n - 1).unwrap();
+        assert!(
+            LESSONS
+                .iter()
+                .any(|l| l.text.contains(&format!("line {MAKE_TEST_LINE} "))),
+            "the Makefile lesson must name line {MAKE_TEST_LINE}"
+        );
+        assert!(
+            make_line(MAKE_TEST_LINE).ends_with(": lint"),
+            "{MAKE_TEST_LINE}"
+        );
+        assert!(
+            make_line(MAKE_LINT_LINE).starts_with("lint:"),
+            "{MAKE_LINT_LINE}"
         );
     }
 
@@ -394,7 +422,7 @@ mod tests {
         done(&mut a);
 
         // 15: open a file from the tree
-        for _ in 0..4 {
+        for _ in 0..5 {
             press(&mut a, KeyCode::Up);
         }
         press(&mut a, KeyCode::Right);
@@ -422,7 +450,18 @@ mod tests {
         let saved = std::fs::read_to_string(dir.join("tests/test_store.py")).unwrap();
         assert!(!saved.starts_with("# hi"), "{saved:?}");
 
-        // 19 and 20: help, and closing it
+        // 19: go to definition in the Makefile
+        press(&mut a, KeyCode::Char('o'));
+        typed(&mut a, "Makefile");
+        press(&mut a, KeyCode::Enter);
+        press(&mut a, KeyCode::Char(':'));
+        typed(&mut a, &MAKE_TEST_LINE.to_string());
+        press(&mut a, KeyCode::Enter);
+        press(&mut a, KeyCode::End);
+        press(&mut a, KeyCode::Char('d'));
+        done(&mut a);
+
+        // 20 and 21: help, and closing it
         press(&mut a, KeyCode::Char('?'));
         done(&mut a);
         press(&mut a, KeyCode::Esc);
