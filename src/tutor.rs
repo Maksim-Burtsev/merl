@@ -47,6 +47,14 @@ fn at(app: &App, file: &str) -> bool {
     app.rel_path() == file
 }
 
+/// The open file no longer reads like the sample it was unpacked from.
+fn edited(app: &App) -> bool {
+    FILES
+        .iter()
+        .find(|(name, _)| at(app, name))
+        .is_some_and(|(_, text)| text.lines().ne(app.buf.lines.iter().map(String::as_str)))
+}
+
 /// Shown once every lesson is done.
 pub const DONE: &str = "That is all of merl. Everything else is a VS Code habit. `q` quits.";
 
@@ -143,6 +151,12 @@ pub const LESSONS: &[Lesson] = &[
         title: "Hide the tree",
         text: "Opening a file gave the focus back to the code. Press `t` to hide the tree again.",
         done: |a| !a.show_tree,
+    },
+    Lesson {
+        title: "Edit",
+        text: "Enter starts editing at the cursor: type `# hi` and press Esc. merl saves a \
+               second after you stop typing; Ctrl+S saves now, Ctrl+R reloads the file from disk.",
+        done: |a| a.mode == Mode::Normal && edited(a),
     },
     Lesson {
         title: "Help",
@@ -385,7 +399,16 @@ mod tests {
         press(&mut a, KeyCode::Char('t'));
         done(&mut a);
 
-        // 17 and 18: help, and closing it
+        // 17: edit, and the edit reaches the disk on Esc
+        press(&mut a, KeyCode::Enter);
+        typed(&mut a, "# hi");
+        press(&mut a, KeyCode::Esc);
+        done(&mut a);
+        let saved = std::fs::read_to_string(dir.join("tests/test_store.py")).unwrap();
+        assert!(saved.starts_with("# hi"), "{saved:?}");
+        assert!(!a.dirty);
+
+        // 18 and 19: help, and closing it
         press(&mut a, KeyCode::Char('?'));
         done(&mut a);
         press(&mut a, KeyCode::Esc);

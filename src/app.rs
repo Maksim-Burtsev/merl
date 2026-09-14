@@ -2,6 +2,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use regex::{Regex, RegexBuilder};
@@ -32,6 +33,12 @@ pub const KEYS: &[(&str, &str)] = &[
     (": / Ctrl+G", "Go to line"),
     ("t", "Show or hide the file tree"),
     ("Tab", "Switch focus between tree and code"),
+    ("Enter", "Edit at the cursor (Esc returns to navigation)"),
+    (
+        "Ctrl+S",
+        "Save now (edits are saved on their own after a pause)",
+    ),
+    ("Ctrl+R", "Reload from disk, dropping unsaved edits"),
     ("Arrows", "Move the cursor"),
     ("Shift+Up / Shift+Down", "Extend the selection by a line"),
     ("Shift+Left / Shift+Right", "Move one word"),
@@ -45,7 +52,10 @@ pub const KEYS: &[(&str, &str)] = &[
     ("PgUp / PgDn", "Move one screen"),
     ("Home / End", "Start / end of the line"),
     ("Ctrl+Home / Ctrl+End", "Start / end of the file"),
-    ("Esc", "Close an overlay, or clear selection and find"),
+    (
+        "Esc",
+        "Close an overlay, leave edit mode, or clear selection and find",
+    ),
     ("?", "This help"),
     ("q / Ctrl+C", "Quit"),
     ("Tree: Up / Down", "Move"),
@@ -91,6 +101,8 @@ pub enum Mode {
     Picker(PickerKind),
     /// `?`: the list of bindings, over everything else.
     Help,
+    /// Enter: typing changes the file. Letters insert; the chord aliases still navigate.
+    Edit,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -148,6 +160,14 @@ pub struct App {
     pub help_top: usize,
     /// Set by `main` when no file watcher could be started: auto-reload is off.
     pub no_watch: bool,
+    /// The buffer has edits the disk does not.
+    pub dirty: bool,
+    /// The file changed on disk under unsaved edits: autosave is off until Ctrl+S overwrites
+    /// or Ctrl+R reloads. VS Code's `files.saveConflictResolution: askUser`, with keys.
+    pub conflict: bool,
+    /// When the last edit was made; autosave fires `autosave` after it.
+    last_edit: Option<Instant>,
+    pub autosave: Duration,
 }
 
 impl App {
@@ -192,6 +212,10 @@ impl App {
             tutor: None,
             help_top: 0,
             no_watch: false,
+            dirty: false,
+            conflict: false,
+            last_edit: None,
+            autosave: Duration::from_secs(1),
         };
         if let Some(n) = line {
             app.goto_line(n);
@@ -505,10 +529,16 @@ impl App {
     /// Returns `false`, with the error in the status bar, when the file cannot be read.
     fn open(&mut self, path: &Path, line: usize) -> bool {
         if self.buf.path.as_deref() != Some(path) {
+            self.flush();
             match Buffer::load(path) {
                 Ok(buf) => {
                     self.buf = buf;
                     self.anchor = None;
+                    self.dirty = false;
+                    self.conflict = false;
+                    if self.mode == Mode::Edit {
+                        self.mode = Mode::Normal;
+                    }
                     (self.line, self.col, self.want_x) = (0, 0, 0);
                     (self.top_line, self.top_row) = (0, 0);
                 }
@@ -524,8 +554,10 @@ impl App {
     }
 
     /// Re-reads the open file after it changed on disk. Cursor, scroll, history and find pattern
-    /// survive; the cursor is clamped to whatever the file is now.
-    pub fn reload(&mut self) {
+    /// survive; the cursor is clamped to whatever the file is now. merl's own saves are
+    /// recognised and ignored; a change under unsaved edits is a conflict, not a reload,
+    /// unless `force` (Ctrl+R) says the edits go.
+    pub fn reload(&mut self, force: bool) {
         let Some(path) = self.buf.path.clone() else {
             return;
         };
@@ -535,11 +567,19 @@ impl App {
             self.message = "file gone".into();
             return;
         };
-        let buf = Buffer::from_bytes(path, &bytes);
-        if buf.lines == self.buf.lines {
-            return;
+        if !force {
+            if buffer::hash(&bytes) == self.buf.disk {
+                return;
+            }
+            if self.dirty {
+                self.conflict = true;
+                return;
+            }
         }
-        self.buf = buf;
+        self.buf = Buffer::from_bytes(path, &bytes);
+        self.dirty = false;
+        self.conflict = false;
+        self.last_edit = None;
         let last = self.buf.lines.len() - 1;
         (self.line, self.col) = self.clamp_pos((self.line, self.col));
         self.top_line = self.top_line.min(last);
@@ -989,12 +1029,137 @@ impl App {
         }
     }
 
+    // ---- editing ---------------------------------------------------------
+
+    /// Enter in the code pane: the cursor becomes a text cursor.
+    fn start_edit(&mut self) {
+        if self.buf.path.is_none() {
+            return;
+        }
+        if let Some(why) = self.buf.readonly {
+            self.message = format!("read-only: {why}");
+            return;
+        }
+        // The tail of a clipped line is not on screen, so it cannot be edited by sight.
+        if self.buf.shown(self.line).len() != self.line_str().len() {
+            self.message = "line too long to edit".into();
+            return;
+        }
+        self.mode = Mode::Edit;
+    }
+
+    /// Keys that only mean something while editing. Returns `false` for every other key, which
+    /// then falls through to the navigation keys: arrows, Home / End, the chord aliases.
+    fn edit_key(&mut self, code: KeyCode, ctrl: bool) -> bool {
+        match code {
+            KeyCode::Esc => {
+                self.mode = Mode::Normal;
+                self.flush();
+            }
+            KeyCode::Char(c) if !ctrl => self.insert(&c.to_string()),
+            KeyCode::Enter => {
+                let head = &self.line_str()[..self.col];
+                let indent = &head[..head.len() - head.trim_start().len()];
+                self.insert(&format!("\n{indent}"));
+            }
+            KeyCode::Tab => self.insert(if self.buf.tabs { "\t" } else { buffer::TAB }),
+            KeyCode::Backspace => {
+                if self.col > 0 {
+                    let from = prev_char(self.line_str(), self.col);
+                    self.buf.lines[self.line].replace_range(from..self.col, "");
+                    self.col = from;
+                    self.touched();
+                } else if self.line > 0 {
+                    let tail = self.buf.lines.remove(self.line);
+                    self.line -= 1;
+                    self.col = self.line_str().len();
+                    self.buf.lines[self.line].push_str(&tail);
+                    self.touched();
+                }
+            }
+            KeyCode::Delete => {
+                if self.col < self.line_str().len() {
+                    let to = next_char(self.line_str(), self.col);
+                    self.buf.lines[self.line].replace_range(self.col..to, "");
+                    self.touched();
+                } else if self.line + 1 < self.buf.lines.len() {
+                    let tail = self.buf.lines.remove(self.line + 1);
+                    self.buf.lines[self.line].push_str(&tail);
+                    self.touched();
+                }
+            }
+            _ => return false,
+        }
+        true
+    }
+
+    /// Inserts `text` at the cursor; a `\n` in it splits the line.
+    fn insert(&mut self, text: &str) {
+        let tail = self.buf.lines[self.line].split_off(self.col);
+        let mut parts = text.split('\n');
+        self.buf.lines[self.line].push_str(parts.next().unwrap_or_default());
+        for part in parts {
+            self.line += 1;
+            self.buf.lines.insert(self.line, part.to_string());
+        }
+        self.col = self.line_str().len();
+        self.buf.lines[self.line].push_str(&tail);
+        self.touched();
+    }
+
+    /// After every change to `buf.lines`: the highlighting above the cursor may be stale, the
+    /// disk is behind, and the autosave clock restarts.
+    fn touched(&mut self) {
+        self.buf.edited(self.line);
+        self.dirty = true;
+        self.last_edit = Some(Instant::now());
+        self.sync_want_x();
+    }
+
+    /// Writes the buffer to its file, ending any conflict in the buffer's favour.
+    pub fn save(&mut self) {
+        let Some(path) = &self.buf.path else { return };
+        let bytes = self.buf.to_bytes();
+        match std::fs::write(path, &bytes) {
+            Ok(()) => {
+                self.buf.disk = buffer::hash(&bytes);
+                self.dirty = false;
+                self.conflict = false;
+                self.last_edit = None;
+            }
+            Err(e) => {
+                // Retried on the next autosave; the message stays until then.
+                self.message = format!("save failed: {e}");
+                self.last_edit = Some(Instant::now());
+            }
+        }
+    }
+
+    /// Saves unsaved edits now: leaving edit mode, switching files, quitting.
+    pub fn flush(&mut self) {
+        if self.dirty && !self.conflict {
+            self.save();
+        }
+    }
+
+    /// Autosave, called by the event loop between events. Returns `true` when it saved.
+    pub fn tick(&mut self) -> bool {
+        let due = self.last_edit.is_some_and(|t| t.elapsed() >= self.autosave);
+        if !due || !self.dirty || self.conflict {
+            return false;
+        }
+        self.save();
+        true
+    }
+
     // ---- keys ------------------------------------------------------------
 
     /// Handles one key. Returns `true` when merl should quit.
     pub fn key(&mut self, key: KeyEvent) -> bool {
         let quit = self.key_inner(key);
-        if !quit {
+        if quit {
+            self.flush();
+        } else {
             tutor::check(self);
         }
         quit
@@ -1057,6 +1222,10 @@ impl App {
         }
 
         self.message.clear();
+        if self.mode == Mode::Edit && self.edit_key(key.code, ctrl) {
+            self.hist_note(false);
+            return false;
+        }
         let extending = shift
             && match key.code {
                 KeyCode::Up | KeyCode::Down => true,
@@ -1079,6 +1248,8 @@ impl App {
                 self.mode = Mode::Goto;
                 self.prompt.clear();
             }
+            KeyCode::Char('s') if ctrl => self.save(),
+            KeyCode::Char('r') if ctrl => self.reload(true),
             KeyCode::Char(':') => {
                 self.mode = Mode::Goto;
                 self.prompt.clear();
@@ -1121,6 +1292,7 @@ impl App {
             KeyCode::Char('[') => self.hist_go(-1),
             KeyCode::Char(']') => self.hist_go(1),
             _ if self.focus == Focus::Tree => self.tree_key(key.code),
+            KeyCode::Enter => self.start_edit(),
             KeyCode::Up if shift => self.extend(|s| s.move_line(-1)),
             KeyCode::Down if shift => self.extend(|s| s.move_line(1)),
             KeyCode::Up => self.move_line(-1),
@@ -1685,6 +1857,193 @@ mod tests {
         assert_eq!((a.line, a.col), (2, 1));
     }
 
+    fn temp_file(name: &str, text: &str) -> (PathBuf, App) {
+        let dir = std::env::temp_dir().join(format!("merl-{name}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("f.py");
+        std::fs::write(&path, text).unwrap();
+        let mut a = App::new(
+            dir,
+            Tree::default(),
+            Vec::new(),
+            Buffer::load(&path).unwrap(),
+            None,
+        );
+        a.view_w = 20;
+        a.view_h = 10;
+        (path, a)
+    }
+
+    #[test]
+    fn enter_edits_and_letters_are_text_until_esc() {
+        let mut a = app("def f():\n    pass\n");
+        typed(&mut a, "s");
+        assert_eq!(a.mode, Mode::Search, "letters navigate outside edit mode");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::End, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(a.mode, Mode::Edit);
+        typed(&mut a, "  # sq");
+        assert_eq!(a.line_str(), "def f():  # sq");
+        assert!(a.dirty);
+        // Enter keeps the indentation of the line it leaves; Backspace at column 0 joins.
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        press(&mut a, KeyCode::End, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (2, 4));
+        assert_eq!(a.buf.lines[2], "    ");
+        press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
+        typed(&mut a, "x");
+        assert_eq!(a.buf.lines[2], "        x");
+        press(&mut a, KeyCode::Home, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+        assert_eq!(a.buf.lines, vec!["def f():  # sq", "    pass        x"]);
+        press(&mut a, KeyCode::Delete, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Delete, KeyModifiers::NONE);
+        assert_eq!(a.buf.lines[1], "    pass      x");
+        // Delete at the end of the last line has nothing to join.
+        press(&mut a, KeyCode::End, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Delete, KeyModifiers::NONE);
+        assert_eq!(a.buf.lines.len(), 2);
+        assert!(
+            !press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE),
+            "q types"
+        );
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!(a.mode, Mode::Normal);
+        assert!(
+            press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE),
+            "q quits again"
+        );
+    }
+
+    #[test]
+    fn tab_follows_the_file_and_unicode_edits_stay_on_boundaries() {
+        let mut a = app("\tif x:\n\t\tpass\n");
+        assert!(a.buf.tabs);
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
+        typed(&mut a, "é");
+        assert_eq!(a.line_str(), "\té\tif x:");
+        assert_eq!(a.display_col(), 6);
+        press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+        assert_eq!(a.line_str(), "\tif x:");
+    }
+
+    #[test]
+    fn readonly_and_clipped_lines_refuse_to_edit() {
+        let mut a = App::new(
+            PathBuf::from("/tmp"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::from_bytes(PathBuf::from("/tmp/x"), b"a\0b"),
+            None,
+        );
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(
+            (a.mode, a.message.as_str()),
+            (Mode::Normal, "read-only: binary file")
+        );
+        let mut a = app(&"x".repeat(30_000));
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(
+            (a.mode, a.message.as_str()),
+            (Mode::Normal, "line too long to edit")
+        );
+        let mut a = App::new(
+            PathBuf::from("/tmp"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::empty(),
+            None,
+        );
+        a.focus = Focus::Code;
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(
+            a.mode,
+            Mode::Normal,
+            "nothing to edit on the welcome screen"
+        );
+    }
+
+    #[test]
+    fn autosave_esc_and_quit_reach_the_disk() {
+        let (path, mut a) = temp_file("autosave", "a\r\nb\r\n");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "x");
+        assert!(a.dirty);
+        assert!(!a.tick(), "the delay has not passed");
+        a.autosave = Duration::ZERO;
+        assert!(a.tick());
+        assert!(!a.dirty);
+        assert_eq!(
+            std::fs::read(&path).unwrap(),
+            b"xa\r\nb\r\n",
+            "CRLF survives"
+        );
+        a.autosave = Duration::from_secs(60);
+        typed(&mut a, "y");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!(std::fs::read(&path).unwrap(), b"xya\r\nb\r\n");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "z");
+        assert!(press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL));
+        assert_eq!(std::fs::read(&path).unwrap(), b"xyza\r\nb\r\n");
+        // merl's own save is not a change to react to.
+        a.reload(false);
+        assert_eq!(a.message, "");
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn a_change_under_unsaved_edits_is_a_conflict() {
+        let (path, mut a) = temp_file("conflict", "one\n");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "mine ");
+        std::fs::write(&path, "theirs\n").unwrap();
+        a.reload(false);
+        assert!(a.conflict);
+        assert_eq!(a.line_str(), "mine one", "the buffer keeps the edits");
+        a.autosave = Duration::ZERO;
+        assert!(!a.tick(), "autosave is off while conflicted");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "theirs\n");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "theirs\n",
+            "Esc does not overwrite"
+        );
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
+        assert!(!a.conflict && !a.dirty);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "mine one\n");
+        // Ctrl+R takes the disk's version, edits and all.
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "again ");
+        std::fs::write(&path, "theirs\n").unwrap();
+        a.reload(false);
+        assert!(a.conflict);
+        press(&mut a, KeyCode::Char('r'), KeyModifiers::CONTROL);
+        assert_eq!(
+            (a.conflict, a.dirty, a.line_str()),
+            (false, false, "theirs")
+        );
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn switching_files_flushes_and_leaves_edit_mode() {
+        let (path, mut a) = temp_file("switch", "one\n");
+        let other = path.with_file_name("g.py");
+        std::fs::write(&other, "two\n").unwrap();
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "x");
+        a.jump_to(&other, 1);
+        assert_eq!((a.mode, a.dirty), (Mode::Normal, false));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "xone\n");
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
     #[test]
     fn reload_clamps_the_cursor_into_a_shrunken_file() {
         let dir = std::env::temp_dir().join(format!("merl-reload-{}", std::process::id()));
@@ -1704,11 +2063,11 @@ mod tests {
         a.col = 4;
 
         // An event that changes nothing must not even report a reload.
-        a.reload();
+        a.reload(false);
         assert_eq!(a.message, "");
 
         std::fs::write(&path, "a\nb\nc\n").unwrap();
-        a.reload();
+        a.reload(false);
         assert_eq!(a.buf.lines.len(), 3);
         assert_eq!(a.line, 2);
         assert_eq!(a.col, 1);
@@ -1792,7 +2151,7 @@ mod tests {
         press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
         press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
         std::fs::write(&path, "éé\ny\n").unwrap();
-        a.reload();
+        a.reload(false);
         // Empty query: back to the (clamped) find anchor.
         typed(&mut a, "z");
         press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);

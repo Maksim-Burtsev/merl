@@ -19,12 +19,13 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use clap::Parser;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use ratatui::crossterm::cursor::SetCursorStyle;
 use ratatui::crossterm::event::{
     Event, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
 use ratatui::crossterm::{execute, terminal};
 
-use crate::app::{App, Focus};
+use crate::app::{App, Focus, Mode};
 use crate::buffer::Buffer;
 use crate::tutor::Tutor;
 
@@ -64,10 +65,8 @@ fn main() {
 
 fn run() -> Result<()> {
     let cli = Cli::parse();
-    let name = match &cli.theme {
-        Some(n) => n.clone(),
-        None => theme::config()?.theme,
-    };
+    let config = theme::config()?;
+    let name = cli.theme.clone().unwrap_or(config.theme);
     let theme = theme::load(&name)?;
 
     let (root, file, line) = if cli.tutor {
@@ -82,6 +81,7 @@ fn run() -> Result<()> {
     let (tree, files) = tree::build(&root);
     let dir = root.clone();
     let mut app = App::new(root, tree, files, buf, line);
+    app.autosave = Duration::from_millis(config.autosave_delay_ms);
     if cli.tutor {
         app.show_tree = false;
         app.focus = Focus::Code;
@@ -131,6 +131,7 @@ fn run() -> Result<()> {
     if enhanced {
         let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
     }
+    let _ = execute!(stdout(), SetCursorStyle::DefaultUserShape);
     ratatui::restore();
     // Runs even when the loop returned an error: the sample project is ours to clean up.
     if let Some(t) = &app.tutor {
@@ -158,12 +159,24 @@ fn event_loop(
     let mut watched: Option<PathBuf> = None;
 
     let mut dirty = true;
+    let mut editing = false;
     loop {
         // nucleo matches in the background; poll it while its overlay is on screen.
         if let Some(p) = &mut app.picker {
             dirty |= p.tick();
         }
+        dirty |= app.tick();
         rewatch(watcher.as_mut(), &mut watched, app);
+        // A bar cursor while editing, the terminal's own shape otherwise, like VS Code.
+        if editing != (app.mode == Mode::Edit) {
+            editing = !editing;
+            let shape = if editing {
+                SetCursorStyle::SteadyBar
+            } else {
+                SetCursorStyle::DefaultUserShape
+            };
+            let _ = execute!(stdout(), shape);
+        }
         if dirty {
             terminal.draw(|f| ui::draw(f, app, theme))?;
             dirty = false;
@@ -179,7 +192,7 @@ fn event_loop(
             Ok(Msg::Resize) | Ok(Msg::Redraw) => dirty = true,
             Ok(Msg::Fs(ev)) => {
                 if concerns_open_file(app, &ev) {
-                    app.reload();
+                    app.reload(false);
                     dirty = true;
                 }
             }
