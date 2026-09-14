@@ -205,6 +205,83 @@
 				<string>#F38BA8</string>
 			</dict>
 		</dict>
+		<dict>
+			<key>name</key>
+			<string>@property</string>
+			<key>scope</key>
+			<string>entity.name.tag.toml, variable.other.readwrite.terraform, variable.other.member.terraform, variable.other.env</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#B4BEFE</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>@markup.heading</string>
+			<key>scope</key>
+			<string>entity.name.table.toml, entity.section.ini, entity.name.context.location.nginx</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#89B4FA</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>@constant.macro</string>
+			<key>scope</key>
+			<string>variable.other.makefile, variable.parameter.makefile, variable.language.automatic.makefile, variable.other.nginx</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#CBA6F7</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>@label</string>
+			<key>scope</key>
+			<string>variable.stage-name, entity.name.other.anchor.yaml, variable.other.alias.yaml</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#74C7EC</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>@string.special</string>
+			<key>scope</key>
+			<string>entity.name.enum.tag-digest</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#F5C2E7</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>@variable.parameter</string>
+			<key>scope</key>
+			<string>variable.parameter.option</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#EBA0AC</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>@string.regexp</string>
+			<key>scope</key>
+			<string>entity.name.pattern.git.ignore</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#F5C2E7</string>
+			</dict>
+		</dict>
 	</array>
 </dict>
 </plist>

@@ -382,7 +382,7 @@ mod tests {
             "source.yaml constant.language.merge.yaml",
             "text.git.ignore string.unquoted.git.ignore entity.name.pattern.git.ignore",
         ];
-        for name in NAMES {
+        for name in names() {
             let t = load(name).unwrap();
             let hl = Highlighter::new(&t.syntect);
             for stack in STACKS {

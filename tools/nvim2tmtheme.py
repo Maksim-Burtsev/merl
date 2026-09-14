@@ -48,6 +48,33 @@ SCOPES = [
     ("invalid", ["DiagnosticError", "@error", "Error"]),
 ]
 
+# The names infrastructure grammars emit (#16), which no code group reaches. Here a group painted
+# in the Normal foreground does not count, so the next candidate gets its turn: left in the text
+# colour, a TOML table or a Makefile variable reads as no highlighting at all.
+INFRA_SCOPES = [
+    (
+        "entity.name.tag.toml, variable.other.readwrite.terraform, "
+        "variable.other.member.terraform, variable.other.env",
+        ["@property", "@variable.member", "@field", "Identifier", "@function", "Function"],
+    ),
+    (
+        "entity.name.table.toml, entity.section.ini, entity.name.context.location.nginx",
+        ["@markup.heading", "Title", "@type", "Type"],
+    ),
+    (
+        "variable.other.makefile, variable.parameter.makefile, "
+        "variable.language.automatic.makefile, variable.other.nginx",
+        ["@constant.macro", "Macro", "PreProc", "@constant", "Constant"],
+    ),
+    (
+        "variable.stage-name, entity.name.other.anchor.yaml, variable.other.alias.yaml",
+        ["@label", "Label", "@type", "Type"],
+    ),
+    ("entity.name.enum.tag-digest", ["@string.special", "Special", "@number", "Number"]),
+    ("variable.parameter.option", ["@variable.parameter", "@parameter", "@attribute", "Special"]),
+    ("entity.name.pattern.git.ignore", ["@string.regexp", "@string.special", "@string", "String"]),
+]
+
 
 def resolve(hl, name):
     """The group's own attributes, following `link` chains. Missing or empty: {}."""
@@ -82,9 +109,18 @@ def convert(hl, name):
         if value is not None:
             top[key] = hex_colour(value)
 
+    normal_fg = colours(hl, "Normal")["fg"]
+    rules = [(s, g, False) for s, g in SCOPES] + [(s, g, True) for s, g in INFRA_SCOPES]
     settings = [{"settings": top}]
-    for scope, groups in SCOPES:
-        group = next((g for g in groups if colours(hl, g)["fg"] is not None), None)
+    for scope, groups, must_differ in rules:
+        group = next(
+            (
+                g
+                for g in groups
+                if colours(hl, g)["fg"] not in (None, normal_fg if must_differ else None)
+            ),
+            None,
+        )
         if group is None:
             continue
         attrs = resolve(hl, group)
