@@ -39,6 +39,7 @@ pub const KEYS: &[(&str, &str)] = &[
         "Save now (edits are saved on their own after a pause)",
     ),
     ("Ctrl+R", "Reload from disk, dropping unsaved edits"),
+    ("Ctrl+Z / Ctrl+Y", "Undo / redo"),
     ("Arrows", "Move the cursor"),
     ("Shift+Up / Shift+Down", "Extend the selection by a line"),
     ("Shift+Left / Shift+Right", "Move one word"),
@@ -168,6 +169,22 @@ pub struct App {
     /// When the last edit was made; autosave fires `autosave` after it.
     last_edit: Option<Instant>,
     pub autosave: Duration,
+    /// Linear per-file undo history, oldest first, and what undo took back.
+    undo: Vec<Edit>,
+    redo: Vec<Edit>,
+    /// Set when the next edit must start its own undo step even if it continues the last one.
+    undo_break: bool,
+}
+
+/// One undoable change: `old` lines from `line` on became `new`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Edit {
+    line: usize,
+    old: Vec<String>,
+    new: Vec<String>,
+    /// Cursor before and after, for undo and redo to put it back.
+    before: (usize, usize),
+    after: (usize, usize),
 }
 
 impl App {
@@ -216,6 +233,9 @@ impl App {
             conflict: false,
             last_edit: None,
             autosave: Duration::from_secs(1),
+            undo: Vec::new(),
+            redo: Vec::new(),
+            undo_break: false,
         };
         if let Some(n) = line {
             app.goto_line(n);
@@ -536,6 +556,8 @@ impl App {
                     self.anchor = None;
                     self.dirty = false;
                     self.conflict = false;
+                    self.undo.clear();
+                    self.redo.clear();
                     if self.mode == Mode::Edit {
                         self.mode = Mode::Normal;
                     }
@@ -580,6 +602,8 @@ impl App {
         self.dirty = false;
         self.conflict = false;
         self.last_edit = None;
+        self.undo.clear();
+        self.redo.clear();
         let last = self.buf.lines.len() - 1;
         (self.line, self.col) = self.clamp_pos((self.line, self.col));
         self.top_line = self.top_line.min(last);
@@ -1052,6 +1076,7 @@ impl App {
             return;
         }
         self.mode = Mode::Edit;
+        self.undo_break = true;
     }
 
     /// Keys that only mean something while editing. Returns `false` for every other key, which
@@ -1070,29 +1095,24 @@ impl App {
             }
             KeyCode::Tab => self.insert(if self.buf.tabs { "\t" } else { buffer::TAB }),
             KeyCode::Backspace => {
-                if self.col > 0 {
-                    let from = prev_char(self.line_str(), self.col);
-                    self.buf.lines[self.line].replace_range(from..self.col, "");
-                    self.col = from;
-                    self.touched();
+                let from = if self.col > 0 {
+                    (self.line, prev_char(self.line_str(), self.col))
                 } else if self.line > 0 {
-                    let tail = self.buf.lines.remove(self.line);
-                    self.line -= 1;
-                    self.col = self.line_str().len();
-                    self.buf.lines[self.line].push_str(&tail);
-                    self.touched();
-                }
+                    (self.line - 1, self.buf.lines[self.line - 1].len())
+                } else {
+                    return true;
+                };
+                self.replace(from, (self.line, self.col), "");
             }
             KeyCode::Delete => {
-                if self.col < self.line_str().len() {
-                    let to = next_char(self.line_str(), self.col);
-                    self.buf.lines[self.line].replace_range(self.col..to, "");
-                    self.touched();
+                let to = if self.col < self.line_str().len() {
+                    (self.line, next_char(self.line_str(), self.col))
                 } else if self.line + 1 < self.buf.lines.len() {
-                    let tail = self.buf.lines.remove(self.line + 1);
-                    self.buf.lines[self.line].push_str(&tail);
-                    self.touched();
-                }
+                    (self.line + 1, 0)
+                } else {
+                    return true;
+                };
+                self.replace((self.line, self.col), to, "");
             }
             _ => return false,
         }
@@ -1101,22 +1121,78 @@ impl App {
 
     /// Inserts `text` at the cursor; a `\n` in it splits the line.
     fn insert(&mut self, text: &str) {
-        let tail = self.buf.lines[self.line].split_off(self.col);
-        let mut parts = text.split('\n');
-        self.buf.lines[self.line].push_str(parts.next().unwrap_or_default());
-        for part in parts {
-            self.line += 1;
-            self.buf.lines.insert(self.line, part.to_string());
-        }
-        self.col = self.line_str().len();
-        self.buf.lines[self.line].push_str(&tail);
-        self.touched();
+        self.replace((self.line, self.col), (self.line, self.col), text);
     }
 
-    /// After every change to `buf.lines`: the highlighting above the cursor may be stale, the
-    /// disk is behind, and the autosave clock restarts.
-    fn touched(&mut self) {
-        self.buf.edited(self.line);
+    /// The one way the text changes: what lies between `from` and `to` (ordered (line, col))
+    /// becomes `text`, and the cursor lands after it. Recorded for undo; typing that carries
+    /// on where the previous step ended extends that step, as VS Code groups keystrokes.
+    fn replace(&mut self, from: (usize, usize), to: (usize, usize), text: &str) {
+        let before = (self.line, self.col);
+        let old: Vec<String> = self.buf.lines[from.0..=to.0].to_vec();
+        let head = &old[0][..from.1];
+        let tail = &old[old.len() - 1][to.1..];
+        let mut new: Vec<String> = format!("{head}{text}")
+            .split('\n')
+            .map(String::from)
+            .collect();
+        let last = new.len() - 1;
+        let col = new[last].len();
+        new[last].push_str(tail);
+        self.buf.lines.splice(from.0..=to.0, new.iter().cloned());
+        (self.line, self.col) = (from.0 + last, col);
+        let edit = Edit {
+            line: from.0,
+            old,
+            new,
+            before,
+            after: (self.line, self.col),
+        };
+        let continues = !self.undo_break
+            && self.undo.last().is_some_and(|e| {
+                e.after == before && e.new.len() == 1 && edit.old.len() == 1 && edit.new.len() == 1
+            });
+        if continues {
+            let last = self.undo.last_mut().unwrap();
+            last.new = edit.new;
+            last.after = edit.after;
+        } else {
+            self.undo.push(edit);
+        }
+        self.undo_break = false;
+        self.redo.clear();
+        self.touched(from.0);
+    }
+
+    /// Ctrl+Z / Ctrl+Y: swaps one step between the two stacks and applies it.
+    fn undo(&mut self, back: bool) {
+        let Some(edit) = (if back { &mut self.undo } else { &mut self.redo }).pop() else {
+            self.message = if back {
+                "nothing to undo"
+            } else {
+                "nothing to redo"
+            }
+            .into();
+            return;
+        };
+        let (from, to, at) = if back {
+            (&edit.new, &edit.old, edit.before)
+        } else {
+            (&edit.old, &edit.new, edit.after)
+        };
+        self.buf
+            .lines
+            .splice(edit.line..edit.line + from.len(), to.iter().cloned());
+        (self.line, self.col) = at;
+        self.touched(edit.line);
+        self.undo_break = true;
+        (if back { &mut self.redo } else { &mut self.undo }).push(edit);
+    }
+
+    /// After every change to `buf.lines` from line `l` on: the highlighting there may be stale,
+    /// the disk is behind, and the autosave clock restarts.
+    fn touched(&mut self, l: usize) {
+        self.buf.edited(l);
         self.dirty = true;
         self.last_edit = Some(Instant::now());
         self.sync_want_x();
@@ -1256,6 +1332,8 @@ impl App {
             }
             KeyCode::Char('s') if ctrl => self.save(),
             KeyCode::Char('r') if ctrl => self.reload(true),
+            KeyCode::Char('z') if ctrl => self.undo(true),
+            KeyCode::Char('y') if ctrl => self.undo(false),
             KeyCode::Char(':') => {
                 self.mode = Mode::Goto;
                 self.prompt.clear();
@@ -1938,6 +2016,54 @@ mod tests {
     }
 
     #[test]
+    fn undo_groups_typing_and_redo_replays_it() {
+        let mut a = app("ab\ncd\n");
+        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        assert_eq!(a.message, "nothing to undo");
+        press(&mut a, KeyCode::End, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "12");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "34");
+        press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+        assert_eq!(a.buf.lines, vec!["ab12", "3", "cd"]);
+        // A run of keystrokes on one line is one step; the split and the next run are others.
+        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        assert_eq!(a.buf.lines, vec!["ab12", "", "cd"]);
+        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        assert_eq!(
+            (a.buf.lines.clone(), a.line, a.col),
+            (vec!["ab12".to_string(), "cd".into()], 0, 4)
+        );
+        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        assert_eq!(a.buf.lines, vec!["ab", "cd"]);
+        assert!(a.dirty);
+        press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
+        press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
+        assert_eq!(
+            (a.buf.lines.clone(), a.line, a.col),
+            (vec!["ab12".to_string(), "".into(), "cd".into()], 1, 0)
+        );
+        // A new edit drops the redo stack; a cursor move starts a new step.
+        typed(&mut a, "x");
+        press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
+        assert_eq!(a.message, "nothing to redo");
+        press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+        typed(&mut a, "!");
+        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        assert_eq!(a.buf.lines, vec!["ab12", "x", "cd"]);
+        // Leaving and re-entering edit mode also ends the step; undo works from navigation.
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "y");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        assert_eq!(a.buf.lines, vec!["ab12", "x", "cd"]);
+        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        assert_eq!(a.buf.lines, vec!["ab12", "", "cd"]);
+    }
+
+    #[test]
     fn readonly_and_clipped_lines_refuse_to_edit() {
         let mut a = App::new(
             PathBuf::from("/tmp"),
@@ -2033,6 +2159,11 @@ mod tests {
         assert_eq!(
             (a.conflict, a.dirty, a.line_str()),
             (false, false, "theirs")
+        );
+        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        assert_eq!(
+            a.message, "nothing to undo",
+            "a reload starts a fresh history"
         );
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
