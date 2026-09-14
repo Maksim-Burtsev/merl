@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `data.T.N` / `T.N` in the same directory, and Dockerfile stages, YAML anchors and block keys
   (compose services, CI jobs) in the same file. `D` lists targets, Terraform addresses, stages and
   anchors. A `-` is part of a word in these files. The tutorial gains a lesson on it. (#16)
+- Twenty-one more themes, ported from their Neovim originals: Kanagawa Wave / Dragon / Lotus,
+  Rosé Pine / Moon / Dawn, Everforest dark / light, Gruvbox Material dark / light, Catppuccin
+  Mocha / Latte, Flexoki dark / light, Melange dark / light, Nordfox, Dawnfox, Dayfox, Tokyonight
+  Day and Bluloco Light. `tools/port-theme.sh` ports a colorscheme in one command, and a test
+  fails on a theme that paints code, YAML, Dockerfiles, Makefiles or TOML in too few colours. (#18)
 
 ### Changed
 

@@ -182,15 +182,37 @@ reloads on every change on disk, keeping the cursor, the scroll position and the
 
 ## Themes
 
-Three themes ship inside the binary as TextMate `.tmTheme` files, and syntect paints the code
-with them (syntax definitions come from [bat](https://github.com/sharkdp/bat)'s set, via
-`two-face`):
+Twenty-four themes ship inside the binary as TextMate `.tmTheme` files, and syntect paints the
+code with them (syntax definitions come from [bat](https://github.com/sharkdp/bat)'s set, via
+`two-face`). They were picked to sit in for hours: palettes designed as a whole, no neon, and
+light themes that look like paper rather than an inverted dark one.
 
-| Name | |
-|---|---|
-| `tokyonight-moon` | default, dark |
-| `shokunin-light` | light |
-| `shokunin-dark` | dark |
+| Name | | Ported from |
+|---|---|---|
+| `tokyonight-moon` | dark, default | [folke/tokyonight.nvim](https://github.com/folke/tokyonight.nvim) |
+| `kanagawa-wave` | dark | [rebelot/kanagawa.nvim](https://github.com/rebelot/kanagawa.nvim) |
+| `kanagawa-dragon` | dark | [rebelot/kanagawa.nvim](https://github.com/rebelot/kanagawa.nvim) |
+| `rose-pine` | dark | [rose-pine/neovim](https://github.com/rose-pine/neovim) |
+| `rose-pine-moon` | dark | [rose-pine/neovim](https://github.com/rose-pine/neovim) |
+| `everforest-dark` | dark | [sainnhe/everforest](https://github.com/sainnhe/everforest) |
+| `gruvbox-material-dark` | dark | [sainnhe/gruvbox-material](https://github.com/sainnhe/gruvbox-material) |
+| `catppuccin-mocha` | dark | [catppuccin/nvim](https://github.com/catppuccin/nvim) |
+| `flexoki-dark` | dark | [kepano/flexoki-neovim](https://github.com/kepano/flexoki-neovim) |
+| `melange-dark` | dark | [savq/melange-nvim](https://github.com/savq/melange-nvim) |
+| `nordfox` | dark | [EdenEast/nightfox.nvim](https://github.com/EdenEast/nightfox.nvim) |
+| `shokunin-dark` | dark | VS Code JSON in `tools/themes-src/` |
+| `rose-pine-dawn` | light | [rose-pine/neovim](https://github.com/rose-pine/neovim) |
+| `kanagawa-lotus` | light | [rebelot/kanagawa.nvim](https://github.com/rebelot/kanagawa.nvim) |
+| `everforest-light` | light | [sainnhe/everforest](https://github.com/sainnhe/everforest) |
+| `flexoki-light` | light | [kepano/flexoki-neovim](https://github.com/kepano/flexoki-neovim) |
+| `catppuccin-latte` | light | [catppuccin/nvim](https://github.com/catppuccin/nvim) |
+| `gruvbox-material-light` | light | [sainnhe/gruvbox-material](https://github.com/sainnhe/gruvbox-material) |
+| `melange-light` | light | [savq/melange-nvim](https://github.com/savq/melange-nvim) |
+| `dawnfox` | light | [EdenEast/nightfox.nvim](https://github.com/EdenEast/nightfox.nvim) |
+| `dayfox` | light | [EdenEast/nightfox.nvim](https://github.com/EdenEast/nightfox.nvim) |
+| `tokyonight-day` | light | [folke/tokyonight.nvim](https://github.com/folke/tokyonight.nvim) |
+| `bluloco-light` | light | [uloco/bluloco.nvim](https://github.com/uloco/bluloco.nvim) |
+| `shokunin-light` | light | VS Code JSON in `tools/themes-src/` |
 
 Pick one with `merl --theme NAME`, or set `theme` in the config file below. An unknown name exits
 with code 1 and lists the valid ones.
@@ -200,10 +222,18 @@ The infrastructure half of a repository is highlighted too: Dockerfiles and `Con
 INI and systemd units, `.dockerignore` and `CODEOWNERS`. Helm templates are read as plain YAML, so
 their `{{ }}` blocks are not highlighted as a template language.
 
-`tokyonight-moon` is converted from [folke/tokyonight.nvim](https://github.com/folke/tokyonight.nvim)
-(Apache-2.0, see [themes/LICENSE-tokyonight](themes/LICENSE-tokyonight)). The two Shokunin themes
-are generated from the VS Code JSON sources in `tools/themes-src/` with
-`python3 tools/vscode2tmtheme.py in.json out.tmTheme "Name"`.
+Themes are ported from their Neovim originals, never from a VS Code port, one command each:
+
+```sh
+tools/port-theme.sh https://github.com/sainnhe/everforest everforest everforest-light \
+  "set background=light" "let g:everforest_background='medium'"
+```
+
+It clones the repo, applies the colorscheme in headless Neovim, maps the resolved highlight groups
+to TextMate scopes with `tools/nvim2tmtheme.py` (one table for every theme), copies the licence to
+`themes/` and prints the row to add to `THEMES` in `src/theme.rs`. Only whoever ports needs
+Neovim; the build never touches it. The two Shokunin themes are generated from their VS Code JSON
+sources with `python3 tools/vscode2tmtheme.py in.json out.tmTheme "Name"`.
 
 ## Config
 
@@ -234,7 +264,14 @@ Early, a personal tool made public. Issues are welcome; pull requests may wait.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). The `tokyonight-moon` theme is converted from
-[folke/tokyonight.nvim](https://github.com/folke/tokyonight.nvim) (Apache-2.0); the syntax
-definitions come from [bat](https://github.com/sharkdp/bat) via
-[two-face](https://github.com/CosmicHorrorDev/two-face).
+MIT — see [LICENSE](LICENSE). The syntax definitions come from
+[bat](https://github.com/sharkdp/bat) via [two-face](https://github.com/CosmicHorrorDev/two-face).
+The ported themes keep their authors' licences, shipped next to them in `themes/`:
+
+- MIT: [catppuccin](themes/LICENSE-catppuccin), [everforest](themes/LICENSE-everforest),
+  [flexoki](themes/LICENSE-flexoki), [gruvbox-material](themes/LICENSE-gruvbox-material),
+  [kanagawa](themes/LICENSE-kanagawa), [melange](themes/LICENSE-melange),
+  [nightfox](themes/LICENSE-nightfox), [rose-pine](themes/LICENSE-rose-pine)
+- Apache-2.0: [tokyonight](themes/LICENSE-tokyonight)
+- LGPL-3.0: [bluloco](themes/LICENSE-bluloco). A converted palette is data, not linked code, so
+  the LGPL does not reach the binary.

@@ -17,8 +17,29 @@ use syntect::parsing::Scope;
 #[rustfmt::skip]
 const THEMES: &[(&str, &[u8])] = &[
     ("tokyonight-moon", include_bytes!("../themes/tokyonight-moon.tmTheme")),
-    ("shokunin-light", include_bytes!("../themes/shokunin-light.tmTheme")),
+    ("kanagawa-wave", include_bytes!("../themes/kanagawa-wave.tmTheme")),
+    ("kanagawa-dragon", include_bytes!("../themes/kanagawa-dragon.tmTheme")),
+    ("rose-pine", include_bytes!("../themes/rose-pine.tmTheme")),
+    ("rose-pine-moon", include_bytes!("../themes/rose-pine-moon.tmTheme")),
+    ("everforest-dark", include_bytes!("../themes/everforest-dark.tmTheme")),
+    ("gruvbox-material-dark", include_bytes!("../themes/gruvbox-material-dark.tmTheme")),
+    ("catppuccin-mocha", include_bytes!("../themes/catppuccin-mocha.tmTheme")),
+    ("flexoki-dark", include_bytes!("../themes/flexoki-dark.tmTheme")),
+    ("melange-dark", include_bytes!("../themes/melange-dark.tmTheme")),
+    ("nordfox", include_bytes!("../themes/nordfox.tmTheme")),
     ("shokunin-dark", include_bytes!("../themes/shokunin-dark.tmTheme")),
+    ("rose-pine-dawn", include_bytes!("../themes/rose-pine-dawn.tmTheme")),
+    ("kanagawa-lotus", include_bytes!("../themes/kanagawa-lotus.tmTheme")),
+    ("everforest-light", include_bytes!("../themes/everforest-light.tmTheme")),
+    ("flexoki-light", include_bytes!("../themes/flexoki-light.tmTheme")),
+    ("catppuccin-latte", include_bytes!("../themes/catppuccin-latte.tmTheme")),
+    ("gruvbox-material-light", include_bytes!("../themes/gruvbox-material-light.tmTheme")),
+    ("melange-light", include_bytes!("../themes/melange-light.tmTheme")),
+    ("dawnfox", include_bytes!("../themes/dawnfox.tmTheme")),
+    ("dayfox", include_bytes!("../themes/dayfox.tmTheme")),
+    ("tokyonight-day", include_bytes!("../themes/tokyonight-day.tmTheme")),
+    ("bluloco-light", include_bytes!("../themes/bluloco-light.tmTheme")),
+    ("shokunin-light", include_bytes!("../themes/shokunin-light.tmTheme")),
 ];
 
 pub const DEFAULT: &str = "tokyonight-moon";
