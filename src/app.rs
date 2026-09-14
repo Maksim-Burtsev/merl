@@ -1,5 +1,6 @@
 //! All editor state and every key binding. Rendering lives in `ui.rs`.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -180,6 +181,10 @@ pub struct App {
     undo_break: bool,
     /// Text for the system clipboard, taken by `main` and sent to the terminal (OSC 52).
     pub clipboard: Option<String>,
+    /// Lines that differ from the git index, painted in the gutter. Refreshed by `main` after
+    /// every load, save and reload; between an edit and its autosave they lag by a second.
+    pub marks: HashMap<usize, crate::git::Mark>,
+    pub want_diff: bool,
 }
 
 /// One undoable change: `old` lines from `line` on became `new`.
@@ -243,6 +248,8 @@ impl App {
             redo: Vec::new(),
             undo_break: false,
             clipboard: None,
+            marks: HashMap::new(),
+            want_diff: true,
         };
         if let Some(n) = line {
             app.goto_line(n);
@@ -574,6 +581,8 @@ impl App {
                     self.conflict = false;
                     self.undo.clear();
                     self.redo.clear();
+                    self.marks.clear();
+                    self.want_diff = true;
                     if self.mode == Mode::Edit {
                         self.mode = Mode::Normal;
                     }
@@ -620,6 +629,7 @@ impl App {
         self.last_edit = None;
         self.undo.clear();
         self.redo.clear();
+        self.want_diff = true;
         let last = self.buf.lines.len() - 1;
         (self.line, self.col) = self.clamp_pos((self.line, self.col));
         self.top_line = self.top_line.min(last);
@@ -1267,6 +1277,7 @@ impl App {
                 self.dirty = false;
                 self.conflict = false;
                 self.last_edit = None;
+                self.want_diff = true;
             }
             Err(e) => {
                 // Retried on the next autosave; the message stays until then.
