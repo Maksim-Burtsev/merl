@@ -174,6 +174,18 @@ pub const LESSONS: &[Lesson] = &[
         done: |a| at(a, "Makefile") && a.line + 1 == MAKE_LINT_LINE,
     },
     Lesson {
+        title: "Themes",
+        text: "`T` lists the themes and repaints merl in the one under the cursor as it moves. \
+               Press it, then Down.",
+        done: |a| a.shown_theme() != a.theme,
+    },
+    Lesson {
+        title: "Keep or put back",
+        text: "Enter keeps the theme and saves it to the config file; Esc puts the old one back. \
+               Press Esc.",
+        done: |a| a.picker.is_none(),
+    },
+    Lesson {
         title: "Help",
         text: "`?` lists every key merl knows.",
         done: |a| a.mode == Mode::Help,
@@ -461,7 +473,15 @@ mod tests {
         press(&mut a, KeyCode::Char('d'));
         done(&mut a);
 
-        // 20 and 21: help, and closing it
+        // 20 and 21: preview a theme, then put the old one back
+        press(&mut a, KeyCode::Char('T'));
+        press(&mut a, KeyCode::Down);
+        done(&mut a);
+        press(&mut a, KeyCode::Esc);
+        done(&mut a);
+        assert_eq!(a.shown_theme(), crate::theme::DEFAULT);
+
+        // 22 and 23: help, and closing it
         press(&mut a, KeyCode::Char('?'));
         done(&mut a);
         press(&mut a, KeyCode::Esc);

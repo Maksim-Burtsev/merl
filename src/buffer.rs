@@ -151,6 +151,14 @@ impl Buffer {
         &s[..floor_boundary(s, MAX_SHOWN_BYTES)]
     }
 
+    /// Drops the highlighting, so the next [`Buffer::highlight_to`] paints with another theme:
+    /// spans carry the colours of the theme they were made with.
+    pub fn clear_hl(&mut self) {
+        self.hl.clear();
+        self.checkpoints.clear();
+        self.state = None;
+    }
+
     /// Extends the highlighted prefix so that `last` (a file line index) is covered.
     ///
     /// syntect's parser is sequential: line N needs the state left by line N-1, so the view can
@@ -338,7 +346,7 @@ mod tests {
     #[test]
     fn rust_highlights_with_every_shipped_theme() {
         let src = "/// doc\npub struct Order { n: u32 }\nfn main() { let s = \"x\"; }\n";
-        for name in crate::theme::NAMES {
+        for name in crate::theme::names() {
             let theme = crate::theme::load(name).unwrap();
             let mut b = Buffer::from_bytes(PathBuf::from("a.rs"), src.as_bytes());
             assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Rust"), "{name}");
@@ -357,7 +365,7 @@ mod tests {
             ("b.tsx", "TypeScriptReact"),
             ("c.js", "JavaScript (Babel)"),
         ] {
-            for name in crate::theme::NAMES {
+            for name in crate::theme::names() {
                 let theme = crate::theme::load(name).unwrap();
                 let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
                 assert_eq!(

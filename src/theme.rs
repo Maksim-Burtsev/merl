@@ -4,7 +4,7 @@
 //! theme the highlighter needs.
 
 use std::io::Cursor;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use ratatui::style::{Color, Modifier};
@@ -12,14 +12,42 @@ use serde::Deserialize;
 use syntect::highlighting::{Color as SynColor, FontStyle, Highlighter, ThemeSet};
 use syntect::parsing::Scope;
 
-/// Every theme merl ships, in the order shown to the user.
-pub const NAMES: &[&str] = &["tokyonight-moon", "shokunin-light", "shokunin-dark"];
+/// Every theme merl ships, in the order shown to the user. `tools/port-theme.sh` prints the row
+/// for a new one.
+#[rustfmt::skip]
+const THEMES: &[(&str, &[u8])] = &[
+    ("tokyonight-moon", include_bytes!("../themes/tokyonight-moon.tmTheme")),
+    ("kanagawa-wave", include_bytes!("../themes/kanagawa-wave.tmTheme")),
+    ("kanagawa-dragon", include_bytes!("../themes/kanagawa-dragon.tmTheme")),
+    ("rose-pine", include_bytes!("../themes/rose-pine.tmTheme")),
+    ("rose-pine-moon", include_bytes!("../themes/rose-pine-moon.tmTheme")),
+    ("everforest-dark", include_bytes!("../themes/everforest-dark.tmTheme")),
+    ("gruvbox-material-dark", include_bytes!("../themes/gruvbox-material-dark.tmTheme")),
+    ("catppuccin-mocha", include_bytes!("../themes/catppuccin-mocha.tmTheme")),
+    ("flexoki-dark", include_bytes!("../themes/flexoki-dark.tmTheme")),
+    ("melange-dark", include_bytes!("../themes/melange-dark.tmTheme")),
+    ("nordfox", include_bytes!("../themes/nordfox.tmTheme")),
+    ("shokunin-dark", include_bytes!("../themes/shokunin-dark.tmTheme")),
+    ("rose-pine-dawn", include_bytes!("../themes/rose-pine-dawn.tmTheme")),
+    ("kanagawa-lotus", include_bytes!("../themes/kanagawa-lotus.tmTheme")),
+    ("everforest-light", include_bytes!("../themes/everforest-light.tmTheme")),
+    ("flexoki-light", include_bytes!("../themes/flexoki-light.tmTheme")),
+    ("catppuccin-latte", include_bytes!("../themes/catppuccin-latte.tmTheme")),
+    ("gruvbox-material-light", include_bytes!("../themes/gruvbox-material-light.tmTheme")),
+    ("melange-light", include_bytes!("../themes/melange-light.tmTheme")),
+    ("dawnfox", include_bytes!("../themes/dawnfox.tmTheme")),
+    ("dayfox", include_bytes!("../themes/dayfox.tmTheme")),
+    ("tokyonight-day", include_bytes!("../themes/tokyonight-day.tmTheme")),
+    ("bluloco-light", include_bytes!("../themes/bluloco-light.tmTheme")),
+    ("shokunin-light", include_bytes!("../themes/shokunin-light.tmTheme")),
+];
 
 pub const DEFAULT: &str = "tokyonight-moon";
 
-const TOKYONIGHT_MOON: &[u8] = include_bytes!("../themes/tokyonight-moon.tmTheme");
-const SHOKUNIN_LIGHT: &[u8] = include_bytes!("../themes/shokunin-light.tmTheme");
-const SHOKUNIN_DARK: &[u8] = include_bytes!("../themes/shokunin-dark.tmTheme");
+/// The names of [`THEMES`], in order.
+pub fn names() -> impl Iterator<Item = &'static str> {
+    THEMES.iter().map(|(name, _)| *name)
+}
 
 /// The colors the editor chrome needs, resolved to opaque RGB. Syntax colors come from
 /// [`Theme::syntect`] via [`style`].
@@ -46,11 +74,9 @@ pub struct Theme {
 }
 
 pub fn load(name: &str) -> Result<Theme> {
-    let bytes = match name {
-        "tokyonight-moon" => TOKYONIGHT_MOON,
-        "shokunin-light" => SHOKUNIN_LIGHT,
-        "shokunin-dark" => SHOKUNIN_DARK,
-        _ => bail!("unknown theme `{name}`; available: {}", NAMES.join(", ")),
+    let Some((_, bytes)) = THEMES.iter().find(|(n, _)| *n == name) else {
+        let all: Vec<_> = names().collect();
+        bail!("unknown theme `{name}`; available: {}", all.join(", "));
     };
     let syntect = ThemeSet::load_from_reader(&mut Cursor::new(bytes))
         .with_context(|| format!("theme `{name}`"))?;
@@ -161,8 +187,32 @@ impl Default for Config {
     }
 }
 
-fn config_path() -> Option<PathBuf> {
+pub fn config_path() -> Option<PathBuf> {
     Some(dirs::home_dir()?.join(".config/merl/config.toml"))
+}
+
+/// Writes `theme = "NAME"` into the config file at `path`: over its `theme` line, or appended,
+/// so the rest of the file and its comments stay as they were. A missing file is created.
+pub fn save(path: &Path, name: &str) -> Result<()> {
+    let ctx = || format!("{}", path.display());
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(e).with_context(ctx),
+    };
+    let line = format!("theme = \"{name}\"");
+    let re = regex::Regex::new(r"(?m)^[ \t]*theme[ \t]*=.*$").expect("a valid regex");
+    let text = if re.is_match(&text) {
+        re.replace(&text, regex::NoExpand(&line)).into_owned()
+    } else if text.is_empty() || text.ends_with('\n') {
+        format!("{text}{line}\n")
+    } else {
+        format!("{text}\n{line}\n")
+    };
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).with_context(ctx)?;
+    }
+    std::fs::write(path, text).with_context(ctx)
 }
 
 /// Reads `~/.config/merl/config.toml`. A missing file is not an error; a broken one is.
@@ -179,22 +229,96 @@ pub fn config() -> Result<Config> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::*;
+    use crate::buffer::Buffer;
+
+    /// A broken port fails here: the chrome colours are set, and comment, keyword, string and
+    /// function are not painted in one or two colours between them.
+    #[test]
+    fn every_theme_has_the_basics() {
+        for name in names() {
+            let t = load(name).unwrap_or_else(|e| panic!("{name}: {e:#}"));
+            let s = &t.syntect.settings;
+            assert!(s.background.is_some(), "{name} has no background");
+            assert!(s.foreground.is_some(), "{name} has no foreground");
+            assert!(s.line_highlight.is_some(), "{name} has no lineHighlight");
+            let highlighter = Highlighter::new(&t.syntect);
+            let colours: HashSet<_> = ["comment", "keyword", "string", "entity.name.function"]
+                .into_iter()
+                .map(|scope| {
+                    let c = highlighter
+                        .style_for_stack(&[Scope::new(scope).unwrap()])
+                        .foreground;
+                    (c.r, c.g, c.b)
+                })
+                .collect();
+            assert!(colours.len() >= 3, "{name}: {colours:?}");
+        }
+    }
+
+    /// The infrastructure half of a repo (#16): a grammar that highlights, under a theme with no
+    /// rule for its scopes, looks like no highlighting at all.
+    #[test]
+    fn every_theme_colours_infra_files() {
+        const SAMPLES: &[(&str, &str)] = &[
+            (
+                "compose.yaml",
+                "services:\n  web:\n    image: \"nginx:1.27\"  # public\n    ports: [8080]\n",
+            ),
+            (
+                "Dockerfile",
+                "FROM rust:1.85 AS build\n# compile\nRUN cargo build --release\nENV PORT=8080\n",
+            ),
+            (
+                "Makefile",
+                "BIN := merl\n# install it\ninstall: build\n\tcp target/release/$(BIN) /usr/local/bin\n",
+            ),
+            (
+                "Cargo.toml",
+                "[package]\nname = \"merl\"  # the binary\nversion = \"0.3.0\"\nedition = 2024\n",
+            ),
+        ];
+        for name in names() {
+            let theme = load(name).unwrap();
+            for (file, text) in SAMPLES {
+                let mut b = Buffer::from_bytes(PathBuf::from(file), text.as_bytes());
+                b.highlight_to(usize::MAX, &theme);
+                let colours: HashSet<_> = b.hl.iter().flatten().filter_map(|(s, _)| s.fg).collect();
+                assert!(colours.len() >= 3, "{name} paints {file} in {colours:?}");
+            }
+        }
+    }
 
     #[test]
-    fn every_shipped_theme_parses() {
-        for name in NAMES {
-            let t = load(name).unwrap_or_else(|e| panic!("{name}: {e:#}"));
-            assert!(matches!(t.bg, Color::Rgb(..)), "{name} has no background");
-            assert!(matches!(t.fg, Color::Rgb(..)), "{name} has no foreground");
-            assert!(!t.syntect.scopes.is_empty(), "{name} has no token rules");
-        }
+    fn save_rewrites_only_the_theme_line() {
+        let dir = std::env::temp_dir().join(format!("merl-config-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("merl/config.toml");
+        let read = || std::fs::read_to_string(&path).unwrap();
+
+        save(&path, "dayfox").unwrap();
+        assert_eq!(read(), "theme = \"dayfox\"\n", "a missing file is created");
+
+        std::fs::write(&path, "# mine\ntheme = \"nordfox\"\n# end\n").unwrap();
+        save(&path, "dawnfox").unwrap();
+        assert_eq!(read(), "# mine\ntheme = \"dawnfox\"\n# end\n");
+
+        std::fs::write(&path, "# no theme yet").unwrap();
+        save(&path, "rose-pine").unwrap();
+        assert_eq!(read(), "# no theme yet\ntheme = \"rose-pine\"\n");
+        assert_eq!(
+            toml::from_str::<Config>(&read()).unwrap().theme,
+            "rose-pine"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn unknown_theme_lists_the_valid_ones() {
         let e = load("nope").unwrap_err().to_string();
-        for name in NAMES {
+        for name in names() {
             assert!(e.contains(name), "{e}");
         }
     }
@@ -219,7 +343,7 @@ mod tests {
         // tokyonight-moon paints functions #82aaff, the blue LazyVim uses for directories.
         let t = load("tokyonight-moon").unwrap();
         assert_eq!(t.accent, Color::Rgb(0x82, 0xaa, 0xff));
-        for name in NAMES {
+        for name in names() {
             let t = load(name).unwrap();
             assert_ne!(t.accent, t.fg, "{name}");
             assert_ne!(t.accent, t.bg, "{name}");
@@ -258,7 +382,7 @@ mod tests {
             "source.yaml constant.language.merge.yaml",
             "text.git.ignore string.unquoted.git.ignore entity.name.pattern.git.ignore",
         ];
-        for name in NAMES {
+        for name in names() {
             let t = load(name).unwrap();
             let hl = Highlighter::new(&t.syntect);
             for stack in STACKS {
@@ -275,7 +399,7 @@ mod tests {
 
     #[test]
     fn unfocused_tree_row_sits_between_the_background_and_the_cursor_row() {
-        for name in NAMES {
+        for name in names() {
             let t = load(name).unwrap();
             assert_ne!(t.line_hl_dim, t.bg, "{name}");
             assert_ne!(t.line_hl_dim, t.line_hl, "{name}");
