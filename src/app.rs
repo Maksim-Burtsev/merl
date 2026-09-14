@@ -10,7 +10,7 @@ use regex::{Regex, RegexBuilder};
 
 use crate::buffer::{self, Buffer};
 use crate::picker::{Pick, PickItem, Picker};
-use crate::search::{self, Hit};
+use crate::search::{self, Hit, Kind};
 use crate::tree::Tree;
 use crate::tutor::{self, Tutor};
 use crate::wrap;
@@ -893,21 +893,15 @@ impl App {
         Some(path.strip_prefix(&self.root).unwrap_or(path).to_path_buf())
     }
 
-    /// Greps the project, optionally only the files whose extension is in `exts`. The open file is
-    /// always searched, even when the startup walk skipped it (hidden or ignored).
+    /// Greps the project files `wanted` accepts. The open file is searched whenever it is
+    /// wanted, even when the startup walk skipped it (ignored).
     fn grep(
         &self,
         pattern: &str,
         whole_word: bool,
         smart_case: bool,
-        exts: Option<&[String]>,
+        wanted: impl Fn(&Path) -> bool,
     ) -> anyhow::Result<Vec<Hit>> {
-        let wanted = |p: &Path| {
-            exts.is_none_or(|e| {
-                p.extension()
-                    .is_some_and(|x| e.iter().any(|w| x == w.as_str()))
-            })
-        };
         let mut files: Vec<PathBuf> = self.files.iter().filter(|p| wanted(p)).cloned().collect();
         let current = self.rel_current();
         if let Some(cur) = &current
@@ -926,17 +920,13 @@ impl App {
         )
     }
 
-    fn word_under(&self) -> Option<String> {
-        search::word_at(self.line_str(), self.col).map(|(_, w)| w.to_string())
+    /// The word under the cursor, with `extra` characters counting as part of it.
+    fn word_under(&self, extra: &str) -> Option<String> {
+        search::word_at(self.line_str(), self.col, extra).map(|(_, w)| w.to_string())
     }
 
-    fn extension(&self) -> String {
-        self.buf
-            .path
-            .as_ref()
-            .and_then(|p| p.extension())
-            .map(|e| e.to_string_lossy().into_owned())
-            .unwrap_or_default()
+    fn kind(&self) -> Option<Kind> {
+        self.buf.path.as_deref().and_then(search::kind_of)
     }
 
     /// `rel/path:line: text` rows for a result picker. The text is normalized like `Buffer`
@@ -964,7 +954,7 @@ impl App {
         if query.is_empty() {
             return;
         }
-        let hits = match self.grep(&query, false, true, None) {
+        let hits = match self.grep(&query, false, true, |_| true) {
             Ok(hits) => hits,
             Err(e) => {
                 self.message = format!("{e:#}");
@@ -978,35 +968,39 @@ impl App {
         self.show_picker(PickerKind::Search, Self::hit_items(hits));
     }
 
-    /// `d` / F12. Languages with declaration patterns get those, over files of the same
-    /// extension family (`.tsx` finds `.ts`); anything else, or a word the patterns do not declare (a field, a variant, a
+    /// `d` / F12. A file of a known [`Kind`] gets its declaration patterns, searched only where
+    /// such a definition can live (`.tsx` finds `.ts`, a Terraform variable stays in its
+    /// module); anything else, or a word the patterns do not declare (a field, a variant, a
     /// parameter), falls back to a whole-word search for the identifier itself.
     fn goto_definition(&mut self) {
-        let Some(word) = self.word_under() else {
+        let kind = self.kind();
+        let Some(word) = self.word_under(search::word_chars(kind, true)) else {
             return;
         };
-        let ext = self.extension();
-        let patterns = search::def_patterns(&ext, &word);
+        let here = self.rel_current();
+        let patterns = kind.map_or_else(Vec::new, |k| search::def_patterns(k, &word));
         // Escaped or built-in patterns always compile.
-        let mut hits = if patterns.is_empty() {
-            Vec::new()
-        } else {
-            self.grep(
-                &patterns.join("|"),
-                false,
-                false,
-                Some(&search::family(&ext)),
-            )
-            .unwrap_or_default()
+        let mut hits = match (kind, &here) {
+            (Some(kind), Some(here)) if !patterns.is_empty() => self
+                .grep(&patterns.join("|"), false, false, |p| {
+                    search::in_def_scope(kind, here, p)
+                })
+                .unwrap_or_default(),
+            _ => Vec::new(),
         };
+        if let Some(block) = kind.and_then(|k| search::def_block(k, &word)) {
+            hits.retain(|h| {
+                std::fs::read_to_string(self.root.join(&h.path))
+                    .is_ok_and(|text| search::directly_inside(&text, h.line, block))
+            });
+        }
         if hits.is_empty() {
             hits = self
-                .grep(&regex::escape(&word), true, false, None)
+                .grep(&regex::escape(&word), true, false, |_| true)
                 .unwrap_or_default();
         }
         // Standing on one of the definitions is not a reason to go nowhere.
         if hits.len() > 1 {
-            let here = self.rel_current();
             hits.retain(|h| h.line != self.line + 1 || Some(&h.path) != here.as_ref());
         }
         match hits.len() {
@@ -1021,11 +1015,11 @@ impl App {
 
     /// `u` / Shift+F12: every whole-word occurrence of the identifier, case-sensitive.
     fn usages(&mut self) {
-        let Some(word) = self.word_under() else {
+        let Some(word) = self.word_under(search::word_chars(self.kind(), false)) else {
             return;
         };
         let hits = self
-            .grep(&regex::escape(&word), true, false, None)
+            .grep(&regex::escape(&word), true, false, |_| true)
             .unwrap_or_default();
         if hits.is_empty() {
             self.message = format!("no usages of {word}");
@@ -1036,13 +1030,16 @@ impl App {
 
     /// `D`: every declaration in the project, recomputed on each press.
     fn symbols(&mut self) {
-        let hits = self
-            .grep(search::SYMBOL_PATTERN, false, false, None)
-            .unwrap_or_default();
-        let mut named: Vec<(String, Hit)> = hits
-            .into_iter()
-            .filter_map(|h| Some((search::symbol_name(&h.text)?.to_string(), h)))
-            .collect();
+        let mut named: Vec<(String, Hit)> = Vec::new();
+        for (kind, pattern) in search::SYMBOLS {
+            let re = Regex::new(pattern).expect("built-in symbol patterns are valid");
+            let wanted = |p: &Path| kind.is_none() || search::kind_of(p) == *kind;
+            let hits = self.grep(pattern, false, false, wanted).unwrap_or_default();
+            named.extend(
+                hits.into_iter()
+                    .filter_map(|h| Some((search::symbol_name(&re, &h.text)?, h))),
+            );
+        }
         if named.is_empty() {
             self.message = "no symbols".into();
             return;
@@ -1890,6 +1887,77 @@ mod tests {
             a.jump_to(&y, 1);
         }
         assert_eq!((a.history.len(), a.hist_idx), (50, 49));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A scratch project on disk with its startup walk, for the definition and symbol tests.
+    fn project_app(tag: &str, files: &[(&str, &str)]) -> (PathBuf, App) {
+        let dir = std::env::temp_dir().join(format!("merl-nav-{}-{tag}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        for (name, text) in files {
+            let path = dir.join(name);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, text).unwrap();
+        }
+        let (tree, files) = crate::tree::build(&dir);
+        let app = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+        (dir, app)
+    }
+
+    #[test]
+    fn infra_definitions_stay_in_their_scope() {
+        let (dir, mut a) = project_app(
+            "scope",
+            &[
+                (
+                    "app/main.tf",
+                    "resource \"aws_s3_bucket\" \"logs\" {\n  bucket = var.region\n}\n",
+                ),
+                ("app/variables.tf", "variable \"region\" {}\n"),
+                ("vpc/variables.tf", "variable \"region\" {}\n"),
+                (
+                    "compose.yml",
+                    "services:\n  web:\n    depends_on: [db-main]\n  db-main:\n    image: postgres\n",
+                ),
+                ("other.yml", "db-main:\n  x: 1\n"),
+            ],
+        );
+        // On `region` in `var.region`: the variable of this module, not the other one.
+        a.jump_to(&dir.join("app/main.tf"), 2);
+        a.col = 16;
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("app/variables.tf"), 0), "{}", a.message);
+        // On `db-main`, dash and all: the service in this file only.
+        a.jump_to(&dir.join("compose.yml"), 3);
+        a.col = 20;
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("compose.yml"), 3), "{}", a.message);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn symbols_read_each_kind_with_its_own_pattern() {
+        let (dir, mut a) = project_app(
+            "symbols",
+            &[
+                ("Makefile", "build: deps\n"),
+                ("deploy.yaml", "apiVersion: apps/v1\nx-base: &base\n"),
+                ("main.tf", "variable \"region\" {}\n"),
+                ("Dockerfile", "FROM rust AS build\n"),
+                ("app.py", "def serve():\n    pass\n"),
+            ],
+        );
+        press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+        let picker = a.picker.as_mut().unwrap();
+        picker.settle();
+        let names: Vec<String> = picker
+            .window(20)
+            .0
+            .into_iter()
+            .map(|r| r.item.label.split_whitespace().next().unwrap().to_string())
+            .collect();
+        // `apiVersion:` has the shape of a Makefile target; the target rule only reads Makefiles.
+        assert_eq!(names, ["&base", "build", "build", "serve", "var.region"]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

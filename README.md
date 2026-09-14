@@ -65,7 +65,7 @@ merl --version
 ```
 
 `merl --tutor` walks through every navigation key on a small Python project bundled in the binary:
-eighteen lessons, each one done when the key actually did what it says, on a copy in a temporary
+twenty-one lessons, each one done when the key actually did what it says, on a copy in a temporary
 directory that is removed when you quit.
 
 The `FILE:LINE` form is what compilers, linters and grep already print, so a result can be pasted
@@ -148,20 +148,29 @@ trailing newline come back out as they went in; binary and non-UTF-8 files stay 
 
 There is no language server and no index: every lookup is a regex over the files found at startup,
 run through [ripgrep](https://github.com/BurntSushi/ripgrep)'s library crates. `d` knows the
-declaration forms of a few languages and searches only files with the same extension (or the
-same family: `.ts`, `.tsx`, `.js`, `.jsx` and friends search each other); in any other language,
-or when the rules find nothing (a field, an enum variant, a parameter), it falls back to a whole-word search for the identifier. `u` is that whole-word search, always.
+declaration forms below and searches only where such a definition can live; in any other language,
+or when the rules find nothing (a field, an enum variant, a parameter), it falls back to a
+whole-word search for the identifier. `u` is that whole-word search, always.
 
-| Language | What `d` recognises |
-|---|---|
-| Python | `def`, `class`, module-level assignment (annotated or not) |
-| Go | `func` with or without a receiver, `type`, `var`/`const`, `:=` |
-| TypeScript / JavaScript | `function`, `class`, `interface`, `type`, `enum`, `namespace`, `const`/`let`/`var` (so arrow functions assigned to a name), class and object-literal methods, properties holding a function, behind `export`/`default`/`declare`/`async` and the member modifiers. Plain fields, destructuring and parameters fall back to the whole-word search. |
-| Rust | `fn`, `struct`, `enum`, `union`, `trait`, `type`, `const`, `static`, `mod`, `macro_rules!`, `let`, behind any `pub(..)`/`async`/`unsafe`/`const`/`extern`/`default` prefix. `impl` blocks count as uses. |
+| File | What `d` recognises | Searched |
+|---|---|---|
+| Python | `def`, `class`, module-level assignment (annotated or not) | every `.py` file |
+| Go | `func` with or without a receiver, `type`, `var`/`const`, `:=` | every `.go` file |
+| TypeScript / JavaScript | `function`, `class`, `interface`, `type`, `enum`, `namespace`, `const`/`let`/`var` (so arrow functions assigned to a name), class and object-literal methods, properties holding a function, behind `export`/`default`/`declare`/`async` and the member modifiers. Plain fields, destructuring and parameters fall back to the whole-word search. | every `.ts`, `.tsx`, `.js`, `.jsx` and friend: they search each other |
+| Rust | `fn`, `struct`, `enum`, `union`, `trait`, `type`, `const`, `static`, `mod`, `macro_rules!`, `let`, behind any `pub(..)`/`async`/`unsafe`/`const`/`extern`/`default` prefix. `impl` blocks count as uses. | every `.rs` file |
+| Makefile, `*.mk` | a target, also one of several before the colon; a variable | every Makefile |
+| Terraform | the block behind `var.x`, `module.x`, `local.x`, `data.T.N`, `T.N`; a bare name, as in `.tfvars`, is any block with that label | `.tf` files in the same directory |
+| Dockerfile | the `FROM … AS name` stage | the same file |
+| YAML | the `&name` anchor, a key that opens a block (compose services, CI jobs) | the same file |
+
+In Makefiles, Terraform, Dockerfiles and YAML a `-` is part of the word under the cursor, and `d`
+in Terraform reads the whole dotted address, so it works from anywhere in `aws_s3_bucket.logs.id`.
 
 `D` lists every declaration a single regex can recognise (`def class func function type fn struct
 enum impl trait interface mod const static union macro_rules! namespace`, with `export`/`pub`/`async`/`const`/`extern`/`declare`
-prefixes), recomputed on each press. Class methods without a keyword in front are not listed:
+prefixes), plus Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`,
+`module.x`, `var.x`, `output.x`), Dockerfile stages and YAML anchors, each read only from its own
+kind of file; recomputed on each press. Class methods without a keyword in front are not listed:
 the regex cannot tell `name(` from a call. Searches are smart-case — an all-lowercase query
 ignores case, one uppercase letter makes it case-sensitive — and `/` and `s` take full regular
 expressions.

@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `CODEOWNERS` (Git Ignore), `Containerfile` and `Dockerfile.*`, `*.jsonc`, systemd units and
   `.npmrc` (INI), `Procfile` and `yarn.lock` (YAML), `WORKSPACE` and `Tiltfile` (Starlark as
   Python). (#16)
+- `d` and `D` in Makefiles, Terraform, Dockerfiles and YAML. `d` finds Makefile targets and
+  variables across every Makefile, the Terraform block behind `var.x` / `module.x` / `local.x` /
+  `data.T.N` / `T.N` in the same directory, and Dockerfile stages, YAML anchors and block keys
+  (compose services, CI jobs) in the same file. `D` lists targets, Terraform addresses, stages and
+  anchors. A `-` is part of a word in these files. The tutorial gains a lesson on it. (#16)
 
 ### Changed
 
