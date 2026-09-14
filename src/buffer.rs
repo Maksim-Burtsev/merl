@@ -1,4 +1,4 @@
-//! File contents, normalized for display, plus its syntect highlighting. Read-only.
+//! File contents as lines, plus its syntect highlighting and what is needed to write it back.
 
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -11,7 +11,11 @@ use syntect::parsing::{ParseState, ScopeStack, SyntaxReference, SyntaxSet};
 
 use crate::theme::Theme;
 
+/// What a tab is drawn as. Lines keep their `\t`; only the renderer and [`crate::wrap`] expand.
 pub const TAB: &str = "    ";
+/// Every `CHECKPOINT` lines the parser state is snapshotted, so an edit only re-highlights from
+/// the last snapshot instead of from line 1.
+const CHECKPOINT: usize = 64;
 /// How far in we look for a NUL before calling a file binary.
 const SNIFF: usize = 8 * 1024;
 /// ponytail: syntect is sequential, so a huge file would have to be parsed from line 1 before
@@ -34,12 +38,26 @@ pub type Spans = Vec<(Style, Range<usize>)>;
 pub struct Buffer {
     pub path: Option<PathBuf>,
     pub lines: Vec<String>,
+    /// Why the buffer cannot be edited, when it cannot: what was loaded is not what would be
+    /// written back.
+    pub readonly: Option<&'static str>,
+    /// Lines end with `\r\n` on disk.
+    crlf: bool,
+    /// The file ends with a line terminator (every sane file does; an empty file does not).
+    trailing_newline: bool,
+    /// Indentation uses tabs: what Tab inserts, as VS Code's `detectIndentation`.
+    pub tabs: bool,
+    /// [`hash`] of the bytes last read from or written to `path`: tells merl's own saves and
+    /// no-op events apart from a change made by someone else.
+    pub disk: u64,
     /// Highlighted prefix: one entry per already-highlighted line, spans in byte ranges.
     pub hl: Vec<Spans>,
     /// `None` when this buffer is not highlighted at all (binary, or too large).
     syntax: Option<&'static SyntaxReference>,
     /// syntect's carry-over state at the end of `hl`.
     state: Option<(ParseState, HighlightState)>,
+    /// `checkpoints[i]` is the state before line `i * CHECKPOINT`.
+    checkpoints: Vec<(ParseState, HighlightState)>,
 }
 
 impl Buffer {
@@ -55,12 +73,17 @@ impl Buffer {
 
     pub fn from_bytes(path: PathBuf, bytes: &[u8]) -> Self {
         if bytes[..bytes.len().min(SNIFF)].contains(&0) {
-            return Self::new(Some(path), vec!["binary file".to_string()], None);
+            let mut b = Self::new(Some(path), vec!["binary file".to_string()], None);
+            b.readonly = Some("binary file");
+            return b;
         }
         let text = String::from_utf8_lossy(bytes);
+        let lossy = matches!(text, std::borrow::Cow::Owned(_));
+        let crlf = text.contains("\r\n");
+        let trailing_newline = text.ends_with('\n');
         let mut lines: Vec<String> = text
             .split('\n')
-            .map(|l| l.trim_end_matches('\r').replace('\t', TAB))
+            .map(|l| l.trim_end_matches('\r').to_string())
             .collect();
         // A trailing newline is a terminator, not an empty last line.
         if lines.len() > 1 && lines.last().is_some_and(String::is_empty) {
@@ -71,7 +94,35 @@ impl Buffer {
         }
         let syntax = (lines.len() <= MAX_HL_LINES && bytes.len() <= MAX_HL_BYTES)
             .then(|| syntax_for(&path, &lines[0]));
-        Self::new(Some(path), lines, syntax)
+        let mut b = Self::new(Some(path), lines, syntax);
+        b.readonly = lossy.then_some("not UTF-8");
+        b.crlf = crlf;
+        b.trailing_newline = trailing_newline;
+        b.tabs = b.lines.iter().any(|l| l.starts_with('\t'));
+        b.disk = hash(bytes);
+        b
+    }
+
+    /// The file as it is written back: the lines joined with the line ending they came with.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let nl = if self.crlf { "\r\n" } else { "\n" };
+        let mut out = self.lines.join(nl);
+        if self.trailing_newline {
+            out.push_str(nl);
+        }
+        out.into_bytes()
+    }
+
+    /// Forgets the highlighting from line `l` on: the next `highlight_to` re-parses from the
+    /// last checkpoint above it.
+    pub fn edited(&mut self, l: usize) {
+        let n = l / CHECKPOINT;
+        if self.hl.len() <= n * CHECKPOINT {
+            return;
+        }
+        self.hl.truncate(n * CHECKPOINT);
+        self.checkpoints.truncate(n + 1);
+        self.state = self.checkpoints.last().cloned();
     }
 
     fn new(
@@ -82,9 +133,15 @@ impl Buffer {
         Self {
             path,
             lines,
+            readonly: None,
+            crlf: false,
+            trailing_newline: true,
+            tabs: false,
+            disk: 0,
             hl: Vec::new(),
             syntax,
             state: None,
+            checkpoints: Vec::new(),
         }
     }
 
@@ -113,6 +170,11 @@ impl Buffer {
             )
         });
         while self.hl.len() <= last {
+            if self.hl.len().is_multiple_of(CHECKPOINT)
+                && self.checkpoints.len() == self.hl.len() / CHECKPOINT
+            {
+                self.checkpoints.push(state.clone());
+            }
             let raw = &self.lines[self.hl.len()];
             let line = format!("{raw}\n");
             let ops = state.0.parse_line(&line, set).unwrap_or_default();
@@ -130,6 +192,13 @@ impl Buffer {
             self.hl.push(spans);
         }
     }
+}
+
+pub fn hash(bytes: &[u8]) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    bytes.hash(&mut h);
+    h.finish()
 }
 
 /// Largest byte index <= `max` that is a char boundary of `s`.
@@ -163,8 +232,34 @@ mod tests {
     }
 
     #[test]
-    fn normalizes_text() {
-        assert_eq!(load(b"a\tb\r\nc\n").lines, vec!["a    b", "c"]);
+    fn keeps_tabs_and_round_trips_line_endings() {
+        let b = load(b"a\tb\r\nc\n");
+        assert_eq!(b.lines, vec!["a\tb", "c"]);
+        assert_eq!(b.to_bytes(), b"a\tb\r\nc\r\n");
+        assert_eq!(load(b"x").to_bytes(), b"x");
+        assert_eq!(load(b"").to_bytes(), b"");
+        assert_eq!(load(b"\n").to_bytes(), b"\n");
+        assert!(load(b"\tx\n").tabs);
+        assert!(!load(b"    x\n").tabs);
+    }
+
+    #[test]
+    fn edits_re_highlight_from_the_last_checkpoint() {
+        let theme = crate::theme::load("tokyonight-moon").unwrap();
+        let src = "x = 1\n".repeat(200);
+        let mut b = Buffer::from_bytes(PathBuf::from("a.py"), src.as_bytes());
+        b.highlight_to(199, &theme);
+        assert_eq!(b.checkpoints.len(), 4);
+        b.lines[150] = "# comment".into();
+        b.edited(150);
+        assert_eq!(b.hl.len(), 128);
+        assert_eq!(b.checkpoints.len(), 3);
+        b.highlight_to(199, &theme);
+        assert_eq!(b.hl.len(), 200);
+        assert_ne!(b.hl[150][0].0.fg, b.hl[151][0].0.fg);
+        // Editing below the highlighted prefix forgets nothing.
+        b.edited(5000);
+        assert_eq!(b.hl.len(), 200);
     }
 
     #[test]
@@ -178,11 +273,14 @@ mod tests {
         let b = load(b"ELF\0\x01\x02");
         assert_eq!(b.lines, vec!["binary file"]);
         assert!(b.syntax.is_none());
+        assert_eq!(b.readonly, Some("binary file"));
     }
 
     #[test]
     fn invalid_utf8_is_lossy() {
-        assert_eq!(load(b"a\xffb").lines, vec!["a\u{fffd}b"]);
+        let b = load(b"a\xffb");
+        assert_eq!(b.lines, vec!["a\u{fffd}b"]);
+        assert_eq!(b.readonly, Some("not UTF-8"));
     }
 
     #[test]

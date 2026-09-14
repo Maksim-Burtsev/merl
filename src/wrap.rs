@@ -4,8 +4,12 @@ use std::ops::Range;
 
 use unicode_width::UnicodeWidthChar;
 
-/// Display width of one char; zero for combining and other zero-width chars.
+/// Display width of one char; zero for combining and other zero-width chars. A tab is drawn as
+/// [`crate::buffer::TAB`], so it is that wide.
 pub fn char_width(c: char) -> usize {
+    if c == '\t' {
+        return crate::buffer::TAB.len();
+    }
     c.width().unwrap_or(0)
 }
 
@@ -25,7 +29,7 @@ pub fn wrap_line(line: &str, width: usize) -> Vec<Range<usize>> {
     let mut start = 0usize;
     let mut used = 0usize;
     for (i, c) in line.char_indices() {
-        let w = c.width().unwrap_or(0);
+        let w = char_width(c);
         if w == 0 {
             continue; // attaches to the previous char, never opens a row
         }
@@ -78,6 +82,12 @@ mod tests {
         assert_eq!(wrap_line(s, 2), vec![0..6, 6..9]);
         // A leading combining char cannot open its own row.
         assert_eq!(wrap_line("\u{301}ab", 1), vec![0..3, 3..4]);
+    }
+
+    #[test]
+    fn tabs_are_four_wide() {
+        assert_eq!(width("\ta"), 5);
+        assert_eq!(wrap_line("\tab", 5), vec![0..2, 2..3]);
     }
 
     #[test]

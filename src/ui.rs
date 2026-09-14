@@ -440,7 +440,7 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
         (app.line, app.cursor_row()),
     );
     if let Some(y) = screen_row.filter(|y| *y < area.height as usize)
-        && app.mode == Mode::Normal
+        && matches!(app.mode, Mode::Normal | Mode::Edit)
     {
         let x = area.x + (gutter_w + app.cursor_x()) as u16;
         frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
@@ -493,6 +493,11 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
         frame.render_widget(Paragraph::new(text).style(style), area);
         return;
     }
+    let pane = match (app.mode, app.focus) {
+        (Mode::Edit, _) => "edit",
+        (_, Focus::Tree) => "tree",
+        _ => "code",
+    };
     let mut spans = vec![
         Span::styled(
             app.rel_path(),
@@ -500,19 +505,26 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
         ),
         Span::styled(
             format!(
-                "  {}:{}  [{}]{}",
+                "{}  {}:{}  [{pane}]{}{}",
+                if app.dirty { " \u{25cf}" } else { "" },
                 app.line + 1,
                 app.display_col(),
-                if app.focus == Focus::Tree {
-                    "tree"
+                if app.mode == Mode::Edit {
+                    if app.buf.tabs { "  Tab" } else { "  Spaces: 4" }
                 } else {
-                    "code"
+                    ""
                 },
                 if app.no_watch { "  no auto-reload" } else { "" }
             ),
             style,
         ),
     ];
+    if app.conflict {
+        spans.push(Span::styled(
+            "  changed on disk: Ctrl+S overwrites, Ctrl+R reloads",
+            style.fg(theme.accent),
+        ));
+    }
     if !app.message.is_empty() {
         spans.push(Span::styled(format!("  {}", app.message), style));
     }
@@ -548,15 +560,24 @@ fn row_spans<'a>(
         }
         let (start, end) = (span.start.max(pos), span.end.min(r.end));
         if pos < start {
-            out.push(Span::styled(&text[pos..start], base));
+            out.push(Span::styled(expand(&text[pos..start]), base));
         }
-        out.push(Span::styled(&text[start..end], base.patch(*style)));
+        out.push(Span::styled(expand(&text[start..end]), base.patch(*style)));
         pos = end;
     }
     if pos < r.end || out.is_empty() {
-        out.push(Span::styled(&text[pos..r.end], base));
+        out.push(Span::styled(expand(&text[pos..r.end]), base));
     }
     out
+}
+
+/// Tabs drawn as [`crate::buffer::TAB`]; a tab-free piece is borrowed as it is.
+fn expand(s: &str) -> std::borrow::Cow<'_, str> {
+    if s.contains('\t') {
+        s.replace('\t', crate::buffer::TAB).into()
+    } else {
+        s.into()
+    }
 }
 
 /// Non-empty match ranges of `re` in one file line.
@@ -624,6 +645,7 @@ mod tests {
 
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
+    use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     use crate::app::App;
     use crate::buffer::Buffer;
@@ -894,6 +916,37 @@ mod tests {
             !text.contains("Open a file (fuzzy)"),
             "first rows scrolled away\n{text}"
         );
+    }
+
+    #[test]
+    fn tabs_draw_four_wide_and_the_status_shows_the_edit_state() {
+        let mut app = App::new(
+            PathBuf::from("/tmp"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::from_bytes(PathBuf::from("/tmp/f.go"), b"\tx := 1\n"),
+            None,
+        );
+        app.show_tree = false;
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(40, 4)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        assert!(
+            rows(&terminal)[0].starts_with("1     x := 1"),
+            "{:?}",
+            rows(&terminal)[0]
+        );
+        assert!(rows(&terminal)[3].contains("[code]"));
+        app.key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        app.key(KeyEvent::new(KeyCode::End, KeyModifiers::NONE));
+        app.key(KeyEvent::new(KeyCode::Char('!'), KeyModifiers::NONE));
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        let status = &rows(&terminal)[3];
+        assert!(
+            status.contains("f.go \u{25cf}") && status.contains("[edit]  Tab"),
+            "{status:?}"
+        );
+        assert_eq!(terminal.get_cursor_position().unwrap().x, 2 + 4 + 7);
     }
 
     #[test]

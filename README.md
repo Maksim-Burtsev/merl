@@ -90,6 +90,9 @@ merl path/to/file.py:120
 | : / Ctrl+G | Go to line |
 | t | Show or hide the file tree |
 | Tab | Switch focus between tree and code |
+| Enter | Edit at the cursor (Esc returns to navigation) |
+| Ctrl+S | Save now (edits are saved on their own after a pause) |
+| Ctrl+R | Reload from disk, dropping unsaved edits |
 | Arrows | Move the cursor |
 | Shift+Up / Shift+Down | Extend the selection by a line |
 | Shift+Left / Shift+Right | Move one word |
@@ -100,7 +103,7 @@ merl path/to/file.py:120
 | PgUp / PgDn | Move one screen |
 | Home / End | Start / end of the line |
 | Ctrl+Home / Ctrl+End | Start / end of the file |
-| Esc | Close an overlay, or clear selection and find |
+| Esc | Close an overlay, leave edit mode, or clear selection and find |
 | ? | This help |
 | q / Ctrl+C | Quit |
 | Tree: Up / Down | Move |
@@ -113,6 +116,20 @@ merl path/to/file.py:120
 | Help: Up / Down | Scroll |
 
 `?` shows the same table inside merl.
+
+## Editing
+
+Enter turns the cursor into a text cursor, Esc turns it back. In between, merl is a plain
+editor with VS Code habits: letters insert, Enter splits the line and keeps its indentation, Tab
+indents the way the file already does (tabs or four spaces, shown in the status bar), arrows and
+Home / End move, Shift+arrows select. The letter commands are letters again once you press Esc;
+the chord aliases (Ctrl+E, Ctrl+F, Ctrl+G, F12) work while editing.
+
+There is no save step: edits reach the disk `autosave_delay_ms` after the last keystroke, and
+at once when you leave edit mode, switch files or quit. Ctrl+S saves now. A file that changes on
+disk under unsaved edits is not reloaded: the status bar says so, Ctrl+S keeps your version and
+Ctrl+R takes the disk's — VS Code's conflict prompt, with keys. Tabs, CRLF line endings and the
+trailing newline come back out as they went in; binary and non-UTF-8 files stay read-only.
 
 ## How navigation works
 
@@ -160,10 +177,11 @@ are generated from the VS Code JSON sources in `tools/themes-src/` with
 
 ## Config
 
-`~/.config/merl/config.toml`, one key:
+`~/.config/merl/config.toml`:
 
 ```toml
 theme = "tokyonight-moon"
+autosave_delay_ms = 1000
 ```
 
 ## Terminals

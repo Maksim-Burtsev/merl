@@ -139,6 +139,13 @@ fn mix(fg: SynColor, bg: SynColor, percent: u32) -> SynColor {
 pub struct Config {
     #[serde(default = "default_theme")]
     pub theme: String,
+    /// Edits are written this long after the last keystroke; VS Code's `files.autoSaveDelay`.
+    #[serde(default = "default_autosave")]
+    pub autosave_delay_ms: u64,
+}
+
+fn default_autosave() -> u64 {
+    1000
 }
 
 fn default_theme() -> String {
@@ -149,6 +156,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             theme: default_theme(),
+            autosave_delay_ms: default_autosave(),
         }
     }
 }
