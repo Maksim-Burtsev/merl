@@ -803,16 +803,21 @@ impl App {
         Some(path.strip_prefix(&self.root).unwrap_or(path).to_path_buf())
     }
 
-    /// Greps the project, optionally only the files with extension `ext`. The open file is
+    /// Greps the project, optionally only the files whose extension is in `exts`. The open file is
     /// always searched, even when the startup walk skipped it (hidden or ignored).
     fn grep(
         &self,
         pattern: &str,
         whole_word: bool,
         smart_case: bool,
-        ext: Option<&str>,
+        exts: Option<&[String]>,
     ) -> anyhow::Result<Vec<Hit>> {
-        let wanted = |p: &Path| ext.is_none_or(|e| p.extension().is_some_and(|x| x == e));
+        let wanted = |p: &Path| {
+            exts.is_none_or(|e| {
+                p.extension()
+                    .is_some_and(|x| e.iter().any(|w| x == w.as_str()))
+            })
+        };
         let mut files: Vec<PathBuf> = self.files.iter().filter(|p| wanted(p)).cloned().collect();
         let current = self.rel_current();
         if let Some(cur) = &current
@@ -884,7 +889,7 @@ impl App {
     }
 
     /// `d` / F12. Languages with declaration patterns get those, over files of the same
-    /// extension; anything else, or a word the patterns do not declare (a field, a variant, a
+    /// extension family (`.tsx` finds `.ts`); anything else, or a word the patterns do not declare (a field, a variant, a
     /// parameter), falls back to a whole-word search for the identifier itself.
     fn goto_definition(&mut self) {
         let Some(word) = self.word_under() else {
@@ -896,8 +901,13 @@ impl App {
         let mut hits = if patterns.is_empty() {
             Vec::new()
         } else {
-            self.grep(&patterns.join("|"), false, false, Some(&ext))
-                .unwrap_or_default()
+            self.grep(
+                &patterns.join("|"),
+                false,
+                false,
+                Some(&search::family(&ext)),
+            )
+            .unwrap_or_default()
         };
         if hits.is_empty() {
             hits = self

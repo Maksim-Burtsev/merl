@@ -226,6 +226,30 @@ mod tests {
     }
 
     #[test]
+    fn ts_and_js_highlight_with_every_shipped_theme() {
+        let src = "// doc\nexport class Order { n = 1 }\nfunction main() { const s = \"x\"; }\n";
+        for (file, lang) in [
+            ("a.ts", "TypeScript"),
+            ("b.tsx", "TypeScriptReact"),
+            ("c.js", "JavaScript (Babel)"),
+        ] {
+            for name in crate::theme::NAMES {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some(lang),
+                    "{file} {name}"
+                );
+                b.highlight_to(2, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
     fn shown_clips_a_huge_line_on_a_char_boundary() {
         let text = "漢".repeat(MAX_SHOWN_BYTES / 3 + 1);
         let b = load(text.as_bytes());

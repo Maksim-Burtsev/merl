@@ -20,7 +20,7 @@ pub const MAX_HITS: usize = 5_000;
 
 /// Lines that look like a top-level declaration. The name is group 3; group 2 swallows a Go
 /// method receiver (`func (i Invoice) Total()`).
-pub const SYMBOL_PATTERN: &str = r#"^\s*(?:(?:export|default|async|pub(?:\([a-z]+\))?|static|unsafe|abstract|const|extern(?:\s+"[^"]*")?)\s+)*(def|class|func|function|type|fn|struct|enum|impl|trait|interface|mod|const|static|union|macro_rules!)(?:<[^>]*>)?\s+(\([^)]*\)\s*)?([A-Za-z_]\w*)"#;
+pub const SYMBOL_PATTERN: &str = r#"^\s*(?:(?:export|default|declare|async|pub(?:\([a-z]+\))?|static|unsafe|abstract|const|extern(?:\s+"[^"]*")?)\s+)*(def|class|func|function\*?|type|fn|struct|enum|impl|trait|interface|mod|const|static|union|macro_rules!|namespace)(?:<[^>]*>)?\s+(\([^)]*\)\s*)?([A-Za-z_]\w*)"#;
 
 /// One matching line. `path` is relative to the project root, `line` is 1-based.
 #[derive(Debug, Clone)]
@@ -114,8 +114,35 @@ pub fn def_patterns(ext: &str, word: &str) -> Vec<String> {
                 format!(r"^\s*let\s+(?:mut\s+)?{w}\b"),
             ]
         }
+        "ts" | "tsx" | "mts" | "cts" | "js" | "jsx" | "mjs" | "cjs" => {
+            let pre = r"^\s*(?:(?:export|default|declare|abstract|async)\s+)*";
+            let mods = r"^\s*(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*";
+            vec![
+                format!(
+                    r"{pre}(?:function\*?|class|interface|type|(?:const\s+)?enum|namespace|module)\s+{w}\b"
+                ),
+                // Arrow functions assigned to a name land here too.
+                format!(r"{pre}(?:const|let|var)\s+{w}\b"),
+                // A class or object-literal method: `foo(` at the end of the line, or
+                // `foo(..) {`. A `;` on the line means it was a call statement.
+                format!(r"{mods}{w}\s*(?:<[^>]*>)?\((?:[^;]*\{{)?\s*$"),
+                // A property holding a function: `foo = () =>`, `foo: async (x) =>`,
+                // `foo: function`.
+                format!(
+                    r"{mods}{w}\s*[?!]?\s*(?::[^=]*)?[=:]\s*(?:async\s+)?(?:function\b|\(|[\w$]+\s*=>)"
+                ),
+            ]
+        }
         _ => Vec::new(),
     }
+}
+
+/// Extensions `d` searches together when the open file has extension `ext`: a `.tsx` file finds
+/// its types in `.ts`. Every other language is its own one-element family.
+pub fn family(ext: &str) -> Vec<String> {
+    const TS_JS: &[&str] = &["ts", "tsx", "mts", "cts", "js", "jsx", "mjs", "cjs"];
+    let group = if TS_JS.contains(&ext) { TS_JS } else { &[ext] };
+    group.iter().map(|e| e.to_string()).collect()
 }
 
 /// The declared name on a line matched by [`SYMBOL_PATTERN`].
@@ -157,6 +184,8 @@ mod tests {
 
     const PY: &str = "class Invoice:\n    def total(self):\n        return 0\n\n\ndef parse(t):\n    return Invoice()\n\n\nDEFAULT_LIMIT = 10\ntotal_foobar = 1\nprint(total_foobar, DEFAULT_LIMIT)\nNAME_RE: Final[re.Pattern[str]] = re.compile(r\"x\")\n";
     const RS: &str = "pub struct Order<T> {\n    items: Vec<T>,\n}\n\nimpl<T> Order<T> {\n    pub fn sum(&self) -> u32 { 0 }\n}\n\npub(crate) const MAX_ORDERS: usize = 10;\n\npub async fn parse_order(s: &str) -> Order<u8> {\n    let mut order = Order { items: vec![] };\n    order.items.push(1);\n    order\n}\n\nmacro_rules! order {\n    () => {};\n}\n\nmod orders;\n";
+    const TS: &str = "export interface Order {\n  id: Id;\n}\n\nexport type Id = string;\n\nconst enum Status {\n  Open,\n}\n\nexport default class OrderService {\n  private cache = new Map();\n\n  async load(id: Id): Promise<Order> {\n    render(o);\n    return parse(id);\n  }\n\n  sum = (o: Order) => 0;\n}\n\nexport const parseOrder = (s: string): Order => JSON.parse(s);\n\nexport function render(o: Order) {\n  const n = 1;\n}\n\nfunction* ids() {}\n";
+    const JS: &str = "const helpers = {\n  parse(s) {\n    return s;\n  },\n  format: function (o) {\n    return o;\n  },\n};\nmodule.exports = helpers;\n";
     const GO: &str = "package main\n\ntype Invoice struct{}\n\nfunc (i Invoice) Total() int { return 0 }\n\nfunc Parse(s string) Invoice { return Invoice{} }\n\nconst Limit = 10\n\nfunc main() {\n\tinv := Parse(\"x\")\n}\n";
 
     /// A throwaway project on disk; grep needs real files.
@@ -167,13 +196,13 @@ mod tests {
         std::fs::write(dir.join("a.py"), PY).unwrap();
         std::fs::write(dir.join("b.go"), GO).unwrap();
         std::fs::write(dir.join("c.rs"), RS).unwrap();
+        std::fs::write(dir.join("d.ts"), TS).unwrap();
+        std::fs::write(dir.join("e.js"), JS).unwrap();
         (
             dir,
-            vec![
-                PathBuf::from("a.py"),
-                PathBuf::from("b.go"),
-                PathBuf::from("c.rs"),
-            ],
+            ["a.py", "b.go", "c.rs", "d.ts", "e.js"]
+                .map(PathBuf::from)
+                .to_vec(),
         )
     }
 
@@ -244,7 +273,7 @@ mod tests {
     #[test]
     fn rust_def_patterns_cover_items_behind_prefixes_and_lets() {
         let (dir, files) = project("rs");
-        let rs = files[2..].to_vec();
+        let rs = files[2..3].to_vec();
         for (word, line) in [
             ("Order", 1), // the struct, not the `impl` block or the `Order { .. }` literal
             ("sum", 6),
@@ -266,6 +295,45 @@ mod tests {
             [("c.rs".into(), 12), ("c.rs".into(), 17)]
         );
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn ts_def_patterns_cover_declarations_methods_and_arrows() {
+        let (dir, files) = project("ts");
+        // `.ts` and `.js` are one family: the JS helpers are found from the TS file.
+        let ts_js = files[3..].to_vec();
+        for (word, file, line) in [
+            ("Order", "d.ts", 1),
+            ("Id", "d.ts", 5),
+            ("Status", "d.ts", 7),
+            ("OrderService", "d.ts", 11),
+            ("load", "d.ts", 14),
+            ("sum", "d.ts", 19),
+            ("parseOrder", "d.ts", 22),
+            ("render", "d.ts", 24), // the declaration, not the `render(o);` call
+            ("n", "d.ts", 25),
+            ("ids", "d.ts", 28),
+            ("parse", "e.js", 2),
+            ("format", "e.js", 5),
+        ] {
+            let pat = def_patterns("ts", word).join("|");
+            assert_eq!(
+                lines(&grep(&dir, &ts_js, &pat, false, false)),
+                [(file.into(), line)],
+                "{word}"
+            );
+        }
+        // A plain field is not a declaration the rules know; the caller falls back.
+        let pat = def_patterns("ts", "cache").join("|");
+        assert!(grep(&dir, &ts_js, &pat, false, false).is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn family_groups_ts_with_js_and_keeps_others_alone() {
+        let f = family("tsx");
+        assert!(f.contains(&"ts".to_string()) && f.contains(&"js".to_string()));
+        assert_eq!(family("py"), ["py"]);
     }
 
     #[test]
@@ -362,6 +430,14 @@ mod tests {
         assert_eq!(symbol_name("macro_rules! order {"), Some("order"));
         assert_eq!(symbol_name("mod orders;"), Some("orders"));
         assert_eq!(symbol_name("pub union Bits {"), Some("Bits"));
+        assert_eq!(
+            symbol_name("export declare function load(id: string): void;"),
+            Some("load")
+        );
+        assert_eq!(symbol_name("function* ids() {"), Some("ids"));
+        assert_eq!(symbol_name("export namespace Orders {"), Some("Orders"));
+        assert_eq!(symbol_name("export const parse = (s) => s;"), Some("parse"));
+        assert_eq!(symbol_name("    render(o);"), None);
         assert_eq!(symbol_name("    return inv.render()"), None);
     }
 
