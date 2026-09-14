@@ -94,6 +94,7 @@ merl path/to/file.py:120
 | Ctrl+S | Save now (edits are saved on their own after a pause) |
 | Ctrl+R | Reload from disk, dropping unsaved edits |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
+| Edit: Ctrl+C / Ctrl+X | Copy / cut the selection, or the line, to the clipboard |
 | Arrows | Move the cursor |
 | Shift+Up / Shift+Down | Extend the selection by a line |
 | Shift+Left / Shift+Right | Move one word |
@@ -125,6 +126,12 @@ editor with VS Code habits: letters insert, Enter splits the line and keeps its 
 indents the way the file already does (tabs or four spaces, shown in the status bar), arrows and
 Home / End move, Shift+arrows select. The letter commands are letters again once you press Esc;
 the chord aliases (Ctrl+E, Ctrl+F, Ctrl+G, F12) work while editing.
+
+Typing over a selection replaces it, Backspace and Delete remove it. Ctrl+C and Ctrl+X copy and
+cut the selection (or the whole line without one) to the system clipboard through the terminal
+(OSC 52: Ghostty, kitty, WezTerm, agterm, and iTerm2 once "Applications in terminal may access
+clipboard" is on; Terminal.app cannot). Paste is the terminal's own Cmd+V. Ctrl+C is quit again
+once you press Esc.
 
 Ctrl+Z and Ctrl+Y undo and redo, per file, for as long as it is open; a run of keystrokes on one
 line is one step, as in VS Code. There is no save step: edits reach the disk `autosave_delay_ms` after the last keystroke, and
