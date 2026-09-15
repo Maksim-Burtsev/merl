@@ -56,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The file tree, `o` and project search include dotfiles (`.github/`, `.env`, `.dockerignore`);
-  `.gitignore` still applies and `.git` is skipped. (#16)
+  `.gitignore` still applies and `.git`, `.hg` and `.svn` are skipped. (#16)
 - Dockerfiles use bat's `Dockerfile (with bash)` grammar: `RUN` lines are highlighted as shell and
   instruction arguments are no longer drawn in the default colour. (#16)
 - All three themes colour the names infrastructure grammars emit: TOML keys and tables, INI

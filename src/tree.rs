@@ -36,11 +36,11 @@ pub struct Tree {
 /// tree would be a second source of truth for a read-only viewer.
 pub fn build(root: &Path) -> (Tree, Vec<PathBuf>) {
     // Dotfiles are walked: `.github/`, `.env` and `.dockerignore` are part of a project.
-    // `.gitignore` still prunes caches; `.git` itself is never content.
+    // `.gitignore` still prunes caches; a version-control store is never content.
     let mut entries: Vec<(PathBuf, bool)> = WalkBuilder::new(root)
         .hidden(false)
         .require_git(false)
-        .filter_entry(|e| e.file_name() != ".git")
+        .filter_entry(|e| !matches!(e.file_name().to_str(), Some(".git" | ".hg" | ".svn")))
         .build()
         .filter_map(Result::ok)
         .filter_map(|e| {
@@ -236,11 +236,13 @@ mod tests {
     fn dotfiles_are_walked_but_git_and_ignored_files_are_not() {
         let dir = std::env::temp_dir().join(format!("merl-tree-{}-dot", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        for d in [".git", ".github/workflows", ".cache"] {
+        for d in [".git", ".hg", ".svn", ".github/workflows", ".cache"] {
             std::fs::create_dir_all(dir.join(d)).unwrap();
         }
         for (f, text) in [
             (".git/HEAD", "ref: refs/heads/master"),
+            (".hg/requires", "store"),
+            (".svn/wc.db", "x"),
             (".github/workflows/ci.yml", "on: push"),
             (".env", "PORT=1"),
             (".gitignore", ".cache/"),

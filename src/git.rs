@@ -98,4 +98,22 @@ mod tests {
         assert!(marks(&dir, &dir.join("f")).is_empty());
         std::fs::remove_dir_all(&dir).unwrap();
     }
+
+    #[test]
+    fn a_repository_marks_changed_and_added_lines() {
+        let dir = std::env::temp_dir().join(format!("merl-git-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let git = |args: &[&str]| {
+            let out = Command::new("git").arg("-C").arg(&dir).args(args).output();
+            assert!(out.unwrap().status.success(), "git {args:?}");
+        };
+        git(&["init", "-q"]);
+        std::fs::write(dir.join("f"), "a\nb\nc\n").unwrap();
+        git(&["add", "f"]);
+        std::fs::write(dir.join("f"), "a\nB\nc\nd\n").unwrap();
+        let m = marks(&dir, &dir.join("f"));
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(m, HashMap::from([(1, Mark::Changed), (3, Mark::Added)]));
+    }
 }

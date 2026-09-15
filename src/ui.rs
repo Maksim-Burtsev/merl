@@ -321,7 +321,8 @@ fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base
                     if row.matched.binary_search(&(c as u32)).is_ok() {
                         style = style.add_modifier(Modifier::BOLD);
                     }
-                    Span::styled(ch.to_string(), style)
+                    // Quoted code keeps its tabs, as the buffer does; `expand` draws them.
+                    Span::styled(expand(&label[b..b + ch.len_utf8()]).into_owned(), style)
                 })
                 .collect();
             spans.push(Span::styled(
@@ -778,6 +779,42 @@ mod tests {
         let code_x = x0 + prefix.len() as u16;
         assert_eq!(buf[(code_x, row)].symbol(), "/");
         assert_ne!(buf[(code_x, row)].fg, buf[(x0, row)].fg);
+    }
+
+    #[test]
+    fn hit_picker_rows_keep_their_colours_past_a_tab() {
+        let dir = std::env::temp_dir().join(format!("merl-tab-row-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("a.c"), "#define MAX\t10\n").unwrap();
+        let mut app = App::new(
+            dir.clone(),
+            Tree::default(),
+            Vec::new(),
+            Buffer::empty(),
+            None,
+        );
+        let hits = vec![crate::search::Hit {
+            path: PathBuf::from("a.c"),
+            line: 1,
+            text: "#define MAX\t10".into(),
+        }];
+        app.show_picker(crate::app::PickerKind::Usages, App::hit_items(hits));
+        app.picker.as_mut().unwrap().settle();
+
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+
+        let buf = terminal.backend().buffer();
+        let row = 4;
+        let hash = (0..buf.area.width)
+            .find(|&x| buf[(x, row)].symbol() == "#")
+            .expect("the quoted line");
+        // The tab is drawn four wide, and `10` past it keeps the colour the code view gives it.
+        let ten = hash + "#define MAX".len() as u16 + 4;
+        assert_eq!(buf[(ten, row)].symbol(), "1");
+        assert_ne!(buf[(ten, row)].fg, buf[(hash - 2, row)].fg);
     }
 
     /// The tree pane and the status bar frame the overlay; the overlay itself is the border,

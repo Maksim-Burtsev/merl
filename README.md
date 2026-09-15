@@ -131,8 +131,9 @@ the chord aliases (Ctrl+E, Ctrl+F, Ctrl+G, F12) work while editing.
 Typing over a selection replaces it, Backspace and Delete remove it. Ctrl+C and Ctrl+X copy and
 cut the selection (or the whole line without one) to the system clipboard through the terminal
 (OSC 52: Ghostty, kitty, WezTerm, agterm, and iTerm2 once "Applications in terminal may access
-clipboard" is on; Terminal.app cannot). Paste is the terminal's own Cmd+V. Ctrl+C is quit again
-once you press Esc.
+clipboard" is on; Terminal.app cannot). Paste is the terminal's own Cmd+V; outside edit mode it
+types into the `/`, `s` and `:` prompts and picker queries, and navigation ignores it. Ctrl+C is
+quit again once you press Esc.
 
 In a git repository the gutter shows what differs from the index, as VS Code's does: green for
 added lines, blue for changed ones, red under a line where lines were deleted. The marks come
@@ -141,9 +142,12 @@ from `git diff` after every save and reload, so they trail an edit by the autosa
 Ctrl+Z and Ctrl+Y undo and redo, per file, for as long as it is open; a run of keystrokes on one
 line is one step, as in VS Code. There is no save step: edits reach the disk `autosave_delay_ms` after the last keystroke, and
 at once when you leave edit mode, switch files or quit. Ctrl+S saves now. A file that changes on
-disk under unsaved edits is not reloaded: the status bar says so, Ctrl+S keeps your version and
-Ctrl+R takes the disk's — VS Code's conflict prompt, with keys. Tabs, CRLF line endings and the
-trailing newline come back out as they went in; binary and non-UTF-8 files stay read-only.
+disk under unsaved edits is neither reloaded nor overwritten: the status bar says so, Ctrl+S keeps
+your version and Ctrl+R takes the disk's — VS Code's conflict prompt, with keys. Until then, or
+while a save keeps failing, merl stays on the file: another one does not open, and `q` has to be
+pressed twice to quit without the edits. Tabs, CRLF line endings and the trailing newline come back
+out as they went in; binary files, non-UTF-8 files and files with mixed line endings stay
+read-only, and so does a line too long to be shown whole.
 
 ## How navigation works
 
@@ -176,21 +180,23 @@ in Terraform reads the whole dotted address, so it works from anywhere in `aws_s
 struct enum impl trait interface mod module object record typealias union macro_rules! namespace`,
 with `export`/`pub`/`async`/`const`/`extern`/`declare` and the Java and Kotlin modifiers
 (`public`/`private`/`final`/`open`/`data`/`sealed`/`suspend`/`override` and friends) as prefixes; a
-`static` or `const` counts when the name follows the keyword, as in Rust, JavaScript and Kotlin, not
-when a Java type stands in between), plus shell functions (`name()`; the `function name` form the
-single regex already finds), SQL `CREATE`d objects under the name as written (`public.orders`, not
-CTEs), Java methods — told from a call by the return type before the name — Makefile targets,
-Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`, `module.x`, `var.x`, `output.x`),
-Dockerfile stages and YAML anchors, each read only from its own kind of file; recomputed on each
-press. TypeScript's class methods are not listed: with neither a keyword nor a type in front, the
-regex cannot tell `name(` from a call. Neither are the names a Ruby `attr_accessor` line declares,
-since one line can declare several. Searches are smart-case — an all-lowercase query ignores case,
-one uppercase letter makes it case-sensitive — and `/` and `s` take full regular expressions.
+`static` or `const` counts only unindented or exported, since indented they are locals, and only
+when the name follows the keyword, as it does in Rust, JavaScript and Kotlin but not in Java, where
+a type stands in between), plus shell functions (`name()`; the `function name` form the single regex
+already finds), SQL `CREATE`d objects under the name as written (`public.orders`, not CTEs), Java
+methods — told from a call by the return type before the name — Makefile targets, Terraform blocks
+by address (`aws_s3_bucket.logs`, `data.T.N`, `module.x`, `var.x`, `output.x`), Dockerfile stages
+and YAML anchors, each read only from its own kind of file; recomputed on each press. TypeScript's
+class methods are not listed: with neither a keyword nor a type in front, the regex cannot tell
+`name(` from a call. Neither are the names a Ruby `attr_accessor` line declares, since one line can
+declare several. Searches are smart-case — an all-lowercase query ignores case, one uppercase letter
+makes it case-sensitive — and `/` and `s` take full regular expressions.
 
 The file list comes from one `.gitignore`-respecting walk at startup and is not refreshed, so
 files created while merl is open show up after a restart. Dotfiles are part of it — `.github/`,
-`.env`, `.dockerignore` — and only `.git` itself is skipped. The open file itself is watched and
-reloads on every change on disk, keeping the cursor, the scroll position and the jump history.
+`.env`, `.dockerignore` — and only the `.git`, `.hg` and `.svn` stores are skipped. The open file
+itself is watched and reloads on every change on disk, keeping the cursor, the scroll position and
+the jump history.
 
 ## Themes
 
