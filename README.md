@@ -159,6 +159,7 @@ whole-word search for the identifier. `u` is that whole-word search, always.
 | Go | `func` with or without a receiver, `type`, `var`/`const`, `:=` | every `.go` file |
 | TypeScript / JavaScript | `function`, `class`, `interface`, `type`, `enum`, `namespace`, `const`/`let`/`var` (so arrow functions assigned to a name), class and object-literal methods, properties holding a function, behind `export`/`default`/`declare`/`async` and the member modifiers. Plain fields, destructuring and parameters fall back to the whole-word search. | every `.ts`, `.tsx`, `.js`, `.jsx` and friend: they search each other |
 | Rust | `fn`, `struct`, `enum`, `union`, `trait`, `type`, `const`, `static`, `mod`, `macro_rules!`, `let`, behind any `pub(..)`/`async`/`unsafe`/`const`/`extern`/`default` prefix. `impl` blocks count as uses. | every `.rs` file |
+| Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable | every Makefile |
 | Terraform | the block behind `var.x`, `module.x`, `local.x`, `data.T.N`, `T.N`; a bare name, as in `.tfvars`, is any block with that label | `.tf` files in the same directory |
 | Dockerfile | the `FROM … AS name` stage | the same file |
@@ -169,7 +170,8 @@ in Terraform reads the whole dotted address, so it works from anywhere in `aws_s
 
 `D` lists every declaration a single regex can recognise (`def class func function type fn struct
 enum impl trait interface mod const static union macro_rules! namespace`, with `export`/`pub`/`async`/`const`/`extern`/`declare`
-prefixes), plus Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`,
+prefixes), plus shell functions (`name()`; the `function name` form the single regex already
+finds), Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`,
 `module.x`, `var.x`, `output.x`), Dockerfile stages and YAML anchors, each read only from its own
 kind of file; recomputed on each press. Class methods without a keyword in front are not listed:
 the regex cannot tell `name(` from a call. Searches are smart-case — an all-lowercase query
