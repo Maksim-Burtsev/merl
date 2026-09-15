@@ -157,8 +157,9 @@ pub const LESSONS: &[Lesson] = &[
     },
     Lesson {
         title: "Edit",
-        text: "Enter starts editing at the cursor: type `# hi` and press Esc. merl saves a \
-               second after you stop typing; Ctrl+S saves now, Ctrl+R reloads the file from disk.",
+        text: "Enter starts editing at the cursor and the cursor becomes a bar: type `# hi` and \
+               press Esc, the block is back. merl saves a second after you stop typing; Ctrl+S \
+               saves now, Ctrl+R reloads the file from disk.",
         done: |a| a.mode == Mode::Normal && edited(a),
     },
     Lesson {
