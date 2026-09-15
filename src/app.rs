@@ -804,7 +804,13 @@ impl App {
             }
             Pick::Accept(item) => {
                 let path = self.root.join(&item.path);
-                self.jump_to(&path, item.line.max(1));
+                // The file picker carries no line: on the open file it keeps the cursor, like
+                // Enter in the tree, instead of sending it to line 1.
+                if item.line == 0 && self.buf.path.as_deref() == Some(&*path) {
+                    self.focus = Focus::Code;
+                } else {
+                    self.jump_to(&path, item.line.max(1));
+                }
             }
         }
         // Dropping the picker stops nucleo's workers.
@@ -2084,6 +2090,26 @@ mod tests {
         a.focus = Focus::Tree;
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
         assert_eq!((at(&a), a.focus), ((x.clone(), 4), Focus::Code));
+        assert_eq!(a.history, [(x, 4, 0)]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Picking the open file in the file picker keeps the cursor, like Enter in the tree:
+    /// the picker's items carry no line, and line 1 is not where the user was.
+    #[test]
+    fn picking_the_open_file_keeps_the_cursor() {
+        let (dir, mut a) = files_app("pick");
+        let x = dir.join("a.rs");
+        a.files = vec![PathBuf::from("a.rs")];
+        a.jump_to(&x, 5);
+        a.focus = Focus::Tree;
+        press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+        a.picker.as_mut().unwrap().settle();
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(
+            (at(&a), a.focus, a.mode),
+            ((x.clone(), 4), Focus::Code, Mode::Normal)
+        );
         assert_eq!(a.history, [(x, 4, 0)]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
