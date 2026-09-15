@@ -131,6 +131,9 @@ pub struct App {
     pub tree: Tree,
     /// Every file under the root, sorted like the tree; the file picker's item list.
     pub files: Vec<PathBuf>,
+    /// Per kind, the standard library and dependency roots outside the project and the files of
+    /// that kind under them; filled the first time `d` leaves the project.
+    external: HashMap<Kind, (Vec<PathBuf>, Arc<Vec<PathBuf>>)>,
     pub focus: Focus,
     pub show_tree: bool,
     /// First visible row of the tree pane, clamped by `ui`.
@@ -226,6 +229,7 @@ impl App {
             buf,
             tree,
             files,
+            external: HashMap::new(),
             focus,
             show_tree: true,
             tree_top: 0,
@@ -595,7 +599,17 @@ impl App {
                 return false;
             }
             match Buffer::load(path) {
-                Ok(buf) => {
+                Ok(mut buf) => {
+                    // The standard library and dependencies are read here, never edited. A
+                    // `.venv` or `node_modules` sits inside the root, so the roots decide.
+                    let external = !path.starts_with(&self.root)
+                        || self
+                            .external
+                            .values()
+                            .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)));
+                    if external {
+                        buf.readonly.get_or_insert("outside the project");
+                    }
                     self.buf = buf;
                     self.anchor = None;
                     self.dirty = false;
@@ -1035,43 +1049,54 @@ impl App {
 
     /// `d` / F12. A file of a known [`Kind`] gets its declaration patterns, searched only where
     /// such a definition can live (`.tsx` finds `.ts`, a Terraform variable stays in its
-    /// module); anything else, or a word the patterns do not declare (a field, a variant, a
-    /// parameter), falls back to a whole-word search for the identifier itself.
+    /// module). Nothing in the project means the word comes from outside it: the same patterns
+    /// run over the standard library and the installed dependencies
+    /// ([`search::external_roots`]), narrowed to the module the file's imports bind the word or
+    /// its qualifier to (`np.array` looks in `numpy`, `from json import load` in `json`). A
+    /// field, a variant or a parameter has no declaration the rules know and gets "no
+    /// definition": `u` lists the uses.
     fn goto_definition(&mut self) {
         let kind = self.kind();
-        let Some(word) = self.word_under(search::word_chars(kind, true)) else {
+        let extra = search::word_chars(kind, true);
+        let Some((range, word)) = search::word_at(self.line_str(), self.col, extra) else {
             return;
         };
+        let word = word.to_owned();
+        let chain = search::qualifier(self.line_str(), range.start);
         let here = self.rel_current();
         let patterns = kind.map_or_else(Vec::new, |k| search::def_patterns(k, &word));
-        // Escaped or built-in patterns always compile.
-        let mut hits = match (kind, &here) {
-            (Some(kind), Some(here)) if !patterns.is_empty() => self
-                .grep(&patterns.join("|"), false, false, |p| {
-                    search::in_def_scope(kind, here, p)
-                })
-                .unwrap_or_default(),
-            _ => Vec::new(),
+        let (Some(kind), Some(here)) = (kind, here) else {
+            self.message = format!("no definition for {word}");
+            return;
         };
-        if let Some(block) = kind.and_then(|k| search::def_block(k, &word)) {
-            hits.retain(|h| {
-                // The open file as it is on screen, which is what `grep` searched.
-                let text = if here.as_ref() == Some(&h.path) {
-                    self.buf.lines.join("\n")
-                } else {
-                    std::fs::read_to_string(self.root.join(&h.path)).unwrap_or_default()
-                };
-                search::directly_inside(&text, h.line, block)
-            });
+        if patterns.is_empty() {
+            self.message = format!("no definition for {word}");
+            return;
         }
-        if hits.is_empty() {
-            hits = self
-                .grep(&regex::escape(&word), true, false, |_| true)
-                .unwrap_or_default();
+        let pattern = patterns.join("|");
+        // Escaped or built-in patterns always compile.
+        let mut hits = self
+            .grep(&pattern, false, false, |p| {
+                search::in_def_scope(kind, &here, p)
+            })
+            .unwrap_or_default();
+        if let Some(block) = search::def_block(kind, &word) {
+            hits.retain(|h| {
+                std::fs::read_to_string(self.root.join(&h.path))
+                    .is_ok_and(|text| search::directly_inside(&text, h.line, block))
+            });
         }
         // Standing on one of the definitions is not a reason to go nowhere.
         if hits.len() > 1 {
-            hits.retain(|h| h.line != self.line + 1 || Some(&h.path) != here.as_ref());
+            hits.retain(|h| h.line != self.line + 1 || h.path != here);
+        }
+        if hits.is_empty()
+            && !matches!(
+                chain.first().map(String::as_str),
+                Some("self" | "cls" | "this")
+            )
+        {
+            hits = self.external_definitions(kind, &word, &chain, &pattern);
         }
         match hits.len() {
             0 => self.message = format!("no definition for {word}"),
@@ -1079,8 +1104,127 @@ impl App {
                 let path = self.root.join(&hits[0].path);
                 self.jump_to(&path, hits[0].line);
             }
-            _ => self.show_picker(PickerKind::Definitions, Self::hit_items(hits)),
+            _ => {
+                let items = self.external_items(kind, hits);
+                self.show_picker(PickerKind::Definitions, items);
+            }
         }
+    }
+
+    /// `pattern` over the standard library and dependencies of `kind`, in the module the file's
+    /// imports bind `chain` (or `word` itself) to. The module path is relaxed from the end until
+    /// files match: `from json import load` is `json/load`, then `json`. A qualifier no import
+    /// binds is taken as the module path itself (`std::fs::read`, `os.path` behind a bare
+    /// `import os`); a local variable in that position matches no file and the search stops.
+    /// A bare word no import binds (`Vec`, `open`) searches every file.
+    fn external_definitions(
+        &mut self,
+        kind: Kind,
+        word: &str,
+        chain: &[String],
+        pattern: &str,
+    ) -> Vec<Hit> {
+        let text = self.buf.lines.join("\n");
+        let imports = search::imports(kind, &text);
+        let bound = |name: &str| {
+            imports
+                .iter()
+                .find(|(n, _)| n == name)
+                .map(|(_, p)| p.clone())
+        };
+        let imported = chain
+            .first()
+            .map_or(bound(word).is_some(), |f| bound(f).is_some());
+        let mut module = match chain.first() {
+            Some(first) => {
+                let mut p = bound(first).unwrap_or_else(|| vec![first.clone()]);
+                p.extend(chain[1..].iter().cloned());
+                Some(p)
+            }
+            None => bound(word),
+        };
+        let all = self.external_files(kind);
+        let roots = self.external[&kind].0.clone();
+        let mut files: Vec<PathBuf> = Vec::new();
+        while let Some(m) = &mut module {
+            files = all
+                .iter()
+                .filter(|p| search::in_module(p, m))
+                .cloned()
+                .collect();
+            if !files.is_empty() {
+                break;
+            }
+            m.pop();
+            if m.is_empty() {
+                // An import of something not installed: nothing outside says what it is.
+                return Vec::new();
+            }
+        }
+        // Absolute paths: `root.join` leaves them alone, so a hit opens where it is. The
+        // standard library is the first root, and its hits come first.
+        let grep = |files: &[PathBuf]| {
+            let mut hits =
+                search::grep_project(&self.root, files, pattern, false, false, None, None)
+                    .unwrap_or_default();
+            hits.sort_by_cached_key(|h| {
+                (
+                    roots.iter().position(|r| h.path.starts_with(r)),
+                    h.path.clone(),
+                    h.line,
+                )
+            });
+            hits
+        };
+        if module.is_none() {
+            return grep(&all);
+        }
+        let hits = grep(&files);
+        // An imported module that does not declare the name re-exports it (`std::sync::Arc`
+        // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.
+        if hits.is_empty() && imported {
+            grep(&all)
+        } else {
+            hits
+        }
+    }
+
+    /// The files of `kind` outside the project, walked once per kind.
+    ///
+    /// ponytail: lives for the session, like the project walk. A `pip install` mid-session
+    /// needs a restart, as a new project file does.
+    fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
+        self.external
+            .entry(kind)
+            .or_insert_with(|| {
+                let roots = search::external_roots(kind, &self.root);
+                let files = search::external_files(kind, &roots);
+                (roots, Arc::new(files))
+            })
+            .1
+            .clone()
+    }
+
+    /// [`Self::hit_items`] with an external hit shown relative to the root it came from:
+    /// `json/__init__.py:278:` rather than the whole path to the interpreter.
+    fn external_items(&mut self, kind: Kind, hits: Vec<Hit>) -> Vec<PickItem> {
+        let roots = self
+            .external
+            .get(&kind)
+            .map(|(roots, _)| roots.clone())
+            .unwrap_or_default();
+        let mut items = Self::hit_items(hits);
+        for item in &mut items {
+            if let Some(root) = roots.iter().find(|r| item.path.starts_with(r))
+                && let Ok(rel) = item.path.strip_prefix(root)
+            {
+                let full = format!("{}:{}: ", item.path.display(), item.line);
+                let short = format!("{}:{}: ", rel.display(), item.line);
+                item.label = short.clone() + &item.label[full.len()..];
+                item.code_at = Some(short.len());
+            }
+        }
+        items
     }
 
     /// `u` / Shift+F12: every whole-word occurrence of the identifier, case-sensitive.
@@ -2171,7 +2315,7 @@ mod tests {
     }
 
     #[test]
-    fn definitions_fall_back_to_the_word_and_keep_only_direct_locals() {
+    fn a_field_has_no_definition_and_locals_must_be_direct() {
         let (dir, mut a) = project_app(
             "fallback",
             &[
@@ -2185,16 +2329,48 @@ mod tests {
                 ),
             ],
         );
-        // A field is no declaration the Rust rules know: the whole-word search finds it.
+        // A field is no declaration the Rust rules know, and `u` is the key for its uses.
         a.jump_to(&dir.join("order.rs"), 5);
         a.col = 10;
         press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-        assert_eq!(at(&a), (dir.join("order.rs"), 1), "{}", a.message);
+        assert_eq!(at(&a), (dir.join("order.rs"), 4));
+        assert_eq!(a.message, "no definition for items");
         // Of the two `name =` lines, only the one directly inside `locals` is `local.name`.
         a.jump_to(&dir.join("main.tf"), 8);
         a.col = 17;
         press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
         assert_eq!(at(&a), (dir.join("main.tf"), 1), "{}", a.message);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// `json.load` is not declared in the project: `d` follows it into the standard library of
+    /// the `python3` on this machine and opens it read-only. Skipped where there is none.
+    #[test]
+    fn definitions_outside_the_project_come_from_the_standard_library() {
+        let stdlib = search::external_roots(Kind::Python, Path::new("/"));
+        if stdlib.is_empty() {
+            eprintln!("no python3, skipped");
+            return;
+        }
+        let (dir, mut a) = project_app(
+            "stdlib",
+            &[(
+                "main.py",
+                "import json\n\ndef read(p):\n    return json.load(open(p))\n",
+            )],
+        );
+        a.jump_to(&dir.join("main.py"), 4);
+        a.col = 17;
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        let (path, _) = at(&a);
+        assert!(
+            path.ends_with("json/__init__.py"),
+            "{} {}",
+            path.display(),
+            a.message
+        );
+        assert!(a.line_str().starts_with("def load("), "{}", a.line_str());
+        assert_eq!(a.buf.readonly, Some("outside the project"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
