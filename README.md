@@ -170,9 +170,10 @@ in Terraform reads the whole dotted address, so it works from anywhere in `aws_s
 
 `D` lists every declaration a single regex can recognise (`def class func function type fn struct
 enum impl trait interface mod const static union macro_rules! namespace`, with `export`/`pub`/`async`/`const`/`extern`/`declare`
-prefixes), plus SQL `CREATE`d objects under the name as written (`public.orders`, not CTEs), Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`,
-`module.x`, `var.x`, `output.x`), Dockerfile stages and YAML anchors, each read only from its own
-kind of file; recomputed on each press. Class methods without a keyword in front are not listed:
+prefixes), plus SQL `CREATE`d objects under the name as written (`public.orders`, not CTEs),
+Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`, `module.x`,
+`var.x`, `output.x`), Dockerfile stages and YAML anchors, each read only from its own kind of
+file; recomputed on each press. Class methods without a keyword in front are not listed:
 the regex cannot tell `name(` from a call. Searches are smart-case — an all-lowercase query
 ignores case, one uppercase letter makes it case-sensitive — and `/` and `s` take full regular
 expressions.
