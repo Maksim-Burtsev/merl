@@ -215,6 +215,85 @@ light themes that look like paper rather than an inverted dark one.
 | `bluloco-light` | light | [uloco/bluloco.nvim](https://github.com/uloco/bluloco.nvim) |
 | `shokunin-light` | light | VS Code JSON in `tools/themes-src/` |
 
+<details>
+<summary>Screenshots of every theme</summary>
+
+Recorded with [`tools/theme-shots.sh`](tools/theme-shots.sh).
+
+**tokyonight-moon**<br>
+<img src="assets/themes/tokyonight-moon.png" alt="merl in tokyonight-moon" width="600">
+
+**kanagawa-wave**<br>
+<img src="assets/themes/kanagawa-wave.png" alt="merl in kanagawa-wave" width="600">
+
+**kanagawa-dragon**<br>
+<img src="assets/themes/kanagawa-dragon.png" alt="merl in kanagawa-dragon" width="600">
+
+**rose-pine**<br>
+<img src="assets/themes/rose-pine.png" alt="merl in rose-pine" width="600">
+
+**rose-pine-moon**<br>
+<img src="assets/themes/rose-pine-moon.png" alt="merl in rose-pine-moon" width="600">
+
+**everforest-dark**<br>
+<img src="assets/themes/everforest-dark.png" alt="merl in everforest-dark" width="600">
+
+**gruvbox-material-dark**<br>
+<img src="assets/themes/gruvbox-material-dark.png" alt="merl in gruvbox-material-dark" width="600">
+
+**catppuccin-mocha**<br>
+<img src="assets/themes/catppuccin-mocha.png" alt="merl in catppuccin-mocha" width="600">
+
+**flexoki-dark**<br>
+<img src="assets/themes/flexoki-dark.png" alt="merl in flexoki-dark" width="600">
+
+**melange-dark**<br>
+<img src="assets/themes/melange-dark.png" alt="merl in melange-dark" width="600">
+
+**nordfox**<br>
+<img src="assets/themes/nordfox.png" alt="merl in nordfox" width="600">
+
+**shokunin-dark**<br>
+<img src="assets/themes/shokunin-dark.png" alt="merl in shokunin-dark" width="600">
+
+**rose-pine-dawn**<br>
+<img src="assets/themes/rose-pine-dawn.png" alt="merl in rose-pine-dawn" width="600">
+
+**kanagawa-lotus**<br>
+<img src="assets/themes/kanagawa-lotus.png" alt="merl in kanagawa-lotus" width="600">
+
+**everforest-light**<br>
+<img src="assets/themes/everforest-light.png" alt="merl in everforest-light" width="600">
+
+**flexoki-light**<br>
+<img src="assets/themes/flexoki-light.png" alt="merl in flexoki-light" width="600">
+
+**catppuccin-latte**<br>
+<img src="assets/themes/catppuccin-latte.png" alt="merl in catppuccin-latte" width="600">
+
+**gruvbox-material-light**<br>
+<img src="assets/themes/gruvbox-material-light.png" alt="merl in gruvbox-material-light" width="600">
+
+**melange-light**<br>
+<img src="assets/themes/melange-light.png" alt="merl in melange-light" width="600">
+
+**dawnfox**<br>
+<img src="assets/themes/dawnfox.png" alt="merl in dawnfox" width="600">
+
+**dayfox**<br>
+<img src="assets/themes/dayfox.png" alt="merl in dayfox" width="600">
+
+**tokyonight-day**<br>
+<img src="assets/themes/tokyonight-day.png" alt="merl in tokyonight-day" width="600">
+
+**bluloco-light**<br>
+<img src="assets/themes/bluloco-light.png" alt="merl in bluloco-light" width="600">
+
+**shokunin-light**<br>
+<img src="assets/themes/shokunin-light.png" alt="merl in shokunin-light" width="600">
+
+</details>
+
 `T` lists them inside merl and repaints everything in the theme under the cursor as it moves:
 Enter keeps it and writes it to the config file below, Esc puts the old one back. `merl --theme
 NAME` overrides the config for one run; an unknown name exits with code 1 and lists the valid
