@@ -664,8 +664,8 @@ impl App {
     /// Records where the cursor is now, VS Code style: the current stop always tracks the
     /// cursor. A plain move within `HIST_NEAR` lines just updates it; a farther move, another
     /// file, or a `jump` (go to definition, `:`, find) becomes a new stop and drops the
-    /// forward history. Standing on the current stop records nothing, so walking with
-    /// `[` / `]` is silent.
+    /// forward history. Paging (see `key_inner`) only updates it. Standing on the current stop
+    /// records nothing, so walking with `[` / `]` is silent.
     fn hist_note(&mut self, jump: bool) {
         let Some(pos) = self.pos() else {
             return;
@@ -1487,6 +1487,11 @@ impl App {
                 KeyCode::Left | KeyCode::Right => ctrl || alt,
                 _ => false,
             };
+        // Ctrl+D/U and PageUp/Down are how merl scrolls, and a page is always farther than
+        // `HIST_NEAR`: the current stop follows the cursor anyway, so paging through a file adds
+        // no stops and drops no forward history.
+        let paging = matches!(key.code, KeyCode::PageUp | KeyCode::PageDown)
+            || ctrl && matches!(key.code, KeyCode::Char('d' | 'u'));
         let before = (self.line, self.col);
         match key.code {
             KeyCode::Char('q') => return true,
@@ -1593,6 +1598,10 @@ impl App {
         // Any cursor move that is not an extending one drops the selection.
         if (self.line, self.col) != before && !extending {
             self.anchor = None;
+        }
+        if paging && let (Some(pos), Some(cur)) = (self.pos(), self.history.get_mut(self.hist_idx))
+        {
+            *cur = pos;
         }
         self.hist_note(false);
         false
@@ -1980,11 +1989,11 @@ mod tests {
             press(&mut a, KeyCode::Down, KeyModifiers::NONE);
         }
         assert_eq!(a.history, [(x.clone(), 0, 0), (y.clone(), 3, 0)]);
-        // Half a page (12 lines) at once is somewhere else: a new stop.
-        press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+        // The end of the file (36 lines away) is somewhere else: a new stop.
+        press(&mut a, KeyCode::End, KeyModifiers::CONTROL);
         assert_eq!(
             a.history,
-            [(x.clone(), 0, 0), (y.clone(), 3, 0), (y.clone(), 15, 0)]
+            [(x.clone(), 0, 0), (y.clone(), 3, 0), (y.clone(), 39, 1)]
         );
         press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
         assert_eq!(at(&a), (y.clone(), 3));
@@ -1992,7 +2001,29 @@ mod tests {
         assert_eq!(at(&a), (x.clone(), 0));
         press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
         press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
-        assert_eq!(at(&a), (y, 15));
+        assert_eq!(at(&a), (y, 39));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Ctrl+D/U and PageUp/Down are scrolling, not jumps: however far a page is, the current
+    /// stop follows the cursor, so one `[` is back at the call site and `]` still works after
+    /// reading around it.
+    #[test]
+    fn paging_moves_the_current_stop_instead_of_adding_stops() {
+        let (dir, mut a) = files_app("paging");
+        let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+        a.jump_to(&x, 1);
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+        a.jump_to(&y, 1);
+        press(&mut a, KeyCode::PageDown, KeyModifiers::NONE);
+        assert_eq!(a.history, [(x.clone(), 24, 0), (y.clone(), 24, 0)]);
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(at(&a), (x.clone(), 24));
+        press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+        press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (y.clone(), 24));
+        assert_eq!(a.history, [(x, 12, 0), (y, 24, 0)]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
