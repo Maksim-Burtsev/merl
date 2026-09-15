@@ -175,7 +175,7 @@ fn event_loop(
     let mut watched: Option<PathBuf> = None;
 
     let mut dirty = true;
-    let mut editing = false;
+    let mut typing: Option<bool> = None;
     loop {
         // nucleo matches in the background; poll it while its overlay is on screen.
         if let Some(p) = &mut app.picker {
@@ -193,13 +193,15 @@ fn event_loop(
                 let _ = tx.send(Msg::Diff(path, marks));
             });
         }
-        // A bar cursor while editing, the terminal's own shape otherwise, like VS Code.
-        if editing != (app.mode == Mode::Edit) {
-            editing = !editing;
-            let shape = if editing {
+        // Typing (edit mode, or any prompt) gets a bar, navigating a block, like vim: the shape
+        // says which mode you are in without looking at the status bar.
+        let now = !matches!(app.mode, Mode::Normal | Mode::Help);
+        if typing != Some(now) {
+            typing = Some(now);
+            let shape = if now {
                 SetCursorStyle::SteadyBar
             } else {
-                SetCursorStyle::DefaultUserShape
+                SetCursorStyle::SteadyBlock
             };
             let _ = execute!(stdout(), shape);
         }
