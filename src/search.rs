@@ -32,6 +32,67 @@ macro_rules! sql_create {
     };
 }
 
+/// Everything that can stand before a declaration in Java or Kotlin: annotations, Java's access
+/// and class modifiers, Kotlin's own. The argument is the repetition the run takes: `"*"` for a
+/// rule that reads them if they are there, `"+"` for one that needs at least one of them. A
+/// macro, so [`def_patterns`] and the [`SYMBOLS`] rows share one spelling of it.
+macro_rules! jvm_mods {
+    () => {
+        jvm_mods!("*")
+    };
+    ($rep:literal) => {
+        concat!(
+            r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*",
+            r"(?:(?:public|protected|private|internal|static|final|abstract|sealed|non-sealed",
+            r"|strictfp|synchronized|native|default|transient|volatile|open|data|value|inner",
+            r"|annotation|companion|enum|const|lateinit|expect|actual|suspend|override|inline",
+            r"|operator|infix|tailrec|external|reified)\s+)",
+            $rep
+        )
+    };
+}
+
+/// A Java return type: a primitive, or a name with a capital in it. Java names its types that
+/// way, and requiring one keeps `return parse(x);` from reading as a declaration. The generics
+/// nest one level, for a `Map<String, List<Integer>>`.
+macro_rules! jvm_return_type {
+    () => {
+        concat!(
+            r"(?:void|int|long|short|byte|char|boolean|float|double|[\w.]*[A-Z][\w.]*)",
+            r"(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?(?:\[\])*"
+        )
+    };
+}
+
+/// The Java and Kotlin half of [`SYMBOLS`]: what either language declares with a keyword.
+/// `fun interface` stands before `fun`, so a Kotlin functional interface is listed under its own
+/// name; `companion object` has no name and falls out on the `\s+` before it. A `val` counts
+/// behind `const` only: the rest are fields and locals, which no kind lists.
+const JVM_DECL_SYMBOL: &str = concat!(
+    jvm_mods!(),
+    r"(?:class|interface|enum|record|typealias|@interface|object",
+    r"|fun\s+interface|fun|const\s+(?:val|var))\s+(?:<[^>]*>\s*)?",
+    r"(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?",
+    r"(?P<name>[A-Za-z_]\w*)"
+);
+
+/// The other Java half: a method, told from a call by the return type before its name. Kotlin
+/// writes its types after the name, so nothing of Kotlin's lands here twice. A field is left out,
+/// as in every other kind.
+const JAVA_METHOD_SYMBOL: &str = concat!(
+    jvm_mods!(),
+    r"(?:<[^>]*>\s*)?",
+    jvm_return_type!(),
+    r"\s+(?P<name>[A-Za-z_]\w*)\s*\("
+);
+
+/// The Ruby half of [`SYMBOLS`]: a method, including the `self.` form and the `name=` setter, and
+/// a class or module under the namespace it is written with. A constant and the names an
+/// `attr_accessor` line declares stay off the list: there is no keyword to go by, and one such
+/// line can declare several.
+const RUBY_SYMBOL: &str =
+    r"^\s*(?:def\s+(?:self\.|[A-Z]\w*\.)?|(?:class|module)\s+(?:[\w:]*::)?)(?P<name>[A-Za-z_]\w*)";
+
 /// A name in a `CREATE` statement, as written: bare, `"quoted"` or `` `backticked` ``, and
 /// optionally schema-qualified (`public.orders`).
 const SQL_NAME: &str = r#"(?:"[^"]+"|`[^`]+`|\w+)"#;
@@ -42,9 +103,10 @@ const SQL_CREATE_SYMBOL: &str = concat!(
     r#"(?P<name>(?:"[^"]+"|`[^`]+`|\w+)(?:\.(?:"[^"]+"|`[^`]+`|\w+))?)"#
 );
 
-/// What `D` lists: a line pattern and the kind of file it runs over (`None`: every file).
-/// The infrastructure patterns need their kind, since a Makefile target and a YAML key are the
-/// same shape. [`symbol_name`] reads the listed name from the named groups.
+/// What `D` lists: a line pattern and the kind of file it runs over (`None`: every file
+/// [`shared_symbols`] reads it from). The infrastructure patterns need their kind, since a
+/// Makefile target and a YAML key are the same shape. [`symbol_name`] reads the listed name from
+/// the named groups.
 pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (None, SYMBOL_PATTERN),
     // `name ()`, the form without the `function` keyword: a `function name` line is already
@@ -53,6 +115,12 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // Every `CREATE` object, with the name as written, schema and quotes included. CTEs are a
     // query's own scaffolding, not a symbol of the project, so they are left out.
     (Some(Kind::Sql), SQL_CREATE_SYMBOL),
+    // Java and Kotlin are listed from their own rows only: their modifiers, annotations and
+    // receivers are not the shared pattern's business, and a method carries no keyword at all.
+    (Some(Kind::Jvm), JVM_DECL_SYMBOL),
+    (Some(Kind::Jvm), JAVA_METHOD_SYMBOL),
+    // Ruby likewise: `def self.parse` is `parse`, which the shared pattern would call `self`.
+    (Some(Kind::Ruby), RUBY_SYMBOL),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -69,6 +137,13 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Yaml), r"(^|\s)&(?P<anchor>[\w.-]+)"),
 ];
 
+/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin and Ruby have rows of
+/// their own in [`SYMBOLS`], written for what those languages declare and how they name it, so
+/// reading the all-language pattern over them too would list a declaration twice.
+pub fn shared_symbols(kind: Option<Kind>) -> bool {
+    !matches!(kind, Some(Kind::Jvm | Kind::Ruby))
+}
+
 /// A file kind with navigation rules of its own. Told by the file name, since a `Makefile` or a
 /// `Dockerfile` has no extension to go by; one kind can span extensions (`.tsx` finds `.ts`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -77,6 +152,8 @@ pub enum Kind {
     Go,
     Rust,
     TsJs,
+    Jvm,
+    Ruby,
     Shell,
     Sql,
     Make,
@@ -93,6 +170,15 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "go") => Kind::Go,
         (_, "rs") => Kind::Rust,
         (_, "ts" | "tsx" | "mts" | "cts" | "js" | "jsx" | "mjs" | "cjs") => Kind::TsJs,
+        // Java and Kotlin are one kind: they call each other inside the same project, so `d` in
+        // a `.kt` file has to find the `.java` class it uses, as `.tsx` finds `.ts`.
+        (_, "java" | "kt" | "kts") => Kind::Jvm,
+        (_, "rb" | "rake" | "gemspec" | "podspec" | "rbi" | "ru") => Kind::Ruby,
+        (
+            "Rakefile" | "rakefile" | "Gemfile" | "Guardfile" | "Capfile" | "Vagrantfile"
+            | "Podfile" | "Brewfile" | "Dangerfile" | "Fastfile",
+            _,
+        ) => Kind::Ruby,
         // Name-only, like every other kind: a shebang-only script with no extension is left to
         // the whole-word fallback, since `kind_of` never reads a file.
         (_, "sh" | "bash" | "zsh" | "ksh") => Kind::Shell,
@@ -235,6 +321,43 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 ),
             ]
         }
+        Kind::Jvm => {
+            let (mods, ret) = (jvm_mods!(), jvm_return_type!());
+            let mods_one = jvm_mods!("+");
+            vec![
+                format!(
+                    r"{mods}(?:class|interface|enum|record|@interface|object|typealias)\s+{w}\b"
+                ),
+                // Kotlin: a function, with its generics and, for an extension, its receiver.
+                format!(
+                    r"{mods}fun\s+(?:<[^>]*>\s*)?(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?{w}\s*\("
+                ),
+                format!(r"{mods}(?:val|var)\s+{w}\b"),
+                // Java: a constructor, behind at least one modifier. With nothing in front,
+                // `Card(title) {` is a Kotlin call with a trailing lambda and `new Runnable() {`
+                // an anonymous class, so a bare name before `(` is never a declaration here; a
+                // method is found by the return type in the rule below, brace or no brace.
+                format!(r"{mods_one}{w}\s*\([^;]*\)\s*(?:throws [\w.,\s]+)?\{{\s*$"),
+                // Java: an abstract or interface method, and a field: a return type, the name,
+                // and the `(`, `;` or `=` that follows it.
+                format!(r"{mods}(?:<[^>]*>\s*)?{ret}(?:\.\.\.)?\s+{w}\s*[(;=]"),
+            ]
+        }
+        // Ruby declares everything on one line. A constant lives indented inside its class, so
+        // the assignment rule is not anchored at column zero as Python's is, and it takes the
+        // `@`/`@@` of an instance or class variable with it. The Rails-style DSL (`scope`,
+        // `has_many`, `define_method`) is left to the whole-word fallback.
+        Kind::Ruby => vec![
+            // A method: `def name`, `def self.name`, `def Klass.name`, and the `name=` setter.
+            format!(r"^\s*def\s+(?:self\.|[A-Z]\w*\.)?{w}\b"),
+            format!(r"^\s*(?:class|module)\s+(?:[\w:]+::)?{w}\b"),
+            // An assignment, `||=` included; `==`, `=~` and `=>` are not one.
+            format!(r"^\s*@{{0,2}}{w}\s*(?:\|\|)?=($|[^=~>])"),
+            // The reader and writer methods a class declares for its attributes, wherever the
+            // name sits in the list.
+            format!(r"^\s*attr_(?:accessor|reader|writer)\s+(?:[:\w]+\s*,\s*)*:{w}\b"),
+            format!(r"^\s*alias(?:_method)?\s+:?{w}\b"),
+        ],
         // A function in either form, an assignment behind the declaration keywords that can
         // precede it (`+=` appends to one), or an alias. A shell has no declaration for the rest,
         // so a `$w` use or a `[ "$w" = x ]` test must not look like one.
@@ -328,6 +451,8 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Go
         | Kind::Rust
         | Kind::TsJs
+        | Kind::Jvm
+        | Kind::Ruby
         | Kind::Shell
         | Kind::Sql
         | Kind::Make => kind_of(path) == Some(kind),
@@ -431,9 +556,16 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             dirs
         }
         Kind::TsJs => vec![root.join("node_modules")],
-        Kind::Shell | Kind::Sql | Kind::Make | Kind::Terraform | Kind::Docker | Kind::Yaml => {
-            Vec::new()
-        }
+        // Java, Kotlin and Ruby have no roots yet: the JDK and Gradle caches, and a gem path,
+        // are their own lookups. `d` stays inside the project for them, as for the rest.
+        Kind::Jvm
+        | Kind::Ruby
+        | Kind::Shell
+        | Kind::Sql
+        | Kind::Make
+        | Kind::Terraform
+        | Kind::Docker
+        | Kind::Yaml => Vec::new(),
     };
     dirs.retain(|d| d.is_dir() && d != root && !d.as_os_str().is_empty());
     dirs.dedup();
@@ -604,7 +736,15 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
                 }
             }
         }
-        Kind::Shell | Kind::Sql | Kind::Make | Kind::Terraform | Kind::Docker | Kind::Yaml => {}
+        // Nothing to bind without roots to resolve an `import` or a `require` against.
+        Kind::Jvm
+        | Kind::Ruby
+        | Kind::Shell
+        | Kind::Sql
+        | Kind::Make
+        | Kind::Terraform
+        | Kind::Docker
+        | Kind::Yaml => {}
     }
     out
 }
@@ -866,6 +1006,222 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    const JAVA: &str = r#"package app;
+
+public final class Invoice {
+    private static final int LIMIT = 10;
+    private Map<String, Integer> items;
+
+    public Invoice(int n) {
+        this.n = n;
+    }
+
+    @Override
+    public int total() {
+        return compute(items);
+    }
+
+    static Map<String, Integer> compute(Map<String, Integer> rows) {
+        return rows;
+    }
+
+    Runnable onSave() {
+        return new Runnable() {
+            public void run() {}
+        };
+    }
+}
+
+interface Store {
+    void save(Invoice inv);
+}
+
+record Point(int x, int y) {}
+
+enum Status {
+    OPEN,
+}
+"#;
+
+    const KT: &str = r#"package app
+
+data class Order(val id: String)
+
+class Service(private val repo: Repo) {
+    private val cache = mutableMapOf<String, Order>()
+
+    suspend fun load(id: String): Order {
+        return parse(id)
+    }
+
+    fun parse(id: String): Order = Order(id)
+}
+
+fun String.slug(): String = lowercase()
+
+fun Card(title: String, content: () -> Unit) {
+}
+
+fun screen() {
+    Card(title = "Invoice") {
+        withContext(Dispatchers.IO) {
+        }
+    }
+    Card(title = "Order") {
+    }
+}
+
+object Registry {
+    val all = listOf<Order>()
+
+    private const val TAG = "Invoice"
+}
+
+enum class Status {
+    OPEN,
+}
+
+typealias Rows = List<Order>
+
+const val LIMIT = 10
+"#;
+
+    #[test]
+    fn java_def_patterns_cover_types_methods_and_fields() {
+        let (dir, files) = scratch("java", &[("Invoice.java", JAVA)]);
+        let d = |w| defs(&dir, &files, Kind::Jvm, w);
+        // The class and the constructor; the caller shows a picker.
+        assert_eq!(d("Invoice"), [3, 7]);
+        assert_eq!(d("LIMIT"), [4]);
+        assert_eq!(d("items"), [5], "not the `compute(items)` call");
+        assert_eq!(d("total"), [12], "behind its annotation and modifiers");
+        // The declaration, not the `return compute(items);` call above it.
+        assert_eq!(d("compute"), [16]);
+        assert_eq!(d("onSave"), [20], "no modifier, but a return type");
+        assert_eq!(d("run"), [22]);
+        assert_eq!(d("Store"), [27]);
+        assert_eq!(d("save"), [28], "an interface method has no body");
+        assert_eq!(d("Point"), [31]);
+        assert_eq!(d("Status"), [33]);
+        assert_eq!(d("rows"), Vec::<usize>::new(), "a parameter falls back");
+        // `new Runnable() {` opens an anonymous class: a use of the interface, not a
+        // declaration of it.
+        assert_eq!(d("Runnable"), Vec::<usize>::new());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn kotlin_def_patterns_cover_declarations_and_receivers() {
+        let (dir, files) = scratch("kt", &[("app.kt", KT)]);
+        let d = |w| defs(&dir, &files, Kind::Jvm, w);
+        assert_eq!(d("Order"), [3], "not the `Order(id)` calls");
+        assert_eq!(d("Service"), [5]);
+        assert_eq!(d("cache"), [6]);
+        assert_eq!(d("load"), [8], "behind `suspend`");
+        assert_eq!(d("parse"), [12], "not the `return parse(id)` call");
+        assert_eq!(d("slug"), [15], "an extension function, past its receiver");
+        assert_eq!(d("screen"), [20]);
+        // The `fun`, not the two `Card(title = …) {` calls with a trailing lambda.
+        assert_eq!(d("Card"), [17]);
+        assert_eq!(
+            d("withContext"),
+            Vec::<usize>::new(),
+            "a call with a trailing lambda is not a declaration"
+        );
+        assert_eq!(d("Registry"), [29]);
+        assert_eq!(d("all"), [30]);
+        assert_eq!(d("TAG"), [32], "behind `private const`");
+        assert_eq!(d("Status"), [35]);
+        assert_eq!(d("Rows"), [39]);
+        assert_eq!(d("LIMIT"), [41]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn java_and_kotlin_find_each_other() {
+        let (dir, files) = scratch("jvm", &[("Invoice.java", JAVA), ("app.kt", KT)]);
+        let pat = def_patterns(Kind::Jvm, "Store").join("|");
+        assert_eq!(
+            lines(&grep(&dir, &files, &pat, false, false)),
+            [("Invoice.java".into(), 27)]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    const RB: &str = r#"module Billing
+  LIMIT = 10
+
+  class Invoice
+    attr_accessor :total
+    attr_reader :id, :customer
+
+    @@count = 0
+
+    def initialize(id)
+      @id = id
+      @rows = []
+    end
+
+    def self.parse(text)
+      new(text)
+    end
+
+    def total=(value)
+      @total = value
+    end
+
+    def cache
+      @cache ||= {}
+    end
+
+    def empty?
+      @rows.empty?
+    end
+
+    def ==(other)
+      total == other.total && name =~ /x/
+    end
+
+    def to_h
+      {
+        id => 1,
+      }
+    end
+
+    alias_method :blank?, :empty?
+  end
+end
+"#;
+
+    #[test]
+    fn ruby_def_patterns_find_methods_attributes_and_assignments() {
+        let (dir, files) = scratch("rb", &[("invoice.rb", RB)]);
+        let d = |w| defs(&dir, &files, Kind::Ruby, w);
+        assert_eq!(d("Billing"), [1]);
+        assert_eq!(d("LIMIT"), [2], "a constant, indented in its module");
+        assert_eq!(d("Invoice"), [4]);
+        // The accessor, the setter and the assignment behind it -- not `total == other.total`.
+        assert_eq!(d("total"), [5, 19, 20]);
+        assert_eq!(d("customer"), [6], "second in the `attr_reader` list");
+        // `id => 1,` is a hash pair, not an assignment.
+        assert_eq!(d("id"), [6, 11]);
+        assert_eq!(d("count"), [8], "a class variable");
+        assert_eq!(d("initialize"), [10]);
+        assert_eq!(d("parse"), [15], "`def self.parse`");
+        assert_eq!(
+            d("cache"),
+            [23, 24],
+            "the method and the `||=` it memoises with"
+        );
+        // `?` is not part of the word under the cursor, and `@rows.empty?` is a call.
+        assert_eq!(d("empty"), [27]);
+        assert_eq!(d("rows"), [12]);
+        assert_eq!(d("blank"), [41]);
+        assert_eq!(d("name"), Vec::<usize>::new(), "`name =~ /x/` is a match");
+        assert_eq!(d("new"), Vec::<usize>::new());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
 
     #[test]
@@ -1027,6 +1383,16 @@ output "bucket" {
             ("lib.rs", Some(Kind::Rust)),
             ("app.tsx", Some(Kind::TsJs)),
             ("util.cjs", Some(Kind::TsJs)),
+            ("Invoice.java", Some(Kind::Jvm)),
+            ("invoice.rb", Some(Kind::Ruby)),
+            ("Rakefile", Some(Kind::Ruby)),
+            ("Gemfile", Some(Kind::Ruby)),
+            ("config.ru", Some(Kind::Ruby)),
+            ("merl.gemspec", Some(Kind::Ruby)),
+            ("tasks.rake", Some(Kind::Ruby)),
+            ("invoice.rbi", Some(Kind::Ruby)),
+            ("app.kt", Some(Kind::Jvm)),
+            ("build.gradle.kts", Some(Kind::Jvm)),
             ("run.sh", Some(Kind::Shell)),
             ("run.bash", Some(Kind::Shell)),
             ("run.zsh", Some(Kind::Shell)),
@@ -1227,6 +1593,23 @@ output "bucket" {
             Path::new("src/main.rs"),
             Path::new("build.py")
         ));
+        // A Kotlin file finds the Java class it calls, and the other way round.
+        assert!(in_def_scope(
+            Kind::Jvm,
+            Path::new("app/src/App.kt"),
+            Path::new("lib/src/Invoice.java")
+        ));
+        assert!(!in_def_scope(
+            Kind::Jvm,
+            Path::new("app/src/App.kt"),
+            Path::new("lib/src/invoice.py")
+        ));
+        // A Rakefile finds the class it drives in the library it loads.
+        assert!(in_def_scope(
+            Kind::Ruby,
+            Path::new("Rakefile"),
+            Path::new("lib/invoice.rb")
+        ));
         // A migration finds the table it alters in whatever file created it.
         assert!(in_def_scope(
             Kind::Sql,
@@ -1307,6 +1690,24 @@ output "bucket" {
         symbol_name(&Regex::new(pattern).unwrap(), line)
     }
 
+    /// Every name `D` lists for `line` in a file of `kind`: each [`SYMBOLS`] row such a file is
+    /// read with, the all-language one included when [`shared_symbols`] takes it. A line listed
+    /// twice comes back twice.
+    fn listed(kind: Kind, line: &str) -> Vec<String> {
+        SYMBOLS
+            .iter()
+            .filter(|(k, _)| *k == Some(kind) || (k.is_none() && shared_symbols(Some(kind))))
+            .filter_map(|(_, p)| symbol_name(&Regex::new(p).unwrap(), line))
+            .collect()
+    }
+
+    /// The one name `D` lists, and no second one.
+    fn one(kind: Kind, line: &str) -> Option<String> {
+        let names = listed(kind, line);
+        assert!(names.len() <= 1, "{line}: listed as {names:?}");
+        names.into_iter().next()
+    }
+
     #[test]
     fn code_symbol_names() {
         for (line, name) in [
@@ -1346,6 +1747,21 @@ output "bucket" {
             ("export const parse = (s) => s;", Some("parse")),
             ("    render(o);", None),
             ("    return inv.render()", None),
+            // A Go constant with a type or with several names, and a JavaScript name with a `$`:
+            // the name is whatever follows the keyword, with nothing required after it.
+            ("const Limit int = 10", Some("Limit")),
+            ("const A, B = 1, 2", Some("A")),
+            (
+                "export const user$ = new BehaviorSubject(null);",
+                Some("user"),
+            ),
+            // A dotted name is the first part: the namespace, not what is nested in it.
+            ("export namespace Validation.Rules {", Some("Validation")),
+            // Java, Kotlin and Ruby have rows of their own; their keywords are not here, so a Go
+            // struct field and a line of prose are not declarations.
+            ("\tmodule module.Version", None),
+            ("module in general is to provide", None),
+            ("module.exports = helpers;", None),
         ] {
             assert_eq!(symbol(None, line).as_deref(), name, "{line}");
         }
@@ -1424,6 +1840,110 @@ output "bucket" {
         ] {
             assert_eq!(symbol(None, line), None, "{line}");
         }
+    }
+
+    #[test]
+    fn jvm_symbol_names() {
+        let jvm = |line| one(Kind::Jvm, line);
+        // What either language declares with a keyword, behind annotations and modifiers.
+        for (line, name) in [
+            ("public final class Invoice {", Some("Invoice")),
+            ("interface Store {", Some("Store")),
+            ("record Point(int x, int y) {}", Some("Point")),
+            ("enum Status {", Some("Status")),
+            ("public @interface Json {", Some("Json")),
+            ("data class Order(val id: String)", Some("Order")),
+            ("enum class Status {", Some("Status")),
+            ("annotation class Json", Some("Json")),
+            ("    suspend fun load(id: String): Order {", Some("load")),
+            ("@Test fun parsesInvoice() {", Some("parsesInvoice")),
+            ("external fun nativeInit()", Some("nativeInit")),
+            ("object Registry {", Some("Registry")),
+            ("typealias Rows = List<Order>", Some("Rows")),
+            ("fun interface Handler {", Some("Handler")),
+            // An extension function is listed under its own name, past the receiver.
+            ("fun String.slug(): String = lowercase()", Some("slug")),
+            ("fun <T> List<T>.second(): T = this[1]", Some("second")),
+            (
+                "fun String?.orEmpty(): String = this ?: \"\"",
+                Some("orEmpty"),
+            ),
+            // A method: the return type before the name is what tells it from a call.
+            ("    public int total() {", Some("total")),
+            (
+                "    static Map<String, Integer> compute(Map<String, Integer> rows) {",
+                Some("compute"),
+            ),
+            (
+                "    Map<String, List<Integer>> group(List<Integer> xs) {",
+                Some("group"),
+            ),
+            ("    void save(Invoice inv);", Some("save")),
+            (
+                "    @Override public static <T> List<T> of(T one) {",
+                Some("of"),
+            ),
+            // A constant behind `const`; a plain property or field is not a symbol.
+            ("const val LIMIT = 10", Some("LIMIT")),
+            ("    private const val TAG = \"Invoice\"", Some("TAG")),
+            ("        const val MAX = 1", Some("MAX")),
+            ("    val all = listOf<Order>()", None),
+            ("    private static final int LIMIT = 10;", None),
+            ("    static final Invoice EMPTY = new Invoice(0);", None),
+            // `companion object` names nothing, and a call is not a declaration.
+            ("    companion object {", None),
+            ("    return compute(items);", None),
+            ("    Map<String, Integer> rows = compute(items);", None),
+            ("    System.out.println(x);", None),
+            ("    } catch (IOException e) {", None),
+            ("    if (parse(x)) {", None),
+            ("    Card(title = \"Invoice\") {", None),
+            ("        withContext(Dispatchers.IO) {", None),
+            ("        return new Runnable() {", None),
+            // The constructor is listed under its class.
+            ("    public Invoice(int n) {", None),
+        ] {
+            assert_eq!(jvm(line).as_deref(), name, "{line}");
+        }
+    }
+
+    #[test]
+    fn ruby_symbol_names() {
+        let rb = |line| one(Kind::Ruby, line);
+        for (line, name) in [
+            ("module Billing", Some("Billing")),
+            ("  class Invoice < Base", Some("Invoice")),
+            ("  class Billing::Invoice < Base", Some("Invoice")),
+            ("    def initialize(id)", Some("initialize")),
+            ("    def self.parse(text)", Some("parse")),
+            ("    def Invoice.build(text)", Some("build")),
+            ("    def total=(value)", Some("total")),
+            ("    def empty?", Some("empty")),
+            // No keyword to go by: a constant, and one `attr_accessor` line can declare
+            // several names at once.
+            ("  LIMIT = 10", None),
+            ("    attr_accessor :total", None),
+            ("    @cache ||= {}", None),
+            ("    class << self", None),
+            ("    Invoice.new(1)", None),
+            ("  end", None),
+        ] {
+            assert_eq!(rb(line).as_deref(), name, "{line}");
+        }
+    }
+
+    #[test]
+    fn the_shared_pattern_skips_the_kinds_with_rows_of_their_own() {
+        // Java, Kotlin and Ruby are listed from their own rows only, so nothing is listed twice
+        // and `def self.parse` is not `self`.
+        assert!(!shared_symbols(Some(Kind::Jvm)));
+        assert!(!shared_symbols(Some(Kind::Ruby)));
+        // Shell and SQL rows complement the shared pattern instead, and it reads every other
+        // file, known kind or not.
+        assert!(shared_symbols(Some(Kind::Shell)));
+        assert!(shared_symbols(Some(Kind::Sql)));
+        assert!(shared_symbols(Some(Kind::Python)));
+        assert!(shared_symbols(None));
     }
 
     #[test]

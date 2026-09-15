@@ -1312,7 +1312,10 @@ impl App {
         let mut named: Vec<(String, Hit)> = Vec::new();
         for (kind, pattern) in search::SYMBOLS {
             let re = Regex::new(pattern).expect("built-in symbol patterns are valid");
-            let wanted = |p: &Path| kind.is_none() || search::kind_of(p) == *kind;
+            let wanted = |p: &Path| match kind {
+                Some(k) => search::kind_of(p) == Some(*k),
+                None => search::shared_symbols(search::kind_of(p)),
+            };
             let hits = self.grep(pattern, false, false, wanted).unwrap_or_default();
             named.extend(
                 hits.into_iter()

@@ -163,8 +163,9 @@ the toolchain on this machine knows about — `sys.path` of `.venv/bin/python` (
 `import { chromium } from 'playwright'` in that package; a bare `std::fs::read_to_string` or
 `os.path.join` is its own path. A compiled module such as `orjson` lands in its `.pyi` stub. The
 standard library's hits come before the dependencies', the picker shows paths relative to their
-root, and files opened from there are read-only. A field, an enum variant or a parameter has no declaration the rules know:
-`d` says so, and `u` lists every whole-word use of the identifier.
+root, and files opened from there are read-only. Java, Kotlin, Ruby and the rest have no roots
+yet, so `d` stays inside the project for them. A field, an enum variant or a parameter has no
+declaration the rules know: `d` says so, and `u` lists every whole-word use of the identifier.
 
 | File | What `d` recognises | Searched |
 |---|---|---|
@@ -172,6 +173,9 @@ root, and files opened from there are read-only. A field, an enum variant or a p
 | Go | `func` with or without a receiver, `type`, `var`/`const`, `:=` | every `.go` file |
 | TypeScript / JavaScript | `function`, `class`, `interface`, `type`, `enum`, `namespace`, `const`/`let`/`var` (so arrow functions assigned to a name), class and object-literal methods, properties holding a function, behind `export`/`default`/`declare`/`async` and the member modifiers. Plain fields, destructuring and parameters have no rule. | every `.ts`, `.tsx`, `.js`, `.jsx` and friend: they search each other |
 | Rust | `fn`, `struct`, `enum`, `union`, `trait`, `type`, `const`, `static`, `mod`, `macro_rules!`, `let`, behind any `pub(..)`/`async`/`unsafe`/`const`/`extern`/`default` prefix. `impl` blocks count as uses. | every `.rs` file |
+| Java | `class`, `interface`, `enum`, `record`, `@interface`; a method, an abstract or interface method and a field, told from a call by the return type before the name — a primitive, or a name with a capital in it, as Java writes its types; a constructor, behind at least one modifier, since a bare `Name(x) {` is a call. Annotations and modifiers may stand in front of any of them. | every `.java`, `.kt` and `.kts` file: they search each other |
+| Kotlin | `fun` (with the receiver of an extension function), `class`, `interface`, `object`, `enum class`, `typealias`, `val`/`var`, behind `private`/`open`/`data`/`sealed`/`suspend`/`override` and the rest | every `.java`, `.kt` and `.kts` file: they search each other |
+| Ruby | `def`, `def self.name`, `class`, `module`, an assignment (a constant, an `@ivar`, a local), `attr_accessor`/`attr_reader`/`attr_writer`, `alias`/`alias_method`. A trailing `?` or `!` is not part of the word, so `d` on `empty?` finds `def empty?`. Rails-style DSL (`scope`, `has_many`) has no rule. | every `.rb`, `.rake`, `.gemspec`, `.podspec`, `.rbi`, `.ru` file and `Rakefile`, `Gemfile`, `Vagrantfile` and friends |
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
 | SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns have no rule. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable | every Makefile |
@@ -183,16 +187,22 @@ In Makefiles, Terraform, Dockerfiles and YAML a `-` is part of the word under th
 in Terraform reads the whole dotted address, so it works from anywhere in `aws_s3_bucket.logs.id`.
 
 `D` lists every declaration a single regex can recognise (`def class func function type fn struct
-enum impl trait interface mod const static union macro_rules! namespace`, with `export`/`pub`/`async`/`const`/`extern`/`declare`
-prefixes; `const` and `static` only unindented or exported, since indented they are locals), plus
-shell functions (`name()`; the `function name` form the single regex already finds), SQL `CREATE`d
-objects under the name as written (`public.orders`, not CTEs), Makefile targets, Terraform blocks
-by address (`aws_s3_bucket.logs`, `data.T.N`, `module.x`, `var.x`, `output.x`), Dockerfile stages
-and YAML anchors, each read only from its own kind of file; recomputed on each press. Class methods
-without a keyword in front are not listed:
-the regex cannot tell `name(` from a call. Searches are smart-case — an all-lowercase query
-ignores case, one uppercase letter makes it case-sensitive — and `/` and `s` look for the text as
-typed: `foo(` finds the calls and the definition, `a.b` only `a.b`. There is no regex mode.
+enum impl trait interface mod const static union macro_rules! namespace`, with
+`export`/`pub`/`async`/`const`/`extern`/`declare` prefixes; `const` and `static` only unindented or
+exported, since indented they are locals), plus shell functions (`name()`; the `function name` form
+the single regex already finds), SQL `CREATE`d objects under the name as written (`public.orders`,
+not CTEs), Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`,
+`module.x`, `var.x`, `output.x`), Dockerfile stages and YAML anchors, each read only from its own
+kind of file; recomputed on each press. Java, Kotlin and Ruby are read from rules of their own
+instead of that regex — Java's types and its methods, told from a call by the return type before the
+name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and `const val`;
+Ruby's methods, classes and modules, `def self.name` included — so none of them is listed twice or
+under a modifier or a receiver. TypeScript's class methods, with neither a keyword nor a type in
+front, are not listed: the regex cannot tell `name(` from a call. Neither are fields, a Ruby
+constant, or the names a Ruby `attr_accessor` line declares, since one line can declare several.
+Searches are smart-case — an all-lowercase query ignores case, one uppercase letter makes it
+case-sensitive — and `/` and `s` look for the text as typed: `foo(` finds the calls and the
+definition, `a.b` only `a.b`. There is no regex mode.
 
 The file list comes from one `.gitignore`-respecting walk at startup and is not refreshed, so
 files created while merl is open show up after a restart. Dotfiles are part of it — `.github/`,
@@ -216,8 +226,9 @@ ones.
 
 The infrastructure half of a repository is highlighted too: Dockerfiles and `Containerfile` (with
 `RUN` lines as shell), compose, Kubernetes and CI YAML, Makefiles, Terraform, nginx, `.env`, TOML,
-INI and systemd units, `.dockerignore` and `CODEOWNERS`. Helm templates are read as plain YAML, so
-their `{{ }}` blocks are not highlighted as a template language.
+INI and systemd units, `.dockerignore`, `CODEOWNERS`, Sorbet's `.rbi` files and `Dangerfile`. Helm
+templates are read as plain YAML, so their `{{ }}` blocks are not highlighted as a template
+language.
 
 ## Config
 
