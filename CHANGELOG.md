@@ -22,8 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or interface method and a field, and Kotlin's `fun` (including an extension's receiver), `class`,
   `object`, `enum class`, `typealias` and `val` / `var`, behind annotations and the modifiers of
   either language. `D` lists them through the shared declaration pattern, which now knows `fun`,
-  `object`, `record` and `typealias`; a `static` or `const` line is listed only when the name
-  follows the keyword, so a Java field or method is no longer listed under its type. (#17)
+  `object`, `record` and `typealias`, plus Java methods under a pattern of their own, read from the
+  return type before the name; a `static` or `const` line is listed only when the name follows the
+  keyword, so a Java field is no longer listed under its type. (#17)
 - `d` and `D` in SQL. `d` finds the `CREATE` of a table, view, index, function, procedure,
   trigger, type, schema, sequence, domain, extension, database, role or user — behind
   `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified

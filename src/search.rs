@@ -36,6 +36,39 @@ macro_rules! sql_create {
     };
 }
 
+/// Everything that can stand before a declaration in Java or Kotlin: annotations, Java's access
+/// and class modifiers, Kotlin's own. A macro, so [`def_patterns`] and [`JAVA_METHOD_SYMBOL`]
+/// share one spelling of it.
+macro_rules! jvm_mods {
+    () => {
+        concat!(
+            r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*",
+            r"(?:(?:public|protected|private|internal|static|final|abstract|sealed|non-sealed",
+            r"|strictfp|synchronized|native|default|transient|volatile|open|data|value|inner",
+            r"|annotation|companion|enum|const|lateinit|expect|actual|suspend|override|inline",
+            r"|operator|infix|tailrec|external|reified)\s+)*"
+        )
+    };
+}
+
+/// A Java return type: a primitive, or a name with a capital in it. Java names its types that
+/// way, and requiring one keeps `return parse(x);` from reading as a declaration.
+macro_rules! jvm_return_type {
+    () => {
+        r"(?:void|int|long|short|byte|char|boolean|float|double|[\w.]*[A-Z][\w.]*)(?:<[^>]*>)?(?:\[\])*"
+    };
+}
+
+/// The Java half of [`SYMBOLS`]: a method, told from a call by the return type before its name.
+/// Kotlin declares with a keyword ([`SYMBOL_PATTERN`] lists those) and writes its types after the
+/// name, so nothing of Kotlin's lands here twice. A field is left out, as in every other kind.
+const JAVA_METHOD_SYMBOL: &str = concat!(
+    jvm_mods!(),
+    r"(?:<[^>]*>\s*)?",
+    jvm_return_type!(),
+    r"\s+(?P<name>[A-Za-z_]\w*)\s*\("
+);
+
 /// A name in a `CREATE` statement, as written: bare, `"quoted"` or `` `backticked` ``, and
 /// optionally schema-qualified (`public.orders`).
 const SQL_NAME: &str = r#"(?:"[^"]+"|`[^`]+`|\w+)"#;
@@ -57,6 +90,8 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // Every `CREATE` object, with the name as written, schema and quotes included. CTEs are a
     // query's own scaffolding, not a symbol of the project, so they are left out.
     (Some(Kind::Sql), SQL_CREATE_SYMBOL),
+    // A Java method: the shared pattern cannot list it, since `name(` on its own is a call.
+    (Some(Kind::Jvm), JAVA_METHOD_SYMBOL),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -250,18 +285,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             ]
         }
         Kind::Jvm => {
-            // Everything that can stand before a declaration in either language: annotations,
-            // Java's access and class modifiers, Kotlin's own.
-            let mods = concat!(
-                r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*",
-                r"(?:(?:public|protected|private|internal|static|final|abstract|sealed|non-sealed",
-                r"|strictfp|synchronized|native|default|transient|volatile|open|data|value|inner",
-                r"|annotation|companion|enum|const|lateinit|expect|actual|suspend|override|inline",
-                r"|operator|infix|tailrec|external|reified)\s+)*"
-            );
-            // A return type: a primitive, or a name with a capital in it. Java names its types
-            // that way, and requiring one keeps `return parse(x);` from looking like a method.
-            let ret = r"(?:void|int|long|short|byte|char|boolean|float|double|[\w.]*[A-Z][\w.]*)";
+            let (mods, ret) = (jvm_mods!(), jvm_return_type!());
             vec![
                 format!(
                     r"{mods}(?:class|interface|enum|record|@interface|object|typealias)\s+{w}\b"
@@ -274,9 +298,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"^\s*[\w.<>\[\],?@\s]*\b{w}\s*\([^;]*\)\s*(?:throws [\w.,\s]+)?\{{\s*$"),
                 // Java: an abstract or interface method, and a field: a return type, the name,
                 // and the `(`, `;` or `=` that follows it.
-                format!(
-                    r"{mods}(?:<[^>]*>\s*)?{ret}(?:<[^>]*>)?(?:\[\])*(?:\.\.\.)?\s+{w}\s*[(;=]"
-                ),
+                format!(r"{mods}(?:<[^>]*>\s*)?{ret}(?:\.\.\.)?\s+{w}\s*[(;=]"),
             ]
         }
         // Ruby declares everything on one line. A constant lives indented inside its class, so
@@ -1127,8 +1149,9 @@ output "bucket" {
             ("fun String.slug(): String = lowercase()", Some("slug")),
             ("object Registry {", Some("Registry")),
             ("typealias Rows = List<Order>", Some("Rows")),
-            // A method without a keyword in front, as in TypeScript: the regex cannot tell it
-            // from a call. So is a field, and `companion object` has no name of its own.
+            // A method without a keyword in front, as in TypeScript: the shared regex cannot
+            // tell it from a call, and the Jvm pattern below picks Java's up instead. So is a
+            // field, and `companion object` has no name of its own.
             ("    public int total() {", None),
             ("    companion object {", None),
             ("module Billing", Some("Billing")),
@@ -1226,6 +1249,50 @@ output "bucket" {
             "CREATE TABLE public.orders (",
         ] {
             assert_eq!(symbol(None, line), None, "{line}");
+        }
+    }
+
+    #[test]
+    fn java_method_symbol_names() {
+        let jvm = |line| symbol(Some(Kind::Jvm), line);
+        assert_eq!(jvm("    public int total() {").as_deref(), Some("total"));
+        assert_eq!(
+            jvm("    static Map<String, Integer> compute(Map<String, Integer> rows) {").as_deref(),
+            Some("compute")
+        );
+        assert_eq!(
+            jvm("    void save(Invoice inv);").as_deref(),
+            Some("save"),
+            "an interface method has no body"
+        );
+        assert_eq!(
+            jvm("    @Override public static <T> List<T> of(T one) {").as_deref(),
+            Some("of")
+        );
+        for not_a_method in [
+            "    return compute(items);",
+            "    Map<String, Integer> rows = compute(items);",
+            "    System.out.println(x);",
+            "    private static final int LIMIT = 10;",
+            "    } catch (IOException e) {",
+            "    if (parse(x)) {",
+            // The constructor is listed under its class by the shared pattern.
+            "    public Invoice(int n) {",
+        ] {
+            assert_eq!(jvm(not_a_method), None, "{not_a_method}");
+        }
+        // Kotlin declares with a keyword and writes its types after the name: the shared pattern
+        // lists these, and this one must not list them a second time.
+        for kotlin in [
+            "public final class Invoice {",
+            "record Point(int x, int y) {}",
+            "data class Order(val id: String)",
+            "    suspend fun load(id: String): Order {",
+            "fun String.slug(): String = lowercase()",
+            "object Registry {",
+            "const val LIMIT = 10",
+        ] {
+            assert_eq!(jvm(kotlin), None, "{kotlin}");
         }
     }
 
