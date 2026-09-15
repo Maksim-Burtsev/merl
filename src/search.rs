@@ -179,8 +179,8 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
             | "Podfile" | "Brewfile" | "Dangerfile" | "Fastfile",
             _,
         ) => Kind::Ruby,
-        // Name-only, like every other kind: a shebang-only script with no extension is left to
-        // the whole-word fallback, since `kind_of` never reads a file.
+        // Name-only, like every other kind: a shebang-only script with no extension has no kind
+        // and so no rules, since `kind_of` never reads a file.
         (_, "sh" | "bash" | "zsh" | "ksh") => Kind::Shell,
         (
             ".bashrc" | ".bash_profile" | ".bash_aliases" | ".zshrc" | ".zshenv" | ".zprofile"
@@ -326,7 +326,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             let mods_one = jvm_mods!("+");
             vec![
                 format!(
-                    r"{mods}(?:class|interface|enum|record|@interface|object|typealias)\s+{w}\b"
+                    r"{mods}(?:class|interface|fun\s+interface|enum|record|@interface|object|typealias)\s+{w}\b"
                 ),
                 // Kotlin: a function, with its generics and, for an extension, its receiver.
                 format!(
@@ -346,7 +346,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         // Ruby declares everything on one line. A constant lives indented inside its class, so
         // the assignment rule is not anchored at column zero as Python's is, and it takes the
         // `@`/`@@` of an instance or class variable with it. The Rails-style DSL (`scope`,
-        // `has_many`, `define_method`) is left to the whole-word fallback.
+        // `has_many`, `define_method`) has no rule.
         Kind::Ruby => vec![
             // A method: `def name`, `def self.name`, `def Klass.name`, and the `name=` setter.
             format!(r"^\s*def\s+(?:self\.|[A-Z]\w*\.)?{w}\b"),
@@ -371,7 +371,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         ],
         // Everything here ignores case: SQL keywords are written both ways in the same file.
         // A column inside a `CREATE TABLE` body is deliberately not a rule — `name` alone on a
-        // line is any column of any table, so `d` falls back to the whole-word search.
+        // line is any column of any table, so `d` has no rule for one and `u` lists its uses.
         Kind::Sql => {
             let create = sql_create!();
             vec![
@@ -1001,7 +1001,7 @@ mod tests {
                 "{word}"
             );
         }
-        // A plain field is not a declaration the rules know; the caller falls back.
+        // A plain field is not a declaration the rules know: `d` has no definition for it.
         assert!(defs(&dir, &ts_js, Kind::TsJs, "cache").is_empty());
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -1084,6 +1084,10 @@ enum class Status {
 typealias Rows = List<Order>
 
 const val LIMIT = 10
+
+fun interface Handler {
+    fun handle(order: Order)
+}
 "#;
 
     #[test]
@@ -1103,7 +1107,7 @@ const val LIMIT = 10
         assert_eq!(d("save"), [28], "an interface method has no body");
         assert_eq!(d("Point"), [31]);
         assert_eq!(d("Status"), [33]);
-        assert_eq!(d("rows"), Vec::<usize>::new(), "a parameter falls back");
+        assert_eq!(d("rows"), Vec::<usize>::new(), "a parameter has no rule");
         // `new Runnable() {` opens an anonymous class: a use of the interface, not a
         // declaration of it.
         assert_eq!(d("Runnable"), Vec::<usize>::new());
@@ -1134,6 +1138,7 @@ const val LIMIT = 10
         assert_eq!(d("Status"), [35]);
         assert_eq!(d("Rows"), [39]);
         assert_eq!(d("LIMIT"), [41]);
+        assert_eq!(d("Handler"), [43], "a `fun interface`");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -1290,7 +1295,7 @@ DROP TABLE customers;
         // The `WITH` and the `,` continuation both open a CTE.
         assert_eq!(d("recent"), [18]);
         assert_eq!(d("older"), [20]);
-        // `customers` is only ever used, never created: the caller falls back.
+        // `customers` is only ever used, never created: no definition.
         assert_eq!(d("customers"), Vec::<usize>::new());
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -1404,7 +1409,7 @@ output "bucket" {
             (".zshenv", Some(Kind::Shell)),
             (".zprofile", Some(Kind::Shell)),
             (".profile", Some(Kind::Shell)),
-            // A shebang-only script: `kind_of` goes by the name, so `d` falls back.
+            // A shebang-only script: `kind_of` goes by the name, so it has no kind.
             ("install", None),
             ("schema.sql", Some(Kind::Sql)),
             ("dump.psql", Some(Kind::Sql)),
