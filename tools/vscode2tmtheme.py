@@ -62,6 +62,10 @@ def convert(theme, name):
         value = next((colors[s] for s in sources if s in colors), None)
         if value:
             top[key] = over(value, bg)
+    # A selection in the cursor line's colour makes a selected line look like the cursor line.
+    # Shokunin Light does that; its terminal selection is the theme's own selection colour.
+    if top.get("selection") == top.get("lineHighlight") and "terminal.selectionBackground" in colors:
+        top["selection"] = over(colors["terminal.selectionBackground"], bg)
 
     settings = [{"settings": top}]
     for token in theme.get("tokenColors", []):
