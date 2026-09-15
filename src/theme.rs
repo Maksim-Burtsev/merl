@@ -258,6 +258,32 @@ mod tests {
         }
     }
 
+    /// The gallery in docs/themes.md shows every theme, with its screenshot, and nothing else.
+    #[test]
+    fn gallery_shows_every_theme() {
+        let page = include_str!("../docs/themes.md");
+        let shown: Vec<&str> = page
+            .split("../assets/themes/")
+            .skip(1)
+            .filter_map(|s| s.split_once(".png"))
+            .map(|(name, _)| name)
+            .collect();
+        for name in names() {
+            assert!(shown.contains(&name), "docs/themes.md is missing {name}");
+            let shot = format!("{}/assets/themes/{name}.png", env!("CARGO_MANIFEST_DIR"));
+            assert!(
+                Path::new(&shot).exists(),
+                "{shot} is missing; run tools/theme-shots.sh {name}"
+            );
+        }
+        for name in &shown {
+            assert!(
+                names().any(|n| n == *name),
+                "docs/themes.md shows {name}, which is not a theme"
+            );
+        }
+    }
+
     /// The infrastructure half of a repo (#16): a grammar that highlights, under a theme with no
     /// rule for its scopes, looks like no highlighting at all.
     #[test]

@@ -58,3 +58,8 @@ fi
 echo "themes/$name.tmTheme; licence themes/LICENSE-$repo: $(grep -m1 . "$licence")"
 echo "Add to THEMES in src/theme.rs:"
 printf '    ("%s", include_bytes!("../themes/%s.tmTheme")),\n' "$name" "$name"
+echo "Add to docs/themes.md under Dark or Light (and a new licence under Licences), then run"
+echo "tools/theme-shots.sh $name:"
+src=${url%.git}
+printf '| `%s`<br>[%s](%s) | <img src="../assets/themes/%s.png" alt="merl in %s" width="480"> |\n' \
+  "$name" "${src#https://github.com/}" "$src" "$name" "$name"

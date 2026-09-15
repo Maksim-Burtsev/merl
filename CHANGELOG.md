@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `CODEOWNERS` (Git Ignore), `Containerfile` and `Dockerfile.*`, `*.jsonc`, systemd units and
   `.npmrc` (INI), `Procfile` and `yarn.lock` (YAML), `WORKSPACE` and `Tiltfile` (Starlark as
   Python). (#16)
+- `d` and `D` in shell scripts. `d` finds `name()` and `function name`, an assignment behind
+  `export` / `declare` / `local` / `readonly` / `typeset` (bare or `+=`) and an `alias`, across
+  every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and
+  friends); `D` lists the functions, each once. (#17)
 - `d` and `D` in Makefiles, Terraform, Dockerfiles and YAML. `d` finds Makefile targets and
   variables across every Makefile, the Terraform block behind `var.x` / `module.x` / `local.x` /
   `data.T.N` / `T.N` in the same directory, and Dockerfile stages, YAML anchors and block keys
