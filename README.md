@@ -161,6 +161,7 @@ whole-word search for the identifier. `u` is that whole-word search, always.
 | Rust | `fn`, `struct`, `enum`, `union`, `trait`, `type`, `const`, `static`, `mod`, `macro_rules!`, `let`, behind any `pub(..)`/`async`/`unsafe`/`const`/`extern`/`default` prefix. `impl` blocks count as uses. | every `.rs` file |
 | Java | `class`, `interface`, `enum`, `record`, `@interface`; a method or constructor with a body, an abstract or interface method, a field, behind annotations and modifiers. A method's return type has to be a primitive or a name with a capital in it, so a call does not read as a declaration. | every `.java`, `.kt` and `.kts` file: they search each other |
 | Kotlin | `fun` (with the receiver of an extension function), `class`, `interface`, `object`, `enum class`, `typealias`, `val`/`var`, behind `private`/`open`/`data`/`sealed`/`suspend`/`override` and the rest | every `.java`, `.kt` and `.kts` file: they search each other |
+| Ruby | `def`, `def self.name`, `class`, `module`, an assignment (a constant, an `@ivar`, a local), `attr_accessor`/`attr_reader`/`attr_writer`, `alias`/`alias_method`. A trailing `?` or `!` is not part of the word, so `d` on `empty?` finds `def empty?`. Rails-style DSL (`scope`, `has_many`) falls back to the whole-word search. | every `.rb`, `.rake`, `.gemspec`, `.podspec`, `.rbi`, `.ru` file and `Rakefile`, `Gemfile`, `Vagrantfile` and friends |
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
 | SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns fall back to the whole-word search. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable | every Makefile |
@@ -172,18 +173,19 @@ In Makefiles, Terraform, Dockerfiles and YAML a `-` is part of the word under th
 in Terraform reads the whole dotted address, so it works from anywhere in `aws_s3_bucket.logs.id`.
 
 `D` lists every declaration a single regex can recognise (`def class func function fun type fn
-struct enum impl trait interface mod object record typealias union macro_rules! namespace`, with
-`export`/`pub`/`async`/`const`/`extern`/`declare` and the Java and Kotlin modifiers
-(`public`/`private`/`final`/`open`/`data`/`sealed`/`suspend`/`override` and friends) as prefixes;
-a `static` or `const` counts when the name follows the keyword, as in Rust, JavaScript and Kotlin,
-not when a Java type stands in between), plus shell functions (`name()`; the `function name` form the single regex already
-finds), SQL `CREATE`d objects under the name as written (`public.orders`, not CTEs), Makefile
-targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`, `module.x`, `var.x`,
-`output.x`), Dockerfile stages and YAML anchors, each read only from its own kind of file;
-recomputed on each press. Class methods without a keyword in front — TypeScript's and Java's —
-are not listed: the regex cannot tell `name(` from a call. Searches are smart-case — an all-lowercase query
-ignores case, one uppercase letter makes it case-sensitive — and `/` and `s` take full regular
-expressions.
+struct enum impl trait interface mod module object record typealias union macro_rules! namespace`,
+with `export`/`pub`/`async`/`const`/`extern`/`declare` and the Java and Kotlin modifiers
+(`public`/`private`/`final`/`open`/`data`/`sealed`/`suspend`/`override` and friends) as prefixes; a
+`static` or `const` counts when the name follows the keyword, as in Rust, JavaScript and Kotlin,
+not when a Java type stands in between), plus shell functions (`name()`; the `function name` form
+the single regex already finds), SQL `CREATE`d objects under the name as written (`public.orders`,
+not CTEs), Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`,
+`module.x`, `var.x`, `output.x`), Dockerfile stages and YAML anchors, each read only from its own
+kind of file; recomputed on each press. Class methods without a keyword in front — TypeScript's
+and Java's — are not listed: the regex cannot tell `name(` from a call. Neither are the names a
+Ruby `attr_accessor` line declares, since one line can declare several. Searches are smart-case —
+an all-lowercase query ignores case, one uppercase letter makes it case-sensitive — and `/` and
+`s` take full regular expressions.
 
 The file list comes from one `.gitignore`-respecting walk at startup and is not refreshed, so
 files created while merl is open show up after a restart. Dotfiles are part of it — `.github/`,
@@ -206,8 +208,9 @@ ones.
 
 The infrastructure half of a repository is highlighted too: Dockerfiles and `Containerfile` (with
 `RUN` lines as shell), compose, Kubernetes and CI YAML, Makefiles, Terraform, nginx, `.env`, TOML,
-INI and systemd units, `.dockerignore` and `CODEOWNERS`. Helm templates are read as plain YAML, so
-their `{{ }}` blocks are not highlighted as a template language.
+INI and systemd units, `.dockerignore`, `CODEOWNERS`, Sorbet's `.rbi` files and `Dangerfile`. Helm
+templates are read as plain YAML, so their `{{ }}` blocks are not highlighted as a template
+language.
 
 ## Config
 

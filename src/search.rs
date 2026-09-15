@@ -25,7 +25,7 @@ pub const MAX_HITS: usize = 5_000;
 /// the name in Rust, JavaScript and Kotlin (`static COUNT: u32`, `const val LIMIT = 10`) but by a
 /// type in Java, where `static final int LIMIT = 10;` would otherwise be listed as `final`.
 /// Requiring the `:` or `=` that follows the name keeps a Java field or method off the list.
-pub const SYMBOL_PATTERN: &str = r#"^\s*(?:(?:export|default|declare|async|pub(?:\([a-z]+\))?|static|unsafe|abstract|const|extern(?:\s+"[^"]*")?|public|protected|private|internal|final|open|sealed|data|annotation|companion|inner|value|enum|suspend|override|inline|operator|infix)\s+)*(?:(def|class|func|function\*?|type|fn|fun|struct|enum|impl|trait|interface|mod|object|record|typealias|union|macro_rules!|namespace)(?:<[^>]*>)?\s+(\([^)]*\)\s*)?(?:[A-Za-z_][\w.]*\.)?(?P<name>[A-Za-z_]\w*)|(?:static|const)\s+(?:(?:val|var)\s+)?(?P<cname>[A-Za-z_]\w*)\s*[:=])"#;
+pub const SYMBOL_PATTERN: &str = r#"^\s*(?:(?:export|default|declare|async|pub(?:\([a-z]+\))?|static|unsafe|abstract|const|extern(?:\s+"[^"]*")?|public|protected|private|internal|final|open|sealed|data|annotation|companion|inner|value|enum|suspend|override|inline|operator|infix)\s+)*(?:(def|class|func|function\*?|type|fn|fun|struct|enum|impl|trait|interface|mod|module|object|record|typealias|union|macro_rules!|namespace)(?:<[^>]*>)?\s+(\([^)]*\)\s*)?(?:[A-Za-z_][\w.]*\.)?(?P<name>[A-Za-z_]\w*)|(?:static|const)\s+(?:(?:val|var)\s+)?(?P<cname>[A-Za-z_]\w*)\s*[:=])"#;
 
 /// The head of a SQL `CREATE` statement, up to the name it declares: the optional `OR REPLACE`,
 /// the modifiers that can sit before the object word, the object itself and `IF NOT EXISTS`.
@@ -82,6 +82,7 @@ pub enum Kind {
     Rust,
     TsJs,
     Jvm,
+    Ruby,
     Shell,
     Sql,
     Make,
@@ -101,6 +102,12 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         // Java and Kotlin are one kind: they call each other inside the same project, so `d` in
         // a `.kt` file has to find the `.java` class it uses, as `.tsx` finds `.ts`.
         (_, "java" | "kt" | "kts") => Kind::Jvm,
+        (_, "rb" | "rake" | "gemspec" | "podspec" | "rbi" | "ru") => Kind::Ruby,
+        (
+            "Rakefile" | "rakefile" | "Gemfile" | "Guardfile" | "Capfile" | "Vagrantfile"
+            | "Podfile" | "Brewfile" | "Dangerfile" | "Fastfile",
+            _,
+        ) => Kind::Ruby,
         // Name-only, like every other kind: a shebang-only script with no extension is left to
         // the whole-word fallback, since `kind_of` never reads a file.
         (_, "sh" | "bash" | "zsh" | "ksh") => Kind::Shell,
@@ -272,6 +279,21 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 ),
             ]
         }
+        // Ruby declares everything on one line. A constant lives indented inside its class, so
+        // the assignment rule is not anchored at column zero as Python's is, and it takes the
+        // `@`/`@@` of an instance or class variable with it. The Rails-style DSL (`scope`,
+        // `has_many`, `define_method`) is left to the whole-word fallback.
+        Kind::Ruby => vec![
+            // A method: `def name`, `def self.name`, `def Klass.name`, and the `name=` setter.
+            format!(r"^\s*def\s+(?:self\.|[A-Z]\w*\.)?{w}\b"),
+            format!(r"^\s*(?:class|module)\s+(?:[\w:]+::)?{w}\b"),
+            // An assignment, `||=` included; `==`, `=~` and `=>` are not one.
+            format!(r"^\s*@{{0,2}}{w}\s*(?:\|\|)?=($|[^=~>])"),
+            // The reader and writer methods a class declares for its attributes, wherever the
+            // name sits in the list.
+            format!(r"^\s*attr_(?:accessor|reader|writer)\s+(?:[:\w]+\s*,\s*)*:{w}\b"),
+            format!(r"^\s*alias(?:_method)?\s+:?{w}\b"),
+        ],
         // A function in either form, an assignment behind the declaration keywords that can
         // precede it (`+=` appends to one), or an alias. A shell has no declaration for the rest,
         // so a `$w` use or a `[ "$w" = x ]` test must not look like one.
@@ -366,6 +388,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Rust
         | Kind::TsJs
         | Kind::Jvm
+        | Kind::Ruby
         | Kind::Shell
         | Kind::Sql
         | Kind::Make => kind_of(path) == Some(kind),
@@ -657,6 +680,56 @@ const val LIMIT = 10
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    const RB: &str = r#"module Billing
+  LIMIT = 10
+
+  class Invoice
+    attr_accessor :total
+    attr_reader :id, :customer
+
+    def initialize(id)
+      @id = id
+      @rows = []
+    end
+
+    def self.parse(text)
+      new(text)
+    end
+
+    def total=(value)
+      @total = value
+    end
+
+    def empty?
+      @rows.empty?
+    end
+
+    alias_method :blank?, :empty?
+  end
+end
+"#;
+
+    #[test]
+    fn ruby_def_patterns_find_methods_attributes_and_assignments() {
+        let (dir, files) = scratch("rb", &[("invoice.rb", RB)]);
+        let d = |w| defs(&dir, &files, Kind::Ruby, w);
+        assert_eq!(d("Billing"), [1]);
+        assert_eq!(d("LIMIT"), [2], "a constant, indented in its module");
+        assert_eq!(d("Invoice"), [4]);
+        // The accessor, the setter and the assignment behind it.
+        assert_eq!(d("total"), [5, 17, 18]);
+        assert_eq!(d("customer"), [6], "second in the `attr_reader` list");
+        assert_eq!(d("id"), [6, 9]);
+        assert_eq!(d("initialize"), [8]);
+        assert_eq!(d("parse"), [13], "`def self.parse`");
+        // `?` is not part of the word under the cursor, and `@rows.empty?` is a call.
+        assert_eq!(d("empty"), [21]);
+        assert_eq!(d("blank"), [25]);
+        assert_eq!(d("rows"), [10]);
+        assert_eq!(d("new"), Vec::<usize>::new());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
 
     #[test]
@@ -819,6 +892,13 @@ output "bucket" {
             ("app.tsx", Some(Kind::TsJs)),
             ("util.cjs", Some(Kind::TsJs)),
             ("Invoice.java", Some(Kind::Jvm)),
+            ("invoice.rb", Some(Kind::Ruby)),
+            ("Rakefile", Some(Kind::Ruby)),
+            ("Gemfile", Some(Kind::Ruby)),
+            ("config.ru", Some(Kind::Ruby)),
+            ("merl.gemspec", Some(Kind::Ruby)),
+            ("tasks.rake", Some(Kind::Ruby)),
+            ("invoice.rbi", Some(Kind::Ruby)),
             ("app.kt", Some(Kind::Jvm)),
             ("build.gradle.kts", Some(Kind::Jvm)),
             ("run.sh", Some(Kind::Shell)),
@@ -916,6 +996,12 @@ output "bucket" {
             Kind::Jvm,
             Path::new("app/src/App.kt"),
             Path::new("lib/src/invoice.py")
+        ));
+        // A Rakefile finds the class it drives in the library it loads.
+        assert!(in_def_scope(
+            Kind::Ruby,
+            Path::new("Rakefile"),
+            Path::new("lib/invoice.rb")
         ));
         // A migration finds the table it alters in whatever file created it.
         assert!(in_def_scope(
@@ -1045,6 +1131,15 @@ output "bucket" {
             // from a call. So is a field, and `companion object` has no name of its own.
             ("    public int total() {", None),
             ("    companion object {", None),
+            ("module Billing", Some("Billing")),
+            ("class Invoice < Base", Some("Invoice")),
+            ("    def self.parse(text)", Some("parse")),
+            ("    def total=(value)", Some("total")),
+            // A Ruby constant and the `attr_*` methods have no keyword to go by, and one
+            // `attr_accessor` line can declare several names.
+            ("  LIMIT = 10", None),
+            ("    attr_accessor :total", None),
+            ("module.exports = helpers;", None),
             // A `static` or `const` line is listed when the name follows the keyword, as in
             // Rust, JavaScript and Kotlin -- not when a Java type stands in between.
             ("const val LIMIT = 10", Some("LIMIT")),

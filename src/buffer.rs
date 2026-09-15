@@ -251,6 +251,9 @@ fn known_name(path: &Path) -> Option<&'static str> {
         (_, "jsonc") => "JSON",
         // bat's SQL grammar owns `.sql`, `.ddl` and `.dml`, but not the dialect extensions.
         (_, "psql" | "pgsql" | "mysql") => "SQL",
+        // bat's set knows Ruby by name for `Rakefile`, `Gemfile` and friends, but not for
+        // Sorbet's type files or Danger's.
+        (_, "rbi") | ("Dangerfile", _) => "Ruby",
         (".npmrc", _) | (_, "service" | "timer" | "socket") => "INI",
         ("Procfile" | "yarn.lock", _) => "YAML",
         // Starlark.
@@ -433,6 +436,37 @@ mod tests {
                     "{file} {name}"
                 );
                 b.highlight_to(1, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn ruby_highlights_with_every_shipped_theme() {
+        let src = "# doc\nclass Invoice\n  def total\n    @rows.sum\n  end\nend\n";
+        for file in [
+            "invoice.rb",
+            "Rakefile",
+            "Gemfile",
+            "config.ru",
+            "merl.gemspec",
+            "tasks.rake",
+            "Vagrantfile",
+            // Mapped by name above: bat's set does not know these two.
+            "invoice.rbi",
+            "Dangerfile",
+        ] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("Ruby"),
+                    "{file} {name}"
+                );
+                b.highlight_to(2, &theme);
                 let colours: std::collections::HashSet<_> =
                     b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
                 assert!(colours.len() > 1, "{file} {name}: everything is one colour");

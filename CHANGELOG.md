@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` and `D` in Ruby. `d` finds `def`, `def self.name`, `class`, `module`, an assignment (a
+  constant, an `@ivar`, a local), the names an `attr_accessor` / `attr_reader` / `attr_writer`
+  line declares and an `alias` / `alias_method`, over every `.rb`, `.rake`, `.gemspec`,
+  `.podspec`, `.rbi` and `.ru` file and `Rakefile`, `Gemfile`, `Vagrantfile` and friends; a
+  trailing `?` or `!` is not part of the word, so `d` on `empty?` finds `def empty?`. `D` lists
+  methods, classes and modules, reading past the `self.` of a class method. Sorbet's `.rbi` files
+  and `Dangerfile` now highlight as Ruby. (#17)
 - `d` and `D` in Java and Kotlin, which are one kind: a `.kt` file finds the `.java` class it calls
   and the other way round, over every `.java`, `.kt` and `.kts` file. `d` finds Java's `class`,
   `interface`, `enum`, `record` and `@interface`, a method or constructor with a body, an abstract
