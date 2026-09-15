@@ -26,6 +26,9 @@ pub const SYMBOL_PATTERN: &str = r#"^\s*(?:(?:export|default|declare|async|pub(?
 /// same shape. [`symbol_name`] reads the listed name from the named groups.
 pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (None, SYMBOL_PATTERN),
+    // `name ()`, the form without the `function` keyword: a `function name` line is already
+    // listed by [`SYMBOL_PATTERN`], and requiring no keyword here keeps it off the list twice.
+    (Some(Kind::Shell), r"^(?P<name>[A-Za-z_]\w*)\s*\(\s*\)"),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -50,6 +53,7 @@ pub enum Kind {
     Go,
     Rust,
     TsJs,
+    Shell,
     Make,
     Terraform,
     Docker,
@@ -64,6 +68,14 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "go") => Kind::Go,
         (_, "rs") => Kind::Rust,
         (_, "ts" | "tsx" | "mts" | "cts" | "js" | "jsx" | "mjs" | "cjs") => Kind::TsJs,
+        // Name-only, like every other kind: a shebang-only script with no extension is left to
+        // the whole-word fallback, since `kind_of` never reads a file.
+        (_, "sh" | "bash" | "zsh" | "ksh") => Kind::Shell,
+        (
+            ".bashrc" | ".bash_profile" | ".bash_aliases" | ".zshrc" | ".zshenv" | ".zprofile"
+            | ".profile",
+            _,
+        ) => Kind::Shell,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,
         (_, "yml" | "yaml") => Kind::Yaml,
@@ -196,6 +208,17 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 ),
             ]
         }
+        // A function in either form, an assignment behind the declaration keywords that can
+        // precede it (`+=` appends to one), or an alias. A shell has no declaration for the rest,
+        // so a `$w` use or a `[ "$w" = x ]` test must not look like one.
+        Kind::Shell => vec![
+            format!(r"^\s*(function\s+)?{w}\s*\(\s*\)"),
+            format!(r"^\s*function\s+{w}\b"),
+            format!(
+                r"^\s*(export\s+|declare\s+(-\w+\s+)*|local\s+(-\w+\s+)*|readonly\s+|typeset\s+(-\w+\s+)*)?{w}\+?="
+            ),
+            format!(r"^\s*alias\s+{w}="),
+        ],
         // A target, alone or among others before the colon (`build test: deps`), or a variable.
         Kind::Make => vec![
             format!(r"^([^:=#\s]+\s+)*{w}(\s+[^:=#\s]+)*\s*::?([^=:]|$)"),
@@ -262,7 +285,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
     match kind {
         Kind::Docker | Kind::Yaml => path == here,
         Kind::Terraform => kind_of(path) == Some(kind) && path.parent() == here.parent(),
-        Kind::Python | Kind::Go | Kind::Rust | Kind::TsJs | Kind::Make => {
+        Kind::Python | Kind::Go | Kind::Rust | Kind::TsJs | Kind::Shell | Kind::Make => {
             kind_of(path) == Some(kind)
         }
     }
@@ -445,6 +468,27 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
+
+    #[test]
+    fn shell_def_patterns_find_functions_assignments_and_aliases() {
+        let (dir, files) = scratch("sh", &[("run.sh", SH)]);
+        let d = |w| defs(&dir, &files, Kind::Shell, w);
+        // The definition, not the `build` call on line 16 or line 23.
+        assert_eq!(d("build"), [11]);
+        assert_eq!(d("deploy"), [15]);
+        assert_eq!(d("check"), [19], "`function name()` counts once");
+        assert_eq!(d("ROOT"), [4], "not the `\"$ROOT\"` uses");
+        assert_eq!(d("tries"), [5]);
+        assert_eq!(d("LIMIT"), [6], "behind `declare` and its flags");
+        // The `readonly` assignment, not the `[ \"$NAME\" = app ]` test.
+        assert_eq!(d("NAME"), [7]);
+        assert_eq!(d("PATH"), [8], "`+=` appends to a variable");
+        assert_eq!(d("ll"), [9]);
+        assert_eq!(d("echo"), Vec::<usize>::new());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     const MAKE: &str = ".PHONY: build test\nCC ?= gcc\nexport CFLAGS := -O2\nbuild test-all: deps\n\t$(CC) -o app\ndeps::\n\t@echo deps\n%.o: %.c\n";
 
     #[test]
@@ -533,6 +577,19 @@ output "bucket" {
             ("lib.rs", Some(Kind::Rust)),
             ("app.tsx", Some(Kind::TsJs)),
             ("util.cjs", Some(Kind::TsJs)),
+            ("run.sh", Some(Kind::Shell)),
+            ("run.bash", Some(Kind::Shell)),
+            ("run.zsh", Some(Kind::Shell)),
+            ("run.ksh", Some(Kind::Shell)),
+            (".bashrc", Some(Kind::Shell)),
+            (".bash_profile", Some(Kind::Shell)),
+            (".bash_aliases", Some(Kind::Shell)),
+            (".zshrc", Some(Kind::Shell)),
+            (".zshenv", Some(Kind::Shell)),
+            (".zprofile", Some(Kind::Shell)),
+            (".profile", Some(Kind::Shell)),
+            // A shebang-only script: `kind_of` goes by the name, so `d` falls back.
+            ("install", None),
             ("Makefile", Some(Kind::Make)),
             ("GNUmakefile", Some(Kind::Make)),
             ("rules.mk", Some(Kind::Make)),
@@ -703,6 +760,22 @@ output "bucket" {
             ("    return inv.render()", None),
         ] {
             assert_eq!(symbol(None, line).as_deref(), name, "{line}");
+        }
+    }
+
+    #[test]
+    fn shell_symbol_names() {
+        let sh = |line| symbol(Some(Kind::Shell), line);
+        assert_eq!(sh("build() {").as_deref(), Some("build"));
+        assert_eq!(sh("run_all ( ) {").as_deref(), Some("run_all"));
+        // The `function` forms are listed by the generic pattern instead, so each shows once.
+        assert_eq!(sh("function deploy {"), None);
+        assert_eq!(sh("function check() {"), None);
+        assert_eq!(symbol(None, "function deploy {").as_deref(), Some("deploy"));
+        assert_eq!(symbol(None, "function check() {").as_deref(), Some("check"));
+        assert_eq!(symbol(None, "build() {"), None);
+        for not_a_function in ["  build \"$ROOT\"", "x=$(build)", "start)", "ROOT=/srv"] {
+            assert_eq!(sh(not_a_function), None, "{not_a_function}");
         }
     }
 
