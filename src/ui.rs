@@ -376,7 +376,7 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     let sel_lines = app.selection().map(|(start, end)| (start.0, end.0));
     // While text is selected the cursor line is highlighted in the gutter only, as in VS Code:
     // on the text, a highlight close to the selection colour passes for selected.
-    let text_hl = app.selection().is_none_or(|(start, end)| start == end);
+    let text_hl = app.selection().is_none();
 
     let mut lines: Vec<Line> = Vec::with_capacity(area.height as usize);
     let mut l = app.top_line;

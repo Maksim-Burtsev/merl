@@ -234,8 +234,9 @@ mod tests {
     use super::*;
     use crate::buffer::Buffer;
 
-    /// A broken port fails here: the chrome colours are set, and comment, keyword, string and
-    /// function are not painted in one or two colours between them.
+    /// A broken port fails here: the chrome colours are set, the selection does not pass for the
+    /// cursor line, and comment, keyword, string and function are not painted in one or two
+    /// colours between them.
     #[test]
     fn every_theme_has_the_basics() {
         for name in names() {
@@ -244,6 +245,10 @@ mod tests {
             assert!(s.background.is_some(), "{name} has no background");
             assert!(s.foreground.is_some(), "{name} has no foreground");
             assert!(s.line_highlight.is_some(), "{name} has no lineHighlight");
+            assert_ne!(
+                t.selection, t.line_hl,
+                "{name}: the selection is the cursor line colour"
+            );
             let highlighter = Highlighter::new(&t.syntect);
             let colours: HashSet<_> = ["comment", "keyword", "string", "entity.name.function"]
                 .into_iter()
