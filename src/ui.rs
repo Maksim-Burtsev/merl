@@ -890,6 +890,10 @@ mod tests {
             app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT));
         }
         assert_eq!(paint(&mut app)[1], "------------");
+        // With no selection at all, too.
+        app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        assert_eq!(app.selection(), None);
+        assert_eq!(paint(&mut app)[1], "------------");
     }
 
     #[test]

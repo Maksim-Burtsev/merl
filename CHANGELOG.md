@@ -47,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sections, Terraform attributes, `.env` keys, Makefile and nginx variables, Dockerfile stages
   and image tags, YAML anchors and aliases. (#16)
 
+### Fixed
+
+- While text is selected the cursor line is highlighted in the gutter only, as in VS Code. A
+  selection ending at the start of a line no longer looks like it takes that line, which Ctrl+C
+  rightly leaves out. (#48)
+
 ## [0.3.0] - 2026-09-13
 
 ### Added
