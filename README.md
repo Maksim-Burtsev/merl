@@ -183,116 +183,12 @@ reloads on every change on disk, keeping the cursor, the scroll position and the
 
 ## Themes
 
-Twenty-four themes ship inside the binary as TextMate `.tmTheme` files, and syntect paints the
-code with them (syntax definitions come from [bat](https://github.com/sharkdp/bat)'s set, via
-`two-face`). They were picked to sit in for hours: palettes designed as a whole, no neon, and
-light themes that look like paper rather than an inverted dark one.
-
-| Name | | Ported from |
-|---|---|---|
-| `tokyonight-moon` | dark, default | [folke/tokyonight.nvim](https://github.com/folke/tokyonight.nvim) |
-| `kanagawa-wave` | dark | [rebelot/kanagawa.nvim](https://github.com/rebelot/kanagawa.nvim) |
-| `kanagawa-dragon` | dark | [rebelot/kanagawa.nvim](https://github.com/rebelot/kanagawa.nvim) |
-| `rose-pine` | dark | [rose-pine/neovim](https://github.com/rose-pine/neovim) |
-| `rose-pine-moon` | dark | [rose-pine/neovim](https://github.com/rose-pine/neovim) |
-| `everforest-dark` | dark | [sainnhe/everforest](https://github.com/sainnhe/everforest) |
-| `gruvbox-material-dark` | dark | [sainnhe/gruvbox-material](https://github.com/sainnhe/gruvbox-material) |
-| `catppuccin-mocha` | dark | [catppuccin/nvim](https://github.com/catppuccin/nvim) |
-| `flexoki-dark` | dark | [kepano/flexoki-neovim](https://github.com/kepano/flexoki-neovim) |
-| `melange-dark` | dark | [savq/melange-nvim](https://github.com/savq/melange-nvim) |
-| `nordfox` | dark | [EdenEast/nightfox.nvim](https://github.com/EdenEast/nightfox.nvim) |
-| `shokunin-dark` | dark | VS Code JSON in `tools/themes-src/` |
-| `rose-pine-dawn` | light | [rose-pine/neovim](https://github.com/rose-pine/neovim) |
-| `kanagawa-lotus` | light | [rebelot/kanagawa.nvim](https://github.com/rebelot/kanagawa.nvim) |
-| `everforest-light` | light | [sainnhe/everforest](https://github.com/sainnhe/everforest) |
-| `flexoki-light` | light | [kepano/flexoki-neovim](https://github.com/kepano/flexoki-neovim) |
-| `catppuccin-latte` | light | [catppuccin/nvim](https://github.com/catppuccin/nvim) |
-| `gruvbox-material-light` | light | [sainnhe/gruvbox-material](https://github.com/sainnhe/gruvbox-material) |
-| `melange-light` | light | [savq/melange-nvim](https://github.com/savq/melange-nvim) |
-| `dawnfox` | light | [EdenEast/nightfox.nvim](https://github.com/EdenEast/nightfox.nvim) |
-| `dayfox` | light | [EdenEast/nightfox.nvim](https://github.com/EdenEast/nightfox.nvim) |
-| `tokyonight-day` | light | [folke/tokyonight.nvim](https://github.com/folke/tokyonight.nvim) |
-| `bluloco-light` | light | [uloco/bluloco.nvim](https://github.com/uloco/bluloco.nvim) |
-| `shokunin-light` | light | VS Code JSON in `tools/themes-src/` |
-
-<details>
-<summary>Screenshots of every theme</summary>
-
-Recorded with [`tools/theme-shots.sh`](tools/theme-shots.sh).
-
-**tokyonight-moon**<br>
-<img src="assets/themes/tokyonight-moon.png" alt="merl in tokyonight-moon" width="600">
-
-**kanagawa-wave**<br>
-<img src="assets/themes/kanagawa-wave.png" alt="merl in kanagawa-wave" width="600">
-
-**kanagawa-dragon**<br>
-<img src="assets/themes/kanagawa-dragon.png" alt="merl in kanagawa-dragon" width="600">
-
-**rose-pine**<br>
-<img src="assets/themes/rose-pine.png" alt="merl in rose-pine" width="600">
-
-**rose-pine-moon**<br>
-<img src="assets/themes/rose-pine-moon.png" alt="merl in rose-pine-moon" width="600">
-
-**everforest-dark**<br>
-<img src="assets/themes/everforest-dark.png" alt="merl in everforest-dark" width="600">
-
-**gruvbox-material-dark**<br>
-<img src="assets/themes/gruvbox-material-dark.png" alt="merl in gruvbox-material-dark" width="600">
-
-**catppuccin-mocha**<br>
-<img src="assets/themes/catppuccin-mocha.png" alt="merl in catppuccin-mocha" width="600">
-
-**flexoki-dark**<br>
-<img src="assets/themes/flexoki-dark.png" alt="merl in flexoki-dark" width="600">
-
-**melange-dark**<br>
-<img src="assets/themes/melange-dark.png" alt="merl in melange-dark" width="600">
-
-**nordfox**<br>
-<img src="assets/themes/nordfox.png" alt="merl in nordfox" width="600">
-
-**shokunin-dark**<br>
-<img src="assets/themes/shokunin-dark.png" alt="merl in shokunin-dark" width="600">
-
-**rose-pine-dawn**<br>
-<img src="assets/themes/rose-pine-dawn.png" alt="merl in rose-pine-dawn" width="600">
-
-**kanagawa-lotus**<br>
-<img src="assets/themes/kanagawa-lotus.png" alt="merl in kanagawa-lotus" width="600">
-
-**everforest-light**<br>
-<img src="assets/themes/everforest-light.png" alt="merl in everforest-light" width="600">
-
-**flexoki-light**<br>
-<img src="assets/themes/flexoki-light.png" alt="merl in flexoki-light" width="600">
-
-**catppuccin-latte**<br>
-<img src="assets/themes/catppuccin-latte.png" alt="merl in catppuccin-latte" width="600">
-
-**gruvbox-material-light**<br>
-<img src="assets/themes/gruvbox-material-light.png" alt="merl in gruvbox-material-light" width="600">
-
-**melange-light**<br>
-<img src="assets/themes/melange-light.png" alt="merl in melange-light" width="600">
-
-**dawnfox**<br>
-<img src="assets/themes/dawnfox.png" alt="merl in dawnfox" width="600">
-
-**dayfox**<br>
-<img src="assets/themes/dayfox.png" alt="merl in dayfox" width="600">
-
-**tokyonight-day**<br>
-<img src="assets/themes/tokyonight-day.png" alt="merl in tokyonight-day" width="600">
-
-**bluloco-light**<br>
-<img src="assets/themes/bluloco-light.png" alt="merl in bluloco-light" width="600">
-
-**shokunin-light**<br>
-<img src="assets/themes/shokunin-light.png" alt="merl in shokunin-light" width="600">
-
-</details>
+Themes ship inside the binary as TextMate `.tmTheme` files, and syntect paints the code with them
+(syntax definitions come from [bat](https://github.com/sharkdp/bat)'s set, via `two-face`). They
+were picked to sit in for hours: palettes designed as a whole, no neon, and light themes that look
+like paper rather than an inverted dark one. The default is `tokyonight-moon`;
+[docs/themes.md](docs/themes.md) shows every theme with a screenshot and where it was ported from,
+and how to port another.
 
 `T` lists them inside merl and repaints everything in the theme under the cursor as it moves:
 Enter keeps it and writes it to the config file below, Esc puts the old one back. `merl --theme
@@ -303,19 +199,6 @@ The infrastructure half of a repository is highlighted too: Dockerfiles and `Con
 `RUN` lines as shell), compose, Kubernetes and CI YAML, Makefiles, Terraform, nginx, `.env`, TOML,
 INI and systemd units, `.dockerignore` and `CODEOWNERS`. Helm templates are read as plain YAML, so
 their `{{ }}` blocks are not highlighted as a template language.
-
-Themes are ported from their Neovim originals, never from a VS Code port, one command each:
-
-```sh
-tools/port-theme.sh https://github.com/sainnhe/everforest everforest everforest-light \
-  "set background=light" "let g:everforest_background='medium'"
-```
-
-It clones the repo, applies the colorscheme in headless Neovim, maps the resolved highlight groups
-to TextMate scopes with `tools/nvim2tmtheme.py` (one table for every theme), copies the licence to
-`themes/` and prints the row to add to `THEMES` in `src/theme.rs`. Only whoever ports needs
-Neovim; the build never touches it. The two Shokunin themes are generated from their VS Code JSON
-sources with `python3 tools/vscode2tmtheme.py in.json out.tmTheme "Name"`.
 
 ## Config
 
@@ -348,12 +231,5 @@ Early, a personal tool made public. Issues are welcome; pull requests may wait.
 
 MIT — see [LICENSE](LICENSE). The syntax definitions come from
 [bat](https://github.com/sharkdp/bat) via [two-face](https://github.com/CosmicHorrorDev/two-face).
-The ported themes keep their authors' licences, shipped next to them in `themes/`:
-
-- MIT: [catppuccin](themes/LICENSE-catppuccin), [everforest](themes/LICENSE-everforest),
-  [flexoki](themes/LICENSE-flexoki), [gruvbox-material](themes/LICENSE-gruvbox-material),
-  [kanagawa](themes/LICENSE-kanagawa), [melange](themes/LICENSE-melange),
-  [nightfox](themes/LICENSE-nightfox), [rose-pine](themes/LICENSE-rose-pine)
-- Apache-2.0: [tokyonight](themes/LICENSE-tokyonight)
-- LGPL-3.0: [bluloco](themes/LICENSE-bluloco). A converted palette is data, not linked code, so
-  the LGPL does not reach the binary.
+The ported themes keep their authors' licences, shipped next to them in `themes/` and listed in
+[docs/themes.md](docs/themes.md#licences).
