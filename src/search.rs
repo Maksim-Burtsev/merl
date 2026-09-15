@@ -21,6 +21,25 @@ pub const MAX_HITS: usize = 5_000;
 /// (`func (i Invoice) Total()`).
 pub const SYMBOL_PATTERN: &str = r#"^\s*(?:(?:export|default|declare|async|pub(?:\([a-z]+\))?|static|unsafe|abstract|const|extern(?:\s+"[^"]*")?)\s+)*(def|class|func|function\*?|type|fn|struct|enum|impl|trait|interface|mod|const|static|union|macro_rules!|namespace)(?:<[^>]*>)?\s+(\([^)]*\)\s*)?(?P<name>[A-Za-z_]\w*)"#;
 
+/// The head of a SQL `CREATE` statement, up to the name it declares: the optional `OR REPLACE`,
+/// the modifiers that can sit before the object word, the object itself and `IF NOT EXISTS`.
+/// A macro, so the symbol pattern below and [`def_patterns`] share one spelling of it.
+macro_rules! sql_create {
+    () => {
+        r"(?i)^\s*CREATE\s+(?:OR\s+REPLACE\s+)?(?:(?:TEMP|TEMPORARY|UNLOGGED|MATERIALIZED|UNIQUE)\s+)*(?:TABLE|VIEW|INDEX|FUNCTION|PROCEDURE|TRIGGER|TYPE|SCHEMA|SEQUENCE|DOMAIN|EXTENSION|DATABASE|ROLE|USER|ENUM)(?:\s+IF\s+NOT\s+EXISTS)?\s+"
+    };
+}
+
+/// A name in a `CREATE` statement, as written: bare, `"quoted"` or `` `backticked` ``, and
+/// optionally schema-qualified (`public.orders`).
+const SQL_NAME: &str = r#"(?:"[^"]+"|`[^`]+`|\w+)"#;
+
+/// The SQL half of [`SYMBOLS`]: every `CREATE`d object, listed under its written name.
+const SQL_CREATE_SYMBOL: &str = concat!(
+    sql_create!(),
+    r#"(?P<name>(?:"[^"]+"|`[^`]+`|\w+)(?:\.(?:"[^"]+"|`[^`]+`|\w+))?)"#
+);
+
 /// What `D` lists: a line pattern and the kind of file it runs over (`None`: every file).
 /// The infrastructure patterns need their kind, since a Makefile target and a YAML key are the
 /// same shape. [`symbol_name`] reads the listed name from the named groups.
@@ -29,6 +48,9 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // `name ()`, the form without the `function` keyword: a `function name` line is already
     // listed by [`SYMBOL_PATTERN`], and requiring no keyword here keeps it off the list twice.
     (Some(Kind::Shell), r"^\s*(?P<name>[A-Za-z_]\w*)\s*\(\s*\)"),
+    // Every `CREATE` object, with the name as written, schema and quotes included. CTEs are a
+    // query's own scaffolding, not a symbol of the project, so they are left out.
+    (Some(Kind::Sql), SQL_CREATE_SYMBOL),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -54,6 +76,7 @@ pub enum Kind {
     Rust,
     TsJs,
     Shell,
+    Sql,
     Make,
     Terraform,
     Docker,
@@ -76,6 +99,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
             | ".profile",
             _,
         ) => Kind::Shell,
+        (_, "sql" | "psql" | "pgsql" | "mysql" | "ddl" | "dml") => Kind::Sql,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,
         (_, "yml" | "yaml") => Kind::Yaml,
@@ -219,6 +243,18 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             ),
             format!(r"^\s*alias\s+{w}="),
         ],
+        // Everything here ignores case: SQL keywords are written both ways in the same file.
+        // A column inside a `CREATE TABLE` body is deliberately not a rule — `name` alone on a
+        // line is any column of any table, so `d` falls back to the whole-word search.
+        Kind::Sql => {
+            let create = sql_create!();
+            vec![
+                format!(r#"{create}(?:{SQL_NAME}\.)?(?:"{w}"|`{w}`|{w}\b)"#),
+                // A common table expression: opening the `WITH`, or continuing it after the
+                // comma that follows the previous one's closing `)`.
+                format!(r"(?i)^\s*(?:\)\s*)?(?:WITH\s+(?:RECURSIVE\s+)?|,\s*)?{w}\s+AS\s*\("),
+            ]
+        }
         // A target, alone or among others before the colon (`build test: deps`), or a variable.
         Kind::Make => vec![
             format!(r"^([^:=#\s]+\s+)*{w}(\s+[^:=#\s]+)*\s*::?([^=:]|$)"),
@@ -285,9 +321,13 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
     match kind {
         Kind::Docker | Kind::Yaml => path == here,
         Kind::Terraform => kind_of(path) == Some(kind) && path.parent() == here.parent(),
-        Kind::Python | Kind::Go | Kind::Rust | Kind::TsJs | Kind::Shell | Kind::Make => {
-            kind_of(path) == Some(kind)
-        }
+        Kind::Python
+        | Kind::Go
+        | Kind::Rust
+        | Kind::TsJs
+        | Kind::Shell
+        | Kind::Sql
+        | Kind::Make => kind_of(path) == Some(kind),
     }
 }
 
@@ -489,6 +529,58 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    const SQL: &str = r#"CREATE TABLE public.orders (
+  id serial PRIMARY KEY,
+  customer_id int REFERENCES customers(id)
+);
+
+CREATE OR REPLACE FUNCTION total(o int) RETURNS int AS $$ SELECT 0 $$ LANGUAGE sql;
+
+CREATE UNIQUE INDEX orders_id_idx ON public.orders (id);
+
+create materialized view daily_totals as select 1;
+
+CREATE TYPE mood AS ENUM ('ok', 'bad');
+
+CREATE TABLE IF NOT EXISTS billing.invoices (id int);
+
+CREATE TABLE "user" (id int);
+
+WITH recent AS (
+  SELECT * FROM public.orders
+), older AS (
+  SELECT * FROM archive
+)
+SELECT * FROM recent JOIN older ON true;
+
+SELECT * FROM customers;
+JOIN customers ON true
+INSERT INTO customers VALUES (1);
+ALTER TABLE customers ADD COLUMN x int;
+DROP TABLE customers;
+"#;
+
+    #[test]
+    fn sql_def_patterns_find_create_statements_and_ctes() {
+        let (dir, files) = scratch("sql", &[("schema.sql", SQL)]);
+        let d = |w| defs(&dir, &files, Kind::Sql, w);
+        // The bare name finds the schema-qualified `CREATE TABLE`.
+        assert_eq!(d("orders"), [1]);
+        assert_eq!(d("total"), [6]);
+        assert_eq!(d("orders_id_idx"), [8]);
+        // Lower-case keywords read the same.
+        assert_eq!(d("daily_totals"), [10]);
+        assert_eq!(d("mood"), [12]);
+        assert_eq!(d("invoices"), [14]);
+        assert_eq!(d("user"), [16], "a quoted name");
+        // The `WITH` and the `,` continuation both open a CTE.
+        assert_eq!(d("recent"), [18]);
+        assert_eq!(d("older"), [20]);
+        // `customers` is only ever used, never created: the caller falls back.
+        assert_eq!(d("customers"), Vec::<usize>::new());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     const MAKE: &str = ".PHONY: build test\nCC ?= gcc\nexport CFLAGS := -O2\nbuild test-all: deps\n\t$(CC) -o app\ndeps::\n\t@echo deps\n%.o: %.c\n";
 
     #[test]
@@ -590,6 +682,12 @@ output "bucket" {
             (".profile", Some(Kind::Shell)),
             // A shebang-only script: `kind_of` goes by the name, so `d` falls back.
             ("install", None),
+            ("schema.sql", Some(Kind::Sql)),
+            ("dump.psql", Some(Kind::Sql)),
+            ("init.pgsql", Some(Kind::Sql)),
+            ("seed.mysql", Some(Kind::Sql)),
+            ("001.ddl", Some(Kind::Sql)),
+            ("002.dml", Some(Kind::Sql)),
             ("Makefile", Some(Kind::Make)),
             ("GNUmakefile", Some(Kind::Make)),
             ("rules.mk", Some(Kind::Make)),
@@ -655,6 +753,17 @@ output "bucket" {
             Kind::Rust,
             Path::new("src/main.rs"),
             Path::new("build.py")
+        ));
+        // A migration finds the table it alters in whatever file created it.
+        assert!(in_def_scope(
+            Kind::Sql,
+            Path::new("migrations/002.sql"),
+            Path::new("schema.ddl")
+        ));
+        assert!(!in_def_scope(
+            Kind::Sql,
+            Path::new("migrations/002.sql"),
+            Path::new("notes.md")
         ));
     }
 
@@ -781,6 +890,60 @@ output "bucket" {
         assert_eq!(symbol(None, "build() {"), None);
         for not_a_function in ["  build \"$ROOT\"", "x=$(build)", "start)", "ROOT=/srv"] {
             assert_eq!(sh(not_a_function), None, "{not_a_function}");
+        }
+    }
+
+    #[test]
+    fn sql_symbol_names() {
+        let sql = |line| symbol(Some(Kind::Sql), line);
+        assert_eq!(
+            sql("CREATE TABLE public.orders (").as_deref(),
+            Some("public.orders"),
+            "the schema stays part of the name"
+        );
+        assert_eq!(
+            sql("CREATE OR REPLACE FUNCTION total(o int)").as_deref(),
+            Some("total")
+        );
+        assert_eq!(
+            sql("CREATE UNIQUE INDEX orders_id_idx ON orders (id);").as_deref(),
+            Some("orders_id_idx")
+        );
+        assert_eq!(
+            sql("create materialized view daily_totals as").as_deref(),
+            Some("daily_totals")
+        );
+        assert_eq!(
+            sql("CREATE TABLE IF NOT EXISTS billing.invoices (").as_deref(),
+            Some("billing.invoices")
+        );
+        assert_eq!(
+            sql(r#"CREATE TABLE "user" ("#).as_deref(),
+            Some(r#""user""#)
+        );
+        assert_eq!(
+            sql("CREATE TYPE mood AS ENUM ('ok');").as_deref(),
+            Some("mood")
+        );
+        for not_a_definition in [
+            "SELECT * FROM orders;",
+            "ALTER TABLE orders ADD COLUMN x int;",
+            "DROP TABLE orders;",
+            "INSERT INTO orders VALUES (1);",
+            "CREATE TABLESPACE fast LOCATION '/x';",
+        ] {
+            assert_eq!(sql(not_a_definition), None, "{not_a_definition}");
+        }
+        // A CTE is a query's own scaffolding, not a project symbol.
+        assert_eq!(sql("WITH recent AS ("), None);
+        // The all-language pattern must not list SQL lines a second time: its keywords are
+        // matched case-sensitively at the start of the line.
+        for line in [
+            "CREATE TYPE mood AS ENUM ('ok');",
+            "create type mood as enum ('ok');",
+            "CREATE TABLE public.orders (",
+        ] {
+            assert_eq!(symbol(None, line), None, "{line}");
         }
     }
 
