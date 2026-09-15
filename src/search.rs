@@ -2,7 +2,8 @@
 //! the symbol list and the word under the cursor.
 //!
 //! There is no language server here: a definition is whatever a per-kind line pattern says it
-//! is, and everything merl does not know about falls back to a whole-word search.
+//! is, searched in the project first and then in the standard library and the installed
+//! dependencies the toolchain on this machine knows about.
 
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -88,7 +89,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
     let name = path.file_name()?.to_str()?;
     let ext = name.rsplit_once('.').map_or("", |(_, ext)| ext);
     Some(match (name, ext) {
-        (_, "py") => Kind::Python,
+        (_, "py" | "pyi") => Kind::Python,
         (_, "go") => Kind::Go,
         (_, "rs") => Kind::Rust,
         (_, "ts" | "tsx" | "mts" | "cts" | "js" | "jsx" | "mjs" | "cjs") => Kind::TsJs,
@@ -191,8 +192,7 @@ impl Sink for Collect<'_> {
 }
 
 /// Line patterns that declare `word` in a file of `kind`, or an empty list when there is no rule
-/// for it (the caller then falls back to a whole-word search). In Terraform `word` is the dotted
-/// address under the cursor.
+/// for it. In Terraform `word` is the dotted address under the cursor.
 pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
     let w = regex::escape(word);
     match kind {
@@ -332,6 +332,162 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Sql
         | Kind::Make => kind_of(path) == Some(kind),
     }
+}
+
+/// Where the standard library and the dependencies of the project at `root` live on this
+/// machine, for a file of `kind`; empty when the toolchain is not installed. Each is asked the
+/// way it answers itself: `sys.path` of the project's interpreter, `rustc --print sysroot` plus
+/// the registry crates `Cargo.lock` names, `GOROOT` plus the `go.mod` requirements in the module
+/// cache, `node_modules`. `pip install -e` and vendored code inside `root` are project files
+/// already, so `root` itself is never returned.
+///
+/// ponytail: spawns the toolchain on every `d` that leaves the project. Cache per root if it
+/// ever shows.
+pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
+    let run = |cmd: &str, args: &[&str]| -> Option<String> {
+        let out = std::process::Command::new(cmd)
+            .args(args)
+            .current_dir(root)
+            .output()
+            .ok()?;
+        out.status
+            .success()
+            .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+    };
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_default();
+    let mut dirs: Vec<PathBuf> = match kind {
+        Kind::Python => {
+            let venv = root.join(".venv/bin/python");
+            let python = if venv.is_file() {
+                venv
+            } else {
+                PathBuf::from("python3")
+            };
+            run(
+                &python.to_string_lossy(),
+                &["-c", "import sys; print('\\n'.join(sys.path))"],
+            )
+            .unwrap_or_default()
+            .lines()
+            .map(PathBuf::from)
+            .collect()
+        }
+        Kind::Rust => {
+            let mut dirs: Vec<PathBuf> = run("rustc", &["--print", "sysroot"])
+                .map(|s| PathBuf::from(s.trim()).join("lib/rustlib/src/rust/library"))
+                .into_iter()
+                .collect();
+            let cargo = std::env::var_os("CARGO_HOME")
+                .map_or_else(|| home.join(".cargo"), PathBuf::from)
+                .join("registry/src");
+            // `[[package]]` tables: `name = "x"` then `version = "y"` is the directory `x-y`.
+            let lock = std::fs::read_to_string(root.join("Cargo.lock")).unwrap_or_default();
+            let mut name = None;
+            for line in lock.lines() {
+                if let Some(n) = line.strip_prefix("name = ") {
+                    name = Some(n.trim_matches('"').to_owned());
+                } else if let (Some(v), Some(n)) = (line.strip_prefix("version = "), name.take()) {
+                    let crate_dir = format!("{n}-{}", v.trim_matches('"'));
+                    for index in std::fs::read_dir(&cargo).into_iter().flatten().flatten() {
+                        dirs.push(index.path().join(&crate_dir));
+                    }
+                }
+            }
+            dirs
+        }
+        Kind::Go => {
+            let env = run("go", &["env", "GOROOT", "GOMODCACHE"]).unwrap_or_default();
+            let mut env = env.lines();
+            let mut dirs = Vec::new();
+            if let Some(goroot) = env.next() {
+                dirs.push(PathBuf::from(goroot).join("src"));
+            }
+            let cache = env.next().map(PathBuf::from).unwrap_or_default();
+            // `require` lines, `path vX.Y.Z`; the cache escapes upper case as `!x`.
+            let gomod = std::fs::read_to_string(root.join("go.mod")).unwrap_or_default();
+            for line in gomod.lines() {
+                let mut parts = line
+                    .trim()
+                    .trim_start_matches("require ")
+                    .split_whitespace();
+                if let (Some(path), Some(v)) = (parts.next(), parts.next())
+                    && v.starts_with('v')
+                {
+                    let escaped: String = path
+                        .chars()
+                        .flat_map(|c| {
+                            if c.is_ascii_uppercase() {
+                                vec!['!', c.to_ascii_lowercase()]
+                            } else {
+                                vec![c]
+                            }
+                        })
+                        .collect();
+                    dirs.push(cache.join(format!("{escaped}@{v}")));
+                }
+            }
+            dirs
+        }
+        Kind::TsJs => vec![root.join("node_modules")],
+        Kind::Shell | Kind::Sql | Kind::Make | Kind::Terraform | Kind::Docker | Kind::Yaml => {
+            Vec::new()
+        }
+    };
+    dirs.retain(|d| d.is_dir() && d != root && !d.as_os_str().is_empty());
+    dirs.dedup();
+    dirs
+}
+
+/// Every file of `kind` under `dirs`, as absolute paths. Nothing is ignored: `node_modules`
+/// and `site-packages` are gitignored by design and are exactly what is wanted here.
+pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    for dir in dirs {
+        let walk = ignore::WalkBuilder::new(dir)
+            .hidden(false)
+            .git_ignore(false)
+            .git_global(false)
+            .git_exclude(false)
+            .ignore(false)
+            .parents(false)
+            .build();
+        files.extend(
+            walk.filter_map(Result::ok)
+                .map(ignore::DirEntry::into_path)
+                .filter(|p| p.is_file() && kind_of(p) == Some(kind)),
+        );
+    }
+    files
+}
+
+/// The name in front of the word under the cursor, when it is qualified: `json` in
+/// `json.load(`, `fs` in `fs::read(`. It picks the module out of the standard library: a
+/// definition of `load` counts only in a path with a `json` component (`json/__init__.py`,
+/// `fs.rs`).
+pub fn qualifier(line: &str, word_start: usize) -> Option<&str> {
+    let before = line[..word_start]
+        .trim_end_matches("::")
+        .trim_end_matches('.');
+    if before.len() == word_start {
+        return None;
+    }
+    let start = before
+        .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .map_or(0, |i| i + 1);
+    let q = &before[start..];
+    (!q.is_empty()).then_some(q)
+}
+
+/// Whether `path` belongs to module `qualifier`: some directory or file stem on it is that name.
+pub fn in_module(path: &Path, qualifier: &str) -> bool {
+    path.components().any(|c| {
+        let c = c.as_os_str().to_string_lossy();
+        c == qualifier
+            || c.rsplit_once('.')
+                .is_some_and(|(stem, _)| stem == qualifier)
+    })
 }
 
 /// The name `D` lists for a line matched by `re`, one of the [`SYMBOLS`] patterns: Terraform
@@ -708,6 +864,38 @@ output "bucket" {
         ] {
             assert_eq!(kind_of(Path::new(name)), kind, "{name}");
         }
+    }
+
+    #[test]
+    fn qualifier_names_the_module_in_front_of_the_word() {
+        assert_eq!(qualifier("    return json.load(fp)", 16), Some("json"));
+        assert_eq!(qualifier("let s = fs::read_to_string(p)", 12), Some("fs"));
+        assert_eq!(qualifier("load(fp)", 0), None);
+        assert_eq!(qualifier("x = load(fp)", 4), None);
+        assert!(in_module(
+            Path::new("/lib/python3.13/json/__init__.py"),
+            "json"
+        ));
+        assert!(in_module(Path::new("/rust/library/std/src/fs.rs"), "fs"));
+        assert!(!in_module(
+            Path::new("/lib/python3.13/jsonschema/x.py"),
+            "json"
+        ));
+    }
+
+    #[test]
+    fn external_files_ignore_no_gitignore_and_keep_the_kind() {
+        let dir = std::env::temp_dir().join(format!("merl-ext-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("pkg")).unwrap();
+        std::fs::write(dir.join(".gitignore"), "pkg\n").unwrap();
+        std::fs::write(dir.join("pkg/mod.py"), "").unwrap();
+        std::fs::write(dir.join("pkg/mod.pyi"), "").unwrap();
+        std::fs::write(dir.join("pkg/mod.so"), "").unwrap();
+        let mut files = external_files(Kind::Python, std::slice::from_ref(&dir));
+        files.sort();
+        assert_eq!(files, [dir.join("pkg/mod.py"), dir.join("pkg/mod.pyi")]);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

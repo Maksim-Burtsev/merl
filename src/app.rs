@@ -592,7 +592,11 @@ impl App {
                 return false;
             }
             match Buffer::load(path) {
-                Ok(buf) => {
+                Ok(mut buf) => {
+                    // The standard library and dependencies are read here, never edited.
+                    if !path.starts_with(&self.root) {
+                        buf.readonly.get_or_insert("outside the project");
+                    }
                     self.buf = buf;
                     self.anchor = None;
                     self.dirty = false;
@@ -1030,43 +1034,55 @@ impl App {
 
     /// `d` / F12. A file of a known [`Kind`] gets its declaration patterns, searched only where
     /// such a definition can live (`.tsx` finds `.ts`, a Terraform variable stays in its
-    /// module); anything else, or a word the patterns do not declare (a field, a variant, a
-    /// parameter), falls back to a whole-word search for the identifier itself.
+    /// module). Nothing in the project means the word comes from outside it: the same patterns
+    /// run over the standard library and the installed dependencies
+    /// ([`search::external_roots`]), narrowed to the module in front of the word when it is
+    /// qualified (`json.load` looks in `json`). A field, a variant or a parameter has no
+    /// declaration the rules know and gets "no definition": `u` lists the uses.
     fn goto_definition(&mut self) {
         let kind = self.kind();
-        let Some(word) = self.word_under(search::word_chars(kind, true)) else {
+        let extra = search::word_chars(kind, true);
+        let Some((range, word)) = search::word_at(self.line_str(), self.col, extra) else {
             return;
         };
+        let word = word.to_owned();
+        let qualifier = search::qualifier(self.line_str(), range.start).map(str::to_owned);
         let here = self.rel_current();
         let patterns = kind.map_or_else(Vec::new, |k| search::def_patterns(k, &word));
-        // Escaped or built-in patterns always compile.
-        let mut hits = match (kind, &here) {
-            (Some(kind), Some(here)) if !patterns.is_empty() => self
-                .grep(&patterns.join("|"), false, false, |p| {
-                    search::in_def_scope(kind, here, p)
-                })
-                .unwrap_or_default(),
-            _ => Vec::new(),
+        let (Some(kind), Some(here)) = (kind, here) else {
+            self.message = format!("no definition for {word}");
+            return;
         };
-        if let Some(block) = kind.and_then(|k| search::def_block(k, &word)) {
-            hits.retain(|h| {
-                // The open file as it is on screen, which is what `grep` searched.
-                let text = if here.as_ref() == Some(&h.path) {
-                    self.buf.lines.join("\n")
-                } else {
-                    std::fs::read_to_string(self.root.join(&h.path)).unwrap_or_default()
-                };
-                search::directly_inside(&text, h.line, block)
-            });
+        if patterns.is_empty() {
+            self.message = format!("no definition for {word}");
+            return;
         }
-        if hits.is_empty() {
-            hits = self
-                .grep(&regex::escape(&word), true, false, |_| true)
-                .unwrap_or_default();
+        let pattern = patterns.join("|");
+        // Escaped or built-in patterns always compile.
+        let mut hits = self
+            .grep(&pattern, false, false, |p| {
+                search::in_def_scope(kind, &here, p)
+            })
+            .unwrap_or_default();
+        if let Some(block) = search::def_block(kind, &word) {
+            hits.retain(|h| {
+                std::fs::read_to_string(self.root.join(&h.path))
+                    .is_ok_and(|text| search::directly_inside(&text, h.line, block))
+            });
         }
         // Standing on one of the definitions is not a reason to go nowhere.
         if hits.len() > 1 {
-            hits.retain(|h| h.line != self.line + 1 || Some(&h.path) != here.as_ref());
+            hits.retain(|h| h.line != self.line + 1 || h.path != here);
+        }
+        if hits.is_empty() {
+            let roots = search::external_roots(kind, &self.root);
+            let mut files = search::external_files(kind, &roots);
+            if let Some(q) = &qualifier {
+                files.retain(|p| search::in_module(p, q));
+            }
+            // Absolute paths: `root.join` leaves them alone, so a hit opens where it is.
+            hits = search::grep_project(&self.root, &files, &pattern, false, false, None, None)
+                .unwrap_or_default();
         }
         match hits.len() {
             0 => self.message = format!("no definition for {word}"),
@@ -2115,7 +2131,7 @@ mod tests {
     }
 
     #[test]
-    fn definitions_fall_back_to_the_word_and_keep_only_direct_locals() {
+    fn a_field_has_no_definition_and_locals_must_be_direct() {
         let (dir, mut a) = project_app(
             "fallback",
             &[
@@ -2129,16 +2145,48 @@ mod tests {
                 ),
             ],
         );
-        // A field is no declaration the Rust rules know: the whole-word search finds it.
+        // A field is no declaration the Rust rules know, and `u` is the key for its uses.
         a.jump_to(&dir.join("order.rs"), 5);
         a.col = 10;
         press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-        assert_eq!(at(&a), (dir.join("order.rs"), 1), "{}", a.message);
+        assert_eq!(at(&a), (dir.join("order.rs"), 4));
+        assert_eq!(a.message, "no definition for items");
         // Of the two `name =` lines, only the one directly inside `locals` is `local.name`.
         a.jump_to(&dir.join("main.tf"), 8);
         a.col = 17;
         press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
         assert_eq!(at(&a), (dir.join("main.tf"), 1), "{}", a.message);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// `json.load` is not declared in the project: `d` follows it into the standard library of
+    /// the `python3` on this machine and opens it read-only. Skipped where there is none.
+    #[test]
+    fn definitions_outside_the_project_come_from_the_standard_library() {
+        let stdlib = search::external_roots(Kind::Python, Path::new("/"));
+        if stdlib.is_empty() {
+            eprintln!("no python3, skipped");
+            return;
+        }
+        let (dir, mut a) = project_app(
+            "stdlib",
+            &[(
+                "main.py",
+                "import json\n\ndef read(p):\n    return json.load(open(p))\n",
+            )],
+        );
+        a.jump_to(&dir.join("main.py"), 4);
+        a.col = 17;
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        let (path, _) = at(&a);
+        assert!(
+            path.ends_with("json/__init__.py"),
+            "{} {}",
+            path.display(),
+            a.message
+        );
+        assert!(a.line_str().starts_with("def load("), "{}", a.line_str());
+        assert_eq!(a.buf.readonly, Some("outside the project"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

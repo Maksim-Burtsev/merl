@@ -153,18 +153,23 @@ read-only, and so does a line too long to be shown whole.
 
 There is no language server and no index: every lookup is a regex over the files found at startup,
 run through [ripgrep](https://github.com/BurntSushi/ripgrep)'s library crates. `d` knows the
-declaration forms below and searches only where such a definition can live; in any other language,
-or when the rules find nothing (a field, an enum variant, a parameter), it falls back to a
-whole-word search for the identifier. `u` is that whole-word search, always.
+declaration forms below and searches only where such a definition can live. When the project has
+no such definition, the same rules run over the standard library and the installed dependencies
+the toolchain on this machine knows about — `sys.path` of `.venv/bin/python` (or `python3`),
+`rustc --print sysroot` and the crates in `Cargo.lock`, `GOROOT` and the modules in `go.mod`,
+`node_modules` — narrowed to the module in front of the word when it is qualified (`json.load`
+looks in `json`; a compiled module such as `orjson` lands in its `.pyi` stub). Files opened from
+there are read-only. A field, an enum variant or a parameter has no declaration the rules know:
+`d` says so, and `u` lists every whole-word use of the identifier.
 
 | File | What `d` recognises | Searched |
 |---|---|---|
 | Python | `def`, `class`, module-level assignment (annotated or not) | every `.py` file |
 | Go | `func` with or without a receiver, `type`, `var`/`const`, `:=` | every `.go` file |
-| TypeScript / JavaScript | `function`, `class`, `interface`, `type`, `enum`, `namespace`, `const`/`let`/`var` (so arrow functions assigned to a name), class and object-literal methods, properties holding a function, behind `export`/`default`/`declare`/`async` and the member modifiers. Plain fields, destructuring and parameters fall back to the whole-word search. | every `.ts`, `.tsx`, `.js`, `.jsx` and friend: they search each other |
+| TypeScript / JavaScript | `function`, `class`, `interface`, `type`, `enum`, `namespace`, `const`/`let`/`var` (so arrow functions assigned to a name), class and object-literal methods, properties holding a function, behind `export`/`default`/`declare`/`async` and the member modifiers. Plain fields, destructuring and parameters have no rule. | every `.ts`, `.tsx`, `.js`, `.jsx` and friend: they search each other |
 | Rust | `fn`, `struct`, `enum`, `union`, `trait`, `type`, `const`, `static`, `mod`, `macro_rules!`, `let`, behind any `pub(..)`/`async`/`unsafe`/`const`/`extern`/`default` prefix. `impl` blocks count as uses. | every `.rs` file |
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
-| SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns fall back to the whole-word search. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
+| SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns have no rule. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable | every Makefile |
 | Terraform | the block behind `var.x`, `module.x`, `local.x`, `data.T.N`, `T.N`; a bare name, as in `.tfvars`, is any block with that label | `.tf` files in the same directory |
 | Dockerfile | the `FROM … AS name` stage | the same file |
