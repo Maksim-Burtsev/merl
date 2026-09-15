@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` and `D` in Java and Kotlin, which are one kind: a `.kt` file finds the `.java` class it calls
+  and the other way round, over every `.java`, `.kt` and `.kts` file. `d` finds Java's `class`,
+  `interface`, `enum`, `record` and `@interface`, a method or constructor with a body, an abstract
+  or interface method and a field, and Kotlin's `fun` (including an extension's receiver), `class`,
+  `object`, `enum class`, `typealias` and `val` / `var`, behind annotations and the modifiers of
+  either language. `D` lists them through the shared declaration pattern, which now knows `fun`,
+  `object`, `record` and `typealias`; a `static` or `const` line is listed only when the name
+  follows the keyword, so a Java field or method is no longer listed under its type. (#17)
 - `d` and `D` in SQL. `d` finds the `CREATE` of a table, view, index, function, procedure,
   trigger, type, schema, sequence, domain, extension, database, role or user — behind
   `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified

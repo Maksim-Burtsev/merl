@@ -405,6 +405,42 @@ mod tests {
     }
 
     #[test]
+    fn java_and_kotlin_highlight_with_every_shipped_theme() {
+        // bat's set owns all three by name; none needs a mapping.
+        for (file, lang, src) in [
+            (
+                "Invoice.java",
+                "Java",
+                "// doc\npublic final class Invoice {\n    private int n = 1;\n}\n",
+            ),
+            (
+                "app.kt",
+                "Kotlin",
+                "// doc\ndata class Order(val id: String)\nfun main() { val s = \"x\" }\n",
+            ),
+            (
+                "build.gradle.kts",
+                "Kotlin",
+                "// doc\nplugins { kotlin(\"jvm\") version \"2.0.0\" }\n",
+            ),
+        ] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some(lang),
+                    "{file} {name}"
+                );
+                b.highlight_to(1, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
     fn shell_highlights_with_every_shipped_theme() {
         let src = "#!/usr/bin/env bash\n# doc\nbuild() { echo \"$ROOT\"; }\n";
         // bat's own name and shebang patterns cover all of these; none needs a mapping.

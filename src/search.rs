@@ -18,8 +18,14 @@ use regex::Regex;
 pub const MAX_HITS: usize = 5_000;
 
 /// Lines that look like a top-level declaration in code. Group 2 swallows a Go method receiver
-/// (`func (i Invoice) Total()`).
-pub const SYMBOL_PATTERN: &str = r#"^\s*(?:(?:export|default|declare|async|pub(?:\([a-z]+\))?|static|unsafe|abstract|const|extern(?:\s+"[^"]*")?)\s+)*(def|class|func|function\*?|type|fn|struct|enum|impl|trait|interface|mod|const|static|union|macro_rules!|namespace)(?:<[^>]*>)?\s+(\([^)]*\)\s*)?(?P<name>[A-Za-z_]\w*)"#;
+/// (`func (i Invoice) Total()`), and the group after it a Kotlin extension receiver
+/// (`fun String.slug()`).
+///
+/// `static` and `const` are a branch of their own, with the name in `cname`: they are followed by
+/// the name in Rust, JavaScript and Kotlin (`static COUNT: u32`, `const val LIMIT = 10`) but by a
+/// type in Java, where `static final int LIMIT = 10;` would otherwise be listed as `final`.
+/// Requiring the `:` or `=` that follows the name keeps a Java field or method off the list.
+pub const SYMBOL_PATTERN: &str = r#"^\s*(?:(?:export|default|declare|async|pub(?:\([a-z]+\))?|static|unsafe|abstract|const|extern(?:\s+"[^"]*")?|public|protected|private|internal|final|open|sealed|data|annotation|companion|inner|value|enum|suspend|override|inline|operator|infix)\s+)*(?:(def|class|func|function\*?|type|fn|fun|struct|enum|impl|trait|interface|mod|object|record|typealias|union|macro_rules!|namespace)(?:<[^>]*>)?\s+(\([^)]*\)\s*)?(?:[A-Za-z_][\w.]*\.)?(?P<name>[A-Za-z_]\w*)|(?:static|const)\s+(?:(?:val|var)\s+)?(?P<cname>[A-Za-z_]\w*)\s*[:=])"#;
 
 /// The head of a SQL `CREATE` statement, up to the name it declares: the optional `OR REPLACE`,
 /// the modifiers that can sit before the object word, the object itself and `IF NOT EXISTS`.
@@ -75,6 +81,7 @@ pub enum Kind {
     Go,
     Rust,
     TsJs,
+    Jvm,
     Shell,
     Sql,
     Make,
@@ -91,6 +98,9 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "go") => Kind::Go,
         (_, "rs") => Kind::Rust,
         (_, "ts" | "tsx" | "mts" | "cts" | "js" | "jsx" | "mjs" | "cjs") => Kind::TsJs,
+        // Java and Kotlin are one kind: they call each other inside the same project, so `d` in
+        // a `.kt` file has to find the `.java` class it uses, as `.tsx` finds `.ts`.
+        (_, "java" | "kt" | "kts") => Kind::Jvm,
         // Name-only, like every other kind: a shebang-only script with no extension is left to
         // the whole-word fallback, since `kind_of` never reads a file.
         (_, "sh" | "bash" | "zsh" | "ksh") => Kind::Shell,
@@ -232,6 +242,36 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 ),
             ]
         }
+        Kind::Jvm => {
+            // Everything that can stand before a declaration in either language: annotations,
+            // Java's access and class modifiers, Kotlin's own.
+            let mods = concat!(
+                r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*",
+                r"(?:(?:public|protected|private|internal|static|final|abstract|sealed|non-sealed",
+                r"|strictfp|synchronized|native|default|transient|volatile|open|data|value|inner",
+                r"|annotation|companion|enum|const|lateinit|expect|actual|suspend|override|inline",
+                r"|operator|infix|tailrec|external|reified)\s+)*"
+            );
+            // A return type: a primitive, or a name with a capital in it. Java names its types
+            // that way, and requiring one keeps `return parse(x);` from looking like a method.
+            let ret = r"(?:void|int|long|short|byte|char|boolean|float|double|[\w.]*[A-Z][\w.]*)";
+            vec![
+                format!(
+                    r"{mods}(?:class|interface|enum|record|@interface|object|typealias)\s+{w}\b"
+                ),
+                // Kotlin: a function, with its generics and, for an extension, its receiver.
+                format!(r"{mods}fun\s+(?:<[^>]*>\s*)?(?:[\w.]+\.)?{w}\s*\("),
+                format!(r"{mods}(?:val|var)\s+{w}\b"),
+                // Java: a method or constructor with a body. The line ends with the brace that
+                // opens it, and what may stand before the name rules out `if (parse(x)) {`.
+                format!(r"^\s*[\w.<>\[\],?@\s]*\b{w}\s*\([^;]*\)\s*(?:throws [\w.,\s]+)?\{{\s*$"),
+                // Java: an abstract or interface method, and a field: a return type, the name,
+                // and the `(`, `;` or `=` that follows it.
+                format!(
+                    r"{mods}(?:<[^>]*>\s*)?{ret}(?:<[^>]*>)?(?:\[\])*(?:\.\.\.)?\s+{w}\s*[(;=]"
+                ),
+            ]
+        }
         // A function in either form, an assignment behind the declaration keywords that can
         // precede it (`+=` appends to one), or an alias. A shell has no declaration for the rest,
         // so a `$w` use or a `[ "$w" = x ]` test must not look like one.
@@ -325,6 +365,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Go
         | Kind::Rust
         | Kind::TsJs
+        | Kind::Jvm
         | Kind::Shell
         | Kind::Sql
         | Kind::Make => kind_of(path) == Some(kind),
@@ -347,7 +388,7 @@ pub fn symbol_name(re: &Regex, line: &str) -> Option<String> {
     }
     group("anchor")
         .map(|a| format!("&{a}"))
-        .or_else(|| group("name").map(str::to_owned))
+        .or_else(|| group("name").or_else(|| group("cname")).map(str::to_owned))
 }
 
 /// The run of `[A-Za-z0-9_]` and `extra` characters at byte offset `col`, or the one that ends
@@ -505,6 +546,114 @@ mod tests {
         }
         // A plain field is not a declaration the rules know; the caller falls back.
         assert!(defs(&dir, &ts_js, Kind::TsJs, "cache").is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    const JAVA: &str = r#"package app;
+
+public final class Invoice {
+    private static final int LIMIT = 10;
+    private Map<String, Integer> items;
+
+    public Invoice(int n) {
+        this.n = n;
+    }
+
+    @Override
+    public int total() {
+        return compute(items);
+    }
+
+    static Map<String, Integer> compute(Map<String, Integer> rows) {
+        return rows;
+    }
+}
+
+interface Store {
+    void save(Invoice inv);
+}
+
+record Point(int x, int y) {}
+
+enum Status {
+    OPEN,
+}
+"#;
+
+    const KT: &str = r#"package app
+
+data class Order(val id: String)
+
+class Service(private val repo: Repo) {
+    private val cache = mutableMapOf<String, Order>()
+
+    suspend fun load(id: String): Order {
+        return parse(id)
+    }
+
+    fun parse(id: String): Order = Order(id)
+}
+
+fun String.slug(): String = lowercase()
+
+object Registry {
+    val all = listOf<Order>()
+}
+
+enum class Status {
+    OPEN,
+}
+
+typealias Rows = List<Order>
+
+const val LIMIT = 10
+"#;
+
+    #[test]
+    fn java_def_patterns_cover_types_methods_and_fields() {
+        let (dir, files) = scratch("java", &[("Invoice.java", JAVA)]);
+        let d = |w| defs(&dir, &files, Kind::Jvm, w);
+        // The class and the constructor; the caller shows a picker.
+        assert_eq!(d("Invoice"), [3, 7]);
+        assert_eq!(d("LIMIT"), [4]);
+        assert_eq!(d("items"), [5], "not the `compute(items)` call");
+        assert_eq!(d("total"), [12], "behind its annotation and modifiers");
+        // The declaration, not the `return compute(items);` call above it.
+        assert_eq!(d("compute"), [16]);
+        assert_eq!(d("Store"), [21]);
+        assert_eq!(d("save"), [22], "an interface method has no body");
+        assert_eq!(d("Point"), [25]);
+        assert_eq!(d("Status"), [27]);
+        assert_eq!(d("rows"), Vec::<usize>::new(), "a parameter falls back");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn kotlin_def_patterns_cover_declarations_and_receivers() {
+        let (dir, files) = scratch("kt", &[("app.kt", KT)]);
+        let d = |w| defs(&dir, &files, Kind::Jvm, w);
+        assert_eq!(d("Order"), [3], "not the `Order(id)` calls");
+        assert_eq!(d("Service"), [5]);
+        assert_eq!(d("cache"), [6]);
+        assert_eq!(d("load"), [8], "behind `suspend`");
+        assert_eq!(d("parse"), [12], "not the `return parse(id)` call");
+        assert_eq!(d("slug"), [15], "an extension function, past its receiver");
+        assert_eq!(d("Registry"), [17]);
+        assert_eq!(d("all"), [18]);
+        assert_eq!(d("Status"), [21]);
+        assert_eq!(d("Rows"), [25]);
+        assert_eq!(d("LIMIT"), [27]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn java_and_kotlin_find_each_other() {
+        let (dir, files) = scratch("jvm", &[("Invoice.java", JAVA), ("app.kt", KT)]);
+        let pat = def_patterns(Kind::Jvm, "Store").join("|");
+        assert_eq!(
+            lines(&grep(&dir, &files, &pat, false, false)),
+            [("Invoice.java".into(), 21)]
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -669,6 +818,9 @@ output "bucket" {
             ("lib.rs", Some(Kind::Rust)),
             ("app.tsx", Some(Kind::TsJs)),
             ("util.cjs", Some(Kind::TsJs)),
+            ("Invoice.java", Some(Kind::Jvm)),
+            ("app.kt", Some(Kind::Jvm)),
+            ("build.gradle.kts", Some(Kind::Jvm)),
             ("run.sh", Some(Kind::Shell)),
             ("run.bash", Some(Kind::Shell)),
             ("run.zsh", Some(Kind::Shell)),
@@ -753,6 +905,17 @@ output "bucket" {
             Kind::Rust,
             Path::new("src/main.rs"),
             Path::new("build.py")
+        ));
+        // A Kotlin file finds the Java class it calls, and the other way round.
+        assert!(in_def_scope(
+            Kind::Jvm,
+            Path::new("app/src/App.kt"),
+            Path::new("lib/src/Invoice.java")
+        ));
+        assert!(!in_def_scope(
+            Kind::Jvm,
+            Path::new("app/src/App.kt"),
+            Path::new("lib/src/invoice.py")
         ));
         // A migration finds the table it alters in whatever file created it.
         assert!(in_def_scope(
@@ -867,6 +1030,30 @@ output "bucket" {
             ("export const parse = (s) => s;", Some("parse")),
             ("    render(o);", None),
             ("    return inv.render()", None),
+            ("public final class Invoice {", Some("Invoice")),
+            ("interface Store {", Some("Store")),
+            ("record Point(int x, int y) {}", Some("Point")),
+            ("enum Status {", Some("Status")),
+            ("data class Order(val id: String)", Some("Order")),
+            ("enum class Status {", Some("Status")),
+            ("annotation class Json", Some("Json")),
+            ("    suspend fun load(id: String): Order {", Some("load")),
+            ("fun String.slug(): String = lowercase()", Some("slug")),
+            ("object Registry {", Some("Registry")),
+            ("typealias Rows = List<Order>", Some("Rows")),
+            // A method without a keyword in front, as in TypeScript: the regex cannot tell it
+            // from a call. So is a field, and `companion object` has no name of its own.
+            ("    public int total() {", None),
+            ("    companion object {", None),
+            // A `static` or `const` line is listed when the name follows the keyword, as in
+            // Rust, JavaScript and Kotlin -- not when a Java type stands in between.
+            ("const val LIMIT = 10", Some("LIMIT")),
+            ("    private static final int LIMIT = 10;", None),
+            (
+                "    static Map<String, Integer> compute(Map<String, Integer> rows) {",
+                None,
+            ),
+            ("    static final Invoice EMPTY = new Invoice(0);", None),
         ] {
             assert_eq!(symbol(None, line).as_deref(), name, "{line}");
         }

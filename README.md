@@ -159,6 +159,8 @@ whole-word search for the identifier. `u` is that whole-word search, always.
 | Go | `func` with or without a receiver, `type`, `var`/`const`, `:=` | every `.go` file |
 | TypeScript / JavaScript | `function`, `class`, `interface`, `type`, `enum`, `namespace`, `const`/`let`/`var` (so arrow functions assigned to a name), class and object-literal methods, properties holding a function, behind `export`/`default`/`declare`/`async` and the member modifiers. Plain fields, destructuring and parameters fall back to the whole-word search. | every `.ts`, `.tsx`, `.js`, `.jsx` and friend: they search each other |
 | Rust | `fn`, `struct`, `enum`, `union`, `trait`, `type`, `const`, `static`, `mod`, `macro_rules!`, `let`, behind any `pub(..)`/`async`/`unsafe`/`const`/`extern`/`default` prefix. `impl` blocks count as uses. | every `.rs` file |
+| Java | `class`, `interface`, `enum`, `record`, `@interface`; a method or constructor with a body, an abstract or interface method, a field, behind annotations and modifiers. A method's return type has to be a primitive or a name with a capital in it, so a call does not read as a declaration. | every `.java`, `.kt` and `.kts` file: they search each other |
+| Kotlin | `fun` (with the receiver of an extension function), `class`, `interface`, `object`, `enum class`, `typealias`, `val`/`var`, behind `private`/`open`/`data`/`sealed`/`suspend`/`override` and the rest | every `.java`, `.kt` and `.kts` file: they search each other |
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
 | SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns fall back to the whole-word search. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable | every Makefile |
@@ -169,14 +171,17 @@ whole-word search for the identifier. `u` is that whole-word search, always.
 In Makefiles, Terraform, Dockerfiles and YAML a `-` is part of the word under the cursor, and `d`
 in Terraform reads the whole dotted address, so it works from anywhere in `aws_s3_bucket.logs.id`.
 
-`D` lists every declaration a single regex can recognise (`def class func function type fn struct
-enum impl trait interface mod const static union macro_rules! namespace`, with `export`/`pub`/`async`/`const`/`extern`/`declare`
-prefixes), plus shell functions (`name()`; the `function name` form the single regex already
+`D` lists every declaration a single regex can recognise (`def class func function fun type fn
+struct enum impl trait interface mod object record typealias union macro_rules! namespace`, with
+`export`/`pub`/`async`/`const`/`extern`/`declare` and the Java and Kotlin modifiers
+(`public`/`private`/`final`/`open`/`data`/`sealed`/`suspend`/`override` and friends) as prefixes;
+a `static` or `const` counts when the name follows the keyword, as in Rust, JavaScript and Kotlin,
+not when a Java type stands in between), plus shell functions (`name()`; the `function name` form the single regex already
 finds), SQL `CREATE`d objects under the name as written (`public.orders`, not CTEs), Makefile
 targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`, `module.x`, `var.x`,
 `output.x`), Dockerfile stages and YAML anchors, each read only from its own kind of file;
-recomputed on each press. Class methods without a keyword in front are not listed:
-the regex cannot tell `name(` from a call. Searches are smart-case — an all-lowercase query
+recomputed on each press. Class methods without a keyword in front — TypeScript's and Java's —
+are not listed: the regex cannot tell `name(` from a call. Searches are smart-case — an all-lowercase query
 ignores case, one uppercase letter makes it case-sensitive — and `/` and `s` take full regular
 expressions.
 
