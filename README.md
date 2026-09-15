@@ -176,21 +176,22 @@ whole-word search for the identifier. `u` is that whole-word search, always.
 In Makefiles, Terraform, Dockerfiles and YAML a `-` is part of the word under the cursor, and `d`
 in Terraform reads the whole dotted address, so it works from anywhere in `aws_s3_bucket.logs.id`.
 
-`D` lists every declaration a single regex can recognise (`def class func function fun type fn
-struct enum impl trait interface mod module object record typealias union macro_rules! namespace`,
-with `export`/`pub`/`async`/`const`/`extern`/`declare` and the Java and Kotlin modifiers
-(`public`/`private`/`final`/`open`/`data`/`sealed`/`suspend`/`override` and friends) as prefixes; a
-`static` or `const` counts only unindented or exported, since indented they are locals, and only
-when the name follows the keyword, as it does in Rust, JavaScript and Kotlin but not in Java, where
-a type stands in between), plus shell functions (`name()`; the `function name` form the single regex
-already finds), SQL `CREATE`d objects under the name as written (`public.orders`, not CTEs), Java
-methods — told from a call by the return type before the name — Makefile targets, Terraform blocks
-by address (`aws_s3_bucket.logs`, `data.T.N`, `module.x`, `var.x`, `output.x`), Dockerfile stages
-and YAML anchors, each read only from its own kind of file; recomputed on each press. TypeScript's
-class methods are not listed: with neither a keyword nor a type in front, the regex cannot tell
-`name(` from a call. Neither are the names a Ruby `attr_accessor` line declares, since one line can
-declare several. Searches are smart-case — an all-lowercase query ignores case, one uppercase letter
-makes it case-sensitive — and `/` and `s` take full regular expressions.
+`D` lists every declaration a single regex can recognise (`def class func function type fn struct
+enum impl trait interface mod const static union macro_rules! namespace`, with
+`export`/`pub`/`async`/`const`/`extern`/`declare` prefixes; `const` and `static` only unindented or
+exported, since indented they are locals), plus shell functions (`name()`; the `function name` form
+the single regex already finds), SQL `CREATE`d objects under the name as written (`public.orders`,
+not CTEs), Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`,
+`module.x`, `var.x`, `output.x`), Dockerfile stages and YAML anchors, each read only from its own
+kind of file; recomputed on each press. Java, Kotlin and Ruby are read from rules of their own
+instead of that regex — Java's types and its methods, told from a call by the return type before the
+name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and `const val`;
+Ruby's methods, classes and modules, `def self.name` included — so none of them is listed twice or
+under a modifier or a receiver. TypeScript's class methods, with neither a keyword nor a type in
+front, are not listed: the regex cannot tell `name(` from a call. Neither are fields, a Ruby
+constant, or the names a Ruby `attr_accessor` line declares, since one line can declare several.
+Searches are smart-case — an all-lowercase query ignores case, one uppercase letter makes it
+case-sensitive — and `/` and `s` take full regular expressions.
 
 The file list comes from one `.gitignore`-respecting walk at startup and is not refreshed, so
 files created while merl is open show up after a restart. Dotfiles are part of it — `.github/`,
