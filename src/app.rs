@@ -309,11 +309,16 @@ impl App {
         wrap::col_to_row(&self.rows(self.line), self.col)
     }
 
-    /// Display column of the cursor inside its wrapped row.
+    /// Display column of the cursor on its wrapped row, counting the indent rows after the first
+    /// are drawn with.
     pub fn cursor_x(&self) -> usize {
         let rows = self.rows(self.line);
         let row = wrap::col_to_row(&rows, self.col);
-        wrap::width(&self.line_str()[wrap::row_to_col(&rows, row)..self.col])
+        let indent = match row {
+            0 => 0,
+            _ => wrap::indent(self.buf.shown(self.line), self.view_w),
+        };
+        indent + wrap::width(&self.line_str()[wrap::row_to_col(&rows, row)..self.col])
     }
 
     /// 1-based display column, for the status bar.

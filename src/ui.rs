@@ -400,6 +400,7 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
             .selected_bytes(l)
             .map(|r| r.start..r.end.min(clipped.len()));
         let pad_selected = sel_lines.is_some_and(|(first, last)| first <= l && l < last);
+        let indent = wrap::indent(clipped, app.view_w);
         for (i, r) in wrap::wrap_line(clipped, app.view_w).into_iter().enumerate() {
             if i < skip {
                 continue;
@@ -421,7 +422,14 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
                 None => Span::styled(" ", g),
             };
             let mut row = vec![Span::styled(num, g), mark];
-            let pad = app.view_w.saturating_sub(wrap::width(&clipped[r.clone()]));
+            // Rows after the first start under the text of the first.
+            let lead = if i == 0 { 0 } else { indent };
+            if lead > 0 {
+                row.push(Span::styled(" ".repeat(lead), t));
+            }
+            let pad = app
+                .view_w
+                .saturating_sub(lead + wrap::width(&clipped[r.clone()]));
             // The selected part of the row keeps its syntax colours on the selection background.
             let (lo, hi) = match &selected {
                 Some(s) => (s.start.clamp(r.start, r.end), s.end.clamp(r.start, r.end)),
@@ -1007,6 +1015,35 @@ mod tests {
             "{status:?}"
         );
         assert_eq!(terminal.get_cursor_position().unwrap().x, 2 + 4 + 7);
+    }
+
+    #[test]
+    fn wrapped_rows_and_the_cursor_on_them_start_under_the_text() {
+        let mut app = App::new(
+            PathBuf::from("/tmp"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::from_bytes(
+                PathBuf::from("/tmp/f.md"),
+                b"- Celery lost tasks on restart\n",
+            ),
+            None,
+        );
+        app.show_tree = false;
+        for _ in 0..16 {
+            app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
+        }
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(20, 4)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        let cursor = terminal.get_cursor_position().unwrap();
+        let buf = terminal.backend().buffer();
+        let row = |y: u16| (0..20).map(|x| buf[(x, y)].symbol()).collect::<String>();
+        // "tasks" fits a row, so it moves down whole, and the row starts past the list marker.
+        assert_eq!(row(0), "1 - Celery lost     ");
+        assert_eq!(row(1), "    tasks on restart");
+        // On the "s" of "tasks": gutter 2, indent 2, "ta" 2.
+        assert_eq!((cursor.x, cursor.y), (6, 1));
     }
 
     #[test]

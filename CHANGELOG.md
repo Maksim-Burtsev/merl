@@ -46,6 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All three themes colour the names infrastructure grammars emit: TOML keys and tables, INI
   sections, Terraform attributes, `.env` keys, Makefile and nginx variables, Dockerfile stages
   and image tags, YAML anchors and aliases. (#16)
+- Long lines wrap between words instead of mid-word: a row ends after a space, and a word moves
+  down whole. Only a word longer than the whole row (a URL, a call chain, a hash) is split where
+  it stands, after `/ . , ; ) ] }` when it can. Rows after the first start under the text of the
+  first, past the line's indentation and a list marker (`- `, `1. `), unless that takes more
+  than half the pane.
 
 ### Fixed
 
