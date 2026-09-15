@@ -71,7 +71,7 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
 
 /// A file kind with navigation rules of its own. Told by the file name, since a `Makefile` or a
 /// `Dockerfile` has no extension to go by; one kind can span extensions (`.tsx` finds `.ts`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Kind {
     Python,
     Go,
@@ -445,7 +445,11 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
 pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
     let mut files = Vec::new();
     for dir in dirs {
+        // Homebrew's Rust ships the sysroot `library` with a copy of itself inside; every
+        // definition would come up twice.
+        let copy = dir.file_name().map(std::ffi::OsStr::to_owned);
         let walk = ignore::WalkBuilder::new(dir)
+            .filter_entry(move |e| e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
             .hidden(false)
             .git_ignore(false)
             .git_global(false)
@@ -462,32 +466,227 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
     files
 }
 
-/// The name in front of the word under the cursor, when it is qualified: `json` in
-/// `json.load(`, `fs` in `fs::read(`. It picks the module out of the standard library: a
-/// definition of `load` counts only in a path with a `json` component (`json/__init__.py`,
-/// `fs.rs`).
-pub fn qualifier(line: &str, word_start: usize) -> Option<&str> {
-    let before = line[..word_start]
-        .trim_end_matches("::")
-        .trim_end_matches('.');
-    if before.len() == word_start {
-        return None;
+/// The dotted or `::` chain in front of the word under the cursor: `["json"]` for
+/// `json.load(`, `["os", "path"]` for `os.path.join(`, `["fs"]` for `fs::read(`. Empty when the
+/// word stands alone.
+pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
+    let mut before = &line[..word_start];
+    let mut chain = Vec::new();
+    while let Some(rest) = before
+        .strip_suffix("::")
+        .or_else(|| before.strip_suffix('.'))
+    {
+        let start = rest
+            .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+            .map_or(0, |i| i + 1);
+        if start == rest.len() {
+            break;
+        }
+        chain.insert(0, rest[start..].to_owned());
+        before = &rest[..start];
     }
-    let start = before
-        .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
-        .map_or(0, |i| i + 1);
-    let q = &before[start..];
-    (!q.is_empty()).then_some(q)
+    chain
 }
 
-/// Whether `path` belongs to module `qualifier`: some directory or file stem on it is that name.
-pub fn in_module(path: &Path, qualifier: &str) -> bool {
-    path.components().any(|c| {
+/// The names a file binds by importing, each with the module path it comes from, as the parts
+/// a file system would spell it in. `import numpy as np` binds `np` to `[numpy]`; `from json
+/// import load` binds `load` to `[json, load]` (a module or a name in one, the caller relaxes
+/// the path until a file matches). Relative and in-crate imports (`from . import`, `crate::`,
+/// `./x`) are project files, found by the project search already, and are left out.
+pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
+    let mut out = Vec::new();
+    let parts = |module: &str, sep: &str| -> Vec<String> {
+        module
+            .split(sep)
+            .filter(|p| !p.is_empty())
+            .map(str::to_owned)
+            .collect()
+    };
+    // `name`, or `name as alias`: the alias is what the file uses.
+    let bound = |item: &str| -> Option<(String, String)> {
+        let mut it = item.split_whitespace();
+        let name = it
+            .next()?
+            .trim_matches(|c| c == '{' || c == '}' || c == ',')
+            .to_owned();
+        let alias = match (it.next(), it.next()) {
+            (Some("as"), Some(a)) => a.trim_end_matches(',').to_owned(),
+            _ => name.clone(),
+        };
+        (!name.is_empty()).then_some((alias, name))
+    };
+    match kind {
+        Kind::Python => {
+            static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(
+                    r"(?m)^\s*(?:from\s+([\w.]+)\s+import\s+(\([^)]*\)|[^\n]+)|import\s+([^\n]+))",
+                )
+                .unwrap()
+            });
+            for c in IMPORT.captures_iter(text) {
+                if let (Some(module), Some(names)) = (c.get(1), c.get(2)) {
+                    let module = module.as_str();
+                    if module.starts_with('.') {
+                        continue;
+                    }
+                    for item in names
+                        .as_str()
+                        .trim_matches(|c| c == '(' || c == ')')
+                        .split(',')
+                    {
+                        if let Some((alias, name)) = bound(item.trim()) {
+                            let mut path = parts(module, ".");
+                            path.push(name);
+                            out.push((alias, path));
+                        }
+                    }
+                } else if let Some(list) = c.get(3) {
+                    for item in list.as_str().split(',') {
+                        if let Some((alias, name)) = bound(item.trim()) {
+                            // `import a.b.c` binds `a`; `import a.b.c as d` binds `d` to `a.b.c`.
+                            if alias == name {
+                                let first = name.split('.').next().unwrap_or(&name).to_owned();
+                                out.push((first.clone(), vec![first]));
+                            } else {
+                                out.push((alias, parts(&name, ".")));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Kind::Rust => {
+            static USE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r"(?ms)^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([^;]+);").unwrap()
+            });
+            for c in USE.captures_iter(text) {
+                use_tree(&c[1], &[], &mut out);
+            }
+        }
+        Kind::Go => {
+            static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r#"(?m)^\s*(?:import\s+)?(?:(\w+|\.|_)\s+)?"([^"]+)"\s*$"#).unwrap()
+            });
+            for c in IMPORT.captures_iter(text) {
+                let module = &c[2];
+                let path = parts(module, "/");
+                // The package name is the last element that is not a major version.
+                let name = path
+                    .iter()
+                    .rev()
+                    .find(|p| !(p.starts_with('v') && p[1..].chars().all(|c| c.is_ascii_digit())))
+                    .cloned()
+                    .unwrap_or_default();
+                let alias = c.get(1).map_or(name, |m| m.as_str().to_owned());
+                out.push((alias, path));
+            }
+        }
+        Kind::TsJs => {
+            static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(
+                    r#"(?ms)^\s*(?:import\s+(?:type\s+)?([^'"]*?)\s*from\s*|(?:const|let|var)\s+([^=]+?)\s*=\s*(?:await\s+)?(?:require|import)\s*\(\s*)['"]([^'"]+)['"]"#,
+                )
+                .unwrap()
+            });
+            for c in IMPORT.captures_iter(text) {
+                let module = c[3].strip_prefix("node:").unwrap_or(&c[3]);
+                if module.starts_with('.') || module.starts_with('/') {
+                    continue;
+                }
+                let path = parts(module, "/");
+                let clause = c.get(1).or_else(|| c.get(2)).map_or("", |m| m.as_str());
+                // `x`, `* as x`, `{a, b as c}` and `x, {a}` in one clause.
+                for item in clause.split([',', '{', '}']) {
+                    let item = item.trim().trim_start_matches("* as ").trim();
+                    if let Some((alias, _)) = bound(item) {
+                        out.push((alias, path.clone()));
+                    }
+                }
+            }
+        }
+        Kind::Shell | Kind::Sql | Kind::Make | Kind::Terraform | Kind::Docker | Kind::Yaml => {}
+    }
+    out
+}
+
+/// One `use` tree: `a::b::{c, d as e, f::*}` binds `c`, `e` and every name of `f`. A `crate`,
+/// `self` or `super` root is the project.
+fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<(String, Vec<String>)>) {
+    let tree = tree.trim();
+    if tree.is_empty() {
+        return;
+    }
+    if let Some((head, rest)) = tree.split_once('{') {
+        let rest = rest.trim_end().trim_end_matches('}');
+        let mut path = prefix.to_vec();
+        path.extend(
+            head.split("::")
+                .map(str::trim)
+                .filter(|p| !p.is_empty())
+                .map(String::from),
+        );
+        // Split the list at the commas outside nested braces.
+        let (mut depth, mut start) = (0, 0);
+        for (i, ch) in rest.char_indices() {
+            match ch {
+                '{' => depth += 1,
+                '}' => depth -= 1,
+                ',' if depth == 0 => {
+                    use_tree(&rest[start..i], &path, out);
+                    start = i + 1;
+                }
+                _ => {}
+            }
+        }
+        use_tree(&rest[start..], &path, out);
+        return;
+    }
+    let mut path = prefix.to_vec();
+    let (tree, alias) = tree
+        .split_once(" as ")
+        .map_or((tree, None), |(t, a)| (t.trim(), Some(a.trim().to_owned())));
+    path.extend(
+        tree.split("::")
+            .map(str::trim)
+            .filter(|p| !p.is_empty() && *p != "self" && *p != "*")
+            .map(String::from),
+    );
+    if matches!(
+        path.first().map(String::as_str),
+        None | Some("crate" | "super")
+    ) {
+        return;
+    }
+    let Some(last) = path.last().cloned() else {
+        return;
+    };
+    out.push((alias.unwrap_or(last), path));
+}
+
+/// Whether `path` is (in) the module spelled by `parts`: every part is a directory or file
+/// stem on it, in order. A package directory carries a version (`regex-1.11.1`,
+/// `toml@v1.2.3`), a Go module escapes upper case (`!burnt!sushi`) and a crate name spells
+/// `_` as `-`: those are ignored.
+pub fn in_module(path: &Path, parts: &[String]) -> bool {
+    let norm = |s: &str| -> String {
+        let s = s.split('@').next().unwrap_or(s);
+        // `fs.d.ts`, `python3.13`, `github.com`: the stem before every extension.
+        let s = s.split('.').next().unwrap_or(s);
+        // `name-1.2.3`: the version after the first `-` followed by a digit.
+        let s = s
+            .match_indices('-')
+            .find(|(i, _)| s[i + 1..].starts_with(|c: char| c.is_ascii_digit()))
+            .map_or(s, |(i, _)| &s[..i]);
+        s.replace('!', "").replace('-', "_").to_ascii_lowercase()
+    };
+    let mut want = parts.iter().map(|p| norm(p)).peekable();
+    for c in path.components() {
         let c = c.as_os_str().to_string_lossy();
-        c == qualifier
-            || c.rsplit_once('.')
-                .is_some_and(|(stem, _)| stem == qualifier)
-    })
+        if want.peek().is_some_and(|w| *w == norm(&c)) {
+            want.next();
+        }
+    }
+    want.peek().is_none()
 }
 
 /// The name `D` lists for a line matched by `re`, one of the [`SYMBOLS`] patterns: Terraform
@@ -867,19 +1066,102 @@ output "bucket" {
     }
 
     #[test]
-    fn qualifier_names_the_module_in_front_of_the_word() {
-        assert_eq!(qualifier("    return json.load(fp)", 16), Some("json"));
-        assert_eq!(qualifier("let s = fs::read_to_string(p)", 12), Some("fs"));
-        assert_eq!(qualifier("load(fp)", 0), None);
-        assert_eq!(qualifier("x = load(fp)", 4), None);
-        assert!(in_module(
-            Path::new("/lib/python3.13/json/__init__.py"),
-            "json"
+    fn qualifier_is_the_chain_in_front_of_the_word() {
+        let q = |l: &str, i| qualifier(l, i);
+        assert_eq!(q("    return json.load(fp)", 16), ["json"]);
+        assert_eq!(q("x = os.path.join(a)", 12), ["os", "path"]);
+        assert_eq!(q("let s = fs::read_to_string(p)", 12), ["fs"]);
+        assert!(q("load(fp)", 0).is_empty());
+        assert!(q("x = load(fp)", 4).is_empty());
+    }
+
+    #[test]
+    fn imports_bind_names_to_module_paths() {
+        let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let py = "import json\nimport numpy as np\nimport os.path\nfrom collections import OrderedDict, deque as dq\nfrom . import local\nfrom typing import (\n    Any,\n    Final,\n)\n";
+        let got = imports(Kind::Python, py);
+        assert_eq!(
+            got,
+            [
+                ("json".into(), p(&["json"])),
+                ("np".into(), p(&["numpy"])),
+                ("os".into(), p(&["os"])),
+                ("OrderedDict".into(), p(&["collections", "OrderedDict"])),
+                ("dq".into(), p(&["collections", "deque"])),
+                ("Any".into(), p(&["typing", "Any"])),
+                ("Final".into(), p(&["typing", "Final"])),
+            ]
+        );
+        let rs = "use std::fs;\nuse std::collections::{HashMap, hash_map::Entry};\nuse regex::Regex as Re;\nuse crate::buffer::Buffer;\npub(crate) use anyhow::{self, Context};\nuse std::{\n    io::Write,\n    path::Path,\n};\n";
+        let got = imports(Kind::Rust, rs);
+        assert_eq!(
+            got,
+            [
+                ("fs".into(), p(&["std", "fs"])),
+                ("HashMap".into(), p(&["std", "collections", "HashMap"])),
+                (
+                    "Entry".into(),
+                    p(&["std", "collections", "hash_map", "Entry"])
+                ),
+                ("Re".into(), p(&["regex", "Regex"])),
+                ("anyhow".into(), p(&["anyhow"])),
+                ("Context".into(), p(&["anyhow", "Context"])),
+                ("Write".into(), p(&["std", "io", "Write"])),
+                ("Path".into(), p(&["std", "path", "Path"])),
+            ]
+        );
+        let go = "package x\n\nimport \"strings\"\n\nimport (\n\t\"fmt\"\n\ttoml \"github.com/BurntSushi/toml\"\n\t\"github.com/go-chi/chi/v5\"\n)\n";
+        let got = imports(Kind::Go, go);
+        assert_eq!(
+            got,
+            [
+                ("strings".into(), p(&["strings"])),
+                ("fmt".into(), p(&["fmt"])),
+                ("toml".into(), p(&["github.com", "BurntSushi", "toml"])),
+                ("chi".into(), p(&["github.com", "go-chi", "chi", "v5"])),
+            ]
+        );
+        let ts = "import fs from 'node:fs';\nimport { join, resolve as res } from \"path\";\nimport * as React from 'react';\nimport type { Foo } from '@scope/pkg/sub';\nimport local from './local';\nconst chalk = require('chalk');\nconst { a, b } = await import('lib');\n";
+        let got = imports(Kind::TsJs, ts);
+        assert_eq!(
+            got,
+            [
+                ("fs".into(), p(&["fs"])),
+                ("join".into(), p(&["path"])),
+                ("res".into(), p(&["path"])),
+                ("React".into(), p(&["react"])),
+                ("Foo".into(), p(&["@scope", "pkg", "sub"])),
+                ("chalk".into(), p(&["chalk"])),
+                ("a".into(), p(&["lib"])),
+                ("b".into(), p(&["lib"])),
+            ]
+        );
+    }
+
+    #[test]
+    fn in_module_follows_the_parts_through_versions_and_escapes() {
+        let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let m = |path: &str, parts: &[&str]| in_module(Path::new(path), &p(parts));
+        assert!(m("/lib/python3.13/json/__init__.py", &["json"]));
+        assert!(!m("/lib/python3.13/jsonschema/x.py", &["json"]));
+        assert!(m("/rust/library/std/src/fs.rs", &["std", "fs"]));
+        assert!(m(
+            "/registry/src/idx/grep-regex-0.1.13/src/lib.rs",
+            &["grep_regex"]
         ));
-        assert!(in_module(Path::new("/rust/library/std/src/fs.rs"), "fs"));
-        assert!(!in_module(
-            Path::new("/lib/python3.13/jsonschema/x.py"),
-            "json"
+        assert!(!m(
+            "/registry/src/idx/grep-searcher-0.1.13/src/lib.rs",
+            &["grep_regex"]
+        ));
+        assert!(m(
+            "/mod/github.com/!burnt!sushi/toml@v1.4.0/decode.go",
+            &["github.com", "BurntSushi", "toml"]
+        ));
+        assert!(m("/go/src/strings/builder.go", &["strings"]));
+        assert!(m("/node_modules/@types/node/fs.d.ts", &["fs"]));
+        assert!(m(
+            "/node_modules/@scope/pkg/sub/index.d.ts",
+            &["@scope", "pkg", "sub"]
         ));
     }
 

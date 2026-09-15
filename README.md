@@ -157,9 +157,13 @@ declaration forms below and searches only where such a definition can live. When
 no such definition, the same rules run over the standard library and the installed dependencies
 the toolchain on this machine knows about — `sys.path` of `.venv/bin/python` (or `python3`),
 `rustc --print sysroot` and the crates in `Cargo.lock`, `GOROOT` and the modules in `go.mod`,
-`node_modules` — narrowed to the module in front of the word when it is qualified (`json.load`
-looks in `json`; a compiled module such as `orjson` lands in its `.pyi` stub). Files opened from
-there are read-only. A field, an enum variant or a parameter has no declaration the rules know:
+`node_modules` — narrowed to the module the file's imports bind the word to: `np.array` behind
+`import numpy as np` looks in `numpy`, `load` behind `from json import load` in `json`,
+`Regex::new` behind `use regex::Regex` in the `regex` crate, `chromium.launch()` behind
+`import { chromium } from 'playwright'` in that package; a bare `std::fs::read_to_string` or
+`os.path.join` is its own path. A compiled module such as `orjson` lands in its `.pyi` stub. The
+standard library's hits come before the dependencies', the picker shows paths relative to their
+root, and files opened from there are read-only. A field, an enum variant or a parameter has no declaration the rules know:
 `d` says so, and `u` lists every whole-word use of the identifier.
 
 | File | What `d` recognises | Searched |
