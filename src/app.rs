@@ -437,6 +437,14 @@ impl App {
         mv(self);
     }
 
+    /// Any move that does not extend the selection drops it, unless it ends where it started:
+    /// arrows, jumps and find all decide it here, from where the cursor finally is.
+    fn drop_selection_if_moved(&mut self, before: (usize, usize)) {
+        if (self.line, self.col) != before {
+            self.anchor = None;
+        }
+    }
+
     fn line_start(&mut self) {
         self.col = 0;
         self.want_x = 0;
@@ -573,14 +581,12 @@ impl App {
         self.sync_want_x();
     }
 
-    /// Jumps to a 1-based line number, clamped to the file, and centers the view. A jump is a
-    /// plain move, so it drops the selection.
+    /// Jumps to a 1-based line number, clamped to the file, and centers the view.
     pub fn goto_line(&mut self, n: usize) {
         self.line = n.max(1).min(self.buf.lines.len()) - 1;
         self.col = 0;
         self.want_x = 0;
         self.center = true;
-        self.anchor = None;
     }
 
     // ---- opening files and jump history ----------------------------------
@@ -714,11 +720,15 @@ impl App {
         self.hist_idx = self.history.len() - 1;
     }
 
-    /// Opens `path` at `line` and makes it a stop in the jump history.
+    /// Opens `path` at `line` and makes it a stop in the jump history. `:` and the pickers jump
+    /// from outside `key_inner`'s move rule, so a jump that lands elsewhere drops the selection
+    /// here.
     pub fn jump_to(&mut self, path: &Path, line: usize) {
+        let before = (self.line, self.col);
         if self.open(path, line) {
             self.focus = Focus::Code;
         }
+        self.drop_selection_if_moved(before);
         self.hist_note(true);
     }
 
@@ -860,14 +870,12 @@ impl App {
                 self.prompt.pop();
                 self.refresh_find();
             }
-            // Enter keeps both the position and the pattern, so `n` carries on from here. Landing
-            // on a match is a move: the selection comes back only if the cursor stayed put.
+            // Enter keeps both the position and the pattern, so `n` carries on from here. The
+            // selection comes back unless the search moved the cursor.
             KeyCode::Enter => {
                 self.mode = Mode::Normal;
-                let sel = self.find_sel.take();
-                if (self.line, self.col) == self.clamp_pos(self.find_anchor) {
-                    self.anchor = sel;
-                }
+                self.anchor = self.find_sel.take();
+                self.drop_selection_if_moved(self.clamp_pos(self.find_anchor));
                 self.hist_note(true);
             }
             // Esc puts back both the cursor and the selection.
@@ -1757,9 +1765,8 @@ impl App {
             KeyCode::End => self.line_end(),
             _ => {}
         }
-        // Any cursor move that is not an extending one drops the selection.
-        if (self.line, self.col) != before && !extending {
-            self.anchor = None;
+        if !extending {
+            self.drop_selection_if_moved(before);
         }
         if paging && let (Some(pos), Some(cur)) = (self.pos(), self.history.get_mut(self.hist_idx))
         {
@@ -1980,8 +1987,7 @@ mod tests {
         assert_eq!(a.selected_bytes(1), Some(0..3));
         assert_eq!(a.selected_bytes(2), Some(0..2));
         assert_eq!(a.selected_bytes(3), None);
-        // Back onto the anchor nothing is selected, but the anchor holds: Shift+Down extends
-        // from it again.
+        // Back onto the anchor nothing is selected, and Shift+Down selects from there again.
         for _ in 0..3 {
             press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
         }
@@ -2030,6 +2036,11 @@ mod tests {
         press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
         let sel = a.selection();
         assert_eq!(sel, Some(((2, 0), (3, 0))));
+        // A jump onto the cursor itself goes nowhere and keeps it.
+        press(&mut a, KeyCode::Char(':'), KeyModifiers::NONE);
+        typed(&mut a, "3");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(a.selection(), sel);
         press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
         typed(&mut a, "abc");
         assert_eq!((a.line, a.selection()), (0, None));
@@ -2045,6 +2056,22 @@ mod tests {
         typed(&mut a, "zzz");
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
         assert_eq!(a.selection(), Some(((0, 0), (1, 0))));
+        // One that moved the cursor and then stopped matching has still moved it.
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        typed(&mut a, "ghz");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.line, a.selection()), (2, None));
+        // So does a picker jump within the open file.
+        press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
+        let hit = Hit {
+            path: a.buf.path.clone().unwrap(),
+            line: 4,
+            text: "jkl".into(),
+        };
+        a.show_picker(PickerKind::Usages, App::hit_items(vec![hit]));
+        a.picker.as_mut().unwrap().settle();
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.line, a.selection()), (3, None));
     }
 
     #[test]
