@@ -52,6 +52,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - While text is selected the cursor line is highlighted in the gutter only, as in VS Code. A
   selection ending at the start of a line no longer looks like it takes that line, which Ctrl+C
   rightly leaves out. (#48)
+- A `:` jump, a jump from a picker within the open file and a `/` search that lands on a match
+  drop the selection instead of stretching it to the new cursor; Esc on a search puts the
+  selection back.
+- A selection collapsed back onto its anchor selects nothing: Ctrl+C copies the line instead of
+  an empty string, Backspace and Delete remove a char instead of marking the file changed, and a
+  plain arrow moves.
+- shokunin-light draws the selection in the theme's light blue instead of the cursor line colour.
 
 ## [0.3.0] - 2026-09-13
 
