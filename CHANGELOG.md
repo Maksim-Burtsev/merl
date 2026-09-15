@@ -51,6 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it stands, after `/ . , ; ) ] }` when it can. Rows after the first start under the text of the
   first, past the line's indentation and a list marker (`- `, `1. `), unless that takes more
   than half the pane.
+- Up / Down, Shift+Up / Shift+Down, Ctrl+D / Ctrl+U and PgUp / PgDn move by screen rows, so a
+  wrapped paragraph is walked row by row and half a screen is half of what the screen shows.
+  Home / End, and Ctrl+Shift+Left / Right with them, stop at the start / end of the screen row
+  first and go on to the line's on a second press, as in VS Code.
 
 ### Fixed
 
