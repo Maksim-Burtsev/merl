@@ -374,6 +374,9 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     // Selected lines above the selection's last line are selected through their newline, so
     // their background runs to the right edge like VS Code's.
     let sel_lines = app.selection().map(|(start, end)| (start.0, end.0));
+    // While text is selected the cursor line is highlighted in the gutter only, as in VS Code:
+    // on the text, a highlight close to the selection colour passes for selected.
+    let text_hl = app.selection().is_none();
 
     let mut lines: Vec<Line> = Vec::with_capacity(area.height as usize);
     let mut l = app.top_line;
@@ -391,15 +394,13 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
             _ => spans,
         };
         let cursor_line = l == app.line;
-        let (g, t) = if cursor_line {
-            (hl_gutter, hl)
-        } else {
-            (gutter_style, base)
-        };
+        let g = if cursor_line { hl_gutter } else { gutter_style };
+        let t = if cursor_line && text_hl { hl } else { base };
         let selected = app
             .selected_bytes(l)
             .map(|r| r.start..r.end.min(clipped.len()));
         let pad_selected = sel_lines.is_some_and(|(first, last)| first <= l && l < last);
+        let indent = wrap::indent(clipped, app.view_w);
         for (i, r) in wrap::wrap_line(clipped, app.view_w).into_iter().enumerate() {
             if i < skip {
                 continue;
@@ -421,7 +422,14 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
                 None => Span::styled(" ", g),
             };
             let mut row = vec![Span::styled(num, g), mark];
-            let pad = app.view_w.saturating_sub(wrap::width(&clipped[r.clone()]));
+            // Rows after the first start under the text of the first.
+            let lead = if i == 0 { 0 } else { indent };
+            if lead > 0 {
+                row.push(Span::styled(" ".repeat(lead), t));
+            }
+            let pad = app
+                .view_w
+                .saturating_sub(lead + wrap::width(&clipped[r.clone()]));
             // The selected part of the row keeps its syntax colours on the selection background.
             let (lo, hi) = match &selected {
                 Some(s) => (s.start.clamp(r.start, r.end), s.end.clamp(r.start, r.end)),
@@ -856,33 +864,44 @@ mod tests {
             app.key(KeyEvent::new(code, m));
         }
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-        let mut terminal = Terminal::new(TestBackend::new(12, 5)).unwrap();
-        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-        let buf = terminal.backend().buffer();
-        // Gutter is two cells; `#` marks a cell with the selection background. The line above
-        // the selection stays clean.
-        let rows: Vec<String> = (0..4)
-            .map(|y| {
-                (0..buf.area.width)
-                    .map(|x| {
-                        if buf[(x, y)].bg == theme.selection {
-                            '#'
-                        } else {
-                            '.'
-                        }
-                    })
-                    .collect()
-            })
-            .collect();
+        // Gutter is two cells; `#` marks a cell with the selection background, `-` one with the
+        // cursor line highlight.
+        let paint = |app: &mut App| -> Vec<String> {
+            let mut terminal = Terminal::new(TestBackend::new(12, 5)).unwrap();
+            terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+            let buf = terminal.backend().buffer();
+            (0..4)
+                .map(|y| {
+                    (0..buf.area.width)
+                        .map(|x| match buf[(x, y)].bg {
+                            bg if bg == theme.selection => '#',
+                            bg if bg == theme.line_hl => '-',
+                            _ => '.',
+                        })
+                        .collect()
+                })
+                .collect()
+        };
+        // The line above the selection stays clean. The cursor line keeps its highlight in the
+        // gutter only, as in VS Code: past the selection it would pass for selected text.
         assert_eq!(
-            rows,
+            paint(&mut app),
             [
                 "............",
                 "....########",
                 "..##########",
-                "..##........"
+                "--##........"
             ]
         );
+        // Back on the anchor nothing is selected, and the cursor line is highlighted again.
+        for _ in 0..2 {
+            app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT));
+        }
+        assert_eq!(paint(&mut app)[1], "------------");
+        // With no selection at all, too.
+        app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        assert_eq!(app.selection(), None);
+        assert_eq!(paint(&mut app)[1], "------------");
     }
 
     #[test]
@@ -996,6 +1015,35 @@ mod tests {
             "{status:?}"
         );
         assert_eq!(terminal.get_cursor_position().unwrap().x, 2 + 4 + 7);
+    }
+
+    #[test]
+    fn wrapped_rows_and_the_cursor_on_them_start_under_the_text() {
+        let mut app = App::new(
+            PathBuf::from("/tmp"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::from_bytes(
+                PathBuf::from("/tmp/f.md"),
+                b"- Celery lost tasks on restart\n",
+            ),
+            None,
+        );
+        app.show_tree = false;
+        for _ in 0..16 {
+            app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
+        }
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(20, 4)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        let cursor = terminal.get_cursor_position().unwrap();
+        let buf = terminal.backend().buffer();
+        let row = |y: u16| (0..20).map(|x| buf[(x, y)].symbol()).collect::<String>();
+        // "tasks" fits a row, so it moves down whole, and the row starts past the list marker.
+        assert_eq!(row(0), "1 - Celery lost     ");
+        assert_eq!(row(1), "    tasks on restart");
+        // On the "s" of "tasks": gutter 2, indent 2, "ta" 2.
+        assert_eq!((cursor.x, cursor.y), (6, 1));
     }
 
     #[test]

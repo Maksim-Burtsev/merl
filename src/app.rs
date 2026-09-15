@@ -46,18 +46,24 @@ pub const KEYS: &[(&str, &str)] = &[
         "Edit: Ctrl+C / Ctrl+X",
         "Copy / cut the selection, or the line, to the clipboard",
     ),
-    ("Arrows", "Move the cursor"),
-    ("Shift+Up / Shift+Down", "Extend the selection by a line"),
+    ("Arrows", "Move the cursor; Up / Down go by screen row"),
+    (
+        "Shift+Up / Shift+Down",
+        "Extend the selection by a screen row",
+    ),
     ("Shift+Left / Shift+Right", "Move one word"),
     ("Alt+Shift+Left / Right", "Extend the selection by a word"),
     (
         "Ctrl+Shift+Left / Right",
-        "Extend the selection to the start / end of the line",
+        "Extend the selection to the start / end of the screen row, then of the line",
     ),
     ("Ctrl+D / Ctrl+U", "Move half a screen down / up"),
     ("{ / }", "Previous / next paragraph (blank line)"),
     ("PgUp / PgDn", "Move one screen"),
-    ("Home / End", "Start / end of the line"),
+    (
+        "Home / End",
+        "Start / end of the screen row, then of the line",
+    ),
     ("Ctrl+Home / Ctrl+End", "Start / end of the file"),
     (
         "Esc",
@@ -131,6 +137,9 @@ pub struct App {
     pub tree: Tree,
     /// Every file under the root, sorted like the tree; the file picker's item list.
     pub files: Vec<PathBuf>,
+    /// Per kind, the standard library and dependency roots outside the project and the files of
+    /// that kind under them; filled the first time `d` leaves the project.
+    external: HashMap<Kind, (Vec<PathBuf>, Arc<Vec<PathBuf>>)>,
     pub focus: Focus,
     pub show_tree: bool,
     /// First visible row of the tree pane, clamped by `ui`.
@@ -158,6 +167,8 @@ pub struct App {
     pub find_re: Option<Regex>,
     /// Where the cursor was when `/` was pressed: the start of the incremental search.
     find_anchor: (usize, usize),
+    /// The selection anchor, set aside while `/` moves the cursor; Esc puts it back.
+    find_sel: Option<(usize, usize)>,
     pub message: String,
     /// Code text area, in cells, written by `ui::draw` before every frame.
     pub view_w: usize,
@@ -226,6 +237,7 @@ impl App {
             buf,
             tree,
             files,
+            external: HashMap::new(),
             focus,
             show_tree: true,
             tree_top: 0,
@@ -243,6 +255,7 @@ impl App {
             prompt: String::new(),
             find_re: None,
             find_anchor: (0, 0),
+            find_sel: None,
             message: String::new(),
             view_w: 80,
             view_h: 24,
@@ -305,11 +318,16 @@ impl App {
         wrap::col_to_row(&self.rows(self.line), self.col)
     }
 
-    /// Display column of the cursor inside its wrapped row.
+    /// Display column of the cursor on its wrapped row, counting the indent rows after the first
+    /// are drawn with.
     pub fn cursor_x(&self) -> usize {
         let rows = self.rows(self.line);
         let row = wrap::col_to_row(&rows, self.col);
-        wrap::width(&self.line_str()[wrap::row_to_col(&rows, row)..self.col])
+        let indent = match row {
+            0 => 0,
+            _ => wrap::indent(self.buf.shown(self.line), self.view_w),
+        };
+        indent + wrap::width(&self.line_str()[wrap::row_to_col(&rows, row)..self.col])
     }
 
     /// 1-based display column, for the status bar.
@@ -358,17 +376,31 @@ impl App {
 
     // ---- cursor movement -------------------------------------------------
 
+    /// Remembers the screen column the cursor stands on, for Up / Down to aim at.
     fn sync_want_x(&mut self) {
-        self.want_x = wrap::width(&self.line_str()[..self.col]);
+        self.want_x = self.cursor_x();
     }
 
-    /// Places the cursor on `self.line` at the byte offset closest to `want_x`.
-    fn apply_want_x(&mut self) {
-        let mut col = self.buf.lines[self.line].len();
-        let mut used = 0usize;
-        for (i, c) in self.buf.lines[self.line].char_indices() {
+    /// Places the cursor on screen row `row` of `self.line`, on the char under the column
+    /// `want_x`, or as far right as the row goes. A row other than the last ends on its last
+    /// char: its end is where the next row starts.
+    fn apply_want_x(&mut self, row: usize) {
+        let rows = self.rows(self.line);
+        let row = row.min(rows.len() - 1);
+        let r = rows[row].clone();
+        let s = &self.buf.lines[self.line];
+        let mut col = if row + 1 < rows.len() {
+            prev_char(s, r.end)
+        } else {
+            s.len()
+        };
+        let mut used = match row {
+            0 => 0,
+            _ => wrap::indent(self.buf.shown(self.line), self.view_w),
+        };
+        for (i, c) in s[r.start..r.end].char_indices() {
             if used >= self.want_x {
-                col = i;
+                col = r.start + i;
                 break;
             }
             used += wrap::char_width(c);
@@ -390,10 +422,13 @@ impl App {
     }
 
     /// The selection as ordered (line, col) ends: anchor and cursor, whichever comes first.
+    /// None while the cursor stands on the anchor: an empty range selects nothing, so Ctrl+C
+    /// copies the line and Backspace deletes a char, as with no selection. The anchor stays for
+    /// the next Shift+move.
     pub fn selection(&self) -> Option<((usize, usize), (usize, usize))> {
         let a = self.clamp_pos(self.anchor?);
         let b = (self.line, self.col);
-        Some((a.min(b), a.max(b)))
+        (a != b).then(|| (a.min(b), a.max(b)))
     }
 
     /// Bytes of line `l` inside the selection.
@@ -427,20 +462,47 @@ impl App {
         mv(self);
     }
 
-    fn line_start(&mut self) {
-        self.col = 0;
-        self.want_x = 0;
+    /// Any move that does not extend the selection drops it, unless it ends where it started:
+    /// arrows, jumps and find all decide it here, from where the cursor finally is.
+    fn drop_selection_if_moved(&mut self, before: (usize, usize)) {
+        if (self.line, self.col) != before {
+            self.anchor = None;
+        }
     }
 
-    fn line_end(&mut self) {
-        self.col = self.line_str().len();
+    /// Home: the start of the screen row and, pressed there, of the line, as in VS Code.
+    fn line_start(&mut self) {
+        let rows = self.rows(self.line);
+        let start = rows[wrap::col_to_row(&rows, self.col)].start;
+        self.col = if self.col == start { 0 } else { start };
         self.sync_want_x();
     }
 
-    fn move_line(&mut self, delta: isize) {
-        let last = self.buf.lines.len() - 1;
-        self.line = self.line.saturating_add_signed(delta).min(last);
-        self.apply_want_x();
+    /// End: the end of the screen row and, pressed there, of the line, as in VS Code. A row
+    /// other than the last ends on its last char, since its end is where the next row starts.
+    fn line_end(&mut self) {
+        let rows = self.rows(self.line);
+        let row = wrap::col_to_row(&rows, self.col);
+        let len = self.line_str().len();
+        let end = if row + 1 < rows.len() {
+            prev_char(self.line_str(), rows[row].end)
+        } else {
+            len
+        };
+        self.col = if self.col == end { len } else { end };
+        self.sync_want_x();
+    }
+
+    /// Up / Down, PgUp / PgDn: `n` screen rows, aiming at the column in `want_x`.
+    fn move_rows(&mut self, n: isize) {
+        let cur = (self.line, self.cursor_row());
+        let (line, row) = if n < 0 {
+            self.back_rows(cur, n.unsigned_abs())
+        } else {
+            self.forward_rows(cur, n as usize)
+        };
+        self.line = line;
+        self.apply_want_x(row);
     }
 
     /// Ctrl+D / Ctrl+U: cursor and viewport both move half a screen, like vim and less,
@@ -448,7 +510,7 @@ impl App {
     fn half_page(&mut self, dir: isize) {
         let half = (self.view_h / 2).max(1);
         let before = (self.line, self.cursor_row());
-        self.move_line(dir * half as isize);
+        self.move_rows(dir * half as isize);
         let moved = self.rows_between(before, (self.line, self.cursor_row()));
         let top = (self.top_line, self.top_row);
         (self.top_line, self.top_row) = if dir < 0 {
@@ -473,7 +535,7 @@ impl App {
             l = step(l);
         }
         self.line = l;
-        self.apply_want_x();
+        self.apply_want_x(0);
     }
 
     /// Wrapped rows from `a` to `b` (either order).
@@ -580,19 +642,32 @@ impl App {
         }
     }
 
-    /// Shows `path` at `line` (1-based; 0 means "keep the start of the file"). Reloading is
-    /// skipped when the file is already open, so this doubles as a plain cursor move.
+    /// Shows `path` at `line` (1-based). Reloading is skipped when the file is already open, so
+    /// this doubles as a plain cursor move. Line 0 is "no line in particular": the start of a
+    /// file being opened, and the cursor where it is on the file that is already open, like
+    /// VS Code's explorer.
     /// Returns `false`, with the reason in the status bar, when the file cannot be read or the
     /// open one has edits that could not be saved.
     fn open(&mut self, path: &Path, line: usize) -> bool {
-        if self.buf.path.as_deref() != Some(path) {
+        let same = self.buf.path.as_deref() == Some(path);
+        if !same {
             // Replacing the buffer would drop edits the disk does not have; the status bar
             // already says why they are not there (a conflict, a failed save).
             if !self.flush() {
                 return false;
             }
             match Buffer::load(path) {
-                Ok(buf) => {
+                Ok(mut buf) => {
+                    // The standard library and dependencies are read here, never edited. A
+                    // `.venv` or `node_modules` sits inside the root, so the roots decide.
+                    let external = !path.starts_with(&self.root)
+                        || self
+                            .external
+                            .values()
+                            .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)));
+                    if external {
+                        buf.readonly.get_or_insert("outside the project");
+                    }
                     self.buf = buf;
                     self.anchor = None;
                     self.dirty = false;
@@ -613,7 +688,9 @@ impl App {
                 }
             }
         }
-        self.goto_line(line.max(1));
+        if !(same && line == 0) {
+            self.goto_line(line.max(1));
+        }
         self.reveal(path);
         true
     }
@@ -664,8 +741,8 @@ impl App {
     /// Records where the cursor is now, VS Code style: the current stop always tracks the
     /// cursor. A plain move within `HIST_NEAR` lines just updates it; a farther move, another
     /// file, or a `jump` (go to definition, `:`, find) becomes a new stop and drops the
-    /// forward history. Standing on the current stop records nothing, so walking with
-    /// `[` / `]` is silent.
+    /// forward history. Paging (see `key_inner`) only updates it. Standing on the current stop
+    /// records nothing, so walking with `[` / `]` is silent.
     fn hist_note(&mut self, jump: bool) {
         let Some(pos) = self.pos() else {
             return;
@@ -687,11 +764,15 @@ impl App {
         self.hist_idx = self.history.len() - 1;
     }
 
-    /// Opens `path` at `line` and makes it a stop in the jump history.
+    /// Opens `path` at `line` and makes it a stop in the jump history. `:` and the pickers jump
+    /// from outside `key_inner`'s move rule, so a jump that lands elsewhere drops the selection
+    /// here.
     pub fn jump_to(&mut self, path: &Path, line: usize) {
+        let before = (self.line, self.col);
         if self.open(path, line) {
             self.focus = Focus::Code;
         }
+        self.drop_selection_if_moved(before);
         self.hist_note(true);
     }
 
@@ -804,7 +885,7 @@ impl App {
             }
             Pick::Accept(item) => {
                 let path = self.root.join(&item.path);
-                self.jump_to(&path, item.line.max(1));
+                self.jump_to(&path, item.line);
             }
         }
         // Dropping the picker stops nucleo's workers.
@@ -814,11 +895,13 @@ impl App {
 
     // ---- find in file ----------------------------------------------------
 
-    /// Starts an incremental search from the current cursor position.
+    /// Starts an incremental search from the current cursor position. The selection is set aside
+    /// meanwhile, so it does not stretch to every match the cursor visits.
     fn start_find(&mut self) {
         self.mode = Mode::Find;
         self.prompt.clear();
         self.find_anchor = (self.line, self.col);
+        self.find_sel = self.anchor.take();
     }
 
     fn find_key(&mut self, code: KeyCode) {
@@ -831,14 +914,19 @@ impl App {
                 self.prompt.pop();
                 self.refresh_find();
             }
-            // Enter keeps both the position and the pattern, so `n` carries on from here.
+            // Enter keeps both the position and the pattern, so `n` carries on from here. The
+            // selection comes back unless the search moved the cursor.
             KeyCode::Enter => {
                 self.mode = Mode::Normal;
+                self.anchor = self.find_sel.take();
+                self.drop_selection_if_moved(self.clamp_pos(self.find_anchor));
                 self.hist_note(true);
             }
+            // Esc puts back both the cursor and the selection.
             KeyCode::Esc => {
                 self.mode = Mode::Normal;
                 (self.line, self.col) = self.clamp_pos(self.find_anchor);
+                self.anchor = self.find_sel.take();
                 self.sync_want_x();
             }
             _ => {}
@@ -847,7 +935,6 @@ impl App {
 
     /// Recompiles the query and moves to the first match at or after the anchor.
     /// The query is literal text with smart case, as in VS Code: `migrator(` hits `Migrator()`.
-    /// `s>` is the place for regexes.
     fn refresh_find(&mut self) {
         if self.prompt.is_empty() {
             // Nothing to match: drop the previous pattern so its highlights go with it,
@@ -1007,20 +1094,17 @@ impl App {
             .collect()
     }
 
-    /// Enter in the `s>` prompt: a smart-case regex search over every file.
+    /// Enter in the `s>` prompt: a smart-case search for the query as typed, over every file.
+    /// Literal like `/`: `foo(` finds the calls and the definition, not a regex error.
     fn run_search(&mut self) {
         let query = std::mem::take(&mut self.prompt);
         self.mode = Mode::Normal;
         if query.is_empty() {
             return;
         }
-        let hits = match self.grep(&query, false, true, |_| true) {
-            Ok(hits) => hits,
-            Err(e) => {
-                self.message = format!("{e:#}");
-                return;
-            }
-        };
+        let hits = self
+            .grep(&regex::escape(&query), false, true, |_| true)
+            .expect("an escaped literal always compiles");
         if hits.is_empty() {
             self.message = format!("no results for {query}");
             return;
@@ -1030,43 +1114,54 @@ impl App {
 
     /// `d` / F12. A file of a known [`Kind`] gets its declaration patterns, searched only where
     /// such a definition can live (`.tsx` finds `.ts`, a Terraform variable stays in its
-    /// module); anything else, or a word the patterns do not declare (a field, a variant, a
-    /// parameter), falls back to a whole-word search for the identifier itself.
+    /// module). Nothing in the project means the word comes from outside it: the same patterns
+    /// run over the standard library and the installed dependencies
+    /// ([`search::external_roots`]), narrowed to the module the file's imports bind the word or
+    /// its qualifier to (`np.array` looks in `numpy`, `from json import load` in `json`). A
+    /// field, a variant or a parameter has no declaration the rules know and gets "no
+    /// definition": `u` lists the uses.
     fn goto_definition(&mut self) {
         let kind = self.kind();
-        let Some(word) = self.word_under(search::word_chars(kind, true)) else {
+        let extra = search::word_chars(kind, true);
+        let Some((range, word)) = search::word_at(self.line_str(), self.col, extra) else {
             return;
         };
+        let word = word.to_owned();
+        let chain = search::qualifier(self.line_str(), range.start);
         let here = self.rel_current();
         let patterns = kind.map_or_else(Vec::new, |k| search::def_patterns(k, &word));
-        // Escaped or built-in patterns always compile.
-        let mut hits = match (kind, &here) {
-            (Some(kind), Some(here)) if !patterns.is_empty() => self
-                .grep(&patterns.join("|"), false, false, |p| {
-                    search::in_def_scope(kind, here, p)
-                })
-                .unwrap_or_default(),
-            _ => Vec::new(),
+        let (Some(kind), Some(here)) = (kind, here) else {
+            self.message = format!("no definition for {word}");
+            return;
         };
-        if let Some(block) = kind.and_then(|k| search::def_block(k, &word)) {
-            hits.retain(|h| {
-                // The open file as it is on screen, which is what `grep` searched.
-                let text = if here.as_ref() == Some(&h.path) {
-                    self.buf.lines.join("\n")
-                } else {
-                    std::fs::read_to_string(self.root.join(&h.path)).unwrap_or_default()
-                };
-                search::directly_inside(&text, h.line, block)
-            });
+        if patterns.is_empty() {
+            self.message = format!("no definition for {word}");
+            return;
         }
-        if hits.is_empty() {
-            hits = self
-                .grep(&regex::escape(&word), true, false, |_| true)
-                .unwrap_or_default();
+        let pattern = patterns.join("|");
+        // Escaped or built-in patterns always compile.
+        let mut hits = self
+            .grep(&pattern, false, false, |p| {
+                search::in_def_scope(kind, &here, p)
+            })
+            .unwrap_or_default();
+        if let Some(block) = search::def_block(kind, &word) {
+            hits.retain(|h| {
+                std::fs::read_to_string(self.root.join(&h.path))
+                    .is_ok_and(|text| search::directly_inside(&text, h.line, block))
+            });
         }
         // Standing on one of the definitions is not a reason to go nowhere.
         if hits.len() > 1 {
-            hits.retain(|h| h.line != self.line + 1 || Some(&h.path) != here.as_ref());
+            hits.retain(|h| h.line != self.line + 1 || h.path != here);
+        }
+        if hits.is_empty()
+            && !matches!(
+                chain.first().map(String::as_str),
+                Some("self" | "cls" | "this")
+            )
+        {
+            hits = self.external_definitions(kind, &word, &chain, &pattern);
         }
         match hits.len() {
             0 => self.message = format!("no definition for {word}"),
@@ -1074,8 +1169,127 @@ impl App {
                 let path = self.root.join(&hits[0].path);
                 self.jump_to(&path, hits[0].line);
             }
-            _ => self.show_picker(PickerKind::Definitions, Self::hit_items(hits)),
+            _ => {
+                let items = self.external_items(kind, hits);
+                self.show_picker(PickerKind::Definitions, items);
+            }
         }
+    }
+
+    /// `pattern` over the standard library and dependencies of `kind`, in the module the file's
+    /// imports bind `chain` (or `word` itself) to. The module path is relaxed from the end until
+    /// files match: `from json import load` is `json/load`, then `json`. A qualifier no import
+    /// binds is taken as the module path itself (`std::fs::read`, `os.path` behind a bare
+    /// `import os`); a local variable in that position matches no file and the search stops.
+    /// A bare word no import binds (`Vec`, `open`) searches every file.
+    fn external_definitions(
+        &mut self,
+        kind: Kind,
+        word: &str,
+        chain: &[String],
+        pattern: &str,
+    ) -> Vec<Hit> {
+        let text = self.buf.lines.join("\n");
+        let imports = search::imports(kind, &text);
+        let bound = |name: &str| {
+            imports
+                .iter()
+                .find(|(n, _)| n == name)
+                .map(|(_, p)| p.clone())
+        };
+        let imported = chain
+            .first()
+            .map_or(bound(word).is_some(), |f| bound(f).is_some());
+        let mut module = match chain.first() {
+            Some(first) => {
+                let mut p = bound(first).unwrap_or_else(|| vec![first.clone()]);
+                p.extend(chain[1..].iter().cloned());
+                Some(p)
+            }
+            None => bound(word),
+        };
+        let all = self.external_files(kind);
+        let roots = self.external[&kind].0.clone();
+        let mut files: Vec<PathBuf> = Vec::new();
+        while let Some(m) = &mut module {
+            files = all
+                .iter()
+                .filter(|p| search::in_module(p, m))
+                .cloned()
+                .collect();
+            if !files.is_empty() {
+                break;
+            }
+            m.pop();
+            if m.is_empty() {
+                // An import of something not installed: nothing outside says what it is.
+                return Vec::new();
+            }
+        }
+        // Absolute paths: `root.join` leaves them alone, so a hit opens where it is. The
+        // standard library is the first root, and its hits come first.
+        let grep = |files: &[PathBuf]| {
+            let mut hits =
+                search::grep_project(&self.root, files, pattern, false, false, None, None)
+                    .unwrap_or_default();
+            hits.sort_by_cached_key(|h| {
+                (
+                    roots.iter().position(|r| h.path.starts_with(r)),
+                    h.path.clone(),
+                    h.line,
+                )
+            });
+            hits
+        };
+        if module.is_none() {
+            return grep(&all);
+        }
+        let hits = grep(&files);
+        // An imported module that does not declare the name re-exports it (`std::sync::Arc`
+        // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.
+        if hits.is_empty() && imported {
+            grep(&all)
+        } else {
+            hits
+        }
+    }
+
+    /// The files of `kind` outside the project, walked once per kind.
+    ///
+    /// ponytail: lives for the session, like the project walk. A `pip install` mid-session
+    /// needs a restart, as a new project file does.
+    fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
+        self.external
+            .entry(kind)
+            .or_insert_with(|| {
+                let roots = search::external_roots(kind, &self.root);
+                let files = search::external_files(kind, &roots);
+                (roots, Arc::new(files))
+            })
+            .1
+            .clone()
+    }
+
+    /// [`Self::hit_items`] with an external hit shown relative to the root it came from:
+    /// `json/__init__.py:278:` rather than the whole path to the interpreter.
+    fn external_items(&mut self, kind: Kind, hits: Vec<Hit>) -> Vec<PickItem> {
+        let roots = self
+            .external
+            .get(&kind)
+            .map(|(roots, _)| roots.clone())
+            .unwrap_or_default();
+        let mut items = Self::hit_items(hits);
+        for item in &mut items {
+            if let Some(root) = roots.iter().find(|r| item.path.starts_with(r))
+                && let Ok(rel) = item.path.strip_prefix(root)
+            {
+                let full = format!("{}:{}: ", item.path.display(), item.line);
+                let short = format!("{}:{}: ", rel.display(), item.line);
+                item.label = short.clone() + &item.label[full.len()..];
+                item.code_at = Some(short.len());
+            }
+        }
+        items
     }
 
     /// `u` / Shift+F12: every whole-word occurrence of the identifier, case-sensitive.
@@ -1146,13 +1360,9 @@ impl App {
             KeyCode::Left => self.tree.collapse(),
             KeyCode::Enter => match self.tree.selected() {
                 Some(n) if n.is_dir => self.tree.toggle(),
-                // The file that is already open keeps its cursor, like VS Code's explorer.
-                Some(n) if self.buf.path.as_deref() == Some(&self.root.join(&n.path)) => {
-                    self.focus = Focus::Code;
-                }
                 Some(n) => {
                     let path = self.root.join(&n.path);
-                    self.jump_to(&path, 1);
+                    self.jump_to(&path, 0);
                 }
                 None => {}
             },
@@ -1223,7 +1433,7 @@ impl App {
                 self.insert(&format!("\n{indent}"));
             }
             KeyCode::Tab => self.insert(if self.buf.tabs { "\t" } else { buffer::TAB }),
-            KeyCode::Backspace | KeyCode::Delete if self.anchor.is_some() => self.insert(""),
+            KeyCode::Backspace | KeyCode::Delete if self.selection().is_some() => self.insert(""),
             KeyCode::Backspace => {
                 let from = if self.col > 0 {
                     (self.line, prev_char(self.line_str(), self.col))
@@ -1490,6 +1700,11 @@ impl App {
                 KeyCode::Left | KeyCode::Right => ctrl || alt,
                 _ => false,
             };
+        // Ctrl+D/U and PageUp/Down are how merl scrolls, and a page is always farther than
+        // `HIST_NEAR`: the current stop follows the cursor anyway, so paging through a file adds
+        // no stops and drops no forward history.
+        let paging = matches!(key.code, KeyCode::PageUp | KeyCode::PageDown)
+            || ctrl && matches!(key.code, KeyCode::Char('d' | 'u'));
         let before = (self.line, self.col);
         match key.code {
             KeyCode::Char('q') => return true,
@@ -1554,16 +1769,16 @@ impl App {
             KeyCode::Char(']') => self.hist_go(1),
             _ if self.focus == Focus::Tree => self.tree_key(key.code),
             KeyCode::Enter => self.start_edit(),
-            KeyCode::Up if shift => self.extend(|s| s.move_line(-1)),
-            KeyCode::Down if shift => self.extend(|s| s.move_line(1)),
-            KeyCode::Up => self.move_line(-1),
-            KeyCode::Down => self.move_line(1),
+            KeyCode::Up if shift => self.extend(|s| s.move_rows(-1)),
+            KeyCode::Down if shift => self.extend(|s| s.move_rows(1)),
+            KeyCode::Up => self.move_rows(-1),
+            KeyCode::Down => self.move_rows(1),
             KeyCode::Left if shift && ctrl => self.extend(Self::line_start),
             KeyCode::Right if shift && ctrl => self.extend(Self::line_end),
             KeyCode::Left if shift && alt => self.extend(Self::word_left),
             KeyCode::Right if shift && alt => self.extend(Self::word_right),
             // A plain arrow on a selection collapses it to the matching end, VS Code style.
-            KeyCode::Left | KeyCode::Right if !shift && self.anchor.is_some() => {
+            KeyCode::Left | KeyCode::Right if !shift && self.selection().is_some() => {
                 let (start, end) = self.selection().unwrap();
                 (self.line, self.col) = self.clamp_pos(if key.code == KeyCode::Left {
                     start
@@ -1577,8 +1792,8 @@ impl App {
             KeyCode::Right if shift => self.word_right(),
             KeyCode::Left => self.left(),
             KeyCode::Right => self.right(),
-            KeyCode::PageUp => self.move_line(-(self.view_h.max(1) as isize)),
-            KeyCode::PageDown => self.move_line(self.view_h.max(1) as isize),
+            KeyCode::PageUp => self.move_rows(-(self.view_h.max(1) as isize)),
+            KeyCode::PageDown => self.move_rows(self.view_h.max(1) as isize),
             KeyCode::Home if ctrl => {
                 self.line = 0;
                 self.col = 0;
@@ -1593,9 +1808,12 @@ impl App {
             KeyCode::End => self.line_end(),
             _ => {}
         }
-        // Any cursor move that is not an extending one drops the selection.
-        if (self.line, self.col) != before && !extending {
-            self.anchor = None;
+        if !extending {
+            self.drop_selection_if_moved(before);
+        }
+        if paging && let (Some(pos), Some(cur)) = (self.pos(), self.history.get_mut(self.hist_idx))
+        {
+            *cur = pos;
         }
         self.hist_note(false);
         false
@@ -1812,19 +2030,91 @@ mod tests {
         assert_eq!(a.selected_bytes(1), Some(0..3));
         assert_eq!(a.selected_bytes(2), Some(0..2));
         assert_eq!(a.selected_bytes(3), None);
-        // Back over the anchor: the range flips, it never collapses to nothing.
+        // Back onto the anchor nothing is selected, and Shift+Down selects from there again.
         for _ in 0..3 {
             press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
         }
-        assert_eq!((a.line, a.selection()), (0, Some(((0, 2), (0, 2)))));
-        // Any other cursor move drops it; Esc drops it too.
+        assert_eq!((a.line, a.selection()), (0, None));
         press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        assert_eq!(a.selection(), Some(((0, 2), (1, 2))));
+        // Any other cursor move drops it; Esc drops it too.
         press(&mut a, KeyCode::Left, KeyModifiers::NONE);
         assert_eq!(a.selection(), None);
         press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
         assert!(a.selection().is_some());
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         assert_eq!(a.selection(), None);
+    }
+
+    #[test]
+    fn a_selection_collapsed_onto_its_anchor_selects_nothing() {
+        let mut a = app("abc\ndef\n");
+        press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
+        assert_eq!(a.selection(), None);
+        // A plain arrow moves on instead of collapsing a range that is not there.
+        press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+        assert_eq!(a.col, 2);
+        // While editing, Ctrl+C copies the line and Backspace deletes a char, as with no selection.
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+        assert_eq!(a.clipboard.take().as_deref(), Some("abc\n"));
+        press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+        assert_eq!(a.buf.lines, vec!["ac", "def"]);
+    }
+
+    #[test]
+    fn a_jump_or_a_find_match_drops_the_selection() {
+        let mut a = app("abc\ndef\nghi\njkl\n");
+        press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Char(':'), KeyModifiers::NONE);
+        typed(&mut a, "4");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.line, a.selection()), (3, None));
+        // Find sets the selection aside while it moves the cursor: Esc puts both back, a match
+        // taken with Enter leaves it behind.
+        press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
+        let sel = a.selection();
+        assert_eq!(sel, Some(((2, 0), (3, 0))));
+        // A jump onto the cursor itself goes nowhere and keeps it.
+        press(&mut a, KeyCode::Char(':'), KeyModifiers::NONE);
+        typed(&mut a, "3");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(a.selection(), sel);
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        typed(&mut a, "abc");
+        assert_eq!((a.line, a.selection()), (0, None));
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!((a.line, a.selection()), (2, sel));
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        typed(&mut a, "abc");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.line, a.selection()), (0, None));
+        // A search that has nowhere to move the cursor keeps it.
+        press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        typed(&mut a, "zzz");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(a.selection(), Some(((0, 0), (1, 0))));
+        // One that moved the cursor and then stopped matching has still moved it.
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        typed(&mut a, "ghz");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.line, a.selection()), (2, None));
+        // So does a picker jump within the open file.
+        press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
+        let hit = Hit {
+            path: a.buf.path.clone().unwrap(),
+            line: 4,
+            text: "jkl".into(),
+        };
+        a.show_picker(PickerKind::Usages, App::hit_items(vec![hit]));
+        a.picker.as_mut().unwrap().settle();
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.line, a.selection()), (3, None));
     }
 
     #[test]
@@ -1983,11 +2273,11 @@ mod tests {
             press(&mut a, KeyCode::Down, KeyModifiers::NONE);
         }
         assert_eq!(a.history, [(x.clone(), 0, 0), (y.clone(), 3, 0)]);
-        // Half a page (12 lines) at once is somewhere else: a new stop.
-        press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+        // The end of the file (36 lines away) is somewhere else: a new stop.
+        press(&mut a, KeyCode::End, KeyModifiers::CONTROL);
         assert_eq!(
             a.history,
-            [(x.clone(), 0, 0), (y.clone(), 3, 0), (y.clone(), 15, 0)]
+            [(x.clone(), 0, 0), (y.clone(), 3, 0), (y.clone(), 39, 1)]
         );
         press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
         assert_eq!(at(&a), (y.clone(), 3));
@@ -1995,7 +2285,29 @@ mod tests {
         assert_eq!(at(&a), (x.clone(), 0));
         press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
         press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
-        assert_eq!(at(&a), (y, 15));
+        assert_eq!(at(&a), (y, 39));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Ctrl+D/U and PageUp/Down are scrolling, not jumps: however far a page is, the current
+    /// stop follows the cursor, so one `[` is back at the call site and `]` still works after
+    /// reading around it.
+    #[test]
+    fn paging_moves_the_current_stop_instead_of_adding_stops() {
+        let (dir, mut a) = files_app("paging");
+        let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+        a.jump_to(&x, 1);
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+        a.jump_to(&y, 1);
+        press(&mut a, KeyCode::PageDown, KeyModifiers::NONE);
+        assert_eq!(a.history, [(x.clone(), 24, 0), (y.clone(), 24, 0)]);
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(at(&a), (x.clone(), 24));
+        press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+        press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (y.clone(), 24));
+        assert_eq!(a.history, [(x, 12, 0), (y, 24, 0)]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -2060,6 +2372,30 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// Picking the open file in the file picker keeps the cursor, like Enter in the tree: the
+    /// picker's items carry no line, and line 1 is not where the user was. The tree cursor
+    /// still lands on the file.
+    #[test]
+    fn picking_the_open_file_keeps_the_cursor() {
+        let (dir, mut a) = files_app("pick");
+        let x = dir.join("a.rs");
+        a.tree = crate::tree::build(&dir).0;
+        a.files = vec![PathBuf::from("a.rs"), PathBuf::from("b.rs")];
+        a.jump_to(&x, 5);
+        a.tree.reveal(Path::new("b.rs"));
+        a.focus = Focus::Tree;
+        press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+        a.picker.as_mut().unwrap().settle();
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(
+            (at(&a), a.focus, a.mode),
+            ((x.clone(), 4), Focus::Code, Mode::Normal)
+        );
+        assert_eq!(a.tree.selected().unwrap().path, Path::new("a.rs"));
+        assert_eq!(a.history, [(x, 4, 0)]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn history_keeps_the_last_fifty_stops() {
         let (dir, mut a) = files_app("cap");
@@ -2118,7 +2454,7 @@ mod tests {
     }
 
     #[test]
-    fn definitions_fall_back_to_the_word_and_keep_only_direct_locals() {
+    fn a_field_has_no_definition_and_locals_must_be_direct() {
         let (dir, mut a) = project_app(
             "fallback",
             &[
@@ -2132,16 +2468,48 @@ mod tests {
                 ),
             ],
         );
-        // A field is no declaration the Rust rules know: the whole-word search finds it.
+        // A field is no declaration the Rust rules know, and `u` is the key for its uses.
         a.jump_to(&dir.join("order.rs"), 5);
         a.col = 10;
         press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-        assert_eq!(at(&a), (dir.join("order.rs"), 1), "{}", a.message);
+        assert_eq!(at(&a), (dir.join("order.rs"), 4));
+        assert_eq!(a.message, "no definition for items");
         // Of the two `name =` lines, only the one directly inside `locals` is `local.name`.
         a.jump_to(&dir.join("main.tf"), 8);
         a.col = 17;
         press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
         assert_eq!(at(&a), (dir.join("main.tf"), 1), "{}", a.message);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// `json.load` is not declared in the project: `d` follows it into the standard library of
+    /// the `python3` on this machine and opens it read-only. Skipped where there is none.
+    #[test]
+    fn definitions_outside_the_project_come_from_the_standard_library() {
+        let stdlib = search::external_roots(Kind::Python, Path::new("/"));
+        if stdlib.is_empty() {
+            eprintln!("no python3, skipped");
+            return;
+        }
+        let (dir, mut a) = project_app(
+            "stdlib",
+            &[(
+                "main.py",
+                "import json\n\ndef read(p):\n    return json.load(open(p))\n",
+            )],
+        );
+        a.jump_to(&dir.join("main.py"), 4);
+        a.col = 17;
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        let (path, _) = at(&a);
+        assert!(
+            path.ends_with("json/__init__.py"),
+            "{} {}",
+            path.display(),
+            a.message
+        );
+        assert!(a.line_str().starts_with("def load("), "{}", a.line_str());
+        assert_eq!(a.buf.readonly, Some("outside the project"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -2774,12 +3142,21 @@ mod tests {
     }
 
     #[test]
-    fn a_bad_search_regex_is_reported_as_such() {
-        let mut a = app("foo(\n");
-        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
-        typed(&mut a, "foo(");
-        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-        assert!(a.message.starts_with("bad pattern"), "{}", a.message);
+    fn project_search_is_literal_not_a_regex() {
+        let (path, mut a) = temp_file("literal-s", "def foo(x):\nself.foo(1)\nfoo_bar\na.b\naXb\n");
+        for (query, hits, why) in [
+            ("foo(", 2, "a paren is text, not a regex error"),
+            ("a.b", 1, "a dot matches only a dot"),
+        ] {
+            press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+            typed(&mut a, query);
+            press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+            let p = a.picker.as_mut().expect(why);
+            p.settle();
+            assert_eq!(p.counts().1, hits, "{why}: {}", a.message);
+            press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        }
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 
     /// The find anchor, the selection anchor and the history stops are byte positions taken
@@ -2931,6 +3308,50 @@ mod tests {
         assert_eq!((a.line, a.top_line), (5, 5));
         // Ctrl+D must not be mistaken for go-to-definition.
         assert_eq!(a.message, "");
+    }
+
+    #[test]
+    fn half_page_counts_screen_rows() {
+        // The first line is four rows at 20 columns; half of a 6-row screen is 3 of them.
+        let mut a = app(&format!("{}\nnext\n", "word ".repeat(16)));
+        a.view_h = 6;
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+        assert_eq!((a.line, a.cursor_row()), (0, 3));
+        assert_eq!(
+            (a.top_line, a.top_row),
+            (0, 3),
+            "the viewport scrolls the same rows"
+        );
+    }
+
+    #[test]
+    fn up_and_down_walk_screen_rows_and_keep_the_column() {
+        // At 20 columns the first line is two rows: "aaaa bbbb cccc dddd " and "eeee ffff".
+        let mut a = app("aaaa bbbb cccc dddd eeee ffff\nx\n");
+        for _ in 0..7 {
+            press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+        }
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (0, 27), "the second row of the same line");
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (1, 1), "a shorter row: its end");
+        press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (0, 27), "the column is kept");
+        press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (0, 7));
+    }
+
+    #[test]
+    fn home_and_end_stop_at_the_screen_row_first() {
+        let mut a = app("aaaa bbbb cccc dddd eeee ffff\n");
+        press(&mut a, KeyCode::End, KeyModifiers::NONE);
+        assert_eq!(a.col, 19, "on the space that ends the first row");
+        press(&mut a, KeyCode::End, KeyModifiers::NONE);
+        assert_eq!(a.col, 29, "the end of the line");
+        press(&mut a, KeyCode::Home, KeyModifiers::NONE);
+        assert_eq!(a.col, 20, "the start of the second row");
+        press(&mut a, KeyCode::Home, KeyModifiers::NONE);
+        assert_eq!(a.col, 0);
     }
 
     #[test]

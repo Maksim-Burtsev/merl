@@ -96,15 +96,15 @@ merl path/to/file.py:120
 | Ctrl+R | Reload from disk, dropping unsaved edits |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 | Edit: Ctrl+C / Ctrl+X | Copy / cut the selection, or the line, to the clipboard |
-| Arrows | Move the cursor |
-| Shift+Up / Shift+Down | Extend the selection by a line |
+| Arrows | Move the cursor; Up / Down go by screen row |
+| Shift+Up / Shift+Down | Extend the selection by a screen row |
 | Shift+Left / Shift+Right | Move one word |
 | Alt+Shift+Left / Right | Extend the selection by a word |
-| Ctrl+Shift+Left / Right | Extend the selection to the start / end of the line |
+| Ctrl+Shift+Left / Right | Extend the selection to the start / end of the screen row, then of the line |
 | Ctrl+D / Ctrl+U | Move half a screen down / up |
 | { / } | Previous / next paragraph (blank line) |
 | PgUp / PgDn | Move one screen |
-| Home / End | Start / end of the line |
+| Home / End | Start / end of the screen row, then of the line |
 | Ctrl+Home / Ctrl+End | Start / end of the file |
 | Esc | Close an overlay, leave edit mode, or clear selection and find |
 | ? | This help |
@@ -153,21 +153,31 @@ read-only, and so does a line too long to be shown whole.
 
 There is no language server and no index: every lookup is a regex over the files found at startup,
 run through [ripgrep](https://github.com/BurntSushi/ripgrep)'s library crates. `d` knows the
-declaration forms below and searches only where such a definition can live; in any other language,
-or when the rules find nothing (a field, an enum variant, a parameter), it falls back to a
-whole-word search for the identifier. `u` is that whole-word search, always.
+declaration forms below and searches only where such a definition can live. When the project has
+no such definition, the same rules run over the standard library and the installed dependencies
+the toolchain on this machine knows about — `sys.path` of `.venv/bin/python` (or `python3`),
+`rustc --print sysroot` and the crates in `Cargo.lock`, `GOROOT` and the modules in `go.mod`,
+`node_modules` — narrowed to the module the file's imports bind the word to: `np.array` behind
+`import numpy as np` looks in `numpy`, `load` behind `from json import load` in `json`,
+`Regex::new` behind `use regex::Regex` in the `regex` crate, `chromium.launch()` behind
+`import { chromium } from 'playwright'` in that package; a bare `std::fs::read_to_string` or
+`os.path.join` is its own path. A compiled module such as `orjson` lands in its `.pyi` stub. The
+standard library's hits come before the dependencies', the picker shows paths relative to their
+root, and files opened from there are read-only. Java, Kotlin, Ruby and the rest have no roots
+yet, so `d` stays inside the project for them. A field, an enum variant or a parameter has no
+declaration the rules know: `d` says so, and `u` lists every whole-word use of the identifier.
 
 | File | What `d` recognises | Searched |
 |---|---|---|
 | Python | `def`, `class`, module-level assignment (annotated or not) | every `.py` file |
 | Go | `func` with or without a receiver, `type`, `var`/`const`, `:=` | every `.go` file |
-| TypeScript / JavaScript | `function`, `class`, `interface`, `type`, `enum`, `namespace`, `const`/`let`/`var` (so arrow functions assigned to a name), class and object-literal methods, properties holding a function, behind `export`/`default`/`declare`/`async` and the member modifiers. Plain fields, destructuring and parameters fall back to the whole-word search. | every `.ts`, `.tsx`, `.js`, `.jsx` and friend: they search each other |
+| TypeScript / JavaScript | `function`, `class`, `interface`, `type`, `enum`, `namespace`, `const`/`let`/`var` (so arrow functions assigned to a name), class and object-literal methods, properties holding a function, behind `export`/`default`/`declare`/`async` and the member modifiers. Plain fields, destructuring and parameters have no rule. | every `.ts`, `.tsx`, `.js`, `.jsx` and friend: they search each other |
 | Rust | `fn`, `struct`, `enum`, `union`, `trait`, `type`, `const`, `static`, `mod`, `macro_rules!`, `let`, behind any `pub(..)`/`async`/`unsafe`/`const`/`extern`/`default` prefix. `impl` blocks count as uses. | every `.rs` file |
-| Java | `class`, `interface`, `enum`, `record`, `@interface`; a method or constructor with a body, an abstract or interface method, a field, behind annotations and modifiers. A method's return type has to be a primitive or a name with a capital in it, so a call does not read as a declaration. | every `.java`, `.kt` and `.kts` file: they search each other |
+| Java | `class`, `interface`, `enum`, `record`, `@interface`; a method, an abstract or interface method and a field, told from a call by the return type before the name — a primitive, or a name with a capital in it, as Java writes its types; a constructor, behind at least one modifier, since a bare `Name(x) {` is a call. Annotations and modifiers may stand in front of any of them. | every `.java`, `.kt` and `.kts` file: they search each other |
 | Kotlin | `fun` (with the receiver of an extension function), `class`, `interface`, `object`, `enum class`, `typealias`, `val`/`var`, behind `private`/`open`/`data`/`sealed`/`suspend`/`override` and the rest | every `.java`, `.kt` and `.kts` file: they search each other |
-| Ruby | `def`, `def self.name`, `class`, `module`, an assignment (a constant, an `@ivar`, a local), `attr_accessor`/`attr_reader`/`attr_writer`, `alias`/`alias_method`. A trailing `?` or `!` is not part of the word, so `d` on `empty?` finds `def empty?`. Rails-style DSL (`scope`, `has_many`) falls back to the whole-word search. | every `.rb`, `.rake`, `.gemspec`, `.podspec`, `.rbi`, `.ru` file and `Rakefile`, `Gemfile`, `Vagrantfile` and friends |
+| Ruby | `def`, `def self.name`, `class`, `module`, an assignment (a constant, an `@ivar`, a local), `attr_accessor`/`attr_reader`/`attr_writer`, `alias`/`alias_method`. A trailing `?` or `!` is not part of the word, so `d` on `empty?` finds `def empty?`. Rails-style DSL (`scope`, `has_many`) has no rule. | every `.rb`, `.rake`, `.gemspec`, `.podspec`, `.rbi`, `.ru` file and `Rakefile`, `Gemfile`, `Vagrantfile` and friends |
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
-| SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns fall back to the whole-word search. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
+| SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns have no rule. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable | every Makefile |
 | Terraform | the block behind `var.x`, `module.x`, `local.x`, `data.T.N`, `T.N`; a bare name, as in `.tfvars`, is any block with that label | `.tf` files in the same directory |
 | Dockerfile | the `FROM … AS name` stage | the same file |
@@ -191,7 +201,8 @@ under a modifier or a receiver. TypeScript's class methods, with neither a keywo
 front, are not listed: the regex cannot tell `name(` from a call. Neither are fields, a Ruby
 constant, or the names a Ruby `attr_accessor` line declares, since one line can declare several.
 Searches are smart-case — an all-lowercase query ignores case, one uppercase letter makes it
-case-sensitive — and `/` and `s` take full regular expressions.
+case-sensitive — and `/` and `s` look for the text as typed: `foo(` finds the calls and the
+definition, `a.b` only `a.b`. There is no regex mode.
 
 The file list comes from one `.gitignore`-respecting walk at startup and is not refreshed, so
 files created while merl is open show up after a restart. Dotfiles are part of it — `.github/`,
