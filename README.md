@@ -96,15 +96,15 @@ merl path/to/file.py:120
 | Ctrl+R | Reload from disk, dropping unsaved edits |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 | Edit: Ctrl+C / Ctrl+X | Copy / cut the selection, or the line, to the clipboard |
-| Arrows | Move the cursor |
-| Shift+Up / Shift+Down | Extend the selection by a line |
+| Arrows | Move the cursor; Up / Down go by screen row |
+| Shift+Up / Shift+Down | Extend the selection by a screen row |
 | Shift+Left / Shift+Right | Move one word |
 | Alt+Shift+Left / Right | Extend the selection by a word |
-| Ctrl+Shift+Left / Right | Extend the selection to the start / end of the line |
+| Ctrl+Shift+Left / Right | Extend the selection to the start / end of the screen row, then of the line |
 | Ctrl+D / Ctrl+U | Move half a screen down / up |
 | { / } | Previous / next paragraph (blank line) |
 | PgUp / PgDn | Move one screen |
-| Home / End | Start / end of the line |
+| Home / End | Start / end of the screen row, then of the line |
 | Ctrl+Home / Ctrl+End | Start / end of the file |
 | Esc | Close an overlay, leave edit mode, or clear selection and find |
 | ? | This help |
@@ -191,8 +191,8 @@ by address (`aws_s3_bucket.logs`, `data.T.N`, `module.x`, `var.x`, `output.x`), 
 and YAML anchors, each read only from its own kind of file; recomputed on each press. Class methods
 without a keyword in front are not listed:
 the regex cannot tell `name(` from a call. Searches are smart-case — an all-lowercase query
-ignores case, one uppercase letter makes it case-sensitive — and `/` and `s` take full regular
-expressions.
+ignores case, one uppercase letter makes it case-sensitive — and `/` and `s` look for the text as
+typed: `foo(` finds the calls and the definition, `a.b` only `a.b`. There is no regex mode.
 
 The file list comes from one `.gitignore`-respecting walk at startup and is not refreshed, so
 files created while merl is open show up after a restart. Dotfiles are part of it — `.github/`,

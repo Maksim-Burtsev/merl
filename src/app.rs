@@ -46,18 +46,24 @@ pub const KEYS: &[(&str, &str)] = &[
         "Edit: Ctrl+C / Ctrl+X",
         "Copy / cut the selection, or the line, to the clipboard",
     ),
-    ("Arrows", "Move the cursor"),
-    ("Shift+Up / Shift+Down", "Extend the selection by a line"),
+    ("Arrows", "Move the cursor; Up / Down go by screen row"),
+    (
+        "Shift+Up / Shift+Down",
+        "Extend the selection by a screen row",
+    ),
     ("Shift+Left / Shift+Right", "Move one word"),
     ("Alt+Shift+Left / Right", "Extend the selection by a word"),
     (
         "Ctrl+Shift+Left / Right",
-        "Extend the selection to the start / end of the line",
+        "Extend the selection to the start / end of the screen row, then of the line",
     ),
     ("Ctrl+D / Ctrl+U", "Move half a screen down / up"),
     ("{ / }", "Previous / next paragraph (blank line)"),
     ("PgUp / PgDn", "Move one screen"),
-    ("Home / End", "Start / end of the line"),
+    (
+        "Home / End",
+        "Start / end of the screen row, then of the line",
+    ),
     ("Ctrl+Home / Ctrl+End", "Start / end of the file"),
     (
         "Esc",
@@ -312,11 +318,16 @@ impl App {
         wrap::col_to_row(&self.rows(self.line), self.col)
     }
 
-    /// Display column of the cursor inside its wrapped row.
+    /// Display column of the cursor on its wrapped row, counting the indent rows after the first
+    /// are drawn with.
     pub fn cursor_x(&self) -> usize {
         let rows = self.rows(self.line);
         let row = wrap::col_to_row(&rows, self.col);
-        wrap::width(&self.line_str()[wrap::row_to_col(&rows, row)..self.col])
+        let indent = match row {
+            0 => 0,
+            _ => wrap::indent(self.buf.shown(self.line), self.view_w),
+        };
+        indent + wrap::width(&self.line_str()[wrap::row_to_col(&rows, row)..self.col])
     }
 
     /// 1-based display column, for the status bar.
@@ -365,17 +376,31 @@ impl App {
 
     // ---- cursor movement -------------------------------------------------
 
+    /// Remembers the screen column the cursor stands on, for Up / Down to aim at.
     fn sync_want_x(&mut self) {
-        self.want_x = wrap::width(&self.line_str()[..self.col]);
+        self.want_x = self.cursor_x();
     }
 
-    /// Places the cursor on `self.line` at the byte offset closest to `want_x`.
-    fn apply_want_x(&mut self) {
-        let mut col = self.buf.lines[self.line].len();
-        let mut used = 0usize;
-        for (i, c) in self.buf.lines[self.line].char_indices() {
+    /// Places the cursor on screen row `row` of `self.line`, on the char under the column
+    /// `want_x`, or as far right as the row goes. A row other than the last ends on its last
+    /// char: its end is where the next row starts.
+    fn apply_want_x(&mut self, row: usize) {
+        let rows = self.rows(self.line);
+        let row = row.min(rows.len() - 1);
+        let r = rows[row].clone();
+        let s = &self.buf.lines[self.line];
+        let mut col = if row + 1 < rows.len() {
+            prev_char(s, r.end)
+        } else {
+            s.len()
+        };
+        let mut used = match row {
+            0 => 0,
+            _ => wrap::indent(self.buf.shown(self.line), self.view_w),
+        };
+        for (i, c) in s[r.start..r.end].char_indices() {
             if used >= self.want_x {
-                col = i;
+                col = r.start + i;
                 break;
             }
             used += wrap::char_width(c);
@@ -445,20 +470,39 @@ impl App {
         }
     }
 
+    /// Home: the start of the screen row and, pressed there, of the line, as in VS Code.
     fn line_start(&mut self) {
-        self.col = 0;
-        self.want_x = 0;
-    }
-
-    fn line_end(&mut self) {
-        self.col = self.line_str().len();
+        let rows = self.rows(self.line);
+        let start = rows[wrap::col_to_row(&rows, self.col)].start;
+        self.col = if self.col == start { 0 } else { start };
         self.sync_want_x();
     }
 
-    fn move_line(&mut self, delta: isize) {
-        let last = self.buf.lines.len() - 1;
-        self.line = self.line.saturating_add_signed(delta).min(last);
-        self.apply_want_x();
+    /// End: the end of the screen row and, pressed there, of the line, as in VS Code. A row
+    /// other than the last ends on its last char, since its end is where the next row starts.
+    fn line_end(&mut self) {
+        let rows = self.rows(self.line);
+        let row = wrap::col_to_row(&rows, self.col);
+        let len = self.line_str().len();
+        let end = if row + 1 < rows.len() {
+            prev_char(self.line_str(), rows[row].end)
+        } else {
+            len
+        };
+        self.col = if self.col == end { len } else { end };
+        self.sync_want_x();
+    }
+
+    /// Up / Down, PgUp / PgDn: `n` screen rows, aiming at the column in `want_x`.
+    fn move_rows(&mut self, n: isize) {
+        let cur = (self.line, self.cursor_row());
+        let (line, row) = if n < 0 {
+            self.back_rows(cur, n.unsigned_abs())
+        } else {
+            self.forward_rows(cur, n as usize)
+        };
+        self.line = line;
+        self.apply_want_x(row);
     }
 
     /// Ctrl+D / Ctrl+U: cursor and viewport both move half a screen, like vim and less,
@@ -466,7 +510,7 @@ impl App {
     fn half_page(&mut self, dir: isize) {
         let half = (self.view_h / 2).max(1);
         let before = (self.line, self.cursor_row());
-        self.move_line(dir * half as isize);
+        self.move_rows(dir * half as isize);
         let moved = self.rows_between(before, (self.line, self.cursor_row()));
         let top = (self.top_line, self.top_row);
         (self.top_line, self.top_row) = if dir < 0 {
@@ -491,7 +535,7 @@ impl App {
             l = step(l);
         }
         self.line = l;
-        self.apply_want_x();
+        self.apply_want_x(0);
     }
 
     /// Wrapped rows from `a` to `b` (either order).
@@ -891,7 +935,6 @@ impl App {
 
     /// Recompiles the query and moves to the first match at or after the anchor.
     /// The query is literal text with smart case, as in VS Code: `migrator(` hits `Migrator()`.
-    /// `s>` is the place for regexes.
     fn refresh_find(&mut self) {
         if self.prompt.is_empty() {
             // Nothing to match: drop the previous pattern so its highlights go with it,
@@ -1051,20 +1094,17 @@ impl App {
             .collect()
     }
 
-    /// Enter in the `s>` prompt: a smart-case regex search over every file.
+    /// Enter in the `s>` prompt: a smart-case search for the query as typed, over every file.
+    /// Literal like `/`: `foo(` finds the calls and the definition, not a regex error.
     fn run_search(&mut self) {
         let query = std::mem::take(&mut self.prompt);
         self.mode = Mode::Normal;
         if query.is_empty() {
             return;
         }
-        let hits = match self.grep(&query, false, true, |_| true) {
-            Ok(hits) => hits,
-            Err(e) => {
-                self.message = format!("{e:#}");
-                return;
-            }
-        };
+        let hits = self
+            .grep(&regex::escape(&query), false, true, |_| true)
+            .expect("an escaped literal always compiles");
         if hits.is_empty() {
             self.message = format!("no results for {query}");
             return;
@@ -1726,10 +1766,10 @@ impl App {
             KeyCode::Char(']') => self.hist_go(1),
             _ if self.focus == Focus::Tree => self.tree_key(key.code),
             KeyCode::Enter => self.start_edit(),
-            KeyCode::Up if shift => self.extend(|s| s.move_line(-1)),
-            KeyCode::Down if shift => self.extend(|s| s.move_line(1)),
-            KeyCode::Up => self.move_line(-1),
-            KeyCode::Down => self.move_line(1),
+            KeyCode::Up if shift => self.extend(|s| s.move_rows(-1)),
+            KeyCode::Down if shift => self.extend(|s| s.move_rows(1)),
+            KeyCode::Up => self.move_rows(-1),
+            KeyCode::Down => self.move_rows(1),
             KeyCode::Left if shift && ctrl => self.extend(Self::line_start),
             KeyCode::Right if shift && ctrl => self.extend(Self::line_end),
             KeyCode::Left if shift && alt => self.extend(Self::word_left),
@@ -1749,8 +1789,8 @@ impl App {
             KeyCode::Right if shift => self.word_right(),
             KeyCode::Left => self.left(),
             KeyCode::Right => self.right(),
-            KeyCode::PageUp => self.move_line(-(self.view_h.max(1) as isize)),
-            KeyCode::PageDown => self.move_line(self.view_h.max(1) as isize),
+            KeyCode::PageUp => self.move_rows(-(self.view_h.max(1) as isize)),
+            KeyCode::PageDown => self.move_rows(self.view_h.max(1) as isize),
             KeyCode::Home if ctrl => {
                 self.line = 0;
                 self.col = 0;
@@ -3099,12 +3139,21 @@ mod tests {
     }
 
     #[test]
-    fn a_bad_search_regex_is_reported_as_such() {
-        let mut a = app("foo(\n");
-        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
-        typed(&mut a, "foo(");
-        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-        assert!(a.message.starts_with("bad pattern"), "{}", a.message);
+    fn project_search_is_literal_not_a_regex() {
+        let (path, mut a) = temp_file("literal-s", "def foo(x):\nself.foo(1)\nfoo_bar\na.b\naXb\n");
+        for (query, hits, why) in [
+            ("foo(", 2, "a paren is text, not a regex error"),
+            ("a.b", 1, "a dot matches only a dot"),
+        ] {
+            press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+            typed(&mut a, query);
+            press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+            let p = a.picker.as_mut().expect(why);
+            p.settle();
+            assert_eq!(p.counts().1, hits, "{why}: {}", a.message);
+            press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        }
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 
     /// The find anchor, the selection anchor and the history stops are byte positions taken
@@ -3256,6 +3305,50 @@ mod tests {
         assert_eq!((a.line, a.top_line), (5, 5));
         // Ctrl+D must not be mistaken for go-to-definition.
         assert_eq!(a.message, "");
+    }
+
+    #[test]
+    fn half_page_counts_screen_rows() {
+        // The first line is four rows at 20 columns; half of a 6-row screen is 3 of them.
+        let mut a = app(&format!("{}\nnext\n", "word ".repeat(16)));
+        a.view_h = 6;
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+        assert_eq!((a.line, a.cursor_row()), (0, 3));
+        assert_eq!(
+            (a.top_line, a.top_row),
+            (0, 3),
+            "the viewport scrolls the same rows"
+        );
+    }
+
+    #[test]
+    fn up_and_down_walk_screen_rows_and_keep_the_column() {
+        // At 20 columns the first line is two rows: "aaaa bbbb cccc dddd " and "eeee ffff".
+        let mut a = app("aaaa bbbb cccc dddd eeee ffff\nx\n");
+        for _ in 0..7 {
+            press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+        }
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (0, 27), "the second row of the same line");
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (1, 1), "a shorter row: its end");
+        press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (0, 27), "the column is kept");
+        press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+        assert_eq!((a.line, a.col), (0, 7));
+    }
+
+    #[test]
+    fn home_and_end_stop_at_the_screen_row_first() {
+        let mut a = app("aaaa bbbb cccc dddd eeee ffff\n");
+        press(&mut a, KeyCode::End, KeyModifiers::NONE);
+        assert_eq!(a.col, 19, "on the space that ends the first row");
+        press(&mut a, KeyCode::End, KeyModifiers::NONE);
+        assert_eq!(a.col, 29, "the end of the line");
+        press(&mut a, KeyCode::Home, KeyModifiers::NONE);
+        assert_eq!(a.col, 20, "the start of the second row");
+        press(&mut a, KeyCode::Home, KeyModifiers::NONE);
+        assert_eq!(a.col, 0);
     }
 
     #[test]
