@@ -191,8 +191,8 @@ by address (`aws_s3_bucket.logs`, `data.T.N`, `module.x`, `var.x`, `output.x`), 
 and YAML anchors, each read only from its own kind of file; recomputed on each press. Class methods
 without a keyword in front are not listed:
 the regex cannot tell `name(` from a call. Searches are smart-case — an all-lowercase query
-ignores case, one uppercase letter makes it case-sensitive — and `/` and `s` take full regular
-expressions.
+ignores case, one uppercase letter makes it case-sensitive — and `/` and `s` look for the text as
+typed: `foo(` finds the calls and the definition, `a.b` only `a.b`. There is no regex mode.
 
 The file list comes from one `.gitignore`-respecting walk at startup and is not refreshed, so
 files created while merl is open show up after a restart. Dotfiles are part of it — `.github/`,

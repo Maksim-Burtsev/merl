@@ -866,7 +866,6 @@ impl App {
 
     /// Recompiles the query and moves to the first match at or after the anchor.
     /// The query is literal text with smart case, as in VS Code: `migrator(` hits `Migrator()`.
-    /// `s>` is the place for regexes.
     fn refresh_find(&mut self) {
         if self.prompt.is_empty() {
             // Nothing to match: drop the previous pattern so its highlights go with it,
@@ -1026,20 +1025,17 @@ impl App {
             .collect()
     }
 
-    /// Enter in the `s>` prompt: a smart-case regex search over every file.
+    /// Enter in the `s>` prompt: a smart-case search for the query as typed, over every file.
+    /// Literal like `/`: `foo(` finds the calls and the definition, not a regex error.
     fn run_search(&mut self) {
         let query = std::mem::take(&mut self.prompt);
         self.mode = Mode::Normal;
         if query.is_empty() {
             return;
         }
-        let hits = match self.grep(&query, false, true, |_| true) {
-            Ok(hits) => hits,
-            Err(e) => {
-                self.message = format!("{e:#}");
-                return;
-            }
-        };
+        let hits = self
+            .grep(&regex::escape(&query), false, true, |_| true)
+            .expect("an escaped literal always compiles");
         if hits.is_empty() {
             self.message = format!("no results for {query}");
             return;
@@ -3003,12 +2999,21 @@ mod tests {
     }
 
     #[test]
-    fn a_bad_search_regex_is_reported_as_such() {
-        let mut a = app("foo(\n");
-        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
-        typed(&mut a, "foo(");
-        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-        assert!(a.message.starts_with("bad pattern"), "{}", a.message);
+    fn project_search_is_literal_not_a_regex() {
+        let (path, mut a) = temp_file("literal-s", "def foo(x):\nself.foo(1)\nfoo_bar\na.b\naXb\n");
+        for (query, hits, why) in [
+            ("foo(", 2, "a paren is text, not a regex error"),
+            ("a.b", 1, "a dot matches only a dot"),
+        ] {
+            press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+            typed(&mut a, query);
+            press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+            let p = a.picker.as_mut().expect(why);
+            p.settle();
+            assert_eq!(p.counts().1, hits, "{why}: {}", a.message);
+            press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        }
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 
     /// The find anchor, the selection anchor and the history stops are byte positions taken
