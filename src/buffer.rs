@@ -249,6 +249,8 @@ fn known_name(path: &Path) -> Option<&'static str> {
         ("Containerfile", _) => "Dockerfile",
         _ if name.starts_with("Dockerfile.") || name.starts_with("Containerfile.") => "Dockerfile",
         (_, "jsonc") => "JSON",
+        // bat's SQL grammar owns `.sql`, `.ddl` and `.dml`, but not the dialect extensions.
+        (_, "psql" | "pgsql" | "mysql") => "SQL",
         (".npmrc", _) | (_, "service" | "timer" | "socket") => "INI",
         ("Procfile" | "yarn.lock", _) => "YAML",
         // Starlark.
@@ -354,6 +356,27 @@ mod tests {
             let colours: std::collections::HashSet<_> =
                 b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
             assert!(colours.len() > 1, "{name}: everything is one colour");
+        }
+    }
+
+    #[test]
+    fn sql_highlights_with_every_shipped_theme() {
+        let src =
+            "-- doc\nCREATE TABLE public.orders (id serial);\nSELECT 'x' FROM public.orders;\n";
+        for file in ["a.sql", "b.psql", "c.pgsql", "d.mysql", "e.ddl", "f.dml"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("SQL"),
+                    "{file} {name}"
+                );
+                b.highlight_to(2, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
         }
     }
 
