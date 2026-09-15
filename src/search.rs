@@ -28,7 +28,7 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (None, SYMBOL_PATTERN),
     // `name ()`, the form without the `function` keyword: a `function name` line is already
     // listed by [`SYMBOL_PATTERN`], and requiring no keyword here keeps it off the list twice.
-    (Some(Kind::Shell), r"^(?P<name>[A-Za-z_]\w*)\s*\(\s*\)"),
+    (Some(Kind::Shell), r"^\s*(?P<name>[A-Za-z_]\w*)\s*\(\s*\)"),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -768,6 +768,11 @@ output "bucket" {
         let sh = |line| symbol(Some(Kind::Shell), line);
         assert_eq!(sh("build() {").as_deref(), Some("build"));
         assert_eq!(sh("run_all ( ) {").as_deref(), Some("run_all"));
+        assert_eq!(
+            sh("  helper() {").as_deref(),
+            Some("helper"),
+            "nested, like the rest"
+        );
         // The `function` forms are listed by the generic pattern instead, so each shows once.
         assert_eq!(sh("function deploy {"), None);
         assert_eq!(sh("function check() {"), None);
