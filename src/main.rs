@@ -20,7 +20,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use clap::Parser;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use ratatui::crossterm::cursor::SetCursorStyle;
+use ratatui::crossterm::cursor::{SetCursorStyle, Show};
 use ratatui::crossterm::event::{
     DisableBracketedPaste, EnableBracketedPaste, Event, KeyboardEnhancementFlags,
     PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
@@ -147,6 +147,9 @@ fn run() -> Result<()> {
         DisableBracketedPaste
     );
     ratatui::restore();
+    // The last frame may have hidden the cursor (welcome screen, `?` overlay); leaving the
+    // alternate screen does not bring it back in xterm-like terminals such as Ghostty.
+    let _ = execute!(stdout(), Show);
     // Runs even when the loop returned an error: the sample project is ours to clean up.
     if let Some(t) = &app.tutor {
         let _ = std::fs::remove_dir_all(&t.dir);
