@@ -161,6 +161,8 @@ pub struct App {
     pub find_re: Option<Regex>,
     /// Where the cursor was when `/` was pressed: the start of the incremental search.
     find_anchor: (usize, usize),
+    /// The selection anchor, set aside while `/` moves the cursor; Esc puts it back.
+    find_sel: Option<(usize, usize)>,
     pub message: String,
     /// Code text area, in cells, written by `ui::draw` before every frame.
     pub view_w: usize,
@@ -247,6 +249,7 @@ impl App {
             prompt: String::new(),
             find_re: None,
             find_anchor: (0, 0),
+            find_sel: None,
             message: String::new(),
             view_w: 80,
             view_h: 24,
@@ -394,10 +397,13 @@ impl App {
     }
 
     /// The selection as ordered (line, col) ends: anchor and cursor, whichever comes first.
+    /// None while the cursor stands on the anchor: an empty range selects nothing, so Ctrl+C
+    /// copies the line and Backspace deletes a char, as with no selection. The anchor stays for
+    /// the next Shift+move.
     pub fn selection(&self) -> Option<((usize, usize), (usize, usize))> {
         let a = self.clamp_pos(self.anchor?);
         let b = (self.line, self.col);
-        Some((a.min(b), a.max(b)))
+        (a != b).then(|| (a.min(b), a.max(b)))
     }
 
     /// Bytes of line `l` inside the selection.
@@ -567,12 +573,14 @@ impl App {
         self.sync_want_x();
     }
 
-    /// Jumps to a 1-based line number, clamped to the file, and centers the view.
+    /// Jumps to a 1-based line number, clamped to the file, and centers the view. A jump is a
+    /// plain move, so it drops the selection.
     pub fn goto_line(&mut self, n: usize) {
         self.line = n.max(1).min(self.buf.lines.len()) - 1;
         self.col = 0;
         self.want_x = 0;
         self.center = true;
+        self.anchor = None;
     }
 
     // ---- opening files and jump history ----------------------------------
@@ -833,11 +841,13 @@ impl App {
 
     // ---- find in file ----------------------------------------------------
 
-    /// Starts an incremental search from the current cursor position.
+    /// Starts an incremental search from the current cursor position. The selection is set aside
+    /// meanwhile, so it does not stretch to every match the cursor visits.
     fn start_find(&mut self) {
         self.mode = Mode::Find;
         self.prompt.clear();
         self.find_anchor = (self.line, self.col);
+        self.find_sel = self.anchor.take();
     }
 
     fn find_key(&mut self, code: KeyCode) {
@@ -850,14 +860,21 @@ impl App {
                 self.prompt.pop();
                 self.refresh_find();
             }
-            // Enter keeps both the position and the pattern, so `n` carries on from here.
+            // Enter keeps both the position and the pattern, so `n` carries on from here. Landing
+            // on a match is a move: the selection comes back only if the cursor stayed put.
             KeyCode::Enter => {
                 self.mode = Mode::Normal;
+                let sel = self.find_sel.take();
+                if (self.line, self.col) == self.clamp_pos(self.find_anchor) {
+                    self.anchor = sel;
+                }
                 self.hist_note(true);
             }
+            // Esc puts back both the cursor and the selection.
             KeyCode::Esc => {
                 self.mode = Mode::Normal;
                 (self.line, self.col) = self.clamp_pos(self.find_anchor);
+                self.anchor = self.find_sel.take();
                 self.sync_want_x();
             }
             _ => {}
@@ -1365,7 +1382,7 @@ impl App {
                 self.insert(&format!("\n{indent}"));
             }
             KeyCode::Tab => self.insert(if self.buf.tabs { "\t" } else { buffer::TAB }),
-            KeyCode::Backspace | KeyCode::Delete if self.anchor.is_some() => self.insert(""),
+            KeyCode::Backspace | KeyCode::Delete if self.selection().is_some() => self.insert(""),
             KeyCode::Backspace => {
                 let from = if self.col > 0 {
                     (self.line, prev_char(self.line_str(), self.col))
@@ -1710,7 +1727,7 @@ impl App {
             KeyCode::Left if shift && alt => self.extend(Self::word_left),
             KeyCode::Right if shift && alt => self.extend(Self::word_right),
             // A plain arrow on a selection collapses it to the matching end, VS Code style.
-            KeyCode::Left | KeyCode::Right if !shift && self.anchor.is_some() => {
+            KeyCode::Left | KeyCode::Right if !shift && self.selection().is_some() => {
                 let (start, end) = self.selection().unwrap();
                 (self.line, self.col) = self.clamp_pos(if key.code == KeyCode::Left {
                     start
@@ -1963,19 +1980,71 @@ mod tests {
         assert_eq!(a.selected_bytes(1), Some(0..3));
         assert_eq!(a.selected_bytes(2), Some(0..2));
         assert_eq!(a.selected_bytes(3), None);
-        // Back over the anchor: the range flips, it never collapses to nothing.
+        // Back onto the anchor nothing is selected, but the anchor holds: Shift+Down extends
+        // from it again.
         for _ in 0..3 {
             press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
         }
-        assert_eq!((a.line, a.selection()), (0, Some(((0, 2), (0, 2)))));
-        // Any other cursor move drops it; Esc drops it too.
+        assert_eq!((a.line, a.selection()), (0, None));
         press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        assert_eq!(a.selection(), Some(((0, 2), (1, 2))));
+        // Any other cursor move drops it; Esc drops it too.
         press(&mut a, KeyCode::Left, KeyModifiers::NONE);
         assert_eq!(a.selection(), None);
         press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
         assert!(a.selection().is_some());
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         assert_eq!(a.selection(), None);
+    }
+
+    #[test]
+    fn a_selection_collapsed_onto_its_anchor_selects_nothing() {
+        let mut a = app("abc\ndef\n");
+        press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
+        assert_eq!(a.selection(), None);
+        // A plain arrow moves on instead of collapsing a range that is not there.
+        press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+        assert_eq!(a.col, 2);
+        // While editing, Ctrl+C copies the line and Backspace deletes a char, as with no selection.
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+        assert_eq!(a.clipboard.take().as_deref(), Some("abc\n"));
+        press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+        assert_eq!(a.buf.lines, vec!["ac", "def"]);
+    }
+
+    #[test]
+    fn a_jump_or_a_find_match_drops_the_selection() {
+        let mut a = app("abc\ndef\nghi\njkl\n");
+        press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Char(':'), KeyModifiers::NONE);
+        typed(&mut a, "4");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.line, a.selection()), (3, None));
+        // Find sets the selection aside while it moves the cursor: Esc puts both back, a match
+        // taken with Enter leaves it behind.
+        press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
+        let sel = a.selection();
+        assert_eq!(sel, Some(((2, 0), (3, 0))));
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        typed(&mut a, "abc");
+        assert_eq!((a.line, a.selection()), (0, None));
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!((a.line, a.selection()), (2, sel));
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        typed(&mut a, "abc");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.line, a.selection()), (0, None));
+        // A search that has nowhere to move the cursor keeps it.
+        press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        typed(&mut a, "zzz");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(a.selection(), Some(((0, 0), (1, 0))));
     }
 
     #[test]
