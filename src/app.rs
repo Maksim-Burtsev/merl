@@ -580,12 +580,15 @@ impl App {
         }
     }
 
-    /// Shows `path` at `line` (1-based; 0 means "keep the start of the file"). Reloading is
-    /// skipped when the file is already open, so this doubles as a plain cursor move.
+    /// Shows `path` at `line` (1-based). Reloading is skipped when the file is already open, so
+    /// this doubles as a plain cursor move. Line 0 is "no line in particular": the start of a
+    /// file being opened, and the cursor where it is on the file that is already open, like
+    /// VS Code's explorer.
     /// Returns `false`, with the reason in the status bar, when the file cannot be read or the
     /// open one has edits that could not be saved.
     fn open(&mut self, path: &Path, line: usize) -> bool {
-        if self.buf.path.as_deref() != Some(path) {
+        let same = self.buf.path.as_deref() == Some(path);
+        if !same {
             // Replacing the buffer would drop edits the disk does not have; the status bar
             // already says why they are not there (a conflict, a failed save).
             if !self.flush() {
@@ -613,7 +616,9 @@ impl App {
                 }
             }
         }
-        self.goto_line(line.max(1));
+        if !(same && line == 0) {
+            self.goto_line(line.max(1));
+        }
         self.reveal(path);
         true
     }
@@ -804,7 +809,7 @@ impl App {
             }
             Pick::Accept(item) => {
                 let path = self.root.join(&item.path);
-                self.jump_to(&path, item.line.max(1));
+                self.jump_to(&path, item.line);
             }
         }
         // Dropping the picker stops nucleo's workers.
@@ -1143,13 +1148,9 @@ impl App {
             KeyCode::Left => self.tree.collapse(),
             KeyCode::Enter => match self.tree.selected() {
                 Some(n) if n.is_dir => self.tree.toggle(),
-                // The file that is already open keeps its cursor, like VS Code's explorer.
-                Some(n) if self.buf.path.as_deref() == Some(&self.root.join(&n.path)) => {
-                    self.focus = Focus::Code;
-                }
                 Some(n) => {
                     let path = self.root.join(&n.path);
-                    self.jump_to(&path, 1);
+                    self.jump_to(&path, 0);
                 }
                 None => {}
             },
@@ -2084,6 +2085,30 @@ mod tests {
         a.focus = Focus::Tree;
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
         assert_eq!((at(&a), a.focus), ((x.clone(), 4), Focus::Code));
+        assert_eq!(a.history, [(x, 4, 0)]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Picking the open file in the file picker keeps the cursor, like Enter in the tree: the
+    /// picker's items carry no line, and line 1 is not where the user was. The tree cursor
+    /// still lands on the file.
+    #[test]
+    fn picking_the_open_file_keeps_the_cursor() {
+        let (dir, mut a) = files_app("pick");
+        let x = dir.join("a.rs");
+        a.tree = crate::tree::build(&dir).0;
+        a.files = vec![PathBuf::from("a.rs"), PathBuf::from("b.rs")];
+        a.jump_to(&x, 5);
+        a.tree.reveal(Path::new("b.rs"));
+        a.focus = Focus::Tree;
+        press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+        a.picker.as_mut().unwrap().settle();
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(
+            (at(&a), a.focus, a.mode),
+            ((x.clone(), 4), Focus::Code, Mode::Normal)
+        );
+        assert_eq!(a.tree.selected().unwrap().path, Path::new("a.rs"));
         assert_eq!(a.history, [(x, 4, 0)]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
