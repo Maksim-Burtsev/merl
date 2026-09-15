@@ -17,9 +17,10 @@ use regex::Regex;
 /// becomes the point.
 pub const MAX_HITS: usize = 5_000;
 
-/// Lines that look like a top-level declaration in code. Group 2 swallows a Go method receiver
-/// (`func (i Invoice) Total()`).
-pub const SYMBOL_PATTERN: &str = r#"^\s*(?:(?:export|default|declare|async|pub(?:\([a-z]+\))?|static|unsafe|abstract|const|extern(?:\s+"[^"]*")?)\s+)*(def|class|func|function\*?|type|fn|struct|enum|impl|trait|interface|mod|const|static|union|macro_rules!|namespace)(?:<[^>]*>)?\s+(\([^)]*\)\s*)?(?P<name>[A-Za-z_]\w*)"#;
+/// Lines that look like a declaration in code. `const` and `static` count only unindented or
+/// behind `export` / `pub`: indented and bare, they are the locals of a function body. The group
+/// before the name swallows a Go method receiver (`func (i Invoice) Total()`).
+pub const SYMBOL_PATTERN: &str = r#"^(?:\s*(?:(?:export|default|declare|async|pub(?:\([a-z]+\))?|static|unsafe|abstract|const|extern(?:\s+"[^"]*")?)\s+)*(?:def|class|func|function\*?|type|fn|struct|enum|impl|trait|interface|mod|union|macro_rules!|namespace)|(?:\s*(?:export|pub(?:\([a-z]+\))?)\s+)?(?:declare\s+)?(?:const|static))(?:<[^>]*>)?\s+(\([^)]*\)\s*)?(?P<name>[A-Za-z_]\w*)"#;
 
 /// The head of a SQL `CREATE` statement, up to the name it declares: the optional `OR REPLACE`,
 /// the modifiers that can sit before the object word, the object itself and `IF NOT EXISTS`.
@@ -131,7 +132,8 @@ pub struct Hit {
 /// Greps `pattern` over `files` (paths relative to `root`).
 ///
 /// `current` is the file the cursor is in; its hits sort first, everything else by path and
-/// line. Files that cannot be read are skipped — this is a viewer, not a linter.
+/// line. `unsaved` is its text when that is ahead of the disk, searched in place of the file.
+/// Files that cannot be read are skipped — this is a viewer, not a linter.
 pub fn grep_project(
     root: &Path,
     files: &[PathBuf],
@@ -139,6 +141,7 @@ pub fn grep_project(
     whole_word: bool,
     smart_case: bool,
     current: Option<&Path>,
+    unsaved: Option<&[u8]>,
 ) -> Result<Vec<Hit>> {
     let matcher = RegexMatcherBuilder::new()
         .case_smart(smart_case)
@@ -155,14 +158,14 @@ pub fn grep_project(
         if hits.len() >= MAX_HITS {
             break;
         }
-        let _ = searcher.search_path(
-            &matcher,
-            root.join(rel),
-            Collect {
-                path: rel,
-                hits: &mut hits,
-            },
-        );
+        let sink = Collect {
+            path: rel,
+            hits: &mut hits,
+        };
+        let _ = match unsaved.filter(|_| current == Some(rel.as_path())) {
+            Some(text) => searcher.search_slice(&matcher, text, sink),
+            None => searcher.search_path(&matcher, root.join(rel), sink),
+        };
     }
     hits.sort_by_cached_key(|h| (current != Some(h.path.as_path()), h.path.clone(), h.line));
     Ok(hits)
@@ -416,7 +419,7 @@ mod tests {
     }
 
     fn grep(dir: &Path, files: &[PathBuf], pat: &str, word: bool, smart: bool) -> Vec<Hit> {
-        grep_project(dir, files, pat, word, smart, None).unwrap()
+        grep_project(dir, files, pat, word, smart, None, None).unwrap()
     }
 
     fn lines(hits: &[Hit]) -> Vec<(String, usize)> {
@@ -813,6 +816,7 @@ output "bucket" {
             false,
             false,
             Some(Path::new("b.go")),
+            None,
         )
         .unwrap();
         assert_eq!(
@@ -853,6 +857,11 @@ output "bucket" {
                 Some("MAX_ORDERS"),
             ),
             ("static COUNT: u32 = 0;", Some("COUNT")),
+            // Indented and bare, `const` and `static` are locals; exported, they are symbols.
+            ("  const n = 1;", None),
+            ("    static COUNT: u32 = 0;", None),
+            ("  export const LIMIT = 10;", Some("LIMIT")),
+            ("    pub const MAX: u32 = 1;", Some("MAX")),
             ("const fn zero() -> u32 {", Some("zero")),
             ("extern \"C\" fn c_call() {", Some("c_call")),
             ("macro_rules! order {", Some("order")),

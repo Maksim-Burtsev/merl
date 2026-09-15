@@ -192,6 +192,9 @@ pub struct App {
     pub theme: String,
     /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
     pub config: Option<PathBuf>,
+    /// A quit was just refused over edits that could not be saved: quitting again right away
+    /// leaves them behind.
+    quit_again: bool,
 }
 
 /// One undoable change: `old` lines from `line` on became `new`.
@@ -259,6 +262,7 @@ impl App {
             want_diff: true,
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
+            quit_again: false,
         };
         if let Some(n) = line {
             app.goto_line(n);
@@ -578,10 +582,15 @@ impl App {
 
     /// Shows `path` at `line` (1-based; 0 means "keep the start of the file"). Reloading is
     /// skipped when the file is already open, so this doubles as a plain cursor move.
-    /// Returns `false`, with the error in the status bar, when the file cannot be read.
+    /// Returns `false`, with the reason in the status bar, when the file cannot be read or the
+    /// open one has edits that could not be saved.
     fn open(&mut self, path: &Path, line: usize) -> bool {
         if self.buf.path.as_deref() != Some(path) {
-            self.flush();
+            // Replacing the buffer would drop edits the disk does not have; the status bar
+            // already says why they are not there (a conflict, a failed save).
+            if !self.flush() {
+                return false;
+            }
             match Buffer::load(path) {
                 Ok(buf) => {
                     self.buf = buf;
@@ -958,6 +967,9 @@ impl App {
         {
             files.push(cur.clone());
         }
+        // With unsaved edits the open file is searched as it is on screen, so a hit's line is a
+        // line of the buffer the jump lands in.
+        let unsaved = self.dirty.then(|| self.buf.to_bytes());
         search::grep_project(
             &self.root,
             &files,
@@ -965,6 +977,7 @@ impl App {
             whole_word,
             smart_case,
             current.as_deref(),
+            unsaved.as_deref(),
         )
     }
 
@@ -977,16 +990,15 @@ impl App {
         self.buf.path.as_deref().and_then(search::kind_of)
     }
 
-    /// `rel/path:line: text` rows for a result picker. The text is normalized like `Buffer`
-    /// does (tabs to spaces) so `ui` can line it up with the file's highlighting.
+    /// `rel/path:line: text` rows for a result picker. The text keeps its tabs, as `Buffer`
+    /// does, so `ui` can line it up with the file's highlighting; tabs are expanded when drawn.
     pub(crate) fn hit_items(hits: Vec<Hit>) -> Vec<PickItem> {
         hits.into_iter()
             .map(|h| {
                 let label = format!("{}:{}: ", h.path.display(), h.line);
                 let code_at = Some(label.len());
-                let text = h.text.replace('\t', buffer::TAB);
                 PickItem {
-                    label: label + &clip(text.trim(), MAX_LABEL_TEXT),
+                    label: label + &clip(h.text.trim(), MAX_LABEL_TEXT),
                     path: h.path,
                     line: h.line,
                     code_at,
@@ -1038,8 +1050,13 @@ impl App {
         };
         if let Some(block) = kind.and_then(|k| search::def_block(k, &word)) {
             hits.retain(|h| {
-                std::fs::read_to_string(self.root.join(&h.path))
-                    .is_ok_and(|text| search::directly_inside(&text, h.line, block))
+                // The open file as it is on screen, which is what `grep` searched.
+                let text = if here.as_ref() == Some(&h.path) {
+                    self.buf.lines.join("\n")
+                } else {
+                    std::fs::read_to_string(self.root.join(&h.path)).unwrap_or_default()
+                };
+                search::directly_inside(&text, h.line, block)
             });
         }
         if hits.is_empty() {
@@ -1147,17 +1164,24 @@ impl App {
         if self.buf.path.is_none() {
             return;
         }
-        if let Some(why) = self.buf.readonly {
-            self.message = format!("read-only: {why}");
-            return;
-        }
-        // The tail of a clipped line is not on screen, so it cannot be edited by sight.
-        if self.buf.shown(self.line).len() != self.line_str().len() {
-            self.message = "line too long to edit".into();
+        if let Some(why) = self.locked(std::iter::once(&self.buf.lines[self.line])) {
+            self.message = why;
             return;
         }
         self.mode = Mode::Edit;
         self.undo_break = true;
+    }
+
+    /// Why the text cannot change or be written, if it cannot: the buffer is not what would be
+    /// written back, or one of `lines` is longer than the screen shows, so its tail would be
+    /// edited blind.
+    fn locked<'a>(&self, mut lines: impl Iterator<Item = &'a String>) -> Option<String> {
+        if let Some(why) = self.buf.readonly {
+            return Some(format!("read-only: {why}"));
+        }
+        lines
+            .any(|l| Buffer::clips(l))
+            .then(|| "line too long to edit".to_string())
     }
 
     /// Keys that only mean something while editing. Returns `false` for every other key, which
@@ -1230,16 +1254,25 @@ impl App {
         self.replace(from, to, text);
     }
 
-    /// Text the terminal pasted (Cmd+V): inserted while editing, ignored otherwise.
+    /// Text the terminal pasted (Cmd+V): inserted while editing, typed into a prompt or a picker
+    /// query (its first line), ignored in navigation, where every letter is a command.
     pub fn paste(&mut self, text: &str) {
+        let text = text.replace("\r\n", "\n").replace('\r', "\n");
         if self.mode == Mode::Edit {
-            self.insert(&text.replace("\r\n", "\n").replace('\r', "\n"));
+            self.insert(&text);
+        } else if self.picker.is_some()
+            || matches!(self.mode, Mode::Goto | Mode::Find | Mode::Search)
+        {
+            for c in text.lines().next().unwrap_or_default().chars() {
+                self.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+            }
         }
     }
 
     /// The one way the text changes: what lies between `from` and `to` (ordered (line, col))
     /// becomes `text`, and the cursor lands after it. Recorded for undo; typing that carries
-    /// on where the previous step ended extends that step, as VS Code groups keystrokes.
+    /// on where the previous step ended extends that step, as VS Code groups keystrokes. Refused,
+    /// with the reason in the status bar, where `locked` says the text cannot change.
     fn replace(&mut self, from: (usize, usize), to: (usize, usize), text: &str) {
         let before = (self.line, self.col);
         let old: Vec<String> = self.buf.lines[from.0..=to.0].to_vec();
@@ -1252,6 +1285,10 @@ impl App {
         let last = new.len() - 1;
         let col = new[last].len();
         new[last].push_str(tail);
+        if let Some(why) = self.locked(old.iter().chain(&new)) {
+            self.message = why;
+            return;
+        }
         self.buf.lines.splice(from.0..=to.0, new.iter().cloned());
         (self.line, self.col) = (from.0 + last, col);
         let edit = Edit {
@@ -1312,9 +1349,21 @@ impl App {
         self.sync_want_x();
     }
 
-    /// Writes the buffer to its file, ending any conflict in the buffer's favour.
+    /// Writes the buffer to its file. A file someone else changed since merl last read or wrote
+    /// it is not overwritten: that is a conflict, and with the conflict on screen Ctrl+S (the one
+    /// save that still runs) ends it in the buffer's favour.
     pub fn save(&mut self) {
         let Some(path) = &self.buf.path else { return };
+        if let Some(why) = self.locked(std::iter::empty()) {
+            self.message = why;
+            return;
+        }
+        // ponytail: read, compare, then write; a writer landing between the read and the write
+        // still loses. Files have no compare-and-swap, and the window is one read long.
+        if !self.conflict && std::fs::read(path).is_ok_and(|b| buffer::hash(&b) != self.buf.disk) {
+            self.conflict = true;
+            return;
+        }
         let bytes = self.buf.to_bytes();
         match std::fs::write(path, &bytes) {
             Ok(()) => {
@@ -1332,14 +1381,17 @@ impl App {
         }
     }
 
-    /// Saves unsaved edits now: leaving edit mode, switching files, quitting.
-    pub fn flush(&mut self) {
+    /// Saves unsaved edits now: leaving edit mode, switching files, quitting. Returns `false`
+    /// when edits are left that the disk does not have: a conflict, or a failed save.
+    pub fn flush(&mut self) -> bool {
         if self.dirty && !self.conflict {
             self.save();
         }
+        !self.dirty
     }
 
-    /// Autosave, called by the event loop between events. Returns `true` when it saved.
+    /// Autosave, called by the event loop between events. Returns `true` when it tried, which
+    /// changes the status bar whether the file was written, refused or found changed on disk.
     pub fn tick(&mut self) -> bool {
         let due = self.last_edit.is_some_and(|t| t.elapsed() >= self.autosave);
         if !due || !self.dirty || self.conflict {
@@ -1351,15 +1403,21 @@ impl App {
 
     // ---- keys ------------------------------------------------------------
 
-    /// Handles one key. Returns `true` when merl should quit.
+    /// Handles one key. Returns `true` when merl should quit. A quit over edits that could not be
+    /// saved is refused once, with the ways out in the status bar; quitting again right away
+    /// leaves the edits behind.
     pub fn key(&mut self, key: KeyEvent) -> bool {
         let quit = self.key_inner(key);
-        if quit {
-            self.flush();
-        } else {
+        if !quit {
+            self.quit_again = false;
             tutor::check(self);
+            return false;
         }
-        quit
+        if self.flush() || std::mem::replace(&mut self.quit_again, true) {
+            return true;
+        }
+        self.message = "unsaved edits: Ctrl+S saves, Ctrl+R drops them, q again quits".into();
+        false
     }
 
     fn key_inner(&mut self, key: KeyEvent) -> bool {
@@ -1609,11 +1667,18 @@ mod tests {
     use super::*;
 
     fn app(text: &str) -> App {
+        // Edits get saved, so each test has a file of its own, absent until the first save.
+        let name = std::thread::current()
+            .name()
+            .unwrap_or("main")
+            .replace("::", "-");
+        let path = std::env::temp_dir().join(format!("merl-{name}.txt"));
+        let _ = std::fs::remove_file(&path);
         let mut a = App::new(
             PathBuf::from("/tmp"),
             Tree::default(),
             Vec::new(),
-            Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), text.as_bytes()),
+            Buffer::from_bytes(path, text.as_bytes()),
             None,
         );
         a.view_w = 20;
@@ -1686,6 +1751,39 @@ mod tests {
             (a.mode, a.message.as_str()),
             (Mode::Normal, "theme kanagawa-wave")
         );
+    }
+
+    #[test]
+    fn enter_in_the_theme_picker_writes_the_config() {
+        let dir = std::env::temp_dir().join(format!("merl-theme-config-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut a = app("x\n");
+        a.config = Some(dir.join("config.toml"));
+        press(&mut a, KeyCode::Char('T'), KeyModifiers::NONE);
+        a.picker.as_mut().unwrap().settle();
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        let name = crate::theme::names().nth(1).unwrap();
+        assert_eq!(a.message, format!("theme {name} saved"));
+        assert_eq!(
+            std::fs::read_to_string(dir.join("config.toml")).unwrap(),
+            format!("theme = \"{name}\"\n")
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_paste_types_into_prompts_and_pickers_but_not_navigation() {
+        let mut a = app("foo\n");
+        a.paste("so");
+        assert_eq!((a.mode, a.picker.is_none()), (Mode::Normal, true));
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        a.paste("parse_it\r\nsecond line");
+        assert_eq!((a.mode, a.prompt.as_str()), (Mode::Search, "parse_it"));
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+        a.paste("app.rs");
+        assert_eq!(a.picker.as_ref().unwrap().query, "app.rs");
     }
 
     #[test]
@@ -2013,6 +2111,57 @@ mod tests {
         a.col = 20;
         press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
         assert_eq!(at(&a), (dir.join("compose.yml"), 3), "{}", a.message);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn definitions_fall_back_to_the_word_and_keep_only_direct_locals() {
+        let (dir, mut a) = project_app(
+            "fallback",
+            &[
+                (
+                    "order.rs",
+                    "pub struct Order {\n    items: Vec<u8>,\n}\nfn add(order: &mut Order) {\n    order.items.push(1);\n}\n",
+                ),
+                (
+                    "main.tf",
+                    "locals {\n  name = \"x\"\n  tags = {\n    name = \"y\"\n  }\n}\nresource \"a\" \"b\" {\n  bucket = local.name\n}\n",
+                ),
+            ],
+        );
+        // A field is no declaration the Rust rules know: the whole-word search finds it.
+        a.jump_to(&dir.join("order.rs"), 5);
+        a.col = 10;
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("order.rs"), 1), "{}", a.message);
+        // Of the two `name =` lines, only the one directly inside `locals` is `local.name`.
+        a.jump_to(&dir.join("main.tf"), 8);
+        a.col = 17;
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("main.tf"), 1), "{}", a.message);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn navigation_searches_the_open_file_as_it_is_on_screen() {
+        let (dir, mut a) = project_app(
+            "unsaved",
+            &[(
+                "lib.rs",
+                "fn main() { target(); }\nfn target() {}\n// end\n",
+            )],
+        );
+        a.jump_to(&dir.join("lib.rs"), 1);
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        // Undo from navigation: until autosave the buffer is a line shorter than the disk.
+        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        assert!(a.dirty);
+        a.col = 12;
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        assert_eq!(a.line_str(), "fn target() {}", "{}", a.message);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -2448,6 +2597,99 @@ mod tests {
         assert_eq!((a.mode, a.dirty), (Mode::Normal, false));
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "xone\n");
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn read_only_buffers_are_never_changed_or_written() {
+        let (path, mut a) = temp_file("readonly", "one\n");
+        // Another tool re-encodes the file while it is in edit mode with nothing unsaved.
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        std::fs::write(&path, b"caf\xe9\n").unwrap();
+        a.reload(false);
+        typed(&mut a, "x");
+        assert_eq!(
+            (a.dirty, a.message.as_str()),
+            (false, "read-only: not UTF-8")
+        );
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
+        assert_eq!(a.message, "read-only: not UTF-8");
+        assert_eq!(std::fs::read(&path).unwrap(), b"caf\xe9\n");
+        // Nor does a binary file's placeholder text reach the disk.
+        std::fs::write(&path, b"\x89PNG\0\x01").unwrap();
+        a.reload(false);
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
+        assert_eq!(std::fs::read(&path).unwrap(), b"\x89PNG\0\x01");
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn edits_that_touch_or_make_a_clipped_line_are_refused() {
+        let mut a = app(&format!("ab\n{}\n", "x".repeat(20_000)));
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        a.paste(&"y".repeat(20_000));
+        assert_eq!(
+            (a.line_str(), a.message.as_str()),
+            ("ab", "line too long to edit")
+        );
+        // A join into a line exactly as long as the screen shows.
+        press(&mut a, KeyCode::End, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Delete, KeyModifiers::NONE);
+        assert_eq!(
+            (a.buf.lines.len(), a.message.as_str()),
+            (2, "line too long to edit")
+        );
+        assert!(!a.dirty);
+    }
+
+    #[test]
+    fn a_save_never_overwrites_a_change_it_has_not_seen() {
+        let (path, mut a) = temp_file("unseen", "one\n");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "mine ");
+        // The other write lands before its watcher event is handled, or with no watcher at all.
+        std::fs::write(&path, "theirs\n").unwrap();
+        a.autosave = Duration::ZERO;
+        a.tick();
+        assert!(a.conflict);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "theirs\n");
+        // With the conflict on screen, Ctrl+S is the answer that overwrites.
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
+        assert!(!a.conflict && !a.dirty);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "mine one\n");
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn edits_that_cannot_be_saved_keep_merl_on_the_file() {
+        let (path, mut a) = temp_file("keep", "one\n");
+        let other = path.with_file_name("g.py");
+        std::fs::write(&other, "two\n").unwrap();
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "mine ");
+        std::fs::write(&path, "theirs\n").unwrap();
+        a.reload(false);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        // In a conflict another file does not open over the edits, and the first quit is refused.
+        a.jump_to(&other, 1);
+        assert_eq!((at(&a).0, a.line_str()), (path.clone(), "mine one"));
+        assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+        assert!(a.message.contains("q again"), "{}", a.message);
+        assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "theirs\n");
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+
+        // A save that fails holds merl the same way, and a key in between asks again.
+        let (path, mut a) = temp_file("keep-gone", "one\n");
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "x");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert!(a.message.starts_with("save failed"), "{}", a.message);
+        assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+        assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
     }
 
     #[test]

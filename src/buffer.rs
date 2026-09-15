@@ -95,9 +95,17 @@ impl Buffer {
         let syntax = (lines.len() <= MAX_HL_LINES && bytes.len() <= MAX_HL_BYTES)
             .then(|| syntax_for(&path, &lines[0]));
         let mut b = Self::new(Some(path), lines, syntax);
-        b.readonly = lossy.then_some("not UTF-8");
         b.crlf = crlf;
         b.trailing_newline = trailing_newline;
+        // One line ending per file: a mix, or a stray `\r`, would be rewritten by the first save,
+        // so it is refused like any other text that would not come back out as it went in.
+        b.readonly = if lossy {
+            Some("not UTF-8")
+        } else if b.to_bytes() != bytes {
+            Some("mixed line endings")
+        } else {
+            None
+        };
         b.tabs = b.lines.iter().any(|l| l.starts_with('\t'));
         b.disk = hash(bytes);
         b
@@ -149,6 +157,11 @@ impl Buffer {
     pub fn shown(&self, l: usize) -> &str {
         let s = &self.lines[l];
         &s[..floor_boundary(s, MAX_SHOWN_BYTES)]
+    }
+
+    /// Whether `line` is longer than [`Buffer::shown`] draws, so part of it is off screen.
+    pub fn clips(line: &str) -> bool {
+        line.len() > MAX_SHOWN_BYTES
     }
 
     /// Drops the highlighting, so the next [`Buffer::highlight_to`] paints with another theme:
@@ -277,6 +290,20 @@ mod tests {
         assert_eq!(load(b"\n").to_bytes(), b"\n");
         assert!(load(b"\tx\n").tabs);
         assert!(!load(b"    x\n").tabs);
+    }
+
+    #[test]
+    fn mixed_line_endings_are_read_only() {
+        for mixed in ["a\r\nb\n", "x\r", "a\r\r\n"] {
+            assert_eq!(
+                load(mixed.as_bytes()).readonly,
+                Some("mixed line endings"),
+                "{mixed:?}"
+            );
+        }
+        for clean in ["a\r\nb\r\n", "a\nb\n", "a\nb", "", "\n"] {
+            assert_eq!(load(clean.as_bytes()).readonly, None, "{clean:?}");
+        }
     }
 
     #[test]
