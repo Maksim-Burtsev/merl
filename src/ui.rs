@@ -547,9 +547,10 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
         spans.push(Span::styled(format!("  {}", app.message), style));
     }
     frame.render_widget(Paragraph::new(Line::from(spans)).style(style), area);
-    // With nothing to report, the right edge keeps `?` discoverable.
+    // With nothing to report, the right edge keeps `?` discoverable. A conflict is something to
+    // report: the banner names the keys that resolve it, and the hint would be drawn over them.
     const HINT: &str = "? help ";
-    if app.message.is_empty() && area.width as usize > HINT.len() {
+    if app.message.is_empty() && !app.conflict && area.width as usize > HINT.len() {
         let hint = Rect {
             x: area.right() - HINT.len() as u16,
             width: HINT.len() as u16,
@@ -983,6 +984,35 @@ mod tests {
         assert!(
             !text.contains("Open a file (fuzzy)"),
             "first rows scrolled away\n{text}"
+        );
+    }
+
+    /// The `? help` hint only fills an otherwise empty right edge: the conflict banner says how
+    /// to resolve a save conflict, and the hint drawn over its tail would eat that.
+    #[test]
+    fn the_help_hint_does_not_cover_the_conflict_banner() {
+        let mut app = App::new(
+            PathBuf::from("/tmp"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"x\n"),
+            None,
+        );
+        app.show_tree = false;
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(74, 4)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        assert!(
+            rows(&terminal)[3].ends_with("? help"),
+            "the hint fills a quiet right edge"
+        );
+        // Narrow enough that the banner reaches where the hint would be drawn.
+        app.conflict = true;
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        let status = &rows(&terminal)[3];
+        assert!(
+            status.ends_with("Ctrl+S overwrites, Ctrl+R reloads"),
+            "the banner runs to the edge uncut: {status:?}"
         );
     }
 

@@ -1311,6 +1311,12 @@ impl App {
     fn symbols(&mut self) {
         let mut named: Vec<(String, Hit)> = Vec::new();
         for (kind, pattern) in search::SYMBOLS {
+            // Every rule greps up to MAX_HITS of its own, so the rules together would run past
+            // it. Stop in rule order, as one grep stops in file order, and the count the title
+            // names is the count the list holds.
+            if named.len() >= search::MAX_HITS {
+                break;
+            }
             let re = Regex::new(pattern).expect("built-in symbol patterns are valid");
             let wanted = |p: &Path| match kind {
                 Some(k) => search::kind_of(p) == Some(*k),
@@ -1326,6 +1332,7 @@ impl App {
             self.message = "no symbols".into();
             return;
         }
+        named.truncate(search::MAX_HITS);
         named.sort_by_cached_key(|(n, h)| (n.to_lowercase(), h.path.clone(), h.line));
         let width = named
             .iter()
@@ -2559,6 +2566,31 @@ mod tests {
             .collect();
         // `apiVersion:` has the shape of a Makefile target; the target rule only reads Makefiles.
         assert_eq!(names, ["&base", "build", "build", "serve", "var.region"]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn the_symbol_list_stops_at_the_cap_its_title_names() {
+        // Two rules read a shell script — the all-language pattern finds `function f`, the shell
+        // rule finds `g()` — and each greps up to MAX_HITS of its own, so the list can run past
+        // the cap the title names.
+        let mut script = String::new();
+        for i in 0..search::MAX_HITS {
+            script.push_str(&format!("function f{i} {{\n  :\n}}\ng{i}() {{\n  :\n}}\n"));
+        }
+        let (dir, mut a) = project_app("symbol-cap", &[("lib.sh", script.as_str())]);
+        press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+        let picker = a.picker.as_mut().unwrap();
+        picker.settle();
+        assert_eq!(
+            picker.title,
+            format!("Symbols (first {})", search::MAX_HITS)
+        );
+        assert_eq!(
+            picker.counts().1 as usize,
+            search::MAX_HITS,
+            "the title promises MAX_HITS, so the list may not be longer"
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

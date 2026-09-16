@@ -85,6 +85,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an empty string, Backspace and Delete remove a char instead of marking the file changed, and a
   plain arrow moves.
 - shokunin-light draws the selection in the theme's light blue instead of the cursor line colour.
+- The `? help` hint no longer overwrites the tail of the "changed on disk" banner: the banner
+  names the keys that resolve the conflict, and a narrow terminal drew `? help` over them.
+- `D` lists as many symbols as its title promises. Each of the rules `D` runs greps up to 5000
+  hits of its own, so together they ran past the cap the title named; they now stop at it.
 
 ## [0.3.0] - 2026-09-13
 
