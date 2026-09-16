@@ -43,6 +43,35 @@ const THEMES: &[(&str, &[u8])] = &[
     ("sonokai", include_bytes!("../themes/sonokai.tmTheme")),
     ("material-dark", include_bytes!("../themes/material-dark.tmTheme")),
     ("shokunin-dark", include_bytes!("../themes/shokunin-dark.tmTheme")),
+    ("adwaita", include_bytes!("../themes/adwaita.tmTheme")),
+    ("alabaster", include_bytes!("../themes/alabaster.tmTheme")),
+    ("ayu", include_bytes!("../themes/ayu.tmTheme")),
+    ("ayu-mirage", include_bytes!("../themes/ayu-mirage.tmTheme")),
+    ("bamboo", include_bytes!("../themes/bamboo.tmTheme")),
+    ("cendre", include_bytes!("../themes/cendre.tmTheme")),
+    ("darkearth", include_bytes!("../themes/darkearth.tmTheme")),
+    ("e-ink", include_bytes!("../themes/e-ink.tmTheme")),
+    ("edge", include_bytes!("../themes/edge.tmTheme")),
+    ("gotham", include_bytes!("../themes/gotham.tmTheme")),
+    ("hojicha", include_bytes!("../themes/hojicha.tmTheme")),
+    ("iceberg", include_bytes!("../themes/iceberg.tmTheme")),
+    ("jellybeans", include_bytes!("../themes/jellybeans.tmTheme")),
+    ("koda-dark", include_bytes!("../themes/koda-dark.tmTheme")),
+    ("lackluster", include_bytes!("../themes/lackluster.tmTheme")),
+    ("mellifluous", include_bytes!("../themes/mellifluous.tmTheme")),
+    ("mellow", include_bytes!("../themes/mellow.tmTheme")),
+    ("miasma", include_bytes!("../themes/miasma.tmTheme")),
+    ("minischeme", include_bytes!("../themes/minischeme.tmTheme")),
+    ("moonfly", include_bytes!("../themes/moonfly.tmTheme")),
+    ("nightfly", include_bytes!("../themes/nightfly.tmTheme")),
+    ("papercolor", include_bytes!("../themes/papercolor.tmTheme")),
+    ("pencil", include_bytes!("../themes/pencil.tmTheme")),
+    ("selenized", include_bytes!("../themes/selenized.tmTheme")),
+    ("soviet-dark", include_bytes!("../themes/soviet-dark.tmTheme")),
+    ("srcery", include_bytes!("../themes/srcery.tmTheme")),
+    ("token", include_bytes!("../themes/token.tmTheme")),
+    ("vague", include_bytes!("../themes/vague.tmTheme")),
+    ("vesper", include_bytes!("../themes/vesper.tmTheme")),
     ("rose-pine-dawn", include_bytes!("../themes/rose-pine-dawn.tmTheme")),
     ("kanagawa-lotus", include_bytes!("../themes/kanagawa-lotus.tmTheme")),
     ("everforest-light", include_bytes!("../themes/everforest-light.tmTheme")),
@@ -63,6 +92,24 @@ const THEMES: &[(&str, &[u8])] = &[
     ("material-light", include_bytes!("../themes/material-light.tmTheme")),
     ("bluloco-light", include_bytes!("../themes/bluloco-light.tmTheme")),
     ("shokunin-light", include_bytes!("../themes/shokunin-light.tmTheme")),
+    ("adwaita-light", include_bytes!("../themes/adwaita-light.tmTheme")),
+    ("alabaster-light", include_bytes!("../themes/alabaster-light.tmTheme")),
+    ("ayu-light", include_bytes!("../themes/ayu-light.tmTheme")),
+    ("bamboo-light", include_bytes!("../themes/bamboo-light.tmTheme")),
+    ("e-ink-light", include_bytes!("../themes/e-ink-light.tmTheme")),
+    ("edge-light", include_bytes!("../themes/edge-light.tmTheme")),
+    ("iceberg-light", include_bytes!("../themes/iceberg-light.tmTheme")),
+    ("jellybeans-light", include_bytes!("../themes/jellybeans-light.tmTheme")),
+    ("koda-light", include_bytes!("../themes/koda-light.tmTheme")),
+    ("lightearth", include_bytes!("../themes/lightearth.tmTheme")),
+    ("mellifluous-light", include_bytes!("../themes/mellifluous-light.tmTheme")),
+    ("minischeme-light", include_bytes!("../themes/minischeme-light.tmTheme")),
+    ("neomodern-light", include_bytes!("../themes/neomodern-light.tmTheme")),
+    ("papercolor-light", include_bytes!("../themes/papercolor-light.tmTheme")),
+    ("pencil-light", include_bytes!("../themes/pencil-light.tmTheme")),
+    ("selenized-light", include_bytes!("../themes/selenized-light.tmTheme")),
+    ("soviet-light", include_bytes!("../themes/soviet-light.tmTheme")),
+    ("token-light", include_bytes!("../themes/token-light.tmTheme")),
 ];
 
 pub const DEFAULT: &str = "tokyonight-moon";
@@ -128,8 +175,9 @@ pub struct Theme {
     pub find_bg: Color,
     pub find_fg: Color,
     /// The theme's signature colour, painted on the chrome the user navigates by: directory
-    /// names, the tree and picker frames, the file name in the status bar. Taken from the
-    /// colour the theme gives function names, so every theme has one without a new key.
+    /// names, the tree and picker frames, the file name in the status bar. Taken from the colour
+    /// the theme gives function names, or the first other scope it colours, so every theme has
+    /// one without a new key.
     pub accent: Color,
     /// Background of the Shift+Up/Down line selection.
     #[allow(dead_code)]
@@ -169,6 +217,25 @@ fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         .line_highlight
         .map_or_else(|| mix(fg, bg, 12), |c| composite(c, bg));
     let line_hl = rgb(line_hl_syn);
+    // The chrome colours are derived, so on a palette that barely varies two of them can land on
+    // the same value and the row they paint stops reading as marked. Each fallback below pushes
+    // the collision apart instead of leaving the chrome flat.
+    let mut line_hl_dim = blend(line_hl_syn, bg, 50);
+    for percent in [7, 12, 20] {
+        if line_hl_dim != rgb(bg) && line_hl_dim != line_hl {
+            break;
+        }
+        line_hl_dim = blend(fg, bg, percent);
+    }
+    // The selection is drawn over the cursor line (#62), so a theme whose own selection colour
+    // sits within a few points of it gets one blended further from the background instead.
+    let mut selection = s.selection.map_or_else(|| blend(fg, bg, 25), over_bg);
+    for percent in [35, 45, 55, 65] {
+        if apart(selection, line_hl) {
+            break;
+        }
+        selection = blend(fg, bg, percent);
+    }
 
     Ok(Theme {
         bg: rgb(bg),
@@ -177,22 +244,34 @@ fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
             .gutter_foreground
             .map_or_else(|| blend(fg, bg, 45), over_bg),
         line_hl,
-        line_hl_dim: blend(line_hl_syn, bg, 50),
+        line_hl_dim,
         status_bg: line_hl,
         status_fg: rgb(fg),
         find_bg: s.find_highlight.map_or_else(|| blend(fg, bg, 35), over_bg),
         find_fg: s.find_highlight_foreground.map_or_else(|| rgb(bg), over_bg),
-        selection: s.selection.map_or_else(|| blend(fg, bg, 25), over_bg),
-        accent: rgb(function_color(&syntect).unwrap_or(fg)),
+        selection,
+        accent: rgb(accent_color(&syntect).unwrap_or(fg)),
         syntect,
     })
 }
 
-/// The foreground the theme paints `entity.name.function` with, if it has a rule for it.
-fn function_color(theme: &syntect::highlighting::Theme) -> Option<SynColor> {
-    let scope = Scope::new("entity.name.function").ok()?;
-    let style = Highlighter::new(theme).style_for_stack(&[scope]);
-    (Some(style.foreground) != theme.settings.foreground).then_some(style.foreground)
+/// The theme's signature colour: what it paints function names with, or — for the minimal themes
+/// that leave functions in the plain text colour — the first other scope it does colour. `None`
+/// when a theme paints every one of them like plain text.
+fn accent_color(theme: &syntect::highlighting::Theme) -> Option<SynColor> {
+    let highlighter = Highlighter::new(theme);
+    [
+        "entity.name.function",
+        "keyword",
+        "string",
+        "constant.numeric",
+        "variable",
+    ]
+    .into_iter()
+    .find_map(|scope| {
+        let style = highlighter.style_for_stack(&[Scope::new(scope).ok()?]);
+        (Some(style.foreground) != theme.settings.foreground).then_some(style.foreground)
+    })
 }
 
 /// Converts one syntect span style into a ratatui style. The span background is ignored: merl
@@ -226,6 +305,15 @@ fn composite(c: SynColor, bg: SynColor) -> SynColor {
 /// `fg` over `bg` at `percent` opacity, as a ratatui color.
 fn blend(fg: SynColor, bg: SynColor, percent: u32) -> Color {
     rgb(mix(fg, bg, percent))
+}
+
+/// Whether two chrome colours read as two colours: at least 12 points apart on one channel, the
+/// distance `every_theme_has_the_basics` requires of the selection and the cursor line.
+fn apart(a: Color, b: Color) -> bool {
+    let (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) = (a, b) else {
+        return true;
+    };
+    r1.abs_diff(r2) >= 12 || g1.abs_diff(g2) >= 12 || b1.abs_diff(b2) >= 12
 }
 
 fn mix(fg: SynColor, bg: SynColor, percent: u32) -> SynColor {
