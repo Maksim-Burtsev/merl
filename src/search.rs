@@ -452,9 +452,13 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
                     r"{mods}{w}\s*[?!]?\s*(?::[^=]*)?[=:]\s*(?:async\s+)?(?:function\b|\(|[\w$]+\s*=>)"
                 ),
                 // A signature with no body, as an interface, an abstract class, an overload and
-                // every class in a `.d.ts` write one: `foo(id: string): User;`. The return type
-                // tells it from a call; no `=` in it keeps an annotated arrow argument out.
-                format!(r"{mods}{w}\??\s*(?:<[^>]*>)?\([^;{{}}]*\)\s*:[^;{{}}=]*;?\s*$"),
+                // every class in a `.d.ts` write one: `foo(id: string): User;`. A signature's
+                // parameters are none or start with an annotated name, where a call's arguments
+                // are expressions (`foo(a ? b(c) : d);`); no `=` in the return type keeps an
+                // annotated arrow argument out.
+                format!(
+                    r"{mods}{w}\??\s*(?:<[^>]*>)?\((?:\s*|\s*(?:\.\.\.)?[\w$]+\??\s*:[^;{{}}]*)\)\s*:[^;{{}}=]*;?\s*$"
+                ),
             ]
         }
         Kind::Rust
@@ -471,12 +475,17 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
 
 /// The name a reader knows the declaration on 1-based `line` of `text` by: `name` behind what it
 /// is declared in, `UserRepository.delete_user` for a method, `Outer.Inner.run` for a nested
-/// one, the receiver type of a Go method. `None` at the top level. The enclosing declarations
-/// are the lines above indented less, named by the [`SYMBOLS`] rows a file of `kind` is read
-/// with, so a declaration nothing names stays unqualified rather than wrongly qualified.
+/// one, the receiver type of a Go method, the type a Rust `impl … for Type` is for. `None` at
+/// the top level. The enclosing declarations are the lines above indented less, named by the
+/// [`SYMBOLS`] rows a file of `kind` is read with; the walk stops at the first enclosing line
+/// they name nothing on (a `return {`, an `if`), so a declaration stays unqualified rather than
+/// wrongly qualified. A YAML anchor names a value, not a container: YAML is never qualified.
 pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<String> {
     static RECEIVER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^func\s+\(\s*(?:\w+\s+)?\*?\s*([A-Za-z_]\w*)").unwrap()
+    });
+    static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").unwrap()
     });
     static ROWS: std::sync::LazyLock<Vec<(Option<Kind>, Regex)>> = std::sync::LazyLock::new(|| {
         SYMBOLS
@@ -489,6 +498,9 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             })
             .collect()
     });
+    if kind == Kind::Yaml {
+        return None;
+    }
     let sep = if kind == Kind::Rust { "::" } else { "." };
     let lines: Vec<&str> = text.lines().collect();
     let target = *lines.get(line.checked_sub(1)?)?;
@@ -510,12 +522,20 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             continue;
         }
         depth = indent(l);
-        if let Some(n) = ROWS
-            .iter()
-            .filter(|(k, _)| *k == Some(kind) || (k.is_none() && shared_symbols(Some(kind))))
-            .find_map(|(_, re)| symbol_name(re, l))
-        {
-            names.push(n);
+        let named = IMPL
+            .captures(l)
+            .filter(|_| kind == Kind::Rust)
+            .map(|c| c[1].to_owned())
+            .or_else(|| {
+                ROWS.iter()
+                    .filter(|(k, _)| {
+                        *k == Some(kind) || (k.is_none() && shared_symbols(Some(kind)))
+                    })
+                    .find_map(|(_, re)| symbol_name(re, l))
+            });
+        match named {
+            Some(n) => names.push(n),
+            None => break,
         }
     }
     names.reverse();
@@ -765,8 +785,9 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
 /// The names a file binds by importing, each with the module path it comes from, as the parts
 /// a file system would spell it in. `import numpy as np` binds `np` to `[numpy]`; `from json
 /// import load` binds `load` to `[json, load]` (a module or a name in one, the caller relaxes
-/// the path until a file matches). Relative and in-crate imports (`from . import`, `crate::`,
-/// `./x`) are project files, found by the project search already, and are left out.
+/// the path until a file matches). A relative import (`from . import views`, `./utils`) binds
+/// too, with a leading `.` part: it names a project file, never one outside. Rust's in-crate
+/// `crate::` and `super::` paths are left out.
 pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
     let mut out = Vec::new();
     let parts = |module: &str, sep: &str| -> Vec<String> {
@@ -800,8 +821,9 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
             for c in IMPORT.captures_iter(text) {
                 if let (Some(module), Some(names)) = (c.get(1), c.get(2)) {
                     let module = module.as_str();
+                    let mut base = parts(module.trim_start_matches('.'), ".");
                     if module.starts_with('.') {
-                        continue;
+                        base.insert(0, ".".to_owned());
                     }
                     for item in names
                         .as_str()
@@ -809,7 +831,7 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
                         .split(',')
                     {
                         if let Some((alias, name)) = bound(item.trim()) {
-                            let mut path = parts(module, ".");
+                            let mut path = base.clone();
                             path.push(name);
                             out.push((alias, path));
                         }
@@ -841,34 +863,54 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
             static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
                 Regex::new(r#"(?m)^\s*(?:import\s+)?(?:(\w+|\.|_)\s+)?"([^"]+)"\s*$"#).unwrap()
             });
+            let version =
+                |p: &str| p.starts_with('v') && p[1..].chars().all(|c| c.is_ascii_digit());
             for c in IMPORT.captures_iter(text) {
-                let module = &c[2];
-                let path = parts(module, "/");
-                // The package name is the last element that is not a major version.
-                let name = path
-                    .iter()
-                    .rev()
-                    .find(|p| !(p.starts_with('v') && p[1..].chars().all(|c| c.is_ascii_digit())))
-                    .cloned()
-                    .unwrap_or_default();
-                let alias = c.get(1).map_or(name, |m| m.as_str().to_owned());
-                out.push((alias, path));
+                let path = parts(&c[2], "/");
+                if let Some(alias) = c.get(1) {
+                    out.push((alias.as_str().to_owned(), path));
+                    continue;
+                }
+                // The package name is the last element that is not a major version, without the
+                // decorations a module path carries: `yaml.v3`, `nats.go`, `go-sqlite3`,
+                // `bar-go`. A major version last can be the package itself
+                // (`k8s.io/api/core/v1`), so it binds as well.
+                let Some(last) = path.iter().rev().find(|p| !version(p)) else {
+                    continue;
+                };
+                let mut name = last.as_str();
+                if let Some((stem, suffix)) = name.rsplit_once('.')
+                    && (version(suffix) || suffix == "go")
+                {
+                    name = stem;
+                }
+                name = name.strip_prefix("go-").unwrap_or(name);
+                name = name.strip_suffix("-go").unwrap_or(name);
+                out.push((name.to_owned(), path.clone()));
+                if let Some(v) = path.last().filter(|p| version(p)) {
+                    out.push((v.clone(), path.clone()));
+                }
             }
         }
         Kind::TsJs => {
             static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
                 Regex::new(
-                    r#"(?ms)^\s*(?:import\s+(?:type\s+)?([^'"]*?)\s*from\s*|(?:const|let|var)\s+([^=]+?)\s*=\s*(?:await\s+)?(?:require|import)\s*\(\s*)['"]([^'"]+)['"]"#,
+                    r#"(?ms)^\s*(?:import\s+(?:type\s+)?([^'"]*?)\s*from\s*|(?:const|let|var)\s+([^=]+?)\s*=\s*(?:await\s+)?(?:require|import)\s*\(\s*|import\s+([\w$]+)\s*=\s*require\s*\(\s*)['"]([^'"]+)['"]"#,
                 )
                 .unwrap()
             });
             for c in IMPORT.captures_iter(text) {
-                let module = c[3].strip_prefix("node:").unwrap_or(&c[3]);
-                if module.starts_with('.') || module.starts_with('/') {
-                    continue;
+                let module = c[4].strip_prefix("node:").unwrap_or(&c[4]);
+                // `./x` and `../x` keep their dots as the first part; an absolute path gets one.
+                let mut path = parts(module, "/");
+                if module.starts_with('/') {
+                    path.insert(0, ".".to_owned());
                 }
-                let path = parts(module, "/");
-                let clause = c.get(1).or_else(|| c.get(2)).map_or("", |m| m.as_str());
+                let clause = c
+                    .get(1)
+                    .or_else(|| c.get(2))
+                    .or_else(|| c.get(3))
+                    .map_or("", |m| m.as_str());
                 // `x`, `* as x`, `{a, b as c}` and `x, {a}` in one clause.
                 for item in clause.split([',', '{', '}']) {
                     let item = item.trim().trim_start_matches("* as ").trim();
@@ -1112,7 +1154,7 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    const TS_MEMBERS: &str = "export interface Repo {\n  deleteUser(id: string): Promise<void>;\n  findUser?<T>(id: string): T | undefined\n  onChange: (id: string) => void;\n  name: string;\n}\n\nexport abstract class Base {\n  abstract deleteUser(id: string): Promise<void>;\n  get size(): number;\n}\n\nconst deleteUser = (id: string) => id;\nfindUser(id);\nrun(x).then((y): void => y);\nconst n = cond ? findUser(a) : b;\nexport const helpers = {\n  deleteUser(id) {\n    return id;\n  },\n};\n";
+    const TS_MEMBERS: &str = "export interface Repo {\n  deleteUser(id: string): Promise<void>;\n  findUser?<T>(id: string): T | undefined\n  onChange: (id: string) => void;\n  name: string;\n}\n\nexport abstract class Base {\n  abstract deleteUser(id: string): Promise<void>;\n  get size(): number;\n}\n\nconst deleteUser = (id: string) => id;\nfindUser(id);\nrun(x).then((y): void => y);\nconst n = cond ? findUser(a) : b;\nexport const helpers = {\n  deleteUser(id) {\n    return id;\n  },\n};\nappend(target, visitor ? visitNode(s) : s);\nlog(\"(while reading XRef): \" + e);\ndeclare class Emitter {\n  on(event: string, cb: (x: T) => void): this;\n  append(...items: string[]): void;\n}\n";
 
     #[test]
     fn ts_members_include_signatures_without_a_body() {
@@ -1133,6 +1175,11 @@ mod tests {
         // A plain field has no rule, and an annotated arrow argument is not a signature.
         assert_eq!(m("name"), Vec::<usize>::new());
         assert_eq!(m("run"), Vec::<usize>::new());
+        // A call whose arguments hold `) :` or `):` is not one either; a signature whose
+        // parameter is a function type, and a rest parameter, are.
+        assert_eq!(m("append"), [26], "not the call on line 22");
+        assert_eq!(m("log"), Vec::<usize>::new());
+        assert_eq!(m("on"), [25]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -1191,6 +1238,23 @@ mod tests {
         assert_eq!(q(Kind::Go, go, 6, "Parse"), None);
         assert_eq!(q(Kind::Go, go, 8, "Send").as_deref(), Some("Notifier.Send"));
         assert_eq!(q(Kind::Rust, RS, 6, "sum").as_deref(), Some("Order::sum"));
+        // A Rust `impl` is named after the type it is for.
+        let rs = "impl std::fmt::Display for Reason {\n    fn fmt(&self) {}\n}\nimpl<T> From<T> for Order {\n    fn from(t: T) -> Self {}\n}\n";
+        assert_eq!(q(Kind::Rust, rs, 2, "fmt").as_deref(), Some("Reason::fmt"));
+        assert_eq!(q(Kind::Rust, rs, 5, "from").as_deref(), Some("Order::from"));
+        // An enclosing line that names nothing stops the walk: the object literal's `get` is
+        // not `Api.get`.
+        let lit =
+            "class Api {\n  build() {\n    return {\n      get() {\n      },\n    };\n  }\n}\n";
+        assert_eq!(q(Kind::TsJs, lit, 4, "get"), None);
+        // A comment indented less than the method is skipped, not taken for a container.
+        let commented = "class A:\n# note\n    def run(self):\n        pass\n";
+        assert_eq!(
+            q(Kind::Python, commented, 3, "run").as_deref(),
+            Some("A.run")
+        );
+        let yaml = "x-common: &defaults\n  env: prod\n";
+        assert_eq!(q(Kind::Yaml, yaml, 2, "env"), None);
         let rb = "module Billing\n  class Invoice\n    def total\n    end\n  end\nend\n";
         assert_eq!(
             q(Kind::Ruby, rb, 3, "total").as_deref(),
@@ -1712,7 +1776,7 @@ output "bucket" {
     #[test]
     fn imports_bind_names_to_module_paths() {
         let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        let py = "import json\nimport numpy as np\nimport os.path\nfrom collections import OrderedDict, deque as dq\nfrom . import local\nfrom typing import (\n    Any,\n    Final,\n)\n";
+        let py = "import json\nimport numpy as np\nimport os.path\nfrom collections import OrderedDict, deque as dq\nfrom . import local\nfrom ..models import Note\nfrom typing import (\n    Any,\n    Final,\n)\n";
         let got = imports(Kind::Python, py);
         assert_eq!(
             got,
@@ -1722,6 +1786,9 @@ output "bucket" {
                 ("os".into(), p(&["os"])),
                 ("OrderedDict".into(), p(&["collections", "OrderedDict"])),
                 ("dq".into(), p(&["collections", "deque"])),
+                // A relative import is a project file, marked by its leading `.` part.
+                ("local".into(), p(&[".", "local"])),
+                ("Note".into(), p(&[".", "models", "Note"])),
                 ("Any".into(), p(&["typing", "Any"])),
                 ("Final".into(), p(&["typing", "Final"])),
             ]
@@ -1744,7 +1811,7 @@ output "bucket" {
                 ("Path".into(), p(&["std", "path", "Path"])),
             ]
         );
-        let go = "package x\n\nimport \"strings\"\n\nimport (\n\t\"fmt\"\n\ttoml \"github.com/BurntSushi/toml\"\n\t\"github.com/go-chi/chi/v5\"\n)\n";
+        let go = "package x\n\nimport \"strings\"\n\nimport (\n\t\"fmt\"\n\ttoml \"github.com/BurntSushi/toml\"\n\t\"github.com/go-chi/chi/v5\"\n\t\"gopkg.in/yaml.v3\"\n\t\"github.com/mattn/go-sqlite3\"\n\t\"github.com/nats-io/nats.go\"\n\t\"k8s.io/api/core/v1\"\n)\n";
         let got = imports(Kind::Go, go);
         assert_eq!(
             got,
@@ -1753,9 +1820,16 @@ output "bucket" {
                 ("fmt".into(), p(&["fmt"])),
                 ("toml".into(), p(&["github.com", "BurntSushi", "toml"])),
                 ("chi".into(), p(&["github.com", "go-chi", "chi", "v5"])),
+                ("v5".into(), p(&["github.com", "go-chi", "chi", "v5"])),
+                // The package name without the decorations its module path carries.
+                ("yaml".into(), p(&["gopkg.in", "yaml.v3"])),
+                ("sqlite3".into(), p(&["github.com", "mattn", "go-sqlite3"])),
+                ("nats".into(), p(&["github.com", "nats-io", "nats.go"])),
+                ("core".into(), p(&["k8s.io", "api", "core", "v1"])),
+                ("v1".into(), p(&["k8s.io", "api", "core", "v1"])),
             ]
         );
-        let ts = "import fs from 'node:fs';\nimport { join, resolve as res } from \"path\";\nimport * as React from 'react';\nimport type { Foo } from '@scope/pkg/sub';\nimport local from './local';\nconst chalk = require('chalk');\nconst { a, b } = await import('lib');\n";
+        let ts = "import fs from 'node:fs';\nimport { join, resolve as res } from \"path\";\nimport * as React from 'react';\nimport type { Foo } from '@scope/pkg/sub';\nimport local from './local';\nconst chalk = require('chalk');\nconst { a, b } = await import('lib');\nimport cp = require('child_process');\nconst utils = require('../lib/utils');\n";
         let got = imports(Kind::TsJs, ts);
         assert_eq!(
             got,
@@ -1765,9 +1839,12 @@ output "bucket" {
                 ("res".into(), p(&["path"])),
                 ("React".into(), p(&["react"])),
                 ("Foo".into(), p(&["@scope", "pkg", "sub"])),
+                ("local".into(), p(&[".", "local"])),
                 ("chalk".into(), p(&["chalk"])),
                 ("a".into(), p(&["lib"])),
                 ("b".into(), p(&["lib"])),
+                ("cp".into(), p(&["child_process"])),
+                ("utils".into(), p(&["..", "lib", "utils"])),
             ]
         );
     }

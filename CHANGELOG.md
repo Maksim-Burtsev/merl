@@ -11,9 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `d` finds a Python `async def` and a TypeScript method signature with no body
   (`find(id: string): User;` in an interface, an abstract class, an overload or a `.d.ts`). (#69)
-- `d` on `x.word` no longer takes a variable for a module and looks for a dependency file named
-  after it. Go lookups outside the project skip `_test.go` files, `testdata` and nested modules
-  such as GOROOT's `cmd`, which no import reaches. (#69)
+- Go lookups outside the project skip `_test.go` files, `testdata` and nested modules such as
+  GOROOT's `cmd`, which no import reaches. A relative import (`from . import views`, `./utils`)
+  and a Go package whose name its path decorates (`gopkg.in/yaml.v3`, `go-sqlite3`) now bind the
+  name they bring in. (#69)
 - Eight themes had the selection colour within a few points of the cursor line highlight, so a
   selection inside the cursor line was nearly invisible: rose-pine-moon, rose-pine-dawn, nordfox,
   nightfox, gruvbox-material-light and material-light move the selection a step along their own
@@ -25,7 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` says how it found the target. After a jump the status line reads
   `delete_user → UserRepository.delete_user (by name, 1 match)` or `load: via import json`. Over
   a picker the status line and the title read `delete_user: by name, 2 declarations`, and each row
-  starts with the class, interface or receiver the declaration sits in and why it is listed. (#69)
+  starts with the class, interface or receiver the declaration sits in and why it is listed. A
+  module lookup that falls back past the module an import names, or a value whose name only
+  matches a module, says `by name`. (#69)
 - `d` on `x.word` where `x` is a value (a local, a parameter, `self.repo`) collects every method
   of that name, from the project and from the standard library and dependencies, instead of
   stopping: Python `def` in a class, TypeScript methods and signatures (read from `.d.ts` outside

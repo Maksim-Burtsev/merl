@@ -210,7 +210,11 @@ pub fn check(app: &mut App) {
     if !(lesson.done)(app) {
         return;
     }
-    app.message = format!("\u{2713} {}", lesson.title);
+    // The tick goes in front of what the key itself reported, such as how `d` found its target.
+    app.message = match app.message.as_str() {
+        "" => format!("\u{2713} {}", lesson.title),
+        said => format!("\u{2713} {}  {said}", lesson.title),
+    };
     if let Some(tutor) = &mut app.tutor {
         tutor.step = step + 1;
     }
@@ -387,9 +391,13 @@ mod tests {
         press(&mut a, KeyCode::Char('n'));
         done(&mut a);
 
-        // 4: go to definition
+        // 4: go to definition, and the status line the lesson points at
         press(&mut a, KeyCode::Char('d'));
         done(&mut a);
+        assert_eq!(
+            a.message,
+            "\u{2713} Go to definition  load_config: by name, 1 match"
+        );
 
         // 5 and 6: back and forward
         press(&mut a, KeyCode::Char('['));

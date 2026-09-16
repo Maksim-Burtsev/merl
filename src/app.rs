@@ -697,12 +697,18 @@ impl App {
             match self.load(path) {
                 Ok(mut buf) => {
                     // The standard library and dependencies are read here, never edited. A
-                    // `.venv` or `node_modules` sits inside the root, so the roots decide.
+                    // `.venv` or `node_modules` sits inside the root, so the roots decide, but
+                    // not over a file the project walk listed: an editable install puts the
+                    // project's own `src` on `sys.path`.
+                    let listed = path
+                        .strip_prefix(&self.root)
+                        .is_ok_and(|rel| self.files.iter().any(|f| f == rel));
                     let external = !path.starts_with(&self.root)
-                        || self
-                            .external
-                            .values()
-                            .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)));
+                        || !listed
+                            && self
+                                .external
+                                .values()
+                                .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)));
                     if external {
                         buf.readonly.get_or_insert("outside the project");
                     }
@@ -1313,27 +1319,21 @@ impl App {
         let on_value = dotted && !own && chain.first().is_none_or(|f| bound(&imports, f).is_none());
         let members = on_value
             .then(|| search::member_patterns(kind, &word))
-            .flatten();
-        let patterns = members
-            .clone()
-            .unwrap_or_else(|| search::def_patterns(kind, &word));
+            .flatten()
+            .map(|m| m.join("|"));
+        let patterns = search::def_patterns(kind, &word);
         if patterns.is_empty() {
             self.message = format!("no definition for {word}");
             return;
         }
         let pattern = patterns.join("|");
-        // Escaped or built-in patterns always compile.
-        let mut hits = self
-            .grep(&pattern, false, false, |p| {
-                search::in_def_scope(kind, &here, p)
-            })
-            .unwrap_or_default();
-        if let Some(block) = search::def_block(kind, &word) {
-            hits.retain(|h| {
-                std::fs::read_to_string(self.root.join(&h.path))
-                    .is_ok_and(|text| search::directly_inside(&text, h.line, block))
-            });
-        }
+        // A member in the project first. A qualifier no import names can still be a class, a
+        // namespace or a module of the project, which declares the word at its top level.
+        let hits = members
+            .as_ref()
+            .map(|m| self.project_definitions(kind, &here, &word, m))
+            .filter(|hits| !hits.is_empty())
+            .unwrap_or_else(|| self.project_definitions(kind, &here, &word, &pattern));
         let mut found: Vec<Candidate> = hits
             .into_iter()
             .map(|hit| Candidate {
@@ -1341,7 +1341,7 @@ impl App {
                 reason: Reason::ByName,
             })
             .collect();
-        if members.is_some() {
+        if let Some(members) = &members {
             // A value's type is unknown: its member may come from a dependency as well. Outside
             // the project TypeScript is read from its declaration files, as VS Code lands on
             // them: the `.d.ts` says what a type offers, the bundled JavaScript is noise.
@@ -1351,7 +1351,7 @@ impl App {
                 .filter(|p| kind != Kind::TsJs || search::declaration_file(p))
                 .cloned()
                 .collect();
-            let external = self.external_grep(kind, &files, &pattern);
+            let external = self.external_grep(kind, &files, members);
             let seen: Vec<PathBuf> = found.iter().map(|c| self.root.join(&c.hit.path)).collect();
             found.extend(
                 external
@@ -1363,18 +1363,19 @@ impl App {
                     }),
             );
         } else if found.is_empty()
-            && !on_value
             && !matches!(
                 chain.first().map(String::as_str),
                 Some("self" | "cls" | "this")
             )
         {
-            found = self.external_definitions(kind, &word, &chain, &pattern, &imports);
+            found = self.external_definitions(kind, &word, &chain, dotted, &pattern, &imports);
         }
         // Standing on one of the definitions is not a reason to go nowhere.
         if found.len() > 1 {
             found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
         }
+        // The project and the outside are each cut at MAX_HITS; the picker holds that many.
+        found.truncate(search::MAX_HITS);
         match found.as_slice() {
             [] => self.message = resolution(&word, None, &found),
             [one] => {
@@ -1382,8 +1383,13 @@ impl App {
                 let target = self
                     .text_of(&one.hit.path)
                     .and_then(|text| search::qualified(kind, &text, one.hit.line, &word));
-                self.message = resolution(&word, target.as_deref(), &found);
+                let status = resolution(&word, target.as_deref(), &found);
                 self.jump_to(&path, one.hit.line);
+                // A refused jump (edits that cannot be saved) leaves its own reason, not a
+                // resolution nobody followed.
+                if self.buf.path.as_deref() == Some(path.as_path()) {
+                    self.message = status;
+                }
             }
             _ => {
                 let status = resolution(&word, None, &found);
@@ -1399,30 +1405,64 @@ impl App {
         }
     }
 
+    /// The lines `pattern` matches where a definition of `word` in `here`, a file of `kind`, can
+    /// live in the project. Escaped or built-in patterns always compile.
+    fn project_definitions(&self, kind: Kind, here: &Path, word: &str, pattern: &str) -> Vec<Hit> {
+        let mut hits = self
+            .grep(pattern, false, false, |p| {
+                search::in_def_scope(kind, here, p)
+            })
+            .unwrap_or_default();
+        if let Some(block) = search::def_block(kind, word) {
+            hits.retain(|h| {
+                std::fs::read_to_string(self.root.join(&h.path))
+                    .is_ok_and(|text| search::directly_inside(&text, h.line, block))
+            });
+        }
+        hits
+    }
+
     /// `pattern` over the standard library and dependencies of `kind`, in the module the file's
     /// imports bind `chain` (or `word` itself) to. The module path is relaxed from the end until
-    /// files match: `from json import load` is `json/load`, then `json`. A qualifier no import
-    /// binds is taken as the module path itself (`std::fs::read`); a name nothing installed
-    /// declares matches no file and the search stops. A bare word no import binds (`Vec`,
-    /// `open`) searches every file, by name.
+    /// files match: `from json import load` is `json/load`, then `json`. Relaxing past the
+    /// module the import names (`github.com/foo/bar` down to `github.com`) is a search by name,
+    /// and says so. A relative import names a project file, so nothing outside is searched. A
+    /// qualifier no import binds is taken as the module path itself: `std::fs::read` spells one,
+    /// while a `dotted` qualifier is a value whose name merely matches a module, found by name. A
+    /// name nothing installed declares matches no file and the search stops. A bare word no
+    /// import binds (`Vec`, `open`) searches every file, by name.
     fn external_definitions(
         &mut self,
         kind: Kind,
         word: &str,
         chain: &[String],
+        dotted: bool,
         pattern: &str,
         imports: &[(String, Vec<String>)],
     ) -> Vec<Candidate> {
-        let imported = chain.first().map_or(bound(imports, word).is_some(), |f| {
-            bound(imports, f).is_some()
-        });
+        let bound_path = bound(imports, chain.first().map_or(word, String::as_str));
+        let imported = bound_path.is_some();
+        if bound_path
+            .as_ref()
+            .and_then(|p| p.first())
+            .is_some_and(|p| p.starts_with('.'))
+        {
+            return Vec::new();
+        }
+        // The import's own item may go (`from json import load` is `json`), and so may whatever
+        // the chain adds past it; the module itself may not.
+        let floor = bound_path
+            .as_ref()
+            .map_or(chain.len(), Vec::len)
+            .saturating_sub(1)
+            .max(1);
         let mut module = match chain.first() {
             Some(first) => {
-                let mut p = bound(imports, first).unwrap_or_else(|| vec![first.clone()]);
+                let mut p = bound_path.unwrap_or_else(|| vec![first.clone()]);
                 p.extend(chain[1..].iter().cloned());
                 Some(p)
             }
-            None => bound(imports, word),
+            None => bound_path,
         };
         let all = self.external_files(kind);
         let mut files: Vec<PathBuf> = Vec::new();
@@ -1463,11 +1503,12 @@ impl App {
             Kind::Rust => "::",
             _ => "/",
         };
-        let module = module.join(sep);
-        let reason = if imported {
-            Reason::Import(module)
+        let reason = if module.len() < floor || (!imported && dotted) {
+            Reason::ByName
+        } else if imported {
+            Reason::Import(module.join(sep))
         } else {
-            Reason::Path(module)
+            Reason::Path(module.join(sep))
         };
         hits.into_iter()
             .map(|hit| Candidate {
@@ -2184,7 +2225,11 @@ fn resolution(word: &str, target: Option<&str>, found: &[Candidate]) -> String {
             None => format!("{word}: {why}"),
         };
     }
-    let n = found.len();
+    // The candidates stop at MAX_HITS, so that many is a lower bound.
+    let n = match found.len() {
+        n if n >= search::MAX_HITS => format!("{n}+"),
+        n => n.to_string(),
+    };
     if found.iter().all(|c| c.reason == *reason) {
         format!("{word}: {reason}, {n} declarations")
     } else {
@@ -3288,6 +3333,310 @@ mod tests {
         std::fs::remove_dir_all(&site).unwrap();
     }
 
+    /// A standard library or dependency root on disk, with `files` in it, for the lookups
+    /// outside the project; removed by the caller.
+    fn external_root(tag: &str, files: &[(&str, &str)]) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("merl-root-{}-{tag}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        for (name, text) in files {
+            let path = dir.join(name);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, text).unwrap();
+        }
+        dir
+    }
+
+    /// Makes `roots` the only places outside the project `d` looks in for `kind`.
+    fn use_roots(a: &mut App, kind: Kind, roots: &[PathBuf]) {
+        let files = search::external_files(kind, roots);
+        a.external.insert(kind, (roots.to_vec(), Arc::new(files)));
+    }
+
+    /// A qualifier bound by a relative import, or a class of the project, is no value: `d`
+    /// finds the module-level declaration and does not add a dependency's same-named methods.
+    #[test]
+    fn a_module_or_a_class_in_front_of_the_word_is_not_a_value() {
+        let (dir, mut a) = project_app(
+            "modules",
+            &[
+                ("shop/views.py", "def index(request):\n    return 1\n"),
+                (
+                    "shop/urls.py",
+                    "from . import views\n\nurlpatterns = [views.index, views.missing]\n",
+                ),
+                (
+                    "web/utils.ts",
+                    "export function formatDate(d: Date): string {\n  return d.toISOString();\n}\n",
+                ),
+                (
+                    "web/app.ts",
+                    "import * as utils from \"./utils\";\n\nexport const today = utils.formatDate(new Date());\n",
+                ),
+                (
+                    "shapes.py",
+                    "class Outer:\n    class Inner:\n        pass\n\n\nx = Outer.Inner()\n",
+                ),
+            ],
+        );
+        let root = external_root(
+            "modules",
+            &[
+                (
+                    "site/admin.py",
+                    "class AdminSite:\n    def index(self, request):\n        pass\n",
+                ),
+                // A dependency with a `views` package must not answer for the project's `views`.
+                (
+                    "django/views/generic.py",
+                    "def missing(request):\n    pass\n",
+                ),
+                (
+                    "node/fmt.d.ts",
+                    "export declare class Fmt {\n  formatDate(d: Date): string;\n}\n",
+                ),
+            ],
+        );
+        use_roots(&mut a, Kind::Python, std::slice::from_ref(&root));
+        use_roots(&mut a, Kind::TsJs, std::slice::from_ref(&root));
+        for (file, code, want) in [
+            (
+                "shop/urls.py",
+                "views.index",
+                jump("index: by name, 1 match", "shop/views.py:1"),
+            ),
+            (
+                "shop/urls.py",
+                "views.missing",
+                jump("no definition for missing", "shop/urls.py:3"),
+            ),
+            (
+                "web/app.ts",
+                "utils.formatDate",
+                jump("formatDate: by name, 1 match", "web/utils.ts:1"),
+            ),
+            (
+                "shapes.py",
+                "Outer.Inner",
+                jump(
+                    "Inner \u{2192} Outer.Inner (by name, 1 match)",
+                    "shapes.py:2",
+                ),
+            ),
+        ] {
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{code}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// What `d` says about a lookup outside the project: the module an import or a path names,
+    /// and "by name" once the search is no longer inside it.
+    #[test]
+    fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
+        let (dir, mut a) = project_app(
+            "outside",
+            &[
+                (
+                    "main.go",
+                    "package main\n\nimport (\n\t\"github.com/foo/bar\"\n\t\"gopkg.in/yaml.v3\"\n)\n\nfunc main() {\n\t_ = yaml.Unmarshal(nil, nil)\n\tbar.Baz()\n}\n",
+                ),
+                (
+                    "main.rs",
+                    "fn main() {\n    let s = String::new().into_owned();\n    path.join(\"y\");\n    std::fs::read_to_string(\"x\");\n}\n",
+                ),
+                (
+                    "m.py",
+                    "import os\nimport jsonx\n\nos.path.join('a', 'b')\njsonx.dumps_x(1)\n",
+                ),
+            ],
+        );
+        let root = external_root(
+            "outside",
+            &[
+                (
+                    "gopkg.in/yaml.v3@v3.0.1/yaml.go",
+                    "package yaml\n\nfunc Unmarshal(in []byte, out any) error { return nil }\n",
+                ),
+                (
+                    "google.golang.org/protobuf@v1.34.0/proto/decode.go",
+                    "package proto\n\nfunc (o UnmarshalOptions) Unmarshal(b []byte, m any) error { return nil }\n",
+                ),
+                (
+                    "github.com/other/lib@v1.0.0/lib.go",
+                    "package lib\n\nfunc Baz() {}\n",
+                ),
+                (
+                    "alloc/src/borrow.rs",
+                    "pub trait ToOwned {\n    fn into_owned(self) -> Self;\n}\n",
+                ),
+                (
+                    "std/src/path.rs",
+                    "impl Path {\n    pub fn join(&self, p: &str) {}\n}\n",
+                ),
+                ("std/src/fs.rs", "pub fn read_to_string(path: &str) {}\n"),
+                ("os/__init__.py", ""),
+                ("os/path.py", "def join(a, *p):\n    return a\n"),
+                ("jsonx/a.py", "def dumps_x(o):\n    return o\n"),
+                ("jsonx/b.py", "def dumps_x(o):\n    return o\n"),
+            ],
+        );
+        for kind in [Kind::Go, Kind::Rust, Kind::Python] {
+            use_roots(&mut a, kind, std::slice::from_ref(&root));
+        }
+        let at = |p: &str| format!("{}", root.join(p).display());
+        for (file, code, want) in [
+            // A Go package named without its module path's `.v3`.
+            (
+                "main.go",
+                "yaml.Unmarshal",
+                jump(
+                    "Unmarshal: via import gopkg.in/yaml.v3",
+                    &at("gopkg.in/yaml.v3@v3.0.1/yaml.go:3"),
+                ),
+            ),
+            // `github.com/foo/bar` is not installed: `github.com/other/lib` only shares a prefix.
+            (
+                "main.go",
+                "bar.Baz",
+                jump(
+                    "Baz: by name, 1 match",
+                    &at("github.com/other/lib@v1.0.0/lib.go:3"),
+                ),
+            ),
+            // A Rust call on a value still looks outside the project.
+            (
+                "main.rs",
+                ".into_owned",
+                jump(
+                    "into_owned \u{2192} ToOwned::into_owned (by name, 1 match)",
+                    &at("alloc/src/borrow.rs:2"),
+                ),
+            ),
+            // A value named like a module is found in that module, by name.
+            (
+                "main.rs",
+                "path.join",
+                jump(
+                    "join \u{2192} Path::join (by name, 1 match)",
+                    &at("std/src/path.rs:2"),
+                ),
+            ),
+            (
+                "main.rs",
+                "std::fs::read_to_string",
+                jump("read_to_string: via std::fs", &at("std/src/fs.rs:1")),
+            ),
+            (
+                "m.py",
+                "os.path.join",
+                jump("join: via import os.path", &at("os/path.py:1")),
+            ),
+        ] {
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{code}");
+        }
+        // Rows that share an import say so, and so does the title.
+        d_on(&mut a, "m.py", "jsonx.dumps_x");
+        let row = |place: &str| {
+            (
+                "dumps_x".to_string(),
+                "via import jsonx".to_string(),
+                place.to_string(),
+            )
+        };
+        assert_eq!(
+            shown(&mut a),
+            Shown::Picker(
+                "dumps_x: via import jsonx, 2 declarations".into(),
+                vec![row("jsonx/a.py:1"), row("jsonx/b.py:1")],
+            )
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// `self.word` alone is the class's own member: a dependency's method of that name is not
+    /// a candidate.
+    #[test]
+    fn a_bare_self_stays_in_the_project() {
+        let (dir, mut a) = project_app(
+            "own",
+            &[(
+                "a.py",
+                "class A:\n    def stop(self):\n        pass\n\n    def run(self):\n        self.stop()\n",
+            )],
+        );
+        let root = external_root(
+            "own",
+            &[(
+                "threading.py",
+                "class Thread:\n    def stop(self):\n        pass\n",
+            )],
+        );
+        use_roots(&mut a, Kind::Python, std::slice::from_ref(&root));
+        d_on(&mut a, "a.py", "self.stop");
+        assert_eq!(
+            shown(&mut a),
+            jump("stop \u{2192} A.stop (by name, 1 match)", "a.py:2")
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// An editable install puts the project's own `src` on `sys.path`: a file the project walk
+    /// listed stays editable, while a gitignored `.venv` under the root does not.
+    #[test]
+    fn a_project_file_under_an_external_root_stays_editable() {
+        let (dir, mut a) = project_app(
+            "editable",
+            &[
+                (
+                    "src/app/repo.py",
+                    "class Repo:\n    def save(self):\n        pass\n",
+                ),
+                ("src/app/cli.py", "def main(r):\n    r.save()\n"),
+                (".gitignore", ".venv\n"),
+                (".venv/lib/site.py", "x = 1\n"),
+            ],
+        );
+        use_roots(
+            &mut a,
+            Kind::Python,
+            &[dir.join("src"), dir.join(".venv/lib")],
+        );
+        d_on(&mut a, "src/app/cli.py", "r.save");
+        assert_eq!(
+            shown(&mut a),
+            jump(
+                "save \u{2192} Repo.save (by name, 1 match)",
+                "src/app/repo.py:2"
+            )
+        );
+        assert_eq!(a.buf.readonly, None);
+        a.jump_to(&dir.join(".venv/lib/site.py"), 1);
+        assert_eq!(a.buf.readonly, Some("outside the project"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Edits that cannot be saved keep merl on the file; the status line must not claim `d` went.
+    #[test]
+    fn a_refused_jump_does_not_report_a_resolution() {
+        let (dir, mut a) = project_app(
+            "refused",
+            &[
+                ("a.py", "def helper():\n    pass\n"),
+                ("b.py", "from a import helper\n\nhelper()\n"),
+            ],
+        );
+        a.jump_to(&dir.join("b.py"), 3);
+        (a.dirty, a.conflict) = (true, true);
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("b.py"), 2));
+        assert_eq!(a.message, "");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn a_jump_says_how_the_target_was_found() {
         let mut a = fixture_app("go");
@@ -3316,6 +3665,14 @@ mod tests {
         let mut two = one(Reason::ByName);
         two.extend(one(Reason::Path("std::fs".into())));
         assert_eq!(resolution("read", None, &two), "read: 2 declarations");
+        // The candidates stop at MAX_HITS: the count is a lower bound.
+        let many: Vec<Candidate> = (0..search::MAX_HITS)
+            .flat_map(|_| one(Reason::ByName))
+            .collect();
+        assert_eq!(
+            resolution("save", None, &many),
+            format!("save: by name, {}+ declarations", search::MAX_HITS)
+        );
         assert_eq!(resolution("read", None, &[]), "no definition for read");
     }
 

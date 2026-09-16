@@ -175,14 +175,15 @@ the toolchain on this machine knows about — `sys.path` of `.venv/bin/python` (
 `node_modules` — narrowed to the module the file's imports bind the word to: `np.array` behind
 `import numpy as np` looks in `numpy`, `load` behind `from json import load` in `json`,
 `Regex::new` behind `use regex::Regex` in the `regex` crate, `chromium.launch()` behind
-`import { chromium } from 'playwright'` in that package; a bare `std::fs::read_to_string` or
-`os.path.join` is its own path. A compiled module such as `orjson` lands in its `.pyi` stub. The
+`import { chromium } from 'playwright'` in that package; a bare `std::fs::read_to_string` is its
+own path, and a relative import (`from . import views`, `./utils`) is the project's. A compiled module such as `orjson` lands in its `.pyi` stub. The
 standard library's hits come before the dependencies', the picker shows paths relative to their
 root, and files opened from there are read-only. Go's `_test.go` files, `testdata` and nested
 modules such as GOROOT's `cmd` are skipped, since no import reaches them. Java, Kotlin, Ruby and
 the rest have no roots yet, so `d` stays inside the project for them. A field, an enum variant or
 a parameter has no declaration the rules know: `d` says so, and `u` lists every whole-word use of
-the identifier.
+the identifier. On `x.field` the word is a member, so a method or property of that name anywhere is
+a candidate, found by name.
 
 `d` never jumps without saying how it found the target. The status line reads
 `delete_user → UserRepository.delete_user (by name, 1 match)` after a jump, `load: via import
@@ -194,12 +195,14 @@ picker row starts with what the declaration sits in and why it is listed —
 name filters the rows.
 
 On `x.word` where `x` is a value — a local, a parameter, `self.repo`, `f()`, anything behind a `.`
-that no import binds — merl does not know the type of `x`, so every method of that name is a
-candidate: Python `def` and `async def` inside a class, TypeScript class and object-literal
-methods, properties holding a function and bodiless signatures, Go `func (r *T) Name(`. They are
-collected from the project and from the standard library and dependencies, where TypeScript is
-read from its `.d.ts` files only. One candidate jumps; several open the picker, the project's
-first. A bare `self.word` or `this.word` stays in the project, as before.
+that no import binds, relative imports included — merl does not know the type of `x`, so every
+method of that name is a candidate: Python `def` and `async def` inside a class, TypeScript class
+and object-literal methods, properties holding a function and bodiless signatures, Go
+`func (r *T) Name(`. They are collected from the project and from the standard library and
+dependencies, where TypeScript is read from its `.d.ts` files only. A project with no such
+method has the word at its top level instead — `x` was a class or a namespace — and the usual
+declarations answer. One candidate jumps; several open the picker, the project's first. A bare
+`self.word` or `this.word` stays in the project, as before.
 
 | File | What `d` recognises | Searched |
 |---|---|---|
