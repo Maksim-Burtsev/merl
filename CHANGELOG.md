@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `merl --review[=BRANCH] [--base REF]`: code review inside merl. The branch's diff against its
+  base is a lens over the real files: added lines get a green mark, deleted lines are drawn in
+  place as grey ghosts, and `d`, `u`, `s` work straight from the diff. The panel lists the
+  branch's files with `M` / `A` / `D` and `+n −m`; `c` / `C` walk the hunks and cross into the
+  next file; `[` comes back from an excursion. A deleted file opens read-only from the base.
+  With `--review=BRANCH` merl fetches and switches to it; the base defaults to `origin/HEAD`, then
+  `origin/master`, `origin/main`, `origin/develop`. (#60)
+
 ## [0.4.0] - 2026-09-16
 
 ### Added
@@ -43,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   object-literal methods, behind any `export` / `default` / `declare` / `abstract` / `async`
   prefix. `.ts`, `.tsx`, `.js` and their module variants are searched together, so a `.tsx`
   component finds its types in `.ts`. (#31)
+||||||| parent of 8017f76 (feat: review a branch inside merl with `--review` (#60))
 - `d` and `D` in Ruby. `d` finds `def`, `def self.name`, `class`, `module`, an assignment (a
   constant, an `@ivar`, a local), the names an `attr_accessor` / `attr_reader` / `attr_writer`
   line declares and an `alias` / `alias_method`, over every `.rb`, `.rake`, `.gemspec`,

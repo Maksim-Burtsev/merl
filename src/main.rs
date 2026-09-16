@@ -42,7 +42,7 @@ enum Msg {
     /// Something changed in the directory of the open file.
     Fs(notify::Event),
     /// `git diff` finished for the file at this path.
-    Diff(PathBuf, std::collections::HashMap<usize, git::Mark>),
+    Diff(PathBuf, git::Diff),
 }
 
 #[derive(Parser)]
@@ -60,6 +60,19 @@ struct Cli {
     /// Walk through every key on a bundled sample project (ignores the target)
     #[arg(long)]
     tutor: bool,
+    /// Review the checked-out branch (or `--review=BRANCH` to switch to it first): its files
+    /// in the panel, its diff over the code, c / C between hunks
+    #[arg(
+        long,
+        value_name = "BRANCH",
+        num_args = 0..=1,
+        require_equals = true,
+        default_missing_value = ""
+    )]
+    review: Option<String>,
+    /// The branch the review is against (default: origin/HEAD, then origin/master, main, develop)
+    #[arg(long, value_name = "REF", requires = "review")]
+    base: Option<String>,
 }
 
 fn main() {
@@ -75,18 +88,40 @@ fn run() -> Result<()> {
     let name = cli.theme.clone().unwrap_or(config.theme);
     let theme = theme::load(&name)?;
 
-    let (root, file, line) = if cli.tutor {
+    let (mut root, mut file, line) = if cli.tutor {
         (tutor::extract()?, None, None)
     } else {
         resolve(cli.target.as_deref())?
     };
+    let review = match &cli.review {
+        Some(branch) => {
+            root = git_toplevel(&root).context("--review needs a git repository")?;
+            let branch = Some(branch.as_str()).filter(|b| !b.is_empty());
+            let r = git::Review::open(&root, branch, cli.base.as_deref())?;
+            if file.is_none() {
+                file = r
+                    .files
+                    .iter()
+                    .find(|f| f.status != 'D')
+                    .map(|f| root.join(&f.path));
+            }
+            Some(r)
+        }
+        None => None,
+    };
+    let (mut tree, files) = tree::build(&root);
+    if let Some(r) = &review {
+        tree = tree::from_files(&r.files.iter().map(|f| f.path.clone()).collect::<Vec<_>>());
+    }
     let buf = match &file {
         Some(p) => Buffer::load(p)?,
         None => Buffer::empty(),
     };
-    let (tree, files) = tree::build(&root);
     let dir = root.clone();
     let mut app = App::new(root, tree, files, buf, line);
+    if let Some(r) = review {
+        app.start_review(r);
+    }
     app.autosave = Duration::from_millis(config.autosave_delay_ms);
     app.theme = name;
     app.config = theme::config_path();
@@ -192,8 +227,8 @@ fn event_loop(
             // In a thread: git on a large repository can take longer than a frame.
             let (tx, root) = (diff_tx.clone(), app.root.clone());
             std::thread::spawn(move || {
-                let marks = git::marks(&root, &path);
-                let _ = tx.send(Msg::Diff(path, marks));
+                let diff = git::diff(&root, &path, None, None);
+                let _ = tx.send(Msg::Diff(path, diff));
             });
         }
         // Typing (edit mode, or any prompt) gets a bar, navigating a block, like vim: the shape
@@ -238,9 +273,9 @@ fn event_loop(
                 app.paste(&text);
                 dirty = true;
             }
-            Ok(Msg::Diff(path, marks)) => {
-                if app.buf.path == Some(path) {
-                    app.marks = marks;
+            Ok(Msg::Diff(path, diff)) => {
+                if app.buf.path == Some(path) && app.review.is_none() {
+                    app.diff = diff;
                     dirty = true;
                 }
             }
@@ -355,6 +390,22 @@ mod tests {
         assert_eq!(super::base64(b"fo"), "Zm8=");
         assert_eq!(super::base64(b"foo"), "Zm9v");
         assert_eq!(super::base64("hi\nтам".as_bytes()), "aGkK0YLQsNC8");
+    }
+
+    #[test]
+    fn review_takes_its_branch_only_with_an_equals_sign() {
+        use clap::Parser;
+        let cli = super::Cli::parse_from(["merl", "--review", "src/main.rs"]);
+        assert_eq!(
+            (cli.review.as_deref(), cli.target.as_deref()),
+            (Some(""), Some("src/main.rs"))
+        );
+        let cli = super::Cli::parse_from(["merl", "--review=feature", "--base", "origin/dev"]);
+        assert_eq!(
+            (cli.review.as_deref(), cli.base.as_deref()),
+            (Some("feature"), Some("origin/dev"))
+        );
+        assert!(super::Cli::try_parse_from(["merl", "--base", "x"]).is_err());
     }
 
     #[test]

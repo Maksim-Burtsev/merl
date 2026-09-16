@@ -56,21 +56,40 @@ pub fn build(root: &Path) -> (Tree, Vec<PathBuf>) {
         .filter(|(_, is_dir)| !is_dir)
         .map(|(p, _)| p.clone())
         .collect();
+    (from_entries(entries, false), files)
+}
+
+/// A tree of just `files` (relative paths) and the directories above them, all expanded:
+/// the review panel.
+pub fn from_files(files: &[PathBuf]) -> Tree {
+    let mut entries: Vec<(PathBuf, bool)> = files.iter().map(|p| (p.clone(), false)).collect();
+    for f in files {
+        for dir in f.ancestors().skip(1) {
+            if !dir.as_os_str().is_empty() && !entries.iter().any(|(p, _)| p == dir) {
+                entries.push((dir.to_path_buf(), true));
+            }
+        }
+    }
+    entries.sort_by_cached_key(|(p, is_dir)| sort_key(p, *is_dir));
+    from_entries(entries, true)
+}
+
+fn from_entries(entries: Vec<(PathBuf, bool)>, expanded: bool) -> Tree {
     let nodes = entries
         .into_iter()
         .map(|(path, is_dir)| Node {
             depth: path.components().count() - 1,
             path,
             is_dir,
-            expanded: false,
+            expanded,
         })
         .collect();
-    (Tree { nodes, cursor: 0 }, files)
+    Tree { nodes, cursor: 0 }
 }
 
 /// Sorting a path component by component puts every child right after its parent, and the
 /// `0`/`1` rank puts directories before files at each level.
-fn sort_key(path: &Path, is_dir: bool) -> Vec<(u8, String)> {
+pub(crate) fn sort_key(path: &Path, is_dir: bool) -> Vec<(u8, String)> {
     let last = path.components().count() - 1;
     path.components()
         .enumerate()
@@ -197,6 +216,26 @@ mod tests {
             ]
         );
         tree
+    }
+
+    #[test]
+    fn from_files_adds_the_directories_above_them_expanded() {
+        let t = from_files(&["src/b/y.rs".into(), "README".into(), "src/a.rs".into()]);
+        let rows: Vec<_> = t
+            .visible()
+            .iter()
+            .map(|&i| (t.nodes[i].depth, t.nodes[i].path.to_str().unwrap()))
+            .collect();
+        assert_eq!(
+            rows,
+            vec![
+                (0, "src"),
+                (1, "src/b"),
+                (2, "src/b/y.rs"),
+                (1, "src/a.rs"),
+                (0, "README")
+            ]
+        );
     }
 
     #[test]
