@@ -712,13 +712,14 @@ impl App {
                     self.conflict = false;
                     self.undo.clear();
                     self.redo.clear();
-                    self.diff = git::Diff::default();
-                    self.refresh_diff();
                     if self.mode == Mode::Edit {
                         self.mode = Mode::Normal;
                     }
                     (self.line, self.col, self.want_x) = (0, 0, 0);
                     (self.top_line, self.top_row) = (0, 0);
+                    // After the viewport is reset: the diff clamps it against the new file.
+                    self.diff = git::Diff::default();
+                    self.refresh_diff();
                 }
                 Err(e) => {
                     self.message = format!("{e:#}");
@@ -777,6 +778,7 @@ impl App {
             ),
         };
         // Ghosts change how many rows a line has; the viewport must not point past them.
+        self.top_line = self.top_line.min(self.buf.lines.len() - 1);
         self.top_row = self.top_row.min(self.row_count(self.top_line) - 1);
     }
 
@@ -2482,6 +2484,12 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!['M', 'M', 'D', 'A', 'M']
         );
+        // Opening a shorter file from far down a long one (Enter in the panel, #61 follow-up):
+        // the viewport of the old file must not be read against the new one.
+        a.jump_to(&dir.join("src/a.rs"), 6);
+        (a.top_line, a.top_row) = (5, 0);
+        a.jump_to(&dir.join("new"), 0);
+        assert_eq!((at(&a), a.top_line), ((dir.join("new"), 0), 0));
         // Outside the project (the standard library, a dependency) nothing is marked deleted.
         let outside = std::env::temp_dir().join(format!("merl-outside-{}", std::process::id()));
         std::fs::write(&outside, "fn x() {}\n").unwrap();
