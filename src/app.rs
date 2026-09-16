@@ -998,11 +998,13 @@ impl App {
         self.mode = Mode::Picker(kind);
     }
 
-    /// `T`: every theme, with the cursor on the one in use.
+    /// `T`: every theme, the built-ins then the user's own, with the cursor on the one in use.
     fn open_themes_picker(&mut self) {
-        let items = crate::theme::names()
+        let themes = crate::theme::entries();
+        let items = themes
+            .iter()
             .map(|name| PickItem {
-                label: name.to_string(),
+                label: name.clone(),
                 path: PathBuf::from(name),
                 line: 0,
                 code_at: None,
@@ -1010,9 +1012,7 @@ impl App {
             .collect();
         self.show_picker(PickerKind::Themes, items);
         if let Some(p) = &mut self.picker {
-            p.selected = crate::theme::names()
-                .position(|n| n == self.theme)
-                .unwrap_or(0);
+            p.selected = themes.iter().position(|n| *n == self.theme).unwrap_or(0);
         }
     }
 

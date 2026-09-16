@@ -49,6 +49,47 @@ pub fn names() -> impl Iterator<Item = &'static str> {
     THEMES.iter().map(|(name, _)| *name)
 }
 
+/// Where merl looks for the user's own themes.
+pub fn user_dir() -> Option<PathBuf> {
+    Some(dirs::home_dir()?.join(".config/merl/themes"))
+}
+
+/// Every theme that can be loaded: the built-ins in their order, then the user's files by name.
+/// A file named after a built-in replaces it, in its place, which is what [`load`] reads too.
+pub fn entries() -> Vec<String> {
+    entries_in(user_dir().as_deref())
+}
+
+fn entries_in(dir: Option<&Path>) -> Vec<String> {
+    let mut names: Vec<String> = names().map(str::to_string).collect();
+    let mut user = user_names(dir);
+    user.sort();
+    let extra: Vec<String> = user.into_iter().filter(|n| !names.contains(n)).collect();
+    names.extend(extra);
+    names
+}
+
+/// The names of the `.tmTheme` files in `dir`. A missing or unreadable directory has none.
+fn user_names(dir: Option<&Path>) -> Vec<String> {
+    let Some(dir) = dir else {
+        return Vec::new();
+    };
+    let Ok(read) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    read.flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|e| e == "tmTheme"))
+        .filter_map(|p| Some(p.file_stem()?.to_string_lossy().into_owned()))
+        .collect()
+}
+
+/// The user's file for `name`, when there is one.
+fn user_path(dir: Option<&Path>, name: &str) -> Option<PathBuf> {
+    dir.map(|d| d.join(format!("{name}.tmTheme")))
+        .filter(|p| p.is_file())
+}
+
 /// The colors the editor chrome needs, resolved to opaque RGB. Syntax colors come from
 /// [`Theme::syntect`] via [`style`].
 #[derive(Debug, Clone)]
@@ -74,12 +115,26 @@ pub struct Theme {
 }
 
 pub fn load(name: &str) -> Result<Theme> {
-    let Some((_, bytes)) = THEMES.iter().find(|(n, _)| *n == name) else {
-        let all: Vec<_> = names().collect();
-        bail!("unknown theme `{name}`; available: {}", all.join(", "));
+    load_from(user_dir().as_deref(), name)
+}
+
+fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
+    // A user file shadows the built-in of the same name; a broken one is an error, never a
+    // silent fall back to the built-in it shadows.
+    let (bytes, ctx) = match user_path(dir, name) {
+        Some(path) => {
+            let ctx = path.display().to_string();
+            (std::fs::read(&path).with_context(|| ctx.clone())?, ctx)
+        }
+        None => match THEMES.iter().find(|(n, _)| *n == name) {
+            Some((_, bytes)) => (bytes.to_vec(), format!("theme `{name}`")),
+            None => {
+                let all = entries_in(dir);
+                bail!("unknown theme `{name}`; available: {}", all.join(", "));
+            }
+        },
     };
-    let syntect = ThemeSet::load_from_reader(&mut Cursor::new(bytes))
-        .with_context(|| format!("theme `{name}`"))?;
+    let syntect = ThemeSet::load_from_reader(&mut Cursor::new(&bytes[..])).with_context(|| ctx)?;
 
     let s = &syntect.settings;
     let bg = s.background.unwrap_or(SynColor::BLACK);
@@ -261,6 +316,50 @@ mod tests {
                 .collect();
             assert!(colours.len() >= 3, "{name}: {colours:?}");
         }
+    }
+
+    /// A `.tmTheme` in the user's directory is listed after the built-ins and loads; one named
+    /// after a built-in replaces it. A broken file names itself in the error instead of falling
+    /// back to the built-in it shadows.
+    #[test]
+    fn user_themes_are_listed_loaded_and_win_over_a_built_in() {
+        let dir = std::env::temp_dir().join(format!("merl-user-themes-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let light = std::fs::read(format!(
+            "{}/themes/dayfox.tmTheme",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap();
+        std::fs::write(dir.join("mine.tmTheme"), &light).unwrap();
+        std::fs::write(dir.join(format!("{DEFAULT}.tmTheme")), &light).unwrap();
+
+        let entries = entries_in(Some(&dir));
+        assert_eq!(
+            entries.len(),
+            THEMES.len() + 1,
+            "one new name, one shadowed"
+        );
+        assert_eq!(
+            entries.last().unwrap().as_str(),
+            "mine",
+            "after the built-ins"
+        );
+        // Shadowing a built-in loads the user's file, not the theme it covers.
+        assert_eq!(
+            load_from(Some(&dir), DEFAULT).unwrap().bg,
+            load_from(None, "dayfox").unwrap().bg
+        );
+        let e = load_from(Some(&dir), "nope").unwrap_err().to_string();
+        assert!(
+            e.contains("mine"),
+            "an unknown name lists the user's too: {e}"
+        );
+
+        std::fs::write(dir.join("broken.tmTheme"), b"not a plist").unwrap();
+        let e = load_from(Some(&dir), "broken").unwrap_err().to_string();
+        assert!(e.contains("broken.tmTheme"), "{e}");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// The gallery in docs/themes.md shows every theme, with its screenshot, and nothing else.
