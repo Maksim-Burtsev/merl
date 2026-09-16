@@ -390,10 +390,10 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     let sel_lines = app.selection().map(|(start, end)| (start.0, end.0));
     // The cursor line keeps its highlight under a selection, so starting one inside a wrapped
     // line does not flash its other rows back to the plain background. The one exception is a
-    // selection that ends at the start of the cursor line: none of its text is selected, and a
-    // highlight close to the selection colour would pass for selected (#48), so that line is
-    // highlighted in the gutter only, as in VS Code.
-    let text_hl = app.selection().is_none_or(|(_, end)| end.1 > 0);
+    // cursor line none of whose text is selected (the selection ends at its start, or begins at
+    // its end and takes only the newline): a highlight close to the selection colour would pass
+    // for selected (#48), so that line is highlighted in the gutter only, as in VS Code.
+    let text_hl = app.selected_bytes(app.line).is_none_or(|r| !r.is_empty());
 
     let ghost = base.fg(theme.gutter_fg).add_modifier(Modifier::DIM);
     let ghost_row = |text: &str| {
@@ -1012,6 +1012,23 @@ z
         assert_eq!(
             paint(&mut app),
             ["------####", "--####----", "----------", ".........."]
+        );
+        // The same from below: Shift+Up out of the start of the next line selects the tail of
+        // the wrapped line, and its rows above the cursor keep the highlight too.
+        for (code, m) in [
+            (KeyCode::Esc, KeyModifiers::NONE),
+            (KeyCode::Down, KeyModifiers::NONE),
+            (KeyCode::Down, KeyModifiers::NONE),
+            (KeyCode::Down, KeyModifiers::NONE),
+            (KeyCode::Home, KeyModifiers::NONE),
+            (KeyCode::Up, KeyModifiers::SHIFT),
+        ] {
+            app.key(KeyEvent::new(code, m));
+        }
+        assert_eq!(app.selection(), Some(((0, 16), (1, 0))));
+        assert_eq!(
+            paint(&mut app),
+            ["----------", "----------", "--########", ".........."]
         );
     }
 
