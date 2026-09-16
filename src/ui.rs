@@ -388,9 +388,12 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     // Selected lines above the selection's last line are selected through their newline, so
     // their background runs to the right edge like VS Code's.
     let sel_lines = app.selection().map(|(start, end)| (start.0, end.0));
-    // While text is selected the cursor line is highlighted in the gutter only, as in VS Code:
-    // on the text, a highlight close to the selection colour passes for selected.
-    let text_hl = app.selection().is_none();
+    // The cursor line keeps its highlight under a selection, so starting one inside a wrapped
+    // line does not flash its other rows back to the plain background. The one exception is a
+    // cursor line none of whose text is selected (the selection ends at its start, or begins at
+    // its end and takes only the newline): a highlight close to the selection colour would pass
+    // for selected (#48), so that line is highlighted in the gutter only, as in VS Code.
+    let text_hl = app.selected_bytes(app.line).is_none_or(|r| !r.is_empty());
 
     let ghost = base.fg(theme.gutter_fg).add_modifier(Modifier::DIM);
     let ghost_row = |text: &str| {
@@ -925,26 +928,108 @@ mod tests {
                 })
                 .collect()
         };
-        // The line above the selection stays clean. The cursor line keeps its highlight in the
-        // gutter only, as in VS Code: past the selection it would pass for selected text.
+        // The line above the selection stays clean; the cursor line keeps its highlight.
         assert_eq!(
             paint(&mut app),
             [
                 "............",
                 "....########",
                 "..##########",
-                "--##........"
+                "--##--------"
             ]
         );
+        // Ending at the start of the cursor line selects none of its text: highlighted in the
+        // gutter only, as in VS Code, or past the selection it would pass for selected text.
+        app.key(KeyEvent::new(
+            KeyCode::Left,
+            KeyModifiers::SHIFT | KeyModifiers::CONTROL,
+        ));
+        assert_eq!(paint(&mut app)[3], "--..........");
         // Back on the anchor nothing is selected, and the cursor line is highlighted again.
-        for _ in 0..2 {
-            app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT));
+        for (code, m) in [
+            (KeyCode::Esc, KeyModifiers::NONE),
+            (KeyCode::Up, KeyModifiers::NONE),
+            (KeyCode::Up, KeyModifiers::NONE),
+            (KeyCode::Down, KeyModifiers::SHIFT),
+            (KeyCode::Up, KeyModifiers::SHIFT),
+        ] {
+            app.key(KeyEvent::new(code, m));
         }
         assert_eq!(paint(&mut app)[1], "------------");
         // With no selection at all, too.
         app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
         assert_eq!(app.selection(), None);
         assert_eq!(paint(&mut app)[1], "------------");
+    }
+
+    #[test]
+    fn selecting_inside_a_wrapped_line_keeps_its_highlight_on_the_other_rows() {
+        use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        // One 24-column line wraps onto three 8-column rows (the gutter takes two cells).
+        let mut app = App::new(
+            PathBuf::from("/demo"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::from_bytes(
+                PathBuf::from("/demo/f.txt"),
+                b"aaaaaaaabbbbbbbbcccccccc
+z
+",
+            ),
+            None,
+        );
+        app.show_tree = false;
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let paint = |app: &mut App| -> Vec<String> {
+            let mut terminal = Terminal::new(TestBackend::new(10, 5)).unwrap();
+            terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+            let buf = terminal.backend().buffer();
+            (0..4)
+                .map(|y| {
+                    (0..buf.area.width)
+                        .map(|x| match buf[(x, y)].bg {
+                            bg if bg == theme.selection => '#',
+                            bg if bg == theme.line_hl => '-',
+                            _ => '.',
+                        })
+                        .collect()
+                })
+                .collect()
+        };
+        // A first draw sets the pane width the wrapping and the remembered column depend on.
+        paint(&mut app);
+        // Cursor on the middle row, five cells in.
+        for _ in 0..12 {
+            app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
+        }
+        assert_eq!(
+            paint(&mut app)[..3],
+            ["----------", "----------", "----------"]
+        );
+        // Shift+Up selects half a row up to the cursor; the rest of the line stays highlighted
+        // instead of flashing back to the plain background.
+        app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT));
+        assert_eq!(
+            paint(&mut app),
+            ["------####", "--####----", "----------", ".........."]
+        );
+        // The same from below: Shift+Up out of the start of the next line selects the tail of
+        // the wrapped line, and its rows above the cursor keep the highlight too.
+        for (code, m) in [
+            (KeyCode::Esc, KeyModifiers::NONE),
+            (KeyCode::Down, KeyModifiers::NONE),
+            (KeyCode::Down, KeyModifiers::NONE),
+            (KeyCode::Down, KeyModifiers::NONE),
+            (KeyCode::Home, KeyModifiers::NONE),
+            (KeyCode::Up, KeyModifiers::SHIFT),
+        ] {
+            app.key(KeyEvent::new(code, m));
+        }
+        assert_eq!(app.selection(), Some(((0, 16), (1, 0))));
+        assert_eq!(
+            paint(&mut app),
+            ["----------", "----------", "--########", ".........."]
+        );
     }
 
     #[test]
