@@ -247,8 +247,15 @@ fn event_loop(
         // nucleo re-sorted the list under the cursor.
         if app.shown_theme() != loaded {
             loaded = app.shown_theme().to_string();
-            theme = theme::load(&loaded)?;
-            app.buf.clear_hl();
+            // A broken theme file of the user's own must not take merl down mid-preview: say so
+            // and keep drawing the one already loaded.
+            match theme::load(&loaded) {
+                Ok(t) => {
+                    theme = t;
+                    app.buf.clear_hl();
+                }
+                Err(e) => app.message = format!("{e:#}"),
+            }
             dirty = true;
         }
         if dirty {

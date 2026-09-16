@@ -239,6 +239,13 @@ Enter keeps it and writes it to the config file below, Esc puts the old one back
 NAME` overrides the config for one run; an unknown name exits with code 1 and lists the valid
 ones.
 
+Your own themes go in `~/.config/merl/themes/` as `NAME.tmTheme`, where `NAME` is what `T` and
+`--theme` call them. They are listed after the built-ins, and a file named after a built-in
+replaces it, so a shipped theme can be copied and edited. Any TextMate theme works — the ones
+bat and Sublime Text use, or one made with [`tools/port-theme.sh`](tools/port-theme.sh). A broken
+file is an error naming the path: at startup merl exits with code 1, and in `T` it says so and
+keeps the theme you had.
+
 The infrastructure half of a repository is highlighted too: Dockerfiles and `Containerfile` (with
 `RUN` lines as shell), compose, Kubernetes and CI YAML, Makefiles, Terraform, nginx, `.env`, TOML,
 INI and systemd units, `.dockerignore`, `CODEOWNERS`, Sorbet's `.rbi` files and `Dangerfile`. Helm
@@ -253,6 +260,8 @@ language.
 theme = "tokyonight-moon"
 autosave_delay_ms = 1000
 ```
+
+Themes of your own live next to it, in `~/.config/merl/themes/`.
 
 ## Terminals
 

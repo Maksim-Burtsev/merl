@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   next file; `[` comes back from an excursion. A deleted file opens read-only from the base.
   With `--review=BRANCH` merl fetches and switches to it; the base defaults to `origin/HEAD`, then
   `origin/master`, `origin/main`, `origin/develop`. (#60)
+- Themes of your own: a `.tmTheme` in `~/.config/merl/themes/` is listed in `T` after the built-in
+  ones and loads under its file name, and one named after a built-in replaces it, so a shipped
+  theme can be copied and edited. A broken file names its path — at startup merl exits with code 1,
+  and in `T` it says so and keeps the theme already on screen.
 
 ### Fixed
 
