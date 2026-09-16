@@ -7,8 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-16
+
 ### Added
 
+- Edit mode. Enter turns the cursor into a text cursor, Esc turns it back. Inside, merl is a plain
+  editor with VS Code habits: letters insert, Enter splits the line and keeps its indentation, Tab
+  indents the way the file already does, Backspace and Delete join lines, typing over a selection
+  replaces it. There is no save step: edits reach the disk `autosave_delay_ms` (default 1000, a
+  new config key) after the last keystroke and at once on Esc, on switching files and on quit;
+  Ctrl+S saves now. A file changed on disk under unsaved edits is a conflict, not a reload: the
+  status bar says so, Ctrl+S keeps the buffer and Ctrl+R takes the disk. Files keep their tabs,
+  CRLF and trailing newline through a save; binary, non-UTF-8 and mixed-line-ending files stay
+  read-only. Edits that could not be saved keep merl on the file: another file does not open over
+  them and the first `q` is refused. The tutorial gets an editing lesson. (#11)
+- Ctrl+Z / Ctrl+Y undo and redo. A run of keystrokes on one line is one step, as VS Code groups
+  typing; a cursor move, a line split or join, or leaving edit mode starts a new one. The history
+  is per open file. The tutorial gets an "Undo" lesson. (#11)
+- In edit mode Ctrl+C and Ctrl+X copy and cut the selection, or the whole line without one, to
+  the system clipboard through OSC 52, which the terminal forwards even over ssh. Paste is the
+  terminal's own (bracketed paste), inserted while editing and ignored otherwise. (#11)
+- Git marks in the gutter, as in VS Code: green for added lines, blue for changed ones, red under
+  a line where lines were deleted, read from `git diff -U0` after every load, save and reload.
+  (#11)
+- `d` follows into the standard library and dependencies when the project has no definition:
+  `sys.path` of the project's interpreter (a compiled module lands in its `.pyi` stub), the Rust
+  sysroot and the crates in `Cargo.lock`, `GOROOT` and the modules of `go.mod`, `node_modules`.
+  The file's imports say which module a qualified word (`json.load`, `fs::read`) comes from.
+  Files outside the project open read-only. (#42)
+- `d` and `D` in Rust: `fn`, `struct`, `enum`, `union`, `trait`, `type`, `const`, `static`,
+  `mod`, `macro_rules!` and `let` behind any `pub(..)` / `async` / `unsafe` / `extern` prefix;
+  `impl` blocks are uses of the type, not definitions. (#25)
+- `d` and `D` in TypeScript and JavaScript: `function`, `class`, `interface`, `type`, `enum`,
+  `namespace`, `const` / `let` / `var` (so arrow functions assigned to a name), class and
+  object-literal methods, behind any `export` / `default` / `declare` / `abstract` / `async`
+  prefix. `.ts`, `.tsx`, `.js` and their module variants are searched together, so a `.tsx`
+  component finds its types in `.ts`. (#31)
 - `d` and `D` in Ruby. `d` finds `def`, `def self.name`, `class`, `module`, an assignment (a
   constant, an `@ivar`, a local), the names an `attr_accessor` / `attr_reader` / `attr_writer`
   line declares and an `alias` / `alias_method`, over every `.rb`, `.rake`, `.gemspec`,
@@ -73,6 +107,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Home / End, and Ctrl+Shift+Left / Right with them, stop at the start / end of the screen row
   first and go on to the line's on a second press, as in VS Code.
 
+- A block cursor while navigating and a bar while typing and in every prompt, like vim, whatever
+  the terminal's default shape is. (#41)
+- `s>` project search looks for the text as typed, like `/`: `foo(` no longer fails as a bad
+  pattern and `a.b` no longer matches `aXb`. There is no regex mode. (#52)
+- `d` means definition: the whole-word fallback is gone, `u` lists uses. (#42)
+
 ### Fixed
 
 - While text is selected the cursor line is highlighted in the gutter only, as in VS Code. A
@@ -84,6 +124,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A selection collapsed back onto its anchor selects nothing: Ctrl+C copies the line instead of
   an empty string, Backspace and Delete remove a char instead of marking the file changed, and a
   plain arrow moves.
+- Ctrl+D / Ctrl+U and PgUp / PgDn only move the current history stop, so `[` after paging
+  through a definition returns to the call site, not half a page back, and paging after `[` keeps
+  the forward history. (#45)
+- Quitting from the welcome screen or the `?` overlay left Ghostty and other xterm-like terminals
+  without a cursor. (#46)
+- Picking the open file in the `o` picker keeps the cursor instead of jumping to line 1. (#49)
+- `d` finds a Kotlin `fun interface`. (#57)
 - shokunin-light draws the selection in the theme's light blue instead of the cursor line colour.
 
 ## [0.3.0] - 2026-09-13
@@ -186,7 +233,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scroll position, the jump history and the find pattern.
 - Help overlay on `?`, listing every binding; Esc in normal mode clears the find highlights.
 
-[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.4.0
 [0.3.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.2.0
 [0.1.1]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.1.1
