@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Twenty-three themes, taking the set to forty-seven. The families Vim and Neovim users run most
+  and merl was missing: gruvbox, One Dark, GitHub, VS Code's Dark+ and Light+, Dracula with its
+  light Alucard, Nord, Solarized, Oxocarbon, Sonokai, Material and nightfox itself. Plus the
+  variants of the families already here: `tokyonight-night` and `tokyonight-storm`,
+  `catppuccin-macchiato` and `catppuccin-frappe`. Every one is ported from its Neovim original;
+  `docs/themes.md` says which themes ship and why.
+
 ## [0.5.0] - 2026-09-16
 
 ### Added
@@ -65,7 +74,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   object-literal methods, behind any `export` / `default` / `declare` / `abstract` / `async`
   prefix. `.ts`, `.tsx`, `.js` and their module variants are searched together, so a `.tsx`
   component finds its types in `.ts`. (#31)
-||||||| parent of 8017f76 (feat: review a branch inside merl with `--review` (#60))
 - `d` and `D` in Ruby. `d` finds `def`, `def self.name`, `class`, `module`, an assignment (a
   constant, an `@ivar`, a local), the names an `attr_accessor` / `attr_reader` / `attr_writer`
   line declares and an `alias` / `alias_method`, over every `.rb`, `.rake`, `.gemspec`,
