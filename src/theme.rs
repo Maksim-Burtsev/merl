@@ -323,9 +323,18 @@ mod tests {
             assert!(s.background.is_some(), "{name} has no background");
             assert!(s.foreground.is_some(), "{name} has no foreground");
             assert!(s.line_highlight.is_some(), "{name} has no lineHighlight");
-            assert_ne!(
-                t.selection, t.line_hl,
-                "{name}: the selection is the cursor line colour"
+            // The selection is drawn on top of the cursor line highlight (#62), so a selection
+            // inside the cursor line is only as visible as these two colours are apart. #48 was
+            // reported on a pair 5 apart; 12 is where it reads as two colours.
+            let (Color::Rgb(r, g, b), Color::Rgb(r2, g2, b2)) = (t.selection, t.line_hl) else {
+                panic!("{name}: chrome colours are not RGB");
+            };
+            let apart = [r.abs_diff(r2), g.abs_diff(g2), b.abs_diff(b2)];
+            assert!(
+                apart.iter().any(|d| *d >= 12),
+                "{name}: the selection {:?} passes for the cursor line {:?}",
+                t.selection,
+                t.line_hl
             );
             let highlighter = Highlighter::new(&t.syntect);
             let colours: HashSet<_> = ["comment", "keyword", "string", "entity.name.function"]

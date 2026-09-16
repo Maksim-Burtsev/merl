@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Eight themes had the selection colour within a few points of the cursor line highlight, so a
+  selection inside the cursor line was nearly invisible: rose-pine-moon, rose-pine-dawn, nordfox,
+  nightfox, gruvbox-material-light and material-light move the selection a step along their own
+  palette, solarized-light darkens it, dracula lightens the line highlight instead. The theme test
+  now requires the two colours to be apart.
+
 ### Added
 
 - Twenty-three themes, taking the set to forty-seven. The families Vim and Neovim users run most
