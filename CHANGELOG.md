@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   variants of the families already here: `tokyonight-night` and `tokyonight-storm`,
   `catppuccin-macchiato` and `catppuccin-frappe`. Every one is ported from its Neovim original;
   `docs/themes.md` says which themes ship and why.
+- Forty-seven niche themes from the Vim and Neovim world, taking the set to ninety-four: iceberg,
+  gotham, jellybeans, PaperColor, vague, miasma, lackluster, mellow, alabaster, bamboo, edge,
+  moonfly, nightfly, srcery, e-ink, mellifluous, ayu, vesper, adwaita, neomodern, darkearth,
+  token, koda, soviet, cendre, selenized, pencil and minischeme — each with its light variant
+  where it has one.
 
 ## [0.5.0] - 2026-09-16
 
