@@ -2145,10 +2145,9 @@ mod tests {
         press(&mut a, KeyCode::Up, KeyModifiers::NONE);
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
         assert_eq!((a.shown_theme(), a.theme.as_str()), (names[1], names[1]));
-        assert_eq!(
-            (a.mode, a.message.as_str()),
-            (Mode::Normal, "theme kanagawa-wave")
-        );
+        // Named from the table, so reordering or renaming a theme cannot fail this test.
+        let kept = format!("theme {}", names[1]);
+        assert_eq!((a.mode, a.message.as_str()), (Mode::Normal, kept.as_str()));
     }
 
     #[test]
