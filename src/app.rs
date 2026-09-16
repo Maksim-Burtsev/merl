@@ -832,7 +832,7 @@ impl App {
             };
             return;
         };
-        self.open_review_file(&f, dir < 0);
+        self.open_review_file(f, dir < 0);
     }
 
     /// Opens a file of the review on its first (or `last`) hunk. The hunks are read before
