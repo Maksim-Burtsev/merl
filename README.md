@@ -18,8 +18,8 @@ go to definition and usages, all on VS Code-shaped keys. It is keyboard-only and
 terminal-agnostic — no mouse, no Cmd — so the same bindings work over SSH, in tmux, and in
 whatever terminal you happen to have. It is for reviewing code and walking a codebase in a
 terminal split next to a coding agent, where you read far more than you type and the file under
-you keeps changing. Today it only reads; editing is
-[planned](https://github.com/Maksim-Burtsev/merl/issues/11).
+you keeps changing. When you do have to type, Enter turns the cursor into a text cursor and the
+edit is on disk a second later.
 
 ## Demo
 

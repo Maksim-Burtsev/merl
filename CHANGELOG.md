@@ -7,8 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-16
+
 ### Added
 
+- Editing. Enter turns the cursor into a text cursor and Esc turns it back: inside, merl is a
+  plain editor with VS Code habits — letters insert, Enter splits the line and keeps its
+  indentation, Tab indents the way the file already does, Backspace and Delete join lines. There
+  is no save step: edits reach the disk `autosave_delay_ms` (default 1000, a new config key)
+  after the last keystroke, and at once on Esc, on switching files and on quit; Ctrl+S saves now.
+  A file changed on disk under unsaved edits is a conflict, not a reload: the status bar says so,
+  Ctrl+S keeps the buffer and Ctrl+R takes the disk, and merl's own saves are told from another
+  writer's by a hash of the bytes last read or written. What is loaded is what is written back —
+  tabs, CRLF and the trailing newline are kept — and a binary file, a non-UTF-8 file, a file of
+  mixed line endings and a single line too long to be shown whole stay read-only. (#11)
+- Undo and redo on Ctrl+Z / Ctrl+Y, from navigation as well as from edit mode. A run of
+  keystrokes on one line is one step, as VS Code groups typing; a cursor move, a line split or
+  join, or leaving edit mode starts a new one. The history is per open file and goes when a
+  reload or another file replaces the buffer. (#11)
+- Selection edits and the clipboard. Typing over a selection replaces it and Backspace / Delete
+  remove it, in one undo step. In edit mode Ctrl+C and Ctrl+X copy and cut the selection — or the
+  whole line without one — to the system clipboard through OSC 52, which the terminal forwards
+  even over ssh, so merl needs no clipboard dependency and reads no clipboard of its own. Paste
+  is the terminal's (bracketed paste, Cmd+V): inserted while editing, ignored while navigating.
+  Ctrl+C is quit again once Esc has left edit mode. (#11)
+- Git marks in the gutter, as VS Code shows them: the column between the line number and the text
+  is green for an added line, blue for a changed one and red under a line where lines were
+  deleted. No diff of merl's own — `git diff -U0` runs in a thread after every load, save and
+  reload, and only its hunk headers are read. Outside git, and for an untracked file, there is
+  nothing to show. (#11)
+- `d` and `D` in Rust: `fn`, `struct`, `enum`, `union`, `trait`, `type`, `const`, `static`, `mod`,
+  `macro_rules!` and `let`, behind any `pub(..)` / `async` / `unsafe` / `const` / `extern "C"` /
+  `default` prefix. An `impl` block is a use of the type, not a definition. (#17)
+- `d` and `D` in TypeScript and JavaScript: `function` (and `function*`), `class`, `interface`,
+  `type`, `enum`, `namespace` and `const` / `let` / `var`, so an arrow function assigned to a name
+  is found, plus class and object-literal methods and properties holding a function, behind
+  `export` / `default` / `declare` / `async` and the member modifiers. These extensions are one
+  family — `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs` search each other — so a
+  `.tsx` component finds its types in `.ts` and its helpers in `.js`. (#17)
+- `d` follows out of the project. With no definition in the project, the same rules run over what
+  the toolchain on this machine knows: `sys.path` of the project's interpreter, the Rust sysroot
+  and the crates in `Cargo.lock`, `GOROOT` and the modules of `go.mod`, `node_modules`. The
+  word's module narrows the search — `np.array` behind `import numpy as np` looks in `numpy`,
+  `Regex::new` behind `use regex::Regex` in that crate — read from the file's own imports. A
+  compiled Python module lands in its `.pyi` stub, the standard library's hits come before the
+  dependencies', and a file opened from outside the project is read-only. (#42)
 - `d` and `D` in Ruby. `d` finds `def`, `def self.name`, `class`, `module`, an assignment (a
   constant, an `@ivar`, a local), the names an `attr_accessor` / `attr_reader` / `attr_writer`
   line declares and an `alias` / `alias_method`, over every `.rb`, `.rake`, `.gemspec`,
@@ -72,6 +115,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wrapped paragraph is walked row by row and half a screen is half of what the screen shows.
   Home / End, and Ctrl+Shift+Left / Right with them, stop at the start / end of the screen row
   first and go on to the line's on a second press, as in VS Code.
+- `d` no longer falls back to a whole-word search when no rule matches the word under the cursor:
+  `d` means definition and says when there is none, `u` lists uses. (#42)
+- The cursor is a block while navigating and a bar in edit mode and every prompt, like vim,
+  instead of whatever shape the terminal defaults to — in a terminal whose own cursor is already
+  a bar (Ghostty) edit mode used to look no different. The terminal's shape is still put back on
+  exit.
 
 ### Fixed
 
@@ -85,6 +134,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an empty string, Backspace and Delete remove a char instead of marking the file changed, and a
   plain arrow moves.
 - shokunin-light draws the selection in the theme's light blue instead of the cursor line colour.
+- Quitting merl leaves the cursor visible. ratatui hides it for a frame that sets no cursor
+  position (the welcome screen, the `?` overlay), and leaving the alternate screen does not bring
+  it back in xterm-like terminals such as Ghostty, so the shell was left without one. (#46)
+- Paging is scrolling, not a jump in the history. Ctrl+D / Ctrl+U and PgUp / PgDn are the only
+  way to scroll, and a page is always farther than the ten lines that make a move a new stop, so
+  reading through a definition left a stop per page: `[` came back half a screen at a time
+  instead of to the call site. Paging now only moves the current stop. (#45)
+- Picking the file that is already open in the file picker keeps the cursor where it is, as Enter
+  in the tree already did, instead of sending it to line 1 and recording a stop for it. (#49)
+- Project search looks for the text as typed, not a regex: `foo(` no longer fails as a bad
+  pattern and `a.b` no longer matches `aXb`. Smart case and substring matching are unchanged, as
+  `/` already had them. (#52)
+- `d` on `Handler` in `fun interface Handler {` finds it: the Kotlin type rule wanted the keyword
+  right after the modifiers, though `D` listed it all along. (#57)
 - The `? help` hint no longer overwrites the tail of the "changed on disk" banner: the banner
   names the keys that resolve the conflict, and a narrow terminal drew `? help` over them.
 - `D` lists as many symbols as its title promises. Each of the rules `D` runs greps up to 5000
@@ -190,7 +253,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scroll position, the jump history and the find pattern.
 - Help overlay on `?`, listing every binding; Esc in normal mode clears the find highlights.
 
-[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.4.0
 [0.3.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.2.0
 [0.1.1]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.1.1
