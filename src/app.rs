@@ -832,13 +832,19 @@ impl App {
             };
             return;
         };
+        self.open_review_file(f, dir < 0);
+    }
+
+    /// Opens a file of the review on its first (or `last`) hunk. The hunks are read before
+    /// the file opens, so this is one stop in the history.
+    fn open_review_file(&mut self, f: &git::ReviewFile, last: bool) {
+        let Some(r) = &self.review else { return };
         let path = self.root.join(&f.path);
-        // The hunks are read before the file opens, so the crossing is one stop in the history.
         let hunks = match f.status {
             'D' => Vec::new(),
             _ => git::diff(&self.root, &path, Some(&r.merge_base), f.old.as_deref()).hunks,
         };
-        let h = if dir > 0 { hunks.first() } else { hunks.last() };
+        let h = if last { hunks.last() } else { hunks.first() };
         self.jump_to(&path, h.map_or(1, |h| h + 1));
         self.center = true;
     }
@@ -1525,7 +1531,13 @@ impl App {
                 Some(n) if n.is_dir => self.tree.toggle(),
                 Some(n) => {
                     let path = self.root.join(&n.path);
-                    self.jump_to(&path, 0);
+                    // The review panel opens a file on its first hunk; the tree where it was.
+                    match self.review.as_ref().and_then(|r| r.file(&n.path)).cloned() {
+                        Some(f) if self.buf.path.as_deref() != Some(&*path) => {
+                            self.open_review_file(&f, false)
+                        }
+                        _ => self.jump_to(&path, 0),
+                    }
                 }
                 None => {}
             },
@@ -2484,6 +2496,17 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!['M', 'M', 'D', 'A', 'M']
         );
+        // Enter in the panel opens a file on its first hunk; on the open file it stays put.
+        a.tree.reveal(Path::new("src/a.rs"));
+        a.focus = Focus::Tree;
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        a.focus = Focus::Tree;
+        a.tree.reveal(Path::new("src/a.rs"));
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("src/a.rs"), 3));
         // Opening a shorter file from far down a long one (Enter in the panel, #61 follow-up):
         // the viewport of the old file must not be read against the new one.
         a.jump_to(&dir.join("src/a.rs"), 6);
