@@ -60,9 +60,15 @@ struct Cli {
     /// Walk through every key on a bundled sample project (ignores the target)
     #[arg(long)]
     tutor: bool,
-    /// Review the checked-out branch (or switch to BRANCH first): its files in the panel,
-    /// its diff over the code, c / C between hunks
-    #[arg(long, value_name = "BRANCH", num_args = 0..=1, default_missing_value = "")]
+    /// Review the checked-out branch (or `--review=BRANCH` to switch to it first): its files
+    /// in the panel, its diff over the code, c / C between hunks
+    #[arg(
+        long,
+        value_name = "BRANCH",
+        num_args = 0..=1,
+        require_equals = true,
+        default_missing_value = ""
+    )]
     review: Option<String>,
     /// The branch the review is against (default: origin/HEAD, then origin/master, main, develop)
     #[arg(long, value_name = "REF", requires = "review")]
@@ -221,7 +227,7 @@ fn event_loop(
             // In a thread: git on a large repository can take longer than a frame.
             let (tx, root) = (diff_tx.clone(), app.root.clone());
             std::thread::spawn(move || {
-                let diff = git::diff(&root, &path, None);
+                let diff = git::diff(&root, &path, None, None);
                 let _ = tx.send(Msg::Diff(path, diff));
             });
         }
@@ -384,6 +390,22 @@ mod tests {
         assert_eq!(super::base64(b"fo"), "Zm8=");
         assert_eq!(super::base64(b"foo"), "Zm9v");
         assert_eq!(super::base64("hi\nтам".as_bytes()), "aGkK0YLQsNC8");
+    }
+
+    #[test]
+    fn review_takes_its_branch_only_with_an_equals_sign() {
+        use clap::Parser;
+        let cli = super::Cli::parse_from(["merl", "--review", "src/main.rs"]);
+        assert_eq!(
+            (cli.review.as_deref(), cli.target.as_deref()),
+            (Some(""), Some("src/main.rs"))
+        );
+        let cli = super::Cli::parse_from(["merl", "--review=feature", "--base", "origin/dev"]);
+        assert_eq!(
+            (cli.review.as_deref(), cli.base.as_deref()),
+            (Some("feature"), Some("origin/dev"))
+        );
+        assert!(super::Cli::try_parse_from(["merl", "--base", "x"]).is_err());
     }
 
     #[test]

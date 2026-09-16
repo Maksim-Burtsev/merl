@@ -124,8 +124,8 @@ merl path/to/file.py:120
 ## Review
 
 ```sh
-merl --review feature-x          # fetch, switch, open the first hunk
-merl --review                    # the branch you are on
+merl --review                    # the branch you are on, first hunk of the first file
+merl --review=feature-x          # fetch and switch to it first
 merl --review --base origin/dev  # against a base other than origin/HEAD
 ```
 

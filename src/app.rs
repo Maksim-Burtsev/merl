@@ -355,6 +355,11 @@ impl App {
             self.center_cursor();
             return;
         }
+        // The top is on the cursor line's own ghosts: they are being read, the cursor waits
+        // below the pane (`move_rows` scrolls them in one at a time).
+        if self.top_line == self.line && self.top_row < self.diff.ghost_n(self.line) {
+            return;
+        }
         let cur = (self.line, self.cursor_row());
         if cur < (self.top_line, self.top_row) {
             // Moving up shows the line's ghosts with it.
@@ -510,6 +515,15 @@ impl App {
 
     /// Up / Down, PgUp / PgDn: `n` screen rows, aiming at the column in `want_x`.
     fn move_rows(&mut self, n: isize) {
+        // Up on a line whose ghosts are scrolled off above it brings them in, one row at a
+        // time, so a deletion taller than the pane can still be read through.
+        if n < 0
+            && self.top_line == self.line
+            && (1..=self.diff.ghost_n(self.line)).contains(&self.top_row)
+        {
+            self.top_row -= 1;
+            return;
+        }
         let cur = (self.line, self.cursor_row());
         let (mut line, mut row) = if n < 0 {
             self.back_rows(cur, n.unsigned_abs())
@@ -698,6 +712,7 @@ impl App {
                     self.conflict = false;
                     self.undo.clear();
                     self.redo.clear();
+                    self.diff = git::Diff::default();
                     self.refresh_diff();
                     if self.mode == Mode::Edit {
                         self.mode = Mode::Normal;
@@ -732,23 +747,37 @@ impl App {
         Buffer::load(path)
     }
 
-    /// Drops the marks and asks `main` for new ones. In review mode they are taken here and
-    /// now: `c` needs the hunks of a file the moment it opens, and one file against one commit
-    /// is quick.
+    /// Asks `main` for new marks; the old ones stay on screen until they arrive. In review
+    /// mode they are taken here and now: `c` needs the hunks of a file the moment it opens, and
+    /// one file against one commit is quick.
     fn refresh_diff(&mut self) {
-        self.diff = git::Diff::default();
-        self.want_diff = true;
-        let Some(r) = &self.review else { return };
-        let Some(path) = &self.buf.path else { return };
-        self.want_diff = false;
-        if self.buf.readonly.is_some() {
-            // A deleted file is all ghost: every line marked, nothing to step through.
-            self.diff.marks = (0..self.buf.lines.len())
-                .map(|l| (l, git::Mark::DeletedBelow))
-                .collect();
+        let Some(r) = &self.review else {
+            self.want_diff = true;
             return;
-        }
-        self.diff = git::diff(&self.root, path, Some(&r.merge_base));
+        };
+        let Some(path) = self.buf.path.clone() else {
+            return;
+        };
+        self.want_diff = false;
+        let rel = path.strip_prefix(&self.root).ok();
+        let file = rel.and_then(|rel| r.file(rel));
+        self.diff = match file {
+            Some(f) if f.status == 'D' => git::Diff {
+                // A deleted file is all ghost: every line marked, nothing to step through.
+                marks: (0..self.buf.lines.len())
+                    .map(|l| (l, git::Mark::DeletedBelow))
+                    .collect(),
+                ..Default::default()
+            },
+            _ => git::diff(
+                &self.root,
+                &path,
+                Some(&r.merge_base),
+                file.and_then(|f| f.old.as_deref()),
+            ),
+        };
+        // Ghosts change how many rows a line has; the viewport must not point past them.
+        self.top_row = self.top_row.min(self.row_count(self.top_line) - 1);
     }
 
     /// Enters review mode on a freshly built app: marks against the base, the cursor on the
@@ -802,24 +831,14 @@ impl App {
             return;
         };
         let path = self.root.join(&f.path);
-        if !self.jump_to_checked(&path) {
-            return;
-        }
-        let h = if dir > 0 {
-            self.diff.hunks.first()
-        } else {
-            self.diff.hunks.last()
+        // The hunks are read before the file opens, so the crossing is one stop in the history.
+        let hunks = match f.status {
+            'D' => Vec::new(),
+            _ => git::diff(&self.root, &path, Some(&r.merge_base), f.old.as_deref()).hunks,
         };
-        if let Some(&h) = h {
-            self.goto_line(h + 1);
-            self.hist_note(true);
-        }
-    }
-
-    fn jump_to_checked(&mut self, path: &Path) -> bool {
-        let before = self.buf.path.clone();
-        self.jump_to(path, 1);
-        self.buf.path.as_deref() == Some(path) || before.as_deref() == Some(path)
+        let h = if dir > 0 { hunks.first() } else { hunks.last() };
+        self.jump_to(&path, h.map_or(1, |h| h + 1));
+        self.center = true;
     }
 
     /// `hunk 2/5 · file 1/3` for the status bar.
@@ -2364,12 +2383,16 @@ mod tests {
         git(&["config", "user.name", "t"]);
         std::fs::write(dir.join("src/a.rs"), "a\nb\nc\nd\ne\nf\n").unwrap();
         std::fs::write(dir.join("gone"), "x\ny\n").unwrap();
+        std::fs::write(dir.join("tail"), "t1\nt2\nt3\n").unwrap();
+        std::fs::write(dir.join("crlf.txt"), "one\r\ntwo\n").unwrap();
         git(&["add", "."]);
         git(&["commit", "-q", "-m", "base"]);
         git(&["switch", "-q", "-c", "feature"]);
         std::fs::write(dir.join("src/a.rs"), "a\nB\nc\nd\ne\nF\n").unwrap();
         std::fs::write(dir.join("new"), "n\n").unwrap();
         std::fs::remove_file(dir.join("gone")).unwrap();
+        std::fs::write(dir.join("tail"), "t1\n").unwrap();
+        std::fs::write(dir.join("crlf.txt"), "one\r\nTWO\n").unwrap();
         git(&["add", "-A"]);
         git(&["commit", "-q", "-m", "work"]);
         let review = git::Review::open(&dir, None, None).unwrap();
@@ -2381,7 +2404,7 @@ mod tests {
                 .map(|f| f.path.clone())
                 .collect::<Vec<_>>(),
         );
-        let first = dir.join(&review.files[2].path);
+        let first = dir.join("new");
         let mut a = App::new(
             dir.clone(),
             tree,
@@ -2398,12 +2421,20 @@ mod tests {
         let (dir, mut a) = review_app("reviewapp");
         let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
         let big_c = |a: &mut App| press(a, KeyCode::Char('C'), KeyModifiers::NONE);
-        // Files in panel order: src/a.rs (M), gone (D), new (A). Opened on `new`.
+        // Files in panel order: src/a.rs (M), crlf.txt (M), gone (D), new (A), tail (M).
         assert_eq!(at(&a), (dir.join("new"), 0));
-        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 3/3");
+        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 4/5");
+        // A deletion at the end of `tail` is a stop on its last line, with the ghosts under it.
         c(&mut a);
-        assert_eq!(at(&a), (dir.join("new"), 0));
+        assert_eq!(at(&a), (dir.join("tail"), 0));
+        assert_eq!(a.diff.ghosts[&1], vec!["t2", "t3"]);
+        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 5/5");
+        c(&mut a);
+        assert_eq!(at(&a), (dir.join("tail"), 0));
         assert_eq!(a.message, "last hunk of the review");
+        // A file crossing is one stop: `[` goes straight back to the previous file.
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("new"), 0));
         // Back over the deleted file: read from the base, read-only, all marked.
         big_c(&mut a);
         assert_eq!(at(&a), (dir.join("gone"), 0));
@@ -2411,9 +2442,15 @@ mod tests {
         assert_eq!(a.diff.marks.len(), 2);
         assert_eq!(a.buf.readonly, Some("deleted in this branch"));
         assert!(a.review_status().unwrap().starts_with("hunk 0/0"));
+        // A read-only buffer that the branch did not delete keeps its real diff.
+        big_c(&mut a);
+        assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+        assert_eq!(a.buf.readonly, Some("mixed line endings"));
+        assert_eq!(a.diff.hunks, vec![1]);
+        assert_eq!(a.diff.marks.len(), 1);
         big_c(&mut a);
         assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
-        assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/3");
+        assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/5");
         big_c(&mut a);
         assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
         assert_eq!(a.diff.ghosts[&1], vec!["b"]);
@@ -2431,7 +2468,10 @@ mod tests {
             .iter()
             .map(|n| n.path.to_str().unwrap())
             .collect();
-        assert_eq!(names, vec!["src", "src/a.rs", "gone", "new"]);
+        assert_eq!(
+            names,
+            vec!["src", "src/a.rs", "crlf.txt", "gone", "new", "tail"]
+        );
         assert_eq!(
             a.review
                 .as_ref()
@@ -2440,8 +2480,15 @@ mod tests {
                 .iter()
                 .map(|f| f.status)
                 .collect::<Vec<_>>(),
-            vec!['M', 'D', 'A']
+            vec!['M', 'M', 'D', 'A', 'M']
         );
+        // Outside the project (the standard library, a dependency) nothing is marked deleted.
+        let outside = std::env::temp_dir().join(format!("merl-outside-{}", std::process::id()));
+        std::fs::write(&outside, "fn x() {}\n").unwrap();
+        a.jump_to(&outside, 1);
+        assert_eq!(a.buf.readonly, Some("outside the project"));
+        assert!(a.diff.marks.is_empty() && a.diff.hunks.is_empty());
+        std::fs::remove_file(&outside).unwrap();
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

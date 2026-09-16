@@ -9,12 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `merl --review [BRANCH] [--base REF]`: code review inside merl. The branch's diff against its
+- `merl --review[=BRANCH] [--base REF]`: code review inside merl. The branch's diff against its
   base is a lens over the real files: added lines get a green mark, deleted lines are drawn in
   place as grey ghosts, and `d`, `u`, `s` work straight from the diff. The panel lists the
   branch's files with `M` / `A` / `D` and `+n −m`; `c` / `C` walk the hunks and cross into the
   next file; `[` comes back from an excursion. A deleted file opens read-only from the base.
-  With a branch name merl fetches and switches to it; the base defaults to `origin/HEAD`, then
+  With `--review=BRANCH` merl fetches and switches to it; the base defaults to `origin/HEAD`, then
   `origin/master`, `origin/main`, `origin/develop`. (#60)
 
 ## [0.4.0] - 2026-09-16
