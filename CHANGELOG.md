@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-16
+
 ### Added
 
 - `merl --review[=BRANCH] [--base REF]`: code review inside merl. The branch's diff against its
@@ -250,7 +252,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scroll position, the jump history and the find pattern.
 - Help overlay on `?`, listing every binding; Esc in normal mode clears the find highlights.
 
-[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.5.0
 [0.4.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.4.0
 [0.3.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.2.0
