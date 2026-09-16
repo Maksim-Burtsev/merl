@@ -210,8 +210,12 @@ fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
 
 fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
     let accent = base.fg(theme.accent);
+    let title = match &app.review {
+        Some(r) => format!("{} \u{2190} {}", r.branch, r.base),
+        None => app.root_name(),
+    };
     let block = Block::bordered()
-        .title(app.root_name())
+        .title(title)
         .border_style(accent)
         .title_style(accent.add_modifier(Modifier::BOLD))
         .style(base);
@@ -240,7 +244,17 @@ fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
                 (true, false) => "\u{25b8} ",
                 (false, _) => "  ",
             };
-            let text = format!("{}{marker}{}", "  ".repeat(n.depth), n.name());
+            let mut text = format!("{}{marker}{}", "  ".repeat(n.depth), n.name());
+            // Review: `M name  +6 -2`, the status in place of the marker.
+            if let Some(f) = app.review.as_ref().and_then(|r| r.file(&n.path)) {
+                text = format!("{}{} {}", "  ".repeat(n.depth), f.status, n.name());
+                let counts = format!("+{} \u{2212}{}", f.added, f.deleted);
+                let room = width.saturating_sub(wrap::width(&text) + 1);
+                if counts.len() <= room {
+                    text.push_str(&" ".repeat(room - counts.len() + 1));
+                    text.push_str(&counts);
+                }
+            }
             // Directories carry the accent: they are what the eye scans the tree by.
             let row = if n.is_dir { accent } else { base };
             let style = if i != app.tree.cursor {
@@ -378,10 +392,26 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     // on the text, a highlight close to the selection colour passes for selected.
     let text_hl = app.selection().is_none();
 
+    let ghost = base.fg(theme.gutter_fg).add_modifier(Modifier::DIM);
     let mut lines: Vec<Line> = Vec::with_capacity(area.height as usize);
     let mut l = app.top_line;
     let mut skip = app.top_row;
     while lines.len() < area.height as usize && l < app.buf.lines.len() {
+        // Review: the lines the branch deleted here, above the text, greyed and unnumbered.
+        for (i, text) in app.diff.ghosts.get(&l).into_iter().flatten().enumerate() {
+            if i < skip || lines.len() == area.height as usize {
+                continue;
+            }
+            lines.push(Line::from(vec![
+                Span::styled(" ".repeat(gutter_w - 1), gutter_style),
+                Span::styled("\u{258e}", gutter_style.fg(Color::Red)),
+                Span::styled(
+                    expand(&crate::app::clip(text, app.view_w)).into_owned(),
+                    ghost,
+                ),
+            ]));
+        }
+        skip = skip.saturating_sub(app.diff.ghost_n(l));
         let clipped = app.buf.shown(l);
         let spans = app.buf.hl.get(l).map_or(&[][..], Vec::as_slice);
         // Find matches paint over the syntax colours, so they are merged into the span list.
@@ -415,7 +445,7 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
             };
             // The column between the number and the text carries the git mark, VS Code style:
             // green added, blue changed, red where lines were deleted.
-            let mark = match app.marks.get(&l) {
+            let mark = match app.diff.marks.get(&l) {
                 Some(Mark::Added) => Span::styled("\u{258e}", g.fg(Color::Green)),
                 Some(Mark::Changed) => Span::styled("\u{258e}", g.fg(Color::Blue)),
                 Some(Mark::DeletedBelow) => Span::styled("\u{2581}", g.fg(Color::Red)),
@@ -543,6 +573,9 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
             style.fg(theme.accent),
         ));
     }
+    if let Some(review) = app.review_status() {
+        spans.push(Span::styled(format!("  {review}"), style));
+    }
     if !app.message.is_empty() {
         spans.push(Span::styled(format!("  {}", app.message), style));
     }
@@ -645,7 +678,7 @@ fn rows_between(app: &App, from: (usize, usize), to: (usize, usize)) -> Option<u
     let (mut l, mut r) = from;
     while (l, r) < to {
         r += 1;
-        if r >= app.rows(l).len() {
+        if r >= app.row_count(l) {
             l += 1;
             r = 0;
         }
@@ -1047,6 +1080,42 @@ mod tests {
     }
 
     #[test]
+    fn ghost_lines_draw_above_their_line_and_the_cursor_skips_them() {
+        let mut app = App::new(
+            PathBuf::from("/tmp"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\nc\n"),
+            None,
+        );
+        app.show_tree = false;
+        app.diff
+            .ghosts
+            .insert(1, vec!["old1".into(), "old2".into()]);
+        app.diff.marks.insert(1, Mark::Added);
+        app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(8, 6)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        assert_eq!(
+            rows(&terminal)[..5],
+            ["1 a", "\u{258e}old1", "\u{258e}old2", "2\u{258e}b", "3 c"]
+        );
+        assert_eq!(terminal.get_cursor_position().unwrap().y, 4);
+        // Up from `c` lands on `b`, not on a ghost; up again on `a`.
+        app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+        assert_eq!(app.line, 1);
+        app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+        assert_eq!(app.line, 0);
+        // Two rows for `b` and what is above it: the last ghost, not the first.
+        app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        let mut terminal = Terminal::new(TestBackend::new(8, 3)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        assert_eq!(rows(&terminal)[..2], ["\u{258e}old2", "2\u{258e}b"]);
+    }
+
+    #[test]
     fn git_marks_sit_between_the_number_and_the_text() {
         let mut app = App::new(
             PathBuf::from("/tmp"),
@@ -1056,7 +1125,7 @@ mod tests {
             None,
         );
         app.show_tree = false;
-        app.marks = [
+        app.diff.marks = [
             (0, Mark::Added),
             (1, Mark::Changed),
             (2, Mark::DeletedBelow),

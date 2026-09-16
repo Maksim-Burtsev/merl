@@ -304,6 +304,8 @@ mod tests {
         "PgUp / PgDn",
         "Home / End",
         "Ctrl+Home / Ctrl+End",
+        // Review mode only: the sample project has no branch to review.
+        "c / C",
         "Tree: Up / Down",
         "Tree: Enter",
         "Tree: Left / Right",

@@ -9,6 +9,7 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use regex::{Regex, RegexBuilder};
 
 use crate::buffer::{self, Buffer};
+use crate::git;
 use crate::picker::{Pick, PickItem, Picker};
 use crate::search::{self, Hit, Kind};
 use crate::tree::Tree;
@@ -31,6 +32,7 @@ pub const KEYS: &[(&str, &str)] = &[
     ("D", "Project symbols (fuzzy)"),
     ("u / Shift+F12", "Usages of the word under the cursor"),
     ("[ / ]", "Back / forward in the jump history"),
+    ("c / C", "Review: next / previous hunk, on to the next file"),
     (": / Ctrl+G", "Go to line"),
     ("t", "Show or hide the file tree"),
     ("T", "Pick a theme (live preview)"),
@@ -197,8 +199,11 @@ pub struct App {
     pub clipboard: Option<String>,
     /// Lines that differ from the git index, painted in the gutter. Refreshed by `main` after
     /// every load, save and reload; between an edit and its autosave they lag by a second.
-    pub marks: HashMap<usize, crate::git::Mark>,
+    /// In review mode: against the branch's base, with ghosts, taken on open (see `refresh_diff`).
+    pub diff: git::Diff,
     pub want_diff: bool,
+    /// `--review`: the branch under review. The tree pane then lists its files.
+    pub review: Option<git::Review>,
     /// The theme in use, by name. Set by `main`; the theme picker previews others over it.
     pub theme: String,
     /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
@@ -271,8 +276,9 @@ impl App {
             redo: Vec::new(),
             undo_break: false,
             clipboard: None,
-            marks: HashMap::new(),
+            diff: git::Diff::default(),
             want_diff: true,
+            review: None,
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
             quit_again: false,
@@ -314,8 +320,14 @@ impl App {
         wrap::wrap_line(self.buf.shown(l), self.view_w)
     }
 
+    /// Screen rows of line `l`: its ghosts (review mode, one row each, drawn above the text)
+    /// and then its wrapped rows. A `(line, row)` pair counts rows from the first ghost.
+    pub fn row_count(&self, l: usize) -> usize {
+        self.diff.ghost_n(l) + self.rows(l).len()
+    }
+
     pub fn cursor_row(&self) -> usize {
-        wrap::col_to_row(&self.rows(self.line), self.col)
+        self.diff.ghost_n(self.line) + wrap::col_to_row(&self.rows(self.line), self.col)
     }
 
     /// Display column of the cursor on its wrapped row, counting the indent rows after the first
@@ -345,7 +357,8 @@ impl App {
         }
         let cur = (self.line, self.cursor_row());
         if cur < (self.top_line, self.top_row) {
-            (self.top_line, self.top_row) = cur;
+            // Moving up shows the line's ghosts with it.
+            (self.top_line, self.top_row) = (self.line, cur.1 - self.diff.ghost_n(self.line));
             return;
         }
         let top = self.back_rows(cur, self.view_h.saturating_sub(1));
@@ -366,7 +379,7 @@ impl App {
                 row -= 1;
             } else if line > 0 {
                 line -= 1;
-                row = self.rows(line).len() - 1;
+                row = self.row_count(line) - 1;
             } else {
                 break;
             }
@@ -386,7 +399,9 @@ impl App {
     /// char: its end is where the next row starts.
     fn apply_want_x(&mut self, row: usize) {
         let rows = self.rows(self.line);
-        let row = row.min(rows.len() - 1);
+        let row = row
+            .saturating_sub(self.diff.ghost_n(self.line))
+            .min(rows.len() - 1);
         let r = rows[row].clone();
         let s = &self.buf.lines[self.line];
         let mut col = if row + 1 < rows.len() {
@@ -496,11 +511,20 @@ impl App {
     /// Up / Down, PgUp / PgDn: `n` screen rows, aiming at the column in `want_x`.
     fn move_rows(&mut self, n: isize) {
         let cur = (self.line, self.cursor_row());
-        let (line, row) = if n < 0 {
+        let (mut line, mut row) = if n < 0 {
             self.back_rows(cur, n.unsigned_abs())
         } else {
             self.forward_rows(cur, n as usize)
         };
+        // Ghost rows are not for the cursor: going up onto one lands on the text above it.
+        if n < 0 && row < self.diff.ghost_n(line) {
+            if line > 0 {
+                line -= 1;
+                row = self.row_count(line) - 1;
+            } else {
+                row = self.diff.ghost_n(line);
+            }
+        }
         self.line = line;
         self.apply_want_x(row);
     }
@@ -553,7 +577,7 @@ impl App {
     /// Walks `n` wrapped rows forwards from `(line, row)`, stopping at the end of the file.
     fn forward_rows(&self, (mut line, mut row): (usize, usize), n: usize) -> (usize, usize) {
         for _ in 0..n {
-            if row + 1 < self.rows(line).len() {
+            if row + 1 < self.row_count(line) {
                 row += 1;
             } else if line + 1 < self.buf.lines.len() {
                 line += 1;
@@ -656,7 +680,7 @@ impl App {
             if !self.flush() {
                 return false;
             }
-            match Buffer::load(path) {
+            match self.load(path) {
                 Ok(mut buf) => {
                     // The standard library and dependencies are read here, never edited. A
                     // `.venv` or `node_modules` sits inside the root, so the roots decide.
@@ -674,8 +698,7 @@ impl App {
                     self.conflict = false;
                     self.undo.clear();
                     self.redo.clear();
-                    self.marks.clear();
-                    self.want_diff = true;
+                    self.refresh_diff();
                     if self.mode == Mode::Edit {
                         self.mode = Mode::Normal;
                     }
@@ -693,6 +716,125 @@ impl App {
         }
         self.reveal(path);
         true
+    }
+
+    /// The file from disk; in review mode a file the branch deleted comes from the base,
+    /// read-only.
+    fn load(&self, path: &Path) -> anyhow::Result<Buffer> {
+        if let Some(r) = &self.review
+            && let Ok(rel) = path.strip_prefix(&self.root)
+            && r.file(rel).is_some_and(|f| f.status == 'D')
+        {
+            let mut buf = Buffer::from_bytes(path.to_path_buf(), &r.base_bytes(&self.root, rel)?);
+            buf.readonly = Some("deleted in this branch");
+            return Ok(buf);
+        }
+        Buffer::load(path)
+    }
+
+    /// Drops the marks and asks `main` for new ones. In review mode they are taken here and
+    /// now: `c` needs the hunks of a file the moment it opens, and one file against one commit
+    /// is quick.
+    fn refresh_diff(&mut self) {
+        self.diff = git::Diff::default();
+        self.want_diff = true;
+        let Some(r) = &self.review else { return };
+        let Some(path) = &self.buf.path else { return };
+        self.want_diff = false;
+        if self.buf.readonly.is_some() {
+            // A deleted file is all ghost: every line marked, nothing to step through.
+            self.diff.marks = (0..self.buf.lines.len())
+                .map(|l| (l, git::Mark::DeletedBelow))
+                .collect();
+            return;
+        }
+        self.diff = git::diff(&self.root, path, Some(&r.merge_base));
+    }
+
+    /// Enters review mode on a freshly built app: marks against the base, the cursor on the
+    /// first hunk of the open file (unless a line was asked for).
+    pub fn start_review(&mut self, review: git::Review) {
+        self.review = Some(review);
+        self.refresh_diff();
+        if let Some(path) = self.buf.path.clone() {
+            self.reveal(&path);
+            if self.line == 0
+                && let Some(&h) = self.diff.hunks.first()
+            {
+                self.goto_line(h + 1);
+                self.hist_note(true);
+            }
+        }
+    }
+
+    /// `c` / `C`: the next / previous hunk, crossing into the next file of the review.
+    fn hunk(&mut self, dir: isize) {
+        let Some(r) = self.review.clone() else {
+            self.message = "not in review mode: merl --review".into();
+            return;
+        };
+        let here = if dir > 0 {
+            self.diff.hunks.iter().find(|&&h| h > self.line)
+        } else {
+            self.diff.hunks.iter().rev().find(|&&h| h < self.line)
+        };
+        if let Some(&h) = here {
+            let path = self.buf.path.clone().unwrap();
+            self.jump_to(&path, h + 1);
+            self.center = true;
+            return;
+        }
+        let at = self
+            .rel_current()
+            .and_then(|rel| r.files.iter().position(|f| f.path == rel));
+        let next = match (at, dir > 0) {
+            (Some(i), true) => i + 1,
+            (Some(i), false) => i.wrapping_sub(1),
+            (None, true) => 0,
+            (None, false) => r.files.len().wrapping_sub(1),
+        };
+        let Some(f) = r.files.get(next) else {
+            self.message = if dir > 0 {
+                "last hunk of the review".into()
+            } else {
+                "first hunk of the review".into()
+            };
+            return;
+        };
+        let path = self.root.join(&f.path);
+        if !self.jump_to_checked(&path) {
+            return;
+        }
+        let h = if dir > 0 {
+            self.diff.hunks.first()
+        } else {
+            self.diff.hunks.last()
+        };
+        if let Some(&h) = h {
+            self.goto_line(h + 1);
+            self.hist_note(true);
+        }
+    }
+
+    fn jump_to_checked(&mut self, path: &Path) -> bool {
+        let before = self.buf.path.clone();
+        self.jump_to(path, 1);
+        self.buf.path.as_deref() == Some(path) || before.as_deref() == Some(path)
+    }
+
+    /// `hunk 2/5 · file 1/3` for the status bar.
+    pub fn review_status(&self) -> Option<String> {
+        let r = self.review.as_ref()?;
+        let file = self
+            .rel_current()
+            .and_then(|rel| r.files.iter().position(|f| f.path == rel))
+            .map_or("-".to_string(), |i| (i + 1).to_string());
+        let hunk = self.diff.hunks.iter().filter(|&&h| h <= self.line).count();
+        Some(format!(
+            "hunk {hunk}/{}  file {file}/{}",
+            self.diff.hunks.len(),
+            r.files.len()
+        ))
     }
 
     /// Re-reads the open file after it changed on disk. Cursor, scroll, history and find pattern
@@ -724,11 +866,11 @@ impl App {
         self.last_edit = None;
         self.undo.clear();
         self.redo.clear();
-        self.want_diff = true;
+        self.refresh_diff();
         let last = self.buf.lines.len() - 1;
         (self.line, self.col) = self.clamp_pos((self.line, self.col));
         self.top_line = self.top_line.min(last);
-        self.top_row = self.top_row.min(self.rows(self.top_line).len() - 1);
+        self.top_row = self.top_row.min(self.row_count(self.top_line) - 1);
         self.sync_want_x();
         self.clamp_scroll();
         self.message = "reloaded".into();
@@ -1584,7 +1726,7 @@ impl App {
                 self.dirty = false;
                 self.conflict = false;
                 self.last_edit = None;
-                self.want_diff = true;
+                self.refresh_diff();
             }
             Err(e) => {
                 // Retried on the next autosave; the message stays until then.
@@ -1767,6 +1909,8 @@ impl App {
             KeyCode::Char('e') if ctrl => self.open_files_picker(),
             KeyCode::Char('[') => self.hist_go(-1),
             KeyCode::Char(']') => self.hist_go(1),
+            KeyCode::Char('c') if !ctrl => self.hunk(1),
+            KeyCode::Char('C') => self.hunk(-1),
             _ if self.focus == Focus::Tree => self.tree_key(key.code),
             KeyCode::Enter => self.start_edit(),
             KeyCode::Up if shift => self.extend(|s| s.move_rows(-1)),
@@ -1860,7 +2004,7 @@ impl App {
 }
 
 /// Cuts `s` to `max` chars, marking the cut.
-fn clip(s: &str, max: usize) -> String {
+pub(crate) fn clip(s: &str, max: usize) -> String {
     match s.char_indices().nth(max) {
         Some((i, _)) => format!("{}\u{2026}", &s[..i]),
         None => s.to_string(),
@@ -2198,6 +2342,107 @@ mod tests {
             None,
         );
         (dir, app)
+    }
+
+    /// A repository with a `feature` branch checked out: `src/a.rs` changed twice, `new`
+    /// added, `gone` deleted; the app is in review mode on it.
+    fn review_app(tag: &str) -> (PathBuf, App) {
+        let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        let git = |args: &[&str]| {
+            let out = std::process::Command::new("git")
+                .arg("-C")
+                .arg(&dir)
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "git {args:?}");
+        };
+        git(&["init", "-q", "-b", "main"]);
+        git(&["config", "user.email", "t@t"]);
+        git(&["config", "user.name", "t"]);
+        std::fs::write(dir.join("src/a.rs"), "a\nb\nc\nd\ne\nf\n").unwrap();
+        std::fs::write(dir.join("gone"), "x\ny\n").unwrap();
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "base"]);
+        git(&["switch", "-q", "-c", "feature"]);
+        std::fs::write(dir.join("src/a.rs"), "a\nB\nc\nd\ne\nF\n").unwrap();
+        std::fs::write(dir.join("new"), "n\n").unwrap();
+        std::fs::remove_file(dir.join("gone")).unwrap();
+        git(&["add", "-A"]);
+        git(&["commit", "-q", "-m", "work"]);
+        let review = git::Review::open(&dir, None, None).unwrap();
+        let (_, files) = crate::tree::build(&dir);
+        let tree = crate::tree::from_files(
+            &review
+                .files
+                .iter()
+                .map(|f| f.path.clone())
+                .collect::<Vec<_>>(),
+        );
+        let first = dir.join(&review.files[2].path);
+        let mut a = App::new(
+            dir.clone(),
+            tree,
+            files,
+            Buffer::load(&first).unwrap(),
+            None,
+        );
+        a.start_review(review);
+        (dir, a)
+    }
+
+    #[test]
+    fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
+        let (dir, mut a) = review_app("reviewapp");
+        let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
+        let big_c = |a: &mut App| press(a, KeyCode::Char('C'), KeyModifiers::NONE);
+        // Files in panel order: src/a.rs (M), gone (D), new (A). Opened on `new`.
+        assert_eq!(at(&a), (dir.join("new"), 0));
+        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 3/3");
+        c(&mut a);
+        assert_eq!(at(&a), (dir.join("new"), 0));
+        assert_eq!(a.message, "last hunk of the review");
+        // Back over the deleted file: read from the base, read-only, all marked.
+        big_c(&mut a);
+        assert_eq!(at(&a), (dir.join("gone"), 0));
+        assert_eq!(a.buf.lines, vec!["x", "y"]);
+        assert_eq!(a.diff.marks.len(), 2);
+        assert_eq!(a.buf.readonly, Some("deleted in this branch"));
+        assert!(a.review_status().unwrap().starts_with("hunk 0/0"));
+        big_c(&mut a);
+        assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
+        assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/3");
+        big_c(&mut a);
+        assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+        assert_eq!(a.diff.ghosts[&1], vec!["b"]);
+        big_c(&mut a);
+        assert_eq!(a.message, "first hunk of the review");
+        c(&mut a);
+        assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
+        // `[` walks back through the same stops.
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+        // The panel lists only the branch's files.
+        let names: Vec<_> = a
+            .tree
+            .nodes
+            .iter()
+            .map(|n| n.path.to_str().unwrap())
+            .collect();
+        assert_eq!(names, vec!["src", "src/a.rs", "gone", "new"]);
+        assert_eq!(
+            a.review
+                .as_ref()
+                .unwrap()
+                .files
+                .iter()
+                .map(|f| f.status)
+                .collect::<Vec<_>>(),
+            vec!['M', 'D', 'A']
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
