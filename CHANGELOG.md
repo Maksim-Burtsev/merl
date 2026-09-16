@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   With `--review=BRANCH` merl fetches and switches to it; the base defaults to `origin/HEAD`, then
   `origin/master`, `origin/main`, `origin/develop`. (#60)
 
+### Fixed
+
+- Starting a selection inside a wrapped line no longer flashes its other rows back to the plain
+  background: the cursor line keeps its highlight under a selection. Only a selection ending at
+  the start of the cursor line still drops it, so that line does not pass for selected (#48, #62).
+
 ## [0.4.0] - 2026-09-16
 
 ### Added
