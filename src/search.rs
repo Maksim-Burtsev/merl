@@ -277,6 +277,45 @@ impl Sink for Collect<'_> {
     }
 }
 
+/// How `d` found a declaration. Every step that narrows the search adds a variant here; the
+/// status line and the picker rows print it, so a guess never passes for a resolution.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Reason {
+    /// A declaration pattern matched the name, and nothing narrowed which declaration it is.
+    ByName,
+    /// Inside the module an import binds the word or its qualifier to: `numpy` for `np.array`
+    /// behind `import numpy as np`.
+    Import(String),
+    /// Inside the module a path spells out, with no import: `std::fs` for
+    /// `std::fs::read_to_string`.
+    Path(String),
+}
+
+impl Reason {
+    /// Whether the reason alone picks the declaration. `by name` only says the name matched, so
+    /// the status line adds how many did.
+    pub fn proven(&self) -> bool {
+        !matches!(self, Self::ByName)
+    }
+}
+
+impl std::fmt::Display for Reason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ByName => write!(f, "by name"),
+            Self::Import(module) => write!(f, "via import {module}"),
+            Self::Path(module) => write!(f, "via {module}"),
+        }
+    }
+}
+
+/// A declaration `d` can land on, and why it is offered.
+#[derive(Debug, Clone)]
+pub struct Candidate {
+    pub hit: Hit,
+    pub reason: Reason,
+}
+
 /// Line patterns that declare `word` in a file of `kind`, or an empty list when there is no rule
 /// for it. In Terraform `word` is the dotted address under the cursor.
 pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
@@ -284,7 +323,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
     match kind {
         // The optional `: Type` group covers annotated assignments (`X: Final[int] = 1`).
         Kind::Python => vec![
-            format!(r"^\s*(def|class)\s+{w}\b"),
+            format!(r"^\s*(?:async\s+)?(def|class)\s+{w}\b"),
             format!(r"^{w}\s*(:[^=]*)?="),
         ],
         Kind::Go => vec![
@@ -304,22 +343,15 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         }
         Kind::TsJs => {
             let pre = r"^\s*(?:(?:export|default|declare|abstract|async)\s+)*";
-            let mods = r"^\s*(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*";
-            vec![
+            let mut patterns = vec![
                 format!(
                     r"{pre}(?:function\*?|class|interface|type|(?:const\s+)?enum|namespace|module)\s+{w}\b"
                 ),
                 // Arrow functions assigned to a name land here too.
                 format!(r"{pre}(?:const|let|var)\s+{w}\b"),
-                // A class or object-literal method: `foo(` at the end of the line, or
-                // `foo(..) {`. A `;` on the line means it was a call statement.
-                format!(r"{mods}{w}\s*(?:<[^>]*>)?\((?:[^;]*\{{)?\s*$"),
-                // A property holding a function: `foo = () =>`, `foo: async (x) =>`,
-                // `foo: function`.
-                format!(
-                    r"{mods}{w}\s*[?!]?\s*(?::[^=]*)?[=:]\s*(?:async\s+)?(?:function\b|\(|[\w$]+\s*=>)"
-                ),
-            ]
+            ];
+            patterns.extend(member_patterns(kind, word).unwrap_or_default());
+            patterns
         }
         Kind::Jvm => {
             let (mods, ret) = (jvm_mods!(), jvm_return_type!());
@@ -396,6 +428,98 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^\s*\.?{w}:\s*(#.*)?$"),
         ],
     }
+}
+
+/// Line patterns that declare `word` as a member of a class, an interface, an object literal or
+/// a receiver type: what `x.word` can reach when `x` is a value. A local, a module-level name or a
+/// type is not a member, so those rules are left out. `None` for a kind whose members have no
+/// rules of their own yet.
+pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
+    let w = regex::escape(word);
+    Some(match kind {
+        // Indented: a function at the top of a module is reached through an import, not a value.
+        Kind::Python => vec![format!(r"^\s+(?:async\s+)?def\s+{w}\b")],
+        Kind::Go => vec![format!(r"^func\s+\([^)]*\)\s*{w}\(")],
+        Kind::TsJs => {
+            let mods = r"^\s*(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*";
+            vec![
+                // A class or object-literal method: `foo(` at the end of the line, or
+                // `foo(..) {`. A `;` on the line means it was a call statement.
+                format!(r"{mods}{w}\s*(?:<[^>]*>)?\((?:[^;]*\{{)?\s*$"),
+                // A property holding a function: `foo = () =>`, `foo: async (x) =>`,
+                // `foo: function`.
+                format!(
+                    r"{mods}{w}\s*[?!]?\s*(?::[^=]*)?[=:]\s*(?:async\s+)?(?:function\b|\(|[\w$]+\s*=>)"
+                ),
+                // A signature with no body, as an interface, an abstract class, an overload and
+                // every class in a `.d.ts` write one: `foo(id: string): User;`. The return type
+                // tells it from a call; no `=` in it keeps an annotated arrow argument out.
+                format!(r"{mods}{w}\??\s*(?:<[^>]*>)?\([^;{{}}]*\)\s*:[^;{{}}=]*;?\s*$"),
+            ]
+        }
+        Kind::Rust
+        | Kind::Jvm
+        | Kind::Ruby
+        | Kind::Shell
+        | Kind::Sql
+        | Kind::Make
+        | Kind::Terraform
+        | Kind::Docker
+        | Kind::Yaml => return None,
+    })
+}
+
+/// The name a reader knows the declaration on 1-based `line` of `text` by: `name` behind what it
+/// is declared in, `UserRepository.delete_user` for a method, `Outer.Inner.run` for a nested
+/// one, the receiver type of a Go method. `None` at the top level. The enclosing declarations
+/// are the lines above indented less, named by the [`SYMBOLS`] rows a file of `kind` is read
+/// with, so a declaration nothing names stays unqualified rather than wrongly qualified.
+pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<String> {
+    static RECEIVER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^func\s+\(\s*(?:\w+\s+)?\*?\s*([A-Za-z_]\w*)").unwrap()
+    });
+    static ROWS: std::sync::LazyLock<Vec<(Option<Kind>, Regex)>> = std::sync::LazyLock::new(|| {
+        SYMBOLS
+            .iter()
+            .map(|(k, p)| {
+                (
+                    *k,
+                    Regex::new(p).expect("built-in symbol patterns are valid"),
+                )
+            })
+            .collect()
+    });
+    let sep = if kind == Kind::Rust { "::" } else { "." };
+    let lines: Vec<&str> = text.lines().collect();
+    let target = *lines.get(line.checked_sub(1)?)?;
+    if let Some(c) = RECEIVER.captures(target).filter(|_| kind == Kind::Go) {
+        return Some(format!("{}{sep}{name}", &c[1]));
+    }
+    let indent = |s: &str| s.len() - s.trim_start().len();
+    let mut depth = indent(target);
+    let mut names = vec![name.to_owned()];
+    for l in lines[..line - 1].iter().rev() {
+        if depth == 0 {
+            break;
+        }
+        let t = l.trim_start();
+        if t.is_empty()
+            || indent(l) >= depth
+            || ["#", "//", "/*", "*"].iter().any(|c| t.starts_with(c))
+        {
+            continue;
+        }
+        depth = indent(l);
+        if let Some(n) = ROWS
+            .iter()
+            .filter(|(k, _)| *k == Some(kind) || (k.is_none() && shared_symbols(Some(kind))))
+            .find_map(|(_, re)| symbol_name(re, l))
+        {
+            names.push(n);
+        }
+    }
+    names.reverse();
+    (names.len() > 1).then(|| names.join(sep))
 }
 
 /// `var.x`, `module.x`, `local.x`, `data.T.N` and `T.N` (a resource), with anything after the
@@ -573,15 +697,25 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
 }
 
 /// Every file of `kind` under `dirs`, as absolute paths. Nothing is ignored: `node_modules`
-/// and `site-packages` are gitignored by design and are exactly what is wanted here.
+/// and `site-packages` are gitignored by design and are exactly what is wanted here. What no Go
+/// import can reach is left out: a `_test.go` file, a `testdata` directory, and a nested module
+/// (GOROOT's `cmd`, the toolchain's own source), which is a root of its own when it is a
+/// dependency.
 pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
+    let go = kind == Kind::Go;
     let mut files = Vec::new();
     for dir in dirs {
         // Homebrew's Rust ships the sysroot `library` with a copy of itself inside; every
         // definition would come up twice.
         let copy = dir.file_name().map(std::ffi::OsStr::to_owned);
         let walk = ignore::WalkBuilder::new(dir)
-            .filter_entry(move |e| e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
+            .filter_entry(move |e| {
+                let unreachable = go
+                    && e.depth() > 0
+                    && e.file_type().is_some_and(|t| t.is_dir())
+                    && (e.file_name() == "testdata" || e.path().join("go.mod").is_file());
+                !unreachable && (e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
+            })
             .hidden(false)
             .git_ignore(false)
             .git_global(false)
@@ -592,10 +726,18 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
         files.extend(
             walk.filter_map(Result::ok)
                 .map(ignore::DirEntry::into_path)
-                .filter(|p| p.is_file() && kind_of(p) == Some(kind)),
+                .filter(|p| p.is_file() && kind_of(p) == Some(kind))
+                .filter(|p| !(go && p.to_string_lossy().ends_with("_test.go"))),
         );
     }
     files
+}
+
+/// Whether `path` is a TypeScript declaration file: `.d.ts`, `.d.mts` or `.d.cts`.
+pub fn declaration_file(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| [".d.ts", ".d.mts", ".d.cts"].iter().any(|e| n.ends_with(e)))
 }
 
 /// The dotted or `::` chain in front of the word under the cursor: `["json"]` for
@@ -943,6 +1085,127 @@ mod tests {
         assert_eq!(defs(&dir, &py, Kind::Python, "DEFAULT_LIMIT"), [10]);
         assert_eq!(defs(&dir, &py, Kind::Python, "NAME_RE"), [13]);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The lines `d`'s member patterns match for `word` in `files`: what `x.word` reaches.
+    fn members(dir: &Path, files: &[PathBuf], kind: Kind, word: &str) -> Vec<usize> {
+        let pat = member_patterns(kind, word).unwrap().join("|");
+        grep(dir, files, &pat, false, false)
+            .iter()
+            .map(|h| h.line)
+            .collect()
+    }
+
+    const PY_MEMBERS: &str = "import asyncio\n\n\nclass UserRepository:\n    async def delete_user(self, user_id: int) -> None:\n        pass\n\n    def find_user(self, user_id):\n        return user_id\n\n\ndef find_user(user_id):\n    return user_id\n\n\nasync def main():\n    pass\n\n\ndelete_user = None\n";
+
+    #[test]
+    fn python_members_are_indented_defs_sync_or_async() {
+        let (dir, files) = scratch("py-members", &[("repos.py", PY_MEMBERS)]);
+        // `async def` is a declaration for a bare word too, at the top level or in a class.
+        assert_eq!(defs(&dir, &files, Kind::Python, "delete_user"), [5, 20]);
+        assert_eq!(defs(&dir, &files, Kind::Python, "main"), [16]);
+        // `x.delete_user` reaches the method, not the module-level name of the same spelling.
+        assert_eq!(members(&dir, &files, Kind::Python, "delete_user"), [5]);
+        // `x.find_user` reaches the method; the module-level function takes an import.
+        assert_eq!(members(&dir, &files, Kind::Python, "find_user"), [8]);
+        assert_eq!(defs(&dir, &files, Kind::Python, "find_user"), [8, 12]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    const TS_MEMBERS: &str = "export interface Repo {\n  deleteUser(id: string): Promise<void>;\n  findUser?<T>(id: string): T | undefined\n  onChange: (id: string) => void;\n  name: string;\n}\n\nexport abstract class Base {\n  abstract deleteUser(id: string): Promise<void>;\n  get size(): number;\n}\n\nconst deleteUser = (id: string) => id;\nfindUser(id);\nrun(x).then((y): void => y);\nconst n = cond ? findUser(a) : b;\nexport const helpers = {\n  deleteUser(id) {\n    return id;\n  },\n};\n";
+
+    #[test]
+    fn ts_members_include_signatures_without_a_body() {
+        let (dir, files) = scratch("ts-members", &[("repo.ts", TS_MEMBERS)]);
+        let m = |w| members(&dir, &files, Kind::TsJs, w);
+        // The interface signature, the abstract one and the object-literal method; not the
+        // `const` arrow function, a local to whoever reads `deleteUser` bare.
+        assert_eq!(m("deleteUser"), [2, 9, 18]);
+        assert_eq!(
+            defs(&dir, &files, Kind::TsJs, "deleteUser"),
+            [2, 9, 13, 18],
+            "a bare word reads the `const` too"
+        );
+        // An optional generic signature with no `;`, not the call statement or the ternary.
+        assert_eq!(m("findUser"), [3]);
+        assert_eq!(m("onChange"), [4], "a property holding a function");
+        assert_eq!(m("size"), [10], "a getter signature");
+        // A plain field has no rule, and an annotated arrow argument is not a signature.
+        assert_eq!(m("name"), Vec::<usize>::new());
+        assert_eq!(m("run"), Vec::<usize>::new());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn go_members_need_a_receiver() {
+        let go = "package main\n\ntype Repo struct{}\n\nfunc (r *Repo[T]) Delete(id int) {}\n\nfunc (Repo) Find(id int) {}\n\nfunc Delete(id int) {}\n\nfunc main() {\n\tDelete := 1\n}\n";
+        let (dir, files) = scratch("go-members", &[("repo.go", go)]);
+        assert_eq!(members(&dir, &files, Kind::Go, "Delete"), [5]);
+        assert_eq!(members(&dir, &files, Kind::Go, "Find"), [7]);
+        assert_eq!(defs(&dir, &files, Kind::Go, "Delete"), [5, 9, 12]);
+        assert!(member_patterns(Kind::Rust, "len").is_none());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn qualified_names_come_from_the_declarations_around() {
+        let py = "class Outer:\n    # a comment at the class level\n    class Inner:\n        def run(self):\n\n            pass\n\n    async def stop(self):\n        pass\n\ndef main():\n    def helper():\n        pass\n";
+        let q = |kind, text, line, name| qualified(kind, text, line, name);
+        assert_eq!(
+            q(Kind::Python, py, 4, "run").as_deref(),
+            Some("Outer.Inner.run")
+        );
+        assert_eq!(
+            q(Kind::Python, py, 8, "stop").as_deref(),
+            Some("Outer.stop")
+        );
+        assert_eq!(
+            q(Kind::Python, py, 12, "helper").as_deref(),
+            Some("main.helper")
+        );
+        assert_eq!(q(Kind::Python, py, 11, "main"), None, "the top level");
+        assert_eq!(q(Kind::Python, py, 99, "x"), None);
+        let ts = "export default class OrderService {\n  load(id: Id) {\n  }\n}\nexport interface Repo {\n  deleteUser(id: string): void;\n}\nexport const helpers = {\n  parse(s) {\n    return s;\n  },\n};\n";
+        assert_eq!(
+            q(Kind::TsJs, ts, 2, "load").as_deref(),
+            Some("OrderService.load")
+        );
+        assert_eq!(
+            q(Kind::TsJs, ts, 6, "deleteUser").as_deref(),
+            Some("Repo.deleteUser")
+        );
+        assert_eq!(
+            q(Kind::TsJs, ts, 9, "parse").as_deref(),
+            Some("helpers.parse")
+        );
+        let go = "package main\n\nfunc (r *UserRepository) DeleteUser(id int) {}\nfunc (AuditLog) DeleteUser(id int) {}\nfunc (r *Repo[T]) Get() {}\nfunc Parse() {}\ntype Notifier interface {\n\tSend(text string)\n}\n";
+        assert_eq!(
+            q(Kind::Go, go, 3, "DeleteUser").as_deref(),
+            Some("UserRepository.DeleteUser")
+        );
+        assert_eq!(
+            q(Kind::Go, go, 4, "DeleteUser").as_deref(),
+            Some("AuditLog.DeleteUser")
+        );
+        assert_eq!(q(Kind::Go, go, 5, "Get").as_deref(), Some("Repo.Get"));
+        assert_eq!(q(Kind::Go, go, 6, "Parse"), None);
+        assert_eq!(q(Kind::Go, go, 8, "Send").as_deref(), Some("Notifier.Send"));
+        assert_eq!(q(Kind::Rust, RS, 6, "sum").as_deref(), Some("Order::sum"));
+        let rb = "module Billing\n  class Invoice\n    def total\n    end\n  end\nend\n";
+        assert_eq!(
+            q(Kind::Ruby, rb, 3, "total").as_deref(),
+            Some("Billing.Invoice.total")
+        );
+    }
+
+    #[test]
+    fn a_reason_says_whether_it_proves_the_target() {
+        assert_eq!(Reason::ByName.to_string(), "by name");
+        assert!(!Reason::ByName.proven());
+        let import = Reason::Import("numpy".into());
+        assert_eq!(import.to_string(), "via import numpy");
+        assert!(import.proven());
+        assert_eq!(Reason::Path("std::fs".into()).to_string(), "via std::fs");
     }
 
     #[test]
@@ -1549,6 +1812,33 @@ output "bucket" {
         files.sort();
         assert_eq!(files, [dir.join("pkg/mod.py"), dir.join("pkg/mod.pyi")]);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn external_go_files_are_what_an_import_reaches() {
+        let dir = std::env::temp_dir().join(format!("merl-ext-go-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        for f in [
+            "strings/strings.go",
+            "strings/strings_test.go",
+            "go/parser/testdata/x.go",
+            "cmd/go.mod",
+            "cmd/compile/main.go",
+        ] {
+            std::fs::create_dir_all(dir.join(f).parent().unwrap()).unwrap();
+            std::fs::write(dir.join(f), "").unwrap();
+        }
+        assert_eq!(
+            external_files(Kind::Go, std::slice::from_ref(&dir)),
+            [dir.join("strings/strings.go")]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(declaration_file(Path::new(
+            "node_modules/@types/node/fs.d.ts"
+        )));
+        assert!(declaration_file(Path::new("x/index.d.mts")));
+        assert!(!declaration_file(Path::new("x/index.mjs")));
+        assert!(!declaration_file(Path::new("x/index.ts")));
     }
 
     #[test]

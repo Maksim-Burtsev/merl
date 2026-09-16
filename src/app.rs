@@ -11,7 +11,7 @@ use regex::{Regex, RegexBuilder};
 use crate::buffer::{self, Buffer};
 use crate::git;
 use crate::picker::{Pick, PickItem, Picker};
-use crate::search::{self, Hit, Kind};
+use crate::search::{self, Candidate, Hit, Kind, Reason};
 use crate::tree::Tree;
 use crate::tutor::{self, Tutor};
 use crate::wrap;
@@ -1286,9 +1286,13 @@ impl App {
     /// module). Nothing in the project means the word comes from outside it: the same patterns
     /// run over the standard library and the installed dependencies
     /// ([`search::external_roots`]), narrowed to the module the file's imports bind the word or
-    /// its qualifier to (`np.array` looks in `numpy`, `from json import load` in `json`). A
-    /// field, a variant or a parameter has no declaration the rules know and gets "no
-    /// definition": `u` lists the uses.
+    /// its qualifier to (`np.array` looks in `numpy`, `from json import load` in `json`).
+    ///
+    /// `x.word` on a value — a `.` qualifier no import binds, other than a bare `self` — is a
+    /// member whose type is not known: every member declaration of the name, in the project and
+    /// outside it, is a candidate. The status line says how the target was found, and a single
+    /// candidate found only by name says so too. A field, a variant or a parameter has no
+    /// declaration the rules know and gets "no definition": `u` lists the uses.
     fn goto_definition(&mut self) {
         let kind = self.kind();
         let extra = search::word_chars(kind, true);
@@ -1296,13 +1300,23 @@ impl App {
             return;
         };
         let word = word.to_owned();
+        let before = &self.line_str()[..range.start];
+        let dotted = before.ends_with('.') && !before.ends_with("..");
         let chain = search::qualifier(self.line_str(), range.start);
         let here = self.rel_current();
-        let patterns = kind.map_or_else(Vec::new, |k| search::def_patterns(k, &word));
         let (Some(kind), Some(here)) = (kind, here) else {
             self.message = format!("no definition for {word}");
             return;
         };
+        let imports = search::imports(kind, &self.buf.lines.join("\n"));
+        let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
+        let on_value = dotted && !own && chain.first().is_none_or(|f| bound(&imports, f).is_none());
+        let members = on_value
+            .then(|| search::member_patterns(kind, &word))
+            .flatten();
+        let patterns = members
+            .clone()
+            .unwrap_or_else(|| search::def_patterns(kind, &word));
         if patterns.is_empty() {
             self.message = format!("no definition for {word}");
             return;
@@ -1320,27 +1334,67 @@ impl App {
                     .is_ok_and(|text| search::directly_inside(&text, h.line, block))
             });
         }
-        // Standing on one of the definitions is not a reason to go nowhere.
-        if hits.len() > 1 {
-            hits.retain(|h| h.line != self.line + 1 || h.path != here);
-        }
-        if hits.is_empty()
+        let mut found: Vec<Candidate> = hits
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            })
+            .collect();
+        if members.is_some() {
+            // A value's type is unknown: its member may come from a dependency as well. Outside
+            // the project TypeScript is read from its declaration files, as VS Code lands on
+            // them: the `.d.ts` says what a type offers, the bundled JavaScript is noise.
+            let all = self.external_files(kind);
+            let files: Vec<PathBuf> = all
+                .iter()
+                .filter(|p| kind != Kind::TsJs || search::declaration_file(p))
+                .cloned()
+                .collect();
+            let external = self.external_grep(kind, &files, &pattern);
+            let seen: Vec<PathBuf> = found.iter().map(|c| self.root.join(&c.hit.path)).collect();
+            found.extend(
+                external
+                    .into_iter()
+                    .filter(|h| !seen.contains(&h.path))
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::ByName,
+                    }),
+            );
+        } else if found.is_empty()
+            && !on_value
             && !matches!(
                 chain.first().map(String::as_str),
                 Some("self" | "cls" | "this")
             )
         {
-            hits = self.external_definitions(kind, &word, &chain, &pattern);
+            found = self.external_definitions(kind, &word, &chain, &pattern, &imports);
         }
-        match hits.len() {
-            0 => self.message = format!("no definition for {word}"),
-            1 => {
-                let path = self.root.join(&hits[0].path);
-                self.jump_to(&path, hits[0].line);
+        // Standing on one of the definitions is not a reason to go nowhere.
+        if found.len() > 1 {
+            found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
+        }
+        match found.as_slice() {
+            [] => self.message = resolution(&word, None, &found),
+            [one] => {
+                let path = self.root.join(&one.hit.path);
+                let target = self
+                    .text_of(&one.hit.path)
+                    .and_then(|text| search::qualified(kind, &text, one.hit.line, &word));
+                self.message = resolution(&word, target.as_deref(), &found);
+                self.jump_to(&path, one.hit.line);
             }
             _ => {
-                let items = self.external_items(kind, hits);
+                let status = resolution(&word, None, &found);
+                let items = self.definition_items(kind, &word, found);
                 self.show_picker(PickerKind::Definitions, items);
+                if let Some(p) = &mut self.picker {
+                    p.title = p
+                        .title
+                        .replacen(PickerKind::Definitions.title(), &status, 1);
+                }
+                self.message = status;
             }
         }
     }
@@ -1348,37 +1402,29 @@ impl App {
     /// `pattern` over the standard library and dependencies of `kind`, in the module the file's
     /// imports bind `chain` (or `word` itself) to. The module path is relaxed from the end until
     /// files match: `from json import load` is `json/load`, then `json`. A qualifier no import
-    /// binds is taken as the module path itself (`std::fs::read`, `os.path` behind a bare
-    /// `import os`); a local variable in that position matches no file and the search stops.
-    /// A bare word no import binds (`Vec`, `open`) searches every file.
+    /// binds is taken as the module path itself (`std::fs::read`); a name nothing installed
+    /// declares matches no file and the search stops. A bare word no import binds (`Vec`,
+    /// `open`) searches every file, by name.
     fn external_definitions(
         &mut self,
         kind: Kind,
         word: &str,
         chain: &[String],
         pattern: &str,
-    ) -> Vec<Hit> {
-        let text = self.buf.lines.join("\n");
-        let imports = search::imports(kind, &text);
-        let bound = |name: &str| {
-            imports
-                .iter()
-                .find(|(n, _)| n == name)
-                .map(|(_, p)| p.clone())
-        };
-        let imported = chain
-            .first()
-            .map_or(bound(word).is_some(), |f| bound(f).is_some());
+        imports: &[(String, Vec<String>)],
+    ) -> Vec<Candidate> {
+        let imported = chain.first().map_or(bound(imports, word).is_some(), |f| {
+            bound(imports, f).is_some()
+        });
         let mut module = match chain.first() {
             Some(first) => {
-                let mut p = bound(first).unwrap_or_else(|| vec![first.clone()]);
+                let mut p = bound(imports, first).unwrap_or_else(|| vec![first.clone()]);
                 p.extend(chain[1..].iter().cloned());
                 Some(p)
             }
-            None => bound(word),
+            None => bound(imports, word),
         };
         let all = self.external_files(kind);
-        let roots = self.external[&kind].0.clone();
         let mut files: Vec<PathBuf> = Vec::new();
         while let Some(m) = &mut module {
             files = all
@@ -1395,32 +1441,60 @@ impl App {
                 return Vec::new();
             }
         }
-        // Absolute paths: `root.join` leaves them alone, so a hit opens where it is. The
-        // standard library is the first root, and its hits come first.
-        let grep = |files: &[PathBuf]| {
-            let mut hits =
-                search::grep_project(&self.root, files, pattern, false, false, None, None)
-                    .unwrap_or_default();
-            hits.sort_by_cached_key(|h| {
-                (
-                    roots.iter().position(|r| h.path.starts_with(r)),
-                    h.path.clone(),
-                    h.line,
-                )
-            });
-            hits
+        let by_name = |hits: Vec<Hit>| -> Vec<Candidate> {
+            hits.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::ByName,
+                })
+                .collect()
         };
-        if module.is_none() {
-            return grep(&all);
-        }
-        let hits = grep(&files);
+        let Some(module) = module else {
+            return by_name(self.external_grep(kind, &all, pattern));
+        };
+        let hits = self.external_grep(kind, &files, pattern);
         // An imported module that does not declare the name re-exports it (`std::sync::Arc`
         // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.
         if hits.is_empty() && imported {
-            grep(&all)
-        } else {
-            hits
+            return by_name(self.external_grep(kind, &all, pattern));
         }
+        let sep = match kind {
+            Kind::Python => ".",
+            Kind::Rust => "::",
+            _ => "/",
+        };
+        let module = module.join(sep);
+        let reason = if imported {
+            Reason::Import(module)
+        } else {
+            Reason::Path(module)
+        };
+        hits.into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: reason.clone(),
+            })
+            .collect()
+    }
+
+    /// `pattern` over `files` outside the project, standard library first. The paths are
+    /// absolute: `root.join` leaves them alone, so a hit opens where it is.
+    fn external_grep(&self, kind: Kind, files: &[PathBuf], pattern: &str) -> Vec<Hit> {
+        let roots = self
+            .external
+            .get(&kind)
+            .map(|(roots, _)| roots.as_slice())
+            .unwrap_or_default();
+        let mut hits = search::grep_project(&self.root, files, pattern, false, false, None, None)
+            .unwrap_or_default();
+        hits.sort_by_cached_key(|h| {
+            (
+                roots.iter().position(|r| h.path.starts_with(r)),
+                h.path.clone(),
+                h.line,
+            )
+        });
+        hits
     }
 
     /// The files of `kind` outside the project, walked once per kind.
@@ -1439,26 +1513,72 @@ impl App {
             .clone()
     }
 
-    /// [`Self::hit_items`] with an external hit shown relative to the root it came from:
-    /// `json/__init__.py:278:` rather than the whole path to the interpreter.
-    fn external_items(&mut self, kind: Kind, hits: Vec<Hit>) -> Vec<PickItem> {
+    /// The text of `path` as the search read it: the open file as it is on screen.
+    fn text_of(&self, path: &Path) -> Option<String> {
+        if self.rel_current().as_deref() == Some(path) {
+            Some(self.buf.lines.join("\n"))
+        } else {
+            std::fs::read_to_string(self.root.join(path)).ok()
+        }
+    }
+
+    /// Picker rows for `d`: the qualified name, the reason, then `path:line: code`, the columns
+    /// padded so the names and reasons line up. An external hit is shown relative to the root it
+    /// came from: `json/__init__.py:278:` rather than the whole path to the interpreter.
+    fn definition_items(&self, kind: Kind, word: &str, found: Vec<Candidate>) -> Vec<PickItem> {
         let roots = self
             .external
             .get(&kind)
-            .map(|(roots, _)| roots.clone())
+            .map(|(roots, _)| roots.as_slice())
             .unwrap_or_default();
-        let mut items = Self::hit_items(hits);
-        for item in &mut items {
-            if let Some(root) = roots.iter().find(|r| item.path.starts_with(r))
-                && let Ok(rel) = item.path.strip_prefix(root)
-            {
-                let full = format!("{}:{}: ", item.path.display(), item.line);
-                let short = format!("{}:{}: ", rel.display(), item.line);
-                item.label = short.clone() + &item.label[full.len()..];
-                item.code_at = Some(short.len());
-            }
-        }
-        items
+        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
+        let named: Vec<(String, String, Candidate)> = found
+            .into_iter()
+            .map(|c| {
+                let text = texts
+                    .entry(c.hit.path.clone())
+                    .or_insert_with(|| self.text_of(&c.hit.path));
+                let name = text
+                    .as_deref()
+                    .and_then(|text| search::qualified(kind, text, c.hit.line, word))
+                    .unwrap_or_else(|| word.to_owned());
+                (name, c.reason.to_string(), c)
+            })
+            .collect();
+        let pad = |width: usize, s: &str| " ".repeat(width.saturating_sub(wrap::width(s)));
+        let name_w = named
+            .iter()
+            .map(|(n, ..)| wrap::width(n))
+            .max()
+            .unwrap_or(0);
+        let name_w = name_w.min(MAX_NAME_PAD);
+        let why_w = named
+            .iter()
+            .map(|(_, r, _)| wrap::width(r))
+            .max()
+            .unwrap_or(0);
+        named
+            .into_iter()
+            .map(|(name, why, c)| {
+                let shown = roots
+                    .iter()
+                    .find_map(|r| c.hit.path.strip_prefix(r).ok())
+                    .unwrap_or(&c.hit.path);
+                let head = format!(
+                    "{name}{}  {why}{}  {}:{}: ",
+                    pad(name_w, &name),
+                    pad(why_w, &why),
+                    shown.display(),
+                    c.hit.line
+                );
+                PickItem {
+                    code_at: Some(head.len()),
+                    label: head + &clip(c.hit.text.trim(), MAX_LABEL_TEXT),
+                    path: c.hit.path,
+                    line: c.hit.line,
+                }
+            })
+            .collect()
     }
 
     /// `u` / Shift+F12: every whole-word occurrence of the identifier, case-sensitive.
@@ -2033,6 +2153,43 @@ impl App {
             }
             _ => {}
         }
+    }
+}
+
+/// The module path an import in `imports` binds `name` to.
+fn bound(imports: &[(String, Vec<String>)], name: &str) -> Option<Vec<String>> {
+    imports
+        .iter()
+        .find(|(n, _)| n == name)
+        .map(|(_, p)| p.clone())
+}
+
+/// What the status line says after `d` on `word`: `word → Target.word (reason)` for a jump,
+/// `word: reason` when the target is not declared inside anything, `word: reason, N
+/// declarations` over a picker. A jump by name says it had one match, so a guess that happened to
+/// be unique never reads as a resolution.
+fn resolution(word: &str, target: Option<&str>, found: &[Candidate]) -> String {
+    let Some(first) = found.first() else {
+        return format!("no definition for {word}");
+    };
+    let reason = &first.reason;
+    if let [_] = found {
+        let why = if reason.proven() {
+            reason.to_string()
+        } else {
+            format!("{reason}, 1 match")
+        };
+        return match target {
+            Some(target) => format!("{word} \u{2192} {target} ({why})"),
+            None => format!("{word}: {why}"),
+        };
+    }
+    let n = found.len();
+    if found.iter().all(|c| c.reason == *reason) {
+        format!("{word}: {reason}, {n} declarations")
+    } else {
+        // Each row says its own reason.
+        format!("{word}: {n} declarations")
     }
 }
 
@@ -2832,7 +2989,334 @@ mod tests {
         );
         assert!(a.line_str().starts_with("def load("), "{}", a.line_str());
         assert_eq!(a.buf.readonly, Some("outside the project"));
+        assert_eq!(a.message, "load: via import json");
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// One of the #68 projects in `tests/fixtures`, with nothing outside it, so the standard
+    /// library of the machine running the tests has no say in what `d` offers.
+    fn fixture_app(name: &str) -> App {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures")
+            .join(name);
+        let (tree, files) = crate::tree::build(&dir);
+        let mut a = App::new(dir, tree, files, Buffer::empty(), None);
+        for kind in [Kind::Python, Kind::TsJs, Kind::Go] {
+            a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
+        }
+        a
+    }
+
+    /// Presses `d` on the last word of the first line of `file` that contains `code`.
+    fn d_on(a: &mut App, file: &str, code: &str) {
+        let path = a.root.join(file);
+        let text = std::fs::read_to_string(&path).unwrap();
+        let (n, line) = text
+            .lines()
+            .enumerate()
+            .find(|(_, l)| l.contains(code))
+            .unwrap_or_else(|| panic!("no `{code}` in {file}"));
+        a.jump_to(&path, n + 1);
+        a.col = line.find(code).unwrap() + code.rfind(|c: char| !is_word(c)).map_or(0, |i| i + 1);
+        press(a, KeyCode::Char('d'), KeyModifiers::NONE);
+    }
+
+    /// The rows of the open picker, each split into its qualified name, its reason and the
+    /// `path:line` it points at.
+    fn definition_rows(a: &mut App) -> Vec<(String, String, String)> {
+        let picker = a.picker.as_mut().expect("a picker");
+        picker.settle();
+        picker
+            .window(50)
+            .0
+            .into_iter()
+            .map(|r| {
+                let at = r.item.code_at.unwrap();
+                let head = &r.item.label[..at];
+                let cols: Vec<&str> = head
+                    .split("  ")
+                    .map(str::trim)
+                    .filter(|c| !c.is_empty())
+                    .collect();
+                let [name, why, place] = cols[..] else {
+                    panic!("{head}");
+                };
+                (name.into(), why.into(), place.trim_end_matches(':').into())
+            })
+            .collect()
+    }
+
+    /// What `d` shows: the status line, and for a jump where it landed, for a picker its rows.
+    #[derive(Debug, PartialEq)]
+    enum Shown {
+        Jump(String, String),
+        Picker(String, Vec<(String, String, String)>),
+    }
+
+    fn shown(a: &mut App) -> Shown {
+        match a.picker {
+            Some(_) => {
+                let rows = definition_rows(a);
+                press(a, KeyCode::Esc, KeyModifiers::NONE);
+                Shown::Picker(a.message.clone(), rows)
+            }
+            None => Shown::Jump(
+                a.message.clone(),
+                format!("{}:{}", a.rel_path(), a.line + 1),
+            ),
+        }
+    }
+
+    fn jump(status: &str, place: &str) -> Shown {
+        Shown::Jump(status.into(), place.into())
+    }
+
+    fn picker(status: &str, rows: &[(&str, &str)]) -> Shown {
+        let rows = rows
+            .iter()
+            .map(|(name, place)| (name.to_string(), "by name".to_string(), place.to_string()))
+            .collect();
+        Shown::Picker(status.into(), rows)
+    }
+
+    /// Steps 7 and 1 of #68 over the same project in three languages: on `x.word` with `x` a
+    /// value, one member declaration of the name jumps and says it was found by name; several
+    /// open a picker whose rows say what each is declared in and why it is there.
+    #[test]
+    fn a_member_of_a_value_is_found_by_name_and_says_so() {
+        let cases: [(&str, &str, &str, Shown); 12] = [
+            // The last link of a chain: one declaration, and a jump that says how it was found.
+            (
+                "python",
+                "service.py",
+                "app.services.users.remove",
+                jump(
+                    "remove \u{2192} UserService.remove (by name, 1 match)",
+                    "service.py:10",
+                ),
+            ),
+            (
+                "python",
+                "service.py",
+                "self.repo.find_user",
+                jump(
+                    "find_user \u{2192} UserRepository.find_user (by name, 1 match)",
+                    "repos.py:5",
+                ),
+            ),
+            // Two classes declare the method: a picker, never a guess.
+            (
+                "python",
+                "service.py",
+                "self.repo.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // An interface and its implementations declare the same name.
+            (
+                "python",
+                "service.py",
+                "self.notifier.send",
+                picker(
+                    "send: by name, 3 declarations",
+                    &[
+                        ("Notifier.send", "repos.py:18"),
+                        ("EmailNotifier.send", "repos.py:22"),
+                        ("SmsNotifier.send", "repos.py:27"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "service.ts",
+                "app.services.users.remove",
+                jump(
+                    "remove \u{2192} UserService.remove (by name, 1 match)",
+                    "service.ts:11",
+                ),
+            ),
+            (
+                "typescript",
+                "service.ts",
+                "this.repo.findUser",
+                jump(
+                    "findUser \u{2192} UserRepository.findUser (by name, 1 match)",
+                    "repos.ts:6",
+                ),
+            ),
+            (
+                "typescript",
+                "service.ts",
+                "this.repo.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // The interface member is a signature with no body.
+            (
+                "typescript",
+                "service.ts",
+                "this.notifier.send",
+                picker(
+                    "send: by name, 3 declarations",
+                    &[
+                        ("Notifier.send", "repos.ts:22"),
+                        ("EmailNotifier.send", "repos.ts:26"),
+                        ("SmsNotifier.send", "repos.ts:32"),
+                    ],
+                ),
+            ),
+            (
+                "go",
+                "service.go",
+                "app.Services.Users.Remove",
+                jump(
+                    "Remove \u{2192} UserService.Remove (by name, 1 match)",
+                    "service.go:11",
+                ),
+            ),
+            (
+                "go",
+                "service.go",
+                "s.repo.FindUser",
+                jump(
+                    "FindUser \u{2192} UserRepository.FindUser (by name, 1 match)",
+                    "repos.go:11",
+                ),
+            ),
+            (
+                "go",
+                "service.go",
+                "s.repo.DeleteUser",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            // Go's interface method has no rule yet: step 6 of #68 lists implementations.
+            (
+                "go",
+                "service.go",
+                "s.notifier.Send",
+                picker(
+                    "Send: by name, 2 declarations",
+                    &[
+                        ("EmailNotifier.Send", "repos.go:31"),
+                        ("SmsNotifier.Send", "repos.go:37"),
+                    ],
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {code}");
+        }
+        // The picker is titled with what the status line says.
+        let mut a = fixture_app("go");
+        d_on(&mut a, "service.go", "s.repo.DeleteUser");
+        assert_eq!(
+            a.picker.as_ref().unwrap().title,
+            "DeleteUser: by name, 2 declarations"
+        );
+    }
+
+    #[test]
+    fn a_member_of_a_value_is_looked_for_outside_the_project_too() {
+        let mut a = fixture_app("python");
+        let site = std::env::temp_dir().join(format!("merl-site-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&site);
+        std::fs::create_dir_all(site.join("client")).unwrap();
+        std::fs::write(
+            site.join("client/api.py"),
+            "class Client:\n    def find_user(self, user_id):\n        pass\n",
+        )
+        .unwrap();
+        a.external.insert(
+            Kind::Python,
+            (
+                vec![site.clone()],
+                Arc::new(vec![site.join("client/api.py")]),
+            ),
+        );
+        d_on(&mut a, "service.py", "self.repo.find_user");
+        // The project first; a dependency shown relative to its root.
+        assert_eq!(
+            shown(&mut a),
+            picker(
+                "find_user: by name, 2 declarations",
+                &[
+                    ("UserRepository.find_user", "repos.py:5"),
+                    ("Client.find_user", "client/api.py:2"),
+                ],
+            )
+        );
+        // TypeScript outside the project is read from its declarations, not the bundle.
+        let mut a = fixture_app("typescript");
+        let (dts, js) = (site.join("client/index.d.ts"), site.join("client/index.js"));
+        std::fs::write(
+            &dts,
+            "export declare class Client {\n    findUser(id: number): unknown;\n}\n",
+        )
+        .unwrap();
+        std::fs::write(&js, "class Client {\n  findUser(id) {\n  }\n}\n").unwrap();
+        a.external
+            .insert(Kind::TsJs, (vec![site.clone()], Arc::new(vec![dts, js])));
+        d_on(&mut a, "service.ts", "this.repo.findUser");
+        assert_eq!(
+            shown(&mut a),
+            picker(
+                "findUser: by name, 2 declarations",
+                &[
+                    ("UserRepository.findUser", "repos.ts:6"),
+                    ("Client.findUser", "client/index.d.ts:2"),
+                ],
+            )
+        );
+        std::fs::remove_dir_all(&site).unwrap();
+    }
+
+    #[test]
+    fn a_jump_says_how_the_target_was_found() {
+        let mut a = fixture_app("go");
+        // A bare word declared at the top level: nothing to qualify it with.
+        d_on(&mut a, "service.go", "\tHandleDelete");
+        assert_eq!(a.message, "HandleDelete: by name, 1 match");
+        assert!(a.line_str().starts_with("func HandleDelete("));
+        let one = |reason| {
+            vec![Candidate {
+                hit: Hit {
+                    path: PathBuf::from("x"),
+                    line: 1,
+                    text: String::new(),
+                },
+                reason,
+            }]
+        };
+        assert_eq!(
+            resolution(
+                "load",
+                Some("json.load"),
+                &one(Reason::Import("json".into()))
+            ),
+            "load \u{2192} json.load (via import json)"
+        );
+        let mut two = one(Reason::ByName);
+        two.extend(one(Reason::Path("std::fs".into())));
+        assert_eq!(resolution("read", None, &two), "read: 2 declarations");
+        assert_eq!(resolution("read", None, &[]), "no definition for read");
     }
 
     #[test]

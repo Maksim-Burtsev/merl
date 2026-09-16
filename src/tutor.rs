@@ -85,7 +85,8 @@ pub const LESSONS: &[Lesson] = &[
     },
     Lesson {
         title: "Go to definition",
-        text: "With the cursor on `load_config`, press `d` (or F12) to jump to its definition.",
+        text: "With the cursor on `load_config`, press `d` (or F12) to jump to its definition. \
+               The status line says how it was found: by name, the only match.",
         done: |a| at(a, "config.py"),
     },
     Lesson {

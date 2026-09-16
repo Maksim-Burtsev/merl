@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` finds a Python `async def` and a TypeScript method signature with no body
+  (`find(id: string): User;` in an interface, an abstract class, an overload or a `.d.ts`). (#69)
+- `d` on `x.word` no longer takes a variable for a module and looks for a dependency file named
+  after it. Go lookups outside the project skip `_test.go` files, `testdata` and nested modules
+  such as GOROOT's `cmd`, which no import reaches. (#69)
 - Eight themes had the selection colour within a few points of the cursor line highlight, so a
   selection inside the cursor line was nearly invisible: rose-pine-moon, rose-pine-dawn, nordfox,
   nightfox, gruvbox-material-light and material-light move the selection a step along their own
@@ -17,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` says how it found the target. After a jump the status line reads
+  `delete_user → UserRepository.delete_user (by name, 1 match)` or `load: via import json`. Over
+  a picker the status line and the title read `delete_user: by name, 2 declarations`, and each row
+  starts with the class, interface or receiver the declaration sits in and why it is listed. (#69)
+- `d` on `x.word` where `x` is a value (a local, a parameter, `self.repo`) collects every method
+  of that name, from the project and from the standard library and dependencies, instead of
+  stopping: Python `def` in a class, TypeScript methods and signatures (read from `.d.ts` outside
+  the project), Go `func (r *T) Name(`. One candidate jumps, several open the picker. (#69)
 - Twenty-three themes, taking the set to forty-seven. The families Vim and Neovim users run most
   and merl was missing: gruvbox, One Dark, GitHub, VS Code's Dark+ and Light+, Dracula with its
   light Alucard, Nord, Solarized, Oxocarbon, Sonokai, Material and nightfox itself. Plus the
