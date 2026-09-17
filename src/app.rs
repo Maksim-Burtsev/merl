@@ -1476,6 +1476,29 @@ impl App {
         }
         // A member in the project first. A qualifier no import names can still be a class, a
         // namespace or a module of the project, which declares the word at its top level.
+        // A qualifier that is no value and no import can be what declares the word: a namespace,
+        // a class with a static member, a nested class. A declaration that reads `Outer.find`
+        // is the answer then, and a method `find` of some other class is not.
+        if on_value && locals.is_empty() && !chain.is_empty() {
+            let full = format!("{}.{word}", chain.join("."));
+            let named: Vec<Candidate> = self
+                .project_definitions(kind, &here, &word, &pattern)
+                .into_iter()
+                .filter(|h| {
+                    self.text_of(&h.path)
+                        .and_then(|t| search::qualified(kind, &t, h.line, &word))
+                        .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")))
+                })
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Path(chain.join(".")),
+                })
+                .collect();
+            if !named.is_empty() {
+                self.show_definitions(kind, &word, &here, named, None);
+                return;
+            }
+        }
         // A parameter or a local in front of the word is a value for certain: it has members,
         // and a function or a variable at the top of a module is not one of them.
         let hits = members
@@ -5239,6 +5262,33 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// Found by the acceptance pass of #68: `Outer.find` names what `Outer` declares, and a
+    /// method `find` of some class elsewhere used to take the jump with `1 match`.
+    #[test]
+    fn a_namespace_or_a_class_in_front_of_the_word_names_where_it_is_declared() {
+        let (dir, mut a) = project_app(
+            "namespaces",
+            &[
+                (
+                    "ns.ts",
+                    "export namespace Outer {\n  export function find(id: string) {\n    return id;\n  }\n}\n\nexport function run() {\n  return Outer.find(\"1\");\n}\n",
+                ),
+                (
+                    "other.ts",
+                    "export class Repo {\n  find(id: string) {\n    return id;\n  }\n}\n",
+                ),
+            ],
+        );
+        a.external
+            .insert(Kind::TsJs, (Vec::new(), Arc::new(Vec::new())));
+        d_on(&mut a, "ns.ts", "Outer.find");
+        assert_eq!(
+            shown(&mut a),
+            jump("find \u{2192} Outer.find (via Outer)", "ns.ts:2")
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// A qualifier bound by a relative import, or a class of the project, is no value: `d`
     /// finds the module-level declaration and does not add a dependency's same-named methods.
     #[test]
@@ -5304,10 +5354,7 @@ mod tests {
             (
                 "shapes.py",
                 "Outer.Inner",
-                jump(
-                    "Inner \u{2192} Outer.Inner (by name, 1 match)",
-                    "shapes.py:2",
-                ),
+                jump("Inner \u{2192} Outer.Inner (via Outer)", "shapes.py:2"),
             ),
         ] {
             d_on(&mut a, file, code);
