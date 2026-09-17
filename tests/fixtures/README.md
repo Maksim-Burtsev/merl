@@ -27,5 +27,12 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   `folder.parent…` is followed for six names and breaks at the seventh. `make_uow().users` hangs
   off a call next to a local `users` of another type, which must not be read as its receiver.
 
+- implementations (step 6): `impls` carries a `BaseJob` whose `run` two subclasses override and a
+  third inherits, a `NightlyJob` a level below one of them, a `Sweeper` with a single
+  implementation, and a `LoudNotifier` that implements the `Notifier` of `repos` from another file.
+  Python's `Notifier` is a `Protocol` and Go's is an interface, so both are answered structurally:
+  `WebhookNotifier` implements the protocol without naming it, and `Batch.send` / `Batch.Run` take
+  one parameter too many to be an implementation of anything.
+
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.

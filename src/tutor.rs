@@ -45,6 +45,9 @@ const PARA_DOWN_LINE: usize = 47;
 const PARA_UP_LINE: usize = 38;
 /// 1-based line of the `lint` target in `Makefile`, where the Makefile lesson lands.
 const MAKE_LINT_LINE: usize = 6;
+/// 1-based line of `PlainFormatter.render` in `models.py`, the first implementation the
+/// implementations lesson lists.
+const RENDER_LINE: usize = 54;
 
 fn at(app: &App, file: &str) -> bool {
     app.rel_path() == file
@@ -101,8 +104,9 @@ pub const LESSONS: &[Lesson] = &[
     },
     Lesson {
         title: "Usages",
-        text: "Shift+Right moves a word: press it twice to reach `load_config`, then `u` \
-               (or Shift+F12). Pick the hit in cli.py with Down and Enter.",
+        text: "The jump left the cursor on `load_config`, and `u` (or Shift+F12) lists every \
+               use of the word under it — Shift+Left and Shift+Right move a word when it is \
+               not there yet. Press `u`, then pick the hit in cli.py with Down and Enter.",
         done: |a| at(a, "cli.py"),
     },
     Lesson {
@@ -174,6 +178,13 @@ pub const LESSONS: &[Lesson] = &[
         text: "`d` reads Makefiles, Terraform, Dockerfiles and YAML too. Open the Makefile with \
                `o`, go to line 3 with `:`, press End to stand on `lint`, then `d`.",
         done: |a| at(a, "Makefile") && a.line + 1 == MAKE_LINT_LINE,
+    },
+    Lesson {
+        title: "Implementations",
+        text: "On a declaration `d` shows what implements it. Open models.py with `o`, press \
+               `/`, type `render`, Enter: the cursor is on the protocol's method. Press `d`, \
+               then Enter on the first row.",
+        done: |a| at(a, "models.py") && a.line + 1 == RENDER_LINE,
     },
     Lesson {
         title: "Themes",
@@ -256,10 +267,6 @@ mod tests {
         }
     }
 
-    fn shift(a: &mut App, code: KeyCode) {
-        a.key(KeyEvent::new(code, KeyModifiers::SHIFT));
-    }
-
     #[test]
     fn the_sample_project_has_exactly_one_todo() {
         let todos: usize = FILES.iter().map(|(_, t)| t.matches("TODO").count()).sum();
@@ -278,6 +285,14 @@ mod tests {
         assert!(
             line(PARA_UP_LINE + 1).contains("def remove"),
             "{PARA_UP_LINE}"
+        );
+        let models = FILES.iter().find(|(n, _)| *n == "models.py").unwrap().1;
+        assert!(
+            models
+                .lines()
+                .nth(RENDER_LINE - 1)
+                .is_some_and(|l| l.trim().starts_with("def render")),
+            "{RENDER_LINE}"
         );
         let make = FILES.iter().find(|(n, _)| *n == "Makefile").unwrap().1;
         let make_line = |n: usize| make.lines().nth(n - 1).unwrap();
@@ -405,9 +420,7 @@ mod tests {
         press(&mut a, KeyCode::Char(']'));
         done(&mut a);
 
-        // 7: usages, then the hit in cli.py
-        shift(&mut a, KeyCode::Right);
-        shift(&mut a, KeyCode::Right);
+        // 7: usages of the word the jump left the cursor on, then the hit in cli.py
         press(&mut a, KeyCode::Char('u'));
         press(&mut a, KeyCode::Down);
         press(&mut a, KeyCode::Enter);
@@ -485,7 +498,22 @@ mod tests {
         press(&mut a, KeyCode::Char('d'));
         done(&mut a);
 
-        // 20 and 21: preview a theme, then put the old one back
+        // 20: the implementations of the protocol's method, and the first of them
+        press(&mut a, KeyCode::Char('o'));
+        typed(&mut a, "models");
+        press(&mut a, KeyCode::Enter);
+        press(&mut a, KeyCode::Char('/'));
+        typed(&mut a, "render");
+        press(&mut a, KeyCode::Enter);
+        press(&mut a, KeyCode::Char('d'));
+        assert_eq!(
+            a.message,
+            "render: implementations of Formatter.render, 2 declarations"
+        );
+        press(&mut a, KeyCode::Enter);
+        done(&mut a);
+
+        // 21 and 22: preview a theme, then put the old one back
         press(&mut a, KeyCode::Char('T'));
         press(&mut a, KeyCode::Down);
         done(&mut a);
@@ -493,7 +521,7 @@ mod tests {
         done(&mut a);
         assert_eq!(a.shown_theme(), crate::theme::DEFAULT);
 
-        // 22 and 23: help, and closing it
+        // 23 and 24: help, and closing it
         press(&mut a, KeyCode::Char('?'));
         done(&mut a);
         press(&mut a, KeyCode::Esc);
