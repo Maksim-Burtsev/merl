@@ -1616,7 +1616,11 @@ impl App {
         };
         let namesakes = found.iter().all(|c| !c.reason.proven())
             && !found.is_empty()
-            && (found.len() < all || on_member());
+            && (found.len() < all || on_member())
+            // Alone, the declaration under the cursor is its own answer.
+            && found
+                .iter()
+                .any(|c| c.hit.line != self.line + 1 || c.hit.path != here);
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
         match found.as_slice() {
@@ -5520,6 +5524,26 @@ mod tests {
         assert_eq!(status, "pick: 2 declarations");
         let places: Vec<&str> = rows.iter().map(|r| r.2.as_str()).collect();
         assert_eq!(places, ["pkg/a.py:1", "pkg/b.py:1"]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A declaration with no namesake is its own answer, as it was before the namesake rule.
+    #[test]
+    fn a_lone_declaration_stays_where_it_is() {
+        let (dir, mut a) = project_app(
+            "lonely",
+            &[(
+                "a.ts",
+                "export class A {\n  onlyOne(x: number): number {\n    return x;\n  }\n}\n",
+            )],
+        );
+        a.external
+            .insert(Kind::TsJs, (Vec::new(), Arc::new(Vec::new())));
+        d_on(&mut a, "a.ts", "  onlyOne");
+        assert_eq!(
+            shown(&mut a),
+            jump("onlyOne \u{2192} A.onlyOne (by name, 1 match)", "a.ts:2")
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
