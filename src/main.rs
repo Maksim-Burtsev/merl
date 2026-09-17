@@ -44,6 +44,8 @@ enum Msg {
     Fs(notify::Event),
     /// `git diff` finished for the file at this path.
     Diff(PathBuf, git::Diff),
+    /// SIGTERM, SIGHUP or SIGINT from outside: save and leave as `q` does.
+    Quit,
 }
 
 #[derive(Parser)]
@@ -167,6 +169,20 @@ fn run() -> Result<()> {
             }
         }
     });
+    // Without this a `kill` or a closed tmux pane skips the cleanup below: the terminal stays on
+    // the alternate screen and edits younger than the autosave delay are lost.
+    let quit = tx.clone();
+    if let Ok(mut signals) = signal_hook::iterator::Signals::new([
+        signal_hook::consts::SIGTERM,
+        signal_hook::consts::SIGHUP,
+        signal_hook::consts::SIGINT,
+    ]) {
+        std::thread::spawn(move || {
+            if signals.forever().next().is_some() {
+                let _ = quit.send(Msg::Quit);
+            }
+        });
+    }
     let fs = tx.clone();
     app.wake = std::sync::Arc::new(move || {
         let _ = tx.send(Msg::Redraw);
@@ -286,6 +302,11 @@ fn event_loop(
                     app.diff = diff;
                     dirty = true;
                 }
+            }
+            Ok(Msg::Quit) => {
+                // Nobody is there to answer a conflict; edits that cannot be saved are lost.
+                app.flush();
+                return Ok(());
             }
             Ok(Msg::Resize) | Ok(Msg::Redraw) => dirty = true,
             Ok(Msg::Fs(ev)) => {

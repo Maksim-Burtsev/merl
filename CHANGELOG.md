@@ -31,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- SIGTERM, SIGHUP (a closed terminal or tmux pane) and SIGINT from outside end merl as `q` does:
+  unsaved edits are written and the terminal is restored, instead of a shell left on the
+  alternate screen with merl's last frame. (#80)
 - The word jump and the word selection stop at words in any script: in a Russian comment
   Alt+Left / Right skipped the whole line, since only ASCII letters counted as a word.
 - `d` finds a Python `async def` and a TypeScript method signature with no body
