@@ -2052,6 +2052,7 @@ impl App {
     /// subtype. A type that inherits the member without declaring it is no implementation.
     fn subtype_impls(&self, kind: Kind, here: &Path, word: &str, owner: &Typed) -> Vec<Hit> {
         let mut names = vec![owner.name.clone()];
+        let mut types = vec![(owner.name.clone(), owner.path.clone())];
         let mut seen = vec![(owner.path.clone(), owner.line)];
         let mut out = Vec::new();
         // ponytail: four levels of subtypes, one grep each. Deeper hierarchies want an index.
@@ -2065,6 +2066,7 @@ impl App {
                 })
                 .unwrap_or_default();
             let mut next = Vec::new();
+            let mut found = Vec::new();
             for hit in hits {
                 let Some(text) = self.text_of(&hit.path) else {
                     continue;
@@ -2084,10 +2086,41 @@ impl App {
                 if seen.contains(&(hit.path.clone(), decl)) {
                     continue;
                 }
-                let sees = |first: &str| {
+                let declares = |text: &str, name: &str| {
                     text.lines()
-                        .any(|l| search::type_name(kind, l).as_deref() == Some(first))
-                        || bound(&search::imports(kind, &text), first).is_some()
+                        .any(|l| search::type_name(kind, l).as_deref() == Some(name))
+                };
+                // The import may name another type of the same name: a module of the project
+                // that declares one, in a file none of the types found so far lives in. A
+                // module that only hands the name on (a barrel) says nothing either way.
+                let another = |first: &str, module: &[String]| {
+                    let module = match kind {
+                        Kind::TsJs => &module[..module.len().saturating_sub(1)],
+                        _ => module,
+                    };
+                    (1..=module.len()).rev().any(|n| {
+                        let files = search::module_files(
+                            kind,
+                            &self.root,
+                            &self.files,
+                            &hit.path,
+                            &module[..n],
+                        );
+                        let ours = |f: &PathBuf| types.iter().any(|(t, p)| t == first && p == f);
+                        !files.iter().any(ours)
+                            && files
+                                .iter()
+                                .any(|f| self.text_of(f).is_some_and(|t| declares(&t, first)))
+                    })
+                };
+                let sees = |first: &str| {
+                    if declares(&text, first) {
+                        // Its own type of that name is ours only in the file ours is in.
+                        return !types.iter().any(|(t, _)| t == first)
+                            || types.iter().any(|(t, p)| t == first && *p == hit.path);
+                    }
+                    bound(&search::imports(kind, &text), first)
+                        .is_some_and(|module| !another(first, &module))
                 };
                 let derives = search::bases(kind, &text, hit.line)
                     .into_iter()
@@ -2098,6 +2131,7 @@ impl App {
                     continue;
                 }
                 seen.push((hit.path.clone(), decl));
+                found.push((name.clone(), hit.path.clone()));
                 next.push(name);
                 if let Some(at) = search::member_decl(kind, &text, decl, word) {
                     out.push(Hit {
@@ -2111,6 +2145,7 @@ impl App {
                 break;
             }
             names = next;
+            types = found;
         }
         out
     }
@@ -5322,6 +5357,50 @@ mod tests {
                 "iface.go:13"
             )
         );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Found by the acceptance pass of #68: two interfaces of one name in two files, and the
+    /// class that implements the other one was the implementation `d` jumped to.
+    #[test]
+    fn an_implementation_of_a_namesake_interface_is_not_one_of_ours() {
+        let iface = "export interface Notifier {\n  send(to: string): void;\n}\n";
+        let (dir, mut a) = project_app(
+            "dupiface",
+            &[
+                ("a.ts", iface),
+                ("b.ts", iface),
+                ("index.ts", "export * from \"./a\";\n"),
+                (
+                    "impl.ts",
+                    "import { Notifier } from \"./a\";\n\nexport class MailNotifier implements Notifier {\n  send(to: string): void {}\n}\n",
+                ),
+                (
+                    "barrel.ts",
+                    "import { Notifier } from \"./index\";\n\nexport class SmsNotifier implements Notifier {\n  send(to: string): void {}\n}\n",
+                ),
+            ],
+        );
+        a.external
+            .insert(Kind::TsJs, (Vec::new(), Arc::new(Vec::new())));
+        // Through a barrel the file is not known: the class stays, as it was.
+        d_on(&mut a, "b.ts", "  send");
+        assert_eq!(
+            shown(&mut a),
+            jump(
+                "send \u{2192} SmsNotifier.send (implementations of Notifier.send)",
+                "barrel.ts:4"
+            )
+        );
+        d_on(&mut a, "a.ts", "  send");
+        let Shown::Picker(status, rows) = shown(&mut a) else {
+            panic!("{}", a.message);
+        };
+        assert_eq!(
+            status,
+            "send: implementations of Notifier.send, 2 declarations"
+        );
+        assert_eq!(rows.len(), 2);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
