@@ -168,31 +168,52 @@ read-only, and so does a line too long to be shown whole.
 
 There is no language server and no index: every lookup is a regex over the files found at startup,
 run through [ripgrep](https://github.com/BurntSushi/ripgrep)'s library crates. `d` knows the
-declaration forms below and searches only where such a definition can live. When the project has
-no such definition, the same rules run over the standard library and the installed dependencies
-the toolchain on this machine knows about — `sys.path` of `.venv/bin/python` (or `python3`),
-`rustc --print sysroot` and the crates in `Cargo.lock`, `GOROOT` and the modules in `go.mod`,
-`node_modules` — narrowed to the module the file's imports bind the word to: `np.array` behind
-`import numpy as np` looks in `numpy`, `load` behind `from json import load` in `json`,
-`Regex::new` behind `use regex::Regex` in the `regex` crate, `chromium.launch()` behind
-`import { chromium } from 'playwright'` in that package; a bare `std::fs::read_to_string` is its
-own path, and a relative import (`from . import views`, `./utils`) is the project's. A compiled module such as `orjson` lands in its `.pyi` stub. The
-standard library's hits come before the dependencies', the picker shows paths relative to their
-root, and files opened from there are read-only. Go's `_test.go` files, `testdata` and nested
-modules such as GOROOT's `cmd` are skipped, since no import reaches them. Java, Kotlin, Ruby and
-the rest have no roots yet, so `d` stays inside the project for them. A field, an enum variant or
-a parameter has no declaration the rules know: `d` says so, and `u` lists every whole-word use of
-the identifier. On `x.field` the word is a member, so a method or property of that name anywhere is
-a candidate, found by name.
+declaration forms below and searches only where such a definition can live.
+
+A word an import brings in, or the module in front of it, is looked for in the module the import
+names. When that is the project's own code, only its file or package is searched, so a
+same-named class in a test fake or another package is not a candidate. Python's
+`from app.repos import UserRepo`, `import app.repos as r` and `from .repos import UserRepo` read
+`app/repos.py` or `app/repos/__init__.py`, at the root, under `src/` or deeper, but not inside
+another package. TypeScript's `./x` reads `x.ts`, `x.tsx`, `x.d.ts`, the JavaScript forms or
+`x/index.*` (`./x.js` finds `x.ts` too), and an alias such as `@/x` goes through the `paths` and
+`baseUrl` of the nearest `tsconfig.json` and the configs it extends. A named import finds that
+name, aliased or not; a default import finds the declaration under its local name, or else the
+module's `export default`; `ns.x` behind `import * as ns` finds `x`. A Go import path below the
+`module` of a `go.mod` in the project is that package's directory. The word must be declared
+directly in the module, or in the class the chain goes through (`UserRepo.create`), so `store.Open`
+never lands on a method called `Open`. The status line names the file or the package:
+`UserRepo: via import app/repos.py`, `Open: via import store/`. A module that does not declare the
+word itself — an `__init__.py` or an `index.ts` that re-exports it — is not followed further: `d`
+falls back to the search by name below and says `by name`.
+
+An import of anything else is looked for outside the project first, even when the project declares
+a word of the same name (Rust still looks in the project first). A word no import binds goes
+outside only when the project has no definition of it. Outside means the standard library and the
+installed dependencies the toolchain on this machine knows about — `sys.path` of
+`.venv/bin/python` (or `python3`), `rustc --print sysroot` and the crates in `Cargo.lock`, `GOROOT`
+and the modules in `go.mod`, `node_modules` — narrowed to the module the file's imports bind the
+word to: `np.array` behind `import numpy as np` looks in `numpy`, `load` behind
+`from json import load` in `json`, `Regex::new` behind `use regex::Regex` in the `regex` crate,
+`chromium.launch()` behind `import { chromium } from 'playwright'` in that package; a bare
+`std::fs::read_to_string` is its own path, and a relative import (`from . import views`,
+`./utils`) is never looked for outside. A compiled module such as `orjson` lands in its `.pyi`
+stub. The standard library's hits come before the dependencies', the picker shows paths relative
+to their root, and files opened from there are read-only. Go's `_test.go` files, `testdata` and
+nested modules such as GOROOT's `cmd` are skipped, since no import reaches them. Java, Kotlin,
+Ruby and the rest have no roots yet, so `d` stays inside the project for them. A field, an enum
+variant or a parameter has no declaration the rules know: `d` says so, and `u` lists every
+whole-word use of the identifier. On `x.field` the word is a member, so a method or property of
+that name anywhere is a candidate, found by name.
 
 `d` never jumps without saying how it found the target. The status line reads
 `delete_user → UserRepository.delete_user (by name, 1 match)` after a jump, `load: via import
-json` for a declaration an import leads to, and `delete_user: by name, 2 declarations` over a
-picker, whose title says the same. `by name` means a declaration pattern matched the word and
-nothing narrowed which declaration it is, so a jump by name also says it was the only match. Each
-picker row starts with what the declaration sits in and why it is listed —
-`UserRepository.delete_user  by name  repos.py:8: async def delete_user(…)` — so typing a class
-name filters the rows.
+json` or `UserRepo: via import app/repos.py` for a declaration an import leads to, and
+`delete_user: by name, 2 declarations` over a picker, whose title says the same. `by name` means
+a declaration pattern matched the word and nothing narrowed which declaration it is, so a jump by
+name also says it was the only match. Each picker row starts with what the declaration sits in and
+why it is listed — `UserRepository.delete_user  by name  repos.py:8: async def delete_user(…)` —
+so typing a class name filters the rows.
 
 On `x.word` where `x` is a value — a local, a parameter, `self.repo`, `f()`, anything behind a `.`
 that no import binds, relative imports included — merl does not know the type of `x`, so every

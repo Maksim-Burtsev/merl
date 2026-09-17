@@ -785,9 +785,11 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
 /// The names a file binds by importing, each with the module path it comes from, as the parts
 /// a file system would spell it in. `import numpy as np` binds `np` to `[numpy]`; `from json
 /// import load` binds `load` to `[json, load]` (a module or a name in one, the caller relaxes
-/// the path until a file matches). A relative import (`from . import views`, `./utils`) binds
-/// too, with a leading `.` part: it names a project file, never one outside. Rust's in-crate
-/// `crate::` and `super::` paths are left out.
+/// the path until a file matches). A relative import (`from ..models import X`, `./utils`) binds
+/// too, with its dots as the leading part: it names a project file, never one outside. A
+/// TypeScript path ends in what the import takes from the module: the name, `default`, or `*`
+/// for the whole module (`* as ns`, `require`). Rust's in-crate `crate::` and `super::` paths are
+/// left out.
 pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
     let mut out = Vec::new();
     let parts = |module: &str, sep: &str| -> Vec<String> {
@@ -821,9 +823,10 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
             for c in IMPORT.captures_iter(text) {
                 if let (Some(module), Some(names)) = (c.get(1), c.get(2)) {
                     let module = module.as_str();
-                    let mut base = parts(module.trim_start_matches('.'), ".");
-                    if module.starts_with('.') {
-                        base.insert(0, ".".to_owned());
+                    let relative = module.trim_start_matches('.');
+                    let mut base = parts(relative, ".");
+                    if relative.len() < module.len() {
+                        base.insert(0, ".".repeat(module.len() - relative.len()));
                     }
                     for item in names
                         .as_str()
@@ -906,16 +909,30 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
                 if module.starts_with('/') {
                     path.insert(0, ".".to_owned());
                 }
-                let clause = c
-                    .get(1)
-                    .or_else(|| c.get(2))
-                    .or_else(|| c.get(3))
-                    .map_or("", |m| m.as_str());
-                // `x`, `* as x`, `{a, b as c}` and `x, {a}` in one clause.
-                for item in clause.split([',', '{', '}']) {
-                    let item = item.trim().trim_start_matches("* as ").trim();
-                    if let Some((alias, _)) = bound(item) {
-                        out.push((alias, path.clone()));
+                // A bare `x` is the default export after `import`, the whole module after
+                // `require`. `x`, `* as x`, `{a, type b as c}` and `x, {a}` in one clause.
+                let (clause, whole) = match (c.get(1), c.get(2).or_else(|| c.get(3))) {
+                    (Some(m), _) => (m.as_str(), "default"),
+                    (None, m) => (m.map_or("", |m| m.as_str()), "*"),
+                };
+                let (outside, named) = clause.split_once('{').map_or((clause, ""), |(o, n)| {
+                    (o, n.split('}').next().unwrap_or(""))
+                });
+                let with = |taken: &str| {
+                    let mut p = path.clone();
+                    p.push(taken.to_owned());
+                    p
+                };
+                for item in outside.split(',').map(str::trim).filter(|i| !i.is_empty()) {
+                    match item.strip_prefix("* as ") {
+                        Some(ns) => out.push((ns.trim().to_owned(), with("*"))),
+                        None => out.push((item.to_owned(), with(whole))),
+                    }
+                }
+                for item in named.split(',') {
+                    let item = item.trim();
+                    if let Some((alias, name)) = bound(item.strip_prefix("type ").unwrap_or(item)) {
+                        out.push((alias, with(&name)));
                     }
                 }
             }
@@ -985,6 +1002,236 @@ fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<(String, Vec<String>)>)
         return;
     };
     out.push((alias.unwrap_or(last), path));
+}
+
+/// The project files of the module an import in `here` spells as `module`, the parts
+/// [`imports`] gives without what a TypeScript import takes from it; empty when the module is not
+/// the project's. Paths are relative to `root`, and only what the project walk listed in `files`
+/// counts.
+///
+/// - Python: `a/b.py` or the package `a/b/__init__.py`. Relative to the directory of `here` behind
+///   dots, one directory up per dot past the first; otherwise at any depth (the root, `src/`, a
+///   folder of a monorepo) but not inside a package, since `json` is not `myapp/json.py`.
+/// - TypeScript: `./x` from the directory of `here`, an alias from the `paths` of the nearest
+///   `tsconfig.json` or a name under its `baseUrl`, as `x.ts`, `x.tsx`, `x.d.ts`, the JavaScript
+///   forms, then `x/index.*`. `./x.js` is `x.ts` first, as ESM projects write it.
+/// - Go: the directory under the `go.mod` whose `module` the import path starts with (the longest,
+///   for a module nested in another), without its `_test.go` files.
+pub fn module_files(
+    kind: Kind,
+    root: &Path,
+    files: &[PathBuf],
+    here: &Path,
+    module: &[String],
+) -> Vec<PathBuf> {
+    let dir = here.parent().unwrap_or(Path::new(""));
+    match kind {
+        Kind::Python => {
+            let (base, parts) = match module.split_first() {
+                Some((dots, rest)) if dots.starts_with('.') => {
+                    match dir.ancestors().nth(dots.len() - 1) {
+                        Some(base) => (Some(base), rest),
+                        None => return Vec::new(),
+                    }
+                }
+                _ => (None, module),
+            };
+            let name: PathBuf = parts.iter().collect();
+            let mut forms = vec![name.join("__init__.py")];
+            if !parts.is_empty() {
+                forms.insert(0, name.with_extension("py"));
+            } else if base.is_none() {
+                return Vec::new();
+            }
+            files
+                .iter()
+                .filter(|f| {
+                    forms.iter().any(|m| match base {
+                        Some(base) => **f == base.join(m),
+                        None => {
+                            f.ends_with(m)
+                                && f.ancestors()
+                                    .nth(m.components().count())
+                                    .is_some_and(|top| !files.contains(&top.join("__init__.py")))
+                        }
+                    })
+                })
+                .cloned()
+                .collect()
+        }
+        Kind::TsJs => {
+            let listed: std::collections::HashSet<&Path> =
+                files.iter().map(PathBuf::as_path).collect();
+            let spec = module.join("/");
+            let bases = if module.first().is_some_and(|p| p.starts_with('.')) {
+                vec![dir.join(&spec)]
+            } else {
+                ts_aliases(root, dir, &spec)
+            };
+            const EXTENSIONS: [&str; 9] =
+                ["ts", "tsx", "d.ts", "js", "jsx", "mts", "cts", "mjs", "cjs"];
+            bases
+                .iter()
+                .filter_map(|b| lexical(b))
+                .find_map(|base| {
+                    let s = base.to_string_lossy();
+                    let stem = [".js", ".jsx", ".mjs", ".cjs"]
+                        .iter()
+                        .find_map(|e| s.strip_suffix(e))
+                        .unwrap_or(&s);
+                    EXTENSIONS
+                        .iter()
+                        .map(|e| PathBuf::from(format!("{stem}.{e}")))
+                        .chain([base.clone()])
+                        .chain(EXTENSIONS.iter().map(|e| base.join(format!("index.{e}"))))
+                        .find(|c| listed.contains(c.as_path()) && kind_of(c) == Some(Kind::TsJs))
+                })
+                .into_iter()
+                .collect()
+        }
+        Kind::Go => {
+            let import = module.join("/");
+            let package = files
+                .iter()
+                .filter(|f| f.file_name().is_some_and(|n| n == "go.mod"))
+                .filter_map(|gomod| {
+                    let text = std::fs::read_to_string(root.join(gomod)).ok()?;
+                    let name = text
+                        .lines()
+                        .find_map(|l| l.trim().strip_prefix("module "))?
+                        .split_whitespace()
+                        .next()?
+                        .trim_matches('"')
+                        .to_owned();
+                    let rest = match import.strip_prefix(&name)? {
+                        "" => "",
+                        rest => rest.strip_prefix('/')?,
+                    };
+                    Some((name.len(), gomod.parent()?.join(rest)))
+                })
+                .max_by_key(|(n, _)| *n);
+            let Some((_, package)) = package else {
+                return Vec::new();
+            };
+            files
+                .iter()
+                .filter(|f| f.parent() == Some(package.as_path()))
+                .filter(|f| {
+                    kind_of(f) == Some(Kind::Go) && !f.to_string_lossy().ends_with("_test.go")
+                })
+                .cloned()
+                .collect()
+        }
+        Kind::Rust
+        | Kind::Jvm
+        | Kind::Ruby
+        | Kind::Shell
+        | Kind::Sql
+        | Kind::Make
+        | Kind::Terraform
+        | Kind::Docker
+        | Kind::Yaml => Vec::new(),
+    }
+}
+
+/// Where an aliased TypeScript specifier points, most specific first: the targets of the
+/// `compilerOptions.paths` entries it matches, then the specifier under `baseUrl`. Read from the
+/// `tsconfig.json` nearest above `dir` and the configs it `extends` by a relative path, the
+/// nearest setting winning; `paths` are relative to `baseUrl` when there is one, else to the
+/// config that declares them. Comments and trailing commas are fine: only these keys are read.
+fn ts_aliases(root: &Path, dir: &Path, spec: &str) -> Vec<PathBuf> {
+    static COMMENT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#""(?:[^"\\]|\\.)*"|//[^\n]*|/\*(?s:.*?)\*/"#).unwrap()
+    });
+    let key = |name: &str, value: &str| {
+        Regex::new(&format!(r#""{name}"\s*:\s*{value}"#)).expect("a fixed key pattern")
+    };
+    let (base_url, paths, extends) = (
+        key("baseUrl", r#""([^"]*)""#),
+        key("paths", r"\{([^}]*)\}"),
+        key("extends", r#""(\.[^"]*)""#),
+    );
+    let entry = Regex::new(r#""([^"]+)"\s*:\s*\[([^\]]*)\]"#).expect("a fixed pattern");
+    let string = Regex::new(r#""([^"]*)""#).expect("a fixed pattern");
+
+    let mut config = dir
+        .ancestors()
+        .map(|d| d.join("tsconfig.json"))
+        .find(|c| root.join(c).is_file());
+    let (mut url, mut table): (Option<PathBuf>, Option<(PathBuf, String)>) = (None, None);
+    // ponytail: eight `extends` hops, which also ends a cycle.
+    for _ in 0..8 {
+        let Some(file) = config.take() else { break };
+        let Ok(text) = std::fs::read_to_string(root.join(&file)) else {
+            break;
+        };
+        let text = COMMENT.replace_all(&text, |c: &regex::Captures| {
+            if c[0].starts_with('"') {
+                c[0].to_owned()
+            } else {
+                String::new()
+            }
+        });
+        let at = file.parent().unwrap_or(Path::new("")).to_path_buf();
+        if url.is_none() {
+            url = base_url.captures(&text).map(|c| at.join(&c[1]));
+        }
+        if table.is_none() {
+            table = paths.captures(&text).map(|c| (at.clone(), c[1].to_owned()));
+        }
+        // `"extends": "./base"` is `./base.json`.
+        config = extends.captures(&text).map(|c| {
+            if c[1].ends_with(".json") {
+                at.join(&c[1])
+            } else {
+                at.join(format!("{}.json", &c[1]))
+            }
+        });
+    }
+    let mut targets: Vec<(usize, PathBuf)> = Vec::new();
+    if let Some((at, table)) = &table {
+        let from = url.as_ref().unwrap_or(at);
+        for e in entry.captures_iter(table) {
+            // An exact key outranks every wildcard; among wildcards the longer prefix wins.
+            let matched = match e[1].split_once('*') {
+                Some((pre, post)) => spec
+                    .strip_prefix(pre)
+                    .and_then(|s| s.strip_suffix(post))
+                    .map(|s| (pre.len(), s)),
+                None => (e[1] == *spec).then_some((usize::MAX, "")),
+            };
+            if let Some((rank, star)) = matched {
+                targets.extend(
+                    string
+                        .captures_iter(&e[2])
+                        .map(|t| (rank, from.join(t[1].replace('*', star)))),
+                );
+            }
+        }
+    }
+    targets.sort_by_key(|(rank, _)| std::cmp::Reverse(*rank));
+    targets
+        .into_iter()
+        .map(|(_, t)| t)
+        .chain(url.map(|u| u.join(spec)))
+        .collect()
+}
+
+/// `path` with its `.` and `..` parts folded away, `None` when it climbs above where it starts.
+fn lexical(path: &Path) -> Option<PathBuf> {
+    let mut out = PathBuf::new();
+    for c in path.components() {
+        match c {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                if !out.pop() {
+                    return None;
+                }
+            }
+            c => out.push(c),
+        }
+    }
+    Some(out)
 }
 
 /// Whether `path` is (in) the module spelled by `parts`: every part is a directory or file
@@ -1079,6 +1326,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         for (name, text) in files {
+            std::fs::create_dir_all(dir.join(name).parent().unwrap()).unwrap();
             std::fs::write(dir.join(name), text).unwrap();
         }
         (dir, files.iter().map(|(n, _)| PathBuf::from(n)).collect())
@@ -1788,7 +2036,8 @@ output "bucket" {
                 ("dq".into(), p(&["collections", "deque"])),
                 // A relative import is a project file, marked by its leading `.` part.
                 ("local".into(), p(&[".", "local"])),
-                ("Note".into(), p(&[".", "models", "Note"])),
+                // Each dot past the first is a directory up.
+                ("Note".into(), p(&["..", "models", "Note"])),
                 ("Any".into(), p(&["typing", "Any"])),
                 ("Final".into(), p(&["typing", "Final"])),
             ]
@@ -1829,24 +2078,113 @@ output "bucket" {
                 ("v1".into(), p(&["k8s.io", "api", "core", "v1"])),
             ]
         );
-        let ts = "import fs from 'node:fs';\nimport { join, resolve as res } from \"path\";\nimport * as React from 'react';\nimport type { Foo } from '@scope/pkg/sub';\nimport local from './local';\nconst chalk = require('chalk');\nconst { a, b } = await import('lib');\nimport cp = require('child_process');\nconst utils = require('../lib/utils');\n";
+        let ts = "import fs from 'node:fs';\nimport { join, resolve as res } from \"path\";\nimport * as React from 'react';\nimport type { Foo } from '@scope/pkg/sub';\nimport local from './local';\nconst chalk = require('chalk');\nconst { a, b } = await import('lib');\nimport cp = require('child_process');\nconst utils = require('../lib/utils');\nimport def, { type Bar, baz as qux } from './mixed';\n";
         let got = imports(Kind::TsJs, ts);
         assert_eq!(
             got,
             [
-                ("fs".into(), p(&["fs"])),
-                ("join".into(), p(&["path"])),
-                ("res".into(), p(&["path"])),
-                ("React".into(), p(&["react"])),
-                ("Foo".into(), p(&["@scope", "pkg", "sub"])),
-                ("local".into(), p(&[".", "local"])),
-                ("chalk".into(), p(&["chalk"])),
-                ("a".into(), p(&["lib"])),
-                ("b".into(), p(&["lib"])),
-                ("cp".into(), p(&["child_process"])),
-                ("utils".into(), p(&["..", "lib", "utils"])),
+                // The last part is what the import takes: the default export, a name, or the
+                // whole module.
+                ("fs".into(), p(&["fs", "default"])),
+                ("join".into(), p(&["path", "join"])),
+                ("res".into(), p(&["path", "resolve"])),
+                ("React".into(), p(&["react", "*"])),
+                ("Foo".into(), p(&["@scope", "pkg", "sub", "Foo"])),
+                ("local".into(), p(&[".", "local", "default"])),
+                ("chalk".into(), p(&["chalk", "*"])),
+                ("a".into(), p(&["lib", "a"])),
+                ("b".into(), p(&["lib", "b"])),
+                ("cp".into(), p(&["child_process", "*"])),
+                ("utils".into(), p(&["..", "lib", "utils", "*"])),
+                ("def".into(), p(&[".", "mixed", "default"])),
+                ("Bar".into(), p(&[".", "mixed", "Bar"])),
+                ("qux".into(), p(&[".", "mixed", "baz"])),
             ]
         );
+    }
+
+    #[test]
+    fn module_files_are_the_project_files_an_import_names() {
+        let (dir, files) = scratch(
+            "modules",
+            &[
+                // Python: a src layout, a package, a module inside a package.
+                ("src/app/__init__.py", ""),
+                ("src/app/repos.py", ""),
+                ("src/app/json.py", ""),
+                ("src/app/store/__init__.py", ""),
+                ("src/app/store/backends/memory.py", ""),
+                // TypeScript: `paths` and `baseUrl` in the config a nested one extends.
+                (
+                    "tsconfig.base.json",
+                    "{\n  // shared\n  \"compilerOptions\": {\n    \"baseUrl\": \"web\",\n    \"paths\": {\"@/*\": [\"src/*\"], \"@lib\": [\"lib/index.ts\"]},\n  },\n}\n",
+                ),
+                (
+                    "web/tsconfig.json",
+                    "{ \"$schema\": \"https://json.schemastore.org/tsconfig\", \"extends\": \"../tsconfig.base\" }\n",
+                ),
+                ("web/src/page.ts", ""),
+                ("web/src/x.ts", ""),
+                ("web/src/x.js", ""),
+                ("web/src/types.d.ts", ""),
+                ("web/src/ui/index.tsx", ""),
+                ("web/lib/index.ts", ""),
+                // Go: a module nested in another.
+                ("go.mod", "module example.com/app\n\ngo 1.22\n"),
+                ("internal/repo/repo.go", ""),
+                ("internal/repo/repo_test.go", ""),
+                ("internal/repo/sub/sub.go", ""),
+                (
+                    "tools/go.mod",
+                    "module example.com/app/tools // generators\n",
+                ),
+                ("tools/gen/gen.go", ""),
+            ],
+        );
+        let found = |kind, here: &str, module: &[&str]| -> Vec<String> {
+            let module: Vec<String> = module.iter().map(|s| s.to_string()).collect();
+            module_files(kind, &dir, &files, Path::new(here), &module)
+                .iter()
+                .map(|f| f.display().to_string())
+                .collect()
+        };
+        let (py, ts, go) = (Kind::Python, Kind::TsJs, Kind::Go);
+        assert_eq!(
+            found(py, "main.py", &["app", "repos"]),
+            ["src/app/repos.py"]
+        );
+        assert_eq!(
+            found(py, "main.py", &["app", "store"]),
+            ["src/app/store/__init__.py"]
+        );
+        // A module inside the `app` package is `app.json`, not the top-level `json`.
+        assert!(found(py, "main.py", &["json"]).is_empty());
+        let memory = "src/app/store/backends/memory.py";
+        assert_eq!(found(py, memory, &[".."]), ["src/app/store/__init__.py"]);
+        assert_eq!(found(py, memory, &["...", "repos"]), ["src/app/repos.py"]);
+        assert!(found(py, "main.py", &["..", "repos"]).is_empty());
+        let page = "web/src/page.ts";
+        // The TypeScript file before the JavaScript one, also behind a `.js` specifier.
+        assert_eq!(found(ts, page, &[".", "x"]), ["web/src/x.ts"]);
+        assert_eq!(found(ts, page, &[".", "x.js"]), ["web/src/x.ts"]);
+        assert_eq!(found(ts, page, &[".", "types"]), ["web/src/types.d.ts"]);
+        assert_eq!(found(ts, page, &[".", "ui"]), ["web/src/ui/index.tsx"]);
+        assert_eq!(found(ts, page, &["@", "ui"]), ["web/src/ui/index.tsx"]);
+        assert_eq!(found(ts, page, &["@lib"]), ["web/lib/index.ts"]);
+        // A name no alias matches, under `baseUrl`.
+        assert_eq!(found(ts, page, &["src", "x"]), ["web/src/x.ts"]);
+        assert!(found(ts, page, &["react"]).is_empty());
+        assert!(found(ts, "page.ts", &["..", "x"]).is_empty());
+        assert_eq!(
+            found(go, "main.go", &["example.com", "app", "internal", "repo"]),
+            ["internal/repo/repo.go"]
+        );
+        assert_eq!(
+            found(go, "main.go", &["example.com", "app", "tools", "gen"]),
+            ["tools/gen/gen.go"]
+        );
+        assert!(found(go, "main.go", &["example.com", "application"]).is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

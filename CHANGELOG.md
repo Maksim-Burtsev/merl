@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   GOROOT's `cmd`, which no import reaches. A relative import (`from . import views`, `./utils`)
   and a Go package whose name its path decorates (`gopkg.in/yaml.v3`, `go-sqlite3`) now bind the
   name they bring in. (#69)
+- A TypeScript `import { type Foo } from 'lib'` binds `Foo`, not `type`, so `d` on `Foo` looks in
+  `lib`. (#73)
 - Eight themes had the selection colour within a few points of the cursor line highlight, so a
   selection inside the cursor line was nearly invisible: rose-pine-moon, rose-pine-dawn, nordfox,
   nightfox, gruvbox-material-light and material-light move the selection a step along their own
@@ -33,6 +35,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of that name, from the project and from the standard library and dependencies, instead of
   stopping: Python `def` in a class, TypeScript methods and signatures (read from `.d.ts` outside
   the project), Go `func (r *T) Name(`. One candidate jumps, several open the picker. (#69)
+- `d` on a word an import brings in from the project's own code, or on a member of that module,
+  searches only the file or package the import names, and says so:
+  `UserRepo: via import app/repos.py`, `Open: via import store/`. Python absolute and relative
+  modules and packages, TypeScript relative files, `index` files and `tsconfig.json` `paths`,
+  default, named and namespace imports, Go packages under the project's `go.mod`. An alias finds
+  the name it imports (`UR` behind `from .repos import UserRepo as UR`). A module that
+  only re-exports the word falls back to the search by name. An import of anything else goes to
+  the standard library and the dependencies before the project's same-named declarations, so
+  `json.dumps` behind `import json` no longer lands on a project `dumps`. (#73)
 - Twenty-three themes, taking the set to forty-seven. The families Vim and Neovim users run most
   and merl was missing: gruvbox, One Dark, GitHub, VS Code's Dark+ and Light+, Dracula with its
   light Alucard, Nord, Solarized, Oxocarbon, Sonokai, Material and nightfox itself. Plus the
