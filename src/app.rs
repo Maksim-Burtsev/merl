@@ -149,6 +149,9 @@ pub struct App {
     /// Per kind, the standard library and dependency roots outside the project and the files of
     /// that kind under them; filled the first time `d` leaves the project.
     external: HashMap<Kind, (Vec<PathBuf>, Arc<Vec<PathBuf>>)>,
+    /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
+    /// keyword argument, which names a parameter no rule reads.
+    offer_only: bool,
     pub focus: Focus,
     pub show_tree: bool,
     /// First visible row of the tree pane, clamped by `ui`.
@@ -250,6 +253,7 @@ impl App {
             tree,
             files,
             external: HashMap::new(),
+            offer_only: false,
             focus,
             show_tree: true,
             tree_top: 0,
@@ -1359,7 +1363,61 @@ impl App {
             return;
         };
         let text = self.buf.lines.join("\n");
-        let imports = search::imports(kind, &text);
+        self.offer_only =
+            kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
+        let mut imports = search::imports(kind, &text);
+        // A parameter or a local of the same name hides the import where the cursor is: `json`
+        // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
+        let first = chain.first().map_or(word.as_str(), String::as_str);
+        let locals: Vec<usize> = search::bindings(kind, &text, self.line + 1, first)
+            .iter()
+            .map(|b| b.line)
+            .filter(|&n| {
+                // An import is what the name hides, and a class, a function or a namespace of
+                // that name is no value: `Outer.Inner` reads a declaration, not a member.
+                let t = self.buf.lines[n - 1].trim_start();
+                let t = t.strip_prefix("export ").unwrap_or(t);
+                let t = t.strip_prefix("abstract ").unwrap_or(t);
+                let declares = [
+                    "class ",
+                    "def ",
+                    "async def ",
+                    "function ",
+                    "func ",
+                    "type ",
+                    "interface ",
+                    "namespace ",
+                    "enum ",
+                ]
+                .iter()
+                .filter_map(|k| t.strip_prefix(k))
+                .any(|rest| {
+                    rest.strip_prefix(first)
+                        .is_some_and(|after| !after.starts_with(is_word))
+                });
+                !declares && !t.starts_with("import ") && !t.starts_with("from ")
+            })
+            .collect();
+        if !locals.is_empty() {
+            imports.retain(|(name, _)| name != first);
+        }
+        // The word itself is that parameter or local: its declarations in this scope are the
+        // answer, and a function of the same name elsewhere is not.
+        if !dotted && !locals.is_empty() && locals != [self.line + 1] {
+            let found = locals
+                .iter()
+                .map(|&line| Candidate {
+                    hit: Hit {
+                        path: here.clone(),
+                        line,
+                        text: self.buf.lines[line - 1].clone(),
+                    },
+                    reason: Reason::Local,
+                })
+                .collect();
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
         let on_value = dotted && !own && chain.first().is_none_or(|f| bound(&imports, f).is_none());
         let members = on_value
@@ -1410,12 +1468,28 @@ impl App {
             .flatten();
         let mut outside = false;
         let mut found = match import {
-            Some(path) => self
-                .imported_definitions(kind, &here, &word, &chain, &path)
-                .unwrap_or_else(|| {
-                    outside = true;
-                    self.external_definitions(kind, &word, &chain, dotted, &pattern, &imports)
-                }),
+            Some(path) => {
+                let mut found = self
+                    .imported_definitions(kind, &here, &word, &chain, &path)
+                    .unwrap_or_else(|| {
+                        outside = true;
+                        self.external_definitions(kind, &word, &chain, dotted, &pattern, &imports)
+                    });
+                // `try: from a import pick` / `except ImportError: from b import pick` names
+                // two sources: both are offered, and which one ran is not for `d` to guess.
+                let others: Vec<Vec<String>> = imports
+                    .iter()
+                    .filter(|(name, other)| name == first && *other != path)
+                    .map(|(_, other)| other.clone())
+                    .collect();
+                for other in others {
+                    let more = self
+                        .imported_definitions(kind, &here, &word, &chain, &other)
+                        .unwrap_or_default();
+                    found.extend(more);
+                }
+                found
+            }
             None => Vec::new(),
         };
         if !found.is_empty() {
@@ -1424,10 +1498,35 @@ impl App {
         }
         // A member in the project first. A qualifier no import names can still be a class, a
         // namespace or a module of the project, which declares the word at its top level.
+        // A qualifier that is no value and no import can be what declares the word: a namespace,
+        // a class with a static member, a nested class. A declaration that reads `Outer.find`
+        // is the answer then, and a method `find` of some other class is not.
+        if on_value && locals.is_empty() && !chain.is_empty() {
+            let full = format!("{}.{word}", chain.join("."));
+            let named: Vec<Candidate> = self
+                .project_definitions(kind, &here, &word, &pattern)
+                .into_iter()
+                .filter(|h| {
+                    self.text_of(&h.path)
+                        .and_then(|t| search::qualified(kind, &t, h.line, &word))
+                        .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")))
+                })
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Path(chain.join(".")),
+                })
+                .collect();
+            if !named.is_empty() {
+                self.show_definitions(kind, &word, &here, named, None);
+                return;
+            }
+        }
+        // A parameter or a local in front of the word is a value for certain: it has members,
+        // and a function or a variable at the top of a module is not one of them.
         let hits = members
             .as_ref()
             .map(|m| self.project_definitions(kind, &here, &word, m))
-            .filter(|hits| !hits.is_empty())
+            .filter(|hits| !hits.is_empty() || !locals.is_empty())
             .unwrap_or_else(|| self.project_definitions(kind, &here, &word, &pattern));
         found = hits
             .into_iter()
@@ -1479,15 +1578,54 @@ impl App {
         mut found: Vec<Candidate>,
         broke: Option<&str>,
     ) {
-        // Standing on one of the definitions is not a reason to go nowhere.
-        if found.len() > 1 {
+        // Standing on one of the definitions is not a reason to go nowhere. But what is left are
+        // namesakes nothing ties to this one, so they are offered, never jumped to: a second `d`
+        // after a proven jump would walk out of the type it has just proven (#68).
+        // A line inside a raw string, a docstring or a block comment declares nothing. Past a
+        // few hundred candidates the picker is a list to filter, and reading every file is not
+        // worth what it would drop.
+        if found.len() <= 500 {
+            let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
+            found.retain(|c| {
+                let lines = literal.entry(c.hit.path.clone()).or_insert_with(|| {
+                    self.text_of(&c.hit.path)
+                        .map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
+                });
+                !lines.get(c.hit.line - 1).copied().unwrap_or(false)
+            });
+        }
+        let all = found.len();
+        if all > 1 {
             found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
         }
+        // The line of an interface method is a declaration no pattern of `d` lists, so nothing
+        // was dropped above, and what is found is its namesakes all the same.
+        let offer_only = std::mem::take(&mut self.offer_only);
+        let on_member = || {
+            let at = search::word_at(
+                self.line_str(),
+                self.col,
+                search::word_chars(Some(kind), true),
+            );
+            let bare =
+                at.is_some_and(|(r, w)| w == word && !self.line_str()[..r.start].ends_with('.'));
+            bare && search::member_or_signature(kind, word)
+                .and_then(|p| Regex::new(&p.join("|")).ok())
+                .is_some_and(|re| re.is_match(self.line_str()))
+                && search::owner_decl(kind, &self.buf.lines.join("\n"), self.line + 1).is_some()
+        };
+        let namesakes = found.iter().all(|c| !c.reason.proven())
+            && !found.is_empty()
+            && (found.len() < all || on_member())
+            // Alone, the declaration under the cursor is its own answer.
+            && found
+                .iter()
+                .any(|c| c.hit.line != self.line + 1 || c.hit.path != here);
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
         match found.as_slice() {
             [] => self.message = resolution(word, None, &found, broke),
-            [one] => {
+            [one] if !namesakes && !offer_only => {
                 let path = self.root.join(&one.hit.path);
                 let target = self
                     .text_of(&one.hit.path)
@@ -1513,7 +1651,12 @@ impl App {
                 }
             }
             _ => {
-                let status = resolution(word, None, &found, broke);
+                let status = if namesakes {
+                    let others = if found.len() == 1 { "other" } else { "others" };
+                    format!("{word}: at a declaration, {} {others} by name", found.len())
+                } else {
+                    resolution(word, None, &found, broke)
+                };
                 let items = self.definition_items(kind, word, found);
                 self.show_picker(PickerKind::Definitions, items);
                 if let Some(p) = &mut self.picker {
@@ -1953,6 +2096,7 @@ impl App {
     /// subtype. A type that inherits the member without declaring it is no implementation.
     fn subtype_impls(&self, kind: Kind, here: &Path, word: &str, owner: &Typed) -> Vec<Hit> {
         let mut names = vec![owner.name.clone()];
+        let mut types = vec![(owner.name.clone(), owner.path.clone())];
         let mut seen = vec![(owner.path.clone(), owner.line)];
         let mut out = Vec::new();
         // ponytail: four levels of subtypes, one grep each. Deeper hierarchies want an index.
@@ -1966,6 +2110,7 @@ impl App {
                 })
                 .unwrap_or_default();
             let mut next = Vec::new();
+            let mut found = Vec::new();
             for hit in hits {
                 let Some(text) = self.text_of(&hit.path) else {
                     continue;
@@ -1985,10 +2130,41 @@ impl App {
                 if seen.contains(&(hit.path.clone(), decl)) {
                     continue;
                 }
-                let sees = |first: &str| {
+                let declares = |text: &str, name: &str| {
                     text.lines()
-                        .any(|l| search::type_name(kind, l).as_deref() == Some(first))
-                        || bound(&search::imports(kind, &text), first).is_some()
+                        .any(|l| search::type_name(kind, l).as_deref() == Some(name))
+                };
+                // The import may name another type of the same name: a module of the project
+                // that declares one, in a file none of the types found so far lives in. A
+                // module that only hands the name on (a barrel) says nothing either way.
+                let another = |first: &str, module: &[String]| {
+                    let module = match kind {
+                        Kind::TsJs => &module[..module.len().saturating_sub(1)],
+                        _ => module,
+                    };
+                    (1..=module.len()).rev().any(|n| {
+                        let files = search::module_files(
+                            kind,
+                            &self.root,
+                            &self.files,
+                            &hit.path,
+                            &module[..n],
+                        );
+                        let ours = |f: &PathBuf| types.iter().any(|(t, p)| t == first && p == f);
+                        !files.iter().any(ours)
+                            && files
+                                .iter()
+                                .any(|f| self.text_of(f).is_some_and(|t| declares(&t, first)))
+                    })
+                };
+                let sees = |first: &str| {
+                    if declares(&text, first) {
+                        // Its own type of that name is ours only in the file ours is in.
+                        return !types.iter().any(|(t, _)| t == first)
+                            || types.iter().any(|(t, p)| t == first && *p == hit.path);
+                    }
+                    bound(&search::imports(kind, &text), first)
+                        .is_some_and(|module| !another(first, &module))
                 };
                 let derives = search::bases(kind, &text, hit.line)
                     .into_iter()
@@ -1999,6 +2175,7 @@ impl App {
                     continue;
                 }
                 seen.push((hit.path.clone(), decl));
+                found.push((name.clone(), hit.path.clone()));
                 next.push(name);
                 if let Some(at) = search::member_decl(kind, &text, decl, word) {
                     out.push(Hit {
@@ -2012,6 +2189,7 @@ impl App {
                 break;
             }
             names = next;
+            types = found;
         }
         out
     }
@@ -2030,6 +2208,7 @@ impl App {
         owner_line: usize,
     ) -> Vec<Hit> {
         let want = search::params(kind, text, line);
+        let signature = search::go_signature(text, line);
         // A Go interface's own method lines carry no receiver: only the methods answer.
         let patterns = match kind {
             Kind::Go => search::member_patterns(kind, word),
@@ -2046,6 +2225,14 @@ impl App {
                     return false;
                 };
                 if search::params(kind, &text, h.line) != Some(want) {
+                    return false;
+                }
+                // Go writes its types: the same number of parameters of other types, or another
+                // result, implements nothing. Where either cannot be read, the count stands.
+                if kind == Kind::Go
+                    && let (Some(a), Some(b)) = (&signature, search::go_signature(&text, h.line))
+                    && *a != b
+                {
                     return false;
                 }
                 kind != Kind::Python
@@ -2152,11 +2339,24 @@ impl App {
         let Some(module) = module else {
             return by_name(self.external_grep(kind, &all, pattern));
         };
-        let hits = self.external_grep(kind, &files, pattern);
+        // `from lib import pick` names something at the top of a module: a method called `pick`
+        // is not it, however alone it stands (the real one may be native code).
+        let top_level =
+            imported && chain.len() <= 1 && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go);
+        let at_top = |this: &Self, mut hits: Vec<Hit>| {
+            if top_level {
+                hits.retain(|h| {
+                    this.text_of(&h.path)
+                        .is_some_and(|t| search::qualified(kind, &t, h.line, word).is_none())
+                });
+            }
+            hits
+        };
+        let hits = at_top(self, self.external_grep(kind, &files, pattern));
         // An imported module that does not declare the name re-exports it (`std::sync::Arc`
         // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.
         if hits.is_empty() && imported {
-            return by_name(self.external_grep(kind, &all, pattern));
+            return by_name(at_top(self, self.external_grep(kind, &all, pattern)));
         }
         let sep = match kind {
             Kind::Python => ".",
@@ -4066,6 +4266,59 @@ mod tests {
         );
     }
 
+    /// Found by the acceptance pass of #68. On a declaration, the other declarations of the name
+    /// are namesakes nothing ties to it: a second `d` after a proven jump used to leave
+    /// `UserRepository.delete_user` for `AuditLog.delete_user` on its own, with `1 match`. They
+    /// are offered in a picker that says where the cursor stands, even when there is one.
+    #[test]
+    fn a_declaration_does_not_jump_to_its_namesake() {
+        let cases = [
+            (
+                "python",
+                "repos.py",
+                "async def delete_user",
+                "delete_user",
+                "AuditLog.delete_user",
+                "repos.py:13",
+            ),
+            (
+                "typescript",
+                "repos.ts",
+                "async deleteUser",
+                "deleteUser",
+                "AuditLog.deleteUser",
+                "",
+            ),
+            (
+                "go",
+                "repos.go",
+                ") DeleteUser",
+                "DeleteUser",
+                "AuditLog.DeleteUser",
+                "repos.go:21",
+            ),
+        ];
+        for (fixture, file, code, word, other, place) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            let Shown::Picker(status, rows) = shown(&mut a) else {
+                panic!("{fixture}: a jump to {}", a.message);
+            };
+            assert_eq!(
+                status,
+                format!("{word}: at a declaration, 1 other by name"),
+                "{fixture}"
+            );
+            assert_eq!(rows.len(), 1, "{fixture}");
+            assert_eq!(rows[0].0, other, "{fixture}");
+            assert!(
+                place.is_empty() || rows[0].2 == place,
+                "{fixture}: {}",
+                rows[0].2
+            );
+        }
+    }
+
     /// Steps 2 and 3 of #68 over the same project in three languages. A receiver whose every
     /// declaration in scope reads one type, directly or through the return type of one call, has
     /// its member looked up in that type: one jump, which says the link it followed. Two
@@ -4636,13 +4889,14 @@ mod tests {
                     "impls.ts:32",
                 ),
             ),
-            // Nothing implements a Go method beside its type: the search by name answers.
+            // Nothing implements a Go method beside its type: the search by name answers, and
+            // says the cursor is on one of them.
             (
                 "go",
                 "repos.go",
                 "func (e *EmailNotifier) Send",
                 picker(
-                    "Send: by name, 2 declarations",
+                    "Send: at a declaration, 2 others by name",
                     &[
                         ("SmsNotifier.Send", "repos.go:37"),
                         ("LoudNotifier.Send", "impls.go:29"),
@@ -5000,6 +5254,299 @@ mod tests {
         a.external.insert(kind, (roots.to_vec(), Arc::new(files)));
     }
 
+    /// Found by the acceptance pass of #68: three ways `d` claimed more than it knew.
+    #[test]
+    fn a_local_name_is_not_an_import_and_a_member_is_not_a_module_level_name() {
+        let (dir, mut a) = project_app(
+            "acceptance",
+            &[
+                ("pkg/__init__.py", ""),
+                ("pkg/b.py", "def helper():\n    pass\n"),
+                // A parameter called like an imported module, a local called like an import.
+                (
+                    "shadow.py",
+                    "import json\nfrom pkg.b import helper\n\n\ndef handler(json):\n    return json.loads(1)\n\n\ndef f():\n    helper = 3\n    return helper\n",
+                ),
+                // Module-level names are no members of a value.
+                (
+                    "member.py",
+                    "zqwidget = 5\n\n\ndef zqmake(x):\n    return x\n\n\ndef g(client):\n    client.zqwidget\n    return client.zqmake(1)\n",
+                ),
+                // The package's own `pick` is native; a method of that name is not it.
+                (
+                    "outside.py",
+                    "import fakelib\nfrom fakelib import pick\nfrom fakelib.core import make\n\nlimit = 3\n\n\ndef run():\n    make()\n    fakelib.pick(1)\n    make(\n        limit=1,\n    )\n    return pick(1)\n",
+                ),
+            ],
+        );
+        let root = external_root(
+            "acceptance",
+            &[
+                ("json/__init__.py", "def loads(s):\n    pass\n"),
+                ("fakelib/__init__.py", "from fakelib._native import pick\n"),
+                (
+                    "fakelib/core.py",
+                    "class Thing:\n    def pick(self, x):\n        return x\n\n\ndef make():\n    pass\n",
+                ),
+            ],
+        );
+        use_roots(&mut a, Kind::Python, std::slice::from_ref(&root));
+        d_on(&mut a, "shadow.py", "json.loads");
+        assert!(!a.message.contains("via import"), "{}", a.message);
+        d_on(&mut a, "shadow.py", "return helper");
+        assert!(!a.message.contains("via import"), "{}", a.message);
+        assert_eq!(a.rel_path(), "shadow.py");
+        for code in ["client.zqwidget", "client.zqmake"] {
+            d_on(&mut a, "member.py", code);
+            assert!(
+                a.message.starts_with("no definition for zq"),
+                "{}",
+                a.message
+            );
+        }
+        d_on(&mut a, "outside.py", "return pick");
+        assert_eq!(a.message, "no definition for pick");
+        assert_eq!(a.rel_path(), "outside.py");
+        // Behind the module's name as well: `fakelib.pick` is no method of a class in it.
+        d_on(&mut a, "outside.py", "fakelib.pick");
+        assert_eq!(a.message, "no definition for pick");
+        // A keyword argument names a parameter: the one variable spelled so is offered.
+        d_on(&mut a, "outside.py", "    limit");
+        assert!(a.picker.is_some(), "{}", a.message);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        // What the module does declare at its top is still found through the import.
+        d_on(&mut a, "outside.py", "    make");
+        assert_eq!(a.message, "make: via import fakelib.core");
+        std::fs::remove_dir_all(&dir).unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Found by the acceptance pass of #68: a line inside a raw string, a docstring or a block
+    /// comment declares nothing, however much it reads like a declaration.
+    #[test]
+    fn a_declaration_inside_a_literal_is_not_one() {
+        let (dir, mut a) = project_app(
+            "literals",
+            &[
+                ("go.mod", "module lit\n"),
+                (
+                    "misc.go",
+                    "package lit\n\ntype Target struct{}\n\nconst snippet = `\nfunc (t Target) InString() string { return \"\" }\n`\n\n/*\nfunc (t Target) InBlock() string { return \"\" }\n*/\n",
+                ),
+                (
+                    "use.go",
+                    "package lit\n\nfunc Use(t Target) {\n\t_ = t.InString()\n\t_ = t.InBlock()\n}\n",
+                ),
+                (
+                    "a.py",
+                    "SRC = \"\"\"\nclass Fake:\n    def ghost(self):\n        pass\n\"\"\"\n\n\nclass Real:\n    def ghost(self):\n        pass\n\n\ndef call(g):\n    return g.ghost()\n",
+                ),
+            ],
+        );
+        for kind in [Kind::Python, Kind::Go] {
+            a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
+        }
+        d_on(&mut a, "use.go", "t.InString");
+        assert_eq!(a.message, "no definition for InString");
+        d_on(&mut a, "use.go", "t.InBlock");
+        assert_eq!(a.message, "no definition for InBlock");
+        d_on(&mut a, "a.py", "g.ghost");
+        assert_eq!(
+            shown(&mut a),
+            jump("ghost \u{2192} Real.ghost (by name, 1 match)", "a.py:9")
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Found by the acceptance pass of #68: `Outer.find` names what `Outer` declares, and a
+    /// method `find` of some class elsewhere used to take the jump with `1 match`.
+    #[test]
+    fn a_namespace_or_a_class_in_front_of_the_word_names_where_it_is_declared() {
+        let (dir, mut a) = project_app(
+            "namespaces",
+            &[
+                (
+                    "ns.ts",
+                    "export namespace Outer {\n  export function find(id: string) {\n    return id;\n  }\n}\n\nexport function run() {\n  return Outer.find(\"1\");\n}\n",
+                ),
+                (
+                    "other.ts",
+                    "export class Repo {\n  find(id: string) {\n    return id;\n  }\n}\n",
+                ),
+            ],
+        );
+        a.external
+            .insert(Kind::TsJs, (Vec::new(), Arc::new(Vec::new())));
+        d_on(&mut a, "ns.ts", "Outer.find");
+        assert_eq!(
+            shown(&mut a),
+            jump("find \u{2192} Outer.find (via Outer)", "ns.ts:2")
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Found by the acceptance pass of #68: a Go method of the same name and as many parameters,
+    /// of other types, was the one implementation `d` jumped to.
+    #[test]
+    fn a_go_method_of_other_types_implements_nothing() {
+        let (dir, mut a) = project_app(
+            "arity",
+            &[
+                ("go.mod", "module arity\n"),
+                (
+                    "iface.go",
+                    "package arity\n\ntype Solo interface {\n\tFerry(a string) error\n}\n\ntype NotSolo struct{}\n\nfunc (n NotSolo) Ferry(a int) string { return \"\" }\n\ntype Real struct{}\n\nfunc (r *Real) Ferry(name string) error { return nil }\n",
+                ),
+                (
+                    "duo.go",
+                    "package arity\n\ntype Duo interface {\n\tCarry(a string) error\n}\n\nfunc (n NotSolo) Carry(a int) string { return \"\" }\n\nfunc (r *Real) Carry(a []byte) error { return nil }\n",
+                ),
+            ],
+        );
+        a.external
+            .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+        d_on(&mut a, "iface.go", "\tFerry");
+        assert_eq!(
+            shown(&mut a),
+            jump(
+                "Ferry \u{2192} Real.Ferry (implementations of Solo.Ferry)",
+                "iface.go:13"
+            )
+        );
+        // With no implementation at all, the methods of other types are namesakes to offer.
+        d_on(&mut a, "duo.go", "\tCarry");
+        let Shown::Picker(status, rows) = shown(&mut a) else {
+            panic!("a jump: {}", a.message);
+        };
+        assert_eq!(status, "Carry: at a declaration, 2 others by name");
+        assert_eq!(rows.len(), 2);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Found by the acceptance pass of #68: two interfaces of one name in two files, and the
+    /// class that implements the other one was the implementation `d` jumped to.
+    #[test]
+    fn an_implementation_of_a_namesake_interface_is_not_one_of_ours() {
+        let iface = "export interface Notifier {\n  send(to: string): void;\n}\n";
+        let (dir, mut a) = project_app(
+            "dupiface",
+            &[
+                ("a.ts", iface),
+                ("b.ts", iface),
+                ("index.ts", "export * from \"./a\";\n"),
+                (
+                    "impl.ts",
+                    "import { Notifier } from \"./a\";\n\nexport class MailNotifier implements Notifier {\n  send(to: string): void {}\n}\n",
+                ),
+                (
+                    "barrel.ts",
+                    "import { Notifier } from \"./index\";\n\nexport class SmsNotifier implements Notifier {\n  send(to: string): void {}\n}\n",
+                ),
+            ],
+        );
+        a.external
+            .insert(Kind::TsJs, (Vec::new(), Arc::new(Vec::new())));
+        // Through a barrel the file is not known: the class stays, as it was.
+        d_on(&mut a, "b.ts", "  send");
+        assert_eq!(
+            shown(&mut a),
+            jump(
+                "send \u{2192} SmsNotifier.send (implementations of Notifier.send)",
+                "barrel.ts:4"
+            )
+        );
+        d_on(&mut a, "a.ts", "  send");
+        let Shown::Picker(status, rows) = shown(&mut a) else {
+            panic!("{}", a.message);
+        };
+        assert_eq!(
+            status,
+            "send: implementations of Notifier.send, 2 declarations"
+        );
+        assert_eq!(rows.len(), 2);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Found by the acceptance pass of #68 in hono: a member written as a property was missing
+    /// from the implementations, and the one left was jumped to as if it were the only one.
+    #[test]
+    fn a_property_holding_the_function_implements_the_method() {
+        let (dir, mut a) = project_app(
+            "propmember",
+            &[
+                (
+                    "iface.ts",
+                    "export interface Router {\n  match(method: string): string;\n}\n",
+                ),
+                (
+                    "impl.ts",
+                    "import type { Router } from \"./iface\";\n\ndeclare const match: (method: string) => string;\n\nexport class RegExpRouter implements Router {\n  match: typeof match = match;\n}\n\nexport class TrieRouter implements Router {\n  match(method: string): string {\n    const o = {\n      match: 1\n    };\n    return method;\n  }\n}\n",
+                ),
+            ],
+        );
+        a.external
+            .insert(Kind::TsJs, (Vec::new(), Arc::new(Vec::new())));
+        d_on(&mut a, "iface.ts", "  match");
+        let Shown::Picker(status, rows) = shown(&mut a) else {
+            panic!("{}", a.message);
+        };
+        assert_eq!(
+            status,
+            "match: implementations of Router.match, 2 declarations"
+        );
+        let places: Vec<&str> = rows.iter().map(|r| r.2.as_str()).collect();
+        assert_eq!(places, ["impl.ts:6", "impl.ts:10"]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Found by the acceptance pass of #68: a name imported from two modules, one per branch of
+    /// a `try`, jumped to the first as if there were no second.
+    #[test]
+    fn a_name_imported_from_two_modules_offers_both() {
+        let (dir, mut a) = project_app(
+            "twice",
+            &[
+                ("pkg/__init__.py", ""),
+                ("pkg/a.py", "def pick(x):\n    return x\n"),
+                ("pkg/b.py", "def pick(x):\n    return x\n"),
+                (
+                    "use.py",
+                    "try:\n    from pkg.a import pick\nexcept ImportError:\n    from pkg.b import pick\n\n\ndef run():\n    return pick(1)\n",
+                ),
+            ],
+        );
+        a.external
+            .insert(Kind::Python, (Vec::new(), Arc::new(Vec::new())));
+        d_on(&mut a, "use.py", "return pick");
+        let Shown::Picker(status, rows) = shown(&mut a) else {
+            panic!("{}", a.message);
+        };
+        assert_eq!(status, "pick: 2 declarations");
+        let places: Vec<&str> = rows.iter().map(|r| r.2.as_str()).collect();
+        assert_eq!(places, ["pkg/a.py:1", "pkg/b.py:1"]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A declaration with no namesake is its own answer, as it was before the namesake rule.
+    #[test]
+    fn a_lone_declaration_stays_where_it_is() {
+        let (dir, mut a) = project_app(
+            "lonely",
+            &[(
+                "a.ts",
+                "export class A {\n  onlyOne(x: number): number {\n    return x;\n  }\n}\n",
+            )],
+        );
+        a.external
+            .insert(Kind::TsJs, (Vec::new(), Arc::new(Vec::new())));
+        d_on(&mut a, "a.ts", "  onlyOne");
+        assert_eq!(
+            shown(&mut a),
+            jump("onlyOne \u{2192} A.onlyOne (by name, 1 match)", "a.ts:2")
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// A qualifier bound by a relative import, or a class of the project, is no value: `d`
     /// finds the module-level declaration and does not add a dependency's same-named methods.
     #[test]
@@ -5065,10 +5612,7 @@ mod tests {
             (
                 "shapes.py",
                 "Outer.Inner",
-                jump(
-                    "Inner \u{2192} Outer.Inner (by name, 1 match)",
-                    "shapes.py:2",
-                ),
+                jump("Inner \u{2192} Outer.Inner (via Outer)", "shapes.py:2"),
             ),
         ] {
             d_on(&mut a, file, code);

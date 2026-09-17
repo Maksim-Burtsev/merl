@@ -295,6 +295,8 @@ pub enum Reason {
     /// A type that implements the interface, protocol, abstract or base class the cursor stands
     /// in, and declares the same member: `implementations of Notifier.send`.
     Implementation(String),
+    /// A parameter or a variable of the scope the cursor is in.
+    Local,
 }
 
 impl Reason {
@@ -312,6 +314,7 @@ impl std::fmt::Display for Reason {
             Self::Import(module) => write!(f, "via import {module}"),
             Self::Path(module) | Self::Receiver(module) => write!(f, "via {module}"),
             Self::Implementation(member) => write!(f, "implementations of {member}"),
+            Self::Local => write!(f, "local"),
         }
     }
 }
@@ -334,7 +337,8 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^{w}\s*(:[^=]*)?="),
         ],
         Kind::Go => vec![
-            format!(r"^func\s+(\([^)]*\)\s*)?{w}\("),
+            // `func Get[T any](` is a function too.
+            format!(r"^func\s+(\([^)]*\)\s*)?{w}(?:\[[^\]]*\])?\("),
             format!(r"^type\s+{w}\b"),
             format!(r"^(var|const)\s+{w}\b"),
             format!(r"^\s*{w}\s*:="),
@@ -444,6 +448,15 @@ pub fn member_or_signature(kind: Kind, word: &str) -> Option<Vec<String>> {
     if kind == Kind::Go {
         patterns.push(format!(r"^\s+{}\s*\(", regex::escape(word)));
     }
+    // Inside a type that is known, an annotated property is a member whatever it holds: hono's
+    // `match: typeof match = match` implements `Router.match`. By name it would be every
+    // `name: string` of the project, so [`member_patterns`] leaves it out.
+    if kind == Kind::TsJs {
+        patterns.push(format!(
+            r"^\s+(?:(?:public|private|protected|static|readonly|override|declare)\s+)*{}\s*[?!]?\s*:[^=;(]*(?:=|;|$)",
+            regex::escape(word)
+        ));
+    }
     Some(patterns)
 }
 
@@ -462,7 +475,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
             vec![
                 // A class or object-literal method: `foo(` at the end of the line, `foo(..) {`,
                 // or an empty `foo(): void {}`. A `;` on the line means it was a call statement.
-                format!(r"{mods}{w}\s*(?:<[^>]*>)?\((?:[^;]*\{{\s*\}}?)?\s*$"),
+                format!(r"{mods}{w}\s*(?:<.*>)?\((?:[^;]*\{{\s*\}}?)?\s*$"),
                 // A property holding a function: `foo = () =>`, `foo: async (x) =>`,
                 // `foo: function`.
                 format!(
@@ -474,7 +487,16 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
                 // are expressions (`foo(a ? b(c) : d);`); no `=` in the return type keeps an
                 // annotated arrow argument out.
                 format!(
-                    r"{mods}{w}\??\s*(?:<[^>]*>)?\((?:\s*|\s*(?:\.\.\.)?[\w$]+\??\s*:[^;{{}}]*)\)\s*:[^;{{}}=]*;?\s*$"
+                    r"{mods}{w}\??\s*(?:<.*>)?\((?:\s*|\s*(?:\.\.\.)?[\w$]+\??\s*:[^;{{}}]*)\)\s*:[^;{{}}=]*;?\s*$"
+                ),
+                // A constructor parameter behind an access modifier is a property of the class:
+                // `@Inject(W) private worker: Worker,`. So is a field written the same way.
+                format!(
+                    r"^\s*(?:@[\w$.]+(?:\([^)]*\))?\s*)*(?:(?:public|private|protected|readonly|override)\s+)+{w}\s*[?!]?\s*:"
+                ),
+                // The same on the constructor's own line: `constructor(private worker: Worker) {}`.
+                format!(
+                    r"^\s*constructor\s*\(.*\b(?:public|private|protected|readonly)\s+{w}\s*[?!]?\s*:"
                 ),
             ]
         }
@@ -1305,6 +1327,52 @@ fn comment(kind: Kind, t: &str) -> bool {
     }
 }
 
+/// The 1-based lines of `text` that start inside a literal or a comment running over several
+/// lines: a Python triple-quoted string (a docstring with an example in it), a Go raw string, a
+/// TypeScript template, a `/* */` block. A line there that reads like a declaration declares
+/// nothing. Strings of one line end with their line, whatever they hold.
+pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
+    let python = kind == Kind::Python;
+    let b = text.as_bytes();
+    let mut out = vec![false];
+    // The multi-line literal the scan is in, by its closing bytes; a one-line quote.
+    let (mut block, mut quote, mut i): (Option<&[u8]>, Option<u8>, usize) = (None, None, 0);
+    while i < b.len() {
+        let c = b[i];
+        if c == b'\n' {
+            quote = None;
+            out.push(block.is_some());
+        } else if let Some(end) = block {
+            if b[i..].starts_with(end) && (end.len() > 1 || b[i - 1] != b'\\') {
+                block = None;
+                i += end.len() - 1;
+            }
+        } else if let Some(q) = quote {
+            if c == b'\\' {
+                i += 1;
+            } else if c == q {
+                quote = None;
+            }
+        } else if python && (b[i..].starts_with(b"\"\"\"") || b[i..].starts_with(b"'''")) {
+            block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" });
+            i += 2;
+        } else if !python && c == b'`' {
+            block = Some(b"`");
+        } else if !python && b[i..].starts_with(b"/*") {
+            block = Some(b"*/");
+            i += 1;
+        } else if c == b'"' || c == b'\'' {
+            quote = Some(c);
+        } else if (python && c == b'#') || (!python && b[i..].starts_with(b"//")) {
+            while i + 1 < b.len() && b[i + 1] != b'\n' {
+                i += 1;
+            }
+        }
+        i += 1;
+    }
+    out
+}
+
 /// The bytes of `s` a scan for brackets and separators reads, with their indexes. String literals
 /// are skipped; a comment (`#` in Python, `//` elsewhere) yields its first byte as `0` and is
 /// skipped to the end of its line.
@@ -1483,6 +1551,22 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::TsJs | Kind::Go => block_bindings(kind, &lines, at, name),
         _ => Vec::new(),
     }
+}
+
+/// Whether the word at `range` of 1-based `line` names a keyword argument of a Python call:
+/// `recipe_yield=…` behind a `(` or a `,`, or at the start of a line that continues a call. It
+/// names a parameter of whatever is called, and no variable of that spelling.
+pub fn keyword_argument(text: &str, line: usize, range: &Range<usize>) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(l) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return false;
+    };
+    let after = l[range.end..].trim_start();
+    let before = l[..range.start].trim_end();
+    after.starts_with('=')
+        && !after.starts_with("==")
+        && (before.ends_with(['(', ','])
+            || (before.is_empty() && continued(Kind::Python, &lines, line - 1)))
 }
 
 /// Whether line `i` continues the statement above it: that line ends in an open bracket, a comma
@@ -2305,6 +2389,56 @@ pub fn params(kind: Kind, text: &str, line: usize) -> Option<usize> {
     )
 }
 
+/// The types a Go declaration on 1-based `line` takes and what it returns, as written but for
+/// the package in front of a name and the spaces: `a, b string` is two `string`s, `ctx
+/// context.Context` is `Context`. An implementation of an interface method writes the same ones,
+/// whatever it calls its parameters. `None` when the result names its values or cannot be read.
+pub fn go_signature(text: &str, line: usize) -> Option<(Vec<String>, String)> {
+    static PKG: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\b\w+\.").unwrap());
+    let kind = Kind::Go;
+    let lines: Vec<&str> = text.lines().collect();
+    let k = line.checked_sub(1).filter(|&k| k < lines.len())?;
+    let mut opens = code(kind, lines[k])
+        .filter(|&(_, c)| c == b'(')
+        .map(|(i, _)| i);
+    let receiver = lines[k].trim_start().starts_with("func (");
+    let open = if receiver { opens.nth(1) } else { opens.next() }?;
+    let (inner, _, rest) = group(kind, &lines, k, open)?;
+    let plain = |t: &str| {
+        PKG.replace_all(t, "")
+            .split_whitespace()
+            .collect::<String>()
+    };
+    let parts: Vec<&str> = split_top(kind, &inner, b',')
+        .into_iter()
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect();
+    fn typed(p: &str) -> Option<&str> {
+        p.split_once(char::is_whitespace).map(|(_, t)| t.trim())
+    }
+    let named = parts.iter().any(|p| typed(p).is_some());
+    let mut types: Vec<String> = Vec::new();
+    // Backwards: a name with no type of its own takes the one that follows it.
+    for p in parts.iter().rev() {
+        let t = match (named, typed(p)) {
+            (true, Some(t)) => plain(t),
+            (true, None) => types.last()?.clone(),
+            (false, _) => plain(p),
+        };
+        types.push(t);
+    }
+    types.reverse();
+    let result = rest.split('{').next().unwrap_or_default().trim();
+    // `(n int, err error)` names its values, and an implementation may not.
+    let names_values = result.starts_with('(')
+        && split_top(kind, result.trim_matches(['(', ')']), b',')
+            .iter()
+            .any(|p| p.trim().contains(char::is_whitespace));
+    (!names_values).then(|| (types, plain(result)))
+}
+
 /// Whether `line` declares a type: a Python class, a TypeScript class, interface, type alias or
 /// enum, a Go `type`.
 pub fn declares_type(kind: Kind, line: &str) -> bool {
@@ -2533,7 +2667,7 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    const TS_MEMBERS: &str = "export interface Repo {\n  deleteUser(id: string): Promise<void>;\n  findUser?<T>(id: string): T | undefined\n  onChange: (id: string) => void;\n  name: string;\n}\n\nexport abstract class Base {\n  abstract deleteUser(id: string): Promise<void>;\n  get size(): number;\n}\n\nconst deleteUser = (id: string) => id;\nfindUser(id);\nrun(x).then((y): void => y);\nconst n = cond ? findUser(a) : b;\nexport const helpers = {\n  deleteUser(id) {\n    return id;\n  },\n};\nappend(target, visitor ? visitNode(s) : s);\nlog(\"(while reading XRef): \" + e);\ndeclare class Emitter {\n  on(event: string, cb: (x: T) => void): this;\n  append(...items: string[]): void;\n}\nclass Session {\n  close(): void {}\n}\nnoop(() => {})\n";
+    const TS_MEMBERS: &str = "export interface Repo {\n  deleteUser(id: string): Promise<void>;\n  findUser?<T>(id: string): T | undefined\n  onChange: (id: string) => void;\n  name: string;\n}\n\nexport abstract class Base {\n  abstract deleteUser(id: string): Promise<void>;\n  get size(): number;\n}\n\nconst deleteUser = (id: string) => id;\nfindUser(id);\nrun(x).then((y): void => y);\nconst n = cond ? findUser(a) : b;\nexport const helpers = {\n  deleteUser(id) {\n    return id;\n  },\n};\nappend(target, visitor ? visitNode(s) : s);\nlog(\"(while reading XRef): \" + e);\ndeclare class Emitter {\n  on(event: string, cb: (x: T) => void): this;\n  append(...items: string[]): void;\n}\nclass Session {\n  close(): void {}\n}\nnoop(() => {})\nclass Svc {\n  constructor(\n    @Inject(W) private worker: Worker,\n  ) {}\n}\nclass One {\n  constructor(private readonly inline: Dep, public other: Dep) {}\n}\ndeclare class Wide {\n  pong<T extends Record<string, number>>(x: T): T;\n}\n";
 
     #[test]
     fn ts_members_include_signatures_without_a_body() {
@@ -2562,13 +2696,48 @@ mod tests {
         // An empty body on the method's line, not a call whose last argument is one.
         assert_eq!(m("close"), [29]);
         assert_eq!(m("noop"), Vec::<usize>::new());
+        // A constructor parameter behind an access modifier is a property of the class.
+        assert_eq!(m("worker"), [34]);
+        assert_eq!(m("inline"), [38]);
+        assert_eq!(m("other"), [38]);
+        // Type parameters may nest.
+        assert_eq!(m("pong"), [41]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
+    fn lines_inside_a_literal_or_a_block_comment_are_told() {
+        let inside = |kind, text: &str| -> Vec<usize> {
+            let lines = literal_lines(kind, text);
+            (1..=lines.len()).filter(|&n| lines[n - 1]).collect()
+        };
+        let py = "SRC = \"\"\"\ndef ghost(x):\n    pass\n\"\"\"\n\n\ndef real(a=\"# no\", b='\"\"\"'):  # it's fine\n    \"\"\"Doc.\n\n    def example():\n    \"\"\"\n    return 1\n";
+        assert_eq!(inside(Kind::Python, py), [2, 3, 4, 9, 10, 11]);
+        let go = "const s = `\nfunc (t T) InString() {}\n`\n\n/*\nfunc (t T) InBlock() {}\n*/\nfunc (t T) Real() { _ = \"/*\" } // it's `fine\nfunc (t T) Next() {}\n";
+        assert_eq!(inside(Kind::Go, go), [2, 3, 6, 7]);
+        let ts = "const q = `\n  find(id: string): User;\n  ${x}`;\nclass A {\n  find(id: string): User {}\n}\n";
+        assert_eq!(inside(Kind::TsJs, ts), [2, 3]);
+    }
+
+    #[test]
+    fn a_go_signature_is_its_types_whatever_the_names() {
+        let go = "type I interface {\n\tFerry(a, b string, ctx context.Context) (*Row, error)\n\tSolo(a string) error\n\tBare(string, int)\n}\nfunc (r *R) Ferry(x string, y string, c context.Context) (*db.Row, error) {\nfunc (n N) Solo(a int) string { return \"\" }\nfunc (n N) Bare(s string, i int) {}\nfunc (n N) Named(a int) (n int, err error) {\n";
+        assert_eq!(go_signature(go, 2), go_signature(go, 6));
+        assert!(go_signature(go, 2).is_some());
+        assert_ne!(go_signature(go, 3), go_signature(go, 7));
+        assert_eq!(go_signature(go, 4), go_signature(go, 8));
+        assert_eq!(go_signature(go, 9), None);
+    }
+
+    #[test]
     fn go_members_need_a_receiver() {
-        let go = "package main\n\ntype Repo struct{}\n\nfunc (r *Repo[T]) Delete(id int) {}\n\nfunc (Repo) Find(id int) {}\n\nfunc Delete(id int) {}\n\nfunc main() {\n\tDelete := 1\n}\n";
+        let go = "package main\n\ntype Repo struct{}\n\nfunc (r *Repo[T]) Delete(id int) {}\n\nfunc (Repo) Find(id int) {}\n\nfunc Delete(id int) {}\n\nfunc main() {\n\tDelete := 1\n}\n\nfunc Get[T any](id int) {}\n";
         let (dir, files) = scratch("go-members", &[("repo.go", go)]);
+        assert_eq!(
+            defs(&dir, &files, Kind::Go, "Get"),
+            [15],
+            "a generic function"
+        );
         assert_eq!(members(&dir, &files, Kind::Go, "Delete"), [5]);
         assert_eq!(members(&dir, &files, Kind::Go, "Find"), [7]);
         assert_eq!(defs(&dir, &files, Kind::Go, "Delete"), [5, 9, 12]);
