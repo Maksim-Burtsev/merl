@@ -2652,6 +2652,13 @@ impl App {
         if matches!(key.code, KeyCode::Char(_)) {
             key.modifiers.remove(KeyModifiers::SHIFT);
         }
+        // Cmd+C / Cmd+X reach merl only from a terminal told to pass them on (see the README);
+        // they are the Ctrl chords then, except that Cmd+C never quits.
+        let cmd =
+            key.modifiers == KeyModifiers::SUPER && matches!(key.code, KeyCode::Char('c' | 'x'));
+        if cmd {
+            key.modifiers = KeyModifiers::CONTROL;
+        }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let shift = key.modifiers.contains(KeyModifiers::SHIFT);
         let alt = key.modifiers.contains(KeyModifiers::ALT);
@@ -2660,7 +2667,7 @@ impl App {
             // With a selection Ctrl+C is the copy it is everywhere else; without one it quits.
             let text = self.selected_text();
             if self.mode != Mode::Normal || self.picker.is_some() || text.is_none() {
-                return true;
+                return !cmd;
             }
             self.clipboard = text;
             self.message = "copied".into();
@@ -3046,7 +3053,11 @@ mod tests {
         assert!(!press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL));
         assert_eq!(a.clipboard.take().as_deref(), Some("ab"));
         assert!(a.selection().is_some(), "copy leaves the selection");
+        // Cmd+C, from a terminal that passes it on, copies too and never quits.
+        assert!(!press(&mut a, KeyCode::Char('c'), KeyModifiers::SUPER));
+        assert_eq!(a.clipboard.take().as_deref(), Some("ab"));
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert!(!press(&mut a, KeyCode::Char('c'), KeyModifiers::SUPER));
         assert!(press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL));
         assert_eq!(a.clipboard, None);
     }

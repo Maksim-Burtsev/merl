@@ -371,6 +371,14 @@ merl falls back to the legacy escape sequences. Known limits: Terminal.app on ma
 Shift+arrows nor Ctrl+Home, and F12 on Mac keyboards needs Fn — which is why `d` and `u` are the
 primary keys and the function keys only aliases.
 
+Cmd never reaches a terminal program on its own, so copy is Ctrl+C. Ghostty can hand Cmd+C over
+when there is no mouse selection for it to copy, and merl then treats Cmd+C / Cmd+X as the Ctrl
+chords (Cmd+C never quits). Cmd+V needs nothing: the terminal pastes. In `~/.config/ghostty/config`:
+
+```
+keybind = performable:cmd+c=copy_to_clipboard:mixed
+```
+
 ## Why not vim / helix / micro
 
 Those are editors: their reading features sit behind a modal editing model or a keymap of their

@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `v` selects the word under the cursor, pressed again the line, then the paragraph between blank
   lines; a selection made by hand grows the same way. The tutorial has a lesson for it.
 - Ctrl+C copies the selection in navigation too, with no trip through edit mode. Without a
-  selection it still quits.
+  selection it still quits. Cmd+C / Cmd+X do the same from a terminal set up to pass them on
+  (one Ghostty line, in the README), and Cmd+C never quits.
 
 ### Changed
 
