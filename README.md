@@ -208,22 +208,49 @@ that name anywhere is a candidate, found by name.
 
 `d` never jumps without saying how it found the target. The status line reads
 `delete_user → UserRepository.delete_user (by name, 1 match)` after a jump, `load: via import
-json` or `UserRepo: via import app/repos.py` for a declaration an import leads to, and
-`delete_user: by name, 2 declarations` over a picker, whose title says the same. `by name` means
-a declaration pattern matched the word and nothing narrowed which declaration it is, so a jump by
-name also says it was the only match. Each picker row starts with what the declaration sits in and
-why it is listed — `UserRepository.delete_user  by name  repos.py:8: async def delete_user(…)` —
-so typing a class name filters the rows.
+json` or `UserRepo: via import app/repos.py` for a declaration an import leads to,
+`delete_user → UserRepository.delete_user (via self.repo: UserRepository)` for one the type of the
+receiver leads to, and `delete_user: by name, 2 declarations` over a picker, whose title says the
+same. `by name` means a declaration pattern matched the word and nothing narrowed which
+declaration it is, so a jump by name also says it was the only match. Each picker row starts with
+what the declaration sits in and why it is listed —
+`UserRepository.delete_user  by name  repos.py:8: async def delete_user(…)` — so typing a class
+name filters the rows.
 
-On `x.word` where `x` is a value — a local, a parameter, `self.repo`, `f()`, anything behind a `.`
-that no import binds, relative imports included — merl does not know the type of `x`, so every
-method of that name is a candidate: Python `def` and `async def` inside a class, TypeScript class
-and object-literal methods, properties holding a function and bodiless signatures, Go
-`func (r *T) Name(`. They are collected from the project and from the standard library and
-dependencies, where TypeScript is read from its `.d.ts` files only. A project with no such
-method has the word at its top level instead — `x` was a class or a namespace — and the usual
-declarations answer. One candidate jumps; several open the picker, the project's first. A bare
-`self.word` or `this.word` stays in the project, as before.
+On `x.word` and `x.f.word` in Python, TypeScript and Go, `d` first looks for the type of the
+receiver. `x` is `self` or `cls` in a method, `this` in a class, a Go method's receiver, a
+parameter, a local or a module-level variable, and `f` is a field of the type of `x`. The type
+comes from the declaration:
+- an annotation: `repo: UserRepository`, `private repo: UserRepository` (a constructor parameter
+  too), a struct field `repo *UserRepository`, `var repo UserRepository`;
+- a construction: `UserRepository()`, `new UserRepository()`, `UserRepository{}`,
+  `&UserRepository{}`;
+- a parameter handed on: `self.repo = repo`;
+- a call, one hop through the return type the function declares: `-> UserRepository`,
+  `): UserRepository`, `func NewRepo() *UserRepository` (a Go function's first result), or a
+  TypeScript function whose every `return` is `new UserRepository()`.
+
+`T | None`, `Optional[T]`, `Annotated[T, …]`, `T | null` and generic arguments read as `T`.
+Every declaration of `x` in scope counts: in Python every binding in the function, the enclosing
+functions and the module; in TypeScript and Go the declarations above the cursor in the blocks
+around it. They must all read the same type, so a variable shadowed by an inner function, a loop
+variable or a parameter with no annotation is never guessed. The type must be declared once, in
+the same file, the same Go package or the project module an import names. `d` then looks for the
+member in that type, and in the classes it extends and the structs it embeds, and the status line
+names the link: `via self.repo: UserRepository`, `via NewRepo() *UserRepository`,
+`via makeAudit() returns new AuditLog()`. On an interface or a base class `d` lands on the
+declaration there, not on its implementations. A type declared outside the project, a longer chain
+(`app.services.users.remove`) or any link the rules cannot prove leaves the word to the search by
+name below.
+
+When the type of `x` is not known, every method of that name is a candidate: Python `def` and
+`async def` inside a class, TypeScript class and object-literal methods, properties holding a
+function and bodiless signatures, Go `func (r *T) Name(`. They are collected from the project and
+from the standard library and dependencies, where TypeScript is read from its `.d.ts` files only.
+A project with no such method has the word at its top level instead — `x` was a class or a
+namespace — and the usual declarations answer. One candidate jumps; several open the picker, the
+project's first. A bare `self.word` or `this.word` whose class cannot be read stays in the
+project.
 
 | File | What `d` recognises | Searched |
 |---|---|---|

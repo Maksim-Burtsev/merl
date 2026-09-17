@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   name they bring in. (#69)
 - A TypeScript `import { type Foo } from 'lib'` binds `Foo`, not `type`, so `d` on `Foo` looks in
   `lib`. (#73)
+- `d` finds a TypeScript method whose empty body sits on its own line, `close(): void {}`. (#83)
 - Eight themes had the selection colour within a few points of the cursor line highlight, so a
   selection inside the cursor line was nearly invisible: rose-pine-moon, rose-pine-dawn, nordfox,
   nightfox, gruvbox-material-light and material-light move the selection a step along their own
@@ -44,6 +45,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only re-exports the word falls back to the search by name. An import of anything else goes to
   the standard library and the dependencies before the project's same-named declarations, so
   `json.dumps` behind `import json` no longer lands on a project `dumps`. (#73)
+- `d` on `x.word` or `x.f.word` in Python, TypeScript and Go reads the type of the receiver from
+  its declaration and looks for the member in that type and in what it extends or embeds:
+  `self.repo`, `this.repo`, a Go receiver's field, a parameter or a local, annotated, constructed,
+  handed a parameter, or assigned from a call whose function declares its return type (one hop).
+  The status line names the link:
+  `delete_user → UserRepository.delete_user (via self.repo: UserRepository)`,
+  `via NewRepo() *UserRepository`. Declarations in scope that disagree, such as a variable
+  shadowed inside a nested function, keep the search by name. (#83)
 - Twenty-three themes, taking the set to forty-seven. The families Vim and Neovim users run most
   and merl was missing: gruvbox, One Dark, GitHub, VS Code's Dark+ and Light+, Dracula with its
   light Alucard, Nord, Solarized, Oxocarbon, Sonokai, Material and nightfox itself. Plus the

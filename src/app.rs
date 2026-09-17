@@ -1329,6 +1329,18 @@ impl App {
             return;
         }
         let pattern = patterns.join("|");
+        // A receiver whose type is proven narrows the member to that type (#68, steps 2 and 3).
+        if dotted
+            && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go)
+            && (1..=2).contains(&chain.len())
+            && bound(&imports, &chain[0]).is_none()
+        {
+            let found = self.typed_definitions(kind, &here, &word, &chain);
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found);
+                return;
+            }
+        }
         // An import names where the word is declared: the project's module, else the one outside
         // it. Only a module of the project that does not declare it (a re-export) leaves the word
         // to the search by name.
@@ -1546,6 +1558,269 @@ impl App {
                 })
                 .collect(),
         )
+    }
+
+    /// The declarations of `word` in the type of the receiver `chain`, `x` or `x.f`, when every
+    /// link is proven: every declaration of `x` in scope reads the same type (through one call's
+    /// return type at most), `f` is declared in that type or one it extends, and each type is
+    /// declared once where the file that names it can see it ([`App::declaration`]). The member
+    /// is looked for in the type, then in the types it extends or embeds. Empty when a link is
+    /// missing, which leaves the word to the search by name.
+    fn typed_definitions(
+        &self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        chain: &[String],
+    ) -> Vec<Candidate> {
+        let text = self.buf.lines.join("\n");
+        let receiver = self
+            .value_type(kind, here, &text, self.line + 1, &chain[0], 1)
+            .and_then(|found| match chain.get(1) {
+                None => Some(found),
+                Some(field) => self
+                    .hierarchy(kind, &found.0, 0, &mut |t| self.field_type(kind, t, field))
+                    .flatten(),
+            });
+        let Some((ty, call)) = receiver else {
+            return Vec::new();
+        };
+        let hits = self
+            .hierarchy(kind, &ty, 0, &mut |t| {
+                Some(self.members_of(kind, t, word)).filter(|hits| !hits.is_empty())
+            })
+            .unwrap_or_default();
+        let label = call.unwrap_or_else(|| format!("{}: {}", chain.join("."), ty.name));
+        hits.into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Receiver(label.clone()),
+            })
+            .collect()
+    }
+
+    /// The type of `name` on 1-based `line` of `text`, the text of `file`: the one type all its
+    /// declarations in scope read, with the signature of the call it came from, if any. `hops` is
+    /// how many times a declaration may hand over to another name (`self.repo = repo`).
+    fn value_type(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line: usize,
+        name: &str,
+        hops: usize,
+    ) -> Option<(Typed, Option<String>)> {
+        let bindings = search::bindings(kind, text, line, name);
+        self.agree(kind, file, text, &bindings, hops)
+    }
+
+    /// The field `field` as `ty` itself declares it: `None` when it does not, `Some(None)` when
+    /// its declarations cannot be read or disagree.
+    fn field_type(
+        &self,
+        kind: Kind,
+        ty: &Typed,
+        field: &str,
+    ) -> Option<Option<(Typed, Option<String>)>> {
+        let text = self.text_of(&ty.path)?;
+        let bindings = search::field_bindings(kind, &text, ty.line, field);
+        (!bindings.is_empty()).then(|| self.agree(kind, &ty.path, &text, &bindings, 1))
+    }
+
+    /// The one type every binding reads, or `None` when there is none, one cannot be read or
+    /// two disagree.
+    fn agree(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        bindings: &[search::Binding],
+        hops: usize,
+    ) -> Option<(Typed, Option<String>)> {
+        let mut found: Option<(Typed, Option<String>)> = None;
+        for b in bindings {
+            let this = self.binding_type(kind, file, text, b, hops)?;
+            match &found {
+                Some((ty, _)) if (&ty.path, ty.line) != (&this.0.path, this.0.line) => return None,
+                Some(_) => {}
+                None => found = Some(this),
+            }
+        }
+        found
+    }
+
+    /// The type one binding in `file` reads, and the signature of the call it came through.
+    fn binding_type(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        b: &search::Binding,
+        hops: usize,
+    ) -> Option<(Typed, Option<String>)> {
+        match &b.value {
+            search::Value::Type(t) | search::Value::New(t) => {
+                self.type_decl(kind, file, t).map(|ty| (ty, None))
+            }
+            search::Value::Class(line) => {
+                let decl = text.lines().nth(line - 1)?;
+                let name = decl
+                    .split("class")
+                    .nth(1)?
+                    .trim_start()
+                    .split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+                    .next()
+                    .filter(|n| !n.is_empty())?;
+                let ty = Typed {
+                    name: name.to_owned(),
+                    path: file.to_path_buf(),
+                    line: *line,
+                };
+                Some((ty, None))
+            }
+            search::Value::Call(callee) => self.call_type(kind, file, callee),
+            search::Value::Name(n) if hops > 0 => {
+                self.value_type(kind, file, text, b.line, n, hops - 1)
+            }
+            search::Value::Name(_) | search::Value::Unknown => None,
+        }
+    }
+
+    /// What a call of `callee` in `file` gives: the class it constructs, or the declared return
+    /// type of the function, resolved in the file declaring it. One hop: a return type is never
+    /// followed through another call. The signature is spelled as the language writes it.
+    fn call_type(&self, kind: Kind, file: &Path, callee: &str) -> Option<(Typed, Option<String>)> {
+        let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
+        let decl = self.declaration(kind, file, &parts)?;
+        if search::declares_type(kind, &decl.text) {
+            let ty = Typed {
+                name: parts.last()?.clone(),
+                path: decl.path,
+                line: decl.line,
+            };
+            return Some((ty, None));
+        }
+        let text = self.text_of(&decl.path)?;
+        let (written, signature) = match search::returns(kind, &text, decl.line)? {
+            search::Value::New(t) => (t.clone(), format!("{callee}() returns new {t}()")),
+            search::Value::Type(t) => {
+                let signature = match kind {
+                    Kind::Python => format!("{callee}() -> {t}"),
+                    Kind::TsJs => format!("{callee}(): {t}"),
+                    _ => format!("{callee}() {t}"),
+                };
+                (t, signature)
+            }
+            _ => return None,
+        };
+        let ty = self.type_decl(kind, &decl.path, &written)?;
+        Some((ty, Some(signature)))
+    }
+
+    /// The declaration of the type written as `written` in `file`.
+    fn type_decl(&self, kind: Kind, file: &Path, written: &str) -> Option<Typed> {
+        let parts = search::type_path(kind, written)?;
+        let decl = self.declaration(kind, file, &parts)?;
+        search::declares_type(kind, &decl.text).then(|| Typed {
+            name: parts.last().cloned().unwrap_or_default(),
+            path: decl.path,
+            line: decl.line,
+        })
+    }
+
+    /// The one top-level declaration `parts` names as `file` sees it: in the file itself (for Go,
+    /// its package), else in the project module an import binds the first part to. `None` when
+    /// there is none or more than one, and for a module outside the project.
+    fn declaration(&self, kind: Kind, file: &Path, parts: &[String]) -> Option<Hit> {
+        let (name, chain) = parts.split_last()?;
+        let one = |hits: Vec<Hit>| <[Hit; 1]>::try_from(hits).ok().map(|[hit]| hit);
+        if chain.is_empty() {
+            let own = self.package_files(kind, file);
+            let pattern = search::def_patterns(kind, name).join("|");
+            let hits: Vec<Hit> = self
+                .grep(&pattern, false, false, |p| own.iter().any(|f| f == p))
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|h| {
+                    self.text_of(&h.path)
+                        .is_some_and(|text| search::qualified(kind, &text, h.line, name).is_none())
+                })
+                .collect();
+            if !hits.is_empty() {
+                return one(hits);
+            }
+        }
+        let imports = search::imports(kind, &self.text_of(file)?);
+        let path = bound(&imports, chain.first().unwrap_or(name))?;
+        let found = self.imported_definitions(kind, file, name, chain, &path)?;
+        one(found.into_iter().map(|c| c.hit).collect())
+    }
+
+    /// The files a name of `file` is declared in without an import: the file, or for Go every
+    /// file of its package (a `_test.go` file only from a test).
+    fn package_files(&self, kind: Kind, file: &Path) -> Vec<PathBuf> {
+        let mut files = vec![file.to_path_buf()];
+        if kind == Kind::Go {
+            let test = |f: &Path| f.to_string_lossy().ends_with("_test.go");
+            files.extend(
+                self.files
+                    .iter()
+                    .filter(|f| f.parent() == file.parent() && f.as_path() != file)
+                    .filter(|f| search::kind_of(f) == Some(Kind::Go) && (test(file) || !test(f)))
+                    .cloned(),
+            );
+        }
+        files
+    }
+
+    /// The declarations of `word` inside `ty` itself: its methods, Go's methods on it in its
+    /// package and the method lines of a Go interface, named `Type.word` by
+    /// [`search::qualified`].
+    fn members_of(&self, kind: Kind, ty: &Typed, word: &str) -> Vec<Hit> {
+        let Some(text) = self.text_of(&ty.path) else {
+            return Vec::new();
+        };
+        let owner = search::qualified(kind, &text, ty.line, &ty.name).unwrap_or(ty.name.clone());
+        let want = Some(format!("{owner}.{word}"));
+        let mut patterns = search::member_patterns(kind, word).unwrap_or_default();
+        if kind == Kind::Go {
+            patterns.push(format!(r"^\s+{}\s*\(", regex::escape(word)));
+        }
+        let files = self.package_files(kind, &ty.path);
+        self.grep(&patterns.join("|"), false, false, |p| {
+            files.iter().any(|f| f == p)
+        })
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|h| {
+            self.text_of(&h.path)
+                .and_then(|text| search::qualified(kind, &text, h.line, word))
+                == want
+        })
+        .collect()
+    }
+
+    /// `find` in `ty`, then in the types it extends or embeds, nearest first: the first answer.
+    fn hierarchy<R>(
+        &self,
+        kind: Kind,
+        ty: &Typed,
+        depth: usize,
+        find: &mut dyn FnMut(&Typed) -> Option<R>,
+    ) -> Option<R> {
+        if let Some(found) = find(ty) {
+            return Some(found);
+        }
+        // ponytail: eight levels up, which also ends a cycle.
+        if depth == 8 {
+            return None;
+        }
+        let text = self.text_of(&ty.path)?;
+        search::bases(kind, &text, ty.line)
+            .iter()
+            .filter_map(|base| self.type_decl(kind, &ty.path, base))
+            .find_map(|base| self.hierarchy(kind, &base, depth + 1, &mut *find))
     }
 
     /// `pattern` over the standard library and dependencies of `kind`, in the module the file's
@@ -2325,6 +2600,14 @@ impl App {
             _ => {}
         }
     }
+}
+
+/// A type `d` followed a receiver to: its name and the line that declares it.
+#[derive(Debug, Clone)]
+struct Typed {
+    name: String,
+    path: PathBuf,
+    line: usize,
 }
 
 /// The module path an import in `imports` binds `name` to.
@@ -3182,15 +3465,20 @@ mod tests {
         a
     }
 
-    /// Presses `d` on the last word of the first line of `file` that contains `code`.
+    /// Presses `d` on the last word of the first line of `file` that contains `code`, or starts
+    /// with it when `code` starts with `^`.
     fn d_on(a: &mut App, file: &str, code: &str) {
         let path = a.root.join(file);
         let text = std::fs::read_to_string(&path).unwrap();
         let (n, line) = text
             .lines()
             .enumerate()
-            .find(|(_, l)| l.contains(code))
+            .find(|(_, l)| match code.strip_prefix('^') {
+                Some(start) => l.starts_with(start),
+                None => l.contains(code),
+            })
             .unwrap_or_else(|| panic!("no `{code}` in {file}"));
+        let code = code.trim_start_matches('^');
         a.jump_to(&path, n + 1);
         a.col = line.find(code).unwrap() + code.rfind(|c: char| !is_word(c)).map_or(0, |i| i + 1);
         press(a, KeyCode::Char('d'), KeyModifiers::NONE);
@@ -3255,12 +3543,17 @@ mod tests {
     }
 
     /// Steps 7 and 1 of #68 over the same project in three languages: on `x.word` with `x` a
-    /// value, one member declaration of the name jumps and says it was found by name; several
-    /// open a picker whose rows say what each is declared in and why it is there.
+    /// value whose type is not known, one member declaration of the name jumps and says it was
+    /// found by name; several open a picker whose rows say what each is declared in and why it
+    /// is there.
     #[test]
     fn a_member_of_a_value_is_found_by_name_and_says_so() {
-        let cases: [(&str, &str, &str, Shown); 12] = [
-            // The last link of a chain: one declaration, and a jump that says how it was found.
+        let two = |status: &str, first: (&str, &str), second: (&str, &str)| {
+            picker(status, &[first, second])
+        };
+        let cases: [(&str, &str, &str, Shown); 9] = [
+            // A chain longer than a receiver and its field: one declaration, and a jump that says
+            // how it was found.
             (
                 "python",
                 "service.py",
@@ -3270,10 +3563,11 @@ mod tests {
                     "service.py:10",
                 ),
             ),
+            // A parameter with no annotation.
             (
                 "python",
-                "service.py",
-                "self.repo.find_user",
+                "factories.py",
+                "repo.find_user",
                 jump(
                     "find_user \u{2192} UserRepository.find_user (by name, 1 match)",
                     "repos.py:5",
@@ -3282,28 +3576,12 @@ mod tests {
             // Two classes declare the method: a picker, never a guess.
             (
                 "python",
-                "service.py",
-                "self.repo.delete_user",
-                picker(
+                "factories.py",
+                "return repo.delete_user",
+                two(
                     "delete_user: by name, 2 declarations",
-                    &[
-                        ("UserRepository.delete_user", "repos.py:8"),
-                        ("AuditLog.delete_user", "repos.py:13"),
-                    ],
-                ),
-            ),
-            // An interface and its implementations declare the same name.
-            (
-                "python",
-                "service.py",
-                "self.notifier.send",
-                picker(
-                    "send: by name, 3 declarations",
-                    &[
-                        ("Notifier.send", "repos.py:18"),
-                        ("EmailNotifier.send", "repos.py:22"),
-                        ("SmsNotifier.send", "repos.py:27"),
-                    ],
+                    ("UserRepository.delete_user", "repos.py:8"),
+                    ("AuditLog.delete_user", "repos.py:13"),
                 ),
             ),
             (
@@ -3315,10 +3593,11 @@ mod tests {
                     "service.ts:11",
                 ),
             ),
+            // `any` is no type of the project.
             (
                 "typescript",
-                "service.ts",
-                "this.repo.findUser",
+                "factories.ts",
+                "repo.findUser",
                 jump(
                     "findUser \u{2192} UserRepository.findUser (by name, 1 match)",
                     "repos.ts:6",
@@ -3326,28 +3605,12 @@ mod tests {
             ),
             (
                 "typescript",
-                "service.ts",
-                "this.repo.deleteUser",
-                picker(
+                "factories.ts",
+                "void repo.deleteUser",
+                two(
                     "deleteUser: by name, 2 declarations",
-                    &[
-                        ("UserRepository.deleteUser", "repos.ts:10"),
-                        ("AuditLog.deleteUser", "repos.ts:16"),
-                    ],
-                ),
-            ),
-            // The interface member is a signature with no body.
-            (
-                "typescript",
-                "service.ts",
-                "this.notifier.send",
-                picker(
-                    "send: by name, 3 declarations",
-                    &[
-                        ("Notifier.send", "repos.ts:22"),
-                        ("EmailNotifier.send", "repos.ts:26"),
-                        ("SmsNotifier.send", "repos.ts:32"),
-                    ],
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
                 ),
             ),
             (
@@ -3359,10 +3622,11 @@ mod tests {
                     "service.go:11",
                 ),
             ),
+            // A `range` variable.
             (
                 "go",
-                "service.go",
-                "s.repo.FindUser",
+                "factories.go",
+                "repo.FindUser",
                 jump(
                     "FindUser \u{2192} UserRepository.FindUser (by name, 1 match)",
                     "repos.go:11",
@@ -3370,27 +3634,12 @@ mod tests {
             ),
             (
                 "go",
-                "service.go",
-                "s.repo.DeleteUser",
-                picker(
+                "factories.go",
+                "^\t\trepo.DeleteUser",
+                two(
                     "DeleteUser: by name, 2 declarations",
-                    &[
-                        ("UserRepository.DeleteUser", "repos.go:15"),
-                        ("AuditLog.DeleteUser", "repos.go:21"),
-                    ],
-                ),
-            ),
-            // Go's interface method has no rule yet: step 6 of #68 lists implementations.
-            (
-                "go",
-                "service.go",
-                "s.notifier.Send",
-                picker(
-                    "Send: by name, 2 declarations",
-                    &[
-                        ("EmailNotifier.Send", "repos.go:31"),
-                        ("SmsNotifier.Send", "repos.go:37"),
-                    ],
+                    ("UserRepository.DeleteUser", "repos.go:15"),
+                    ("AuditLog.DeleteUser", "repos.go:21"),
                 ),
             ),
         ];
@@ -3401,11 +3650,249 @@ mod tests {
         }
         // The picker is titled with what the status line says.
         let mut a = fixture_app("go");
-        d_on(&mut a, "service.go", "s.repo.DeleteUser");
+        d_on(&mut a, "factories.go", "^\t\trepo.DeleteUser");
         assert_eq!(
             a.picker.as_ref().unwrap().title,
             "DeleteUser: by name, 2 declarations"
         );
+    }
+
+    /// Steps 2 and 3 of #68 over the same project in three languages. A receiver whose every
+    /// declaration in scope reads one type, directly or through the return type of one call, has
+    /// its member looked up in that type: one jump, which says the link it followed. Two
+    /// declarations that disagree, or a call whose return type is not written, leave the member
+    /// to the search by name: a picker of two.
+    #[test]
+    fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
+        let by_name = |status: &str, first: (&str, &str), second: (&str, &str)| {
+            picker(status, &[first, second])
+        };
+        let py_both = || {
+            by_name(
+                "delete_user: by name, 2 declarations",
+                ("UserRepository.delete_user", "repos.py:8"),
+                ("AuditLog.delete_user", "repos.py:13"),
+            )
+        };
+        let ts_both = || {
+            by_name(
+                "deleteUser: by name, 2 declarations",
+                ("UserRepository.deleteUser", "repos.ts:10"),
+                ("AuditLog.deleteUser", "repos.ts:16"),
+            )
+        };
+        let go_both = || {
+            by_name(
+                "DeleteUser: by name, 2 declarations",
+                ("UserRepository.DeleteUser", "repos.go:15"),
+                ("AuditLog.DeleteUser", "repos.go:21"),
+            )
+        };
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // Two same-named methods: each field lands on its own class's.
+            (
+                "python",
+                "service.py",
+                "self.repo.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via self.repo: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "service.py",
+                "self.audit.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via self.audit: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            // The declared type's method, not its implementations (step 6).
+            (
+                "python",
+                "service.py",
+                "self.notifier.send",
+                jump(
+                    "send \u{2192} Notifier.send (via self.notifier: Notifier)",
+                    "repos.py:18",
+                ),
+            ),
+            // Shadowing: below the nested function only the outer `repo` is in scope; inside it
+            // both are, and they disagree.
+            (
+                "python",
+                "service.py",
+                "^    repo.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via repo: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            ("python", "service.py", "await repo.delete_user", py_both()),
+            (
+                "python",
+                "factories.py",
+                "repo.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via make_repo() -> UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            ("python", "factories.py", "audit.delete_user", py_both()),
+            // The return type is resolved where the function is declared.
+            (
+                "python",
+                "factories.py",
+                "session.close",
+                jump(
+                    "close \u{2192} Session.close (via connect() -> Session)",
+                    "store/sessions.py:6",
+                ),
+            ),
+            (
+                "typescript",
+                "service.ts",
+                "this.repo.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via this.repo: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "service.ts",
+                "this.audit.deleteUser",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via this.audit: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "service.ts",
+                "this.notifier.send",
+                jump(
+                    "send \u{2192} Notifier.send (via this.notifier: Notifier)",
+                    "repos.ts:22",
+                ),
+            ),
+            (
+                "typescript",
+                "service.ts",
+                "^  repo.deleteUser",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via repo: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "service.ts",
+                "await repo.deleteUser",
+                ts_both(),
+            ),
+            (
+                "typescript",
+                "factories.ts",
+                "await repo.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via makeRepo(): UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            // No return type, but the body constructs one.
+            (
+                "typescript",
+                "factories.ts",
+                "audit.deleteUser",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via makeAudit() returns new AuditLog())",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "factories.ts",
+                "session.close",
+                jump(
+                    "close \u{2192} Session.close (via connect(): Session)",
+                    "store/sessions.ts:6",
+                ),
+            ),
+            (
+                "go",
+                "service.go",
+                "s.repo.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via s.repo: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "service.go",
+                "s.audit.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via s.audit: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            // An interface's method line.
+            (
+                "go",
+                "service.go",
+                "s.notifier.Send",
+                jump(
+                    "Send \u{2192} Notifier.Send (via s.notifier: Notifier)",
+                    "repos.go:26",
+                ),
+            ),
+            (
+                "go",
+                "service.go",
+                "^\trepo.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via repo: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            ("go", "service.go", "^\t\trepo.DeleteUser", go_both()),
+            (
+                "go",
+                "factories.go",
+                "repo.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via NewRepo() *UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            // The first result of two.
+            (
+                "go",
+                "factories.go",
+                "audit.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via NewAudit() AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            // A function of an imported package, whose result is a type of that package.
+            (
+                "go",
+                "factories.go",
+                "session.Close",
+                jump(
+                    "Close \u{2192} Session.Close (via store.Open() *Session)",
+                    "store/store.go:15",
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
     }
 
     /// Step 5 of #68 over the same project in three languages: a word or a qualifier an import
@@ -3543,6 +4030,109 @@ mod tests {
         }
     }
 
+    /// A type that does not declare the member itself hands it to the class it extends or the
+    /// struct it embeds; a field comes down from a base class the same way. The status line keeps
+    /// the receiver's own type.
+    #[test]
+    fn a_typed_receiver_finds_what_its_type_extends() {
+        type Probe = (&'static str, &'static str, Shown);
+        type Project = (Kind, &'static [(&'static str, &'static str)], Vec<Probe>);
+        let projects: [Project; 3] = [
+            (
+                Kind::Python,
+                &[
+                    (
+                        "base.py",
+                        "class BaseRepo:\n    def find(self, key):\n        pass\n",
+                    ),
+                    (
+                        "repos.py",
+                        "from base import BaseRepo\n\n\nclass UserRepo(BaseRepo):\n    pass\n\n\nclass Other:\n    def find(self, key):\n        pass\n",
+                    ),
+                    (
+                        "main.py",
+                        "from repos import UserRepo\n\n\ndef run(repo: UserRepo):\n    repo.find(1)\n\n\nclass BaseService:\n    def __init__(self, repo: UserRepo):\n        self.repo = repo\n\n\nclass Service(BaseService):\n    def run(self):\n        self.repo.find(1)\n",
+                    ),
+                ],
+                vec![
+                    (
+                        "main.py",
+                        "^    repo.find",
+                        jump(
+                            "find \u{2192} BaseRepo.find (via repo: UserRepo)",
+                            "base.py:2",
+                        ),
+                    ),
+                    (
+                        "main.py",
+                        "self.repo.find",
+                        jump(
+                            "find \u{2192} BaseRepo.find (via self.repo: UserRepo)",
+                            "base.py:2",
+                        ),
+                    ),
+                ],
+            ),
+            (
+                Kind::TsJs,
+                &[
+                    (
+                        "base.ts",
+                        "export class BaseRepo {\n  find(key: string): void {}\n}\n",
+                    ),
+                    (
+                        "repos.ts",
+                        "import { BaseRepo } from \"./base\";\n\nexport class UserRepo extends BaseRepo {}\n\nexport class Other {\n  find(key: string): void {}\n}\n",
+                    ),
+                    (
+                        "main.ts",
+                        "import { UserRepo } from \"./repos\";\n\nexport function run(repo: UserRepo): void {\n  repo.find(\"a\");\n}\n",
+                    ),
+                ],
+                vec![(
+                    "main.ts",
+                    "repo.find",
+                    jump(
+                        "find \u{2192} BaseRepo.find (via repo: UserRepo)",
+                        "base.ts:2",
+                    ),
+                )],
+            ),
+            (
+                Kind::Go,
+                &[
+                    ("go.mod", "module example.com/inherit\n"),
+                    (
+                        "base.go",
+                        "package main\n\ntype Base struct{}\n\nfunc (b *Base) Find(key string) {}\n",
+                    ),
+                    (
+                        "repos.go",
+                        "package main\n\ntype UserRepo struct {\n\t*Base\n\tname string\n}\n\ntype Other struct{}\n\nfunc (o Other) Find(key string) {}\n",
+                    ),
+                    (
+                        "main.go",
+                        "package main\n\nfunc run(repo *UserRepo) {\n\trepo.Find(\"a\")\n}\n",
+                    ),
+                ],
+                vec![(
+                    "main.go",
+                    "repo.Find",
+                    jump("Find \u{2192} Base.Find (via repo: UserRepo)", "base.go:5"),
+                )],
+            ),
+        ];
+        for (kind, files, probes) in projects {
+            let (dir, mut a) = project_app(&format!("extends-{kind:?}"), files);
+            a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
+            for (file, code, want) in probes {
+                d_on(&mut a, file, code);
+                assert_eq!(shown(&mut a), want, "{file}: {code}");
+            }
+            std::fs::remove_dir_all(&dir).unwrap();
+        }
+    }
+
     #[test]
     fn a_member_of_a_value_is_looked_for_outside_the_project_too() {
         let mut a = fixture_app("python");
@@ -3561,7 +4151,7 @@ mod tests {
                 Arc::new(vec![site.join("client/api.py")]),
             ),
         );
-        d_on(&mut a, "service.py", "self.repo.find_user");
+        d_on(&mut a, "factories.py", "repo.find_user");
         // The project first; a dependency shown relative to its root.
         assert_eq!(
             shown(&mut a),
@@ -3584,7 +4174,7 @@ mod tests {
         std::fs::write(&js, "class Client {\n  findUser(id) {\n  }\n}\n").unwrap();
         a.external
             .insert(Kind::TsJs, (vec![site.clone()], Arc::new(vec![dts, js])));
-        d_on(&mut a, "service.ts", "this.repo.findUser");
+        d_on(&mut a, "factories.ts", "repo.findUser");
         assert_eq!(
             shown(&mut a),
             picker(
@@ -3859,7 +4449,7 @@ mod tests {
         d_on(&mut a, "a.py", "self.stop");
         assert_eq!(
             shown(&mut a),
-            jump("stop \u{2192} A.stop (by name, 1 match)", "a.py:2")
+            jump("stop \u{2192} A.stop (via self: A)", "a.py:2")
         );
         std::fs::remove_dir_all(&dir).unwrap();
         std::fs::remove_dir_all(&root).unwrap();
