@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A TypeScript `import { type Foo } from 'lib'` binds `Foo`, not `type`, so `d` on `Foo` looks in
   `lib`. (#73)
 - `d` finds a TypeScript method whose empty body sits on its own line, `close(): void {}`. (#83)
+- `d` on a member of a chain that hangs off a call, an index or `?.`, such as
+  `make_uow().users.delete_user`, no longer reads a local `users` as the receiver and jumps into
+  that variable's type: the word is a member of a value whose type is not known. (#85)
 - Eight themes had the selection colour within a few points of the cursor line highlight, so a
   selection inside the cursor line was nearly invisible: rose-pine-moon, rose-pine-dawn, nordfox,
   nightfox, gruvbox-material-light and material-light move the selection a step along their own
@@ -53,6 +56,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `delete_user → UserRepository.delete_user (via self.repo: UserRepository)`,
   `via NewRepo() *UserRepository`. Declarations in scope that disagree, such as a variable
   shadowed inside a nested function, keep the search by name. (#83)
+- `d` follows a chain such as `self.uow.users.delete_user` one field at a time, up to six names:
+  each field is looked for in the type before it, in what that type extends, and in the Go structs
+  it embeds. The status line lists the links,
+  `via self.uow: UnitOfWork → users: UserRepository`. A chain that cannot be followed falls back
+  to the search by name and says where it broke: `delete_user: by name, 2 declarations (chain
+  broke at users)`. (#85)
 - Twenty-three themes, taking the set to forty-seven. The families Vim and Neovim users run most
   and merl was missing: gruvbox, One Dark, GitHub, VS Code's Dark+ and Light+, Dracula with its
   light Alucard, Nord, Solarized, Oxocarbon, Sonokai, Material and nightfox itself. Plus the

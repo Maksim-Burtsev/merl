@@ -21,6 +21,11 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   (Python's `make_audit`; TypeScript's `makeAudit` returns `new AuditLog()`), and through
   `connect()` / `store.Open()`, whose `Session` is declared in the `store` package. The receiver of
   `forget` has a type the rules cannot read.
+- chains (step 4): `chains` has a `UnitOfWork` whose `users` and `audit` lead to their own
+  `delete_user`, reached through a field of `Handler` (Go: through the embedded `*Deps`, promoted
+  and by name). `box.item` is typed by a generic parameter, so that chain breaks at `item`.
+  `folder.parent…` is followed for six names and breaks at the seventh. `make_uow().users` hangs
+  off a call next to a local `users` of another type, which must not be read as its receiver.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.

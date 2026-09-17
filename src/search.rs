@@ -765,7 +765,9 @@ pub fn declaration_file(path: &Path) -> bool {
 
 /// The dotted or `::` chain in front of the word under the cursor: `["json"]` for
 /// `json.load(`, `["os", "path"]` for `os.path.join(`, `["fs"]` for `fs::read(`. Empty when the
-/// word stands alone. A TypeScript private field keeps its `#`: `["this", "#root"]`.
+/// word stands alone. A TypeScript private field keeps its `#`: `["this", "#root"]`. A chain that
+/// hangs off a call, an index or `?.` is empty too: `users` in `make_uow().users.x` is no name of
+/// its own.
 pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
     let mut before = &line[..word_start];
     let mut chain = Vec::new();
@@ -784,6 +786,11 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
         }
         chain.insert(0, rest[start..].to_owned());
         before = &rest[..start];
+    }
+    // `f().`, `a[0].`, `a?.` or a line starting with `.` are left; a spread `...` or a range `..`
+    // is not a member access.
+    if before.ends_with('.') && !before.ends_with("..") {
+        return Vec::new();
     }
     chain
 }
@@ -3008,6 +3015,14 @@ output "bucket" {
         assert!(q("load(fp)", 0).is_empty());
         assert!(q("x = load(fp)", 4).is_empty());
         assert_eq!(q("this.#root.insert(p)", 11), ["this", "#root"]);
+        // A chain that hangs off a call, an index or `?.` has no name to start from.
+        assert!(q("x = make_uow().users.delete_user()", 21).is_empty());
+        assert!(q("a[0].users.find()", 11).is_empty());
+        assert!(q("a?.users.find()", 9).is_empty());
+        assert!(q("  .users.find()", 9).is_empty());
+        // A spread and a range are no member access.
+        assert_eq!(q("f(...this.repo.find())", 15), ["this", "repo"]);
+        assert_eq!(q("for i in 0..v.len() {", 14), ["v"]);
     }
 
     /// The bindings of `name` on `line` of `text`, as (line, value) pairs.

@@ -1329,16 +1329,20 @@ impl App {
             return;
         }
         let pattern = patterns.join("|");
-        // A receiver whose type is proven narrows the member to that type (#68, steps 2 and 3).
+        // A receiver whose type is proven narrows the member to that type (#68, steps 2 to 4).
+        let mut broke = None;
         if dotted
             && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go)
-            && (1..=2).contains(&chain.len())
-            && bound(&imports, &chain[0]).is_none()
+            && chain.first().is_some_and(|f| bound(&imports, f).is_none())
         {
-            let found = self.typed_definitions(kind, &here, &word, &chain);
-            if !found.is_empty() {
-                self.show_definitions(kind, &word, &here, found);
-                return;
+            match self.typed_definitions(kind, &here, &word, &chain) {
+                Ok(found) if !found.is_empty() => {
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
+                Ok(_) => {}
+                // With one name in front of the word, `by name` already says where.
+                Err(at) => broke = (chain.len() > 1).then_some(at),
             }
         }
         // An import names where the word is declared: the project's module, else the one outside
@@ -1363,7 +1367,7 @@ impl App {
             None => Vec::new(),
         };
         if !found.is_empty() {
-            self.show_definitions(kind, &word, &here, found);
+            self.show_definitions(kind, &word, &here, found, None);
             return;
         }
         // A member in the project first. A qualifier no import names can still be a class, a
@@ -1410,11 +1414,19 @@ impl App {
         {
             found = self.external_definitions(kind, &word, &chain, dotted, &pattern, &imports);
         }
-        self.show_definitions(kind, &word, &here, found);
+        self.show_definitions(kind, &word, &here, found, broke.as_deref());
     }
 
-    /// Jumps to the one candidate, or opens the picker over several, and says how they were found.
-    fn show_definitions(&mut self, kind: Kind, word: &str, here: &Path, mut found: Vec<Candidate>) {
+    /// Jumps to the one candidate, or opens the picker over several, and says how they were found
+    /// and at which name of the chain in front of the word the typed lookup `broke`, if it did.
+    fn show_definitions(
+        &mut self,
+        kind: Kind,
+        word: &str,
+        here: &Path,
+        mut found: Vec<Candidate>,
+        broke: Option<&str>,
+    ) {
         // Standing on one of the definitions is not a reason to go nowhere.
         if found.len() > 1 {
             found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
@@ -1422,13 +1434,13 @@ impl App {
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
         match found.as_slice() {
-            [] => self.message = resolution(word, None, &found),
+            [] => self.message = resolution(word, None, &found, broke),
             [one] => {
                 let path = self.root.join(&one.hit.path);
                 let target = self
                     .text_of(&one.hit.path)
                     .and_then(|text| search::qualified(kind, &text, one.hit.line, word));
-                let status = resolution(word, target.as_deref(), &found);
+                let status = resolution(word, target.as_deref(), &found, broke);
                 self.jump_to(&path, one.hit.line);
                 // A refused jump (edits that cannot be saved) leaves its own reason, not a
                 // resolution nobody followed.
@@ -1437,7 +1449,7 @@ impl App {
                 }
             }
             _ => {
-                let status = resolution(word, None, &found);
+                let status = resolution(word, None, &found, broke);
                 let items = self.definition_items(kind, word, found);
                 self.show_picker(PickerKind::Definitions, items);
                 if let Some(p) = &mut self.picker {
@@ -1560,43 +1572,61 @@ impl App {
         )
     }
 
-    /// The declarations of `word` in the type of the receiver `chain`, `x` or `x.f`, when every
-    /// link is proven: every declaration of `x` in scope reads the same type (through one call's
-    /// return type at most), `f` is declared in that type or one it extends, and each type is
-    /// declared once where the file that names it can see it ([`App::declaration`]). The member
-    /// is looked for in the type, then in the types it extends or embeds. Empty when a link is
-    /// missing, which leaves the word to the search by name.
+    /// The declarations of `word` in the type of the receiver `chain`, `x.f.g…`, when every link is
+    /// proven: every declaration of `x` in scope reads the same type (through one call's return
+    /// type at most), each field is declared in the type before it or one that type extends or
+    /// embeds, and each type is declared once where the file that names it can see it
+    /// ([`App::declaration`]). The member is looked for in the last type, then in the types it
+    /// extends or embeds. `Err` names the first name that is not proven; an empty list is a type
+    /// without the member. Both leave the word to the search by name.
     fn typed_definitions(
         &self,
         kind: Kind,
         here: &Path,
         word: &str,
         chain: &[String],
-    ) -> Vec<Candidate> {
+    ) -> Result<Vec<Candidate>, String> {
         let text = self.buf.lines.join("\n");
-        let receiver = self
+        let (mut ty, call) = self
             .value_type(kind, here, &text, self.line + 1, &chain[0], 1)
-            .and_then(|found| match chain.get(1) {
-                None => Some(found),
-                Some(field) => self
-                    .hierarchy(kind, &found.0, 0, &mut |t| self.field_type(kind, t, field))
-                    .flatten(),
-            });
-        let Some((ty, call)) = receiver else {
-            return Vec::new();
-        };
+            .ok_or_else(|| chain[0].clone())?;
+        // What the status line lists: `repo: UserRepository`, or `self.uow: UnitOfWork` for the
+        // receiver and its field, then `users: UserRepository` for each field after them.
+        let mut links = vec![call.unwrap_or_else(|| format!("{}: {}", chain[0], ty.name))];
+        for (i, field) in chain.iter().enumerate().skip(1) {
+            // ponytail: six names in front of the word; a longer chain breaks at the seventh.
+            if i == 6 {
+                return Err(field.clone());
+            }
+            let (next, call) = self
+                .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
+                .flatten()
+                .ok_or_else(|| field.clone())?;
+            let name = match i {
+                1 => format!("{}.{field}", chain[0]),
+                _ => field.clone(),
+            };
+            let link = call.unwrap_or_else(|| format!("{name}: {}", next.name));
+            if i == 1 {
+                links[0] = link;
+            } else {
+                links.push(link);
+            }
+            ty = next;
+        }
         let hits = self
             .hierarchy(kind, &ty, 0, &mut |t| {
                 Some(self.members_of(kind, t, word)).filter(|hits| !hits.is_empty())
             })
             .unwrap_or_default();
-        let label = call.unwrap_or_else(|| format!("{}: {}", chain.join("."), ty.name));
-        hits.into_iter()
+        let label = links.join(" \u{2192} ");
+        Ok(hits
+            .into_iter()
             .map(|hit| Candidate {
                 hit,
                 reason: Reason::Receiver(label.clone()),
             })
-            .collect()
+            .collect())
     }
 
     /// The type of `name` on 1-based `line` of `text`, the text of `file`: the one type all its
@@ -2621,18 +2651,28 @@ fn bound(imports: &[(String, Vec<String>)], name: &str) -> Option<Vec<String>> {
 /// What the status line says after `d` on `word`: `word → Target.word (reason)` for a jump,
 /// `word: reason` when the target is not declared inside anything, `word: reason, N
 /// declarations` over a picker. A jump by name says it had one match, so a guess that happened to
-/// be unique never reads as a resolution.
-fn resolution(word: &str, target: Option<&str>, found: &[Candidate]) -> String {
+/// be unique never reads as a resolution. A chain in front of the word that `broke` says at which
+/// name: `(by name, 1 match, chain broke at users)`, `by name, 2 declarations (chain broke at
+/// users)`.
+fn resolution(
+    word: &str,
+    target: Option<&str>,
+    found: &[Candidate],
+    broke: Option<&str>,
+) -> String {
+    let note = broke.map_or(String::new(), |at| format!(" (chain broke at {at})"));
     let Some(first) = found.first() else {
-        return format!("no definition for {word}");
+        return format!("no definition for {word}{note}");
     };
     let reason = &first.reason;
     if let [_] = found {
-        let why = if reason.proven() {
-            reason.to_string()
-        } else {
-            format!("{reason}, 1 match")
-        };
+        let mut why = reason.to_string();
+        if !reason.proven() {
+            why.push_str(", 1 match");
+        }
+        if let Some(at) = broke {
+            why.push_str(&format!(", chain broke at {at}"));
+        }
         return match target {
             Some(target) => format!("{word} \u{2192} {target} ({why})"),
             None => format!("{word}: {why}"),
@@ -2644,10 +2684,10 @@ fn resolution(word: &str, target: Option<&str>, found: &[Candidate]) -> String {
         n => n.to_string(),
     };
     if found.iter().all(|c| c.reason == *reason) {
-        format!("{word}: {reason}, {n} declarations")
+        format!("{word}: {reason}, {n} declarations{note}")
     } else {
         // Each row says its own reason.
-        format!("{word}: {n} declarations")
+        format!("{word}: {n} declarations{note}")
     }
 }
 
@@ -3551,18 +3591,7 @@ mod tests {
         let two = |status: &str, first: (&str, &str), second: (&str, &str)| {
             picker(status, &[first, second])
         };
-        let cases: [(&str, &str, &str, Shown); 9] = [
-            // A chain longer than a receiver and its field: one declaration, and a jump that says
-            // how it was found.
-            (
-                "python",
-                "service.py",
-                "app.services.users.remove",
-                jump(
-                    "remove \u{2192} UserService.remove (by name, 1 match)",
-                    "service.py:10",
-                ),
-            ),
+        let cases: [(&str, &str, &str, Shown); 6] = [
             // A parameter with no annotation.
             (
                 "python",
@@ -3584,15 +3613,6 @@ mod tests {
                     ("AuditLog.delete_user", "repos.py:13"),
                 ),
             ),
-            (
-                "typescript",
-                "service.ts",
-                "app.services.users.remove",
-                jump(
-                    "remove \u{2192} UserService.remove (by name, 1 match)",
-                    "service.ts:11",
-                ),
-            ),
             // `any` is no type of the project.
             (
                 "typescript",
@@ -3611,15 +3631,6 @@ mod tests {
                     "deleteUser: by name, 2 declarations",
                     ("UserRepository.deleteUser", "repos.ts:10"),
                     ("AuditLog.deleteUser", "repos.ts:16"),
-                ),
-            ),
-            (
-                "go",
-                "service.go",
-                "app.Services.Users.Remove",
-                jump(
-                    "Remove \u{2192} UserService.Remove (by name, 1 match)",
-                    "service.go:11",
                 ),
             ),
             // A `range` variable.
@@ -3885,6 +3896,217 @@ mod tests {
                 jump(
                     "Close \u{2192} Session.Close (via store.Open() *Session)",
                     "store/store.go:15",
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// Step 4 of #68 over the same project in three languages. A chain is followed one field at a
+    /// time, each through the type before it (a Go field may be promoted from an embedded struct),
+    /// and a jump lists the links. A link that cannot be proven, or a seventh name, falls back to
+    /// the search by name and says where the chain broke. A chain that hangs off a call has no
+    /// names to follow.
+    #[test]
+    fn a_chain_is_followed_link_by_link() {
+        let by_name = |status: &str, rows: &[(&str, &str)]| picker(status, rows);
+        let folders = |root: &str, field: &str, ty: &str| {
+            let tail = format!(" \u{2192} {field}: {ty}").repeat(4);
+            format!("{root} \u{2192} {ty}.{root} (via folder.{field}: {ty}{tail})")
+        };
+        let py_both = [
+            ("UserRepository.delete_user", "repos.py:8"),
+            ("AuditLog.delete_user", "repos.py:13"),
+        ];
+        let ts_both = [
+            ("UserRepository.deleteUser", "repos.ts:10"),
+            ("AuditLog.deleteUser", "repos.ts:16"),
+        ];
+        let go_both = [
+            ("UserRepository.DeleteUser", "repos.go:15"),
+            ("AuditLog.DeleteUser", "repos.go:21"),
+        ];
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // A parameter, then a field handed on from a constructor parameter, twice.
+            (
+                "python",
+                "service.py",
+                "app.services.users.remove",
+                jump(
+                    "remove \u{2192} UserService.remove (via app.services: Services \u{2192} users: UserService)",
+                    "service.py:10",
+                ),
+            ),
+            // Two same-named methods: each field of the unit of work lands on its own.
+            (
+                "python",
+                "chains.py",
+                "self.uow.users.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via self.uow: UnitOfWork \u{2192} users: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "chains.py",
+                "self.uow.audit.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via self.uow: UnitOfWork \u{2192} audit: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            // A type parameter is not the type argument.
+            (
+                "python",
+                "chains.py",
+                "self.box.item.delete_user",
+                by_name(
+                    "delete_user: by name, 2 declarations (chain broke at item)",
+                    &py_both,
+                ),
+            ),
+            // Not the local `users`: the chain hangs off a call.
+            (
+                "python",
+                "chains.py",
+                "make_uow().users.delete_user",
+                by_name("delete_user: by name, 2 declarations", &py_both),
+            ),
+            (
+                "python",
+                "chains.py",
+                "folder.parent.parent.parent.parent.parent.root",
+                jump(&folders("root", "parent", "Folder"), "chains.py:23"),
+            ),
+            (
+                "python",
+                "chains.py",
+                "folder.parent.parent.parent.parent.parent.parent.root",
+                jump(
+                    "root \u{2192} Folder.root (by name, 1 match, chain broke at parent)",
+                    "chains.py:23",
+                ),
+            ),
+            (
+                "typescript",
+                "service.ts",
+                "app.services.users.remove",
+                jump(
+                    "remove \u{2192} UserService.remove (via app.services: Services \u{2192} users: UserService)",
+                    "service.ts:11",
+                ),
+            ),
+            (
+                "typescript",
+                "chains.ts",
+                "this.uow.users.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via this.uow: UnitOfWork \u{2192} users: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "chains.ts",
+                "this.uow.audit.deleteUser",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via this.uow: UnitOfWork \u{2192} audit: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "chains.ts",
+                "this.box.item.deleteUser",
+                by_name(
+                    "deleteUser: by name, 2 declarations (chain broke at item)",
+                    &ts_both,
+                ),
+            ),
+            (
+                "typescript",
+                "chains.ts",
+                "makeUow().users.deleteUser",
+                by_name("deleteUser: by name, 2 declarations", &ts_both),
+            ),
+            (
+                "typescript",
+                "chains.ts",
+                "folder.parent.parent.parent.parent.parent.root",
+                jump(&folders("root", "parent", "Folder"), "chains.ts:15"),
+            ),
+            (
+                "typescript",
+                "chains.ts",
+                "folder.parent.parent.parent.parent.parent.parent.root",
+                jump(
+                    "root \u{2192} Folder.root (by name, 1 match, chain broke at parent)",
+                    "chains.ts:15",
+                ),
+            ),
+            // Pointer fields.
+            (
+                "go",
+                "service.go",
+                "app.Services.Users.Remove",
+                jump(
+                    "Remove \u{2192} UserService.Remove (via app.Services: Services \u{2192} Users: UserService)",
+                    "service.go:11",
+                ),
+            ),
+            // A field promoted from the embedded `*Deps`.
+            (
+                "go",
+                "chains.go",
+                "h.uow.Users.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via h.uow: UnitOfWork \u{2192} Users: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            // The embedded struct named as a link.
+            (
+                "go",
+                "chains.go",
+                "h.Deps.uow.Audit.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via h.Deps: Deps \u{2192} uow: UnitOfWork \u{2192} Audit: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "chains.go",
+                "h.box.Item.DeleteUser",
+                by_name(
+                    "DeleteUser: by name, 2 declarations (chain broke at Item)",
+                    &go_both,
+                ),
+            ),
+            (
+                "go",
+                "chains.go",
+                "NewUnitOfWork().Users.DeleteUser",
+                by_name("DeleteUser: by name, 2 declarations", &go_both),
+            ),
+            (
+                "go",
+                "chains.go",
+                "folder.Parent.Parent.Parent.Parent.Parent.Root",
+                jump(&folders("Root", "Parent", "Folder"), "chains.go:16"),
+            ),
+            (
+                "go",
+                "chains.go",
+                "folder.Parent.Parent.Parent.Parent.Parent.Parent.Root",
+                jump(
+                    "Root \u{2192} Folder.Root (by name, 1 match, chain broke at Parent)",
+                    "chains.go:16",
                 ),
             ),
         ];
@@ -4529,22 +4751,40 @@ mod tests {
             resolution(
                 "load",
                 Some("json.load"),
-                &one(Reason::Import("json".into()))
+                &one(Reason::Import("json".into())),
+                None
             ),
             "load \u{2192} json.load (via import json)"
         );
         let mut two = one(Reason::ByName);
         two.extend(one(Reason::Path("std::fs".into())));
-        assert_eq!(resolution("read", None, &two), "read: 2 declarations");
+        assert_eq!(resolution("read", None, &two, None), "read: 2 declarations");
         // The candidates stop at MAX_HITS: the count is a lower bound.
         let many: Vec<Candidate> = (0..search::MAX_HITS)
             .flat_map(|_| one(Reason::ByName))
             .collect();
         assert_eq!(
-            resolution("save", None, &many),
+            resolution("save", None, &many, None),
             format!("save: by name, {}+ declarations", search::MAX_HITS)
         );
-        assert_eq!(resolution("read", None, &[]), "no definition for read");
+        assert_eq!(
+            resolution("read", None, &[], None),
+            "no definition for read"
+        );
+        // A chain in front of the word that could not be followed says where it broke.
+        assert_eq!(
+            resolution(
+                "remove",
+                Some("UserService.remove"),
+                &one(Reason::ByName),
+                Some("users")
+            ),
+            "remove \u{2192} UserService.remove (by name, 1 match, chain broke at users)"
+        );
+        assert_eq!(
+            resolution("read", None, &[], Some("repo")),
+            "no definition for read (chain broke at repo)"
+        );
     }
 
     #[test]
