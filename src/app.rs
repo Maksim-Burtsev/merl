@@ -5623,38 +5623,6 @@ mod tests {
     }
 
     #[test]
-    fn overlays_opened_while_editing_go_back_to_editing() {
-        let mut a = app("one\ntwo\nthree two\n");
-        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-        // Find, Enter: editing goes on at the match.
-        press(&mut a, KeyCode::Char('f'), KeyModifiers::CONTROL);
-        typed(&mut a, "two");
-        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-        assert_eq!((a.mode, a.line), (Mode::Edit, 1));
-        typed(&mut a, "d");
-        assert_eq!(a.buf.lines[1], "dtwo");
-        // Find, Esc: the cursor goes back, and so does the mode.
-        press(&mut a, KeyCode::Char('f'), KeyModifiers::CONTROL);
-        typed(&mut a, "three");
-        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-        assert_eq!((a.mode, a.line, a.col), (Mode::Edit, 1, 1));
-        // Goto and a cancelled prompt.
-        press(&mut a, KeyCode::Char('g'), KeyModifiers::CONTROL);
-        typed(&mut a, "3");
-        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-        assert_eq!((a.mode, a.line), (Mode::Edit, 2));
-        press(&mut a, KeyCode::Char('g'), KeyModifiers::CONTROL);
-        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-        assert_eq!(a.mode, Mode::Edit);
-        // Opened from navigation, find still ends in navigation.
-        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
-        typed(&mut a, "one");
-        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-        assert_eq!((a.mode, a.line), (Mode::Normal, 0));
-    }
-
-    #[test]
     fn undo_groups_typing_and_redo_replays_it() {
         let mut a = app("ab\ncd\n");
         press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
@@ -5781,6 +5749,38 @@ mod tests {
             Mode::Normal,
             "nothing to edit on the welcome screen"
         );
+    }
+
+    #[test]
+    fn overlays_opened_while_editing_go_back_to_editing() {
+        let mut a = app("one\ntwo\nthree two\n");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        // Find, Enter: editing goes on at the match.
+        press(&mut a, KeyCode::Char('f'), KeyModifiers::CONTROL);
+        typed(&mut a, "two");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.mode, a.line), (Mode::Edit, 1));
+        typed(&mut a, "d");
+        assert_eq!(a.buf.lines[1], "dtwo");
+        // Find, Esc: the cursor goes back, and so does the mode.
+        press(&mut a, KeyCode::Char('f'), KeyModifiers::CONTROL);
+        typed(&mut a, "three");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!((a.mode, a.line, a.col), (Mode::Edit, 1, 1));
+        // Goto and a cancelled prompt.
+        press(&mut a, KeyCode::Char('g'), KeyModifiers::CONTROL);
+        typed(&mut a, "3");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.mode, a.line), (Mode::Edit, 2));
+        press(&mut a, KeyCode::Char('g'), KeyModifiers::CONTROL);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!(a.mode, Mode::Edit);
+        // Opened from navigation, find still ends in navigation.
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        typed(&mut a, "one");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.mode, a.line), (Mode::Normal, 0));
     }
 
     #[test]
