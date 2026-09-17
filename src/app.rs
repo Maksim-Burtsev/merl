@@ -1462,12 +1462,28 @@ impl App {
             .flatten();
         let mut outside = false;
         let mut found = match import {
-            Some(path) => self
-                .imported_definitions(kind, &here, &word, &chain, &path)
-                .unwrap_or_else(|| {
-                    outside = true;
-                    self.external_definitions(kind, &word, &chain, dotted, &pattern, &imports)
-                }),
+            Some(path) => {
+                let mut found = self
+                    .imported_definitions(kind, &here, &word, &chain, &path)
+                    .unwrap_or_else(|| {
+                        outside = true;
+                        self.external_definitions(kind, &word, &chain, dotted, &pattern, &imports)
+                    });
+                // `try: from a import pick` / `except ImportError: from b import pick` names
+                // two sources: both are offered, and which one ran is not for `d` to guess.
+                let others: Vec<Vec<String>> = imports
+                    .iter()
+                    .filter(|(name, other)| name == first && *other != path)
+                    .map(|(_, other)| other.clone())
+                    .collect();
+                for other in others {
+                    let more = self
+                        .imported_definitions(kind, &here, &word, &chain, &other)
+                        .unwrap_or_default();
+                    found.extend(more);
+                }
+                found
+            }
             None => Vec::new(),
         };
         if !found.is_empty() {
@@ -5433,6 +5449,34 @@ mod tests {
         );
         let places: Vec<&str> = rows.iter().map(|r| r.2.as_str()).collect();
         assert_eq!(places, ["impl.ts:6", "impl.ts:10"]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Found by the acceptance pass of #68: a name imported from two modules, one per branch of
+    /// a `try`, jumped to the first as if there were no second.
+    #[test]
+    fn a_name_imported_from_two_modules_offers_both() {
+        let (dir, mut a) = project_app(
+            "twice",
+            &[
+                ("pkg/__init__.py", ""),
+                ("pkg/a.py", "def pick(x):\n    return x\n"),
+                ("pkg/b.py", "def pick(x):\n    return x\n"),
+                (
+                    "use.py",
+                    "try:\n    from pkg.a import pick\nexcept ImportError:\n    from pkg.b import pick\n\n\ndef run():\n    return pick(1)\n",
+                ),
+            ],
+        );
+        a.external
+            .insert(Kind::Python, (Vec::new(), Arc::new(Vec::new())));
+        d_on(&mut a, "use.py", "return pick");
+        let Shown::Picker(status, rows) = shown(&mut a) else {
+            panic!("{}", a.message);
+        };
+        assert_eq!(status, "pick: 2 declarations");
+        let places: Vec<&str> = rows.iter().map(|r| r.2.as_str()).collect();
+        assert_eq!(places, ["pkg/a.py:1", "pkg/b.py:1"]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
