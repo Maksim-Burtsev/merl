@@ -2129,6 +2129,7 @@ impl App {
         owner_line: usize,
     ) -> Vec<Hit> {
         let want = search::params(kind, text, line);
+        let signature = search::go_signature(text, line);
         // A Go interface's own method lines carry no receiver: only the methods answer.
         let patterns = match kind {
             Kind::Go => search::member_patterns(kind, word),
@@ -2145,6 +2146,14 @@ impl App {
                     return false;
                 };
                 if search::params(kind, &text, h.line) != Some(want) {
+                    return false;
+                }
+                // Go writes its types: the same number of parameters of other types, or another
+                // result, implements nothing. Where either cannot be read, the count stands.
+                if kind == Kind::Go
+                    && let (Some(a), Some(b)) = (&signature, search::go_signature(&text, h.line))
+                    && *a != b
+                {
                     return false;
                 }
                 kind != Kind::Python
@@ -5285,6 +5294,33 @@ mod tests {
         assert_eq!(
             shown(&mut a),
             jump("find \u{2192} Outer.find (via Outer)", "ns.ts:2")
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Found by the acceptance pass of #68: a Go method of the same name and as many parameters,
+    /// of other types, was the one implementation `d` jumped to.
+    #[test]
+    fn a_go_method_of_other_types_implements_nothing() {
+        let (dir, mut a) = project_app(
+            "arity",
+            &[
+                ("go.mod", "module arity\n"),
+                (
+                    "iface.go",
+                    "package arity\n\ntype Solo interface {\n\tFerry(a string) error\n}\n\ntype NotSolo struct{}\n\nfunc (n NotSolo) Ferry(a int) string { return \"\" }\n\ntype Real struct{}\n\nfunc (r *Real) Ferry(name string) error { return nil }\n",
+                ),
+            ],
+        );
+        a.external
+            .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+        d_on(&mut a, "iface.go", "\tFerry");
+        assert_eq!(
+            shown(&mut a),
+            jump(
+                "Ferry \u{2192} Real.Ferry (implementations of Solo.Ferry)",
+                "iface.go:13"
+            )
         );
         std::fs::remove_dir_all(&dir).unwrap();
     }

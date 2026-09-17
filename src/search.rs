@@ -2360,6 +2360,56 @@ pub fn params(kind: Kind, text: &str, line: usize) -> Option<usize> {
     )
 }
 
+/// The types a Go declaration on 1-based `line` takes and what it returns, as written but for
+/// the package in front of a name and the spaces: `a, b string` is two `string`s, `ctx
+/// context.Context` is `Context`. An implementation of an interface method writes the same ones,
+/// whatever it calls its parameters. `None` when the result names its values or cannot be read.
+pub fn go_signature(text: &str, line: usize) -> Option<(Vec<String>, String)> {
+    static PKG: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\b\w+\.").unwrap());
+    let kind = Kind::Go;
+    let lines: Vec<&str> = text.lines().collect();
+    let k = line.checked_sub(1).filter(|&k| k < lines.len())?;
+    let mut opens = code(kind, lines[k])
+        .filter(|&(_, c)| c == b'(')
+        .map(|(i, _)| i);
+    let receiver = lines[k].trim_start().starts_with("func (");
+    let open = if receiver { opens.nth(1) } else { opens.next() }?;
+    let (inner, _, rest) = group(kind, &lines, k, open)?;
+    let plain = |t: &str| {
+        PKG.replace_all(t, "")
+            .split_whitespace()
+            .collect::<String>()
+    };
+    let parts: Vec<&str> = split_top(kind, &inner, b',')
+        .into_iter()
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect();
+    fn typed(p: &str) -> Option<&str> {
+        p.split_once(char::is_whitespace).map(|(_, t)| t.trim())
+    }
+    let named = parts.iter().any(|p| typed(p).is_some());
+    let mut types: Vec<String> = Vec::new();
+    // Backwards: a name with no type of its own takes the one that follows it.
+    for p in parts.iter().rev() {
+        let t = match (named, typed(p)) {
+            (true, Some(t)) => plain(t),
+            (true, None) => types.last()?.clone(),
+            (false, _) => plain(p),
+        };
+        types.push(t);
+    }
+    types.reverse();
+    let result = rest.split('{').next().unwrap_or_default().trim();
+    // `(n int, err error)` names its values, and an implementation may not.
+    let names_values = result.starts_with('(')
+        && split_top(kind, result.trim_matches(['(', ')']), b',')
+            .iter()
+            .any(|p| p.trim().contains(char::is_whitespace));
+    (!names_values).then(|| (types, plain(result)))
+}
+
 /// Whether `line` declares a type: a Python class, a TypeScript class, interface, type alias or
 /// enum, a Go `type`.
 pub fn declares_type(kind: Kind, line: &str) -> bool {
@@ -2636,6 +2686,16 @@ mod tests {
         assert_eq!(inside(Kind::Go, go), [2, 3, 6, 7]);
         let ts = "const q = `\n  find(id: string): User;\n  ${x}`;\nclass A {\n  find(id: string): User {}\n}\n";
         assert_eq!(inside(Kind::TsJs, ts), [2, 3]);
+    }
+
+    #[test]
+    fn a_go_signature_is_its_types_whatever_the_names() {
+        let go = "type I interface {\n\tFerry(a, b string, ctx context.Context) (*Row, error)\n\tSolo(a string) error\n\tBare(string, int)\n}\nfunc (r *R) Ferry(x string, y string, c context.Context) (*db.Row, error) {\nfunc (n N) Solo(a int) string { return \"\" }\nfunc (n N) Bare(s string, i int) {}\nfunc (n N) Named(a int) (n int, err error) {\n";
+        assert_eq!(go_signature(go, 2), go_signature(go, 6));
+        assert!(go_signature(go, 2).is_some());
+        assert_ne!(go_signature(go, 3), go_signature(go, 7));
+        assert_eq!(go_signature(go, 4), go_signature(go, 8));
+        assert_eq!(go_signature(go, 9), None);
     }
 
     #[test]
