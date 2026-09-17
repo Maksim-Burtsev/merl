@@ -149,6 +149,9 @@ pub struct App {
     /// Per kind, the standard library and dependency roots outside the project and the files of
     /// that kind under them; filled the first time `d` leaves the project.
     external: HashMap<Kind, (Vec<PathBuf>, Arc<Vec<PathBuf>>)>,
+    /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
+    /// keyword argument, which names a parameter no rule reads.
+    offer_only: bool,
     pub focus: Focus,
     pub show_tree: bool,
     /// First visible row of the tree pane, clamped by `ui`.
@@ -250,6 +253,7 @@ impl App {
             tree,
             files,
             external: HashMap::new(),
+            offer_only: false,
             focus,
             show_tree: true,
             tree_top: 0,
@@ -1359,6 +1363,8 @@ impl App {
             return;
         };
         let text = self.buf.lines.join("\n");
+        self.offer_only =
+            kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
         let mut imports = search::imports(kind, &text);
         // A parameter or a local of the same name hides the import where the cursor is: `json`
         // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
@@ -1594,6 +1600,7 @@ impl App {
         }
         // The line of an interface method is a declaration no pattern of `d` lists, so nothing
         // was dropped above, and what is found is its namesakes all the same.
+        let offer_only = std::mem::take(&mut self.offer_only);
         let on_member = || {
             let at = search::word_at(
                 self.line_str(),
@@ -1614,7 +1621,7 @@ impl App {
         found.truncate(search::MAX_HITS);
         match found.as_slice() {
             [] => self.message = resolution(word, None, &found, broke),
-            [one] if !namesakes => {
+            [one] if !namesakes && !offer_only => {
                 let path = self.root.join(&one.hit.path);
                 let target = self
                     .text_of(&one.hit.path)
@@ -2330,7 +2337,8 @@ impl App {
         };
         // `from lib import pick` names something at the top of a module: a method called `pick`
         // is not it, however alone it stands (the real one may be native code).
-        let top_level = imported && !dotted && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go);
+        let top_level =
+            imported && chain.len() <= 1 && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go);
         let at_top = |this: &Self, mut hits: Vec<Hit>| {
             if top_level {
                 hits.retain(|h| {
@@ -5263,7 +5271,7 @@ mod tests {
                 // The package's own `pick` is native; a method of that name is not it.
                 (
                     "outside.py",
-                    "from fakelib import pick\nfrom fakelib.core import make\n\n\ndef run():\n    make()\n    return pick(1)\n",
+                    "import fakelib\nfrom fakelib import pick\nfrom fakelib.core import make\n\nlimit = 3\n\n\ndef run():\n    make()\n    fakelib.pick(1)\n    make(\n        limit=1,\n    )\n    return pick(1)\n",
                 ),
             ],
         );
@@ -5295,6 +5303,13 @@ mod tests {
         d_on(&mut a, "outside.py", "return pick");
         assert_eq!(a.message, "no definition for pick");
         assert_eq!(a.rel_path(), "outside.py");
+        // Behind the module's name as well: `fakelib.pick` is no method of a class in it.
+        d_on(&mut a, "outside.py", "fakelib.pick");
+        assert_eq!(a.message, "no definition for pick");
+        // A keyword argument names a parameter: the one variable spelled so is offered.
+        d_on(&mut a, "outside.py", "    limit");
+        assert!(a.picker.is_some(), "{}", a.message);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         // What the module does declare at its top is still found through the import.
         d_on(&mut a, "outside.py", "    make");
         assert_eq!(a.message, "make: via import fakelib.core");
