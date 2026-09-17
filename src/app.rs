@@ -1592,7 +1592,24 @@ impl App {
         if all > 1 {
             found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
         }
-        let namesakes = found.len() < all && found.iter().all(|c| !c.reason.proven());
+        // The line of an interface method is a declaration no pattern of `d` lists, so nothing
+        // was dropped above, and what is found is its namesakes all the same.
+        let on_member = || {
+            let at = search::word_at(
+                self.line_str(),
+                self.col,
+                search::word_chars(Some(kind), true),
+            );
+            let bare =
+                at.is_some_and(|(r, w)| w == word && !self.line_str()[..r.start].ends_with('.'));
+            bare && search::member_or_signature(kind, word)
+                .and_then(|p| Regex::new(&p.join("|")).ok())
+                .is_some_and(|re| re.is_match(self.line_str()))
+                && search::owner_decl(kind, &self.buf.lines.join("\n"), self.line + 1).is_some()
+        };
+        let namesakes = found.iter().all(|c| !c.reason.proven())
+            && !found.is_empty()
+            && (found.len() < all || on_member());
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
         match found.as_slice() {
@@ -5361,6 +5378,10 @@ mod tests {
                     "iface.go",
                     "package arity\n\ntype Solo interface {\n\tFerry(a string) error\n}\n\ntype NotSolo struct{}\n\nfunc (n NotSolo) Ferry(a int) string { return \"\" }\n\ntype Real struct{}\n\nfunc (r *Real) Ferry(name string) error { return nil }\n",
                 ),
+                (
+                    "duo.go",
+                    "package arity\n\ntype Duo interface {\n\tCarry(a string) error\n}\n\nfunc (n NotSolo) Carry(a int) string { return \"\" }\n\nfunc (r *Real) Carry(a []byte) error { return nil }\n",
+                ),
             ],
         );
         a.external
@@ -5373,6 +5394,13 @@ mod tests {
                 "iface.go:13"
             )
         );
+        // With no implementation at all, the methods of other types are namesakes to offer.
+        d_on(&mut a, "duo.go", "\tCarry");
+        let Shown::Picker(status, rows) = shown(&mut a) else {
+            panic!("a jump: {}", a.message);
+        };
+        assert_eq!(status, "Carry: at a declaration, 2 others by name");
+        assert_eq!(rows.len(), 2);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
