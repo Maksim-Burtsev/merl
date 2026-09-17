@@ -31,13 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The word jump and the word selection stop at words in any script: in a Russian comment
+  Alt+Left / Right skipped the whole line, since only ASCII letters counted as a word.
 - Review: `c` / `C` stop only where there is a hunk. Binary files, mode changes and pure renames
   are walked past, with `skipped 94 files without hunks` in the status bar, and the review opens
   on the first file that has a hunk; the panel still opens them with Enter. In the panel a binary
   file says `bin` instead of `+0 −0`, and a long name is cut with `…` instead of losing its
   counts. (#77)
-- The word jump and the word selection stop at words in any script: in a Russian comment
-  Alt+Left / Right skipped the whole line, since only ASCII letters counted as a word.
 - `d` finds a Python `async def` and a TypeScript method signature with no body
   (`find(id: string): User;` in an interface, an abstract class, an overload or a `.d.ts`). (#69)
 - Go lookups outside the project skip `_test.go` files, `testdata` and nested modules such as
