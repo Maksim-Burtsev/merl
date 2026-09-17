@@ -58,6 +58,10 @@ impl LineEdit {
                 let range = self.selection().unwrap_or(self.word_left()..self.cur);
                 return self.cut(range);
             }
+            KeyCode::Backspace if alt => {
+                let range = self.selection().unwrap_or(self.word_left()..self.cur);
+                return self.cut(range);
+            }
             KeyCode::Char(c) if !ctrl => {
                 if let Some(range) = self.selection() {
                     self.cut(range);
@@ -68,6 +72,10 @@ impl LineEdit {
             }
             KeyCode::Backspace => {
                 let range = self.selection().unwrap_or(self.left()..self.cur);
+                return self.cut(range);
+            }
+            KeyCode::Delete if alt => {
+                let range = self.selection().unwrap_or(self.cur..self.word_right());
                 return self.cut(range);
             }
             KeyCode::Delete => {
@@ -181,6 +189,13 @@ mod tests {
         press(&mut e, KeyCode::End, KeyModifiers::NONE);
         assert!(press(&mut e, KeyCode::Char('w'), KeyModifiers::CONTROL));
         assert_eq!(&*e, "найти ");
+        // Option+Backspace is the same cut; Option+Delete is its pair forward.
+        assert!(press(&mut e, KeyCode::Backspace, KeyModifiers::ALT));
+        assert_eq!(&*e, "");
+        let mut e = typed("a bc");
+        press(&mut e, KeyCode::Home, KeyModifiers::NONE);
+        assert!(press(&mut e, KeyCode::Delete, KeyModifiers::ALT));
+        assert_eq!(&*e, " bc");
         assert!(press(&mut e, KeyCode::Char('u'), KeyModifiers::CONTROL));
         assert_eq!((&*e, e.cursor()), ("", 0));
     }

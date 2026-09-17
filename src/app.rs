@@ -53,6 +53,10 @@ pub const KEYS: &[(&str, &str)] = &[
         "Edit: Ctrl+C / Ctrl+X",
         "Copy / cut the selection, or the line, to the clipboard",
     ),
+    (
+        "Edit: Alt+Backspace / Alt+Delete",
+        "Delete the word before / after the cursor",
+    ),
     ("Arrows", "Move the cursor; Up / Down go by screen row"),
     (
         "Shift+Up / Shift+Down",
@@ -2395,7 +2399,7 @@ impl App {
 
     /// Keys that only mean something while editing. Returns `false` for every other key, which
     /// then falls through to the navigation keys: arrows, Home / End, the chord aliases.
-    fn edit_key(&mut self, code: KeyCode, ctrl: bool) -> bool {
+    fn edit_key(&mut self, code: KeyCode, ctrl: bool, alt: bool) -> bool {
         match code {
             KeyCode::Esc => {
                 self.mode = Mode::Normal;
@@ -2430,6 +2434,22 @@ impl App {
             }
             KeyCode::Tab => self.insert(if self.buf.tabs { "\t" } else { buffer::TAB }),
             KeyCode::Backspace | KeyCode::Delete if self.selection().is_some() => self.insert(""),
+            // Option+Backspace / Option+Delete: up to where Alt+Left / Right would land.
+            KeyCode::Backspace | KeyCode::Delete if alt => {
+                let at = (self.line, self.col);
+                if code == KeyCode::Backspace {
+                    self.word_left();
+                } else {
+                    self.word_right();
+                }
+                let to = (self.line, self.col);
+                // Undo puts the cursor back where the key was pressed, and takes the word alone:
+                // not the typing before it, not the typing after.
+                (self.line, self.col) = at;
+                self.undo_break = true;
+                self.replace(at.min(to), at.max(to), "");
+                self.undo_break = true;
+            }
             KeyCode::Backspace => {
                 let from = if self.col > 0 {
                     (self.line, prev_char(self.line_str(), self.col))
@@ -2709,7 +2729,7 @@ impl App {
         }
 
         self.message.clear();
-        if self.mode == Mode::Edit && self.edit_key(key.code, ctrl) {
+        if self.mode == Mode::Edit && self.edit_key(key.code, ctrl, alt) {
             self.hist_note(false);
             return false;
         }
@@ -5597,6 +5617,31 @@ mod tests {
         press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
         press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
         assert_eq!(a.line_str(), "\tif x:");
+    }
+
+    #[test]
+    fn alt_backspace_and_alt_delete_take_a_word_in_one_undo_step() {
+        let mut a = app("x_1 = да мир;\nnext\n");
+        press(&mut a, KeyCode::End, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "!");
+        press(&mut a, KeyCode::Backspace, KeyModifiers::ALT);
+        assert_eq!(a.buf.lines[0], "x_1 = да ");
+        // The word alone comes back, with the cursor where the key was pressed.
+        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        assert_eq!(
+            (a.buf.lines[0].as_str(), a.col),
+            ("x_1 = да мир;!", "x_1 = да мир;!".len())
+        );
+        press(&mut a, KeyCode::Home, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Delete, KeyModifiers::ALT);
+        press(&mut a, KeyCode::Delete, KeyModifiers::ALT);
+        assert_eq!(a.buf.lines[0], " мир;!");
+        // At the start of a line it joins the line above, as Alt+Left goes there.
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Home, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Backspace, KeyModifiers::ALT);
+        assert_eq!(a.buf.lines, vec![" мир;!next"]);
     }
 
     #[test]

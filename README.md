@@ -98,6 +98,7 @@ merl path/to/file.py:120
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 | Ctrl+C | Copy the selection (with none, quit) |
 | Edit: Ctrl+C / Ctrl+X | Copy / cut the selection, or the line, to the clipboard |
+| Edit: Alt+Backspace / Alt+Delete | Delete the word before / after the cursor |
 | Arrows | Move the cursor; Up / Down go by screen row |
 | Shift+Up / Shift+Down | Extend the selection by a screen row |
 | Shift+Left / Shift+Right | Extend the selection by a char |
@@ -146,7 +147,8 @@ indents the way the file already does (tabs or four spaces, shown in the status 
 Home / End move, Shift+arrows select. The letter commands are letters again once you press Esc;
 the chord aliases (Ctrl+E, Ctrl+F, Ctrl+G, F12) work while editing.
 
-Typing over a selection replaces it, Backspace and Delete remove it. Ctrl+C and Ctrl+X copy and
+Typing over a selection replaces it, Backspace and Delete remove it. Alt+Backspace and Alt+Delete
+(Option on a Mac) delete a word back and forward, here and in the prompts. Ctrl+C and Ctrl+X copy and
 cut the selection (or the whole line without one) to the system clipboard through the terminal
 (OSC 52: Ghostty, kitty, WezTerm, agterm, and iTerm2 once "Applications in terminal may access
 clipboard" is on; Terminal.app cannot). Paste is the terminal's own Cmd+V; outside edit mode it
