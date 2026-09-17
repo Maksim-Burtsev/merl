@@ -16,12 +16,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ctrl+C copies the selection in navigation too, with no trip through edit mode. Without a
   selection it still quits. Cmd+C / Cmd+X do the same from a terminal set up to pass them on
   (one Ghostty line, in the README), and Cmd+C never quits.
+- The `/`, `s` and `:` prompts and every picker query are edited in place, with the buffer's
+  keys: arrows, Alt+arrows by word, Home / End, Delete, and Shift, Alt+Shift or Ctrl+Shift with an
+  arrow, or Shift+Home / End, to select, so a typed-over or Backspaced selection replaces the
+  query. Ctrl+A, Ctrl+E, Ctrl+W and Ctrl+U work as in a shell. `/` and pickers refresh on every
+  edit, so `now` becomes `func now` without retyping it. Ctrl+letter no longer types the letter
+  into a prompt.
 
 ### Changed
 
 - The word jump moved from Shift+Left / Right to Alt+Left / Right (Option on a Mac), where every
   other editor has it. Esc b / Esc f, which Ghostty, iTerm and Terminal.app send for Option+arrow,
-  are the same jump and no longer leave edit mode.
+  are the same jump and no longer leave edit mode, a prompt or a picker.
 
 ### Fixed
 
