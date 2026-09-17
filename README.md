@@ -225,6 +225,20 @@ what the declaration sits in and why it is listed —
 name filters the rows. A jump leaves the cursor on the name it landed on, so `d` there asks the
 next question about it straight away.
 
+What `d` does not claim, in Python, TypeScript and Go:
+- On a declaration, the other declarations of the name are namesakes nothing ties to it. They
+  are offered under `delete_user: at a declaration, 1 other by name`, even when there is one, so
+  pressing `d` again after a proven jump never walks out of the type it has just proven.
+- A parameter or a local hides an import of the same name: `json` in `def handler(json)` is a
+  value, and `d` on the name itself lands on that binding, `helper → f.helper (local)`. In front of
+  a dot it keeps the search to members: a function at the top of a module is not one.
+- `Outer.find`, with `Outer` a namespace or a class, is what `Outer` declares (`via Outer`), not a
+  method `find` of some other class.
+- An imported name is looked up at the top of the module it comes from, outside the project as
+  inside it, and a name imported from two modules (`try` / `except ImportError`) offers both.
+- A line inside a triple-quoted string, a Go raw string, a template literal or a `/* */` block
+  declares nothing.
+
 On `x.word`, `x.f.word` and longer chains in Python, TypeScript and Go, `d` first looks for the
 type of the receiver. `x` is `self` or `cls` in a method, `this` in a class, a Go method's
 receiver, a parameter, a local or a module-level variable, and each name after it is a field of
