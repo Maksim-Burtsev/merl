@@ -47,6 +47,7 @@ pub const KEYS: &[(&str, &str)] = &[
     ),
     ("Ctrl+R", "Reload from disk, dropping unsaved edits"),
     ("Ctrl+Z / Ctrl+Y", "Undo / redo"),
+    ("Ctrl+C", "Copy the selection (with none, quit)"),
     (
         "Edit: Ctrl+C / Ctrl+X",
         "Copy / cut the selection, or the line, to the clipboard",
@@ -56,12 +57,14 @@ pub const KEYS: &[(&str, &str)] = &[
         "Shift+Up / Shift+Down",
         "Extend the selection by a screen row",
     ),
-    ("Shift+Left / Shift+Right", "Move one word"),
+    ("Shift+Left / Shift+Right", "Extend the selection by a char"),
+    ("Alt+Left / Alt+Right", "Move one word"),
     ("Alt+Shift+Left / Right", "Extend the selection by a word"),
     (
         "Ctrl+Shift+Left / Right",
         "Extend the selection to the start / end of the screen row, then of the line",
     ),
+    ("v", "Select the word, then the line, then the paragraph"),
     ("Ctrl+D / Ctrl+U", "Move half a screen down / up"),
     ("{ / }", "Previous / next paragraph (blank line)"),
     ("PgUp / PgDn", "Move one screen"),
@@ -483,6 +486,45 @@ impl App {
     fn extend(&mut self, mv: fn(&mut Self)) {
         self.anchor.get_or_insert((self.line, self.col));
         mv(self);
+    }
+
+    /// `v`: the selection grows to the word under the cursor (what `d` and `u` read), then the
+    /// line, then the paragraph between blank lines. No state: the next step is the first of the
+    /// three that is wider than what is selected, so a selection made by hand grows too.
+    fn grow_selection(&mut self) {
+        let blank = |l: usize| self.buf.lines[l].trim().is_empty();
+        let l = self.line;
+        let (mut top, mut bottom) = (l, l);
+        while top > 0 && !blank(top - 1) {
+            top -= 1;
+        }
+        while bottom + 1 < self.buf.lines.len() && !blank(bottom + 1) {
+            bottom += 1;
+        }
+        // The run of word chars under the cursor or, at its end, just before it.
+        let s = self.line_str();
+        let (mut from, mut to) = (self.col, self.col);
+        while from > 0 && is_word(char_at(s, prev_char(s, from))) {
+            from = prev_char(s, from);
+        }
+        while to < s.len() && is_word(char_at(s, to)) {
+            to = next_char(s, to);
+        }
+        let word = (from < to).then_some(from..to);
+        let steps = [
+            word.map(|r| ((l, r.start), (l, r.end))),
+            Some(((l, 0), (l, self.line_str().len()))),
+            Some(((top, 0), (bottom, self.buf.lines[bottom].len()))),
+        ];
+        let cur = self.selection().unwrap_or(((l, self.col), (l, self.col)));
+        let wider = |&(from, to): &((usize, usize), (usize, usize))| {
+            !blank(l) && from <= cur.0 && cur.1 <= to && (from, to) != cur
+        };
+        if let Some((from, to)) = steps.into_iter().flatten().find(wider) {
+            self.anchor = Some(from);
+            (self.line, self.col) = to;
+            self.sync_want_x();
+        }
     }
 
     /// Any move that does not extend the selection drops it, unless it ends where it started:
@@ -2595,6 +2637,17 @@ impl App {
             return false;
         }
         let mut key = key;
+        // Option+Left / Right arrive as Esc b / Esc f from Ghostty, iTerm and Terminal.app.
+        if key.modifiers == KeyModifiers::ALT
+            && self.picker.is_none()
+            && matches!(self.mode, Mode::Normal | Mode::Edit)
+        {
+            match key.code {
+                KeyCode::Char('b') => key.code = KeyCode::Left,
+                KeyCode::Char('f') => key.code = KeyCode::Right,
+                _ => {}
+            }
+        }
         // Legacy terminals report Alt+X as Esc followed by X; treat it that way. When the Esc
         // closes a picker, a prompt or the help, the letter belonged to that overlay and is
         // dropped, so Alt+q over a picker cannot quit merl. Alt+arrow is unambiguous everywhere.
@@ -2608,12 +2661,26 @@ impl App {
         if matches!(key.code, KeyCode::Char(_)) {
             key.modifiers.remove(KeyModifiers::SHIFT);
         }
+        // Cmd+C / Cmd+X reach merl only from a terminal told to pass them on (see the README);
+        // they are the Ctrl chords then, except that Cmd+C never quits.
+        let cmd =
+            key.modifiers == KeyModifiers::SUPER && matches!(key.code, KeyCode::Char('c' | 'x'));
+        if cmd {
+            key.modifiers = KeyModifiers::CONTROL;
+        }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let shift = key.modifiers.contains(KeyModifiers::SHIFT);
         let alt = key.modifiers.contains(KeyModifiers::ALT);
 
         if ctrl && key.code == KeyCode::Char('c') && self.mode != Mode::Edit {
-            return true;
+            // With a selection Ctrl+C is the copy it is everywhere else; without one it quits.
+            let text = self.selected_text();
+            if self.mode != Mode::Normal || self.picker.is_some() || text.is_none() {
+                return !cmd;
+            }
+            self.clipboard = text;
+            self.message = "copied".into();
+            return false;
         }
         if self.picker.is_some() {
             self.picker_key(key.code, ctrl);
@@ -2651,12 +2718,12 @@ impl App {
             self.hist_note(false);
             return false;
         }
-        let extending = shift
-            && match key.code {
-                KeyCode::Up | KeyCode::Down => true,
-                KeyCode::Left | KeyCode::Right => ctrl || alt,
-                _ => false,
-            };
+        let extending = key.code == KeyCode::Char('v')
+            || shift
+                && matches!(
+                    key.code,
+                    KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right
+                );
         // Ctrl+D/U and PageUp/Down are how merl scrolls, and a page is always farther than
         // `HIST_NEAR`: the current stop follows the cursor anyway, so paging through a file adds
         // no stops and drops no forward history.
@@ -2726,6 +2793,7 @@ impl App {
             KeyCode::Char(']') => self.hist_go(1),
             KeyCode::Char('c') if !ctrl => self.hunk(1),
             KeyCode::Char('C') => self.hunk(-1),
+            KeyCode::Char('v') if self.focus == Focus::Code => self.grow_selection(),
             _ if self.focus == Focus::Tree => self.tree_key(key.code),
             KeyCode::Enter => self.start_edit(),
             KeyCode::Up if shift => self.extend(|s| s.move_rows(-1)),
@@ -2737,7 +2805,7 @@ impl App {
             KeyCode::Left if shift && alt => self.extend(Self::word_left),
             KeyCode::Right if shift && alt => self.extend(Self::word_right),
             // A plain arrow on a selection collapses it to the matching end, VS Code style.
-            KeyCode::Left | KeyCode::Right if !shift && self.selection().is_some() => {
+            KeyCode::Left | KeyCode::Right if !shift && !alt && self.selection().is_some() => {
                 let (start, end) = self.selection().unwrap();
                 (self.line, self.col) = self.clamp_pos(if key.code == KeyCode::Left {
                     start
@@ -2747,8 +2815,10 @@ impl App {
                 self.sync_want_x();
                 self.anchor = None;
             }
-            KeyCode::Left if shift => self.word_left(),
-            KeyCode::Right if shift => self.word_right(),
+            KeyCode::Left if shift => self.extend(Self::left),
+            KeyCode::Right if shift => self.extend(Self::right),
+            KeyCode::Left if alt => self.word_left(),
+            KeyCode::Right if alt => self.word_right(),
             KeyCode::Left => self.left(),
             KeyCode::Right => self.right(),
             KeyCode::PageUp => self.move_rows(-(self.view_h.max(1) as isize)),
@@ -2894,8 +2964,9 @@ pub(crate) fn clip(s: &str, max: usize) -> String {
     }
 }
 
+/// A word for the cursor: letters of any script, so a comment in Russian moves by word too.
 fn is_word(c: char) -> bool {
-    c.is_ascii_alphanumeric() || c == '_'
+    c.is_alphanumeric() || c == '_'
 }
 
 fn char_at(s: &str, i: usize) -> char {
@@ -2941,16 +3012,117 @@ mod tests {
     #[test]
     fn word_jumps_by_word_runs() {
         let mut a = app("foo bar_1 baz\nnext");
-        press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Right, KeyModifiers::ALT);
         assert_eq!(a.col, 3);
-        press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Right, KeyModifiers::ALT);
         assert_eq!(a.col, 9);
-        press(&mut a, KeyCode::Left, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Left, KeyModifiers::ALT);
         assert_eq!(a.col, 4);
         // Past the end of the line, jump to the start of the next one.
         a.col = 13;
+        press(&mut a, KeyCode::Right, KeyModifiers::ALT);
+        assert_eq!(((a.line, a.col), a.selection()), ((1, 0), None));
+    }
+
+    #[test]
+    fn a_word_is_letters_of_any_script() {
+        let mut a = app("// привет, мир foo");
+        a.col = 3;
+        press(
+            &mut a,
+            KeyCode::Right,
+            KeyModifiers::ALT | KeyModifiers::SHIFT,
+        );
+        assert_eq!(a.selected_text().as_deref(), Some("привет"));
+        press(&mut a, KeyCode::Right, KeyModifiers::ALT);
+        press(&mut a, KeyCode::Left, KeyModifiers::ALT);
+        assert_eq!(a.col, "// привет, ".len());
+        press(&mut a, KeyCode::Char('v'), KeyModifiers::NONE);
+        assert_eq!(a.selected_text().as_deref(), Some("мир"));
+    }
+
+    /// Ghostty, iTerm and Terminal.app send Option+Left / Right as Esc b / Esc f.
+    #[test]
+    fn alt_b_and_alt_f_are_the_word_jump_and_do_not_leave_edit_mode() {
+        let mut a = app("foo bar baz");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('f'), KeyModifiers::ALT);
+        press(&mut a, KeyCode::Char('f'), KeyModifiers::ALT);
+        assert_eq!((a.col, a.mode), (7, Mode::Edit));
+        press(&mut a, KeyCode::Char('b'), KeyModifiers::ALT);
+        assert_eq!((a.col, a.mode), (4, Mode::Edit));
+        assert_eq!(a.buf.lines, vec!["foo bar baz"], "nothing was typed");
+    }
+
+    #[test]
+    fn shift_left_right_select_by_char_and_cross_the_line_end() {
+        let mut a = app("ab\ncd");
+        a.col = 1;
         press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
-        assert_eq!((a.line, a.col), (1, 0));
+        assert_eq!(a.selection(), Some(((0, 1), (0, 2))));
+        press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+        assert_eq!(a.selection(), Some(((0, 1), (1, 0))));
+        for _ in 0..3 {
+            press(&mut a, KeyCode::Left, KeyModifiers::SHIFT);
+        }
+        assert_eq!(
+            a.selection(),
+            Some(((0, 0), (0, 1))),
+            "back over the anchor"
+        );
+    }
+
+    #[test]
+    fn ctrl_c_copies_a_selection_in_navigation_and_quits_without_one() {
+        let mut a = app("abc");
+        press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+        assert!(!press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL));
+        assert_eq!(a.clipboard.take().as_deref(), Some("ab"));
+        assert!(a.selection().is_some(), "copy leaves the selection");
+        // Cmd+C, from a terminal that passes it on, copies too and never quits.
+        assert!(!press(&mut a, KeyCode::Char('c'), KeyModifiers::SUPER));
+        assert_eq!(a.clipboard.take().as_deref(), Some("ab"));
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert!(!press(&mut a, KeyCode::Char('c'), KeyModifiers::SUPER));
+        assert!(press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL));
+        assert_eq!(a.clipboard, None);
+    }
+
+    #[test]
+    fn v_grows_the_selection_word_line_paragraph() {
+        let mut a = app("x\n\n  let foo = 1;\n  bar\n\ny");
+        (a.line, a.col) = (2, 7);
+        let v = |a: &mut App| press(a, KeyCode::Char('v'), KeyModifiers::NONE);
+        v(&mut a);
+        assert_eq!(a.selection(), Some(((2, 6), (2, 9))), "the word");
+        v(&mut a);
+        assert_eq!(a.selection(), Some(((2, 0), (2, 14))), "the line");
+        v(&mut a);
+        assert_eq!(a.selection(), Some(((2, 0), (3, 5))), "the paragraph");
+        v(&mut a);
+        assert_eq!(a.selection(), Some(((2, 0), (3, 5))), "nothing wider");
+        // Off a word the first step is the line; a hand-made selection grows from what it is.
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        (a.line, a.col) = (2, 11);
+        v(&mut a);
+        assert_eq!(a.selection(), Some(((2, 0), (2, 14))));
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        (a.line, a.col) = (2, 5);
+        for _ in 0..3 {
+            press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+        }
+        v(&mut a);
+        assert_eq!(
+            a.selection(),
+            Some(((2, 0), (2, 14))),
+            "` fo` is wider than no word"
+        );
+        // A blank line has nothing to select.
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        (a.line, a.col) = (1, 0);
+        v(&mut a);
+        assert_eq!(a.selection(), None);
     }
 
     #[test]
@@ -3178,9 +3350,14 @@ mod tests {
         );
         press(&mut a, KeyCode::Left, KeyModifiers::NONE);
         assert_eq!(((a.line, a.col), a.selection()), ((0, 0), None));
-        // Shift+Left alone is still a plain word jump: it drops the selection.
-        press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
-        assert_eq!((a.col, a.selection()), (3, None));
+        // Alt+Right alone is a plain word jump: it drops the selection.
+        press(
+            &mut a,
+            KeyCode::Right,
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+        );
+        press(&mut a, KeyCode::Left, KeyModifiers::ALT);
+        assert_eq!((a.col, a.selection()), (4, None));
     }
 
     #[test]

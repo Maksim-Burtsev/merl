@@ -65,7 +65,7 @@ merl --version
 ```
 
 `merl --tutor` walks through every navigation key on a small Python project bundled in the binary:
-twenty-three lessons, each one done when the key actually did what it says, on a copy in a temporary
+twenty-five lessons, each one done when the key actually did what it says, on a copy in a temporary
 directory that is removed when you quit.
 
 The `FILE:LINE` form is what compilers, linters and grep already print, so a result can be pasted
@@ -96,12 +96,15 @@ merl path/to/file.py:120
 | Ctrl+S | Save now (edits are saved on their own after a pause) |
 | Ctrl+R | Reload from disk, dropping unsaved edits |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
+| Ctrl+C | Copy the selection (with none, quit) |
 | Edit: Ctrl+C / Ctrl+X | Copy / cut the selection, or the line, to the clipboard |
 | Arrows | Move the cursor; Up / Down go by screen row |
 | Shift+Up / Shift+Down | Extend the selection by a screen row |
-| Shift+Left / Shift+Right | Move one word |
+| Shift+Left / Shift+Right | Extend the selection by a char |
+| Alt+Left / Alt+Right | Move one word |
 | Alt+Shift+Left / Right | Extend the selection by a word |
 | Ctrl+Shift+Left / Right | Extend the selection to the start / end of the screen row, then of the line |
+| v | Select the word, then the line, then the paragraph |
 | Ctrl+D / Ctrl+U | Move half a screen down / up |
 | { / } | Previous / next paragraph (blank line) |
 | PgUp / PgDn | Move one screen |
@@ -367,6 +370,14 @@ iTerm2 3.5+, foot, agterm) it is used, which makes every modified key unambiguou
 merl falls back to the legacy escape sequences. Known limits: Terminal.app on macOS sends neither
 Shift+arrows nor Ctrl+Home, and F12 on Mac keyboards needs Fn — which is why `d` and `u` are the
 primary keys and the function keys only aliases.
+
+Cmd never reaches a terminal program on its own, so copy is Ctrl+C. Ghostty can hand Cmd+C over
+when there is no mouse selection for it to copy, and merl then treats Cmd+C / Cmd+X as the Ctrl
+chords (Cmd+C never quits). Cmd+V needs nothing: the terminal pastes. In `~/.config/ghostty/config`:
+
+```
+keybind = performable:cmd+c=copy_to_clipboard:mixed
+```
 
 ## Why not vim / helix / micro
 

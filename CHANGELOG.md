@@ -7,8 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Shift+Left / Right extend the selection by a char, the step that was missing between a word
+  and a line.
+- `v` selects the word under the cursor, pressed again the line, then the paragraph between blank
+  lines; a selection made by hand grows the same way. The tutorial has a lesson for it.
+- Ctrl+C copies the selection in navigation too, with no trip through edit mode. Without a
+  selection it still quits. Cmd+C / Cmd+X do the same from a terminal set up to pass them on
+  (one Ghostty line, in the README), and Cmd+C never quits.
+
+### Changed
+
+- The word jump moved from Shift+Left / Right to Alt+Left / Right (Option on a Mac), where every
+  other editor has it. Esc b / Esc f, which Ghostty, iTerm and Terminal.app send for Option+arrow,
+  are the same jump and no longer leave edit mode.
+
 ### Fixed
 
+- The word jump and the word selection stop at words in any script: in a Russian comment
+  Alt+Left / Right skipped the whole line, since only ASCII letters counted as a word.
 - `d` finds a Python `async def` and a TypeScript method signature with no body
   (`find(id: string): User;` in an interface, an abstract class, an overload or a `.d.ts`). (#69)
 - Go lookups outside the project skip `_test.go` files, `testdata` and nested modules such as
