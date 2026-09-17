@@ -141,6 +141,16 @@ pub struct ReviewFile {
     pub old: Option<PathBuf>,
     pub added: usize,
     pub deleted: usize,
+    /// `git diff --numstat` counts `-` for it.
+    pub binary: bool,
+}
+
+impl ReviewFile {
+    /// Is there a line to read? Not in a binary file, a mode change or a pure rename: `c` walks
+    /// past those, and the panel still opens them.
+    pub fn has_hunks(&self) -> bool {
+        self.added + self.deleted > 0
+    }
 }
 
 /// `merl --review`: the checked-out branch against its base.
@@ -185,11 +195,10 @@ impl Review {
             .with_context(|| format!("no merge base between {base} and HEAD"))?;
         // `-z`: NUL-separated and unquoted, so a non-ASCII name is the name on disk.
         let mut files = parse_name_status(&git(&["diff", "--name-status", "-z", &merge_base])?);
-        for (path, added, deleted) in
-            parse_numstat(&git(&["diff", "--numstat", "-z", &merge_base])?)
-        {
+        for (path, counts) in parse_numstat(&git(&["diff", "--numstat", "-z", &merge_base])?) {
             if let Some(f) = files.iter_mut().find(|f| f.path == path) {
-                (f.added, f.deleted) = (added, deleted);
+                f.binary = counts.is_none();
+                (f.added, f.deleted) = counts.unwrap_or((0, 0));
             }
         }
         if files.is_empty() {
@@ -242,14 +251,15 @@ fn parse_name_status(out: &str) -> Vec<ReviewFile> {
             old,
             added: 0,
             deleted: 0,
+            binary: false,
         });
     }
     files
 }
 
 /// `git diff --numstat -z`: `added\tdeleted\tpath\0`, and `added\tdeleted\t\0old\0new\0` for a
-/// rename. Binary files count `-`, read as 0.
-fn parse_numstat(out: &str) -> Vec<(PathBuf, usize, usize)> {
+/// rename. Binary files count `-`: no counts.
+fn parse_numstat(out: &str) -> Vec<(PathBuf, Option<(usize, usize)>)> {
     let mut rows = Vec::new();
     let mut it = out.split('\0');
     while let Some(entry) = it.next().filter(|s| !s.is_empty()) {
@@ -264,11 +274,7 @@ fn parse_numstat(out: &str) -> Vec<(PathBuf, usize, usize)> {
         } else {
             p
         };
-        rows.push((
-            PathBuf::from(path),
-            a.parse().unwrap_or(0),
-            d.parse().unwrap_or(0),
-        ));
+        rows.push((PathBuf::from(path), a.parse().ok().zip(d.parse().ok())));
     }
     rows
 }
@@ -478,9 +484,9 @@ mod tests {
         assert_eq!(
             n,
             vec![
-                ("a.rs".into(), 1, 2),
-                ("bin".into(), 0, 0),
-                ("new.rs".into(), 3, 4)
+                ("a.rs".into(), Some((1, 2))),
+                ("bin".into(), None),
+                ("new.rs".into(), Some((3, 4)))
             ]
         );
     }

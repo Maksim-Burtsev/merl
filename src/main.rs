@@ -100,10 +100,11 @@ fn run() -> Result<()> {
             let branch = Some(branch.as_str()).filter(|b| !b.is_empty());
             let r = git::Review::open(&root, branch, cli.base.as_deref())?;
             if file.is_none() {
-                file = r
-                    .files
-                    .iter()
-                    .find(|f| f.status != 'D')
+                // The first file with something to read; a branch of binaries opens on one.
+                let on_disk = || r.files.iter().filter(|f| f.status != 'D');
+                file = on_disk()
+                    .find(|f| f.has_hunks())
+                    .or_else(|| on_disk().next())
                     .map(|f| root.join(&f.path));
             }
             Some(r)

@@ -848,6 +848,13 @@ impl App {
                 self.hist_note(true);
             }
         }
+        // `main` opens the first file with a hunk; say so when that is not the first file.
+        if let (Some(r), Some(rel)) = (&self.review, self.rel_current()) {
+            let skipped = r.files.iter().take_while(|f| !f.has_hunks()).count();
+            if r.files.get(skipped).is_some_and(|f| f.path == rel) {
+                self.say_skipped(skipped);
+            }
+        }
     }
 
     /// `c` / `C`: the next / previous hunk, crossing into the next file of the review.
@@ -870,13 +877,15 @@ impl App {
         let at = self
             .rel_current()
             .and_then(|rel| r.files.iter().position(|f| f.path == rel));
-        let next = match (at, dir > 0) {
-            (Some(i), true) => i + 1,
-            (Some(i), false) => i.wrapping_sub(1),
-            (None, true) => 0,
-            (None, false) => r.files.len().wrapping_sub(1),
+        // Files with nothing to read (binary, a mode change, a pure rename) are not stops.
+        let ahead: Vec<&git::ReviewFile> = match (at, dir > 0) {
+            (Some(i), true) => r.files[i + 1..].iter().collect(),
+            (Some(i), false) => r.files[..i].iter().rev().collect(),
+            (None, true) => r.files.iter().collect(),
+            (None, false) => r.files.iter().rev().collect(),
         };
-        let Some(f) = r.files.get(next) else {
+        let skipped = ahead.iter().take_while(|f| !f.has_hunks()).count();
+        let Some(f) = ahead.get(skipped) else {
             self.message = if dir > 0 {
                 "last hunk of the review".into()
             } else {
@@ -885,6 +894,15 @@ impl App {
             return;
         };
         self.open_review_file(f, dir < 0);
+        self.say_skipped(skipped);
+    }
+
+    /// Why `file 1` became `file 74`.
+    fn say_skipped(&mut self, skipped: usize) {
+        if skipped > 0 {
+            let s = if skipped == 1 { "" } else { "s" };
+            self.message = format!("skipped {skipped} file{s} without hunks");
+        }
     }
 
     /// Opens a file of the review on its first (or `last`) hunk. The hunks are read before
@@ -3432,6 +3450,11 @@ mod tests {
     /// A repository with a `feature` branch checked out: `src/a.rs` changed twice, `new`
     /// added, `gone` deleted; the app is in review mode on it.
     fn review_app(tag: &str) -> (PathBuf, App) {
+        review_app_with(tag, &[])
+    }
+
+    /// `extra`: files the branch adds on top of the usual five.
+    fn review_app_with(tag: &str, extra: &[(&str, &[u8])]) -> (PathBuf, App) {
         let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("src")).unwrap();
@@ -3459,6 +3482,9 @@ mod tests {
         std::fs::remove_file(dir.join("gone")).unwrap();
         std::fs::write(dir.join("tail"), "t1\n").unwrap();
         std::fs::write(dir.join("crlf.txt"), "one\r\nTWO\n").unwrap();
+        for (name, bytes) in extra {
+            std::fs::write(dir.join(name), bytes).unwrap();
+        }
         git(&["add", "-A"]);
         git(&["commit", "-q", "-m", "work"]);
         let review = git::Review::open(&dir, None, None).unwrap();
@@ -3480,6 +3506,31 @@ mod tests {
         );
         a.start_review(review);
         (dir, a)
+    }
+
+    #[test]
+    fn review_walks_past_files_without_hunks() {
+        let png: &[u8] = b"\x89PNG\0\0";
+        let (dir, mut a) = review_app_with("reviewbin", &[("a.png", png), ("z.png", png)]);
+        // Panel order: src/a.rs, a.png, crlf.txt, gone, new, tail, z.png.
+        let r = a.review.as_ref().unwrap();
+        assert!(r.files[1].binary && !r.files[1].has_hunks());
+        assert!(!r.files[2].binary && r.files[2].has_hunks());
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("tail"), 0));
+        // Only z.png is left: not a stop.
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("tail"), 0));
+        assert_eq!(a.message, "last hunk of the review");
+        for _ in 0..3 {
+            press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+        }
+        assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+        press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
+        assert_eq!(a.message, "skipped 1 file without hunks");
+        assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/7");
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

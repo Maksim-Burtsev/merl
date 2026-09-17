@@ -248,13 +248,24 @@ fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
             let mut text = format!("{}{marker}{}", "  ".repeat(n.depth), n.name());
             // Review: `M name  +6 -2`, the status in place of the marker.
             if let Some(f) = app.review.as_ref().and_then(|r| r.file(&n.path)) {
-                text = format!("{}{} {}", "  ".repeat(n.depth), f.status, n.name());
-                let counts = format!("+{} \u{2212}{}", f.added, f.deleted);
-                let room = width.saturating_sub(wrap::width(&text) + 1);
-                if wrap::width(&counts) <= room {
-                    text.push_str(&" ".repeat(room - wrap::width(&counts) + 1));
-                    text.push_str(&counts);
-                }
+                let counts = if f.binary {
+                    "bin".to_string()
+                } else {
+                    format!("+{} \u{2212}{}", f.added, f.deleted)
+                };
+                // The counts stay; a long name gives way, with the cut marked.
+                let lead = format!("{}{} ", "  ".repeat(n.depth), f.status);
+                let room = width.saturating_sub(wrap::width(&lead) + wrap::width(&counts) + 1);
+                let name = n.name();
+                let name = if wrap::width(&name) > room {
+                    crate::app::clip(&name, room.saturating_sub(1))
+                } else {
+                    name.to_string()
+                };
+                text = format!("{lead}{name}");
+                let gap = width.saturating_sub(wrap::width(&text) + wrap::width(&counts));
+                text.push_str(&" ".repeat(gap));
+                text.push_str(&counts);
             }
             // Directories carry the accent: they are what the eye scans the tree by.
             let row = if n.is_dir { accent } else { base };
@@ -1311,6 +1322,7 @@ z
                 old: None,
                 added: 6,
                 deleted: 2,
+                binary: false,
             }],
         });
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -1327,6 +1339,37 @@ z
             "{}",
             r[1]
         );
+    }
+
+    #[test]
+    fn review_panel_cuts_a_long_name_and_keeps_the_counts() {
+        let dir = PathBuf::from("/tmp");
+        let name = "catppuccin-macchiato-with-a-long-name.png";
+        let mut app = App::new(
+            dir.clone(),
+            crate::tree::from_files(&[name.into()]),
+            Vec::new(),
+            Buffer::from_bytes(dir.join("a.rs"), b"x\n"),
+            None,
+        );
+        app.review = Some(crate::git::Review {
+            branch: "feature".into(),
+            base: "main".into(),
+            merge_base: String::new(),
+            files: vec![crate::git::ReviewFile {
+                path: name.into(),
+                status: 'A',
+                old: None,
+                added: 0,
+                deleted: 0,
+                binary: true,
+            }],
+        });
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(40, 4)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        let r = rows(&terminal);
+        assert!(r[1].contains("\u{2026} bin\u{2502}"), "{}", r[1]);
     }
 
     #[test]
