@@ -504,7 +504,14 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
         && matches!(app.mode, Mode::Normal | Mode::Edit)
     {
         let x = area.x + (gutter_w + app.cursor_x()) as u16;
-        frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
+        let pos = (x.min(area.right().saturating_sub(1)), area.y + y as u16);
+        if app.mode == Mode::Edit {
+            frame.set_cursor_position(pos);
+        } else {
+            // The navigating block is a painted cell, not the terminal's cursor: mosh (and some
+            // multiplexers) drop the cursor-shape sequence, and the shape is how you tell the mode.
+            frame.buffer_mut()[pos].set_style(Style::new().add_modifier(Modifier::REVERSED));
+        }
     }
 }
 
@@ -717,6 +724,20 @@ mod tests {
     use crate::buffer::Buffer;
     use crate::git::Mark;
     use crate::tree::Tree;
+
+    /// Where the navigating block cursor was painted.
+    fn block(terminal: &Terminal<TestBackend>) -> (u16, u16) {
+        let buf = terminal.backend().buffer();
+        let at = |x, y| {
+            buf[(x, y)]
+                .modifier
+                .contains(ratatui::style::Modifier::REVERSED)
+        };
+        (0..buf.area.height)
+            .flat_map(|y| (0..buf.area.width).map(move |x| (x, y)))
+            .find(|&(x, y)| at(x, y))
+            .expect("no block cursor on screen")
+    }
 
     fn rows(terminal: &Terminal<TestBackend>) -> Vec<String> {
         let buf = terminal.backend().buffer();
@@ -1075,7 +1096,7 @@ z
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
         app.key(KeyEvent::new(KeyCode::End, KeyModifiers::NONE));
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-        let y = terminal.get_cursor_position().unwrap().y;
+        let y = block(&terminal).1;
         let buf = terminal.backend().buffer();
         assert_eq!(
             buf[(2, y)].symbol(),
@@ -1164,14 +1185,14 @@ z
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
         let mut terminal = Terminal::new(TestBackend::new(20, 4)).unwrap();
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-        let cursor = terminal.get_cursor_position().unwrap();
+        let cursor = block(&terminal);
         let buf = terminal.backend().buffer();
         let row = |y: u16| (0..20).map(|x| buf[(x, y)].symbol()).collect::<String>();
         // "tasks" fits a row, so it moves down whole, and the row starts past the list marker.
         assert_eq!(row(0), "1 - Celery lost     ");
         assert_eq!(row(1), "    tasks on restart");
         // On the "s" of "tasks": gutter 2, indent 2, "ta" 2.
-        assert_eq!((cursor.x, cursor.y), (6, 1));
+        assert_eq!(cursor, (6, 1));
     }
 
     #[test]
@@ -1197,7 +1218,7 @@ z
             rows(&terminal)[..5],
             ["1 a", "\u{258e}old1", "\u{258e}old2", "2\u{258e}b", "3 c"]
         );
-        assert_eq!(terminal.get_cursor_position().unwrap().y, 4);
+        assert_eq!(block(&terminal).1, 4);
         // Up from `c` lands on `b`, not on a ghost; up again on `a`.
         app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
         assert_eq!(app.line, 1);
@@ -1241,7 +1262,7 @@ z
         app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
         assert_eq!(rows(&terminal)[..2], ["\u{258e}old", "2 b"]);
-        assert_eq!(terminal.get_cursor_position().unwrap().y, 1);
+        assert_eq!(block(&terminal).1, 1);
     }
 
     #[test]

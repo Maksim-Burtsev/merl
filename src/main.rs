@@ -27,7 +27,7 @@ use ratatui::crossterm::event::{
 };
 use ratatui::crossterm::{execute, terminal};
 
-use crate::app::{App, Focus, Mode};
+use crate::app::{App, Focus};
 use crate::buffer::Buffer;
 use crate::tutor::Tutor;
 
@@ -213,7 +213,10 @@ fn event_loop(
     let mut watched: Option<PathBuf> = None;
 
     let mut dirty = true;
-    let mut typing: Option<bool> = None;
+    // Typing (edit mode, or any prompt) gets a bar, navigating a block, like vim: the shape says
+    // which mode you are in without looking at the status bar. The block is drawn by `ui`, so the
+    // terminal's own cursor is only ever the bar.
+    let _ = execute!(stdout(), SetCursorStyle::SteadyBar);
     loop {
         // nucleo matches in the background; poll it while its overlay is on screen.
         if let Some(p) = &mut app.picker {
@@ -230,18 +233,6 @@ fn event_loop(
                 let diff = git::diff(&root, &path, None, None);
                 let _ = tx.send(Msg::Diff(path, diff));
             });
-        }
-        // Typing (edit mode, or any prompt) gets a bar, navigating a block, like vim: the shape
-        // says which mode you are in without looking at the status bar.
-        let now = !matches!(app.mode, Mode::Normal | Mode::Help);
-        if typing != Some(now) {
-            typing = Some(now);
-            let shape = if now {
-                SetCursorStyle::SteadyBar
-            } else {
-                SetCursorStyle::SteadyBlock
-            };
-            let _ = execute!(stdout(), shape);
         }
         // The theme picker previews by moving what `shown_theme` names, after a key or after
         // nucleo re-sorted the list under the cursor.
