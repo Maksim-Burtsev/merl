@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Shift+Left / Right extend the selection by a char, the step that was missing between a word
+  and a line.
+- `v` selects the word under the cursor, pressed again the line, then the paragraph between blank
+  lines; a selection made by hand grows the same way. The tutorial has a lesson for it.
+- Ctrl+C copies the selection in navigation too, with no trip through edit mode. Without a
+  selection it still quits.
+
+### Changed
+
+- The word jump moved from Shift+Left / Right to Alt+Left / Right (Option on a Mac), where every
+  other editor has it. Esc b / Esc f, which Ghostty, iTerm and Terminal.app send for Option+arrow,
+  are the same jump and no longer leave edit mode.
+
 ### Fixed
 
 - `d` finds a Python `async def` and a TypeScript method signature with no body

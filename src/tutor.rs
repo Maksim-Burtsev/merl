@@ -105,8 +105,8 @@ pub const LESSONS: &[Lesson] = &[
     Lesson {
         title: "Usages",
         text: "The jump left the cursor on `load_config`, and `u` (or Shift+F12) lists every \
-               use of the word under it — Shift+Left and Shift+Right move a word when it is \
-               not there yet. Press `u`, then pick the hit in cli.py with Down and Enter.",
+               use of the word under it — Alt+Left and Alt+Right (Option on a Mac) move a word \
+               when it is not there yet. Press `u`, then pick the hit in cli.py with Down and Enter.",
         done: |a| at(a, "cli.py"),
     },
     Lesson {
@@ -134,6 +134,12 @@ pub const LESSONS: &[Lesson] = &[
         title: "Previous paragraph",
         text: "`{` jumps to the previous blank line. Press it twice to reach the line above `remove`.",
         done: |a| at(a, "store.py") && a.line + 1 == PARA_UP_LINE,
+    },
+    Lesson {
+        title: "Select",
+        text: "`v` selects the word under the cursor, again the line, again the paragraph; Ctrl+C \
+               copies the selection. Press Down to step onto `remove`, then `v` three times.",
+        done: |a| at(a, "store.py") && a.selection().is_some_and(|(from, to)| from.0 < to.0),
     },
     Lesson {
         title: "File tree",
@@ -318,6 +324,8 @@ mod tests {
     const NOT_TAUGHT: &[&str] = &[
         "Arrows",
         "Shift+Up / Shift+Down",
+        "Shift+Left / Shift+Right",
+        "Ctrl+C",
         "Alt+Shift+Left / Right",
         "Ctrl+Shift+Left / Right",
         "Ctrl+D / Ctrl+U",
@@ -452,13 +460,20 @@ mod tests {
         press(&mut a, KeyCode::Char('{'));
         done(&mut a);
 
-        // 13 and 14: the tree, then its focus
+        // 13: select the function
+        press(&mut a, KeyCode::Down);
+        for _ in 0..3 {
+            press(&mut a, KeyCode::Char('v'));
+        }
+        done(&mut a);
+
+        // 14 and 15: the tree, then its focus
         press(&mut a, KeyCode::Char('t'));
         done(&mut a);
         press(&mut a, KeyCode::Tab);
         done(&mut a);
 
-        // 15: open a file from the tree
+        // 16: open a file from the tree
         for _ in 0..5 {
             press(&mut a, KeyCode::Up);
         }
@@ -467,11 +482,11 @@ mod tests {
         press(&mut a, KeyCode::Enter);
         done(&mut a);
 
-        // 16: hide the tree again
+        // 17: hide the tree again
         press(&mut a, KeyCode::Char('t'));
         done(&mut a);
 
-        // 17: edit, and the edit reaches the disk on Esc
+        // 18: edit, and the edit reaches the disk on Esc
         press(&mut a, KeyCode::Enter);
         typed(&mut a, "# hi");
         press(&mut a, KeyCode::Esc);
@@ -480,14 +495,14 @@ mod tests {
         assert!(saved.starts_with("# hi"), "{saved:?}");
         assert!(!a.dirty);
 
-        // 18: undo, which reaches the disk on quit at the latest
+        // 19: undo, which reaches the disk on quit at the latest
         a.key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
         done(&mut a);
         a.flush();
         let saved = std::fs::read_to_string(dir.join("tests/test_store.py")).unwrap();
         assert!(!saved.starts_with("# hi"), "{saved:?}");
 
-        // 19: go to definition in the Makefile
+        // 20: go to definition in the Makefile
         press(&mut a, KeyCode::Char('o'));
         typed(&mut a, "Makefile");
         press(&mut a, KeyCode::Enter);
@@ -498,7 +513,7 @@ mod tests {
         press(&mut a, KeyCode::Char('d'));
         done(&mut a);
 
-        // 20: the implementations of the protocol's method, and the first of them
+        // 21: the implementations of the protocol's method, and the first of them
         press(&mut a, KeyCode::Char('o'));
         typed(&mut a, "models");
         press(&mut a, KeyCode::Enter);
@@ -513,7 +528,7 @@ mod tests {
         press(&mut a, KeyCode::Enter);
         done(&mut a);
 
-        // 21 and 22: preview a theme, then put the old one back
+        // 22 and 23: preview a theme, then put the old one back
         press(&mut a, KeyCode::Char('T'));
         press(&mut a, KeyCode::Down);
         done(&mut a);
@@ -521,7 +536,7 @@ mod tests {
         done(&mut a);
         assert_eq!(a.shown_theme(), crate::theme::DEFAULT);
 
-        // 23 and 24: help, and closing it
+        // 24 and 25: help, and closing it
         press(&mut a, KeyCode::Char('?'));
         done(&mut a);
         press(&mut a, KeyCode::Esc);
