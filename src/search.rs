@@ -532,7 +532,10 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             break;
         }
         let t = l.trim_start();
+        // A lone `{` opens the body of a declaration wrapped over the lines above it, as
+        // prettier writes a long TypeScript class header; it names nothing itself.
         if t.is_empty()
+            || t == "{"
             || indent(l) >= depth
             || ["#", "//", "/*", "*"].iter().any(|c| t.starts_with(c))
         {
@@ -1946,7 +1949,9 @@ fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
     let end = (start..lines.len())
         .find(|&i| {
             let t = lines[i].trim();
-            !t.is_empty() && !comment(kind, t) && indent(lines[i]) <= base
+            // A lone `{` at the declaration's own indentation opens its body, as prettier
+            // writes a wrapped class header; it does not end it.
+            !t.is_empty() && t != "{" && !comment(kind, t) && indent(lines[i]) <= base
         })
         .unwrap_or(lines.len());
     start..end.max(start)
@@ -2212,7 +2217,7 @@ pub fn owner_decl(kind: Kind, text: &str, line: usize) -> Option<usize> {
     let depth = indent(lines.get(line.checked_sub(1)?)?);
     let (i, above) = lines[..line - 1].iter().enumerate().rev().find(|(_, l)| {
         let t = l.trim_start();
-        !t.is_empty() && !comment(kind, t) && indent(l) < depth
+        !t.is_empty() && t.trim_end() != "{" && !comment(kind, t) && indent(l) < depth
     })?;
     declares_type(kind, above).then_some(i + 1)
 }
@@ -2229,21 +2234,41 @@ pub fn type_name(kind: Kind, line: &str) -> Option<String> {
         .map(|c| c[1].to_owned())
 }
 
-/// A grep for a type declaration that names one of `names` as a base: `class X(Base)` in Python,
+/// A grep for the line that names one of `names` as a base: `class X(Base)` in Python,
 /// `class X extends Base`, `class X implements Base` and `interface I extends Base` in
-/// TypeScript. `None` for Go, whose types implement an interface by carrying its methods and
-/// never name it. A header wrapped over several lines keeps its bases off the line the grep
-/// matches and is missed, as [`bases`] misses it.
+/// TypeScript, where the clause may also stand on a line of its own under a wrapped header —
+/// [`type_decl_at`] walks up to the declaration it belongs to. A Python header wrapped over
+/// several lines keeps its bases off the `class` line and is missed. `None` for Go, whose types
+/// implement an interface by carrying its methods and never name it.
 pub fn subtype_patterns(kind: Kind, names: &[String]) -> Option<String> {
     let any: Vec<String> = names.iter().map(|n| regex::escape(n)).collect();
     let any = any.join("|");
     match kind {
         Kind::Python => Some(format!(r"^\s*class\s+\w+\s*\(.*\b({any})\b")),
-        Kind::TsJs => Some(format!(
-            r"\b(?:class|interface)\s.*\b(?:extends|implements)\b.*\b({any})\b"
-        )),
+        // Not only the header line: prettier writes `extends Base` on a line of its own.
+        Kind::TsJs => Some(format!(r"\b(?:extends|implements)\s[^;]*\b({any})\b")),
         _ => None,
     }
+}
+
+/// The 1-based line the type declaration covering 1-based `line` of `text` starts on: `line`
+/// itself when it [`declares_type`], else the nearest line above it that does, when nothing but
+/// the rest of a header stands in between — `export class X` over `    extends Y` over `{`, as
+/// prettier wraps a long one. `None` when the lines above end a statement first.
+pub fn type_decl_at(kind: Kind, text: &str, line: usize) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let k = line.checked_sub(1).filter(|&k| k < lines.len())?;
+    // ponytail: eight lines of header, which covers the widest prettier writes.
+    for i in (k.saturating_sub(8)..=k).rev() {
+        if declares_type(kind, lines[i]) {
+            return Some(i + 1);
+        }
+        let t = lines[i].trim();
+        if t.is_empty() || t.ends_with([';', '}']) || comment(kind, t) {
+            return None;
+        }
+    }
+    None
 }
 
 /// The 1-based line on which the type declared on 1-based `decl` of `text` declares the member
@@ -3544,6 +3569,13 @@ export abstract class Base<T> extends Other implements Notifier, Logger<T> {
 }
 
 export class Quiet extends Base {}
+
+export class Wrapped
+  extends Base
+  implements Notifier
+{
+  send(text: string): void {}
+}
 ";
 
     const GO_IMPLS: &str = "type Notifier interface {
@@ -3568,6 +3600,7 @@ func (b Batch) Send(text string, retries int) {
         assert_eq!(ts(2), Some(1), "an interface signature");
         assert_eq!(ts(6), Some(5));
         assert_eq!(ts(7), None);
+        assert_eq!(ts(17), Some(13), "past the brace of a wrapped header");
         let go = |line| owner_decl(Kind::Go, GO_IMPLS, line);
         assert_eq!(go(2), Some(1), "an interface's method line");
         assert_eq!(go(5), None, "a method stands beside its type");
@@ -3581,6 +3614,9 @@ func (b Batch) Send(text string, retries int) {
         );
         assert_eq!(bases(Kind::TsJs, TS_IMPLS, 5), ["Other"], "extends alone");
         assert_eq!(interfaces(Kind::TsJs, TS_IMPLS, 11), [] as [String; 0]);
+        // A wrapped header carries each clause on a line of its own.
+        assert_eq!(bases(Kind::TsJs, TS_IMPLS, 14), ["Base"]);
+        assert_eq!(interfaces(Kind::TsJs, TS_IMPLS, 15), ["Notifier"]);
         assert_eq!(interfaces(Kind::Python, PY_IMPLS, 5), [] as [String; 0]);
         assert_eq!(bases(Kind::Python, PY_IMPLS, 5), ["Notifier"]);
     }
@@ -3598,6 +3634,7 @@ func (b Batch) Send(text string, retries int) {
         assert!(ts.is_match("export class EmailNotifier implements Notifier {"));
         assert!(ts.is_match("export interface Admin extends Notifier {"));
         assert!(ts.is_match("class X extends Base<T> implements Other {"));
+        assert!(ts.is_match("    extends Base"), "a wrapped header's clause");
         assert!(!ts.is_match("export interface Notifier {"));
         assert!(!ts.is_match("export class NotifierFactory {"));
         assert_eq!(
@@ -3620,6 +3657,22 @@ func (b Batch) Send(text string, retries int) {
         assert_eq!(member_decl(Kind::TsJs, TS_IMPLS, 1, "send"), Some(2));
         assert_eq!(member_decl(Kind::TsJs, TS_IMPLS, 5, "send"), Some(6));
         assert_eq!(member_decl(Kind::TsJs, TS_IMPLS, 11, "send"), None);
+        assert_eq!(member_decl(Kind::TsJs, TS_IMPLS, 13, "send"), Some(17));
+    }
+
+    #[test]
+    fn type_decl_at_walks_up_a_header_wrapped_over_several_lines() {
+        let at = |line| type_decl_at(Kind::TsJs, TS_IMPLS, line);
+        assert_eq!(at(13), Some(13), "the header itself");
+        assert_eq!(at(14), Some(13), "`extends Base` on its own line");
+        assert_eq!(at(15), Some(13), "`implements Notifier` on its own");
+        assert_eq!(at(16), Some(13), "the brace below them");
+        assert_eq!(at(8), None, "a line that ends a block declares nothing");
+        assert_eq!(
+            qualified(Kind::TsJs, TS_IMPLS, 17, "send"),
+            Some("Wrapped.send".into()),
+            "the member of a wrapped class is named by it"
+        );
     }
 
     #[test]

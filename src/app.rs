@@ -1319,7 +1319,8 @@ impl App {
             self.message = format!("no definition for {word}");
             return;
         };
-        let imports = search::imports(kind, &self.buf.lines.join("\n"));
+        let text = self.buf.lines.join("\n");
+        let imports = search::imports(kind, &text);
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
         let on_value = dotted && !own && chain.first().is_none_or(|f| bound(&imports, f).is_none());
         let members = on_value
@@ -1335,7 +1336,7 @@ impl App {
         // On the declaration of a member of an interface, a protocol, an abstract or a base
         // class, `d` offers what implements it (#68, step 6).
         if !dotted {
-            let found = self.implementations(kind, &here, &word);
+            let found = self.implementations(kind, &here, &text, &word);
             if !found.is_empty() {
                 self.show_definitions(kind, &word, &here, found, None);
                 return;
@@ -1863,20 +1864,19 @@ impl App {
     /// name taking the same number of parameters, which is what Go's implicit interfaces and a
     /// protocol ask for. Only the project is searched: an interface is opened to find what this
     /// project does with it.
-    fn implementations(&self, kind: Kind, here: &Path, word: &str) -> Vec<Candidate> {
+    fn implementations(&self, kind: Kind, here: &Path, text: &str, word: &str) -> Vec<Candidate> {
         if !matches!(kind, Kind::Python | Kind::TsJs | Kind::Go) {
             return Vec::new();
         }
-        let text = self.buf.lines.join("\n");
         let line = self.line + 1;
         let declares = search::member_or_signature(kind, word)
             .and_then(|p| Regex::new(&p.join("|")).ok())
             .is_some_and(|re| re.is_match(self.line_str()));
-        let Some(owner_line) = search::owner_decl(kind, &text, line).filter(|_| declares) else {
+        let Some(owner_line) = search::owner_decl(kind, text, line).filter(|_| declares) else {
             return Vec::new();
         };
         // `Notifier.send`, what the status line and every picker row name the member by.
-        let Some(member) = search::qualified(kind, &text, line, word) else {
+        let Some(member) = search::qualified(kind, text, line, word) else {
             return Vec::new();
         };
         let owner = Typed {
@@ -1888,14 +1888,14 @@ impl App {
         let structural = match kind {
             // A method beside its type is no interface method and has no implementations.
             Kind::Go => decl.contains("interface"),
-            Kind::Python => is_protocol(&text, owner_line),
+            Kind::Python => is_protocol(text, owner_line),
             _ => false,
         };
         if owner.name.is_empty() || (kind == Kind::Go && !structural) {
             return Vec::new();
         }
         let hits = if structural {
-            self.structural_impls(kind, here, word, &text, line, owner_line)
+            self.structural_impls(kind, here, word, text, line, owner_line)
         } else {
             self.subtype_impls(kind, here, word, &owner)
         };
@@ -1928,12 +1928,22 @@ impl App {
                 .unwrap_or_default();
             let mut next = Vec::new();
             for hit in hits {
-                let (Some(text), Some(name)) =
-                    (self.text_of(&hit.path), search::type_name(kind, &hit.text))
-                else {
+                let Some(text) = self.text_of(&hit.path) else {
                     continue;
                 };
-                if seen.contains(&(hit.path.clone(), hit.line)) {
+                // The clause the grep matched may be one line of a header wrapped over
+                // several, and the type is declared on the first of them.
+                let Some(decl) = search::type_decl_at(kind, &text, hit.line) else {
+                    continue;
+                };
+                let name = text
+                    .lines()
+                    .nth(decl - 1)
+                    .and_then(|l| search::type_name(kind, l));
+                let Some(name) = name else {
+                    continue;
+                };
+                if seen.contains(&(hit.path.clone(), decl)) {
                     continue;
                 }
                 let sees = |first: &str| {
@@ -1949,9 +1959,9 @@ impl App {
                 if !derives {
                     continue;
                 }
-                seen.push((hit.path.clone(), hit.line));
+                seen.push((hit.path.clone(), decl));
                 next.push(name);
-                if let Some(at) = search::member_decl(kind, &text, hit.line, word) {
+                if let Some(at) = search::member_decl(kind, &text, decl, word) {
                     out.push(Hit {
                         text: text.lines().nth(at - 1).unwrap_or_default().to_owned(),
                         path: hit.path,
@@ -4356,11 +4366,13 @@ mod tests {
                 "impls.ts",
                 "^  run",
                 impls(
-                    "run: implementations of BaseJob.run, 3 declarations",
+                    "run: implementations of BaseJob.run, 4 declarations",
                     "BaseJob.run",
                     &[
                         ("ImportJob.run", "impls.ts:8"),
                         ("ExportJob.run", "impls.ts:12"),
+                        // A header prettier wrapped over three lines is read all the same.
+                        ("WrappedJob.run", "impls.ts:39"),
                         ("NightlyJob.run", "impls.ts:18"),
                     ],
                 ),
@@ -4371,12 +4383,13 @@ mod tests {
                 "repos.ts",
                 "^  send",
                 impls(
-                    "send: implementations of Notifier.send, 3 declarations",
+                    "send: implementations of Notifier.send, 4 declarations",
                     "Notifier.send",
                     &[
                         ("EmailNotifier.send", "repos.ts:26"),
                         ("SmsNotifier.send", "repos.ts:32"),
                         ("LoudNotifier.send", "impls.ts:22"),
+                        ("WrappedJob.send", "impls.ts:41"),
                     ],
                 ),
             ),

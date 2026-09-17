@@ -31,3 +31,14 @@ export class Sweeper {
 export class NightlySweeper extends Sweeper {
   sweep(): void {}
 }
+
+export class WrappedJob
+  extends BaseJob
+  implements Notifier
+{
+  run(): void {}
+
+  send(text: string): void {
+    console.log(text);
+  }
+}

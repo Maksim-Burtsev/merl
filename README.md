@@ -266,16 +266,17 @@ project's first. A bare `self.word` or `this.word` whose class cannot be read st
 project.
 
 With the cursor on the declaration of a member — a `Protocol` method, an interface signature, a
-method of an abstract or a plain base class — `d` offers what implements it instead, labelled
-`send: implementations of Notifier.send, 3 declarations`. In Python and TypeScript that is the
-types that name it: the subclasses, the classes and interfaces that `extends` or `implements` it,
-and the subclasses of those, four levels down. A type counts only when its own header names one of
-them and its file can see that name — it declares it, or an import binds it — and only when it
-declares the member itself, so a class that inherits it is not listed. A Python `Protocol` and a Go
-interface name nothing, so there the rule is structural, the way both languages mean it: every
-member of that name taking the same number of parameters. Only the project is searched, since an
-interface is opened to find what this project does with it, and a class header wrapped over several
-lines hides its bases from the search. Nothing implements the declaration — a method beside its Go
+method of an abstract or a plain base class — `d` offers what implements it instead, labelled `send:
+implementations of Notifier.send, 3 declarations`. In Python and TypeScript that is the types that
+name it: the subclasses, the classes and interfaces that `extends` or `implements` it, and the
+subclasses of those, four levels down. A type counts only when its own header names one of them and
+its file can see that name — it declares it, or an import binds it — and only when it declares the
+member itself, so a class that inherits it is not listed. A Python `Protocol` and a Go interface
+name nothing, so there the rule is structural, the way both languages mean it: every member of that
+name taking the same number of parameters. Only the project is searched, since an interface is
+opened to find what this project does with it. A TypeScript header wrapped over several lines is
+read, as prettier writes `export class X` over `  extends Base` over `{`; a Python one, whose bases
+stand under the `class` line, is not. Nothing implements the declaration — a method beside its Go
 type, a class with no subclasses — and `d` goes on to the search by name below.
 
 | File | What `d` recognises | Searched |
