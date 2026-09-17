@@ -337,7 +337,8 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^{w}\s*(:[^=]*)?="),
         ],
         Kind::Go => vec![
-            format!(r"^func\s+(\([^)]*\)\s*)?{w}\("),
+            // `func Get[T any](` is a function too.
+            format!(r"^func\s+(\([^)]*\)\s*)?{w}(?:\[[^\]]*\])?\("),
             format!(r"^type\s+{w}\b"),
             format!(r"^(var|const)\s+{w}\b"),
             format!(r"^\s*{w}\s*:="),
@@ -465,7 +466,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
             vec![
                 // A class or object-literal method: `foo(` at the end of the line, `foo(..) {`,
                 // or an empty `foo(): void {}`. A `;` on the line means it was a call statement.
-                format!(r"{mods}{w}\s*(?:<[^>]*>)?\((?:[^;]*\{{\s*\}}?)?\s*$"),
+                format!(r"{mods}{w}\s*(?:<.*>)?\((?:[^;]*\{{\s*\}}?)?\s*$"),
                 // A property holding a function: `foo = () =>`, `foo: async (x) =>`,
                 // `foo: function`.
                 format!(
@@ -477,7 +478,12 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
                 // are expressions (`foo(a ? b(c) : d);`); no `=` in the return type keeps an
                 // annotated arrow argument out.
                 format!(
-                    r"{mods}{w}\??\s*(?:<[^>]*>)?\((?:\s*|\s*(?:\.\.\.)?[\w$]+\??\s*:[^;{{}}]*)\)\s*:[^;{{}}=]*;?\s*$"
+                    r"{mods}{w}\??\s*(?:<.*>)?\((?:\s*|\s*(?:\.\.\.)?[\w$]+\??\s*:[^;{{}}]*)\)\s*:[^;{{}}=]*;?\s*$"
+                ),
+                // A constructor parameter behind an access modifier is a property of the class:
+                // `@Inject(W) private worker: Worker,`. So is a field written the same way.
+                format!(
+                    r"^\s*(?:@[\w$.]+(?:\([^)]*\))?\s*)*(?:(?:public|private|protected|readonly|override)\s+)+{w}\s*[?!]?\s*:"
                 ),
             ]
         }
@@ -2536,7 +2542,7 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    const TS_MEMBERS: &str = "export interface Repo {\n  deleteUser(id: string): Promise<void>;\n  findUser?<T>(id: string): T | undefined\n  onChange: (id: string) => void;\n  name: string;\n}\n\nexport abstract class Base {\n  abstract deleteUser(id: string): Promise<void>;\n  get size(): number;\n}\n\nconst deleteUser = (id: string) => id;\nfindUser(id);\nrun(x).then((y): void => y);\nconst n = cond ? findUser(a) : b;\nexport const helpers = {\n  deleteUser(id) {\n    return id;\n  },\n};\nappend(target, visitor ? visitNode(s) : s);\nlog(\"(while reading XRef): \" + e);\ndeclare class Emitter {\n  on(event: string, cb: (x: T) => void): this;\n  append(...items: string[]): void;\n}\nclass Session {\n  close(): void {}\n}\nnoop(() => {})\n";
+    const TS_MEMBERS: &str = "export interface Repo {\n  deleteUser(id: string): Promise<void>;\n  findUser?<T>(id: string): T | undefined\n  onChange: (id: string) => void;\n  name: string;\n}\n\nexport abstract class Base {\n  abstract deleteUser(id: string): Promise<void>;\n  get size(): number;\n}\n\nconst deleteUser = (id: string) => id;\nfindUser(id);\nrun(x).then((y): void => y);\nconst n = cond ? findUser(a) : b;\nexport const helpers = {\n  deleteUser(id) {\n    return id;\n  },\n};\nappend(target, visitor ? visitNode(s) : s);\nlog(\"(while reading XRef): \" + e);\ndeclare class Emitter {\n  on(event: string, cb: (x: T) => void): this;\n  append(...items: string[]): void;\n}\nclass Session {\n  close(): void {}\n}\nnoop(() => {})\nclass Svc {\n  constructor(\n    @Inject(W) private worker: Worker,\n  ) {}\n}\ndeclare class Wide {\n  pong<T extends Record<string, number>>(x: T): T;\n}\n";
 
     #[test]
     fn ts_members_include_signatures_without_a_body() {
@@ -2565,13 +2571,22 @@ mod tests {
         // An empty body on the method's line, not a call whose last argument is one.
         assert_eq!(m("close"), [29]);
         assert_eq!(m("noop"), Vec::<usize>::new());
+        // A constructor parameter behind an access modifier is a property of the class.
+        assert_eq!(m("worker"), [34]);
+        // Type parameters may nest.
+        assert_eq!(m("pong"), [38]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn go_members_need_a_receiver() {
-        let go = "package main\n\ntype Repo struct{}\n\nfunc (r *Repo[T]) Delete(id int) {}\n\nfunc (Repo) Find(id int) {}\n\nfunc Delete(id int) {}\n\nfunc main() {\n\tDelete := 1\n}\n";
+        let go = "package main\n\ntype Repo struct{}\n\nfunc (r *Repo[T]) Delete(id int) {}\n\nfunc (Repo) Find(id int) {}\n\nfunc Delete(id int) {}\n\nfunc main() {\n\tDelete := 1\n}\n\nfunc Get[T any](id int) {}\n";
         let (dir, files) = scratch("go-members", &[("repo.go", go)]);
+        assert_eq!(
+            defs(&dir, &files, Kind::Go, "Get"),
+            [15],
+            "a generic function"
+        );
         assert_eq!(members(&dir, &files, Kind::Go, "Delete"), [5]);
         assert_eq!(members(&dir, &files, Kind::Go, "Find"), [7]);
         assert_eq!(defs(&dir, &files, Kind::Go, "Delete"), [5, 9, 12]);
