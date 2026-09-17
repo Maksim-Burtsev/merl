@@ -217,10 +217,10 @@ what the declaration sits in and why it is listed —
 `UserRepository.delete_user  by name  repos.py:8: async def delete_user(…)` — so typing a class
 name filters the rows.
 
-On `x.word` and `x.f.word` in Python, TypeScript and Go, `d` first looks for the type of the
-receiver. `x` is `self` or `cls` in a method, `this` in a class, a Go method's receiver, a
-parameter, a local or a module-level variable, and `f` is a field of the type of `x`. The type
-comes from the declaration:
+On `x.word`, `x.f.word` and longer chains in Python, TypeScript and Go, `d` first looks for the
+type of the receiver. `x` is `self` or `cls` in a method, `this` in a class, a Go method's
+receiver, a parameter, a local or a module-level variable, and each name after it is a field of
+the type before it. The type comes from the declaration:
 - an annotation: `repo: UserRepository`, `private repo: UserRepository` (a constructor parameter
   too), a struct field `repo *UserRepository`, `var repo UserRepository`;
 - a construction: `UserRepository()`, `new UserRepository()`, `UserRepository{}`,
@@ -239,9 +239,21 @@ the same file, the same Go package or the project module an import names. `d` th
 member in that type, and in the classes it extends and the structs it embeds, and the status line
 names the link: `via self.repo: UserRepository`, `via NewRepo() *UserRepository`,
 `via makeAudit() returns new AuditLog()`. On an interface or a base class `d` lands on the
-declaration there, not on its implementations. A type declared outside the project, a longer chain
-(`app.services.users.remove`) or any link the rules cannot prove leaves the word to the search by
-name below.
+declaration there, not on its implementations.
+
+A chain is followed the same way one field at a time, up to six names in front of the word: on
+`self.uow.users.delete_user` the type of `self.uow`, then the field `users` in that type, then
+`delete_user` in the type of `users`. A field may be declared in a class the type extends, or
+promoted from a Go struct it embeds, and an embedded struct can be a link by its name
+(`h.Deps.uow`). The status line lists the links:
+`delete_user → UserRepository.delete_user (via self.uow: UnitOfWork → users: UserRepository)`.
+
+A type declared outside the project or any link the rules cannot prove leaves the word to the
+search by name below. With two or more names in front of the word the status line says where the
+chain broke: `delete_user: by name, 2 declarations (chain broke at item)` when `item` is typed by a
+generic parameter, or at the seventh name of a longer chain. A property or a getter, and a call
+inside the chain, are not followed: `make_uow().users.delete_user` is a member of a value whose
+type is not known.
 
 When the type of `x` is not known, every method of that name is a candidate: Python `def` and
 `async def` inside a class, TypeScript class and object-literal methods, properties holding a

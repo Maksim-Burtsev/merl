@@ -765,7 +765,9 @@ pub fn declaration_file(path: &Path) -> bool {
 
 /// The dotted or `::` chain in front of the word under the cursor: `["json"]` for
 /// `json.load(`, `["os", "path"]` for `os.path.join(`, `["fs"]` for `fs::read(`. Empty when the
-/// word stands alone. A TypeScript private field keeps its `#`: `["this", "#root"]`.
+/// word stands alone. A TypeScript private field keeps its `#`: `["this", "#root"]`. A chain that
+/// hangs off a call, an index or `?.` is empty too: `users` in `make_uow().users.x` is no name of
+/// its own.
 pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
     let mut before = &line[..word_start];
     let mut chain = Vec::new();
@@ -784,6 +786,11 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
         }
         chain.insert(0, rest[start..].to_owned());
         before = &rest[..start];
+    }
+    // `f().`, `a[0].`, `a?.` or a line starting with `.` are left; a spread `...` or a range `..`
+    // is not a member access.
+    if before.ends_with('.') && !before.ends_with("..") {
+        return Vec::new();
     }
     chain
 }
@@ -1481,8 +1488,10 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let annotated = rule(format!(r"^{n}\s*:\s*([^=]+?)\s*(?:=.*)?$"));
     let assigned = rule(format!(r"^{n}\s*=\s*([^=].*)$"));
+    // An import binds the names it imports, not the modules on their path: `from .guild import
+    // Guild` leaves a parameter `guild` alone.
     let unknown = rule(format!(
-        r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+{n}\b|\b{n}\s*:=|^(?:global|nonlocal|import|from)\s.*\b{n}\b"
+        r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+{n}\b|\b{n}\s*:=|^(?:global|nonlocal)\s.*\b{n}\b|^from\s+\S+\s+import\s.*\b{n}\b|^import\s(?:.*[\s,])?{n}\b"
     ));
     let inline = rule(format!(
         r"\bfor\s+[^=]*?\b{n}\b[^=]*?\s+in\b|\blambda\b[^:]*\b{n}\b"
@@ -3008,6 +3017,14 @@ output "bucket" {
         assert!(q("load(fp)", 0).is_empty());
         assert!(q("x = load(fp)", 4).is_empty());
         assert_eq!(q("this.#root.insert(p)", 11), ["this", "#root"]);
+        // A chain that hangs off a call, an index or `?.` has no name to start from.
+        assert!(q("x = make_uow().users.delete_user()", 21).is_empty());
+        assert!(q("a[0].users.find()", 11).is_empty());
+        assert!(q("a?.users.find()", 9).is_empty());
+        assert!(q("  .users.find()", 9).is_empty());
+        // A spread and a range are no member access.
+        assert_eq!(q("f(...this.repo.find())", 15), ["this", "repo"]);
+        assert_eq!(q("for i in 0..v.len() {", 14), ["v"]);
     }
 
     /// The bindings of `name` on `line` of `text`, as (line, value) pairs.
@@ -3054,6 +3071,8 @@ class Service:
         with open() as fh:
             fh.read()
         log(a, level=1)
+
+import os.path, store.sessions as sessions
 "#;
         let at = |line, name| bound_at(Kind::Python, text, line, name);
         // A parameter over a multi-line signature, and the module's `repo` above.
@@ -3085,6 +3104,12 @@ class Service:
         assert_eq!(at(29, "a"), [(27, Value::Unknown)]);
         assert_eq!(at(29, "fh"), [(28, Value::Unknown)]);
         assert_eq!(at(30, "level"), []);
+        // An import binds the names it imports, not the modules on their path.
+        assert_eq!(at(14, "UserRepository"), [(1, Value::Unknown)]);
+        assert_eq!(at(14, "repos"), []);
+        assert_eq!(at(14, "os"), [(32, Value::Unknown)]);
+        assert_eq!(at(14, "path"), []);
+        assert_eq!(at(14, "sessions"), [(32, Value::Unknown)]);
     }
 
     /// Comments and strings hold brackets, quotes and commas that are no code: fastapi writes a
