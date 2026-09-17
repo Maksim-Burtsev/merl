@@ -144,7 +144,8 @@ Enter turns the cursor into a text cursor, Esc turns it back. In between, merl i
 editor with VS Code habits: letters insert, Enter splits the line and keeps its indentation, Tab
 indents the way the file already does (tabs or four spaces, shown in the status bar), arrows and
 Home / End move, Shift+arrows select. The letter commands are letters again once you press Esc;
-the chord aliases (Ctrl+E, Ctrl+F, Ctrl+G, F12) work while editing.
+the chord aliases (Ctrl+E, Ctrl+F, Ctrl+G, F12) work while editing. Find, go to line and a
+cancelled prompt or picker bring you back to editing; an entry accepted in a picker ends it.
 
 Typing over a selection replaces it, Backspace and Delete remove it. Ctrl+C and Ctrl+X copy and
 cut the selection (or the whole line without one) to the system clipboard through the terminal

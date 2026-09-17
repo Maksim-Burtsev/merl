@@ -202,6 +202,9 @@ pub struct App {
     redo: Vec<Edit>,
     /// Set when the next edit must start its own undo step even if it continues the last one.
     undo_break: bool,
+    /// The overlay on screen (find, goto, a prompt, a picker) was opened from edit mode with a
+    /// chord alias: closing it without leaving the file goes back to editing.
+    resume_edit: bool,
     /// Text for the system clipboard, taken by `main` and sent to the terminal (OSC 52).
     pub clipboard: Option<String>,
     /// Lines that differ from the git index, painted in the gutter. Refreshed by `main` after
@@ -282,6 +285,7 @@ impl App {
             undo: Vec::new(),
             redo: Vec::new(),
             undo_break: false,
+            resume_edit: false,
             clipboard: None,
             diff: git::Diff::default(),
             want_diff: true,
@@ -1093,7 +1097,11 @@ impl App {
         };
         match picker.key(key) {
             Pick::Stay => return,
-            Pick::Cancel => {}
+            Pick::Cancel => {
+                self.picker = None;
+                self.close_overlay();
+                return;
+            }
             Pick::Accept(item) if self.mode == Mode::Picker(PickerKind::Themes) => {
                 self.theme = item.label;
                 self.message = match &self.config {
@@ -1118,6 +1126,17 @@ impl App {
 
     /// Starts an incremental search from the current cursor position. The selection is set aside
     /// meanwhile, so it does not stretch to every match the cursor visits.
+    /// An overlay closed and the open file stays: back to the mode it was opened from.
+    fn close_overlay(&mut self) {
+        self.mode = if std::mem::take(&mut self.resume_edit) {
+            // The cursor may have moved: what is typed next is a new undo step.
+            self.undo_break = true;
+            Mode::Edit
+        } else {
+            Mode::Normal
+        };
+    }
+
     fn start_find(&mut self) {
         self.mode = Mode::Find;
         self.prompt.clear();
@@ -1130,14 +1149,14 @@ impl App {
             // Enter keeps both the position and the pattern, so `n` carries on from here. The
             // selection comes back unless the search moved the cursor.
             KeyCode::Enter => {
-                self.mode = Mode::Normal;
+                self.close_overlay();
                 self.anchor = self.find_sel.take();
                 self.drop_selection_if_moved(self.clamp_pos(self.find_anchor));
                 self.hist_note(true);
             }
             // Esc puts back both the cursor and the selection.
             KeyCode::Esc => {
-                self.mode = Mode::Normal;
+                self.close_overlay();
                 (self.line, self.col) = self.clamp_pos(self.find_anchor);
                 self.anchor = self.find_sel.take();
                 self.sync_want_x();
@@ -2616,7 +2635,11 @@ impl App {
     /// saved is refused once, with the ways out in the status bar; quitting again right away
     /// leaves the edits behind.
     pub fn key(&mut self, key: KeyEvent) -> bool {
+        let was = self.mode;
         let quit = self.key_inner(key);
+        if matches!(was, Mode::Edit | Mode::Normal) && self.mode != was {
+            self.resume_edit = was == Mode::Edit && self.mode != Mode::Normal;
+        }
         if !quit {
             self.quit_again = false;
             tutor::check(self);
@@ -2852,11 +2875,11 @@ impl App {
                         None => self.goto_line(n),
                     }
                 }
-                self.mode = Mode::Normal;
+                self.close_overlay();
                 self.prompt.clear();
             }
             KeyCode::Esc => {
-                self.mode = Mode::Normal;
+                self.close_overlay();
                 self.prompt.clear();
             }
             // Only digits are typed here; Ctrl+letter still edits the line.
@@ -2871,7 +2894,7 @@ impl App {
         match key.code {
             KeyCode::Enter => self.run_search(),
             KeyCode::Esc => {
-                self.mode = Mode::Normal;
+                self.close_overlay();
                 self.prompt.clear();
             }
             _ => {
@@ -5597,6 +5620,38 @@ mod tests {
         press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
         press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
         assert_eq!(a.line_str(), "\tif x:");
+    }
+
+    #[test]
+    fn overlays_opened_while_editing_go_back_to_editing() {
+        let mut a = app("one\ntwo\nthree two\n");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        // Find, Enter: editing goes on at the match.
+        press(&mut a, KeyCode::Char('f'), KeyModifiers::CONTROL);
+        typed(&mut a, "two");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.mode, a.line), (Mode::Edit, 1));
+        typed(&mut a, "d");
+        assert_eq!(a.buf.lines[1], "dtwo");
+        // Find, Esc: the cursor goes back, and so does the mode.
+        press(&mut a, KeyCode::Char('f'), KeyModifiers::CONTROL);
+        typed(&mut a, "three");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!((a.mode, a.line, a.col), (Mode::Edit, 1, 1));
+        // Goto and a cancelled prompt.
+        press(&mut a, KeyCode::Char('g'), KeyModifiers::CONTROL);
+        typed(&mut a, "3");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.mode, a.line), (Mode::Edit, 2));
+        press(&mut a, KeyCode::Char('g'), KeyModifiers::CONTROL);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!(a.mode, Mode::Edit);
+        // Opened from navigation, find still ends in navigation.
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        typed(&mut a, "one");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.mode, a.line), (Mode::Normal, 0));
     }
 
     #[test]
