@@ -14,6 +14,7 @@ use regex::Regex;
 use crate::app::{App, Focus, Mode};
 use crate::buffer::{Buffer, Spans};
 use crate::git::Mark;
+use crate::line_edit::LineEdit;
 use crate::picker::PickItem;
 use crate::theme::Theme;
 use crate::wrap;
@@ -302,11 +303,7 @@ fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base
     }
 
     let [prompt, list] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(inner);
-    frame.render_widget(
-        Paragraph::new(format!("> {}", picker.query)).style(base),
-        prompt,
-    );
-    frame.set_cursor_position((prompt.x + 2 + wrap::width(&picker.query) as u16, prompt.y));
+    draw_prompt(frame, "> ", &picker.query, base, prompt);
 
     let (rows, selected) = picker.window(list.height as usize);
     let width = list.width as usize;
@@ -540,6 +537,19 @@ fn draw_lesson(frame: &mut Frame, app: &App, theme: &Theme, area: Rect, base: St
     );
 }
 
+/// A prompt line: the prefix, the text with its selection reversed, the cursor where it stands.
+fn draw_prompt(frame: &mut Frame, prefix: &str, edit: &LineEdit, style: Style, area: Rect) {
+    let sel = edit.selection().unwrap_or(0..0);
+    let line = Line::from(vec![
+        Span::raw(format!("{prefix}{}", &edit[..sel.start])),
+        Span::styled(&edit[sel.clone()], style.add_modifier(Modifier::REVERSED)),
+        Span::raw(&edit[sel.end..]),
+    ]);
+    let x = wrap::width(prefix) + wrap::width(&edit[..edit.cursor()]);
+    frame.set_cursor_position((area.x + x as u16, area.y));
+    frame.render_widget(Paragraph::new(line).style(style), area);
+}
+
 fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
     let style = Style::new().bg(theme.status_bg).fg(theme.status_fg);
     let prefix = match app.mode {
@@ -549,9 +559,7 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
         _ => "",
     };
     if !prefix.is_empty() {
-        let text = format!("{prefix}{}", app.prompt);
-        frame.set_cursor_position((area.x + wrap::width(&text) as u16, area.y));
-        frame.render_widget(Paragraph::new(text).style(style), area);
+        draw_prompt(frame, prefix, &app.prompt, style, area);
         return;
     }
     let pane = match (app.mode, app.focus) {

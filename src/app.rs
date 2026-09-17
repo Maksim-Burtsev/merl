@@ -10,6 +10,7 @@ use regex::{Regex, RegexBuilder};
 
 use crate::buffer::{self, Buffer};
 use crate::git;
+use crate::line_edit::LineEdit;
 use crate::picker::{Pick, PickItem, Picker};
 use crate::search::{self, Candidate, Hit, Kind, Reason};
 use crate::tree::Tree;
@@ -170,7 +171,7 @@ pub struct App {
     pub top_row: usize,
     pub mode: Mode,
     /// What has been typed into the `:`, `/` or `s>` prompt.
-    pub prompt: String,
+    pub prompt: LineEdit,
     /// The current query, kept for `n`/`N` and for painting the matches.
     pub find_re: Option<Regex>,
     /// Where the cursor was when `/` was pressed: the start of the incremental search.
@@ -263,7 +264,7 @@ impl App {
             top_line: 0,
             top_row: 0,
             mode: Mode::Normal,
-            prompt: String::new(),
+            prompt: LineEdit::default(),
             find_re: None,
             find_anchor: (0, 0),
             find_sel: None,
@@ -1086,11 +1087,11 @@ impl App {
         }
     }
 
-    fn picker_key(&mut self, code: KeyCode, ctrl: bool) {
+    fn picker_key(&mut self, key: KeyEvent) {
         let Some(picker) = &mut self.picker else {
             return;
         };
-        match picker.key(code, ctrl) {
+        match picker.key(key) {
             Pick::Stay => return,
             Pick::Cancel => {}
             Pick::Accept(item) if self.mode == Mode::Picker(PickerKind::Themes) => {
@@ -1124,16 +1125,8 @@ impl App {
         self.find_sel = self.anchor.take();
     }
 
-    fn find_key(&mut self, code: KeyCode) {
-        match code {
-            KeyCode::Char(c) => {
-                self.prompt.push(c);
-                self.refresh_find();
-            }
-            KeyCode::Backspace => {
-                self.prompt.pop();
-                self.refresh_find();
-            }
+    fn find_key(&mut self, key: KeyEvent) {
+        match key.code {
             // Enter keeps both the position and the pattern, so `n` carries on from here. The
             // selection comes back unless the search moved the cursor.
             KeyCode::Enter => {
@@ -1149,7 +1142,11 @@ impl App {
                 self.anchor = self.find_sel.take();
                 self.sync_want_x();
             }
-            _ => {}
+            _ => {
+                if self.prompt.key(key) {
+                    self.refresh_find();
+                }
+            }
         }
     }
 
@@ -1317,7 +1314,7 @@ impl App {
     /// Enter in the `s>` prompt: a smart-case search for the query as typed, over every file.
     /// Literal like `/`: `foo(` finds the calls and the definition, not a regex error.
     fn run_search(&mut self) {
-        let query = std::mem::take(&mut self.prompt);
+        let query = self.prompt.take();
         self.mode = Mode::Normal;
         if query.is_empty() {
             return;
@@ -2637,11 +2634,9 @@ impl App {
             return false;
         }
         let mut key = key;
-        // Option+Left / Right arrive as Esc b / Esc f from Ghostty, iTerm and Terminal.app.
-        if key.modifiers == KeyModifiers::ALT
-            && self.picker.is_none()
-            && matches!(self.mode, Mode::Normal | Mode::Edit)
-        {
+        // Option+Left / Right arrive as Esc b / Esc f from Ghostty, iTerm and Terminal.app. The
+        // prompts and the pickers move by word too, so this holds over them as well.
+        if key.modifiers == KeyModifiers::ALT {
             match key.code {
                 KeyCode::Char('b') => key.code = KeyCode::Left,
                 KeyCode::Char('f') => key.code = KeyCode::Right,
@@ -2683,20 +2678,20 @@ impl App {
             return false;
         }
         if self.picker.is_some() {
-            self.picker_key(key.code, ctrl);
+            self.picker_key(key);
             return false;
         }
         match self.mode {
             Mode::Goto => {
-                self.goto_key(key.code);
+                self.goto_key(key);
                 return false;
             }
             Mode::Find => {
-                self.find_key(key.code);
+                self.find_key(key);
                 return false;
             }
             Mode::Search => {
-                self.search_key(key.code);
+                self.search_key(key);
                 return false;
             }
             Mode::Help => {
@@ -2848,12 +2843,8 @@ impl App {
         false
     }
 
-    fn goto_key(&mut self, code: KeyCode) {
-        match code {
-            KeyCode::Char(c) if c.is_ascii_digit() => self.prompt.push(c),
-            KeyCode::Backspace => {
-                self.prompt.pop();
-            }
+    fn goto_key(&mut self, key: KeyEvent) {
+        match key.code {
             KeyCode::Enter => {
                 if let Ok(n) = self.prompt.parse::<usize>() {
                     match self.buf.path.clone() {
@@ -2868,22 +2859,24 @@ impl App {
                 self.mode = Mode::Normal;
                 self.prompt.clear();
             }
-            _ => {}
+            // Only digits are typed here; Ctrl+letter still edits the line.
+            KeyCode::Char(c) if !c.is_ascii_digit() && key.modifiers.is_empty() => {}
+            _ => {
+                self.prompt.key(key);
+            }
         }
     }
 
-    fn search_key(&mut self, code: KeyCode) {
-        match code {
-            KeyCode::Char(c) => self.prompt.push(c),
-            KeyCode::Backspace => {
-                self.prompt.pop();
-            }
+    fn search_key(&mut self, key: KeyEvent) {
+        match key.code {
             KeyCode::Enter => self.run_search(),
             KeyCode::Esc => {
                 self.mode = Mode::Normal;
                 self.prompt.clear();
             }
-            _ => {}
+            _ => {
+                self.prompt.key(key);
+            }
         }
     }
 }
@@ -2965,7 +2958,7 @@ pub(crate) fn clip(s: &str, max: usize) -> String {
 }
 
 /// A word for the cursor: letters of any script, so a comment in Russian moves by word too.
-fn is_word(c: char) -> bool {
+pub fn is_word(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
 
@@ -3141,6 +3134,39 @@ mod tests {
         assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
     }
 
+    /// The find prompt is edited in place: text typed in front of the query narrows the search
+    /// at once, and a selected query goes with one Backspace, which puts the cursor back.
+    #[test]
+    fn find_prompt_is_edited_at_the_cursor() {
+        let mut a = app("now()\nfunc now()\n");
+        for c in "/now".chars() {
+            press(&mut a, KeyCode::Char(c), KeyModifiers::NONE);
+        }
+        assert_eq!((a.line, a.col), (0, 0));
+        press(&mut a, KeyCode::Home, KeyModifiers::NONE);
+        for c in "func ".chars() {
+            press(&mut a, KeyCode::Char(c), KeyModifiers::NONE);
+        }
+        assert_eq!((&*a.prompt, a.line, a.col), ("func now", 1, 0));
+        // Option+Left as Ghostty sends it, Esc b, moves by a word and leaves the prompt open.
+        press(&mut a, KeyCode::Char('b'), KeyModifiers::ALT);
+        assert_eq!((a.mode, a.prompt.cursor()), (Mode::Find, 0));
+        press(&mut a, KeyCode::Right, KeyModifiers::ALT);
+        press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+        press(&mut a, KeyCode::End, KeyModifiers::SHIFT);
+        press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+        assert_eq!((&*a.prompt, a.line), ("func ", 1));
+        // Ctrl+U is the line's, not a `u` typed into it.
+        press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+        assert_eq!((&*a.prompt, a.line, a.mode), ("", 0, Mode::Find));
+        // The goto prompt still takes digits only.
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        for c in ":1x2".chars() {
+            press(&mut a, KeyCode::Char(c), KeyModifiers::NONE);
+        }
+        assert_eq!(&*a.prompt, "12");
+    }
+
     /// `T` previews the theme under the cursor without committing to it: Esc puts the one in
     /// use back, Enter keeps the new one.
     #[test]
@@ -3198,11 +3224,11 @@ mod tests {
         assert_eq!((a.mode, a.picker.is_none()), (Mode::Normal, true));
         press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
         a.paste("parse_it\r\nsecond line");
-        assert_eq!((a.mode, a.prompt.as_str()), (Mode::Search, "parse_it"));
+        assert_eq!((a.mode, &*a.prompt), (Mode::Search, "parse_it"));
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
         a.paste("app.rs");
-        assert_eq!(a.picker.as_ref().unwrap().query, "app.rs");
+        assert_eq!(&*a.picker.as_ref().unwrap().query, "app.rs");
     }
 
     #[test]

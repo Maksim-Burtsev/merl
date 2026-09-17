@@ -153,6 +153,10 @@ clipboard" is on; Terminal.app cannot). Paste is the terminal's own Cmd+V; outsi
 types into the `/`, `s` and `:` prompts and picker queries, and navigation ignores it. Ctrl+C is
 quit again once you press Esc.
 
+The `/`, `s` and `:` prompts and picker queries are one-line editors with the same keys: arrows,
+Alt+arrows by word, Home and End, Delete, Shift, Alt+Shift or Ctrl+Shift with an arrow to select, plus
+the shell's Ctrl+A, Ctrl+E, Ctrl+W and Ctrl+U. Results follow every edit.
+
 In a git repository the gutter shows what differs from the index, as VS Code's does: green for
 added lines, blue for changed ones, red under a line where lines were deleted. The marks come
 from `git diff` after every save and reload, so they trail an edit by the autosave delay.

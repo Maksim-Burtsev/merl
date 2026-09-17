@@ -3,6 +3,7 @@
 mod app;
 mod buffer;
 mod git;
+mod line_edit;
 mod picker;
 mod search;
 mod theme;

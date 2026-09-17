@@ -6,9 +6,10 @@ use std::sync::Arc;
 
 use nucleo::pattern::{CaseMatching, Normalization};
 use nucleo::{Config, Matcher, Nucleo};
-use ratatui::crossterm::event::KeyCode;
+use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::buffer::Buffer;
+use crate::line_edit::LineEdit;
 
 /// One pickable target. `line` 0 means "no specific line", i.e. keep the file's start.
 #[derive(Clone, Debug)]
@@ -37,7 +38,7 @@ pub enum Pick {
 pub struct Picker {
     nucleo: Nucleo<PickItem>,
     matcher: Matcher,
-    pub query: String,
+    pub query: LineEdit,
     pub selected: usize,
     pub title: String,
     /// List height of the last drawn frame, so PgUp/PgDn know how far a page is.
@@ -70,7 +71,7 @@ impl Picker {
         Self {
             nucleo,
             matcher: Matcher::new(Config::DEFAULT),
-            query: String::new(),
+            query: LineEdit::default(),
             selected: 0,
             title: title.into(),
             page: 10,
@@ -152,25 +153,30 @@ impl Picker {
         }
     }
 
-    fn set_query(&mut self, query: String) {
+    /// Hands the edited query to nucleo; `old` is what it was before the key.
+    fn requery(&mut self, old: &str) {
         // nucleo can refine the previous result set instead of rescoring everything, but only
         // when the new pattern extends the old one.
-        let append = query.starts_with(&self.query);
-        self.nucleo
-            .pattern
-            .reparse(0, &query, CaseMatching::Smart, Normalization::Smart, append);
-        self.query = query;
+        let append = self.query.starts_with(old);
+        self.nucleo.pattern.reparse(
+            0,
+            &self.query,
+            CaseMatching::Smart,
+            Normalization::Smart,
+            append,
+        );
         self.selected = 0;
     }
 
-    pub fn key(&mut self, code: KeyCode, ctrl: bool) -> Pick {
+    pub fn key(&mut self, key: KeyEvent) -> Pick {
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let matched = self.counts().0 as usize;
         let move_by = |sel: &mut usize, delta: isize| {
             *sel = sel
                 .saturating_add_signed(delta)
                 .min(matched.saturating_sub(1));
         };
-        match code {
+        match key.code {
             KeyCode::Esc => return Pick::Cancel,
             KeyCode::Enter => return self.accept(),
             KeyCode::Up => move_by(&mut self.selected, -1),
@@ -179,16 +185,12 @@ impl Picker {
             KeyCode::Char('n') if ctrl => move_by(&mut self.selected, 1),
             KeyCode::PageUp => move_by(&mut self.selected, -(self.page as isize)),
             KeyCode::PageDown => move_by(&mut self.selected, self.page as isize),
-            KeyCode::Backspace => {
-                let mut q = self.query.clone();
-                q.pop();
-                self.set_query(q);
+            _ => {
+                let old = self.query.to_string();
+                if self.query.key(key) {
+                    self.requery(&old);
+                }
             }
-            KeyCode::Char(c) if !ctrl => {
-                let q = format!("{}{c}", self.query);
-                self.set_query(q);
-            }
-            _ => {}
         }
         Pick::Stay
     }
@@ -218,7 +220,7 @@ mod tests {
         let mut p = picker(&["src/wrap.rs", "src/app.rs", "README.md"]);
         assert_eq!(p.counts(), (3, 3));
         for c in "wra".chars() {
-            p.key(KeyCode::Char(c), false);
+            p.key(KeyCode::Char(c).into());
         }
         p.settle();
         assert_eq!(p.counts().0, 1);
@@ -227,9 +229,9 @@ mod tests {
         assert_eq!(rows[0].item.label, "src/wrap.rs");
         assert_eq!(rows[0].matched, [4, 5, 6]);
         // Backspacing widens the result set again.
-        p.key(KeyCode::Backspace, false);
-        p.key(KeyCode::Backspace, false);
-        p.key(KeyCode::Backspace, false);
+        p.key(KeyCode::Backspace.into());
+        p.key(KeyCode::Backspace.into());
+        p.key(KeyCode::Backspace.into());
         p.settle();
         assert_eq!(p.counts().0, 3);
     }
@@ -239,7 +241,7 @@ mod tests {
     #[test]
     fn tick_reports_a_changed_result_set() {
         let mut p = picker(&["src/wrap.rs", "src/app.rs"]);
-        p.key(KeyCode::Char('w'), false);
+        p.key(KeyCode::Char('w').into());
         let changed = (0..100).any(|_| p.tick());
         assert!(changed);
         assert_eq!(p.counts().0, 1);
@@ -248,17 +250,17 @@ mod tests {
     #[test]
     fn movement_clamps_and_enter_accepts() {
         let mut p = picker(&["a.rs", "b.rs"]);
-        p.key(KeyCode::Up, false);
+        p.key(KeyCode::Up.into());
         assert_eq!(p.selected, 0);
         for _ in 0..5 {
-            p.key(KeyCode::Down, false);
+            p.key(KeyCode::Down.into());
         }
         assert_eq!(p.selected, 1);
-        match p.key(KeyCode::Enter, false) {
+        match p.key(KeyCode::Enter.into()) {
             Pick::Accept(it) => assert_eq!(it.label, "b.rs"),
             _ => panic!("enter must accept"),
         }
-        assert!(matches!(p.key(KeyCode::Esc, false), Pick::Cancel));
+        assert!(matches!(p.key(KeyCode::Esc.into()), Pick::Cancel));
     }
 
     #[test]
