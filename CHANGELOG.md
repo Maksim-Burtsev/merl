@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` on a member of a chain that hangs off a call, an index or `?.`, such as
   `make_uow().users.delete_user`, no longer reads a local `users` as the receiver and jumps into
   that variable's type: the word is a member of a value whose type is not known. (#85)
+- A Python import no longer counts as a declaration of the modules on its path: with
+  `from .guild import Guild` in the file, a parameter `guild` handed on to `self.guild` keeps its
+  type, and `d` on `self.guild.x` reads it instead of falling back to the search by name. (#85)
 - Eight themes had the selection colour within a few points of the cursor line highlight, so a
   selection inside the cursor line was nearly invisible: rose-pine-moon, rose-pine-dawn, nordfox,
   nightfox, gruvbox-material-light and material-light move the selection a step along their own

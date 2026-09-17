@@ -1488,8 +1488,10 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let annotated = rule(format!(r"^{n}\s*:\s*([^=]+?)\s*(?:=.*)?$"));
     let assigned = rule(format!(r"^{n}\s*=\s*([^=].*)$"));
+    // An import binds the names it imports, not the modules on their path: `from .guild import
+    // Guild` leaves a parameter `guild` alone.
     let unknown = rule(format!(
-        r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+{n}\b|\b{n}\s*:=|^(?:global|nonlocal|import|from)\s.*\b{n}\b"
+        r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+{n}\b|\b{n}\s*:=|^(?:global|nonlocal)\s.*\b{n}\b|^from\s+\S+\s+import\s.*\b{n}\b|^import\s(?:.*[\s,])?{n}\b"
     ));
     let inline = rule(format!(
         r"\bfor\s+[^=]*?\b{n}\b[^=]*?\s+in\b|\blambda\b[^:]*\b{n}\b"
@@ -3069,6 +3071,8 @@ class Service:
         with open() as fh:
             fh.read()
         log(a, level=1)
+
+import os.path, store.sessions as sessions
 "#;
         let at = |line, name| bound_at(Kind::Python, text, line, name);
         // A parameter over a multi-line signature, and the module's `repo` above.
@@ -3100,6 +3104,12 @@ class Service:
         assert_eq!(at(29, "a"), [(27, Value::Unknown)]);
         assert_eq!(at(29, "fh"), [(28, Value::Unknown)]);
         assert_eq!(at(30, "level"), []);
+        // An import binds the names it imports, not the modules on their path.
+        assert_eq!(at(14, "UserRepository"), [(1, Value::Unknown)]);
+        assert_eq!(at(14, "repos"), []);
+        assert_eq!(at(14, "os"), [(32, Value::Unknown)]);
+        assert_eq!(at(14, "path"), []);
+        assert_eq!(at(14, "sessions"), [(32, Value::Unknown)]);
     }
 
     /// Comments and strings hold brackets, quotes and commas that are no code: fastapi writes a
