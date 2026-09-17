@@ -1359,7 +1359,59 @@ impl App {
             return;
         };
         let text = self.buf.lines.join("\n");
-        let imports = search::imports(kind, &text);
+        let mut imports = search::imports(kind, &text);
+        // A parameter or a local of the same name hides the import where the cursor is: `json`
+        // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
+        let first = chain.first().map_or(word.as_str(), String::as_str);
+        let locals: Vec<usize> = search::bindings(kind, &text, self.line + 1, first)
+            .iter()
+            .map(|b| b.line)
+            .filter(|&n| {
+                // An import is what the name hides, and a class, a function or a namespace of
+                // that name is no value: `Outer.Inner` reads a declaration, not a member.
+                let t = self.buf.lines[n - 1].trim_start();
+                let t = t.strip_prefix("export ").unwrap_or(t);
+                let t = t.strip_prefix("abstract ").unwrap_or(t);
+                let declares = [
+                    "class ",
+                    "def ",
+                    "async def ",
+                    "function ",
+                    "func ",
+                    "type ",
+                    "interface ",
+                    "namespace ",
+                    "enum ",
+                ]
+                .iter()
+                .filter_map(|k| t.strip_prefix(k))
+                .any(|rest| {
+                    rest.strip_prefix(first)
+                        .is_some_and(|after| !after.starts_with(is_word))
+                });
+                !declares && !t.starts_with("import ") && !t.starts_with("from ")
+            })
+            .collect();
+        if !locals.is_empty() {
+            imports.retain(|(name, _)| name != first);
+        }
+        // The word itself is that parameter or local: its declarations in this scope are the
+        // answer, and a function of the same name elsewhere is not.
+        if !dotted && !locals.is_empty() && locals != [self.line + 1] {
+            let found = locals
+                .iter()
+                .map(|&line| Candidate {
+                    hit: Hit {
+                        path: here.clone(),
+                        line,
+                        text: self.buf.lines[line - 1].clone(),
+                    },
+                    reason: Reason::Local,
+                })
+                .collect();
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
         let on_value = dotted && !own && chain.first().is_none_or(|f| bound(&imports, f).is_none());
         let members = on_value
@@ -1424,10 +1476,12 @@ impl App {
         }
         // A member in the project first. A qualifier no import names can still be a class, a
         // namespace or a module of the project, which declares the word at its top level.
+        // A parameter or a local in front of the word is a value for certain: it has members,
+        // and a function or a variable at the top of a module is not one of them.
         let hits = members
             .as_ref()
             .map(|m| self.project_definitions(kind, &here, &word, m))
-            .filter(|hits| !hits.is_empty())
+            .filter(|hits| !hits.is_empty() || !locals.is_empty())
             .unwrap_or_else(|| self.project_definitions(kind, &here, &word, &pattern));
         found = hits
             .into_iter()
@@ -2161,11 +2215,23 @@ impl App {
         let Some(module) = module else {
             return by_name(self.external_grep(kind, &all, pattern));
         };
-        let hits = self.external_grep(kind, &files, pattern);
+        // `from lib import pick` names something at the top of a module: a method called `pick`
+        // is not it, however alone it stands (the real one may be native code).
+        let top_level = imported && !dotted && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go);
+        let at_top = |this: &Self, mut hits: Vec<Hit>| {
+            if top_level {
+                hits.retain(|h| {
+                    this.text_of(&h.path)
+                        .is_some_and(|t| search::qualified(kind, &t, h.line, word).is_none())
+                });
+            }
+            hits
+        };
+        let hits = at_top(self, self.external_grep(kind, &files, pattern));
         // An imported module that does not declare the name re-exports it (`std::sync::Arc`
         // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.
         if hits.is_empty() && imported {
-            return by_name(self.external_grep(kind, &all, pattern));
+            return by_name(at_top(self, self.external_grep(kind, &all, pattern)));
         }
         let sep = match kind {
             Kind::Python => ".",
@@ -5061,6 +5127,66 @@ mod tests {
     fn use_roots(a: &mut App, kind: Kind, roots: &[PathBuf]) {
         let files = search::external_files(kind, roots);
         a.external.insert(kind, (roots.to_vec(), Arc::new(files)));
+    }
+
+    /// Found by the acceptance pass of #68: three ways `d` claimed more than it knew.
+    #[test]
+    fn a_local_name_is_not_an_import_and_a_member_is_not_a_module_level_name() {
+        let (dir, mut a) = project_app(
+            "acceptance",
+            &[
+                ("pkg/__init__.py", ""),
+                ("pkg/b.py", "def helper():\n    pass\n"),
+                // A parameter called like an imported module, a local called like an import.
+                (
+                    "shadow.py",
+                    "import json\nfrom pkg.b import helper\n\n\ndef handler(json):\n    return json.loads(1)\n\n\ndef f():\n    helper = 3\n    return helper\n",
+                ),
+                // Module-level names are no members of a value.
+                (
+                    "member.py",
+                    "zqwidget = 5\n\n\ndef zqmake(x):\n    return x\n\n\ndef g(client):\n    client.zqwidget\n    return client.zqmake(1)\n",
+                ),
+                // The package's own `pick` is native; a method of that name is not it.
+                (
+                    "outside.py",
+                    "from fakelib import pick\nfrom fakelib.core import make\n\n\ndef run():\n    make()\n    return pick(1)\n",
+                ),
+            ],
+        );
+        let root = external_root(
+            "acceptance",
+            &[
+                ("json/__init__.py", "def loads(s):\n    pass\n"),
+                ("fakelib/__init__.py", "from fakelib._native import pick\n"),
+                (
+                    "fakelib/core.py",
+                    "class Thing:\n    def pick(self, x):\n        return x\n\n\ndef make():\n    pass\n",
+                ),
+            ],
+        );
+        use_roots(&mut a, Kind::Python, std::slice::from_ref(&root));
+        d_on(&mut a, "shadow.py", "json.loads");
+        assert!(!a.message.contains("via import"), "{}", a.message);
+        d_on(&mut a, "shadow.py", "return helper");
+        assert!(!a.message.contains("via import"), "{}", a.message);
+        assert_eq!(a.rel_path(), "shadow.py");
+        for code in ["client.zqwidget", "client.zqmake"] {
+            d_on(&mut a, "member.py", code);
+            assert!(
+                a.message.starts_with("no definition for zq"),
+                "{}",
+                a.message
+            );
+        }
+        d_on(&mut a, "outside.py", "return pick");
+        assert_eq!(a.message, "no definition for pick");
+        assert_eq!(a.rel_path(), "outside.py");
+        // What the module does declare at its top is still found through the import.
+        d_on(&mut a, "outside.py", "    make");
+        assert_eq!(a.message, "make: via import fakelib.core");
+        std::fs::remove_dir_all(&dir).unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     /// A qualifier bound by a relative import, or a class of the project, is no value: `d`

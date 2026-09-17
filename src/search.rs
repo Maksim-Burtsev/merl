@@ -295,6 +295,8 @@ pub enum Reason {
     /// A type that implements the interface, protocol, abstract or base class the cursor stands
     /// in, and declares the same member: `implementations of Notifier.send`.
     Implementation(String),
+    /// A parameter or a variable of the scope the cursor is in.
+    Local,
 }
 
 impl Reason {
@@ -312,6 +314,7 @@ impl std::fmt::Display for Reason {
             Self::Import(module) => write!(f, "via import {module}"),
             Self::Path(module) | Self::Receiver(module) => write!(f, "via {module}"),
             Self::Implementation(member) => write!(f, "implementations of {member}"),
+            Self::Local => write!(f, "local"),
         }
     }
 }
