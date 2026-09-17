@@ -4,7 +4,7 @@ import argparse
 import sys
 
 from config import load_config
-from models import Note
+from models import Formatter, Note, PlainFormatter
 from store import NoteStore
 
 
@@ -17,10 +17,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def show(notes: list[Note]) -> None:
-    """Print one line per note."""
+def show(notes: list[Note], formatter: Formatter | None = None) -> None:
+    """Print one line per note, the way the formatter renders it."""
+    formatter = formatter or PlainFormatter()
     for note in notes:
-        print(note.summary())
+        print(formatter.render(note))
 
 
 def main(argv: list[str] | None = None) -> int:

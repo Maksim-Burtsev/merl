@@ -28,7 +28,10 @@ pub const KEYS: &[(&str, &str)] = &[
     ("/ / Ctrl+F", "Find in the open file"),
     ("n / N", "Next / previous match"),
     ("s", "Search the project"),
-    ("d / F12", "Go to definition of the word under the cursor"),
+    (
+        "d / F12",
+        "Go to definition of the word under the cursor, or its implementations",
+    ),
     ("D", "Project symbols (fuzzy)"),
     ("u / Shift+F12", "Usages of the word under the cursor"),
     ("[ / ]", "Back / forward in the jump history"),
@@ -1316,7 +1319,8 @@ impl App {
             self.message = format!("no definition for {word}");
             return;
         };
-        let imports = search::imports(kind, &self.buf.lines.join("\n"));
+        let text = self.buf.lines.join("\n");
+        let imports = search::imports(kind, &text);
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
         let on_value = dotted && !own && chain.first().is_none_or(|f| bound(&imports, f).is_none());
         let members = on_value
@@ -1329,6 +1333,15 @@ impl App {
             return;
         }
         let pattern = patterns.join("|");
+        // On the declaration of a member of an interface, a protocol, an abstract or a base
+        // class, `d` offers what implements it (#68, step 6).
+        if !dotted {
+            let found = self.implementations(kind, &here, &text, &word);
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
         // A receiver whose type is proven narrows the member to that type (#68, steps 2 to 4).
         let mut broke = None;
         if dotted
@@ -1445,6 +1458,18 @@ impl App {
                 // A refused jump (edits that cannot be saved) leaves its own reason, not a
                 // resolution nobody followed.
                 if self.buf.path.as_deref() == Some(path.as_path()) {
+                    // The cursor lands on the word rather than at the start of the line, so a
+                    // second `d` there asks the next question about the same name: what
+                    // implements the declaration it just landed on (#68, step 6).
+                    let text = self.line_str().to_owned();
+                    let whole = |(i, _): &(usize, &str)| {
+                        !text[..*i].ends_with(is_word)
+                            && !text[i + word.len()..].starts_with(is_word)
+                    };
+                    if let Some((i, _)) = text.match_indices(word).find(whole) {
+                        self.col = i;
+                        self.sync_want_x();
+                    }
                     self.message = status;
                 }
             }
@@ -1813,10 +1838,7 @@ impl App {
         };
         let owner = search::qualified(kind, &text, ty.line, &ty.name).unwrap_or(ty.name.clone());
         let want = Some(format!("{owner}.{word}"));
-        let mut patterns = search::member_patterns(kind, word).unwrap_or_default();
-        if kind == Kind::Go {
-            patterns.push(format!(r"^\s+{}\s*\(", regex::escape(word)));
-        }
+        let patterns = search::member_or_signature(kind, word).unwrap_or_default();
         let files = self.package_files(kind, &ty.path);
         self.grep(&patterns.join("|"), false, false, |p| {
             files.iter().any(|f| f == p)
@@ -1829,6 +1851,170 @@ impl App {
                 == want
         })
         .collect()
+    }
+
+    /// #68 step 6. What implements the member the cursor stands on: the same member in the types
+    /// that implement the interface, protocol, abstract or base class declaring it. Empty when
+    /// the cursor is not on such a declaration, and when nothing implements it, and `d` then goes
+    /// on as before.
+    ///
+    /// A Python class and a TypeScript class or interface implement another by naming it, so the
+    /// subtypes are walked down from the type ([`Self::subtype_impls`]). A Go type and a Python
+    /// `Protocol` implementer name nothing, so there the rule is structural: a member of the same
+    /// name taking the same number of parameters, which is what Go's implicit interfaces and a
+    /// protocol ask for. Only the project is searched: an interface is opened to find what this
+    /// project does with it.
+    fn implementations(&self, kind: Kind, here: &Path, text: &str, word: &str) -> Vec<Candidate> {
+        if !matches!(kind, Kind::Python | Kind::TsJs | Kind::Go) {
+            return Vec::new();
+        }
+        let line = self.line + 1;
+        let declares = search::member_or_signature(kind, word)
+            .and_then(|p| Regex::new(&p.join("|")).ok())
+            .is_some_and(|re| re.is_match(self.line_str()));
+        let Some(owner_line) = search::owner_decl(kind, text, line).filter(|_| declares) else {
+            return Vec::new();
+        };
+        // `Notifier.send`, what the status line and every picker row name the member by.
+        let Some(member) = search::qualified(kind, text, line, word) else {
+            return Vec::new();
+        };
+        let owner = Typed {
+            name: member.rsplit('.').nth(1).unwrap_or_default().to_owned(),
+            path: here.to_path_buf(),
+            line: owner_line,
+        };
+        let decl = text.lines().nth(owner_line - 1).unwrap_or_default();
+        let structural = match kind {
+            // A method beside its type is no interface method and has no implementations.
+            Kind::Go => decl.contains("interface"),
+            Kind::Python => is_protocol(text, owner_line),
+            _ => false,
+        };
+        if owner.name.is_empty() || (kind == Kind::Go && !structural) {
+            return Vec::new();
+        }
+        let hits = if structural {
+            self.structural_impls(kind, here, word, text, line, owner_line)
+        } else {
+            self.subtype_impls(kind, here, word, &owner)
+        };
+        hits.into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Implementation(member.clone()),
+            })
+            .collect()
+    }
+
+    /// The member `word` in the types that name `owner` as a base, and in the types that name
+    /// those: one grep of the project per level. A hit counts only when its own `extends`,
+    /// `implements` or Python bases name a type already found and its file can see that name —
+    /// it declares it, or an import binds it — so a same-named class in another package is no
+    /// subtype. A type that inherits the member without declaring it is no implementation.
+    fn subtype_impls(&self, kind: Kind, here: &Path, word: &str, owner: &Typed) -> Vec<Hit> {
+        let mut names = vec![owner.name.clone()];
+        let mut seen = vec![(owner.path.clone(), owner.line)];
+        let mut out = Vec::new();
+        // ponytail: four levels of subtypes, one grep each. Deeper hierarchies want an index.
+        for _ in 0..4 {
+            let Some(pattern) = search::subtype_patterns(kind, &names) else {
+                break;
+            };
+            let hits = self
+                .grep(&pattern, false, false, |p| {
+                    search::in_def_scope(kind, here, p)
+                })
+                .unwrap_or_default();
+            let mut next = Vec::new();
+            for hit in hits {
+                let Some(text) = self.text_of(&hit.path) else {
+                    continue;
+                };
+                // The clause the grep matched may be one line of a header wrapped over
+                // several, and the type is declared on the first of them.
+                let Some(decl) = search::type_decl_at(kind, &text, hit.line) else {
+                    continue;
+                };
+                let name = text
+                    .lines()
+                    .nth(decl - 1)
+                    .and_then(|l| search::type_name(kind, l));
+                let Some(name) = name else {
+                    continue;
+                };
+                if seen.contains(&(hit.path.clone(), decl)) {
+                    continue;
+                }
+                let sees = |first: &str| {
+                    text.lines()
+                        .any(|l| search::type_name(kind, l).as_deref() == Some(first))
+                        || bound(&search::imports(kind, &text), first).is_some()
+                };
+                let derives = search::bases(kind, &text, hit.line)
+                    .into_iter()
+                    .chain(search::interfaces(kind, &text, hit.line))
+                    .filter_map(|b| search::type_path(kind, &b))
+                    .any(|p| p.last().is_some_and(|n| names.contains(n)) && sees(&p[0]));
+                if !derives {
+                    continue;
+                }
+                seen.push((hit.path.clone(), decl));
+                next.push(name);
+                if let Some(at) = search::member_decl(kind, &text, decl, word) {
+                    out.push(Hit {
+                        text: text.lines().nth(at - 1).unwrap_or_default().to_owned(),
+                        path: hit.path,
+                        line: at,
+                    });
+                }
+            }
+            if next.is_empty() || out.len() >= search::MAX_HITS {
+                break;
+            }
+            names = next;
+        }
+        out
+    }
+
+    /// Every member of `word` the project declares with as many parameters as the one on `line`,
+    /// outside the type declaring it: what implements a Go interface or a Python protocol, since
+    /// an implementer of either names nothing. A Python protocol is answered by classes, so
+    /// another protocol declaring the same member is not one of them.
+    fn structural_impls(
+        &self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        text: &str,
+        line: usize,
+        owner_line: usize,
+    ) -> Vec<Hit> {
+        let want = search::params(kind, text, line);
+        // A Go interface's own method lines carry no receiver: only the methods answer.
+        let patterns = match kind {
+            Kind::Go => search::member_patterns(kind, word),
+            _ => search::member_or_signature(kind, word),
+        };
+        let (Some(want), Some(patterns)) = (want, patterns) else {
+            return Vec::new();
+        };
+        self.project_definitions(kind, here, word, &patterns.join("|"))
+            .into_iter()
+            .filter(|h| h.line != line || h.path != here)
+            .filter(|h| {
+                let Some(text) = self.text_of(&h.path) else {
+                    return false;
+                };
+                if search::params(kind, &text, h.line) != Some(want) {
+                    return false;
+                }
+                kind != Kind::Python
+                    || search::owner_decl(kind, &text, h.line)
+                        .filter(|&d| d != owner_line || h.path != here)
+                        .is_some_and(|d| !is_protocol(&text, d))
+            })
+            .collect()
     }
 
     /// `find` in `ty`, then in the types it extends or embeds, nearest first: the first answer.
@@ -2638,6 +2824,15 @@ struct Typed {
     name: String,
     path: PathBuf,
     line: usize,
+}
+
+/// Whether the Python class declared on 1-based `decl` of `text` is a `typing.Protocol`, which
+/// anything with its members implements without naming it.
+fn is_protocol(text: &str, decl: usize) -> bool {
+    search::bases(Kind::Python, text, decl)
+        .iter()
+        .filter_map(|b| search::type_path(Kind::Python, b))
+        .any(|p| p.last().is_some_and(|n| n == "Protocol"))
 }
 
 /// The module path an import in `imports` binds `name` to.
@@ -4115,6 +4310,179 @@ mod tests {
             d_on(&mut a, file, code);
             assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
         }
+    }
+
+    /// Step 6 of #68 over the same project in three languages: on the declaration of a member of
+    /// an interface, a protocol, an abstract or a base class, `d` offers what implements it,
+    /// labelled with the member it comes from. A type that inherits the member without declaring
+    /// it, a member of another number of parameters and a declaration nothing implements are left
+    /// out, and the last of those falls back to the search by name.
+    #[test]
+    fn implementations_are_offered_on_the_declaration_they_implement() {
+        let impls = |status: &str, member: &str, rows: &[(&str, &str)]| {
+            let why = format!("implementations of {member}");
+            let rows = rows
+                .iter()
+                .map(|(name, place)| (name.to_string(), why.clone(), place.to_string()))
+                .collect();
+            Shown::Picker(status.into(), rows)
+        };
+        let cases: [(&str, &str, &str, Shown); 9] = [
+            // A base class: the subclasses that override it, `NightlyJob` two levels down.
+            // `QuietJob` inherits `run` without declaring it and is no implementation.
+            (
+                "python",
+                "impls.py",
+                "def run",
+                impls(
+                    "run: implementations of BaseJob.run, 3 declarations",
+                    "BaseJob.run",
+                    &[
+                        ("ImportJob.run", "impls.py:10"),
+                        ("ExportJob.run", "impls.py:15"),
+                        ("NightlyJob.run", "impls.py:24"),
+                    ],
+                ),
+            ),
+            // A protocol is structural: `WebhookNotifier` names nothing and implements it,
+            // `Batch.send` takes another parameter and does not.
+            (
+                "python",
+                "repos.py",
+                "def send",
+                impls(
+                    "send: implementations of Notifier.send, 4 declarations",
+                    "Notifier.send",
+                    &[
+                        ("EmailNotifier.send", "repos.py:22"),
+                        ("SmsNotifier.send", "repos.py:27"),
+                        ("LoudNotifier.send", "impls.py:29"),
+                        ("WebhookNotifier.send", "impls.py:34"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "impls.ts",
+                "^  run",
+                impls(
+                    "run: implementations of BaseJob.run, 4 declarations",
+                    "BaseJob.run",
+                    &[
+                        ("ImportJob.run", "impls.ts:8"),
+                        ("ExportJob.run", "impls.ts:12"),
+                        // A header prettier wrapped over three lines is read all the same.
+                        ("WrappedJob.run", "impls.ts:39"),
+                        ("NightlyJob.run", "impls.ts:18"),
+                    ],
+                ),
+            ),
+            // `implements` in the same file and behind an import.
+            (
+                "typescript",
+                "repos.ts",
+                "^  send",
+                impls(
+                    "send: implementations of Notifier.send, 4 declarations",
+                    "Notifier.send",
+                    &[
+                        ("EmailNotifier.send", "repos.ts:26"),
+                        ("SmsNotifier.send", "repos.ts:32"),
+                        ("LoudNotifier.send", "impls.ts:22"),
+                        ("WrappedJob.send", "impls.ts:41"),
+                    ],
+                ),
+            ),
+            // Go's interfaces are implicit: the method name and the number of parameters are all
+            // there is to go on, and `Batch.Run` takes one more.
+            (
+                "go",
+                "impls.go",
+                "Run",
+                impls(
+                    "Run: implementations of Job.Run, 2 declarations",
+                    "Job.Run",
+                    &[
+                        ("ImportJob.Run", "impls.go:11"),
+                        ("ExportJob.Run", "impls.go:17"),
+                    ],
+                ),
+            ),
+            (
+                "go",
+                "repos.go",
+                "Send",
+                impls(
+                    "Send: implementations of Notifier.Send, 3 declarations",
+                    "Notifier.Send",
+                    &[
+                        ("EmailNotifier.Send", "repos.go:31"),
+                        ("SmsNotifier.Send", "repos.go:37"),
+                        ("LoudNotifier.Send", "impls.go:29"),
+                    ],
+                ),
+            ),
+            // One implementation is an answer, not a one-row picker, and the status line says
+            // where it came from.
+            (
+                "typescript",
+                "impls.ts",
+                "^  sweep",
+                jump(
+                    "sweep \u{2192} NightlySweeper.sweep (implementations of Sweeper.sweep)",
+                    "impls.ts:32",
+                ),
+            ),
+            // Nothing implements a Go method beside its type: the search by name answers.
+            (
+                "go",
+                "repos.go",
+                "func (e *EmailNotifier) Send",
+                picker(
+                    "Send: by name, 2 declarations",
+                    &[
+                        ("SmsNotifier.Send", "repos.go:37"),
+                        ("LoudNotifier.Send", "impls.go:29"),
+                    ],
+                ),
+            ),
+            // A member of a value still resolves through the type of the receiver, not through
+            // the implementations of the interface it lands on.
+            (
+                "python",
+                "service.py",
+                "self.notifier.send",
+                jump(
+                    "send \u{2192} Notifier.send (via self.notifier: Notifier)",
+                    "repos.py:18",
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// The two presses #68 step 6 is reached by: `d` on a call of an interface method lands on
+    /// the declaration with the cursor on its name, and a second `d` there lists what implements
+    /// it. A jump that left the cursor at the start of the line would answer nothing.
+    #[test]
+    fn a_second_d_on_the_declaration_a_jump_landed_on_lists_the_implementations() {
+        let mut a = fixture_app("python");
+        d_on(&mut a, "service.py", "self.notifier.send");
+        assert_eq!(
+            a.message,
+            "send \u{2192} Notifier.send (via self.notifier: Notifier)"
+        );
+        assert_eq!(format!("{}:{}", a.rel_path(), a.line + 1), "repos.py:18");
+        assert_eq!(&a.line_str()[a.col..a.col + 4], "send", "on the word");
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        assert_eq!(
+            a.message,
+            "send: implementations of Notifier.send, 4 declarations"
+        );
     }
 
     /// Step 5 of #68 over the same project in three languages: a word or a qualifier an import

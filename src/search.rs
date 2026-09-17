@@ -292,6 +292,9 @@ pub enum Reason {
     /// Inside the type the receiver is declared with, or the call it is assigned from returns:
     /// `self.repo: UserRepository`, `NewRepo() *Repo`.
     Receiver(String),
+    /// A type that implements the interface, protocol, abstract or base class the cursor stands
+    /// in, and declares the same member: `implementations of Notifier.send`.
+    Implementation(String),
 }
 
 impl Reason {
@@ -308,6 +311,7 @@ impl std::fmt::Display for Reason {
             Self::ByName => write!(f, "by name"),
             Self::Import(module) => write!(f, "via import {module}"),
             Self::Path(module) | Self::Receiver(module) => write!(f, "via {module}"),
+            Self::Implementation(member) => write!(f, "implementations of {member}"),
         }
     }
 }
@@ -433,6 +437,16 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
     }
 }
 
+/// [`member_patterns`] and, in Go, the method lines of an interface, which carry no receiver:
+/// every form in which a type declares a member called `word`.
+pub fn member_or_signature(kind: Kind, word: &str) -> Option<Vec<String>> {
+    let mut patterns = member_patterns(kind, word)?;
+    if kind == Kind::Go {
+        patterns.push(format!(r"^\s+{}\s*\(", regex::escape(word)));
+    }
+    Some(patterns)
+}
+
 /// Line patterns that declare `word` as a member of a class, an interface, an object literal or
 /// a receiver type: what `x.word` can reach when `x` is a value. A local, a module-level name or a
 /// type is not a member, so those rules are left out. `None` for a kind whose members have no
@@ -518,7 +532,10 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             break;
         }
         let t = l.trim_start();
+        // A lone `{` opens the body of a declaration wrapped over the lines above it, as
+        // prettier writes a long TypeScript class header; it names nothing itself.
         if t.is_empty()
+            || t == "{"
             || indent(l) >= depth
             || ["#", "//", "/*", "*"].iter().any(|c| t.starts_with(c))
         {
@@ -1932,7 +1949,9 @@ fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
     let end = (start..lines.len())
         .find(|&i| {
             let t = lines[i].trim();
-            !t.is_empty() && !comment(kind, t) && indent(lines[i]) <= base
+            // A lone `{` at the declaration's own indentation opens its body, as prettier
+            // writes a wrapped class header; it does not end it.
+            !t.is_empty() && t != "{" && !comment(kind, t) && indent(lines[i]) <= base
         })
         .unwrap_or(lines.len());
     start..end.max(start)
@@ -2121,6 +2140,17 @@ pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
     }
 }
 
+/// The written types a class header lists between its commas: `Base, Generic[T]`. A default
+/// (`T = int`) is a type parameter, not a base.
+fn type_list(kind: Kind, s: &str) -> Vec<String> {
+    split_top(kind, s, b',')
+        .into_iter()
+        .map(str::trim)
+        .filter(|b| !b.is_empty() && !b.contains('='))
+        .map(str::to_owned)
+        .collect()
+}
+
 /// The types the class, interface or struct declared on 1-based `decl` of `text` extends or
 /// embeds, as written: Python's bases, TypeScript's `extends`, Go's embedded fields.
 pub fn bases(kind: Kind, text: &str, decl: usize) -> Vec<String> {
@@ -2131,14 +2161,7 @@ pub fn bases(kind: Kind, text: &str, decl: usize) -> Vec<String> {
     let Some(k) = decl.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
     };
-    let list = |s: &str| -> Vec<String> {
-        split_top(kind, s, b',')
-            .into_iter()
-            .map(str::trim)
-            .filter(|b| !b.is_empty() && !b.contains('='))
-            .map(str::to_owned)
-            .collect()
-    };
+    let list = |s: &str| type_list(kind, s);
     match kind {
         Kind::Python => lines[k]
             .trim_start()
@@ -2166,6 +2189,120 @@ pub fn bases(kind: Kind, text: &str, decl: usize) -> Vec<String> {
         }
         _ => Vec::new(),
     }
+}
+
+/// The interfaces the TypeScript class or interface declared on 1-based `decl` of `text` says it
+/// implements. [`bases`] reads `extends` alone, since that is where a member is inherited from;
+/// an `implements` list declares no member and is read only to find the implementations of one
+/// (#68 step 6). A Python class lists everything it derives from in [`bases`], and a Go type
+/// names no interface at all.
+pub fn interfaces(kind: Kind, text: &str, decl: usize) -> Vec<String> {
+    static TS_IMPLEMENTS: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\bimplements\s+(.+?)\s*(?:\{|$)").unwrap());
+    if kind != Kind::TsJs {
+        return Vec::new();
+    }
+    decl.checked_sub(1)
+        .and_then(|k| text.lines().nth(k))
+        .and_then(|l| TS_IMPLEMENTS.captures(l))
+        .map_or_else(Vec::new, |c| type_list(kind, &c[1]))
+}
+
+/// The 1-based line of the type declaration the member on 1-based `line` of `text` is written
+/// inside: the nearest line above indented less, when it [`declares_type`]. `None` for a Go
+/// method, which stands beside its type at the top level, and for a function nested in another
+/// one, whose nearest enclosing line declares no type.
+pub fn owner_decl(kind: Kind, text: &str, line: usize) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let depth = indent(lines.get(line.checked_sub(1)?)?);
+    let (i, above) = lines[..line - 1].iter().enumerate().rev().find(|(_, l)| {
+        let t = l.trim_start();
+        !t.is_empty() && t.trim_end() != "{" && !comment(kind, t) && indent(l) < depth
+    })?;
+    declares_type(kind, above).then_some(i + 1)
+}
+
+/// The name a line declaring a type gives it: `Foo` for `class Foo(Base):`,
+/// `export abstract class Foo<T> extends Bar {`, `interface Foo {` and `type Foo struct {`.
+pub fn type_name(kind: Kind, line: &str) -> Option<String> {
+    static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:class|interface|type|enum)\s+([A-Za-z_$][\w$]*)").unwrap()
+    });
+    declares_type(kind, line)
+        .then(|| NAME.captures(line))
+        .flatten()
+        .map(|c| c[1].to_owned())
+}
+
+/// A grep for the line that names one of `names` as a base: `class X(Base)` in Python,
+/// `class X extends Base`, `class X implements Base` and `interface I extends Base` in
+/// TypeScript, where the clause may also stand on a line of its own under a wrapped header —
+/// [`type_decl_at`] walks up to the declaration it belongs to. A Python header wrapped over
+/// several lines keeps its bases off the `class` line and is missed. `None` for Go, whose types
+/// implement an interface by carrying its methods and never name it.
+pub fn subtype_patterns(kind: Kind, names: &[String]) -> Option<String> {
+    let any: Vec<String> = names.iter().map(|n| regex::escape(n)).collect();
+    let any = any.join("|");
+    match kind {
+        Kind::Python => Some(format!(r"^\s*class\s+\w+\s*\(.*\b({any})\b")),
+        // Not only the header line: prettier writes `extends Base` on a line of its own.
+        Kind::TsJs => Some(format!(r"\b(?:extends|implements)\s[^;]*\b({any})\b")),
+        _ => None,
+    }
+}
+
+/// The 1-based line the type declaration covering 1-based `line` of `text` starts on: `line`
+/// itself when it [`declares_type`], else the nearest line above it that does, when nothing but
+/// the rest of a header stands in between — `export class X` over `    extends Y` over `{`, as
+/// prettier wraps a long one. `None` when the lines above end a statement first.
+pub fn type_decl_at(kind: Kind, text: &str, line: usize) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let k = line.checked_sub(1).filter(|&k| k < lines.len())?;
+    // ponytail: eight lines of header, which covers the widest prettier writes.
+    for i in (k.saturating_sub(8)..=k).rev() {
+        if declares_type(kind, lines[i]) {
+            return Some(i + 1);
+        }
+        let t = lines[i].trim();
+        if t.is_empty() || t.ends_with([';', '}']) || comment(kind, t) {
+            return None;
+        }
+    }
+    None
+}
+
+/// The 1-based line on which the type declared on 1-based `decl` of `text` declares the member
+/// `word` itself: a method, or a signature with no body. `None` when it does not declare one, so
+/// a subclass that inherits the member is no implementation of it.
+pub fn member_decl(kind: Kind, text: &str, decl: usize, word: &str) -> Option<usize> {
+    let patterns = member_or_signature(kind, word)?;
+    let re = Regex::new(&patterns.join("|")).ok()?;
+    let lines: Vec<&str> = text.lines().collect();
+    let k = decl.checked_sub(1).filter(|&k| k < lines.len())?;
+    body_of(kind, &lines, k)
+        .find(|&i| re.is_match(lines[i]) && owner_decl(kind, text, i + 1) == Some(decl))
+        .map(|i| i + 1)
+}
+
+/// How many parameters the declaration on 1-based `line` of `text` writes: what stands between
+/// its brackets, cut at the commas outside brackets and strings, over the lines they span. Go's
+/// `a, b string` counts two, as an implementation of the same interface method writes two of its
+/// own, and a Go method's receiver is not a parameter.
+pub fn params(kind: Kind, text: &str, line: usize) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let k = line.checked_sub(1).filter(|&k| k < lines.len())?;
+    let mut opens = code(kind, lines[k])
+        .filter(|&(_, c)| c == b'(')
+        .map(|(i, _)| i);
+    let receiver = kind == Kind::Go && lines[k].trim_start().starts_with("func (");
+    let open = if receiver { opens.nth(1) } else { opens.next() }?;
+    let (inner, ..) = group(kind, &lines, k, open)?;
+    Some(
+        split_top(kind, &inner, b',')
+            .iter()
+            .filter(|p| !p.trim().is_empty())
+            .count(),
+    )
 }
 
 /// Whether `line` declares a type: a Python class, a TypeScript class, interface, type alias or
@@ -3397,6 +3534,183 @@ type Store interface {
         assert_eq!(fields(Kind::Go, text, 12, "Reader"), []);
         assert_eq!(bases(Kind::Go, text, 1), ["Engine", "sync.Mutex"]);
         assert_eq!(bases(Kind::Go, text, 12), ["Reader"]);
+    }
+
+    /// #68 step 6: the forms the implementations of a member are found through.
+    const PY_IMPLS: &str = "class Notifier(Protocol):
+    def send(self, text: str) -> None: ...
+
+
+class EmailNotifier(Notifier):
+    def send(
+        self,
+        text: str,
+    ) -> None:
+        def inner() -> None:
+            pass
+
+
+class Quiet(Notifier):
+    pass
+
+
+def send(text: str) -> None:
+    pass
+";
+
+    const TS_IMPLS: &str = "export interface Notifier {
+  send(text: string): void;
+}
+
+export abstract class Base<T> extends Other implements Notifier, Logger<T> {
+  send(text: string): void {
+    const inner = () => {};
+  }
+}
+
+export class Quiet extends Base {}
+
+export class Wrapped
+  extends Base
+  implements Notifier
+{
+  send(text: string): void {}
+}
+";
+
+    const GO_IMPLS: &str = "type Notifier interface {
+\tSend(text string)
+}
+
+func (e *EmailNotifier) Send(text string) {
+}
+
+func (b Batch) Send(text string, retries int) {
+}
+";
+
+    #[test]
+    fn owner_decl_names_the_type_a_member_is_written_in() {
+        let py = |line| owner_decl(Kind::Python, PY_IMPLS, line);
+        assert_eq!(py(2), Some(1), "a protocol's signature");
+        assert_eq!(py(6), Some(5), "a method");
+        assert_eq!(py(10), None, "a function nested in a method is no member");
+        assert_eq!(py(18), None, "a function at the top of the module");
+        let ts = |line| owner_decl(Kind::TsJs, TS_IMPLS, line);
+        assert_eq!(ts(2), Some(1), "an interface signature");
+        assert_eq!(ts(6), Some(5));
+        assert_eq!(ts(7), None);
+        assert_eq!(ts(17), Some(13), "past the brace of a wrapped header");
+        let go = |line| owner_decl(Kind::Go, GO_IMPLS, line);
+        assert_eq!(go(2), Some(1), "an interface's method line");
+        assert_eq!(go(5), None, "a method stands beside its type");
+    }
+
+    #[test]
+    fn interfaces_read_what_a_typescript_class_implements() {
+        assert_eq!(
+            interfaces(Kind::TsJs, TS_IMPLS, 5),
+            ["Notifier", "Logger<T>"]
+        );
+        assert_eq!(bases(Kind::TsJs, TS_IMPLS, 5), ["Other"], "extends alone");
+        assert_eq!(interfaces(Kind::TsJs, TS_IMPLS, 11), [] as [String; 0]);
+        // A wrapped header carries each clause on a line of its own.
+        assert_eq!(bases(Kind::TsJs, TS_IMPLS, 14), ["Base"]);
+        assert_eq!(interfaces(Kind::TsJs, TS_IMPLS, 15), ["Notifier"]);
+        assert_eq!(interfaces(Kind::Python, PY_IMPLS, 5), [] as [String; 0]);
+        assert_eq!(bases(Kind::Python, PY_IMPLS, 5), ["Notifier"]);
+    }
+
+    #[test]
+    fn subtype_patterns_match_a_header_that_names_a_base() {
+        let names = ["Notifier".to_owned(), "Base".to_owned()];
+        let re = |kind| Regex::new(&subtype_patterns(kind, &names).unwrap()).unwrap();
+        let py = re(Kind::Python);
+        assert!(py.is_match("class EmailNotifier(Notifier):"));
+        assert!(py.is_match("class X(Generic[T], Base):"));
+        assert!(!py.is_match("class Notifier(Protocol):"), "its own header");
+        assert!(!py.is_match("    notifier: Notifier"));
+        let ts = re(Kind::TsJs);
+        assert!(ts.is_match("export class EmailNotifier implements Notifier {"));
+        assert!(ts.is_match("export interface Admin extends Notifier {"));
+        assert!(ts.is_match("class X extends Base<T> implements Other {"));
+        assert!(ts.is_match("    extends Base"), "a wrapped header's clause");
+        assert!(!ts.is_match("export interface Notifier {"));
+        assert!(!ts.is_match("export class NotifierFactory {"));
+        assert_eq!(
+            subtype_patterns(Kind::Go, &names),
+            None,
+            "implicit interfaces"
+        );
+    }
+
+    #[test]
+    fn member_decl_finds_only_what_the_type_declares_itself() {
+        assert_eq!(member_decl(Kind::Python, PY_IMPLS, 1, "send"), Some(2));
+        assert_eq!(member_decl(Kind::Python, PY_IMPLS, 5, "send"), Some(6));
+        assert_eq!(member_decl(Kind::Python, PY_IMPLS, 5, "inner"), None);
+        assert_eq!(
+            member_decl(Kind::Python, PY_IMPLS, 14, "send"),
+            None,
+            "inherits it"
+        );
+        assert_eq!(member_decl(Kind::TsJs, TS_IMPLS, 1, "send"), Some(2));
+        assert_eq!(member_decl(Kind::TsJs, TS_IMPLS, 5, "send"), Some(6));
+        assert_eq!(member_decl(Kind::TsJs, TS_IMPLS, 11, "send"), None);
+        assert_eq!(member_decl(Kind::TsJs, TS_IMPLS, 13, "send"), Some(17));
+    }
+
+    #[test]
+    fn type_decl_at_walks_up_a_header_wrapped_over_several_lines() {
+        let at = |line| type_decl_at(Kind::TsJs, TS_IMPLS, line);
+        assert_eq!(at(13), Some(13), "the header itself");
+        assert_eq!(at(14), Some(13), "`extends Base` on its own line");
+        assert_eq!(at(15), Some(13), "`implements Notifier` on its own");
+        assert_eq!(at(16), Some(13), "the brace below them");
+        assert_eq!(at(8), None, "a line that ends a block declares nothing");
+        assert_eq!(
+            qualified(Kind::TsJs, TS_IMPLS, 17, "send"),
+            Some("Wrapped.send".into()),
+            "the member of a wrapped class is named by it"
+        );
+    }
+
+    #[test]
+    fn params_count_what_a_declaration_takes() {
+        assert_eq!(params(Kind::Python, PY_IMPLS, 2), Some(2));
+        assert_eq!(
+            params(Kind::Python, PY_IMPLS, 6),
+            Some(2),
+            "over three lines"
+        );
+        assert_eq!(params(Kind::Python, PY_IMPLS, 18), Some(1));
+        assert_eq!(params(Kind::TsJs, TS_IMPLS, 2), Some(1));
+        assert_eq!(
+            params(Kind::Go, GO_IMPLS, 2),
+            Some(1),
+            "an interface's line"
+        );
+        assert_eq!(params(Kind::Go, GO_IMPLS, 5), Some(1), "past the receiver");
+        assert_eq!(params(Kind::Go, GO_IMPLS, 8), Some(2));
+        assert_eq!(params(Kind::Python, PY_IMPLS, 1), Some(1), "a class header");
+    }
+
+    #[test]
+    fn type_name_reads_the_name_a_declaration_gives() {
+        let name = |kind, line| type_name(kind, line);
+        assert_eq!(name(Kind::Python, "class Foo(Base):"), Some("Foo".into()));
+        assert_eq!(name(Kind::Python, "    def send(self):"), None);
+        assert_eq!(
+            name(Kind::TsJs, "export abstract class Foo<T> extends Bar {"),
+            Some("Foo".into())
+        );
+        assert_eq!(
+            name(Kind::TsJs, "export interface Foo {"),
+            Some("Foo".into())
+        );
+        assert_eq!(name(Kind::TsJs, "  send(text: string): void;"), None);
+        assert_eq!(name(Kind::Go, "type Foo struct{}"), Some("Foo".into()));
+        assert_eq!(name(Kind::Go, "func (f Foo) Send() {"), None);
     }
 
     #[test]

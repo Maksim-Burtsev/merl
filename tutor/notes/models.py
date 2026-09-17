@@ -1,7 +1,9 @@
 """The one thing this project stores: a note."""
 
+import json
 from dataclasses import dataclass, field
 from datetime import date
+from typing import Protocol
 
 
 @dataclass
@@ -38,3 +40,23 @@ class Note:
         text = self.text if len(self.text) <= width else self.text[: width - 1] + "…"
         tags = " ".join(f"#{tag}" for tag in self.tags)
         return f"{self.id:>4}  {text}  {tags}".rstrip()
+
+
+class Formatter(Protocol):
+    """How one note is turned into a line of output."""
+
+    def render(self, note: Note) -> str: ...
+
+
+class PlainFormatter:
+    """The default: the note's own one-line summary."""
+
+    def render(self, note: Note) -> str:
+        return note.summary()
+
+
+class JsonFormatter:
+    """One JSON object per line, for piping into jq."""
+
+    def render(self, note: Note) -> str:
+        return json.dumps(note.to_dict())

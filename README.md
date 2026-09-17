@@ -83,7 +83,7 @@ merl path/to/file.py:120
 | / / Ctrl+F | Find in the open file |
 | n / N | Next / previous match |
 | s | Search the project |
-| d / F12 | Go to definition of the word under the cursor |
+| d / F12 | Go to definition of the word under the cursor, or its implementations |
 | D | Project symbols (fuzzy) |
 | u / Shift+F12 | Usages of the word under the cursor |
 | [ / ] | Back / forward in the jump history |
@@ -215,7 +215,8 @@ same. `by name` means a declaration pattern matched the word and nothing narrowe
 declaration it is, so a jump by name also says it was the only match. Each picker row starts with
 what the declaration sits in and why it is listed —
 `UserRepository.delete_user  by name  repos.py:8: async def delete_user(…)` — so typing a class
-name filters the rows.
+name filters the rows. A jump leaves the cursor on the name it landed on, so `d` there asks the
+next question about it straight away.
 
 On `x.word`, `x.f.word` and longer chains in Python, TypeScript and Go, `d` first looks for the
 type of the receiver. `x` is `self` or `cls` in a method, `this` in a class, a Go method's
@@ -239,7 +240,7 @@ the same file, the same Go package or the project module an import names. `d` th
 member in that type, and in the classes it extends and the structs it embeds, and the status line
 names the link: `via self.repo: UserRepository`, `via NewRepo() *UserRepository`,
 `via makeAudit() returns new AuditLog()`. On an interface or a base class `d` lands on the
-declaration there, not on its implementations.
+declaration there; a second `d`, with the cursor on it, lists what implements it.
 
 A chain is followed the same way one field at a time, up to six names in front of the word: on
 `self.uow.users.delete_user` the type of `self.uow`, then the field `users` in that type, then
@@ -263,6 +264,20 @@ A project with no such method has the word at its top level instead — `x` was 
 namespace — and the usual declarations answer. One candidate jumps; several open the picker, the
 project's first. A bare `self.word` or `this.word` whose class cannot be read stays in the
 project.
+
+With the cursor on the declaration of a member — a `Protocol` method, an interface signature, a
+method of an abstract or a plain base class — `d` offers what implements it instead, labelled `send:
+implementations of Notifier.send, 3 declarations`. In Python and TypeScript that is the types that
+name it: the subclasses, the classes and interfaces that `extends` or `implements` it, and the
+subclasses of those, four levels down. A type counts only when its own header names one of them and
+its file can see that name — it declares it, or an import binds it — and only when it declares the
+member itself, so a class that inherits it is not listed. A Python `Protocol` and a Go interface
+name nothing, so there the rule is structural, the way both languages mean it: every member of that
+name taking the same number of parameters. Only the project is searched, since an interface is
+opened to find what this project does with it. A TypeScript header wrapped over several lines is
+read, as prettier writes `export class X` over `  extends Base` over `{`; a Python one, whose bases
+stand under the `class` line, is not. Nothing implements the declaration — a method beside its Go
+type, a class with no subclasses — and `d` goes on to the search by name below.
 
 | File | What `d` recognises | Searched |
 |---|---|---|
