@@ -1536,6 +1536,19 @@ impl App {
         // Standing on one of the definitions is not a reason to go nowhere. But what is left are
         // namesakes nothing ties to this one, so they are offered, never jumped to: a second `d`
         // after a proven jump would walk out of the type it has just proven (#68).
+        // A line inside a raw string, a docstring or a block comment declares nothing. Past a
+        // few hundred candidates the picker is a list to filter, and reading every file is not
+        // worth what it would drop.
+        if found.len() <= 500 {
+            let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
+            found.retain(|c| {
+                let lines = literal.entry(c.hit.path.clone()).or_insert_with(|| {
+                    self.text_of(&c.hit.path)
+                        .map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
+                });
+                !lines.get(c.hit.line - 1).copied().unwrap_or(false)
+            });
+        }
         let all = found.len();
         if all > 1 {
             found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
@@ -5187,6 +5200,43 @@ mod tests {
         assert_eq!(a.message, "make: via import fakelib.core");
         std::fs::remove_dir_all(&dir).unwrap();
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Found by the acceptance pass of #68: a line inside a raw string, a docstring or a block
+    /// comment declares nothing, however much it reads like a declaration.
+    #[test]
+    fn a_declaration_inside_a_literal_is_not_one() {
+        let (dir, mut a) = project_app(
+            "literals",
+            &[
+                ("go.mod", "module lit\n"),
+                (
+                    "misc.go",
+                    "package lit\n\ntype Target struct{}\n\nconst snippet = `\nfunc (t Target) InString() string { return \"\" }\n`\n\n/*\nfunc (t Target) InBlock() string { return \"\" }\n*/\n",
+                ),
+                (
+                    "use.go",
+                    "package lit\n\nfunc Use(t Target) {\n\t_ = t.InString()\n\t_ = t.InBlock()\n}\n",
+                ),
+                (
+                    "a.py",
+                    "SRC = \"\"\"\nclass Fake:\n    def ghost(self):\n        pass\n\"\"\"\n\n\nclass Real:\n    def ghost(self):\n        pass\n\n\ndef call(g):\n    return g.ghost()\n",
+                ),
+            ],
+        );
+        for kind in [Kind::Python, Kind::Go] {
+            a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
+        }
+        d_on(&mut a, "use.go", "t.InString");
+        assert_eq!(a.message, "no definition for InString");
+        d_on(&mut a, "use.go", "t.InBlock");
+        assert_eq!(a.message, "no definition for InBlock");
+        d_on(&mut a, "a.py", "g.ghost");
+        assert_eq!(
+            shown(&mut a),
+            jump("ghost \u{2192} Real.ghost (by name, 1 match)", "a.py:9")
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// A qualifier bound by a relative import, or a class of the project, is no value: `d`

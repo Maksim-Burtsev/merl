@@ -1314,6 +1314,52 @@ fn comment(kind: Kind, t: &str) -> bool {
     }
 }
 
+/// The 1-based lines of `text` that start inside a literal or a comment running over several
+/// lines: a Python triple-quoted string (a docstring with an example in it), a Go raw string, a
+/// TypeScript template, a `/* */` block. A line there that reads like a declaration declares
+/// nothing. Strings of one line end with their line, whatever they hold.
+pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
+    let python = kind == Kind::Python;
+    let b = text.as_bytes();
+    let mut out = vec![false];
+    // The multi-line literal the scan is in, by its closing bytes; a one-line quote.
+    let (mut block, mut quote, mut i): (Option<&[u8]>, Option<u8>, usize) = (None, None, 0);
+    while i < b.len() {
+        let c = b[i];
+        if c == b'\n' {
+            quote = None;
+            out.push(block.is_some());
+        } else if let Some(end) = block {
+            if b[i..].starts_with(end) && (end.len() > 1 || b[i - 1] != b'\\') {
+                block = None;
+                i += end.len() - 1;
+            }
+        } else if let Some(q) = quote {
+            if c == b'\\' {
+                i += 1;
+            } else if c == q {
+                quote = None;
+            }
+        } else if python && (b[i..].starts_with(b"\"\"\"") || b[i..].starts_with(b"'''")) {
+            block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" });
+            i += 2;
+        } else if !python && c == b'`' {
+            block = Some(b"`");
+        } else if !python && b[i..].starts_with(b"/*") {
+            block = Some(b"*/");
+            i += 1;
+        } else if c == b'"' || c == b'\'' {
+            quote = Some(c);
+        } else if (python && c == b'#') || (!python && b[i..].starts_with(b"//")) {
+            while i + 1 < b.len() && b[i + 1] != b'\n' {
+                i += 1;
+            }
+        }
+        i += 1;
+    }
+    out
+}
+
 /// The bytes of `s` a scan for brackets and separators reads, with their indexes. String literals
 /// are skipped; a comment (`#` in Python, `//` elsewhere) yields its first byte as `0` and is
 /// skipped to the end of its line.
@@ -2576,6 +2622,20 @@ mod tests {
         // Type parameters may nest.
         assert_eq!(m("pong"), [38]);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn lines_inside_a_literal_or_a_block_comment_are_told() {
+        let inside = |kind, text: &str| -> Vec<usize> {
+            let lines = literal_lines(kind, text);
+            (1..=lines.len()).filter(|&n| lines[n - 1]).collect()
+        };
+        let py = "SRC = \"\"\"\ndef ghost(x):\n    pass\n\"\"\"\n\n\ndef real(a=\"# no\", b='\"\"\"'):  # it's fine\n    \"\"\"Doc.\n\n    def example():\n    \"\"\"\n    return 1\n";
+        assert_eq!(inside(Kind::Python, py), [2, 3, 4, 9, 10, 11]);
+        let go = "const s = `\nfunc (t T) InString() {}\n`\n\n/*\nfunc (t T) InBlock() {}\n*/\nfunc (t T) Real() { _ = \"/*\" } // it's `fine\nfunc (t T) Next() {}\n";
+        assert_eq!(inside(Kind::Go, go), [2, 3, 6, 7]);
+        let ts = "const q = `\n  find(id: string): User;\n  ${x}`;\nclass A {\n  find(id: string): User {}\n}\n";
+        assert_eq!(inside(Kind::TsJs, ts), [2, 3]);
     }
 
     #[test]
