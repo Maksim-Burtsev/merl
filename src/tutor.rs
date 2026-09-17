@@ -86,7 +86,7 @@ pub const LESSONS: &[Lesson] = &[
     Lesson {
         title: "Go to definition",
         text: "With the cursor on `load_config`, press `d` (or F12) to jump to its definition. \
-               The status line says how it was found: by name, the only match.",
+               The status line says how it was found: via the import at the top, in config.py.",
         done: |a| at(a, "config.py"),
     },
     Lesson {
@@ -396,7 +396,7 @@ mod tests {
         done(&mut a);
         assert_eq!(
             a.message,
-            "\u{2713} Go to definition  load_config: by name, 1 match"
+            "\u{2713} Go to definition  load_config: via import config.py"
         );
 
         // 5 and 6: back and forward

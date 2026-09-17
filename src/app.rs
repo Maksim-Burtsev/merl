@@ -1287,12 +1287,14 @@ impl App {
         self.show_picker(PickerKind::Search, Self::hit_items(hits));
     }
 
-    /// `d` / F12. A file of a known [`Kind`] gets its declaration patterns, searched only where
-    /// such a definition can live (`.tsx` finds `.ts`, a Terraform variable stays in its
-    /// module). Nothing in the project means the word comes from outside it: the same patterns
-    /// run over the standard library and the installed dependencies
-    /// ([`search::external_roots`]), narrowed to the module the file's imports bind the word or
-    /// its qualifier to (`np.array` looks in `numpy`, `from json import load` in `json`).
+    /// `d` / F12. A file of a known [`Kind`] gets its declaration patterns. A word or a qualifier
+    /// an import binds is looked for in the module the import names: the project's file or
+    /// package (`from app.repos import X` in `app/repos.py`, `store.Open` in the `store`
+    /// directory), else the standard library and the installed dependencies
+    /// ([`search::external_roots`]) narrowed to that module (`np.array` in `numpy`). Everything
+    /// else, and a project module that does not declare the word, is searched in the project where
+    /// such a definition can live (`.tsx` finds `.ts`, a Terraform variable stays in its module),
+    /// and nothing there sends the same patterns outside it.
     ///
     /// `x.word` on a value — a `.` qualifier no import binds, other than a bare `self` — is a
     /// member whose type is not known: every member declaration of the name, in the project and
@@ -1327,6 +1329,31 @@ impl App {
             return;
         }
         let pattern = patterns.join("|");
+        // An import names where the word is declared: the project's module, else the one outside
+        // it. Only a module of the project that does not declare it (a re-export) leaves the word
+        // to the search by name.
+        let import = (!on_value)
+            .then(|| {
+                bound(
+                    &imports,
+                    chain.first().map_or(word.as_str(), String::as_str),
+                )
+            })
+            .flatten();
+        let mut outside = false;
+        let mut found = match import {
+            Some(path) => self
+                .imported_definitions(kind, &here, &word, &chain, &path)
+                .unwrap_or_else(|| {
+                    outside = true;
+                    self.external_definitions(kind, &word, &chain, dotted, &pattern, &imports)
+                }),
+            None => Vec::new(),
+        };
+        if !found.is_empty() {
+            self.show_definitions(kind, &word, &here, found);
+            return;
+        }
         // A member in the project first. A qualifier no import names can still be a class, a
         // namespace or a module of the project, which declares the word at its top level.
         let hits = members
@@ -1334,7 +1361,7 @@ impl App {
             .map(|m| self.project_definitions(kind, &here, &word, m))
             .filter(|hits| !hits.is_empty())
             .unwrap_or_else(|| self.project_definitions(kind, &here, &word, &pattern));
-        let mut found: Vec<Candidate> = hits
+        found = hits
             .into_iter()
             .map(|hit| Candidate {
                 hit,
@@ -1363,6 +1390,7 @@ impl App {
                     }),
             );
         } else if found.is_empty()
+            && !outside
             && !matches!(
                 chain.first().map(String::as_str),
                 Some("self" | "cls" | "this")
@@ -1370,6 +1398,11 @@ impl App {
         {
             found = self.external_definitions(kind, &word, &chain, dotted, &pattern, &imports);
         }
+        self.show_definitions(kind, &word, &here, found);
+    }
+
+    /// Jumps to the one candidate, or opens the picker over several, and says how they were found.
+    fn show_definitions(&mut self, kind: Kind, word: &str, here: &Path, mut found: Vec<Candidate>) {
         // Standing on one of the definitions is not a reason to go nowhere.
         if found.len() > 1 {
             found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
@@ -1377,13 +1410,13 @@ impl App {
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
         match found.as_slice() {
-            [] => self.message = resolution(&word, None, &found),
+            [] => self.message = resolution(word, None, &found),
             [one] => {
                 let path = self.root.join(&one.hit.path);
                 let target = self
                     .text_of(&one.hit.path)
-                    .and_then(|text| search::qualified(kind, &text, one.hit.line, &word));
-                let status = resolution(&word, target.as_deref(), &found);
+                    .and_then(|text| search::qualified(kind, &text, one.hit.line, word));
+                let status = resolution(word, target.as_deref(), &found);
                 self.jump_to(&path, one.hit.line);
                 // A refused jump (edits that cannot be saved) leaves its own reason, not a
                 // resolution nobody followed.
@@ -1392,8 +1425,8 @@ impl App {
                 }
             }
             _ => {
-                let status = resolution(&word, None, &found);
-                let items = self.definition_items(kind, &word, found);
+                let status = resolution(word, None, &found);
+                let items = self.definition_items(kind, word, found);
                 self.show_picker(PickerKind::Definitions, items);
                 if let Some(p) = &mut self.picker {
                     p.title = p
@@ -1422,6 +1455,99 @@ impl App {
         hits
     }
 
+    /// The declarations of `word` in the project module an import names, where `path` is what
+    /// [`search::imports`] binds the word or its qualifier to; `None` when the module is not the
+    /// project's. The word sits directly in the module, or in the class the chain goes through
+    /// (`UserRepo.create`), as [`search::qualified`] names it: `store.Open` is never a method
+    /// `Open`. An alias finds the imported name. A default import finds a declaration of its local
+    /// name, else the module's `export default`. An empty list is a module that does not declare
+    /// the word, a re-export: the search by name takes over.
+    fn imported_definitions(
+        &self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        chain: &[String],
+        path: &[String],
+    ) -> Option<Vec<Candidate>> {
+        let module_files =
+            |module: &[String]| search::module_files(kind, &self.root, &self.files, here, module);
+        // The names from the module down to the word: what the import takes, then the chain.
+        let tail = |mut names: Vec<String>| {
+            if let Some((_, after)) = chain.split_first() {
+                names.extend(after.iter().cloned());
+                names.push(word.to_owned());
+            }
+            names
+        };
+        let (files, inside) = match kind {
+            // `from a import b` takes a module or a name from `a`: the longest module that exists,
+            // never shorter than the one the import names.
+            Kind::Python => {
+                let target = tail(path.to_vec());
+                let floor = path.len().saturating_sub(1).max(1);
+                (floor..target.len()).rev().find_map(|n| {
+                    let files = module_files(&target[..n]);
+                    (!files.is_empty()).then(|| (files, target[n..].to_vec()))
+                })?
+            }
+            Kind::TsJs => {
+                let (taken, module) = path.split_last()?;
+                let files = module_files(module);
+                if files.is_empty() {
+                    return None;
+                }
+                let inside = match taken.as_str() {
+                    "*" => tail(Vec::new()),
+                    // What a default export is called is known only on its own line.
+                    "default" if !chain.is_empty() => return Some(Vec::new()),
+                    "default" => vec![word.to_owned()],
+                    name => tail(vec![name.to_owned()]),
+                };
+                (files, inside)
+            }
+            Kind::Go => (module_files(path), tail(Vec::new())),
+            // No module rules: the search by name, then outside the project, as before.
+            _ => return Some(Vec::new()),
+        };
+        if files.is_empty() {
+            return None;
+        }
+        let Some(name) = inside.last() else {
+            return Some(Vec::new());
+        };
+        let wanted = |p: &Path| files.iter().any(|f| f == p);
+        let pattern = search::def_patterns(kind, name).join("|");
+        let mut hits = self
+            .grep(&pattern, false, false, wanted)
+            .unwrap_or_default();
+        let within = (inside.len() > 1).then(|| inside.join("."));
+        hits.retain(|h| {
+            self.text_of(&h.path)
+                .and_then(|text| search::qualified(kind, &text, h.line, name))
+                == within
+        });
+        if hits.is_empty() && kind == Kind::TsJs && path.last().is_some_and(|t| t == "default") {
+            hits = self
+                .grep(r"^export\s+default\b", false, false, wanted)
+                .unwrap_or_default();
+        }
+        // A file, or a Go package's directory.
+        let label = |hit: &Hit| match (kind, hit.path.parent()) {
+            (Kind::Go, Some(dir)) if dir != Path::new("") => format!("{}/", dir.display()),
+            (Kind::Go, _) => "./".to_owned(),
+            _ => hit.path.display().to_string(),
+        };
+        Some(
+            hits.into_iter()
+                .map(|hit| Candidate {
+                    reason: Reason::Import(label(&hit)),
+                    hit,
+                })
+                .collect(),
+        )
+    }
+
     /// `pattern` over the standard library and dependencies of `kind`, in the module the file's
     /// imports bind `chain` (or `word` itself) to. The module path is relaxed from the end until
     /// files match: `from json import load` is `json/load`, then `json`. Relaxing past the
@@ -1440,7 +1566,11 @@ impl App {
         pattern: &str,
         imports: &[(String, Vec<String>)],
     ) -> Vec<Candidate> {
-        let bound_path = bound(imports, chain.first().map_or(word, String::as_str));
+        let mut bound_path = bound(imports, chain.first().map_or(word, String::as_str));
+        // What a TypeScript import takes (a name, `default`, `*`) is no part of a file's path.
+        if kind == Kind::TsJs {
+            bound_path.as_mut().map(Vec::pop);
+        }
         let imported = bound_path.is_some();
         if bound_path
             .as_ref()
@@ -3278,6 +3408,141 @@ mod tests {
         );
     }
 
+    /// Step 5 of #68 over the same project in three languages: a word or a qualifier an import
+    /// binds to a module of the project is looked for in that module, and the status line names
+    /// the file or the package directory. A module that does not declare the word re-exports it,
+    /// and the search by name answers, as before.
+    #[test]
+    fn an_import_inside_the_project_is_looked_up_in_its_module() {
+        let cases: [(&str, &str, &str, Shown); 13] = [
+            // `fakes.py` declares a `UserRepository` too.
+            (
+                "python",
+                "jobs.py",
+                "repo: UserRepository",
+                jump("UserRepository: via import repos.py", "repos.py:4"),
+            ),
+            // A package is its `__init__.py`.
+            (
+                "python",
+                "jobs.py",
+                "    connect",
+                jump(
+                    "connect: via import store/__init__.py",
+                    "store/__init__.py:6",
+                ),
+            ),
+            (
+                "python",
+                "jobs.py",
+                "    open_session",
+                picker(
+                    "open_session: by name, 2 declarations",
+                    &[
+                        ("open_session", "fakes.py:6"),
+                        ("open_session", "store/sessions.py:16"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "jobs.py",
+                "sessions.open_session",
+                jump(
+                    "open_session: via import store/sessions.py",
+                    "store/sessions.py:16",
+                ),
+            ),
+            // Through an aliased class: its own `start`, not `Pool.start` in the same module.
+            (
+                "python",
+                "jobs.py",
+                "StoreSession.start",
+                jump(
+                    "start \u{2192} Session.start (via import store/sessions.py)",
+                    "store/sessions.py:3",
+                ),
+            ),
+            (
+                "python",
+                "store/__init__.py",
+                "return open_session",
+                jump(
+                    "open_session: via import store/sessions.py",
+                    "store/sessions.py:16",
+                ),
+            ),
+            (
+                "typescript",
+                "jobs.ts",
+                "repo: UserRepository",
+                jump("UserRepository: via import repos.ts", "repos.ts:5"),
+            ),
+            // A default import under another name: the module's `export default`.
+            (
+                "typescript",
+                "jobs.ts",
+                "  connectToStore",
+                jump(
+                    "connectToStore: via import store/index.ts",
+                    "store/index.ts:5",
+                ),
+            ),
+            (
+                "typescript",
+                "jobs.ts",
+                "  openSession",
+                picker(
+                    "openSession: by name, 2 declarations",
+                    &[
+                        ("openSession", "fakes.ts:5"),
+                        ("openSession", "store/sessions.ts:15"),
+                    ],
+                ),
+            ),
+            // A namespace behind the `@/` alias of tsconfig.json.
+            (
+                "typescript",
+                "jobs.ts",
+                "sessions.openSession",
+                jump(
+                    "openSession: via import store/sessions.ts",
+                    "store/sessions.ts:15",
+                ),
+            ),
+            (
+                "typescript",
+                "jobs.ts",
+                "StoreSession.start",
+                jump(
+                    "start \u{2192} Session.start (via import store/sessions.ts)",
+                    "store/sessions.ts:2",
+                ),
+            ),
+            (
+                "typescript",
+                "store/index.ts",
+                "return openSession",
+                jump(
+                    "openSession: via import store/sessions.ts",
+                    "store/sessions.ts:15",
+                ),
+            ),
+            // The package function, not the method `Session.Open` nor `fakes.Open`.
+            (
+                "go",
+                "jobs.go",
+                "store.Open",
+                jump("Open: via import store/", "store/store.go:7"),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {code}");
+        }
+    }
+
     #[test]
     fn a_member_of_a_value_is_looked_for_outside_the_project_too() {
         let mut a = fixture_app("python");
@@ -3402,7 +3667,7 @@ mod tests {
             (
                 "shop/urls.py",
                 "views.index",
-                jump("index: by name, 1 match", "shop/views.py:1"),
+                jump("index: via import shop/views.py", "shop/views.py:1"),
             ),
             (
                 "shop/urls.py",
@@ -3412,7 +3677,7 @@ mod tests {
             (
                 "web/app.ts",
                 "utils.formatDate",
-                jump("formatDate: by name, 1 match", "web/utils.ts:1"),
+                jump("formatDate: via import web/utils.ts", "web/utils.ts:1"),
             ),
             (
                 "shapes.py",
@@ -3449,6 +3714,12 @@ mod tests {
                     "m.py",
                     "import os\nimport jsonx\n\nos.path.join('a', 'b')\njsonx.dumps_x(1)\n",
                 ),
+                // The project's own `dumps_x` is not the one `import jsonx` names.
+                ("codec.py", "def dumps_x(o):\n    return o\n"),
+                (
+                    "app.ts",
+                    "import { Hono } from 'hono';\n\nexport const app = new Hono();\n",
+                ),
             ],
         );
         let root = external_root(
@@ -3479,9 +3750,13 @@ mod tests {
                 ("os/path.py", "def join(a, *p):\n    return a\n"),
                 ("jsonx/a.py", "def dumps_x(o):\n    return o\n"),
                 ("jsonx/b.py", "def dumps_x(o):\n    return o\n"),
+                (
+                    "hono/dist/types/hono.d.ts",
+                    "export declare class Hono {\n}\n",
+                ),
             ],
         );
-        for kind in [Kind::Go, Kind::Rust, Kind::Python] {
+        for kind in [Kind::Go, Kind::Rust, Kind::Python, Kind::TsJs] {
             use_roots(&mut a, kind, std::slice::from_ref(&root));
         }
         let at = |p: &str| format!("{}", root.join(p).display());
@@ -3531,6 +3806,12 @@ mod tests {
                 "m.py",
                 "os.path.join",
                 jump("join: via import os.path", &at("os/path.py:1")),
+            ),
+            // The name a TypeScript import takes is not a file of the package.
+            (
+                "app.ts",
+                "new Hono",
+                jump("Hono: via import hono", &at("hono/dist/types/hono.d.ts:1")),
             ),
         ] {
             d_on(&mut a, file, code);
