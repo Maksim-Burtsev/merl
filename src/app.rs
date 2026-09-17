@@ -5404,6 +5404,38 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// Found by the acceptance pass of #68 in hono: a member written as a property was missing
+    /// from the implementations, and the one left was jumped to as if it were the only one.
+    #[test]
+    fn a_property_holding_the_function_implements_the_method() {
+        let (dir, mut a) = project_app(
+            "propmember",
+            &[
+                (
+                    "iface.ts",
+                    "export interface Router {\n  match(method: string): string;\n}\n",
+                ),
+                (
+                    "impl.ts",
+                    "import type { Router } from \"./iface\";\n\ndeclare const match: (method: string) => string;\n\nexport class RegExpRouter implements Router {\n  match: typeof match = match;\n}\n\nexport class TrieRouter implements Router {\n  match(method: string): string {\n    const o = {\n      match: 1\n    };\n    return method;\n  }\n}\n",
+                ),
+            ],
+        );
+        a.external
+            .insert(Kind::TsJs, (Vec::new(), Arc::new(Vec::new())));
+        d_on(&mut a, "iface.ts", "  match");
+        let Shown::Picker(status, rows) = shown(&mut a) else {
+            panic!("{}", a.message);
+        };
+        assert_eq!(
+            status,
+            "match: implementations of Router.match, 2 declarations"
+        );
+        let places: Vec<&str> = rows.iter().map(|r| r.2.as_str()).collect();
+        assert_eq!(places, ["impl.ts:6", "impl.ts:10"]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// A qualifier bound by a relative import, or a class of the project, is no value: `d`
     /// finds the module-level declaration and does not add a dependency's same-named methods.
     #[test]

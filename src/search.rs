@@ -448,6 +448,15 @@ pub fn member_or_signature(kind: Kind, word: &str) -> Option<Vec<String>> {
     if kind == Kind::Go {
         patterns.push(format!(r"^\s+{}\s*\(", regex::escape(word)));
     }
+    // Inside a type that is known, an annotated property is a member whatever it holds: hono's
+    // `match: typeof match = match` implements `Router.match`. By name it would be every
+    // `name: string` of the project, so [`member_patterns`] leaves it out.
+    if kind == Kind::TsJs {
+        patterns.push(format!(
+            r"^\s+(?:(?:public|private|protected|static|readonly|override|declare)\s+)*{}\s*[?!]?\s*:[^=;(]*(?:=|;|$)",
+            regex::escape(word)
+        ));
+    }
     Some(patterns)
 }
 
