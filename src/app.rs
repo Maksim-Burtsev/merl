@@ -1479,15 +1479,19 @@ impl App {
         mut found: Vec<Candidate>,
         broke: Option<&str>,
     ) {
-        // Standing on one of the definitions is not a reason to go nowhere.
-        if found.len() > 1 {
+        // Standing on one of the definitions is not a reason to go nowhere. But what is left are
+        // namesakes nothing ties to this one, so they are offered, never jumped to: a second `d`
+        // after a proven jump would walk out of the type it has just proven (#68).
+        let all = found.len();
+        if all > 1 {
             found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
         }
+        let namesakes = found.len() < all && found.iter().all(|c| !c.reason.proven());
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
         match found.as_slice() {
             [] => self.message = resolution(word, None, &found, broke),
-            [one] => {
+            [one] if !namesakes => {
                 let path = self.root.join(&one.hit.path);
                 let target = self
                     .text_of(&one.hit.path)
@@ -1513,7 +1517,12 @@ impl App {
                 }
             }
             _ => {
-                let status = resolution(word, None, &found, broke);
+                let status = if namesakes {
+                    let others = if found.len() == 1 { "other" } else { "others" };
+                    format!("{word}: at a declaration, {} {others} by name", found.len())
+                } else {
+                    resolution(word, None, &found, broke)
+                };
                 let items = self.definition_items(kind, word, found);
                 self.show_picker(PickerKind::Definitions, items);
                 if let Some(p) = &mut self.picker {
@@ -4066,6 +4075,59 @@ mod tests {
         );
     }
 
+    /// Found by the acceptance pass of #68. On a declaration, the other declarations of the name
+    /// are namesakes nothing ties to it: a second `d` after a proven jump used to leave
+    /// `UserRepository.delete_user` for `AuditLog.delete_user` on its own, with `1 match`. They
+    /// are offered in a picker that says where the cursor stands, even when there is one.
+    #[test]
+    fn a_declaration_does_not_jump_to_its_namesake() {
+        let cases = [
+            (
+                "python",
+                "repos.py",
+                "async def delete_user",
+                "delete_user",
+                "AuditLog.delete_user",
+                "repos.py:13",
+            ),
+            (
+                "typescript",
+                "repos.ts",
+                "async deleteUser",
+                "deleteUser",
+                "AuditLog.deleteUser",
+                "",
+            ),
+            (
+                "go",
+                "repos.go",
+                ") DeleteUser",
+                "DeleteUser",
+                "AuditLog.DeleteUser",
+                "repos.go:21",
+            ),
+        ];
+        for (fixture, file, code, word, other, place) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            let Shown::Picker(status, rows) = shown(&mut a) else {
+                panic!("{fixture}: a jump to {}", a.message);
+            };
+            assert_eq!(
+                status,
+                format!("{word}: at a declaration, 1 other by name"),
+                "{fixture}"
+            );
+            assert_eq!(rows.len(), 1, "{fixture}");
+            assert_eq!(rows[0].0, other, "{fixture}");
+            assert!(
+                place.is_empty() || rows[0].2 == place,
+                "{fixture}: {}",
+                rows[0].2
+            );
+        }
+    }
+
     /// Steps 2 and 3 of #68 over the same project in three languages. A receiver whose every
     /// declaration in scope reads one type, directly or through the return type of one call, has
     /// its member looked up in that type: one jump, which says the link it followed. Two
@@ -4636,13 +4698,14 @@ mod tests {
                     "impls.ts:32",
                 ),
             ),
-            // Nothing implements a Go method beside its type: the search by name answers.
+            // Nothing implements a Go method beside its type: the search by name answers, and
+            // says the cursor is on one of them.
             (
                 "go",
                 "repos.go",
                 "func (e *EmailNotifier) Send",
                 picker(
-                    "Send: by name, 2 declarations",
+                    "Send: at a declaration, 2 others by name",
                     &[
                         ("SmsNotifier.Send", "repos.go:37"),
                         ("LoudNotifier.Send", "impls.go:29"),
