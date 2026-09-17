@@ -501,7 +501,16 @@ impl App {
         while bottom + 1 < self.buf.lines.len() && !blank(bottom + 1) {
             bottom += 1;
         }
-        let word = search::word_at(self.line_str(), self.col, "").map(|(r, _)| r);
+        // The run of word chars under the cursor or, at its end, just before it.
+        let s = self.line_str();
+        let (mut from, mut to) = (self.col, self.col);
+        while from > 0 && is_word(char_at(s, prev_char(s, from))) {
+            from = prev_char(s, from);
+        }
+        while to < s.len() && is_word(char_at(s, to)) {
+            to = next_char(s, to);
+        }
+        let word = (from < to).then_some(from..to);
         let steps = [
             word.map(|r| ((l, r.start), (l, r.end))),
             Some(((l, 0), (l, self.line_str().len()))),
@@ -2955,8 +2964,9 @@ pub(crate) fn clip(s: &str, max: usize) -> String {
     }
 }
 
+/// A word for the cursor: letters of any script, so a comment in Russian moves by word too.
 fn is_word(c: char) -> bool {
-    c.is_ascii_alphanumeric() || c == '_'
+    c.is_alphanumeric() || c == '_'
 }
 
 fn char_at(s: &str, i: usize) -> char {
@@ -3012,6 +3022,23 @@ mod tests {
         a.col = 13;
         press(&mut a, KeyCode::Right, KeyModifiers::ALT);
         assert_eq!(((a.line, a.col), a.selection()), ((1, 0), None));
+    }
+
+    #[test]
+    fn a_word_is_letters_of_any_script() {
+        let mut a = app("// привет, мир foo");
+        a.col = 3;
+        press(
+            &mut a,
+            KeyCode::Right,
+            KeyModifiers::ALT | KeyModifiers::SHIFT,
+        );
+        assert_eq!(a.selected_text().as_deref(), Some("привет"));
+        press(&mut a, KeyCode::Right, KeyModifiers::ALT);
+        press(&mut a, KeyCode::Left, KeyModifiers::ALT);
+        assert_eq!(a.col, "// привет, ".len());
+        press(&mut a, KeyCode::Char('v'), KeyModifiers::NONE);
+        assert_eq!(a.selected_text().as_deref(), Some("мир"));
     }
 
     /// Ghostty, iTerm and Terminal.app send Option+Left / Right as Esc b / Esc f.

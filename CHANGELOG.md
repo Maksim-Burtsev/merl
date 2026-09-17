@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The word jump and the word selection stop at words in any script: in a Russian comment
+  Alt+Left / Right skipped the whole line, since only ASCII letters counted as a word.
 - `d` finds a Python `async def` and a TypeScript method signature with no body
   (`find(id: string): User;` in an interface, an abstract class, an overload or a `.d.ts`). (#69)
 - Go lookups outside the project skip `_test.go` files, `testdata` and nested modules such as
