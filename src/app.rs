@@ -264,6 +264,11 @@ struct Edit {
     after: (usize, usize),
 }
 
+/// `1 hit`, `2 hits`.
+pub fn plural(n: usize) -> &'static str {
+    if n == 1 { "" } else { "s" }
+}
+
 impl App {
     pub fn new(
         root: PathBuf,
@@ -973,38 +978,49 @@ impl App {
         let at = self
             .rel_current()
             .and_then(|rel| r.files.iter().position(|f| f.path == rel));
-        // Files with nothing to read (binary, a mode change, a pure rename) are not stops.
         let ahead: Vec<&git::ReviewFile> = match (at, dir > 0) {
             (Some(i), true) => r.files[i + 1..].iter().collect(),
             (Some(i), false) => r.files[..i].iter().rev().collect(),
             (None, true) => r.files.iter().collect(),
             (None, false) => r.files.iter().rev().collect(),
         };
-        let skipped = ahead.iter().take_while(|f| !f.has_hunks()).count();
-        let Some(f) = ahead.get(skipped) else {
-            self.message = if dir > 0 {
-                "last hunk of the review".into()
+        // Files with nothing to read (binary, a mode change, a pure rename, a submodule) are not
+        // stops. Nor is one that does not open: the walk goes on, and the status says why.
+        let (mut skipped, mut failed) = (0, None);
+        for f in ahead {
+            if !f.has_hunks() {
+                skipped += 1;
+            } else if self.open_review_file(f, dir < 0) {
+                match failed {
+                    Some(why) => self.message = why,
+                    None => self.say_skipped(skipped),
+                }
+                return;
+            } else if self.dirty {
+                // Edits that could not be saved hold merl on this file, whatever is ahead.
+                return;
             } else {
-                "first hunk of the review".into()
-            };
-            return;
-        };
-        self.open_review_file(f, dir < 0);
-        self.say_skipped(skipped);
+                failed = Some(std::mem::take(&mut self.message));
+            }
+        }
+        self.message = failed.unwrap_or_else(|| {
+            let end = if dir > 0 { "last" } else { "first" };
+            format!("{end} hunk of the review")
+        });
     }
 
     /// Why `file 1` became `file 74`.
     fn say_skipped(&mut self, skipped: usize) {
         if skipped > 0 {
-            let s = if skipped == 1 { "" } else { "s" };
+            let s = plural(skipped);
             self.message = format!("skipped {skipped} file{s} without hunks");
         }
     }
 
     /// Opens a file of the review on its first (or `last`) hunk. The hunks are read before
     /// the file opens, so this is one stop in the history.
-    fn open_review_file(&mut self, f: &git::ReviewFile, last: bool) {
-        let Some(r) = &self.review else { return };
+    fn open_review_file(&mut self, f: &git::ReviewFile, last: bool) -> bool {
+        let Some(r) = &self.review else { return false };
         let path = self.root.join(&f.path);
         let hunks = match f.status {
             'D' => Vec::new(),
@@ -1013,6 +1029,7 @@ impl App {
         let h = if last { hunks.last() } else { hunks.first() };
         self.jump_to(&path, h.map_or(1, |h| h + 1));
         self.center = true;
+        self.buf.path.as_deref() == Some(&path)
     }
 
     /// `hunk 2/5 · file 1/3` for the status bar.
@@ -1041,11 +1058,18 @@ impl App {
         // Mid-save the file can be briefly gone; the rename that follows sends another event
         // and overwrites the message. Gone for good, the message stays.
         let Ok(bytes) = std::fs::read(&path) else {
+            // Ctrl+R has no disk version to take, but the edits still go: merl is not held on
+            // a file that is gone.
+            if force {
+                (self.dirty, self.conflict) = (false, false);
+            }
             self.message = format!("{} gone", self.rel_path());
             return;
         };
         if !force {
             if buffer::hash(&bytes) == self.buf.disk {
+                // Gone and back as merl last saw it (a writer's delete-then-write): no conflict.
+                self.conflict = false;
                 return;
             }
             if self.dirty {
@@ -1113,22 +1137,48 @@ impl App {
 
     /// `[` and `]`: walks the recorded stops.
     fn hist_go(&mut self, delta: isize) {
-        let next = self
-            .hist_idx
-            .checked_add_signed(delta)
-            .filter(|i| *i < self.history.len());
-        let Some(i) = next else {
-            self.message = if delta < 0 {
-                "start of history".into()
-            } else {
-                "end of history".into()
+        // A stop whose file is gone (an agent renamed it) is dropped, and the walk goes on.
+        let mut gone = Vec::new();
+        let landed = loop {
+            let next = self
+                .hist_idx
+                .checked_add_signed(delta)
+                .filter(|i| *i < self.history.len());
+            let Some(i) = next else {
+                self.message = if delta < 0 {
+                    "start of history".into()
+                } else {
+                    "end of history".into()
+                };
+                break None;
             };
-            return;
+            let (path, line, col) = self.history[i].clone();
+            // With the stops between them dropped, this one can be where the cursor already
+            // is: not a step, it goes too.
+            let twin = self.history[i] == self.history[self.hist_idx];
+            if !twin && self.open(&path, line + 1) {
+                break Some((i, path, col));
+            }
+            // Edits that could not be saved, or a file that is there and does not open: the
+            // stop stays, and `open` has said why.
+            if !twin && (self.dirty || path.exists()) {
+                return;
+            }
+            self.history.remove(i);
+            self.hist_idx -= usize::from(i < self.hist_idx);
+            if !twin && !gone.contains(&path) {
+                gone.push(path);
+            }
         };
-        let (path, line, col) = self.history[i].clone();
-        if !self.open(&path, line + 1) {
-            return;
+        match &gone[..] {
+            [] => {}
+            [one] => {
+                let rel = one.strip_prefix(&self.root).unwrap_or(one);
+                self.message = format!("{} gone", rel.display());
+            }
+            _ => self.message = format!("{} files gone", gone.len()),
         }
+        let Some((i, path, col)) = landed else { return };
         self.hist_idx = i;
         self.focus = Focus::Code;
         (self.line, self.col) = self.clamp_pos((self.line, col));
@@ -2916,7 +2966,7 @@ impl App {
                     // The review panel opens a file on its first hunk; the tree where it was.
                     match self.review.as_ref().and_then(|r| r.file(&n.path)).cloned() {
                         Some(f) if self.buf.path.as_deref() != Some(&*path) => {
-                            self.open_review_file(&f, false)
+                            self.open_review_file(&f, false);
                         }
                         _ => self.jump_to(&path, 0),
                     }
@@ -3155,7 +3205,15 @@ impl App {
         }
         // ponytail: read, compare, then write; a writer landing between the read and the write
         // still loses. Files have no compare-and-swap, and the window is one read long.
-        if !self.conflict && std::fs::read(path).is_ok_and(|b| buffer::hash(&b) != self.buf.disk) {
+        // Gone (deleted, renamed) is changed too: only Ctrl+S puts the file back. Any other read
+        // error, its directory gone among them, is left to the write below to report and retry.
+        let changed = match std::fs::read(path) {
+            Ok(b) => buffer::hash(&b) != self.buf.disk,
+            Err(e) => {
+                e.kind() == std::io::ErrorKind::NotFound && path.parent().is_some_and(Path::exists)
+            }
+        };
+        if !self.conflict && changed {
             self.conflict = true;
             return;
         }
@@ -3236,7 +3294,12 @@ impl App {
         // Legacy terminals report Alt+X as Esc followed by X; treat it that way. When the Esc
         // closes a picker, a prompt or the help, the letter belonged to that overlay and is
         // dropped, so Alt+q over a picker cannot quit merl. Alt+arrow is unambiguous everywhere.
+        // Edit mode is no overlay and binds no Alt+letter: there the chord does nothing, rather
+        // than an Esc nobody pressed turning the rest of the word into commands.
         if key.modifiers.contains(KeyModifiers::ALT) && matches!(key.code, KeyCode::Char(_)) {
+            if self.mode == Mode::Edit {
+                return false;
+            }
             key.modifiers.remove(KeyModifiers::ALT);
             let overlay = self.picker.is_some() || self.mode != Mode::Normal;
             self.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
@@ -3583,13 +3646,13 @@ mod tests {
     use super::*;
 
     fn app(text: &str) -> App {
-        // Edits get saved, so each test has a file of its own, absent until the first save.
+        // Edits get saved, so each test has a file of its own.
         let name = std::thread::current()
             .name()
             .unwrap_or("main")
             .replace("::", "-");
         let path = std::env::temp_dir().join(format!("merl-{name}.txt"));
-        let _ = std::fs::remove_file(&path);
+        std::fs::write(&path, text).unwrap();
         let mut a = App::new(
             PathBuf::from("/tmp"),
             Tree::default(),
@@ -4122,6 +4185,60 @@ mod tests {
         assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
         assert_eq!(a.message, "skipped 1 file without hunks");
         assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/7");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A submodule is a gitlink, which `git diff --numstat` counts as one added line: listed,
+    /// not a stop. And a file that does not open is walked past with the reason, not retried.
+    #[test]
+    fn review_walks_past_a_submodule_and_a_file_that_does_not_open() {
+        let (dir, mut a) = review_app("reviewsub");
+        let git = |at: &Path, args: &[&str]| {
+            let out = std::process::Command::new("git")
+                .arg("-C")
+                .arg(at)
+                .args(["-c", "user.email=t@t", "-c", "user.name=t"])
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "git {args:?}");
+        };
+        let sub = dir.join("sub");
+        std::fs::create_dir(&sub).unwrap();
+        git(&sub, &["init", "-q"]);
+        git(&sub, &["commit", "-q", "--allow-empty", "-m", "sub"]);
+        git(&dir, &["add", "-A"]);
+        git(&dir, &["commit", "-q", "-m", "submodule"]);
+        a.start_review(git::Review::open(&dir, None, None).unwrap());
+        // Panel order: src/a.rs, crlf.txt, gone, new, sub, tail.
+        let r = a.review.as_ref().unwrap();
+        assert_eq!(r.files[4].path, Path::new("sub"));
+        assert!(!r.files[4].has_hunks());
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("tail"), 0));
+        assert_eq!(a.message, "skipped 1 file without hunks");
+        // `new` stops opening: `c` from `gone` goes past it to `tail`, and the status says
+        // what happened to `new`.
+        std::fs::remove_file(dir.join("new")).unwrap();
+        std::fs::create_dir(dir.join("new")).unwrap();
+        a.jump_to(&dir.join("gone"), 1);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("tail"), 0));
+        assert!(a.message.contains("new: "), "{}", a.message);
+        // Edits that cannot be saved hold merl on the file; what the status says stays.
+        a.jump_to(&dir.join("gone"), 1);
+        (a.dirty, a.conflict) = (true, true);
+        a.message = "save failed: x".into();
+        a.hunk(1);
+        assert_eq!(at(&a), (dir.join("gone"), 0));
+        assert_eq!(a.message, "save failed: x");
+        (a.dirty, a.conflict) = (false, false);
+        // Nothing ahead opens: the reason again, not a retry that hides it.
+        std::fs::remove_file(dir.join("tail")).unwrap();
+        a.jump_to(&dir.join("gone"), 1);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("gone"), 0));
+        assert!(a.message.contains("tail: "), "{}", a.message);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -7546,6 +7663,40 @@ mod tests {
         assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
     }
 
+    /// README: a file that changes on disk under unsaved edits is "neither reloaded nor
+    /// overwritten". Deleted or renamed is changed: only Ctrl+S puts it back.
+    #[test]
+    fn autosave_does_not_recreate_a_file_that_is_gone() {
+        let (path, mut a) = temp_file("gone-save", "one\n");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "X");
+        std::fs::remove_file(&path).unwrap();
+        a.last_edit = Some(Instant::now() - a.autosave);
+        assert!(a.tick());
+        assert!(!a.flush());
+        assert!(!path.exists());
+        assert!(a.conflict && a.dirty);
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "Xone\n");
+        assert!(!a.conflict && !a.dirty);
+        // Back as merl last saw it (a writer's delete-then-write) is no conflict any more.
+        typed(&mut a, "Y");
+        std::fs::remove_file(&path).unwrap();
+        a.save();
+        assert!(a.conflict);
+        std::fs::write(&path, "Xone\n").unwrap();
+        a.reload(false);
+        assert!(!a.conflict && a.dirty);
+        // Ctrl+R has no disk version to take; the edits go all the same, or nothing but
+        // writing the file back would let merl off it.
+        std::fs::remove_file(&path).unwrap();
+        a.save();
+        press(&mut a, KeyCode::Char('r'), KeyModifiers::CONTROL);
+        assert!(!a.conflict && !a.dirty && !path.exists());
+        assert!(a.flush());
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
     #[test]
     fn reload_clamps_the_cursor_into_a_shrunken_file() {
         let dir = std::env::temp_dir().join(format!("merl-reload-{}", std::process::id()));
@@ -7581,6 +7732,8 @@ mod tests {
     #[test]
     fn aliases_reach_the_same_actions() {
         let mut a = app("foo bar\n");
+        // Not on disk: the grep for usages has nothing to read.
+        std::fs::remove_file(a.buf.path.as_ref().unwrap()).unwrap();
         press(&mut a, KeyCode::F(12), KeyModifiers::NONE);
         assert_eq!(a.message, "no rules for .txt");
         press(&mut a, KeyCode::F(12), KeyModifiers::SHIFT);
@@ -7622,6 +7775,18 @@ mod tests {
         assert_eq!((a.mode, a.message.as_str()), (Mode::Normal, ""));
         // In normal mode the letter still counts.
         assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT));
+    }
+
+    /// Edit mode is not an overlay for an Esc to close: Option+letter mid-word must not drop
+    /// into navigation, where the rest of the word runs as commands and its `q` quits.
+    #[test]
+    fn an_unbound_alt_letter_while_editing_is_ignored() {
+        let mut a = app("foo\n");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('p'), KeyModifiers::ALT);
+        assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT));
+        assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+        assert_eq!((a.mode, a.buf.lines[0].as_str()), (Mode::Edit, "qfoo"));
     }
 
     #[test]
@@ -7755,16 +7920,100 @@ two
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// An agent renames a file: its stops are dropped and `[` goes on to the next one that
+    /// opens, instead of retrying the dead stop with everything behind it out of reach.
     #[test]
-    fn a_stop_whose_file_is_gone_leaves_the_history_alone() {
+    fn a_stop_whose_file_is_gone_is_dropped_and_walked_past() {
         let (dir, mut a) = files_app("gone");
+        let (x, y, z) = (dir.join("a.rs"), dir.join("b.rs"), dir.join("c.rs"));
+        std::fs::write(&z, "x\n".repeat(40)).unwrap();
+        a.jump_to(&z, 3);
+        a.jump_to(&x, 5);
+        a.jump_to(&x, 30);
+        a.jump_to(&y, 1);
+        std::fs::remove_file(&x).unwrap();
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(
+            (at(&a), a.hist_idx, a.history.len()),
+            ((z.clone(), 2), 0, 2)
+        );
+        assert_eq!(a.message, "a.rs gone");
+        press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+        assert_eq!(
+            (at(&a), a.hist_idx, a.message.as_str()),
+            ((y.clone(), 0), 1, "")
+        );
+        // `]` drops them the same way, two files at once; a walk that runs off the end says
+        // what it dropped first, and then that this is the end.
+        let w = dir.join("d.rs");
+        for p in [&x, &w] {
+            std::fs::write(p, "x\n".repeat(40)).unwrap();
+            a.jump_to(p, 9);
+        }
+        a.jump_to(&y, 20);
+        for _ in 0..3 {
+            press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        }
+        assert_eq!(
+            (at(&a), a.hist_idx, a.history.len()),
+            ((y.clone(), 0), 1, 5)
+        );
+        std::fs::remove_file(&x).unwrap();
+        std::fs::remove_file(&w).unwrap();
+        press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+        assert_eq!(
+            (at(&a), a.hist_idx, a.history.len()),
+            ((y.clone(), 19), 2, 3)
+        );
+        assert_eq!(a.message, "2 files gone");
+        std::fs::remove_file(&z).unwrap();
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(
+            (at(&a), a.hist_idx, a.history.len()),
+            ((y.clone(), 0), 0, 2)
+        );
+        assert_eq!(a.message, "c.rs gone");
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(a.message, "start of history");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// b, a, b with `a` gone would leave `b` next to itself: a press that moves nothing.
+    #[test]
+    fn dropping_a_stop_does_not_leave_its_neighbours_as_twins() {
+        let (dir, mut a) = files_app("twins");
         let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+        a.jump_to(&y, 1);
         a.jump_to(&x, 5);
         a.jump_to(&y, 1);
         std::fs::remove_file(&x).unwrap();
         press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!((at(&a), a.hist_idx, a.history.len()), ((y, 0), 0, 1));
+        assert_eq!(a.message, "a.rs gone");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Edits that cannot be saved keep merl on the file; that is no reason to drop a stop.
+    #[test]
+    fn a_stop_that_does_not_open_for_another_reason_leaves_the_history_alone() {
+        let (dir, mut a) = files_app("stuck");
+        let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+        a.jump_to(&x, 5);
+        a.jump_to(&y, 1);
+        (a.dirty, a.conflict) = (true, true);
+        std::fs::remove_file(&x).unwrap();
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(
+            (at(&a), a.hist_idx, a.history.len()),
+            ((y.clone(), 0), 1, 2)
+        );
+        // Nor is a file that is there and does not open.
+        (a.dirty, a.conflict) = (false, false);
+        std::fs::create_dir(&x).unwrap();
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
         assert_eq!((at(&a), a.hist_idx, a.history.len()), ((y, 0), 1, 2));
-        assert!(a.message.contains("a.rs"), "{}", a.message);
+        assert!(a.message.contains("a.rs: "), "{}", a.message);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

@@ -196,7 +196,16 @@ impl Review {
             .with_context(|| format!("no merge base between {base} and HEAD"))?;
         // `-z`: NUL-separated and unquoted, so a non-ASCII name is the name on disk.
         let mut files = parse_name_status(&git(&["diff", "--name-status", "-z", &merge_base])?);
-        for (path, counts) in parse_numstat(&git(&["diff", "--numstat", "-z", &merge_base])?) {
+        // A submodule counts as one line (`Subproject commit …`) that is no text to read: left
+        // out here it keeps its row in the panel and, like a pure rename, is not a stop.
+        let numstat = [
+            "diff",
+            "--numstat",
+            "--ignore-submodules",
+            "-z",
+            &merge_base,
+        ];
+        for (path, counts) in parse_numstat(&git(&numstat)?) {
             if let Some(f) = files.iter_mut().find(|f| f.path == path) {
                 f.binary = counts.is_none();
                 (f.added, f.deleted) = counts.unwrap_or((0, 0));
