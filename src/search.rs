@@ -160,6 +160,46 @@ const LUA_FUNCTION_SYMBOL: &str =
 const LUA_ASSIGNED_SYMBOL: &str =
     r"^\s*(?:local\s+)?(?:[\w.]+[.:])?(?P<name>[A-Za-z_]\w*)\s*=\s*function\b";
 
+/// The Elixir half of [`SYMBOLS`]: a module, a protocol and every `def` form, under the name
+/// alone — a `defmodule A.B.C` is listed as `C`, the way Ruby's `class A::B` is. A `defimpl` is
+/// left out: it declares the module `Protocol.Type`, and neither the protocol nor the type is a
+/// name of its own there, as a Rust `impl` is not. A `defstruct` is left out too, since one line
+/// declares every field, and so is a module attribute: `@doc`, `@spec` and `@moduledoc` are the
+/// language's own and would fill the list.
+const ELIXIR_SYMBOL: &str = concat!(
+    r"^\s*def(?:(?:module|protocol)\s+(?:[\w.]+\.)?|(?:p|macro|macrop|guard|guardp|delegate)?\s+)",
+    r"(?P<name>[A-Za-z_]\w*[!?]?)"
+);
+
+/// The module attributes Elixir itself gives a meaning to, rather than a project. They are
+/// directives, so [`def_patterns`] has no rule for the name itself.
+const ELIXIR_DIRECTIVES: &[&str] = &[
+    "after_compile",
+    "before_compile",
+    "behaviour",
+    "callback",
+    "compile",
+    "deprecated",
+    "derive",
+    "dialyzer",
+    "doc",
+    "enforce_keys",
+    "external_resource",
+    "file",
+    "impl",
+    "macrocallback",
+    "moduledoc",
+    "on_definition",
+    "on_load",
+    "opaque",
+    "optional_callbacks",
+    "spec",
+    "type",
+    "typedoc",
+    "typep",
+    "vsn",
+];
+
 /// A name in a `CREATE` statement, as written: bare, `"quoted"` or `` `backticked` ``, and
 /// optionally schema-qualified (`public.orders`).
 const SQL_NAME: &str = r#"(?:"[^"]+"|`[^`]+`|\w+)"#;
@@ -199,6 +239,9 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // no word for `local function` at all.
     (Some(Kind::Lua), LUA_FUNCTION_SYMBOL),
     (Some(Kind::Lua), LUA_ASSIGNED_SYMBOL),
+    // Elixir likewise: the shared pattern knows `def` and nothing else of the family, and reads
+    // the `x` of an anonymous `fn x -> …` as a declaration.
+    (Some(Kind::Elixir), ELIXIR_SYMBOL),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -215,11 +258,14 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Yaml), r"(^|\s)&(?P<anchor>[\w.-]+)"),
 ];
 
-/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++ and Lua
-/// have rows of their own in [`SYMBOLS`], written for what those languages declare and how they
+/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, Lua and
+/// Elixir have rows of their own in [`SYMBOLS`], written for what those languages declare and how they
 /// name it, so reading the all-language pattern over them too would list a declaration twice.
 pub fn shared_symbols(kind: Option<Kind>) -> bool {
-    !matches!(kind, Some(Kind::Jvm | Kind::Ruby | Kind::C | Kind::Lua))
+    !matches!(
+        kind,
+        Some(Kind::Jvm | Kind::Ruby | Kind::C | Kind::Lua | Kind::Elixir)
+    )
 }
 
 /// A file kind with navigation rules of its own. Told by the file name, since a `Makefile` or a
@@ -235,6 +281,7 @@ pub enum Kind {
     /// C and C++ together, headers included.
     C,
     Lua,
+    Elixir,
     Shell,
     Sql,
     Make,
@@ -259,6 +306,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         // language reads the other's headers, so they have to search each other.
         (_, "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx") => Kind::C,
         (_, "lua") => Kind::Lua,
+        (_, "ex" | "exs") => Kind::Elixir,
         (
             "Rakefile" | "rakefile" | "Gemfile" | "Guardfile" | "Capfile" | "Vagrantfile"
             | "Podfile" | "Brewfile" | "Dangerfile" | "Fastfile",
@@ -535,6 +583,33 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             // declares both.
             format!(r"^\s*local\s+(?:[\w\s,]*,\s*)?{w}\b"),
         ],
+        // Elixir declares with a `def` macro and with nothing else. Several clauses of one
+        // function are several declarations, so `d` offers them all and the picker's rows say
+        // which is which, the way a C++ overload set is offered.
+        Kind::Elixir => {
+            let mut patterns = vec![
+                // Every `def` form. A name can end in `?` or `!`, and a clause is written
+                // `def name(x) do`, `def name do` or `def name, do: x`.
+                format!(
+                    r"^\s*def(?:p|macro|macrop|guard|guardp|delegate)?\s+{w}[!?]?\s*(?:\(|,|do\b|$)"
+                ),
+                // A module or a protocol, under the namespace it is written with. The word has
+                // to be the last part: `defmodule MyApp.Repo` declares `MyApp.Repo` and nothing
+                // called `MyApp`. A `defimpl` declares the module `Protocol.Type`, where neither
+                // name is its own, as a Rust `impl` is a use of the trait and the type.
+                format!(r"^\s*def(?:module|protocol)\s+(?:[\w.]+\.)?{w}\s+do\b"),
+                // A field of the struct, in the atom list or the keyword form.
+                format!(r"^\s*defstruct\b.*(?::{w}\b|\b{w}:)"),
+            ];
+            // A module attribute is a declaration where it is given a value: `@timeout 5_000`.
+            // The attributes the language itself gives a meaning to are directives, not names a
+            // project declares — `@spec parse(t) :: t` is a promise about `parse`, not a
+            // declaration of `spec` — so `d` on one of them has nothing to find, and says so.
+            if !ELIXIR_DIRECTIVES.contains(&word) {
+                patterns.push(format!(r"^\s*@{w}\s+[^\s|]"));
+            }
+            patterns
+        }
         // A function in either form, an assignment behind the declaration keywords that can
         // precede it (`+=` appends to one), or an alias. A shell has no declaration for the rest,
         // so a `$w` use or a `[ "$w" = x ]` test must not look like one.
@@ -639,6 +714,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Ruby
         | Kind::C
         | Kind::Lua
+        | Kind::Elixir
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -850,6 +926,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Ruby
         | Kind::C
         | Kind::Lua
+        | Kind::Elixir
         | Kind::Shell
         | Kind::Sql
         | Kind::Make => kind_of(path) == Some(kind),
@@ -972,10 +1049,13 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // are their own lookups. Lua has no root at all to ask for: `package.path` is whatever
         // the interpreter embedding it was built with, and a Neovim or a LuaRocks tree is not a
         // standard library any project can be assumed to use. `d` stays inside the project for
-        // them, as for the rest.
+        // them, as for the rest. Elixir needs none: `mix` puts both the dependencies and their
+        // sources in `deps/` inside the project, so they are project files already, and the
+        // standard library ships compiled — an installed Elixir has `.beam` files, not `.ex`.
         Kind::Jvm
         | Kind::Ruby
         | Kind::Lua
+        | Kind::Elixir
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -1226,6 +1306,7 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
         | Kind::Ruby
         | Kind::C
         | Kind::Lua
+        | Kind::Elixir
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -1413,6 +1494,7 @@ pub fn module_files(
         | Kind::Ruby
         | Kind::C
         | Kind::Lua
+        | Kind::Elixir
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -1564,14 +1646,16 @@ fn comment(kind: Kind, t: &str) -> bool {
 }
 
 /// The 1-based lines of `text` that start inside a literal or a comment running over several
-/// lines: a Python triple-quoted string (a docstring with an example in it), a Go raw string, a
-/// TypeScript template, a Lua `[[ ]]` long string or `--[[ ]]` block comment, a `/* */` block. A
-/// line there that reads like a declaration declares nothing. Strings of one line end with their
-/// line, whatever they hold.
+/// lines: a Python or Elixir triple-quoted string (a docstring or an `@moduledoc` with an example
+/// in it), a Go raw string, a TypeScript template, a Lua `[[ ]]` long string or `--[[ ]]` block
+/// comment, a `/* */` block. A line there that reads like a declaration declares nothing. Strings
+/// of one line end with their line, whatever they hold.
 ///
-/// ponytail: Lua's `[==[ ]==]` long brackets are read as plain text, not as a literal.
+/// ponytail: Lua's `[==[ ]==]` long brackets and Elixir's `~S"""` sigils are read as plain text,
+/// not as a literal.
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
-    let python = kind == Kind::Python;
+    // Elixir writes its heredocs and its comments exactly as Python does.
+    let python = matches!(kind, Kind::Python | Kind::Elixir);
     let lua = kind == Kind::Lua;
     let b = text.as_bytes();
     let mut out = vec![false];
@@ -4031,6 +4115,161 @@ return M
         }
     }
 
+    const EX: &str = r#"defmodule MyApp.Ledger do
+  @moduledoc """
+  Examples:
+
+      def ghost(x), do: x
+  """
+
+  @timeout 5_000
+  @derive {Jason.Encoder, only: [:id]}
+
+  defstruct [:id, :total, currency: "EUR"]
+
+  @type t :: %__MODULE__{}
+
+  @spec parse(String.t()) :: t
+  def parse(nil), do: nil
+
+  def parse(raw) when is_binary(raw) do
+    %__MODULE__{id: raw}
+  end
+
+  defp normalise(raw) do
+    String.trim(raw)
+  end
+
+  defmacro with_total(do: block) do
+    block
+  end
+
+  defguard is_positive(n) when n > 0
+
+  defdelegate encode(value), to: Jason
+
+  def timeout, do: @timeout
+end
+
+defprotocol Renderable do
+  def render(value)
+end
+
+defimpl Renderable, for: MyApp.Ledger do
+  def render(ledger), do: ledger.id
+end
+"#;
+
+    #[test]
+    fn elixir_def_patterns_find_every_def_form() {
+        let (dir, files) = scratch("ex", &[("ledger.ex", EX)]);
+        let d = |w| defs(&dir, &files, Kind::Elixir, w);
+        assert_eq!(
+            d("Ledger"),
+            [1],
+            "the last part of `defmodule MyApp.Ledger`"
+        );
+        assert_eq!(d("Renderable"), [37], "not the `defimpl` that uses it");
+        // Two clauses of one function are two declarations, so both are offered; the `@spec`
+        // above them is a promise about `parse`, not its definition.
+        assert_eq!(d("parse"), [16, 18]);
+        assert_eq!(d("normalise"), [22], "`defp`");
+        assert_eq!(d("with_total"), [26], "`defmacro`");
+        assert_eq!(d("is_positive"), [30], "`defguard`");
+        assert_eq!(d("encode"), [32], "`defdelegate`");
+        assert_eq!(d("render"), [38, 42], "the protocol and its implementation");
+        // The attribute and the function of the same name are both declarations, of different
+        // things, so `d` offers both rather than guessing.
+        assert_eq!(d("timeout"), [8, 34]);
+        assert_eq!(d("id"), [11], "a struct field, atom list form");
+        assert_eq!(d("currency"), [11], "the keyword form of the same line");
+        // The attributes the language owns, and the names they talk about.
+        assert_eq!(d("t"), Vec::<usize>::new(), "`@type t ::` declares no `t`");
+        assert_eq!(d("spec"), Vec::<usize>::new());
+        assert_eq!(d("type"), Vec::<usize>::new());
+        assert_eq!(d("moduledoc"), Vec::<usize>::new());
+        assert_eq!(d("derive"), Vec::<usize>::new());
+        assert_eq!(d("MyApp"), Vec::<usize>::new(), "a namespace, not a module");
+        assert_eq!(d("raw"), Vec::<usize>::new(), "a parameter");
+        assert_eq!(d("block"), Vec::<usize>::new());
+        assert_eq!(d("Jason"), Vec::<usize>::new());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn elixir_heredocs_hide_what_they_hold() {
+        // `@moduledoc """ … """` on lines 2-6: the `def ghost(x)` of its example declares
+        // nothing, as a Python docstring's does not.
+        let lit = literal_lines(Kind::Elixir, EX);
+        assert_eq!(
+            lit.iter()
+                .enumerate()
+                .filter(|(_, l)| **l)
+                .map(|(i, _)| i + 1)
+                .collect::<Vec<_>>(),
+            [3, 4, 5, 6]
+        );
+    }
+
+    #[test]
+    fn elixir_scope_roots_and_names() {
+        let here = Path::new("lib/my_app/ledger.ex");
+        assert!(in_def_scope(
+            Kind::Elixir,
+            here,
+            Path::new("test/ledger_test.exs")
+        ));
+        assert!(!in_def_scope(Kind::Elixir, here, Path::new("mix.lock")));
+        // `alias` and `import` bind names, but `mix` puts the dependencies in `deps/` inside the
+        // project, so they are project files already and there is no root to leave for.
+        assert!(imports(Kind::Elixir, EX).is_empty());
+        assert!(external_roots(Kind::Elixir, Path::new("/")).is_empty());
+        assert!(member_patterns(Kind::Elixir, "parse").is_none());
+        // A function is named under the module it is written in, as in every kind.
+        assert_eq!(
+            qualified(Kind::Elixir, EX, 22, "normalise").as_deref(),
+            Some("Ledger.normalise")
+        );
+        assert_eq!(qualified(Kind::Elixir, EX, 1, "Ledger"), None);
+    }
+
+    #[test]
+    fn elixir_symbol_names() {
+        let ex = |line| one(Kind::Elixir, line);
+        for (line, name) in [
+            ("defmodule MyApp.Ledger do", Some("Ledger")),
+            ("defmodule Ledger do", Some("Ledger")),
+            ("defprotocol Renderable do", Some("Renderable")),
+            ("  def parse(nil), do: nil", Some("parse")),
+            ("  def timeout, do: @timeout", Some("timeout")),
+            ("  defp normalise(raw) do", Some("normalise")),
+            ("  def empty?(rows), do: rows == []", Some("empty?")),
+            ("  def put!(row), do: row", Some("put!")),
+            ("  defmacro with_total(do: block) do", Some("with_total")),
+            ("  defmacrop guard!(x), do: x", Some("guard!")),
+            ("  defguard is_positive(n) when n > 0", Some("is_positive")),
+            (
+                "  defguardp is_even(n) when rem(n, 2) == 0",
+                Some("is_even"),
+            ),
+            ("  defdelegate encode(value), to: Jason", Some("encode")),
+            // A `defimpl` names the module `Protocol.Type`, and neither half is its own name;
+            // `defstruct` declares every field on one line; an attribute belongs to the language.
+            ("defimpl Renderable, for: MyApp.Ledger do", None),
+            ("  defstruct [:id, :total]", None),
+            ("  @spec parse(String.t()) :: t", None),
+            ("  @type t :: %__MODULE__{}", None),
+            ("  @moduledoc \"\"\"", None),
+            ("  @timeout 5_000", None),
+            // The shared pattern called this a declaration of `x`.
+            ("    Enum.map(rows, fn x -> x.id end)", None),
+            ("    String.trim(raw)", None),
+            ("  end", None),
+        ] {
+            assert_eq!(ex(line).as_deref(), name, "{line}");
+        }
+    }
+
     const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
 
     #[test]
@@ -4209,6 +4448,8 @@ output "bucket" {
             ("ledger.hh", Some(Kind::C)),
             ("ledger.hxx", Some(Kind::C)),
             ("init.lua", Some(Kind::Lua)),
+            ("ledger.ex", Some(Kind::Elixir)),
+            ("mix.exs", Some(Kind::Elixir)),
             ("app.kt", Some(Kind::Jvm)),
             ("build.gradle.kts", Some(Kind::Jvm)),
             ("run.sh", Some(Kind::Shell)),
@@ -5707,12 +5948,14 @@ func Close() {
 
     #[test]
     fn the_shared_pattern_skips_the_kinds_with_rows_of_their_own() {
-        // Java, Kotlin, Ruby, C, C++ and Lua are listed from their own rows only, so nothing is
-        // listed twice, `def self.parse` is not `self` and `function M.setup(` is not `M`.
+        // Java, Kotlin, Ruby, C, C++, Lua and Elixir are listed from their own rows only, so
+        // nothing is listed twice, `def self.parse` is not `self` and `function M.setup(` is
+        // not `M`.
         assert!(!shared_symbols(Some(Kind::Jvm)));
         assert!(!shared_symbols(Some(Kind::Ruby)));
         assert!(!shared_symbols(Some(Kind::C)));
         assert!(!shared_symbols(Some(Kind::Lua)));
+        assert!(!shared_symbols(Some(Kind::Elixir)));
         // Shell and SQL rows complement the shared pattern instead, and it reads every other
         // file, known kind or not.
         assert!(shared_symbols(Some(Kind::Shell)));

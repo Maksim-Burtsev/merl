@@ -7036,6 +7036,12 @@ mod tests {
                     "init.lua",
                     "local M = {}\n\nfunction M.setup(opts)\n  return opts\nend\n",
                 ),
+                // Elixir from its own rows: the shared pattern knows `def` and nothing else of
+                // the family, and `defp` would be missing.
+                (
+                    "ledger.ex",
+                    "defmodule Ledger do\n  @timeout 5\n\n  defp normalise(raw), do: raw\nend\n",
+                ),
             ],
         );
         press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
@@ -7055,7 +7061,9 @@ mod tests {
                 "build",
                 "build",
                 "invoice",
+                "Ledger",
                 "LIMIT",
+                "normalise",
                 "serve",
                 "setup",
                 "var.region"

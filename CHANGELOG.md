@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` and `D` in Elixir, over every `.ex` and `.exs` file. `d` finds every `def` form — `def`,
+  `defp`, `defmacro`, `defmacrop`, `defguard`, `defguardp`, `defdelegate`, written with parens,
+  with `do` or with `, do:`, a trailing `?` or `!` included — a `defmodule` or a `defprotocol`
+  under the namespace it is written with, a `defstruct` field in either form, and a module
+  attribute where it is given a value (`@timeout 5_000`). Several clauses of one function are
+  several declarations and all are offered. `@spec`, `@type` and the other attributes the
+  language owns are directives, not declarations: `@spec parse(t) :: t` is a promise about
+  `parse`, not its definition. A line inside an `@moduledoc """` heredoc declares nothing, as one
+  inside a Python docstring does not. `D` lists modules, protocols and every `def` form from a
+  rule of its own, where the pattern every language shares knew `def` and nothing else of the
+  family and read the `x` of an anonymous `fn x -> …` as a declaration. (#17)
 - `d` and `D` in Lua, over every `.lua` file. `d` finds a function in each form the language
   writes one — `function name(`, `local function name(`, `function M.name(`, `function M:name(`,
   `M.name = function(` and the `name = function(` of a table of handlers — and a `local`, one of
