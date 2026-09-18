@@ -611,6 +611,16 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
     };
     if !prefix.is_empty() {
         draw_prompt(frame, prefix, &app.prompt, style, area);
+        // What the query found so far (`3/17`, `no match`), out of the way of the typing.
+        let w = wrap::width(&app.message) as u16 + 1;
+        if !app.message.is_empty() && area.width > w {
+            let right = Rect {
+                x: area.right() - w,
+                width: w,
+                ..area
+            };
+            frame.render_widget(Paragraph::new(app.message.as_str()).style(style), right);
+        }
         return;
     }
     let pane = match (app.mode, app.focus) {
@@ -625,12 +635,17 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
         ),
         Span::styled(
             format!(
-                "{}  {}:{}  [{pane}]{}{}{}",
+                "{}  {}:{}  [{pane}]{}{}{}{}",
                 if app.dirty { " \u{25cf}" } else { "" },
                 app.line + 1,
                 app.display_col(),
                 if app.mode == Mode::Edit {
                     if app.buf.tabs { "  Tab" } else { "  Spaces: 4" }
+                } else {
+                    ""
+                },
+                if app.buf.readonly.is_some() {
+                    "  read-only"
                 } else {
                     ""
                 },
