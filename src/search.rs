@@ -2923,15 +2923,17 @@ pub fn symbol_name(re: &Regex, line: &str) -> Option<String> {
         .or_else(|| group("name").map(str::to_owned))
 }
 
-/// Whether `name` matches `query` the way the picker's fuzzy filter does: the query's characters
-/// in order, case-insensitively until the query has a capital of its own (smart case, as `/` and
-/// `s`). `D` past the cap narrows its grep by this, so what comes back is what the picker keeps.
+/// Whether `name` matches `query` as a name: the query's characters in order, case-insensitively
+/// until the query has a capital of its own (smart case, as `/` and `s`). `D` past the cap
+/// narrows its grep by this, so what comes back is what the picker then ranks. It is a name, not
+/// a pattern: the picker's matcher also reads `^`, `!`, `'` and spaces as syntax of its own, and
+/// matches the path beside the name — neither of those reaches the grep.
 pub fn fuzzy_match(query: &str, name: &str) -> bool {
     let exact = query.chars().any(char::is_uppercase);
     let mut left = name.chars();
     query
         .chars()
-        .all(|q| left.any(|c| c == q || (!exact && c.eq_ignore_ascii_case(&q))))
+        .all(|q| left.any(|c| c == q || (!exact && c.to_lowercase().eq(q.to_lowercase()))))
 }
 
 /// The run of `[A-Za-z0-9_]` and `extra` characters at byte offset `col`, or the one that ends
