@@ -172,7 +172,8 @@ impl Review {
                 .arg("-C")
                 .arg(root)
                 .args(args)
-                .output()?;
+                .output()
+                .context("cannot run git: --review needs it on PATH")?;
             if !out.status.success() {
                 bail!(
                     "git {}: {}",
