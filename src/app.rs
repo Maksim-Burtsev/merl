@@ -1866,9 +1866,10 @@ impl App {
                 .iter()
                 .any(|c| c.hit.line != self.line + 1 || c.hit.path != here);
         // Tests, mocks, fixtures, generated and vendored copies of a declaration come last here
-        // too (#81). The sort is stable and every candidate is a declaration, so the rest keep
-        // the order the search found them in, standard library and all.
-        found.sort_by_key(|c| search::rank(&c.hit.path, None, true).0);
+        // too (#81) — except in the file on screen, which is what the reader is reading. The sort
+        // is stable and every candidate is a declaration, so the rest keep the order the search
+        // found them in, standard library and all.
+        found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).0);
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
         match found.as_slice() {
@@ -2833,20 +2834,31 @@ impl App {
         // What tells a declaration of the word from a use of it is `def_patterns`, and which
         // ones apply is the hit file's own kind: one regex per kind met, built once.
         let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
+        let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
         let mut ranked: Vec<_> = hits
             .into_iter()
             .map(|h| {
-                let re = rules
-                    .entry(search::kind_of(&h.path))
-                    .or_insert_with_key(|k| {
-                        let patterns = k
-                            .map(|k| search::def_patterns(k, &word))
-                            .unwrap_or_default();
-                        (!patterns.is_empty())
-                            .then(|| Regex::new(&patterns.join("|")).ok())
-                            .flatten()
-                    });
-                let declares = re.as_ref().is_some_and(|re| re.is_match(&h.text));
+                let kind = search::kind_of(&h.path);
+                let re = rules.entry(kind).or_insert_with_key(|k| {
+                    let patterns = k
+                        .map(|k| search::def_patterns(k, &word))
+                        .unwrap_or_default();
+                    (!patterns.is_empty())
+                        .then(|| Regex::new(&patterns.join("|")).ok())
+                        .flatten()
+                });
+                // A pattern that matched inside a docstring, a raw string or a block comment
+                // declares nothing, as `d` reads it too; only a file with a match is read.
+                let declares = re.as_ref().is_some_and(|re| re.is_match(&h.text))
+                    && !literal
+                        .entry(h.path.clone())
+                        .or_insert_with(|| {
+                            kind.zip(self.text_of(&h.path))
+                                .map_or_else(Vec::new, |(k, t)| search::literal_lines(k, &t))
+                        })
+                        .get(h.line - 1)
+                        .copied()
+                        .unwrap_or(false);
                 (search::rank(&h.path, here.as_deref(), declares), h)
             })
             .collect();
@@ -7940,15 +7952,98 @@ two
                 ("src/admin.py", "def purge(id):\n    delete_user(id)\n"),
             ],
         );
+        let rows = |a: &mut App| {
+            definition_rows(a)
+                .into_iter()
+                .map(|(_, _, place)| place)
+                .collect::<Vec<_>>()
+        };
         a.jump_to(&dir.join("src/admin.py"), 2);
         a.col = a.line_str().find("delete_user").unwrap();
         press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        assert_eq!(rows(&mut a), ["src/repo.py:1", "spec/repo.py:1"]);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        // Read from inside `spec/` and that file is not a test copy, it is what is on screen:
+        // its declaration stays first.
+        a.jump_to(&dir.join("spec/repo.py"), 2);
+        a.col = 4;
+        a.buf.lines[1] = "    delete_user(id)".into();
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        assert_eq!(rows(&mut a), ["spec/repo.py:1", "src/repo.py:1"]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #81: the mark says what `d` would call a declaration — not a `def` line inside a
+    /// docstring, nothing at all where the kind has no rule for the word, and nothing in a file
+    /// the list demotes, whose count belongs to the tests.
+    #[test]
+    fn the_usages_mark_is_only_for_a_declaration_d_would_offer() {
+        let (dir, mut a) = project_app(
+            "u-marks",
+            &[
+                (
+                    "src/repo.py",
+                    "class Repo:\n    def delete_user(self, id):\n        pass\n",
+                ),
+                (
+                    "docs/guide.py",
+                    "HELP = \"\"\"\nUsage:\n\ndef delete_user(id):\n\"\"\"\n",
+                ),
+                (
+                    "src/admin.py",
+                    "def purge(repo, id):\n    repo.delete_user(id)\n\ndef build():\n    return make_repo()\n",
+                ),
+                ("tests/test_repo.py", "def make_repo():\n    return None\n"),
+                (
+                    "main.tf",
+                    "resource \"aws_s3_bucket\" \"logs\" {\n  count = 2\n}\n",
+                ),
+                (
+                    "other.tf",
+                    "resource \"aws_s3_bucket\" \"data\" {\n  count = 3\n}\n",
+                ),
+            ],
+        );
+        usages_at(&mut a, &dir, "src/admin.py", 2, "delete_user");
         assert_eq!(
-            definition_rows(&mut a)
-                .into_iter()
-                .map(|(_, _, place)| place)
-                .collect::<Vec<_>>(),
-            ["src/repo.py:1", "spec/repo.py:1"]
+            usage_rows(&mut a),
+            [
+                ("declaration".to_string(), "src/repo.py:2".to_string()),
+                (String::new(), "src/admin.py:2".into()),
+                (String::new(), "docs/guide.py:4".into()),
+            ]
+        );
+        assert_eq!(
+            a.picker.as_ref().unwrap().title,
+            "Usages of delete_user: 1 declaration, 2 in code"
+        );
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        // Terraform declares no bare `count`: with no rule there is no mark and no column for it.
+        usages_at(&mut a, &dir, "main.tf", 2, "count");
+        assert_eq!(
+            usage_rows(&mut a),
+            [
+                (String::new(), "main.tf:2".to_string()),
+                (String::new(), "other.tf:2".into()),
+            ]
+        );
+        assert_eq!(
+            a.picker.as_ref().unwrap().title,
+            "Usages of count: 2 in code"
+        );
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        // A word declared only in a test file: the declaration is a test row, marked as neither.
+        usages_at(&mut a, &dir, "src/admin.py", 5, "make_repo");
+        assert_eq!(
+            usage_rows(&mut a),
+            [
+                (String::new(), "src/admin.py:5".to_string()),
+                (String::new(), "tests/test_repo.py:1".into()),
+            ]
+        );
+        assert_eq!(
+            a.picker.as_ref().unwrap().title,
+            "Usages of make_repo: 1 in code, 1 in tests"
         );
         std::fs::remove_dir_all(&dir).unwrap();
     }

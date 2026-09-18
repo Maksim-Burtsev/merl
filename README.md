@@ -373,8 +373,9 @@ definition, `a.b` only `a.b`. There is no regex mode. `s` lists its hits while y
 file's first; Up / Down pick one and Enter jumps to it.
 
 `u` lists every whole-word use of the identifier, case-sensitive, in the order a reader wants
-them: the declarations of the word, told by the same patterns `d` uses and marked `declaration` in
-the row, then the open file, then the rest of the project's code with the nearest directories
+them: the declarations of the word, told by the same rules `d` uses — its patterns, and not a line
+inside a docstring, a raw string or a block comment — and marked `declaration` in the row, then
+the open file, then the rest of the project's code with the nearest directories
 first, and last the tests, mocks, fixtures, generated and vendored files — a `test/`, `tests/`,
 `__tests__/`, `spec/`, `specs/`, `testdata/`, `fixtures/`, `mocks/` (also `__fixtures__/`,
 `__mocks__/`), `vendor/` or `third_party/` directory anywhere in the path, and the file names
