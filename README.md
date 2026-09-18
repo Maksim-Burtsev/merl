@@ -97,8 +97,8 @@ merl path/to/file.py:120
 | Ctrl+S | Save now (edits are saved on their own after a pause) |
 | Ctrl+R | Reload from disk, dropping unsaved edits |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
-| Ctrl+C | Copy the selection (with none, quit) |
-| Edit: Ctrl+C / Ctrl+X | Copy / cut the selection, or the line, to the clipboard |
+| Ctrl+C | Copy the selection, or the line, to the clipboard |
+| Edit: Ctrl+X | Cut the selection, or the line |
 | Edit: Alt+Backspace / Alt+Delete | Delete the word before / after the cursor |
 | Arrows | Move the cursor; Up / Down go by screen row |
 | Shift+Up / Shift+Down | Extend the selection by a screen row |
@@ -114,7 +114,7 @@ merl path/to/file.py:120
 | Ctrl+Home / Ctrl+End | Start / end of the file |
 | Esc | Close an overlay, leave edit mode, or clear selection and find |
 | ? | This help |
-| q / Ctrl+C | Quit |
+| q | Quit |
 | Tree: Up / Down | Move |
 | Tree: Enter | Open the file, or expand the directory |
 | Tree: Left / Right | Collapse / expand |
@@ -156,8 +156,8 @@ Typing over a selection replaces it, Backspace and Delete remove it. Alt+Backspa
 cut the selection (or the whole line without one) to the system clipboard through the terminal
 (OSC 52: Ghostty, kitty, WezTerm, agterm, and iTerm2 once "Applications in terminal may access
 clipboard" is on; Terminal.app cannot). Paste is the terminal's own Cmd+V; outside edit mode it
-types into the `/`, `s` and `:` prompts and picker queries, and navigation ignores it. Ctrl+C is
-quit again once you press Esc.
+types into the `/`, `s` and `:` prompts and picker queries, and navigation ignores it. Ctrl+C
+copies outside edit mode too and never quits: that is `q`.
 
 The `/`, `s` and `:` prompts and picker queries are one-line editors with the same keys: arrows,
 Alt+arrows by word, Home and End, Delete, Shift, Alt+Shift or Ctrl+Shift with an arrow to select, plus
@@ -426,7 +426,7 @@ primary keys and the function keys only aliases.
 
 Cmd never reaches a terminal program on its own, so copy is Ctrl+C. Ghostty can hand Cmd+C over
 when there is no mouse selection for it to copy, and merl then treats Cmd+C / Cmd+X as the Ctrl
-chords (Cmd+C never quits). Cmd+V needs nothing: the terminal pastes. In `~/.config/ghostty/config`:
+chords. Cmd+V needs nothing: the terminal pastes. In `~/.config/ghostty/config`:
 
 ```
 keybind = performable:cmd+c=copy_to_clipboard:mixed

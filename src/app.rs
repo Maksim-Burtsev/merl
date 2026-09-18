@@ -52,11 +52,11 @@ pub const KEYS: &[(&str, &str)] = &[
     ),
     ("Ctrl+R", "Reload from disk, dropping unsaved edits"),
     ("Ctrl+Z / Ctrl+Y", "Undo / redo"),
-    ("Ctrl+C", "Copy the selection (with none, quit)"),
     (
-        "Edit: Ctrl+C / Ctrl+X",
-        "Copy / cut the selection, or the line, to the clipboard",
+        "Ctrl+C",
+        "Copy the selection, or the line, to the clipboard",
     ),
+    ("Edit: Ctrl+X", "Cut the selection, or the line"),
     (
         "Edit: Alt+Backspace / Alt+Delete",
         "Delete the word before / after the cursor",
@@ -87,7 +87,7 @@ pub const KEYS: &[(&str, &str)] = &[
         "Close an overlay, leave edit mode, or clear selection and find",
     ),
     ("?", "This help"),
-    ("q / Ctrl+C", "Quit"),
+    ("q", "Quit"),
     ("Tree: Up / Down", "Move"),
     ("Tree: Enter", "Open the file, or expand the directory"),
     ("Tree: Left / Right", "Collapse / expand"),
@@ -2921,6 +2921,32 @@ impl App {
             .then(|| "line too long to edit".to_string())
     }
 
+    /// Ctrl+C: the selection goes to the clipboard, without one the whole line, as in VS Code.
+    /// Returns the copied range, which Ctrl+X then removes.
+    fn copy(&mut self) -> ((usize, usize), (usize, usize)) {
+        let (from, to, text) = match self.selection() {
+            Some((from, to)) => (from, to, self.selected_text().unwrap()),
+            None if self.line + 1 < self.buf.lines.len() => (
+                (self.line, 0),
+                (self.line + 1, 0),
+                format!("{}\n", self.line_str()),
+            ),
+            None => (
+                (self.line, 0),
+                (self.line, self.line_str().len()),
+                self.line_str().to_string(),
+            ),
+        };
+        // A piece of one line is just `copied`; anything that holds a whole line is counted.
+        self.message = match text.lines().count() {
+            1 if self.selection().is_some() && !text.ends_with('\n') => "copied".into(),
+            1 => "copied 1 line".into(),
+            n => format!("copied {n} lines"),
+        };
+        self.clipboard = Some(text);
+        (from, to)
+    }
+
     /// Keys that only mean something while editing. Returns `false` for every other key, which
     /// then falls through to the navigation keys: arrows, Home / End, the chord aliases.
     fn edit_key(&mut self, code: KeyCode, ctrl: bool, alt: bool) -> bool {
@@ -2929,23 +2955,8 @@ impl App {
                 self.mode = Mode::Normal;
                 self.flush();
             }
-            // Without a selection the whole line goes, as in VS Code.
             KeyCode::Char('c' | 'x') if ctrl => {
-                let (from, to, text) = match self.selection() {
-                    Some((from, to)) => (from, to, self.selected_text().unwrap()),
-                    None if self.line + 1 < self.buf.lines.len() => (
-                        (self.line, 0),
-                        (self.line + 1, 0),
-                        format!("{}\n", self.line_str()),
-                    ),
-                    None => (
-                        (self.line, 0),
-                        (self.line, self.line_str().len()),
-                        self.line_str().to_string(),
-                    ),
-                };
-                self.clipboard = Some(text);
-                self.message = "copied".into();
+                let (from, to) = self.copy();
                 if code == KeyCode::Char('x') {
                     self.replace(from, to, "");
                 }
@@ -3203,10 +3214,8 @@ impl App {
             key.modifiers.remove(KeyModifiers::SHIFT);
         }
         // Cmd+C / Cmd+X reach merl only from a terminal told to pass them on (see the README);
-        // they are the Ctrl chords then, except that Cmd+C never quits.
-        let cmd =
-            key.modifiers == KeyModifiers::SUPER && matches!(key.code, KeyCode::Char('c' | 'x'));
-        if cmd {
+        // they are the Ctrl chords then.
+        if key.modifiers == KeyModifiers::SUPER && matches!(key.code, KeyCode::Char('c' | 'x')) {
             key.modifiers = KeyModifiers::CONTROL;
         }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
@@ -3214,13 +3223,10 @@ impl App {
         let alt = key.modifiers.contains(KeyModifiers::ALT);
 
         if ctrl && key.code == KeyCode::Char('c') && self.mode != Mode::Edit {
-            // With a selection Ctrl+C is the copy it is everywhere else; without one it quits.
-            let text = self.selected_text();
-            if self.mode != Mode::Normal || self.picker.is_some() || text.is_none() {
-                return !cmd;
+            // Ctrl+C is copy everywhere and never quits; a prompt or picker has nothing to copy.
+            if self.mode == Mode::Normal && self.picker.is_none() {
+                self.copy();
             }
-            self.clipboard = text;
-            self.message = "copied".into();
             return false;
         }
         if self.picker.is_some() {
@@ -3627,19 +3633,24 @@ mod tests {
     }
 
     #[test]
-    fn ctrl_c_copies_a_selection_in_navigation_and_quits_without_one() {
+    fn ctrl_c_copies_in_navigation_and_never_quits() {
         let mut a = app("abc");
         press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
         press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
         assert!(!press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL));
         assert_eq!(a.clipboard.take().as_deref(), Some("ab"));
         assert!(a.selection().is_some(), "copy leaves the selection");
-        // Cmd+C, from a terminal that passes it on, copies too and never quits.
+        // Cmd+C, from a terminal that passes it on, copies too.
         assert!(!press(&mut a, KeyCode::Char('c'), KeyModifiers::SUPER));
         assert_eq!(a.clipboard.take().as_deref(), Some("ab"));
+        // Without a selection the line goes, and merl stays open.
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-        assert!(!press(&mut a, KeyCode::Char('c'), KeyModifiers::SUPER));
-        assert!(press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL));
+        assert!(!press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL));
+        assert_eq!(a.clipboard.take().as_deref(), Some("abc"));
+        assert_eq!(a.message, "copied 1 line");
+        // A prompt has nothing to copy, and Ctrl+C does not quit from it either.
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        assert!(!press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL));
         assert_eq!(a.clipboard, None);
     }
 
@@ -7175,6 +7186,7 @@ mod tests {
         assert_eq!(a.selection(), Some(((0, 1), (1, 1))));
         press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
         assert_eq!(a.clipboard.take().as_deref(), Some("bc\nd"));
+        assert_eq!(a.message, "copied 2 lines");
         assert_eq!(a.buf.lines.len(), 3, "copy leaves the text alone");
         assert!(a.selection().is_some(), "and the selection");
         typed(&mut a, "X");
@@ -7205,10 +7217,6 @@ mod tests {
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         a.paste("nope");
         assert_eq!(a.buf.lines, vec!["def", "p", "q"]);
-        assert!(
-            press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL),
-            "Ctrl+C quits again"
-        );
     }
 
     #[test]
@@ -7301,7 +7309,7 @@ mod tests {
         // Undo from navigation dirties the buffer again; quitting flushes it.
         press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
         assert!(a.dirty);
-        assert!(press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL));
+        assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
         assert_eq!(
             std::fs::read(&path).unwrap(),
             b"a\r\nb\r\n",

@@ -138,7 +138,7 @@ pub const LESSONS: &[Lesson] = &[
     Lesson {
         title: "Select",
         text: "`v` selects the word under the cursor, again the line, again the paragraph; Ctrl+C \
-               copies the selection. Press Down to step onto `remove`, then `v` three times.",
+               copies the selection, or the line without one. Press Down to step onto `remove`, then `v` three times.",
         done: |a| at(a, "store.py") && a.selection().is_some_and(|(from, to)| from.0 < to.0),
     },
     Lesson {
@@ -355,7 +355,7 @@ mod tests {
         "Picker: Esc",
         "Picker: PgUp / PgDn",
         "Help: Up / Down",
-        "Edit: Ctrl+C / Ctrl+X",
+        "Edit: Ctrl+X",
         "Edit: Alt+Backspace / Alt+Delete",
     ];
 
