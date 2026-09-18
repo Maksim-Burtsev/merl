@@ -34,3 +34,13 @@ export function continued(id: number): unknown[] {
   return [(ledger: UserRepository) => ledger,
     ledger.deleteUser(id + 4)];
 }
+
+function register(each: unknown, options: unknown): unknown[] {
+  return [each, options];
+}
+
+export function literal(id: number): unknown[] {
+  return register((ledger: UserRepository) => ledger, {
+    done: ledger.deleteUser(id + 5),
+  });
+}

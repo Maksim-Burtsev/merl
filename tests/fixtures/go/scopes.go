@@ -35,3 +35,13 @@ func ScopedTwice(id int, ok bool) {
 		ledger.DeleteUser(id + 5)
 	}
 }
+
+type scopedOptions struct{ run func() }
+
+func scopedRegister(each func(ledger *UserRepository), options scopedOptions) {}
+
+func ScopedLiteral(id int) {
+	scopedRegister(func(ledger *UserRepository) {}, scopedOptions{
+		run: func() { ledger.DeleteUser(id + 6) },
+	})
+}

@@ -1651,8 +1651,26 @@ fn value_of(kind: Kind, expr: &str) -> Value {
                 _ => {}
             }
         }
+        // `as` binds tighter than `?:`, `||`, `??` and `=>`: only one operand in front of it, a
+        // name, a call or a literal, is what the cast types.
+        let operand = |head: &str| {
+            let head = head.trim_start_matches("await ").trim_start_matches("new ");
+            let mut depth = 0i32;
+            code(kind, head).all(|(_, c)| {
+                match c {
+                    b'(' | b'[' | b'{' => depth += 1,
+                    b')' | b']' | b'}' => depth -= 1,
+                    _ => {}
+                }
+                c != b' ' || depth > 0
+            })
+        };
         if let Some(i) = cast {
-            return Value::Type(e[i..].trim().to_owned());
+            let first = e.find(" as ").unwrap_or(i);
+            return match operand(&e[..first]) {
+                true => Value::Type(e[i..].trim().to_owned()),
+                false => Value::Unknown,
+            };
         }
     }
     if kind == Kind::Go
@@ -1994,7 +2012,7 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
             // opens no block (a call or a list continued below it) may hold an arrow function
             // the cursor is not in, as the cursor's own line may: its parameters count, and
             // hide nothing.
-            let opens = header.trim_end().ends_with('{') || header.trim_end().ends_with("=>");
+            let opens = opens_block(kind, &header);
             if kind == Kind::Go {
                 let types = header
                     .strip_prefix("case ")
@@ -2017,6 +2035,23 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         }
     }
     out
+}
+
+/// Whether what `header` binds is bound for the block under it: the header ends in the function,
+/// the arrow or the loop itself. `register((repo: Repo) => repo, {` and Go's
+/// `run(func(repo *Repo) {}, Options{` end in a literal the cursor is in, next to a function it
+/// is not in. gofmt puts a space before a block's `{` and none before a literal's.
+fn opens_block(kind: Kind, header: &str) -> bool {
+    static TS_RESULT: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\)\s*:[^(){}]+$").unwrap());
+    let h = header.trim_end();
+    match (kind, h.strip_suffix('{').map(str::trim_end)) {
+        (Kind::Go, _) => h.ends_with(" {"),
+        (_, None) => h.ends_with("=>"),
+        (_, Some(before)) => {
+            before.ends_with("=>") || before.ends_with(')') || TS_RESULT.is_match(before)
+        }
+    }
 }
 
 /// What `this` is inside the block a header opens: the class it declares, unknown under a
@@ -4778,6 +4813,11 @@ func Close() {
         assert_eq!(v(Kind::TsJs, "row as Repo;"), ty("Repo"));
         assert_eq!(v(Kind::TsJs, "load(id) as unknown as Repo"), ty("Repo"));
         assert_eq!(v(Kind::TsJs, "{ a: 1 } as const"), ty("const"));
+        assert_eq!(v(Kind::TsJs, "await load(a, b) as Repo"), ty("Repo"));
+        // `as` takes the operand next to it, not the whole expression.
+        assert_eq!(v(Kind::TsJs, "ok ? a : b as Repo"), Value::Unknown);
+        assert_eq!(v(Kind::TsJs, "a ?? b as Repo"), Value::Unknown);
+        assert_eq!(v(Kind::TsJs, "() => row as Repo"), Value::Unknown);
         // An `as` inside brackets or a string casts something else.
         assert_eq!(
             v(Kind::TsJs, "load(row as Repo)"),

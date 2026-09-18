@@ -6257,6 +6257,20 @@ mod tests {
                 "  ledger|.findUser(id)",
                 jump("ledger \u{2192} rotate.ledger (local)", "scopes.ts:6"),
             ),
+            // A literal under a line that also holds an arrow function: the cursor is in the
+            // literal, and the arrow's parameter hides nothing.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 5)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
             // Go: a `:=` over the package's `var`, a block's over the function's, and the package's
             // where nothing hides it.
             (
@@ -6328,6 +6342,19 @@ mod tests {
                 jump(
                     "ledger \u{2192} ScopedRotate.ledger (local)",
                     "scopes.go:10",
+                ),
+            ),
+            // A composite literal under a line that also holds a `func`.
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 6)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
                 ),
             ),
         ];
