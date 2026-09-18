@@ -270,6 +270,13 @@ the type before it. The type comes from the declaration:
   whose type is proven the same way, `info := e.RequestInfo()` or `repo = self.depot.people()`:
   the method is looked for in that type and the types it extends, where it must be declared once,
   an interface's method line included;
+- a cast: `repo = cast(UserRepository, found)` (`typing.cast` too, the type quoted or not),
+  `const repo = found as UserRepository` (the last type of `as unknown as T`),
+  `repo, ok := found.(*UserRepository)`, and the variable of a Go type switch,
+  `switch v := found.(type)`, inside a `case *UserRepository:` (a `case` of several types and
+  `default` leave it unknown). A chain may hang off the cast itself:
+  `(found as UserRepository).deleteUser`, `found.(*UserRepository).DeleteUser`,
+  `cast(UserRepository, found).delete_user`, `via found.(*UserRepository)`;
 - a loop over a collection whose type is written: `for repo in repos` with
   `repos: list[UserRepository]` (`Sequence`, `Iterable`, `set`, `tuple[T, ...]` and the like),
   `for (const repo of repos)` with `UserRepository[]`, `Array<T>` or `Set<T>`,

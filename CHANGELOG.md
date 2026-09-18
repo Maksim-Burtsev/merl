@@ -60,6 +60,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   constructs the same class returns it, as TypeScript's already did; and a chain may hang off the
   call that starts it, `make_uow().users.delete_user`, `pkg.New(x).Run`, `new Depot().people`. A
   call of a call is still by name. (#100)
+- A cast tells `d` the type: Python's `cast(T, x)` / `typing.cast`, TypeScript's `x as T`, Go's
+  `v, ok := i.(T)` and the variable of `switch v := x.(type)` inside a `case T:`, assigned to a
+  name or with the member hanging off the cast, `(x as T).find`, `i.(T).Find`. A cast to a type
+  the project does not declare, a `case` of several types and `default` stay by name. (#100)
 
 ### Changed
 

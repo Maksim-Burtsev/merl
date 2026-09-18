@@ -2070,9 +2070,12 @@ impl App {
             // The chain hangs off a call: `make_uow().users.word`.
             Some((call, value, fields)) => {
                 let value = value.clone();
-                let start = self
+                // A cast is its own link, as written: `via (repo as UserRepository)`.
+                let cast = matches!(value, search::Value::Type(_)).then(|| call.clone());
+                let (ty, link) = self
                     .binding_type(kind, here, &text, &search::Binding { line, value }, 1)
                     .ok_or_else(|| call.clone())?;
+                let start = (ty, link.or(cast));
                 self.follow(kind, start, call, false, fields)?
             }
             None => self.chain_type(kind, here, &text, line, chain, 1)?,
@@ -6806,6 +6809,215 @@ mod tests {
                     &[
                         ("UserRepository.DeleteUser", "repos.go:15"),
                         ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100: a cast writes the type. `typing.cast(T, x)`, `x as T`, `v, ok := i.(T)`, and the
+    /// variable of `switch v := x.(type)` inside a `case T:`, assigned to a name or with the chain
+    /// hanging off the cast itself. A cast to a type the project does not declare, a `case` of
+    /// several types and `default` prove nothing.
+    #[test]
+    fn a_cast_writes_the_type() {
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // `cast(T, x)` and `typing.cast("T", x)` assigned to a name, and with the member hanging
+            // off the cast itself.
+            (
+                "python",
+                "casts.py",
+                "repo.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via repo: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "casts.py",
+                "audit.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via audit: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            (
+                "python",
+                "casts.py",
+                "cast(UserRepository, found).delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via cast(UserRepository, found))",
+                    "repos.py:8",
+                ),
+            ),
+            // A cast to a type the project does not declare proves nothing.
+            (
+                "python",
+                "casts.py",
+                "missing.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "casts.py",
+                "loose.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // TypeScript: `x as T`, the last type of `x as unknown as T`, and `(x as T).member`.
+            (
+                "typescript",
+                "casts.ts",
+                "repo.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via repo: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "casts.ts",
+                "audit.deleteUser",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via audit: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "casts.ts",
+                "(found as UserRepository).deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via found as UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            // `any`, and a generic wrapper that is no type of the project.
+            (
+                "typescript",
+                "casts.ts",
+                "loose.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "casts.ts",
+                "partial.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // Go: `v, ok := i.(T)`, `v := i.(T)` and `i.(T).Member`.
+            (
+                "go",
+                "casts.go",
+                "repo.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via repo: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "casts.go",
+                "audit.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via audit: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "casts.go",
+                "found.(*UserRepository).DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via found.(*UserRepository))",
+                    "repos.go:15",
+                ),
+            ),
+            // `fmt.Stringer` is declared outside the project.
+            (
+                "go",
+                "casts.go",
+                "found.(fmt.Stringer).String",
+                jump("no definition for String", "casts.go:25"),
+            ),
+            // The variable of a type switch has the type of the `case` the cursor is in, also from a
+            // block inside it.
+            (
+                "go",
+                "casts.go",
+                "v.DeleteUser|(id + 3)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via v: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "casts.go",
+                "v.DeleteUser|(id + 4)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via v: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            // A second type switch below the first: the first one's `v` is out of scope.
+            (
+                "go",
+                "casts.go",
+                "return v.Area|()",
+                jump("Area \u{2192} Square.Area (via v: Square)", "casts.go:11"),
+            ),
+            // A `case` of two types and `default` leave `v` what it was.
+            (
+                "go",
+                "casts.go",
+                "v.Area|() + 1",
+                picker(
+                    "Area: by name, 2 declarations",
+                    &[
+                        ("Square.Area", "casts.go:11"),
+                        ("Circle.Area", "casts.go:15"),
+                    ],
+                ),
+            ),
+            (
+                "go",
+                "casts.go",
+                "v.Area|() + 2",
+                picker(
+                    "Area: by name, 2 declarations",
+                    &[
+                        ("Square.Area", "casts.go:11"),
+                        ("Circle.Area", "casts.go:15"),
                     ],
                 ),
             ),

@@ -79,6 +79,12 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   differ, a `return None` among them, a decorated function, TypeScript overloads. Since then
   `make_uow().users.delete_user` in `chains` and Python's `make_audit()` in `factories` are
   proven.
+- casts (#100): `casts` casts an untyped `found` to `UserRepository` and `AuditLog` in every
+  form — `cast(T, x)`, `typing.cast("T", x)`, `x as T`, `x as unknown as T`, `v, ok := i.(T)`,
+  `v := i.(T)` — assigned to a name and with the member hanging off the cast, and to what the
+  project does not declare (`"Missing"`, `typing.Any`, `any`, `Partial<…>`, `fmt.Stringer`). Go has
+  two type switches over a `v`, one after the other: a `case` of one type, from a block inside the
+  arm too, a `case` of two types and `default`.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.
