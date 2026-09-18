@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` and `D` in C#, over every `.cs` and `.csx` file. `d` finds a `class`, `struct`,
+  `interface`, `enum`, `record`, `record struct` and `delegate` past the generic parameters they
+  declare and behind their `[Attribute]` lists and modifiers, a `namespace` under its last part, a
+  `using x =` alias, a constructor behind at least one access modifier — a bare `Invoice(n)` is a
+  call — and a method, a property, an event, a field or a local, told from a call by the type
+  before the name, so `public int X { get; }`, `public string Name => _name;` and
+  `int IComparable.CompareTo(o)` all count. An enum member has no rule: `Open,` in an `enum` body
+  and in a collection initialiser are the same line, so `u` lists its uses. `d` stays inside the
+  project, since a NuGet package ships compiled assemblies and the runtime's own source is not on
+  the machine. `D` lists the types and the members from rows of its own, so the declaration
+  pattern every other language shares is untouched and nothing is listed twice; a field and a
+  constructor are left out, as in every other kind. (#17)
 - `d` and `D` in C and C++, which are one kind over every `.c`, `.h`, `.cc`, `.cpp`, `.cxx`,
   `.hpp`, `.hh` and `.hxx` file, so a header finds what a `.c` or a `.cc` defines and the other
   way round. In column zero, where neither language has statements, `d` reads a function, a

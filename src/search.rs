@@ -140,6 +140,81 @@ const C_TYPEDEF_SYMBOL: &str =
 /// An object- or function-like macro.
 const C_MACRO_SYMBOL: &str = r"^\s*#\s*define\s+(?P<name>[A-Za-z_]\w*)";
 
+/// Everything that can stand before a C# declaration: the attribute lists written on the same
+/// line (`[Fact] public void …`) and the modifiers, which come in any order. The argument is the
+/// repetition the run takes: `"*"` for a rule that reads them if they are there, `"+"` for one
+/// that needs at least one. A macro, so [`def_patterns`] and the [`SYMBOLS`] rows share one
+/// spelling of it.
+macro_rules! cs_mods {
+    () => {
+        cs_mods!("*")
+    };
+    ($rep:literal) => {
+        concat!(
+            r"^\s*(?:\[[^\]]*\]\s*)*",
+            r"(?:(?:public|private|protected|internal|file|static|readonly|const|sealed|abstract",
+            r"|virtual|override|partial|async|extern|unsafe|new|volatile|event|required|fixed",
+            r"|implicit|explicit|ref)\s+)",
+            $rep
+        )
+    };
+    // A constructor is told from a call by its modifiers alone, so its run is the access ones
+    // only: `new` is a member modifier too, and a bare `new Invoice(id)` must not read as one.
+    (access) => {
+        concat!(
+            r"^\s*(?:\[[^\]]*\]\s*)*",
+            r"(?:(?:public|private|protected|internal|static|unsafe|extern|partial)\s+)+"
+        )
+    };
+}
+
+/// A C# type as it stands before the name it declares: a predefined type, `var`, or a name with a
+/// capital in it, which is how C# names its types — the same trick Java's rules use, and what
+/// keeps `return Compute(x);` from reading as a declaration. A tuple type counts too, and needs
+/// the comma it is written with: without it, `if (x) Run();` would read as a declaration of `Run`.
+/// Generics nest one level, and the nullable `?`, the array `[]` and a qualified name all count.
+macro_rules! cs_type {
+    () => {
+        concat!(
+            r"(?:void|var|bool|byte|sbyte|char|decimal|double|float|int|uint|long|ulong|short",
+            r"|ushort|object|string|dynamic|nint|nuint|\([^()]*,[^()]*\)|[\w.]*[A-Z][\w.]*)",
+            cs_generics!(),
+            r"\??(?:\[[,\s]*\])*\??"
+        )
+    };
+}
+
+/// A generic argument list, nesting three levels: a regex counts no brackets, and
+/// `Task<ActionResult<QueryResult<T>>>` is what an ASP.NET controller action returns.
+macro_rules! cs_generics {
+    () => {
+        r"(?:<[^<>]*(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>[^<>]*)*>)?"
+    };
+}
+
+/// The C# half of [`SYMBOLS`], first half: what the language declares with a keyword. A
+/// `delegate` carries its return type between the keyword and the name, and a `namespace` is
+/// listed under its last part, the one `d` finds it by.
+const CS_DECL_SYMBOL: &str = concat!(
+    cs_mods!(),
+    r"(?:(?:class|struct|interface|enum|record\s+class|record\s+struct|record)\s+",
+    r"|delegate\s+",
+    cs_type!(),
+    r"\s+|namespace\s+(?:[\w.]+\.)?)",
+    r"(?P<name>[A-Za-z_]\w*)"
+);
+
+/// The other C# half: a member with no keyword at all, told from a call by the type before its
+/// name — a method by the `(` of its parameters, a property by the `{` of its accessors, the `=>`
+/// of its expression body or the end of the line, where they open on the next one. A field
+/// (`… name;`, `… name = 1;`) is left out, as in every other kind, and so is a constructor, which
+/// is listed under its class.
+const CS_MEMBER_SYMBOL: &str = concat!(
+    cs_mods!(),
+    cs_type!(),
+    r"\s+(?:[\w.]+\.)?(?P<name>[A-Za-z_]\w*)\s*(?:<[^<>]*>\s*)?(?:\(|\{|=>|$)"
+);
+
 /// The Ruby half of [`SYMBOLS`]: a method, including the `self.` form and the `name=` setter, and
 /// a class or module under the namespace it is written with. A constant and the names an
 /// `attr_accessor` line declares stay off the list: there is no keyword to go by, and one such
@@ -182,6 +257,10 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::C), C_TYPE_SYMBOL),
     (Some(Kind::C), C_TYPEDEF_SYMBOL),
     (Some(Kind::C), C_MACRO_SYMBOL),
+    // C# likewise: `public sealed partial class Foo<T>` stands behind modifiers the shared
+    // pattern does not know, and a method or a property carries no keyword at all.
+    (Some(Kind::CSharp), CS_DECL_SYMBOL),
+    (Some(Kind::CSharp), CS_MEMBER_SYMBOL),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -198,11 +277,11 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Yaml), r"(^|\s)&(?P<anchor>[\w.-]+)"),
 ];
 
-/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C and C++ have
-/// rows of their own in [`SYMBOLS`], written for what those languages declare and how they name
-/// it, so reading the all-language pattern over them too would list a declaration twice.
+/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++ and C#
+/// have rows of their own in [`SYMBOLS`], written for what those languages declare and how they
+/// name it, so reading the all-language pattern over them too would list a declaration twice.
 pub fn shared_symbols(kind: Option<Kind>) -> bool {
-    !matches!(kind, Some(Kind::Jvm | Kind::Ruby | Kind::C))
+    !matches!(kind, Some(Kind::Jvm | Kind::Ruby | Kind::C | Kind::CSharp))
 }
 
 /// A file kind with navigation rules of its own. Told by the file name, since a `Makefile` or a
@@ -217,6 +296,7 @@ pub enum Kind {
     Ruby,
     /// C and C++ together, headers included.
     C,
+    CSharp,
     Shell,
     Sql,
     Make,
@@ -240,6 +320,8 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         // C and C++ are one kind: a header declares what a `.c` or a `.cc` defines, and either
         // language reads the other's headers, so they have to search each other.
         (_, "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx") => Kind::C,
+        // `.csx` is a C# script: the same language, run by `dotnet script`.
+        (_, "cs" | "csx") => Kind::CSharp,
         (
             "Rakefile" | "rakefile" | "Gemfile" | "Guardfile" | "Capfile" | "Vagrantfile"
             | "Podfile" | "Brewfile" | "Dangerfile" | "Fastfile",
@@ -502,6 +584,34 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"^\w[^;(){{}}=<>]*[\s*&]{w}\s*(?:\[[^\]]*\])*\s*(?:=[^=]|;)"),
             ]
         }
+        // C# writes its modifiers and its attributes in front of everything and its type before
+        // the name, as Java does, so a member is told from a call by that type: a primitive,
+        // `var`, or a name with a capital in it. A field and a local land here too — a `;` or an
+        // `=` after the name is as much a declaration as the `(` of a method.
+        Kind::CSharp => {
+            let (mods, ty, access) = (cs_mods!(), cs_type!(), cs_mods!(access));
+            vec![
+                // A type, past the generic parameters it declares; the `(` is a record's or a
+                // class's primary constructor, `where` its first constraint.
+                format!(
+                    r"{mods}(?:class|struct|interface|enum|record\s+class|record\s+struct|record)\s+{w}\s*(?:<[^>]*>)?\s*(?:[:{{;(]|where\b|$)"
+                ),
+                format!(r"{mods}delegate\s+{ty}\s+{w}\s*(?:<[^>]*>)?\s*\("),
+                // A file-scoped or a block namespace, under its last part, as it is read.
+                format!(r"^\s*namespace\s+(?:[\w.]+\.)?{w}\s*[;{{]?\s*$"),
+                // `using Rows = List<int>;`: the alias form, where a plain `using` imports a
+                // namespace and declares nothing.
+                format!(r"^\s*(?:global\s+)?using\s+(?:unsafe\s+)?{w}\s*="),
+                // A constructor, behind at least one access modifier. With nothing in front,
+                // `Invoice(n);` is a call, so a bare name before `(` is never a declaration here.
+                format!(r"{access}{w}\s*\([^;]*\)\s*(?::\s*(?:base|this)\b.*)?[{{=]?\s*$"),
+                // A method, a property, an event and a field: the type, the name, and the `(` of
+                // the parameters, the `{` of the accessors, the `=>` of an expression body, the
+                // `=` of an initialiser, the `;` of a declaration with none — or the end of the
+                // line, where a property's accessors open on the next one.
+                format!(r"{mods}{ty}\s+(?:[\w.]+\.)?{w}\s*(?:<[^>]*>\s*)?(?:[({{;=]|$)"),
+            ]
+        }
         // A function in either form, an assignment behind the declaration keywords that can
         // precede it (`+=` appends to one), or an alias. A shell has no declaration for the rest,
         // so a `$w` use or a `[ "$w" = x ]` test must not look like one.
@@ -605,6 +715,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::CSharp
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -815,6 +926,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::CSharp
         | Kind::Shell
         | Kind::Sql
         | Kind::Make => kind_of(path) == Some(kind),
@@ -934,9 +1046,12 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             dirs
         }
         // Java, Kotlin and Ruby have no roots yet: the JDK and Gradle caches, and a gem path,
-        // are their own lookups. `d` stays inside the project for them, as for the rest.
+        // are their own lookups. C# has nothing to point at: a NuGet package is compiled
+        // assemblies, and the runtime's own source is not on the machine at all. `d` stays inside
+        // the project for them, as for the rest.
         Kind::Jvm
         | Kind::Ruby
+        | Kind::CSharp
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -1182,10 +1297,12 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
         }
         // Nothing to bind without roots to resolve an `import` or a `require` against. A C
         // `#include` binds no name of its own either: it pastes a file in, and everything the
-        // file declares is then visible unqualified.
+        // file declares is then visible unqualified, and a C# `using` opens a whole namespace the
+        // same way.
         Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::CSharp
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -1372,6 +1489,7 @@ pub fn module_files(
         | Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::CSharp
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -3827,6 +3945,138 @@ enum class Status {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    const CS: &str = r#"namespace Billing.Core;
+
+using Rows = System.Collections.Generic.List<int>;
+
+[Serializable]
+public sealed partial class Invoice<T> : Base, IEnumerable<T>
+{
+    private const int Limit = 10;
+    private readonly ILogger<Invoice<T>> _logger;
+    public static event EventHandler? Saved;
+
+    public Invoice(int n)
+    {
+        _logger = Create(n);
+    }
+
+    public int Total { get; private set; }
+
+    public string Name => _name;
+
+    [HttpGet("{id}")]
+    public async Task<Invoice<T>> LoadAsync(int id)
+    {
+        var rows = Compute(id);
+        if (Check(rows))
+        {
+            Console.WriteLine(rows);
+        }
+        return new Invoice<T>(id);
+    }
+
+    int IComparable.CompareTo(object? other) => 0;
+
+    private static Rows Compute(int id) => new Rows();
+}
+
+public interface IStore
+{
+    void Save(Invoice<int> inv);
+}
+
+public record struct Point(int X, int Y);
+
+public record Money(decimal Amount);
+
+public enum Status
+{
+    Open,
+}
+
+public delegate int Comparison<T>(T a, T b);
+
+public static class Registry
+{
+    public static Dictionary<string, Invoice<int>> All = new();
+}
+"#;
+
+    #[test]
+    fn csharp_def_patterns_find_types_members_and_fields() {
+        let (dir, files) = scratch("cs", &[("Invoice.cs", CS)]);
+        let d = |w| defs(&dir, &files, Kind::CSharp, w);
+        assert_eq!(d("Core"), [1], "a file-scoped namespace, by its last part");
+        assert_eq!(
+            d("Rows"),
+            [3],
+            "a `using` alias, not the `Rows` it is used as"
+        );
+        // The class past its generic parameters and its attribute, and the constructor; the
+        // caller shows a picker.
+        assert_eq!(d("Invoice"), [6, 12]);
+        assert_eq!(d("Limit"), [8]);
+        assert_eq!(d("_logger"), [9], "not the `_logger = Create(n);` write");
+        assert_eq!(d("Saved"), [10], "an event");
+        assert_eq!(d("Total"), [17], "a property, by its accessor block");
+        assert_eq!(d("Name"), [19], "an expression-bodied property");
+        assert_eq!(
+            d("LoadAsync"),
+            [22],
+            "behind an attribute and `public async`"
+        );
+        assert_eq!(d("rows"), [24], "a local");
+        assert_eq!(d("Compute"), [34], "not the `Compute(id)` call above it");
+        assert_eq!(d("CompareTo"), [32], "an explicit interface implementation");
+        assert_eq!(d("IStore"), [37]);
+        assert_eq!(d("Save"), [39], "an interface method has no modifiers");
+        assert_eq!(d("Point"), [42], "a positional `record struct`");
+        assert_eq!(d("Money"), [44]);
+        assert_eq!(d("Status"), [46]);
+        assert_eq!(d("Comparison"), [51], "a delegate, past its return type");
+        assert_eq!(d("Registry"), [53]);
+        assert_eq!(d("All"), [55]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn csharp_def_patterns_tell_a_declaration_from_a_call() {
+        let (dir, files) = scratch("cs-calls", &[("Invoice.cs", CS)]);
+        let d = |w| defs(&dir, &files, Kind::CSharp, w);
+        let none = Vec::<usize>::new();
+        assert_eq!(d("Check"), none, "a call inside `if`");
+        assert_eq!(d("Console"), none);
+        assert_eq!(d("WriteLine"), none, "a call statement");
+        assert_eq!(d("Create"), none, "a call on the right of an assignment");
+        assert_eq!(d("Base"), none, "a base list is a use of the type");
+        assert_eq!(d("IEnumerable"), none);
+        assert_eq!(d("id"), none, "a parameter has no rule");
+        assert_eq!(
+            d("Open"),
+            none,
+            "an enum member has no rule: `Open,` is also a line of a collection initialiser"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn csharp_scope_stays_in_the_project() {
+        let here = Path::new("Invoice.cs");
+        assert!(in_def_scope(Kind::CSharp, here, Path::new("src/Store.csx")));
+        assert!(!in_def_scope(Kind::CSharp, here, Path::new("main.rs")));
+        // A `using` opens a whole namespace, so it binds no name of its own, and there is nothing
+        // to bind it to: a NuGet package ships assemblies, not source.
+        assert!(imports(Kind::CSharp, CS).is_empty());
+        assert!(external_roots(Kind::CSharp, Path::new("/")).is_empty());
+        assert!(member_patterns(Kind::CSharp, "Total").is_none());
+        // A member is named by the type it is declared in, as the picker rows show it.
+        assert_eq!(
+            qualified(Kind::CSharp, CS, 22, "LoadAsync").as_deref(),
+            Some("Invoice.LoadAsync")
+        );
+    }
+
     const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
 
     #[test]
@@ -4004,6 +4254,8 @@ output "bucket" {
             ("ledger.hpp", Some(Kind::C)),
             ("ledger.hh", Some(Kind::C)),
             ("ledger.hxx", Some(Kind::C)),
+            ("Invoice.cs", Some(Kind::CSharp)),
+            ("build.csx", Some(Kind::CSharp)),
             ("app.kt", Some(Kind::Jvm)),
             ("build.gradle.kts", Some(Kind::Jvm)),
             ("run.sh", Some(Kind::Shell)),
@@ -5501,12 +5753,84 @@ func Close() {
     }
 
     #[test]
+    fn csharp_symbol_names() {
+        let cs = |line| one(Kind::CSharp, line);
+        for (line, name) in [
+            // A type, past its attributes, its modifiers and the generics it declares.
+            (
+                "public sealed partial class Invoice<T> : Base, IEnumerable<T>",
+                Some("Invoice"),
+            ),
+            ("internal readonly struct Tag", Some("Tag")),
+            ("public interface IStore<T> where T : class", Some("IStore")),
+            ("public enum Status", Some("Status")),
+            ("public record Money(decimal Amount);", Some("Money")),
+            ("public record struct Point(int X, int Y);", Some("Point")),
+            (
+                "public delegate int Comparison<T>(T a, T b);",
+                Some("Comparison"),
+            ),
+            // A namespace under its last part, the one `d` finds it by.
+            ("namespace Billing.Core;", Some("Core")),
+            ("namespace Billing", Some("Billing")),
+            // A member: the type before the name is what tells it from a call.
+            (
+                "    public async Task<Invoice<T>> LoadAsync(int id)",
+                Some("LoadAsync"),
+            ),
+            ("    void Save(Invoice<int> inv);", Some("Save")),
+            (
+                "    [Fact] public void Handles_Empty() {",
+                Some("Handles_Empty"),
+            ),
+            (
+                "    int IComparable.CompareTo(object? other) => 0;",
+                Some("CompareTo"),
+            ),
+            (
+                "    private static Rows Compute(int id) => new Rows();",
+                Some("Compute"),
+            ),
+            // A property, by its accessors, its expression body, or the brace on the next line.
+            ("    public int Total { get; private set; }", Some("Total")),
+            ("    public string Name => _name;", Some("Name")),
+            ("    public IReadOnlyList<int> Rows", Some("Rows")),
+            // A field is not a symbol, in this kind as in every other.
+            ("    private const int Limit = 10;", None),
+            ("    private readonly ILogger<Invoice<T>> _logger;", None),
+            ("    public static event EventHandler? Saved;", None),
+            (
+                "    public static Dictionary<string, Invoice<int>> All = new();",
+                None,
+            ),
+            // The constructor is listed under its class, and a `using` alias is file-local.
+            ("    public Invoice(int n)", None),
+            ("using Rows = System.Collections.Generic.List<int>;", None),
+            ("using System.Text.Json;", None),
+            // A call, a statement and a block header are not declarations.
+            ("        var rows = Compute(id);", None),
+            ("        if (Check(rows))", None),
+            ("        Console.WriteLine(rows);", None),
+            ("        services.AddSingleton<IFoo, Foo>();", None),
+            ("        return new Invoice<T>(id);", None),
+            ("        foreach (var row in rows)", None),
+            ("        catch (InvalidOperationException ex)", None),
+            ("        using (var scope = provider.CreateScope())", None),
+            ("        await client.SendAsync(request);", None),
+            ("    Open,", None),
+        ] {
+            assert_eq!(cs(line).as_deref(), name, "{line}");
+        }
+    }
+
+    #[test]
     fn the_shared_pattern_skips_the_kinds_with_rows_of_their_own() {
         // Java, Kotlin, Ruby, C and C++ are listed from their own rows only, so nothing is listed
         // twice and `def self.parse` is not `self`.
         assert!(!shared_symbols(Some(Kind::Jvm)));
         assert!(!shared_symbols(Some(Kind::Ruby)));
         assert!(!shared_symbols(Some(Kind::C)));
+        assert!(!shared_symbols(Some(Kind::CSharp)));
         // Shell and SQL rows complement the shared pattern instead, and it reads every other
         // file, known kind or not.
         assert!(shared_symbols(Some(Kind::Shell)));
