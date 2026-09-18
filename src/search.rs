@@ -3014,7 +3014,7 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
                 | "Collection" | "set" | "Set" | "frozenset" | "FrozenSet" | "AbstractSet"
                 | "deque",
                 args,
-            ) if args.len() == 1 => args[0],
+            ) => args[0],
             _ => return None,
         },
         Kind::TsJs => {
@@ -3028,7 +3028,7 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
                         | "IterableIterator",
                         args,
                     )),
-                ) if args.len() == 1 => args[0],
+                ) => args[0],
                 _ => return None,
             }
         }
