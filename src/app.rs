@@ -973,24 +973,36 @@ impl App {
         let at = self
             .rel_current()
             .and_then(|rel| r.files.iter().position(|f| f.path == rel));
-        // Files with nothing to read (binary, a mode change, a pure rename) are not stops.
         let ahead: Vec<&git::ReviewFile> = match (at, dir > 0) {
             (Some(i), true) => r.files[i + 1..].iter().collect(),
             (Some(i), false) => r.files[..i].iter().rev().collect(),
             (None, true) => r.files.iter().collect(),
             (None, false) => r.files.iter().rev().collect(),
         };
-        let skipped = ahead.iter().take_while(|f| !f.has_hunks()).count();
-        let Some(f) = ahead.get(skipped) else {
-            self.message = if dir > 0 {
-                "last hunk of the review".into()
-            } else {
-                "first hunk of the review".into()
-            };
+        // Unsaved edits that cannot be saved keep every file from opening: `open` has said why.
+        if !self.flush() {
             return;
-        };
-        self.open_review_file(f, dir < 0);
-        self.say_skipped(skipped);
+        }
+        // Files with nothing to read (binary, a mode change, a pure rename, a submodule) are not
+        // stops. Nor is one that does not open: the walk goes on, and the status says why.
+        let (mut skipped, mut failed) = (0, None);
+        for f in ahead {
+            if !f.has_hunks() {
+                skipped += 1;
+            } else if self.open_review_file(f, dir < 0) {
+                match failed {
+                    Some(why) => self.message = why,
+                    None => self.say_skipped(skipped),
+                }
+                return;
+            } else {
+                failed = Some(std::mem::take(&mut self.message));
+            }
+        }
+        self.message = failed.unwrap_or_else(|| {
+            let end = if dir > 0 { "last" } else { "first" };
+            format!("{end} hunk of the review")
+        });
     }
 
     /// Why `file 1` became `file 74`.
@@ -1003,8 +1015,8 @@ impl App {
 
     /// Opens a file of the review on its first (or `last`) hunk. The hunks are read before
     /// the file opens, so this is one stop in the history.
-    fn open_review_file(&mut self, f: &git::ReviewFile, last: bool) {
-        let Some(r) = &self.review else { return };
+    fn open_review_file(&mut self, f: &git::ReviewFile, last: bool) -> bool {
+        let Some(r) = &self.review else { return false };
         let path = self.root.join(&f.path);
         let hunks = match f.status {
             'D' => Vec::new(),
@@ -1013,6 +1025,7 @@ impl App {
         let h = if last { hunks.last() } else { hunks.first() };
         self.jump_to(&path, h.map_or(1, |h| h + 1));
         self.center = true;
+        self.buf.path.as_deref() == Some(&path)
     }
 
     /// `hunk 2/5 · file 1/3` for the status bar.
@@ -2913,7 +2926,7 @@ impl App {
                     // The review panel opens a file on its first hunk; the tree where it was.
                     match self.review.as_ref().and_then(|r| r.file(&n.path)).cloned() {
                         Some(f) if self.buf.path.as_deref() != Some(&*path) => {
-                            self.open_review_file(&f, false)
+                            self.open_review_file(&f, false);
                         }
                         _ => self.jump_to(&path, 0),
                     }
@@ -4119,6 +4132,52 @@ mod tests {
         assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
         assert_eq!(a.message, "skipped 1 file without hunks");
         assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/7");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A submodule is a gitlink, which `git diff --numstat` counts as one added line: listed,
+    /// not a stop. And a file that does not open is walked past with the reason, not retried.
+    #[test]
+    fn review_walks_past_a_submodule_and_a_file_that_does_not_open() {
+        let (dir, mut a) = review_app("reviewsub");
+        let git = |at: &Path, args: &[&str]| {
+            let out = std::process::Command::new("git")
+                .arg("-C")
+                .arg(at)
+                .args(["-c", "user.email=t@t", "-c", "user.name=t"])
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "git {args:?}");
+        };
+        let sub = dir.join("sub");
+        std::fs::create_dir(&sub).unwrap();
+        git(&sub, &["init", "-q"]);
+        git(&sub, &["commit", "-q", "--allow-empty", "-m", "sub"]);
+        git(&dir, &["add", "-A"]);
+        git(&dir, &["commit", "-q", "-m", "submodule"]);
+        a.start_review(git::Review::open(&dir, None, None).unwrap());
+        // Panel order: src/a.rs, crlf.txt, gone, new, sub, tail.
+        let r = a.review.as_ref().unwrap();
+        assert_eq!(r.files[4].path, Path::new("sub"));
+        assert!(!r.files[4].has_hunks());
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("tail"), 0));
+        assert_eq!(a.message, "skipped 1 file without hunks");
+        // `new` stops opening: `c` from `gone` goes past it to `tail`, and the status says
+        // what happened to `new`.
+        std::fs::remove_file(dir.join("new")).unwrap();
+        std::fs::create_dir(dir.join("new")).unwrap();
+        a.jump_to(&dir.join("gone"), 1);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("tail"), 0));
+        assert!(a.message.contains("new: "), "{}", a.message);
+        // Nothing ahead opens: the reason again, not a retry that hides it.
+        std::fs::remove_file(dir.join("tail")).unwrap();
+        a.jump_to(&dir.join("gone"), 1);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("gone"), 0));
+        assert!(a.message.contains("tail: "), "{}", a.message);
         let _ = std::fs::remove_dir_all(dir);
     }
 

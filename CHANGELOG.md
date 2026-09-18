@@ -95,6 +95,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nightfox, gruvbox-material-light and material-light move the selection a step along their own
   palette, solarized-light darkens it, dracula lightens the line highlight instead. The theme test
   now requires the two colours to be apart.
+- Review: `c` / `C` no longer stop dead in front of a submodule, with every file after it out of
+  reach: a submodule is walked past like a binary file and stays in the panel. A file that does
+  not open is walked past too, and the status bar says why it did not open. (#117)
 
 ### Added
 
