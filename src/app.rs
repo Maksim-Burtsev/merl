@@ -3275,7 +3275,12 @@ impl App {
         // Legacy terminals report Alt+X as Esc followed by X; treat it that way. When the Esc
         // closes a picker, a prompt or the help, the letter belonged to that overlay and is
         // dropped, so Alt+q over a picker cannot quit merl. Alt+arrow is unambiguous everywhere.
+        // Edit mode is no overlay and binds no Alt+letter: there the chord does nothing, rather
+        // than an Esc nobody pressed turning the rest of the word into commands.
         if key.modifiers.contains(KeyModifiers::ALT) && matches!(key.code, KeyCode::Char(_)) {
+            if self.mode == Mode::Edit {
+                return false;
+            }
             key.modifiers.remove(KeyModifiers::ALT);
             let overlay = self.picker.is_some() || self.mode != Mode::Normal;
             self.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
@@ -7712,6 +7717,18 @@ mod tests {
         assert_eq!((a.mode, a.message.as_str()), (Mode::Normal, ""));
         // In normal mode the letter still counts.
         assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT));
+    }
+
+    /// Edit mode is not an overlay for an Esc to close: Option+letter mid-word must not drop
+    /// into navigation, where the rest of the word runs as commands and its `q` quits.
+    #[test]
+    fn an_unbound_alt_letter_while_editing_is_ignored() {
+        let mut a = app("foo\n");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('p'), KeyModifiers::ALT);
+        assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT));
+        assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+        assert_eq!((a.mode, a.buf.lines[0].as_str()), (Mode::Edit, "qfoo"));
     }
 
     #[test]

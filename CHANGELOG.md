@@ -104,6 +104,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The autosave no longer recreates a file that was deleted or renamed on disk, which left a stale
   copy next to the file an agent had just renamed. Gone is changed on disk: the conflict is raised
   as for a modified file, and only Ctrl+S writes the file back. (#119)
+- An unbound Alt+letter (Option+letter on a Mac) in edit mode does nothing. It used to leave edit
+  mode without a word, so the rest of the word ran as commands and its `q` quit merl. (#120)
 
 ### Added
 
