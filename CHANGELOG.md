@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` and `D` in PHP, over every `.php` and `.phtml` file. `d` finds a `function` (returned by
+  reference too), a `class`, `interface`, `trait` and `enum`, a `const` and a `define('X', …)`, an
+  `enum` case, a property with the type it carries and a constructor parameter promoted to one —
+  all behind their `#[Attribute]`s and modifiers — plus an assignment that opens a line. A
+  `case X:` of a `switch`, a `$key => $value` pair and `$this->name = …`, which writes to a
+  property declared elsewhere, are not declarations. `d` leaves the project for Composer's
+  `vendor/`, which is gitignored and so outside the project walk the way `node_modules` is, and a
+  `use Illuminate\Support\Str` in column zero binds `Str` to that path, since PSR-4 spells a
+  namespace the way the file system does. `D` lists the functions, methods, types and `const`s
+  from a rule of its own, so the declaration pattern every other language shares is untouched and
+  nothing is listed twice; a property, an `enum` case and a `define()` are left out. (#17)
 - `d` and `D` in Swift, over every `.swift` file. `d` finds a `class`, `struct`, `enum`,
   `protocol`, `actor`, `typealias`, `associatedtype` and an `extension` of a type — where a
   project keeps its own members of one, often the only place — a `func` past its generic

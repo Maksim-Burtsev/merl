@@ -245,6 +245,33 @@ const SWIFT_DECL_SYMBOL: &str = concat!(
     r"`?(?P<name>[A-Za-z_]\w*)"
 );
 
+/// Everything that can stand before a PHP declaration: its attributes and the modifiers a class
+/// member carries. The argument is the repetition the run takes, as [`cs_mods`]. A macro, so
+/// [`def_patterns`] and the [`SYMBOLS`] row share one spelling of it.
+macro_rules! php_mods {
+    () => {
+        php_mods!("*")
+    };
+    ($rep:literal) => {
+        concat!(
+            r"^\s*(?:#\[[^\]]*\]\s*)*",
+            r"(?:(?:public|private|protected|static|final|abstract|readonly|var)\s+)",
+            $rep
+        )
+    };
+}
+
+/// The PHP half of [`SYMBOLS`]: what the language declares with a keyword, behind the modifiers a
+/// member carries. A namespace is listed under its last part, the one `d` finds it by. A property
+/// is a field, which no kind lists, and an `enum` case is what a type holds, as in every other
+/// kind; `define('X', …)` has no keyword before the name and is left out with them.
+const PHP_SYMBOL: &str = concat!(
+    php_mods!(),
+    r"(?:function\s+&?\s*|(?:class|interface|trait|enum)\s+|const\s+",
+    r"|namespace\s+(?:[\w\\]+\\)?)",
+    r"(?P<name>[A-Za-z_]\w*)"
+);
+
 /// The Ruby half of [`SYMBOLS`]: a method, including the `self.` form and the `name=` setter, and
 /// a class or module under the namespace it is written with. A constant and the names an
 /// `attr_accessor` line declares stay off the list: there is no keyword to go by, and one such
@@ -294,6 +321,9 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // Swift likewise: a declaration stands behind its attributes and modifiers, and `extension`,
     // `protocol` and `actor` are no keywords of the shared pattern.
     (Some(Kind::Swift), SWIFT_DECL_SYMBOL),
+    // PHP likewise: a method stands behind `final public static`, which the shared pattern does
+    // not read, so `function` alone would be the only form it listed.
+    (Some(Kind::Php), PHP_SYMBOL),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -310,13 +340,13 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Yaml), r"(^|\s)&(?P<anchor>[\w.-]+)"),
 ];
 
-/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, C# and
-/// Swift have rows of their own in [`SYMBOLS`], written for what those languages declare and how
-/// they name it, so reading the all-language pattern over them too would list a declaration twice.
+/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, C#,
+/// Swift and PHP have rows of their own in [`SYMBOLS`], written for what those languages declare
+/// and how they name it, so reading the all-language pattern over them too would list one twice.
 pub fn shared_symbols(kind: Option<Kind>) -> bool {
     !matches!(
         kind,
-        Some(Kind::Jvm | Kind::Ruby | Kind::C | Kind::CSharp | Kind::Swift)
+        Some(Kind::Jvm | Kind::Ruby | Kind::C | Kind::CSharp | Kind::Swift | Kind::Php)
     )
 }
 
@@ -334,6 +364,7 @@ pub enum Kind {
     C,
     CSharp,
     Swift,
+    Php,
     Shell,
     Sql,
     Make,
@@ -360,6 +391,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         // `.csx` is a C# script: the same language, run by `dotnet script`.
         (_, "cs" | "csx") => Kind::CSharp,
         (_, "swift") => Kind::Swift,
+        (_, "php" | "phtml") => Kind::Php,
         (
             "Rakefile" | "rakefile" | "Gemfile" | "Guardfile" | "Capfile" | "Vagrantfile"
             | "Podfile" | "Brewfile" | "Dangerfile" | "Fastfile",
@@ -680,6 +712,35 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             }
             patterns
         }
+        // PHP declares with a keyword too, and what has none — a property, a promoted constructor
+        // parameter — carries the modifiers that tell it from a use. A parameter and a `foreach`
+        // target have no rule, as in every kind, and neither has `$this->name = …`, which writes
+        // to a property the class declares elsewhere.
+        Kind::Php => {
+            let mods = php_mods!();
+            let mods_one = php_mods!("+");
+            vec![
+                // A function or a method; `&` returns by reference.
+                format!(r"{mods}function\s+&?\s*{w}\s*\("),
+                format!(r"{mods}(?:class|interface|trait|enum)\s+{w}\b"),
+                format!(r"^\s*namespace\s+(?:[\w\\]+\\)?{w}\s*[;{{]"),
+                // A constant: the `const` of a class or a file, and the `define()` of a global.
+                format!(r"{mods}const\s+{w}\b"),
+                format!(r#"^\s*define\s*\(\s*['"]{w}['"]"#),
+                // An enum case. A `case X:` of a `switch` matches against a constant, so what
+                // follows the name must not be a `:`.
+                format!(r"^\s*case\s+{w}\s*(?:=[^=]|;|$)"),
+                // A property, with the type it can carry between its modifiers and the `$`.
+                format!(r"{mods_one}(?:\??[\w\\|]+\s+)?\${w}\b"),
+                // A constructor parameter promoted to one, wherever it sits in the list.
+                format!(
+                    r"function\s+__construct\s*\(.*\b(?:public|private|protected|readonly)\s+(?:\??[\w\\|]+\s+)?\${w}\b"
+                ),
+                // An assignment that opens a line, `.=` and `??=` included. `==` compares, `=>`
+                // is a key in an array literal, and `$rows['x'] =` writes to an element.
+                format!(r"^\s*\${w}\s*(?:\.|\?\?|\+)?=(?:$|[^=>])"),
+            ]
+        }
         // A function in either form, an assignment behind the declaration keywords that can
         // precede it (`+=` appends to one), or an alias. A shell has no declaration for the rest,
         // so a `$w` use or a `[ "$w" = x ]` test must not look like one.
@@ -785,6 +846,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::C
         | Kind::CSharp
         | Kind::Swift
+        | Kind::Php
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -851,7 +913,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     if kind == Kind::Yaml {
         return None;
     }
-    let sep = if matches!(kind, Kind::Rust | Kind::C) {
+    let sep = if matches!(kind, Kind::Rust | Kind::C | Kind::Php) {
         "::"
     } else {
         "."
@@ -997,6 +1059,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::C
         | Kind::CSharp
         | Kind::Swift
+        | Kind::Php
         | Kind::Shell
         | Kind::Sql
         | Kind::Make => kind_of(path) == Some(kind),
@@ -1115,6 +1178,10 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             dirs.push(PathBuf::from("/opt/homebrew/include"));
             dirs
         }
+        // Composer installs a project's dependencies into `vendor/`, as source, and gitignores
+        // it, so the project walk does not list it: it is outside in the same way `node_modules`
+        // is. PHP's own library is built into the interpreter and has no source to read.
+        Kind::Php => vec![root.join("vendor")],
         // Where SwiftPM checks a package's dependencies out, as source. The standard library is
         // not there: the toolchain ships it compiled, with `.swiftinterface` stubs beside it and
         // no `.swift` file to read.
@@ -1369,6 +1436,26 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
                 }
             }
         }
+        // A `use` names one class, function or constant, and PSR-4 spells a namespace the way a
+        // file system does, so the path is the name split on `\`: `use Illuminate\Support\Str`
+        // binds `Str` to `vendor/…/Illuminate/Support/Str.php`. In column zero only — indented,
+        // `use` pulls a trait into a class body and names no file — and a group `use A\{B, C}`
+        // is left out, since one clause then binds several.
+        Kind::Php => {
+            static USE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r"(?m)^use\s+(?:function\s+|const\s+)?([^;{]+);").unwrap()
+            });
+            for c in USE.captures_iter(text) {
+                for item in c[1].split(',') {
+                    if let Some((alias, name)) = bound(item.trim()) {
+                        let path = parts(&name, "\\");
+                        if let Some(last) = path.last().cloned() {
+                            out.push((if alias == name { last } else { alias }, path));
+                        }
+                    }
+                }
+            }
+        }
         // Nothing to bind without roots to resolve an `import` or a `require` against. A C
         // `#include` binds no name of its own either: it pastes a file in, and everything the
         // file declares is then visible unqualified, and a C# `using` opens a whole namespace the
@@ -1566,6 +1653,7 @@ pub fn module_files(
         | Kind::C
         | Kind::CSharp
         | Kind::Swift
+        | Kind::Php
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -4304,6 +4392,156 @@ public typealias Rows = [Int]
         );
     }
 
+    const PHP: &str = r#"<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Str;
+use App\Models\User as Account;
+
+define('BILLING_LIMIT', 10);
+
+abstract class Invoice implements Arrayable
+{
+    public const STATUS_OPEN = 'open';
+
+    protected array $rows = [];
+
+    private ?Logger $logger;
+
+    public function __construct(private readonly Account $account, string $name)
+    {
+        $this->logger = null;
+        $total = 0;
+        foreach ($this->rows as $key => $value) {
+            $total += $value;
+        }
+        $this->name = $name;
+    }
+
+    final public static function parse(string $text): static
+    {
+        return new static($text);
+    }
+
+    public function &rows(): array
+    {
+        return $this->rows;
+    }
+
+    abstract protected function compute(): int;
+}
+
+interface Arrayable
+{
+    public function toArray(): array;
+}
+
+trait Macroable
+{
+    public function macro(string $name): void
+    {
+    }
+}
+
+enum Status: string
+{
+    case Open = 'open';
+    case Closed;
+}
+
+function billing_total(Invoice $invoice): int
+{
+    $sum = 0;
+    return $sum;
+}
+"#;
+
+    #[test]
+    fn php_def_patterns_find_declarations_behind_modifiers() {
+        let (dir, files) = scratch("php", &[("Invoice.php", PHP)]);
+        let d = |w| defs(&dir, &files, Kind::Php, w);
+        assert_eq!(d("Services"), [3], "a namespace, by its last part");
+        assert_eq!(d("BILLING_LIMIT"), [8], "a `define()` constant");
+        assert_eq!(d("Invoice"), [10], "not the `Invoice $invoice` parameter");
+        assert_eq!(d("STATUS_OPEN"), [12], "a class constant");
+        // The property and the method that returns it, not the `$this->rows` uses.
+        assert_eq!(d("rows"), [14, 33]);
+        assert_eq!(d("logger"), [16], "not the `$this->logger = null;` write");
+        assert_eq!(d("account"), [18], "a promoted constructor parameter");
+        assert_eq!(
+            d("total"),
+            [21, 23],
+            "the assignment and the `+=` that follows"
+        );
+        assert_eq!(d("parse"), [28], "behind `final public static`");
+        assert_eq!(d("compute"), [38], "an abstract method has no body");
+        assert_eq!(d("Arrayable"), [41], "not the `implements Arrayable`");
+        assert_eq!(d("toArray"), [43]);
+        assert_eq!(d("Macroable"), [46], "a trait");
+        assert_eq!(d("macro"), [48]);
+        assert_eq!(d("Status"), [53], "a backed enum");
+        assert_eq!(d("Open"), [55], "an enum case with its value");
+        assert_eq!(d("Closed"), [56]);
+        assert_eq!(d("billing_total"), [59], "a function at the top level");
+        assert_eq!(d("sum"), [61], "not the `return $sum;`");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn php_def_patterns_tell_a_declaration_from_a_use() {
+        let (dir, files) = scratch("php-uses", &[("Invoice.php", PHP)]);
+        let d = |w| defs(&dir, &files, Kind::Php, w);
+        let none = Vec::<usize>::new();
+        assert_eq!(d("Str"), none, "a `use` imports a name, it declares none");
+        assert_eq!(d("Account"), none, "nor does the alias of one");
+        assert_eq!(d("Logger"), none, "a type a property is written with");
+        assert_eq!(d("text"), none, "a parameter has no rule");
+        assert_eq!(
+            d("name"),
+            none,
+            "`$this->name = $name;` writes to a property declared elsewhere"
+        );
+        assert_eq!(d("key"), none, "a `foreach` target has no rule");
+        assert_eq!(d("value"), none);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn php_scope_roots_imports_and_names() {
+        let here = Path::new("src/Invoice.php");
+        assert!(in_def_scope(Kind::Php, here, Path::new("views/show.phtml")));
+        assert!(!in_def_scope(Kind::Php, here, Path::new("main.rs")));
+        // A `use` in column zero binds the last part of the path, or its alias; PSR-4 spells the
+        // namespace the way the file system does, so the path is the name split on `\`.
+        assert_eq!(
+            imports(Kind::Php, PHP),
+            [
+                (
+                    "Str".to_owned(),
+                    vec!["Illuminate".into(), "Support".into(), "Str".into()]
+                ),
+                (
+                    "Account".to_owned(),
+                    vec!["App".into(), "Models".into(), "User".into()]
+                ),
+            ]
+        );
+        // An indented `use` pulls a trait into a class body and names no file.
+        assert!(imports(Kind::Php, "class X {\n    use Macroable;\n}\n").is_empty());
+        // Composer installs the dependencies into `vendor/`, which is gitignored and so outside
+        // the project walk, the way `node_modules` is.
+        let (dir, _) = scratch("php-roots", &[("vendor/laravel/framework/src/a.php", "")]);
+        assert_eq!(external_roots(Kind::Php, &dir), [dir.join("vendor")]);
+        assert!(external_roots(Kind::Php, Path::new("/")).is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+        // PHP writes a method of a class behind `::`, as its own documentation does.
+        assert_eq!(
+            qualified(Kind::Php, PHP, 28, "parse").as_deref(),
+            Some("Invoice::parse")
+        );
+    }
+
     const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
 
     #[test]
@@ -4484,6 +4722,8 @@ output "bucket" {
             ("Invoice.cs", Some(Kind::CSharp)),
             ("build.csx", Some(Kind::CSharp)),
             ("Session.swift", Some(Kind::Swift)),
+            ("Invoice.php", Some(Kind::Php)),
+            ("show.phtml", Some(Kind::Php)),
             ("app.kt", Some(Kind::Jvm)),
             ("build.gradle.kts", Some(Kind::Jvm)),
             ("run.sh", Some(Kind::Shell)),
@@ -6110,6 +6350,55 @@ func Close() {
     }
 
     #[test]
+    fn php_symbol_names() {
+        let php = |line| one(Kind::Php, line);
+        for (line, name) in [
+            (
+                "abstract class Invoice implements Arrayable",
+                Some("Invoice"),
+            ),
+            ("#[Attribute] final class Money", Some("Money")),
+            ("interface Arrayable", Some("Arrayable")),
+            ("trait Macroable", Some("Macroable")),
+            ("enum Status: string", Some("Status")),
+            ("namespace App\\Services;", Some("Services")),
+            (
+                "function billing_total(Invoice $invoice): int",
+                Some("billing_total"),
+            ),
+            (
+                "    final public static function parse(string $text): static",
+                Some("parse"),
+            ),
+            (
+                "    abstract protected function compute(): int;",
+                Some("compute"),
+            ),
+            ("    public function &rows(): array", Some("rows")),
+            (
+                "    public const STATUS_OPEN = 'open';",
+                Some("STATUS_OPEN"),
+            ),
+            // A property is a field, an enum case is what a type holds, and a `define()` has no
+            // keyword before the name: none of them is a symbol.
+            ("    protected array $rows = [];", None),
+            ("    private ?Logger $logger;", None),
+            ("    case Open = 'open';", None),
+            ("define('BILLING_LIMIT', 10);", None),
+            // A `use` imports, an anonymous function has no name, and a call is not a
+            // declaration.
+            ("use Illuminate\\Support\\Str;", None),
+            ("    use Macroable;", None),
+            ("$handler = function ($x) use ($y) {", None),
+            ("        return $this->rows;", None),
+            ("        foreach ($this->rows as $key => $value) {", None),
+            ("        $total = 0;", None),
+        ] {
+            assert_eq!(php(line).as_deref(), name, "{line}");
+        }
+    }
+
+    #[test]
     fn the_shared_pattern_skips_the_kinds_with_rows_of_their_own() {
         // Java, Kotlin, Ruby, C and C++ are listed from their own rows only, so nothing is listed
         // twice and `def self.parse` is not `self`.
@@ -6118,6 +6407,7 @@ func Close() {
         assert!(!shared_symbols(Some(Kind::C)));
         assert!(!shared_symbols(Some(Kind::CSharp)));
         assert!(!shared_symbols(Some(Kind::Swift)));
+        assert!(!shared_symbols(Some(Kind::Php)));
         // Shell and SQL rows complement the shared pattern instead, and it reads every other
         // file, known kind or not.
         assert!(shared_symbols(Some(Kind::Shell)));

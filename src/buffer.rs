@@ -539,6 +539,26 @@ mod tests {
     }
 
     #[test]
+    fn php_highlights_with_every_shipped_theme() {
+        let src = "<?php\n\nfinal class Invoice\n{\n    public const LIMIT = 10;\n}\n";
+        for file in ["Invoice.php", "show.phtml"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("PHP"),
+                    "{file} {name}"
+                );
+                b.highlight_to(4, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
     fn ruby_highlights_with_every_shipped_theme() {
         let src = "# doc\nclass Invoice\n  def total\n    @rows.sum\n  end\nend\n";
         for file in [
