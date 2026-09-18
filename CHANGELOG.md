@@ -46,8 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are the same jump and no longer leave edit mode, a prompt or a picker.
 - `s` shows its hits while you type: the result picker opens at once with the query as its input
   line and refreshes after each pause, Up / Down move in it and Enter jumps. Enter pressed before
-  the hits arrive waits for them. Narrowing is done by typing more of the query; the fuzzy
-  filter over the results is gone. (#53)
+  the hits arrive waits for them. The title counts the hits, and shows `Search (…)` until the
+  query on screen is answered, so `0 hits` always means nothing was found. Narrowing is done by
+  typing more of the query; the fuzzy filter over the results is gone. (#53, #107)
 
 ### Fixed
 

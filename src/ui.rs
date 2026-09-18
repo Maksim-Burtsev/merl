@@ -290,6 +290,7 @@ fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
 }
 
 fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
+    let pending = app.search_pending();
     let Some(picker) = &mut app.picker else {
         return;
     };
@@ -303,7 +304,10 @@ fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base
     let (matched, total) = picker.counts();
     let accent = base.fg(theme.accent);
     let block = Block::bordered()
-        .title(if picker.live {
+        .title(if picker.live && pending {
+            // The rows answer an older query: `0 hits` only ever means "grepped, found nothing".
+            format!("{} (…)", picker.title)
+        } else if picker.live {
             // Nothing filters the hits, and the grep stops at MAX_HITS: that many is a floor.
             let more = if total as usize >= MAX_HITS { "+" } else { "" };
             format!("{} ({total}{more} hits)", picker.title)
@@ -854,6 +858,28 @@ mod tests {
             })
             .collect();
         assert_eq!(text, SNAPSHOT);
+    }
+
+    /// `0 hits` is an answer. Until the grep for the query on screen is back the title says so.
+    #[test]
+    fn search_title_hides_the_count_until_the_grep_answers() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tutor");
+        let mut app = App::new(root, Tree::default(), Vec::new(), Buffer::empty(), None);
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(60, 12)).unwrap();
+        let mut title = |app: &mut App| {
+            terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+            let text = rows(&terminal).join("\n");
+            let at = text.find("Search (").expect("the title");
+            text[at..].split_inclusive(')').next().unwrap().to_string()
+        };
+
+        for c in "sqqzz".chars() {
+            app.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+        }
+        assert_eq!(title(&mut app), "Search (…)");
+        app.settle_search();
+        assert_eq!(title(&mut app), "Search (0 hits)");
     }
 
     /// A usages row is drawn with the colours of the file line it quotes: the `//!` comment
