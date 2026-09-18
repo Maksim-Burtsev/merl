@@ -291,6 +291,8 @@ fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
 
 fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
     let pending = app.search_pending();
+    // `s> ` is the prompt of `s`; `D` greps for the query too, and stays `D`'s picker.
+    let search = app.mode == Mode::Picker(crate::app::PickerKind::Search);
     let Some(picker) = &mut app.picker else {
         return;
     };
@@ -331,7 +333,7 @@ fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base
     }
 
     let [prompt, list] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(inner);
-    let prefix = if picker.live { "s> " } else { "> " };
+    let prefix = if search { "s> " } else { "> " };
     draw_prompt(frame, prefix, &picker.query, base, prompt);
 
     let (rows, selected) = picker.window(list.height as usize);
@@ -950,6 +952,12 @@ mod tests {
         assert_eq!(title(&mut app), "Symbols (…)");
         app.settle_search();
         assert_eq!(title(&mut app), "Symbols (1 hit)");
+        // The query greps like `s`, but the picker is `D`'s and its prompt says so.
+        let prompt = rows(&terminal)
+            .into_iter()
+            .find(|r| r.contains("zebra"))
+            .expect("the query on screen");
+        assert!(prompt.contains("│> zebra"), "not `s> `: {prompt}");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
