@@ -22,6 +22,17 @@ export class Issue extends Base {
     void this.repo.deleteUser(this.posterId);
     this.log.deleteUser(this.posterId);
   }
+
+  label(kind: string): string {
+    switch (kind) {
+      case "poster": {
+        return String(this.posterId);
+      }
+      default: {
+        return this.title;
+      }
+    }
+  }
 }
 
 export interface Comment {

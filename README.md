@@ -303,11 +303,11 @@ TypeScript members and constructor parameters behind a modifier and `this.name =
 fields and embedded structs. A local, the key of a dict or an object literal and a line of a `var`
 block are no field, and a name several types declare, such as `id`, is a picker rather than a
 jump. Fields outside the project are not collected: there a field name is every `name: string;` of
-every `.d.ts`.
-A project with no such method has the word at its top level instead — `x` was a class or a
+every `.d.ts`. A project with no such method or field has the word at its top level instead — `x` was a class or a
 namespace — and the usual declarations answer. One candidate jumps; several open the picker, the
-project's first. A bare `self.word` or `this.word` whose class cannot be read stays in the
-project.
+project's first. A bare `self.word` or `this.word` whose class, or a class it extends, cannot be
+read gets the project's methods and fields of that name, never a function at the top of a module
+and nothing outside the project.
 
 With the cursor on the declaration of a member — a `Protocol` method, an interface signature, a
 method of an abstract or a plain base class — `d` offers what implements it instead, labelled `send:

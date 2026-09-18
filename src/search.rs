@@ -1840,12 +1840,15 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
     if CLASS.is_match(header) {
         return Some(Value::Class(line));
     }
+    // `case X: {` and `default: {` open statements, whatever the colon suggests.
+    let case = header.starts_with("case ") || header.starts_with("default:");
     let before = header.strip_suffix('{').map(str::trim_end);
-    let object = before.is_some_and(|b| {
-        b.ends_with(['=', '(', '[', ',', '?', ':', '|', '&'])
-            || b.ends_with("return")
-            || b.ends_with("default")
-    });
+    let object = !case
+        && before.is_some_and(|b| {
+            b.ends_with(['=', '(', '[', ',', '?', ':', '|', '&'])
+                || b.ends_with("return")
+                || b.ends_with("default")
+        });
     (object || names(header, "function")).then_some(Value::Unknown)
 }
 

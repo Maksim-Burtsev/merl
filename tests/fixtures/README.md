@@ -43,7 +43,9 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   field assigned again in another method, `Title, Body string` — and a `Comment` sharing
   `poster_id` with it and alone declaring `body`, for the search by name. `tally` / `Serve` hold a
   local of a field's name (an annotated local, an object literal's key, a `var` block) that is no
-  field.
+  field. Python's `Encoder` extends a class outside the project, so its `self.poster_id` is
+  looked up by name, and its `self.tally` is no top-level function. TypeScript's `Issue.label`
+  reads its fields inside `case …: {` blocks, which are no object literals.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.

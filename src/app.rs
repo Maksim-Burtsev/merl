@@ -1462,7 +1462,9 @@ impl App {
         }
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
         let on_value = dotted && !own && chain.first().is_none_or(|f| bound(&imports, f).is_none());
-        let members = on_value
+        // `self.word` whose class is not followed to the end is a member too, but only the
+        // project's (#104): a function at the top of a module is none.
+        let members = (on_value || own)
             .then(|| search::member_patterns(kind, &word))
             .flatten()
             .map(|m| m.join("|"));
@@ -1595,7 +1597,7 @@ impl App {
                 reason: Reason::ByName,
             })
             .collect();
-        if let Some(members) = &members {
+        if let Some(members) = members.as_ref().filter(|_| on_value) {
             // A value's type is unknown: its member may come from a dependency as well. Outside
             // the project TypeScript is read from its declaration files, as VS Code lands on
             // them: the `.d.ts` says what a type offers, the bundled JavaScript is noise.
@@ -4985,7 +4987,7 @@ mod tests {
                 "issue.poster_id",
                 jump(
                     "poster_id \u{2192} Issue.poster_id (via issue: Issue)",
-                    "fields.py:11",
+                    "fields.py:13",
                 ),
             ),
             (
@@ -4994,7 +4996,7 @@ mod tests {
                 "issue.title",
                 jump(
                     "title \u{2192} Issue.title (via issue: Issue)",
-                    "fields.py:10",
+                    "fields.py:12",
                 ),
             ),
             // Assigned in the `__init__` of the base class.
@@ -5004,14 +5006,14 @@ mod tests {
                 "issue.audit",
                 jump(
                     "audit \u{2192} Base.audit (via issue: Issue)",
-                    "fields.py:6",
+                    "fields.py:8",
                 ),
             ),
             (
                 "python",
                 "fields.py",
                 "await self.repo",
-                jump("repo \u{2192} Issue.repo (via self: Issue)", "fields.py:15"),
+                jump("repo \u{2192} Issue.repo (via self: Issue)", "fields.py:17"),
             ),
             // A later assignment is not the declaration.
             (
@@ -5020,7 +5022,7 @@ mod tests {
                 "^            self.labels",
                 jump(
                     "labels \u{2192} Issue.labels (via self: Issue)",
-                    "fields.py:16",
+                    "fields.py:18",
                 ),
             ),
             (
@@ -5039,8 +5041,8 @@ mod tests {
                 picker(
                     "poster_id: by name, 2 declarations",
                     &[
-                        ("Issue.poster_id", "fields.py:11"),
-                        ("Comment.poster_id", "fields.py:26"),
+                        ("Issue.poster_id", "fields.py:13"),
+                        ("Comment.poster_id", "fields.py:28"),
                     ],
                 ),
             ),
@@ -5050,7 +5052,7 @@ mod tests {
                 "comment.body",
                 jump(
                     "body \u{2192} Comment.body (by name, 1 match)",
-                    "fields.py:27",
+                    "fields.py:29",
                 ),
             ),
             // `total: int = 0` is a local.
@@ -5058,19 +5060,39 @@ mod tests {
                 "python",
                 "fields.py",
                 "comment.total",
-                jump("no definition for total", "fields.py:38"),
+                jump("no definition for total", "fields.py:40"),
             ),
             (
                 "python",
                 "fields.py",
                 "^    poster_id",
-                namesakes("poster_id", ("Comment.poster_id", "fields.py:26")),
+                namesakes("poster_id", ("Comment.poster_id", "fields.py:28")),
             ),
             (
                 "python",
                 "fields.py",
                 "^        self.poster_id",
-                namesakes("poster_id", ("Issue.poster_id", "fields.py:11")),
+                namesakes("poster_id", ("Issue.poster_id", "fields.py:13")),
+            ),
+            // A class whose base is not the project's: its members and fields by name, and a
+            // function at the top of a module is none of them.
+            (
+                "python",
+                "fields.py",
+                "if self.poster_id",
+                picker(
+                    "poster_id: by name, 2 declarations",
+                    &[
+                        ("Issue.poster_id", "fields.py:13"),
+                        ("Comment.poster_id", "fields.py:28"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "fields.py",
+                "return self.tally",
+                jump("no definition for tally", "fields.py:47"),
             ),
             (
                 "typescript",
@@ -5115,6 +5137,25 @@ mod tests {
                     "fields.ts:8",
                 ),
             ),
+            // A `case` block is no object literal: `this` is still the class.
+            (
+                "typescript",
+                "fields.ts",
+                "String(this.posterId",
+                jump(
+                    "posterId \u{2192} Issue.posterId (via this: Issue)",
+                    "fields.ts:9",
+                ),
+            ),
+            (
+                "typescript",
+                "fields.ts",
+                "return this.title",
+                jump(
+                    "title \u{2192} Issue.title (via this: Issue)",
+                    "fields.ts:8",
+                ),
+            ),
             (
                 "typescript",
                 "chains.ts",
@@ -5132,7 +5173,7 @@ mod tests {
                     "posterId: by name, 2 declarations",
                     &[
                         ("Issue.posterId", "fields.ts:9"),
-                        ("Comment.posterId", "fields.ts:28"),
+                        ("Comment.posterId", "fields.ts:39"),
                     ],
                 ),
             ),
@@ -5142,7 +5183,7 @@ mod tests {
                 "comment.body",
                 jump(
                     "body \u{2192} Comment.body (by name, 1 match)",
-                    "fields.ts:29",
+                    "fields.ts:40",
                 ),
             ),
             // `let total` is a local, and `total: 0` the key of an object literal.
@@ -5150,13 +5191,13 @@ mod tests {
                 "typescript",
                 "fields.ts",
                 "comment.total",
-                jump("no definition for total", "fields.ts:43"),
+                jump("no definition for total", "fields.ts:54"),
             ),
             (
                 "typescript",
                 "fields.ts",
                 "^  posterId",
-                namesakes("posterId", ("Comment.posterId", "fields.ts:28")),
+                namesakes("posterId", ("Comment.posterId", "fields.ts:39")),
             ),
             (
                 "go",

@@ -1,3 +1,5 @@
+from json import JSONEncoder
+
 from repos import AuditLog, UserRepository
 
 
@@ -37,3 +39,10 @@ def tally(comments) -> int:
     for comment in comments:
         total += comment.total
     return total
+
+
+class Encoder(JSONEncoder):
+    def default(self, o):
+        if self.poster_id:
+            return self.tally
+        return o
