@@ -110,14 +110,16 @@ impl Tree {
     /// Takes the rows of a fresh walk and keeps what the user set, both found by path: expanded
     /// directories stay expanded, also across a walk that missed them, and the cursor stays on
     /// its entry. When that entry is gone the cursor takes the row that followed it, or the
-    /// nearest one above.
+    /// nearest one above. A directory that was not listed before comes as `fresh` has it:
+    /// closed in the project tree, open in the review panel.
     pub fn refresh(&mut self, mut fresh: Tree) {
         let mut expanded = std::mem::take(&mut self.away);
         let open = self.nodes.iter().filter(|n| n.expanded);
         expanded.extend(open.map(|n| n.path.clone()));
+        let known: HashSet<&Path> = self.nodes.iter().map(|n| n.path.as_path()).collect();
         let mut index = HashMap::new();
         for (i, n) in fresh.nodes.iter_mut().enumerate() {
-            n.expanded = expanded.remove(&n.path);
+            n.expanded = expanded.remove(&n.path) || n.expanded && !known.contains(&*n.path);
             index.insert(n.path.clone(), i);
         }
         fresh.away = expanded;

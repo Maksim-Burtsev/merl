@@ -93,18 +93,29 @@ impl Project {
         }
         ev.need_rescan()
             || ev.paths.iter().any(|p| {
-                let Ok(rel) = p.strip_prefix(&self.root) else {
+                let Some(rel) = self.in_walk(p) else {
                     return false;
                 };
-                let Some(dir) = rel.parent() else {
-                    return true; // the root itself
-                };
-                let walked = dir.as_os_str().is_empty() || self.dirs.contains(dir);
                 let name = rel.file_name().and_then(|n| n.to_str());
-                walked
-                    && (matches!(name, Some(".gitignore" | ".ignore"))
-                        || self.listed.contains(rel) != p.symlink_metadata().is_ok())
+                rel.as_os_str().is_empty() // the root itself
+                    || matches!(name, Some(".gitignore" | ".ignore"))
+                    || self.listed.contains(rel) != p.symlink_metadata().is_ok()
             })
+    }
+
+    /// `p` relative to the root, when it is the root or in a directory the last walk listed.
+    fn in_walk<'a>(&self, p: &'a Path) -> Option<&'a Path> {
+        let rel = p.strip_prefix(&self.root).ok()?;
+        let dir = rel.parent().unwrap_or(rel);
+        (dir.as_os_str().is_empty() || self.dirs.contains(dir)).then_some(rel)
+    }
+
+    /// Did something happen where the walk lists files, a plain save included? It changes no
+    /// row of the tree and may change one of the review panel. Ignored directories and `.git`
+    /// stay silent, as in [`Project::concerns`].
+    pub fn touched(&self, ev: &notify::Event) -> bool {
+        !matches!(ev.kind, EventKind::Access(_))
+            && (ev.need_rescan() || ev.paths.iter().any(|p| self.in_walk(p).is_some()))
     }
 
     /// Is it time to walk? One walk at a time: what changes during one is due after it.
@@ -147,6 +158,80 @@ impl Project {
             let _ = watcher.watch(&self.root.join(d), RecursiveMode::NonRecursive);
         }
         *watched = want;
+    }
+}
+
+/// The live review panel: when to ask git for the branch again. The files come through the
+/// project watch ([`Project::touched`]); a commit, a rebase or a switch moves `HEAD` or a ref,
+/// inside `.git`, which no walk lists and which Linux therefore does not watch.
+pub struct Review {
+    /// Canonical. `HEAD` is the worktree's own; the refs belong to the repository.
+    head: PathBuf,
+    refs: PathBuf,
+    packed_refs: PathBuf,
+    changed: Debounce,
+    listing: bool,
+}
+
+impl Review {
+    /// `git_dir` and `common_dir` as `git::dirs` answers: one directory, or two in a worktree.
+    pub fn new(git_dir: &Path, common_dir: &Path) -> Self {
+        Self {
+            head: git_dir.join("HEAD"),
+            refs: common_dir.join("refs"),
+            packed_refs: common_dir.join("packed-refs"),
+            changed: Debounce::default(),
+            listing: false,
+        }
+    }
+
+    /// `in_project`: what [`Project::touched`] said of this event.
+    pub fn event(&mut self, ev: &notify::Event, in_project: bool, now: Instant) {
+        if in_project || self.moves_the_branch(ev) {
+            self.changed.touch(now);
+        }
+    }
+
+    /// The project was walked again: files may have been written before their directory was
+    /// listed, and those events did not count.
+    pub fn touch(&mut self, now: Instant) {
+        self.changed.touch(now);
+    }
+
+    /// `HEAD`, a loose ref under `refs/` or `packed-refs` was written (git renames a `.lock`
+    /// over them). The index and the objects are not the branch: merl's own `git diff` and an
+    /// editor's `git status` refresh the index, and must not ask for another listing.
+    fn moves_the_branch(&self, ev: &notify::Event) -> bool {
+        let lock = |p: &Path| p.extension().is_some_and(|e| e == "lock");
+        !matches!(ev.kind, EventKind::Access(_))
+            && ev.paths.iter().any(|p| {
+                *p == self.head || *p == self.packed_refs || p.starts_with(&self.refs) && !lock(p)
+            })
+    }
+
+    /// Is it time to list the branch? One listing at a time, as with the walk.
+    pub fn list_due(&mut self, now: Instant) -> bool {
+        let due = !self.listing && self.changed.due(now);
+        self.listing |= due;
+        due
+    }
+
+    pub fn listed(&mut self) {
+        self.listing = false;
+    }
+
+    /// `HEAD` and `packed-refs` are replaced by a rename, so their directories are watched,
+    /// not they. Needed on Linux, and everywhere in a worktree, whose `.git` is a file and the
+    /// real directory is outside the root; a second watch of what FSEvents already reports
+    /// under the root costs a repeated event, which the debounce takes.
+    pub fn watch(&self, watcher: &mut RecommendedWatcher) {
+        for (path, mode) in [
+            (self.head.parent(), RecursiveMode::NonRecursive),
+            (self.packed_refs.parent(), RecursiveMode::NonRecursive),
+            (Some(self.refs.as_path()), RecursiveMode::Recursive),
+        ] {
+            let _ = watcher.watch(path.unwrap_or(Path::new("")), mode);
+        }
     }
 }
 
@@ -247,6 +332,18 @@ mod tests {
             }
             assert_eq!(p.concerns(&ev), want, "{kind:?} {paths:?}");
         }
+        // The review panel counts a plain save too, in the same directories.
+        for (kind, path, want) in [
+            (write, "src/deep/x.rs", true),
+            (create, "new.rs", true),
+            (write, "target/new", false),
+            (rename, ".git/index", false),
+            (access, "src/deep/x.rs", false),
+            (write, "../elsewhere.rs", false),
+        ] {
+            let ev = notify::Event::new(kind).add_path(dir.join(path));
+            assert_eq!(p.touched(&ev), want, "{kind:?} {path}");
+        }
         // inotify overflowed: no path, something was missed.
         let ev = notify::Event::new(EventKind::Other).set_flag(Flag::Rescan);
         assert!(p.concerns(&ev));
@@ -295,6 +392,44 @@ mod tests {
         p.walked(&tree, &files, ms(6600));
         assert!(!p.walk_due(ms(9000)));
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_commit_asks_for_a_listing_and_the_index_does_not() {
+        // A linked worktree: `HEAD` is its own, the refs are the repository's.
+        let common = Path::new("/repo/.git");
+        let mut r = Review::new(&common.join("worktrees/wt"), common);
+        let rename = EventKind::Modify(ModifyKind::Name(RenameMode::Any));
+        for (path, want) in [
+            ("worktrees/wt/HEAD", true),
+            ("refs/heads/feature", true),
+            ("refs/heads/feat/live", true),
+            ("refs/remotes/origin/master", true),
+            ("packed-refs", true),
+            ("worktrees/wt/HEAD.lock", false),
+            ("refs/heads/feature.lock", false),
+            ("HEAD", false), // of the main checkout
+            ("worktrees/wt/index", false),
+            ("worktrees/wt/ORIG_HEAD", false),
+            ("objects/ab/cdef", false),
+        ] {
+            let ev = notify::Event::new(rename).add_path(common.join(path));
+            assert_eq!(r.moves_the_branch(&ev), want, "{path}");
+        }
+        // Debounced, and one listing at a time.
+        let t0 = Instant::now();
+        let ms = |n| t0 + Duration::from_millis(n);
+        let head = notify::Event::new(rename).add_path(common.join("worktrees/wt/HEAD"));
+        let index = notify::Event::new(rename).add_path(common.join("worktrees/wt/index"));
+        r.event(&index, false, ms(0));
+        assert!(!r.list_due(ms(1000)));
+        r.event(&head, false, ms(1000));
+        r.event(&index, true, ms(1100)); // a file of the project
+        assert!(!r.list_due(ms(1200)) && r.list_due(ms(1300)));
+        r.touch(ms(1400));
+        assert!(!r.list_due(ms(2000)), "the first one is not back");
+        r.listed();
+        assert!(r.list_due(ms(2000)) && !r.list_due(ms(9000)));
     }
 
     /// inotify drops the watch of a deleted directory by itself; the one made again under the

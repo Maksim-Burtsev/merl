@@ -143,6 +143,8 @@ pub struct ReviewFile {
     pub deleted: usize,
     /// `git diff --numstat` counts `-` for it.
     pub binary: bool,
+    /// Not in git yet: listed as added, and its diff is the whole file.
+    pub untracked: bool,
 }
 
 impl ReviewFile {
@@ -154,7 +156,7 @@ impl ReviewFile {
 }
 
 /// `merl --review`: the checked-out branch against its base.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Review {
     pub branch: String,
     pub base: String,
@@ -167,31 +169,31 @@ pub struct Review {
 impl Review {
     /// Checks out `branch` when given (after a fetch), finds the base and lists the files.
     pub fn open(root: &Path, branch: Option<&str>, base: Option<&str>) -> Result<Self> {
-        let git = |args: &[&str]| -> Result<String> {
-            let out = Command::new("git")
-                .arg("-C")
-                .arg(root)
-                .args(args)
-                .output()
-                .context("cannot run git: --review needs it on PATH")?;
-            if !out.status.success() {
-                bail!(
-                    "git {}: {}",
-                    args.join(" "),
-                    String::from_utf8_lossy(&out.stderr).trim()
-                );
-            }
-            Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
-        };
+        let git = |args: &[&str]| git(root, args);
         if let Some(b) = branch {
             let _ = git(&["fetch", "-q", "origin", b]);
             git(&["switch", "-q", b]).with_context(|| format!("switching to {b}"))?;
         }
-        let branch = git(&["rev-parse", "--abbrev-ref", "HEAD"])?;
         let base = match base {
             Some(b) => b.to_string(),
             None => detect_base(&git)?,
         };
+        let r = Self::list(root, base)?;
+        if r.files.is_empty() {
+            bail!("{} has no changes against {}", r.branch, r.base);
+        }
+        Ok(r)
+    }
+
+    /// The same review as the branch and the working tree are now: after a commit, an edit, a
+    /// new file. Nothing is fetched or switched, and an empty list is an answer.
+    pub fn refresh(&self, root: &Path) -> Result<Self> {
+        Self::list(root, self.base.clone())
+    }
+
+    fn list(root: &Path, base: String) -> Result<Self> {
+        let git = |args: &[&str]| git(root, args);
+        let branch = git(&["rev-parse", "--abbrev-ref", "HEAD"])?;
         let merge_base = git(&["merge-base", &base, "HEAD"])
             .with_context(|| format!("no merge base between {base} and HEAD"))?;
         // `-z`: NUL-separated and unquoted, so a non-ASCII name is the name on disk.
@@ -202,8 +204,14 @@ impl Review {
                 (f.added, f.deleted) = counts.unwrap_or((0, 0));
             }
         }
-        if files.is_empty() {
-            bail!("{branch} has no changes against {base}");
+        // `git diff` does not list untracked files, and a new module is the first thing to
+        // review. A nested repository is listed as `dir/`: not a file to read.
+        let others = git(&["ls-files", "--others", "--exclude-standard", "-z"])?;
+        for path in others
+            .split('\0')
+            .filter(|p| !p.is_empty() && !p.ends_with('/'))
+        {
+            files.push(untracked(root, Path::new(path)));
         }
         // The panel's order, so `c` walks the files top to bottom.
         files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false));
@@ -213,6 +221,27 @@ impl Review {
             merge_base,
             files,
         })
+    }
+
+    /// The marks, ghosts and hunks of one file of the working tree against the merge base;
+    /// `file` is its row, when it has one. An untracked file is one hunk of added lines.
+    pub fn diff(&self, root: &Path, path: &Path, file: Option<&ReviewFile>) -> Diff {
+        match file {
+            Some(f) if f.untracked => {
+                let n = std::fs::read(path).map_or(0, |b| line_count(&b));
+                Diff {
+                    marks: (0..n).map(|l| (l, Mark::Added)).collect(),
+                    hunks: Vec::from_iter((n > 0).then_some(0)),
+                    ..Default::default()
+                }
+            }
+            _ => diff(
+                root,
+                path,
+                Some(&self.merge_base),
+                file.and_then(|f| f.old.as_deref()),
+            ),
+        }
     }
 
     pub fn file(&self, rel: &Path) -> Option<&ReviewFile> {
@@ -234,6 +263,55 @@ impl Review {
     }
 }
 
+fn git(root: &Path, args: &[&str]) -> Result<String> {
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .output()
+        .context("cannot run git: --review needs it on PATH")?;
+    if !out.status.success() {
+        bail!(
+            "git {}: {}",
+            args.join(" "),
+            String::from_utf8_lossy(&out.stderr).trim()
+        );
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+}
+
+/// The git directory of the worktree at `root` (where `HEAD` is) and the repository's common
+/// one (where the refs are), canonical. They are the same `.git` outside a linked worktree.
+pub fn dirs(root: &Path) -> Option<(PathBuf, PathBuf)> {
+    let out = git(root, &["rev-parse", "--git-dir", "--git-common-dir"]).ok()?;
+    let mut dirs = out.lines().map(|d| root.join(d).canonicalize().ok());
+    Some((dirs.next()??, dirs.next()??))
+}
+
+/// The row of an untracked file: `A`, every line added. Binary is what git calls binary, a NUL
+/// in the first 8000 bytes.
+///
+/// ponytail: every untracked file is read on every refresh to count its lines. A branch with
+/// thousands of them wants the counts cached by mtime.
+fn untracked(root: &Path, path: &Path) -> ReviewFile {
+    let bytes = std::fs::read(root.join(path)).unwrap_or_default();
+    let binary = bytes.iter().take(8000).any(|&b| b == 0);
+    ReviewFile {
+        path: path.to_path_buf(),
+        status: 'A',
+        old: None,
+        added: if binary { 0 } else { line_count(&bytes) },
+        deleted: 0,
+        binary,
+        untracked: true,
+    }
+}
+
+/// Lines as `git diff --numstat` counts them: a last line without a newline is a line.
+fn line_count(bytes: &[u8]) -> usize {
+    bytes.split(|&b| b == b'\n').count() - usize::from(bytes.is_empty() || bytes.ends_with(b"\n"))
+}
+
 /// `git diff --name-status -z`: `STATUS\0path\0`, and `Rnnn\0old\0new\0` for a rename.
 fn parse_name_status(out: &str) -> Vec<ReviewFile> {
     let mut files = Vec::new();
@@ -253,6 +331,7 @@ fn parse_name_status(out: &str) -> Vec<ReviewFile> {
             added: 0,
             deleted: 0,
             binary: false,
+            untracked: false,
         });
     }
     files
@@ -453,6 +532,17 @@ mod tests {
             Review::open(&dir, None, Some("feature")).is_err(),
             "no changes"
         );
+        // Where the branch lives, for the watch: a linked worktree has its own `HEAD`.
+        let real = dir.canonicalize().unwrap();
+        let wt = real.with_extension("wt");
+        let _ = std::fs::remove_dir_all(&wt);
+        git(&["worktree", "add", "-q", "-b", "wt", wt.to_str().unwrap()]);
+        let common = real.join(".git");
+        assert_eq!(dirs(&dir), Some((common.clone(), common.clone())));
+        let (git_dir, common_dir) = dirs(&wt).unwrap();
+        assert!(git_dir.starts_with(common.join("worktrees")) && git_dir.join("HEAD").exists());
+        assert_eq!(common_dir, common);
+        std::fs::remove_dir_all(&wt).unwrap();
         // With a branch name the review switches to it; a dirty tree in the way is an error.
         git(&["switch", "-q", "main"]);
         let r = Review::open(&dir, Some("feature"), None).unwrap();

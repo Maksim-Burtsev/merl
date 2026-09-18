@@ -46,6 +46,8 @@ enum Msg {
     Fs(notify::Event),
     /// The project was walked again after it changed on disk.
     Project(tree::Tree, Vec<PathBuf>),
+    /// The branch under review was listed again; `None` when git could not (mid-rebase).
+    Review(Option<git::Review>),
     /// `git diff` finished for the file at this path.
     Diff(PathBuf, git::Diff),
     /// The `s` grep with this number finished.
@@ -252,6 +254,13 @@ fn event_loop(
     if let Some(w) = &mut project_watcher {
         project.watch(w, &mut project_watched);
     }
+    // The review panel follows the same events, and the branch inside `.git`.
+    let mut review = (app.review.as_ref())
+        .and_then(|_| git::dirs(&app.root))
+        .map(|(git_dir, common_dir)| live::Review::new(&git_dir, &common_dir));
+    if let (Some(r), Some(w)) = (&review, &mut project_watcher) {
+        r.watch(w);
+    }
 
     let mut dirty = true;
     let mut typing: Option<bool> = None;
@@ -278,6 +287,15 @@ fn event_loop(
             std::thread::spawn(move || {
                 let (tree, files) = tree::build(&root);
                 let _ = tx.send(Msg::Project(tree, files));
+            });
+        }
+        if let (Some(live), Some(r)) = (&mut review, &app.review)
+            && live.list_due(Instant::now())
+        {
+            // In a thread, like the marks: four git commands over the whole branch.
+            let (tx, root, r) = (diff_tx.clone(), app.root.clone(), r.clone());
+            std::thread::spawn(move || {
+                let _ = tx.send(Msg::Review(r.refresh(&root).ok()));
             });
         }
         if let Some(job) = app.search_tick() {
@@ -354,6 +372,9 @@ fn event_loop(
                 // project watch reports every namesake under the root.
                 dirty |= concerns_open_file(app, &ev) && app.reload(false);
                 project.event(&ev, Instant::now());
+                if let Some(r) = &mut review {
+                    r.event(&ev, project.touched(&ev), Instant::now());
+                }
             }
             Ok(Msg::Project(tree, files)) => {
                 project.walked(&tree, &files, Instant::now());
@@ -361,7 +382,17 @@ fn event_loop(
                     project.watch(w, &mut project_watched);
                 }
                 app.project_walked(tree, files);
+                if let Some(r) = &mut review {
+                    r.touch(Instant::now());
+                }
                 dirty = true;
+            }
+            Ok(Msg::Review(fresh)) => {
+                if let Some(r) = &mut review {
+                    r.listed();
+                }
+                // What git could not list stays as it was until the next event.
+                dirty |= fresh.is_some_and(|fresh| app.review_refreshed(fresh));
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
