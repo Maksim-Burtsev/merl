@@ -154,6 +154,9 @@ pub struct App {
     /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
     /// keyword argument, which names a parameter no rule reads.
     offer_only: bool,
+    /// Set by a search by name whose field grep stopped at [`search::MAX_HITS`]: the candidates
+    /// are a lower bound, so the count says `+` and a single one is offered, not jumped to.
+    truncated: bool,
     pub focus: Focus,
     pub show_tree: bool,
     /// First visible row of the tree pane, clamped by `ui`.
@@ -268,6 +271,7 @@ impl App {
             files,
             external: HashMap::new(),
             offer_only: false,
+            truncated: false,
             focus,
             show_tree: true,
             tree_top: 0,
@@ -1479,9 +1483,10 @@ impl App {
     ///
     /// `x.word` on a value — a `.` qualifier no import binds, other than a bare `self` — is a
     /// member whose type is not known: every member declaration of the name, in the project and
-    /// outside it, is a candidate. The status line says how the target was found, and a single
-    /// candidate found only by name says so too. A field, a variant or a parameter has no
-    /// declaration the rules know and gets "no definition": `u` lists the uses.
+    /// outside it, and every field of the name in the project, is a candidate. The status line
+    /// says how the target was found, and a single candidate found only by name says so too. An
+    /// enum variant or a parameter has no declaration the rules know and gets "no definition":
+    /// `u` lists the uses.
     fn goto_definition(&mut self) {
         let kind = self.kind();
         let extra = search::word_chars(kind, true);
@@ -1500,6 +1505,7 @@ impl App {
         let text = self.buf.lines.join("\n");
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
+        self.truncated = false;
         let mut imports = search::imports(kind, &text);
         // A parameter or a local of the same name hides the import where the cursor is: `json`
         // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
@@ -1574,6 +1580,13 @@ impl App {
                 return;
             }
         }
+        // On the name a field's declaration gives it, the other fields and members of the name
+        // are namesakes (#104). `self.repo = repo` is decided below, by where `self.repo` leads.
+        if !dotted && search::field_decl_at(kind, &text, self.line + 1, range.start, &word) {
+            let found = self.field_namesakes(kind, &here, &word);
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // A receiver whose type is proven narrows the member to that type (#68, steps 2 to 4).
         let mut broke = None;
         if dotted
@@ -1581,6 +1594,15 @@ impl App {
             && chain.first().is_some_and(|f| bound(&imports, f).is_none())
         {
             match self.typed_definitions(kind, &here, &word, &chain) {
+                // `self.repo` that leads to this very line is the field's declaration.
+                Ok(found)
+                    if own
+                        && matches!(found.as_slice(), [c] if c.hit.line == self.line + 1 && c.hit.path == here) =>
+                {
+                    let found = self.field_namesakes(kind, &here, &word);
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
                 Ok(found) if !found.is_empty() => {
                     self.show_definitions(kind, &word, &here, found, None);
                     return;
@@ -1660,9 +1682,17 @@ impl App {
         // and a function or a variable at the top of a module is not one of them.
         let hits = members
             .as_ref()
-            .map(|m| self.project_definitions(kind, &here, &word, m))
+            .map(|m| self.members_by_name(kind, &here, &word, m))
             .filter(|hits| !hits.is_empty() || !locals.is_empty())
-            .unwrap_or_else(|| self.project_definitions(kind, &here, &word, &pattern));
+            .unwrap_or_else(|| {
+                if own {
+                    // `self.word` whose class is not read to the end: the declarations of the name,
+                    // and the fields too (#104).
+                    self.members_by_name(kind, &here, &word, &pattern)
+                } else {
+                    self.project_definitions(kind, &here, &word, &pattern)
+                }
+            });
         found = hits
             .into_iter()
             .map(|hit| Candidate {
@@ -1736,6 +1766,7 @@ impl App {
         // The line of an interface method is a declaration no pattern of `d` lists, so nothing
         // was dropped above, and what is found is its namesakes all the same.
         let offer_only = std::mem::take(&mut self.offer_only);
+        let truncated = std::mem::take(&mut self.truncated);
         let on_member = || {
             let at = search::word_at(
                 self.line_str(),
@@ -1759,13 +1790,13 @@ impl App {
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
         match found.as_slice() {
-            [] => self.message = resolution(word, None, &found, broke),
-            [one] if !namesakes && !offer_only => {
+            [] => self.message = resolution(word, None, &found, broke, truncated),
+            [one] if !namesakes && !offer_only && !truncated => {
                 let path = self.root.join(&one.hit.path);
                 let target = self
                     .text_of(&one.hit.path)
                     .and_then(|text| search::qualified(kind, &text, one.hit.line, word));
-                let status = resolution(word, target.as_deref(), &found, broke);
+                let status = resolution(word, target.as_deref(), &found, broke, false);
                 self.jump_to(&path, one.hit.line);
                 // A refused jump (edits that cannot be saved) leaves its own reason, not a
                 // resolution nobody followed.
@@ -1790,7 +1821,7 @@ impl App {
                     let others = if found.len() == 1 { "other" } else { "others" };
                     format!("{word}: at a declaration, {} {others} by name", found.len())
                 } else {
-                    resolution(word, None, &found, broke)
+                    resolution(word, None, &found, broke, truncated)
                 };
                 let items = self.definition_items(kind, word, found);
                 self.show_picker(PickerKind::Definitions, items);
@@ -1918,9 +1949,10 @@ impl App {
     /// proven: every declaration of `x` in scope reads the same type (through one call's return
     /// type at most), each field is declared in the type before it or one that type extends or
     /// embeds, and each type is declared once where the file that names it can see it
-    /// ([`App::declaration`]). The member is looked for in the last type, then in the types it
-    /// extends or embeds. `Err` names the first name that is not proven; an empty list is a type
-    /// without the member. Both leave the word to the search by name.
+    /// ([`App::declaration`]). The member — a method, else a field — is looked for in the last
+    /// type, then in the types it extends or embeds. `Err` names the first name that is not
+    /// proven; an empty list is a type without the member. Both leave the word to the search by
+    /// name.
     fn typed_definitions(
         &self,
         kind: Kind,
@@ -1956,9 +1988,26 @@ impl App {
             }
             ty = next;
         }
-        let hits = self
-            .hierarchy(kind, &ty, 0, &mut |t| {
-                Some(self.members_of(kind, t, word)).filter(|hits| !hits.is_empty())
+        let declared = self.hierarchy(kind, &ty, 0, &mut |t| {
+            let members = self.members_of(kind, t, word);
+            if members.is_empty() {
+                self.field_of(kind, t, word, false).map(|hit| vec![hit])
+            } else {
+                Some(members)
+            }
+        });
+        // An assignment inside a method stands for a field no type declares, and the base-most
+        // one introduced it: `self.audit = None` in a subclass is a use of the base's field.
+        let hits = declared
+            .or_else(|| {
+                let mut assigned = None;
+                self.hierarchy(kind, &ty, 0, &mut |t| {
+                    if let Some(hit) = self.field_of(kind, t, word, true) {
+                        assigned = Some(vec![hit]);
+                    }
+                    None::<()>
+                });
+                assigned
             })
             .unwrap_or_default();
         let label = links.join(" \u{2192} ");
@@ -2168,6 +2217,72 @@ impl App {
                 == want
         })
         .collect()
+    }
+
+    /// The line on which `ty` itself declares the field `word` (#104), [`search::field_line`]: a
+    /// class-body annotation, a constructor parameter, a struct field, or with `assigned` the
+    /// first `self.word = …` of a type that declares it no other way.
+    fn field_of(&self, kind: Kind, ty: &Typed, word: &str, assigned: bool) -> Option<Hit> {
+        let text = self.text_of(&ty.path)?;
+        let (line, is) = search::field_line(kind, &text, ty.line, word)?;
+        (is == assigned).then(|| Hit {
+            path: ty.path.clone(),
+            line,
+            text: text.lines().nth(line - 1).unwrap_or_default().to_owned(),
+        })
+    }
+
+    /// The project's declarations of `word` by name as a member of any type: the lines `members`
+    /// matches, and each type's declaration of a field `word` ([`search::field_rows`]), so a type
+    /// is one row and a local or a literal's key of that name is none (#104). The field lines are
+    /// grepped apart: their patterns match object keys, locals and keyword arguments too, which
+    /// must not push a method past [`search::MAX_HITS`], and a cut there is kept for the count.
+    fn members_by_name(&mut self, kind: Kind, here: &Path, word: &str, members: &str) -> Vec<Hit> {
+        let mut hits = self.project_definitions(kind, here, word, members);
+        let Some(fields) = search::field_patterns(kind, word) else {
+            return hits;
+        };
+        let raw = self.project_definitions(kind, here, word, &fields.join("|"));
+        self.truncated |= raw.len() >= search::MAX_HITS;
+        let mut by_file: Vec<(PathBuf, Vec<usize>)> = Vec::new();
+        for h in raw {
+            match by_file.last_mut() {
+                Some((path, lines)) if *path == h.path => lines.push(h.line),
+                _ => by_file.push((h.path, vec![h.line])),
+            }
+        }
+        for (path, lines) in by_file {
+            let Some(text) = self.text_of(&path) else {
+                continue;
+            };
+            for line in search::field_rows(kind, &text, &lines, word) {
+                if !hits.iter().any(|h| h.path == path && h.line == line) {
+                    hits.push(Hit {
+                        text: text.lines().nth(line - 1).unwrap_or_default().to_owned(),
+                        path: path.clone(),
+                        line,
+                    });
+                }
+            }
+        }
+        let current = self.rel_current();
+        hits.sort_by_cached_key(|h| (current.as_ref() != Some(&h.path), h.path.clone(), h.line));
+        hits
+    }
+
+    /// What a field's own declaration offers (#104): the declarations of its name as a member of
+    /// any type, by name, the declaration itself among them.
+    fn field_namesakes(&mut self, kind: Kind, here: &Path, word: &str) -> Vec<Candidate> {
+        let members = search::member_patterns(kind, word)
+            .unwrap_or_default()
+            .join("|");
+        self.members_by_name(kind, here, word, &members)
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            })
+            .collect()
     }
 
     /// #68 step 6. What implements the member the cursor stands on: the same member in the types
@@ -3277,19 +3392,20 @@ fn bound(imports: &[(String, Vec<String>)], name: &str) -> Option<Vec<String>> {
 /// declarations` over a picker. A jump by name says it had one match, so a guess that happened to
 /// be unique never reads as a resolution. A chain in front of the word that `broke` says at which
 /// name: `(by name, 1 match, chain broke at users)`, `by name, 2 declarations (chain broke at
-/// users)`.
+/// users)`. A list that was `cut` short counts with a `+`, however few it holds.
 fn resolution(
     word: &str,
     target: Option<&str>,
     found: &[Candidate],
     broke: Option<&str>,
+    cut: bool,
 ) -> String {
     let note = broke.map_or(String::new(), |at| format!(" (chain broke at {at})"));
     let Some(first) = found.first() else {
         return format!("no definition for {word}{note}");
     };
     let reason = &first.reason;
-    if let [_] = found {
+    if let ([_], false) = (found, cut) {
         let mut why = reason.to_string();
         if !reason.proven() {
             why.push_str(", 1 match");
@@ -3304,7 +3420,7 @@ fn resolution(
     }
     // The candidates stop at MAX_HITS, so that many is a lower bound.
     let n = match found.len() {
-        n if n >= search::MAX_HITS => format!("{n}+"),
+        n if cut || n >= search::MAX_HITS => format!("{n}+"),
         n => n.to_string(),
     };
     if found.iter().all(|c| c.reason == *reason) {
@@ -5006,6 +5122,425 @@ mod tests {
         }
     }
 
+    /// #104 over the same project in three languages. A field is a target: behind a receiver whose
+    /// type is proven, the type's declaration of the field, found through the classes it extends
+    /// and the structs it embeds, is one jump that names the receiver; an assignment in a method
+    /// stands for the field only when no type declares it, and then the base-most one does. On a
+    /// value whose type is not known, each type's declaration of a field of that name is a
+    /// candidate by name, so a common name is a picker; a local, a literal's key or a `var` block
+    /// of that name is none. On the declaration itself the other fields of the name are its
+    /// namesakes, but only on the name the line declares.
+    #[test]
+    fn a_field_is_a_target() {
+        let namesakes = |word: &str, row: (&str, &str)| {
+            picker(
+                &format!("{word}: at a declaration, 1 other by name"),
+                &[row],
+            )
+        };
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // Annotated in the class body, with a value and without.
+            (
+                "python",
+                "fields.py",
+                "issue.poster_id",
+                jump(
+                    "poster_id \u{2192} Issue.poster_id (via issue: Issue)",
+                    "fields.py:16",
+                ),
+            ),
+            (
+                "python",
+                "fields.py",
+                "issue.title",
+                jump(
+                    "title \u{2192} Issue.title (via issue: Issue)",
+                    "fields.py:15",
+                ),
+            ),
+            // Assigned in the `__init__` of the base class, and again in a method of `Issue`.
+            (
+                "python",
+                "fields.py",
+                "issue.audit",
+                jump(
+                    "audit \u{2192} Base.audit (via issue: Issue)",
+                    "fields.py:8",
+                ),
+            ),
+            // A field of `Issue` before a method of `Base`.
+            (
+                "python",
+                "fields.py",
+                "issue.summary",
+                jump(
+                    "summary \u{2192} Issue.summary (via issue: Issue)",
+                    "fields.py:17",
+                ),
+            ),
+            (
+                "python",
+                "fields.py",
+                "await self.repo",
+                jump("repo \u{2192} Issue.repo (via self: Issue)", "fields.py:21"),
+            ),
+            // A later assignment is not the declaration.
+            (
+                "python",
+                "fields.py",
+                "^            self.labels",
+                jump(
+                    "labels \u{2192} Issue.labels (via self: Issue)",
+                    "fields.py:22",
+                ),
+            ),
+            (
+                "python",
+                "chains.py",
+                "self.uow.users",
+                jump(
+                    "users \u{2192} UnitOfWork.users (via self.uow: UnitOfWork)",
+                    "chains.py:10",
+                ),
+            ),
+            (
+                "python",
+                "fields.py",
+                "comment.poster_id",
+                picker(
+                    "poster_id: by name, 2 declarations",
+                    &[
+                        ("Issue.poster_id", "fields.py:16"),
+                        ("Comment.poster_id", "fields.py:40"),
+                    ],
+                ),
+            ),
+            // `body : str` in the docstring declares nothing.
+            (
+                "python",
+                "fields.py",
+                "comment.body",
+                jump(
+                    "body \u{2192} Comment.body (by name, 1 match)",
+                    "fields.py:41",
+                ),
+            ),
+            // `total: int = 0` is a local.
+            (
+                "python",
+                "fields.py",
+                "comment.total",
+                jump("no definition for total", "fields.py:52"),
+            ),
+            // The first binding of `Point.offset` is a tuple target.
+            (
+                "python",
+                "fields.py",
+                "p.offset",
+                picker(
+                    "offset: by name, 2 declarations",
+                    &[
+                        ("Point.offset", "fields.py:68"),
+                        ("Cursor.offset", "fields.py:76"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "fields.py",
+                "^    poster_id",
+                namesakes("poster_id", ("Comment.poster_id", "fields.py:40")),
+            ),
+            (
+                "python",
+                "fields.py",
+                "^        self.poster_id",
+                namesakes("poster_id", ("Issue.poster_id", "fields.py:16")),
+            ),
+            // The parameter handed on, not the field it is handed to.
+            (
+                "python",
+                "fields.py",
+                "self.repo = repo",
+                jump("repo \u{2192} Issue.repo (local)", "fields.py:19"),
+            ),
+            // A class whose base is not the project's: its declarations by name, fields
+            // included, and a nested class among them.
+            (
+                "python",
+                "fields.py",
+                "if self.poster_id",
+                picker(
+                    "poster_id: by name, 2 declarations",
+                    &[
+                        ("Issue.poster_id", "fields.py:16"),
+                        ("Comment.poster_id", "fields.py:40"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "fields.py",
+                "self.Options",
+                jump(
+                    "Options \u{2192} Encoder.Options (by name, 1 match)",
+                    "fields.py:57",
+                ),
+            ),
+            (
+                "typescript",
+                "fields.ts",
+                "issue.posterId",
+                jump(
+                    "posterId \u{2192} Issue.posterId (via issue: Issue)",
+                    "fields.ts:9",
+                ),
+            ),
+            (
+                "typescript",
+                "fields.ts",
+                "issue.title",
+                jump(
+                    "title \u{2192} Issue.title (via issue: Issue)",
+                    "fields.ts:8",
+                ),
+            ),
+            // `Issue.close` assigns it again.
+            (
+                "typescript",
+                "fields.ts",
+                "issue.audit",
+                jump(
+                    "audit \u{2192} Base.audit (via issue: Issue)",
+                    "fields.ts:4",
+                ),
+            ),
+            // A parameter of a constructor wrapped over several lines.
+            (
+                "typescript",
+                "fields.ts",
+                "this.repo",
+                jump("repo \u{2192} Issue.repo (via this: Issue)", "fields.ts:13"),
+            ),
+            (
+                "typescript",
+                "fields.ts",
+                "this.title",
+                jump(
+                    "title \u{2192} Issue.title (via this: Issue)",
+                    "fields.ts:8",
+                ),
+            ),
+            // Both sides of `this.close = this.close.bind(this)` are the method.
+            (
+                "typescript",
+                "fields.ts",
+                "this.close",
+                jump(
+                    "close \u{2192} Issue.close (via this: Issue)",
+                    "fields.ts:21",
+                ),
+            ),
+            (
+                "typescript",
+                "fields.ts",
+                "= this.close",
+                jump(
+                    "close \u{2192} Issue.close (via this: Issue)",
+                    "fields.ts:21",
+                ),
+            ),
+            // A `case` block is no object literal: `this` is still the class.
+            (
+                "typescript",
+                "fields.ts",
+                "String(this.posterId",
+                jump(
+                    "posterId \u{2192} Issue.posterId (via this: Issue)",
+                    "fields.ts:9",
+                ),
+            ),
+            (
+                "typescript",
+                "fields.ts",
+                "return this.title",
+                jump(
+                    "title \u{2192} Issue.title (via this: Issue)",
+                    "fields.ts:8",
+                ),
+            ),
+            // But the literal a `case` returns is: its `this` is not the class.
+            (
+                "typescript",
+                "fields.ts",
+                "`${this.posterId",
+                picker(
+                    "posterId: by name, 2 declarations",
+                    &[
+                        ("Issue.posterId", "fields.ts:9"),
+                        ("Comment.posterId", "fields.ts:47"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "chains.ts",
+                "this.uow.users",
+                jump(
+                    "users \u{2192} UnitOfWork.users (via this.uow: UnitOfWork)",
+                    "chains.ts:4",
+                ),
+            ),
+            (
+                "typescript",
+                "fields.ts",
+                "comment.posterId",
+                picker(
+                    "posterId: by name, 2 declarations",
+                    &[
+                        ("Issue.posterId", "fields.ts:9"),
+                        ("Comment.posterId", "fields.ts:47"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "fields.ts",
+                "comment.body",
+                jump(
+                    "body \u{2192} Comment.body (by name, 1 match)",
+                    "fields.ts:48",
+                ),
+            ),
+            // `let total` is a local, and `total: 0` the key of an object literal.
+            (
+                "typescript",
+                "fields.ts",
+                "comment.total",
+                jump("no definition for total", "fields.ts:62"),
+            ),
+            (
+                "typescript",
+                "fields.ts",
+                "^  posterId",
+                namesakes("posterId", ("Comment.posterId", "fields.ts:47")),
+            ),
+            (
+                "go",
+                "fields.go",
+                "issue.PosterID",
+                jump(
+                    "PosterID \u{2192} Issue.PosterID (via issue: Issue)",
+                    "fields.go:14",
+                ),
+            ),
+            // The second name of `Title, Body string`.
+            (
+                "go",
+                "fields.go",
+                "issue.Body",
+                jump(
+                    "Body \u{2192} Issue.Body (via issue: Issue)",
+                    "fields.go:15",
+                ),
+            ),
+            // Promoted from the embedded `Base`, and the embedded struct by its name.
+            (
+                "go",
+                "fields.go",
+                "issue.Audit",
+                jump(
+                    "Audit \u{2192} Base.Audit (via issue: Issue)",
+                    "fields.go:9",
+                ),
+            ),
+            (
+                "go",
+                "fields.go",
+                "issue.Base",
+                jump(
+                    "Base \u{2192} Issue.Base (via issue: Issue)",
+                    "fields.go:13",
+                ),
+            ),
+            (
+                "go",
+                "fields.go",
+                "i.repo",
+                jump("repo \u{2192} Issue.repo (via i: Issue)", "fields.go:16"),
+            ),
+            (
+                "go",
+                "chains.go",
+                "h.uow",
+                jump("uow \u{2192} Deps.uow (via h: Handler)", "chains.go:25"),
+            ),
+            (
+                "go",
+                "chains.go",
+                "h.uow.Users",
+                jump(
+                    "Users \u{2192} UnitOfWork.Users (via h.uow: UnitOfWork)",
+                    "chains.go:4",
+                ),
+            ),
+            // A `range` variable.
+            (
+                "go",
+                "fields.go",
+                "c.PosterID",
+                picker(
+                    "PosterID: by name, 2 declarations",
+                    &[
+                        ("Issue.PosterID", "fields.go:14"),
+                        ("Comment.PosterID", "fields.go:20"),
+                    ],
+                ),
+            ),
+            (
+                "go",
+                "fields.go",
+                "c.Text",
+                jump(
+                    "Text \u{2192} Comment.Text (by name, 1 match)",
+                    "fields.go:21",
+                ),
+            ),
+            // `Host string` in a `var` block is a local.
+            (
+                "go",
+                "fields.go",
+                "r.Host",
+                jump("no definition for Host", "fields.go:40"),
+            ),
+            // A field named like its type: on the type, `d` goes to the type.
+            (
+                "go",
+                "fields.go",
+                "^\tIssue    *Issue",
+                jump("Issue: by name, 1 match", "fields.go:12"),
+            ),
+            // An embedded struct's name is its type's: `d` there goes to the type.
+            (
+                "go",
+                "fields.go",
+                "^\tBase",
+                jump("Base: by name, 1 match", "fields.go:8"),
+            ),
+            (
+                "go",
+                "fields.go",
+                "^\tPosterID",
+                namesakes("PosterID", ("Comment.PosterID", "fields.go:20")),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
     /// Step 6 of #68 over the same project in three languages: on the declaration of a member of
     /// an interface, a protocol, an abstract or a base class, `d` offers what implements it,
     /// labelled with the member it comes from. A type that inherits the member without declaring
@@ -6030,6 +6565,68 @@ mod tests {
         std::fs::remove_dir_all(&root).unwrap();
     }
 
+    /// #104. A `self.word` whose class extends one outside the project gets the project's
+    /// declarations of the word and never the dependency's, although the dependency declares it.
+    #[test]
+    fn a_self_word_past_a_base_outside_the_project_stays_in_it() {
+        let (dir, mut a) = project_app(
+            "own-outside",
+            &[(
+                "a.py",
+                "from threading import Thread\n\n\nclass A(Thread):\n    def run(self):\n        self.stop()\n",
+            )],
+        );
+        let root = external_root(
+            "own-outside",
+            &[(
+                "threading.py",
+                "class Thread:\n    def stop(self):\n        pass\n",
+            )],
+        );
+        use_roots(&mut a, Kind::Python, std::slice::from_ref(&root));
+        d_on(&mut a, "a.py", "self.stop");
+        assert_eq!(shown(&mut a), jump("no definition for stop", "a.py:6"));
+        std::fs::remove_dir_all(&dir).unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// #104. The field lines of a name are grepped apart from its methods: a file of object-literal
+    /// keys that fills the grep leaves the method a candidate, and the count says the field side
+    /// was cut, so a single candidate is offered rather than jumped to.
+    #[test]
+    fn a_field_grep_cut_at_the_cap_keeps_the_methods_and_says_so() {
+        let keys = format!(
+            "export const rows = {{\n{}}};\n",
+            "  id: 1,\n".repeat(search::MAX_HITS)
+        );
+        let (dir, mut a) = project_app(
+            "field-cap",
+            &[
+                ("a/rows.ts", keys.as_str()),
+                (
+                    "z/model.ts",
+                    "export class Model {\n  id(): number {\n    return 1;\n  }\n}\n",
+                ),
+                (
+                    "main.ts",
+                    "export function f(u: any): number {\n  return u.id();\n}\n",
+                ),
+            ],
+        );
+        for kind in [Kind::Python, Kind::TsJs, Kind::Go] {
+            a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
+        }
+        d_on(&mut a, "main.ts", "u.id");
+        assert_eq!(
+            shown(&mut a),
+            picker(
+                "id: by name, 1+ declarations",
+                &[("Model.id", "z/model.ts:2")]
+            )
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// An editable install puts the project's own `src` on `sys.path`: a file the project walk
     /// listed stays editable, while a gitignored `.venv` under the root does not.
     #[test]
@@ -6105,23 +6702,32 @@ mod tests {
                 "load",
                 Some("json.load"),
                 &one(Reason::Import("json".into())),
-                None
+                None,
+                false
             ),
             "load \u{2192} json.load (via import json)"
         );
         let mut two = one(Reason::ByName);
         two.extend(one(Reason::Path("std::fs".into())));
-        assert_eq!(resolution("read", None, &two, None), "read: 2 declarations");
+        assert_eq!(
+            resolution("read", None, &two, None, false),
+            "read: 2 declarations"
+        );
         // The candidates stop at MAX_HITS: the count is a lower bound.
         let many: Vec<Candidate> = (0..search::MAX_HITS)
             .flat_map(|_| one(Reason::ByName))
             .collect();
         assert_eq!(
-            resolution("save", None, &many, None),
+            resolution("save", None, &many, None, false),
             format!("save: by name, {}+ declarations", search::MAX_HITS)
         );
+        // So is a list a search cut short, one candidate or more.
         assert_eq!(
-            resolution("read", None, &[], None),
+            resolution("id", None, &one(Reason::ByName), None, true),
+            "id: by name, 1+ declarations"
+        );
+        assert_eq!(
+            resolution("read", None, &[], None, false),
             "no definition for read"
         );
         // A chain in front of the word that could not be followed says where it broke.
@@ -6130,12 +6736,13 @@ mod tests {
                 "remove",
                 Some("UserService.remove"),
                 &one(Reason::ByName),
-                Some("users")
+                Some("users"),
+                false
             ),
             "remove \u{2192} UserService.remove (by name, 1 match, chain broke at users)"
         );
         assert_eq!(
-            resolution("read", None, &[], Some("repo")),
+            resolution("read", None, &[], Some("repo"), false),
             "no definition for read (chain broke at repo)"
         );
     }
