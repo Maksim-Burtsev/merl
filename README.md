@@ -65,7 +65,7 @@ merl --version
 ```
 
 `merl --tutor` walks through every navigation key on a small Python project bundled in the binary:
-twenty-five lessons, each one done when the key actually did what it says, on a copy in a temporary
+twenty-seven lessons, each one done when the key actually did what it says, on a copy in a temporary
 directory that is removed when you quit.
 
 The `FILE:LINE` form is what compilers, linters and grep already print, so a result can be pasted
@@ -91,6 +91,7 @@ merl path/to/file.py:120
 | : / Ctrl+G | Go to line |
 | t | Show or hide the file tree |
 | T | Pick a theme (live preview) |
+| w | Wrap long lines, or cut them at the edge and scroll sideways |
 | Tab | Switch focus between tree and code |
 | Enter | Edit at the cursor (Esc returns to navigation) |
 | Ctrl+S | Save now (edits are saved on their own after a pause) |

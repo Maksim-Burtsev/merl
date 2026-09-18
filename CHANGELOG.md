@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `w` stops wrapping the open file: long lines are cut at the edge of the pane, `›` and `‹`
+  mark a line with more to the right or left, and the view follows the cursor sideways (End shows
+  the end of the line, Home the start). For Markdown tables, CSV and minified files, which
+  wrapping takes apart. It is kept per file until merl quits, works in edit mode too, the status
+  bar says `nowrap`, and `.csv` / `.tsv` files open that way. The tutorial has a lesson for it
+  (#51).
 - Shift+Left / Right extend the selection by a char, the step that was missing between a word
   and a line.
 - `v` selects the word under the cursor, pressed again the line, then the paragraph between blank

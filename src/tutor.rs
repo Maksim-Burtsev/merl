@@ -193,6 +193,19 @@ pub const LESSONS: &[Lesson] = &[
         done: |a| at(a, "models.py") && a.line + 1 == RENDER_LINE,
     },
     Lesson {
+        title: "Long lines",
+        text: "Long lines wrap at the edge of the pane, which takes a table apart. `w` cuts them \
+               there instead, `\u{203a}` marks a cut line and the view follows the cursor \
+               sideways; .csv files open that way. Press `w`.",
+        done: |a| a.nowrap(),
+    },
+    Lesson {
+        title: "Wrap again",
+        text: "`w` is remembered for the file until merl quits, and the status bar says \
+               `nowrap`. Press `w` again to wrap.",
+        done: |a| !a.nowrap(),
+    },
+    Lesson {
         title: "Themes",
         text: "`T` lists the themes and repaints merl in the one under the cursor as it moves. \
                Press it, then Down.",
@@ -529,7 +542,13 @@ mod tests {
         press(&mut a, KeyCode::Enter);
         done(&mut a);
 
-        // 22 and 23: preview a theme, then put the old one back
+        // 22 and 23: stop wrapping the file, then wrap it again
+        press(&mut a, KeyCode::Char('w'));
+        done(&mut a);
+        press(&mut a, KeyCode::Char('w'));
+        done(&mut a);
+
+        // 24 and 25: preview a theme, then put the old one back
         press(&mut a, KeyCode::Char('T'));
         press(&mut a, KeyCode::Down);
         done(&mut a);
@@ -537,7 +556,7 @@ mod tests {
         done(&mut a);
         assert_eq!(a.shown_theme(), crate::theme::DEFAULT);
 
-        // 24 and 25: help, and closing it
+        // 26 and 27: help, and closing it
         press(&mut a, KeyCode::Char('?'));
         done(&mut a);
         press(&mut a, KeyCode::Esc);

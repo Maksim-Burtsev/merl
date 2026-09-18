@@ -1,6 +1,6 @@
 //! All editor state and every key binding. Rendering lives in `ui.rs`.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -40,6 +40,10 @@ pub const KEYS: &[(&str, &str)] = &[
     (": / Ctrl+G", "Go to line"),
     ("t", "Show or hide the file tree"),
     ("T", "Pick a theme (live preview)"),
+    (
+        "w",
+        "Wrap long lines, or cut them at the edge and scroll sideways",
+    ),
     ("Tab", "Switch focus between tree and code"),
     ("Enter", "Edit at the cursor (Esc returns to navigation)"),
     (
@@ -139,6 +143,8 @@ pub enum Focus {
 
 /// A plain cursor move closer than this many lines to the current stop updates it instead of
 /// adding a new one. VS Code's `TEXT_EDITOR_SELECTION_THRESHOLD`.
+/// Columns kept between the cursor and the pane edge while scrolling sideways.
+const SIDE_OFF: usize = 8;
 const HIST_NEAR: usize = 10;
 const HIST_MAX: usize = 50;
 
@@ -186,6 +192,11 @@ pub struct App {
     /// Top of the viewport: a file line plus which wrapped row of it is first on screen.
     pub top_line: usize,
     pub top_row: usize,
+    /// Display columns scrolled off to the left while the file is not wrapped; follows the
+    /// cursor in `clamp_scroll`.
+    pub left: usize,
+    /// Files `w` was pressed on: their wrapping is the opposite of what their kind gets.
+    wrap_toggled: HashSet<PathBuf>,
     pub mode: Mode,
     /// What has been typed into the `:`, `/` or `s>` prompt.
     pub prompt: LineEdit,
@@ -289,6 +300,8 @@ impl App {
             anchor: None,
             top_line: 0,
             top_row: 0,
+            left: 0,
+            wrap_toggled: HashSet::new(),
             mode: Mode::Normal,
             prompt: LineEdit::default(),
             find_re: None,
@@ -349,9 +362,44 @@ impl App {
         &self.buf.lines[self.line]
     }
 
-    /// Wrapped rows of file line `l` at the current viewport width, over the text `ui` draws.
+    /// Whether long lines are cut at the pane edge instead of wrapped: `w` flips it for the open
+    /// file. Tables of values start out cut, since wrapping takes their columns apart.
+    pub fn nowrap(&self) -> bool {
+        let Some(path) = &self.buf.path else {
+            return false;
+        };
+        let table = path
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("csv") || e.eq_ignore_ascii_case("tsv"));
+        table != self.wrap_toggled.contains(path)
+    }
+
+    /// `w`: wrap the open file or stop wrapping it.
+    fn toggle_wrap(&mut self) {
+        let Some(path) = self.buf.path.clone() else {
+            return;
+        };
+        if !self.wrap_toggled.remove(&path) {
+            self.wrap_toggled.insert(path);
+        }
+        // The top row and the column Up / Down aim at were counted in the other layout.
+        self.top_row = self.top_row.min(self.row_count(self.top_line) - 1);
+        self.sync_want_x();
+        self.message = if self.nowrap() {
+            "wrap off, the view follows the cursor".into()
+        } else {
+            "wrap on".into()
+        };
+    }
+
+    /// Screen rows of file line `l` at the current viewport width, over the text `ui` draws:
+    /// the wrapped rows, or the whole line as one row when the file is not wrapped.
     pub fn rows(&self, l: usize) -> Vec<std::ops::Range<usize>> {
-        wrap::wrap_line(self.buf.shown(l), self.view_w)
+        let shown = self.buf.shown(l);
+        if self.nowrap() {
+            return std::iter::once(0..shown.len()).collect();
+        }
+        wrap::wrap_line(shown, self.view_w)
     }
 
     /// Screen rows of line `l`: its ghosts (review mode, one row each, drawn above the text)
@@ -365,7 +413,7 @@ impl App {
     }
 
     /// Display column of the cursor on its wrapped row, counting the indent rows after the first
-    /// are drawn with.
+    /// are drawn with. Not wrapped, the row is the line: `left` of these columns are off screen.
     pub fn cursor_x(&self) -> usize {
         let rows = self.rows(self.line);
         let row = wrap::col_to_row(&rows, self.col);
@@ -385,6 +433,7 @@ impl App {
 
     /// Scrolls the minimum amount that puts the cursor back on screen.
     pub fn clamp_scroll(&mut self) {
+        self.clamp_left();
         if std::mem::take(&mut self.center) {
             self.center_cursor();
             return;
@@ -403,6 +452,23 @@ impl App {
         let top = self.back_rows(cur, self.view_h.saturating_sub(1));
         if (self.top_line, self.top_row) < top {
             (self.top_line, self.top_row) = top;
+        }
+    }
+
+    /// Not wrapped, the view follows the cursor sideways, keeping [`SIDE_OFF`] columns between it
+    /// and the edge but never scrolling past the end of its line.
+    fn clamp_left(&mut self) {
+        if !self.nowrap() {
+            self.left = 0;
+            return;
+        }
+        let off = SIDE_OFF.min(self.view_w.saturating_sub(1) / 2);
+        let x = self.cursor_x();
+        if x < self.left + off {
+            self.left = x.saturating_sub(off);
+        } else if x + off >= self.left + self.view_w {
+            let end = (wrap::width(self.buf.shown(self.line)) + 1).saturating_sub(self.view_w);
+            self.left = (x + off + 1 - self.view_w).min(end);
         }
     }
 
@@ -3237,6 +3303,7 @@ impl App {
                 }
             }
             KeyCode::Char('T') => self.open_themes_picker(),
+            KeyCode::Char('w') => self.toggle_wrap(),
             KeyCode::Tab if self.show_tree => {
                 self.focus = match self.focus {
                     Focus::Tree => Focus::Code,
