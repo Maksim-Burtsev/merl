@@ -174,7 +174,8 @@ line is one step, as in VS Code. There is no save step: edits reach the disk `au
 at once when you leave edit mode, switch files or quit. Ctrl+S saves now. A file that changes on
 disk under unsaved edits is neither reloaded nor overwritten: the status bar says so, Ctrl+S keeps
 your version and Ctrl+R takes the disk's — VS Code's conflict prompt, with keys. A file deleted or
-renamed on disk is changed too: the autosave never puts it back, Ctrl+S does. Until then, or
+renamed on disk is changed too: the autosave never puts it back, Ctrl+S does, and Ctrl+R lets the
+edits go. Until then, or
 while a save keeps failing, merl stays on the file: another one does not open, and `q` has to be
 pressed twice to quit without the edits. Tabs, CRLF line endings and the trailing newline come back
 out as they went in; binary files, non-UTF-8 files and files with mixed line endings stay
