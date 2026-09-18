@@ -29,10 +29,6 @@ impl LineEdit {
         *self = Self::default();
     }
 
-    pub fn take(&mut self) -> String {
-        std::mem::take(self).text
-    }
-
     pub fn cursor(&self) -> usize {
         self.cur
     }

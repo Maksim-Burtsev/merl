@@ -33,12 +33,17 @@ pub enum Pick {
     Stay,
     Cancel,
     Accept(PickItem),
+    /// The query of a `live` picker changed: its owner fills the list, not nucleo.
+    Typed,
 }
 
 pub struct Picker {
     nucleo: Nucleo<PickItem>,
     matcher: Matcher,
     pub query: LineEdit,
+    /// The query is not a fuzzy filter over the items: a key that changes it returns
+    /// [`Pick::Typed`] and the list stays as it is. `s` greps for it instead.
+    pub live: bool,
     pub selected: usize,
     pub title: String,
     /// List height of the last drawn frame, so PgUp/PgDn know how far a page is.
@@ -72,6 +77,7 @@ impl Picker {
             nucleo,
             matcher: Matcher::new(Config::DEFAULT),
             query: LineEdit::default(),
+            live: false,
             selected: 0,
             title: title.into(),
             page: 10,
@@ -188,6 +194,9 @@ impl Picker {
             _ => {
                 let old = self.query.to_string();
                 if self.query.key(key) {
+                    if self.live {
+                        return Pick::Typed;
+                    }
                     self.requery(&old);
                 }
             }

@@ -343,7 +343,8 @@ front, are not listed: the regex cannot tell `name(` from a call. Neither are fi
 constant, or the names a Ruby `attr_accessor` line declares, since one line can declare several.
 Searches are smart-case — an all-lowercase query ignores case, one uppercase letter makes it
 case-sensitive — and `/` and `s` look for the text as typed: `foo(` finds the calls and the
-definition, `a.b` only `a.b`. There is no regex mode.
+definition, `a.b` only `a.b`. There is no regex mode. `s` lists its hits while you type, the open
+file's first; Up / Down pick one and Enter jumps to it.
 
 The file list comes from one `.gitignore`-respecting walk at startup and is not refreshed, so
 files created while merl is open show up after a restart. Dotfiles are part of it — `.github/`,

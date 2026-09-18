@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The word jump moved from Shift+Left / Right to Alt+Left / Right (Option on a Mac), where every
   other editor has it. Esc b / Esc f, which Ghostty, iTerm and Terminal.app send for Option+arrow,
   are the same jump and no longer leave edit mode, a prompt or a picker.
+- `s` shows its hits while you type: the result picker opens at once with the query as its input
+  line and refreshes after each pause, Up / Down move in it and Enter jumps. Enter pressed before
+  the hits arrive waits for them. Narrowing is done by typing more of the query; the fuzzy
+  filter over the results is gone. (#53)
 
 ### Fixed
 
