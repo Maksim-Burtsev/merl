@@ -310,7 +310,8 @@ fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base
         } else if picker.live {
             // Nothing filters the hits, and the grep stops at MAX_HITS: that many is a floor.
             let more = if total as usize >= MAX_HITS { "+" } else { "" };
-            format!("{} ({total}{more} hits)", picker.title)
+            let s = crate::app::plural(total as usize);
+            format!("{} ({total}{more} hit{s})", picker.title)
         } else {
             format!("{} ({matched}/{total})", picker.title)
         })
@@ -897,6 +898,14 @@ mod tests {
         assert_eq!(title(&mut app), "Search (…)");
         app.settle_search();
         assert_eq!(title(&mut app), "Search (0 hits)");
+        // With the project files in, one line matches.
+        app.files = crate::tree::build(&app.root).1;
+        app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        for c in "sfromisoformat".chars() {
+            app.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+        }
+        app.settle_search();
+        assert_eq!(title(&mut app), "Search (1 hit)");
     }
 
     /// A usages row is drawn with the colours of the file line it quotes: the `//!` comment
