@@ -15,10 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prototype, a signature that wraps and an out-of-line `Type::name(` definition; indented, it
   takes a method or a function only when its body opens on the line, so `return compute(x);` and
   `if (check(x)) {` are calls. It also finds `struct`, `class`, `union`, `enum`, `enum class`,
-  `namespace`, a `typedef` in every form, `using x =`, a `#define` (function-like too) and a
-  global. When a header declares a function the project defines elsewhere, both are offered.
-  An enum constant has no rule — `NAME,` in an `enum` body and in an initializer list are the
-  same line — and neither has a field or a local: `u` lists their uses. `d` leaves the project
+  `namespace` — behind a template head, a storage specifier and an attribute or export macro,
+  a template specialization included — a `typedef` in every form, `using x =`, a `#define`
+  (function-like too) and a global. When a header declares a function the project defines
+  elsewhere, both are offered. An enum constant has no rule — `NAME,` in an `enum` body and in an
+  initializer list are the same line — and neither has a field, a local or a template parameter:
+  `u` lists their uses. `d` leaves the project
   for the system headers (the SDK `xcrun` reports, `/usr/include`, `/usr/local/include`,
   `/opt/homebrew/include`). `D` lists functions, methods, types, `typedef`s, `using` aliases and
   `#define`s from rules of their own, so the declaration pattern every other language shares is
