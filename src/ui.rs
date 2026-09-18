@@ -613,7 +613,8 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
         draw_prompt(frame, prefix, &app.prompt, style, area);
         // What the query found so far (`3/17`, `no match`), out of the way of the typing.
         let w = wrap::width(&app.message) as u16 + 1;
-        if !app.message.is_empty() && area.width > w {
+        let typed = wrap::width(prefix) + wrap::width(&app.prompt) + 2;
+        if !app.message.is_empty() && area.width as usize > typed + w as usize {
             let right = Rect {
                 x: area.right() - w,
                 width: w,
@@ -644,7 +645,8 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
                 } else {
                     ""
                 },
-                if app.buf.readonly.is_some() {
+                // Enter on such a file says why (`read-only: not UTF-8`): once is enough.
+                if app.buf.readonly.is_some() && !app.message.starts_with("read-only") {
                     "  read-only"
                 } else {
                     ""

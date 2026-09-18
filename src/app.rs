@@ -1272,6 +1272,9 @@ impl App {
         self.prompt = LineEdit::selected(last);
         self.find_anchor = (self.line, self.col);
         self.find_sel = self.anchor.take();
+        if let Some(re) = &self.find_re {
+            self.message = self.match_count(re);
+        }
     }
 
     fn find_key(&mut self, key: KeyEvent) {
@@ -7046,6 +7049,10 @@ mod tests {
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         assert_eq!(a.message, "");
         find(&mut a, "foo");
+        assert_eq!(a.message, "1/1");
+        // Reopened with the query still active, the count is there before a key is typed.
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
         assert_eq!(a.message, "1/1");
     }
 
