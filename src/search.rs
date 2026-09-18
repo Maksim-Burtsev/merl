@@ -87,6 +87,59 @@ const JAVA_METHOD_SYMBOL: &str = concat!(
     r"\s+(?P<name>[A-Za-z_]\w*)\s*\("
 );
 
+/// Everything C and C++ can write between the start of a declaration and its keyword: a template
+/// head, the storage specifiers, and the attribute or export macro a library puts there
+/// (`class FMT_API name`, `struct __attribute__ ((__packed__)) sdshdr8`). The macro's arguments
+/// nest one level. A macro, so [`def_patterns`] and the [`SYMBOLS`] rows share one spelling of it.
+macro_rules! c_mods {
+    () => {
+        concat!(
+            r"(?:template\s*<[^>]*>\s*)?",
+            r"(?:(?:static|extern|const|inline|constexpr|thread_local)\s+)*"
+        )
+    };
+    (macros) => {
+        r"(?:(?:[A-Z][A-Z0-9_]*|__\w+)\s*(?:\((?:[^()]|\([^()]*\))*\))?\s+)*"
+    };
+}
+
+/// The C and C++ half of [`SYMBOLS`], first half: a function at the top level, where the language
+/// has no statements, so anything shaped like a declaration is one. A line that ends its
+/// parameters with a `;` is a prototype and is left out — every function of a header would be
+/// listed twice — which leaves the definition, brace on the line or on the next one, and the
+/// signature that wraps. The return type may sit on the line above, as GNU style writes it, so
+/// the run before the name is optional here. A name opening with two underscores is the
+/// implementation's, not the project's, and sits exactly where a function name would
+/// (`struct __attribute__ ((__packed__)) sdshdr8 {`), so it is left out.
+const C_FUNC_SYMBOL: &str = r"^(?:\w[^;(){}=]*[\s*&:])?(?P<name>_?[A-Za-z0-9]\w*)\s*\([^;]*$";
+
+/// The second half: a method in a class body or a function in an indented namespace, told from a
+/// call by the body it opens on the line. Indented, so it never lists what [`C_FUNC_SYMBOL`] does.
+const C_METHOD_SYMBOL: &str =
+    r"^\s+[^;(){}=]*\w[\s*&]+(?P<name>[A-Za-z_]\w*)\s*\([^;{}]*\)[^;{}=]*\{";
+
+/// A type, a namespace and a C++ `using` alias. What follows the name keeps `struct dict *d;` out;
+/// a `<` is a template specialization (`struct formatter<path, Char> {`), and a lone `:` a base
+/// list, where the `::` of a `using a::b;` names an imported symbol, not a declared one. A
+/// `typedef struct name { … }` is listed from the line it closes on instead, under the name the
+/// project uses.
+const C_TYPE_SYMBOL: &str = concat!(
+    r"^\s*",
+    c_mods!(),
+    r"(?:struct|class|union|enum\s+class|enum\s+struct|enum|namespace|using)\s+",
+    c_mods!(macros),
+    r"(?P<name>[A-Za-z_]\w*)\s*(?:[{=<]|:[^:]|final\b|$)"
+);
+
+/// The name a `typedef` or a `} name;` gives a type. The closing brace is in column zero: an
+/// indented one closes a nested anonymous struct, and that name is a field. A global stays off the
+/// list, as a field does in every other kind.
+const C_TYPEDEF_SYMBOL: &str =
+    r"^(?:\s*typedef\s+[^;]*?|\}\s*[\w\s,*]*)\b(?P<name>[A-Za-z_]\w*)\s*(?:\[[^\]]*\])?\s*;\s*$";
+
+/// An object- or function-like macro.
+const C_MACRO_SYMBOL: &str = r"^\s*#\s*define\s+(?P<name>[A-Za-z_]\w*)";
+
 /// The Ruby half of [`SYMBOLS`]: a method, including the `self.` form and the `name=` setter, and
 /// a class or module under the namespace it is written with. A constant and the names an
 /// `attr_accessor` line declares stay off the list: there is no keyword to go by, and one such
@@ -122,6 +175,13 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Jvm), JAVA_METHOD_SYMBOL),
     // Ruby likewise: `def self.parse` is `parse`, which the shared pattern would call `self`.
     (Some(Kind::Ruby), RUBY_SYMBOL),
+    // C and C++ likewise: a function carries no keyword at all, and `struct dict *d;` is a use of
+    // a type the shared pattern would list as its declaration.
+    (Some(Kind::C), C_FUNC_SYMBOL),
+    (Some(Kind::C), C_METHOD_SYMBOL),
+    (Some(Kind::C), C_TYPE_SYMBOL),
+    (Some(Kind::C), C_TYPEDEF_SYMBOL),
+    (Some(Kind::C), C_MACRO_SYMBOL),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -138,11 +198,11 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Yaml), r"(^|\s)&(?P<anchor>[\w.-]+)"),
 ];
 
-/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin and Ruby have rows of
-/// their own in [`SYMBOLS`], written for what those languages declare and how they name it, so
-/// reading the all-language pattern over them too would list a declaration twice.
+/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C and C++ have
+/// rows of their own in [`SYMBOLS`], written for what those languages declare and how they name
+/// it, so reading the all-language pattern over them too would list a declaration twice.
 pub fn shared_symbols(kind: Option<Kind>) -> bool {
-    !matches!(kind, Some(Kind::Jvm | Kind::Ruby))
+    !matches!(kind, Some(Kind::Jvm | Kind::Ruby | Kind::C))
 }
 
 /// A file kind with navigation rules of its own. Told by the file name, since a `Makefile` or a
@@ -155,6 +215,8 @@ pub enum Kind {
     TsJs,
     Jvm,
     Ruby,
+    /// C and C++ together, headers included.
+    C,
     Shell,
     Sql,
     Make,
@@ -175,6 +237,9 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         // a `.kt` file has to find the `.java` class it uses, as `.tsx` finds `.ts`.
         (_, "java" | "kt" | "kts") => Kind::Jvm,
         (_, "rb" | "rake" | "gemspec" | "podspec" | "rbi" | "ru") => Kind::Ruby,
+        // C and C++ are one kind: a header declares what a `.c` or a `.cc` defines, and either
+        // language reads the other's headers, so they have to search each other.
+        (_, "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx") => Kind::C,
         (
             "Rakefile" | "rakefile" | "Gemfile" | "Guardfile" | "Capfile" | "Vagrantfile"
             | "Podfile" | "Brewfile" | "Dangerfile" | "Fastfile",
@@ -402,6 +467,41 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^\s*attr_(?:accessor|reader|writer)\s+(?:[:\w]+\s*,\s*)*:{w}\b"),
             format!(r"^\s*alias(?:_method)?\s+:?{w}\b"),
         ],
+        // C and C++ have no statements at the top level, so a line in column zero that is shaped
+        // like a declaration is one — a definition, a prototype and a signature that wraps alike.
+        // Indented, only a line that opens a body can be told from a call. An enum constant has no
+        // rule: `NAME,` in an `enum` body and in an initializer list are the same line, and C
+        // writes tables of callbacks that way everywhere.
+        Kind::C => {
+            let (mods, macros) = (c_mods!(), c_mods!(macros));
+            vec![
+                // A function, and the out-of-line definition of a method (`Type::name(`). GNU
+                // style puts the return type on the line above, so the run before the name is
+                // optional: in column zero a bare `name(` is a declaration all the same.
+                format!(r"^(?:\w[^;(){{}}=]*[\s*&:])?{w}\s*\("),
+                // The same indented — a method in a class body, a function in an indented
+                // namespace — when the body opens on the line.
+                format!(r"^[^;(){{}}=]*\w[\s*&]+{w}\s*\([^;{{}}]*\)[^;{{}}=]*\{{"),
+                // A type. What follows the name — the body, a base list, a `<` of a template
+                // specialization, a `;` or the end of the line — keeps the `struct dict *d;` that
+                // uses one out.
+                format!(
+                    r"^\s*{mods}(?:typedef\s+)?(?:struct|class|union|enum\s+class|enum\s+struct|enum|namespace)\s+{macros}{w}\s*(?:[:{{;<]|final\b|$)"
+                ),
+                // `typedef unsigned long ull;`, `typedef int (*cb)(void);`, and the name a
+                // `typedef struct { … } client;` closes with, whose brace is in column zero: an
+                // indented one closes a nested anonymous struct, and that name is a field.
+                format!(r"^\s*typedef\s+[^;]*(?:\(\s*\*+\s*{w}\s*\)|\b{w}\s*(?:\[[^\]]*\])*\s*;)"),
+                format!(r"^\}}\s*[\w\s,*]*\b{w}\s*[,;]"),
+                format!(r"^\s*(?:template\s*<[^>]*>\s*)?using\s+{w}\s*="),
+                // An object- or function-like macro.
+                format!(r"^\s*#\s*define\s+{w}\b"),
+                // A global, with the array bounds it can carry. In column zero again, so an
+                // assignment inside a function body is not one; no angle brackets, or a
+                // `template <typename T = U>` head would read as a declaration of `T`.
+                format!(r"^\w[^;(){{}}=<>]*[\s*&]{w}\s*(?:\[[^\]]*\])*\s*(?:=[^=]|;)"),
+            ]
+        }
         // A function in either form, an assignment behind the declaration keywords that can
         // precede it (`+=` appends to one), or an alias. A shell has no declaration for the rest,
         // so a `$w` use or a `[ "$w" = x ]` test must not look like one.
@@ -504,6 +604,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         Kind::Rust
         | Kind::Jvm
         | Kind::Ruby
+        | Kind::C
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -570,7 +671,11 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     if kind == Kind::Yaml {
         return None;
     }
-    let sep = if kind == Kind::Rust { "::" } else { "." };
+    let sep = if matches!(kind, Kind::Rust | Kind::C) {
+        "::"
+    } else {
+        "."
+    };
     let lines: Vec<&str> = text.lines().collect();
     let target = *lines.get(line.checked_sub(1)?)?;
     if let Some(c) = RECEIVER.captures(target).filter(|_| kind == Kind::Go) {
@@ -597,9 +702,12 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         }
         let t = l.trim_start();
         // A lone `{` opens the body of a declaration wrapped over the lines above it, as
-        // prettier writes a long TypeScript class header; it names nothing itself.
+        // prettier writes a long TypeScript class header; it names nothing itself. Neither does
+        // a C++ access specifier, which is a label inside the class, not a wall in front of it.
+        let access = kind == Kind::C && matches!(t, "public:" | "private:" | "protected:");
         if t.is_empty()
             || t == "{"
+            || access
             || indent(l) >= depth
             || ["#", "//", "/*", "*"].iter().any(|c| t.starts_with(c))
         {
@@ -706,6 +814,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::TsJs
         | Kind::Jvm
         | Kind::Ruby
+        | Kind::C
         | Kind::Shell
         | Kind::Sql
         | Kind::Make => kind_of(path) == Some(kind),
@@ -809,6 +918,21 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             dirs
         }
         Kind::TsJs => vec![root.join("node_modules")],
+        // The system headers, which is where a C or C++ project's standard library and most of
+        // its dependencies are: the SDK the toolchain reports on macOS, `/usr/include` on Linux,
+        // and the two prefixes a package manager installs into. There is no per-project manifest
+        // to read — what a build system was told with `-I` is not in the source — so the
+        // directories are the same for every project, and the ones that do not exist fall out
+        // below.
+        Kind::C => {
+            let mut dirs = vec![PathBuf::from("/usr/include")];
+            if let Some(sdk) = run("xcrun", &["--show-sdk-path"]) {
+                dirs.push(PathBuf::from(sdk.trim()).join("usr/include"));
+            }
+            dirs.push(PathBuf::from("/usr/local/include"));
+            dirs.push(PathBuf::from("/opt/homebrew/include"));
+            dirs
+        }
         // Java, Kotlin and Ruby have no roots yet: the JDK and Gradle caches, and a gem path,
         // are their own lookups. `d` stays inside the project for them, as for the rest.
         Kind::Jvm
@@ -1056,9 +1180,12 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
                 }
             }
         }
-        // Nothing to bind without roots to resolve an `import` or a `require` against.
+        // Nothing to bind without roots to resolve an `import` or a `require` against. A C
+        // `#include` binds no name of its own either: it pastes a file in, and everything the
+        // file declares is then visible unqualified.
         Kind::Jvm
         | Kind::Ruby
+        | Kind::C
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -1244,6 +1371,7 @@ pub fn module_files(
         Kind::Rust
         | Kind::Jvm
         | Kind::Ruby
+        | Kind::C
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -3438,6 +3566,267 @@ end
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    const C_H: &str = r#"#ifndef INVOICE_H
+#define INVOICE_H
+
+#define LRU_BITS 24
+#define serverLog(level, ...) do { emit(level); } while (0)
+
+typedef char *sds;
+typedef int (*compare_fn)(const void *a, const void *b);
+
+struct client;
+
+struct __attribute__ ((__packed__)) sdshdr8 {
+    uint8_t len;
+};
+
+static struct config {
+    int port;
+} server_config;
+
+typedef struct invoice {
+    sds name;
+    int total;
+    struct {
+        int index;
+    } offset;
+} invoice;
+
+typedef enum {
+    STATE_NONE = 0,
+    STATE_OPEN,
+} state;
+
+union value {
+    int n;
+    sds s;
+};
+
+extern struct invoice *current;
+
+int invoice_total(struct invoice *inv);
+
+#endif
+"#;
+
+    const C_C: &str = r#"#include "invoice.h"
+
+struct invoice *current = NULL;
+static int counter;
+
+int invoice_total(struct invoice *inv) {
+    if (invoice_valid(inv)) {
+        return compute(inv);
+    }
+    return counter;
+}
+
+static int compute(struct invoice *inv)
+{
+    struct invoice *copy = inv;
+    return copy->total;
+}
+
+static unsigned
+invoice_index(const struct invoice *inv)
+{
+    return 0;
+}
+
+void invoice_free(struct invoice *inv,
+                  int deep)
+{
+    free(inv);
+}
+"#;
+
+    const CPP: &str = r#"#include "invoice.h"
+
+namespace billing {
+
+using Rows = std::vector<int>;
+using std::swap;
+
+template <typename T> struct Box : Base {
+  T value;
+};
+
+template <typename T> struct Box<T *> : Base {
+};
+
+template <typename T = int>
+class LEDGER_API Ledger : public Base {
+ public:
+  explicit Ledger(int n) : total_(n) {}
+
+  auto total() const -> int { return total_; }
+
+  void append(Rows rows);
+
+  using Row = int;
+
+ private:
+  int total_;
+};
+
+void Ledger::append(Rows rows) {
+  if (check(rows)) {
+    log::write(rows);
+  }
+}
+
+enum class Status {
+  Open,
+};
+
+}  // namespace billing
+"#;
+
+    #[test]
+    fn c_def_patterns_find_types_macros_functions_and_globals() {
+        let (dir, files) = scratch("c-h", &[("invoice.h", C_H)]);
+        let d = |w| defs(&dir, &files, Kind::C, w);
+        assert_eq!(d("LRU_BITS"), [4]);
+        assert_eq!(d("serverLog"), [5], "a function-like macro");
+        assert_eq!(d("sds"), [7], "not the `sds name;` field it types");
+        assert_eq!(d("compare_fn"), [8], "a function pointer");
+        assert_eq!(d("client"), [10], "a forward declaration");
+        assert_eq!(d("sdshdr8"), [12], "behind a lower-case attribute");
+        assert_eq!(d("config"), [16], "behind a storage specifier");
+        assert_eq!(d("server_config"), [18], "the name the block closes with");
+        // The `typedef struct invoice {` and the `} invoice;` it closes with: `d` offers both,
+        // where `D` lists the type once, under the name the project uses.
+        assert_eq!(d("invoice"), [20, 26]);
+        assert_eq!(d("state"), [31]);
+        assert_eq!(d("value"), [33]);
+        assert_eq!(d("current"), [38]);
+        assert_eq!(d("invoice_total"), [40], "the prototype");
+        assert_eq!(d("total"), Vec::<usize>::new(), "a field has no rule");
+        assert_eq!(
+            d("offset"),
+            Vec::<usize>::new(),
+            "an indented closing brace ends a nested anonymous struct: a field, not a type"
+        );
+        assert_eq!(
+            d("STATE_OPEN"),
+            Vec::<usize>::new(),
+            "an enum constant has no rule: `NAME,` is also a line of an initializer list"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn c_def_patterns_tell_a_definition_from_a_call() {
+        let (dir, files) = scratch("c-c", &[("invoice.c", C_C)]);
+        let d = |w| defs(&dir, &files, Kind::C, w);
+        assert_eq!(d("current"), [3]);
+        assert_eq!(d("counter"), [4], "a global, not the `return counter;`");
+        assert_eq!(d("invoice_total"), [6]);
+        assert_eq!(d("compute"), [13], "the brace opens on the next line");
+        assert_eq!(
+            d("invoice_index"),
+            [20],
+            "the return type is on the line above"
+        );
+        assert_eq!(d("invoice_free"), [25], "the parameters wrap");
+        // Column zero is where C declares; indented, only a body opening on the line counts.
+        assert_eq!(
+            d("invoice_valid"),
+            Vec::<usize>::new(),
+            "a call inside `if`"
+        );
+        assert_eq!(d("free"), Vec::<usize>::new(), "a call statement");
+        assert_eq!(d("copy"), Vec::<usize>::new(), "a local");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn cpp_def_patterns_cover_classes_methods_and_aliases() {
+        let (dir, files) = scratch("cpp", &[("ledger.cc", CPP)]);
+        let d = |w| defs(&dir, &files, Kind::C, w);
+        assert_eq!(d("billing"), [3], "not the closing comment");
+        assert_eq!(d("Rows"), [5]);
+        assert_eq!(d("Box"), [8, 12], "the template and its specialization");
+        assert_eq!(
+            d("Ledger"),
+            [16, 18],
+            "past the template head; and its constructor"
+        );
+        assert_eq!(d("total"), [20], "a method defined in the class body");
+        assert_eq!(d("Row"), [24], "a `using` alias indented in a class body");
+        // The out-of-line definition. The declaration on line 22 has no rule: indented, it is
+        // the shape of a call, and the definition is what `d` is asked for anyway.
+        assert_eq!(d("append"), [30]);
+        assert_eq!(d("Status"), [36]);
+        assert_eq!(
+            d("T"),
+            Vec::<usize>::new(),
+            "a template parameter is no global: `template <typename T = int>` declares nothing"
+        );
+        assert_eq!(
+            d("swap"),
+            Vec::<usize>::new(),
+            "`using std::swap;` imports a name"
+        );
+        assert_eq!(d("check"), Vec::<usize>::new(), "a call inside `if`");
+        assert_eq!(d("write"), Vec::<usize>::new(), "a qualified call");
+        assert_eq!(d("Open"), Vec::<usize>::new(), "an enum constant");
+        assert_eq!(d("total_"), Vec::<usize>::new(), "a field");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn c_and_cpp_scope_roots_and_names() {
+        // One kind: a `.cc` is searched for a definition asked for in a `.h`, and a file of
+        // another kind is not.
+        let here = Path::new("ledger.hpp");
+        assert!(in_def_scope(Kind::C, here, Path::new("src/invoice.c")));
+        assert!(in_def_scope(Kind::C, here, Path::new("ledger.cc")));
+        assert!(!in_def_scope(Kind::C, here, Path::new("main.rs")));
+        // `#include` binds no name, and a member of a value has no rule of its own.
+        assert!(imports(Kind::C, C_C).is_empty());
+        assert!(member_patterns(Kind::C, "total").is_none());
+        // The system headers, wherever this machine keeps them: the SDK on a Mac,
+        // `/usr/include` on Linux. Both exist on CI, so the list is never empty there.
+        let roots = external_roots(Kind::C, Path::new("/"));
+        assert!(
+            roots.iter().any(|r| r.ends_with("usr/include")),
+            "no system include directory among {roots:?}"
+        );
+        // C++ writes a member behind `::`, as Rust does, and an access specifier is a label
+        // inside the class, not a wall in front of it. The enclosing `namespace billing {` is
+        // not indented, so, as in every kind, the walk ends at the first column-zero declaration.
+        assert_eq!(
+            qualified(Kind::C, CPP, 20, "total").as_deref(),
+            Some("Ledger::total")
+        );
+        assert_eq!(qualified(Kind::C, CPP, 3, "billing"), None);
+    }
+
+    #[test]
+    fn c_and_cpp_files_find_each_other() {
+        let (dir, files) = scratch(
+            "c-family",
+            &[("invoice.h", C_H), ("invoice.c", C_C), ("ledger.cc", CPP)],
+        );
+        // The header's prototype and the definition that follows it are both offered; the
+        // picker's rows say which file each is in.
+        let pat = def_patterns(Kind::C, "invoice_total").join("|");
+        assert_eq!(
+            lines(&grep(&dir, &files, &pat, false, false)),
+            [("invoice.c".into(), 6), ("invoice.h".into(), 40)],
+            "the picker's order is by path, as everywhere: it is not definition before prototype"
+        );
+        // A type of the C header, reached from the C++ file that includes it.
+        let pat = def_patterns(Kind::C, "sds").join("|");
+        assert_eq!(
+            lines(&grep(&dir, &files, &pat, false, false)),
+            [("invoice.h".into(), 7)]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
 
     #[test]
@@ -3607,6 +3996,14 @@ output "bucket" {
             ("merl.gemspec", Some(Kind::Ruby)),
             ("tasks.rake", Some(Kind::Ruby)),
             ("invoice.rbi", Some(Kind::Ruby)),
+            ("invoice.c", Some(Kind::C)),
+            ("invoice.h", Some(Kind::C)),
+            ("ledger.cc", Some(Kind::C)),
+            ("ledger.cpp", Some(Kind::C)),
+            ("ledger.cxx", Some(Kind::C)),
+            ("ledger.hpp", Some(Kind::C)),
+            ("ledger.hh", Some(Kind::C)),
+            ("ledger.hxx", Some(Kind::C)),
             ("app.kt", Some(Kind::Jvm)),
             ("build.gradle.kts", Some(Kind::Jvm)),
             ("run.sh", Some(Kind::Shell)),
@@ -5012,11 +5409,104 @@ func Close() {
     }
 
     #[test]
+    fn c_symbol_names() {
+        let c = |line| one(Kind::C, line);
+        for (line, name) in [
+            // A function: in column zero, where C has no statements, anything but a prototype.
+            (
+                "int invoice_total(struct invoice *inv) {",
+                Some("invoice_total"),
+            ),
+            ("static int compute(struct invoice *inv)", Some("compute")),
+            (
+                "void invoice_free(struct invoice *inv,",
+                Some("invoice_free"),
+            ),
+            (
+                "sds *sdssplitlen(const char *s, ssize_t len)",
+                Some("sdssplitlen"),
+            ),
+            ("void Ledger::append(Rows rows) {", Some("append")),
+            // GNU style: the return type is on the line above, so the name starts the line.
+            (
+                "edata_ind_get(const edata_t *edata) {",
+                Some("edata_ind_get"),
+            ),
+            ("static unsigned", None),
+            (
+                "FMT_FUNC auto vformat(string_view f) -> std::string {",
+                Some("vformat"),
+            ),
+            ("int invoice_total(struct invoice *inv);", None),
+            // A method, indented, told from a call by the body it opens.
+            (
+                "  auto total() const -> int { return total_; }",
+                Some("total"),
+            ),
+            ("  explicit Ledger(int n) : total_(n) {}", Some("Ledger")),
+            (
+                "  template <typename T> void write(T value) {",
+                Some("write"),
+            ),
+            ("  void append(Rows rows);", None),
+            ("    if (check(rows)) {", None),
+            ("    log::write(rows);", None),
+            ("    return compute(inv);", None),
+            ("        fmt::format_to(out, \"{}\", 42);", None),
+            ("template <typename Context = context, typename... T,", None),
+            // A type, a namespace and an alias.
+            ("struct invoice {", Some("invoice")),
+            (
+                "struct __attribute__ ((__packed__)) sdshdr8 {",
+                Some("sdshdr8"),
+            ),
+            ("static struct config {", Some("config")),
+            ("template <typename T> struct Box : Base {", Some("Box")),
+            (
+                "struct formatter<std::filesystem::path, Char> {",
+                Some("formatter"),
+            ),
+            ("struct client;", None),
+            ("union value {", Some("value")),
+            ("enum class Status {", Some("Status")),
+            ("namespace billing {", Some("billing")),
+            ("class LEDGER_API Ledger : public Base {", Some("Ledger")),
+            (
+                "class basic_memory_buffer : public detail::buffer<T> {",
+                Some("basic_memory_buffer"),
+            ),
+            ("using Rows = std::vector<int>;", Some("Rows")),
+            ("using namespace detail;", None),
+            // `using a::b;` imports a name; the row would otherwise be called `a`.
+            ("using std::swap;", None),
+            ("  using fmt::buffered_file;", None),
+            ("struct invoice *current = NULL;", None),
+            // The name a typedef gives a type, once: the opening `typedef struct invoice {` is
+            // not listed, so the type is one row, under the name the project writes.
+            ("typedef char *sds;", Some("sds")),
+            ("typedef struct redisObject robj;", Some("robj")),
+            ("} invoice;", Some("invoice")),
+            ("typedef struct invoice {", None),
+            // Indented, a closing brace ends a nested anonymous struct: that name is a field.
+            ("    } offset;", None),
+            ("} while (0);", None),
+            ("};", None),
+            // A macro, function-like or not.
+            ("#define LRU_BITS 24", Some("LRU_BITS")),
+            ("#  define FMT_THROW(x) throw x", Some("FMT_THROW")),
+            ("#ifndef INVOICE_H", None),
+        ] {
+            assert_eq!(c(line).as_deref(), name, "{line}");
+        }
+    }
+
+    #[test]
     fn the_shared_pattern_skips_the_kinds_with_rows_of_their_own() {
-        // Java, Kotlin and Ruby are listed from their own rows only, so nothing is listed twice
-        // and `def self.parse` is not `self`.
+        // Java, Kotlin, Ruby, C and C++ are listed from their own rows only, so nothing is listed
+        // twice and `def self.parse` is not `self`.
         assert!(!shared_symbols(Some(Kind::Jvm)));
         assert!(!shared_symbols(Some(Kind::Ruby)));
+        assert!(!shared_symbols(Some(Kind::C)));
         // Shell and SQL rows complement the shared pattern instead, and it reads every other
         // file, known kind or not.
         assert!(shared_symbols(Some(Kind::Shell)));
