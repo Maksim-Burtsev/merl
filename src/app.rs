@@ -7042,6 +7042,12 @@ mod tests {
                     "ledger.ex",
                     "defmodule Ledger do\n  @timeout 5\n\n  defp normalise(raw), do: raw\nend\n",
                 ),
+                // Zig keeps the shared pattern and complements it: `pub fn` comes from there,
+                // the test from a row of its own.
+                (
+                    "ledger.zig",
+                    "pub fn total() u32 {\n    return 0;\n}\n\ntest \"it adds up\" {}\n",
+                ),
             ],
         );
         press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
@@ -7061,11 +7067,14 @@ mod tests {
                 "build",
                 "build",
                 "invoice",
+                // The first word of `it adds up`, the Zig test's description.
+                "it",
                 "Ledger",
                 "LIMIT",
                 "normalise",
                 "serve",
                 "setup",
+                "total",
                 "var.region"
             ]
         );

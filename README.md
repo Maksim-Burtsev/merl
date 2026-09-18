@@ -228,7 +228,10 @@ Ruby and the rest have no roots yet, so `d` stays inside the project for them; L
 ask for, since `package.path` belongs to whatever interpreter embeds it and neither a Neovim
 runtime nor a LuaRocks tree is a standard library every project shares; Elixir needs none, since
 `mix` puts the dependencies and their sources in `deps/` inside the project, where they are
-project files already, and an installed standard library is `.beam` files rather than `.ex`. A parameter has no
+project files already, and an installed standard library is `.beam` files rather than `.ex`. Zig's
+root is the `std_dir` its own `zig env` reports; its dependencies live in the global package cache
+under hashed directory names no source line spells out, so they are left out, and
+`const std = @import("std")` narrows nothing — `std` is that root, not a directory inside it. A parameter has no
 declaration the rules know, nor has an enum variant unless its class declares it as a field (a
 Python `Enum` member, a TypeScript enum member with a value): `d` says so, and `u` lists every
 whole-word use of the identifier. On `x.field` the word is a member: in Python, TypeScript and Go
@@ -359,6 +362,7 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | C / C++ | a function, a prototype and an out-of-line method (`Type::name(`) in column zero, where the languages have no statements, so a call is never one — the return type may sit on the line above, as GNU style writes it; a method or a function indented, when its body opens on the line; `struct`, `class`, `union`, `enum`, `enum class`, `namespace`, behind a template head, a storage specifier and an attribute or export macro (`struct __attribute__ ((__packed__)) sdshdr8`, `class FMT_API name`), a template specialization included; `typedef` in every form, `using x =`, `#define` (function-like too), a global. A header's prototype is offered next to the definition, in the picker's usual order, by path. An enum constant has no rule — `NAME,` in an `enum` body and in an initializer list are the same line — nor has a field, a local, a template parameter or a member function only declared inside its class. | every `.c`, `.h`, `.cc`, `.cpp`, `.cxx`, `.hpp`, `.hh` and `.hxx` file: they search each other |
 | Lua | `function name(`, `local function name(`, `function M.name(`, `function M:name(` and the longer `function a.b.name(`; a function literal bound to a name (`M.name = function(`, `name = function(` in a table of handlers); `local name`, one of several on the line included. A field holding anything else has no rule: `limit = 10` in a table constructor and a re-assignment inside a body are the same line, and the language has no keyword to tell them apart. | every `.lua` file |
 | Elixir | every `def` form — `def`, `defp`, `defmacro`, `defmacrop`, `defguard`, `defguardp`, `defdelegate` — written `def name(x) do`, `def name do` or `def name, do: x`, a trailing `?` or `!` included; `defmodule` and `defprotocol` under the namespace they are written with, by their last part, so `defmodule MyApp.Repo` declares `MyApp.Repo` and nothing called `MyApp`; a `defstruct` field, atom list or keyword form; a module attribute where it is given a value (`@timeout 5_000`). Several clauses of one function are several declarations and all are offered. `@spec`, `@type` and the rest of the language's own attributes are directives: `@spec parse(t) :: t` is no declaration of `parse`, and `d` on the directive itself has nothing to find. `defimpl` declares the module `Protocol.Type`, where neither half is a name of its own, as a Rust `impl` is not. | every `.ex` and `.exs` file |
+| Zig | `fn name(`, behind `pub`, `export`, `extern "c"`, `inline`, `noinline`; `const` and `var`, which is how the language declares a type (`const Ledger = struct {`, `const Status = enum {`, `const Value = union(enum) {`), an import, a constant and a local alike, `threadlocal` and `comptime` included. A struct field (`total: u32,`) has no rule, as a C field has none: it is the shape of a value in a struct literal. Neither has a `test`: a word inside its description declares nothing, so `d` can never land there — `D` lists the tests instead. | every `.zig` file |
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
 | SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns have no rule. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable | every Makefile |
@@ -376,8 +380,9 @@ exported, since indented they are locals), plus shell functions (`name()`; the `
 the single regex already finds), SQL `CREATE`d objects under the name as written (`public.orders`,
 not CTEs), Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`,
 `module.x`, `var.x`, `output.x`), Dockerfile stages and YAML anchors, each read only from its own
-kind of file; recomputed on each press. Java, Kotlin, Ruby, C, C++, Lua and Elixir are read from
-rules of their own instead of that regex — Java's types and its methods, told from a call by the return type before
+kind of file; recomputed on each press. Zig adds a function behind `inline` or `noinline` and a
+`test`, under the description it is written with, which that regex has no word for. Java, Kotlin,
+Ruby, C, C++, Lua and Elixir are read from rules of their own instead of that regex — Java's types and its methods, told from a call by the return type before
 the name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and
 `const val`; Ruby's methods, classes and modules, `def self.name` included; C and C++ functions,
 methods, types, `typedef`s, `using` aliases and `#define`s; Lua's functions in both of the forms
@@ -385,7 +390,7 @@ it writes them, under the name and not the table they hang off; Elixir's modules
 every `def` form — so none of them is listed twice or under a modifier or a receiver. A C prototype is not listed, since every function of a header would
 be there twice, and a `typedef struct x { … } y;` is listed once, under the `y` the project writes.
 TypeScript's class methods, with neither a keyword nor a type in front, are not listed: the regex
-cannot tell `name(` from a call. Neither are fields, a C global, a Lua local, a Ruby
+cannot tell `name(` from a call. Neither are fields, a C or Zig global, a Lua local, a Ruby
 constant, an Elixir module attribute or `defimpl`, or the names a Ruby `attr_accessor` or an
 Elixir `defstruct` line declares, since one line can declare several.
 Searches are smart-case — an all-lowercase query ignores case, one uppercase letter makes it
@@ -428,7 +433,8 @@ grammar is the C one plus templates, classes and namespaces, so it reads a heade
 language. An Objective-C header pays for that — its `@interface` and `@property` go unscoped,
 while its `.m` file keeps the Objective-C grammar. Helm
 templates are read as plain YAML, so their `{{ }}` blocks are not highlighted as a template
-language.
+language. A `build.zig.zon` is painted as Zig, which bat's grammar covers, though the data format
+it holds declares nothing `d` or `D` looks for.
 
 ## Config
 

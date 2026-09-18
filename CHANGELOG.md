@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` and `D` in Zig, over every `.zig` file. `d` finds `fn name(` behind `pub`, `export`,
+  `extern "c"`, `inline` and `noinline`, and the `const` or `var` the language declares everything
+  else with — a type (`const Ledger = struct {`, `const Status = enum {`,
+  `const Value = union(enum) {`), an import, a constant, a global and a local alike. A struct field
+  has no rule, as a C field has none, and neither has a `test`: a word inside its description
+  declares nothing, so `d` can never land on one. `d` leaves the project for the standard library
+  where `zig env` says it is. `D` keeps the declaration pattern every language shares, which
+  already reads Zig's `fn` and `const`, and adds the two forms it has no word for: a function
+  behind `inline` or `noinline`, and a `test`, listed under its description. A `build.zig.zon` is
+  painted as Zig but has no rules: the data format declares nothing. (#17)
 - `d` and `D` in Elixir, over every `.ex` and `.exs` file. `d` finds every `def` form — `def`,
   `defp`, `defmacro`, `defmacrop`, `defguard`, `defguardp`, `defdelegate`, written with parens,
   with `do` or with `, do:`, a trailing `?` or `!` included — a `defmodule` or a `defprotocol`

@@ -171,6 +171,20 @@ const ELIXIR_SYMBOL: &str = concat!(
     r"(?P<name>[A-Za-z_]\w*[!?]?)"
 );
 
+/// The Zig half of [`SYMBOLS`], first half: what the shared pattern has no word for. Zig declares
+/// with `fn` and `const`, which [`SYMBOL_PATTERN`] already reads, so this row adds only the
+/// function behind `inline` or `noinline` — modifiers that pattern's run does not know. A `var` is
+/// a global, and globals stay off the list, as in every other kind.
+const ZIG_INLINE_FN_SYMBOL: &str = concat!(
+    r#"^\s*(?:(?:pub|export|extern(?:\s+"[^"]*")?)\s+)*"#,
+    r"(?:inline|noinline)\s+fn\s+(?P<name>[A-Za-z_]\w*)"
+);
+
+/// The second half: a test, under the description it is written with. Half a Zig file is its
+/// tests, and the description is the only name one has. [`def_patterns`] has no rule for it, so
+/// `d` can never jump to a test: a word inside a description declares nothing.
+const ZIG_TEST_SYMBOL: &str = r#"^\s*test\s+"(?P<name>[^"]*)""#;
+
 /// The module attributes Elixir itself gives a meaning to, rather than a project. They are
 /// directives, so [`def_patterns`] has no rule for the name itself.
 const ELIXIR_DIRECTIVES: &[&str] = &[
@@ -242,6 +256,10 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // Elixir likewise: the shared pattern knows `def` and nothing else of the family, and reads
     // the `x` of an anonymous `fn x -> …` as a declaration.
     (Some(Kind::Elixir), ELIXIR_SYMBOL),
+    // Zig fits the shared pattern — it declares with `fn` and `const` — so these two rows only
+    // complement it, the way Shell's and SQL's do.
+    (Some(Kind::Zig), ZIG_INLINE_FN_SYMBOL),
+    (Some(Kind::Zig), ZIG_TEST_SYMBOL),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -282,6 +300,7 @@ pub enum Kind {
     C,
     Lua,
     Elixir,
+    Zig,
     Shell,
     Sql,
     Make,
@@ -307,6 +326,10 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx") => Kind::C,
         (_, "lua") => Kind::Lua,
         (_, "ex" | "exs") => Kind::Elixir,
+        // Not `.zon`: Zig's data format declares nothing the rules look for, and a key of a
+        // build manifest is no reason to send `d` into the standard library. bat paints it
+        // as Zig all the same.
+        (_, "zig") => Kind::Zig,
         (
             "Rakefile" | "rakefile" | "Gemfile" | "Guardfile" | "Capfile" | "Vagrantfile"
             | "Podfile" | "Brewfile" | "Dangerfile" | "Fastfile",
@@ -610,6 +633,21 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             }
             patterns
         }
+        // Zig writes every declaration behind a keyword: `fn`, or the `const` a type, a constant
+        // and an imported module alike are bound with. A struct field (`total: u32,`) has no rule,
+        // as a C field has none: it is the shape of a value in a struct literal.
+        Kind::Zig => {
+            let mods = r#"^\s*(?:(?:pub|export|extern(?:\s+"[^"]*")?|inline|noinline|threadlocal|comptime)\s+)*"#;
+            vec![
+                format!(r"{mods}fn\s+{w}\s*\("),
+                // `const Name = struct {`, `const Name = enum {` and a plain constant are one
+                // form; a `var` and a local inside a body are declarations all the same. A
+                // `const` at the start of a line always declares the name after it — the
+                // `[]const Row` of a type never starts one — so nothing has to follow the name,
+                // and the first name of a destructuring `const a, const b = t;` is found too.
+                format!(r"{mods}(?:const|var)\s+{w}\b"),
+            ]
+        }
         // A function in either form, an assignment behind the declaration keywords that can
         // precede it (`+=` appends to one), or an alias. A shell has no declaration for the rest,
         // so a `$w` use or a `[ "$w" = x ]` test must not look like one.
@@ -715,6 +753,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::C
         | Kind::Lua
         | Kind::Elixir
+        | Kind::Zig
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -927,6 +966,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::C
         | Kind::Lua
         | Kind::Elixir
+        | Kind::Zig
         | Kind::Shell
         | Kind::Sql
         | Kind::Make => kind_of(path) == Some(kind),
@@ -1030,6 +1070,10 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             dirs
         }
         Kind::TsJs => vec![root.join("node_modules")],
+        // Zig's standard library, where its own `zig env` says it is. The dependencies of a
+        // project live in the global package cache under hashed directory names no source line
+        // spells out, so they are left out.
+        Kind::Zig => zig_roots(&run("zig", &["env"]).unwrap_or_default()),
         // The system headers, which is where a C or C++ project's standard library and most of
         // its dependencies are: the SDK the toolchain reports on macOS, `/usr/include` on Linux,
         // and the two prefixes a package manager installs into. There is no per-project manifest
@@ -1066,6 +1110,22 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
     dirs.retain(|d| d.is_dir() && d != root && !d.as_os_str().is_empty());
     dirs.dedup();
     dirs
+}
+
+/// The standard library directory in the output of `zig env`, which is JSON on some versions and
+/// ZON on others: the value is the first quoted string after the key either way. A version that
+/// reports no `std_dir` still reports the library directory it sits in. Empty when `zig` is not
+/// on the PATH, as every root is when its toolchain is not installed.
+fn zig_roots(env: &str) -> Vec<PathBuf> {
+    let value = |key: &str| {
+        let rest = env.split_once(key)?.1.trim_start_matches('"');
+        let rest = rest.split_once('"')?.1;
+        Some(PathBuf::from(rest.split_once('"')?.0))
+    };
+    value("std_dir")
+        .or_else(|| value("lib_dir").map(|d| d.join("std")))
+        .into_iter()
+        .collect()
 }
 
 /// Every file of `kind` under `dirs`, as absolute paths. Nothing is ignored: `node_modules`
@@ -1301,12 +1361,15 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
         }
         // Nothing to bind without roots to resolve an `import` or a `require` against. A C
         // `#include` binds no name of its own either: it pastes a file in, and everything the
-        // file declares is then visible unqualified.
+        // file declares is then visible unqualified. Zig's `const std = @import("std")` does bind
+        // one, but `std` is the root itself, not a directory inside it, so narrowing by it would
+        // find nothing.
         Kind::Jvm
         | Kind::Ruby
         | Kind::C
         | Kind::Lua
         | Kind::Elixir
+        | Kind::Zig
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -1495,6 +1558,7 @@ pub fn module_files(
         | Kind::C
         | Kind::Lua
         | Kind::Elixir
+        | Kind::Zig
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -4270,6 +4334,186 @@ end
         }
     }
 
+    const ZIG: &str = r#"const std = @import("std");
+const Allocator = std.mem.Allocator;
+
+pub const Error = error{OutOfRange};
+
+pub const Ledger = struct {
+    total: u32,
+    rows: []const Row,
+
+    const empty: Ledger = .{ .total = 0, .rows = &.{} };
+
+    pub fn init(allocator: Allocator) Ledger {
+        var self = Ledger{ .total = 0, .rows = &.{} };
+        return self;
+    }
+
+    pub inline fn isEmpty(self: Ledger) bool {
+        return self.rows.len == 0;
+    }
+
+    fn compute(self: Ledger) u32 {
+        return self.total;
+    }
+};
+
+pub const Row = struct { id: u32 };
+
+const Status = enum { open, closed };
+
+const Value = union(enum) { n: u32, s: []const u8 };
+
+pub var counter: u32 = 0;
+threadlocal var scratch: [16]u8 = undefined;
+
+export fn ledger_total(l: *Ledger) u32 {
+    return l.total;
+}
+
+pub extern "c" fn strlen(s: [*:0]const u8) usize;
+
+noinline fn slow(x: u32) u32 {
+    return x;
+}
+
+test "a ledger starts empty" {
+    const l = Ledger.init(std.testing.allocator);
+    try std.testing.expect(l.isEmpty());
+}
+
+const first, const second = .{ 1, 2 };
+"#;
+
+    #[test]
+    fn zig_def_patterns_find_functions_types_and_constants() {
+        let (dir, files) = scratch("zig", &[("ledger.zig", ZIG)]);
+        let d = |w| defs(&dir, &files, Kind::Zig, w);
+        assert_eq!(d("std"), [1]);
+        assert_eq!(d("Allocator"), [2]);
+        assert_eq!(d("Error"), [4]);
+        assert_eq!(
+            d("Ledger"),
+            [6],
+            "not the literal on line 13 or the call on line 46"
+        );
+        assert_eq!(d("empty"), [10], "a constant in a struct body");
+        assert_eq!(d("init"), [12], "not the `Ledger.init(…)` call on line 46");
+        assert_eq!(d("isEmpty"), [17], "`pub inline fn`");
+        assert_eq!(d("compute"), [21]);
+        assert_eq!(
+            d("Row"),
+            [26],
+            "not the `rows: []const Row` field that uses it"
+        );
+        assert_eq!(d("Status"), [28], "`const X = enum`");
+        assert_eq!(d("Value"), [30], "`const X = union(enum)`");
+        assert_eq!(d("counter"), [32], "`pub var`");
+        assert_eq!(d("scratch"), [33], "`threadlocal var`");
+        assert_eq!(d("ledger_total"), [35], "`export fn`");
+        assert_eq!(d("strlen"), [39], r#"`pub extern "c" fn`"#);
+        assert_eq!(d("slow"), [41], "`noinline fn`");
+        assert_eq!(
+            d("self"),
+            [13],
+            "a local; the parameters of lines 17 and 21 are not"
+        );
+        assert_eq!(d("l"), [46]);
+        assert_eq!(
+            d("total"),
+            Vec::<usize>::new(),
+            "a struct field has no rule"
+        );
+        assert_eq!(d("id"), Vec::<usize>::new());
+        assert_eq!(
+            d("ledger"),
+            Vec::<usize>::new(),
+            "a word inside a test description declares nothing"
+        );
+        assert_eq!(d("open"), Vec::<usize>::new(), "an enum field");
+        // A destructuring declares both names, but only the first one starts the line, and every
+        // rule here is anchored there.
+        assert_eq!(d("first"), [50]);
+        assert_eq!(d("second"), Vec::<usize>::new());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn zig_scope_roots_and_names() {
+        let here = Path::new("src/main.zig");
+        assert!(in_def_scope(Kind::Zig, here, Path::new("src/ledger.zig")));
+        assert!(!in_def_scope(Kind::Zig, here, Path::new("build.zig.zon")));
+        assert!(imports(Kind::Zig, ZIG).is_empty());
+        assert!(member_patterns(Kind::Zig, "init").is_none());
+        // A method is named under the type it is declared in, as in every kind.
+        assert_eq!(
+            qualified(Kind::Zig, ZIG, 12, "init").as_deref(),
+            Some("Ledger.init")
+        );
+        assert_eq!(qualified(Kind::Zig, ZIG, 6, "Ledger"), None);
+    }
+
+    #[test]
+    fn zig_std_comes_from_zig_env() {
+        // What `zig env` prints: JSON on some versions, ZON on others.
+        let json = "{\n \"zig_exe\": \"/opt/homebrew/bin/zig\",\n \"lib_dir\": \"/opt/lib/zig\",\n \"std_dir\": \"/opt/lib/zig/std\"\n}\n";
+        assert_eq!(zig_roots(json), [PathBuf::from("/opt/lib/zig/std")]);
+        let zon = ".{ .zig_exe = \"/usr/bin/zig\", .lib_dir = \"/usr/lib/zig\", .std_dir = \"/usr/lib/zig/std\" }\n";
+        assert_eq!(zig_roots(zon), [PathBuf::from("/usr/lib/zig/std")]);
+        // A version that reports only the library directory the standard library sits in.
+        assert_eq!(
+            zig_roots("{\"lib_dir\": \"/usr/lib/zig\"}"),
+            [PathBuf::from("/usr/lib/zig/std")]
+        );
+        // No `zig` on this machine: nothing to search outside the project.
+        assert!(zig_roots("").is_empty());
+    }
+
+    #[test]
+    fn zig_symbol_names() {
+        let zig = |line| one(Kind::Zig, line);
+        for (line, name) in [
+            // The shared pattern reads these; the rows of this kind must not list them again.
+            ("pub const Ledger = struct {", Some("Ledger")),
+            ("const Status = enum { open, closed };", Some("Status")),
+            ("const Value = union(enum) { n: u32 };", Some("Value")),
+            (
+                "    pub fn init(allocator: Allocator) Ledger {",
+                Some("init"),
+            ),
+            ("    fn compute(self: Ledger) u32 {", Some("compute")),
+            (
+                "export fn ledger_total(l: *Ledger) u32 {",
+                Some("ledger_total"),
+            ),
+            (
+                "pub extern \"c\" fn strlen(s: [*:0]const u8) usize;",
+                Some("strlen"),
+            ),
+            // These it has no word for.
+            (
+                "    pub inline fn isEmpty(self: Ledger) bool {",
+                Some("isEmpty"),
+            ),
+            ("noinline fn slow(x: u32) u32 {", Some("slow")),
+            (
+                "test \"a ledger starts empty\" {",
+                Some("a ledger starts empty"),
+            ),
+            // A global, a local and a field stay off the list, as in every other kind.
+            ("pub var counter: u32 = 0;", None),
+            ("threadlocal var scratch: [16]u8 = undefined;", None),
+            ("        var self = Ledger{ .total = 0 };", None),
+            ("    const empty: Ledger = .{ .total = 0 };", None),
+            ("    total: u32,", None),
+            ("    return self.total;", None),
+            ("    try std.testing.expect(l.isEmpty());", None),
+        ] {
+            assert_eq!(zig(line).as_deref(), name, "{line}");
+        }
+    }
+
     const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
 
     #[test]
@@ -4450,6 +4694,9 @@ output "bucket" {
             ("init.lua", Some(Kind::Lua)),
             ("ledger.ex", Some(Kind::Elixir)),
             ("mix.exs", Some(Kind::Elixir)),
+            ("ledger.zig", Some(Kind::Zig)),
+            // Zig's data format: painted as Zig, but it declares nothing.
+            ("build.zig.zon", None),
             ("app.kt", Some(Kind::Jvm)),
             ("build.gradle.kts", Some(Kind::Jvm)),
             ("run.sh", Some(Kind::Shell)),

@@ -328,6 +328,29 @@ mod tests {
     }
 
     #[test]
+    fn zig_highlights_with_every_shipped_theme() {
+        let src =
+            "// doc\nconst std = @import(\"std\");\n\npub fn main() !void {\n    _ = std;\n}\n";
+        // bat's Zig grammar owns `.zon` as well, so a build manifest is painted even though it
+        // is no kind of its own.
+        for file in ["ledger.zig", "build.zig.zon"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("Zig"),
+                    "{file} {name}"
+                );
+                b.highlight_to(3, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
     fn c_and_cpp_highlight_with_every_shipped_theme() {
         let src = "// doc\n#include <stdio.h>\n\nstruct invoice { int total; };\n\nint main(void) {\n    return 0;\n}\n";
         for (file, lang) in [
