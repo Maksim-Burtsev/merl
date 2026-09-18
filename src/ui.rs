@@ -411,15 +411,13 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     // for selected (#48), so that line is highlighted in the gutter only, as in VS Code.
     let text_hl = app.selected_bytes(app.line).is_none_or(|r| !r.is_empty());
 
+    let nowrap = app.nowrap();
     let ghost = base.fg(theme.gutter_fg).add_modifier(Modifier::DIM);
     let ghost_row = |text: &str| {
         Line::from(vec![
             Span::styled(" ".repeat(gutter_w - 1), gutter_style),
             Span::styled("\u{258e}", gutter_style.fg(Color::Red)),
-            Span::styled(
-                expand(&crate::app::clip(text, app.view_w)).into_owned(),
-                ghost,
-            ),
+            Span::styled(ghost_text(text, nowrap, app.left, app.view_w), ghost),
         ])
     };
     let mut lines: Vec<Line> = Vec::with_capacity(area.height as usize);
@@ -452,7 +450,18 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
             .map(|r| r.start..r.end.min(clipped.len()));
         let pad_selected = sel_lines.is_some_and(|(first, last)| first <= l && l < last);
         let indent = wrap::indent(clipped, app.view_w);
-        for (i, r) in wrap::wrap_line(clipped, app.view_w).into_iter().enumerate() {
+        // Not wrapped, the one row is the columns from `left` on, less a column at either edge
+        // that has text beyond it: `‹` and `›` stand there, so a cut line never reads as whole.
+        let line_w = wrap::width(clipped);
+        let before = nowrap && app.left > 0 && line_w > 0;
+        let after = nowrap && line_w > app.left + app.view_w;
+        let (shown, cut_lead) = wrap::cut(
+            clipped,
+            app.left + usize::from(before),
+            (app.left + app.view_w).saturating_sub(usize::from(after)),
+        );
+        let rows = if nowrap { vec![shown] } else { app.rows(l) };
+        for (i, r) in rows.into_iter().enumerate() {
             if i < skip {
                 continue;
             }
@@ -473,14 +482,21 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
                 None => Span::styled(" ", g),
             };
             let mut row = vec![Span::styled(num, g), mark];
+            if before {
+                row.push(Span::styled("\u{2039}", g));
+            }
             // Rows after the first start under the text of the first.
-            let lead = if i == 0 { 0 } else { indent };
+            let lead = match (nowrap, i) {
+                (true, _) => cut_lead,
+                (false, 0) => 0,
+                _ => indent,
+            };
             if lead > 0 {
                 row.push(Span::styled(" ".repeat(lead), t));
             }
-            let pad = app
-                .view_w
-                .saturating_sub(lead + wrap::width(&clipped[r.clone()]));
+            let pad = app.view_w.saturating_sub(
+                lead + wrap::width(&clipped[r.clone()]) + usize::from(before) + usize::from(after),
+            );
             // The selected part of the row keeps its syntax colours on the selection background.
             let (lo, hi) = match &selected {
                 Some(s) => (s.start.clamp(r.start, r.end), s.end.clamp(r.start, r.end)),
@@ -491,10 +507,13 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
                     row.extend(row_spans(clipped, spans, &piece, style));
                 }
             }
-            if cursor_line || pad_selected {
+            if cursor_line || pad_selected || after {
                 // Pad so the line background reaches the right edge of the pane.
                 let style = if pad_selected { sel } else { t };
                 row.push(Span::styled(" ".repeat(pad), style));
+            }
+            if after {
+                row.push(Span::styled("\u{203a}", g));
             }
             lines.push(Line::from(row));
         }
@@ -519,9 +538,19 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     if let Some(y) = screen_row.filter(|y| *y < area.height as usize)
         && matches!(app.mode, Mode::Normal | Mode::Edit)
     {
-        let x = area.x + (gutter_w + app.cursor_x()) as u16;
+        let x = area.x + (gutter_w + app.cursor_x().saturating_sub(app.left)) as u16;
         frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
     }
+}
+
+/// A deleted line of the review: clipped to the pane, or scrolled sideways with the text when the
+/// file is not wrapped.
+fn ghost_text(text: &str, nowrap: bool, left: usize, width: usize) -> String {
+    if !nowrap {
+        return expand(&crate::app::clip(text, width)).into_owned();
+    }
+    let (r, lead) = wrap::cut(text, left, left + width);
+    format!("{}{}", " ".repeat(lead), expand(&text[r]))
 }
 
 /// `--tutor`: the current lesson, three rows above the status bar.
@@ -592,7 +621,7 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
         ),
         Span::styled(
             format!(
-                "{}  {}:{}  [{pane}]{}{}",
+                "{}  {}:{}  [{pane}]{}{}{}",
                 if app.dirty { " \u{25cf}" } else { "" },
                 app.line + 1,
                 app.display_col(),
@@ -601,7 +630,8 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
                 } else {
                     ""
                 },
-                if app.no_watch { "  no auto-reload" } else { "" }
+                if app.no_watch { "  no auto-reload" } else { "" },
+                if app.nowrap() { "  nowrap" } else { "" }
             ),
             style,
         ),
@@ -914,6 +944,56 @@ mod tests {
         "└────────────────────────────┘",
         "demo/  1:1  [tree]                                   ? help",
     ];
+
+    /// `w` cuts long lines at the edge: `\u{203a}` and `\u{2039}` say there is more, End brings the
+    /// end of the line into view and Home the start.
+    #[test]
+    fn unwrapped_lines_are_cut_at_the_edge_and_follow_the_cursor() {
+        let mut app = App::new(
+            PathBuf::from("/demo"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::from_bytes(
+                PathBuf::from("/demo/f.txt"),
+                b"0123456789abcdefghijKLMN\nshort\n",
+            ),
+            None,
+        );
+        app.show_tree = false;
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let paint = |app: &mut App, code: KeyCode| -> Vec<String> {
+            app.key(KeyEvent::new(code, KeyModifiers::NONE));
+            // Gutter is two cells, so the text gets twelve.
+            let mut terminal = Terminal::new(TestBackend::new(14, 5)).unwrap();
+            terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+            rows(&terminal)[..3].to_vec()
+        };
+        assert_eq!(
+            paint(&mut app, KeyCode::Null),
+            ["1 0123456789ab", "cdefghijKLMN", "2 short"]
+        );
+        assert_eq!(
+            paint(&mut app, KeyCode::Char('w')),
+            ["1 0123456789a\u{203a}", "2 short", ""]
+        );
+        // The end of the line stops at the right edge, the cursor in the last cell.
+        assert_eq!(
+            paint(&mut app, KeyCode::End),
+            ["1 \u{2039}efghijKLMN", "2 \u{2039}", ""]
+        );
+        assert_eq!((app.left, app.cursor_x()), (13, 24));
+        assert_eq!(
+            paint(&mut app, KeyCode::Home),
+            ["1 0123456789a\u{203a}", "2 short", ""]
+        );
+        // Wrapped again, nothing stays scrolled.
+        paint(&mut app, KeyCode::End);
+        assert_eq!(
+            paint(&mut app, KeyCode::Char('w')),
+            ["1 0123456789ab", "cdefghijKLMN", "2 short"]
+        );
+        assert_eq!(app.left, 0);
+    }
 
     #[test]
     fn selection_background_covers_partial_edges_and_pads_inner_lines() {

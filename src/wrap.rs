@@ -106,6 +106,26 @@ pub fn indent(line: &str, width: usize) -> usize {
     if cols * 2 > width { 0 } else { cols }
 }
 
+/// What shows of `line` in display columns `from..to` when it is not wrapped: the byte range of
+/// the chars that fit whole, and the blank columns before them where a tab or a wide char
+/// straddles `from`. Empty at the end of the line when it does not reach `from`.
+pub fn cut(line: &str, from: usize, to: usize) -> (Range<usize>, usize) {
+    let (mut start, mut lead) = (None, 0);
+    let mut x = 0;
+    for (i, c) in line.char_indices() {
+        let w = char_width(c);
+        if start.is_none() && x >= from && w > 0 {
+            start = Some(i);
+            lead = (x - from).min(to.saturating_sub(from));
+        }
+        if start.is_some() && x + w > to {
+            return (start.unwrap_or(i)..i, lead);
+        }
+        x += w;
+    }
+    (start.unwrap_or(line.len())..line.len(), lead)
+}
+
 /// Index of the row containing byte offset `col` (the last row for `col == line.len()`).
 pub fn col_to_row(rows: &[Range<usize>], col: usize) -> usize {
     rows.iter().rposition(|r| r.start <= col).unwrap_or(0)
@@ -119,6 +139,22 @@ pub fn row_to_col(rows: &[Range<usize>], row: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cut_keeps_the_chars_that_fit_whole() {
+        assert_eq!(cut("abcdefgh", 0, 4), (0..4, 0));
+        assert_eq!(cut("abcdefgh", 2, 5), (2..5, 0));
+        assert_eq!(cut("abcdefgh", 6, 20), (6..8, 0));
+        // A line that ends left of the window shows nothing.
+        assert_eq!(cut("abc", 5, 9), (3..3, 0));
+        assert_eq!(cut("", 0, 9), (0..0, 0));
+        // Cyrillic is two bytes a char.
+        assert_eq!(cut("сбоев", 1, 3), (2..6, 0));
+        // A tab (four columns) straddling the left edge leaves its visible part blank; a wide
+        // char that does not fit at the right edge is left out.
+        assert_eq!(cut("\tab", 2, 8), (1..3, 2));
+        assert_eq!(cut("a\u{4e2d}b", 0, 2), (0..1, 0));
+    }
 
     #[test]
     fn breaks_between_words() {
