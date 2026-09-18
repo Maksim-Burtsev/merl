@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ctrl+C copies the selection in navigation too, with no trip through edit mode. Without a
   selection it still quits. Cmd+C / Cmd+X do the same from a terminal set up to pass them on
   (one Ghostty line, in the README), and Cmd+C never quits.
+- Alt+Backspace (Option+Backspace on a Mac) deletes the word before the cursor and Alt+Delete the
+  word after it, in edit mode and in every prompt and picker query; in edit mode each is one undo
+  step.
 - The `/`, `s` and `:` prompts and every picker query are edited in place, with the buffer's
   keys: arrows, Alt+arrows by word, Home / End, Delete, and Shift, Alt+Shift or Ctrl+Shift with an
   arrow, or Shift+Home / End, to select, so a typed-over or Backspaced selection replaces the

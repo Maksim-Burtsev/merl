@@ -343,6 +343,7 @@ mod tests {
         "Picker: PgUp / PgDn",
         "Help: Up / Down",
         "Edit: Ctrl+C / Ctrl+X",
+        "Edit: Alt+Backspace / Alt+Delete",
     ];
 
     #[test]
