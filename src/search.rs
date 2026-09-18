@@ -1622,7 +1622,11 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" });
             i += 2;
         } else if !python && c == b'`' {
-            block = Some(b"`");
+            // ponytail: `/`/` is a regex, told by the slash in front; a division by a template
+            // is not written.
+            if i == 0 || b[i - 1] != b'/' {
+                block = Some(b"`");
+            }
         } else if !python && b[i..].starts_with(b"/*") {
             block = Some(b"*/");
             i += 1;
@@ -2145,8 +2149,12 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
             i = i.saturating_sub(1);
         }
         // Between an `if` and its `} else {` lies a block the cursor is not in: only the two
-        // lines are the header, where a signature closed by `) {` is all of its lines.
-        let header: Vec<&str> = match t.starts_with('}') && end > i {
+        // lines are the header, where a signature closed by `) {` or `}: Deps) {` is all of
+        // its lines.
+        let sibling = ["else", "catch", "finally"]
+            .iter()
+            .any(|k| t.trim_start_matches('}').trim_start().starts_with(k));
+        let header: Vec<&str> = match sibling && end > i {
             true => vec![lines[i].trim(), t],
             false => lines[i..=end].iter().map(|l| l.trim()).collect(),
         };
@@ -2803,8 +2811,14 @@ pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
                     lines[end + 1..]
                         .iter()
                         .take_while(|l| !(indent(l) <= base && l.trim_start().starts_with('}')))
-                        .filter_map(|l| l.trim().strip_prefix("return "))
-                        .map(|e| value_of(kind, e))
+                        .map(|l| uncommented(kind, l))
+                        .filter(|l| names(l, "return"))
+                        // `if (x) return new A();` returns behind something the rules do not
+                        // read: unknown, which no other `return` can agree with.
+                        .map(|l| match l.trim().strip_prefix("return ") {
+                            Some(e) => value_of(kind, e),
+                            None => Value::Unknown,
+                        })
                         .collect()
                 }
             };
@@ -2867,6 +2881,10 @@ fn python_constructs(text: &str, lines: &[&str], k: usize, end: usize) -> Option
         let inner = ["def ", "async def ", "class "];
         skip = inner.iter().any(|p| t.starts_with(p)).then_some(ind);
         if names(t, "yield") {
+            return None;
+        }
+        // `if flag: return A()` returns behind something the rules do not read.
+        if names(t, "return") && !t.starts_with("return") {
             return None;
         }
         if t == "return" || t.starts_with("return ") {

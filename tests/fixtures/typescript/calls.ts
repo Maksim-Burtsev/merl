@@ -44,3 +44,13 @@ export function second(depot: any, id: number): void {
   const repo = depot.peopleRepo();
   repo.deleteUser(id + 6);
 }
+
+export function pickInline(flag: boolean) {
+  if (flag) return new AuditLog();
+  return new UserRepository();
+}
+
+export function third(id: number): void {
+  const inline = pickInline(true);
+  void inline.deleteUser(id + 8);
+}

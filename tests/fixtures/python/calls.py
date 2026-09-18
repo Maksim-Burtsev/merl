@@ -96,3 +96,13 @@ class Yard:
         ahead = behind.people_repo()
         behind = ahead.people_repo()
         ahead.delete_user(user_id + 15)
+
+
+def pick_inline(flag: bool):
+    if flag: return AuditLog()
+    return UserRepository()
+
+
+def fifth(user_id: int) -> None:
+    picked = pick_inline(True)
+    picked.delete_user(user_id + 16)

@@ -6723,6 +6723,30 @@ mod tests {
                     "repos.ts:10",
                 ),
             ),
+            // A destructured parameter under a header closed by `}: Deps): void {` hides the
+            // module's `ledger` and has no type of its own.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 11)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // A backtick inside a regex opens no template: the `const` under it is read.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 12)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
         ];
         for (fixture, file, code, want) in cases {
             let mut a = fixture_app(fixture);
@@ -7371,6 +7395,31 @@ mod tests {
                     &[
                         ("UserRepository.delete_user", "repos.py:8"),
                         ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A `return` behind an `if` on its own line is a return the rules do not read.
+            (
+                "python",
+                "calls.py",
+                "picked.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "inline.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
                     ],
                 ),
             ),

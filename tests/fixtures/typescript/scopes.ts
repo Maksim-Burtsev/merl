@@ -73,3 +73,25 @@ export function wrapped(repos: UserRepository[], id: number): void {
     ledger.deleteUser(id + 10),
   );
 }
+
+interface Deps {
+  ledger: UserRepository;
+  id: number;
+}
+
+// A destructured parameter wrapped by prettier: `}: Deps): void {` closes the parameters, not a
+// sibling block, and its `ledger` has no type the rules read.
+export function destructured({
+  ledger,
+  id,
+}: Deps): void {
+  void ledger.deleteUser(id + 11);
+}
+
+// A backtick in a regex opens no template.
+export function ticked(id: number): string {
+  const parts = "a/b".split(/`/);
+  const ledger = new UserRepository();
+  void ledger.deleteUser(id + 12);
+  return parts.join("`");
+}
