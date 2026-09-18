@@ -28,6 +28,9 @@ impl Node {
 pub struct Tree {
     pub nodes: Vec<Node>,
     pub cursor: usize,
+    /// Expanded directories the last walk did not list. A walk can land in the middle of a
+    /// `git stash` and `pop`: what comes back comes back expanded.
+    away: HashSet<PathBuf>,
 }
 
 /// Walks `root` once and returns the tree plus the flat list of files, both sorted the same
@@ -83,7 +86,11 @@ fn from_entries(entries: Vec<(PathBuf, bool)>, expanded: bool) -> Tree {
             expanded,
         })
         .collect();
-    Tree { nodes, cursor: 0 }
+    Tree {
+        nodes,
+        cursor: 0,
+        away: HashSet::new(),
+    }
 }
 
 /// Sorting a path component by component puts every child right after its parent, and the
@@ -101,20 +108,19 @@ pub(crate) fn sort_key(path: &Path, is_dir: bool) -> Vec<(u8, String)> {
 
 impl Tree {
     /// Takes the rows of a fresh walk and keeps what the user set, both found by path: expanded
-    /// directories stay expanded and the cursor stays on its entry. When that entry is gone the
-    /// cursor takes the row that followed it, or the nearest one above.
+    /// directories stay expanded, also across a walk that missed them, and the cursor stays on
+    /// its entry. When that entry is gone the cursor takes the row that followed it, or the
+    /// nearest one above.
     pub fn refresh(&mut self, mut fresh: Tree) {
-        let expanded: HashSet<&Path> = self
-            .nodes
-            .iter()
-            .filter(|n| n.expanded)
-            .map(|n| n.path.as_path())
-            .collect();
+        let mut expanded = std::mem::take(&mut self.away);
+        let open = self.nodes.iter().filter(|n| n.expanded);
+        expanded.extend(open.map(|n| n.path.clone()));
         let mut index = HashMap::new();
         for (i, n) in fresh.nodes.iter_mut().enumerate() {
-            n.expanded = expanded.contains(n.path.as_path());
+            n.expanded = expanded.remove(&n.path);
             index.insert(n.path.clone(), i);
         }
+        fresh.away = expanded;
         let vis = self.visible();
         let at = vis.iter().position(|&i| i == self.cursor).unwrap_or(0);
         let (above, below) = vis.split_at(at.min(vis.len()));
@@ -329,6 +335,27 @@ mod tests {
         std::fs::remove_file(dir.join("a.py")).unwrap();
         t.refresh(build(&dir).0);
         assert!(t.selected().is_none() && t.nodes.is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_directory_that_one_walk_missed_comes_back_expanded() {
+        let dir = project("away", &["gen/deep/x.py", "gen/y.py", "z.py"]);
+        let (mut t, _) = build(&dir);
+        t.reveal(Path::new("gen/deep/x.py"));
+        let before = rows(&t);
+        // `git stash -u`, a walk, `git stash pop`, a walk.
+        std::fs::rename(dir.join("gen"), dir.with_extension("aside")).unwrap();
+        t.refresh(build(&dir).0);
+        assert_eq!(rows(&t), ["z.py"]);
+        std::fs::rename(dir.with_extension("aside"), dir.join("gen")).unwrap();
+        t.refresh(build(&dir).0);
+        assert_eq!(rows(&t), before);
+        // Collapsed by hand after that, it stays collapsed.
+        t.reveal(Path::new("gen"));
+        t.collapse();
+        t.refresh(build(&dir).0);
+        assert_eq!(rows(&t), ["gen", "z.py"]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

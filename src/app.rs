@@ -1051,24 +1051,24 @@ impl App {
     /// Re-reads the open file after it changed on disk. Cursor, scroll, history and find pattern
     /// survive; the cursor is clamped to whatever the file is now. merl's own saves are
     /// recognised and ignored; a change under unsaved edits is a conflict, not a reload,
-    /// unless `force` (Ctrl+R) says the edits go.
-    pub fn reload(&mut self, force: bool) {
+    /// unless `force` (Ctrl+R) says the edits go. Returns whether anything on screen changed.
+    pub fn reload(&mut self, force: bool) -> bool {
         let Some(path) = self.buf.path.clone() else {
-            return;
+            return false;
         };
         // Mid-save the file can be briefly gone; the rename that follows sends another event
         // and overwrites the message. Gone for good, the message stays.
         let Ok(bytes) = std::fs::read(&path) else {
             self.message = "file gone".into();
-            return;
+            return true;
         };
         if !force {
             if buffer::hash(&bytes) == self.buf.disk {
-                return;
+                return false;
             }
             if self.dirty {
                 self.conflict = true;
-                return;
+                return true;
             }
         }
         self.buf = Buffer::from_bytes(path, &bytes);
@@ -1085,6 +1085,7 @@ impl App {
         self.sync_want_x();
         self.clamp_scroll();
         self.message = "reloaded".into();
+        true
     }
 
     fn pos(&self) -> Option<(PathBuf, usize, usize)> {
@@ -2746,8 +2747,8 @@ impl App {
 
     /// The files of `kind` outside the project, walked once per kind.
     ///
-    /// ponytail: lives for the session, like the project walk. A `pip install` mid-session
-    /// needs a restart, as a new project file does.
+    /// ponytail: lives for the session, unlike the project walk. A `pip install` mid-session
+    /// needs a restart.
     fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
         self.external
             .entry(kind)
@@ -3307,7 +3308,9 @@ impl App {
                 self.prompt.clear();
             }
             KeyCode::Char('s') if ctrl => self.save(),
-            KeyCode::Char('r') if ctrl => self.reload(true),
+            KeyCode::Char('r') if ctrl => {
+                self.reload(true);
+            }
             KeyCode::Char('z') if ctrl => self.undo(true),
             KeyCode::Char('y') if ctrl => self.undo(false),
             KeyCode::Char(':') => {
@@ -4062,11 +4065,27 @@ mod tests {
         assert_eq!(p.counts().1, 3);
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
 
+        // Rows leaving above the cursor pull the scroll back, never below the first row.
+        a.tree.reveal(Path::new("b.rs"));
+        a.tree_top = 2;
+        std::fs::remove_file(dir.join("a0.rs")).unwrap();
+        walk(&mut a);
+        assert_eq!(a.tree_top, 1);
+        a.tree_top = 1;
+        std::fs::remove_file(dir.join("a1.rs")).unwrap();
+        std::fs::write(dir.join("c.rs"), "x\n").unwrap();
+        walk(&mut a);
+        assert_eq!((a.tree_top, a.tree.cursor), (0, 0));
+
         let (_, mut r) = review_app("live-review");
-        let panel = r.tree.nodes.len();
+        let panel = |r: &App| {
+            let rows = r.tree.nodes.iter().map(|n| (n.path.clone(), n.expanded));
+            (rows.collect::<Vec<_>>(), r.tree.cursor, r.tree_top)
+        };
+        let before = panel(&r);
         let (tree, files) = crate::tree::build(&r.root);
         r.project_walked(tree, files.clone());
-        assert_eq!((r.tree.nodes.len(), &r.files), (panel, &files));
+        assert_eq!((panel(&r), &r.files), (before, &files));
     }
 
     /// A repository with a `feature` branch checked out: `src/a.rs` changed twice, `new`
