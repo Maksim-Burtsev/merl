@@ -229,7 +229,10 @@ macro_rules! swift_mods {
             r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*",
             r"(?:(?:public|private|fileprivate|internal|open|package|static|class|final|override",
             r"|mutating|nonmutating|required|convenience|lazy|weak|unowned|dynamic|indirect",
-            r"|optional|prefix|postfix|infix|nonisolated|distributed|borrowing|consuming)\s+)",
+            r"|optional|prefix|postfix|infix|nonisolated|distributed|borrowing|consuming)",
+            // `private(set)`: the setter's own access, the one place Swift parenthesises a
+            // modifier. Without it the run stops at the `(` and the declaration is never read.
+            r"(?:\(set\))?\s+)",
             $rep
         )
     };
@@ -261,16 +264,23 @@ macro_rules! php_mods {
     };
 }
 
-/// The PHP half of [`SYMBOLS`]: what the language declares with a keyword, behind the modifiers a
-/// member carries. A namespace is listed under its last part, the one `d` finds it by. A property
-/// is a field, which no kind lists, and an `enum` case is what a type holds, as in every other
-/// kind; `define('X', …)` has no keyword before the name and is left out with them.
-const PHP_SYMBOL: &str = concat!(
+/// The PHP half of [`SYMBOLS`], first half: what the language declares with a keyword other than
+/// `function`, behind the modifiers a member carries. A namespace is listed under its last part,
+/// the one `d` finds it by. A property is a field, which no kind lists, and an `enum` case is what
+/// a type holds, as in every other kind; `define('X', …)` has no keyword before the name and is
+/// left out with them.
+const PHP_DECL_SYMBOL: &str = concat!(
     php_mods!(),
-    r"(?:function\s+&?\s*|(?:class|interface|trait|enum)\s+|const\s+",
-    r"|namespace\s+(?:[\w\\]+\\)?)",
+    r"(?:(?:class|interface|trait|enum)\s+|const\s+|namespace\s+(?:[\w\\]+\\)?)",
     r"(?P<name>[A-Za-z_]\w*)"
 );
+
+/// The other half: a function or a method. A row of its own because a project holds far more of
+/// them than types and [`MAX_HITS`] is counted per row — one shared row would let the methods of
+/// the first files crowd every later class off the list. A name opening with two underscores is
+/// the language's own hook rather than the project's (`__construct`, `__toString`), and is left
+/// out the way C leaves out the implementation's names.
+const PHP_FUNC_SYMBOL: &str = concat!(php_mods!(), r"function\s+&?\s*(?P<name>_?[A-Za-z0-9]\w*)");
 
 /// The Ruby half of [`SYMBOLS`]: a method, including the `self.` form and the `name=` setter, and
 /// a class or module under the namespace it is written with. A constant and the names an
@@ -323,7 +333,8 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Swift), SWIFT_DECL_SYMBOL),
     // PHP likewise: a method stands behind `final public static`, which the shared pattern does
     // not read, so `function` alone would be the only form it listed.
-    (Some(Kind::Php), PHP_SYMBOL),
+    (Some(Kind::Php), PHP_DECL_SYMBOL),
+    (Some(Kind::Php), PHP_FUNC_SYMBOL),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -1876,23 +1887,53 @@ fn comment(kind: Kind, t: &str) -> bool {
 
 /// The 1-based lines of `text` that start inside a literal or a comment running over several
 /// lines: a Python triple-quoted string (a docstring with an example in it), a Go raw string, a
-/// TypeScript template, a `/* */` block. A line there that reads like a declaration declares
-/// nothing. Strings of one line end with their line, whatever they hold.
+/// TypeScript template, a Swift or C# `"""` block, a C# verbatim `@"…"`, a PHP heredoc, a `/* */`
+/// block. A line there that reads like a declaration declares nothing — the SQL a migration
+/// embeds is the common case. Strings of one line end with their line, whatever they hold.
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     let python = kind == Kind::Python;
+    // Every language here writes its multi-line string with three quotes, Python included.
+    let triple = matches!(kind, Kind::Python | Kind::Swift | Kind::CSharp);
     let b = text.as_bytes();
     let mut out = vec![false];
-    // The multi-line literal the scan is in, by its closing bytes; a one-line quote.
+    // The multi-line literal the scan is in, by its closing bytes; a one-line quote. A C#
+    // verbatim string closes on a `"` that is not doubled, which is how it escapes one.
     let (mut block, mut quote, mut i): (Option<&[u8]>, Option<u8>, usize) = (None, None, 0);
+    let (mut verbatim, mut heredoc) = (false, Vec::new());
     while i < b.len() {
         let c = b[i];
         if c == b'\n' {
             quote = None;
+            // A heredoc ends on the line that repeats its label, as `ID;`, `ID,` or `ID)`.
+            if !heredoc.is_empty() {
+                let rest = &b[i + 1..];
+                let label = rest
+                    .iter()
+                    .position(|c| !c.is_ascii_whitespace())
+                    .map_or(rest, |n| &rest[n..]);
+                if label.starts_with(&heredoc[..])
+                    && !label[heredoc.len()..]
+                        .first()
+                        .is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_')
+                {
+                    heredoc.clear();
+                    block = None;
+                }
+            }
             out.push(block.is_some());
         } else if let Some(end) = block {
-            if b[i..].starts_with(end) && (end.len() > 1 || b[i - 1] != b'\\') {
+            let doubled = verbatim && c == b'"' && b.get(i + 1) == Some(&b'"');
+            // A heredoc has no closing bytes: only the label on a line of its own ends it.
+            if heredoc.is_empty()
+                && b[i..].starts_with(end)
+                && (end.len() > 1 || b[i - 1] != b'\\')
+                && !doubled
+            {
                 block = None;
+                verbatim = false;
                 i += end.len() - 1;
+            } else if doubled {
+                i += 1;
             }
         } else if let Some(q) = quote {
             if c == b'\\' {
@@ -1900,9 +1941,28 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             } else if c == q {
                 quote = None;
             }
-        } else if python && (b[i..].starts_with(b"\"\"\"") || b[i..].starts_with(b"'''")) {
+        } else if triple
+            && (b[i..].starts_with(b"\"\"\"") || (python && b[i..].starts_with(b"'''")))
+        {
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" });
             i += 2;
+        } else if kind == Kind::CSharp && b[i..].starts_with(b"@\"") {
+            block = Some(b"\"");
+            verbatim = true;
+            i += 1;
+        } else if kind == Kind::Php && b[i..].starts_with(b"<<<") {
+            // `<<<SQL`, `<<<"SQL"` or `<<<'SQL'`: the label is what ends it.
+            let label: Vec<u8> = b[i + 3..]
+                .iter()
+                .skip_while(|c| **c == b'"' || **c == b'\'')
+                .take_while(|c| c.is_ascii_alphanumeric() || **c == b'_')
+                .copied()
+                .collect();
+            if !label.is_empty() {
+                i += 2;
+                block = Some(b"");
+                heredoc = label;
+            }
         } else if !python && c == b'`' {
             // ponytail: `/`/` is a regex, told by the slash in front; a division by a template
             // is not written.
@@ -3725,6 +3785,15 @@ mod tests {
         assert_eq!(inside(Kind::Go, go), [2, 3, 6, 7]);
         let ts = "const q = `\n  find(id: string): User;\n  ${x}`;\nclass A {\n  find(id: string): User {}\n}\n";
         assert_eq!(inside(Kind::TsJs, ts), [2, 3]);
+        // A migration embeds SQL, and a raw or a verbatim string is where it puts it. `""` is how
+        // a verbatim string writes a quote, so it does not close one.
+        let cs = "var q = \"\"\"\n    WHERE EXISTS(SELECT 1 FROM t)\n    \"\"\";\nvar v = @\"\n    SELECT MIN(\"\"rowid\"\") FROM t\n    \";\npublic int Real() => 1;\n";
+        assert_eq!(inside(Kind::CSharp, cs), [2, 3, 5, 6]);
+        let sw = "let doc = \"\"\"\n    class Ghost {}\n    \"\"\"\nclass Real {}\n";
+        assert_eq!(inside(Kind::Swift, sw), [2, 3]);
+        // A heredoc ends on the line that repeats its label, and only there.
+        let php = "$sql = <<<SQL\n    function ghost() {}\n    class Ghost {}\nSQL;\n$n = <<<'TXT'\n    class Nowdoc {}\nTXT;\nclass Real {}\n";
+        assert_eq!(inside(Kind::Php, php), [2, 3, 6]);
     }
 
     #[test]
@@ -4687,6 +4756,21 @@ actor Cache {
 }
 
 public typealias Rows = [Int]
+
+public final class Store {
+    public private(set) weak var owner: Session?
+}
+
+let opened = 0
+
+func describe(_ code: Int) -> String {
+    switch code {
+    case opened:
+        return "opened"
+    default:
+        return ""
+    }
+}
 "#;
 
     #[test]
@@ -4721,6 +4805,11 @@ public typealias Rows = [Int]
         assert_eq!(d("Cache"), [61], "an actor");
         assert_eq!(d("entries"), [62]);
         assert_eq!(d("Rows"), [65], "a `typealias`");
+        assert_eq!(d("Store"), [67]);
+        assert_eq!(d("owner"), [68], "behind `public private(set) weak`");
+        // The `let`, not the `case opened:` of the `switch` below it, which matches against
+        // that constant: a bare name there is a pattern, not a declaration.
+        assert_eq!(d("opened"), [71]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -4836,6 +4925,16 @@ function billing_total(Invoice $invoice): int
     $sum = 0;
     return $sum;
 }
+
+function billing_report(array $rows, int $total): array
+{
+    $map = [
+        $key => $value,
+    ];
+
+    return
+        $total == 0 ? $map : $rows;
+}
 "#;
 
     #[test]
@@ -4866,6 +4965,9 @@ function billing_total(Invoice $invoice): int
         assert_eq!(d("Closed"), [56]);
         assert_eq!(d("billing_total"), [59], "a function at the top level");
         assert_eq!(d("sum"), [61], "not the `return $sum;`");
+        assert_eq!(d("map"), [67]);
+        // Not the `$total == 0` that opens line 72: `==` compares, it declares nothing.
+        assert_eq!(d("total"), [21, 23]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -4883,7 +4985,11 @@ function billing_total(Invoice $invoice): int
             none,
             "`$this->name = $name;` writes to a property declared elsewhere"
         );
-        assert_eq!(d("key"), none, "a `foreach` target has no rule");
+        assert_eq!(
+            d("key"),
+            none,
+            "a `foreach` target has no rule, and `$key => $value,` is an array pair"
+        );
         assert_eq!(d("value"), none);
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -7026,6 +7132,12 @@ func Close() {
             ("    private ?Logger $logger;", None),
             ("    case Open = 'open';", None),
             ("define('BILLING_LIMIT', 10);", None),
+            // A magic method is the language's hook, not the project's, as in C.
+            (
+                "    public function __construct(private readonly Account $account)",
+                None,
+            ),
+            ("    public function __toString(): string", None),
             // A `use` imports, an anonymous function has no name, and a call is not a
             // declaration.
             ("use Illuminate\\Support\\Str;", None),

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` no longer offers a line inside an embedded literal as a declaration: `literal_lines` reads
+  a Swift or C# `"""` block, a C# verbatim `@"…"` (where `""` is a quote, not the end) and a PHP
+  heredoc, so the SQL a migration embeds stops answering `d`. (#17)
 - `d` and `D` in PHP, over every `.php` and `.phtml` file. `d` finds a `function` (returned by
   reference too), a `class`, `interface`, `trait` and `enum`, a `const` and a `define('X', …)`, an
   `enum` case, a property with the type it carries and a constructor parameter promoted to one —
@@ -17,16 +20,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   property declared elsewhere, are not declarations. `d` leaves the project for Composer's
   `vendor/`, which is gitignored and so outside the project walk the way `node_modules` is, and a
   `use Illuminate\Support\Str` in column zero binds `Str` to that path, since PSR-4 spells a
-  namespace the way the file system does. `D` lists the functions, methods, types and `const`s
-  from a rule of its own, so the declaration pattern every other language shares is untouched and
-  nothing is listed twice; a property, an `enum` case and a `define()` are left out. (#17)
+  namespace the way the file system does. `D` lists the types and `const`s from one rule of its
+  own and the functions and methods from another — two rows, because the hit cap is counted per
+  row and one shared row would let a big project's methods crowd its classes off the list — so the
+  declaration pattern every other language shares is untouched and nothing is listed twice; a
+  property, an `enum` case, a `define()` and a magic method (`__construct`, `__toString`, the
+  language's hook rather than the project's) are left out. (#17)
 - `d` and `D` in Swift, over every `.swift` file. `d` finds a `class`, `struct`, `enum`,
   `protocol`, `actor`, `typealias`, `associatedtype` and an `extension` of a type — where a
   project keeps its own members of one, often the only place — a `func` past its generic
-  parameters, `init` and `init?`, a `let` or a `var`, and an `enum` case, alone or among several
-  on a line, with the associated or raw value it carries; all of them behind their `@attributes`
-  and any modifiers, a backticked name included. A `case .open:` or `case let .open(x):` of a
-  `switch` is a pattern, not a declaration, and a binding made by `if let` or `guard let` has no
+  parameters, `init`, `init?`, `subscript` and `deinit`, a `let` or a `var`, and an `enum` case,
+  alone or among several on a line, with the associated or raw value it carries; all of them
+  behind their `@attributes` and any modifiers, `private(set)` and a backticked name included. A
+  `case .open:` or a `case let .open(x):` of a `switch` is a pattern, not a declaration, and a binding made by `if let` or `guard let` has no
   rule, since it rebinds a name declared elsewhere. `d` leaves the project for `.build/checkouts`,
   where SwiftPM keeps a package's dependencies as source; the standard library ships compiled,
   with no `.swift` file to read. `D` lists the types, the functions and the extensions from a rule
@@ -34,8 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   listed twice; a `let`, a `var`, an `init` and an `enum` case are left out, as what a type holds
   is in every other kind. (#17)
 - `d` and `D` in C#, over every `.cs` and `.csx` file. `d` finds a `class`, `struct`,
-  `interface`, `enum`, `record`, `record struct` and `delegate` past the generic parameters they
-  declare and behind their `[Attribute]` lists and modifiers, a `namespace` under its last part, a
+  `interface`, `enum`, `record`, `record class`, `record struct` and `delegate` past the generic
+  parameters they declare and behind their `[Attribute]` lists and modifiers, a `namespace` under its last part, a
   `using x =` alias, a constructor behind at least one access modifier — a bare `Invoice(n)` is a
   call — and a method, a property, an event, a field or a local, told from a call by the type
   before the name, so `public int X { get; }`, `public string Name => _name;` and
