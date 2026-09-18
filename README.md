@@ -272,16 +272,49 @@ the type before it. The type comes from the declaration:
 - a parameter handed on: `self.repo = repo`;
 - a call, one hop through the return type the function declares: `-> UserRepository`,
   `): UserRepository`, `func NewRepo() *UserRepository` (a Go function's first result), or a
-  TypeScript function whose every `return` is `new UserRepository()`;
+  function that declares none and whose every `return` constructs the same class,
+  `return new UserRepository()` in TypeScript, `return UserRepository()` in an undecorated Python
+  `def` (a bare `return` or a `yield` spoils it). A callee that a parameter or a local of the
+  scope names is a value, not the function of that name. The function may be a method called on a receiver
+  whose type is proven the same way, `info := e.RequestInfo()` or `repo = self.depot.people()`:
+  the method is looked for in that type and the types it extends, where it must be declared once,
+  an interface's method line included;
+- a cast: `repo = cast(UserRepository, found)` (`typing.cast` too, the type quoted or not;
+  a `cast` the project declares itself is a function, read by its return type),
+  `const repo = found as UserRepository` (the last type of `as unknown as T`),
+  `repo, ok := found.(*UserRepository)`, and the variable of a Go type switch,
+  `switch v := found.(type)`, inside a `case *UserRepository:` (a `case` of several types and
+  `default` leave it unknown). A chain may hang off the cast itself:
+  `(found as UserRepository).deleteUser`, `found.(*UserRepository).DeleteUser`,
+  `cast(UserRepository, found).delete_user`, `via found.(*UserRepository)`;
+- a loop over a collection whose type is written: `for repo in repos` with
+  `repos: list[UserRepository]` (`Sequence`, `Iterable`, `set`, `tuple[T, ...]` and the like),
+  `for (const repo of repos)` with `UserRepository[]`, `Array<T>` or `Set<T>`,
+  `for _, repo := range repos` with `[]*UserRepository`, `[4]T` or `map[K]T`. The collection is a
+  plain name, and every declaration of it writes that type: as an annotation, as the declared
+  return type of the function it was assigned from, or in Go as `make([]T, …)`, a literal `[]T{…}`
+  or a named type declared `type RepoList []*UserRepository`. `repos.word` on the collection itself is no member of `UserRepository`, and a `dict`'s
+  keys, a `Map`'s pairs, `for … in`, a tuple target, a single `range` variable and `async for`
+  stay unknown;
 - a property with a declared return type: `@property`, `@cached_property` or
   `@functools.cached_property` over `def users(self) -> UserRepository`, a getter
   `get users(): UserRepository`.
 
 `T | None`, `Optional[T]`, `Annotated[T, …]`, `T | null` and generic arguments read as `T`.
-Every declaration of `x` in scope counts: in Python every binding in the function, the enclosing
-functions and the module; in TypeScript and Go the declarations above the cursor in the blocks
-around it. They must all read the same type, so a variable shadowed by an inner function, a loop
-variable or a parameter with no annotation is never guessed. The type must be declared once, in
+The innermost scope that declares `x` decides: in Python the function the cursor is in (every
+binding in it, before the cursor or after), else the nearest enclosing function that binds the
+name, else the module; in TypeScript and Go the nearest block around the cursor with a declaration
+above it, a function's parameters counting with its body. So a local hides a module-level name, a
+closure's variable the one of the function around it, a block's the function's. The declarations
+of that one scope must all read the same type, and one that reads none (a loop variable, a
+parameter with no annotation) hides the outer ones all the same, so nothing is guessed: two
+assignments in the branches of an `if` are a picker. In TypeScript and Go a header hides the
+outer scopes only with what it binds for the block under it: the loop or the `catch` it is, the
+function whose body it opens. The parameter of any other function on those lines,
+`if (repos.some((repo: Repo) => …)) {` or `register((repo: Repo) => repo, {`, and of one on the
+cursor's own line, counts and hides nothing, since the cursor stands outside it; and what the
+`if` branch declares is nothing to its `else`. A line inside a docstring, a raw string or a
+template declares nothing. The type must be declared once, in
 the same file, the same Go package or the project module an import names. `d` then looks for the
 member in that type, and in the classes it extends and the structs it embeds, and the status line
 names the link: `via self.repo: UserRepository`, `via NewRepo() *UserRepository`,
@@ -296,6 +329,16 @@ method; a parameter behind a modifier only in a constructor; a line of a docstri
 interface or a base class `d` lands on the declaration there; a second `d`, with the cursor on it,
 lists what implements it.
 
+`super().word` in a Python method and `super.word` in a TypeScript class are `self` / `this` with
+the walk started one level up, so an override leads to what it overrides:
+`store → Archive.store (via super of ColdArchive)`. Under several Python bases only what needs no
+method resolution order is proven: the first base declaring the member itself, or every base
+leading to the same declaration (`Generic[T]`, `Protocol`, `ABC` and `object` aside), at every
+level the member is looked for. Bases that disagree, or one outside the project that may declare
+the member first, leave the word to the search by name, and so do `super()` in a function inside
+the method and a local assigned from `super.make()`, whose return type an override may narrow. Go has no `super`: its
+`i.Base.Touch()` is a chain through the embedded struct.
+
 A chain is followed the same way one field at a time, up to six names in front of the word: on
 `self.uow.users.delete_user` the type of `self.uow`, then the field `users` in that type, then
 `delete_user` in the type of `users`. A field may be declared in a class the type extends, or
@@ -307,8 +350,12 @@ A type declared outside the project or any link the rules cannot prove leaves th
 search by name below. With two or more names in front of the word the status line says where the
 chain broke: `delete_user: by name, 2 declarations (chain broke at item)` when `item` is typed by a
 generic parameter, at a property or a getter with no return type, or at the seventh name of a
-longer chain. A call inside the chain is not followed: `make_uow().users.delete_user` is a member
-of a value whose type is not known.
+longer chain. A chain may hang off the call that starts the expression, which is read as a call
+assigned to a name would be: `make_uow().users.delete_user` is
+`via make_uow() -> UnitOfWork → users: UserRepository`, and so are `pkg.New(x).Run`,
+`new Depot().people` and `self.repos.users.get_one(id).name`. A call of a call,
+`open_depot().people_repo().delete_user`, is not followed: it is a member of a value whose type is
+not known.
 
 When the type of `x` is not known, every method of that name is a candidate: Python `def` and
 `async def` inside a class, TypeScript class and object-literal methods, properties holding a

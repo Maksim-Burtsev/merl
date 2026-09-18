@@ -1691,33 +1691,12 @@ impl App {
         // A parameter or a local of the same name hides the import where the cursor is: `json`
         // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
         let first = chain.first().map_or(word.as_str(), String::as_str);
+        // `super` is no local, whatever the member lookup reads it as.
         let locals: Vec<usize> = search::bindings(kind, &text, self.line + 1, first)
             .iter()
             .map(|b| b.line)
             .filter(|&n| {
-                // An import is what the name hides, and a class, a function or a namespace of
-                // that name is no value: `Outer.Inner` reads a declaration, not a member.
-                let t = self.buf.lines[n - 1].trim_start();
-                let t = t.strip_prefix("export ").unwrap_or(t);
-                let t = t.strip_prefix("abstract ").unwrap_or(t);
-                let declares = [
-                    "class ",
-                    "def ",
-                    "async def ",
-                    "function ",
-                    "func ",
-                    "type ",
-                    "interface ",
-                    "namespace ",
-                    "enum ",
-                ]
-                .iter()
-                .filter_map(|k| t.strip_prefix(k))
-                .any(|rest| {
-                    rest.strip_prefix(first)
-                        .is_some_and(|after| !after.starts_with(is_word))
-                });
-                !declares && !t.starts_with("import ") && !t.starts_with("from ")
+                (dotted || word != "super") && !names_itself(&self.buf.lines[n - 1], first)
             })
             .collect();
         if !locals.is_empty() {
@@ -1770,11 +1749,15 @@ impl App {
         }
         // A receiver whose type is proven narrows the member to that type (#68, steps 2 to 4).
         let mut broke = None;
+        // A chain with no name to start from may hang off a call: `make_uow().users.word` (#100).
+        let head = (dotted && chain.is_empty())
+            .then(|| search::call_head(kind, self.line_str(), range.start))
+            .flatten();
         if dotted
             && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go)
-            && chain.first().is_some_and(|f| bound(&imports, f).is_none())
+            && (head.is_some() || chain.first().is_some_and(|f| bound(&imports, f).is_none()))
         {
-            match self.typed_definitions(kind, &here, &word, &chain) {
+            match self.typed_definitions(kind, &here, &word, &chain, head.as_ref()) {
                 // `self.repo` that leads to this very line is the field's declaration.
                 Ok(found)
                     if own
@@ -1790,7 +1773,10 @@ impl App {
                 }
                 Ok(_) => {}
                 // With one name in front of the word, `by name` already says where.
-                Err(at) => broke = (chain.len() > 1).then_some(at),
+                Err(at) => {
+                    let names = head.as_ref().map_or(chain.len(), |(_, _, f)| f.len() + 1);
+                    broke = (names > 1).then_some(at);
+                }
             }
         }
         // An import names where the word is declared: the project's module, else the one outside
@@ -2140,35 +2126,43 @@ impl App {
         here: &Path,
         word: &str,
         chain: &[String],
+        head: Option<&(String, search::Value, Vec<String>)>,
     ) -> Result<Vec<Candidate>, String> {
         let text = self.buf.lines.join("\n");
-        let (mut ty, call) = self
-            .value_type(kind, here, &text, self.line + 1, &chain[0], 1)
-            .ok_or_else(|| chain[0].clone())?;
-        // What the status line lists: `repo: UserRepository`, or `self.uow: UnitOfWork` for the
-        // receiver and its field, then `users: UserRepository` for each field after them.
-        let mut links = vec![call.unwrap_or_else(|| format!("{}: {}", chain[0], ty.name))];
-        for (i, field) in chain.iter().enumerate().skip(1) {
-            // ponytail: six names in front of the word; a longer chain breaks at the seventh.
-            if i == 6 {
-                return Err(field.clone());
-            }
-            let (next, call) = self
-                .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
-                .flatten()
-                .ok_or_else(|| field.clone())?;
-            let name = match i {
-                1 => format!("{}.{field}", chain[0]),
-                _ => field.clone(),
+        let line = self.line + 1;
+        // `super().m()` / `super.m()` is `self` / `this` with the walk started one level up.
+        if chain.first().is_some_and(|f| f == "super") {
+            let [_] = chain else {
+                return Err(chain[1].clone());
             };
-            let link = call.unwrap_or_else(|| format!("{name}: {}", next.name));
-            if i == 1 {
-                links[0] = link;
-            } else {
-                links.push(link);
-            }
-            ty = next;
+            let (ty, _) = self
+                .value_type(kind, here, &text, line, &chain[0], 1)
+                .ok_or_else(|| chain[0].clone())?;
+            let hits = self.above(kind, &ty, word, 0)?;
+            let label = format!("super of {}", ty.name);
+            return Ok(hits
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(label.clone()),
+                })
+                .collect());
         }
+        let (ty, links) = match head {
+            // The chain hangs off a call: `make_uow().users.word`.
+            Some((call, value, fields)) => {
+                let value = value.clone();
+                // A cast is its own link, as written: `via (repo as UserRepository)`.
+                let cast = matches!(value, search::Value::Type(_) | search::Value::Cast(..))
+                    .then(|| call.clone());
+                let (ty, link) = self
+                    .binding_type(kind, here, &text, &search::Binding { line, value }, 1)
+                    .ok_or_else(|| call.clone())?;
+                let start = (ty, link.or(cast));
+                self.follow(kind, start, call, false, fields)?
+            }
+            None => self.chain_type(kind, here, &text, line, chain, 1)?,
+        };
         let declared = self.hierarchy(kind, &ty, 0, &mut |t| {
             let members = self.members_of(kind, t, word);
             if members.is_empty() {
@@ -2199,6 +2193,61 @@ impl App {
                 reason: Reason::Receiver(label.clone()),
             })
             .collect())
+    }
+
+    /// The type of the chain `x.f.g` on 1-based `line` of `text`, the text of `file`, and the links
+    /// that prove it; `Err` names the first name that is not proven.
+    fn chain_type(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line: usize,
+        chain: &[String],
+        hops: usize,
+    ) -> Result<(Typed, Vec<String>), String> {
+        let start = self
+            .value_type(kind, file, text, line, &chain[0], hops)
+            .ok_or_else(|| chain[0].clone())?;
+        self.follow(kind, start, &chain[0], true, &chain[1..])
+    }
+
+    /// From the type `start` of `name`, each of `fields` in the type before it. What the status
+    /// line lists: `repo: UserRepository`, or with `merge` `self.uow: UnitOfWork` for the receiver
+    /// and its field, then `users: UserRepository` for each field after them.
+    fn follow(
+        &self,
+        kind: Kind,
+        start: (Typed, Option<String>),
+        name: &str,
+        merge: bool,
+        fields: &[String],
+    ) -> Result<(Typed, Vec<String>), String> {
+        let (mut ty, call) = start;
+        let mut links = vec![call.unwrap_or_else(|| format!("{name}: {}", ty.name))];
+        for (i, field) in fields.iter().enumerate() {
+            // ponytail: six names in front of the word; a longer chain breaks at the seventh.
+            if i == 5 {
+                return Err(field.clone());
+            }
+            let (next, call) = self
+                .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
+                .flatten()
+                .ok_or_else(|| field.clone())?;
+            let first = i == 0 && merge;
+            let label = match first {
+                true => format!("{name}.{field}"),
+                false => field.clone(),
+            };
+            let link = call.unwrap_or_else(|| format!("{label}: {}", next.name));
+            if first {
+                links[0] = link;
+            } else {
+                links.push(link);
+            }
+            ty = next;
+        }
+        Ok((ty, links))
     }
 
     /// The type of `name` on 1-based `line` of `text`, the text of `file`: the one type all its
@@ -2281,20 +2330,120 @@ impl App {
                 };
                 Some((ty, None))
             }
-            search::Value::Call(callee) => self.call_type(kind, file, callee),
+            search::Value::Call(callee) => self.call_type(kind, file, text, b.line, callee, hops),
+            // `cast(T, x)` writes `T`, unless the project declares the `cast` this file calls:
+            // that one is a function, with whatever it returns.
+            search::Value::Cast(callee, t) => {
+                let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
+                match self.declaration(kind, file, &parts) {
+                    Some(_) => self.call_type(kind, file, text, b.line, callee, hops),
+                    None => self.type_decl(kind, file, t).map(|ty| (ty, None)),
+                }
+            }
             search::Value::Name(n) if hops > 0 => {
                 self.value_type(kind, file, text, b.line, n, hops - 1)
             }
-            search::Value::Name(_) | search::Value::Unknown => None,
+            // An element of a collection whose every declaration writes its type: an
+            // annotation, or the return type of the function it was assigned from.
+            search::Value::Element(n) if hops > 0 => {
+                let mut found: Option<(Typed, Option<String>)> = None;
+                for c in search::bindings(kind, text, b.line, n) {
+                    let (written, at, link) = match &c.value {
+                        search::Value::Type(t) => {
+                            (t.clone(), file.to_path_buf(), format!("{n}: {}", t.trim()))
+                        }
+                        search::Value::Call(callee) => {
+                            let (t, at) = self.declared_return(kind, file, callee)?;
+                            let link = signature(kind, callee, &t);
+                            (t, at, link)
+                        }
+                        _ => return None,
+                    };
+                    // Go's `type IssueList []*Issue` says what it holds on its own line.
+                    let named = |written: &str| {
+                        let list = self
+                            .type_decl(kind, &at, written)
+                            .filter(|_| kind == Kind::Go)?;
+                        let text = self.text_of(&list.path)?;
+                        let decl = text
+                            .lines()
+                            .nth(list.line - 1)?
+                            .trim()
+                            .strip_prefix("type ")?;
+                        let holds = decl.trim_start().strip_prefix(list.name.as_str())?;
+                        Some((search::element_type(kind, holds)?, list.path))
+                    };
+                    let (element, at) = match search::element_type(kind, &written) {
+                        Some(element) => (element, at.clone()),
+                        None => named(&written)?,
+                    };
+                    let ty = self.type_decl(kind, &at, &element)?;
+                    match &found {
+                        Some((one, _)) if (&one.path, one.line) != (&ty.path, ty.line) => {
+                            return None;
+                        }
+                        Some(_) => {}
+                        None => found = Some((ty, Some(link))),
+                    }
+                }
+                found
+            }
+            search::Value::Name(_) | search::Value::Element(_) | search::Value::Unknown => None,
         }
     }
 
-    /// What a call of `callee` in `file` gives: the class it constructs, or the declared return
-    /// type of the function, resolved in the file declaring it. One hop: a return type is never
-    /// followed through another call. The signature is spelled as the language writes it.
-    fn call_type(&self, kind: Kind, file: &Path, callee: &str) -> Option<(Typed, Option<String>)> {
+    /// What a call of `callee` on 1-based `line` of `file` gives: the class it constructs, or the
+    /// declared return type of the function, resolved in the file declaring it. `e.RequestInfo()`
+    /// on a receiver whose type is proven is the method of that type, or of one it extends. A
+    /// return type is never followed through another call; the receiver may itself come from a
+    /// call, and `hops` bounds that, so two locals assigned from each other end. The signature is spelled as the language writes it.
+    fn call_type(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line: usize,
+        callee: &str,
+        hops: usize,
+    ) -> Option<(Typed, Option<String>)> {
         let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
-        let decl = self.declaration(kind, file, &parts)?;
+        let (method, receiver) = parts.split_last()?;
+        // `super.make()` is the base's `make`, which only `typed_definitions` knows how to find:
+        // read as a call on `this`, an override's narrower return type would answer.
+        if receiver.first().is_some_and(|r| r == "super") {
+            return None;
+        }
+        let proven = (hops > 0 && !receiver.is_empty())
+            .then(|| {
+                self.chain_type(kind, file, text, line, receiver, hops - 1)
+                    .ok()
+            })
+            .flatten();
+        let decl = match proven {
+            Some((ty, _)) => {
+                let found = self.hierarchy(kind, &ty, 0, &mut |t| {
+                    let members = self.members_of(kind, t, method);
+                    (!members.is_empty()).then_some(members)
+                })?;
+                <[Hit; 1]>::try_from(found).ok().map(|[hit]| hit)?
+            }
+            None => {
+                // A parameter or a local named like a function or an import is a value: what it
+                // returns when called is not what that function declares.
+                let lines: Vec<&str> = text.lines().collect();
+                let hidden = search::bindings(kind, text, line, &parts[0])
+                    .iter()
+                    .any(|b| {
+                        lines
+                            .get(b.line - 1)
+                            .is_some_and(|l| !names_itself(l, &parts[0]))
+                    });
+                if hidden {
+                    return None;
+                }
+                self.declaration(kind, file, &parts)?
+            }
+        };
         if search::declares_type(kind, &decl.text) {
             let ty = Typed {
                 name: parts.last()?.clone(),
@@ -2305,19 +2454,30 @@ impl App {
         }
         let text = self.text_of(&decl.path)?;
         let (written, signature) = match search::returns(kind, &text, decl.line)? {
+            search::Value::New(t) if kind == Kind::Python => {
+                (t.clone(), format!("{callee}() returns {t}()"))
+            }
             search::Value::New(t) => (t.clone(), format!("{callee}() returns new {t}()")),
             search::Value::Type(t) => {
-                let signature = match kind {
-                    Kind::Python => format!("{callee}() -> {t}"),
-                    Kind::TsJs => format!("{callee}(): {t}"),
-                    _ => format!("{callee}() {t}"),
-                };
+                let signature = signature(kind, callee, &t);
                 (t, signature)
             }
             _ => return None,
         };
         let ty = self.type_decl(kind, &decl.path, &written)?;
         Some((ty, Some(signature)))
+    }
+
+    /// The return type the function `callee` of `file` declares, as written, and the file that
+    /// writes it. A class, and a function that declares none, give nothing.
+    fn declared_return(&self, kind: Kind, file: &Path, callee: &str) -> Option<(String, PathBuf)> {
+        let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
+        let decl = self.declaration(kind, file, &parts)?;
+        let text = self.text_of(&decl.path)?;
+        match search::returns(kind, &text, decl.line)? {
+            search::Value::Type(t) => Some((t, decl.path)),
+            _ => None,
+        }
     }
 
     /// The declaration of the type written as `written` in `file`.
@@ -2672,6 +2832,58 @@ impl App {
                         .is_some_and(|d| !is_protocol(&text, d))
             })
             .collect()
+    }
+
+    /// The declaration of `word` that `super` reaches from `ty`: a method, else a declared field,
+    /// of the types above it. Under one base that is the nearest one up the line. Under several,
+    /// Python orders them as no walk by depth does, so only what needs no ordering is proven: the
+    /// first base declaring the member itself, or every base leading to the same line. `Err` when
+    /// they differ, or when a base is outside the project and may declare the member first. The
+    /// same holds at every level the answer is looked for, so a diamond or an outside base under
+    /// the one direct base proves nothing either.
+    fn above(&self, kind: Kind, ty: &Typed, word: &str, depth: usize) -> Result<Vec<Hit>, String> {
+        let broke = || "super".to_owned();
+        let find = |t: &Typed| {
+            let members = self.members_of(kind, t, word);
+            match members.is_empty() {
+                true => self.field_of(kind, t, word, false).map(|hit| vec![hit]),
+                false => Some(members),
+            }
+        };
+        // ponytail: eight levels up, which also ends a cycle.
+        let text = self
+            .text_of(&ty.path)
+            .filter(|_| depth < 8)
+            .ok_or_else(broke)?;
+        // ponytail: bases that declare no member worth a jump, by their usual spelling.
+        let plain = |b: &str| {
+            let b = b.split('[').next().unwrap_or(b);
+            let b = b.rsplit('.').next().unwrap_or(b);
+            matches!(b, "Generic" | "Protocol" | "ABC" | "object")
+        };
+        let written = search::bases(kind, &text, ty.line);
+        let bases: Vec<&String> = written.iter().filter(|b| !plain(b)).collect();
+        let mut answers: Vec<Vec<Hit>> = Vec::new();
+        for (i, base) in bases.iter().enumerate() {
+            let Some(base) = self.type_decl(kind, &ty.path, base) else {
+                return Err(broke());
+            };
+            let hits = match find(&base) {
+                Some(own) if i == 0 => return Ok(own),
+                Some(own) => own,
+                None => self.above(kind, &base, word, depth + 1)?,
+            };
+            let lines = |hits: &[Hit]| -> Vec<(PathBuf, usize)> {
+                hits.iter().map(|h| (h.path.clone(), h.line)).collect()
+            };
+            if !hits.is_empty() && answers.iter().all(|a| lines(a) != lines(&hits)) {
+                answers.push(hits);
+            }
+        }
+        match answers.len() {
+            0 | 1 => Ok(answers.pop().unwrap_or_default()),
+            _ => Err(broke()),
+        }
     }
 
     /// `find` in `ty`, then in the types it extends or embeds, nearest first: the first answer.
@@ -3663,6 +3875,42 @@ fn is_protocol(text: &str, decl: usize) -> bool {
         .iter()
         .filter_map(|b| search::type_path(Kind::Python, b))
         .any(|p| p.last().is_some_and(|n| n == "Protocol"))
+}
+
+/// Whether a line `search::bindings` gave for `name` is an import, or the declaration of a class,
+/// a function or a namespace of that name: what a value of the name would hide, and no value
+/// itself. `Outer.Inner` reads a declaration, not a member.
+fn names_itself(line: &str, name: &str) -> bool {
+    let t = line.trim_start();
+    let t = t.strip_prefix("export ").unwrap_or(t);
+    let t = t.strip_prefix("abstract ").unwrap_or(t);
+    let declares = [
+        "class ",
+        "def ",
+        "async def ",
+        "function ",
+        "func ",
+        "type ",
+        "interface ",
+        "namespace ",
+        "enum ",
+    ]
+    .iter()
+    .filter_map(|k| t.strip_prefix(k))
+    .any(|rest| {
+        rest.strip_prefix(name)
+            .is_some_and(|after| !after.starts_with(is_word))
+    });
+    declares || t.starts_with("import ") || t.starts_with("from ")
+}
+
+/// A call and the return type its function declares, spelled as the language writes it.
+fn signature(kind: Kind, callee: &str, returns: &str) -> String {
+    match kind {
+        Kind::Python => format!("{callee}() -> {returns}"),
+        Kind::TsJs => format!("{callee}(): {returns}"),
+        _ => format!("{callee}() {returns}"),
+    }
 }
 
 /// The module path an import in `imports` binds `name` to.
@@ -4765,21 +5013,26 @@ mod tests {
     }
 
     /// Presses `d` on the last word of the first line of `file` that contains `code`, or starts
-    /// with it when `code` starts with `^`.
+    /// with it when `code` starts with `^`. A `|` in `code` is not part of the line: it stands
+    /// after the word to press `d` on, and what follows it only picks the line.
     fn d_on(a: &mut App, file: &str, code: &str) {
+        let (code, rest) = code.split_once('|').unwrap_or((code, ""));
+        let whole = format!("{code}{rest}");
+        let (code, whole) = (code, whole.as_str());
         let path = a.root.join(file);
         let text = std::fs::read_to_string(&path).unwrap();
         let (n, line) = text
             .lines()
             .enumerate()
-            .find(|(_, l)| match code.strip_prefix('^') {
+            .find(|(_, l)| match whole.strip_prefix('^') {
                 Some(start) => l.starts_with(start),
-                None => l.contains(code),
+                None => l.contains(whole),
             })
-            .unwrap_or_else(|| panic!("no `{code}` in {file}"));
+            .unwrap_or_else(|| panic!("no `{whole}` in {file}"));
         let code = code.trim_start_matches('^');
         a.jump_to(&path, n + 1);
-        a.col = line.find(code).unwrap() + code.rfind(|c: char| !is_word(c)).map_or(0, |i| i + 1);
+        a.col = line.find(whole.trim_start_matches('^')).unwrap()
+            + code.rfind(|c: char| !is_word(c)).map_or(0, |i| i + 1);
         press(a, KeyCode::Char('d'), KeyModifiers::NONE);
     }
 
@@ -4892,7 +5145,7 @@ mod tests {
                     ("AuditLog.deleteUser", "repos.ts:16"),
                 ),
             ),
-            // A `range` variable.
+            // The variable of a `range` over a channel, which the rules do not read.
             (
                 "go",
                 "factories.go",
@@ -4987,30 +5240,6 @@ mod tests {
     /// to the search by name: a picker of two.
     #[test]
     fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
-        let by_name = |status: &str, first: (&str, &str), second: (&str, &str)| {
-            picker(status, &[first, second])
-        };
-        let py_both = || {
-            by_name(
-                "delete_user: by name, 2 declarations",
-                ("UserRepository.delete_user", "repos.py:8"),
-                ("AuditLog.delete_user", "repos.py:13"),
-            )
-        };
-        let ts_both = || {
-            by_name(
-                "deleteUser: by name, 2 declarations",
-                ("UserRepository.deleteUser", "repos.ts:10"),
-                ("AuditLog.deleteUser", "repos.ts:16"),
-            )
-        };
-        let go_both = || {
-            by_name(
-                "DeleteUser: by name, 2 declarations",
-                ("UserRepository.DeleteUser", "repos.go:15"),
-                ("AuditLog.DeleteUser", "repos.go:21"),
-            )
-        };
         let cases: Vec<(&str, &str, &str, Shown)> = vec![
             // Two same-named methods: each field lands on its own class's.
             (
@@ -5042,7 +5271,7 @@ mod tests {
                 ),
             ),
             // Shadowing: below the nested function only the outer `repo` is in scope; inside it
-            // both are, and they disagree.
+            // the inner one hides it (#100).
             (
                 "python",
                 "service.py",
@@ -5052,7 +5281,15 @@ mod tests {
                     "repos.py:13",
                 ),
             ),
-            ("python", "service.py", "await repo.delete_user", py_both()),
+            (
+                "python",
+                "service.py",
+                "await repo.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via repo: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
             (
                 "python",
                 "factories.py",
@@ -5062,7 +5299,16 @@ mod tests {
                     "repos.py:8",
                 ),
             ),
-            ("python", "factories.py", "audit.delete_user", py_both()),
+            // No return type, but every `return` constructs one (#100).
+            (
+                "python",
+                "factories.py",
+                "audit.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via make_audit() returns AuditLog())",
+                    "repos.py:13",
+                ),
+            ),
             // The return type is resolved where the function is declared.
             (
                 "python",
@@ -5113,7 +5359,10 @@ mod tests {
                 "typescript",
                 "service.ts",
                 "await repo.deleteUser",
-                ts_both(),
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via repo: UserRepository)",
+                    "repos.ts:10",
+                ),
             ),
             (
                 "typescript",
@@ -5180,7 +5429,15 @@ mod tests {
                     "repos.go:21",
                 ),
             ),
-            ("go", "service.go", "^\t\trepo.DeleteUser", go_both()),
+            (
+                "go",
+                "service.go",
+                "^\t\trepo.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via repo: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
             (
                 "go",
                 "factories.go",
@@ -5282,12 +5539,16 @@ mod tests {
                     &py_both,
                 ),
             ),
-            // Not the local `users`: the chain hangs off a call.
+            // Not the local `users`: the chain hangs off a call, whose declared return type
+            // starts it (#100).
             (
                 "python",
                 "chains.py",
                 "make_uow().users.delete_user",
-                by_name("delete_user: by name, 2 declarations", &py_both),
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via make_uow() -> UnitOfWork \u{2192} users: UserRepository)",
+                    "repos.py:8",
+                ),
             ),
             (
                 "python",
@@ -5364,7 +5625,10 @@ mod tests {
                 "typescript",
                 "chains.ts",
                 "makeUow().users.deleteUser",
-                by_name("deleteUser: by name, 2 declarations", &ts_both),
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via makeUow(): UnitOfWork \u{2192} users: UserRepository)",
+                    "repos.ts:10",
+                ),
             ),
             (
                 "typescript",
@@ -5442,7 +5706,10 @@ mod tests {
                 "go",
                 "chains.go",
                 "NewUnitOfWork().Users.DeleteUser",
-                by_name("DeleteUser: by name, 2 declarations", &go_both),
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via NewUnitOfWork() *UnitOfWork \u{2192} Users: UserRepository)",
+                    "repos.go:15",
+                ),
             ),
             (
                 "go",
@@ -5829,7 +6096,7 @@ mod tests {
                     "chains.go:4",
                 ),
             ),
-            // A `range` variable.
+            // The variable of a `range` over a channel, which the rules do not read.
             (
                 "go",
                 "fields.go",
@@ -5877,6 +6144,1604 @@ mod tests {
                 "fields.go",
                 "^\tPosterID",
                 namesakes("PosterID", ("Comment.PosterID", "fields.go:20")),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100: `super().m()` / `super.m()` is `self` / `this` with the walk started one level up, so
+    /// an override leads to what it overrides and never to itself. Go has no `super`: its
+    /// `i.Base.M()` is a chain through the embedded struct. Under several Python bases only what
+    /// needs no method resolution order is proven.
+    #[test]
+    fn super_starts_one_level_up() {
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // One base: the nearest declaration above the class, a method or a declared field.
+            (
+                "python",
+                "supers.py",
+                "super().__init__",
+                jump(
+                    "__init__ \u{2192} Archive.__init__ (via super of ColdArchive)",
+                    "supers.py:12",
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().store|(item)",
+                jump(
+                    "store \u{2192} Archive.store (via super of ColdArchive)",
+                    "supers.py:15",
+                ),
+            ),
+            // An override leads to what it overrides, never to itself; `Generic[T]` declares nothing.
+            (
+                "python",
+                "supers.py",
+                "super().store|(item + 1)",
+                jump(
+                    "store \u{2192} ColdArchive.store (via super of GlacierArchive)",
+                    "supers.py:26",
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().flush|()",
+                jump(
+                    "flush \u{2192} Archive.flush (via super of GlacierArchive)",
+                    "supers.py:18",
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().label",
+                jump(
+                    "label \u{2192} Archive.label (via super of GlacierArchive)",
+                    "supers.py:10",
+                ),
+            ),
+            // A function inside the method: `super()` has no arguments to find there.
+            (
+                "python",
+                "supers.py",
+                "super().flush|(), \"no arg",
+                picker(
+                    "flush: by name, 4 declarations",
+                    &[
+                        ("Archive.flush", "supers.py:18"),
+                        ("GlacierArchive.flush", "supers.py:36"),
+                        ("Right.flush", "supers.py:63"),
+                        ("Diamond.flush", "supers.py:68"),
+                    ],
+                ),
+            ),
+            // Several bases: the first one declaring the member itself is first in any order.
+            (
+                "python",
+                "supers.py",
+                "super().store|(item + 2)",
+                jump(
+                    "store \u{2192} Stamped.store (via super of Mixed)",
+                    "supers.py:44",
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().stamp",
+                jump(
+                    "stamp \u{2192} Stamped.stamp (via super of Mixed)",
+                    "supers.py:47",
+                ),
+            ),
+            // Only one of the bases leads to a `flush`.
+            (
+                "python",
+                "supers.py",
+                "super().flush|(), \"one base",
+                jump(
+                    "flush \u{2192} Archive.flush (via super of Mixed)",
+                    "supers.py:18",
+                ),
+            ),
+            // `Left` leads to `Archive.flush`, `Right` declares its own, and Python asks `Right` first: a
+            // walk by depth would jump to the wrong one, so none is proven.
+            (
+                "python",
+                "supers.py",
+                "super().flush|(), \"Right",
+                picker(
+                    "flush: by name, 4 declarations",
+                    &[
+                        ("Archive.flush", "supers.py:18"),
+                        ("GlacierArchive.flush", "supers.py:36"),
+                        ("Right.flush", "supers.py:63"),
+                        ("Diamond.flush", "supers.py:68"),
+                    ],
+                ),
+            ),
+            // `json.JSONEncoder` is outside the project and may declare the member first.
+            (
+                "python",
+                "supers.py",
+                "super().store|(item + 3)",
+                picker(
+                    "store: by name, 6 declarations",
+                    &[
+                        ("Archive.store", "supers.py:15"),
+                        ("ColdArchive.store", "supers.py:26"),
+                        ("GlacierArchive.store", "supers.py:31"),
+                        ("Stamped.store", "supers.py:44"),
+                        ("Mixed.store", "supers.py:52"),
+                        ("Wire.store", "supers.py:73"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().default",
+                picker(
+                    "default: by name, 2 declarations",
+                    &[
+                        ("Wire.default", "supers.py:76"),
+                        ("Encoder.default", "fields.py:60"),
+                    ],
+                ),
+            ),
+            // A name between `super()` and the word is not followed: the word is not looked for
+            // above the class as if it stood behind `super()` itself.
+            (
+                "python",
+                "supers.py",
+                "super().audit.store",
+                picker(
+                    "store: by name, 6 declarations (chain broke at audit)",
+                    &[
+                        ("Archive.store", "supers.py:15"),
+                        ("ColdArchive.store", "supers.py:26"),
+                        ("GlacierArchive.store", "supers.py:31"),
+                        ("Stamped.store", "supers.py:44"),
+                        ("Mixed.store", "supers.py:52"),
+                        ("Wire.store", "supers.py:73"),
+                    ],
+                ),
+            ),
+            // TypeScript: one `extends`.
+            (
+                "typescript",
+                "supers.ts",
+                "super.store|(item);",
+                jump(
+                    "store \u{2192} Archive.store (via super of ColdArchive)",
+                    "supers.ts:8",
+                ),
+            ),
+            (
+                "typescript",
+                "supers.ts",
+                "super.store|(item + 1)",
+                jump(
+                    "store \u{2192} ColdArchive.store (via super of GlacierArchive)",
+                    "supers.ts:18",
+                ),
+            ),
+            (
+                "typescript",
+                "supers.ts",
+                "super.flush",
+                jump(
+                    "flush \u{2192} Archive.flush (via super of GlacierArchive)",
+                    "supers.ts:10",
+                ),
+            ),
+            // An arrow function passes `super` through as it does `this`.
+            (
+                "typescript",
+                "supers.ts",
+                "super.store|(n)",
+                jump(
+                    "store \u{2192} ColdArchive.store (via super of GlacierArchive)",
+                    "supers.ts:18",
+                ),
+            ),
+            // In an object literal `super` is the literal's prototype, not the class around it.
+            (
+                "typescript",
+                "supers.ts",
+                "super.toString",
+                picker(
+                    "toString: by name, 2 declarations",
+                    &[
+                        ("Archive.toString", "supers.ts:12"),
+                        ("toString", "supers.ts:32"),
+                    ],
+                ),
+            ),
+            // The same conditions hold at every level the answer is found through: a diamond
+            // or an outside base under the one direct base proves nothing either.
+            (
+                "python",
+                "supers.py",
+                "super().drain|(), \"a diamond",
+                picker(
+                    "drain: by name, 6 declarations",
+                    &[
+                        ("Tank.drain", "supers.py:89"),
+                        ("LoudTank.drain", "supers.py:102"),
+                        ("LeafTank.drain", "supers.py:111"),
+                        ("LeafWire.drain", "supers.py:120"),
+                        ("SameTank.drain", "supers.py:125"),
+                        ("AbcTank.drain", "supers.py:130"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().drain|(), \"an outside",
+                picker(
+                    "drain: by name, 6 declarations",
+                    &[
+                        ("Tank.drain", "supers.py:89"),
+                        ("LoudTank.drain", "supers.py:102"),
+                        ("LeafTank.drain", "supers.py:111"),
+                        ("LeafWire.drain", "supers.py:120"),
+                        ("SameTank.drain", "supers.py:125"),
+                        ("AbcTank.drain", "supers.py:130"),
+                    ],
+                ),
+            ),
+            // Two bases that lead to the same declaration, and `ABC`, which declares nothing.
+            (
+                "python",
+                "supers.py",
+                "super().drain|(), \"both",
+                jump(
+                    "drain \u{2192} Tank.drain (via super of SameTank)",
+                    "supers.py:89",
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().drain|(), \"ABC",
+                jump(
+                    "drain \u{2192} Tank.drain (via super of AbcTank)",
+                    "supers.py:89",
+                ),
+            ),
+            // `d` on the word itself is what it was: `super` is no local.
+            (
+                "python",
+                "supers.py",
+                "super|().stamp",
+                jump("no definition for super", "supers.py:54"),
+            ),
+            (
+                "typescript",
+                "supers.ts",
+                "super|.flush",
+                jump("no definition for super", "supers.ts:26"),
+            ),
+            // `super.open()` returns what the base's `open` declares, not the override's
+            // narrower type: a call on `super` is not read as a call on `this`.
+            (
+                "typescript",
+                "supers.ts",
+                "opened.store",
+                picker(
+                    "store: by name, 3 declarations",
+                    &[
+                        ("Archive.store", "supers.ts:8"),
+                        ("ColdArchive.store", "supers.ts:18"),
+                        ("GlacierArchive.store", "supers.ts:24"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "supers.ts",
+                "super.open().store",
+                picker(
+                    "store: by name, 3 declarations",
+                    &[
+                        ("Archive.store", "supers.ts:8"),
+                        ("ColdArchive.store", "supers.ts:18"),
+                        ("GlacierArchive.store", "supers.ts:24"),
+                    ],
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100: the innermost scope that binds a name decides what it is. A module-level or
+    /// package-level name, a variable of the function around a closure and one of the block
+    /// around a block are hidden, where they used to disagree with the inner one. What hides may
+    /// be unknown, and then nothing behind it answers; two bindings of one scope still disagree.
+    #[test]
+    fn the_innermost_binding_wins() {
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // A parameter named like a module-level `def`.
+            (
+                "python",
+                "scopes.py",
+                "save.find_user",
+                jump(
+                    "find_user \u{2192} UserRepository.find_user (via save: UserRepository)",
+                    "repos.py:5",
+                ),
+            ),
+            // A local hides the module's variable, in the function and in a closure inside it.
+            (
+                "python",
+                "scopes.py",
+                "ledger.find_user|(user_id)",
+                jump(
+                    "find_user \u{2192} UserRepository.find_user (via ledger: UserRepository)",
+                    "repos.py:5",
+                ),
+            ),
+            (
+                "python",
+                "scopes.py",
+                "ledger.find_user|(user_id + 1)",
+                jump(
+                    "find_user \u{2192} UserRepository.find_user (via ledger: UserRepository)",
+                    "repos.py:5",
+                ),
+            ),
+            // A function that binds no `ledger` reads the module's.
+            (
+                "python",
+                "scopes.py",
+                "ledger.delete_user|(user_id + 2)",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via ledger: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            // Two bindings in one function disagree: which one reaches the line is control flow.
+            (
+                "python",
+                "scopes.py",
+                "ledger.delete_user|(3)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A parameter with no annotation hides the module's `ledger`, which must not answer.
+            (
+                "python",
+                "scopes.py",
+                "ledger.delete_user|(user_id + 4)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // On the name itself, the declaration in its scope.
+            (
+                "python",
+                "scopes.py",
+                "    ledger|.find_user(user_id)",
+                jump("ledger \u{2192} rotate.ledger (local)", "scopes.py:15"),
+            ),
+            // TypeScript: a `const` of the function, an arrow function's parameter, a block's `const`
+            // over the function's, and the function's own below that block.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.findUser",
+                jump(
+                    "findUser \u{2192} UserRepository.findUser (via ledger: UserRepository)",
+                    "repos.ts:6",
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id);",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 1)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 2)",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via ledger: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            // `any` hides the module's `ledger`.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 3)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // The cursor is not inside an arrow function on its own line, or on the line the
+            // statement started on: its parameter counts and hides nothing.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(repos.map",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 4)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "  ledger|.findUser(id)",
+                jump("ledger \u{2192} rotate.ledger (local)", "scopes.ts:6"),
+            ),
+            // A literal under a line that also holds an arrow function: the cursor is in the
+            // literal, and the arrow's parameter hides nothing.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 5)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // Go: a `:=` over the package's `var`, a block's over the function's, and the package's
+            // where nothing hides it.
+            (
+                "go",
+                "scopes.go",
+                "ledger.FindUser",
+                jump(
+                    "FindUser \u{2192} UserRepository.FindUser (via NewRepo() *UserRepository)",
+                    "repos.go:11",
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 1)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via NewRepo() *UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 2)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via ledger: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 3)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via ledger: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            // The second name of a `:=` is unknown and hides the package's.
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 4)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            // An `if` header and its body are read as one scope, so their two `ledger` disagree.
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 5)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "	ledger|.FindUser(id)",
+                jump(
+                    "ledger \u{2192} ScopedRotate.ledger (local)",
+                    "scopes.go:10",
+                ),
+            ),
+            // A composite literal under a line that also holds a `func`.
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 6)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            // A sibling block's callback or loop is not around the cursor of the `else` or the
+            // `catch`, which reads the parameter of its own function. A callback on the lines
+            // of the header itself counts, as one on the cursor's line does, and hides nothing.
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(7)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via ledger: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(8)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via ledger: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(9)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 6)",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via ledger: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 7)",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via ledger: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 8)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 9",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // A docstring's example binds nothing: the module's `ledger` is read.
+            (
+                "python",
+                "scopes.py",
+                "ledger.delete_user|(user_id + 5)",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via ledger: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            // The arrow function's line ends in `=>`: its body is the lines below.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 10)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            // A destructured parameter under a header closed by `}: Deps): void {` hides the
+            // module's `ledger` and has no type of its own.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 11)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // A backtick inside a regex opens no template: the `const` under it is read.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 12)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100: a loop variable is an element of what it loops over, where that collection's type is
+    /// written: `list[T]`, `T[]`, `[]T`, `map[K]T`, as an annotation or as the return type of the
+    /// function it came from. The collection itself is no `T`, and keys, pairs, a tuple target
+    /// and a collection declared twice stay unknown.
+    #[test]
+    fn a_loop_variable_is_an_element_of_a_written_collection() {
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // An annotated parameter: `list[T]`, and `tuple[T, ...]` in quotes.
+            (
+                "python",
+                "elements.py",
+                "repo.delete_user|(user_id)",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via repos: list[UserRepository])",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "elements.py",
+                "log.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via logs: \"tuple[AuditLog, ...]\")",
+                    "repos.py:13",
+                ),
+            ),
+            // The collection came from a function that declares what it returns.
+            (
+                "python",
+                "elements.py",
+                "repo.delete_user|(user_id + 3)",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via load_repos() -> list[UserRepository])",
+                    "repos.py:8",
+                ),
+            ),
+            // The list itself is no `UserRepository`.
+            (
+                "python",
+                "elements.py",
+                "repos.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A `dict` hands out its keys; a tuple target over a call is not read.
+            (
+                "python",
+                "elements.py",
+                "key.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "elements.py",
+                "repo.delete_user|(user_id + 5)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // `repos` is assigned again with no type written: not every declaration says what it holds.
+            (
+                "python",
+                "elements.py",
+                "repo.delete_user|(user_id + 6)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // Two annotations that disagree.
+            (
+                "python",
+                "elements.py",
+                "repo.delete_user|(user_id + 7)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // TypeScript: `T[]`, `ReadonlyArray<T>`, a declared return type.
+            (
+                "typescript",
+                "elements.ts",
+                "repo.deleteUser|(id);",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via repos: UserRepository[])",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "elements.ts",
+                "log.deleteUser",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via logs: ReadonlyArray<AuditLog>)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "elements.ts",
+                "repo.deleteUser|(id + 2)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via loadRepos(): UserRepository[])",
+                    "repos.ts:10",
+                ),
+            ),
+            // The array itself, a `Map`'s pairs and the keys of `for … in`.
+            (
+                "typescript",
+                "elements.ts",
+                "repos.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "elements.ts",
+                "entry.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "elements.ts",
+                "index.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // Go: the second variable of a `range` over `[]*T`, over `map[K]T`, over a declared result.
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via repos: []*UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "elements.go",
+                "entry.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via logs: map[string]AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 2)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via LoadRepos() []*UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            // A single variable is an index or a key, or the element of a channel the rules do not read.
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 3)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            // A slice made or written out in place says what it holds.
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 4)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via made: []*UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "elements.go",
+                "entry.DeleteUser|(id + 5)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via listed: []AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            // A named slice type, read where it is declared.
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 6)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via repos: RepoList)",
+                    "repos.go:15",
+                ),
+            ),
+            // An element handed on to another name is one hop too many.
+            (
+                "python",
+                "elements.py",
+                "current.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A named map, a named slice declared in another package, and a `type X = []T`
+            // alias, which is not read.
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 7)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via index: RepoIndex)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "elements.go",
+                "session.Close",
+                jump(
+                    "Close \u{2192} Session.Close (via sessions: store.SessionList)",
+                    "store/store.go:15",
+                ),
+            ),
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 8)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100: one more hop on a call. A method called on a receiver whose type is proven gives
+    /// what it declares to return, a Python function or method with no annotation what every
+    /// `return` of it constructs, and a chain may hang off a call that starts the expression.
+    /// A call of a call, returns that differ and an unproven receiver stay by name.
+    #[test]
+    fn a_call_is_one_more_hop() {
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // A method of a parameter whose type is written, with the return type it declares.
+            (
+                "python",
+                "calls.py",
+                "repo.delete_user|(user_id)",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via depot.people_repo() -> UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            // No annotation, and every `return` constructs an `AuditLog`.
+            (
+                "python",
+                "calls.py",
+                "trail.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via depot.trail() returns AuditLog())",
+                    "repos.py:13",
+                ),
+            ),
+            // A chain off a call that starts the expression: a function, a class, and the field itself.
+            (
+                "python",
+                "calls.py",
+                "open_depot().people.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via open_depot() -> Depot \u{2192} people: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "Depot().people.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via Depot(): Depot \u{2192} people: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "open_depot().people|.delete_user",
+                jump(
+                    "people \u{2192} Depot.people (via open_depot() -> Depot)",
+                    "calls.py:8",
+                ),
+            ),
+            // The returns differ; one of them is `None`; a decorator may return anything.
+            (
+                "python",
+                "calls.py",
+                "either.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "maybe.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "shared.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A call of a call hangs off a value nobody typed.
+            (
+                "python",
+                "calls.py",
+                "open_depot().people_repo().delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // The receiver of the method is a parameter with no annotation.
+            (
+                "python",
+                "calls.py",
+                "repo.delete_user|(user_id + 8)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // TypeScript: a method's `): T`, a method whose every `return` is `new T()`, a chain off a
+            // function and off `new`, and the method line of an interface.
+            (
+                "typescript",
+                "calls.ts",
+                "repo.deleteUser|(id);",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via depot.peopleRepo(): UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "trail.deleteUser",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via depot.trail() returns new AuditLog())",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "openDepot().people.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via openDepot(): Depot \u{2192} people: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "new Depot().people.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via new Depot(): Depot \u{2192} people: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "sourced.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via src.source(): UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            // Overloads declare the method three times: which one is called is not read.
+            (
+                "typescript",
+                "calls.ts",
+                "picked.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // A call of a call, and a receiver typed `any`.
+            (
+                "typescript",
+                "calls.ts",
+                "openDepot().peopleRepo().deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "repo.deleteUser|(id + 6)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // Go: a method behind its receiver, the first of two results, a chain off a function and
+            // off a package's, and the method line of an interface.
+            (
+                "go",
+                "calls.go",
+                "repo.DeleteUser|(id)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via depot.PeopleRepo() *UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "calls.go",
+                "trail.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via depot.Trail() AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "calls.go",
+                "OpenDepot().People.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via OpenDepot() *Depot \u{2192} People: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "calls.go",
+                "store.Open().Close",
+                jump(
+                    "Close \u{2192} Session.Close (via store.Open() *Session)",
+                    "store/store.go:15",
+                ),
+            ),
+            (
+                "go",
+                "calls.go",
+                "sourced.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via src.Source() *UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            // A call of a call, and a receiver that is the second name of a `:=`.
+            (
+                "go",
+                "calls.go",
+                "OpenDepot().PeopleRepo().DeleteUser",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            (
+                "go",
+                "calls.go",
+                "repo.DeleteUser|(id + 5)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            // A decorator written over several lines may return anything too.
+            (
+                "python",
+                "calls.py",
+                "wrapped.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A parameter named like a function of the module is a value nobody typed.
+            (
+                "python",
+                "calls.py",
+                "open_depot().people.delete_user|(user_id + 10)",
+                picker(
+                    "delete_user: by name, 2 declarations (chain broke at open_depot())",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "made.people.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations (chain broke at made)",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // The method is inherited; the receiver is a field; the chain hangs off a method
+            // of a proven receiver.
+            (
+                "python",
+                "calls.py",
+                "inherited.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via sub.people_repo() -> UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "through.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via self.depot.people_repo() -> UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "self.depot.people_repo().delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via self.depot.people_repo() -> UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            // Two locals assigned from each other's methods end in a picker, and end.
+            (
+                "python",
+                "calls.py",
+                "ahead.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A `return` behind an `if` on its own line is a return the rules do not read.
+            (
+                "python",
+                "calls.py",
+                "picked.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "inline.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100: a cast writes the type. `typing.cast(T, x)`, `x as T`, `v, ok := i.(T)`, and the
+    /// variable of `switch v := x.(type)` inside a `case T:`, assigned to a name or with the chain
+    /// hanging off the cast itself. A cast to a type the project does not declare, a `case` of
+    /// several types and `default` prove nothing.
+    #[test]
+    fn a_cast_writes_the_type() {
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // `cast(T, x)` and `typing.cast("T", x)` assigned to a name, and with the member hanging
+            // off the cast itself.
+            (
+                "python",
+                "casts.py",
+                "repo.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via repo: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "casts.py",
+                "audit.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via audit: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            (
+                "python",
+                "casts.py",
+                "cast(UserRepository, found).delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via cast(UserRepository, found))",
+                    "repos.py:8",
+                ),
+            ),
+            // A cast to a type the project does not declare proves nothing.
+            (
+                "python",
+                "casts.py",
+                "missing.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "casts.py",
+                "loose.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // TypeScript: `x as T`, the last type of `x as unknown as T`, and `(x as T).member`.
+            (
+                "typescript",
+                "casts.ts",
+                "repo.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via repo: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "casts.ts",
+                "audit.deleteUser",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via audit: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "casts.ts",
+                "(found as UserRepository).deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via found as UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            // `any`, and a generic wrapper that is no type of the project.
+            (
+                "typescript",
+                "casts.ts",
+                "loose.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "casts.ts",
+                "partial.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // Go: `v, ok := i.(T)`, `v := i.(T)` and `i.(T).Member`.
+            (
+                "go",
+                "casts.go",
+                "repo.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via repo: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "casts.go",
+                "audit.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via audit: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "casts.go",
+                "found.(*UserRepository).DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via found.(*UserRepository))",
+                    "repos.go:15",
+                ),
+            ),
+            // `fmt.Stringer` is declared outside the project.
+            (
+                "go",
+                "casts.go",
+                "found.(fmt.Stringer).String",
+                jump("no definition for String", "casts.go:25"),
+            ),
+            // The variable of a type switch has the type of the `case` the cursor is in, also from a
+            // block inside it.
+            (
+                "go",
+                "casts.go",
+                "v.DeleteUser|(id + 3)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via v: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "casts.go",
+                "v.DeleteUser|(id + 4)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via v: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            // A second type switch below the first: the first one's `v` is out of scope.
+            (
+                "go",
+                "casts.go",
+                "return v.Area|()",
+                jump("Area \u{2192} Square.Area (via v: Square)", "casts.go:11"),
+            ),
+            // A `case` of two types and `default` leave `v` what it was.
+            (
+                "go",
+                "casts.go",
+                "v.Area|() + 1",
+                picker(
+                    "Area: by name, 2 declarations",
+                    &[
+                        ("Square.Area", "casts.go:11"),
+                        ("Circle.Area", "casts.go:15"),
+                    ],
+                ),
+            ),
+            (
+                "go",
+                "casts.go",
+                "v.Area|() + 2",
+                picker(
+                    "Area: by name, 2 declarations",
+                    &[
+                        ("Square.Area", "casts.go:11"),
+                        ("Circle.Area", "casts.go:15"),
+                    ],
+                ),
+            ),
+            // A `cast` the project declares itself is a function with a return type.
+            (
+                "python",
+                "casts_own.py",
+                "repo.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via cast() -> AuditLog)",
+                    "repos.py:13",
+                ),
             ),
         ];
         for (fixture, file, code, want) in cases {
