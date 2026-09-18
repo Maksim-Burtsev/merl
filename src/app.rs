@@ -1133,11 +1133,11 @@ impl App {
     }
 
     fn picker_key(&mut self, key: KeyEvent) {
+        let pending = self.search_pending();
         let Some(picker) = &mut self.picker else {
             return;
         };
         // The list on screen answers an older query: Enter waits for this one's.
-        let pending = self.search_due.is_some() || self.search_sent.is_some();
         if picker.live && pending && key.code == KeyCode::Enter {
             self.search_enter = true;
             // No point in waiting out the pause.
@@ -1404,6 +1404,12 @@ impl App {
         // An answer still on its way belongs to the search that was closed.
         self.search_seq += 1;
         (self.search_due, self.search_sent, self.search_enter) = (None, None, false);
+    }
+
+    /// Whether the query on screen has no answer yet: the pause is running or its grep is. The
+    /// rows and their count belong to an older query until this is false.
+    pub fn search_pending(&self) -> bool {
+        self.search_due.is_some() || self.search_sent.is_some()
     }
 
     /// The grep to start now, once the query has stood still for [`SEARCH_PAUSE`]. The event
@@ -7465,16 +7471,21 @@ foo
 ",
         );
         press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        assert!(!a.search_pending(), "nothing asked yet");
         typed(&mut a, "foo");
         assert!(
             a.search_tick().is_none(),
             "the grep waits for a pause in the typing"
         );
+        assert!(a.search_pending(), "pending through the pause");
         std::thread::sleep(SEARCH_PAUSE);
         let stale = a.search_tick().expect("the grep for foo").seq;
+        assert!(a.search_pending(), "and while the grep runs");
         typed(&mut a, "d");
         assert!(!a.search_done(stale, Vec::new()), "foo is not on screen");
+        assert!(a.search_pending(), "a stale answer settles nothing");
         a.settle_search();
+        assert!(!a.search_pending());
         assert_eq!(a.picker.as_ref().unwrap().counts().1, 1);
 
         press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
