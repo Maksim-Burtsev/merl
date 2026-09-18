@@ -98,6 +98,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Review: `c` / `C` no longer stop dead in front of a submodule, with every file after it out of
   reach: a submodule is walked past like a binary file and stays in the panel. A file that does
   not open is walked past too, and the status bar says why it did not open. (#117)
+- `[` / `]` no longer stop dead at a history stop whose file was deleted or renamed, with every
+  stop behind it out of reach: the stop is dropped, the walk goes on to the next one that opens,
+  and the status bar says `hist2.py gone`. (#118)
 
 ### Added
 

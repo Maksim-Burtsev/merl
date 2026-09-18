@@ -1126,22 +1126,45 @@ impl App {
 
     /// `[` and `]`: walks the recorded stops.
     fn hist_go(&mut self, delta: isize) {
-        let next = self
-            .hist_idx
-            .checked_add_signed(delta)
-            .filter(|i| *i < self.history.len());
-        let Some(i) = next else {
-            self.message = if delta < 0 {
-                "start of history".into()
-            } else {
-                "end of history".into()
+        // A stop whose file is gone (an agent renamed it) is dropped, and the walk goes on.
+        let mut gone = Vec::new();
+        let landed = loop {
+            let next = self
+                .hist_idx
+                .checked_add_signed(delta)
+                .filter(|i| *i < self.history.len());
+            let Some(i) = next else {
+                self.message = if delta < 0 {
+                    "start of history".into()
+                } else {
+                    "end of history".into()
+                };
+                break None;
             };
-            return;
+            let (path, line, col) = self.history[i].clone();
+            if self.open(&path, line + 1) {
+                break Some((i, path, col));
+            }
+            // Edits that could not be saved, or a file that is there and does not open: the
+            // stop stays, and `open` has said why.
+            if self.dirty || path.exists() {
+                return;
+            }
+            self.history.remove(i);
+            self.hist_idx -= usize::from(i < self.hist_idx);
+            if !gone.contains(&path) {
+                gone.push(path);
+            }
         };
-        let (path, line, col) = self.history[i].clone();
-        if !self.open(&path, line + 1) {
-            return;
+        match &gone[..] {
+            [] => {}
+            [one] => {
+                let rel = one.strip_prefix(&self.root).unwrap_or(one);
+                self.message = format!("{} gone", rel.display());
+            }
+            _ => self.message = format!("{} files gone", gone.len()),
         }
+        let Some((i, path, col)) = landed else { return };
         self.hist_idx = i;
         self.focus = Focus::Code;
         (self.line, self.col) = self.clamp_pos((self.line, col));
@@ -7794,16 +7817,37 @@ two
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// An agent renames a file: its stops are dropped and `[` goes on to the next one that
+    /// opens, instead of retrying the dead stop with everything behind it out of reach.
     #[test]
-    fn a_stop_whose_file_is_gone_leaves_the_history_alone() {
+    fn a_stop_whose_file_is_gone_is_dropped_and_walked_past() {
         let (dir, mut a) = files_app("gone");
-        let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+        let (x, y, z) = (dir.join("a.rs"), dir.join("b.rs"), dir.join("c.rs"));
+        std::fs::write(&z, "x\n".repeat(40)).unwrap();
+        a.jump_to(&z, 3);
         a.jump_to(&x, 5);
+        a.jump_to(&x, 30);
         a.jump_to(&y, 1);
         std::fs::remove_file(&x).unwrap();
         press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!((at(&a), a.hist_idx, a.history.len()), ((z, 2), 0, 2));
+        assert_eq!(a.message, "a.rs gone");
+        press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+        assert_eq!((at(&a), a.hist_idx, a.message.as_str()), ((y, 0), 1, ""));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Edits that cannot be saved keep merl on the file; that is no reason to drop a stop.
+    #[test]
+    fn a_stop_that_does_not_open_for_another_reason_leaves_the_history_alone() {
+        let (dir, mut a) = files_app("stuck");
+        let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+        a.jump_to(&x, 5);
+        a.jump_to(&y, 1);
+        (a.dirty, a.conflict) = (true, true);
+        std::fs::remove_file(&x).unwrap();
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
         assert_eq!((at(&a), a.hist_idx, a.history.len()), ((y, 0), 1, 2));
-        assert!(a.message.contains("a.rs"), "{}", a.message);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
