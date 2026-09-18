@@ -288,6 +288,15 @@ method; a parameter behind a modifier only in a constructor; a line of a docstri
 interface or a base class `d` lands on the declaration there; a second `d`, with the cursor on it,
 lists what implements it.
 
+`super().word` in a Python method and `super.word` in a TypeScript class are `self` / `this` with
+the walk started one level up, so an override leads to what it overrides:
+`store → Archive.store (via super of ColdArchive)`. Under several Python bases only what needs no
+method resolution order is proven: the first base declaring the member itself, or every base
+leading to the same declaration (`Generic[T]`, `Protocol`, `ABC` and `object` aside). Bases that
+disagree, or one outside the project that may declare the member first, leave the word to the
+search by name, and so does `super()` in a function inside the method. Go has no `super`: its
+`i.Base.Touch()` is a chain through the embedded struct.
+
 A chain is followed the same way one field at a time, up to six names in front of the word: on
 `self.uow.users.delete_user` the type of `self.uow`, then the field `users` in that type, then
 `delete_user` in the type of `users`. A field may be declared in a class the type extends, or

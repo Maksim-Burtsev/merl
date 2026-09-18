@@ -881,6 +881,14 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
         .strip_suffix("::")
         .or_else(|| before.strip_suffix('.'))
     {
+        // Python's `super().` reads as TypeScript's `super.` does: one name.
+        if let Some(head) = rest.strip_suffix("super()")
+            && !head.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '.')
+        {
+            chain.insert(0, "super".to_owned());
+            before = head;
+            break;
+        }
         let mut start = rest
             .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
             .map_or(0, |i| i + 1);
@@ -1603,11 +1611,12 @@ fn value_of(kind: Kind, expr: &str) -> Value {
 /// - Python: a name belongs to its function, so its parameters and every binding in the body
 ///   count, before the cursor or after it, then the enclosing functions', then the module's.
 ///   Nested functions and classes are scopes of their own. A comprehension or a `lambda` counts
-///   on the cursor line only. `self` / `cls` is the class a method sits in.
+///   on the cursor line only. `self` / `cls` is the class a method sits in, and so is `super`
+///   (what [`qualifier`] makes of `super()`): the caller starts above that class.
 /// - TypeScript and Go: `const`, `let` and `:=` belong to their block, so the declarations above
 ///   the cursor count, in the blocks around it, told by indentation: a function's parameters, a Go
 ///   receiver, the statements at each block's level. `this` is the class around it, unless a
-///   `function` or an object literal comes first.
+///   `function` or an object literal comes first, and `super` reads as `this` does.
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -1687,6 +1696,15 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     scopes.push(None);
 
     let mut out = Vec::new();
+    // `super()` is the class of the method it is written in, and nothing in a function inside
+    // that method, where the call has no arguments to find.
+    if name == "super" {
+        if let Some(line) = scopes[0].and_then(|d| python_class_of(lines, d)) {
+            let value = Value::Class(line);
+            out.push(Binding { line, value });
+        }
+        return out;
+    }
     for scope in scopes {
         let (start, base) = match scope {
             Some(d) => {
@@ -1803,7 +1821,7 @@ fn python_class_of(lines: &[&str], d: usize) -> Option<usize> {
 /// statement, a line indented less opens the block the walk is in, and deeper lines belong to
 /// blocks already closed.
 fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    let this = kind == Kind::TsJs && name == "this";
+    let this = kind == Kind::TsJs && (name == "this" || name == "super");
     let mut out = Vec::new();
     if !this {
         opener_bindings(kind, &uncommented(kind, lines[at]), at + 1, name, &mut out);
@@ -3661,6 +3679,11 @@ output "bucket" {
         assert!(q("a[0].users.find()", 11).is_empty());
         assert!(q("a?.users.find()", 9).is_empty());
         assert!(q("  .users.find()", 9).is_empty());
+        // Python's `super()` is one name, as TypeScript's `super` is; `my_super()` is a call.
+        assert_eq!(q("        super().store(item)", 16), ["super"]);
+        assert_eq!(q("    print(super().label)", 18), ["super"]);
+        assert!(q("    my_super().store(item)", 15).is_empty());
+        assert!(q("    a.super().store(item)", 14).is_empty());
         // A spread and a range are no member access.
         assert_eq!(q("f(...this.repo.find())", 15), ["this", "repo"]);
         assert_eq!(q("for i in 0..v.len() {", 14), ["v"]);

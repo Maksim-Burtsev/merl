@@ -2045,6 +2045,21 @@ impl App {
         // What the status line lists: `repo: UserRepository`, or `self.uow: UnitOfWork` for the
         // receiver and its field, then `users: UserRepository` for each field after them.
         let mut links = vec![call.unwrap_or_else(|| format!("{}: {}", chain[0], ty.name))];
+        // `super().m()` / `super.m()` is `self` / `this` with the walk started one level up.
+        if chain[0] == "super" {
+            let [_] = chain else {
+                return Err(chain[1].clone());
+            };
+            let hits = self.above(kind, &ty, word)?;
+            let label = format!("super of {}", ty.name);
+            return Ok(hits
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(label.clone()),
+                })
+                .collect());
+        }
         for (i, field) in chain.iter().enumerate().skip(1) {
             // ponytail: six names in front of the word; a longer chain breaks at the seventh.
             if i == 6 {
@@ -2569,6 +2584,54 @@ impl App {
                         .is_some_and(|d| !is_protocol(&text, d))
             })
             .collect()
+    }
+
+    /// The declaration of `word` that `super` reaches from `ty`: a method, else a declared field,
+    /// of the types above it. Under one base that is the nearest one up the line. Under several,
+    /// Python orders them as no walk by depth does, so only what needs no ordering is proven: the
+    /// first base declaring the member itself, or every base leading to the same line. `Err` when
+    /// they differ, or when a base is outside the project and may declare the member first.
+    fn above(&self, kind: Kind, ty: &Typed, word: &str) -> Result<Vec<Hit>, String> {
+        let broke = || "super".to_owned();
+        let find = &mut |t: &Typed| {
+            let members = self.members_of(kind, t, word);
+            match members.is_empty() {
+                true => self.field_of(kind, t, word, false).map(|hit| vec![hit]),
+                false => Some(members),
+            }
+        };
+        let text = self.text_of(&ty.path).ok_or_else(broke)?;
+        // ponytail: bases that declare no member worth a jump, by their usual spelling.
+        let plain = |b: &str| {
+            let b = b.split('[').next().unwrap_or(b);
+            let b = b.rsplit('.').next().unwrap_or(b);
+            matches!(b, "Generic" | "Protocol" | "ABC" | "object")
+        };
+        let written = search::bases(kind, &text, ty.line);
+        let bases: Vec<&String> = written.iter().filter(|b| !plain(b)).collect();
+        let mut answers: Vec<Vec<Hit>> = Vec::new();
+        for (i, base) in bases.iter().enumerate() {
+            let Some(base) = self.type_decl(kind, &ty.path, base) else {
+                return Err(broke());
+            };
+            if i == 0
+                && let Some(own) = find(&base)
+            {
+                return Ok(own);
+            }
+            let lines = |hits: &[Hit]| -> Vec<(PathBuf, usize)> {
+                hits.iter().map(|h| (h.path.clone(), h.line)).collect()
+            };
+            if let Some(hits) = self.hierarchy(kind, &base, 1, find)
+                && answers.iter().all(|a| lines(a) != lines(&hits))
+            {
+                answers.push(hits);
+            }
+        }
+        match answers.len() {
+            0 | 1 => Ok(answers.pop().unwrap_or_default()),
+            _ => Err(broke()),
+        }
     }
 
     /// `find` in `ty`, then in the types it extends or embeds, nearest first: the first answer.
@@ -4510,21 +4573,26 @@ mod tests {
     }
 
     /// Presses `d` on the last word of the first line of `file` that contains `code`, or starts
-    /// with it when `code` starts with `^`.
+    /// with it when `code` starts with `^`. A `|` in `code` is not part of the line: it stands
+    /// after the word to press `d` on, and what follows it only picks the line.
     fn d_on(a: &mut App, file: &str, code: &str) {
+        let (code, rest) = code.split_once('|').unwrap_or((code, ""));
+        let whole = format!("{code}{rest}");
+        let (code, whole) = (code, whole.as_str());
         let path = a.root.join(file);
         let text = std::fs::read_to_string(&path).unwrap();
         let (n, line) = text
             .lines()
             .enumerate()
-            .find(|(_, l)| match code.strip_prefix('^') {
+            .find(|(_, l)| match whole.strip_prefix('^') {
                 Some(start) => l.starts_with(start),
-                None => l.contains(code),
+                None => l.contains(whole),
             })
-            .unwrap_or_else(|| panic!("no `{code}` in {file}"));
+            .unwrap_or_else(|| panic!("no `{whole}` in {file}"));
         let code = code.trim_start_matches('^');
         a.jump_to(&path, n + 1);
-        a.col = line.find(code).unwrap() + code.rfind(|c: char| !is_word(c)).map_or(0, |i| i + 1);
+        a.col = line.find(whole.trim_start_matches('^')).unwrap()
+            + code.rfind(|c: char| !is_word(c)).map_or(0, |i| i + 1);
         press(a, KeyCode::Char('d'), KeyModifiers::NONE);
     }
 
@@ -5622,6 +5690,226 @@ mod tests {
                 "fields.go",
                 "^\tPosterID",
                 namesakes("PosterID", ("Comment.PosterID", "fields.go:20")),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100: `super().m()` / `super.m()` is `self` / `this` with the walk started one level up, so
+    /// an override leads to what it overrides and never to itself. Go has no `super`: its
+    /// `i.Base.M()` is a chain through the embedded struct. Under several Python bases only what
+    /// needs no method resolution order is proven.
+    #[test]
+    fn super_starts_one_level_up() {
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // One base: the nearest declaration above the class, a method or a declared field.
+            (
+                "python",
+                "supers.py",
+                "super().__init__",
+                jump(
+                    "__init__ \u{2192} Archive.__init__ (via super of ColdArchive)",
+                    "supers.py:12",
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().store|(item)",
+                jump(
+                    "store \u{2192} Archive.store (via super of ColdArchive)",
+                    "supers.py:15",
+                ),
+            ),
+            // An override leads to what it overrides, never to itself; `Generic[T]` declares nothing.
+            (
+                "python",
+                "supers.py",
+                "super().store|(item + 1)",
+                jump(
+                    "store \u{2192} ColdArchive.store (via super of GlacierArchive)",
+                    "supers.py:26",
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().flush|()",
+                jump(
+                    "flush \u{2192} Archive.flush (via super of GlacierArchive)",
+                    "supers.py:18",
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().label",
+                jump(
+                    "label \u{2192} Archive.label (via super of GlacierArchive)",
+                    "supers.py:10",
+                ),
+            ),
+            // A function inside the method: `super()` has no arguments to find there.
+            (
+                "python",
+                "supers.py",
+                "super().flush|(), \"no arg",
+                picker(
+                    "flush: by name, 4 declarations",
+                    &[
+                        ("Archive.flush", "supers.py:18"),
+                        ("GlacierArchive.flush", "supers.py:36"),
+                        ("Right.flush", "supers.py:63"),
+                        ("Diamond.flush", "supers.py:68"),
+                    ],
+                ),
+            ),
+            // Several bases: the first one declaring the member itself is first in any order.
+            (
+                "python",
+                "supers.py",
+                "super().store|(item + 2)",
+                jump(
+                    "store \u{2192} Stamped.store (via super of Mixed)",
+                    "supers.py:44",
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().stamp",
+                jump(
+                    "stamp \u{2192} Stamped.stamp (via super of Mixed)",
+                    "supers.py:47",
+                ),
+            ),
+            // Only one of the bases leads to a `flush`.
+            (
+                "python",
+                "supers.py",
+                "super().flush|(), \"one base",
+                jump(
+                    "flush \u{2192} Archive.flush (via super of Mixed)",
+                    "supers.py:18",
+                ),
+            ),
+            // `Left` leads to `Archive.flush`, `Right` declares its own, and Python asks `Right` first: a
+            // walk by depth would jump to the wrong one, so none is proven.
+            (
+                "python",
+                "supers.py",
+                "super().flush|(), \"Right",
+                picker(
+                    "flush: by name, 4 declarations",
+                    &[
+                        ("Archive.flush", "supers.py:18"),
+                        ("GlacierArchive.flush", "supers.py:36"),
+                        ("Right.flush", "supers.py:63"),
+                        ("Diamond.flush", "supers.py:68"),
+                    ],
+                ),
+            ),
+            // `json.JSONEncoder` is outside the project and may declare the member first.
+            (
+                "python",
+                "supers.py",
+                "super().store|(item + 3)",
+                picker(
+                    "store: by name, 6 declarations",
+                    &[
+                        ("Archive.store", "supers.py:15"),
+                        ("ColdArchive.store", "supers.py:26"),
+                        ("GlacierArchive.store", "supers.py:31"),
+                        ("Stamped.store", "supers.py:44"),
+                        ("Mixed.store", "supers.py:52"),
+                        ("Wire.store", "supers.py:73"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().default",
+                picker(
+                    "default: by name, 2 declarations",
+                    &[
+                        ("Wire.default", "supers.py:76"),
+                        ("Encoder.default", "fields.py:60"),
+                    ],
+                ),
+            ),
+            // A name between `super()` and the word is not followed: the word is not looked for
+            // above the class as if it stood behind `super()` itself.
+            (
+                "python",
+                "supers.py",
+                "super().audit.store",
+                picker(
+                    "store: by name, 6 declarations (chain broke at audit)",
+                    &[
+                        ("Archive.store", "supers.py:15"),
+                        ("ColdArchive.store", "supers.py:26"),
+                        ("GlacierArchive.store", "supers.py:31"),
+                        ("Stamped.store", "supers.py:44"),
+                        ("Mixed.store", "supers.py:52"),
+                        ("Wire.store", "supers.py:73"),
+                    ],
+                ),
+            ),
+            // TypeScript: one `extends`.
+            (
+                "typescript",
+                "supers.ts",
+                "super.store|(item);",
+                jump(
+                    "store \u{2192} Archive.store (via super of ColdArchive)",
+                    "supers.ts:8",
+                ),
+            ),
+            (
+                "typescript",
+                "supers.ts",
+                "super.store|(item + 1)",
+                jump(
+                    "store \u{2192} ColdArchive.store (via super of GlacierArchive)",
+                    "supers.ts:18",
+                ),
+            ),
+            (
+                "typescript",
+                "supers.ts",
+                "super.flush",
+                jump(
+                    "flush \u{2192} Archive.flush (via super of GlacierArchive)",
+                    "supers.ts:10",
+                ),
+            ),
+            // An arrow function passes `super` through as it does `this`.
+            (
+                "typescript",
+                "supers.ts",
+                "super.store|(n)",
+                jump(
+                    "store \u{2192} ColdArchive.store (via super of GlacierArchive)",
+                    "supers.ts:18",
+                ),
+            ),
+            // In an object literal `super` is the literal's prototype, not the class around it.
+            (
+                "typescript",
+                "supers.ts",
+                "super.toString",
+                picker(
+                    "toString: by name, 2 declarations",
+                    &[
+                        ("Archive.toString", "supers.ts:12"),
+                        ("toString", "supers.ts:32"),
+                    ],
+                ),
             ),
         ];
         for (fixture, file, code, want) in cases {

@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `@functools.cached_property` and a TypeScript getter that declare their return type, so
   `self.repos.users.get_one` in a FastAPI service reaches the repository. One without a return
   type is where the chain breaks, and the search by name answers. (#87)
+- `d` on `super().store` in Python and `super.store` in TypeScript lands on what the method
+  overrides: the lookup of `self` / `this` started one level up, `store → Archive.store (via super
+  of ColdArchive)`, where it used to list every `store` by name. Under several Python bases it
+  jumps only when the answer needs no method resolution order. (#100)
 
 ### Changed
 

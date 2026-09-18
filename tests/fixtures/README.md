@@ -51,5 +51,12 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   constructor, and `Issue.label` reads its fields inside `case …: {` blocks, which are no object
   literals, and inside the literal a `case …: return {` returns, which is one.
 
+- `super` (#100): `supers` (Python and TypeScript; Go has no `super`) has an `Archive` whose
+  `store` a `ColdArchive` and below it a `GlacierArchive` override, each calling `super`, a field
+  and a method two levels up, `super` in a nested function (Python) and in an object literal's
+  method (TypeScript), where it is not the class's, and in Python the cases of several bases: the
+  first base declaring the member (`Mixed`), one base leading to it, a diamond whose `Right.flush`
+  a walk by depth would pass (`Diamond`), and a first base outside the project (`Wire`).
+
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.
