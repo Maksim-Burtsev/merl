@@ -16,6 +16,7 @@ use crate::buffer::{Buffer, Spans};
 use crate::git::Mark;
 use crate::line_edit::LineEdit;
 use crate::picker::PickItem;
+use crate::search::MAX_HITS;
 use crate::theme::Theme;
 use crate::wrap;
 
@@ -302,7 +303,13 @@ fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base
     let (matched, total) = picker.counts();
     let accent = base.fg(theme.accent);
     let block = Block::bordered()
-        .title(format!("{} ({matched}/{total})", picker.title))
+        .title(if picker.live {
+            // Nothing filters the hits, and the grep stops at MAX_HITS: that many is a floor.
+            let more = if total as usize >= MAX_HITS { "+" } else { "" };
+            format!("{} ({total}{more} hits)", picker.title)
+        } else {
+            format!("{} ({matched}/{total})", picker.title)
+        })
         .border_style(accent)
         .title_style(accent.add_modifier(Modifier::BOLD))
         .style(base);
@@ -314,7 +321,8 @@ fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base
     }
 
     let [prompt, list] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(inner);
-    draw_prompt(frame, "> ", &picker.query, base, prompt);
+    let prefix = if picker.live { "s> " } else { "> " };
+    draw_prompt(frame, prefix, &picker.query, base, prompt);
 
     let (rows, selected) = picker.window(list.height as usize);
     let width = list.width as usize;
@@ -566,7 +574,6 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
     let prefix = match app.mode {
         Mode::Goto => ":",
         Mode::Find => "/",
-        Mode::Search => "s>",
         _ => "",
     };
     if !prefix.is_empty() {

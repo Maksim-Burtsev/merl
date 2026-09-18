@@ -44,6 +44,8 @@ enum Msg {
     Fs(notify::Event),
     /// `git diff` finished for the file at this path.
     Diff(PathBuf, git::Diff),
+    /// The `s` grep with this number finished.
+    Search(u64, Vec<search::Hit>),
     /// SIGTERM, SIGHUP or SIGINT from outside: save and leave as `q` does.
     Quit,
 }
@@ -249,6 +251,13 @@ fn event_loop(
                 let _ = tx.send(Msg::Diff(path, diff));
             });
         }
+        if let Some(job) = app.search_tick() {
+            // In a thread: a grep over a large project takes longer than a keystroke.
+            let tx = diff_tx.clone();
+            std::thread::spawn(move || {
+                let _ = tx.send(Msg::Search(job.seq, job.hits()));
+            });
+        }
         // Typing (edit mode, or any prompt) gets a bar, navigating a block, like vim: the shape
         // says which mode you are in without looking at the status bar.
         let now = !matches!(app.mode, Mode::Normal | Mode::Help);
@@ -309,6 +318,7 @@ fn event_loop(
                 app.flush();
                 return Ok(());
             }
+            Ok(Msg::Search(seq, hits)) => dirty |= app.search_done(seq, hits),
             Ok(Msg::Resize) | Ok(Msg::Redraw) => dirty = true,
             Ok(Msg::Fs(ev)) => {
                 if concerns_open_file(app, &ev) {
