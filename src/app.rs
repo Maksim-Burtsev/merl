@@ -264,6 +264,11 @@ struct Edit {
     after: (usize, usize),
 }
 
+/// `1 hit`, `2 hits`.
+pub fn plural(n: usize) -> &'static str {
+    if n == 1 { "" } else { "s" }
+}
+
 impl App {
     pub fn new(
         root: PathBuf,
@@ -1008,7 +1013,7 @@ impl App {
     /// Why `file 1` became `file 74`.
     fn say_skipped(&mut self, skipped: usize) {
         if skipped > 0 {
-            let s = if skipped == 1 { "" } else { "s" };
+            let s = plural(skipped);
             self.message = format!("skipped {skipped} file{s} without hunks");
         }
     }

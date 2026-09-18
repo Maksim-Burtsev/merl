@@ -106,6 +106,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as for a modified file, and only Ctrl+S writes the file back. (#119)
 - An unbound Alt+letter (Option+letter on a Mac) in edit mode does nothing. It used to leave edit
   mode without a word, so the rest of the word ran as commands and its `q` quit merl. (#120)
+- The `s` picker titles a single match `Search (1 hit)`, not `1 hits`. (#121)
 
 ### Added
 
