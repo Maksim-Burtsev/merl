@@ -2187,8 +2187,6 @@ fn go_embedded(t: &str) -> Option<&str> {
 pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
     static PY_DEF: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:async\s+)?def\s+\w+\s*\(").unwrap());
-    static PY_RETURN: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*->\s*(.+?)\s*:(?:\s|#|$)").unwrap());
     static TS_FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:(?:export|default|declare|async)\s+)*(?:function\*?\s*[\w$]*|(?:const|let|var)\s+[\w$]+\s*(?::[^=]+)?=\s*(?:async\s+)?(?:function\*?\s*[\w$]*)?)\s*(?:<[^>]*>)?\s*\(").unwrap()
     });
@@ -2208,9 +2206,12 @@ pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
     let open = opener.find(lines[k])?.end() - 1;
     let (_, end, after) = group(kind, &lines, k, open)?;
     match kind {
-        Kind::Python => PY_RETURN
-            .captures(after)
-            .map(|c| Value::Type(c[1].to_owned())),
+        // `-> T:` ends at the first colon outside strings and brackets; a body may follow it.
+        Kind::Python => {
+            let parts = split_top(kind, after, b':');
+            let t = parts[0].trim().strip_prefix("->")?.trim();
+            (parts.len() > 1 && !t.is_empty()).then(|| Value::Type(t.to_owned()))
+        }
         Kind::TsJs => {
             if let Some(c) = TS_RETURN.captures(after) {
                 return Some(Value::Type(c[1].to_owned()));
@@ -3694,6 +3695,10 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
     class Inner:
         @property
         def inner(self) -> Inner: ...
+
+    def make(self):
+        @property
+        def nested(self) -> Nested: ...
 ";
         let at = |name| fields(Kind::Python, text, 1, name);
         // The setter declares no type of its own.
@@ -3703,6 +3708,8 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
         assert_eq!(at("mixins"), [(21, Value::Unknown)]);
         assert_eq!(at("plain"), []);
         assert_eq!(at("inner"), []);
+        // A property nested in a method is no field of the class.
+        assert_eq!(at("nested"), []);
     }
 
     #[test]
@@ -3719,6 +3726,11 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
   get mixins() {
     return new HttpRepo();
   }
+  make() {
+    return {
+      get nested(): Other { return x; },
+    };
+  }
 }
 ";
         let at = |name| fields(Kind::TsJs, text, 1, name);
@@ -3726,6 +3738,8 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
         assert_eq!(at("audit"), [(8, ty("AuditLog | null"))]);
         assert_eq!(at("jobs"), [(9, ty("Jobs"))]);
         assert_eq!(at("mixins"), [(10, Value::Unknown)]);
+        // An object literal's getter inside a method is no field of the class.
+        assert_eq!(at("nested"), []);
     }
 
     #[test]
@@ -3976,11 +3990,16 @@ func (b Batch) Send(text string, retries int) {
 
     #[test]
     fn returns_read_the_declared_type_or_what_typescript_constructs() {
-        let py = "def make_repo() -> UserRepository:\n    return UserRepository()\n\nasync def connect(\n    url: str,\n) -> \"Session\":\n    ...\n\ndef untyped():\n    return Repo()\n\ndef stub() -> Repo: ...\n";
+        let py = "def make_repo() -> UserRepository:\n    return UserRepository()\n\nasync def connect(\n    url: str,\n) -> \"Session\":\n    ...\n\ndef untyped():\n    return Repo()\n\ndef stub() -> Repo: ...\n\ndef documented() -> Annotated[Repo, \"doc: x\"]: ...\n";
         assert_eq!(returns(Kind::Python, py, 1), Some(ty("UserRepository")));
         assert_eq!(returns(Kind::Python, py, 4), Some(ty("\"Session\"")));
         assert_eq!(returns(Kind::Python, py, 9), None);
         assert_eq!(returns(Kind::Python, py, 12), Some(ty("Repo")));
+        // A `: ` inside a string is not the end of the annotation.
+        assert_eq!(
+            returns(Kind::Python, py, 14),
+            Some(ty("Annotated[Repo, \"doc: x\"]"))
+        );
         let ts = "export function makeRepo(): UserRepository {
   return new UserRepository();
 }

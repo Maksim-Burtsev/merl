@@ -4738,7 +4738,7 @@ mod tests {
                 ),
             ),
             // A `@cached_property` with a return type is a field of that type; a `@property`
-            // without one is not read.
+            // without one is not read, nor the typed one of the base class it overrides.
             (
                 "python",
                 "chains.py",

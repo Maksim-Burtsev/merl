@@ -39,12 +39,18 @@ export class Handler {
   }
 }
 
-export class Registry {
+export class BaseRegistry {
+  get audit(): AuditLog {
+    return new AuditLog();
+  }
+}
+
+export class Registry extends BaseRegistry {
   get users(): UserRepository {
     return new UserRepository();
   }
 
-  get audit() {
+  override get audit() {
     return new AuditLog();
   }
 }

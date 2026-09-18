@@ -44,7 +44,13 @@ class Handler:
         folder.parent.parent.parent.parent.parent.parent.root()
 
 
-class Registry:
+class BaseRegistry:
+    @property
+    def audit(self) -> AuditLog:
+        return AuditLog()
+
+
+class Registry(BaseRegistry):
     @cached_property
     def users(self) -> UserRepository:
         return UserRepository()
