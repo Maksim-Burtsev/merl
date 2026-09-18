@@ -255,7 +255,10 @@ the type before it. The type comes from the declaration:
 - a parameter handed on: `self.repo = repo`;
 - a call, one hop through the return type the function declares: `-> UserRepository`,
   `): UserRepository`, `func NewRepo() *UserRepository` (a Go function's first result), or a
-  TypeScript function whose every `return` is `new UserRepository()`.
+  TypeScript function whose every `return` is `new UserRepository()`;
+- a property with a declared return type: `@property`, `@cached_property` or
+  `@functools.cached_property` over `def users(self) -> UserRepository`, a getter
+  `get users(): UserRepository`.
 
 `T | None`, `Optional[T]`, `Annotated[T, …]`, `T | null` and generic arguments read as `T`.
 Every declaration of `x` in scope counts: in Python every binding in the function, the enclosing
@@ -278,9 +281,9 @@ promoted from a Go struct it embeds, and an embedded struct can be a link by its
 A type declared outside the project or any link the rules cannot prove leaves the word to the
 search by name below. With two or more names in front of the word the status line says where the
 chain broke: `delete_user: by name, 2 declarations (chain broke at item)` when `item` is typed by a
-generic parameter, or at the seventh name of a longer chain. A property or a getter, and a call
-inside the chain, are not followed: `make_uow().users.delete_user` is a member of a value whose
-type is not known.
+generic parameter, at a property or a getter with no return type, or at the seventh name of a
+longer chain. A call inside the chain is not followed: `make_uow().users.delete_user` is a member
+of a value whose type is not known.
 
 When the type of `x` is not known, every method of that name is a candidate: Python `def` and
 `async def` inside a class, TypeScript class and object-literal methods, properties holding a

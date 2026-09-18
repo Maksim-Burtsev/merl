@@ -1,5 +1,5 @@
+from functools import cached_property
 from typing import Generic, TypeVar
-
 from repos import AuditLog, UserRepository
 
 T = TypeVar("T")
@@ -42,3 +42,22 @@ class Handler:
         users.delete_user(user_id)
         folder.parent.parent.parent.parent.parent.root()
         folder.parent.parent.parent.parent.parent.parent.root()
+
+
+class Registry:
+    @cached_property
+    def users(self) -> UserRepository:
+        return UserRepository()
+
+    @property
+    def audit(self):
+        return AuditLog()
+
+
+class Admin:
+    def __init__(self, registry: Registry) -> None:
+        self.registry = registry
+
+    def purge(self, user_id: int) -> None:
+        self.registry.users.delete_user(user_id)
+        self.registry.audit.delete_user(user_id)
