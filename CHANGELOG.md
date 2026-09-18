@@ -95,6 +95,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nightfox, gruvbox-material-light and material-light move the selection a step along their own
   palette, solarized-light darkens it, dracula lightens the line highlight instead. The theme test
   now requires the two colours to be apart.
+- Review: `c` / `C` no longer stop dead in front of a submodule, with every file after it out of
+  reach: a submodule is walked past like a binary file and stays in the panel. A file that does
+  not open is walked past too, and the status bar says why it did not open. (#117)
+- `[` / `]` no longer stop dead at a history stop whose file was deleted or renamed, with every
+  stop behind it out of reach: the stop is dropped, the walk goes on to the next one that opens,
+  and the status bar says `hist2.py gone`. (#118)
+- The autosave no longer recreates a file that was deleted or renamed on disk, which left a stale
+  copy next to the file an agent had just renamed. Gone is changed on disk: the conflict is raised
+  as for a modified file, only Ctrl+S writes the file back, and Ctrl+R lets the edits go. (#119)
+- An unbound Alt+letter (Option+letter on a Mac) in edit mode does nothing. It used to leave edit
+  mode without a word, so the rest of the word ran as commands and its `q` quit merl. (#120)
+- The `s` picker titles a single match `Search (1 hit)`, not `1 hits`. (#121)
 
 ### Added
 
