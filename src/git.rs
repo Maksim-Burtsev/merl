@@ -205,12 +205,15 @@ impl Review {
             }
         }
         // `git diff` does not list untracked files, and a new module is the first thing to
-        // review. A nested repository is listed as `dir/`: not a file to read.
+        // review. A nested repository is listed as `dir/`: not a file to read. A path the
+        // branch deleted and somebody wrote again (or `git rm --cached`) is in both listings:
+        // one row per path, and the file on disk is the one to read.
         let others = git(&["ls-files", "--others", "--exclude-standard", "-z"])?;
         for path in others
             .split('\0')
             .filter(|p| !p.is_empty() && !p.ends_with('/'))
         {
+            files.retain(|f| f.path != Path::new(path));
             files.push(untracked(root, Path::new(path)));
         }
         // The panel's order, so `c` walks the files top to bottom.
@@ -228,7 +231,7 @@ impl Review {
     pub fn diff(&self, root: &Path, path: &Path, file: Option<&ReviewFile>) -> Diff {
         match file {
             Some(f) if f.untracked => {
-                let n = std::fs::read(path).map_or(0, |b| line_count(&b));
+                let n = count_lines(path).map_or(0, |(_, n)| n);
                 Diff {
                     marks: (0..n).map(|l| (l, Mark::Added)).collect(),
                     hunks: Vec::from_iter((n > 0).then_some(0)),
@@ -277,7 +280,10 @@ fn git(root: &Path, args: &[&str]) -> Result<String> {
             String::from_utf8_lossy(&out.stderr).trim()
         );
     }
-    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+    // Only the newline git ends a line with: a `-z` listing may start with a name in spaces.
+    Ok(String::from_utf8_lossy(&out.stdout)
+        .trim_end_matches('\n')
+        .to_string())
 }
 
 /// The git directory of the worktree at `root` (where `HEAD` is) and the repository's common
@@ -291,25 +297,40 @@ pub fn dirs(root: &Path) -> Option<(PathBuf, PathBuf)> {
 /// The row of an untracked file: `A`, every line added. Binary is what git calls binary, a NUL
 /// in the first 8000 bytes.
 ///
-/// ponytail: every untracked file is read on every refresh to count its lines. A branch with
-/// thousands of them wants the counts cached by mtime.
+/// ponytail: every untracked text file is read on every refresh to count its lines, in 64 KiB
+/// pieces, so a huge log costs time and no memory. A branch with thousands of them, or a
+/// gigabyte of text, wants the counts cached by size and mtime.
 fn untracked(root: &Path, path: &Path) -> ReviewFile {
-    let bytes = std::fs::read(root.join(path)).unwrap_or_default();
-    let binary = bytes.iter().take(8000).any(|&b| b == 0);
+    let (binary, added) = count_lines(&root.join(path)).unwrap_or((false, 0));
     ReviewFile {
         path: path.to_path_buf(),
         status: 'A',
         old: None,
-        added: if binary { 0 } else { line_count(&bytes) },
+        added,
         deleted: 0,
         binary,
         untracked: true,
     }
 }
 
-/// Lines as `git diff --numstat` counts them: a last line without a newline is a line.
-fn line_count(bytes: &[u8]) -> usize {
-    bytes.split(|&b| b == b'\n').count() - usize::from(bytes.is_empty() || bytes.ends_with(b"\n"))
+/// Is the file binary, and its lines as `git diff --numstat` counts them: a last line without
+/// a newline is a line. A binary file is not read past the 8000 bytes that say so.
+fn count_lines(path: &Path) -> std::io::Result<(bool, usize)> {
+    use std::io::Read;
+    let mut file = std::fs::File::open(path)?;
+    let mut piece = vec![0; 1 << 16];
+    let (mut lines, mut last, mut first) = (0, b'\n', true);
+    loop {
+        let n = file.read(&mut piece)?;
+        if n == 0 {
+            return Ok((false, lines + usize::from(last != b'\n')));
+        }
+        if std::mem::take(&mut first) && piece[..n.min(8000)].contains(&0) {
+            return Ok((true, 0));
+        }
+        lines += piece[..n].iter().filter(|&&b| b == b'\n').count();
+        last = piece[n - 1];
+    }
 }
 
 /// `git diff --name-status -z`: `STATUS\0path\0`, and `Rnnn\0old\0new\0` for a rename.
@@ -553,6 +574,54 @@ mod tests {
             Review::open(&dir, Some("feature"), None).is_err(),
             "dirty switch"
         );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #76: a branch whose only change is not in git yet is a review.
+    #[test]
+    fn untracked_files_are_rows_of_the_review() {
+        let dir = std::env::temp_dir().join(format!("merl-untracked-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("sub")).unwrap();
+        let git = |at: &Path, args: &[&str]| {
+            let out = Command::new("git").arg("-C").arg(at).args(args).output();
+            assert!(out.unwrap().status.success(), "git {args:?}");
+        };
+        git(&dir, &["init", "-q", "-b", "main"]);
+        git(&dir, &["config", "user.email", "t@t"]);
+        git(&dir, &["config", "user.name", "t"]);
+        std::fs::write(dir.join(".gitignore"), "*.log\n").unwrap();
+        git(&dir, &["add", "."]);
+        git(&dir, &["commit", "-q", "-m", "base"]);
+        git(&dir, &["switch", "-q", "-c", "feature"]);
+        assert!(Review::open(&dir, None, None).is_err(), "no changes");
+        // A name git lists first and in spaces, an empty file, text with a NUL past the 8000
+        // bytes git looks at, a binary, an ignored file, and a nested repository (`sub/`).
+        std::fs::write(dir.join(" lead.py"), "x = 1\n").unwrap();
+        std::fs::write(dir.join("empty.py"), "").unwrap();
+        std::fs::write(dir.join("long.txt"), "ab\n".repeat(3000) + "\0").unwrap();
+        std::fs::write(dir.join("logo.png"), b"\x89PNG\0\n\n").unwrap();
+        std::fs::write(dir.join("agent.log"), "noise\n").unwrap();
+        git(&dir.join("sub"), &["init", "-q"]);
+        std::fs::write(dir.join("sub/inner.py"), "y = 2\n").unwrap();
+        let r = Review::open(&dir, None, None).unwrap();
+        let rows: Vec<_> = r
+            .files
+            .iter()
+            .map(|f| (f.path.to_str().unwrap(), f.added, f.binary, f.has_hunks()))
+            .collect();
+        assert_eq!(
+            rows,
+            vec![
+                (" lead.py", 1, false, true),
+                ("empty.py", 0, false, false),
+                ("logo.png", 0, true, false),
+                ("long.txt", 3001, false, true),
+            ]
+        );
+        assert!(r.files.iter().all(|f| f.status == 'A' && f.untracked));
+        let d = r.diff(&dir, &dir.join("empty.py"), r.file(Path::new("empty.py")));
+        assert_eq!(d, Diff::default());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

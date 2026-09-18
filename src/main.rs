@@ -46,8 +46,8 @@ enum Msg {
     Fs(notify::Event),
     /// The project was walked again after it changed on disk.
     Project(tree::Tree, Vec<PathBuf>),
-    /// The branch under review was listed again; `None` when git could not (mid-rebase).
-    Review(Option<git::Review>),
+    /// The branch under review was listed again, or why git could not.
+    Review(Result<git::Review, String>),
     /// `git diff` finished for the file at this path.
     Diff(PathBuf, git::Diff),
     /// The `s` grep with this number finished.
@@ -295,7 +295,8 @@ fn event_loop(
             // In a thread, like the marks: four git commands over the whole branch.
             let (tx, root, r) = (diff_tx.clone(), app.root.clone(), r.clone());
             std::thread::spawn(move || {
-                let _ = tx.send(Msg::Review(r.refresh(&root).ok()));
+                let fresh = r.refresh(&root).map_err(|e| format!("{e:#}"));
+                let _ = tx.send(Msg::Review(fresh));
             });
         }
         if let Some(job) = app.search_tick() {
@@ -391,8 +392,15 @@ fn event_loop(
                 if let Some(r) = &mut review {
                     r.listed();
                 }
-                // What git could not list stays as it was until the next event.
-                dirty |= fresh.is_some_and(|fresh| app.review_refreshed(fresh));
+                // What git could not list stays as it was until the next event, and says so:
+                // a base that was deleted fails every time.
+                dirty |= match fresh {
+                    Ok(fresh) => app.review_refreshed(fresh),
+                    Err(e) => {
+                        app.message = format!("review not refreshed: {e}");
+                        true
+                    }
+                };
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),

@@ -169,6 +169,9 @@ pub struct Review {
     head: PathBuf,
     refs: PathBuf,
     packed_refs: PathBuf,
+    /// Where a repository made with `--ref-format=reftable` keeps its refs: `HEAD` and
+    /// `refs/` are placeholders there and never change.
+    reftables: [PathBuf; 2],
     changed: Debounce,
     listing: bool,
 }
@@ -180,6 +183,7 @@ impl Review {
             head: git_dir.join("HEAD"),
             refs: common_dir.join("refs"),
             packed_refs: common_dir.join("packed-refs"),
+            reftables: [git_dir.join("reftable"), common_dir.join("reftable")],
             changed: Debounce::default(),
             listing: false,
         }
@@ -198,14 +202,17 @@ impl Review {
         self.changed.touch(now);
     }
 
-    /// `HEAD`, a loose ref under `refs/` or `packed-refs` was written (git renames a `.lock`
-    /// over them). The index and the objects are not the branch: merl's own `git diff` and an
+    /// `HEAD`, a loose ref under `refs/`, `packed-refs` or a reftable was written (git renames
+    /// a `.lock` over them). The index and the objects are not the branch: merl's own `git diff` and an
     /// editor's `git status` refresh the index, and must not ask for another listing.
     fn moves_the_branch(&self, ev: &notify::Event) -> bool {
         let lock = |p: &Path| p.extension().is_some_and(|e| e == "lock");
         !matches!(ev.kind, EventKind::Access(_))
             && ev.paths.iter().any(|p| {
-                *p == self.head || *p == self.packed_refs || p.starts_with(&self.refs) && !lock(p)
+                let store = [&self.refs, &self.reftables[0], &self.reftables[1]];
+                *p == self.head
+                    || *p == self.packed_refs
+                    || !lock(p) && store.iter().any(|dir| p.starts_with(dir))
             })
     }
 
@@ -229,6 +236,15 @@ impl Review {
             (self.head.parent(), RecursiveMode::NonRecursive),
             (self.packed_refs.parent(), RecursiveMode::NonRecursive),
             (Some(self.refs.as_path()), RecursiveMode::Recursive),
+            // Not there with the files backend: the error is the answer.
+            (
+                Some(self.reftables[0].as_path()),
+                RecursiveMode::NonRecursive,
+            ),
+            (
+                Some(self.reftables[1].as_path()),
+                RecursiveMode::NonRecursive,
+            ),
         ] {
             let _ = watcher.watch(path.unwrap_or(Path::new("")), mode);
         }
@@ -346,7 +362,7 @@ mod tests {
         }
         // inotify overflowed: no path, something was missed.
         let ev = notify::Event::new(EventKind::Other).set_flag(Flag::Rescan);
-        assert!(p.concerns(&ev));
+        assert!(p.concerns(&ev) && p.touched(&ev));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -406,6 +422,12 @@ mod tests {
             ("refs/heads/feat/live", true),
             ("refs/remotes/origin/master", true),
             ("packed-refs", true),
+            ("reftable/tables.list", true),
+            (
+                "worktrees/wt/reftable/0x000000000002-0x000000000002-a1b2c3d4.ref",
+                true,
+            ),
+            ("reftable/tables.list.lock", false),
             ("worktrees/wt/HEAD.lock", false),
             ("refs/heads/feature.lock", false),
             ("HEAD", false), // of the main checkout
@@ -416,6 +438,8 @@ mod tests {
             let ev = notify::Event::new(rename).add_path(common.join(path));
             assert_eq!(r.moves_the_branch(&ev), want, "{path}");
         }
+        let read = notify::Event::new(EventKind::Access(notify::event::AccessKind::Any));
+        assert!(!r.moves_the_branch(&read.add_path(common.join("worktrees/wt/HEAD"))));
         // Debounced, and one listing at a time.
         let t0 = Instant::now();
         let ms = |n| t0 + Duration::from_millis(n);

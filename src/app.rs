@@ -1096,18 +1096,26 @@ impl App {
                 return true;
             }
         }
-        let old = std::mem::replace(&mut self.buf, Buffer::from_bytes(path, &bytes));
+        let old = std::mem::replace(&mut self.buf, Buffer::from_bytes(path.clone(), &bytes));
+        if self.review.is_some() {
+            // The reader stays in the hunk they are in when an agent writes above it: every
+            // line kept of this file goes down with its text, before anything is clamped.
+            let to = |l: &mut usize| *l = carried(&old.lines, &self.buf.lines, *l);
+            let stop = self.history.get_mut(self.hist_idx);
+            let stop = stop.filter(|s| s.0 == path && s.1 == self.line);
+            [&mut self.line, &mut self.top_line, &mut self.find_anchor.0]
+                .into_iter()
+                .chain(self.anchor.as_mut().map(|a| &mut a.0))
+                .chain(self.find_sel.as_mut().map(|a| &mut a.0))
+                .chain(stop.map(|s| &mut s.1))
+                .for_each(to);
+        }
         self.dirty = false;
         self.conflict = false;
         self.last_edit = None;
         self.undo.clear();
         self.redo.clear();
         self.refresh_diff();
-        if self.review.is_some() {
-            // The reader stays in the hunk they are in when an agent writes above it.
-            self.line = carried(&old.lines, &self.buf.lines, self.line);
-            self.top_line = carried(&old.lines, &self.buf.lines, self.top_line);
-        }
         let last = self.buf.lines.len() - 1;
         (self.line, self.col) = self.clamp_pos((self.line, self.col));
         self.top_line = self.top_line.min(last);
@@ -4371,7 +4379,10 @@ mod tests {
         let listed = rows(&a);
         git(&["add", "-A"]);
         git(&["commit", "-q", "-m", "more work"]);
-        refresh(&mut a);
+        assert!(
+            refresh(&mut a),
+            "the rows are tracked now: `untracked` went"
+        );
         assert_eq!(rows(&a), listed);
         assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 7/9");
         git(&["branch", "-f", "main", "HEAD~1"]);
@@ -4400,6 +4411,76 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// #76: the marks of the open file are read again when the base moves under it or its row
+    /// changes kind, with no write to the file itself, which is what `reload` answers.
+    #[test]
+    fn the_open_file_gets_new_marks_when_only_the_branch_changed() {
+        let (dir, mut a) = review_app("livemarks");
+        let git = |args: &[&str]| {
+            let mut cmd = std::process::Command::new("git");
+            let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+            assert!(out.status.success(), "git {args:?}");
+        };
+        let refresh = |a: &mut App| {
+            let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+            a.review_refreshed(fresh)
+        };
+        let keep = dir.join("src/keep.rs");
+        std::fs::write(&keep, "k1\nK2\nk3\n").unwrap();
+        git(&["commit", "-qam", "second"]);
+        std::fs::write(&keep, "k1\nK2\nK3\n").unwrap();
+        git(&["commit", "-qam", "third"]);
+        assert!(refresh(&mut a));
+        a.jump_to(&keep, 1);
+        assert_eq!(a.diff.marks.len(), 2);
+        // The base moves up to `second`: the row stays `M`, one mark is left.
+        git(&["branch", "-f", "main", "HEAD~1"]);
+        assert!(refresh(&mut a));
+        assert_eq!(a.diff.marks.len(), 1);
+        // The file leaves the index: the same merge base, a row of another kind, every line
+        // added. One row: the file on disk, not the deletion.
+        git(&["rm", "-q", "--cached", "src/keep.rs"]);
+        assert!(refresh(&mut a));
+        let rows = a.review.as_ref().unwrap().files.iter();
+        let rows: Vec<_> = rows
+            .filter(|f| f.path == Path::new("src/keep.rs"))
+            .collect();
+        assert_eq!(
+            (rows.len(), rows[0].status, rows[0].untracked),
+            (1, 'A', true)
+        );
+        assert_eq!(a.diff.marks.len(), 3);
+        assert_eq!(at(&a), (keep, 0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #76: the branch deleted `gone` and the agent writes it again, not added: git lists the
+    /// path as deleted and as untracked. It is one row, read from disk, and `c` walks past it.
+    #[test]
+    fn a_deleted_file_written_again_is_one_row() {
+        let (dir, mut a) = review_app("liveagain");
+        std::fs::write(dir.join("gone"), "fresh\n").unwrap();
+        let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+        assert!(a.review_refreshed(fresh));
+        let names = a.tree.nodes.iter().map(|n| n.path.to_str().unwrap());
+        assert_eq!(
+            names.collect::<Vec<_>>(),
+            vec!["src", "src/a.rs", "crlf.txt", "gone", "new", "tail"]
+        );
+        press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("gone"), 0));
+        assert_eq!(
+            (a.buf.lines.clone(), a.buf.readonly),
+            (vec!["fresh".to_string()], None)
+        );
+        press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("new"), 0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// #76: the reader is in the second hunk when the agent adds one above it. The cursor and
     /// the scroll go down with the text, so the hunk is still the current one and `c` goes on.
     #[test]
@@ -4409,6 +4490,9 @@ mod tests {
         a.view_h = 4;
         a.clamp_scroll();
         a.top_line = 3;
+        a.anchor = Some((4, 0));
+        let stop = |a: &App| a.history[a.hist_idx].clone();
+        assert_eq!(stop(&a), (dir.join("src/a.rs"), 5, 0));
         assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/5");
         std::fs::write(dir.join("src/a.rs"), "new\nnew\na\nB\nc\nd\ne\nF\n").unwrap();
         assert!(a.reload(false));
@@ -4417,6 +4501,25 @@ mod tests {
             (7, 5, "F")
         );
         assert_eq!(a.review_status().unwrap(), "hunk 3/3  file 1/5");
+        // What is selected is still selected, and the history stop is still under the cursor.
+        assert_eq!(a.anchor, Some((6, 0)));
+        assert_eq!(stop(&a), (dir.join("src/a.rs"), 7, 0));
+        a.anchor = None;
+        // A block deleted above the pane, from a file longer than what is left of it: the
+        // scroll is carried from where it was, not from where the shorter file clamps it.
+        let text = |r: std::ops::Range<usize>| r.map(|i| format!("l{i}\n")).collect::<String>();
+        std::fs::write(dir.join("src/a.rs"), text(0..40)).unwrap();
+        a.reload(false);
+        (a.view_h, a.line, a.top_line) = (10, 35, 30);
+        std::fs::write(dir.join("src/a.rs"), text(25..40)).unwrap();
+        a.reload(false);
+        assert_eq!(
+            (a.line, a.top_line, a.buf.lines[a.line].as_str()),
+            (10, 5, "l35")
+        );
+        std::fs::write(dir.join("src/a.rs"), "new\nnew\na\nB\nc\nd\ne\nF\n").unwrap();
+        a.reload(false);
+        a.jump_to(&dir.join("src/a.rs"), 8);
         press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
         assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
         // Written below the cursor, or the cursor's own line: nothing to follow.
@@ -7865,6 +7968,13 @@ mod tests {
         // An event that changes nothing must not even report a reload.
         a.reload(false);
         assert_eq!(a.message, "");
+
+        // Outside a review the cursor keeps its line number when lines are written above it.
+        a.line = 3;
+        std::fs::write(&path, "new\n".to_string() + &"line\n".repeat(10)).unwrap();
+        a.reload(false);
+        assert_eq!(a.line, 3);
+        a.line = 9;
 
         std::fs::write(&path, "a\nb\nc\n").unwrap();
         a.reload(false);
