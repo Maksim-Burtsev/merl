@@ -185,9 +185,18 @@ const ZIG_INLINE_FN_SYMBOL: &str = concat!(
 /// `d` can never jump to a test: a word inside a description declares nothing.
 const ZIG_TEST_SYMBOL: &str = r#"^\s*test\s+"(?P<name>[^"]*)""#;
 
-/// The module attributes Elixir itself gives a meaning to, rather than a project. They are
-/// directives, so [`def_patterns`] has no rule for the name itself.
+/// The module attributes Elixir and the libraries everyone uses give a meaning to, rather than a
+/// project. They are directives, so [`def_patterns`] has no rule for the name itself. A list of
+/// known names is all a line pattern can have here: any library may define an attribute, and
+/// `@tag :slow` and `@timeout 5_000` are the same line.
 const ELIXIR_DIRECTIVES: &[&str] = &[
+    // ExUnit and Mix, which every project in the language meets.
+    "describetag",
+    "endpoint",
+    "moduletag",
+    "shortdoc",
+    "switches",
+    "tag",
     "after_compile",
     "before_compile",
     "behaviour",
@@ -858,7 +867,9 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             || t == "{"
             || access
             || indent(l) >= depth
-            || ["#", "//", "/*", "*"].iter().any(|c| t.starts_with(c))
+            || ["#", "//", "/*", "*", "--"]
+                .iter()
+                .any(|c| t.starts_with(c))
         {
             continue;
         }
@@ -1781,29 +1792,78 @@ fn comment(kind: Kind, t: &str) -> bool {
 
 /// The 1-based lines of `text` that start inside a literal or a comment running over several
 /// lines: a Python or Elixir triple-quoted string (a docstring or an `@moduledoc` with an example
-/// in it), a Go raw string, a TypeScript template, a Lua `[[ ]]` long string or `--[[ ]]` block
-/// comment, a `/* */` block. A line there that reads like a declaration declares nothing. Strings
-/// of one line end with their line, whatever they hold.
+/// in it), a Go raw string, a TypeScript template, a Lua `[[ ]]` or `[==[ ]==]` long string or
+/// block comment, a `/* */` block. A line there that reads like a declaration declares nothing.
+/// Strings of one line end with their line, whatever they hold.
 ///
-/// ponytail: Lua's `[==[ ]==]` long brackets and Elixir's `~S"""` sigils are read as plain text,
-/// not as a literal.
+/// Each kind says which forms it has rather than inheriting another language's: Zig has none at
+/// all — a `\\` string ends with its line — and reading it with the backtick and `/* */` of the C
+/// family would take the ``` ``` ``` fences of the markdown a `\\` block holds for a literal and
+/// hide the rest of the file behind them.
+///
+/// ponytail: Elixir's `~S"""` sigil is read from its `"""`, and its one-line `~s(…)` forms not at
+/// all.
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
-    // Elixir writes its heredocs and its comments exactly as Python does.
-    let python = matches!(kind, Kind::Python | Kind::Elixir);
-    let lua = kind == Kind::Lua;
+    // Elixir writes its heredocs and its comments exactly as Python does; Lua's long bracket is
+    // its own string and, behind `--`, its block comment.
+    let (heredoc, long_bracket, template) = match kind {
+        Kind::Python | Kind::Elixir => (true, false, false),
+        Kind::Lua => (false, true, false),
+        Kind::Zig => (false, false, false),
+        _ => (false, false, true),
+    };
+    let line_comment: &[u8] = match (heredoc, long_bracket) {
+        (true, _) => b"#",
+        (_, true) => b"--",
+        _ => b"//",
+    };
     let b = text.as_bytes();
     let mut out = vec![false];
-    // The multi-line literal the scan is in, by its closing bytes; a one-line quote.
-    let (mut block, mut quote, mut i): (Option<&[u8]>, Option<u8>, usize) = (None, None, 0);
+    // The multi-line literal the scan is in, by its closing bytes, and, for a long bracket, the
+    // number of `=` its closer carries; a one-line quote.
+    let (mut block, mut level, mut quote, mut i): (Option<&[u8]>, usize, Option<u8>, usize) =
+        (None, 0, None, 0);
+    // A long bracket opening at `at` — `[[` or `[==[`, behind `--` or not: how many `=` it
+    // carries, and how far past `at` its second `[` sits. A `[` that opens nothing, as the one in
+    // the `\[[A-Za-z]\+\]` of a Vim regex, is no opener, so the `[=[` around it has to be read.
+    let opens = |at: usize| -> Option<(usize, usize)> {
+        let open = if b[at..].starts_with(b"--[") {
+            at + 2
+        } else {
+            at
+        };
+        if b.get(open) != Some(&b'[') {
+            return None;
+        }
+        let eq = b[open + 1..].iter().take_while(|&&c| c == b'=').count();
+        (b.get(open + 1 + eq) == Some(&b'[')).then_some((eq, open + 1 + eq - at))
+    };
     while i < b.len() {
         let c = b[i];
         if c == b'\n' {
             quote = None;
             out.push(block.is_some());
         } else if let Some(end) = block {
-            if b[i..].starts_with(end) && (end.len() > 1 || b[i - 1] != b'\\') {
+            // A long bracket closes on `]`, the `=` its opener carried, and `]`.
+            let closes = if long_bracket {
+                c == b']'
+                    && b[i + 1..]
+                        .iter()
+                        .take(level)
+                        .filter(|&&c| c == b'=')
+                        .count()
+                        == level
+                    && b.get(i + 1 + level) == Some(&b']')
+            } else {
+                b[i..].starts_with(end) && (end.len() > 1 || b[i - 1] != b'\\')
+            };
+            if closes {
                 block = None;
-                i += end.len() - 1;
+                i += if long_bracket {
+                    level + 1
+                } else {
+                    end.len() - 1
+                };
             }
         } else if let Some(q) = quote {
             if c == b'\\' {
@@ -1811,29 +1871,25 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             } else if c == q {
                 quote = None;
             }
-        } else if python && (b[i..].starts_with(b"\"\"\"") || b[i..].starts_with(b"'''")) {
+        } else if heredoc && (b[i..].starts_with(b"\"\"\"") || b[i..].starts_with(b"'''")) {
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" });
             i += 2;
-        } else if lua && (b[i..].starts_with(b"--[[") || b[i..].starts_with(b"[[")) {
-            // Lua's long bracket, a string on its own and a block comment behind `--`; both end
-            // at the same `]]`, and the `--` has to be read here rather than as a line comment.
+        } else if let Some((eq, skip)) = long_bracket.then(|| opens(i)).flatten() {
             block = Some(b"]]");
-            i += if c == b'-' { 3 } else { 1 };
-        } else if !python && !lua && c == b'`' {
+            level = eq;
+            i += skip;
+        } else if template && c == b'`' {
             // ponytail: `/`/` is a regex, told by the slash in front; a division by a template
             // is not written.
             if i == 0 || b[i - 1] != b'/' {
                 block = Some(b"`");
             }
-        } else if !python && !lua && b[i..].starts_with(b"/*") {
+        } else if template && b[i..].starts_with(b"/*") {
             block = Some(b"*/");
             i += 1;
         } else if c == b'"' || c == b'\'' {
             quote = Some(c);
-        } else if (python && c == b'#')
-            || (lua && b[i..].starts_with(b"--"))
-            || (!python && !lua && b[i..].starts_with(b"//"))
-        {
+        } else if b[i..].starts_with(line_comment) {
             while i + 1 < b.len() && b[i + 1] != b'\n' {
                 i += 1;
             }
@@ -4451,6 +4507,23 @@ end
 
 M.setup({ limit = 1 })
 return M
+
+local pat = [=[
+^\s*\%(\[[A-Za-z]\+\]\)* ]-] x
+function M.ghosted(x)
+end
+]=]
+
+function M.after(x)
+  return x
+end
+
+local sql = [[
+function M.ghost2(x)
+end
+]]
+
+function M.last() end
 "#;
 
     #[test]
@@ -4482,13 +4555,20 @@ return M
             Vec::<usize>::new(),
             "the right-hand side of a local"
         );
+        // A `[=[ … ]=]` long string closes on the `=` it was opened with, so neither the
+        // `\[[` of the Vim regex inside it nor the `]-]` closes it, and what follows the
+        // string is still read as code.
+        assert_eq!(d("pat"), [44]);
+        assert_eq!(d("after"), [50]);
+        assert_eq!(d("last"), [59]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
     fn lua_long_brackets_hide_what_they_hold() {
-        // The `--[[ … ]]` block comment on lines 35-39: `function M.ghost(x)` inside it declares
-        // nothing, the way a Python docstring's example does not.
+        // The `--[[ … ]]` block comment on lines 35-39, the `[=[ … ]=]` string on 44-48 and
+        // the `[[ … ]]` one on 54-57: the functions inside them declare nothing, the way a
+        // Python docstring's example does not.
         let lit = literal_lines(Kind::Lua, LUA);
         assert_eq!(
             lit.iter()
@@ -4496,7 +4576,7 @@ return M
                 .filter(|(_, l)| **l)
                 .map(|(i, _)| i + 1)
                 .collect::<Vec<_>>(),
-            [36, 37, 38, 39]
+            [36, 37, 38, 39, 45, 46, 47, 48, 55, 56, 57]
         );
         // A `--` line comment is still one line, whatever quote it holds.
         assert!(
@@ -4521,12 +4601,13 @@ return M
         assert!(imports(Kind::Lua, LUA).is_empty());
         assert!(external_roots(Kind::Lua, Path::new("/")).is_empty());
         assert!(member_patterns(Kind::Lua, "setup").is_none());
-        // A function nested in another is named under it, as in every kind.
+        // A function nested in another is named under it, as in every kind, and a `--`
+        // comment in between is a comment, not a declaration that names nothing.
         assert_eq!(
             qualified(
                 Kind::Lua,
-                "function M.setup()\n  local function inner() end\nend\n",
-                2,
+                "function M.setup()\n-- a note\n  local function inner() end\nend\n",
+                3,
                 "inner"
             )
             .as_deref(),
@@ -4603,6 +4684,17 @@ end
 defimpl Renderable, for: MyApp.Ledger do
   def render(ledger), do: ledger.id
 end
+
+defmodule MyApp.LedgerTest do
+  @moduletag :slow
+  @tag :external
+
+  defmacrop guard!(x), do: x
+  defguardp is_even(n) when rem(n, 2) == 0
+
+  def empty?(rows), do: rows == []
+  def put!(row), do: row
+end
 "#;
 
     #[test]
@@ -4638,6 +4730,16 @@ end
         assert_eq!(d("raw"), Vec::<usize>::new(), "a parameter");
         assert_eq!(d("block"), Vec::<usize>::new());
         assert_eq!(d("Jason"), Vec::<usize>::new());
+        assert_eq!(d("guard"), [49], "`defmacrop`, past the trailing `!`");
+        assert_eq!(d("is_even"), [50], "`defguardp`");
+        // A name Elixir spells with a trailing `?` or `!` is found from the bare word, as
+        // Ruby's is: the cursor on `empty` in `empty?(rows)` reaches `def empty?`.
+        assert_eq!(d("empty"), [52]);
+        assert_eq!(d("put"), [53]);
+        // ExUnit's and Mix's attributes are directives too, so `d` on one has nothing to find
+        // rather than a picker of every place the directive is written.
+        assert_eq!(d("tag"), Vec::<usize>::new());
+        assert_eq!(d("moduletag"), Vec::<usize>::new());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -4765,6 +4867,22 @@ test "a ledger starts empty" {
 }
 
 const first, const second = .{ 1, 2 };
+
+extern fn puts(s: [*:0]const u8) c_int;
+
+export inline fn fast(x: u32) u32 {
+    comptime var seen: u32 = 0;
+    seen += x;
+    return seen;
+}
+
+const help =
+    \\```zig
+    \\const x = 1;
+    \\```
+;
+
+pub fn after() void {}
 "#;
 
     #[test]
@@ -4817,7 +4935,24 @@ const first, const second = .{ 1, 2 };
         // rule here is anchored there.
         assert_eq!(d("first"), [50]);
         assert_eq!(d("second"), Vec::<usize>::new());
+        assert_eq!(d("puts"), [52], "`extern fn`, with no calling convention");
+        assert_eq!(d("fast"), [54], "`export inline fn`");
+        assert_eq!(d("seen"), [55], "`comptime var`");
+        // Zig has no literal that runs over lines: a `\\` string ends with its line, so the
+        // markdown fences on 61-63 open nothing and the declaration below them is still found.
+        assert_eq!(d("after"), [66]);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn zig_has_no_literal_that_runs_over_lines() {
+        // A `\\` string holding markdown is idiomatic in Zig, and its ``` fences are not a
+        // TypeScript template: reading Zig with the C family's rules would hide every line
+        // after the first fence, and `d` would say `no definition` over code it can see.
+        assert!(
+            literal_lines(Kind::Zig, ZIG).iter().all(|l| !l),
+            "a Zig line was taken for the inside of a literal"
+        );
     }
 
     #[test]
@@ -4827,6 +4962,14 @@ const first, const second = .{ 1, 2 };
         assert!(!in_def_scope(Kind::Zig, here, Path::new("build.zig.zon")));
         assert!(imports(Kind::Zig, ZIG).is_empty());
         assert!(member_patterns(Kind::Zig, "init").is_none());
+        // The standard library `zig env` reports, on a machine that has a `zig`; nothing at all
+        // on one that does not, as for every kind whose toolchain is not installed.
+        assert!(
+            external_roots(Kind::Zig, Path::new("/"))
+                .iter()
+                .all(|r| r.is_dir() && r.ends_with("std")),
+            "a Zig root that is not an existing `std` directory"
+        );
         // A method is named under the type it is declared in, as in every kind.
         assert_eq!(
             qualified(Kind::Zig, ZIG, 12, "init").as_deref(),
@@ -4878,6 +5021,14 @@ const first, const second = .{ 1, 2 };
                 Some("isEmpty"),
             ),
             ("noinline fn slow(x: u32) u32 {", Some("slow")),
+            (
+                "export inline fn ledger_total(l: *Ledger) u32 {",
+                Some("ledger_total"),
+            ),
+            (
+                "pub extern \"c\" inline fn strlen(s: [*:0]const u8) usize;",
+                Some("strlen"),
+            ),
             (
                 "test \"a ledger starts empty\" {",
                 Some("a ledger starts empty"),
