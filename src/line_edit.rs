@@ -25,6 +25,15 @@ impl Deref for LineEdit {
 }
 
 impl LineEdit {
+    /// A line opened with `text` in it, all selected: typing replaces it, an arrow edits it.
+    pub fn selected(text: &str) -> Self {
+        Self {
+            text: text.into(),
+            cur: text.len(),
+            anchor: Some(0),
+        }
+    }
+
     pub fn clear(&mut self) {
         *self = Self::default();
     }
@@ -62,6 +71,8 @@ impl LineEdit {
                 if let Some(range) = self.selection() {
                     self.cut(range);
                 }
+                // A selection stretched and shrunk back to nothing leaves its anchor behind.
+                self.anchor = None;
                 self.text.insert(self.cur, c);
                 self.cur += c.len_utf8();
                 return true;
@@ -213,6 +224,13 @@ mod tests {
         assert_eq!(e.selection(), Some(0..6));
         press(&mut e, KeyCode::Right, KeyModifiers::NONE);
         assert_eq!((e.cursor(), e.selection()), (6, None));
+
+        // Shrunk back to nothing, it does not come alive under the next char typed.
+        press(&mut e, KeyCode::Left, KeyModifiers::SHIFT);
+        press(&mut e, KeyCode::Right, KeyModifiers::SHIFT);
+        press(&mut e, KeyCode::Char('y'), KeyModifiers::NONE);
+        assert_eq!((&*e, e.selection()), ("func xy", None));
+        press(&mut e, KeyCode::Backspace, KeyModifiers::NONE);
 
         press(&mut e, KeyCode::Left, KeyModifiers::SHIFT);
         assert_eq!(e.selection(), Some(5..6));

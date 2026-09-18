@@ -82,8 +82,8 @@ pub const LESSONS: &[Lesson] = &[
     },
     Lesson {
         title: "Next match",
-        text: "`n` goes to the next match, `N` to the previous one. Press `n`: \
-               the call inside NoteStore.",
+        text: "`n` goes to the next match, `N` to the previous one; `/` again brings the query \
+               back, selected, to refine it. Press `n`: the call inside NoteStore.",
         done: |a| at(a, "store.py") && a.line + 1 == CALL_LINE,
     },
     Lesson {
