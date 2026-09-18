@@ -4,6 +4,7 @@ mod app;
 mod buffer;
 mod git;
 mod line_edit;
+mod live;
 mod picker;
 mod search;
 mod theme;
@@ -12,11 +13,12 @@ mod tutor;
 mod ui;
 mod wrap;
 
+use std::collections::HashSet;
 use std::io::{Write, stdout};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::mpsc::Sender;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -40,8 +42,10 @@ enum Msg {
     Resize,
     /// nucleo found new matches.
     Redraw,
-    /// Something changed in the directory of the open file.
+    /// Something changed in the directory of the open file, or anywhere in the project.
     Fs(notify::Event),
+    /// The project was walked again after it changed on disk.
+    Project(tree::Tree, Vec<PathBuf>),
     /// `git diff` finished for the file at this path.
     Diff(PathBuf, git::Diff),
     /// The `s` grep with this number finished.
@@ -116,6 +120,7 @@ fn run() -> Result<()> {
         None => None,
     };
     let (mut tree, files) = tree::build(&root);
+    let dirs = tree.dirs();
     if let Some(r) = &review {
         tree = tree::from_files(&r.files.iter().map(|f| f.path.clone()).collect::<Vec<_>>());
     }
@@ -191,7 +196,7 @@ fn run() -> Result<()> {
         let _ = tx.send(Msg::Redraw);
     });
 
-    let result = event_loop(&mut terminal, &mut app, theme, &rx, fs);
+    let result = event_loop(&mut terminal, &mut app, theme, &rx, fs, dirs);
 
     if enhanced {
         let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
@@ -218,8 +223,10 @@ fn event_loop(
     mut theme: theme::Theme,
     rx: &mpsc::Receiver<Msg>,
     fs: Sender<Msg>,
+    mut dirs: HashSet<PathBuf>,
 ) -> Result<()> {
     let diff_tx = fs.clone();
+    let project_fs = fs.clone();
     let mut loaded = app.theme.clone();
     // One watcher for the whole run, following the open file's directory. A failing watcher
     // (too many open files, an unsupported filesystem) only costs auto-reload.
@@ -231,6 +238,21 @@ fn event_loop(
     .ok();
     app.no_watch = watcher.is_none();
     let mut watched: Option<PathBuf> = None;
+    // A second one for the project: the open file may be outside it, and its directory comes
+    // and goes. FSEvents reports canonical paths, so that is the root the events are under.
+    let mut project = notify::recommended_watcher(move |ev: notify::Result<notify::Event>| {
+        if let Ok(ev) = ev {
+            let _ = project_fs.send(Msg::Fs(ev));
+        }
+    })
+    .ok();
+    let real_root = app.root.canonicalize().unwrap_or_else(|_| app.root.clone());
+    let mut project_watched = HashSet::new();
+    if let Some(w) = &mut project {
+        live::watch(w, &real_root, &dirs, &mut project_watched);
+    }
+    let mut changed = live::Debounce::default();
+    let mut walking = false;
 
     let mut dirty = true;
     let mut typing: Option<bool> = None;
@@ -249,6 +271,16 @@ fn event_loop(
             std::thread::spawn(move || {
                 let diff = git::diff(&root, &path, None, None);
                 let _ = tx.send(Msg::Diff(path, diff));
+            });
+        }
+        if !walking && changed.due(Instant::now()) {
+            // In a thread: the walk takes 0.1 s on 12k files. One at a time; what changes
+            // meanwhile is due again after it.
+            walking = true;
+            let (tx, root) = (diff_tx.clone(), app.root.clone());
+            std::thread::spawn(move || {
+                let (tree, files) = tree::build(&root);
+                let _ = tx.send(Msg::Project(tree, files));
             });
         }
         if let Some(job) = app.search_tick() {
@@ -325,6 +357,24 @@ fn event_loop(
                     app.reload(false);
                     dirty = true;
                 }
+                if live::changes_project(&real_root, &dirs, &ev) {
+                    changed.touch(Instant::now());
+                }
+            }
+            Ok(Msg::Project(tree, files)) => {
+                walking = false;
+                let walked = tree.dirs();
+                // Files written into a new directory before it was known (or, on Linux,
+                // watched) reported nothing: one more walk finds them.
+                if !walked.is_subset(&dirs) {
+                    changed.touch(Instant::now());
+                }
+                dirs = walked;
+                if let Some(w) = &mut project {
+                    live::watch(w, &real_root, &dirs, &mut project_watched);
+                }
+                app.project_walked(tree, files);
+                dirty = true;
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),

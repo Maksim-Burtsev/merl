@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The project is live: a file created, deleted or renamed while merl runs (by an agent in the
+  next pane, a `git checkout`, a build) shows up in the tree, in `o` and in what `s`, `u`, `d` and
+  `D` search within a moment, with no key and no restart. The tree cursor stays on its entry and
+  on its screen row, expanded directories stay expanded, an open picker keeps its rows until it is
+  reopened. `.gitignore` is respected as at startup (a new `node_modules/` adds nothing) and an
+  edited one is picked up. A burst of changes is one walk, off the UI thread; on Linux ignored
+  directories are not watched (#75).
 - `w` stops wrapping the open file: long lines are cut at the edge of the pane, `›` and `‹`
   mark a line with more to the right or left, and the view follows the cursor sideways (End shows
   the end of the line, Home the start). For Markdown tables, CSV and minified files, which
