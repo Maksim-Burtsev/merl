@@ -41,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `c` / `C` outside review mode say `not in review`, the fact without the `merl --review`
+  hint, as the other status messages do.
 - No silent keys: a press that cannot act says why, in a word or two. `d` and `u` off a word
   say `no word`; `d` in a file whose kind has no rules says `no rules for .c` instead of a
   `no definition` that never looked; `/` shows `no match` or the match count (`3/17`) next to
