@@ -18,7 +18,7 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   constructor parameter, so `repo` and `audit` each lead to their own `delete_user`, and the
   `repo` of `cleanup` is shadowed inside `purge`. `factories` assigns receivers from calls: with a
   declared return type (`make_repo`, `NewRepo`, Go's first result of `NewAudit`), without one
-  (Python's `make_audit`; TypeScript's `makeAudit` returns `new AuditLog()`), and through
+  (`make_audit` / `makeAudit`, whose only `return` constructs an `AuditLog`), and through
   `connect()` / `store.Open()`, whose `Session` is declared in the `store` package. The receiver of
   `forget` has a type the rules cannot read.
 - chains (step 4): `chains` has a `UnitOfWork` whose `users` and `audit` lead to their own
@@ -50,6 +50,50 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   master; `Point` declares `offset` first in a tuple. TypeScript's `Issue` binds `close` in its
   constructor, and `Issue.label` reads its fields inside `case …: {` blocks, which are no object
   literals, and inside the literal a `case …: return {` returns, which is one.
+
+- `super` (#100): `supers` (Python and TypeScript; Go has no `super`) has an `Archive` whose
+  `store` a `ColdArchive` and below it a `GlacierArchive` override, each calling `super`, a field
+  and a method two levels up, `super` in a nested function (Python) and in an object literal's
+  method (TypeScript), where it is not the class's, and in Python the cases of several bases: the
+  first base declaring the member (`Mixed`), one base leading to it, a diamond whose `Right.flush`
+  a walk by depth would pass (`Diamond`), and a first base outside the project (`Wire`). The
+  `Tank` classes repeat the diamond and the outside base one level under the direct base, and
+  add two bases leading to one declaration and an `ABC`; TypeScript's `ColdVault.open` narrows
+  the return type of the `open` it calls through `super`.
+- scopes (#100): `scopes` has a module-level (Go: package-level) `ledger` of one type and
+  functions that declare their own of another: as a local, in a block inside a function that has
+  one too, as an arrow function's parameter, read from a closure; one that declares none and reads
+  the outer one; one whose inner `ledger` has no readable type; and the ambiguous ones: two
+  branches of an `if` (Python), an `if` header and its body (Go), an arrow function's parameter on
+  the cursor's line or on the line its statement started on (TypeScript). Python's `save` is a
+  parameter named like a module-level `def`. `sibling` / `ScopedSibling` hold what must not leak:
+  a callback and a loop in the `if` branch of an `else` (`try` of a `catch`), a callback on the
+  line of an `if` and in front of a chained `.forEach(`; `documented` has an assignment in its
+  docstring; `wrapped` an arrow whose line ends in `=>`.
+- element types (#100): `elements` loops over collections whose type is written — an annotated
+  parameter (`list[T]`, a quoted `tuple[T, ...]`, `T[]`, `ReadonlyArray<T>`, `[]*T`, `map[K]T`),
+  the declared return type of `load_repos`, Go's `make`, a slice literal and a named `RepoList` — and over what hands
+  out something else: a `dict`'s keys, a `Map`'s pairs, `for … in`, `enumerate`, a channel, a
+  list assigned again with no type, two annotations that disagree. Each also calls a member on
+  the collection itself. Since then the unknown receivers of Go's `Forget` and `Show` come from a
+  channel, not a slice.
+- calls (#100): `calls` has a `Depot` whose `people_repo` declares what it returns and whose
+  `trail` constructs it in every `return` (Go: the first of two results), assigned to locals from
+  a typed parameter and from one with no type; a `Source` interface whose method line declares
+  the return type (TypeScript and Go); chains that hang off `open_depot()`, off the class itself
+  and off Go's `store.Open()`; and what stays by name: a call of a call, Python returns that
+  differ, a `return None` among them, a decorated function (the decorator on one line and over
+  several), TypeScript overloads, a parameter named like the module's `open_depot`, two locals
+  assigned from each other. `Yard` calls an inherited method and one on a field. Since then
+  `make_uow().users.delete_user` in `chains` and Python's `make_audit()` in `factories` are
+  proven.
+- casts (#100): `casts` casts an untyped `found` to `UserRepository` and `AuditLog` in every
+  form — `cast(T, x)`, `typing.cast("T", x)`, `x as T`, `x as unknown as T`, `v, ok := i.(T)`,
+  `v := i.(T)` — assigned to a name and with the member hanging off the cast, and to what the
+  project does not declare (`"Missing"`, `typing.Any`, `any`, `Partial<…>`, `fmt.Stringer`).
+  `casts_own.py` declares a `cast` of its own, which is a function and no cast. Go has
+  two type switches over a `v`, one after the other: a `case` of one type, from a block inside the
+  arm too, a `case` of two types and `default`.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.

@@ -1005,6 +1005,14 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
         .strip_suffix("::")
         .or_else(|| before.strip_suffix('.'))
     {
+        // Python's `super().` reads as TypeScript's `super.` does: one name.
+        if let Some(head) = rest.strip_suffix("super()")
+            && !head.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '.')
+        {
+            chain.insert(0, "super".to_owned());
+            before = head;
+            break;
+        }
         let mut start = rest
             .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
             .map_or(0, |i| i + 1);
@@ -1023,6 +1031,61 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
         return Vec::new();
     }
     chain
+}
+
+/// The call a member access hangs off, where [`qualifier`] has no name to start from:
+/// `pkg.New(x).word`, `make_uow().users.word`, `new Repo().word`, or the cast: `(x as T).word`,
+/// `i.(T).word`, `cast(T, x).word`. Gives the call without its arguments (a cast as written), what
+/// it is worth ([`Value::Call`], [`Value::New`] or the [`Value::Type`] of a cast) and the names
+/// between it and the word. Only a call that starts the expression: `a.b().c().word` hangs off a
+/// call of a value nobody typed.
+pub fn call_head(
+    kind: Kind,
+    line: &str,
+    word_start: usize,
+) -> Option<(String, Value, Vec<String>)> {
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$';
+    let mut before = line[..word_start].strip_suffix('.')?;
+    let mut fields = Vec::new();
+    while !before.ends_with(')') {
+        let start = before.rfind(|c: char| !is_name(c)).map_or(0, |i| i + 1);
+        if start == before.len() {
+            return None;
+        }
+        fields.insert(0, before[start..].to_owned());
+        before = before[..start].strip_suffix('.')?;
+    }
+    // The `(` this `)` closes, as a scan that knows strings pairs them.
+    let open = code(kind, before)
+        .filter(|(_, c)| *c == b'(')
+        .map(|(i, _)| i)
+        .find(|&i| close_of(kind, before, i) == Some(before.len()))?;
+    let mut start = before[..open]
+        .rfind(|c: char| !(is_name(c) || c == '.'))
+        .map_or(0, |i| i + 1);
+    // `.c` in `a.b().c()` is no callee [`value_of`] reads, and nor is nothing at all.
+    let callee = &before[start..open];
+    if kind == Kind::TsJs
+        && let Some(rest) = before[..start].trim_end().strip_suffix("new")
+        && !rest.ends_with(is_name)
+    {
+        start = rest.len();
+    }
+    // `(x as T)` is read without its brackets.
+    let written = &before[start..];
+    let inner = match callee.is_empty() {
+        true => &written[1..written.len() - 1],
+        false => written,
+    };
+    match value_of(kind, inner) {
+        Value::Call(name) => Some((format!("{name}()"), Value::Call(name), fields)),
+        Value::New(name) => Some((format!("new {name}()"), Value::New(name), fields)),
+        // A cast the chain hangs off, as written: `(x as T)`, `i.(T)`, `cast(T, x)`.
+        value @ (Value::Type(_) | Value::Cast(..)) => {
+            Some((inner.trim().to_owned(), value, fields))
+        }
+        _ => None,
+    }
 }
 
 /// The names a file binds by importing, each with the module path it comes from, as the parts
@@ -1498,6 +1561,13 @@ pub enum Value {
     Name(String),
     /// The class declared on this 1-based line: Python's `self` and `cls`, TypeScript's `this`.
     Class(usize),
+    /// Python's `cast(T, x)` as written: the callee and `T`. It writes the type when the callee
+    /// is `typing`'s, which only the caller can tell: a project may declare a `cast` of its own.
+    Cast(String, String),
+    /// An element of the named collection, as a loop hands it out: `for r in repos`,
+    /// `for (const r of repos)`, `for _, r := range repos`. [`element_type`] reads it off the
+    /// collection's written type.
+    Element(String),
     /// A declaration whose type the rules cannot read: `for repo in`, a tuple, a parameter with
     /// no annotation.
     Unknown,
@@ -1552,7 +1622,11 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" });
             i += 2;
         } else if !python && c == b'`' {
-            block = Some(b"`");
+            // ponytail: `/`/` is a regex, told by the slash in front; a division by a template
+            // is not written.
+            if i == 0 || b[i - 1] != b'/' {
+                block = Some(b"`");
+            }
         } else if !python && b[i..].starts_with(b"/*") {
             block = Some(b"*/");
             i += 1;
@@ -1694,10 +1768,55 @@ fn value_of(kind: Kind, expr: &str) -> Value {
     });
     static NAME: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^[A-Za-z_$][\w$]*$").unwrap());
+    static ASSERTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^[A-Za-z_][\w.]*\.\(\s*(\*?[A-Za-z_][\w.]*)\s*\)$").unwrap()
+    });
     let e = uncommented(kind, expr);
     let e = e.trim().trim_end_matches(';').trim_end();
     // What comes after the bracket that opens at `open` must be nothing, or the next lines.
     let ends = |open: usize| close_of(kind, e, open).is_none_or(|end| e[end..].trim().is_empty());
+    // A cast writes the type (#100): `x as T` (the last one of `x as unknown as T`), Go's
+    // `i.(T)`, and below Python's `cast(T, x)`.
+    if kind == Kind::TsJs {
+        let mut depth = 0i32;
+        // The first and the last ` as ` outside brackets.
+        let mut cast: Option<(usize, usize)> = None;
+        for (i, c) in code(kind, e) {
+            match c {
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                b' ' if depth == 0 && e[i..].starts_with(" as ") => {
+                    cast = Some((cast.map_or(i, |(first, _)| first), i + 4));
+                }
+                _ => {}
+            }
+        }
+        // `as` binds tighter than `?:`, `||`, `??` and `=>`: only one operand in front of it, a
+        // name, a call or a literal, is what the cast types.
+        let operand = |head: &str| {
+            let head = head.trim_start_matches("await ").trim_start_matches("new ");
+            let mut depth = 0i32;
+            code(kind, head).all(|(_, c)| {
+                match c {
+                    b'(' | b'[' | b'{' => depth += 1,
+                    b')' | b']' | b'}' => depth -= 1,
+                    _ => {}
+                }
+                c != b' ' || depth > 0
+            })
+        };
+        if let Some((first, i)) = cast {
+            return match operand(&e[..first]) {
+                true => Value::Type(e[i..].trim().to_owned()),
+                false => Value::Unknown,
+            };
+        }
+    }
+    if kind == Kind::Go
+        && let Some(c) = ASSERTION.captures(e)
+    {
+        return Value::Type(c[1].to_owned());
+    }
     if let Some(c) = CALL.captures(e) {
         let open = c.get(0).unwrap().end() - 1;
         let name = c[2].to_owned();
@@ -1707,6 +1826,15 @@ fn value_of(kind: Kind, expr: &str) -> Value {
             (true, false) if kind == Kind::Go && name == "new" => {
                 let inner = &e[open + 1..e.len().saturating_sub(1)];
                 Value::New(inner.trim().to_owned())
+            }
+            (true, false) if kind == Kind::Python && matches!(&*name, "cast" | "typing.cast") => {
+                let inner = &e[open + 1..e.len().saturating_sub(1)];
+                Value::Cast(name, split_top(kind, inner, b',')[0].trim().to_owned())
+            }
+            // `make([]*Repo, 0, n)` writes the type of what it makes.
+            (true, false) if kind == Kind::Go && name == "make" => {
+                let inner = &e[open + 1..e.len().saturating_sub(1)];
+                Value::Type(split_top(kind, inner, b',')[0].trim().to_owned())
             }
             (true, false) => Value::Call(name),
             (true, true) => Value::Unknown,
@@ -1718,24 +1846,36 @@ fn value_of(kind: Kind, expr: &str) -> Value {
     {
         return Value::New(c[2].to_owned());
     }
+    // A slice, array or map literal writes its type in front of its `{`: `[]Repo{…}`.
+    if kind == Kind::Go
+        && (e.starts_with('[') || e.starts_with("map["))
+        && let Some(end) = e.find('[').and_then(|i| close_of(kind, e, i))
+        && let Some(open) = e[end..].find('{').map(|i| end + i)
+        && ends(open)
+    {
+        return Value::Type(e[..open].trim().to_owned());
+    }
     if NAME.is_match(e) && !matches!(e, "None" | "null" | "undefined" | "nil" | "this" | "self") {
         return Value::Name(e.to_owned());
     }
     Value::Unknown
 }
 
-/// The declarations of `name` visible on 1-based `line` of `text`, a file of `kind`, with what
-/// each gives it. Every one counts, the enclosing scopes' too: the caller trusts them only when
-/// they agree.
+/// The declarations of `name` that 1-based `line` of `text`, a file of `kind`, reads, with what
+/// each gives it: those of the innermost scope that declares it, which hides the scopes around
+/// it (#100). Every one of that scope counts, and the caller trusts them only when they agree.
 ///
 /// - Python: a name belongs to its function, so its parameters and every binding in the body
-///   count, before the cursor or after it, then the enclosing functions', then the module's.
-///   Nested functions and classes are scopes of their own. A comprehension or a `lambda` counts
-///   on the cursor line only. `self` / `cls` is the class a method sits in.
+///   count, before the cursor or after it; a function that binds none reads the enclosing
+///   function's, then the module's. Nested functions and classes are scopes of their own. A comprehension or a `lambda` counts
+///   on the cursor line only. `self` / `cls` is the class a method sits in, and so is `super`
+///   (what [`qualifier`] makes of `super()`): the caller starts above that class.
 /// - TypeScript and Go: `const`, `let` and `:=` belong to their block, so the declarations above
-///   the cursor count, in the blocks around it, told by indentation: a function's parameters, a Go
-///   receiver, the statements at each block's level. `this` is the class around it, unless a
-///   `function` or an object literal comes first.
+///   the cursor count, in the nearest block around it that has any, told by indentation: the
+///   statements at the block's level and what its header binds (a function's parameters, a Go
+///   receiver). Only what a header binds for the block under it hides: another function on its
+///   lines, or on the cursor's own line, binds without hiding. `this` is the class around it, unless a
+///   `function` or an object literal comes first, and `super` reads as `this` does.
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -1792,6 +1932,8 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let inline = rule(format!(
         r"\bfor\s+[^=]*?\b{n}\b[^=]*?\s+in\b|\blambda\b[^:]*\b{n}\b"
     ));
+    // A plain loop over a plain name; `async for`, a tuple target and a call are unknown.
+    let element = rule(format!(r"^for\s+{n}\s+in\s+([A-Za-z_]\w*)\s*:"));
     // `a, repo = …` or `(a, repo) = …`, not the keyword argument of a call.
     let tuple = Regex::new(r"^(\(?[\w\s,.*\[\]]+\)?)\s*=[^=]").unwrap();
 
@@ -1814,7 +1956,17 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     }
     scopes.push(None);
 
+    let literal = literal_lines(Kind::Python, &lines.join("\n"));
     let mut out = Vec::new();
+    // `super()` is the class of the method it is written in, and nothing in a function inside
+    // that method, where the call has no arguments to find.
+    if name == "super" {
+        if let Some(line) = scopes[0].and_then(|d| python_class_of(lines, d)) {
+            let value = Value::Class(line);
+            out.push(Binding { line, value });
+        }
+        return out;
+    }
     for scope in scopes {
         let (start, base) = match scope {
             Some(d) => {
@@ -1832,7 +1984,8 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         for (i, l) in lines.iter().enumerate().skip(start) {
             let code = uncommented(Kind::Python, l);
             let t = code.trim();
-            if t.is_empty() {
+            // A docstring's example binds nothing.
+            if t.is_empty() || literal[i] {
                 continue;
             }
             let ind = indent(l);
@@ -1855,7 +2008,9 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
                 skip = Some(ind);
                 continue;
             }
-            let value = if unknown.is_match(t) || (i == at && inline.is_match(t)) {
+            let value = if let Some(c) = element.captures(t) {
+                Some(Value::Element(c[1].to_owned()))
+            } else if unknown.is_match(t) || (i == at && inline.is_match(t)) {
                 Some(Value::Unknown)
             } else if continued(Kind::Python, lines, i) {
                 None
@@ -1872,6 +2027,10 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             if let Some(value) = value {
                 out.push(Binding { line: i + 1, value });
             }
+        }
+        // The innermost function that binds the name is the one the cursor reads.
+        if !out.is_empty() {
+            break;
         }
     }
     out
@@ -1931,24 +2090,52 @@ fn python_class_of(lines: &[&str], d: usize) -> Option<usize> {
 /// statement, a line indented less opens the block the walk is in, and deeper lines belong to
 /// blocks already closed.
 fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    let this = kind == Kind::TsJs && name == "this";
+    let this = kind == Kind::TsJs && (name == "this" || name == "super");
     let mut out = Vec::new();
     if !this {
         opener_bindings(kind, &uncommented(kind, lines[at]), at + 1, name, &mut out);
     }
+    // A raw string, a template or a block comment over several lines declares nothing.
+    let literal = literal_lines(kind, &lines.join("\n"));
     let mut depth = indent(lines[at]);
     let mut i = at;
+    // Whether a declaration of the block the walk is in, or of its header, has been found.
+    let mut scoped = false;
+    // The types of the innermost Go `case` around the cursor, for the `switch v := x.(type)` it
+    // may belong to (#100): gofmt writes the two at one indent, so the `switch` is met as a
+    // statement right after its `case`.
+    let mut arm: Option<Vec<String>> = None;
+    let type_switch = Regex::new(&format!(
+        r"^switch\s+(?:[^;{{]*;\s*)?{}\s*:=\s*[^;{{]+\.\(type\)\s*\{{$",
+        regex::escape(name)
+    ))
+    .expect("an escaped name keeps the pattern valid");
     while i > 0 {
         i -= 1;
         let code = uncommented(kind, lines[i]);
         let t = code.trim();
         let ind = indent(lines[i]);
-        if t.is_empty() || comment(kind, t) || ind > depth {
+        if t.is_empty() || comment(kind, t) || ind > depth || literal[i] {
             continue;
         }
         if ind == depth {
             if !this {
+                let before = out.len();
                 statement_bindings(kind, t, i + 1, name, &mut out);
+                // In `case *Repo:` the variable of a type switch is a `*Repo`; under several
+                // types or `default` it is whatever came in. A `switch` met with no `case` on
+                // the way up is one the cursor is not in.
+                if let Some(types) = arm.as_deref().filter(|_| type_switch.is_match(t)) {
+                    let value = match types {
+                        [one] => Value::Type(one.clone()),
+                        _ => Value::Unknown,
+                    };
+                    out.push(Binding { line: i + 1, value });
+                }
+                if t.starts_with("switch ") || t.starts_with("select ") {
+                    arm = None;
+                }
+                scoped |= out.len() > before;
             }
             continue;
         }
@@ -1961,11 +2148,37 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
             }
             i = i.saturating_sub(1);
         }
-        let header: Vec<&str> = lines[i..=end].iter().map(|l| l.trim()).collect();
+        // Between an `if` and its `} else {` lies a block the cursor is not in: only the two
+        // lines are the header, where a signature closed by `) {` or `}: Deps) {` is all of
+        // its lines.
+        let sibling = ["else", "catch", "finally"]
+            .iter()
+            .any(|k| t.trim_start_matches('}').trim_start().starts_with(k));
+        let header: Vec<&str> = match sibling && end > i {
+            true => vec![lines[i].trim(), t],
+            false => lines[i..=end].iter().map(|l| l.trim()).collect(),
+        };
         let header = uncommented(kind, &header.join("\n"));
         depth = ind.min(indent(lines[i]));
         if !this {
-            opener_bindings(kind, &header, i + 1, name, &mut out);
+            if kind == Kind::Go {
+                let types = header
+                    .strip_prefix("case ")
+                    .and_then(|h| h.strip_suffix(':'));
+                arm = match (types, header.starts_with("default")) {
+                    (Some(types), _) => Some(type_list(kind, types)),
+                    (None, true) => Some(Vec::new()),
+                    (None, false) => arm,
+                };
+            }
+            // The innermost block that declares the name hides the ones around it: a statement
+            // of the block the walk leaves here, or what the header binds for that block. A
+            // callback elsewhere on the header's lines (`if (xs.some((repo: Repo) => …)) {`,
+            // `register((repo: Repo) => repo, {`) is a function the cursor is not in, as one on
+            // the cursor's own line may be: its parameters count, and hide nothing.
+            if opener_bindings(kind, &header, i + 1, name, &mut out) || scoped {
+                break;
+            }
         } else if let Some(value) = this_opener(&header, i + 1) {
             out.push(Binding { line: i + 1, value });
             break;
@@ -2001,8 +2214,15 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
 
 /// The bindings of `name` a block's header makes for the lines inside it: the parameters of a
 /// function, a method or an arrow, a Go receiver and named results, the variables of a loop, a
-/// `catch` or a Go `if x := …;`.
-fn opener_bindings(kind: Kind, header: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
+/// `catch` or a Go `if x := …;`. Returns whether one of them is made for the block under the
+/// header, and so hides the scopes around it.
+fn opener_bindings(
+    kind: Kind,
+    header: &str,
+    line: usize,
+    name: &str,
+    out: &mut Vec<Binding>,
+) -> bool {
     static TS_LOOP: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bfor\s*\(\s*(?:const|let|var)\s+([^;]+?)\s+(?:of|in)\s|\bfor\s*\(\s*(?:const|let|var)\s+([^;]*);|\bcatch\s*\(([^)]*)\)").unwrap()
     });
@@ -2015,6 +2235,10 @@ fn opener_bindings(kind: Kind, header: &str, line: usize, name: &str, out: &mut 
     });
     static TS_BODY: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^(?::.*)?\{").unwrap());
+    // What follows the parameters of the function whose body ends the header: a return type,
+    // an arrow, the brace.
+    static TS_OPENS: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^(?::[^(){}]+?)?\s*(?:=>)?\s*\{?\s*$").unwrap());
     static GO_ASSIGN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|\belse\s+)(?:if|for|switch|case)\s+([^;{]*?)\s*:=").unwrap()
     });
@@ -2028,14 +2252,36 @@ fn opener_bindings(kind: Kind, header: &str, line: usize, name: &str, out: &mut 
             value: Value::Unknown,
         })
     };
+    let n = regex::escape(name);
+    let element = |p: String| {
+        let rule = Regex::new(&p).expect("an escaped name keeps the pattern valid");
+        let value = Value::Element(rule.captures(header)?[1].to_owned());
+        Some(Binding { line, value })
+    };
+    // Whether a binding is made for the block under the header: by the loop, the `catch` or the
+    // Go statement the header is, or by the function whose body ends it. A callback elsewhere on
+    // these lines, `if (xs.some((repo: Repo) => …)) {`, binds for a body the cursor is not in.
+    let mut own = false;
     match kind {
         Kind::TsJs => {
-            if TS_LOOP
+            let starts = |l: &str| {
+                let l = l.trim_start_matches('}').trim_start();
+                l.starts_with("for") || l.starts_with("catch")
+            };
+            let is_loop = starts(header) || header.rsplit('\n').next().is_some_and(starts);
+            let count = out.len();
+            // `for (const r of repos)` over a plain name hands out elements; `in` hands out keys.
+            if let Some(b) = element(format!(
+                r"\bfor\s*\(\s*(?:const|let|var)\s+{n}\s+of\s+([A-Za-z_$][\w$]*)\s*\)"
+            )) {
+                out.push(b);
+            } else if TS_LOOP
                 .captures_iter(header)
                 .any(|c| c.iter().skip(1).flatten().any(|m| names(m.as_str(), name)))
             {
                 unknown(out);
             }
+            own |= is_loop && out.len() > count;
             for (open, _) in header.match_indices('(') {
                 let Some(close) = close_of(kind, header, open) else {
                     continue;
@@ -2048,20 +2294,35 @@ fn opener_bindings(kind: Kind, header: &str, line: usize, name: &str, out: &mut 
                     ) && TS_BODY.is_match(after)
                 });
                 if TS_ARROW.is_match(after) || TS_FUNCTION.is_match(before) || method {
+                    let count = out.len();
                     ts_params(&header[open + 1..close - 1], line, name, out);
+                    own |= out.len() > count && TS_OPENS.is_match(after);
                 }
             }
-            let arrow = Regex::new(&format!(r"(?:^|[^\w$.]){}\s*=>", regex::escape(name)))
-                .expect("an escaped name keeps the pattern valid");
-            if arrow.is_match(header) {
+            let arrow = Regex::new(&format!(
+                r"(?:^|[^\w$.]){}\s*=>(\s*\{{?\s*$)?",
+                regex::escape(name)
+            ))
+            .expect("an escaped name keeps the pattern valid");
+            if let Some(c) = arrow.captures_iter(header).last() {
                 unknown(out);
+                own |= c.get(1).is_some();
             }
         }
         Kind::Go => {
-            if GO_ASSIGN.captures_iter(header).any(|c| names(&c[1], name)) {
+            let count = out.len();
+            // The second variable of a `range` over a plain name is an element of a slice, an
+            // array or a map; the first is an index or a key.
+            if let Some(b) = element(format!(
+                r"^for\s+[A-Za-z_]\w*\s*,\s*{n}\s*:=\s*range\s+([A-Za-z_]\w*)\s*\{{"
+            )) {
+                out.push(b);
+            } else if GO_ASSIGN.captures_iter(header).any(|c| names(&c[1], name)) {
                 unknown(out);
             }
+            own |= out.len() > count;
             if let Some(c) = GO_FUNC.captures_iter(header).last() {
+                let count = out.len();
                 if let Some(receiver) = c.get(1) {
                     go_params(receiver.as_str(), line, name, out);
                 }
@@ -2074,11 +2335,16 @@ fn opener_bindings(kind: Kind, header: &str, line: usize, name: &str, out: &mut 
                     {
                         go_params(&results[1..end - 1], line, name, out);
                     }
+                    // Between the parameters and the `{` that ends the header stand results
+                    // only: another brace there closes this function or opens a literal.
+                    let body = results.trim_end().strip_suffix('{');
+                    own |= out.len() > count && body.is_some_and(|r| !r.contains(['{', '}']));
                 }
             }
         }
         _ => {}
     }
+    own
 }
 
 /// The binding of `name` among TypeScript parameters: its annotation, else its default value.
@@ -2503,13 +2769,15 @@ pub fn field_decl_at(kind: Kind, text: &str, line: usize, start: usize, name: &s
 pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
     static PY_DEF: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:async\s+)?def\s+\w+\s*\(").unwrap());
+    // A function, a `const` holding one, or a method of a class or an interface.
     static TS_FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:export|default|declare|async)\s+)*(?:function\*?\s*[\w$]*|(?:const|let|var)\s+[\w$]+\s*(?::[^=]+)?=\s*(?:async\s+)?(?:function\*?\s*[\w$]*)?)\s*(?:<[^>]*>)?\s*\(").unwrap()
+        Regex::new(r"^\s*(?:(?:export|default|declare|async)\s+)*(?:function\*?\s*[\w$]*|(?:const|let|var)\s+[\w$]+\s*(?::[^=]+)?=\s*(?:async\s+)?(?:function\*?\s*[\w$]*)?)\s*(?:<[^>]*>)?\s*\(|^\s*(?:(?:public|private|protected|static|override|abstract|async)\s+)*#?[\w$]+\??\s*(?:<[^>]*>)?\s*\(").unwrap()
     });
     static TS_RETURN: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*:\s*(.+?)\s*(?:\{|=>)").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*:\s*(.+?)\s*(?:\{|=>|;|$)").unwrap());
+    // A function, a method behind its receiver, or the method line of an interface.
     static GO_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^func\s+[A-Za-z_]\w*\s*(?:\[[^\]]*\])?\s*\(").unwrap()
+        Regex::new(r"^(?:func\s*(?:\([^)]*\)\s*)?|\s+)[A-Za-z_]\w*\s*(?:\[[^\]]*\])?\s*\(").unwrap()
     });
     let lines: Vec<&str> = text.lines().collect();
     let k = decl.checked_sub(1).filter(|&i| i < lines.len())?;
@@ -2525,8 +2793,11 @@ pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
         // `-> T:` ends at the first colon outside strings and brackets; a body may follow it.
         Kind::Python => {
             let parts = split_top(kind, after, b':');
-            let t = parts[0].trim().strip_prefix("->")?.trim();
-            (parts.len() > 1 && !t.is_empty()).then(|| Value::Type(t.to_owned()))
+            match parts[0].trim().strip_prefix("->") {
+                Some(t) => (parts.len() > 1 && !t.trim().is_empty())
+                    .then(|| Value::Type(t.trim().to_owned())),
+                None => python_constructs(text, &lines, k, end),
+            }
         }
         Kind::TsJs => {
             if let Some(c) = TS_RETURN.captures(after) {
@@ -2540,8 +2811,14 @@ pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
                     lines[end + 1..]
                         .iter()
                         .take_while(|l| !(indent(l) <= base && l.trim_start().starts_with('}')))
-                        .filter_map(|l| l.trim().strip_prefix("return "))
-                        .map(|e| value_of(kind, e))
+                        .map(|l| uncommented(kind, l))
+                        .filter(|l| names(l, "return"))
+                        // `if (x) return new A();` returns behind something the rules do not
+                        // read: unknown, which no other `return` can agree with.
+                        .map(|l| match l.trim().strip_prefix("return ") {
+                            Some(e) => value_of(kind, e),
+                            None => Value::Unknown,
+                        })
                         .collect()
                 }
             };
@@ -2567,6 +2844,60 @@ pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
             (!first.is_empty()).then(|| Value::Type(first.to_owned()))
         }
     }
+}
+
+/// What an undecorated Python `def` on line `k`, its signature ending on line `end`, returns when
+/// it declares nothing: the class every `return` of its body calls, `return Repo(…)`. A bare
+/// `return`, a `yield` or any other value leaves it unknown; a decorator may return anything.
+fn python_constructs(text: &str, lines: &[&str], k: usize, end: usize) -> Option<Value> {
+    let base = indent(lines[k]);
+    // The nearest line above at the `def`'s indent that is no closer: `@retry(` of a decorator
+    // written over several lines, whose arguments and `)` come first on the way up.
+    let decorated = lines[..k]
+        .iter()
+        .rev()
+        .map(|l| (indent(l), l.trim()))
+        .find(|(ind, t)| !t.is_empty() && !t.starts_with(['#', ')', ']', '}']) && *ind <= base)
+        .is_some_and(|(ind, t)| ind == base && t.starts_with('@'));
+    if decorated {
+        return None;
+    }
+    let literal = literal_lines(Kind::Python, text);
+    let mut constructed: Option<String> = None;
+    // A function or a class inside the body returns for itself.
+    let mut skip: Option<usize> = None;
+    for (i, l) in lines.iter().enumerate().skip(end + 1) {
+        let code = uncommented(Kind::Python, l);
+        let (t, ind) = (code.trim(), indent(l));
+        if t.is_empty() || literal.get(i).copied().unwrap_or(false) {
+            continue;
+        }
+        if ind <= base {
+            break;
+        }
+        if skip.is_some_and(|s| ind > s) {
+            continue;
+        }
+        let inner = ["def ", "async def ", "class "];
+        skip = inner.iter().any(|p| t.starts_with(p)).then_some(ind);
+        if names(t, "yield") {
+            return None;
+        }
+        // `if flag: return A()` returns behind something the rules do not read.
+        if names(t, "return") && !t.starts_with("return") {
+            return None;
+        }
+        if t == "return" || t.starts_with("return ") {
+            let Value::Call(name) = value_of(Kind::Python, t.strip_prefix("return")?) else {
+                return None;
+            };
+            if constructed.as_ref().is_some_and(|c| *c != name) {
+                return None;
+            }
+            constructed = Some(name);
+        }
+    }
+    constructed.map(Value::New)
 }
 
 /// The written types a class header lists between its commas: `Base, Generic[T]`. A default
@@ -2842,6 +3173,56 @@ pub fn type_path(kind: Kind, written: &str) -> Option<Vec<String>> {
     }
     NAME.is_match(t)
         .then(|| t.split('.').map(str::to_owned).collect())
+}
+
+/// The written type of an element of the collection written as `written`, where the type says so:
+/// Python's `list[T]`, `Sequence[T]`, `set[T]`, `tuple[T, ...]` and the like, TypeScript's `T[]`,
+/// `Array<T>`, `Set<T>`, Go's `[]T`, `[4]T` and `map[K]T`. A Python `dict` and a TypeScript `Map`
+/// hand out keys or pairs, and anything else is not known to hand out anything.
+pub fn element_type(kind: Kind, written: &str) -> Option<String> {
+    // `Head<A, B>` or `Head[A, B]` as the last name of its head and its arguments.
+    fn generic(kind: Kind, t: &str, open: char, close: char) -> Option<(&str, Vec<&str>)> {
+        let i = t.find(open).filter(|_| t.ends_with(close))?;
+        let head = t[..i].trim_end();
+        let args = split_top(kind, &t[i + 1..t.len() - 1], b',');
+        Some((head.rsplit('.').next().unwrap_or(head), args))
+    }
+    let t = written.trim().trim_end_matches([';', ',']).trim();
+    let element = match kind {
+        Kind::Python => match generic(kind, t.trim_matches(['"', '\'']), '[', ']')? {
+            ("tuple" | "Tuple", args) if args.len() == 2 && args[1].trim() == "..." => args[0],
+            (
+                "list" | "List" | "Sequence" | "MutableSequence" | "Iterable" | "Iterator"
+                | "Collection" | "set" | "Set" | "frozenset" | "FrozenSet" | "AbstractSet"
+                | "deque",
+                args,
+            ) => args[0],
+            _ => return None,
+        },
+        Kind::TsJs => {
+            let t = t.strip_prefix("readonly ").unwrap_or(t).trim();
+            match (t.strip_suffix("[]"), generic(kind, t, '<', '>')) {
+                (Some(one), _) => one,
+                (
+                    None,
+                    Some((
+                        "Array" | "ReadonlyArray" | "Set" | "ReadonlySet" | "Iterable"
+                        | "IterableIterator",
+                        args,
+                    )),
+                ) => args[0],
+                _ => return None,
+            }
+        }
+        Kind::Go => {
+            let rest = t.strip_prefix("map").unwrap_or(t);
+            let close = close_of(kind, rest, 0).filter(|_| rest.starts_with('['))?;
+            &rest[close..]
+        }
+        _ => return None,
+    };
+    let element = element.trim();
+    (!element.is_empty()).then(|| element.to_owned())
 }
 
 /// Whether `path` is (in) the module spelled by `parts`: every part is a directory or file
@@ -4058,9 +4439,74 @@ output "bucket" {
         assert!(q("a[0].users.find()", 11).is_empty());
         assert!(q("a?.users.find()", 9).is_empty());
         assert!(q("  .users.find()", 9).is_empty());
+        // Python's `super()` is one name, as TypeScript's `super` is; `my_super()` is a call.
+        assert_eq!(q("        super().store(item)", 16), ["super"]);
+        assert_eq!(q("    print(super().label)", 18), ["super"]);
+        assert!(q("    my_super().store(item)", 15).is_empty());
+        assert!(q("    a.super().store(item)", 14).is_empty());
         // A spread and a range are no member access.
         assert_eq!(q("f(...this.repo.find())", 15), ["this", "repo"]);
         assert_eq!(q("for i in 0..v.len() {", 14), ["v"]);
+    }
+
+    #[test]
+    fn a_loop_hands_out_elements_only_where_the_type_says_so() {
+        let cases = [
+            (Kind::Python, "list[Repo]", Some("Repo")),
+            (
+                Kind::Python,
+                "typing.Sequence[models.Repo]",
+                Some("models.Repo"),
+            ),
+            (Kind::Python, "\"tuple[Repo, ...]\"", Some("Repo")),
+            (Kind::Python, "set[Repo | None]", Some("Repo | None")),
+            // Keys, a fixed tuple, a type of the project's own, no arguments at all.
+            (Kind::Python, "dict[str, Repo]", None),
+            (Kind::Python, "tuple[Repo, Audit]", None),
+            (Kind::Python, "Page[Repo]", None),
+            (Kind::Python, "list", None),
+            (Kind::TsJs, "Repo[]", Some("Repo")),
+            (Kind::TsJs, "readonly Repo[]", Some("Repo")),
+            (Kind::TsJs, "Array<Box<Repo>>", Some("Box<Repo>")),
+            (Kind::TsJs, "Set<Repo>;", Some("Repo")),
+            (Kind::TsJs, "Map<string, Repo>", None),
+            (Kind::TsJs, "Promise<Repo[]>", None),
+            (Kind::TsJs, "Repo", None),
+            (Kind::Go, "[]*Repo", Some("*Repo")),
+            (Kind::Go, "[4]Repo", Some("Repo")),
+            (Kind::Go, "map[Key]*models.Repo", Some("*models.Repo")),
+            (Kind::Go, "map[[2]int][]Repo", Some("[]Repo")),
+            (Kind::Go, "chan *Repo", None),
+            (Kind::Go, "*[]Repo", None),
+            (Kind::Go, "Repos", None),
+        ];
+        for (kind, written, want) in cases {
+            let got = element_type(kind, written);
+            assert_eq!(got.as_deref(), want, "{written}");
+        }
+        // The loops that hand out something else are unknown.
+        let element = |name: &str| Value::Element(name.into());
+        let py = "async def f(repos):\n    for r in repos:\n        r\n    async for r in repos:\n        r\n    for i, r in pairs:\n        r\n    for r in load():\n        r\n";
+        let at = |kind, text, line, name| bound_at(kind, text, line, name);
+        assert_eq!(
+            at(Kind::Python, py, 3, "r"),
+            [
+                (2, element("repos")),
+                (4, Value::Unknown),
+                (6, Value::Unknown),
+                (8, Value::Unknown)
+            ]
+        );
+        let ts = "for (const r of repos) {\n  r;\n}\nfor (const k in repos) {\n  k;\n}\nfor (const [k, r] of pairs) {\n  r;\n}\nfor (const r of load()) {\n  r;\n}\n";
+        assert_eq!(at(Kind::TsJs, ts, 2, "r"), [(1, element("repos"))]);
+        assert_eq!(at(Kind::TsJs, ts, 5, "k"), [(4, Value::Unknown)]);
+        assert_eq!(at(Kind::TsJs, ts, 8, "r"), [(7, Value::Unknown)]);
+        assert_eq!(at(Kind::TsJs, ts, 11, "r"), [(10, Value::Unknown)]);
+        let go = "func f() {\n\tfor _, r := range repos {\n\t\tr.Go()\n\t}\n\tfor i, r := range repos {\n\t\ti.Go()\n\t}\n\tfor r := range repos {\n\t\tr.Go()\n\t}\n\tfor _, r := range s.repos {\n\t\tr.Go()\n\t}\n}\n";
+        assert_eq!(at(Kind::Go, go, 3, "r"), [(2, element("repos"))]);
+        assert_eq!(at(Kind::Go, go, 6, "i"), [(5, Value::Unknown)]);
+        assert_eq!(at(Kind::Go, go, 9, "r"), [(8, Value::Unknown)]);
+        assert_eq!(at(Kind::Go, go, 12, "r"), [(11, Value::Unknown)]);
     }
 
     /// The bindings of `name` on `line` of `text`, as (line, value) pairs.
@@ -4111,31 +4557,21 @@ class Service:
 import os.path, store.sessions as sessions
 "#;
         let at = |line, name| bound_at(Kind::Python, text, line, name);
-        // A parameter over a multi-line signature, and the module's `repo` above.
-        assert_eq!(
-            at(14, "repo"),
-            [
-                (9, ty("UserRepository")),
-                (3, Value::Call("UserRepository".into()))
-            ]
-        );
+        // A parameter over a multi-line signature hides the module's `repo` above.
+        assert_eq!(at(14, "repo"), [(9, ty("UserRepository"))]);
+        assert_eq!(at(1, "repo"), [(3, Value::Call("UserRepository".into()))]);
         assert_eq!(at(14, "cache"), [(9, ty("\"Cache | None\""))]);
         assert_eq!(at(14, "local"), [(15, ty("Optional[Repo]"))]);
         assert_eq!(at(24, "self"), [(21, Value::Class(6))]);
         // A static method's first parameter is no `self`, and an unannotated one is unknown.
         assert_eq!(at(19, "first"), [(18, Value::Unknown)]);
         assert_eq!(at(19, "second"), [(18, ty("int"))]);
-        assert_eq!(at(23, "item"), [(22, Value::Unknown)]);
+        assert_eq!(at(23, "item"), [(22, Value::Element("items".into()))]);
         // A comprehension or a lambda binds on its own line only.
         assert_eq!(at(25, "r"), [(25, Value::Unknown)]);
         assert_eq!(at(24, "r"), []);
-        assert_eq!(
-            at(26, "repo"),
-            [
-                (26, Value::Unknown),
-                (3, Value::Call("UserRepository".into()))
-            ]
-        );
+        // Unknown where it is written, it hides the module's `repo` and proves nothing.
+        assert_eq!(at(26, "repo"), [(26, Value::Unknown)]);
         // A tuple and `as` are unknown; a keyword argument is no binding.
         assert_eq!(at(29, "a"), [(27, Value::Unknown)]);
         assert_eq!(at(29, "fh"), [(28, Value::Unknown)]);
@@ -4198,14 +4634,10 @@ def delete(
         let text = "def cleanup(user_id: int) -> None:\n    repo = AuditLog()\n\n    async def purge() -> None:\n        repo = UserRepository()\n        await repo.delete_user(user_id)\n\n    repo.delete_user(user_id)\n    repo = make_repo()  # later\n";
         let at = |line, name| bound_at(Kind::Python, text, line, name);
         let call = |c: &str| Value::Call(c.into());
-        assert_eq!(
-            at(6, "repo"),
-            [
-                (5, call("UserRepository")),
-                (2, call("AuditLog")),
-                (9, call("make_repo"))
-            ]
-        );
+        // The innermost function binding the name hides the one around it.
+        assert_eq!(at(6, "repo"), [(5, call("UserRepository"))]);
+        // One that does not bind it reads the enclosing function's.
+        assert_eq!(at(6, "user_id"), [(1, ty("int"))]);
         // The whole function counts, the lines after the cursor too.
         assert_eq!(
             at(8, "repo"),
@@ -4268,15 +4700,35 @@ export function cleanup(id: number): void {
         assert_eq!(at(16, "user"), [(15, ty("User"))]);
         assert_eq!(at(28, "made"), [(16, Value::Call("createRepo".into()))]);
         assert_eq!(at(28, "shared"), [(3, new("AuditLog"))]);
-        assert_eq!(at(18, "item"), [(17, Value::Unknown)]);
+        assert_eq!(at(18, "item"), [(17, Value::Element("items".into()))]);
         assert_eq!(at(28, "a"), [(20, Value::Unknown)]);
         assert_eq!(at(21, "x"), [(21, ty("Item"))]);
-        // Only the blocks around the cursor: the inner `repo` is gone below its arrow.
-        assert_eq!(
-            at(36, "repo"),
-            [(35, new("UserRepository")), (33, new("AuditLog"))]
-        );
+        // The innermost block around the cursor that declares the name; the inner `repo` is
+        // gone below its arrow.
+        assert_eq!(at(36, "repo"), [(35, new("UserRepository"))]);
         assert_eq!(at(38, "repo"), [(33, new("AuditLog"))]);
+    }
+
+    #[test]
+    fn what_a_header_binds_for_another_body_hides_nothing() {
+        let new = |t: &str| Value::New(t.into());
+        // A loop and a one-name arrow inside a callback on the line that opens a literal or
+        // another callback: the cursor below is in neither, and the outer `repo` still counts.
+        let ts = "const repo = new AuditLog();\nrun(() => { for (const repo of repos) { use(repo); } }, {\n  done: repo.x(),\n});\nrepos.map(repo => repo.id).forEach((id) => {\n  repo.y(id);\n});\nrepos.forEach(repo => {\n  repo.z();\n});\n";
+        let at = |line| bound_at(Kind::TsJs, ts, line, "repo");
+        assert_eq!(
+            at(3),
+            [(2, Value::Element("repos".into())), (1, new("AuditLog"))]
+        );
+        assert_eq!(at(6), [(5, Value::Unknown), (1, new("AuditLog"))]);
+        // The arrow whose body the line opens is the cursor's own.
+        assert_eq!(at(9), [(8, Value::Unknown)]);
+        // A declaration inside a raw string over several lines is none.
+        let go = "func f() {\n\trepo := NewAudit()\n\tif ok {\n\t\tconst doc = `\n\t\trepo := NewRepo()\n\t\t`\n\t\trepo.Go(doc)\n\t}\n}\n";
+        assert_eq!(
+            bound_at(Kind::Go, go, 7, "repo"),
+            [(2, Value::Call("NewAudit".into()))]
+        );
     }
 
     #[test]
@@ -4317,7 +4769,7 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
         assert_eq!(at(21, "built"), [(9, new("Repo"))]);
         assert_eq!(at(21, "fresh"), [(10, new("Repo"))]);
         assert_eq!(at(21, "shared"), [(3, new("AuditLog"))]);
-        assert_eq!(at(12, "item"), [(11, Value::Unknown)]);
+        assert_eq!(at(12, "item"), [(11, Value::Element("items".into()))]);
         assert_eq!(at(15, "r"), [(14, Value::Unknown)]);
         assert_eq!(at(18, "repo"), [(17, ty("*UserRepository"))]);
         assert_eq!(at(21, "other"), [(20, Value::Unknown)]);
@@ -4694,7 +5146,11 @@ func (b Batch) Send(text string, retries int) {
         let py = "def make_repo() -> UserRepository:\n    return UserRepository()\n\nasync def connect(\n    url: str,\n) -> \"Session\":\n    ...\n\ndef untyped():\n    return Repo()\n\ndef stub() -> Repo: ...\n\ndef documented() -> Annotated[Repo, \"doc: x\"]: ...\n";
         assert_eq!(returns(Kind::Python, py, 1), Some(ty("UserRepository")));
         assert_eq!(returns(Kind::Python, py, 4), Some(ty("\"Session\"")));
-        assert_eq!(returns(Kind::Python, py, 9), None);
+        // No annotation: what every `return` constructs (#100).
+        assert_eq!(
+            returns(Kind::Python, py, 9),
+            Some(Value::New("Repo".into()))
+        );
         assert_eq!(returns(Kind::Python, py, 12), Some(ty("Repo")));
         // A `: ` inside a string is not the end of the annotation.
         assert_eq!(
@@ -4749,6 +5205,191 @@ func Close() {
         assert_eq!(returns(Kind::Go, go, 4), Some(ty("AuditLog")));
         assert_eq!(returns(Kind::Go, go, 7), Some(ty("*Session")));
         assert_eq!(returns(Kind::Go, go, 10), None);
+    }
+
+    #[test]
+    fn returns_read_methods_and_what_an_unannotated_python_def_constructs() {
+        let new = |t: &str| Some(Value::New(t.into()));
+        let py = r#"class Depot:
+    def repo(self) -> Repo:
+        return self.people
+
+    def trail(self):
+        """Doc.
+
+        return Wrong()
+        """
+        def inner():
+            return Other()
+
+        if self.people:
+            return Trail(
+                self,
+            )
+        return Trail()  # again
+
+    def either(self):
+        if self.people:
+            return Trail()
+        return Repo()
+
+    def maybe(self):
+        if self.people:
+            return Trail()
+        return
+
+    def stream(self):
+        yield Trail()
+        return Trail()
+
+    @cache
+    def cached(self):
+        return Trail()
+
+    def handed_on(self):
+        return self.people
+"#;
+        assert_eq!(returns(Kind::Python, py, 2), Some(ty("Repo")));
+        assert_eq!(returns(Kind::Python, py, 5), new("Trail"));
+        assert_eq!(returns(Kind::Python, py, 19), None);
+        assert_eq!(returns(Kind::Python, py, 24), None);
+        assert_eq!(returns(Kind::Python, py, 29), None);
+        assert_eq!(returns(Kind::Python, py, 34), None);
+        assert_eq!(returns(Kind::Python, py, 37), None);
+        let ts = "export class Depot {\n  async repo<T>(id: T): Promise<Repo> {\n    return load(id);\n  }\n  private static trail() {\n    return new Trail();\n  }\n  find = (id: number): Repo => load(id);\n}\ninterface Source {\n  source(): Repo;\n  maybe?(): Repo\n}\n";
+        assert_eq!(returns(Kind::TsJs, ts, 2), Some(ty("Promise<Repo>")));
+        assert_eq!(returns(Kind::TsJs, ts, 5), new("Trail"));
+        // A property holding a function is not read.
+        assert_eq!(returns(Kind::TsJs, ts, 8), None);
+        assert_eq!(returns(Kind::TsJs, ts, 11), Some(ty("Repo")));
+        assert_eq!(returns(Kind::TsJs, ts, 12), Some(ty("Repo")));
+        let go = "func (d *Depot) Repo(id int) *Repo {\n\treturn d.people\n}\nfunc (d Depot) Trail() (Trail, error) {\n\treturn Trail{}, nil\n}\ntype Source interface {\n\tSource() *Repo\n\tClose()\n}\n";
+        assert_eq!(returns(Kind::Go, go, 1), Some(ty("*Repo")));
+        assert_eq!(returns(Kind::Go, go, 4), Some(ty("Trail")));
+        assert_eq!(returns(Kind::Go, go, 8), Some(ty("*Repo")));
+        assert_eq!(returns(Kind::Go, go, 9), None);
+    }
+
+    #[test]
+    fn a_cast_is_read_as_the_type_it_writes() {
+        let v = |kind, e| value_of(kind, e);
+        let pycast = |callee: &str, t: &str| Value::Cast(callee.into(), t.into());
+        assert_eq!(v(Kind::Python, "cast(Repo, row)"), pycast("cast", "Repo"));
+        assert_eq!(
+            v(Kind::Python, "typing.cast(\"models.Repo\", rows[0])"),
+            pycast("typing.cast", "\"models.Repo\"")
+        );
+        assert_eq!(v(Kind::Python, "cast(Repo, row).other"), Value::Unknown);
+        assert_eq!(
+            v(Kind::Python, "recast(Repo, row)"),
+            Value::Call("recast".into())
+        );
+        assert_eq!(v(Kind::TsJs, "row as Repo;"), ty("Repo"));
+        assert_eq!(v(Kind::TsJs, "load(id) as unknown as Repo"), ty("Repo"));
+        assert_eq!(v(Kind::TsJs, "{ a: 1 } as const"), ty("const"));
+        assert_eq!(v(Kind::TsJs, "await load(a, b) as Repo"), ty("Repo"));
+        // `as` takes the operand next to it, not the whole expression.
+        assert_eq!(v(Kind::TsJs, "ok ? a : b as Repo"), Value::Unknown);
+        assert_eq!(v(Kind::TsJs, "a ?? b as Repo"), Value::Unknown);
+        assert_eq!(v(Kind::TsJs, "() => row as Repo"), Value::Unknown);
+        assert_eq!(
+            v(Kind::TsJs, "check(x as Foo) ? other : found as Repo"),
+            Value::Unknown
+        );
+        assert_eq!(v(Kind::TsJs, "new Wrapper(x as Foo) as Repo"), ty("Repo"));
+        // An `as` inside brackets or a string casts something else.
+        assert_eq!(
+            v(Kind::TsJs, "load(row as Repo)"),
+            Value::Call("load".into())
+        );
+        assert_eq!(
+            v(Kind::TsJs, "pick(\"x as Repo\")"),
+            Value::Call("pick".into())
+        );
+        assert_eq!(v(Kind::Go, "i.(*Repo)"), ty("*Repo"));
+        assert_eq!(v(Kind::Go, "ctx.Value.(models.Repo)"), ty("models.Repo"));
+        assert_eq!(v(Kind::Go, "i.(*Repo).Owner"), Value::Unknown);
+
+        let go = "func f(x any) {\n\tswitch v := x.(type) {\n\tcase *Repo:\n\t\tv.Go()\n\tcase A, B:\n\t\tv.Go()\n\tdefault:\n\t\tv.Go()\n\t}\n\tswitch v := x.(type) {\n\tcase *Audit:\n\t\tswitch x {\n\t\tcase 1:\n\t\t\tv.Go()\n\t\t}\n\t}\n\tswitch v := pick(); v {\n\tcase 1:\n\t\tv.Go()\n\t}\n}\n";
+        let at = |line| bound_at(Kind::Go, go, line, "v");
+        assert_eq!(at(4), [(2, ty("*Repo"))]);
+        assert_eq!(at(6), [(2, Value::Unknown)]);
+        assert_eq!(at(8), [(2, Value::Unknown)]);
+        // Past a plain `switch` inside the arm, and not the closed type switch above.
+        assert_eq!(at(14), [(10, ty("*Audit"))]);
+        // No type switch: nothing the rules read binds `v` here.
+        assert_eq!(at(19), []);
+        // A `select` ends its `case` as a `switch` does: the closed type switch above it is not
+        // read with the `case` of the `select`, and the parameter `v` stays what it is.
+        let chans = "func f(v *Repo, x any, ch chan int) {\n\tswitch v := x.(type) {\n\tcase *Audit:\n\t\tv.Go()\n\t}\n\tselect {\n\tcase <-ch:\n\t\tv.Go()\n\t}\n}\n";
+        assert_eq!(bound_at(Kind::Go, chans, 8, "v"), [(1, ty("*Repo"))]);
+    }
+
+    #[test]
+    fn a_chain_may_hang_off_the_call_that_starts_it() {
+        let head = |kind, line: &str| {
+            let at = line.rfind('.').unwrap() + 1;
+            call_head(kind, line, at).map(|(label, value, fields)| (label, value, fields.join(".")))
+        };
+        let call = |label: &str, callee: &str, fields: &str| {
+            Some((
+                label.to_owned(),
+                Value::Call(callee.into()),
+                fields.to_owned(),
+            ))
+        };
+        assert_eq!(
+            head(Kind::Go, "\treturn pkg.New(x, y).Run()"),
+            call("pkg.New()", "pkg.New", "")
+        );
+        assert_eq!(
+            head(
+                Kind::Python,
+                "    await make_uow(\")\").users.delete_user(1)"
+            ),
+            call("make_uow()", "make_uow", "users")
+        );
+        assert_eq!(
+            head(Kind::Python, "x = self.repos.users.get_one(f(a), b).name"),
+            call("self.repos.users.get_one()", "self.repos.users.get_one", "")
+        );
+        assert_eq!(
+            head(Kind::TsJs, "  void new Depot(a).people.deleteUser(1);"),
+            Some((
+                "new Depot()".to_owned(),
+                Value::New("Depot".into()),
+                "people".to_owned()
+            ))
+        );
+        let cast = |written: &str, t: &str| Some((written.to_owned(), ty(t), String::new()));
+        assert_eq!(
+            head(Kind::TsJs, "  void (found as Repo).find()"),
+            cast("found as Repo", "Repo")
+        );
+        assert_eq!(
+            head(Kind::Go, "\tfound.(*Repo).Find()"),
+            cast("found.(*Repo)", "*Repo")
+        );
+        assert_eq!(
+            head(Kind::Python, "    cast(Repo, found).find()"),
+            Some((
+                "cast(Repo, found)".to_owned(),
+                Value::Cast("cast".into(), "Repo".into()),
+                String::new()
+            ))
+        );
+        // Brackets around a call are read through, as an `await` in front of one is.
+        assert_eq!(
+            head(Kind::TsJs, "  (await load()).find()"),
+            call("load()", "load", "")
+        );
+        // A call of a call, an index, a generic call, a condition, a plain name.
+        assert_eq!(head(Kind::Go, "\tOpen().Repo().Delete()"), None);
+        assert_eq!(head(Kind::Python, "    make()[0].delete()"), None);
+        assert_eq!(head(Kind::Python, "    items[0].load().delete()"), None);
+        assert_eq!(head(Kind::TsJs, "  load<Repo>(id).find()"), None);
+        assert_eq!(head(Kind::TsJs, "  if (ok).find()"), None);
+        assert_eq!(head(Kind::Python, "    repo.find()"), None);
     }
 
     #[test]
