@@ -385,7 +385,8 @@ the query stops filtering them and greps the project for a declaration whose nam
 after a pause in the typing, the way `s` does. A name declared in a file the cut never reached is
 found that way; the title then counts the answer (`Symbols (94 hits)`, `Symbols (5000+ hits)` for
 one the cut caught too, `Symbols (…)` while the grep runs). What the query matches there is the
-declared name, not the path beside it. Under 5,000 the rows are the whole list and the query
+declared name as typed — not the path beside it, and not the picker's own pattern syntax, so
+`^`, `!`, a space and an accent are characters to find. Under 5,000 the rows are the whole list and the query
 filters them, as before.
 Searches are smart-case — an all-lowercase query ignores case, one uppercase letter makes it
 case-sensitive — and `/` and `s` look for the text as typed: `foo(` finds the calls and the

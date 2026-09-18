@@ -1572,6 +1572,10 @@ impl App {
         }
         self.search_due = None;
         self.search_sent = Some(self.search_seq);
+        // ponytail: nothing stops a walk whose answer is already stale — `D` past the cap reads
+        // the project once per pause in the typing, and [`search::MAX_HITS`] does not bound it,
+        // since a narrowing query never fills the cap. A stop flag on the job, read per file, is
+        // the upgrade if typing on a large project ever waits on them.
         // `s` greps the query itself, as text; `D` past the cap greps the declaration patterns
         // and keeps the names the query matches.
         let symbols = self.mode == Mode::Picker(PickerKind::Symbols);
@@ -1610,7 +1614,8 @@ impl App {
             return false;
         }
         self.search_sent = None;
-        // The rows keep their order between queries, so the cursor stays on its hit.
+        // `s` keeps the order its grep found between queries, so the cursor stays on its hit.
+        // `D` re-ranks below and takes the cursor to the best row instead.
         let selected = old
             .current()
             .and_then(|cur| {

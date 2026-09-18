@@ -2926,8 +2926,9 @@ pub fn symbol_name(re: &Regex, line: &str) -> Option<String> {
 /// Whether `name` matches `query` as a name: the query's characters in order, case-insensitively
 /// until the query has a capital of its own (smart case, as `/` and `s`). `D` past the cap
 /// narrows its grep by this, so what comes back is what the picker then ranks. It is a name, not
-/// a pattern: the picker's matcher also reads `^`, `!`, `'` and spaces as syntax of its own, and
-/// matches the path beside the name — neither of those reaches the grep.
+/// a pattern: the picker's matcher also reads `^`, `!`, `'` and spaces as syntax of its own,
+/// folds the accents off a letter, and matches the path beside the name — none of that reaches
+/// the grep, so past the cap those keystrokes are characters of a name like any other.
 pub fn fuzzy_match(query: &str, name: &str) -> bool {
     let exact = query.chars().any(char::is_uppercase);
     let mut left = name.chars();
