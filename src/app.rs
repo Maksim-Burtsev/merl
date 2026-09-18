@@ -123,8 +123,6 @@ pub enum Mode {
     Normal,
     /// `/`: incremental find in the open file.
     Find,
-    /// `s`: the project-search query.
-    Search,
     Goto,
     Picker(PickerKind),
     /// `?`: the list of bindings, over everything else.
@@ -164,6 +162,15 @@ pub struct App {
     /// First visible row of the tree pane, clamped by `ui`.
     pub tree_top: usize,
     pub picker: Option<Picker>,
+    /// `s`: the number of the query on screen. Every change of the query takes the next one, so
+    /// the answer to an older query is recognised and dropped.
+    search_seq: u64,
+    /// When the query last changed and has not been grepped yet: the grep waits for a pause.
+    search_due: Option<Instant>,
+    /// The `search_seq` a thread is grepping for.
+    search_sent: Option<u64>,
+    /// Enter came before the answer to the query on screen: jump when it arrives.
+    search_enter: bool,
     /// Stops of the jump history, oldest first; `hist_idx` is the current one and follows
     /// the cursor (see `hist_note`).
     pub history: Vec<(PathBuf, usize, usize)>,
@@ -269,6 +276,10 @@ impl App {
             show_tree: true,
             tree_top: 0,
             picker: None,
+            search_seq: 0,
+            search_due: None,
+            search_sent: None,
+            search_enter: false,
             history: Vec::new(),
             hist_idx: 0,
             wake: Arc::new(|| {}),
@@ -1125,8 +1136,26 @@ impl App {
         let Some(picker) = &mut self.picker else {
             return;
         };
+        // The list on screen answers an older query: Enter waits for this one's.
+        let pending = self.search_due.is_some() || self.search_sent.is_some();
+        if picker.live && pending && key.code == KeyCode::Enter {
+            self.search_enter = true;
+            // No point in waiting out the pause.
+            self.search_due = self.search_due.map(|_| Instant::now());
+            return;
+        }
         match picker.key(key) {
             Pick::Stay => return,
+            Pick::Typed => {
+                self.search_seq += 1;
+                (self.search_sent, self.search_enter) = (None, false);
+                self.search_due = Some(Instant::now() + SEARCH_PAUSE);
+                if picker.query.is_empty() {
+                    self.search_due = None;
+                    self.search_done(self.search_seq, Vec::new());
+                }
+                return;
+            }
             Pick::Cancel => {
                 self.picker = None;
                 self.close_overlay();
@@ -1312,6 +1341,12 @@ impl App {
         smart_case: bool,
         wanted: impl Fn(&Path) -> bool,
     ) -> anyhow::Result<Vec<Hit>> {
+        self.grep_job(0, pattern, wanted)
+            .run(whole_word, smart_case)
+    }
+
+    /// Everything a grep for `pattern` needs, owned, so it can run in a thread.
+    fn grep_job(&self, seq: u64, pattern: &str, wanted: impl Fn(&Path) -> bool) -> SearchJob {
         let mut files: Vec<PathBuf> = self.files.iter().filter(|p| wanted(p)).cloned().collect();
         let current = self.rel_current();
         if let Some(cur) = &current
@@ -1320,18 +1355,16 @@ impl App {
         {
             files.push(cur.clone());
         }
-        // With unsaved edits the open file is searched as it is on screen, so a hit's line is a
-        // line of the buffer the jump lands in.
-        let unsaved = self.dirty.then(|| self.buf.to_bytes());
-        search::grep_project(
-            &self.root,
-            &files,
-            pattern,
-            whole_word,
-            smart_case,
-            current.as_deref(),
-            unsaved.as_deref(),
-        )
+        SearchJob {
+            seq,
+            root: self.root.clone(),
+            files,
+            pattern: pattern.to_string(),
+            current,
+            // With unsaved edits the open file is searched as it is on screen, so a hit's line
+            // is a line of the buffer the jump lands in.
+            unsaved: self.dirty.then(|| self.buf.to_bytes()),
+        }
     }
 
     /// The word under the cursor, with `extra` characters counting as part of it.
@@ -1360,22 +1393,83 @@ impl App {
             .collect()
     }
 
-    /// Enter in the `s>` prompt: a smart-case search for the query as typed, over every file.
-    /// Literal like `/`: `foo(` finds the calls and the definition, not a regex error.
-    fn run_search(&mut self) {
-        let query = self.prompt.take();
-        self.mode = Mode::Normal;
-        if query.is_empty() {
-            return;
+    /// `s`: the result picker, empty, with the query as its input line. The hits are a
+    /// smart-case grep for the query as typed, over every file, refreshed as it changes. Literal
+    /// like `/`: `foo(` finds the calls and the definition, not a regex error.
+    fn start_search(&mut self) {
+        self.show_picker(PickerKind::Search, Vec::new());
+        if let Some(p) = &mut self.picker {
+            p.live = true;
         }
-        let hits = self
-            .grep(&regex::escape(&query), false, true, |_| true)
-            .expect("an escaped literal always compiles");
-        if hits.is_empty() {
-            self.message = format!("no results for {query}");
-            return;
+        // An answer still on its way belongs to the search that was closed.
+        self.search_seq += 1;
+        (self.search_due, self.search_sent, self.search_enter) = (None, None, false);
+    }
+
+    /// The grep to start now, once the query has stood still for [`SEARCH_PAUSE`]. The event
+    /// loop runs it in a thread and hands the hits to [`App::search_done`].
+    pub fn search_tick(&mut self) -> Option<SearchJob> {
+        let query = self.picker.as_ref().filter(|p| p.live)?.query.to_string();
+        if self.search_due? > Instant::now() {
+            return None;
         }
-        self.show_picker(PickerKind::Search, Self::hit_items(hits));
+        self.search_due = None;
+        self.search_sent = Some(self.search_seq);
+        Some(self.grep_job(self.search_seq, &regex::escape(&query), |_| true))
+    }
+
+    /// Test helper: the pending grep, run here, and its hits in the picker.
+    #[cfg(test)]
+    pub(crate) fn settle_search(&mut self) {
+        self.search_due = self.search_due.map(|_| Instant::now());
+        if let Some(job) = self.search_tick() {
+            self.search_done(job.seq, job.hits());
+        }
+        if let Some(p) = &mut self.picker {
+            p.settle();
+        }
+    }
+
+    /// The hits of grep number `seq`. An answer to anything but the query on screen is dropped:
+    /// no grep is ever cancelled, [`search::MAX_HITS`] bounds what a stale one costs. Returns
+    /// whether the screen changed.
+    pub fn search_done(&mut self, seq: u64, hits: Vec<Hit>) -> bool {
+        let Some(old) = self.picker.as_mut().filter(|p| p.live) else {
+            return false;
+        };
+        if seq != self.search_seq {
+            return false;
+        }
+        self.search_sent = None;
+        let items = Self::hit_items(hits);
+        // The rows keep their order between queries, so the cursor stays on its hit.
+        let selected = old
+            .current()
+            .and_then(|cur| {
+                items
+                    .iter()
+                    .position(|it| (&it.path, it.line) == (&cur.path, cur.line))
+            })
+            .unwrap_or(0);
+        if std::mem::take(&mut self.search_enter) {
+            // Not through the new picker: nucleo has not seen its items yet.
+            let query = old.query.to_string();
+            self.picker = None;
+            self.mode = Mode::Normal;
+            match items.get(selected) {
+                Some(item) => self.jump_to(&self.root.join(&item.path), item.line),
+                None => self.message = format!("no results for {query}"),
+            }
+            tutor::check(self);
+            return true;
+        }
+        let mut new = Picker::new(old.title.clone(), items, false, self.wake.clone());
+        new.live = true;
+        new.selected = selected;
+        new.query = std::mem::take(&mut old.query);
+        new.bufs = std::mem::take(&mut old.bufs);
+        self.picker = Some(new);
+        true
     }
 
     /// `d` / F12. A file of a known [`Kind`] gets its declaration patterns. A word or a qualifier
@@ -2841,9 +2935,7 @@ impl App {
         let text = text.replace("\r\n", "\n").replace('\r', "\n");
         if self.mode == Mode::Edit {
             self.insert(&text);
-        } else if self.picker.is_some()
-            || matches!(self.mode, Mode::Goto | Mode::Find | Mode::Search)
-        {
+        } else if self.picker.is_some() || matches!(self.mode, Mode::Goto | Mode::Find) {
             for c in text.lines().next().unwrap_or_default().chars() {
                 self.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
             }
@@ -3066,10 +3158,6 @@ impl App {
                 self.find_key(key);
                 return false;
             }
-            Mode::Search => {
-                self.search_key(key);
-                return false;
-            }
             Mode::Help => {
                 match key.code {
                     KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q') => {
@@ -3134,10 +3222,7 @@ impl App {
                 self.step_find(false);
                 self.hist_note(true);
             }
-            KeyCode::Char('s') => {
-                self.mode = Mode::Search;
-                self.prompt.clear();
-            }
+            KeyCode::Char('s') => self.start_search(),
             KeyCode::Char('d') if ctrl => self.half_page(1),
             KeyCode::Char('u') if ctrl => self.half_page(-1),
             KeyCode::Char('{') => self.paragraph(-1),
@@ -3242,18 +3327,38 @@ impl App {
             }
         }
     }
+}
 
-    fn search_key(&mut self, key: KeyEvent) {
-        match key.code {
-            KeyCode::Enter => self.run_search(),
-            KeyCode::Esc => {
-                self.close_overlay();
-                self.prompt.clear();
-            }
-            _ => {
-                self.prompt.key(key);
-            }
-        }
+/// How long the `s` query has to stand still before it is grepped.
+const SEARCH_PAUSE: Duration = Duration::from_millis(80);
+
+/// One project grep with everything it reads, owned: `s` runs it in a thread.
+pub struct SearchJob {
+    pub seq: u64,
+    root: PathBuf,
+    files: Vec<PathBuf>,
+    pattern: String,
+    current: Option<PathBuf>,
+    unsaved: Option<Vec<u8>>,
+}
+
+impl SearchJob {
+    fn run(&self, whole_word: bool, smart_case: bool) -> anyhow::Result<Vec<Hit>> {
+        search::grep_project(
+            &self.root,
+            &self.files,
+            &self.pattern,
+            whole_word,
+            smart_case,
+            self.current.as_deref(),
+            self.unsaved.as_deref(),
+        )
+    }
+
+    /// The `s` search: smart case, the query anywhere in a line.
+    pub fn hits(&self) -> Vec<Hit> {
+        self.run(false, true)
+            .expect("an escaped literal always compiles")
     }
 }
 
@@ -3601,7 +3706,8 @@ mod tests {
         assert_eq!((a.mode, a.picker.is_none()), (Mode::Normal, true));
         press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
         a.paste("parse_it\r\nsecond line");
-        assert_eq!((a.mode, &*a.prompt), (Mode::Search, "parse_it"));
+        assert_eq!(a.mode, Mode::Picker(PickerKind::Search));
+        assert_eq!(&*a.picker.as_ref().unwrap().query, "parse_it");
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
         a.paste("app.rs");
@@ -6829,7 +6935,11 @@ mod tests {
     fn enter_edits_and_letters_are_text_until_esc() {
         let mut a = app("def f():\n    pass\n");
         typed(&mut a, "s");
-        assert_eq!(a.mode, Mode::Search, "letters navigate outside edit mode");
+        assert_eq!(
+            a.mode,
+            Mode::Picker(PickerKind::Search),
+            "letters navigate outside edit mode"
+        );
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         press(&mut a, KeyCode::End, KeyModifiers::NONE);
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
@@ -7335,12 +7445,76 @@ mod tests {
         ] {
             press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
             typed(&mut a, query);
-            press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-            let p = a.picker.as_mut().expect(why);
-            p.settle();
+            a.settle_search();
+            let p = a.picker.as_ref().expect(why);
             assert_eq!(p.counts().1, hits, "{why}: {}", a.message);
             press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         }
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    /// The hits follow the query. An answer to a query that has changed since is dropped, and
+    /// the cursor stays on its hit while the new query still finds it.
+    #[test]
+    fn project_search_refreshes_while_typing() {
+        let (path, mut a) = temp_file(
+            "live-s",
+            "foo
+food
+foo
+",
+        );
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "foo");
+        assert!(
+            a.search_tick().is_none(),
+            "the grep waits for a pause in the typing"
+        );
+        std::thread::sleep(SEARCH_PAUSE);
+        let stale = a.search_tick().expect("the grep for foo").seq;
+        typed(&mut a, "d");
+        assert!(!a.search_done(stale, Vec::new()), "foo is not on screen");
+        a.settle_search();
+        assert_eq!(a.picker.as_ref().unwrap().counts().1, 1);
+
+        press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+        a.settle_search();
+        let p = a.picker.as_ref().unwrap();
+        assert_eq!((p.counts().1, p.current().unwrap().line), (3, 2));
+        // An emptied query empties the list at once.
+        press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+        assert!(a.search_tick().is_none());
+        a.settle_search();
+        assert_eq!(a.picker.as_ref().unwrap().counts().1, 0);
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    /// Enter before the hits of the query on screen: the jump waits for them.
+    #[test]
+    fn enter_waits_for_the_project_search() {
+        let (path, mut a) = temp_file(
+            "enter-s", "one
+two
+",
+        );
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "two");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert!(a.picker.is_some(), "nothing to jump to yet");
+        a.settle_search();
+        assert_eq!(
+            (a.picker.is_none(), a.mode, a.line),
+            (true, Mode::Normal, 1)
+        );
+
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "three");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        a.settle_search();
+        assert_eq!(
+            (a.picker.is_none(), &*a.message),
+            (true, "no results for three")
+        );
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 

@@ -111,7 +111,7 @@ pub const LESSONS: &[Lesson] = &[
     },
     Lesson {
         title: "Search the project",
-        text: "`s` searches every file. Type `TODO`, Enter, then Enter on the result.",
+        text: "`s` searches every file as you type. Type `TODO`, then Enter on the result.",
         done: |a| at(a, "models.py"),
     },
     Lesson {
@@ -439,7 +439,7 @@ mod tests {
         press(&mut a, KeyCode::Char('s'));
         typed(&mut a, "TODO");
         press(&mut a, KeyCode::Enter);
-        press(&mut a, KeyCode::Enter);
+        a.settle_search();
         done(&mut a);
 
         // 9: project symbols
