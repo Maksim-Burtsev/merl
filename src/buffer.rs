@@ -267,6 +267,9 @@ fn known_name(path: &Path) -> Option<&'static str> {
         // bat's set knows Ruby by name for `Rakefile`, `Gemfile` and friends, but not for
         // Sorbet's type files or Danger's.
         (_, "rbi") | ("Dangerfile", _) => "Ruby",
+        // Sublime's set gives `.h` to Objective-C, which paints a C or a C++ header wrong. The
+        // C++ grammar is the C one plus templates, classes and namespaces, so it reads both.
+        (_, "h") => "C++",
         (".npmrc", _) | (_, "service" | "timer" | "socket") => "INI",
         ("Procfile" | "yarn.lock", _) => "YAML",
         // Starlark.
@@ -281,6 +284,36 @@ mod tests {
 
     fn load(bytes: &[u8]) -> Buffer {
         Buffer::from_bytes(PathBuf::from("x"), bytes)
+    }
+
+    #[test]
+    fn c_and_cpp_highlight_with_every_shipped_theme() {
+        let src = "// doc\n#include <stdio.h>\n\nstruct invoice { int total; };\n\nint main(void) {\n    return 0;\n}\n";
+        for (file, lang) in [
+            ("invoice.c", "C"),
+            ("ledger.cc", "C++"),
+            ("ledger.cpp", "C++"),
+            ("ledger.cxx", "C++"),
+            ("ledger.hpp", "C++"),
+            ("ledger.hh", "C++"),
+            ("ledger.hxx", "C++"),
+            // Mapped by name above: bat's set gives `.h` to Objective-C.
+            ("invoice.h", "C++"),
+        ] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some(lang),
+                    "{file} {name}"
+                );
+                b.highlight_to(3, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
     }
 
     #[test]

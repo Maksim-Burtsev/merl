@@ -2914,6 +2914,9 @@ impl App {
             .saturating_sub(1)
             .max(1);
         let mut module = match chain.first() {
+            // A C++ `std::` or `detail::` qualifier names a namespace, and no directory of the
+            // system headers is called that, so narrowing by it would find nothing at all.
+            Some(_) if kind == Kind::C => None,
             Some(first) => {
                 let mut p = bound_path.unwrap_or_else(|| vec![first.clone()]);
                 p.extend(chain[1..].iter().cloned());
@@ -8837,6 +8840,12 @@ mod tests {
                 ("main.tf", "variable \"region\" {}\n"),
                 ("Dockerfile", "FROM rust AS build\n"),
                 ("app.py", "def serve():\n    pass\n"),
+                // C is read from its own rows: `struct` must not be listed by the shared
+                // pattern as well, and a prototype is not a symbol.
+                (
+                    "invoice.h",
+                    "#define LIMIT 10\nstruct invoice {\n    int total;\n};\nint sum(struct invoice *i);\n",
+                ),
             ],
         );
         press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
@@ -8849,7 +8858,18 @@ mod tests {
             .map(|r| r.item.label.split_whitespace().next().unwrap().to_string())
             .collect();
         // `apiVersion:` has the shape of a Makefile target; the target rule only reads Makefiles.
-        assert_eq!(names, ["&base", "build", "build", "serve", "var.region"]);
+        assert_eq!(
+            names,
+            [
+                "&base",
+                "build",
+                "build",
+                "invoice",
+                "LIMIT",
+                "serve",
+                "var.region"
+            ]
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

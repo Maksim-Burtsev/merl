@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` and `D` in C and C++, which are one kind over every `.c`, `.h`, `.cc`, `.cpp`, `.cxx`,
+  `.hpp`, `.hh` and `.hxx` file, so a header finds what a `.c` or a `.cc` defines and the other
+  way round. In column zero, where neither language has statements, `d` reads a function, a
+  prototype, a signature that wraps and an out-of-line `Type::name(` definition; indented, it
+  takes a method or a function only when its body opens on the line, so `return compute(x);` and
+  `if (check(x)) {` are calls. It also finds `struct`, `class`, `union`, `enum`, `enum class`,
+  `namespace` — behind a template head, a storage specifier and an attribute or export macro,
+  a template specialization included — a `typedef` in every form, `using x =`, a `#define`
+  (function-like too) and a global. When a header declares a function the project defines
+  elsewhere, both are offered. An enum constant has no rule — `NAME,` in an `enum` body and in an
+  initializer list are the same line — and neither has a field, a local or a template parameter:
+  `u` lists their uses. `d` leaves the project
+  for the system headers (the SDK `xcrun` reports, `/usr/include`, `/usr/local/include`,
+  `/opt/homebrew/include`). `D` lists functions, methods, types, `typedef`s, `using` aliases and
+  `#define`s from rules of their own, so the declaration pattern every other language shares is
+  untouched and nothing is listed twice; a prototype and a `typedef struct x {` opening are left
+  out, so a function and a type are one row each. A `.h` file now highlights as C++ instead of
+  the Objective-C bat's syntax set gives it. (#17)
 - `w` stops wrapping the open file: long lines are cut at the edge of the pane, `›` and `‹`
   mark a line with more to the right or left, and the view follows the cursor sideways (End shows
   the end of the line, Home the start). For Markdown tables, CSV and minified files, which
@@ -68,7 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - No silent keys: a press that cannot act says why, in a word or two. `d` and `u` off a word
-  say `no word`; `d` in a file whose kind has no rules says `no rules for .c` instead of a
+  say `no word`; `d` in a file whose kind has no rules says `no rules for .lua` instead of a
   `no definition` that never looked; `/` shows `no match` or the match count (`3/17`) next to
   the query while it is typed, and `n` / `N` keep the count, which replaces `wrapped`; Esc no
   longer says `find cleared` with nothing to clear; a file deleted on disk is named
