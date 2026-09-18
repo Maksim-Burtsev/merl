@@ -156,6 +156,9 @@ pub struct App {
     /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
     /// keyword argument, which names a parameter no rule reads.
     offer_only: bool,
+    /// Set by a search by name whose field grep stopped at [`search::MAX_HITS`]: the candidates
+    /// are a lower bound, so the count says `+` and a single one is offered, not jumped to.
+    truncated: bool,
     pub focus: Focus,
     pub show_tree: bool,
     /// First visible row of the tree pane, clamped by `ui`.
@@ -261,6 +264,7 @@ impl App {
             files,
             external: HashMap::new(),
             offer_only: false,
+            truncated: false,
             focus,
             show_tree: true,
             tree_top: 0,
@@ -1407,6 +1411,7 @@ impl App {
         let text = self.buf.lines.join("\n");
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
+        self.truncated = false;
         let mut imports = search::imports(kind, &text);
         // A parameter or a local of the same name hides the import where the cursor is: `json`
         // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
@@ -1462,9 +1467,7 @@ impl App {
         }
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
         let on_value = dotted && !own && chain.first().is_none_or(|f| bound(&imports, f).is_none());
-        // `self.word` whose class is not followed to the end is a member too, but only the
-        // project's (#104): a function at the top of a module is none.
-        let members = (on_value || own)
+        let members = on_value
             .then(|| search::member_patterns(kind, &word))
             .flatten()
             .map(|m| m.join("|"));
@@ -1483,21 +1486,10 @@ impl App {
                 return;
             }
         }
-        // On the declaration of a field, the other fields and members of the name are namesakes
-        // (#104): `self.repo = repo` in `__init__` is one, `self.repo = other` further down is a
-        // use whose receiver is proven.
-        if (!dotted || own) && search::field_decl(kind, &text, self.line + 1, &word).is_some() {
-            let members = search::member_patterns(kind, &word)
-                .unwrap_or_default()
-                .join("|");
-            let found = self
-                .members_by_name(kind, &here, &word, &members)
-                .into_iter()
-                .map(|hit| Candidate {
-                    hit,
-                    reason: Reason::ByName,
-                })
-                .collect();
+        // On the name a field's declaration gives it, the other fields and members of the name
+        // are namesakes (#104). `self.repo = repo` is decided below, by where `self.repo` leads.
+        if !dotted && search::field_decl_at(kind, &text, self.line + 1, range.start, &word) {
+            let found = self.field_namesakes(kind, &here, &word);
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
@@ -1508,6 +1500,15 @@ impl App {
             && chain.first().is_some_and(|f| bound(&imports, f).is_none())
         {
             match self.typed_definitions(kind, &here, &word, &chain) {
+                // `self.repo` that leads to this very line is the field's declaration.
+                Ok(found)
+                    if own
+                        && matches!(found.as_slice(), [c] if c.hit.line == self.line + 1 && c.hit.path == here) =>
+                {
+                    let found = self.field_namesakes(kind, &here, &word);
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
                 Ok(found) if !found.is_empty() => {
                     self.show_definitions(kind, &word, &here, found, None);
                     return;
@@ -1589,7 +1590,15 @@ impl App {
             .as_ref()
             .map(|m| self.members_by_name(kind, &here, &word, m))
             .filter(|hits| !hits.is_empty() || !locals.is_empty())
-            .unwrap_or_else(|| self.project_definitions(kind, &here, &word, &pattern));
+            .unwrap_or_else(|| {
+                if own {
+                    // `self.word` whose class is not read to the end: the declarations of the name,
+                    // and the fields too (#104).
+                    self.members_by_name(kind, &here, &word, &pattern)
+                } else {
+                    self.project_definitions(kind, &here, &word, &pattern)
+                }
+            });
         found = hits
             .into_iter()
             .map(|hit| Candidate {
@@ -1597,7 +1606,7 @@ impl App {
                 reason: Reason::ByName,
             })
             .collect();
-        if let Some(members) = members.as_ref().filter(|_| on_value) {
+        if let Some(members) = &members {
             // A value's type is unknown: its member may come from a dependency as well. Outside
             // the project TypeScript is read from its declaration files, as VS Code lands on
             // them: the `.d.ts` says what a type offers, the bundled JavaScript is noise.
@@ -1663,6 +1672,7 @@ impl App {
         // The line of an interface method is a declaration no pattern of `d` lists, so nothing
         // was dropped above, and what is found is its namesakes all the same.
         let offer_only = std::mem::take(&mut self.offer_only);
+        let truncated = std::mem::take(&mut self.truncated);
         let on_member = || {
             let at = search::word_at(
                 self.line_str(),
@@ -1686,13 +1696,13 @@ impl App {
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
         match found.as_slice() {
-            [] => self.message = resolution(word, None, &found, broke),
-            [one] if !namesakes && !offer_only => {
+            [] => self.message = resolution(word, None, &found, broke, truncated),
+            [one] if !namesakes && !offer_only && !truncated => {
                 let path = self.root.join(&one.hit.path);
                 let target = self
                     .text_of(&one.hit.path)
                     .and_then(|text| search::qualified(kind, &text, one.hit.line, word));
-                let status = resolution(word, target.as_deref(), &found, broke);
+                let status = resolution(word, target.as_deref(), &found, broke, false);
                 self.jump_to(&path, one.hit.line);
                 // A refused jump (edits that cannot be saved) leaves its own reason, not a
                 // resolution nobody followed.
@@ -1717,7 +1727,7 @@ impl App {
                     let others = if found.len() == 1 { "other" } else { "others" };
                     format!("{word}: at a declaration, {} {others} by name", found.len())
                 } else {
-                    resolution(word, None, &found, broke)
+                    resolution(word, None, &found, broke, truncated)
                 };
                 let items = self.definition_items(kind, word, found);
                 self.show_picker(PickerKind::Definitions, items);
@@ -1884,14 +1894,26 @@ impl App {
             }
             ty = next;
         }
-        let hits = self
-            .hierarchy(kind, &ty, 0, &mut |t| {
-                let members = self.members_of(kind, t, word);
-                if members.is_empty() {
-                    self.field_of(kind, t, word).map(|hit| vec![hit])
-                } else {
-                    Some(members)
-                }
+        let declared = self.hierarchy(kind, &ty, 0, &mut |t| {
+            let members = self.members_of(kind, t, word);
+            if members.is_empty() {
+                self.field_of(kind, t, word, false).map(|hit| vec![hit])
+            } else {
+                Some(members)
+            }
+        });
+        // An assignment inside a method stands for a field no type declares, and the base-most
+        // one introduced it: `self.audit = None` in a subclass is a use of the base's field.
+        let hits = declared
+            .or_else(|| {
+                let mut assigned = None;
+                self.hierarchy(kind, &ty, 0, &mut |t| {
+                    if let Some(hit) = self.field_of(kind, t, word, true) {
+                        assigned = Some(vec![hit]);
+                    }
+                    None::<()>
+                });
+                assigned
             })
             .unwrap_or_default();
         let label = links.join(" \u{2192} ");
@@ -2103,40 +2125,68 @@ impl App {
         .collect()
     }
 
-    /// The line on which `ty` itself first declares the field `word` (#104), the first of its
-    /// [`search::field_bindings`]: a class-body annotation, the `self.word = …` of `__init__`, a
-    /// struct field.
-    fn field_of(&self, kind: Kind, ty: &Typed, word: &str) -> Option<Hit> {
+    /// The line on which `ty` itself declares the field `word` (#104), [`search::field_line`]: a
+    /// class-body annotation, a constructor parameter, a struct field, or with `assigned` the
+    /// first `self.word = …` of a type that declares it no other way.
+    fn field_of(&self, kind: Kind, ty: &Typed, word: &str, assigned: bool) -> Option<Hit> {
         let text = self.text_of(&ty.path)?;
-        let line = search::field_bindings(kind, &text, ty.line, word)
-            .first()?
-            .line;
-        Some(Hit {
+        let (line, is) = search::field_line(kind, &text, ty.line, word)?;
+        (is == assigned).then(|| Hit {
             path: ty.path.clone(),
             line,
-            text: text.lines().nth(line - 1)?.to_owned(),
+            text: text.lines().nth(line - 1).unwrap_or_default().to_owned(),
         })
     }
 
-    /// The project's declarations of `word` as a member of any type, by name: the lines `members`
-    /// matches, and each type's first declaration of a field `word` ([`search::field_decl`]), so
-    /// a type is one row and a local or a literal's key of that name is none (#104).
-    fn members_by_name(&self, kind: Kind, here: &Path, word: &str, members: &str) -> Vec<Hit> {
+    /// The project's declarations of `word` by name as a member of any type: the lines `members`
+    /// matches, and each type's declaration of a field `word` ([`search::field_rows`]), so a type
+    /// is one row and a local or a literal's key of that name is none (#104). The field lines are
+    /// grepped apart: their patterns match object keys, locals and keyword arguments too, which
+    /// must not push a method past [`search::MAX_HITS`], and a cut there is kept for the count.
+    fn members_by_name(&mut self, kind: Kind, here: &Path, word: &str, members: &str) -> Vec<Hit> {
+        let mut hits = self.project_definitions(kind, here, word, members);
         let Some(fields) = search::field_patterns(kind, word) else {
-            return self.project_definitions(kind, here, word, members);
+            return hits;
         };
-        let member = Regex::new(members).ok();
-        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
-        let pattern = format!("{members}|{}", fields.join("|"));
-        self.project_definitions(kind, here, word, &pattern)
+        let raw = self.project_definitions(kind, here, word, &fields.join("|"));
+        self.truncated |= raw.len() >= search::MAX_HITS;
+        let mut by_file: Vec<(PathBuf, Vec<usize>)> = Vec::new();
+        for h in raw {
+            match by_file.last_mut() {
+                Some((path, lines)) if *path == h.path => lines.push(h.line),
+                _ => by_file.push((h.path, vec![h.line])),
+            }
+        }
+        for (path, lines) in by_file {
+            let Some(text) = self.text_of(&path) else {
+                continue;
+            };
+            for line in search::field_rows(kind, &text, &lines, word) {
+                if !hits.iter().any(|h| h.path == path && h.line == line) {
+                    hits.push(Hit {
+                        text: text.lines().nth(line - 1).unwrap_or_default().to_owned(),
+                        path: path.clone(),
+                        line,
+                    });
+                }
+            }
+        }
+        let current = self.rel_current();
+        hits.sort_by_cached_key(|h| (current.as_ref() != Some(&h.path), h.path.clone(), h.line));
+        hits
+    }
+
+    /// What a field's own declaration offers (#104): the declarations of its name as a member of
+    /// any type, by name, the declaration itself among them.
+    fn field_namesakes(&mut self, kind: Kind, here: &Path, word: &str) -> Vec<Candidate> {
+        let members = search::member_patterns(kind, word)
+            .unwrap_or_default()
+            .join("|");
+        self.members_by_name(kind, here, word, &members)
             .into_iter()
-            .filter(|h| {
-                member.as_ref().is_some_and(|re| re.is_match(&h.text))
-                    || texts
-                        .entry(h.path.clone())
-                        .or_insert_with(|| self.text_of(&h.path))
-                        .as_deref()
-                        .is_some_and(|t| search::field_decl(kind, t, h.line, word).is_some())
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
             })
             .collect()
     }
@@ -3237,19 +3287,20 @@ fn bound(imports: &[(String, Vec<String>)], name: &str) -> Option<Vec<String>> {
 /// declarations` over a picker. A jump by name says it had one match, so a guess that happened to
 /// be unique never reads as a resolution. A chain in front of the word that `broke` says at which
 /// name: `(by name, 1 match, chain broke at users)`, `by name, 2 declarations (chain broke at
-/// users)`.
+/// users)`. A list that was `cut` short counts with a `+`, however few it holds.
 fn resolution(
     word: &str,
     target: Option<&str>,
     found: &[Candidate],
     broke: Option<&str>,
+    cut: bool,
 ) -> String {
     let note = broke.map_or(String::new(), |at| format!(" (chain broke at {at})"));
     let Some(first) = found.first() else {
         return format!("no definition for {word}{note}");
     };
     let reason = &first.reason;
-    if let [_] = found {
+    if let ([_], false) = (found, cut) {
         let mut why = reason.to_string();
         if !reason.proven() {
             why.push_str(", 1 match");
@@ -3264,7 +3315,7 @@ fn resolution(
     }
     // The candidates stop at MAX_HITS, so that many is a lower bound.
     let n = match found.len() {
-        n if n >= search::MAX_HITS => format!("{n}+"),
+        n if cut || n >= search::MAX_HITS => format!("{n}+"),
         n => n.to_string(),
     };
     if found.iter().all(|c| c.reason == *reason) {
@@ -4966,11 +5017,13 @@ mod tests {
     }
 
     /// #104 over the same project in three languages. A field is a target: behind a receiver whose
-    /// type is proven, the type's first declaration of the field, found through the classes it
-    /// extends and the structs it embeds, is one jump that names the receiver. On a value whose
-    /// type is not known, each type's first declaration of a field of that name is a candidate by
-    /// name, so a common name is a picker; a local, a literal's key or a `var` block of that name
-    /// is none. On the declaration itself the other fields of the name are its namesakes.
+    /// type is proven, the type's declaration of the field, found through the classes it extends
+    /// and the structs it embeds, is one jump that names the receiver; an assignment in a method
+    /// stands for the field only when no type declares it, and then the base-most one does. On a
+    /// value whose type is not known, each type's declaration of a field of that name is a
+    /// candidate by name, so a common name is a picker; a local, a literal's key or a `var` block
+    /// of that name is none. On the declaration itself the other fields of the name are its
+    /// namesakes, but only on the name the line declares.
     #[test]
     fn a_field_is_a_target() {
         let namesakes = |word: &str, row: (&str, &str)| {
@@ -4987,7 +5040,7 @@ mod tests {
                 "issue.poster_id",
                 jump(
                     "poster_id \u{2192} Issue.poster_id (via issue: Issue)",
-                    "fields.py:13",
+                    "fields.py:16",
                 ),
             ),
             (
@@ -4996,10 +5049,10 @@ mod tests {
                 "issue.title",
                 jump(
                     "title \u{2192} Issue.title (via issue: Issue)",
-                    "fields.py:12",
+                    "fields.py:15",
                 ),
             ),
-            // Assigned in the `__init__` of the base class.
+            // Assigned in the `__init__` of the base class, and again in a method of `Issue`.
             (
                 "python",
                 "fields.py",
@@ -5009,11 +5062,21 @@ mod tests {
                     "fields.py:8",
                 ),
             ),
+            // A field of `Issue` before a method of `Base`.
+            (
+                "python",
+                "fields.py",
+                "issue.summary",
+                jump(
+                    "summary \u{2192} Issue.summary (via issue: Issue)",
+                    "fields.py:17",
+                ),
+            ),
             (
                 "python",
                 "fields.py",
                 "await self.repo",
-                jump("repo \u{2192} Issue.repo (via self: Issue)", "fields.py:17"),
+                jump("repo \u{2192} Issue.repo (via self: Issue)", "fields.py:21"),
             ),
             // A later assignment is not the declaration.
             (
@@ -5022,7 +5085,7 @@ mod tests {
                 "^            self.labels",
                 jump(
                     "labels \u{2192} Issue.labels (via self: Issue)",
-                    "fields.py:18",
+                    "fields.py:22",
                 ),
             ),
             (
@@ -5041,18 +5104,19 @@ mod tests {
                 picker(
                     "poster_id: by name, 2 declarations",
                     &[
-                        ("Issue.poster_id", "fields.py:13"),
-                        ("Comment.poster_id", "fields.py:28"),
+                        ("Issue.poster_id", "fields.py:16"),
+                        ("Comment.poster_id", "fields.py:40"),
                     ],
                 ),
             ),
+            // `body : str` in the docstring declares nothing.
             (
                 "python",
                 "fields.py",
                 "comment.body",
                 jump(
                     "body \u{2192} Comment.body (by name, 1 match)",
-                    "fields.py:29",
+                    "fields.py:41",
                 ),
             ),
             // `total: int = 0` is a local.
@@ -5060,22 +5124,42 @@ mod tests {
                 "python",
                 "fields.py",
                 "comment.total",
-                jump("no definition for total", "fields.py:40"),
+                jump("no definition for total", "fields.py:52"),
+            ),
+            // The first binding of `Point.offset` is a tuple target.
+            (
+                "python",
+                "fields.py",
+                "p.offset",
+                picker(
+                    "offset: by name, 2 declarations",
+                    &[
+                        ("Point.offset", "fields.py:68"),
+                        ("Cursor.offset", "fields.py:76"),
+                    ],
+                ),
             ),
             (
                 "python",
                 "fields.py",
                 "^    poster_id",
-                namesakes("poster_id", ("Comment.poster_id", "fields.py:28")),
+                namesakes("poster_id", ("Comment.poster_id", "fields.py:40")),
             ),
             (
                 "python",
                 "fields.py",
                 "^        self.poster_id",
-                namesakes("poster_id", ("Issue.poster_id", "fields.py:13")),
+                namesakes("poster_id", ("Issue.poster_id", "fields.py:16")),
             ),
-            // A class whose base is not the project's: its members and fields by name, and a
-            // function at the top of a module is none of them.
+            // The parameter handed on, not the field it is handed to.
+            (
+                "python",
+                "fields.py",
+                "self.repo = repo",
+                jump("repo \u{2192} Issue.repo (local)", "fields.py:19"),
+            ),
+            // A class whose base is not the project's: its declarations by name, fields
+            // included, and a nested class among them.
             (
                 "python",
                 "fields.py",
@@ -5083,16 +5167,19 @@ mod tests {
                 picker(
                     "poster_id: by name, 2 declarations",
                     &[
-                        ("Issue.poster_id", "fields.py:13"),
-                        ("Comment.poster_id", "fields.py:28"),
+                        ("Issue.poster_id", "fields.py:16"),
+                        ("Comment.poster_id", "fields.py:40"),
                     ],
                 ),
             ),
             (
                 "python",
                 "fields.py",
-                "return self.tally",
-                jump("no definition for tally", "fields.py:47"),
+                "self.Options",
+                jump(
+                    "Options \u{2192} Encoder.Options (by name, 1 match)",
+                    "fields.py:57",
+                ),
             ),
             (
                 "typescript",
@@ -5112,6 +5199,7 @@ mod tests {
                     "fields.ts:8",
                 ),
             ),
+            // `Issue.close` assigns it again.
             (
                 "typescript",
                 "fields.ts",
@@ -5137,6 +5225,25 @@ mod tests {
                     "fields.ts:8",
                 ),
             ),
+            // Both sides of `this.close = this.close.bind(this)` are the method.
+            (
+                "typescript",
+                "fields.ts",
+                "this.close",
+                jump(
+                    "close \u{2192} Issue.close (via this: Issue)",
+                    "fields.ts:21",
+                ),
+            ),
+            (
+                "typescript",
+                "fields.ts",
+                "= this.close",
+                jump(
+                    "close \u{2192} Issue.close (via this: Issue)",
+                    "fields.ts:21",
+                ),
+            ),
             // A `case` block is no object literal: `this` is still the class.
             (
                 "typescript",
@@ -5156,6 +5263,19 @@ mod tests {
                     "fields.ts:8",
                 ),
             ),
+            // But the literal a `case` returns is: its `this` is not the class.
+            (
+                "typescript",
+                "fields.ts",
+                "`${this.posterId",
+                picker(
+                    "posterId: by name, 2 declarations",
+                    &[
+                        ("Issue.posterId", "fields.ts:9"),
+                        ("Comment.posterId", "fields.ts:47"),
+                    ],
+                ),
+            ),
             (
                 "typescript",
                 "chains.ts",
@@ -5173,7 +5293,7 @@ mod tests {
                     "posterId: by name, 2 declarations",
                     &[
                         ("Issue.posterId", "fields.ts:9"),
-                        ("Comment.posterId", "fields.ts:39"),
+                        ("Comment.posterId", "fields.ts:47"),
                     ],
                 ),
             ),
@@ -5183,7 +5303,7 @@ mod tests {
                 "comment.body",
                 jump(
                     "body \u{2192} Comment.body (by name, 1 match)",
-                    "fields.ts:40",
+                    "fields.ts:48",
                 ),
             ),
             // `let total` is a local, and `total: 0` the key of an object literal.
@@ -5191,13 +5311,13 @@ mod tests {
                 "typescript",
                 "fields.ts",
                 "comment.total",
-                jump("no definition for total", "fields.ts:54"),
+                jump("no definition for total", "fields.ts:62"),
             ),
             (
                 "typescript",
                 "fields.ts",
                 "^  posterId",
-                namesakes("posterId", ("Comment.posterId", "fields.ts:39")),
+                namesakes("posterId", ("Comment.posterId", "fields.ts:47")),
             ),
             (
                 "go",
@@ -5285,7 +5405,21 @@ mod tests {
                 "go",
                 "fields.go",
                 "r.Host",
-                jump("no definition for Host", "fields.go:39"),
+                jump("no definition for Host", "fields.go:40"),
+            ),
+            // A field named like its type: on the type, `d` goes to the type.
+            (
+                "go",
+                "fields.go",
+                "^\tIssue    *Issue",
+                jump("Issue: by name, 1 match", "fields.go:12"),
+            ),
+            // An embedded struct's name is its type's: `d` there goes to the type.
+            (
+                "go",
+                "fields.go",
+                "^\tBase",
+                jump("Base: by name, 1 match", "fields.go:8"),
             ),
             (
                 "go",
@@ -6325,6 +6459,68 @@ mod tests {
         std::fs::remove_dir_all(&root).unwrap();
     }
 
+    /// #104. A `self.word` whose class extends one outside the project gets the project's
+    /// declarations of the word and never the dependency's, although the dependency declares it.
+    #[test]
+    fn a_self_word_past_a_base_outside_the_project_stays_in_it() {
+        let (dir, mut a) = project_app(
+            "own-outside",
+            &[(
+                "a.py",
+                "from threading import Thread\n\n\nclass A(Thread):\n    def run(self):\n        self.stop()\n",
+            )],
+        );
+        let root = external_root(
+            "own-outside",
+            &[(
+                "threading.py",
+                "class Thread:\n    def stop(self):\n        pass\n",
+            )],
+        );
+        use_roots(&mut a, Kind::Python, std::slice::from_ref(&root));
+        d_on(&mut a, "a.py", "self.stop");
+        assert_eq!(shown(&mut a), jump("no definition for stop", "a.py:6"));
+        std::fs::remove_dir_all(&dir).unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// #104. The field lines of a name are grepped apart from its methods: a file of object-literal
+    /// keys that fills the grep leaves the method a candidate, and the count says the field side
+    /// was cut, so a single candidate is offered rather than jumped to.
+    #[test]
+    fn a_field_grep_cut_at_the_cap_keeps_the_methods_and_says_so() {
+        let keys = format!(
+            "export const rows = {{\n{}}};\n",
+            "  id: 1,\n".repeat(search::MAX_HITS)
+        );
+        let (dir, mut a) = project_app(
+            "field-cap",
+            &[
+                ("a/rows.ts", keys.as_str()),
+                (
+                    "z/model.ts",
+                    "export class Model {\n  id(): number {\n    return 1;\n  }\n}\n",
+                ),
+                (
+                    "main.ts",
+                    "export function f(u: any): number {\n  return u.id();\n}\n",
+                ),
+            ],
+        );
+        for kind in [Kind::Python, Kind::TsJs, Kind::Go] {
+            a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
+        }
+        d_on(&mut a, "main.ts", "u.id");
+        assert_eq!(
+            shown(&mut a),
+            picker(
+                "id: by name, 1+ declarations",
+                &[("Model.id", "z/model.ts:2")]
+            )
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// An editable install puts the project's own `src` on `sys.path`: a file the project walk
     /// listed stays editable, while a gitignored `.venv` under the root does not.
     #[test]
@@ -6400,23 +6596,32 @@ mod tests {
                 "load",
                 Some("json.load"),
                 &one(Reason::Import("json".into())),
-                None
+                None,
+                false
             ),
             "load \u{2192} json.load (via import json)"
         );
         let mut two = one(Reason::ByName);
         two.extend(one(Reason::Path("std::fs".into())));
-        assert_eq!(resolution("read", None, &two, None), "read: 2 declarations");
+        assert_eq!(
+            resolution("read", None, &two, None, false),
+            "read: 2 declarations"
+        );
         // The candidates stop at MAX_HITS: the count is a lower bound.
         let many: Vec<Candidate> = (0..search::MAX_HITS)
             .flat_map(|_| one(Reason::ByName))
             .collect();
         assert_eq!(
-            resolution("save", None, &many, None),
+            resolution("save", None, &many, None, false),
             format!("save: by name, {}+ declarations", search::MAX_HITS)
         );
+        // So is a list a search cut short, one candidate or more.
         assert_eq!(
-            resolution("read", None, &[], None),
+            resolution("id", None, &one(Reason::ByName), None, true),
+            "id: by name, 1+ declarations"
+        );
+        assert_eq!(
+            resolution("read", None, &[], None, false),
             "no definition for read"
         );
         // A chain in front of the word that could not be followed says where it broke.
@@ -6425,12 +6630,13 @@ mod tests {
                 "remove",
                 Some("UserService.remove"),
                 &one(Reason::ByName),
-                Some("users")
+                Some("users"),
+                false
             ),
             "remove \u{2192} UserService.remove (by name, 1 match, chain broke at users)"
         );
         assert_eq!(
-            resolution("read", None, &[], Some("repo")),
+            resolution("read", None, &[], Some("repo"), false),
             "no definition for read (chain broke at repo)"
         );
     }

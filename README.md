@@ -213,11 +213,12 @@ word to: `np.array` behind `import numpy as np` looks in `numpy`, `load` behind
 stub. The standard library's hits come before the dependencies', the picker shows paths relative
 to their root, and files opened from there are read-only. Go's `_test.go` files, `testdata` and
 nested modules such as GOROOT's `cmd` are skipped, since no import reaches them. Java, Kotlin,
-Ruby and the rest have no roots yet, so `d` stays inside the project for them. An enum variant or
-a parameter has no declaration the rules know: `d` says so, and `u` lists every whole-word use of
-the identifier. On `x.field` the word is a member: in Python, TypeScript and Go the field of the
-type `x` is proven to have (below), else every method, property and field of that name, found by
-name.
+Ruby and the rest have no roots yet, so `d` stays inside the project for them. A parameter has no
+declaration the rules know, nor has an enum variant unless its class declares it as a field (a
+Python `Enum` member, a TypeScript enum member with a value): `d` says so, and `u` lists every
+whole-word use of the identifier. On `x.field` the word is a member: in Python, TypeScript and Go
+the field of the type `x` is proven to have (below), else every method, property and field of
+that name, found by name.
 
 `d` never jumps without saying how it found the target. The status line reads
 `delete_user → UserRepository.delete_user (by name, 1 match)` after a jump, `load: via import
@@ -236,7 +237,9 @@ What `d` does not claim, in Python, TypeScript and Go:
   are offered under `delete_user: at a declaration, 1 other by name`, even when there is one, so
   pressing `d` again after a proven jump never walks out of the type it has just proven. A field's
   declaration — `poster_id: int` in a class body, the `self.repo = repo` of `__init__`, a struct
-  field — offers the other fields and members of its name the same way.
+  field — offers the other fields and members of its name the same way, on the name it declares
+  only: the right-hand `repo` of `self.repo = repo` is the parameter, and the name of a Go embedded
+  struct is its type's, where `d` goes.
 - A parameter or a local hides an import of the same name: `json` in `def handler(json)` is a
   value, and `d` on the name itself lands on that binding, `helper → f.helper (local)`. In front of
   a dot it keeps the search to members: a function at the top of a module is not one.
@@ -272,12 +275,15 @@ the same file, the same Go package or the project module an import names. `d` th
 member in that type, and in the classes it extends and the structs it embeds, and the status line
 names the link: `via self.repo: UserRepository`, `via NewRepo() *UserRepository`,
 `via makeAudit() returns new AuditLog()`. A member that is no method is a field, and `d` lands on
-its first declaration in the type — a class-body `poster_id: int`, the `self.repo = …` of
-`__init__`, a constructor parameter `private repo: UserRepository`, a struct field `PosterID int`
-or an embedded struct — so a later `self.repo = other` goes there too:
-`PosterID → Issue.PosterID (via issue: Issue)`. A field of a base class and one promoted from a Go
-embedded struct are found as an inherited method is. On an interface or a base class `d` lands on
-the declaration there; a second `d`, with the cursor on it, lists what implements it.
+its declaration — a class-body `poster_id: int`, a constructor parameter
+`private repo: UserRepository`, a struct field `PosterID int` or an embedded struct — in the type
+or the nearest one it extends or embeds: `PosterID → Issue.PosterID (via issue: Issue)`. A field
+that no type declares that way is declared by its first `self.repo = …` in the base-most class
+that assigns it, so a later `self.repo = other`, in the class or a subclass, goes there too. A
+`this.x = …` counts only where `this` is the class, not an object literal or a `function` inside a
+method; a parameter behind a modifier only in a constructor; a line of a docstring never. On an
+interface or a base class `d` lands on the declaration there; a second `d`, with the cursor on it,
+lists what implements it.
 
 A chain is followed the same way one field at a time, up to six names in front of the word: on
 `self.uow.users.delete_user` the type of `self.uow`, then the field `users` in that type, then
@@ -302,12 +308,14 @@ would land on: Python `name: T` or `name = …` in a class body and `self.name =
 TypeScript members and constructor parameters behind a modifier and `this.name = …`, Go struct
 fields and embedded structs. A local, the key of a dict or an object literal and a line of a `var`
 block are no field, and a name several types declare, such as `id`, is a picker rather than a
-jump. Fields outside the project are not collected: there a field name is every `name: string;` of
-every `.d.ts`. A project with no such method or field has the word at its top level instead — `x` was a class or a
+jump. The field lines are searched apart from the methods, and when they fill the search the count
+says `+` and a single candidate is offered rather than jumped to. Fields outside the project are
+not collected: there a field name is every `name: string;` of every `.d.ts`. A project with no
+such method or field has the word at its top level instead — `x` was a class or a
 namespace — and the usual declarations answer. One candidate jumps; several open the picker, the
 project's first. A bare `self.word` or `this.word` whose class, or a class it extends, cannot be
-read gets the project's methods and fields of that name, never a function at the top of a module
-and nothing outside the project.
+read gets the project's declarations of that name, fields included, and nothing outside the
+project.
 
 With the cursor on the declaration of a member — a `Protocol` method, an interface signature, a
 method of an abstract or a plain base class — `d` offers what implements it instead, labelled `send:

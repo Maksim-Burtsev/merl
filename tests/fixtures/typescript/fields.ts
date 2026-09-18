@@ -15,10 +15,12 @@ export class Issue extends Base {
   ) {
     super();
     this.title = "";
+    this.close = this.close.bind(this);
   }
 
   close(): void {
     this.labels = [];
+    this.audit = new AuditLog();
     void this.repo.deleteUser(this.posterId);
     this.log.deleteUser(this.posterId);
   }
@@ -28,6 +30,12 @@ export class Issue extends Base {
       case "poster": {
         return String(this.posterId);
       }
+      case "copy": return {
+        posterId: 1,
+        label(): string {
+          return `${this.posterId}`;
+        },
+      }.label();
       default: {
         return this.title;
       }

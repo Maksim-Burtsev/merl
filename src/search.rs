@@ -5,6 +5,7 @@
 //! is, searched in the project first and then in the standard library and the installed
 //! dependencies the toolchain on this machine knows about.
 
+use std::collections::HashMap;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
@@ -518,12 +519,17 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
 pub fn field_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
     let w = regex::escape(word);
     Some(match kind {
-        // `name: T` or `name = …` in a class body, `self.name = …` in a method.
-        Kind::Python => vec![format!(r"^\s+(?:self\.)?{w}\s*(?::|=[^=])")],
-        // A member behind any modifiers, a constructor parameter behind one, `this.name = …`.
+        // `name: T` or `name = …` in a class body, `self.name = …` in a method, `self.name` in a
+        // tuple, a `with` or a `for` target.
+        Kind::Python => vec![
+            format!(r"^\s+(?:self\.)?{w}\s*(?::|=[^=])"),
+            format!(r"\bself\.{w}\b.*[^=!<>]=[^=]|\bas\s+self\.{w}\b|^\s*for\s.*\bself\.{w}\b"),
+        ],
+        // A member behind any modifiers, bare or not, a constructor parameter behind one and
+        // any decorators, `this.name = …`.
         Kind::TsJs => vec![
             format!(
-                r"^\s+(?:(?:public|private|protected|readonly|static|declare|override|abstract|accessor)\s+)*{w}\s*[?!]?\s*(?::|=[^=>])"
+                r"^\s+(?:@[\w$.]+(?:\([^)]*\))?\s*)*(?:(?:public|private|protected|readonly|static|declare|override|abstract|accessor)\s+)*{w}\s*[?!]?\s*(?::|=[^=>]|;|$)"
             ),
             format!(r"^\s+this\.{w}\s*=[^=]"),
         ],
@@ -570,10 +576,21 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     if let Some(c) = RECEIVER.captures(target).filter(|_| kind == Kind::Go) {
         return Some(format!("{}{sep}{name}", &c[1]));
     }
+    // A field declared inside a method or in a constructor's parameters is the class's:
+    // `Issue.repo`, not `Issue.__init__.repo`.
+    if field_like(kind, target.trim_start(), name)
+        && let Some(decl) = enclosing_type(kind, &lines, line - 1)
+        && field_bindings(kind, text, decl, name)
+            .iter()
+            .any(|b| b.line == line)
+        && let Some(ty) = type_name(kind, lines[decl - 1])
+    {
+        let owner = qualified(kind, text, decl, &ty).unwrap_or(ty);
+        return Some(format!("{owner}{sep}{name}"));
+    }
     let indent = |s: &str| s.len() - s.trim_start().len();
     let mut depth = indent(target);
     let mut names = vec![name.to_owned()];
-    let mut field = field_in_function(kind, target.trim_start(), name);
     for l in lines[..line - 1].iter().rev() {
         if depth == 0 {
             break;
@@ -589,11 +606,6 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             continue;
         }
         depth = indent(l);
-        // The method a field is declared in is not part of its name: `UserService.repo`.
-        if field && !declares_type(kind, l) {
-            continue;
-        }
-        field = false;
         let named = IMPL
             .captures(l)
             .filter(|_| kind == Kind::Rust)
@@ -614,25 +626,29 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     (names.len() > 1).then(|| names.join(sep))
 }
 
-/// Whether the trimmed line `t` declares the field `name` of a class from inside one of its
-/// functions: `self.name = …` in a Python method, `this.name = …` or a constructor parameter behind
-/// an access modifier in TypeScript.
-fn field_in_function(kind: Kind, t: &str, name: &str) -> bool {
+/// Whether the trimmed line `t` can declare the field `name` of a class from inside one of its
+/// functions: it assigns `self.name` or `this.name`, or, in TypeScript, it is a parameter behind
+/// an access modifier. A cheap test before [`field_bindings`] decides.
+fn field_like(kind: Kind, t: &str, name: &str) -> bool {
     static MODIFIED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:@[\w$.]+(?:\([^)]*\))?\s*)*(?:(?:public|private|protected|readonly|override)\s+)+([\w$]+)").unwrap()
     });
-    let behind = |prefix: &str| {
-        t.strip_prefix(prefix)
-            .and_then(|rest| rest.strip_prefix(name))
-            .is_some_and(|rest| {
-                !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_' || c == '$')
-            })
-    };
     match kind {
-        Kind::Python => behind("self."),
-        Kind::TsJs => behind("this.") || MODIFIED.captures(t).is_some_and(|c| &c[1] == name),
+        Kind::Python => in_method(t, name),
+        Kind::TsJs => in_method(t, name) || MODIFIED.captures(t).is_some_and(|c| &c[1] == name),
         _ => false,
     }
+}
+
+/// Whether line `t` reaches the field `name` through `self.` or `this.`: an assignment inside a
+/// method, as against a declaration in the class body or a constructor's parameters.
+fn in_method(t: &str, name: &str) -> bool {
+    let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
+    ["self.", "this."].iter().any(|p| {
+        let at = format!("{p}{name}");
+        t.match_indices(&at)
+            .any(|(i, m)| !t[..i].ends_with(ident) && !t[i + m.len()..].starts_with(ident))
+    })
 }
 
 /// `var.x`, `module.x`, `local.x`, `data.T.N` and `T.N` (a resource), with anything after the
@@ -1840,13 +1856,16 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
     if CLASS.is_match(header) {
         return Some(Value::Class(line));
     }
-    // `case X: {` and `default: {` open statements, whatever the colon suggests.
-    let case = header.starts_with("case ") || header.starts_with("default:");
     let before = header.strip_suffix('{').map(str::trim_end);
+    // `case X: {` and `default: {` open statements, whatever the colon suggests; the `{` of a
+    // `case X: return {` on the same line is a literal's.
+    let case = (header.starts_with("case ") || header.starts_with("default"))
+        && before.is_some_and(|b| b.ends_with(':'));
     let object = !case
         && before.is_some_and(|b| {
             b.ends_with(['=', '(', '[', ',', '?', ':', '|', '&'])
                 || b.ends_with("return")
+                || b.ends_with("yield")
                 || b.ends_with("default")
         });
     (object || names(header, "function")).then_some(Value::Unknown)
@@ -2121,6 +2140,9 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
     };
     let n = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    // A docstring or a block comment declares nothing, whatever its lines look like.
+    let literal = literal_lines(kind, text);
+    let body = body.filter(|&i| !literal.get(i).copied().unwrap_or(false));
     let mut out = Vec::new();
     let mut push = |i: usize, value: Value| out.push(Binding { line: i + 1, value });
     match kind {
@@ -2176,12 +2198,29 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
                 r"^(?:(?:public|private|protected|readonly|static|declare|override|abstract|accessor)\s+)*{n}\s*[?!]?\s*(?::\s*([^=;]+?))?\s*(?:=\s*(.+?))?\s*;?$"
             ));
             let param = rule(format!(
-                r"(?:^|[(,])\s*(?:(?:public|private|protected|readonly|override)\s+)+{n}\s*\??\s*:\s*([^,)=]+)"
+                r"(?:^|[(,])\s*(?:@[\w$.]+(?:\([^)]*\))?\s*)*(?:(?:public|private|protected|readonly|override)\s+)+{n}\s*\??\s*:\s*([^,)=]+)"
             ));
             let assigned = rule(format!(r"^this\.{n}\s*=\s*([^=].*?)\s*;?$"));
             let getter = rule(format!(
                 r"^(?:(?:public|private|protected|static|override|abstract|declare)\s+)*get\s+{n}\s*\(\s*\)\s*(?::\s*(.+?))?\s*(?:\{{.*)?;?$"
             ));
+            // A parameter behind a modifier is a field only in the constructor's list: in a type
+            // literal or another method's parameters it is nothing of the class.
+            let in_constructor = |i: usize| {
+                let ind = indent(lines[i]);
+                lines[i].trim_start().starts_with("constructor")
+                    || lines[..i]
+                        .iter()
+                        .rev()
+                        .find(|l| !l.trim().is_empty() && indent(l) < ind)
+                        .is_some_and(|l| l.trim_start().starts_with("constructor"))
+            };
+            // `this` there is another object: a literal, a `function`, a nested class.
+            let foreign = |i: usize| {
+                bindings(kind, text, i + 1, "this")
+                    .iter()
+                    .any(|b| b.value != Value::Class(decl))
+            };
             for i in body {
                 let (code, ind) = (uncommented(kind, lines[i]), indent(lines[i]));
                 let t = code.trim();
@@ -2200,9 +2239,9 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
                             (None, None) => Value::Unknown,
                         },
                     );
-                } else if let Some(c) = param.captures(t) {
+                } else if let Some(c) = param.captures(t).filter(|_| in_constructor(i)) {
                     push(i, Value::Type(c[1].trim().to_owned()));
-                } else if let Some(c) = assigned.captures(t).filter(|_| ind > base) {
+                } else if let Some(c) = assigned.captures(t).filter(|_| ind > base && !foreign(i)) {
                     push(i, value_of(kind, &c[1]));
                 }
             }
@@ -2235,20 +2274,16 @@ fn go_embedded(t: &str) -> Option<&str> {
     EMBEDDED.captures(t).map(|c| c.get(1).unwrap().as_str())
 }
 
-/// The 1-based line of the class, interface or struct that first declares its field `name` on
-/// 1-based `line` of `text`, among the [`field_bindings`] of the type around the line: the line a
-/// receiver of that type lands on. `None` for any other line — a later assignment of the field,
-/// a local, the key of a literal.
-pub fn field_decl(kind: Kind, text: &str, line: usize, name: &str) -> Option<usize> {
-    let lines: Vec<&str> = text.lines().collect();
-    let k = line.checked_sub(1).filter(|&k| k < lines.len())?;
+/// The 1-based line of the type declaration 0-based line `k` of `lines` sits in, however deep:
+/// the enclosing lines, each indented less than the last, until one declares a type. `None` when
+/// the walk reaches the top level first.
+fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usize> {
     let mut depth = indent(lines[k]);
-    let mut decl = None;
     for i in (0..k).rev() {
-        let t = lines[i].trim();
         if depth == 0 {
             break;
         }
+        let t = lines[i].trim();
         // A closer at a lower indent ends a signature or a header wrapped over several lines.
         if t.is_empty()
             || t == "{"
@@ -2260,13 +2295,78 @@ pub fn field_decl(kind: Kind, text: &str, line: usize, name: &str) -> Option<usi
         }
         depth = indent(lines[i]);
         if declares_type(kind, lines[i]) {
-            decl = Some(i + 1);
-            break;
+            return Some(i + 1);
         }
     }
-    let decl = decl?;
-    let first = field_bindings(kind, text, decl, name).first()?.line;
-    (first == line).then_some(decl)
+    None
+}
+
+/// The line among `bindings`, the [`field_bindings`] of one type over `lines`, that declares the
+/// field: the first that is no assignment inside a method, else the first assignment, which the
+/// second value says.
+fn declaring(lines: &[&str], bindings: &[Binding], name: &str) -> Option<(usize, bool)> {
+    let assigned = |b: &&Binding| in_method(lines[b.line - 1], name);
+    bindings
+        .iter()
+        .find(|b| !assigned(b))
+        .map(|b| (b.line, false))
+        .or_else(|| bindings.first().map(|b| (b.line, true)))
+}
+
+/// The line on which the type declared on 1-based `decl` of `text` declares its field `name` —
+/// the class-body annotation, a constructor parameter, the struct field, else the first
+/// `self.name = …` — and whether that line is an assignment inside a method. `None` when the type
+/// has no field of that name.
+pub fn field_line(kind: Kind, text: &str, decl: usize, name: &str) -> Option<(usize, bool)> {
+    let lines: Vec<&str> = text.lines().collect();
+    declaring(&lines, &field_bindings(kind, text, decl, name), name)
+}
+
+/// The fields `name` the 1-based `hits` of `text` stand for: a hit that is one of the
+/// [`field_bindings`] of the type around it gives that type's [`field_line`], once, in line
+/// order. What [`field_patterns`] greps is more than the fields; this keeps the fields.
+pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str) -> Vec<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut types: HashMap<usize, Vec<Binding>> = HashMap::new();
+    let mut out = Vec::new();
+    for &line in hits {
+        let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
+            continue;
+        };
+        let Some(decl) = enclosing_type(kind, &lines, k) else {
+            continue;
+        };
+        let bindings = types
+            .entry(decl)
+            .or_insert_with(|| field_bindings(kind, text, decl, name));
+        if bindings.iter().any(|b| b.line == line)
+            && let Some((first, _)) = declaring(&lines, bindings, name)
+            && !out.contains(&first)
+        {
+            out.push(first);
+        }
+    }
+    out.sort_unstable();
+    out
+}
+
+/// Whether the word `name` at byte `start` of 1-based `line` of `text` is the name a field's
+/// declaration gives it ([`field_rows`]): the first time the line spells it, as `self.repo = repo`
+/// and `this.f = this.f.bind(this)` spell it twice, and never a Go embedded struct, whose name
+/// is its type's.
+pub fn field_decl_at(kind: Kind, text: &str, line: usize, start: usize, name: &str) -> bool {
+    let Some(l) = line.checked_sub(1).and_then(|k| text.lines().nth(k)) else {
+        return false;
+    };
+    let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
+    let first = l
+        .match_indices(name)
+        .map(|(i, _)| i)
+        .find(|&i| !l[..i].ends_with(ident) && !l[i + name.len()..].starts_with(ident));
+    let bare = l.split("//").next().unwrap_or("");
+    let embedded =
+        kind == Kind::Go && go_embedded(bare.split('`').next().unwrap_or("").trim()).is_some();
+    first == Some(start) && !embedded && field_rows(kind, text, &[line], name) == [line]
 }
 
 /// What a call of the function declared on 1-based `decl` of `text` gives: its declared return
@@ -2930,19 +3030,23 @@ mod tests {
         );
     }
 
-    /// #104. What the search by name offers for a field — the lines [`field_patterns`] match and
-    /// [`field_decl`] keeps — is each type's first declaration of it, named after the type and not
-    /// after the method it is assigned in. A later assignment, a local, the key of a literal, a
-    /// `var` block and a field of an anonymous struct are none.
+    /// #104. What the search by name offers for a field — the lines [`field_patterns`] match,
+    /// through [`field_rows`] — is each type's declaration of it once, named after the type and
+    /// not after the method it is assigned in. A later assignment stands for the declaration; a
+    /// local, the key of a literal, a docstring, a `var` block, a field of an anonymous struct, a
+    /// member of a type literal and a `this` that is no class are none.
     #[test]
-    fn a_field_by_name_is_the_first_declaration_in_its_type() {
+    fn a_field_by_name_is_the_declaration_in_its_type() {
         let found = |kind: Kind, text: &str, name: &str| -> Vec<(usize, String)> {
             let re = Regex::new(&field_patterns(kind, name).unwrap().join("|")).unwrap();
-            text.lines()
+            let hits: Vec<usize> = text
+                .lines()
                 .enumerate()
                 .filter(|(_, l)| re.is_match(l))
                 .map(|(i, _)| i + 1)
-                .filter(|&n| field_decl(kind, text, n, name).is_some())
+                .collect();
+            field_rows(kind, text, &hits, name)
+                .into_iter()
                 .map(|n| (n, qualified(kind, text, n, name).unwrap_or_default()))
                 .collect()
         };
@@ -2958,15 +3062,34 @@ mod tests {
             qualified(Kind::Python, py, 12, "repo").as_deref(),
             Some("Issue.repo")
         );
+        // Outside a class `self` is a parameter like any other.
+        let def = "def build(self):\n    self.x = 1\n";
+        assert_eq!(found(Kind::Python, def, "x"), vec![]);
         assert_eq!(
-            found(Kind::Python, "def f(self):\n    self.x = 1\n", "x"),
-            vec![]
+            qualified(Kind::Python, def, 2, "x").as_deref(),
+            Some("build.x")
         );
-        let ts = "export class Issue extends Base {\n  posterId = 0;\n\n  constructor(\n    private repo: Repo,\n  ) {\n    super();\n    this.title = \"\";\n  }\n}\nexport function tally(): void {\n  const sums = {\n    total: 0,\n  };\n  total = 2;\n}\n";
+        // A tuple target is a declaration, and the later plain assignment stands for it.
+        let tuple = "class Point:\n    def __init__(self):\n        self.x, self.offset = 0, 0\n\n    def move(self):\n        self.offset = 5\n";
+        assert_eq!(found(Kind::Python, tuple, "offset"), one(3, "Point.offset"));
+        let doc = "class Comment:\n    \"\"\"\n    body : str\n    \"\"\"\n\n    def __init__(self, body):\n        self.body = body\n";
+        assert_eq!(found(Kind::Python, doc, "body"), one(7, "Comment.body"));
+        let ts = "export class Issue extends Base {\n  posterId = 0;\n\n  constructor(\n    private repo: Repo,\n    @Inject(Log) private log: Log,\n  ) {\n    super();\n    this.title = \"\";\n  }\n\n  resize(opts: {\n    readonly width: number;\n  }): void {\n    const box = {\n      grow() {\n        this.height = 1;\n      },\n    };\n  }\n}\nexport function tally(): void {\n  const sums = {\n    total: 0,\n  };\n  total = 2;\n}\nexport const config: {\n  readonly timeout: number;\n} = { timeout: 1 };\n";
         assert_eq!(found(Kind::TsJs, ts, "posterId"), one(2, "Issue.posterId"));
         assert_eq!(found(Kind::TsJs, ts, "repo"), one(5, "Issue.repo"));
-        assert_eq!(found(Kind::TsJs, ts, "title"), one(8, "Issue.title"));
+        assert_eq!(found(Kind::TsJs, ts, "log"), one(6, "Issue.log"));
+        assert_eq!(found(Kind::TsJs, ts, "title"), one(9, "Issue.title"));
+        assert_eq!(found(Kind::TsJs, ts, "width"), vec![]);
+        assert_eq!(found(Kind::TsJs, ts, "height"), vec![]);
+        // Nor are they named after the class.
+        assert_eq!(qualified(Kind::TsJs, ts, 13, "width"), None);
+        assert_eq!(qualified(Kind::TsJs, ts, 17, "height"), None);
         assert_eq!(found(Kind::TsJs, ts, "total"), vec![]);
+        assert_eq!(found(Kind::TsJs, ts, "timeout"), vec![]);
+        assert_eq!(
+            qualified(Kind::TsJs, ts, 29, "timeout").as_deref(),
+            Some("config.timeout")
+        );
         let go = "package main\n\ntype Issue struct {\n\t*store.Base\n\tPosterID    int\n\tTitle, Body string `json:\"t\"`\n\tStats       struct {\n\t\tTotal int\n\t}\n}\n\nfunc Serve() {\n\tvar (\n\t\tHost string\n\t)\n}\n";
         assert_eq!(found(Kind::Go, go, "PosterID"), one(5, "Issue.PosterID"));
         assert_eq!(found(Kind::Go, go, "Body"), one(6, "Issue.Body"));
@@ -2974,6 +3097,53 @@ mod tests {
         assert_eq!(found(Kind::Go, go, "Stats"), one(7, "Issue.Stats"));
         assert_eq!(found(Kind::Go, go, "Total"), vec![]);
         assert_eq!(found(Kind::Go, go, "Host"), vec![]);
+    }
+
+    /// #104. The search by name greps for [`member_patterns`] and [`field_patterns`] and then keeps
+    /// the fields [`field_bindings`] reads; a form the grep does not know would drop its type from
+    /// the list, so every line the rules read must be one the grep finds.
+    #[test]
+    fn the_grep_finds_every_line_the_field_rules_read() {
+        let py = "class A:\n    a: int\n    b = 1\n\n    def __init__(self):\n        self.c = 1\n        self.d: int = 1\n        self.e, self.f = 1, 2\n        (self.g, x) = 1, 2\n        with open(p) as self.h:\n            pass\n        for self.i in xs:\n            pass\n\n    @property\n    def j(self) -> int:\n        return 1\n";
+        let ts = "export class A {\n  a: number;\n  b = 1;\n  static c = 1;\n  declare d: D;\n  accessor e = 1;\n  f;\n  readonly g?: G;\n  get h(): H {\n    return new H();\n  }\n\n  constructor(\n    private i: I,\n    @Inject(J) protected j: J,\n  ) {\n    this.k = 1;\n  }\n}\nexport class B {\n  constructor(private l: L) {}\n}\n";
+        let go = "package main\n\ntype A struct {\n\tA int\n\tB, C string\n\t*Base\n\tpkg.Mixin\n\tD func(x int) error\n\tE map[string]int `json:\"e\"`\n}\n";
+        let cases: [(Kind, &str, &[&str]); 3] = [
+            (
+                Kind::Python,
+                py,
+                &["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"],
+            ),
+            (
+                Kind::TsJs,
+                ts,
+                &["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"],
+            ),
+            (Kind::Go, go, &["A", "B", "C", "Base", "Mixin", "D", "E"]),
+        ];
+        for (kind, text, names) in cases {
+            let lines: Vec<&str> = text.lines().collect();
+            let decls: Vec<usize> = (1..=lines.len())
+                .filter(|&n| declares_type(kind, lines[n - 1]))
+                .collect();
+            for name in names {
+                let mut patterns = member_patterns(kind, name).unwrap();
+                patterns.extend(field_patterns(kind, name).unwrap());
+                let re = Regex::new(&patterns.join("|")).unwrap();
+                let read: Vec<usize> = decls
+                    .iter()
+                    .flat_map(|&d| field_bindings(kind, text, d, name))
+                    .map(|b| b.line)
+                    .collect();
+                assert!(!read.is_empty(), "{kind:?}: no field {name}");
+                for n in read {
+                    assert!(
+                        re.is_match(lines[n - 1]),
+                        "{kind:?}: {name}: {}",
+                        lines[n - 1]
+                    );
+                }
+            }
+        }
     }
 
     #[test]

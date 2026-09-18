@@ -41,11 +41,15 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   fields in every form the rules read — a class-body annotation with a value and without, a
   constructor parameter handed on (TypeScript: of a constructor wrapped over several lines), a
   field assigned again in another method, `Title, Body string` — and a `Comment` sharing
-  `poster_id` with it and alone declaring `body`, for the search by name. `tally` / `Serve` hold a
-  local of a field's name (an annotated local, an object literal's key, a `var` block) that is no
-  field. Python's `Encoder` extends a class outside the project, so its `self.poster_id` is
-  looked up by name, and its `self.tally` is no top-level function. TypeScript's `Issue.label`
-  reads its fields inside `case …: {` blocks, which are no object literals.
+  `poster_id` with it and alone declaring `body` (Python: under a docstring whose `Attributes`
+  section spells `body : str`), for the search by name. `Issue` assigns the `audit` of `Base`
+  again, which must not make it `Issue`'s; Python's `Issue.summary` is a field over a method of
+  `Base`. `tally` / `Serve` hold a local of a field's name (an annotated local, an object
+  literal's key, a `var` block) that is no field. Python's `Encoder` extends a class outside the
+  project, so its `self.poster_id` is looked up by name and its nested `Options` is found as on
+  master; `Point` declares `offset` first in a tuple. TypeScript's `Issue` binds `close` in its
+  constructor, and `Issue.label` reads its fields inside `case …: {` blocks, which are no object
+  literals, and inside the literal a `case …: return {` returns, which is one.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.

@@ -19,6 +19,7 @@ type Issue struct {
 type Comment struct {
 	PosterID int
 	Text     string
+	Issue    *Issue
 }
 
 func (i *Issue) Close() {
