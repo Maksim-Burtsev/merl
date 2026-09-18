@@ -268,11 +268,13 @@ the type before it. The type comes from the declaration:
   `): UserRepository`, `func NewRepo() *UserRepository` (a Go function's first result), or a
   function that declares none and whose every `return` constructs the same class,
   `return new UserRepository()` in TypeScript, `return UserRepository()` in an undecorated Python
-  `def` (a bare `return` or a `yield` spoils it). The function may be a method called on a receiver
+  `def` (a bare `return` or a `yield` spoils it). A callee that a parameter or a local of the
+  scope names is a value, not the function of that name. The function may be a method called on a receiver
   whose type is proven the same way, `info := e.RequestInfo()` or `repo = self.depot.people()`:
   the method is looked for in that type and the types it extends, where it must be declared once,
   an interface's method line included;
-- a cast: `repo = cast(UserRepository, found)` (`typing.cast` too, the type quoted or not),
+- a cast: `repo = cast(UserRepository, found)` (`typing.cast` too, the type quoted or not;
+  a `cast` the project declares itself is a function, read by its return type),
   `const repo = found as UserRepository` (the last type of `as unknown as T`),
   `repo, ok := found.(*UserRepository)`, and the variable of a Go type switch,
   `switch v := found.(type)`, inside a `case *UserRepository:` (a `case` of several types and
@@ -300,9 +302,13 @@ above it, a function's parameters counting with its body. So a local hides a mod
 closure's variable the one of the function around it, a block's the function's. The declarations
 of that one scope must all read the same type, and one that reads none (a loop variable, a
 parameter with no annotation) hides the outer ones all the same, so nothing is guessed: two
-assignments in the branches of an `if` are a picker. The parameter of an arrow function or a
-`lambda` on the cursor's own line counts and hides nothing, since the cursor may stand outside
-it. The type must be declared once, in
+assignments in the branches of an `if` are a picker. In TypeScript and Go a header hides the
+outer scopes only with what it binds for the block under it: the loop or the `catch` it is, the
+function whose body it opens. The parameter of any other function on those lines,
+`if (repos.some((repo: Repo) => …)) {` or `register((repo: Repo) => repo, {`, and of one on the
+cursor's own line, counts and hides nothing, since the cursor stands outside it; and what the
+`if` branch declares is nothing to its `else`. A line inside a docstring, a raw string or a
+template declares nothing. The type must be declared once, in
 the same file, the same Go package or the project module an import names. `d` then looks for the
 member in that type, and in the classes it extends and the structs it embeds, and the status line
 names the link: `via self.repo: UserRepository`, `via NewRepo() *UserRepository`,
@@ -321,9 +327,10 @@ lists what implements it.
 the walk started one level up, so an override leads to what it overrides:
 `store → Archive.store (via super of ColdArchive)`. Under several Python bases only what needs no
 method resolution order is proven: the first base declaring the member itself, or every base
-leading to the same declaration (`Generic[T]`, `Protocol`, `ABC` and `object` aside). Bases that
-disagree, or one outside the project that may declare the member first, leave the word to the
-search by name, and so does `super()` in a function inside the method. Go has no `super`: its
+leading to the same declaration (`Generic[T]`, `Protocol`, `ABC` and `object` aside), at every
+level the member is looked for. Bases that disagree, or one outside the project that may declare
+the member first, leave the word to the search by name, and so do `super()` in a function inside
+the method and a local assigned from `super.make()`, whose return type an override may narrow. Go has no `super`: its
 `i.Base.Touch()` is a chain through the embedded struct.
 
 A chain is followed the same way one field at a time, up to six names in front of the word: on

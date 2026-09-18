@@ -45,3 +45,9 @@ def sweep_either(flag: bool, user_id: int) -> None:
         found: list[AuditLog] = []
     for repo in found:
         repo.delete_user(user_id + 7)
+
+
+def sweep_handed_on(repos: list[UserRepository], user_id: int) -> None:
+    for repo in repos:
+        current = repo
+        current.delete_user(user_id + 8)

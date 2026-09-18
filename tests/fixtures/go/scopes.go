@@ -45,3 +45,25 @@ func ScopedLiteral(id int) {
 		run: func() { ledger.DeleteUser(id + 6) },
 	})
 }
+
+// What a sibling block or a callback on the header's line declares is not the cursor's.
+func ScopedSibling(ledger AuditLog, repos []*UserRepository, ok bool) {
+	if ok {
+		scopedRegister(func(ledger *UserRepository) {
+		}, scopedOptions{})
+	} else {
+		ledger.DeleteUser(7)
+	}
+	if ok {
+		for _, ledger := range repos {
+			_ = ledger
+		}
+	} else {
+		ledger.DeleteUser(8)
+	}
+	if scopedAny(func(ledger *UserRepository) bool { return ledger != nil }) {
+		ledger.DeleteUser(9)
+	}
+}
+
+func scopedAny(each func(ledger *UserRepository) bool) bool { return each(nil) }

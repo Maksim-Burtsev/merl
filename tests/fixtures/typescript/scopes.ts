@@ -44,3 +44,32 @@ export function literal(id: number): unknown[] {
     done: ledger.deleteUser(id + 5),
   });
 }
+
+// What a sibling block or a callback on the header's line declares is not the cursor's.
+export function sibling(ledger: AuditLog, repos: UserRepository[], id: number): void {
+  try {
+    repos.forEach((ledger: UserRepository) => ledger.findUser(id));
+  } catch (e) {
+    ledger.deleteUser(id + 6);
+  }
+  if (id === 1) {
+    for (const ledger of repos) {
+      void ledger;
+    }
+  } else if (id === 2) {
+    ledger.deleteUser(id + 7);
+  }
+  if (repos.some((ledger: UserRepository) => ledger !== null)) {
+    ledger.deleteUser(id + 8);
+  }
+  repos.filter((ledger: UserRepository) => ledger !== null).forEach((found) => {
+    ledger.deleteUser(id + 9 + Number(found === null));
+  });
+}
+
+// An arrow function whose line ends in `=>` opens its body below it.
+export function wrapped(repos: UserRepository[], id: number): void {
+  repos.forEach((ledger: UserRepository) =>
+    ledger.deleteUser(id + 10),
+  );
+}

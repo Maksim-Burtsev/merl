@@ -36,3 +36,18 @@ export class GlacierArchive extends ColdArchive {
     void plain;
   }
 }
+
+export class Vault {
+  open(): Archive {
+    return new Archive(new AuditLog());
+  }
+}
+
+export class ColdVault extends Vault {
+  open(): ColdArchive {
+    const opened = super.open();
+    opened.store(1);
+    super.open().store(2);
+    return new ColdArchive(new AuditLog());
+  }
+}

@@ -80,3 +80,52 @@ class Wire(json.JSONEncoder, Archive):
 class Ledger(Archive):
     def close(self) -> None:
         super().audit.store(0)
+
+
+from abc import ABC  # noqa: E402
+
+
+class Tank:
+    def drain(self) -> None:
+        pass
+
+
+class PlainTank(Tank):
+    pass
+
+
+class QuietTank(Tank):
+    pass
+
+
+class LoudTank(Tank):
+    def drain(self) -> None:
+        pass
+
+
+class JoinedTank(PlainTank, LoudTank):
+    pass
+
+
+class LeafTank(JoinedTank):
+    def drain(self) -> None:
+        super().drain(), "a diamond one level up"
+
+
+class WireTank(json.JSONEncoder, Tank):
+    pass
+
+
+class LeafWire(WireTank):
+    def drain(self) -> None:
+        super().drain(), "an outside base one level up"
+
+
+class SameTank(PlainTank, QuietTank):
+    def drain(self) -> None:
+        super().drain(), "both bases lead to Tank"
+
+
+class AbcTank(Tank, ABC):
+    def drain(self) -> None:
+        super().drain(), "ABC declares nothing"

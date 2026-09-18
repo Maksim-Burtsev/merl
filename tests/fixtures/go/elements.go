@@ -1,5 +1,7 @@
 package main
 
+import "example.com/fixture/store"
+
 func LoadRepos() []*UserRepository {
 	return nil
 }
@@ -42,5 +44,22 @@ type RepoList []*UserRepository
 func SweepList(repos RepoList, id int) {
 	for _, repo := range repos {
 		repo.DeleteUser(id + 6)
+	}
+}
+
+// A named map, a named slice of another package, and an alias the rules do not read.
+type RepoIndex map[string]*UserRepository
+
+type RepoAlias = []*UserRepository
+
+func SweepNamed(index RepoIndex, sessions store.SessionList, alias RepoAlias, id int) {
+	for _, repo := range index {
+		repo.DeleteUser(id + 7)
+	}
+	for _, session := range sessions {
+		session.Close()
+	}
+	for _, repo := range alias {
+		repo.DeleteUser(id + 8)
 	}
 }

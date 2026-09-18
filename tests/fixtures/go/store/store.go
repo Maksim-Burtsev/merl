@@ -13,3 +13,6 @@ func (s *Session) Open() bool {
 }
 
 func (s *Session) Close() {}
+
+// SessionList is a named slice, read from another package by what it holds.
+type SessionList []*Session

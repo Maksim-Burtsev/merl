@@ -33,3 +33,13 @@ def twice(flag: bool) -> None:
 
 def hidden(ledger, user_id: int) -> None:
     ledger.delete_user(user_id + 4)
+
+
+def documented(user_id: int) -> None:
+    """Deletes through the module's ledger.
+
+    Example:
+
+        ledger = UserRepository()
+    """
+    ledger.delete_user(user_id + 5)

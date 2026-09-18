@@ -1658,33 +1658,12 @@ impl App {
         // A parameter or a local of the same name hides the import where the cursor is: `json`
         // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
         let first = chain.first().map_or(word.as_str(), String::as_str);
+        // `super` is no local, whatever the member lookup reads it as.
         let locals: Vec<usize> = search::bindings(kind, &text, self.line + 1, first)
             .iter()
             .map(|b| b.line)
             .filter(|&n| {
-                // An import is what the name hides, and a class, a function or a namespace of
-                // that name is no value: `Outer.Inner` reads a declaration, not a member.
-                let t = self.buf.lines[n - 1].trim_start();
-                let t = t.strip_prefix("export ").unwrap_or(t);
-                let t = t.strip_prefix("abstract ").unwrap_or(t);
-                let declares = [
-                    "class ",
-                    "def ",
-                    "async def ",
-                    "function ",
-                    "func ",
-                    "type ",
-                    "interface ",
-                    "namespace ",
-                    "enum ",
-                ]
-                .iter()
-                .filter_map(|k| t.strip_prefix(k))
-                .any(|rest| {
-                    rest.strip_prefix(first)
-                        .is_some_and(|after| !after.starts_with(is_word))
-                });
-                !declares && !t.starts_with("import ") && !t.starts_with("from ")
+                (dotted || word != "super") && !names_itself(&self.buf.lines[n - 1], first)
             })
             .collect();
         if !locals.is_empty() {
@@ -2126,7 +2105,7 @@ impl App {
             let (ty, _) = self
                 .value_type(kind, here, &text, line, &chain[0], 1)
                 .ok_or_else(|| chain[0].clone())?;
-            let hits = self.above(kind, &ty, word)?;
+            let hits = self.above(kind, &ty, word, 0)?;
             let label = format!("super of {}", ty.name);
             return Ok(hits
                 .into_iter()
@@ -2141,7 +2120,8 @@ impl App {
             Some((call, value, fields)) => {
                 let value = value.clone();
                 // A cast is its own link, as written: `via (repo as UserRepository)`.
-                let cast = matches!(value, search::Value::Type(_)).then(|| call.clone());
+                let cast = matches!(value, search::Value::Type(_) | search::Value::Cast(..))
+                    .then(|| call.clone());
                 let (ty, link) = self
                     .binding_type(kind, here, &text, &search::Binding { line, value }, 1)
                     .ok_or_else(|| call.clone())?;
@@ -2318,6 +2298,15 @@ impl App {
                 Some((ty, None))
             }
             search::Value::Call(callee) => self.call_type(kind, file, text, b.line, callee, hops),
+            // `cast(T, x)` writes `T`, unless the project declares the `cast` this file calls:
+            // that one is a function, with whatever it returns.
+            search::Value::Cast(callee, t) => {
+                let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
+                match self.declaration(kind, file, &parts) {
+                    Some(_) => self.call_type(kind, file, text, b.line, callee, hops),
+                    None => self.type_decl(kind, file, t).map(|ty| (ty, None)),
+                }
+            }
             search::Value::Name(n) if hops > 0 => {
                 self.value_type(kind, file, text, b.line, n, hops - 1)
             }
@@ -2372,9 +2361,9 @@ impl App {
 
     /// What a call of `callee` on 1-based `line` of `file` gives: the class it constructs, or the
     /// declared return type of the function, resolved in the file declaring it. `e.RequestInfo()`
-    /// on a receiver whose type is proven is the method of that type, or of one it extends. One
-    /// hop: a return type is never followed through another call, and `hops` bounds how a receiver
-    /// is proven. The signature is spelled as the language writes it.
+    /// on a receiver whose type is proven is the method of that type, or of one it extends. A
+    /// return type is never followed through another call; the receiver may itself come from a
+    /// call, and `hops` bounds that, so two locals assigned from each other end. The signature is spelled as the language writes it.
     fn call_type(
         &self,
         kind: Kind,
@@ -2386,6 +2375,11 @@ impl App {
     ) -> Option<(Typed, Option<String>)> {
         let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
         let (method, receiver) = parts.split_last()?;
+        // `super.make()` is the base's `make`, which only `typed_definitions` knows how to find:
+        // read as a call on `this`, an override's narrower return type would answer.
+        if receiver.first().is_some_and(|r| r == "super") {
+            return None;
+        }
         let proven = (hops > 0 && !receiver.is_empty())
             .then(|| {
                 self.chain_type(kind, file, text, line, receiver, hops - 1)
@@ -2400,7 +2394,22 @@ impl App {
                 })?;
                 <[Hit; 1]>::try_from(found).ok().map(|[hit]| hit)?
             }
-            None => self.declaration(kind, file, &parts)?,
+            None => {
+                // A parameter or a local named like a function or an import is a value: what it
+                // returns when called is not what that function declares.
+                let lines: Vec<&str> = text.lines().collect();
+                let hidden = search::bindings(kind, text, line, &parts[0])
+                    .iter()
+                    .any(|b| {
+                        lines
+                            .get(b.line - 1)
+                            .is_some_and(|l| !names_itself(l, &parts[0]))
+                    });
+                if hidden {
+                    return None;
+                }
+                self.declaration(kind, file, &parts)?
+            }
         };
         if search::declares_type(kind, &decl.text) {
             let ty = Typed {
@@ -2796,17 +2805,23 @@ impl App {
     /// of the types above it. Under one base that is the nearest one up the line. Under several,
     /// Python orders them as no walk by depth does, so only what needs no ordering is proven: the
     /// first base declaring the member itself, or every base leading to the same line. `Err` when
-    /// they differ, or when a base is outside the project and may declare the member first.
-    fn above(&self, kind: Kind, ty: &Typed, word: &str) -> Result<Vec<Hit>, String> {
+    /// they differ, or when a base is outside the project and may declare the member first. The
+    /// same holds at every level the answer is looked for, so a diamond or an outside base under
+    /// the one direct base proves nothing either.
+    fn above(&self, kind: Kind, ty: &Typed, word: &str, depth: usize) -> Result<Vec<Hit>, String> {
         let broke = || "super".to_owned();
-        let find = &mut |t: &Typed| {
+        let find = |t: &Typed| {
             let members = self.members_of(kind, t, word);
             match members.is_empty() {
                 true => self.field_of(kind, t, word, false).map(|hit| vec![hit]),
                 false => Some(members),
             }
         };
-        let text = self.text_of(&ty.path).ok_or_else(broke)?;
+        // ponytail: eight levels up, which also ends a cycle.
+        let text = self
+            .text_of(&ty.path)
+            .filter(|_| depth < 8)
+            .ok_or_else(broke)?;
         // ponytail: bases that declare no member worth a jump, by their usual spelling.
         let plain = |b: &str| {
             let b = b.split('[').next().unwrap_or(b);
@@ -2820,17 +2835,15 @@ impl App {
             let Some(base) = self.type_decl(kind, &ty.path, base) else {
                 return Err(broke());
             };
-            if i == 0
-                && let Some(own) = find(&base)
-            {
-                return Ok(own);
-            }
+            let hits = match find(&base) {
+                Some(own) if i == 0 => return Ok(own),
+                Some(own) => own,
+                None => self.above(kind, &base, word, depth + 1)?,
+            };
             let lines = |hits: &[Hit]| -> Vec<(PathBuf, usize)> {
                 hits.iter().map(|h| (h.path.clone(), h.line)).collect()
             };
-            if let Some(hits) = self.hierarchy(kind, &base, 1, find)
-                && answers.iter().all(|a| lines(a) != lines(&hits))
-            {
+            if !hits.is_empty() && answers.iter().all(|a| lines(a) != lines(&hits)) {
                 answers.push(hits);
             }
         }
@@ -3758,6 +3771,33 @@ fn is_protocol(text: &str, decl: usize) -> bool {
         .iter()
         .filter_map(|b| search::type_path(Kind::Python, b))
         .any(|p| p.last().is_some_and(|n| n == "Protocol"))
+}
+
+/// Whether a line `search::bindings` gave for `name` is an import, or the declaration of a class,
+/// a function or a namespace of that name: what a value of the name would hide, and no value
+/// itself. `Outer.Inner` reads a declaration, not a member.
+fn names_itself(line: &str, name: &str) -> bool {
+    let t = line.trim_start();
+    let t = t.strip_prefix("export ").unwrap_or(t);
+    let t = t.strip_prefix("abstract ").unwrap_or(t);
+    let declares = [
+        "class ",
+        "def ",
+        "async def ",
+        "function ",
+        "func ",
+        "type ",
+        "interface ",
+        "namespace ",
+        "enum ",
+    ]
+    .iter()
+    .filter_map(|k| t.strip_prefix(k))
+    .any(|rest| {
+        rest.strip_prefix(name)
+            .is_some_and(|after| !after.starts_with(is_word))
+    });
+    declares || t.starts_with("import ") || t.starts_with("from ")
 }
 
 /// A call and the return type its function declares, spelled as the language writes it.
@@ -6221,6 +6261,100 @@ mod tests {
                     ],
                 ),
             ),
+            // The same conditions hold at every level the answer is found through: a diamond
+            // or an outside base under the one direct base proves nothing either.
+            (
+                "python",
+                "supers.py",
+                "super().drain|(), \"a diamond",
+                picker(
+                    "drain: by name, 6 declarations",
+                    &[
+                        ("Tank.drain", "supers.py:89"),
+                        ("LoudTank.drain", "supers.py:102"),
+                        ("LeafTank.drain", "supers.py:111"),
+                        ("LeafWire.drain", "supers.py:120"),
+                        ("SameTank.drain", "supers.py:125"),
+                        ("AbcTank.drain", "supers.py:130"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().drain|(), \"an outside",
+                picker(
+                    "drain: by name, 6 declarations",
+                    &[
+                        ("Tank.drain", "supers.py:89"),
+                        ("LoudTank.drain", "supers.py:102"),
+                        ("LeafTank.drain", "supers.py:111"),
+                        ("LeafWire.drain", "supers.py:120"),
+                        ("SameTank.drain", "supers.py:125"),
+                        ("AbcTank.drain", "supers.py:130"),
+                    ],
+                ),
+            ),
+            // Two bases that lead to the same declaration, and `ABC`, which declares nothing.
+            (
+                "python",
+                "supers.py",
+                "super().drain|(), \"both",
+                jump(
+                    "drain \u{2192} Tank.drain (via super of SameTank)",
+                    "supers.py:89",
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().drain|(), \"ABC",
+                jump(
+                    "drain \u{2192} Tank.drain (via super of AbcTank)",
+                    "supers.py:89",
+                ),
+            ),
+            // `d` on the word itself is what it was: `super` is no local.
+            (
+                "python",
+                "supers.py",
+                "super|().stamp",
+                jump("no definition for super", "supers.py:54"),
+            ),
+            (
+                "typescript",
+                "supers.ts",
+                "super|.flush",
+                jump("no definition for super", "supers.ts:26"),
+            ),
+            // `super.open()` returns what the base's `open` declares, not the override's
+            // narrower type: a call on `super` is not read as a call on `this`.
+            (
+                "typescript",
+                "supers.ts",
+                "opened.store",
+                picker(
+                    "store: by name, 3 declarations",
+                    &[
+                        ("Archive.store", "supers.ts:8"),
+                        ("ColdArchive.store", "supers.ts:18"),
+                        ("GlacierArchive.store", "supers.ts:24"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "supers.ts",
+                "super.open().store",
+                picker(
+                    "store: by name, 3 declarations",
+                    &[
+                        ("Archive.store", "supers.ts:8"),
+                        ("ColdArchive.store", "supers.ts:18"),
+                        ("GlacierArchive.store", "supers.ts:24"),
+                    ],
+                ),
+            ),
         ];
         for (fixture, file, code, want) in cases {
             let mut a = fixture_app(fixture);
@@ -6491,6 +6625,101 @@ mod tests {
                     ],
                 ),
             ),
+            // A sibling block's callback or loop is not around the cursor of the `else` or the
+            // `catch`, which reads the parameter of its own function. A callback on the lines
+            // of the header itself counts, as one on the cursor's line does, and hides nothing.
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(7)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via ledger: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(8)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via ledger: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(9)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 6)",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via ledger: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 7)",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via ledger: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 8)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 9",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // A docstring's example binds nothing: the module's `ledger` is read.
+            (
+                "python",
+                "scopes.py",
+                "ledger.delete_user|(user_id + 5)",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via ledger: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            // The arrow function's line ends in `=>`: its body is the lines below.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 10)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
         ];
         for (fixture, file, code, want) in cases {
             let mut a = fixture_app(fixture);
@@ -6732,6 +6961,51 @@ mod tests {
                 jump(
                     "DeleteUser \u{2192} UserRepository.DeleteUser (via repos: RepoList)",
                     "repos.go:15",
+                ),
+            ),
+            // An element handed on to another name is one hop too many.
+            (
+                "python",
+                "elements.py",
+                "current.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A named map, a named slice declared in another package, and a `type X = []T`
+            // alias, which is not read.
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 7)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via index: RepoIndex)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "elements.go",
+                "session.Close",
+                jump(
+                    "Close \u{2192} Session.Close (via sessions: store.SessionList)",
+                    "store/store.go:15",
+                ),
+            ),
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 8)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
                 ),
             ),
         ];
@@ -7017,6 +7291,86 @@ mod tests {
                     ],
                 ),
             ),
+            // A decorator written over several lines may return anything too.
+            (
+                "python",
+                "calls.py",
+                "wrapped.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A parameter named like a function of the module is a value nobody typed.
+            (
+                "python",
+                "calls.py",
+                "open_depot().people.delete_user|(user_id + 10)",
+                picker(
+                    "delete_user: by name, 2 declarations (chain broke at open_depot())",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "made.people.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations (chain broke at made)",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // The method is inherited; the receiver is a field; the chain hangs off a method
+            // of a proven receiver.
+            (
+                "python",
+                "calls.py",
+                "inherited.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via sub.people_repo() -> UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "through.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via self.depot.people_repo() -> UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "self.depot.people_repo().delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via self.depot.people_repo() -> UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            // Two locals assigned from each other's methods end in a picker, and end.
+            (
+                "python",
+                "calls.py",
+                "ahead.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
         ];
         for (fixture, file, code, want) in cases {
             let mut a = fixture_app(fixture);
@@ -7224,6 +7578,16 @@ mod tests {
                         ("Square.Area", "casts.go:11"),
                         ("Circle.Area", "casts.go:15"),
                     ],
+                ),
+            ),
+            // A `cast` the project declares itself is a function with a return type.
+            (
+                "python",
+                "casts_own.py",
+                "repo.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via cast() -> AuditLog)",
+                    "repos.py:13",
                 ),
             ),
         ];
