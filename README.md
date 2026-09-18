@@ -264,7 +264,12 @@ the type before it. The type comes from the declaration:
 - a parameter handed on: `self.repo = repo`;
 - a call, one hop through the return type the function declares: `-> UserRepository`,
   `): UserRepository`, `func NewRepo() *UserRepository` (a Go function's first result), or a
-  TypeScript function whose every `return` is `new UserRepository()`;
+  function that declares none and whose every `return` constructs the same class,
+  `return new UserRepository()` in TypeScript, `return UserRepository()` in an undecorated Python
+  `def` (a bare `return` or a `yield` spoils it). The function may be a method called on a receiver
+  whose type is proven the same way, `info := e.RequestInfo()` or `repo = self.depot.people()`:
+  the method is looked for in that type and the types it extends, where it must be declared once,
+  an interface's method line included;
 - a loop over a collection whose type is written: `for repo in repos` with
   `repos: list[UserRepository]` (`Sequence`, `Iterable`, `set`, `tuple[T, ...]` and the like),
   `for (const repo of repos)` with `UserRepository[]`, `Array<T>` or `Set<T>`,
@@ -323,8 +328,12 @@ A type declared outside the project or any link the rules cannot prove leaves th
 search by name below. With two or more names in front of the word the status line says where the
 chain broke: `delete_user: by name, 2 declarations (chain broke at item)` when `item` is typed by a
 generic parameter, at a property or a getter with no return type, or at the seventh name of a
-longer chain. A call inside the chain is not followed: `make_uow().users.delete_user` is a member
-of a value whose type is not known.
+longer chain. A chain may hang off the call that starts the expression, which is read as a call
+assigned to a name would be: `make_uow().users.delete_user` is
+`via make_uow() -> UnitOfWork → users: UserRepository`, and so are `pkg.New(x).Run`,
+`new Depot().people` and `self.repos.users.get_one(id).name`. A call of a call,
+`open_depot().people_repo().delete_user`, is not followed: it is a member of a value whose type is
+not known.
 
 When the type of `x` is not known, every method of that name is a candidate: Python `def` and
 `async def` inside a class, TypeScript class and object-literal methods, properties holding a

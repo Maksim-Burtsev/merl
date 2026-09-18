@@ -54,6 +54,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as an annotation, as the return type of the function the collection came from, or as Go's
   `make([]T, …)` and `[]T{…}`: `DeleteUser → UserRepository.DeleteUser (via repos:
   []*UserRepository)`. The collection itself, keys and pairs stay by name. (#100)
+- `d` takes one more hop on a call: a local assigned from a method of a receiver whose type is
+  proven has the return type that method declares (`info := e.RequestInfo()`,
+  `repo = self.depot.people()`); a Python function with no annotation whose every `return`
+  constructs the same class returns it, as TypeScript's already did; and a chain may hang off the
+  call that starts it, `make_uow().users.delete_user`, `pkg.New(x).Run`, `new Depot().people`. A
+  call of a call is still by name. (#100)
 
 ### Changed
 

@@ -1667,11 +1667,15 @@ impl App {
         }
         // A receiver whose type is proven narrows the member to that type (#68, steps 2 to 4).
         let mut broke = None;
+        // A chain with no name to start from may hang off a call: `make_uow().users.word` (#100).
+        let head = (dotted && chain.is_empty())
+            .then(|| search::call_head(kind, self.line_str(), range.start))
+            .flatten();
         if dotted
             && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go)
-            && chain.first().is_some_and(|f| bound(&imports, f).is_none())
+            && (head.is_some() || chain.first().is_some_and(|f| bound(&imports, f).is_none()))
         {
-            match self.typed_definitions(kind, &here, &word, &chain) {
+            match self.typed_definitions(kind, &here, &word, &chain, head.as_ref()) {
                 // `self.repo` that leads to this very line is the field's declaration.
                 Ok(found)
                     if own
@@ -1687,7 +1691,10 @@ impl App {
                 }
                 Ok(_) => {}
                 // With one name in front of the word, `by name` already says where.
-                Err(at) => broke = (chain.len() > 1).then_some(at),
+                Err(at) => {
+                    let names = head.as_ref().map_or(chain.len(), |(_, _, f)| f.len() + 1);
+                    broke = (names > 1).then_some(at);
+                }
             }
         }
         // An import names where the word is declared: the project's module, else the one outside
@@ -2037,19 +2044,18 @@ impl App {
         here: &Path,
         word: &str,
         chain: &[String],
+        head: Option<&(String, search::Value, Vec<String>)>,
     ) -> Result<Vec<Candidate>, String> {
         let text = self.buf.lines.join("\n");
-        let (mut ty, call) = self
-            .value_type(kind, here, &text, self.line + 1, &chain[0], 1)
-            .ok_or_else(|| chain[0].clone())?;
-        // What the status line lists: `repo: UserRepository`, or `self.uow: UnitOfWork` for the
-        // receiver and its field, then `users: UserRepository` for each field after them.
-        let mut links = vec![call.unwrap_or_else(|| format!("{}: {}", chain[0], ty.name))];
+        let line = self.line + 1;
         // `super().m()` / `super.m()` is `self` / `this` with the walk started one level up.
-        if chain[0] == "super" {
+        if chain.first().is_some_and(|f| f == "super") {
             let [_] = chain else {
                 return Err(chain[1].clone());
             };
+            let (ty, _) = self
+                .value_type(kind, here, &text, line, &chain[0], 1)
+                .ok_or_else(|| chain[0].clone())?;
             let hits = self.above(kind, &ty, word)?;
             let label = format!("super of {}", ty.name);
             return Ok(hits
@@ -2060,27 +2066,17 @@ impl App {
                 })
                 .collect());
         }
-        for (i, field) in chain.iter().enumerate().skip(1) {
-            // ponytail: six names in front of the word; a longer chain breaks at the seventh.
-            if i == 6 {
-                return Err(field.clone());
+        let (ty, links) = match head {
+            // The chain hangs off a call: `make_uow().users.word`.
+            Some((call, value, fields)) => {
+                let value = value.clone();
+                let start = self
+                    .binding_type(kind, here, &text, &search::Binding { line, value }, 1)
+                    .ok_or_else(|| call.clone())?;
+                self.follow(kind, start, call, false, fields)?
             }
-            let (next, call) = self
-                .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
-                .flatten()
-                .ok_or_else(|| field.clone())?;
-            let name = match i {
-                1 => format!("{}.{field}", chain[0]),
-                _ => field.clone(),
-            };
-            let link = call.unwrap_or_else(|| format!("{name}: {}", next.name));
-            if i == 1 {
-                links[0] = link;
-            } else {
-                links.push(link);
-            }
-            ty = next;
-        }
+            None => self.chain_type(kind, here, &text, line, chain, 1)?,
+        };
         let declared = self.hierarchy(kind, &ty, 0, &mut |t| {
             let members = self.members_of(kind, t, word);
             if members.is_empty() {
@@ -2111,6 +2107,61 @@ impl App {
                 reason: Reason::Receiver(label.clone()),
             })
             .collect())
+    }
+
+    /// The type of the chain `x.f.g` on 1-based `line` of `text`, the text of `file`, and the links
+    /// that prove it; `Err` names the first name that is not proven.
+    fn chain_type(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line: usize,
+        chain: &[String],
+        hops: usize,
+    ) -> Result<(Typed, Vec<String>), String> {
+        let start = self
+            .value_type(kind, file, text, line, &chain[0], hops)
+            .ok_or_else(|| chain[0].clone())?;
+        self.follow(kind, start, &chain[0], true, &chain[1..])
+    }
+
+    /// From the type `start` of `name`, each of `fields` in the type before it. What the status
+    /// line lists: `repo: UserRepository`, or with `merge` `self.uow: UnitOfWork` for the receiver
+    /// and its field, then `users: UserRepository` for each field after them.
+    fn follow(
+        &self,
+        kind: Kind,
+        start: (Typed, Option<String>),
+        name: &str,
+        merge: bool,
+        fields: &[String],
+    ) -> Result<(Typed, Vec<String>), String> {
+        let (mut ty, call) = start;
+        let mut links = vec![call.unwrap_or_else(|| format!("{name}: {}", ty.name))];
+        for (i, field) in fields.iter().enumerate() {
+            // ponytail: six names in front of the word; a longer chain breaks at the seventh.
+            if i == 5 {
+                return Err(field.clone());
+            }
+            let (next, call) = self
+                .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
+                .flatten()
+                .ok_or_else(|| field.clone())?;
+            let first = i == 0 && merge;
+            let label = match first {
+                true => format!("{name}.{field}"),
+                false => field.clone(),
+            };
+            let link = call.unwrap_or_else(|| format!("{label}: {}", next.name));
+            if first {
+                links[0] = link;
+            } else {
+                links.push(link);
+            }
+            ty = next;
+        }
+        Ok((ty, links))
     }
 
     /// The type of `name` on 1-based `line` of `text`, the text of `file`: the one type all its
@@ -2193,7 +2244,7 @@ impl App {
                 };
                 Some((ty, None))
             }
-            search::Value::Call(callee) => self.call_type(kind, file, callee),
+            search::Value::Call(callee) => self.call_type(kind, file, text, b.line, callee, hops),
             search::Value::Name(n) if hops > 0 => {
                 self.value_type(kind, file, text, b.line, n, hops - 1)
             }
@@ -2229,12 +2280,38 @@ impl App {
         }
     }
 
-    /// What a call of `callee` in `file` gives: the class it constructs, or the declared return
-    /// type of the function, resolved in the file declaring it. One hop: a return type is never
-    /// followed through another call. The signature is spelled as the language writes it.
-    fn call_type(&self, kind: Kind, file: &Path, callee: &str) -> Option<(Typed, Option<String>)> {
+    /// What a call of `callee` on 1-based `line` of `file` gives: the class it constructs, or the
+    /// declared return type of the function, resolved in the file declaring it. `e.RequestInfo()`
+    /// on a receiver whose type is proven is the method of that type, or of one it extends. One
+    /// hop: a return type is never followed through another call, and `hops` bounds how a receiver
+    /// is proven. The signature is spelled as the language writes it.
+    fn call_type(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line: usize,
+        callee: &str,
+        hops: usize,
+    ) -> Option<(Typed, Option<String>)> {
         let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
-        let decl = self.declaration(kind, file, &parts)?;
+        let (method, receiver) = parts.split_last()?;
+        let proven = (hops > 0 && !receiver.is_empty())
+            .then(|| {
+                self.chain_type(kind, file, text, line, receiver, hops - 1)
+                    .ok()
+            })
+            .flatten();
+        let decl = match proven {
+            Some((ty, _)) => {
+                let found = self.hierarchy(kind, &ty, 0, &mut |t| {
+                    let members = self.members_of(kind, t, method);
+                    (!members.is_empty()).then_some(members)
+                })?;
+                <[Hit; 1]>::try_from(found).ok().map(|[hit]| hit)?
+            }
+            None => self.declaration(kind, file, &parts)?,
+        };
         if search::declares_type(kind, &decl.text) {
             let ty = Typed {
                 name: parts.last()?.clone(),
@@ -2245,6 +2322,9 @@ impl App {
         }
         let text = self.text_of(&decl.path)?;
         let (written, signature) = match search::returns(kind, &text, decl.line)? {
+            search::Value::New(t) if kind == Kind::Python => {
+                (t.clone(), format!("{callee}() returns {t}()"))
+            }
             search::Value::New(t) => (t.clone(), format!("{callee}() returns new {t}()")),
             search::Value::Type(t) => {
                 let signature = signature(kind, callee, &t);
@@ -4845,16 +4925,6 @@ mod tests {
     /// to the search by name: a picker of two.
     #[test]
     fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
-        let by_name = |status: &str, first: (&str, &str), second: (&str, &str)| {
-            picker(status, &[first, second])
-        };
-        let py_both = || {
-            by_name(
-                "delete_user: by name, 2 declarations",
-                ("UserRepository.delete_user", "repos.py:8"),
-                ("AuditLog.delete_user", "repos.py:13"),
-            )
-        };
         let cases: Vec<(&str, &str, &str, Shown)> = vec![
             // Two same-named methods: each field lands on its own class's.
             (
@@ -4914,7 +4984,16 @@ mod tests {
                     "repos.py:8",
                 ),
             ),
-            ("python", "factories.py", "audit.delete_user", py_both()),
+            // No return type, but every `return` constructs one (#100).
+            (
+                "python",
+                "factories.py",
+                "audit.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via make_audit() returns AuditLog())",
+                    "repos.py:13",
+                ),
+            ),
             // The return type is resolved where the function is declared.
             (
                 "python",
@@ -5145,12 +5224,16 @@ mod tests {
                     &py_both,
                 ),
             ),
-            // Not the local `users`: the chain hangs off a call.
+            // Not the local `users`: the chain hangs off a call, whose declared return type
+            // starts it (#100).
             (
                 "python",
                 "chains.py",
                 "make_uow().users.delete_user",
-                by_name("delete_user: by name, 2 declarations", &py_both),
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via make_uow() -> UnitOfWork \u{2192} users: UserRepository)",
+                    "repos.py:8",
+                ),
             ),
             (
                 "python",
@@ -5227,7 +5310,10 @@ mod tests {
                 "typescript",
                 "chains.ts",
                 "makeUow().users.deleteUser",
-                by_name("deleteUser: by name, 2 declarations", &ts_both),
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via makeUow(): UnitOfWork \u{2192} users: UserRepository)",
+                    "repos.ts:10",
+                ),
             ),
             (
                 "typescript",
@@ -5305,7 +5391,10 @@ mod tests {
                 "go",
                 "chains.go",
                 "NewUnitOfWork().Users.DeleteUser",
-                by_name("DeleteUser: by name, 2 declarations", &go_both),
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via NewUnitOfWork() *UnitOfWork \u{2192} Users: UserRepository)",
+                    "repos.go:15",
+                ),
             ),
             (
                 "go",
@@ -6435,6 +6524,289 @@ mod tests {
                 jump(
                     "DeleteUser \u{2192} AuditLog.DeleteUser (via listed: []AuditLog)",
                     "repos.go:21",
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100: one more hop on a call. A method called on a receiver whose type is proven gives
+    /// what it declares to return, a Python function or method with no annotation what every
+    /// `return` of it constructs, and a chain may hang off a call that starts the expression.
+    /// A call of a call, returns that differ and an unproven receiver stay by name.
+    #[test]
+    fn a_call_is_one_more_hop() {
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // A method of a parameter whose type is written, with the return type it declares.
+            (
+                "python",
+                "calls.py",
+                "repo.delete_user|(user_id)",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via depot.people_repo() -> UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            // No annotation, and every `return` constructs an `AuditLog`.
+            (
+                "python",
+                "calls.py",
+                "trail.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via depot.trail() returns AuditLog())",
+                    "repos.py:13",
+                ),
+            ),
+            // A chain off a call that starts the expression: a function, a class, and the field itself.
+            (
+                "python",
+                "calls.py",
+                "open_depot().people.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via open_depot() -> Depot \u{2192} people: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "Depot().people.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via Depot(): Depot \u{2192} people: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "open_depot().people|.delete_user",
+                jump(
+                    "people \u{2192} Depot.people (via open_depot() -> Depot)",
+                    "calls.py:8",
+                ),
+            ),
+            // The returns differ; one of them is `None`; a decorator may return anything.
+            (
+                "python",
+                "calls.py",
+                "either.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "maybe.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "shared.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A call of a call hangs off a value nobody typed.
+            (
+                "python",
+                "calls.py",
+                "open_depot().people_repo().delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // The receiver of the method is a parameter with no annotation.
+            (
+                "python",
+                "calls.py",
+                "repo.delete_user|(user_id + 8)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // TypeScript: a method's `): T`, a method whose every `return` is `new T()`, a chain off a
+            // function and off `new`, and the method line of an interface.
+            (
+                "typescript",
+                "calls.ts",
+                "repo.deleteUser|(id);",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via depot.peopleRepo(): UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "trail.deleteUser",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via depot.trail() returns new AuditLog())",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "openDepot().people.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via openDepot(): Depot \u{2192} people: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "new Depot().people.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via new Depot(): Depot \u{2192} people: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "sourced.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via src.source(): UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            // Overloads declare the method three times: which one is called is not read.
+            (
+                "typescript",
+                "calls.ts",
+                "picked.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // A call of a call, and a receiver typed `any`.
+            (
+                "typescript",
+                "calls.ts",
+                "openDepot().peopleRepo().deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "repo.deleteUser|(id + 6)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // Go: a method behind its receiver, the first of two results, a chain off a function and
+            // off a package's, and the method line of an interface.
+            (
+                "go",
+                "calls.go",
+                "repo.DeleteUser|(id)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via depot.PeopleRepo() *UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "calls.go",
+                "trail.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via depot.Trail() AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "calls.go",
+                "OpenDepot().People.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via OpenDepot() *Depot \u{2192} People: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "calls.go",
+                "store.Open().Close",
+                jump(
+                    "Close \u{2192} Session.Close (via store.Open() *Session)",
+                    "store/store.go:15",
+                ),
+            ),
+            (
+                "go",
+                "calls.go",
+                "sourced.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via src.Source() *UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            // A call of a call, and a receiver that is the second name of a `:=`.
+            (
+                "go",
+                "calls.go",
+                "OpenDepot().PeopleRepo().DeleteUser",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            (
+                "go",
+                "calls.go",
+                "repo.DeleteUser|(id + 5)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
                 ),
             ),
         ];

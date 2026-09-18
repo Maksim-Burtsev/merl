@@ -18,7 +18,7 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   constructor parameter, so `repo` and `audit` each lead to their own `delete_user`, and the
   `repo` of `cleanup` is shadowed inside `purge`. `factories` assigns receivers from calls: with a
   declared return type (`make_repo`, `NewRepo`, Go's first result of `NewAudit`), without one
-  (Python's `make_audit`; TypeScript's `makeAudit` returns `new AuditLog()`), and through
+  (`make_audit` / `makeAudit`, whose only `return` constructs an `AuditLog`), and through
   `connect()` / `store.Open()`, whose `Session` is declared in the `store` package. The receiver of
   `forget` has a type the rules cannot read.
 - chains (step 4): `chains` has a `UnitOfWork` whose `users` and `audit` lead to their own
@@ -71,6 +71,14 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   list assigned again with no type, two annotations that disagree. Each also calls a member on
   the collection itself. Since then the unknown receivers of Go's `Forget` and `Show` come from a
   channel, not a slice.
+- calls (#100): `calls` has a `Depot` whose `people_repo` declares what it returns and whose
+  `trail` constructs it in every `return` (Go: the first of two results), assigned to locals from
+  a typed parameter and from one with no type; a `Source` interface whose method line declares
+  the return type (TypeScript and Go); chains that hang off `open_depot()`, off the class itself
+  and off Go's `store.Open()`; and what stays by name: a call of a call, Python returns that
+  differ, a `return None` among them, a decorated function, TypeScript overloads. Since then
+  `make_uow().users.delete_user` in `chains` and Python's `make_audit()` in `factories` are
+  proven.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.
