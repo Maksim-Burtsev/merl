@@ -4737,6 +4737,26 @@ mod tests {
                     "chains.py:23",
                 ),
             ),
+            // A `@cached_property` with a return type is a field of that type; a `@property`
+            // without one is not read, nor the typed one of the base class it overrides.
+            (
+                "python",
+                "chains.py",
+                "self.registry.users.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via self.registry: Registry \u{2192} users: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "chains.py",
+                "self.registry.audit.delete_user",
+                by_name(
+                    "delete_user: by name, 2 declarations (chain broke at audit)",
+                    &py_both,
+                ),
+            ),
             (
                 "typescript",
                 "service.ts",
@@ -4792,6 +4812,24 @@ mod tests {
                 jump(
                     "root \u{2192} Folder.root (by name, 1 match, chain broke at parent)",
                     "chains.ts:15",
+                ),
+            ),
+            (
+                "typescript",
+                "chains.ts",
+                "this.registry.users.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via this.registry: Registry \u{2192} users: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "chains.ts",
+                "this.registry.audit.deleteUser",
+                by_name(
+                    "deleteUser: by name, 2 declarations (chain broke at audit)",
+                    &ts_both,
                 ),
             ),
             // Pointer fields.

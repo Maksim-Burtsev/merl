@@ -2044,9 +2044,10 @@ fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
 /// The declarations of the field `name` of the class, interface or struct declared on 1-based
 /// `decl` of `text`:
 /// - Python: `name: T` or `name = …` in the class body, `self.name: T = …` or `self.name = …` in
-///   its methods;
+///   its methods, a `def name` under `@property`, `@cached_property` or
+///   `@functools.cached_property`, read as its `-> T` (a setter declares nothing);
 /// - TypeScript: a member `name: T` or `name = …` behind any modifiers, a constructor parameter
-///   with one (`private name: T`), `this.name = …`;
+///   with one (`private name: T`), `this.name = …`, a getter `get name(): T`;
 /// - Go: a struct field `name T` or `a, name T`, and an embedded `*Name` under its type's name.
 pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Binding> {
     static GO_FIELD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -2076,6 +2077,22 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
             let unknown = rule(format!(
                 r"^\(?[\w\s,.*\[\]]*,[\w\s,.*\[\]]*\bself\.{n}\b[\w\s,.*\[\]]*\)?\s*=[^=]|^\(?[\w\s.*\[\]]*\bself\.{n}\s*,[\w\s,.*\[\]]*\)?\s*=[^=]|\bas\s+self\.{n}\b|^for\s+.*\bself\.{n}\b.*\sin\s"
             ));
+            let def = rule(format!(r"^def\s+{n}\s*\("));
+            // The decorators right above line `i` at its indent include a property's.
+            let property = |i: usize, ind: usize| {
+                lines[..i]
+                    .iter()
+                    .rev()
+                    .map(|l| uncommented(kind, l))
+                    .filter(|l| !l.trim().is_empty())
+                    .take_while(|l| indent(l) == ind && l.trim_start().starts_with('@'))
+                    .any(|l| {
+                        matches!(
+                            l.trim(),
+                            "@property" | "@cached_property" | "@functools.cached_property"
+                        )
+                    })
+            };
             let mut skip: Option<usize> = None;
             for i in body {
                 let (code, ind) = (uncommented(kind, lines[i]), indent(lines[i]));
@@ -2095,6 +2112,8 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
                     push(i, Value::Type(c[2].to_owned()));
                 } else if let Some(c) = assigned.captures(t).filter(right) {
                     push(i, value_of(kind, &c[2]));
+                } else if ind == base && def.is_match(t) && property(i, ind) {
+                    push(i, returns(kind, text, i + 1).unwrap_or(Value::Unknown));
                 }
             }
         }
@@ -2106,10 +2125,19 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
                 r"(?:^|[(,])\s*(?:(?:public|private|protected|readonly|override)\s+)+{n}\s*\??\s*:\s*([^,)=]+)"
             ));
             let assigned = rule(format!(r"^this\.{n}\s*=\s*([^=].*?)\s*;?$"));
+            let getter = rule(format!(
+                r"^(?:(?:public|private|protected|static|override|abstract|declare)\s+)*get\s+{n}\s*\(\s*\)\s*(?::\s*(.+?))?\s*(?:\{{.*)?;?$"
+            ));
             for i in body {
                 let (code, ind) = (uncommented(kind, lines[i]), indent(lines[i]));
                 let t = code.trim();
-                if let Some(c) = member.captures(t).filter(|_| ind == base) {
+                if let Some(c) = getter.captures(t).filter(|_| ind == base) {
+                    push(
+                        i,
+                        c.get(1)
+                            .map_or(Value::Unknown, |ty| Value::Type(ty.as_str().to_owned())),
+                    );
+                } else if let Some(c) = member.captures(t).filter(|_| ind == base) {
                     push(
                         i,
                         match (c.get(1), c.get(2)) {
@@ -2159,8 +2187,6 @@ fn go_embedded(t: &str) -> Option<&str> {
 pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
     static PY_DEF: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:async\s+)?def\s+\w+\s*\(").unwrap());
-    static PY_RETURN: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*->\s*(.+?)\s*:\s*(?:#.*)?$").unwrap());
     static TS_FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:(?:export|default|declare|async)\s+)*(?:function\*?\s*[\w$]*|(?:const|let|var)\s+[\w$]+\s*(?::[^=]+)?=\s*(?:async\s+)?(?:function\*?\s*[\w$]*)?)\s*(?:<[^>]*>)?\s*\(").unwrap()
     });
@@ -2180,9 +2206,12 @@ pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
     let open = opener.find(lines[k])?.end() - 1;
     let (_, end, after) = group(kind, &lines, k, open)?;
     match kind {
-        Kind::Python => PY_RETURN
-            .captures(after)
-            .map(|c| Value::Type(c[1].to_owned())),
+        // `-> T:` ends at the first colon outside strings and brackets; a body may follow it.
+        Kind::Python => {
+            let parts = split_top(kind, after, b':');
+            let t = parts[0].trim().strip_prefix("->")?.trim();
+            (parts.len() > 1 && !t.is_empty()).then(|| Value::Type(t.to_owned()))
+        }
         Kind::TsJs => {
             if let Some(c) = TS_RETURN.captures(after) {
                 return Some(Value::Type(c[1].to_owned()));
@@ -3637,6 +3666,83 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
     }
 
     #[test]
+    fn a_python_property_is_a_field_of_its_declared_return_type() {
+        let text = "class Registry(Base):
+    @property
+    def users(self) -> UserRepository:
+        return UserRepository()
+
+    @users.setter
+    def users(self, value: Other) -> None:
+        self._users = value
+
+    @cached_property  # built once
+    def audit(
+        self,
+    ) -> \"AuditLog\":
+        return AuditLog()
+
+    @functools.cached_property
+    @override
+    def jobs(self) -> Jobs: ...
+
+    @property
+    def mixins(self):
+        return HttpRepo()
+
+    def plain(self) -> Plain: ...
+
+    class Inner:
+        @property
+        def inner(self) -> Inner: ...
+
+    def make(self):
+        @property
+        def nested(self) -> Nested: ...
+";
+        let at = |name| fields(Kind::Python, text, 1, name);
+        // The setter declares no type of its own.
+        assert_eq!(at("users"), [(3, ty("UserRepository"))]);
+        assert_eq!(at("audit"), [(11, ty("\"AuditLog\""))]);
+        assert_eq!(at("jobs"), [(18, ty("Jobs"))]);
+        assert_eq!(at("mixins"), [(21, Value::Unknown)]);
+        assert_eq!(at("plain"), []);
+        assert_eq!(at("inner"), []);
+        // A property nested in a method is no field of the class.
+        assert_eq!(at("nested"), []);
+    }
+
+    #[test]
+    fn a_ts_getter_is_a_field_of_its_declared_type() {
+        let text = "export abstract class Registry {
+  get users(): UserRepository {
+    return this.cache.users;
+  }
+  set users(value: Other) {
+    this.cache.users = value;
+  }
+  public static get audit(): AuditLog | null { return null; }
+  protected abstract get jobs(): Jobs;
+  get mixins() {
+    return new HttpRepo();
+  }
+  make() {
+    return {
+      get nested(): Other { return x; },
+    };
+  }
+}
+";
+        let at = |name| fields(Kind::TsJs, text, 1, name);
+        assert_eq!(at("users"), [(2, ty("UserRepository"))]);
+        assert_eq!(at("audit"), [(8, ty("AuditLog | null"))]);
+        assert_eq!(at("jobs"), [(9, ty("Jobs"))]);
+        assert_eq!(at("mixins"), [(10, Value::Unknown)]);
+        // An object literal's getter inside a method is no field of the class.
+        assert_eq!(at("nested"), []);
+    }
+
+    #[test]
     fn ts_fields_come_from_members_constructor_parameters_and_this() {
         let text = "export class UserService extends Base<Repo> implements Service {
   private readonly audit = new AuditLog();
@@ -3884,10 +3990,16 @@ func (b Batch) Send(text string, retries int) {
 
     #[test]
     fn returns_read_the_declared_type_or_what_typescript_constructs() {
-        let py = "def make_repo() -> UserRepository:\n    return UserRepository()\n\nasync def connect(\n    url: str,\n) -> \"Session\":\n    ...\n\ndef untyped():\n    return Repo()\n";
+        let py = "def make_repo() -> UserRepository:\n    return UserRepository()\n\nasync def connect(\n    url: str,\n) -> \"Session\":\n    ...\n\ndef untyped():\n    return Repo()\n\ndef stub() -> Repo: ...\n\ndef documented() -> Annotated[Repo, \"doc: x\"]: ...\n";
         assert_eq!(returns(Kind::Python, py, 1), Some(ty("UserRepository")));
         assert_eq!(returns(Kind::Python, py, 4), Some(ty("\"Session\"")));
         assert_eq!(returns(Kind::Python, py, 9), None);
+        assert_eq!(returns(Kind::Python, py, 12), Some(ty("Repo")));
+        // A `: ` inside a string is not the end of the annotation.
+        assert_eq!(
+            returns(Kind::Python, py, 14),
+            Some(ty("Annotated[Repo, \"doc: x\"]"))
+        );
         let ts = "export function makeRepo(): UserRepository {
   return new UserRepository();
 }

@@ -38,3 +38,28 @@ export class Handler {
     folder.parent.parent.parent.parent.parent.parent.root();
   }
 }
+
+export class BaseRegistry {
+  get audit(): AuditLog {
+    return new AuditLog();
+  }
+}
+
+export class Registry extends BaseRegistry {
+  get users(): UserRepository {
+    return new UserRepository();
+  }
+
+  override get audit() {
+    return new AuditLog();
+  }
+}
+
+export class Admin {
+  constructor(private registry: Registry) {}
+
+  purge(id: number): void {
+    this.registry.users.deleteUser(id);
+    this.registry.audit.deleteUser(id);
+  }
+}

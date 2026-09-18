@@ -26,6 +26,9 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   and by name). `box.item` is typed by a generic parameter, so that chain breaks at `item`.
   `folder.parent…` is followed for six names and breaks at the seventh. `make_uow().users` hangs
   off a call next to a local `users` of another type, which must not be read as its receiver.
+  `Admin` reaches a `Registry` whose `users` is a `@cached_property` / a getter with a return type,
+  a link, and whose `audit` overrides a typed one of `BaseRegistry` with none, so the chain breaks
+  there rather than reading the base's type. Go has no properties, so `chains.go` has no such link.
 
 - implementations (step 6): `impls` carries a `BaseJob` whose `run` two subclasses override and a
   third inherits, a `NightlyJob` a level below one of them, a `Sweeper` with a single

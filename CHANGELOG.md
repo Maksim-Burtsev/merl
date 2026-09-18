@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   query. Ctrl+A, Ctrl+E, Ctrl+W and Ctrl+U work as in a shell. `/` and pickers refresh on every
   edit, so `now` becomes `func now` without retyping it. Ctrl+letter no longer types the letter
   into a prompt.
+- `d` follows a chain through a Python `@property`, `@cached_property` or
+  `@functools.cached_property` and a TypeScript getter that declare their return type, so
+  `self.repos.users.get_one` in a FastAPI service reaches the repository. One without a return
+  type is where the chain breaks, and the search by name answers. (#87)
 
 ### Changed
 
