@@ -191,6 +191,8 @@ pub struct App {
     pub prompt: LineEdit,
     /// The current query, kept for `n`/`N` and for painting the matches.
     pub find_re: Option<Regex>,
+    /// The text `find_re` was built from: `/` opens with it again while the pattern is active.
+    find_query: String,
     /// Where the cursor was when `/` was pressed: the start of the incremental search.
     find_anchor: (usize, usize),
     /// The selection anchor, set aside while `/` moves the cursor; Esc puts it back.
@@ -292,6 +294,7 @@ impl App {
             mode: Mode::Normal,
             prompt: LineEdit::default(),
             find_re: None,
+            find_query: String::new(),
             find_anchor: (0, 0),
             find_sel: None,
             message: String::new(),
@@ -1183,8 +1186,6 @@ impl App {
 
     // ---- find in file ----------------------------------------------------
 
-    /// Starts an incremental search from the current cursor position. The selection is set aside
-    /// meanwhile, so it does not stretch to every match the cursor visits.
     /// An overlay closed and the open file stays: back to the mode it was opened from.
     fn close_overlay(&mut self) {
         self.mode = if std::mem::take(&mut self.resume_edit) {
@@ -1196,9 +1197,13 @@ impl App {
         };
     }
 
+    /// Starts an incremental search from the current cursor position. The selection is set aside
+    /// meanwhile, so it does not stretch to every match the cursor visits. A pattern still active
+    /// comes back selected, as Cmd+F in a browser: typing replaces it, an arrow edits it.
     fn start_find(&mut self) {
         self.mode = Mode::Find;
-        self.prompt.clear();
+        let last = self.find_re.as_ref().map_or("", |_| &self.find_query);
+        self.prompt = LineEdit::selected(last);
         self.find_anchor = (self.line, self.col);
         self.find_sel = self.anchor.take();
     }
@@ -1252,6 +1257,7 @@ impl App {
             self.go_to_match(l, c);
         }
         self.find_re = Some(re);
+        self.find_query = self.prompt.to_string();
     }
 
     /// `n` / `N`: the next or previous match, wrapping around the file.
@@ -6824,6 +6830,28 @@ mod tests {
     fn find(a: &mut App, query: &str) {
         press(a, KeyCode::Char('/'), KeyModifiers::NONE);
         typed(a, query);
+    }
+
+    #[test]
+    fn find_reopens_with_the_active_query_selected() {
+        let mut a = app("now\nfunc now\nx\n");
+        find(&mut a, "now");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        assert_eq!((&*a.prompt, a.prompt.selection()), ("now", Some(0..3)));
+        // Home edits the old query; the search follows.
+        press(&mut a, KeyCode::Home, KeyModifiers::NONE);
+        typed(&mut a, "func ");
+        assert_eq!((&*a.prompt, a.line), ("func now", 1));
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        // Typing replaces it whole.
+        find(&mut a, "x");
+        assert_eq!((&*a.prompt, a.line), ("x", 2));
+        // Esc in navigation clears the pattern, so the next `/` opens empty.
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        assert_eq!(&*a.prompt, "");
     }
 
     #[test]

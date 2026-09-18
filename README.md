@@ -160,7 +160,9 @@ quit again once you press Esc.
 
 The `/`, `s` and `:` prompts and picker queries are one-line editors with the same keys: arrows,
 Alt+arrows by word, Home and End, Delete, Shift, Alt+Shift or Ctrl+Shift with an arrow to select, plus
-the shell's Ctrl+A, Ctrl+E, Ctrl+W and Ctrl+U. Results follow every edit.
+the shell's Ctrl+A, Ctrl+E, Ctrl+W and Ctrl+U. Results follow every edit. While a find pattern
+is active (until Esc clears it), `/` opens with it selected: type to replace it, press an arrow
+or Home to edit it.
 
 In a git repository the gutter shows what differs from the index, as VS Code's does: green for
 added lines, blue for changed ones, red under a line where lines were deleted. The marks come
