@@ -55,18 +55,16 @@ pub struct Picker {
 
 impl Picker {
     /// `paths` switches on nucleo's path-aware scoring (it favours matches in the file name).
-    pub fn new(
-        title: impl Into<String>,
-        items: Vec<PickItem>,
-        paths: bool,
-        wake: Arc<dyn Fn() + Send + Sync>,
-    ) -> Self {
+    pub fn new(title: impl Into<String>, items: Vec<PickItem>, paths: bool) -> Self {
         let config = if paths {
             Config::DEFAULT.match_paths()
         } else {
             Config::DEFAULT
         };
-        let nucleo = Nucleo::new(config, wake, None, 1);
+        // No notify: the event loop ticks an open picker every 10 ms anyway, and nucleo calls
+        // notify for every item pushed, which was a redraw per row: 5000 frames queued in front
+        // of the next key after an `s` refresh.
+        let nucleo = Nucleo::new(config, Arc::new(|| {}), None, 1);
         let injector = nucleo.injector();
         // The items arrive already sorted, so injecting them here keeps that order for the
         // empty query and costs nothing worth a background thread.
@@ -85,8 +83,7 @@ impl Picker {
         }
     }
 
-    /// Test helper: runs the matcher to completion.
-    #[cfg(test)]
+    /// Runs the matcher to completion, for a list that must be readable at once.
     pub fn settle(&mut self) {
         for _ in 0..100 {
             if !self.nucleo.tick(10).running {
@@ -219,7 +216,7 @@ mod tests {
                 line: 0,
             })
             .collect();
-        let mut p = Picker::new("Files", items, true, Arc::new(|| {}));
+        let mut p = Picker::new("Files", items, true);
         p.settle();
         p
     }

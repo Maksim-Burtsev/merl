@@ -59,8 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A picker over thousands of rows no longer holds up the keys typed after it opens: every row
   queued a redraw of its own, so on a 6,000-file project `o` took over a second to show the first
-  letter of the filter. `u` and `d` read the open file first, so a list cut at 5000 hits keeps
-  that file's hits at the top. (#53)
+  letter of the filter. `u`, `d` and `D` read the open file first, so a list cut at 5000 hits
+  keeps that file's hits. (#53)
 - SIGTERM, SIGHUP (a closed terminal or tmux pane) and SIGINT from outside end merl as `q` does:
   unsaved edits are written and the terminal is restored, instead of a shell left on the
   alternate screen with merl's last frame. (#80)

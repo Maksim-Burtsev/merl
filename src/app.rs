@@ -181,8 +181,6 @@ pub struct App {
     /// the cursor (see `hist_note`).
     pub history: Vec<(PathBuf, usize, usize)>,
     pub hist_idx: usize,
-    /// Wakes the event loop when nucleo has new results. Set by `main`.
-    pub wake: Arc<dyn Fn() + Send + Sync>,
     /// Cursor: file line, byte offset into that line, and the display column Up/Down aims for.
     pub line: usize,
     pub col: usize,
@@ -295,7 +293,6 @@ impl App {
             search_enter: false,
             history: Vec::new(),
             hist_idx: 0,
-            wake: Arc::new(|| {}),
             line: 0,
             col: 0,
             want_x: 0,
@@ -1152,12 +1149,7 @@ impl App {
             })
             .collect();
         // Only the file picker wants nucleo's path-aware scoring.
-        self.picker = Some(Picker::new(
-            PickerKind::Files.title(),
-            items,
-            true,
-            self.wake.clone(),
-        ));
+        self.picker = Some(Picker::new(PickerKind::Files.title(), items, true));
         self.mode = Mode::Picker(PickerKind::Files);
     }
 
@@ -1168,7 +1160,7 @@ impl App {
         } else {
             kind.title().to_string()
         };
-        self.picker = Some(Picker::new(title, items, false, self.wake.clone()));
+        self.picker = Some(Picker::new(title, items, false));
         self.mode = Mode::Picker(kind);
     }
 
@@ -1509,9 +1501,6 @@ impl App {
         if let Some(job) = self.search_tick() {
             self.search_done(job.seq, job.hits());
         }
-        if let Some(p) = &mut self.picker {
-            p.settle();
-        }
     }
 
     /// Enter in the `s` picker, on the hits of the query on screen, whether they were in before
@@ -1556,7 +1545,10 @@ impl App {
             tutor::check(self);
             return true;
         }
-        let mut new = Picker::new(old.title.clone(), items, false, self.wake.clone());
+        let mut new = Picker::new(old.title.clone(), items, false);
+        // Matched before it is shown: nothing is pending from here on, so an empty list must
+        // mean the grep found nothing, and Enter and the cursor must see the rows it found.
+        new.settle();
         new.live = true;
         new.selected = selected;
         new.query = std::mem::take(&mut old.query);
@@ -7658,17 +7650,20 @@ two
     }
 
     /// Enter once the hits are in: the same jump, and the same word for a query that found
-    /// nothing, as an Enter that came before them.
+    /// nothing, as an Enter that came before them. An empty query closes without a word.
     #[test]
     fn enter_after_the_project_search_answered() {
         let (path, mut a) = temp_file("enter-late-s", "one\ntwo\n");
+        // The very next key after the answer, before the event loop has ticked or drawn.
         press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
         typed(&mut a, "two");
-        a.settle_search();
+        std::thread::sleep(SEARCH_PAUSE);
+        let job = a.search_tick().expect("the grep for two");
+        a.search_done(job.seq, job.hits());
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
         assert_eq!(
-            (a.picker.is_none(), a.mode, a.line),
-            (true, Mode::Normal, 1)
+            (a.picker.is_none(), a.mode, a.line, &*a.message),
+            (true, Mode::Normal, 1, "")
         );
 
         press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
@@ -7679,6 +7674,23 @@ two
             (a.picker.is_none(), &*a.message),
             (true, "no results for three")
         );
+
+        for keys in ["", "x\u{15}"] {
+            a.message.clear();
+            press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+            for c in keys.chars() {
+                match c {
+                    '\u{15}' => press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL),
+                    c => press(&mut a, KeyCode::Char(c), KeyModifiers::NONE),
+                };
+            }
+            press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+            assert_eq!(
+                (a.picker.is_none(), a.mode, &*a.message),
+                (true, Mode::Normal, ""),
+                "{keys:?}"
+            );
+        }
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 

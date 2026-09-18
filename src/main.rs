@@ -14,8 +14,6 @@ mod wrap;
 
 use std::io::{Write, stdout};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::mpsc::Sender;
 use std::time::Duration;
@@ -40,8 +38,6 @@ enum Msg {
     /// The terminal pasted text (bracketed paste).
     Paste(String),
     Resize,
-    /// nucleo found new matches or was handed items. At most one is queued, see [`wake`].
-    Redraw,
     /// Something changed in the directory of the open file.
     Fs(notify::Event),
     /// `git diff` finished for the file at this path.
@@ -188,11 +184,7 @@ fn run() -> Result<()> {
             }
         });
     }
-    let fs = tx.clone();
-    let redraw = Arc::new(AtomicBool::new(false));
-    app.wake = wake(tx, redraw.clone());
-
-    let result = event_loop(&mut terminal, &mut app, theme, &rx, fs, &redraw);
+    let result = event_loop(&mut terminal, &mut app, theme, &rx, tx);
 
     if enhanced {
         let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
@@ -219,7 +211,6 @@ fn event_loop(
     mut theme: theme::Theme,
     rx: &mpsc::Receiver<Msg>,
     fs: Sender<Msg>,
-    redraw: &AtomicBool,
 ) -> Result<()> {
     let diff_tx = fs.clone();
     let mut loaded = app.theme.clone();
@@ -321,12 +312,6 @@ fn event_loop(
                 return Ok(());
             }
             Ok(Msg::Search(seq, hits)) => dirty |= app.search_done(seq, hits),
-            Ok(Msg::Redraw) => {
-                // The draw at the top of the loop comes after this, so a wake from here on
-                // needs a message of its own.
-                redraw.store(false, Ordering::Release);
-                dirty = true;
-            }
             Ok(Msg::Resize) => dirty = true,
             Ok(Msg::Fs(ev)) => {
                 if concerns_open_file(app, &ev) {
@@ -338,19 +323,6 @@ fn event_loop(
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
         }
     }
-}
-
-/// `App::wake`, which nucleo calls for every item a picker is handed and whenever it has new
-/// matches. One queued `Msg::Redraw` covers any number of calls, as the draw it causes shows them
-/// all: a message per call was a frame per item, and the keys typed after an `s` refresh of
-/// 5000 hits waited a second behind them. The event loop clears `queued` when it takes the
-/// message.
-fn wake(tx: Sender<Msg>, queued: Arc<AtomicBool>) -> Arc<dyn Fn() + Send + Sync> {
-    Arc::new(move || {
-        if !queued.swap(true, Ordering::AcqRel) {
-            let _ = tx.send(Msg::Redraw);
-        }
-    })
 }
 
 /// Watches the parent directory of the open file, non-recursively: editors save by writing a
@@ -444,26 +416,6 @@ fn git_toplevel(dir: &Path) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-    use std::sync::atomic::{AtomicBool, Ordering};
-
-    /// nucleo wakes the loop once per item it is handed: a picker of 5000 must queue one
-    /// redraw, not 5000 frames in front of the next key.
-    #[test]
-    fn a_burst_of_wakes_queues_one_redraw() {
-        let (tx, rx) = std::sync::mpsc::channel();
-        let queued = Arc::new(AtomicBool::new(false));
-        let wake = super::wake(tx, queued.clone());
-        for _ in 0..5000 {
-            wake();
-        }
-        assert_eq!(rx.try_iter().count(), 1);
-        // Taken by the loop: the next wake queues the next redraw.
-        queued.store(false, Ordering::Release);
-        wake();
-        assert_eq!(rx.try_iter().count(), 1);
-    }
-
     #[test]
     fn base64_matches_the_standard_alphabet_and_padding() {
         assert_eq!(super::base64(b""), "");
