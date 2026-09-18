@@ -136,7 +136,8 @@ to TextMate scopes with `tools/nvim2tmtheme.py` (one table for every theme), cop
 ports needs Neovim; the build never touches it. The two Shokunin themes are generated from their
 VS Code JSON sources with `python3 tools/vscode2tmtheme.py in.json out.tmTheme "Name"`.
 
-The screenshot comes from `cargo build --release && tools/theme-shots.sh NAME`. A test fails while
+The screenshot comes from `cargo build --release && tools/theme-shots.sh NAME` (tmux and Python
+with Pillow; the font is macOS's Menlo). A test fails while
 a theme in `THEMES` has no row or no screenshot here.
 
 ## Licences
