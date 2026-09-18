@@ -265,6 +265,15 @@ the type before it. The type comes from the declaration:
 - a call, one hop through the return type the function declares: `-> UserRepository`,
   `): UserRepository`, `func NewRepo() *UserRepository` (a Go function's first result), or a
   TypeScript function whose every `return` is `new UserRepository()`;
+- a loop over a collection whose type is written: `for repo in repos` with
+  `repos: list[UserRepository]` (`Sequence`, `Iterable`, `set`, `tuple[T, ...]` and the like),
+  `for (const repo of repos)` with `UserRepository[]`, `Array<T>` or `Set<T>`,
+  `for _, repo := range repos` with `[]*UserRepository`, `[4]T` or `map[K]T`. The collection is a
+  plain name, and every declaration of it writes that type: as an annotation, as the declared
+  return type of the function it was assigned from, or in Go as `make([]T, …)` or a literal
+  `[]T{…}`. `repos.word` on the collection itself is no member of `UserRepository`, and a `dict`'s
+  keys, a `Map`'s pairs, `for … in`, a tuple target, a single `range` variable and `async for`
+  stay unknown;
 - a property with a declared return type: `@property`, `@cached_property` or
   `@functools.cached_property` over `def users(self) -> UserRepository`, a getter
   `get users(): UserRepository`.

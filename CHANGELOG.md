@@ -48,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   module-level `def` is the parameter. Two declarations in one scope that disagree, and an inner
   one with no readable type, are still a picker. On the name itself `d` lists the declarations of
   that scope only. (#100)
+- A loop variable has the type of an element where the collection's type is written:
+  `for repo in repos` with `repos: list[UserRepository]`, `for (const repo of repos)` with
+  `UserRepository[]`, `for _, repo := range repos` with `[]*UserRepository` or `map[K]T`, written
+  as an annotation, as the return type of the function the collection came from, or as Go's
+  `make([]T, …)` and `[]T{…}`: `DeleteUser → UserRepository.DeleteUser (via repos:
+  []*UserRepository)`. The collection itself, keys and pairs stay by name. (#100)
 
 ### Changed
 

@@ -26,9 +26,9 @@ func (i *Issue) Close() {
 	i.repo.DeleteUser(i.PosterID)
 }
 
-func Show(issue *Issue, comments []Comment) {
+func Show(issue *Issue, comments chan Comment) {
 	fmt.Println(issue.PosterID, issue.Body, issue.Audit, issue.Base)
-	for _, c := range comments {
+	for c := range comments {
 		fmt.Println(c.PosterID, c.Text)
 	}
 }

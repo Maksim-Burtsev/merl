@@ -1378,6 +1378,10 @@ pub enum Value {
     Name(String),
     /// The class declared on this 1-based line: Python's `self` and `cls`, TypeScript's `this`.
     Class(usize),
+    /// An element of the named collection, as a loop hands it out: `for r in repos`,
+    /// `for (const r of repos)`, `for _, r := range repos`. [`element_type`] reads it off the
+    /// collection's written type.
+    Element(String),
     /// A declaration whose type the rules cannot read: `for repo in`, a tuple, a parameter with
     /// no annotation.
     Unknown,
@@ -1588,6 +1592,11 @@ fn value_of(kind: Kind, expr: &str) -> Value {
                 let inner = &e[open + 1..e.len().saturating_sub(1)];
                 Value::New(inner.trim().to_owned())
             }
+            // `make([]*Repo, 0, n)` writes the type of what it makes.
+            (true, false) if kind == Kind::Go && name == "make" => {
+                let inner = &e[open + 1..e.len().saturating_sub(1)];
+                Value::Type(split_top(kind, inner, b',')[0].trim().to_owned())
+            }
             (true, false) => Value::Call(name),
             (true, true) => Value::Unknown,
         };
@@ -1597,6 +1606,15 @@ fn value_of(kind: Kind, expr: &str) -> Value {
         && ends(c.get(0).unwrap().end() - 1)
     {
         return Value::New(c[2].to_owned());
+    }
+    // A slice, array or map literal writes its type in front of its `{`: `[]Repo{…}`.
+    if kind == Kind::Go
+        && (e.starts_with('[') || e.starts_with("map["))
+        && let Some(end) = e.find('[').and_then(|i| close_of(kind, e, i))
+        && let Some(open) = e[end..].find('{').map(|i| end + i)
+        && ends(open)
+    {
+        return Value::Type(e[..open].trim().to_owned());
     }
     if NAME.is_match(e) && !matches!(e, "None" | "null" | "undefined" | "nil" | "this" | "self") {
         return Value::Name(e.to_owned());
@@ -1674,6 +1692,8 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let inline = rule(format!(
         r"\bfor\s+[^=]*?\b{n}\b[^=]*?\s+in\b|\blambda\b[^:]*\b{n}\b"
     ));
+    // A plain loop over a plain name; `async for`, a tuple target and a call are unknown.
+    let element = rule(format!(r"^for\s+{n}\s+in\s+([A-Za-z_]\w*)\s*:"));
     // `a, repo = …` or `(a, repo) = …`, not the keyword argument of a call.
     let tuple = Regex::new(r"^(\(?[\w\s,.*\[\]]+\)?)\s*=[^=]").unwrap();
 
@@ -1746,7 +1766,9 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
                 skip = Some(ind);
                 continue;
             }
-            let value = if unknown.is_match(t) || (i == at && inline.is_match(t)) {
+            let value = if let Some(c) = element.captures(t) {
+                Some(Value::Element(c[1].to_owned()))
+            } else if unknown.is_match(t) || (i == at && inline.is_match(t)) {
                 Some(Value::Unknown)
             } else if continued(Kind::Python, lines, i) {
                 None
@@ -1937,9 +1959,20 @@ fn opener_bindings(kind: Kind, header: &str, line: usize, name: &str, out: &mut 
             value: Value::Unknown,
         })
     };
+    let n = regex::escape(name);
+    let element = |p: String| {
+        let rule = Regex::new(&p).expect("an escaped name keeps the pattern valid");
+        let value = Value::Element(rule.captures(header)?[1].to_owned());
+        Some(Binding { line, value })
+    };
     match kind {
         Kind::TsJs => {
-            if TS_LOOP
+            // `for (const r of repos)` over a plain name hands out elements; `in` hands out keys.
+            if let Some(b) = element(format!(
+                r"\bfor\s*\(\s*(?:const|let|var)\s+{n}\s+of\s+([A-Za-z_$][\w$]*)\s*\)"
+            )) {
+                out.push(b);
+            } else if TS_LOOP
                 .captures_iter(header)
                 .any(|c| c.iter().skip(1).flatten().any(|m| names(m.as_str(), name)))
             {
@@ -1967,7 +2000,13 @@ fn opener_bindings(kind: Kind, header: &str, line: usize, name: &str, out: &mut 
             }
         }
         Kind::Go => {
-            if GO_ASSIGN.captures_iter(header).any(|c| names(&c[1], name)) {
+            // The second variable of a `range` over a plain name is an element of a slice, an
+            // array or a map; the first is an index or a key.
+            if let Some(b) = element(format!(
+                r"(?:^|\s)for\s+[A-Za-z_]\w*\s*,\s*{n}\s*:=\s*range\s+([A-Za-z_]\w*)\s*\{{"
+            )) {
+                out.push(b);
+            } else if GO_ASSIGN.captures_iter(header).any(|c| names(&c[1], name)) {
                 unknown(out);
             }
             if let Some(c) = GO_FUNC.captures_iter(header).last() {
@@ -2751,6 +2790,56 @@ pub fn type_path(kind: Kind, written: &str) -> Option<Vec<String>> {
     }
     NAME.is_match(t)
         .then(|| t.split('.').map(str::to_owned).collect())
+}
+
+/// The written type of an element of the collection written as `written`, where the type says so:
+/// Python's `list[T]`, `Sequence[T]`, `set[T]`, `tuple[T, ...]` and the like, TypeScript's `T[]`,
+/// `Array<T>`, `Set<T>`, Go's `[]T`, `[4]T` and `map[K]T`. A Python `dict` and a TypeScript `Map`
+/// hand out keys or pairs, and anything else is not known to hand out anything.
+pub fn element_type(kind: Kind, written: &str) -> Option<String> {
+    // `Head<A, B>` or `Head[A, B]` as the last name of its head and its arguments.
+    fn generic(kind: Kind, t: &str, open: char, close: char) -> Option<(&str, Vec<&str>)> {
+        let i = t.find(open).filter(|_| t.ends_with(close))?;
+        let head = t[..i].trim_end();
+        let args = split_top(kind, &t[i + 1..t.len() - 1], b',');
+        Some((head.rsplit('.').next().unwrap_or(head), args))
+    }
+    let t = written.trim().trim_end_matches([';', ',']).trim();
+    let element = match kind {
+        Kind::Python => match generic(kind, t.trim_matches(['"', '\'']), '[', ']')? {
+            ("tuple" | "Tuple", args) if args.len() == 2 && args[1].trim() == "..." => args[0],
+            (
+                "list" | "List" | "Sequence" | "MutableSequence" | "Iterable" | "Iterator"
+                | "Collection" | "set" | "Set" | "frozenset" | "FrozenSet" | "AbstractSet"
+                | "deque",
+                args,
+            ) if args.len() == 1 => args[0],
+            _ => return None,
+        },
+        Kind::TsJs => {
+            let t = t.strip_prefix("readonly ").unwrap_or(t).trim();
+            match (t.strip_suffix("[]"), generic(kind, t, '<', '>')) {
+                (Some(one), _) => one,
+                (
+                    None,
+                    Some((
+                        "Array" | "ReadonlyArray" | "Set" | "ReadonlySet" | "Iterable"
+                        | "IterableIterator",
+                        args,
+                    )),
+                ) if args.len() == 1 => args[0],
+                _ => return None,
+            }
+        }
+        Kind::Go => {
+            let rest = t.strip_prefix("map").unwrap_or(t);
+            let close = close_of(kind, rest, 0).filter(|_| rest.starts_with('['))?;
+            &rest[close..]
+        }
+        _ => return None,
+    };
+    let element = element.trim();
+    (!element.is_empty()).then(|| element.to_owned())
 }
 
 /// Whether `path` is (in) the module spelled by `parts`: every part is a directory or file
@@ -3708,6 +3797,66 @@ output "bucket" {
         assert_eq!(q("for i in 0..v.len() {", 14), ["v"]);
     }
 
+    #[test]
+    fn a_loop_hands_out_elements_only_where_the_type_says_so() {
+        let cases = [
+            (Kind::Python, "list[Repo]", Some("Repo")),
+            (
+                Kind::Python,
+                "typing.Sequence[models.Repo]",
+                Some("models.Repo"),
+            ),
+            (Kind::Python, "\"tuple[Repo, ...]\"", Some("Repo")),
+            (Kind::Python, "set[Repo | None]", Some("Repo | None")),
+            // Keys, a fixed tuple, a type of the project's own, no arguments at all.
+            (Kind::Python, "dict[str, Repo]", None),
+            (Kind::Python, "tuple[Repo, Audit]", None),
+            (Kind::Python, "Page[Repo]", None),
+            (Kind::Python, "list", None),
+            (Kind::TsJs, "Repo[]", Some("Repo")),
+            (Kind::TsJs, "readonly Repo[]", Some("Repo")),
+            (Kind::TsJs, "Array<Box<Repo>>", Some("Box<Repo>")),
+            (Kind::TsJs, "Set<Repo>;", Some("Repo")),
+            (Kind::TsJs, "Map<string, Repo>", None),
+            (Kind::TsJs, "Promise<Repo[]>", None),
+            (Kind::TsJs, "Repo", None),
+            (Kind::Go, "[]*Repo", Some("*Repo")),
+            (Kind::Go, "[4]Repo", Some("Repo")),
+            (Kind::Go, "map[Key]*models.Repo", Some("*models.Repo")),
+            (Kind::Go, "map[[2]int][]Repo", Some("[]Repo")),
+            (Kind::Go, "chan *Repo", None),
+            (Kind::Go, "*[]Repo", None),
+            (Kind::Go, "Repos", None),
+        ];
+        for (kind, written, want) in cases {
+            let got = element_type(kind, written);
+            assert_eq!(got.as_deref(), want, "{written}");
+        }
+        // The loops that hand out something else are unknown.
+        let element = |name: &str| Value::Element(name.into());
+        let py = "async def f(repos):\n    for r in repos:\n        r\n    async for r in repos:\n        r\n    for i, r in pairs:\n        r\n    for r in load():\n        r\n";
+        let at = |kind, text, line, name| bound_at(kind, text, line, name);
+        assert_eq!(
+            at(Kind::Python, py, 3, "r"),
+            [
+                (2, element("repos")),
+                (4, Value::Unknown),
+                (6, Value::Unknown),
+                (8, Value::Unknown)
+            ]
+        );
+        let ts = "for (const r of repos) {\n  r;\n}\nfor (const k in repos) {\n  k;\n}\nfor (const [k, r] of pairs) {\n  r;\n}\nfor (const r of load()) {\n  r;\n}\n";
+        assert_eq!(at(Kind::TsJs, ts, 2, "r"), [(1, element("repos"))]);
+        assert_eq!(at(Kind::TsJs, ts, 5, "k"), [(4, Value::Unknown)]);
+        assert_eq!(at(Kind::TsJs, ts, 8, "r"), [(7, Value::Unknown)]);
+        assert_eq!(at(Kind::TsJs, ts, 11, "r"), [(10, Value::Unknown)]);
+        let go = "func f() {\n\tfor _, r := range repos {\n\t\tr.Go()\n\t}\n\tfor i, r := range repos {\n\t\ti.Go()\n\t}\n\tfor r := range repos {\n\t\tr.Go()\n\t}\n\tfor _, r := range s.repos {\n\t\tr.Go()\n\t}\n}\n";
+        assert_eq!(at(Kind::Go, go, 3, "r"), [(2, element("repos"))]);
+        assert_eq!(at(Kind::Go, go, 6, "i"), [(5, Value::Unknown)]);
+        assert_eq!(at(Kind::Go, go, 9, "r"), [(8, Value::Unknown)]);
+        assert_eq!(at(Kind::Go, go, 12, "r"), [(11, Value::Unknown)]);
+    }
+
     /// The bindings of `name` on `line` of `text`, as (line, value) pairs.
     fn bound_at(kind: Kind, text: &str, line: usize, name: &str) -> Vec<(usize, Value)> {
         bindings(kind, text, line, name)
@@ -3765,7 +3914,7 @@ import os.path, store.sessions as sessions
         // A static method's first parameter is no `self`, and an unannotated one is unknown.
         assert_eq!(at(19, "first"), [(18, Value::Unknown)]);
         assert_eq!(at(19, "second"), [(18, ty("int"))]);
-        assert_eq!(at(23, "item"), [(22, Value::Unknown)]);
+        assert_eq!(at(23, "item"), [(22, Value::Element("items".into()))]);
         // A comprehension or a lambda binds on its own line only.
         assert_eq!(at(25, "r"), [(25, Value::Unknown)]);
         assert_eq!(at(24, "r"), []);
@@ -3899,7 +4048,7 @@ export function cleanup(id: number): void {
         assert_eq!(at(16, "user"), [(15, ty("User"))]);
         assert_eq!(at(28, "made"), [(16, Value::Call("createRepo".into()))]);
         assert_eq!(at(28, "shared"), [(3, new("AuditLog"))]);
-        assert_eq!(at(18, "item"), [(17, Value::Unknown)]);
+        assert_eq!(at(18, "item"), [(17, Value::Element("items".into()))]);
         assert_eq!(at(28, "a"), [(20, Value::Unknown)]);
         assert_eq!(at(21, "x"), [(21, ty("Item"))]);
         // The innermost block around the cursor that declares the name; the inner `repo` is
@@ -3946,7 +4095,7 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
         assert_eq!(at(21, "built"), [(9, new("Repo"))]);
         assert_eq!(at(21, "fresh"), [(10, new("Repo"))]);
         assert_eq!(at(21, "shared"), [(3, new("AuditLog"))]);
-        assert_eq!(at(12, "item"), [(11, Value::Unknown)]);
+        assert_eq!(at(12, "item"), [(11, Value::Element("items".into()))]);
         assert_eq!(at(15, "r"), [(14, Value::Unknown)]);
         assert_eq!(at(18, "repo"), [(17, ty("*UserRepository"))]);
         assert_eq!(at(21, "other"), [(20, Value::Unknown)]);

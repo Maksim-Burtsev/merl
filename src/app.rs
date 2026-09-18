@@ -2197,7 +2197,35 @@ impl App {
             search::Value::Name(n) if hops > 0 => {
                 self.value_type(kind, file, text, b.line, n, hops - 1)
             }
-            search::Value::Name(_) | search::Value::Unknown => None,
+            // An element of a collection whose every declaration writes its type: an
+            // annotation, or the return type of the function it was assigned from.
+            search::Value::Element(n) if hops > 0 => {
+                let mut found: Option<(Typed, Option<String>)> = None;
+                for c in search::bindings(kind, text, b.line, n) {
+                    let (written, at, link) = match &c.value {
+                        search::Value::Type(t) => {
+                            (t.clone(), file.to_path_buf(), format!("{n}: {}", t.trim()))
+                        }
+                        search::Value::Call(callee) => {
+                            let (t, at) = self.declared_return(kind, file, callee)?;
+                            let link = signature(kind, callee, &t);
+                            (t, at, link)
+                        }
+                        _ => return None,
+                    };
+                    let element = search::element_type(kind, &written)?;
+                    let ty = self.type_decl(kind, &at, &element)?;
+                    match &found {
+                        Some((one, _)) if (&one.path, one.line) != (&ty.path, ty.line) => {
+                            return None;
+                        }
+                        Some(_) => {}
+                        None => found = Some((ty, Some(link))),
+                    }
+                }
+                found
+            }
+            search::Value::Name(_) | search::Value::Element(_) | search::Value::Unknown => None,
         }
     }
 
@@ -2219,17 +2247,25 @@ impl App {
         let (written, signature) = match search::returns(kind, &text, decl.line)? {
             search::Value::New(t) => (t.clone(), format!("{callee}() returns new {t}()")),
             search::Value::Type(t) => {
-                let signature = match kind {
-                    Kind::Python => format!("{callee}() -> {t}"),
-                    Kind::TsJs => format!("{callee}(): {t}"),
-                    _ => format!("{callee}() {t}"),
-                };
+                let signature = signature(kind, callee, &t);
                 (t, signature)
             }
             _ => return None,
         };
         let ty = self.type_decl(kind, &decl.path, &written)?;
         Some((ty, Some(signature)))
+    }
+
+    /// The return type the function `callee` of `file` declares, as written, and the file that
+    /// writes it. A class, and a function that declares none, give nothing.
+    fn declared_return(&self, kind: Kind, file: &Path, callee: &str) -> Option<(String, PathBuf)> {
+        let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
+        let decl = self.declaration(kind, file, &parts)?;
+        let text = self.text_of(&decl.path)?;
+        match search::returns(kind, &text, decl.line)? {
+            search::Value::Type(t) => Some((t, decl.path)),
+            _ => None,
+        }
     }
 
     /// The declaration of the type written as `written` in `file`.
@@ -3527,6 +3563,15 @@ fn is_protocol(text: &str, decl: usize) -> bool {
         .any(|p| p.last().is_some_and(|n| n == "Protocol"))
 }
 
+/// A call and the return type its function declares, spelled as the language writes it.
+fn signature(kind: Kind, callee: &str, returns: &str) -> String {
+    match kind {
+        Kind::Python => format!("{callee}() -> {returns}"),
+        Kind::TsJs => format!("{callee}(): {returns}"),
+        _ => format!("{callee}() {returns}"),
+    }
+}
+
 /// The module path an import in `imports` binds `name` to.
 fn bound(imports: &[(String, Vec<String>)], name: &str) -> Option<Vec<String>> {
     imports
@@ -4705,7 +4750,7 @@ mod tests {
                     ("AuditLog.deleteUser", "repos.ts:16"),
                 ),
             ),
-            // A `range` variable.
+            // The variable of a `range` over a channel, which the rules do not read.
             (
                 "go",
                 "factories.go",
@@ -5647,7 +5692,7 @@ mod tests {
                     "chains.go:4",
                 ),
             ),
-            // A `range` variable.
+            // The variable of a `range` over a channel, which the rules do not read.
             (
                 "go",
                 "fields.go",
@@ -6157,6 +6202,239 @@ mod tests {
                 jump(
                     "ledger \u{2192} ScopedRotate.ledger (local)",
                     "scopes.go:10",
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100: a loop variable is an element of what it loops over, where that collection's type is
+    /// written: `list[T]`, `T[]`, `[]T`, `map[K]T`, as an annotation or as the return type of the
+    /// function it came from. The collection itself is no `T`, and keys, pairs, a tuple target
+    /// and a collection declared twice stay unknown.
+    #[test]
+    fn a_loop_variable_is_an_element_of_a_written_collection() {
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // An annotated parameter: `list[T]`, and `tuple[T, ...]` in quotes.
+            (
+                "python",
+                "elements.py",
+                "repo.delete_user|(user_id)",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via repos: list[UserRepository])",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "elements.py",
+                "log.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via logs: \"tuple[AuditLog, ...]\")",
+                    "repos.py:13",
+                ),
+            ),
+            // The collection came from a function that declares what it returns.
+            (
+                "python",
+                "elements.py",
+                "repo.delete_user|(user_id + 3)",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via load_repos() -> list[UserRepository])",
+                    "repos.py:8",
+                ),
+            ),
+            // The list itself is no `UserRepository`.
+            (
+                "python",
+                "elements.py",
+                "repos.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A `dict` hands out its keys; a tuple target over a call is not read.
+            (
+                "python",
+                "elements.py",
+                "key.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "elements.py",
+                "repo.delete_user|(user_id + 5)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // `repos` is assigned again with no type written: not every declaration says what it holds.
+            (
+                "python",
+                "elements.py",
+                "repo.delete_user|(user_id + 6)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // Two annotations that disagree.
+            (
+                "python",
+                "elements.py",
+                "repo.delete_user|(user_id + 7)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // TypeScript: `T[]`, `ReadonlyArray<T>`, a declared return type.
+            (
+                "typescript",
+                "elements.ts",
+                "repo.deleteUser|(id);",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via repos: UserRepository[])",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "elements.ts",
+                "log.deleteUser",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via logs: ReadonlyArray<AuditLog>)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "elements.ts",
+                "repo.deleteUser|(id + 2)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via loadRepos(): UserRepository[])",
+                    "repos.ts:10",
+                ),
+            ),
+            // The array itself, a `Map`'s pairs and the keys of `for … in`.
+            (
+                "typescript",
+                "elements.ts",
+                "repos.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "elements.ts",
+                "entry.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "elements.ts",
+                "index.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // Go: the second variable of a `range` over `[]*T`, over `map[K]T`, over a declared result.
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via repos: []*UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "elements.go",
+                "entry.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via logs: map[string]AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 2)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via LoadRepos() []*UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            // A single variable is an index or a key, or the element of a channel the rules do not read.
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 3)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            // A slice made or written out in place says what it holds.
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 4)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via made: []*UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "elements.go",
+                "entry.DeleteUser|(id + 5)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via listed: []AuditLog)",
+                    "repos.go:21",
                 ),
             ),
         ];

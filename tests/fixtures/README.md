@@ -64,6 +64,13 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   branches of an `if` (Python), an `if` header and its body (Go), an arrow function's parameter on
   the cursor's line or on the line its statement started on (TypeScript). Python's `save` is a
   parameter named like a module-level `def`.
+- element types (#100): `elements` loops over collections whose type is written — an annotated
+  parameter (`list[T]`, a quoted `tuple[T, ...]`, `T[]`, `ReadonlyArray<T>`, `[]*T`, `map[K]T`),
+  the declared return type of `load_repos`, Go's `make` and a slice literal — and over what hands
+  out something else: a `dict`'s keys, a `Map`'s pairs, `for … in`, `enumerate`, a channel, a
+  list assigned again with no type, two annotations that disagree. Each also calls a member on
+  the collection itself. Since then the unknown receivers of Go's `Forget` and `Show` come from a
+  channel, not a slice.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.
