@@ -66,7 +66,7 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   parameter named like a module-level `def`.
 - element types (#100): `elements` loops over collections whose type is written — an annotated
   parameter (`list[T]`, a quoted `tuple[T, ...]`, `T[]`, `ReadonlyArray<T>`, `[]*T`, `map[K]T`),
-  the declared return type of `load_repos`, Go's `make` and a slice literal — and over what hands
+  the declared return type of `load_repos`, Go's `make`, a slice literal and a named `RepoList` — and over what hands
   out something else: a `dict`'s keys, a `Map`'s pairs, `for … in`, `enumerate`, a channel, a
   list assigned again with no type, two annotations that disagree. Each also calls a member on
   the collection itself. Since then the unknown receivers of Go's `Forget` and `Show` come from a

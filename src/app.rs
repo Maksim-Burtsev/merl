@@ -2287,7 +2287,24 @@ impl App {
                         }
                         _ => return None,
                     };
-                    let element = search::element_type(kind, &written)?;
+                    // Go's `type IssueList []*Issue` says what it holds on its own line.
+                    let named = |written: &str| {
+                        let list = self
+                            .type_decl(kind, &at, written)
+                            .filter(|_| kind == Kind::Go)?;
+                        let text = self.text_of(&list.path)?;
+                        let decl = text
+                            .lines()
+                            .nth(list.line - 1)?
+                            .trim()
+                            .strip_prefix("type ")?;
+                        let holds = decl.trim_start().strip_prefix(list.name.as_str())?;
+                        Some((search::element_type(kind, holds)?, list.path))
+                    };
+                    let (element, at) = match search::element_type(kind, &written) {
+                        Some(element) => (element, at.clone()),
+                        None => named(&written)?,
+                    };
                     let ty = self.type_decl(kind, &at, &element)?;
                     match &found {
                         Some((one, _)) if (&one.path, one.line) != (&ty.path, ty.line) => {
@@ -6588,6 +6605,16 @@ mod tests {
                 jump(
                     "DeleteUser \u{2192} AuditLog.DeleteUser (via listed: []AuditLog)",
                     "repos.go:21",
+                ),
+            ),
+            // A named slice type, read where it is declared.
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 6)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via repos: RepoList)",
+                    "repos.go:15",
                 ),
             ),
         ];

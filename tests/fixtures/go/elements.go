@@ -35,3 +35,12 @@ func Collect(id int) {
 		entry.DeleteUser(id + 5)
 	}
 }
+
+// A named slice type says what it holds where it is declared.
+type RepoList []*UserRepository
+
+func SweepList(repos RepoList, id int) {
+	for _, repo := range repos {
+		repo.DeleteUser(id + 6)
+	}
+}
