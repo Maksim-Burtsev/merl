@@ -41,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Ctrl+C copies everywhere and never quits: outside edit mode too it copies the selection, or
+  the current line without one, and the status line says how much (`copied 3 lines`). In a
+  prompt or a picker it does nothing. Quitting is `q`. Ctrl+X stays an edit-mode key. (#78)
 - The word jump moved from Shift+Left / Right to Alt+Left / Right (Option on a Mac), where every
   other editor has it. Esc b / Esc f, which Ghostty, iTerm and Terminal.app send for Option+arrow,
   are the same jump and no longer leave edit mode, a prompt or a picker.
