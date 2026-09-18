@@ -46,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   counts. (#77)
 - `d` finds a Python `async def` and a TypeScript method signature with no body
   (`find(id: string): User;` in an interface, an abstract class, an overload or a `.d.ts`). (#69)
+- Ctrl+F opened while editing no longer drops you into navigation, where the next letter was a
+  command (`d` jumped, `q` quit): Enter keeps editing at the match and Esc where you were. The
+  same for Ctrl+G and for a prompt or a picker closed with Esc. (#56)
 - Go lookups outside the project skip `_test.go` files, `testdata` and nested modules such as
   GOROOT's `cmd`, which no import reaches. A relative import (`from . import views`, `./utils`)
   and a Go package whose name its path decorates (`gopkg.in/yaml.v3`, `go-sqlite3`) now bind the
