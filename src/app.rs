@@ -12,7 +12,7 @@ use crate::buffer::{self, Buffer};
 use crate::git;
 use crate::line_edit::LineEdit;
 use crate::picker::{Pick, PickItem, Picker};
-use crate::search::{self, Candidate, Hit, Kind, Reason};
+use crate::search::{self, Candidate, Hit, Kind, Reason, Tier};
 use crate::tree::Tree;
 use crate::tutor::{self, Tutor};
 use crate::wrap;
@@ -1865,6 +1865,10 @@ impl App {
             && found
                 .iter()
                 .any(|c| c.hit.line != self.line + 1 || c.hit.path != here);
+        // Tests, mocks, fixtures, generated and vendored copies of a declaration come last here
+        // too (#81). The sort is stable and every candidate is a declaration, so the rest keep
+        // the order the search found them in, standard library and all.
+        found.sort_by_key(|c| search::rank(&c.hit.path, None, true).0);
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
         match found.as_slice() {
@@ -2810,7 +2814,10 @@ impl App {
             .collect()
     }
 
-    /// `u` / Shift+F12: every whole-word occurrence of the identifier, case-sensitive.
+    /// `u` / Shift+F12: every whole-word occurrence of the identifier, case-sensitive, in the
+    /// order a reader wants them (#81): the declarations first, marked, then the open file, then
+    /// the rest of the project's code nearest first, then tests, mocks, fixtures, generated and
+    /// vendored files. The title says how the list splits.
     fn usages(&mut self) {
         let Some(word) = self.word_under(search::word_chars(self.kind(), false)) else {
             return;
@@ -2822,7 +2829,81 @@ impl App {
             self.message = format!("no usages of {word}");
             return;
         }
-        self.show_picker(PickerKind::Usages, Self::hit_items(hits));
+        let here = self.rel_current();
+        // What tells a declaration of the word from a use of it is `def_patterns`, and which
+        // ones apply is the hit file's own kind: one regex per kind met, built once.
+        let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
+        let mut ranked: Vec<_> = hits
+            .into_iter()
+            .map(|h| {
+                let re = rules
+                    .entry(search::kind_of(&h.path))
+                    .or_insert_with_key(|k| {
+                        let patterns = k
+                            .map(|k| search::def_patterns(k, &word))
+                            .unwrap_or_default();
+                        (!patterns.is_empty())
+                            .then(|| Regex::new(&patterns.join("|")).ok())
+                            .flatten()
+                    });
+                let declares = re.as_ref().is_some_and(|re| re.is_match(&h.text));
+                (search::rank(&h.path, here.as_deref(), declares), h)
+            })
+            .collect();
+        ranked.sort_by(|(a, x), (b, y)| {
+            a.cmp(b)
+                .then_with(|| (&x.path, x.line).cmp(&(&y.path, y.line)))
+        });
+        let tiers: Vec<Tier> = ranked.iter().map(|(r, _)| r.0).collect();
+        let items = Self::hit_items(ranked.into_iter().map(|(_, h)| h).collect());
+        let declarations = tiers.iter().filter(|&&t| t == Tier::Declaration).count();
+        let tests = tiers.iter().filter(|&&t| t == Tier::Tests).count();
+        // A declaration row says so in the column `d` puts its reason in; with no declaration
+        // among the hits the column is not there at all.
+        let width = if declarations > 0 {
+            "declaration".len() + 2
+        } else {
+            0
+        };
+        let items = items
+            .into_iter()
+            .zip(&tiers)
+            .map(|(it, &tier)| {
+                let mark = if tier == Tier::Declaration {
+                    "declaration"
+                } else {
+                    ""
+                };
+                let head = format!("{mark:width$}");
+                PickItem {
+                    code_at: it.code_at.map(|at| at + head.len()),
+                    label: head + &it.label,
+                    ..it
+                }
+            })
+            .collect();
+        let counts = [
+            (
+                declarations,
+                if declarations == 1 {
+                    "declaration"
+                } else {
+                    "declarations"
+                },
+            ),
+            (tiers.len() - declarations - tests, "in code"),
+            (tests, "in tests"),
+        ];
+        let split: Vec<String> = counts
+            .iter()
+            .filter(|(n, _)| *n > 0)
+            .map(|(n, what)| format!("{n} {what}"))
+            .collect();
+        let status = format!("Usages of {word}: {}", split.join(", "));
+        self.show_picker(PickerKind::Usages, items);
+        if let Some(p) = &mut self.picker {
+            p.title = p.title.replacen(PickerKind::Usages.title(), &status, 1);
+        }
     }
 
     /// `D`: every declaration in the project, recomputed on each press.
@@ -7714,8 +7795,161 @@ two
         press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
         let p = a.picker.as_mut().unwrap();
         p.settle();
-        assert_eq!(p.title, format!("Usages (first {})", search::MAX_HITS));
+        // The split counts what the list holds, and the cut still says so behind it.
+        assert_eq!(
+            p.title,
+            format!(
+                "Usages of x: {} in code (first {})",
+                search::MAX_HITS,
+                search::MAX_HITS
+            )
+        );
         assert_eq!(p.counts().1 as usize, search::MAX_HITS);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The rows of the open result picker, each split into its mark and the `path:line` it
+    /// points at.
+    fn usage_rows(a: &mut App) -> Vec<(String, String)> {
+        let picker = a.picker.as_mut().expect("a picker");
+        picker.settle();
+        picker
+            .window(50)
+            .0
+            .into_iter()
+            .map(|r| {
+                let head = r.item.label[..r.item.code_at.unwrap()].trim_end();
+                let (mark, place) = head.rsplit_once(' ').unwrap_or(("", head));
+                (mark.trim().into(), place.trim_end_matches(':').into())
+            })
+            .collect()
+    }
+
+    /// Puts the cursor on `word` in `file` at `line` and presses `u`.
+    fn usages_at(a: &mut App, dir: &Path, file: &str, line: usize, word: &str) {
+        a.jump_to(&dir.join(file), line);
+        a.col = a.line_str().find(word).expect(word);
+        press(a, KeyCode::Char('u'), KeyModifiers::NONE);
+    }
+
+    /// #81: the declaration first and marked as one, then the open file, then the rest of the
+    /// project's code nearest first, then the tests — a test file next door still sorts below
+    /// code a package away.
+    #[test]
+    fn usages_put_the_declaration_first_and_the_tests_last() {
+        let (dir, mut a) = project_app(
+            "u-order",
+            &[
+                (
+                    "src/users/repo.py",
+                    "class Repo:\n    def delete_user(self, id):\n        pass\n",
+                ),
+                (
+                    "src/users/admin.py",
+                    "def purge(repo, id):\n    repo.delete_user(id)\n",
+                ),
+                (
+                    "src/users/repo_test.py",
+                    "def check(repo):\n    repo.delete_user(2)\n",
+                ),
+                (
+                    "src/api/view.py",
+                    "def view(repo):\n    repo.delete_user(1)\n",
+                ),
+                (
+                    "tests/test_repo.py",
+                    "def test_delete(repo):\n    repo.delete_user(1)\n",
+                ),
+            ],
+        );
+        usages_at(&mut a, &dir, "src/users/admin.py", 2, "delete_user");
+        assert_eq!(
+            usage_rows(&mut a),
+            [
+                ("declaration".to_string(), "src/users/repo.py:2".to_string()),
+                (String::new(), "src/users/admin.py:2".into()),
+                (String::new(), "src/api/view.py:2".into()),
+                (String::new(), "src/users/repo_test.py:2".into()),
+                (String::new(), "tests/test_repo.py:2".into()),
+            ]
+        );
+        assert_eq!(
+            a.picker.as_ref().unwrap().title,
+            "Usages of delete_user: 1 declaration, 2 in code, 2 in tests"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The title says how the list splits, and a part with no hits is left out rather than
+    /// printed as a zero.
+    #[test]
+    fn the_usages_title_splits_the_counts_and_omits_what_is_not_there() {
+        let (dir, mut a) = project_app(
+            "u-title",
+            &[
+                (
+                    "src/repo.py",
+                    "class Repo:\n    def delete_user(self, id):\n        pass\n",
+                ),
+                ("src/api/repo.py", "class Repo:\n    pass\n"),
+                (
+                    "src/admin.py",
+                    "import log\n\ndef purge(repo, id):\n    log.info(\"purge\")\n    repo.delete_user(id)\n",
+                ),
+                (
+                    "tests/test_repo.py",
+                    "import log\n\ndef test_delete(repo):\n    log.info(\"t\")\n    repo.delete_user(1)\n",
+                ),
+            ],
+        );
+        for (file, line, word, title) in [
+            (
+                "src/admin.py",
+                5,
+                "delete_user",
+                "Usages of delete_user: 1 declaration, 1 in code, 1 in tests",
+            ),
+            // Two declarations and nothing else: only the one part, and it is plural.
+            ("src/repo.py", 1, "Repo", "Usages of Repo: 2 declarations"),
+            // A name no rule declares: no declaration part at all.
+            (
+                "src/admin.py",
+                4,
+                "info",
+                "Usages of info: 1 in code, 1 in tests",
+            ),
+        ] {
+            usages_at(&mut a, &dir, file, line, word);
+            let p = a.picker.as_mut().unwrap();
+            p.settle();
+            assert_eq!(p.title, title);
+            press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #81: the candidates of `d` share the demotion — the copy of the declaration under `spec/`
+    /// is offered last, though its path sorts first.
+    #[test]
+    fn d_offers_the_test_copy_of_a_declaration_last() {
+        let (dir, mut a) = project_app(
+            "d-tests",
+            &[
+                ("spec/repo.py", "def delete_user(id):\n    pass\n"),
+                ("src/repo.py", "def delete_user(id):\n    pass\n"),
+                ("src/admin.py", "def purge(id):\n    delete_user(id)\n"),
+            ],
+        );
+        a.jump_to(&dir.join("src/admin.py"), 2);
+        a.col = a.line_str().find("delete_user").unwrap();
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        assert_eq!(
+            definition_rows(&mut a)
+                .into_iter()
+                .map(|(_, _, place)| place)
+                .collect::<Vec<_>>(),
+            ["src/repo.py:1", "spec/repo.py:1"]
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

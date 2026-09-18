@@ -372,6 +372,19 @@ case-sensitive — and `/` and `s` look for the text as typed: `foo(` finds the 
 definition, `a.b` only `a.b`. There is no regex mode. `s` lists its hits while you type, the open
 file's first; Up / Down pick one and Enter jumps to it.
 
+`u` lists every whole-word use of the identifier, case-sensitive, in the order a reader wants
+them: the declarations of the word, told by the same patterns `d` uses and marked `declaration` in
+the row, then the open file, then the rest of the project's code with the nearest directories
+first, and last the tests, mocks, fixtures, generated and vendored files — a `test/`, `tests/`,
+`__tests__/`, `spec/`, `specs/`, `testdata/`, `fixtures/`, `mocks/` (also `__fixtures__/`,
+`__mocks__/`), `vendor/` or `third_party/` directory anywhere in the path, and the file names
+`test_*`, `conftest.py`, `*_test.*`, `*_spec.*`, `*.test.*`, `*.spec.*`, `*_pb2.py`,
+`*_pb2_grpc.py`, `*.pb.go`, `*.gen.go` and `*.generated.*`. The title says how the list splits —
+`Usages of delete_user: 1 declaration, 6 in code, 14 in tests` — and leaves out a part with no
+hits. The file on screen is never demoted, whatever it is called, and the candidates `d` offers
+are demoted by the same table, so a copy of a declaration under `spec/` is offered after the real
+one.
+
 The file list comes from one `.gitignore`-respecting walk at startup and is not refreshed, so
 files created while merl is open show up after a restart. Dotfiles are part of it — `.github/`,
 `.env`, `.dockerignore` — and only the `.git`, `.hg` and `.svn` stores are skipped. The open file

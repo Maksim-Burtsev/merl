@@ -869,6 +869,97 @@ pub fn declaration_file(path: &Path) -> bool {
         .is_some_and(|n| [".d.ts", ".d.mts", ".d.cts"].iter().any(|e| n.ends_with(e)))
 }
 
+/// The files a reader is shown last: tests, mocks, fixtures, generated code and vendored copies
+/// (#81). A row ending in `/` is a directory anywhere in the path; the rest match the file name,
+/// where a `*` at either end stands for any run of characters. One table, so `u` and the
+/// candidates of `d` agree on what a test file is.
+const LAST: &[&str] = &[
+    "test/",
+    "tests/",
+    "__tests__/",
+    "spec/",
+    "specs/",
+    "testdata/",
+    "fixtures/",
+    "__fixtures__/",
+    "mocks/",
+    "__mocks__/",
+    "vendor/",
+    "third_party/",
+    // A test file, by the naming every language settled on: `test_user.py`, `user_test.go`,
+    // `user_spec.rb`, `user.test.ts`, `user.spec.ts`.
+    "test_*",
+    "conftest.py",
+    "*_test.*",
+    "*_spec.*",
+    "*.test.*",
+    "*.spec.*",
+    // Generated: protobuf, and the `.gen.`/`.generated.` convention the code generators use.
+    "*_pb2.py",
+    "*_pb2_grpc.py",
+    "*.pb.go",
+    "*.gen.go",
+    "*.generated.*",
+];
+
+/// Where a hit sorts in a result list: what the reader came for first (#81).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Tier {
+    /// A line that declares the word, by the [`def_patterns`] of the file's kind.
+    Declaration,
+    /// The file on screen.
+    Open,
+    /// The rest of the project's code.
+    Code,
+    /// A file of [`LAST`].
+    Tests,
+}
+
+/// How a hit in `path` sorts, with the open file at `here` and `declaration` telling whether the
+/// line declares the word: its [`Tier`], then how many directories away from the open file it
+/// lives, the nearest first. The caller breaks a tie by path and line.
+///
+/// `u` ranks its hits with this, and `d` demotes the candidates in [`Tier::Tests`] with it, so
+/// one table decides for both. The open file is never demoted: it is what the reader is reading.
+pub fn rank(path: &Path, here: Option<&Path>, declaration: bool) -> (Tier, usize) {
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+    let last = LAST.iter().any(|row| match row.strip_suffix('/') {
+        Some(dir) => path
+            .parent()
+            .is_some_and(|p| p.iter().any(|c| c == std::ffi::OsStr::new(dir))),
+        None => match (row.strip_prefix('*'), row.strip_suffix('*')) {
+            (Some(_), Some(_)) => name.contains(row.trim_matches('*')),
+            (Some(suffix), None) => name.ends_with(suffix),
+            (None, Some(prefix)) => name.starts_with(prefix),
+            (None, None) => name == *row,
+        },
+    });
+    let tier = if last && here != Some(path) {
+        Tier::Tests
+    } else if declaration {
+        Tier::Declaration
+    } else if here == Some(path) {
+        Tier::Open
+    } else {
+        Tier::Code
+    };
+    let dirs = |p: &Path| p.parent().map_or(0, |d| d.components().count());
+    let steps = here.map_or(0, |h| {
+        let shared = path
+            .parent()
+            .unwrap_or(Path::new(""))
+            .components()
+            .zip(h.parent().unwrap_or(Path::new("")).components())
+            .take_while(|(a, b)| a == b)
+            .count();
+        dirs(path) + dirs(h) - 2 * shared
+    });
+    (tier, steps)
+}
+
 /// The dotted or `::` chain in front of the word under the cursor: `["json"]` for
 /// `json.load(`, `["os", "path"]` for `os.path.join(`, `["fs"]` for `fs::read(`. Empty when the
 /// word stands alone. A TypeScript private field keeps its `#`: `["this", "#root"]`. A chain that
@@ -4762,6 +4853,82 @@ func Close() {
             ]
         );
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Every pattern of [`LAST`], and the near-misses that carry the same letters but are code.
+    #[test]
+    fn tests_mocks_fixtures_and_generated_files_rank_last() {
+        let here = Path::new("src/users/service.py");
+        for (path, last) in [
+            ("test/test_users.py", true),
+            ("tests/users.py", true),
+            ("src/__tests__/users.ts", true),
+            ("spec/users_spec.rb", true),
+            ("specs/users.rb", true),
+            ("pkg/testdata/golden.go", true),
+            ("tests/fixtures/users.json", true),
+            ("src/__fixtures__/users.ts", true),
+            ("src/mocks/store.ts", true),
+            ("src/__mocks__/store.ts", true),
+            ("vendor/github.com/x/y/y.go", true),
+            ("third_party/x/y.py", true),
+            ("src/test_users.py", true),
+            ("src/conftest.py", true),
+            ("pkg/users_test.go", true),
+            ("src/users_spec.rb", true),
+            ("src/users.test.ts", true),
+            ("src/users.spec.ts", true),
+            ("api/users_pb2.py", true),
+            ("api/users_pb2_grpc.py", true),
+            ("api/users.pb.go", true),
+            ("api/users.gen.go", true),
+            ("api/users.generated.ts", true),
+            // The near-misses: the letters are there, the pattern is not.
+            ("src/contest.rs", false),
+            ("latest/users.py", false),
+            ("src/testimonials.py", false),
+            ("docs/spec.md", false),
+            ("src/users/service.py", false),
+            ("src/protest.go", false),
+            ("src/specs.py", false),
+        ] {
+            let tier = rank(Path::new(path), Some(here), false).0;
+            assert_eq!(tier == Tier::Tests, last, "{path} ranked {tier:?}");
+        }
+    }
+
+    #[test]
+    fn a_declaration_comes_first_and_the_nearest_directory_next() {
+        let here = Path::new("src/users/service.py");
+        let paths = [
+            "src/api/admin.py",
+            "tests/test_service.py",
+            "src/users/repo.py",
+            "src/users/service.py",
+            "src/users/admin/view.py",
+            "src/users/repo.py",
+        ];
+        // The last row is the declaration; the open file is the one that equals `here`.
+        let declaration = |p: &str, i: usize| p == "src/users/repo.py" && i == 5;
+        let mut order: Vec<(usize, &str)> = paths.iter().copied().enumerate().collect();
+        order.sort_by_key(|&(i, p)| (rank(Path::new(p), Some(here), declaration(p, i)), p, i));
+        assert_eq!(
+            order.iter().map(|&(_, p)| p).collect::<Vec<_>>(),
+            [
+                "src/users/repo.py",       // the declaration
+                "src/users/service.py",    // the open file
+                "src/users/repo.py",       // the same directory
+                "src/users/admin/view.py", // one below
+                "src/api/admin.py",        // one up and one down
+                "tests/test_service.py",   // a test file, whatever its distance
+            ]
+        );
+        // The open file is never demoted, even when it is a test file itself.
+        let test = Path::new("tests/test_service.py");
+        assert_eq!(rank(test, Some(test), false).0, Tier::Open);
+        // `d` asks for the tier alone: every candidate of its own is a declaration.
+        assert_eq!(rank(test, None, true).0, Tier::Tests);
+        assert_eq!(rank(here, None, true).0, Tier::Declaration);
     }
 
     fn symbol(kind: Option<Kind>, line: &str) -> Option<String> {
