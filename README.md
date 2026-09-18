@@ -181,7 +181,7 @@ read-only, and so does a line too long to be shown whole.
 
 ## How navigation works
 
-There is no language server and no index: every lookup is a regex over the files found at startup,
+There is no language server and no index: every lookup is a regex over the project's files,
 run through [ripgrep](https://github.com/BurntSushi/ripgrep)'s library crates. `d` knows the
 declaration forms below and searches only where such a definition can live.
 
@@ -372,9 +372,13 @@ case-sensitive — and `/` and `s` look for the text as typed: `foo(` finds the 
 definition, `a.b` only `a.b`. There is no regex mode. `s` lists its hits while you type, the open
 file's first; Up / Down pick one and Enter jumps to it.
 
-The file list comes from one `.gitignore`-respecting walk at startup and is not refreshed, so
-files created while merl is open show up after a restart. Dotfiles are part of it — `.github/`,
-`.env`, `.dockerignore` — and only the `.git`, `.hg` and `.svn` stores are skipped. The open file
+The file list comes from a `.gitignore`-respecting walk, and the project on screen is the project
+on disk: merl watches the root, and a file that an agent in the next pane creates, deletes or
+renames is in the tree, in `o` and in what `s`, `u` and `d` search a moment later, with no key and
+no restart. The tree cursor stays on its entry, expanded directories stay expanded, an open picker
+keeps its rows until it is reopened, and an edited `.gitignore` is picked up. Dotfiles are part of
+the list — `.github/`, `.env`, `.dockerignore` — and only the `.git`, `.hg` and `.svn` stores are
+skipped. The open file
 itself is watched and reloads on every change on disk, keeping the cursor, the scroll position and
 the jump history.
 

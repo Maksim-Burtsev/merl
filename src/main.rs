@@ -4,6 +4,7 @@ mod app;
 mod buffer;
 mod git;
 mod line_edit;
+mod live;
 mod picker;
 mod search;
 mod theme;
@@ -12,11 +13,12 @@ mod tutor;
 mod ui;
 mod wrap;
 
+use std::collections::HashSet;
 use std::io::{Write, stdout};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::mpsc::Sender;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -40,8 +42,10 @@ enum Msg {
     Resize,
     /// nucleo found new matches.
     Redraw,
-    /// Something changed in the directory of the open file.
+    /// Something changed in the directory of the open file, or anywhere in the project.
     Fs(notify::Event),
+    /// The project was walked again after it changed on disk.
+    Project(tree::Tree, Vec<PathBuf>),
     /// `git diff` finished for the file at this path.
     Diff(PathBuf, git::Diff),
     /// The `s` grep with this number finished.
@@ -116,6 +120,8 @@ fn run() -> Result<()> {
         None => None,
     };
     let (mut tree, files) = tree::build(&root);
+    // Of the walk, before the review panel takes the tree's place.
+    let project = live::Project::new(&root, &tree, &files);
     if let Some(r) = &review {
         tree = tree::from_files(&r.files.iter().map(|f| f.path.clone()).collect::<Vec<_>>());
     }
@@ -191,7 +197,7 @@ fn run() -> Result<()> {
         let _ = tx.send(Msg::Redraw);
     });
 
-    let result = event_loop(&mut terminal, &mut app, theme, &rx, fs);
+    let result = event_loop(&mut terminal, &mut app, theme, &rx, fs, project);
 
     if enhanced {
         let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
@@ -218,8 +224,10 @@ fn event_loop(
     mut theme: theme::Theme,
     rx: &mpsc::Receiver<Msg>,
     fs: Sender<Msg>,
+    mut project: live::Project,
 ) -> Result<()> {
     let diff_tx = fs.clone();
+    let project_fs = fs.clone();
     let mut loaded = app.theme.clone();
     // One watcher for the whole run, following the open file's directory. A failing watcher
     // (too many open files, an unsupported filesystem) only costs auto-reload.
@@ -231,6 +239,19 @@ fn event_loop(
     .ok();
     app.no_watch = watcher.is_none();
     let mut watched: Option<PathBuf> = None;
+    // A second one for the project: the open file may be outside it, and its directory comes
+    // and goes.
+    let mut project_watcher =
+        notify::recommended_watcher(move |ev: notify::Result<notify::Event>| {
+            if let Ok(ev) = ev {
+                let _ = project_fs.send(Msg::Fs(ev));
+            }
+        })
+        .ok();
+    let mut project_watched = HashSet::new();
+    if let Some(w) = &mut project_watcher {
+        project.watch(w, &mut project_watched);
+    }
 
     let mut dirty = true;
     let mut typing: Option<bool> = None;
@@ -249,6 +270,14 @@ fn event_loop(
             std::thread::spawn(move || {
                 let diff = git::diff(&root, &path, None, None);
                 let _ = tx.send(Msg::Diff(path, diff));
+            });
+        }
+        if project.walk_due(Instant::now()) {
+            // In a thread: the walk takes 0.1 s on 12k files.
+            let (tx, root) = (diff_tx.clone(), app.root.clone());
+            std::thread::spawn(move || {
+                let (tree, files) = tree::build(&root);
+                let _ = tx.send(Msg::Project(tree, files));
             });
         }
         if let Some(job) = app.search_tick() {
@@ -321,10 +350,18 @@ fn event_loop(
             Ok(Msg::Search(seq, hits)) => dirty |= app.search_done(seq, hits),
             Ok(Msg::Resize) | Ok(Msg::Redraw) => dirty = true,
             Ok(Msg::Fs(ev)) => {
-                if concerns_open_file(app, &ev) {
-                    app.reload(false);
-                    dirty = true;
+                // A reload that found the file as merl knows it is not worth a frame: the
+                // project watch reports every namesake under the root.
+                dirty |= concerns_open_file(app, &ev) && app.reload(false);
+                project.event(&ev, Instant::now());
+            }
+            Ok(Msg::Project(tree, files)) => {
+                project.walked(&tree, &files, Instant::now());
+                if let Some(w) = &mut project_watcher {
+                    project.watch(w, &mut project_watched);
                 }
+                app.project_walked(tree, files);
+                dirty = true;
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
@@ -351,16 +388,26 @@ fn rewatch(watcher: Option<&mut RecommendedWatcher>, watched: &mut Option<PathBu
     }
 }
 
-/// Does this filesystem event touch the open file? FSEvents reports canonical `/private/...`
-/// paths, so only the file name is comparable.
+/// Does this filesystem event touch the open file? The project watch reports the whole root,
+/// so the directory counts too: an `index.js` in `node_modules/` is not the open `index.js`.
+/// FSEvents reports canonical `/private/...` paths, so the directory is compared both ways.
 fn concerns_open_file(app: &App, ev: &notify::Event) -> bool {
     if matches!(ev.kind, EventKind::Access(_)) {
         return false;
     }
-    let Some(name) = app.buf.path.as_deref().and_then(Path::file_name) else {
+    let Some(open) = app.buf.path.as_deref() else {
         return false;
     };
-    ev.paths.iter().any(|p| p.file_name() == Some(name))
+    let (name, dir) = (open.file_name(), open.parent());
+    let mut real = None;
+    ev.paths.iter().any(|p| {
+        p.file_name() == name
+            && (p.parent() == dir
+                || p.parent()
+                    == real
+                        .get_or_insert_with(|| dir?.canonicalize().ok())
+                        .as_deref())
+    })
 }
 
 /// Turns the CLI target into `(project root, file to open, 1-based line)`.
@@ -446,6 +493,27 @@ mod tests {
             (Some("feature"), Some("origin/dev"))
         );
         assert!(super::Cli::try_parse_from(["merl", "--base", "x"]).is_err());
+    }
+
+    #[test]
+    fn a_namesake_elsewhere_in_the_project_is_not_the_open_file() {
+        use notify::{Event, EventKind, event::CreateKind};
+        let dir = std::env::temp_dir().join(format!("merl-namesake-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("node_modules/pkg")).unwrap();
+        std::fs::write(dir.join("index.js"), "x\n").unwrap();
+        let buf = crate::buffer::Buffer::load(&dir.join("index.js")).unwrap();
+        let app = crate::app::App::new(dir.clone(), Default::default(), Vec::new(), buf, None);
+        let real = dir.canonicalize().unwrap();
+        for (path, want) in [
+            (dir.join("index.js"), true),
+            (real.join("index.js"), true), // as FSEvents spells it
+            (real.join("node_modules/pkg/index.js"), false),
+            (real.join("main.js"), false),
+        ] {
+            let ev = Event::new(EventKind::Create(CreateKind::File)).add_path(path.clone());
+            assert_eq!(super::concerns_open_file(&app, &ev), want, "{path:?}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

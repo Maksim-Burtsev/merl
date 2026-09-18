@@ -1,5 +1,6 @@
-//! The file tree: one snapshot of the project taken at startup.
+//! The file tree: the project as the last walk found it.
 
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use ignore::WalkBuilder;
@@ -27,13 +28,14 @@ impl Node {
 pub struct Tree {
     pub nodes: Vec<Node>,
     pub cursor: usize,
+    /// Expanded directories the last walk did not list. A walk can land in the middle of a
+    /// `git stash` and `pop`: what comes back comes back expanded.
+    away: HashSet<PathBuf>,
 }
 
 /// Walks `root` once and returns the tree plus the flat list of files, both sorted the same
 /// way: inside every directory, directories first, then files, case-insensitively by name.
-///
-/// ponytail: startup snapshot. New or deleted files need a restart; a watcher over the whole
-/// tree would be a second source of truth for a read-only viewer.
+/// Done at startup and again, off the UI thread, whenever the project changes on disk.
 pub fn build(root: &Path) -> (Tree, Vec<PathBuf>) {
     // Dotfiles are walked: `.github/`, `.env` and `.dockerignore` are part of a project.
     // `.gitignore` still prunes caches; a version-control store is never content.
@@ -84,7 +86,11 @@ fn from_entries(entries: Vec<(PathBuf, bool)>, expanded: bool) -> Tree {
             expanded,
         })
         .collect();
-    Tree { nodes, cursor: 0 }
+    Tree {
+        nodes,
+        cursor: 0,
+        away: HashSet::new(),
+    }
 }
 
 /// Sorting a path component by component puts every child right after its parent, and the
@@ -101,6 +107,37 @@ pub(crate) fn sort_key(path: &Path, is_dir: bool) -> Vec<(u8, String)> {
 }
 
 impl Tree {
+    /// Takes the rows of a fresh walk and keeps what the user set, both found by path: expanded
+    /// directories stay expanded, also across a walk that missed them, and the cursor stays on
+    /// its entry. When that entry is gone the cursor takes the row that followed it, or the
+    /// nearest one above.
+    pub fn refresh(&mut self, mut fresh: Tree) {
+        let mut expanded = std::mem::take(&mut self.away);
+        let open = self.nodes.iter().filter(|n| n.expanded);
+        expanded.extend(open.map(|n| n.path.clone()));
+        let mut index = HashMap::new();
+        for (i, n) in fresh.nodes.iter_mut().enumerate() {
+            n.expanded = expanded.remove(&n.path);
+            index.insert(n.path.clone(), i);
+        }
+        fresh.away = expanded;
+        let vis = self.visible();
+        let at = vis.iter().position(|&i| i == self.cursor).unwrap_or(0);
+        let (above, below) = vis.split_at(at.min(vis.len()));
+        fresh.cursor = below
+            .iter()
+            .chain(above.iter().rev())
+            .find_map(|&i| index.get(&self.nodes[i].path).copied())
+            .unwrap_or(0);
+        *self = fresh;
+    }
+
+    /// The directories, relative to the root.
+    pub fn dirs(&self) -> HashSet<PathBuf> {
+        let dirs = self.nodes.iter().filter(|n| n.is_dir);
+        dirs.map(|n| n.path.clone()).collect()
+    }
+
     /// Indices of the nodes whose ancestors are all expanded, in display order.
     pub fn visible(&self) -> Vec<usize> {
         let mut out = Vec::new();
@@ -216,6 +253,138 @@ mod tests {
             ]
         );
         tree
+    }
+
+    /// A project on disk that the test changes between two walks.
+    fn project(tag: &str, files: &[&str]) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("merl-live-{}-{tag}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        for f in files {
+            std::fs::create_dir_all(dir.join(f).parent().unwrap()).unwrap();
+            std::fs::write(dir.join(f), b"x").unwrap();
+        }
+        dir
+    }
+
+    fn rows(t: &Tree) -> Vec<String> {
+        let vis = t.visible();
+        vis.iter()
+            .map(|&i| t.nodes[i].path.to_string_lossy().into_owned())
+            .collect()
+    }
+
+    #[test]
+    fn refresh_keeps_the_cursor_entry_and_the_expanded_directories() {
+        let dir = project(
+            "keep",
+            &["api/a.py", "services/deep/x.py", "services/user.py", "z.py"],
+        );
+        let (mut t, _) = build(&dir);
+        t.reveal(Path::new("services/user.py"));
+        assert_eq!(
+            rows(&t),
+            [
+                "api",
+                "services",
+                "services/deep",
+                "services/user.py",
+                "z.py"
+            ]
+        );
+
+        // Rows appear above the cursor, in their sorted place; a deleted one leaves.
+        for f in ["aaa/new.py", "services/billing.py", "services/deep/y.py"] {
+            std::fs::create_dir_all(dir.join(f).parent().unwrap()).unwrap();
+            std::fs::write(dir.join(f), b"x").unwrap();
+        }
+        std::fs::remove_file(dir.join("z.py")).unwrap();
+        let (fresh, files) = build(&dir);
+        t.refresh(fresh);
+        assert_eq!(t.selected().unwrap().path, Path::new("services/user.py"));
+        assert_eq!(
+            rows(&t),
+            [
+                "aaa",
+                "api",
+                "services",
+                "services/deep",
+                "services/billing.py",
+                "services/user.py"
+            ],
+            "`services` stays expanded, `api` and `services/deep` collapsed, `aaa` arrives collapsed"
+        );
+        assert!(files.contains(&"services/deep/y.py".into()) && !files.contains(&"z.py".into()));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn refresh_moves_the_cursor_off_a_deleted_entry_to_its_neighbour() {
+        let dir = project("gone", &["a.py", "b.py", "c.py", "lib/x.py"]);
+        let (mut t, _) = build(&dir);
+        for (delete, from, to) in [
+            ("b.py", "b.py", "c.py"),    // the row that followed
+            ("c.py", "c.py", "a.py"),    // the last row: the one above
+            ("lib", "lib/x.py", "a.py"), // a whole directory under the cursor
+        ] {
+            t.reveal(Path::new(from));
+            let _ = std::fs::remove_file(dir.join(delete));
+            let _ = std::fs::remove_dir_all(dir.join(delete));
+            t.refresh(build(&dir).0);
+            assert_eq!(t.selected().unwrap().path, Path::new(to), "{delete}");
+        }
+        std::fs::remove_file(dir.join("a.py")).unwrap();
+        t.refresh(build(&dir).0);
+        assert!(t.selected().is_none() && t.nodes.is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_directory_that_one_walk_missed_comes_back_expanded() {
+        let dir = project("away", &["gen/deep/x.py", "gen/y.py", "z.py"]);
+        let (mut t, _) = build(&dir);
+        t.reveal(Path::new("gen/deep/x.py"));
+        let before = rows(&t);
+        // `git stash -u`, a walk, `git stash pop`, a walk.
+        std::fs::rename(dir.join("gen"), dir.with_extension("aside")).unwrap();
+        t.refresh(build(&dir).0);
+        assert_eq!(rows(&t), ["z.py"]);
+        std::fs::rename(dir.with_extension("aside"), dir.join("gen")).unwrap();
+        t.refresh(build(&dir).0);
+        assert_eq!(rows(&t), before);
+        // Collapsed by hand after that, it stays collapsed.
+        t.reveal(Path::new("gen"));
+        t.collapse();
+        t.refresh(build(&dir).0);
+        assert_eq!(rows(&t), ["gen", "z.py"]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn refresh_respects_gitignore_and_picks_up_a_changed_one() {
+        let dir = project(
+            "ignore",
+            &[".gitignore", "a.py", "node_modules/pkg/index.js"],
+        );
+        std::fs::write(dir.join(".gitignore"), "node_modules/\n").unwrap();
+        let (mut t, files) = build(&dir);
+        assert_eq!(files, [PathBuf::from(".gitignore"), "a.py".into()]);
+        assert!(t.dirs().is_empty(), "an ignored directory is not watched");
+
+        std::fs::create_dir_all(dir.join("target/debug")).unwrap();
+        std::fs::write(dir.join("target/debug/merl"), b"x").unwrap();
+        std::fs::write(dir.join(".gitignore"), "target/\n").unwrap();
+        let (fresh, files) = build(&dir);
+        t.refresh(fresh);
+        assert_eq!(
+            files,
+            [
+                PathBuf::from("node_modules/pkg/index.js"),
+                ".gitignore".into(),
+                "a.py".into()
+            ]
+        );
+        assert_eq!(t.dirs().len(), 2, "node_modules and node_modules/pkg");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

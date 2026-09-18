@@ -1030,27 +1030,45 @@ impl App {
         ))
     }
 
+    /// The project changed on disk and was walked again: the file list is the new one for the
+    /// next `o`, `s`, `u` and `d` (an open picker keeps its rows), and the tree takes the new rows
+    /// around its cursor. The review panel lists the branch, not the walk, and is left alone.
+    pub fn project_walked(&mut self, tree: Tree, files: Vec<PathBuf>) {
+        self.files = files;
+        if self.review.is_some() {
+            return;
+        }
+        let row = |t: &Tree| t.visible().iter().position(|&i| i == t.cursor).unwrap_or(0);
+        let before = row(&self.tree);
+        self.tree.refresh(tree);
+        // A scrolled panel follows its cursor, so rows arriving above the pane move nothing on
+        // screen; one showing its first row keeps showing it.
+        if self.tree_top > 0 {
+            self.tree_top = (self.tree_top + row(&self.tree)).saturating_sub(before);
+        }
+    }
+
     /// Re-reads the open file after it changed on disk. Cursor, scroll, history and find pattern
     /// survive; the cursor is clamped to whatever the file is now. merl's own saves are
     /// recognised and ignored; a change under unsaved edits is a conflict, not a reload,
-    /// unless `force` (Ctrl+R) says the edits go.
-    pub fn reload(&mut self, force: bool) {
+    /// unless `force` (Ctrl+R) says the edits go. Returns whether anything on screen changed.
+    pub fn reload(&mut self, force: bool) -> bool {
         let Some(path) = self.buf.path.clone() else {
-            return;
+            return false;
         };
         // Mid-save the file can be briefly gone; the rename that follows sends another event
         // and overwrites the message. Gone for good, the message stays.
         let Ok(bytes) = std::fs::read(&path) else {
             self.message = format!("{} gone", self.rel_path());
-            return;
+            return true;
         };
         if !force {
             if buffer::hash(&bytes) == self.buf.disk {
-                return;
+                return false;
             }
             if self.dirty {
                 self.conflict = true;
-                return;
+                return true;
             }
         }
         self.buf = Buffer::from_bytes(path, &bytes);
@@ -1067,6 +1085,7 @@ impl App {
         self.sync_want_x();
         self.clamp_scroll();
         self.message = "reloaded".into();
+        true
     }
 
     fn pos(&self) -> Option<(PathBuf, usize, usize)> {
@@ -2748,8 +2767,8 @@ impl App {
 
     /// The files of `kind` outside the project, walked once per kind.
     ///
-    /// ponytail: lives for the session, like the project walk. A `pip install` mid-session
-    /// needs a restart, as a new project file does.
+    /// ponytail: lives for the session, unlike the project walk. A `pip install` mid-session
+    /// needs a restart.
     fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
         self.external
             .entry(kind)
@@ -3320,7 +3339,9 @@ impl App {
                 self.prompt.clear();
             }
             KeyCode::Char('s') if ctrl => self.save(),
-            KeyCode::Char('r') if ctrl => self.reload(true),
+            KeyCode::Char('r') if ctrl => {
+                self.reload(true);
+            }
             KeyCode::Char('z') if ctrl => self.undo(true),
             KeyCode::Char('y') if ctrl => self.undo(false),
             KeyCode::Char(':') => {
@@ -4034,6 +4055,71 @@ mod tests {
             None,
         );
         (dir, app)
+    }
+
+    /// #75: the walk is redone while merl runs. The tree cursor keeps its entry and its screen
+    /// row, an open `o` keeps its rows until it is reopened, and the review panel is not the walk.
+    #[test]
+    fn a_new_walk_keeps_the_cursor_row_and_an_open_picker() {
+        let (dir, mut a) = files_app("live");
+        let walk = |a: &mut App| {
+            let (tree, files) = crate::tree::build(&a.root);
+            a.project_walked(tree, files);
+        };
+        walk(&mut a);
+        a.tree.reveal(Path::new("b.rs"));
+        std::fs::write(dir.join("a2.rs"), "x\n").unwrap();
+        walk(&mut a);
+        assert_eq!(
+            a.tree_top, 0,
+            "a panel showing its first row keeps showing it"
+        );
+        std::fs::remove_file(dir.join("a2.rs")).unwrap();
+        walk(&mut a);
+        a.tree_top = 1;
+        press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+
+        std::fs::write(dir.join("a0.rs"), "x\n").unwrap();
+        std::fs::remove_file(dir.join("a.rs")).unwrap();
+        std::fs::write(dir.join("a1.rs"), "x\n").unwrap();
+        walk(&mut a);
+        assert_eq!(a.files, ["a0.rs", "a1.rs", "b.rs"].map(PathBuf::from));
+        assert_eq!(a.tree.selected().unwrap().path, Path::new("b.rs"));
+        assert_eq!(
+            a.tree_top, 2,
+            "one row more above the cursor: the scroll follows"
+        );
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert_eq!(p.counts().1, 2, "the open picker still lists a.rs and b.rs");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert_eq!(p.counts().1, 3);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+
+        // Rows leaving above the cursor pull the scroll back, never below the first row.
+        a.tree.reveal(Path::new("b.rs"));
+        a.tree_top = 2;
+        std::fs::remove_file(dir.join("a0.rs")).unwrap();
+        walk(&mut a);
+        assert_eq!(a.tree_top, 1);
+        a.tree_top = 1;
+        std::fs::remove_file(dir.join("a1.rs")).unwrap();
+        std::fs::write(dir.join("c.rs"), "x\n").unwrap();
+        walk(&mut a);
+        assert_eq!((a.tree_top, a.tree.cursor), (0, 0));
+
+        let (_, mut r) = review_app("live-review");
+        let panel = |r: &App| {
+            let rows = r.tree.nodes.iter().map(|n| (n.path.clone(), n.expanded));
+            (rows.collect::<Vec<_>>(), r.tree.cursor, r.tree_top)
+        };
+        let before = panel(&r);
+        let (tree, files) = crate::tree::build(&r.root);
+        r.project_walked(tree, files.clone());
+        assert_eq!((panel(&r), &r.files), (before, &files));
     }
 
     /// A repository with a `feature` branch checked out: `src/a.rs` changed twice, `new`
