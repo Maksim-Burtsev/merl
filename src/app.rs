@@ -1059,7 +1059,7 @@ impl App {
         // Mid-save the file can be briefly gone; the rename that follows sends another event
         // and overwrites the message. Gone for good, the message stays.
         let Ok(bytes) = std::fs::read(&path) else {
-            self.message = "file gone".into();
+            self.message = format!("{} gone", self.rel_path());
             return true;
         };
         if !force {
@@ -1291,6 +1291,9 @@ impl App {
         self.prompt = LineEdit::selected(last);
         self.find_anchor = (self.line, self.col);
         self.find_sel = self.anchor.take();
+        if let Some(re) = &self.find_re {
+            self.message = self.match_count(re);
+        }
     }
 
     fn find_key(&mut self, key: KeyEvent) {
@@ -1306,6 +1309,7 @@ impl App {
             // Esc puts back both the cursor and the selection.
             KeyCode::Esc => {
                 self.close_overlay();
+                self.message.clear();
                 (self.line, self.col) = self.clamp_pos(self.find_anchor);
                 self.anchor = self.find_sel.take();
                 self.sync_want_x();
@@ -1325,6 +1329,7 @@ impl App {
             // Nothing to match: drop the previous pattern so its highlights go with it,
             // and put the cursor back where the search started.
             self.find_re = None;
+            self.message.clear();
             let (l, c) = self.clamp_pos(self.find_anchor);
             self.go_to_match(l, c);
             return;
@@ -1338,11 +1343,29 @@ impl App {
         let hit = self
             .match_at_or_after(&re, l, c)
             .or_else(|| self.match_at_or_after(&re, 0, 0));
-        if let Some((l, c)) = hit {
-            self.go_to_match(l, c);
+        match hit {
+            Some((l, c)) => {
+                self.go_to_match(l, c);
+                self.message = self.match_count(&re);
+            }
+            None => self.message = "no match".into(),
         }
         self.find_re = Some(re);
         self.find_query = self.prompt.to_string();
+    }
+
+    /// `3/17`: which match the cursor is on, out of how many in the file.
+    fn match_count(&self, re: &Regex) -> String {
+        let (mut at, mut total) = (0, 0);
+        for (l, text) in self.buf.lines.iter().enumerate() {
+            for m in re.find_iter(text) {
+                total += 1;
+                if (l, m.start()) <= (self.line, self.col) {
+                    at = total;
+                }
+            }
+        }
+        format!("{at}/{total}")
     }
 
     /// `n` / `N`: the next or previous match, wrapping around the file.
@@ -1355,19 +1378,15 @@ impl App {
         let found = if forward {
             let (l, c) = self.after_cursor();
             self.match_at_or_after(&re, l, c)
-                .map(|p| (p, false))
-                .or_else(|| self.match_at_or_after(&re, 0, 0).map(|p| (p, true)))
+                .or_else(|| self.match_at_or_after(&re, 0, 0))
         } else {
             self.match_before(&re, self.line, self.col)
-                .map(|p| (p, false))
-                .or_else(|| self.match_before(&re, last, usize::MAX).map(|p| (p, true)))
+                .or_else(|| self.match_before(&re, last, usize::MAX))
         };
         match found {
-            Some(((l, c), wrapped)) => {
+            Some((l, c)) => {
                 self.go_to_match(l, c);
-                if wrapped {
-                    self.message = "wrapped".into();
-                }
+                self.message = self.match_count(&re);
             }
             None => self.message = "no match".into(),
         }
@@ -1588,6 +1607,7 @@ impl App {
         let kind = self.kind();
         let extra = search::word_chars(kind, true);
         let Some((range, word)) = search::word_at(self.line_str(), self.col, extra) else {
+            self.message = "no word".into();
             return;
         };
         let word = word.to_owned();
@@ -1596,7 +1616,7 @@ impl App {
         let chain = search::qualifier(self.line_str(), range.start);
         let here = self.rel_current();
         let (Some(kind), Some(here)) = (kind, here) else {
-            self.message = format!("no definition for {word}");
+            self.message = self.no_rules();
             return;
         };
         let text = self.buf.lines.join("\n");
@@ -1664,7 +1684,7 @@ impl App {
             .map(|m| m.join("|"));
         let patterns = search::def_patterns(kind, &word);
         if patterns.is_empty() {
-            self.message = format!("no definition for {word}");
+            self.message = self.no_rules();
             return;
         }
         let pattern = patterns.join("|");
@@ -2829,9 +2849,19 @@ impl App {
             .collect()
     }
 
+    /// `d` in a file whose kind has no declaration patterns: not "not found", never looked.
+    fn no_rules(&self) -> String {
+        let ext = self.buf.path.as_deref().and_then(Path::extension);
+        match ext {
+            Some(ext) => format!("no rules for .{}", ext.to_string_lossy()),
+            None => "no rules for this file".into(),
+        }
+    }
+
     /// `u` / Shift+F12: every whole-word occurrence of the identifier, case-sensitive.
     fn usages(&mut self) {
         let Some(word) = self.word_under(search::word_chars(self.kind(), false)) else {
+            self.message = "no word under the cursor".into();
             return;
         };
         let hits = self
@@ -3299,9 +3329,10 @@ impl App {
                 self.help_top = 0;
             }
             KeyCode::Esc => {
+                if self.find_re.take().is_some() {
+                    self.message = "find cleared".into();
+                }
                 self.anchor = None;
-                self.find_re = None;
-                self.message = "find cleared".into();
             }
             KeyCode::Char('g') if ctrl => {
                 self.mode = Mode::Goto;
@@ -3413,11 +3444,14 @@ impl App {
     fn goto_key(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Enter => {
-                if let Ok(n) = self.prompt.parse::<usize>() {
-                    match self.buf.path.clone() {
+                match self.prompt.parse::<usize>() {
+                    Ok(n) => match self.buf.path.clone() {
                         Some(path) => self.jump_to(&path, n),
                         None => self.goto_line(n),
-                    }
+                    },
+                    // An empty prompt is a cancel, as Esc.
+                    Err(_) if self.prompt.is_empty() => {}
+                    Err(_) => self.message = format!("no line {}", &*self.prompt),
                 }
                 self.close_overlay();
                 self.prompt.clear();
@@ -7064,23 +7098,48 @@ mod tests {
 
         press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
         assert_eq!((a.line, a.col), (2, 0));
-        assert_eq!(a.message, "");
+        assert_eq!(a.message, "2/2");
         press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
         assert_eq!((a.line, a.col), (0, 0));
-        assert_eq!(a.message, "wrapped");
+        assert_eq!(a.message, "1/2");
 
         press(&mut a, KeyCode::Char('N'), KeyModifiers::NONE);
         assert_eq!((a.line, a.col), (2, 0));
-        assert_eq!(a.message, "wrapped");
+        assert_eq!(a.message, "2/2");
         press(&mut a, KeyCode::Char('N'), KeyModifiers::NONE);
         assert_eq!((a.line, a.col), (0, 0));
-        assert_eq!(a.message, "");
+        assert_eq!(a.message, "1/2");
 
         let mut a = app("nothing here\n");
         find(&mut a, "zzz");
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
         press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
         assert_eq!(a.message, "no match");
+    }
+
+    /// #82: a key that cannot act says why, so "not found" never reads as "not pressed".
+    #[test]
+    fn no_key_is_silent_on_an_empty_line() {
+        let mut a = app("\nfoo\n");
+        for key in ['d', 'u', 'D', 'n', 'N', '[', ']', 'c', 'C'] {
+            press(&mut a, KeyCode::Char(key), KeyModifiers::NONE);
+            assert!(!a.message.is_empty(), "`{key}` said nothing");
+            assert_eq!(a.mode, Mode::Normal, "`{key}`");
+        }
+        // Esc with nothing to clear no longer claims `find cleared`.
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!(a.message, "");
+        // `/` typing a query the file does not have, and one it has.
+        find(&mut a, "zzz");
+        assert_eq!(a.message, "no match");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!(a.message, "");
+        find(&mut a, "foo");
+        assert_eq!(a.message, "1/1");
+        // Reopened with the query still active, the count is there before a key is typed.
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        assert_eq!(a.message, "1/1");
     }
 
     #[test]
@@ -7589,7 +7648,7 @@ mod tests {
     fn aliases_reach_the_same_actions() {
         let mut a = app("foo bar\n");
         press(&mut a, KeyCode::F(12), KeyModifiers::NONE);
-        assert_eq!(a.message, "no definition for foo");
+        assert_eq!(a.message, "no rules for .txt");
         press(&mut a, KeyCode::F(12), KeyModifiers::SHIFT);
         assert_eq!(a.message, "no usages of foo");
         press(&mut a, KeyCode::Char('e'), KeyModifiers::CONTROL);
