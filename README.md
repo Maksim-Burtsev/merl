@@ -127,7 +127,7 @@ merl path/to/file.py:120
 ## Review
 
 ```sh
-merl --review                    # the branch you are on, first hunk of the first file
+merl --review                    # the branch you are on, its first hunk
 merl --review=feature-x          # fetch and switch to it first
 merl --review --base origin/dev  # against a base other than origin/HEAD
 ```
@@ -135,7 +135,9 @@ merl --review --base origin/dev  # against a base other than origin/HEAD
 The branch's diff is a lens over the real files, not a separate document: added lines carry a
 green mark, deleted lines are drawn in place as grey ghosts, and `d`, `u` and `s` work straight
 from the diff. The panel lists the branch's files with `M` / `A` / `D` and `+n −m`; `c` / `C` walk
-the hunks and go on to the next file; `[` brings you back from wherever `u` took you. A deleted
+the hunks and go on to the next file; `[` brings you back from wherever `u` took you. Files with
+no lines to read (images and other binaries, marked `bin`, a mode change, a pure rename) are not
+stops: `c` walks past them and says how many, and Enter in the panel still opens them. A deleted
 file opens read-only from the base. Comments and approvals stay in the browser.
 
 ## Editing
