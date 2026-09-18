@@ -270,10 +270,16 @@ the type before it. The type comes from the declaration:
   `get users(): UserRepository`.
 
 `T | None`, `Optional[T]`, `Annotated[T, …]`, `T | null` and generic arguments read as `T`.
-Every declaration of `x` in scope counts: in Python every binding in the function, the enclosing
-functions and the module; in TypeScript and Go the declarations above the cursor in the blocks
-around it. They must all read the same type, so a variable shadowed by an inner function, a loop
-variable or a parameter with no annotation is never guessed. The type must be declared once, in
+The innermost scope that declares `x` decides: in Python the function the cursor is in (every
+binding in it, before the cursor or after), else the nearest enclosing function that binds the
+name, else the module; in TypeScript and Go the nearest block around the cursor with a declaration
+above it, a function's parameters counting with its body. So a local hides a module-level name, a
+closure's variable the one of the function around it, a block's the function's. The declarations
+of that one scope must all read the same type, and one that reads none (a loop variable, a
+parameter with no annotation) hides the outer ones all the same, so nothing is guessed: two
+assignments in the branches of an `if` are a picker. The parameter of an arrow function or a
+`lambda` on the cursor's own line counts and hides nothing, since the cursor may stand outside
+it. The type must be declared once, in
 the same file, the same Go package or the project module an import names. `d` then looks for the
 member in that type, and in the classes it extends and the structs it embeds, and the status line
 names the link: `via self.repo: UserRepository`, `via NewRepo() *UserRepository`,

@@ -57,6 +57,13 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   method (TypeScript), where it is not the class's, and in Python the cases of several bases: the
   first base declaring the member (`Mixed`), one base leading to it, a diamond whose `Right.flush`
   a walk by depth would pass (`Diamond`), and a first base outside the project (`Wire`).
+- scopes (#100): `scopes` has a module-level (Go: package-level) `ledger` of one type and
+  functions that declare their own of another: as a local, in a block inside a function that has
+  one too, as an arrow function's parameter, read from a closure; one that declares none and reads
+  the outer one; one whose inner `ledger` has no readable type; and the ambiguous ones: two
+  branches of an `if` (Python), an `if` header and its body (Go), an arrow function's parameter on
+  the cursor's line or on the line its statement started on (TypeScript). Python's `save` is a
+  parameter named like a module-level `def`.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.

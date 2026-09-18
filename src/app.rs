@@ -4810,20 +4810,6 @@ mod tests {
                 ("AuditLog.delete_user", "repos.py:13"),
             )
         };
-        let ts_both = || {
-            by_name(
-                "deleteUser: by name, 2 declarations",
-                ("UserRepository.deleteUser", "repos.ts:10"),
-                ("AuditLog.deleteUser", "repos.ts:16"),
-            )
-        };
-        let go_both = || {
-            by_name(
-                "DeleteUser: by name, 2 declarations",
-                ("UserRepository.DeleteUser", "repos.go:15"),
-                ("AuditLog.DeleteUser", "repos.go:21"),
-            )
-        };
         let cases: Vec<(&str, &str, &str, Shown)> = vec![
             // Two same-named methods: each field lands on its own class's.
             (
@@ -4855,7 +4841,7 @@ mod tests {
                 ),
             ),
             // Shadowing: below the nested function only the outer `repo` is in scope; inside it
-            // both are, and they disagree.
+            // the inner one hides it (#100).
             (
                 "python",
                 "service.py",
@@ -4865,7 +4851,15 @@ mod tests {
                     "repos.py:13",
                 ),
             ),
-            ("python", "service.py", "await repo.delete_user", py_both()),
+            (
+                "python",
+                "service.py",
+                "await repo.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via repo: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
             (
                 "python",
                 "factories.py",
@@ -4926,7 +4920,10 @@ mod tests {
                 "typescript",
                 "service.ts",
                 "await repo.deleteUser",
-                ts_both(),
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via repo: UserRepository)",
+                    "repos.ts:10",
+                ),
             ),
             (
                 "typescript",
@@ -4993,7 +4990,15 @@ mod tests {
                     "repos.go:21",
                 ),
             ),
-            ("go", "service.go", "^\t\trepo.DeleteUser", go_both()),
+            (
+                "go",
+                "service.go",
+                "^\t\trepo.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via repo: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
             (
                 "go",
                 "factories.go",
@@ -5909,6 +5914,249 @@ mod tests {
                         ("Archive.toString", "supers.ts:12"),
                         ("toString", "supers.ts:32"),
                     ],
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100: the innermost scope that binds a name decides what it is. A module-level or
+    /// package-level name, a variable of the function around a closure and one of the block
+    /// around a block are hidden, where they used to disagree with the inner one. What hides may
+    /// be unknown, and then nothing behind it answers; two bindings of one scope still disagree.
+    #[test]
+    fn the_innermost_binding_wins() {
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // A parameter named like a module-level `def`.
+            (
+                "python",
+                "scopes.py",
+                "save.find_user",
+                jump(
+                    "find_user \u{2192} UserRepository.find_user (via save: UserRepository)",
+                    "repos.py:5",
+                ),
+            ),
+            // A local hides the module's variable, in the function and in a closure inside it.
+            (
+                "python",
+                "scopes.py",
+                "ledger.find_user|(user_id)",
+                jump(
+                    "find_user \u{2192} UserRepository.find_user (via ledger: UserRepository)",
+                    "repos.py:5",
+                ),
+            ),
+            (
+                "python",
+                "scopes.py",
+                "ledger.find_user|(user_id + 1)",
+                jump(
+                    "find_user \u{2192} UserRepository.find_user (via ledger: UserRepository)",
+                    "repos.py:5",
+                ),
+            ),
+            // A function that binds no `ledger` reads the module's.
+            (
+                "python",
+                "scopes.py",
+                "ledger.delete_user|(user_id + 2)",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via ledger: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            // Two bindings in one function disagree: which one reaches the line is control flow.
+            (
+                "python",
+                "scopes.py",
+                "ledger.delete_user|(3)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A parameter with no annotation hides the module's `ledger`, which must not answer.
+            (
+                "python",
+                "scopes.py",
+                "ledger.delete_user|(user_id + 4)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // On the name itself, the declaration in its scope.
+            (
+                "python",
+                "scopes.py",
+                "    ledger|.find_user(user_id)",
+                jump("ledger \u{2192} rotate.ledger (local)", "scopes.py:15"),
+            ),
+            // TypeScript: a `const` of the function, an arrow function's parameter, a block's `const`
+            // over the function's, and the function's own below that block.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.findUser",
+                jump(
+                    "findUser \u{2192} UserRepository.findUser (via ledger: UserRepository)",
+                    "repos.ts:6",
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id);",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 1)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 2)",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via ledger: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            // `any` hides the module's `ledger`.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 3)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // The cursor is not inside an arrow function on its own line, or on the line the
+            // statement started on: its parameter counts and hides nothing.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(repos.map",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 4)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "  ledger|.findUser(id)",
+                jump("ledger \u{2192} rotate.ledger (local)", "scopes.ts:6"),
+            ),
+            // Go: a `:=` over the package's `var`, a block's over the function's, and the package's
+            // where nothing hides it.
+            (
+                "go",
+                "scopes.go",
+                "ledger.FindUser",
+                jump(
+                    "FindUser \u{2192} UserRepository.FindUser (via NewRepo() *UserRepository)",
+                    "repos.go:11",
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 1)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via NewRepo() *UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 2)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via ledger: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 3)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via ledger: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            // The second name of a `:=` is unknown and hides the package's.
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 4)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            // An `if` header and its body are read as one scope, so their two `ledger` disagree.
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 5)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "	ledger|.FindUser(id)",
+                jump(
+                    "ledger \u{2192} ScopedRotate.ledger (local)",
+                    "scopes.go:10",
                 ),
             ),
         ];

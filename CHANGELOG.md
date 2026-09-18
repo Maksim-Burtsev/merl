@@ -42,6 +42,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   overrides: the lookup of `self` / `this` started one level up, `store → Archive.store (via super
   of ColdArchive)`, where it used to list every `store` by name. Under several Python bases it
   jumps only when the answer needs no method resolution order. (#100)
+- `d` reads a name from the innermost scope that declares it: a local hides a module-level or
+  package-level name, a closure's variable the one of the function around it, a block's the
+  function's, where the two used to disagree and leave a picker. A Python parameter named like a
+  module-level `def` is the parameter. Two declarations in one scope that disagree, and an inner
+  one with no readable type, are still a picker. On the name itself `d` lists the declarations of
+  that scope only. (#100)
 
 ### Changed
 

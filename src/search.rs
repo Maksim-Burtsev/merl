@@ -1604,18 +1604,19 @@ fn value_of(kind: Kind, expr: &str) -> Value {
     Value::Unknown
 }
 
-/// The declarations of `name` visible on 1-based `line` of `text`, a file of `kind`, with what
-/// each gives it. Every one counts, the enclosing scopes' too: the caller trusts them only when
-/// they agree.
+/// The declarations of `name` that 1-based `line` of `text`, a file of `kind`, reads, with what
+/// each gives it: those of the innermost scope that declares it, which hides the scopes around
+/// it (#100). Every one of that scope counts, and the caller trusts them only when they agree.
 ///
 /// - Python: a name belongs to its function, so its parameters and every binding in the body
-///   count, before the cursor or after it, then the enclosing functions', then the module's.
-///   Nested functions and classes are scopes of their own. A comprehension or a `lambda` counts
+///   count, before the cursor or after it; a function that binds none reads the enclosing
+///   function's, then the module's. Nested functions and classes are scopes of their own. A comprehension or a `lambda` counts
 ///   on the cursor line only. `self` / `cls` is the class a method sits in, and so is `super`
 ///   (what [`qualifier`] makes of `super()`): the caller starts above that class.
 /// - TypeScript and Go: `const`, `let` and `:=` belong to their block, so the declarations above
-///   the cursor count, in the blocks around it, told by indentation: a function's parameters, a Go
-///   receiver, the statements at each block's level. `this` is the class around it, unless a
+///   the cursor count, in the nearest block around it that has any, told by indentation: the
+///   statements at the block's level and what its header binds (a function's parameters, a Go
+///   receiver). The cursor's own line and a line that opens no block bind without hiding. `this` is the class around it, unless a
 ///   `function` or an object literal comes first, and `super` reads as `this` does.
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
@@ -1763,6 +1764,10 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
                 out.push(Binding { line: i + 1, value });
             }
         }
+        // The innermost function that binds the name is the one the cursor reads.
+        if !out.is_empty() {
+            break;
+        }
     }
     out
 }
@@ -1828,6 +1833,8 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
     }
     let mut depth = indent(lines[at]);
     let mut i = at;
+    // Whether a declaration of the block the walk is in, or of its header, has been found.
+    let mut scoped = false;
     while i > 0 {
         i -= 1;
         let code = uncommented(kind, lines[i]);
@@ -1838,7 +1845,9 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         }
         if ind == depth {
             if !this {
+                let before = out.len();
                 statement_bindings(kind, t, i + 1, name, &mut out);
+                scoped |= out.len() > before;
             }
             continue;
         }
@@ -1855,7 +1864,17 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         let header = uncommented(kind, &header.join("\n"));
         depth = ind.min(indent(lines[i]));
         if !this {
+            // The innermost block that declares the name hides the ones around it. A line that
+            // opens no block (a call or a list continued below it) may hold an arrow function
+            // the cursor is not in, as the cursor's own line may: its parameters count, and
+            // hide nothing.
+            let opens = header.trim_end().ends_with('{') || header.trim_end().ends_with("=>");
+            let before = out.len();
             opener_bindings(kind, &header, i + 1, name, &mut out);
+            scoped |= opens && out.len() > before;
+            if opens && scoped {
+                break;
+            }
         } else if let Some(value) = this_opener(&header, i + 1) {
             out.push(Binding { line: i + 1, value });
             break;
@@ -3737,14 +3756,9 @@ class Service:
 import os.path, store.sessions as sessions
 "#;
         let at = |line, name| bound_at(Kind::Python, text, line, name);
-        // A parameter over a multi-line signature, and the module's `repo` above.
-        assert_eq!(
-            at(14, "repo"),
-            [
-                (9, ty("UserRepository")),
-                (3, Value::Call("UserRepository".into()))
-            ]
-        );
+        // A parameter over a multi-line signature hides the module's `repo` above.
+        assert_eq!(at(14, "repo"), [(9, ty("UserRepository"))]);
+        assert_eq!(at(1, "repo"), [(3, Value::Call("UserRepository".into()))]);
         assert_eq!(at(14, "cache"), [(9, ty("\"Cache | None\""))]);
         assert_eq!(at(14, "local"), [(15, ty("Optional[Repo]"))]);
         assert_eq!(at(24, "self"), [(21, Value::Class(6))]);
@@ -3755,13 +3769,8 @@ import os.path, store.sessions as sessions
         // A comprehension or a lambda binds on its own line only.
         assert_eq!(at(25, "r"), [(25, Value::Unknown)]);
         assert_eq!(at(24, "r"), []);
-        assert_eq!(
-            at(26, "repo"),
-            [
-                (26, Value::Unknown),
-                (3, Value::Call("UserRepository".into()))
-            ]
-        );
+        // Unknown where it is written, it hides the module's `repo` and proves nothing.
+        assert_eq!(at(26, "repo"), [(26, Value::Unknown)]);
         // A tuple and `as` are unknown; a keyword argument is no binding.
         assert_eq!(at(29, "a"), [(27, Value::Unknown)]);
         assert_eq!(at(29, "fh"), [(28, Value::Unknown)]);
@@ -3824,14 +3833,10 @@ def delete(
         let text = "def cleanup(user_id: int) -> None:\n    repo = AuditLog()\n\n    async def purge() -> None:\n        repo = UserRepository()\n        await repo.delete_user(user_id)\n\n    repo.delete_user(user_id)\n    repo = make_repo()  # later\n";
         let at = |line, name| bound_at(Kind::Python, text, line, name);
         let call = |c: &str| Value::Call(c.into());
-        assert_eq!(
-            at(6, "repo"),
-            [
-                (5, call("UserRepository")),
-                (2, call("AuditLog")),
-                (9, call("make_repo"))
-            ]
-        );
+        // The innermost function binding the name hides the one around it.
+        assert_eq!(at(6, "repo"), [(5, call("UserRepository"))]);
+        // One that does not bind it reads the enclosing function's.
+        assert_eq!(at(6, "user_id"), [(1, ty("int"))]);
         // The whole function counts, the lines after the cursor too.
         assert_eq!(
             at(8, "repo"),
@@ -3897,11 +3902,9 @@ export function cleanup(id: number): void {
         assert_eq!(at(18, "item"), [(17, Value::Unknown)]);
         assert_eq!(at(28, "a"), [(20, Value::Unknown)]);
         assert_eq!(at(21, "x"), [(21, ty("Item"))]);
-        // Only the blocks around the cursor: the inner `repo` is gone below its arrow.
-        assert_eq!(
-            at(36, "repo"),
-            [(35, new("UserRepository")), (33, new("AuditLog"))]
-        );
+        // The innermost block around the cursor that declares the name; the inner `repo` is
+        // gone below its arrow.
+        assert_eq!(at(36, "repo"), [(35, new("UserRepository"))]);
         assert_eq!(at(38, "repo"), [(33, new("AuditLog"))]);
     }
 
