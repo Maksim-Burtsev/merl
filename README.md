@@ -225,7 +225,10 @@ narrows the search — not even a `std::` qualifier, which names a namespace and
 word the project does not declare is looked for in all of them. The C++ standard headers carry no
 extension, so `<vector>` itself is not read; what its implementation puts in `.h` files is. C# has
 nothing to point at — a NuGet package ships compiled assemblies and the runtime's own source is not
-on the machine — and Java, Kotlin,
+on the machine. Swift has what SwiftPM checks a package's dependencies out into,
+`.build/checkouts`; its standard library ships compiled, with no `.swift` file to read, and an
+`import` names a module and makes everything in it visible unqualified, so it binds no name of its
+own and nothing narrows the search. Java, Kotlin,
 Ruby and the rest have no roots yet, so `d` stays inside the project for them. A parameter has no
 declaration the rules know, nor has an enum variant unless its class declares it as a field (a
 Python `Enum` member, a TypeScript enum member with a value): `d` says so, and `u` lists every
@@ -355,6 +358,7 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | Ruby | `def`, `def self.name`, `class`, `module`, an assignment (a constant, an `@ivar`, a local), `attr_accessor`/`attr_reader`/`attr_writer`, `alias`/`alias_method`. A trailing `?` or `!` is not part of the word, so `d` on `empty?` finds `def empty?`. Rails-style DSL (`scope`, `has_many`) has no rule. | every `.rb`, `.rake`, `.gemspec`, `.podspec`, `.rbi`, `.ru` file and `Rakefile`, `Gemfile`, `Vagrantfile` and friends |
 | C / C++ | a function, a prototype and an out-of-line method (`Type::name(`) in column zero, where the languages have no statements, so a call is never one — the return type may sit on the line above, as GNU style writes it; a method or a function indented, when its body opens on the line; `struct`, `class`, `union`, `enum`, `enum class`, `namespace`, behind a template head, a storage specifier and an attribute or export macro (`struct __attribute__ ((__packed__)) sdshdr8`, `class FMT_API name`), a template specialization included; `typedef` in every form, `using x =`, `#define` (function-like too), a global. A header's prototype is offered next to the definition, in the picker's usual order, by path. An enum constant has no rule — `NAME,` in an `enum` body and in an initializer list are the same line — nor has a field, a local, a template parameter or a member function only declared inside its class. | every `.c`, `.h`, `.cc`, `.cpp`, `.cxx`, `.hpp`, `.hh` and `.hxx` file: they search each other |
 | C# | `class`, `struct`, `interface`, `enum`, `record`, `record struct`, `delegate`, past the generic parameters they declare and behind `[Attribute]` lists and any modifiers (`public sealed partial class Foo<T>`); a `namespace`, under its last part; a `using x =` alias; a constructor, behind at least one access modifier, since a bare `Invoice(n)` is a call; and a method, a property, an event, a field or a local, told from a call by the type before the name — a predefined one, `var`, or a name with a capital in it, as C# names its types — so `public int X { get; }`, `public string Name => _name;` and `int IComparable.CompareTo(o)` all count. An enum member has no rule: `Open,` in an `enum` body and in a collection initialiser are the same line. | every `.cs` and `.csx` file |
+| Swift | `class`, `struct`, `enum`, `protocol`, `actor`, `typealias`, `associatedtype`, `extension Type` — where a project keeps its own members of a type, often the only place — `func` past its generic parameters, `init` and `init?`, `let` / `var`, and an `enum` case, alone or among several on a line, with the associated or raw value it carries. All of them behind their `@attributes` and any modifiers (`public final override class func`), and a backticked name counts. A `case .open:` or `case let .open(x):` of a `switch` is a pattern, not a declaration, and a binding made by `if let` / `guard let` has no rule: it rebinds a name declared elsewhere. | every `.swift` file |
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
 | SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns have no rule. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable | every Makefile |
@@ -372,18 +376,19 @@ exported, since indented they are locals), plus shell functions (`name()`; the `
 the single regex already finds), SQL `CREATE`d objects under the name as written (`public.orders`,
 not CTEs), Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`,
 `module.x`, `var.x`, `output.x`), Dockerfile stages and YAML anchors, each read only from its own
-kind of file; recomputed on each press. Java, Kotlin, Ruby, C, C++ and C# are read from rules of their
+kind of file; recomputed on each press. Java, Kotlin, Ruby, C, C++, C# and Swift are read from rules of their
 own instead of that regex — Java's types and its methods, told from a call by the return type before
 the name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and
 `const val`; Ruby's methods, classes and modules, `def self.name` included; C and C++ functions,
 methods, types, `typedef`s, `using` aliases and `#define`s; C#'s types, delegates and namespaces
 behind their attributes and modifiers, and its methods and properties, told apart from a call the
-way Java's are — so none of them is listed twice or
+way Java's are; Swift's types, `protocol`s, `actor`s, `typealias`es, `func`s and `extension`s, an
+extension under the type it extends — so none of them is listed twice or
 under a modifier or a receiver. A C prototype is not listed, since every function of a header would
 be there twice, and a `typedef struct x { … } y;` is listed once, under the `y` the project writes.
 TypeScript's class methods, with neither a keyword nor a type in front, are not listed: the regex
 cannot tell `name(` from a call. Neither are fields, a C global, a C# constructor (its class is
-already a row), a Ruby
+already a row), a Swift `let`, `var`, `init` or `enum` case, a Ruby
 constant, or the names a Ruby `attr_accessor` line declares, since one line can declare several.
 Searches are smart-case — an all-lowercase query ignores case, one uppercase letter makes it
 case-sensitive — and `/` and `s` look for the text as typed: `foo(` finds the calls and the

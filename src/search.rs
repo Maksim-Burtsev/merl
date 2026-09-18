@@ -215,6 +215,36 @@ const CS_MEMBER_SYMBOL: &str = concat!(
     r"\s+(?:[\w.]+\.)?(?P<name>[A-Za-z_]\w*)\s*(?:<[^<>]*>\s*)?(?:\(|\{|=>|$)"
 );
 
+/// Everything that can stand before a Swift declaration: its attributes and property wrappers,
+/// and the modifiers, which come in any order. `class` is one of them — `class func load()` is
+/// Swift's static method — and the keyword alternations below read past it. The argument is the
+/// repetition the run takes, as [`cs_mods`]. A macro, so [`def_patterns`] and the [`SYMBOLS`] row
+/// share one spelling of it.
+macro_rules! swift_mods {
+    () => {
+        swift_mods!("*")
+    };
+    ($rep:literal) => {
+        concat!(
+            r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*",
+            r"(?:(?:public|private|fileprivate|internal|open|package|static|class|final|override",
+            r"|mutating|nonmutating|required|convenience|lazy|weak|unowned|dynamic|indirect",
+            r"|optional|prefix|postfix|infix|nonisolated|distributed|borrowing|consuming)\s+)",
+            $rep
+        )
+    };
+}
+
+/// The Swift half of [`SYMBOLS`]: what the language declares with a keyword. An `extension` is
+/// listed under the type it extends, since that is where a project keeps its own members of one —
+/// often the only place, when the type itself comes from a framework. A `let`, a `var` and an
+/// `enum` case are what a type holds, which no kind lists, and an `init` is listed under its type.
+const SWIFT_DECL_SYMBOL: &str = concat!(
+    swift_mods!(),
+    r"(?:class|struct|enum|protocol|actor|extension|typealias|associatedtype|func)\s+",
+    r"`?(?P<name>[A-Za-z_]\w*)"
+);
+
 /// The Ruby half of [`SYMBOLS`]: a method, including the `self.` form and the `name=` setter, and
 /// a class or module under the namespace it is written with. A constant and the names an
 /// `attr_accessor` line declares stay off the list: there is no keyword to go by, and one such
@@ -261,6 +291,9 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // pattern does not know, and a method or a property carries no keyword at all.
     (Some(Kind::CSharp), CS_DECL_SYMBOL),
     (Some(Kind::CSharp), CS_MEMBER_SYMBOL),
+    // Swift likewise: a declaration stands behind its attributes and modifiers, and `extension`,
+    // `protocol` and `actor` are no keywords of the shared pattern.
+    (Some(Kind::Swift), SWIFT_DECL_SYMBOL),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -277,11 +310,14 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Yaml), r"(^|\s)&(?P<anchor>[\w.-]+)"),
 ];
 
-/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++ and C#
-/// have rows of their own in [`SYMBOLS`], written for what those languages declare and how they
-/// name it, so reading the all-language pattern over them too would list a declaration twice.
+/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, C# and
+/// Swift have rows of their own in [`SYMBOLS`], written for what those languages declare and how
+/// they name it, so reading the all-language pattern over them too would list a declaration twice.
 pub fn shared_symbols(kind: Option<Kind>) -> bool {
-    !matches!(kind, Some(Kind::Jvm | Kind::Ruby | Kind::C | Kind::CSharp))
+    !matches!(
+        kind,
+        Some(Kind::Jvm | Kind::Ruby | Kind::C | Kind::CSharp | Kind::Swift)
+    )
 }
 
 /// A file kind with navigation rules of its own. Told by the file name, since a `Makefile` or a
@@ -297,6 +333,7 @@ pub enum Kind {
     /// C and C++ together, headers included.
     C,
     CSharp,
+    Swift,
     Shell,
     Sql,
     Make,
@@ -322,6 +359,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx") => Kind::C,
         // `.csx` is a C# script: the same language, run by `dotnet script`.
         (_, "cs" | "csx") => Kind::CSharp,
+        (_, "swift") => Kind::Swift,
         (
             "Rakefile" | "rakefile" | "Gemfile" | "Guardfile" | "Capfile" | "Vagrantfile"
             | "Podfile" | "Brewfile" | "Dangerfile" | "Fastfile",
@@ -612,6 +650,36 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"{mods}{ty}\s+(?:[\w.]+\.)?{w}\s*(?:<[^>]*>\s*)?(?:[({{;=]|$)"),
             ]
         }
+        // Swift writes its attributes and modifiers in front of a keyword, and every declaration
+        // has one, so there is no need to guess at a type. What has no rule is a binding made by
+        // an `if let` or a `guard let`, which is a shadowing rebind of a name declared elsewhere,
+        // and a parameter, as in every kind.
+        Kind::Swift => {
+            let mods = swift_mods!();
+            let mut patterns = vec![
+                // A type; `extension Foo` counts, since a project's own members of a type live
+                // there and often the type itself does not.
+                format!(
+                    r"{mods}(?:class|struct|enum|protocol|actor|extension|typealias|associatedtype)\s+`?{w}\b"
+                ),
+                // A function, past its generic parameters.
+                format!(r"{mods}func\s+`?{w}\s*[(<]"),
+                format!(r"{mods}(?:let|var)\s+`?{w}\b"),
+                // An enum case, alone or among several on one line, with the associated values or
+                // the raw value it can carry. A `case .open:` or a `case let .open(x):` of a
+                // `switch` is a pattern, and a `case open:` there matches against a constant, so
+                // what follows the name must not be a `:`.
+                format!(
+                    r"^\s*(?:indirect\s+)?case\s+(?:\w+(?:\([^)]*\))?\s*,\s*)*{w}\s*(?:\(|=[^=]|,|$)"
+                ),
+            ];
+            // `init` and `subscript` are keywords, so the word under the cursor is the keyword
+            // itself and there is no name to read past.
+            if matches!(word, "init" | "subscript" | "deinit") {
+                patterns.push(format!(r"{mods}{w}\s*[?!(<{{]"));
+            }
+            patterns
+        }
         // A function in either form, an assignment behind the declaration keywords that can
         // precede it (`+=` appends to one), or an alias. A shell has no declaration for the rest,
         // so a `$w` use or a `[ "$w" = x ]` test must not look like one.
@@ -716,6 +784,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Ruby
         | Kind::C
         | Kind::CSharp
+        | Kind::Swift
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -927,6 +996,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Ruby
         | Kind::C
         | Kind::CSharp
+        | Kind::Swift
         | Kind::Shell
         | Kind::Sql
         | Kind::Make => kind_of(path) == Some(kind),
@@ -1045,6 +1115,10 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             dirs.push(PathBuf::from("/opt/homebrew/include"));
             dirs
         }
+        // Where SwiftPM checks a package's dependencies out, as source. The standard library is
+        // not there: the toolchain ships it compiled, with `.swiftinterface` stubs beside it and
+        // no `.swift` file to read.
+        Kind::Swift => vec![root.join(".build/checkouts")],
         // Java, Kotlin and Ruby have no roots yet: the JDK and Gradle caches, and a gem path,
         // are their own lookups. C# has nothing to point at: a NuGet package is compiled
         // assemblies, and the runtime's own source is not on the machine at all. `d` stays inside
@@ -1303,6 +1377,7 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
         | Kind::Ruby
         | Kind::C
         | Kind::CSharp
+        | Kind::Swift
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -1490,6 +1565,7 @@ pub fn module_files(
         | Kind::Ruby
         | Kind::C
         | Kind::CSharp
+        | Kind::Swift
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -4077,6 +4153,157 @@ public static class Registry
         );
     }
 
+    const SWIFT: &str = r#"import Foundation
+
+public protocol RequestDelegate: AnyObject {
+    associatedtype Value
+
+    func didFinish(_ request: Request)
+}
+
+@objc(AFSession)
+public final class Session: NSObject {
+    public static let `default` = Session()
+
+    private let queue: DispatchQueue
+    public var isRunning = false
+
+    public init(queue: DispatchQueue = .main) {
+        self.queue = queue
+    }
+
+    convenience init?(name: String) {
+        self.init()
+    }
+
+    public func request<T: Encodable>(_ url: URL, with body: T) -> Request {
+        let request = Request(url)
+        queue.async {
+            self.start(request)
+        }
+        if let delegate = delegate {
+            delegate.didFinish(request)
+        }
+        return request
+    }
+
+    class func shared() -> Session {
+        return Session()
+    }
+}
+
+extension Session: RequestDelegate {
+    public func didFinish(_ request: Request) {
+        switch request.state {
+        case .finished:
+            break
+        case let .failed(error):
+            print(error)
+        }
+    }
+}
+
+public enum State {
+    case initialized
+    case resumed(Int), suspended
+    case failed(Error)
+}
+
+public struct Response<Value> {
+    let value: Value
+}
+
+actor Cache {
+    var entries: [String: Data] = [:]
+}
+
+public typealias Rows = [Int]
+"#;
+
+    #[test]
+    fn swift_def_patterns_find_declarations_behind_attributes_and_modifiers() {
+        let (dir, files) = scratch("swift", &[("Session.swift", SWIFT)]);
+        let d = |w| defs(&dir, &files, Kind::Swift, w);
+        assert_eq!(d("RequestDelegate"), [3], "a protocol");
+        assert_eq!(d("Value"), [4], "an `associatedtype`");
+        // The class and the extension of it: a project's own members of a type live in one.
+        assert_eq!(d("Session"), [10, 40], "not the `Session()` calls");
+        assert_eq!(d("didFinish"), [6, 41], "not the `delegate.didFinish` call");
+        assert_eq!(d("default"), [11], "a backticked name");
+        assert_eq!(d("queue"), [13], "not the `self.queue = queue` write");
+        assert_eq!(d("isRunning"), [14]);
+        assert_eq!(
+            d("init"),
+            [16, 20],
+            "`init?` too, not the `self.init()` call"
+        );
+        assert_eq!(d("request"), [24, 25], "the function and the local");
+        assert_eq!(d("shared"), [35], "behind `class`, Swift's static method");
+        assert_eq!(d("initialized"), [52], "an enum case");
+        assert_eq!(d("resumed"), [53], "with its associated value");
+        assert_eq!(d("suspended"), [53], "second on the line");
+        assert_eq!(
+            d("failed"),
+            [54],
+            "not the `case let .failed(error):` pattern"
+        );
+        assert_eq!(d("State"), [51]);
+        assert_eq!(d("Response"), [57], "past the generic parameters");
+        assert_eq!(d("Cache"), [61], "an actor");
+        assert_eq!(d("entries"), [62]);
+        assert_eq!(d("Rows"), [65], "a `typealias`");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn swift_def_patterns_tell_a_declaration_from_a_call_or_a_pattern() {
+        let (dir, files) = scratch("swift-calls", &[("Session.swift", SWIFT)]);
+        let d = |w| defs(&dir, &files, Kind::Swift, w);
+        let none = Vec::<usize>::new();
+        assert_eq!(d("finished"), none, "`case .finished:` is a pattern");
+        assert_eq!(d("start"), none, "a call on `self`");
+        assert_eq!(d("print"), none);
+        assert_eq!(d("Request"), none, "a type this file only uses");
+        assert_eq!(
+            d("delegate"),
+            none,
+            "an `if let` rebinds a name declared elsewhere: no rule, so `u` answers"
+        );
+        assert_eq!(d("body"), none, "a parameter has no rule");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn swift_scope_roots_and_names() {
+        let here = Path::new("Session.swift");
+        assert!(in_def_scope(
+            Kind::Swift,
+            here,
+            Path::new("Source/Request.swift")
+        ));
+        assert!(!in_def_scope(Kind::Swift, here, Path::new("main.rs")));
+        // An `import` names a module and makes everything in it visible unqualified, so it binds
+        // no name of its own.
+        assert!(imports(Kind::Swift, SWIFT).is_empty());
+        // Outside the project is where SwiftPM checks the dependencies out; nothing else on the
+        // machine holds Swift source, so an absent directory leaves the list empty.
+        let (dir, _) = scratch(
+            "swift-roots",
+            &[(".build/checkouts/nio/Sources/a.swift", "")],
+        );
+        assert_eq!(
+            external_roots(Kind::Swift, &dir),
+            [dir.join(".build/checkouts")]
+        );
+        assert!(external_roots(Kind::Swift, Path::new("/")).is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+        // A member is named by the type its extension extends.
+        assert_eq!(
+            qualified(Kind::Swift, SWIFT, 41, "didFinish").as_deref(),
+            Some("Session.didFinish")
+        );
+    }
+
     const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
 
     #[test]
@@ -4256,6 +4483,7 @@ output "bucket" {
             ("ledger.hxx", Some(Kind::C)),
             ("Invoice.cs", Some(Kind::CSharp)),
             ("build.csx", Some(Kind::CSharp)),
+            ("Session.swift", Some(Kind::Swift)),
             ("app.kt", Some(Kind::Jvm)),
             ("build.gradle.kts", Some(Kind::Jvm)),
             ("run.sh", Some(Kind::Shell)),
@@ -5824,6 +6052,64 @@ func Close() {
     }
 
     #[test]
+    fn swift_symbol_names() {
+        let sw = |line| one(Kind::Swift, line);
+        for (line, name) in [
+            ("public final class Session: NSObject {", Some("Session")),
+            (
+                "@MainActor public struct Response<Value> {",
+                Some("Response"),
+            ),
+            ("actor Cache {", Some("Cache")),
+            ("public enum State {", Some("State")),
+            (
+                "public protocol RequestDelegate: AnyObject {",
+                Some("RequestDelegate"),
+            ),
+            ("public typealias Rows = [Int]", Some("Rows")),
+            ("    associatedtype Value", Some("Value")),
+            // An extension is listed under the type it extends, which is what a project's own
+            // members of that type sit in.
+            ("extension Session: RequestDelegate {", Some("Session")),
+            ("extension Array where Element: Hashable {", Some("Array")),
+            // A function, past its generics; `class func` is a static method, not a class.
+            (
+                "    public func request<T: Encodable>(_ url: URL) -> Request {",
+                Some("request"),
+            ),
+            ("    class func shared() -> Session {", Some("shared")),
+            ("    mutating func append(_ row: Int) {", Some("append")),
+            (
+                "    @discardableResult func resume() -> Self {",
+                Some("resume"),
+            ),
+            ("    func `default`() {", Some("default")),
+            // What a type holds is not a symbol, in this kind as in every other, and an `init` is
+            // listed under its type.
+            ("    public static let `default` = Session()", None),
+            ("    private let queue: DispatchQueue", None),
+            ("    public var isRunning = false", None),
+            ("    case initialized", None),
+            ("    public init(queue: DispatchQueue = .main) {", None),
+            // An operator has no name a reader would look it up by.
+            (
+                "    public static func == (lhs: Self, rhs: Self) -> Bool {",
+                None,
+            ),
+            // A call, a binding and a pattern are not declarations.
+            ("        let request = Request(url)", None),
+            ("        queue.async {", None),
+            ("        if let delegate = delegate {", None),
+            ("        guard let url = url else { return }", None),
+            ("        return Session()", None),
+            ("        case let .failed(error):", None),
+            ("        switch request.state {", None),
+        ] {
+            assert_eq!(sw(line).as_deref(), name, "{line}");
+        }
+    }
+
+    #[test]
     fn the_shared_pattern_skips_the_kinds_with_rows_of_their_own() {
         // Java, Kotlin, Ruby, C and C++ are listed from their own rows only, so nothing is listed
         // twice and `def self.parse` is not `self`.
@@ -5831,6 +6117,7 @@ func Close() {
         assert!(!shared_symbols(Some(Kind::Ruby)));
         assert!(!shared_symbols(Some(Kind::C)));
         assert!(!shared_symbols(Some(Kind::CSharp)));
+        assert!(!shared_symbols(Some(Kind::Swift)));
         // Shell and SQL rows complement the shared pattern instead, and it reads every other
         // file, known kind or not.
         assert!(shared_symbols(Some(Kind::Shell)));

@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` and `D` in Swift, over every `.swift` file. `d` finds a `class`, `struct`, `enum`,
+  `protocol`, `actor`, `typealias`, `associatedtype` and an `extension` of a type — where a
+  project keeps its own members of one, often the only place — a `func` past its generic
+  parameters, `init` and `init?`, a `let` or a `var`, and an `enum` case, alone or among several
+  on a line, with the associated or raw value it carries; all of them behind their `@attributes`
+  and any modifiers, a backticked name included. A `case .open:` or `case let .open(x):` of a
+  `switch` is a pattern, not a declaration, and a binding made by `if let` or `guard let` has no
+  rule, since it rebinds a name declared elsewhere. `d` leaves the project for `.build/checkouts`,
+  where SwiftPM keeps a package's dependencies as source; the standard library ships compiled,
+  with no `.swift` file to read. `D` lists the types, the functions and the extensions from a rule
+  of its own, so the declaration pattern every other language shares is untouched and nothing is
+  listed twice; a `let`, a `var`, an `init` and an `enum` case are left out, as what a type holds
+  is in every other kind. (#17)
 - `d` and `D` in C#, over every `.cs` and `.csx` file. `d` finds a `class`, `struct`,
   `interface`, `enum`, `record`, `record struct` and `delegate` past the generic parameters they
   declare and behind their `[Attribute]` lists and modifiers, a `namespace` under its last part, a
