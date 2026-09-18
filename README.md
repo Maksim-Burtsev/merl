@@ -142,6 +142,14 @@ no lines to read (images and other binaries, marked `bin`, a mode change, a pure
 stops: `c` walks past them and says how many, and Enter in the panel still opens them. A deleted
 file opens read-only from the base. Comments and approvals stay in the browser.
 
+The review can stay open next to an agent that is still working on the branch: the panel is the
+branch as it is now. A file touched for the first time gets its row, the counts and `file 3/12`
+follow every save, commit, rebase and `git switch`, and a file whose changes were reverted leaves
+(the open one stays open, without marks). A file git does not track yet, and does not ignore, is
+listed as `A` with every line added, and `c` walks into it. None of this moves the open file, the
+cursor or either scroll, and nothing opens on its own; when the agent writes above the hunk you
+are reading, the cursor goes down with the text, so `c` goes on from your hunk.
+
 ## Editing
 
 Enter turns the cursor into a text cursor, Esc turns it back. In between, merl is a plain

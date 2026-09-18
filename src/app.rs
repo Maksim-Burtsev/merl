@@ -3602,7 +3602,12 @@ fn resolution(
 }
 
 /// Where line `l` of `old` is in `new` when the text was changed above it: the lines the two
-/// end with alike move by the difference in length, the rest stay where they are.
+/// end with alike move by the difference in length, the ones they start with alike stay, and
+/// a line of the rewritten middle stays too, but not below the middle's new end.
+///
+/// ponytail: one rewritten region per reload, which is what an agent's edit is. After a write
+/// that changed the file in several places the lines between them are off by what changed
+/// above them; a line diff would place those too.
 fn carried(old: &[String], new: &[String], l: usize) -> usize {
     let same = |(a, b): &(&String, &String)| a == b;
     let head = old.iter().zip(new).take_while(same).count();
@@ -3614,7 +3619,7 @@ fn carried(old: &[String], new: &[String], l: usize) -> usize {
     if l >= old.len() - tail {
         l + new.len() - old.len()
     } else {
-        l
+        l.min(new.len() - tail)
     }
 }
 
@@ -4383,6 +4388,15 @@ mod tests {
         assert_eq!(at(&a), (dir.join("new"), 0));
         assert!(a.diff.marks.is_empty());
         assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/4");
+        // The base caught up with the branch: an empty panel, and keys that find no row.
+        git(&["branch", "-f", "main", "HEAD"]);
+        assert!(refresh(&mut a));
+        assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/0");
+        a.focus = Focus::Tree;
+        for key in [KeyCode::Down, KeyCode::Enter, KeyCode::Char('c')] {
+            press(&mut a, key, KeyModifiers::NONE);
+        }
+        assert_eq!(at(&a), (dir.join("new"), 0));
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -4413,6 +4427,8 @@ mod tests {
             (text(6), text(6).replace("3\n", "x\ny\n"), 3, 3),
             (text(6), text(6).replace("1\n", ""), 3, 2),
             ("a\nb\n".into(), "a\na\nb\n".into(), 0, 0),
+            // The cursor's own lines went: the line that followed them.
+            (text(6), text(6).replace("2\n3\n", ""), 3, 2),
         ] {
             let lines = |s: &str| s.lines().map(String::from).collect::<Vec<_>>();
             assert_eq!(
