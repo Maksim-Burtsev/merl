@@ -10,7 +10,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use grep_regex::RegexMatcherBuilder;
+use grep_regex::{RegexMatcher, RegexMatcherBuilder};
 use grep_searcher::{BinaryDetection, Searcher, SearcherBuilder, Sink, SinkMatch};
 use regex::Regex;
 
@@ -236,6 +236,35 @@ pub fn grep_project(
         .word(whole_word)
         .build(pattern)
         .with_context(|| format!("bad pattern `{pattern}`"))?;
+    Ok(collect(root, files, &matcher, current, unsaved, |_| true))
+}
+
+/// Greps `pattern` over `files`, keeping only the lines `keep` takes. The filter runs before the
+/// [`MAX_HITS`] cut, so what the cut drops are matches of the query, not whatever the walk
+/// reached first: `D` past the cap searches with this.
+pub fn grep_filtered(
+    root: &Path,
+    files: &[PathBuf],
+    pattern: &str,
+    current: Option<&Path>,
+    unsaved: Option<&[u8]>,
+    keep: impl Fn(&str) -> bool,
+) -> Result<Vec<Hit>> {
+    let matcher = RegexMatcherBuilder::new()
+        .build(pattern)
+        .with_context(|| format!("bad pattern `{pattern}`"))?;
+    Ok(collect(root, files, &matcher, current, unsaved, keep))
+}
+
+/// The file walk both greps share: one `Hit` per line `matcher` matches and `keep` takes.
+fn collect(
+    root: &Path,
+    files: &[PathBuf],
+    matcher: &RegexMatcher,
+    current: Option<&Path>,
+    unsaved: Option<&[u8]>,
+    keep: impl Fn(&str) -> bool,
+) -> Vec<Hit> {
     let mut searcher = SearcherBuilder::new()
         .line_number(true)
         .binary_detection(BinaryDetection::quit(0))
@@ -249,31 +278,36 @@ pub fn grep_project(
         let sink = Collect {
             path: rel,
             hits: &mut hits,
+            keep: &keep,
         };
         let _ = match unsaved.filter(|_| current == Some(rel.as_path())) {
-            Some(text) => searcher.search_slice(&matcher, text, sink),
-            None => searcher.search_path(&matcher, root.join(rel), sink),
+            Some(text) => searcher.search_slice(matcher, text, sink),
+            None => searcher.search_path(matcher, root.join(rel), sink),
         };
     }
     hits.sort_by_cached_key(|h| (current != Some(h.path.as_path()), h.path.clone(), h.line));
-    Ok(hits)
+    hits
 }
 
-/// Collects one `Hit` per matching line, stopping the whole search at [`MAX_HITS`].
+/// Collects one `Hit` per matching line `keep` takes, stopping the whole search at [`MAX_HITS`].
 struct Collect<'a> {
     path: &'a Path,
     hits: &'a mut Vec<Hit>,
+    keep: &'a dyn Fn(&str) -> bool,
 }
 
 impl Sink for Collect<'_> {
     type Error = std::io::Error;
 
     fn matched(&mut self, _searcher: &Searcher, m: &SinkMatch<'_>) -> std::io::Result<bool> {
-        self.hits.push(Hit {
-            path: self.path.to_path_buf(),
-            line: m.line_number().unwrap_or(0) as usize,
-            text: String::from_utf8_lossy(m.bytes()).trim_end().to_string(),
-        });
+        let text = String::from_utf8_lossy(m.bytes()).trim_end().to_string();
+        if (self.keep)(&text) {
+            self.hits.push(Hit {
+                path: self.path.to_path_buf(),
+                line: m.line_number().unwrap_or(0) as usize,
+                text,
+            });
+        }
         Ok(self.hits.len() < MAX_HITS)
     }
 }
@@ -2759,6 +2793,17 @@ pub fn symbol_name(re: &Regex, line: &str) -> Option<String> {
     group("anchor")
         .map(|a| format!("&{a}"))
         .or_else(|| group("name").map(str::to_owned))
+}
+
+/// Whether `name` matches `query` the way the picker's fuzzy filter does: the query's characters
+/// in order, case-insensitively until the query has a capital of its own (smart case, as `/` and
+/// `s`). `D` past the cap narrows its grep by this, so what comes back is what the picker keeps.
+pub fn fuzzy_match(query: &str, name: &str) -> bool {
+    let exact = query.chars().any(char::is_uppercase);
+    let mut left = name.chars();
+    query
+        .chars()
+        .all(|q| left.any(|c| c == q || (!exact && c.eq_ignore_ascii_case(&q))))
 }
 
 /// The run of `[A-Za-z0-9_]` and `extra` characters at byte offset `col`, or the one that ends

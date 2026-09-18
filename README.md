@@ -369,6 +369,12 @@ Ruby's methods, classes and modules, `def self.name` included — so none of the
 under a modifier or a receiver. TypeScript's class methods, with neither a keyword nor a type in
 front, are not listed: the regex cannot tell `name(` from a call. Neither are fields, a Ruby
 constant, or the names a Ruby `attr_accessor` line declares, since one line can declare several.
+Past 5,000 declarations the grep stops, so the list is only what it reached in file order: the
+title reads `Symbols (first 5000, type to search all)`, and the query stops filtering those rows
+and greps the project for a declaration whose name it matches, after a pause in the typing, the
+way `s` does. A name declared in a file the cut never reached is found that way; the title then
+counts the answer (`Symbols (12 hits)`, `Symbols (…)` while it is being grepped). Under 5,000 the
+rows are the whole list and the query filters them, as before.
 Searches are smart-case — an all-lowercase query ignores case, one uppercase letter makes it
 case-sensitive — and `/` and `s` look for the text as typed: `foo(` finds the calls and the
 definition, `a.b` only `a.b`. There is no regex mode. `s` lists its hits while you type, the open

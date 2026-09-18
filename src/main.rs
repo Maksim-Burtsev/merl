@@ -30,6 +30,7 @@ use ratatui::crossterm::{execute, terminal};
 
 use crate::app::{App, Focus, Mode};
 use crate::buffer::Buffer;
+use crate::picker::PickItem;
 use crate::tutor::Tutor;
 
 /// Everything the event loop wakes up for.
@@ -44,8 +45,8 @@ enum Msg {
     Fs(notify::Event),
     /// `git diff` finished for the file at this path.
     Diff(PathBuf, git::Diff),
-    /// The `s` grep with this number finished.
-    Search(u64, Vec<search::Hit>),
+    /// The grep with this number finished: the rows it found.
+    Search(u64, Vec<PickItem>),
     /// SIGTERM, SIGHUP or SIGINT from outside: save and leave as `q` does.
     Quit,
 }
@@ -255,7 +256,7 @@ fn event_loop(
             // In a thread: a grep over a large project takes longer than a keystroke.
             let tx = diff_tx.clone();
             std::thread::spawn(move || {
-                let _ = tx.send(Msg::Search(job.seq, job.hits()));
+                let _ = tx.send(Msg::Search(job.seq, job.items()));
             });
         }
         // Typing (edit mode, or any prompt) gets a bar, navigating a block, like vim: the shape
@@ -318,7 +319,7 @@ fn event_loop(
                 app.flush();
                 return Ok(());
             }
-            Ok(Msg::Search(seq, hits)) => dirty |= app.search_done(seq, hits),
+            Ok(Msg::Search(seq, items)) => dirty |= app.search_done(seq, items),
             Ok(Msg::Resize) | Ok(Msg::Redraw) => dirty = true,
             Ok(Msg::Fs(ev)) => {
                 if concerns_open_file(app, &ev) {
