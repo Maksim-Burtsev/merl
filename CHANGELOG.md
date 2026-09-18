@@ -57,11 +57,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `s` shows its hits while you type: the result picker opens at once with the query as its input
   line and refreshes after each pause, Up / Down move in it and Enter jumps. Enter pressed before
   the hits arrive waits for them. The title counts the hits, and shows `Search (…)` until the
-  query on screen is answered, so `0 hits` always means nothing was found. Narrowing is done by
-  typing more of the query; the fuzzy filter over the results is gone. (#53, #107)
+  query on screen is answered, so `0 hits` always means nothing was found. The open file's hits
+  come first even when a short query stops at 5000, and Enter on a query that found nothing says
+  `no results for …` however soon it is pressed. Narrowing is done by typing more of the query;
+  the fuzzy filter over the results is gone. (#53, #107)
 
 ### Fixed
 
+- A picker over thousands of rows no longer holds up the keys typed after it opens: every row
+  queued a redraw of its own, so on a 6,000-file project `o` took over a second to show the first
+  letter of the filter. `u`, `d` and `D` read the open file first, so a list cut at 5000 hits
+  keeps that file's hits. (#53)
 - SIGTERM, SIGHUP (a closed terminal or tmux pane) and SIGINT from outside end merl as `q` does:
   unsaved edits are written and the terminal is restored, instead of a shell left on the
   alternate screen with merl's last frame. (#80)

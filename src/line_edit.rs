@@ -1,4 +1,4 @@
-//! The one-line editor behind the `:`, `/` and `s>` prompts and the picker query.
+//! The one-line editor behind the `:` and `/` prompts and the picker query.
 
 use std::ops::{Deref, Range};
 

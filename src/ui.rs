@@ -310,7 +310,8 @@ fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base
         } else if picker.live {
             // Nothing filters the hits, and the grep stops at MAX_HITS: that many is a floor.
             let more = if total as usize >= MAX_HITS { "+" } else { "" };
-            format!("{} ({total}{more} hits)", picker.title)
+            let s = if total == 1 { "" } else { "s" };
+            format!("{} ({total}{more} hit{s})", picker.title)
         } else {
             format!("{} ({matched}/{total})", picker.title)
         })
@@ -793,6 +794,7 @@ mod tests {
     use crate::app::App;
     use crate::buffer::Buffer;
     use crate::git::Mark;
+    use crate::search::MAX_HITS;
     use crate::tree::Tree;
 
     fn rows(terminal: &Terminal<TestBackend>) -> Vec<String> {
@@ -897,6 +899,39 @@ mod tests {
         assert_eq!(title(&mut app), "Search (…)");
         app.settle_search();
         assert_eq!(title(&mut app), "Search (0 hits)");
+    }
+
+    /// The `s` picker has a prompt of its own, and its title counts hits: one, many, or as many
+    /// as the grep stops at, which is a floor.
+    #[test]
+    fn search_picker_prompt_and_hit_count() {
+        let dir = std::env::temp_dir().join(format!("merl-ui-hits-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("a.txt"),
+            format!("one\n{}", "x\n".repeat(MAX_HITS)),
+        )
+        .unwrap();
+        let files = vec![PathBuf::from("a.txt")];
+        let mut app = App::new(dir.clone(), Tree::default(), files, Buffer::empty(), None);
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(60, 12)).unwrap();
+        for (query, title) in [
+            ("one", "Search (1 hit)".to_string()),
+            ("x", format!("Search ({MAX_HITS}+ hits)")),
+        ] {
+            app.key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE));
+            for c in query.chars() {
+                app.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+            }
+            app.settle_search();
+            terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+            let text = rows(&terminal).join("\n");
+            assert!(text.contains(&title), "{title}:\n{text}");
+            assert!(text.contains(&format!("s> {query} ")), "{text}");
+            app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// A usages row is drawn with the colours of the file line it quotes: the `//!` comment
