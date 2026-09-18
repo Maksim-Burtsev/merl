@@ -1041,10 +1041,7 @@ impl App {
         // Mid-save the file can be briefly gone; the rename that follows sends another event
         // and overwrites the message. Gone for good, the message stays.
         let Ok(bytes) = std::fs::read(&path) else {
-            self.message = format!(
-                "{} is gone from disk: Ctrl+S writes it back",
-                self.rel_path()
-            );
+            self.message = format!("{} gone", self.rel_path());
             return;
         };
         if !force {
@@ -1352,29 +1349,24 @@ impl App {
     /// `n` / `N`: the next or previous match, wrapping around the file.
     fn step_find(&mut self, forward: bool) {
         let Some(re) = self.find_re.clone() else {
-            self.message = "nothing to find: / sets the pattern".into();
+            self.message = "no pattern".into();
             return;
         };
         let last = self.buf.lines.len() - 1;
         let found = if forward {
             let (l, c) = self.after_cursor();
             self.match_at_or_after(&re, l, c)
-                .map(|p| (p, false))
-                .or_else(|| self.match_at_or_after(&re, 0, 0).map(|p| (p, true)))
+                .or_else(|| self.match_at_or_after(&re, 0, 0))
         } else {
             self.match_before(&re, self.line, self.col)
-                .map(|p| (p, false))
-                .or_else(|| self.match_before(&re, last, usize::MAX).map(|p| (p, true)))
+                .or_else(|| self.match_before(&re, last, usize::MAX))
         };
         match found {
-            Some(((l, c), wrapped)) => {
+            Some((l, c)) => {
                 self.go_to_match(l, c);
                 self.message = self.match_count(&re);
-                if wrapped {
-                    self.message += " wrapped";
-                }
             }
-            None => self.message = format!("no match for {}", self.find_query),
+            None => self.message = "no match".into(),
         }
     }
 
@@ -1593,7 +1585,7 @@ impl App {
         let kind = self.kind();
         let extra = search::word_chars(kind, true);
         let Some((range, word)) = search::word_at(self.line_str(), self.col, extra) else {
-            self.message = "no word under the cursor".into();
+            self.message = "no word".into();
             return;
         };
         let word = word.to_owned();
@@ -2839,11 +2831,8 @@ impl App {
     fn no_rules(&self) -> String {
         let ext = self.buf.path.as_deref().and_then(Path::extension);
         match ext {
-            Some(ext) => format!(
-                "no definition rules for .{} files: u lists uses",
-                ext.to_string_lossy()
-            ),
-            None => "no definition rules for this file: u lists uses".into(),
+            Some(ext) => format!("no rules for .{}", ext.to_string_lossy()),
+            None => "no rules for this file".into(),
         }
     }
 
@@ -3320,8 +3309,6 @@ impl App {
             KeyCode::Esc => {
                 if self.find_re.take().is_some() {
                     self.message = "find cleared".into();
-                } else if self.anchor.is_none() {
-                    self.message = "nothing to clear".into();
                 }
                 self.anchor = None;
             }
@@ -3438,9 +3425,8 @@ impl App {
                         Some(path) => self.jump_to(&path, n),
                         None => self.goto_line(n),
                     },
-                    Err(_) if self.prompt.is_empty() => {
-                        self.message = "no line number typed".into()
-                    }
+                    // An empty prompt is a cancel, as Esc.
+                    Err(_) if self.prompt.is_empty() => {}
                     Err(_) => self.message = format!("no line {}", &*self.prompt),
                 }
                 self.close_overlay();
@@ -7026,11 +7012,11 @@ mod tests {
         assert_eq!(a.message, "2/2");
         press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
         assert_eq!((a.line, a.col), (0, 0));
-        assert_eq!(a.message, "1/2 wrapped");
+        assert_eq!(a.message, "1/2");
 
         press(&mut a, KeyCode::Char('N'), KeyModifiers::NONE);
         assert_eq!((a.line, a.col), (2, 0));
-        assert_eq!(a.message, "2/2 wrapped");
+        assert_eq!(a.message, "2/2");
         press(&mut a, KeyCode::Char('N'), KeyModifiers::NONE);
         assert_eq!((a.line, a.col), (0, 0));
         assert_eq!(a.message, "1/2");
@@ -7039,7 +7025,7 @@ mod tests {
         find(&mut a, "zzz");
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
         press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
-        assert_eq!(a.message, "no match for zzz");
+        assert_eq!(a.message, "no match");
     }
 
     /// #82: a key that cannot act says why, so "not found" never reads as "not pressed".
@@ -7051,12 +7037,10 @@ mod tests {
             assert!(!a.message.is_empty(), "`{key}` said nothing");
             assert_eq!(a.mode, Mode::Normal, "`{key}`");
         }
+        // Esc with nothing to clear no longer claims `find cleared`.
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-        assert_eq!(a.message, "nothing to clear");
-        // `:` with no number, and `/` typing a query the file does not have.
-        press(&mut a, KeyCode::Char(':'), KeyModifiers::NONE);
-        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-        assert_eq!(a.message, "no line number typed");
+        assert_eq!(a.message, "");
+        // `/` typing a query the file does not have, and one it has.
         find(&mut a, "zzz");
         assert_eq!(a.message, "no match");
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
@@ -7571,10 +7555,7 @@ mod tests {
     fn aliases_reach_the_same_actions() {
         let mut a = app("foo bar\n");
         press(&mut a, KeyCode::F(12), KeyModifiers::NONE);
-        assert_eq!(
-            a.message,
-            "no definition rules for .txt files: u lists uses"
-        );
+        assert_eq!(a.message, "no rules for .txt");
         press(&mut a, KeyCode::F(12), KeyModifiers::SHIFT);
         assert_eq!(a.message, "no usages of foo");
         press(&mut a, KeyCode::Char('e'), KeyModifiers::CONTROL);

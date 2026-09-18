@@ -41,13 +41,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- No silent keys: a press that cannot act says why. `d` and `u` off a word say `no word under
-  the cursor`; `d` in a file whose kind has no rules says `no definition rules for .c files: u
-  lists uses` instead of a `no definition` that never looked; `/` shows `no match` or the match
-  count (`3/17`) next to the query while it is typed, and `n` / `N` keep the count; `:` with no
-  number, Esc with nothing to clear, a file gone from disk and `n` without a pattern say what
-  happened and what to do. The status bar says `read-only` before Enter is pressed, and
-  `--review` without a `git` binary names git instead of a bare OS error (#82).
+- No silent keys: a press that cannot act says why, in a word or two. `d` and `u` off a word
+  say `no word`; `d` in a file whose kind has no rules says `no rules for .c` instead of a
+  `no definition` that never looked; `/` shows `no match` or the match count (`3/17`) next to
+  the query while it is typed, and `n` / `N` keep the count, which replaces `wrapped`; Esc no
+  longer says `find cleared` with nothing to clear; a file deleted on disk is named
+  (`clock.c gone`). The status bar says `read-only` before Enter is pressed, and `--review`
+  without a `git` binary names git instead of a bare OS error (#82).
 - Ctrl+C copies everywhere and never quits: outside edit mode too it copies the selection, or
   the current line without one, and the status line says how much (`copied 3 lines`). In a
   prompt or a picker it does nothing. Quitting is `q`. Ctrl+X stays an edit-mode key. (#78)
