@@ -37,5 +37,13 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   `WebhookNotifier` implements the protocol without naming it, and `Batch.send` / `Batch.Run` take
   one parameter too many to be an implementation of anything.
 
+- fields (#104): `fields` has an `Issue` that extends a `Base` (Go: embeds it) and declares its
+  fields in every form the rules read — a class-body annotation with a value and without, a
+  constructor parameter handed on (TypeScript: of a constructor wrapped over several lines), a
+  field assigned again in another method, `Title, Body string` — and a `Comment` sharing
+  `poster_id` with it and alone declaring `body`, for the search by name. `tally` / `Serve` hold a
+  local of a field's name (an annotated local, an object literal's key, a `var` block) that is no
+  field.
+
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.

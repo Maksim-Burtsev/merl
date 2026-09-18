@@ -512,6 +512,30 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
     })
 }
 
+/// Line patterns that can declare `word` as a field, for the search by name: more than the fields,
+/// since a line counts only when [`field_decl`] finds the type it is the first declaration of the
+/// field in. `None` for a kind whose fields have no rules.
+pub fn field_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
+    let w = regex::escape(word);
+    Some(match kind {
+        // `name: T` or `name = …` in a class body, `self.name = …` in a method.
+        Kind::Python => vec![format!(r"^\s+(?:self\.)?{w}\s*(?::|=[^=])")],
+        // A member behind any modifiers, a constructor parameter behind one, `this.name = …`.
+        Kind::TsJs => vec![
+            format!(
+                r"^\s+(?:(?:public|private|protected|readonly|static|declare|override|abstract|accessor)\s+)*{w}\s*[?!]?\s*(?::|=[^=>])"
+            ),
+            format!(r"^\s+this\.{w}\s*=[^=]"),
+        ],
+        // A struct field, alone or among others (`a, name T`), and an embedded `*pkg.Name`.
+        Kind::Go => vec![
+            format!(r"^\s+(?:[A-Za-z_]\w*\s*,\s*)*{w}(?:\s*,\s*[A-Za-z_]\w*)*\s+[^\s:=,(/]"),
+            format!(r"^\s+\*?(?:[A-Za-z_]\w*\.)?{w}(?:\[.*\])?\s*(?:$|//|`)"),
+        ],
+        _ => return None,
+    })
+}
+
 /// The name a reader knows the declaration on 1-based `line` of `text` by: `name` behind what it
 /// is declared in, `UserRepository.delete_user` for a method, `Outer.Inner.run` for a nested
 /// one, the receiver type of a Go method, the type a Rust `impl … for Type` is for. `None` at
@@ -549,6 +573,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     let indent = |s: &str| s.len() - s.trim_start().len();
     let mut depth = indent(target);
     let mut names = vec![name.to_owned()];
+    let mut field = field_in_function(kind, target.trim_start(), name);
     for l in lines[..line - 1].iter().rev() {
         if depth == 0 {
             break;
@@ -564,6 +589,11 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             continue;
         }
         depth = indent(l);
+        // The method a field is declared in is not part of its name: `UserService.repo`.
+        if field && !declares_type(kind, l) {
+            continue;
+        }
+        field = false;
         let named = IMPL
             .captures(l)
             .filter(|_| kind == Kind::Rust)
@@ -582,6 +612,27 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     }
     names.reverse();
     (names.len() > 1).then(|| names.join(sep))
+}
+
+/// Whether the trimmed line `t` declares the field `name` of a class from inside one of its
+/// functions: `self.name = …` in a Python method, `this.name = …` or a constructor parameter behind
+/// an access modifier in TypeScript.
+fn field_in_function(kind: Kind, t: &str, name: &str) -> bool {
+    static MODIFIED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:@[\w$.]+(?:\([^)]*\))?\s*)*(?:(?:public|private|protected|readonly|override)\s+)+([\w$]+)").unwrap()
+    });
+    let behind = |prefix: &str| {
+        t.strip_prefix(prefix)
+            .and_then(|rest| rest.strip_prefix(name))
+            .is_some_and(|rest| {
+                !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_' || c == '$')
+            })
+    };
+    match kind {
+        Kind::Python => behind("self."),
+        Kind::TsJs => behind("this.") || MODIFIED.captures(t).is_some_and(|c| &c[1] == name),
+        _ => false,
+    }
 }
 
 /// `var.x`, `module.x`, `local.x`, `data.T.N` and `T.N` (a resource), with anything after the
@@ -2181,6 +2232,40 @@ fn go_embedded(t: &str) -> Option<&str> {
     EMBEDDED.captures(t).map(|c| c.get(1).unwrap().as_str())
 }
 
+/// The 1-based line of the class, interface or struct that first declares its field `name` on
+/// 1-based `line` of `text`, among the [`field_bindings`] of the type around the line: the line a
+/// receiver of that type lands on. `None` for any other line — a later assignment of the field,
+/// a local, the key of a literal.
+pub fn field_decl(kind: Kind, text: &str, line: usize, name: &str) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let k = line.checked_sub(1).filter(|&k| k < lines.len())?;
+    let mut depth = indent(lines[k]);
+    let mut decl = None;
+    for i in (0..k).rev() {
+        let t = lines[i].trim();
+        if depth == 0 {
+            break;
+        }
+        // A closer at a lower indent ends a signature or a header wrapped over several lines.
+        if t.is_empty()
+            || t == "{"
+            || comment(kind, t)
+            || t.starts_with([')', ']'])
+            || indent(lines[i]) >= depth
+        {
+            continue;
+        }
+        depth = indent(lines[i]);
+        if declares_type(kind, lines[i]) {
+            decl = Some(i + 1);
+            break;
+        }
+    }
+    let decl = decl?;
+    let first = field_bindings(kind, text, decl, name).first()?.line;
+    (first == line).then_some(decl)
+}
+
 /// What a call of the function declared on 1-based `decl` of `text` gives: its declared return
 /// type (Python `-> T`, TypeScript `): T`, Go's result or its first one), or in TypeScript without
 /// one, the `new T()` that every `return` of the body, or an arrow's expression, agrees on.
@@ -2840,6 +2925,52 @@ mod tests {
             q(Kind::Ruby, rb, 3, "total").as_deref(),
             Some("Billing.Invoice.total")
         );
+    }
+
+    /// #104. What the search by name offers for a field — the lines [`field_patterns`] match and
+    /// [`field_decl`] keeps — is each type's first declaration of it, named after the type and not
+    /// after the method it is assigned in. A later assignment, a local, the key of a literal, a
+    /// `var` block and a field of an anonymous struct are none.
+    #[test]
+    fn a_field_by_name_is_the_first_declaration_in_its_type() {
+        let found = |kind: Kind, text: &str, name: &str| -> Vec<(usize, String)> {
+            let re = Regex::new(&field_patterns(kind, name).unwrap().join("|")).unwrap();
+            text.lines()
+                .enumerate()
+                .filter(|(_, l)| re.is_match(l))
+                .map(|(i, _)| i + 1)
+                .filter(|&n| field_decl(kind, text, n, name).is_some())
+                .map(|n| (n, qualified(kind, text, n, name).unwrap_or_default()))
+                .collect()
+        };
+        let one = |n: usize, q: &str| vec![(n, q.to_owned())];
+        let py = "class Issue(Base):\n    poster_id: int = 0\n\n    def __init__(\n        self,\n        repo: Repo,\n    ) -> None:\n        self.repo = repo\n        self.poster_id = 1\n\n    def close(self) -> None:\n        self.repo = None\n        total: int = 0\n        counts = {\n            total: 1,\n        }\n\n\ndef tally() -> None:\n    repo: Repo = make()\n";
+        assert_eq!(
+            found(Kind::Python, py, "poster_id"),
+            one(2, "Issue.poster_id")
+        );
+        assert_eq!(found(Kind::Python, py, "repo"), one(8, "Issue.repo"));
+        assert_eq!(found(Kind::Python, py, "total"), vec![]);
+        assert_eq!(
+            qualified(Kind::Python, py, 12, "repo").as_deref(),
+            Some("Issue.repo")
+        );
+        assert_eq!(
+            found(Kind::Python, "def f(self):\n    self.x = 1\n", "x"),
+            vec![]
+        );
+        let ts = "export class Issue extends Base {\n  posterId = 0;\n\n  constructor(\n    private repo: Repo,\n  ) {\n    super();\n    this.title = \"\";\n  }\n}\nexport function tally(): void {\n  const sums = {\n    total: 0,\n  };\n  total = 2;\n}\n";
+        assert_eq!(found(Kind::TsJs, ts, "posterId"), one(2, "Issue.posterId"));
+        assert_eq!(found(Kind::TsJs, ts, "repo"), one(5, "Issue.repo"));
+        assert_eq!(found(Kind::TsJs, ts, "title"), one(8, "Issue.title"));
+        assert_eq!(found(Kind::TsJs, ts, "total"), vec![]);
+        let go = "package main\n\ntype Issue struct {\n\t*store.Base\n\tPosterID    int\n\tTitle, Body string `json:\"t\"`\n\tStats       struct {\n\t\tTotal int\n\t}\n}\n\nfunc Serve() {\n\tvar (\n\t\tHost string\n\t)\n}\n";
+        assert_eq!(found(Kind::Go, go, "PosterID"), one(5, "Issue.PosterID"));
+        assert_eq!(found(Kind::Go, go, "Body"), one(6, "Issue.Body"));
+        assert_eq!(found(Kind::Go, go, "Base"), one(4, "Issue.Base"));
+        assert_eq!(found(Kind::Go, go, "Stats"), one(7, "Issue.Stats"));
+        assert_eq!(found(Kind::Go, go, "Total"), vec![]);
+        assert_eq!(found(Kind::Go, go, "Host"), vec![]);
     }
 
     #[test]
