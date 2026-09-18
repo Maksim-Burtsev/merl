@@ -101,6 +101,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `[` / `]` no longer stop dead at a history stop whose file was deleted or renamed, with every
   stop behind it out of reach: the stop is dropped, the walk goes on to the next one that opens,
   and the status bar says `hist2.py gone`. (#118)
+- The autosave no longer recreates a file that was deleted or renamed on disk, which left a stale
+  copy next to the file an agent had just renamed. Gone is changed on disk: the conflict is raised
+  as for a modified file, and only Ctrl+S writes the file back. (#119)
 
 ### Added
 

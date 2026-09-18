@@ -3188,7 +3188,13 @@ impl App {
         }
         // ponytail: read, compare, then write; a writer landing between the read and the write
         // still loses. Files have no compare-and-swap, and the window is one read long.
-        if !self.conflict && std::fs::read(path).is_ok_and(|b| buffer::hash(&b) != self.buf.disk) {
+        // Gone (deleted, renamed) is changed too: only Ctrl+S puts the file back. Any other read
+        // error is left to the write below to report.
+        let changed = match std::fs::read(path) {
+            Ok(b) => buffer::hash(&b) != self.buf.disk,
+            Err(e) => e.kind() == std::io::ErrorKind::NotFound,
+        };
+        if !self.conflict && changed {
             self.conflict = true;
             return;
         }
@@ -7187,6 +7193,8 @@ mod tests {
     #[test]
     fn enter_edits_and_letters_are_text_until_esc() {
         let mut a = app("def f():\n    pass\n");
+        // On disk, so that Esc saves the edits and `q` quits at once.
+        std::fs::write(a.buf.path.as_ref().unwrap(), "def f():\n    pass\n").unwrap();
         typed(&mut a, "s");
         assert_eq!(
             a.mode,
@@ -7597,7 +7605,8 @@ mod tests {
 
         // A save that fails holds merl the same way, and a key in between asks again.
         let (path, mut a) = temp_file("keep-gone", "one\n");
-        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        std::fs::create_dir(&path).unwrap();
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
         typed(&mut a, "x");
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
@@ -7606,6 +7615,25 @@ mod tests {
         press(&mut a, KeyCode::Down, KeyModifiers::NONE);
         assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
         assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+    }
+
+    /// README: a file that changes on disk under unsaved edits is "neither reloaded nor
+    /// overwritten". Deleted or renamed is changed: only Ctrl+S puts it back.
+    #[test]
+    fn autosave_does_not_recreate_a_file_that_is_gone() {
+        let (path, mut a) = temp_file("gone-save", "one\n");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "X");
+        std::fs::remove_file(&path).unwrap();
+        a.last_edit = Some(Instant::now() - a.autosave);
+        assert!(a.tick());
+        assert!(!a.flush());
+        assert!(!path.exists());
+        assert!(a.conflict && a.dirty);
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "Xone\n");
+        assert!(!a.conflict && !a.dirty);
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 
     #[test]

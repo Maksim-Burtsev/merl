@@ -173,7 +173,8 @@ Ctrl+Z and Ctrl+Y undo and redo, per file, for as long as it is open; a run of k
 line is one step, as in VS Code. There is no save step: edits reach the disk `autosave_delay_ms` after the last keystroke, and
 at once when you leave edit mode, switch files or quit. Ctrl+S saves now. A file that changes on
 disk under unsaved edits is neither reloaded nor overwritten: the status bar says so, Ctrl+S keeps
-your version and Ctrl+R takes the disk's — VS Code's conflict prompt, with keys. Until then, or
+your version and Ctrl+R takes the disk's — VS Code's conflict prompt, with keys. A file deleted or
+renamed on disk is changed too: the autosave never puts it back, Ctrl+S does. Until then, or
 while a save keeps failing, merl stays on the file: another one does not open, and `q` has to be
 pressed twice to quit without the edits. Tabs, CRLF line endings and the trailing newline come back
 out as they went in; binary files, non-UTF-8 files and files with mixed line endings stay
