@@ -198,7 +198,7 @@ pub struct App {
     /// Files `w` was pressed on: their wrapping is the opposite of what their kind gets.
     wrap_toggled: HashSet<PathBuf>,
     pub mode: Mode,
-    /// What has been typed into the `:`, `/` or `s>` prompt.
+    /// What has been typed into the `:` or `/` prompt.
     pub prompt: LineEdit,
     /// The current query, kept for `n`/`N` and for painting the matches.
     pub find_re: Option<Regex>,
@@ -1206,11 +1206,16 @@ impl App {
         let Some(picker) = &mut self.picker else {
             return;
         };
-        // The list on screen answers an older query: Enter waits for this one's.
-        if picker.live && pending && key.code == KeyCode::Enter {
-            self.search_enter = true;
-            // No point in waiting out the pause.
-            self.search_due = self.search_due.map(|_| Instant::now());
+        if picker.live && key.code == KeyCode::Enter {
+            if pending {
+                // The list on screen answers an older query: Enter waits for this one's.
+                self.search_enter = true;
+                // No point in waiting out the pause.
+                self.search_due = self.search_due.map(|_| Instant::now());
+            } else {
+                let (item, query) = (picker.current().cloned(), picker.query.to_string());
+                self.search_jump(item, &query);
+            }
             return;
         }
         match picker.key(key) {
@@ -1405,7 +1410,8 @@ impl App {
     }
 
     /// Greps the project files `wanted` accepts. The open file is searched whenever it is
-    /// wanted, even when the startup walk skipped it (ignored).
+    /// wanted, even when the startup walk skipped it (ignored), and first: its hits sort to the
+    /// top, so they must not be the ones [`search::MAX_HITS`] cuts.
     fn grep(
         &self,
         pattern: &str,
@@ -1423,9 +1429,9 @@ impl App {
         let current = self.rel_current();
         if let Some(cur) = &current
             && wanted(cur)
-            && !files.contains(cur)
         {
-            files.push(cur.clone());
+            files.retain(|p| p != cur);
+            files.insert(0, cur.clone());
         }
         SearchJob {
             seq,
@@ -1508,9 +1514,23 @@ impl App {
         }
     }
 
-    /// The hits of grep number `seq`. An answer to anything but the query on screen is dropped:
-    /// no grep is ever cancelled, [`search::MAX_HITS`] bounds what a stale one costs. Returns
-    /// whether the screen changed.
+    /// Enter in the `s` picker, on the hits of the query on screen, whether they were in before
+    /// the key or came after it: the jump to `item`, or a word that the query found nothing.
+    fn search_jump(&mut self, item: Option<PickItem>, query: &str) {
+        self.picker = None;
+        self.mode = Mode::Normal;
+        match item {
+            Some(item) => self.jump_to(&self.root.join(&item.path), item.line),
+            None if query.is_empty() => {}
+            None => self.message = format!("no results for {query}"),
+        }
+    }
+
+    /// The hits of grep number `seq`. An answer to anything but the query on screen is dropped.
+    /// ponytail: no grep is cancelled. A short query stops at [`search::MAX_HITS`]; a selective
+    /// one reads every file, and on gitea (6,000 files) typing at a human pace did not delay the
+    /// answer to the final query (#53). A stop flag checked per file is the upgrade if it does.
+    /// Returns whether the screen changed.
     pub fn search_done(&mut self, seq: u64, hits: Vec<Hit>) -> bool {
         let Some(old) = self.picker.as_mut().filter(|p| p.live) else {
             return false;
@@ -1532,12 +1552,7 @@ impl App {
         if std::mem::take(&mut self.search_enter) {
             // Not through the new picker: nucleo has not seen its items yet.
             let query = old.query.to_string();
-            self.picker = None;
-            self.mode = Mode::Normal;
-            match items.get(selected) {
-                Some(item) => self.jump_to(&self.root.join(&item.path), item.line),
-                None => self.message = format!("no results for {query}"),
-            }
+            self.search_jump(items.into_iter().nth(selected), &query);
             tutor::check(self);
             return true;
         }
@@ -7629,7 +7644,63 @@ two
             (a.picker.is_none(), &*a.message),
             (true, "no results for three")
         );
+
+        // Past the pause, with the grep running: the list on screen is still the older one.
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "one");
+        std::thread::sleep(SEARCH_PAUSE);
+        let job = a.search_tick().expect("the grep for one");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert!(a.picker.is_some(), "the grep for one is still running");
+        a.search_done(job.seq, job.hits());
+        assert_eq!((a.picker.is_none(), a.line), (true, 0));
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    /// Enter once the hits are in: the same jump, and the same word for a query that found
+    /// nothing, as an Enter that came before them.
+    #[test]
+    fn enter_after_the_project_search_answered() {
+        let (path, mut a) = temp_file("enter-late-s", "one\ntwo\n");
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "two");
+        a.settle_search();
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(
+            (a.picker.is_none(), a.mode, a.line),
+            (true, Mode::Normal, 1)
+        );
+
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "three");
+        a.settle_search();
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(
+            (a.picker.is_none(), &*a.message),
+            (true, "no results for three")
+        );
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    /// The grep stops at MAX_HITS. The open file's hits sort to the top, so they are read first
+    /// and never the ones cut, even when other files alone fill the cap.
+    #[test]
+    fn the_cap_never_cuts_the_open_files_hits() {
+        let dir = std::env::temp_dir().join(format!("merl-cap-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("a.py"), "x\n".repeat(search::MAX_HITS)).unwrap();
+        std::fs::write(dir.join("z.py"), "one\nx\n").unwrap();
+        let files = vec![PathBuf::from("a.py"), PathBuf::from("z.py")];
+        let buf = Buffer::load(&dir.join("z.py")).unwrap();
+        let mut a = App::new(dir.clone(), Tree::default(), files, buf, None);
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "x");
+        a.settle_search();
+        let p = a.picker.as_ref().unwrap();
+        let top = p.current().unwrap();
+        assert_eq!((top.path.as_path(), top.line), (Path::new("z.py"), 2));
+        assert_eq!(p.counts().1 as usize, search::MAX_HITS);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// The find anchor, the selection anchor and the history stops are byte positions taken
