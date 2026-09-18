@@ -16,6 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reopened. `.gitignore` is respected as at startup (a new `node_modules/` adds nothing) and an
   edited one is picked up. A burst of changes is one walk, off the UI thread; on Linux ignored
   directories are not watched (#75).
+- The review is live: `merl --review` can stay open next to an agent working on the branch. A
+  file it touches for the first time appears in the panel, the counts and `file 3/12` follow
+  every save, commit, rebase and `git switch` within a moment, and a file whose changes were
+  reverted leaves (the open one stays open, without marks). Untracked files that are not ignored
+  are part of the review: listed as `A` with every line added, and `c` walks into them; a branch
+  with nothing but a new, unadded module opens now. The open file, the cursor and both scrolls
+  stay where they are, the panel cursor keeps its file, and nothing opens on its own. When lines
+  are written above the hunk being read, the cursor goes down with its text, so the hunk stays
+  the current one and `c` goes on from it. `git` runs off the UI thread; `HEAD` and the refs are
+  watched explicitly, also in a linked worktree (#76).
 - `w` stops wrapping the open file: long lines are cut at the edge of the pane, `›` and `‹`
   mark a line with more to the right or left, and the view follows the cursor sideways (End shows
   the end of the line, Home the start). For Markdown tables, CSV and minified files, which
