@@ -147,6 +147,19 @@ const C_MACRO_SYMBOL: &str = r"^\s*#\s*define\s+(?P<name>[A-Za-z_]\w*)";
 const RUBY_SYMBOL: &str =
     r"^\s*(?:def\s+(?:self\.|[A-Z]\w*\.)?|(?:class|module)\s+(?:[\w:]*::)?)(?P<name>[A-Za-z_]\w*)";
 
+/// The Lua half of [`SYMBOLS`], first half: a function written with the keyword, `local` and the
+/// table it hangs off included. The table prefix is dropped, as Ruby's `def self.parse` and an
+/// out-of-line C++ definition are, so the row is listed under the name the language calls it by.
+const LUA_FUNCTION_SYMBOL: &str =
+    r"^\s*(?:local\s+)?function\s+(?:[\w.]+[.:])?(?P<name>[A-Za-z_]\w*)\s*\(";
+
+/// The second half: a function literal bound to a name, the other way Lua writes a declaration —
+/// `M.name = function(`, and the `name = function(` of a table of handlers. A value that is not a
+/// function is left out: `name = 1` in a table constructor and a re-assignment inside a body are
+/// the same line, and Lua has no keyword to tell them apart.
+const LUA_ASSIGNED_SYMBOL: &str =
+    r"^\s*(?:local\s+)?(?:[\w.]+[.:])?(?P<name>[A-Za-z_]\w*)\s*=\s*function\b";
+
 /// A name in a `CREATE` statement, as written: bare, `"quoted"` or `` `backticked` ``, and
 /// optionally schema-qualified (`public.orders`).
 const SQL_NAME: &str = r#"(?:"[^"]+"|`[^`]+`|\w+)"#;
@@ -182,6 +195,10 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::C), C_TYPE_SYMBOL),
     (Some(Kind::C), C_TYPEDEF_SYMBOL),
     (Some(Kind::C), C_MACRO_SYMBOL),
+    // Lua likewise: the shared pattern reads `function M.name(` as a declaration of `M`, and has
+    // no word for `local function` at all.
+    (Some(Kind::Lua), LUA_FUNCTION_SYMBOL),
+    (Some(Kind::Lua), LUA_ASSIGNED_SYMBOL),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -198,11 +215,11 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Yaml), r"(^|\s)&(?P<anchor>[\w.-]+)"),
 ];
 
-/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C and C++ have
-/// rows of their own in [`SYMBOLS`], written for what those languages declare and how they name
-/// it, so reading the all-language pattern over them too would list a declaration twice.
+/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++ and Lua
+/// have rows of their own in [`SYMBOLS`], written for what those languages declare and how they
+/// name it, so reading the all-language pattern over them too would list a declaration twice.
 pub fn shared_symbols(kind: Option<Kind>) -> bool {
-    !matches!(kind, Some(Kind::Jvm | Kind::Ruby | Kind::C))
+    !matches!(kind, Some(Kind::Jvm | Kind::Ruby | Kind::C | Kind::Lua))
 }
 
 /// A file kind with navigation rules of its own. Told by the file name, since a `Makefile` or a
@@ -217,6 +234,7 @@ pub enum Kind {
     Ruby,
     /// C and C++ together, headers included.
     C,
+    Lua,
     Shell,
     Sql,
     Make,
@@ -240,6 +258,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         // C and C++ are one kind: a header declares what a `.c` or a `.cc` defines, and either
         // language reads the other's headers, so they have to search each other.
         (_, "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx") => Kind::C,
+        (_, "lua") => Kind::Lua,
         (
             "Rakefile" | "rakefile" | "Gemfile" | "Guardfile" | "Capfile" | "Vagrantfile"
             | "Podfile" | "Brewfile" | "Dangerfile" | "Fastfile",
@@ -502,6 +521,20 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"^\w[^;(){{}}=<>]*[\s*&]{w}\s*(?:\[[^\]]*\])*\s*(?:=[^=]|;)"),
             ]
         }
+        // Lua declares with `function` and `local`, and with nothing else: a bare `name = value`
+        // is an assignment to whatever `name` already is, and a field of a table constructor is
+        // written exactly the same way, so only a function literal on the right counts.
+        Kind::Lua => vec![
+            // `function name(`, `local function name(`, and the table forms `function M.name(`,
+            // `function M:name(`, `function a.b.name(`.
+            format!(r"^\s*(?:local\s+)?function\s+(?:[\w.]+[.:])?{w}\s*\("),
+            // A function literal bound to a name: `name = function(`, `M.name = function(`, and
+            // the `name = function(` of a table of handlers.
+            format!(r"^\s*(?:local\s+)?(?:[\w.]+[.:])?{w}\s*=\s*function\b"),
+            // A local, the one declaration keyword the language has; `local a, b = f()`
+            // declares both.
+            format!(r"^\s*local\s+(?:[\w\s,]*,\s*)?{w}\b"),
+        ],
         // A function in either form, an assignment behind the declaration keywords that can
         // precede it (`+=` appends to one), or an alias. A shell has no declaration for the rest,
         // so a `$w` use or a `[ "$w" = x ]` test must not look like one.
@@ -605,6 +638,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::Lua
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -815,6 +849,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::Lua
         | Kind::Shell
         | Kind::Sql
         | Kind::Make => kind_of(path) == Some(kind),
@@ -934,9 +969,13 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             dirs
         }
         // Java, Kotlin and Ruby have no roots yet: the JDK and Gradle caches, and a gem path,
-        // are their own lookups. `d` stays inside the project for them, as for the rest.
+        // are their own lookups. Lua has no root at all to ask for: `package.path` is whatever
+        // the interpreter embedding it was built with, and a Neovim or a LuaRocks tree is not a
+        // standard library any project can be assumed to use. `d` stays inside the project for
+        // them, as for the rest.
         Kind::Jvm
         | Kind::Ruby
+        | Kind::Lua
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -1186,6 +1225,7 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
         Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::Lua
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -1372,6 +1412,7 @@ pub fn module_files(
         | Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::Lua
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -1524,10 +1565,14 @@ fn comment(kind: Kind, t: &str) -> bool {
 
 /// The 1-based lines of `text` that start inside a literal or a comment running over several
 /// lines: a Python triple-quoted string (a docstring with an example in it), a Go raw string, a
-/// TypeScript template, a `/* */` block. A line there that reads like a declaration declares
-/// nothing. Strings of one line end with their line, whatever they hold.
+/// TypeScript template, a Lua `[[ ]]` long string or `--[[ ]]` block comment, a `/* */` block. A
+/// line there that reads like a declaration declares nothing. Strings of one line end with their
+/// line, whatever they hold.
+///
+/// ponytail: Lua's `[==[ ]==]` long brackets are read as plain text, not as a literal.
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     let python = kind == Kind::Python;
+    let lua = kind == Kind::Lua;
     let b = text.as_bytes();
     let mut out = vec![false];
     // The multi-line literal the scan is in, by its closing bytes; a one-line quote.
@@ -1551,14 +1596,22 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
         } else if python && (b[i..].starts_with(b"\"\"\"") || b[i..].starts_with(b"'''")) {
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" });
             i += 2;
-        } else if !python && c == b'`' {
+        } else if lua && (b[i..].starts_with(b"--[[") || b[i..].starts_with(b"[[")) {
+            // Lua's long bracket, a string on its own and a block comment behind `--`; both end
+            // at the same `]]`, and the `--` has to be read here rather than as a line comment.
+            block = Some(b"]]");
+            i += if c == b'-' { 3 } else { 1 };
+        } else if !python && !lua && c == b'`' {
             block = Some(b"`");
-        } else if !python && b[i..].starts_with(b"/*") {
+        } else if !python && !lua && b[i..].starts_with(b"/*") {
             block = Some(b"*/");
             i += 1;
         } else if c == b'"' || c == b'\'' {
             quote = Some(c);
-        } else if (python && c == b'#') || (!python && b[i..].starts_with(b"//")) {
+        } else if (python && c == b'#')
+            || (lua && b[i..].starts_with(b"--"))
+            || (!python && !lua && b[i..].starts_with(b"//"))
+        {
             while i + 1 < b.len() && b[i + 1] != b'\n' {
                 i += 1;
             }
@@ -3827,6 +3880,157 @@ enum class Status {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    const LUA: &str = r#"local uv = vim.uv
+
+local M = {}
+local cache, hits = {}, 0
+
+function M.setup(opts)
+  local defaults = { limit = 10 }
+  cache = defaults
+  return M.normalise(opts)
+end
+
+function M:render(row)
+  return row
+end
+
+function normalise(opts)
+  return opts
+end
+
+local function trim(s)
+  return s
+end
+
+M.format = function(row)
+  return trim(row)
+end
+
+local handlers = {
+  open = function(id)
+    return id
+  end,
+  limit = 10,
+}
+
+--[[
+function M.ghost(x)
+  return x
+end
+]]
+
+M.setup({ limit = 1 })
+return M
+"#;
+
+    #[test]
+    fn lua_def_patterns_find_functions_and_locals() {
+        let (dir, files) = scratch("lua", &[("init.lua", LUA)]);
+        let d = |w| defs(&dir, &files, Kind::Lua, w);
+        assert_eq!(d("setup"), [6], "the declaration, not the call on line 41");
+        assert_eq!(d("render"), [12], "the `M:name` form");
+        assert_eq!(d("normalise"), [16], "not the `M.normalise(opts)` call");
+        assert_eq!(d("trim"), [20], "`local function`");
+        assert_eq!(d("format"), [24], "`M.name = function`");
+        assert_eq!(d("open"), [29], "a function in a table of handlers");
+        assert_eq!(d("M"), [3]);
+        assert_eq!(d("uv"), [1]);
+        // `local a, b = …` declares both, and a later bare `cache = …` is an assignment to the
+        // local already declared, not a declaration of its own.
+        assert_eq!(d("cache"), [4]);
+        assert_eq!(d("hits"), [4]);
+        assert_eq!(d("defaults"), [7], "a local inside a body");
+        assert_eq!(
+            d("limit"),
+            Vec::<usize>::new(),
+            "a table field holding a value has no rule: the line is also an assignment"
+        );
+        assert_eq!(d("opts"), Vec::<usize>::new(), "a parameter");
+        assert_eq!(d("row"), Vec::<usize>::new());
+        assert_eq!(
+            d("vim"),
+            Vec::<usize>::new(),
+            "the right-hand side of a local"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn lua_long_brackets_hide_what_they_hold() {
+        // The `--[[ … ]]` block comment on lines 35-39: `function M.ghost(x)` inside it declares
+        // nothing, the way a Python docstring's example does not.
+        let lit = literal_lines(Kind::Lua, LUA);
+        assert_eq!(
+            lit.iter()
+                .enumerate()
+                .filter(|(_, l)| **l)
+                .map(|(i, _)| i + 1)
+                .collect::<Vec<_>>(),
+            [36, 37, 38, 39]
+        );
+        // A `--` line comment is still one line, whatever quote it holds.
+        assert!(
+            literal_lines(Kind::Lua, "-- don't\nlocal x = 1\n")[1..]
+                .iter()
+                .all(|l| !l)
+        );
+    }
+
+    #[test]
+    fn lua_scope_roots_and_names() {
+        let here = Path::new("lua/config/init.lua");
+        assert!(in_def_scope(
+            Kind::Lua,
+            here,
+            Path::new("lua/plugins/ui.lua")
+        ));
+        assert!(!in_def_scope(Kind::Lua, here, Path::new("main.c")));
+        // `require "x"` binds a name, but there is no root to resolve it against and Lua's own
+        // `package.path` is the embedding interpreter's, so nothing is bound and nothing is
+        // searched outside the project.
+        assert!(imports(Kind::Lua, LUA).is_empty());
+        assert!(external_roots(Kind::Lua, Path::new("/")).is_empty());
+        assert!(member_patterns(Kind::Lua, "setup").is_none());
+        // A function nested in another is named under it, as in every kind.
+        assert_eq!(
+            qualified(
+                Kind::Lua,
+                "function M.setup()\n  local function inner() end\nend\n",
+                2,
+                "inner"
+            )
+            .as_deref(),
+            Some("setup.inner")
+        );
+    }
+
+    #[test]
+    fn lua_symbol_names() {
+        let lua = |line| one(Kind::Lua, line);
+        for (line, name) in [
+            ("function setup(opts)", Some("setup")),
+            ("function M.setup(opts)", Some("setup")),
+            ("function M:render(row)", Some("render")),
+            ("function vim.lsp.util.clamp(x)", Some("clamp")),
+            ("local function trim(s)", Some("trim")),
+            ("  local function inner()", Some("inner")),
+            ("M.format = function(row)", Some("format")),
+            ("local format = function(row)", Some("format")),
+            ("  open = function(id)", Some("open")),
+            // Not a declaration: a call, a field holding a value, a local, a return.
+            ("M.setup({ limit = 1 })", None),
+            ("  limit = 10,", None),
+            ("local M = {}", None),
+            ("local cache, hits = {}, 0", None),
+            ("  return M.normalise(opts)", None),
+            ("  end,", None),
+            ("-- function ghost(x)", None),
+        ] {
+            assert_eq!(lua(line).as_deref(), name, "{line}");
+        }
+    }
+
     const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
 
     #[test]
@@ -4004,6 +4208,7 @@ output "bucket" {
             ("ledger.hpp", Some(Kind::C)),
             ("ledger.hh", Some(Kind::C)),
             ("ledger.hxx", Some(Kind::C)),
+            ("init.lua", Some(Kind::Lua)),
             ("app.kt", Some(Kind::Jvm)),
             ("build.gradle.kts", Some(Kind::Jvm)),
             ("run.sh", Some(Kind::Shell)),
@@ -5502,11 +5707,12 @@ func Close() {
 
     #[test]
     fn the_shared_pattern_skips_the_kinds_with_rows_of_their_own() {
-        // Java, Kotlin, Ruby, C and C++ are listed from their own rows only, so nothing is listed
-        // twice and `def self.parse` is not `self`.
+        // Java, Kotlin, Ruby, C, C++ and Lua are listed from their own rows only, so nothing is
+        // listed twice, `def self.parse` is not `self` and `function M.setup(` is not `M`.
         assert!(!shared_symbols(Some(Kind::Jvm)));
         assert!(!shared_symbols(Some(Kind::Ruby)));
         assert!(!shared_symbols(Some(Kind::C)));
+        assert!(!shared_symbols(Some(Kind::Lua)));
         // Shell and SQL rows complement the shared pattern instead, and it reads every other
         // file, known kind or not.
         assert!(shared_symbols(Some(Kind::Shell)));

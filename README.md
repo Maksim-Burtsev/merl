@@ -224,7 +224,9 @@ roots are the system headers: the SDK `xcrun` reports on a Mac, `/usr/include` o
 narrows the search — not even a `std::` qualifier, which names a namespace and no directory — and a
 word the project does not declare is looked for in all of them. The C++ standard headers carry no
 extension, so `<vector>` itself is not read; what its implementation puts in `.h` files is. Java, Kotlin,
-Ruby and the rest have no roots yet, so `d` stays inside the project for them. A parameter has no
+Ruby and the rest have no roots yet, so `d` stays inside the project for them; Lua has none to
+ask for, since `package.path` belongs to whatever interpreter embeds it and neither a Neovim
+runtime nor a LuaRocks tree is a standard library every project shares. A parameter has no
 declaration the rules know, nor has an enum variant unless its class declares it as a field (a
 Python `Enum` member, a TypeScript enum member with a value): `d` says so, and `u` lists every
 whole-word use of the identifier. On `x.field` the word is a member: in Python, TypeScript and Go
@@ -258,8 +260,8 @@ What `d` does not claim, in Python, TypeScript and Go:
   method `find` of some other class.
 - An imported name is looked up at the top of the module it comes from, outside the project as
   inside it, and a name imported from two modules (`try` / `except ImportError`) offers both.
-- A line inside a triple-quoted string, a Go raw string, a template literal or a `/* */` block
-  declares nothing.
+- A line inside a triple-quoted string, a Go raw string, a template literal, a Lua `[[ ]]` long
+  string or `--[[ ]]` block comment, or a `/* */` block declares nothing.
 
 On `x.word`, `x.f.word` and longer chains in Python, TypeScript and Go, `d` first looks for the
 type of the receiver. `x` is `self` or `cls` in a method, `this` in a class, a Go method's
@@ -352,6 +354,7 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | Kotlin | `fun` (with the receiver of an extension function), `class`, `interface`, `object`, `enum class`, `typealias`, `val`/`var`, behind `private`/`open`/`data`/`sealed`/`suspend`/`override` and the rest | every `.java`, `.kt` and `.kts` file: they search each other |
 | Ruby | `def`, `def self.name`, `class`, `module`, an assignment (a constant, an `@ivar`, a local), `attr_accessor`/`attr_reader`/`attr_writer`, `alias`/`alias_method`. A trailing `?` or `!` is not part of the word, so `d` on `empty?` finds `def empty?`. Rails-style DSL (`scope`, `has_many`) has no rule. | every `.rb`, `.rake`, `.gemspec`, `.podspec`, `.rbi`, `.ru` file and `Rakefile`, `Gemfile`, `Vagrantfile` and friends |
 | C / C++ | a function, a prototype and an out-of-line method (`Type::name(`) in column zero, where the languages have no statements, so a call is never one — the return type may sit on the line above, as GNU style writes it; a method or a function indented, when its body opens on the line; `struct`, `class`, `union`, `enum`, `enum class`, `namespace`, behind a template head, a storage specifier and an attribute or export macro (`struct __attribute__ ((__packed__)) sdshdr8`, `class FMT_API name`), a template specialization included; `typedef` in every form, `using x =`, `#define` (function-like too), a global. A header's prototype is offered next to the definition, in the picker's usual order, by path. An enum constant has no rule — `NAME,` in an `enum` body and in an initializer list are the same line — nor has a field, a local, a template parameter or a member function only declared inside its class. | every `.c`, `.h`, `.cc`, `.cpp`, `.cxx`, `.hpp`, `.hh` and `.hxx` file: they search each other |
+| Lua | `function name(`, `local function name(`, `function M.name(`, `function M:name(` and the longer `function a.b.name(`; a function literal bound to a name (`M.name = function(`, `name = function(` in a table of handlers); `local name`, one of several on the line included. A field holding anything else has no rule: `limit = 10` in a table constructor and a re-assignment inside a body are the same line, and the language has no keyword to tell them apart. | every `.lua` file |
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
 | SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns have no rule. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable | every Makefile |
@@ -369,15 +372,16 @@ exported, since indented they are locals), plus shell functions (`name()`; the `
 the single regex already finds), SQL `CREATE`d objects under the name as written (`public.orders`,
 not CTEs), Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`,
 `module.x`, `var.x`, `output.x`), Dockerfile stages and YAML anchors, each read only from its own
-kind of file; recomputed on each press. Java, Kotlin, Ruby, C and C++ are read from rules of their
-own instead of that regex — Java's types and its methods, told from a call by the return type before
+kind of file; recomputed on each press. Java, Kotlin, Ruby, C, C++ and Lua are read from rules of
+their own instead of that regex — Java's types and its methods, told from a call by the return type before
 the name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and
 `const val`; Ruby's methods, classes and modules, `def self.name` included; C and C++ functions,
-methods, types, `typedef`s, `using` aliases and `#define`s — so none of them is listed twice or
-under a modifier or a receiver. A C prototype is not listed, since every function of a header would
+methods, types, `typedef`s, `using` aliases and `#define`s; Lua's functions in both of the forms
+it writes them, under the name and not the table they hang off — so none of them is listed twice
+or under a modifier or a receiver. A C prototype is not listed, since every function of a header would
 be there twice, and a `typedef struct x { … } y;` is listed once, under the `y` the project writes.
 TypeScript's class methods, with neither a keyword nor a type in front, are not listed: the regex
-cannot tell `name(` from a call. Neither are fields, a C global, a Ruby
+cannot tell `name(` from a call. Neither are fields, a C global, a Lua local, a Ruby
 constant, or the names a Ruby `attr_accessor` line declares, since one line can declare several.
 Searches are smart-case — an all-lowercase query ignores case, one uppercase letter makes it
 case-sensitive — and `/` and `s` look for the text as typed: `foo(` finds the calls and the

@@ -7030,6 +7030,12 @@ mod tests {
                     "invoice.h",
                     "#define LIMIT 10\nstruct invoice {\n    int total;\n};\nint sum(struct invoice *i);\n",
                 ),
+                // Lua from its own rows too: the shared pattern reads `function M.setup(` as a
+                // declaration of `M`.
+                (
+                    "init.lua",
+                    "local M = {}\n\nfunction M.setup(opts)\n  return opts\nend\n",
+                ),
             ],
         );
         press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
@@ -7051,6 +7057,7 @@ mod tests {
                 "invoice",
                 "LIMIT",
                 "serve",
+                "setup",
                 "var.region"
             ]
         );

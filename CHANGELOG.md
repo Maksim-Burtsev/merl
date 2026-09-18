@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` and `D` in Lua, over every `.lua` file. `d` finds a function in each form the language
+  writes one — `function name(`, `local function name(`, `function M.name(`, `function M:name(`,
+  `M.name = function(` and the `name = function(` of a table of handlers — and a `local`, one of
+  several on the line included. A field holding anything but a function has no rule on purpose:
+  `limit = 10` in a table constructor and a re-assignment inside a body are the same line, so `u`
+  lists the uses instead. A `[[ ]]` long string and a `--[[ ]]` block comment declare nothing,
+  as a Python docstring does not. `D` lists functions from rules of its own, so
+  `function M.setup(` is listed as `setup` where the pattern every language shares called it
+  `M`, and `local function` is listed at all. (#17)
 - `d` and `D` in C and C++, which are one kind over every `.c`, `.h`, `.cc`, `.cpp`, `.cxx`,
   `.hpp`, `.hh` and `.hxx` file, so a header finds what a `.c` or a `.cc` defines and the other
   way round. In column zero, where neither language has statements, `d` reads a function, a
@@ -60,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - No silent keys: a press that cannot act says why, in a word or two. `d` and `u` off a word
-  say `no word`; `d` in a file whose kind has no rules says `no rules for .lua` instead of a
+  say `no word`; `d` in a file whose kind has no rules says `no rules for .css` instead of a
   `no definition` that never looked; `/` shows `no match` or the match count (`3/17`) next to
   the query while it is typed, and `n` / `N` keep the count, which replaces `wrapped`; Esc no
   longer says `find cleared` with nothing to clear; a file deleted on disk is named
