@@ -26,6 +26,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are written above the hunk being read, the cursor goes down with its text, so the hunk stays
   the current one and `c` goes on from it. `git` runs off the UI thread; `HEAD` and the refs are
   watched explicitly, also in a linked worktree (#76).
+- `d` and `D` in Zig, over every `.zig` file. `d` finds `fn name(` behind `pub`, `export`,
+  `extern "c"`, `inline` and `noinline`, and the `const` or `var` the language declares everything
+  else with — a type (`const Ledger = struct {`, `const Status = enum {`,
+  `const Value = union(enum) {`), an import, a constant, a global and a local alike. A struct field
+  has no rule, as a C field has none, and neither has a `test`: a word inside its description
+  declares nothing, so `d` can never land on one. Zig has no literal that runs over lines — a
+  `\\` string ends with its line — so the markdown a `\\` block holds is read as code. `d` leaves the project for the standard library
+  where `zig env` says it is. `D` keeps the declaration pattern every language shares, which
+  already reads Zig's `fn` and `const`, and adds the two forms it has no word for: a function
+  behind `inline` or `noinline`, and a `test`, listed under its description. A `build.zig.zon` is
+  painted as Zig but has no rules: the data format declares nothing. (#17)
+- `d` and `D` in Elixir, over every `.ex` and `.exs` file. `d` finds every `def` form — `def`,
+  `defp`, `defmacro`, `defmacrop`, `defguard`, `defguardp`, `defdelegate`, written with parens,
+  with `do` or with `, do:`, a trailing `?` or `!` included — a `defmodule` or a `defprotocol`
+  under the namespace it is written with, a `defstruct` field in either form, and a module
+  attribute where it is given a value (`@timeout 5_000`), the `defstruct` line itself, not the
+  continuation lines of a struct written over several. Several clauses of one function are
+  several declarations and all are offered. `@spec`, `@type` and the other attributes the
+  language and the libraries everyone uses own — ExUnit's `@tag`, Mix's `@shortdoc` — are
+  directives, not declarations: `@spec parse(t) :: t` is a promise about `parse`, not its
+  definition. A line inside an `@moduledoc """` heredoc declares nothing, as one
+  inside a Python docstring does not. `D` lists modules, protocols and every `def` form from a
+  rule of its own, where the pattern every language shares knew `def` and nothing else of the
+  family and read the `x` of an anonymous `fn x -> …` as a declaration. (#17)
+- `d` and `D` in Lua, over every `.lua` file. `d` finds a function in each form the language
+  writes one — `function name(`, `local function name(`, `function M.name(`, `function M:name(`,
+  `M.name = function(` and the `name = function(` of a table of handlers — and a `local`, one of
+  several on the line included. A field holding anything but a function has no rule on purpose:
+  `limit = 10` in a table constructor and a re-assignment inside a body are the same line, so `u`
+  lists the uses instead. A `[[ ]]` or `[==[ ]==]` long string and a `--[[ ]]` block comment
+  declare nothing, as a Python docstring does not. `D` lists functions from rules of its own, so
+  `function M.setup(` is listed as `setup` where the pattern every language shares called it
+  `M`, and `local function` is listed at all. (#17)
+- `d` and `D` in C and C++, which are one kind over every `.c`, `.h`, `.cc`, `.cpp`, `.cxx`,
+  `.hpp`, `.hh` and `.hxx` file, so a header finds what a `.c` or a `.cc` defines and the other
+  way round. In column zero, where neither language has statements, `d` reads a function, a
+  prototype, a signature that wraps and an out-of-line `Type::name(` definition; indented, it
+  takes a method or a function only when its body opens on the line, so `return compute(x);` and
+  `if (check(x)) {` are calls. It also finds `struct`, `class`, `union`, `enum`, `enum class`,
+  `namespace` — behind a template head, a storage specifier and an attribute or export macro,
+  a template specialization included — a `typedef` in every form, `using x =`, a `#define`
+  (function-like too) and a global. When a header declares a function the project defines
+  elsewhere, both are offered. An enum constant has no rule — `NAME,` in an `enum` body and in an
+  initializer list are the same line — and neither has a field, a local or a template parameter:
+  `u` lists their uses. `d` leaves the project
+  for the system headers (the SDK `xcrun` reports, `/usr/include`, `/usr/local/include`,
+  `/opt/homebrew/include`). `D` lists functions, methods, types, `typedef`s, `using` aliases and
+  `#define`s from rules of their own, so the declaration pattern every other language shares is
+  untouched and nothing is listed twice; a prototype and a `typedef struct x {` opening are left
+  out, so a function and a type are one row each. A `.h` file now highlights as C++ instead of
+  the Objective-C bat's syntax set gives it. (#17)
 - `w` stops wrapping the open file: long lines are cut at the edge of the pane, `›` and `‹`
   mark a line with more to the right or left, and the view follows the cursor sideways (End shows
   the end of the line, Home the start). For Markdown tables, CSV and minified files, which
@@ -55,11 +106,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `@functools.cached_property` and a TypeScript getter that declare their return type, so
   `self.repos.users.get_one` in a FastAPI service reaches the repository. One without a return
   type is where the chain breaks, and the search by name answers. (#87)
+- `d` on `super().store` in Python and `super.store` in TypeScript lands on what the method
+  overrides: the lookup of `self` / `this` started one level up, `store → Archive.store (via super
+  of ColdArchive)`, where it used to list every `store` by name. Under several Python bases it
+  jumps only when the answer needs no method resolution order. (#100)
+- `d` reads a name from the innermost scope that declares it: a local hides a module-level or
+  package-level name, a closure's variable the one of the function around it, a block's the
+  function's, where the two used to disagree and leave a picker. A Python parameter named like a
+  module-level `def` is the parameter. Two declarations in one scope that disagree, and an inner
+  one with no readable type, are still a picker. On the name itself `d` lists the declarations of
+  that scope only. (#100)
+- A loop variable has the type of an element where the collection's type is written:
+  `for repo in repos` with `repos: list[UserRepository]`, `for (const repo of repos)` with
+  `UserRepository[]`, `for _, repo := range repos` with `[]*UserRepository` or `map[K]T`, written
+  as an annotation, as the return type of the function the collection came from, or as Go's
+  `make([]T, …)` and `[]T{…}`: `DeleteUser → UserRepository.DeleteUser (via repos:
+  []*UserRepository)`. The collection itself, keys and pairs stay by name. (#100)
+- `d` takes one more hop on a call: a local assigned from a method of a receiver whose type is
+  proven has the return type that method declares (`info := e.RequestInfo()`,
+  `repo = self.depot.people()`); a Python function with no annotation whose every `return`
+  constructs the same class returns it, as TypeScript's already did; and a chain may hang off the
+  call that starts it, `make_uow().users.delete_user`, `pkg.New(x).Run`, `new Depot().people`. A
+  call of a call is still by name. (#100)
+- A cast tells `d` the type: Python's `cast(T, x)` / `typing.cast`, TypeScript's `x as T`, Go's
+  `v, ok := i.(T)` and the variable of `switch v := x.(type)` inside a `case T:`, assigned to a
+  name or with the member hanging off the cast, `(x as T).find`, `i.(T).Find`. A cast to a type
+  the project does not declare, a `case` of several types and `default` stay by name. (#100)
 
 ### Changed
 
 - No silent keys: a press that cannot act says why, in a word or two. `d` and `u` off a word
-  say `no word`; `d` in a file whose kind has no rules says `no rules for .c` instead of a
+  say `no word`; `d` in a file whose kind has no rules says `no rules for .css` instead of a
   `no definition` that never looked; `/` shows `no match` or the match count (`3/17`) next to
   the query while it is typed, and `n` / `N` keep the count, which replaces `wrapped`; Esc no
   longer says `find cleared` with nothing to clear; a file deleted on disk is named

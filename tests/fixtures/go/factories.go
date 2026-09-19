@@ -21,8 +21,8 @@ func Rotate(id int) {
 	session.Close()
 }
 
-func Forget(repos []*UserRepository, id int) {
-	for _, repo := range repos {
+func Forget(repos chan *UserRepository, id int) {
+	for repo := range repos {
 		repo.FindUser(id)
 		repo.DeleteUser(id)
 	}

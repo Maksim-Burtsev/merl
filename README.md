@@ -225,8 +225,21 @@ word to: `np.array` behind `import numpy as np` looks in `numpy`, `load` behind
 `./utils`) is never looked for outside. A compiled module such as `orjson` lands in its `.pyi`
 stub. The standard library's hits come before the dependencies', the picker shows paths relative
 to their root, and files opened from there are read-only. Go's `_test.go` files, `testdata` and
-nested modules such as GOROOT's `cmd` are skipped, since no import reaches them. Java, Kotlin,
-Ruby and the rest have no roots yet, so `d` stays inside the project for them. A parameter has no
+nested modules such as GOROOT's `cmd` are skipped, since no import reaches them. C and C++ have no
+per-project manifest — what the build system was told with `-I` is not in the source — so their
+roots are the system headers: the SDK `xcrun` reports on a Mac, `/usr/include` on Linux, and
+`/usr/local/include` and `/opt/homebrew/include`. `#include` binds no name of its own, so nothing
+narrows the search — not even a `std::` qualifier, which names a namespace and no directory — and a
+word the project does not declare is looked for in all of them. The C++ standard headers carry no
+extension, so `<vector>` itself is not read; what its implementation puts in `.h` files is. Java, Kotlin,
+Ruby and the rest have no roots yet, so `d` stays inside the project for them; Lua has none to
+ask for, since `package.path` belongs to whatever interpreter embeds it and neither a Neovim
+runtime nor a LuaRocks tree is a standard library every project shares; Elixir needs none, since
+`mix` puts the dependencies and their sources in `deps/` inside the project, where they are
+project files already, and an installed standard library is `.beam` files rather than `.ex`. Zig's
+root is the `std_dir` its own `zig env` reports; its dependencies live in the global package cache
+under hashed directory names no source line spells out, so they are left out, and
+`const std = @import("std")` narrows nothing — `std` is that root, not a directory inside it. A parameter has no
 declaration the rules know, nor has an enum variant unless its class declares it as a field (a
 Python `Enum` member, a TypeScript enum member with a value): `d` says so, and `u` lists every
 whole-word use of the identifier. On `x.field` the word is a member: in Python, TypeScript and Go
@@ -260,8 +273,11 @@ What `d` does not claim, in Python, TypeScript and Go:
   method `find` of some other class.
 - An imported name is looked up at the top of the module it comes from, outside the project as
   inside it, and a name imported from two modules (`try` / `except ImportError`) offers both.
-- A line inside a triple-quoted string, a Go raw string, a template literal or a `/* */` block
-  declares nothing.
+- A line inside a triple-quoted string — a Python docstring, an Elixir `@moduledoc` — a Go raw
+  string, a template literal, a Lua `[[ ]]` or `[==[ ]==]` long string or block comment, or a
+  `/* */` block declares nothing. Each language says which of those forms it has rather than
+  inheriting another's: Zig has none at all, since a `\\` string ends with its line, so the
+  markdown a `\\` block holds is read as the code it sits in.
 
 On `x.word`, `x.f.word` and longer chains in Python, TypeScript and Go, `d` first looks for the
 type of the receiver. `x` is `self` or `cls` in a method, `this` in a class, a Go method's
@@ -274,16 +290,49 @@ the type before it. The type comes from the declaration:
 - a parameter handed on: `self.repo = repo`;
 - a call, one hop through the return type the function declares: `-> UserRepository`,
   `): UserRepository`, `func NewRepo() *UserRepository` (a Go function's first result), or a
-  TypeScript function whose every `return` is `new UserRepository()`;
+  function that declares none and whose every `return` constructs the same class,
+  `return new UserRepository()` in TypeScript, `return UserRepository()` in an undecorated Python
+  `def` (a bare `return` or a `yield` spoils it). A callee that a parameter or a local of the
+  scope names is a value, not the function of that name. The function may be a method called on a receiver
+  whose type is proven the same way, `info := e.RequestInfo()` or `repo = self.depot.people()`:
+  the method is looked for in that type and the types it extends, where it must be declared once,
+  an interface's method line included;
+- a cast: `repo = cast(UserRepository, found)` (`typing.cast` too, the type quoted or not;
+  a `cast` the project declares itself is a function, read by its return type),
+  `const repo = found as UserRepository` (the last type of `as unknown as T`),
+  `repo, ok := found.(*UserRepository)`, and the variable of a Go type switch,
+  `switch v := found.(type)`, inside a `case *UserRepository:` (a `case` of several types and
+  `default` leave it unknown). A chain may hang off the cast itself:
+  `(found as UserRepository).deleteUser`, `found.(*UserRepository).DeleteUser`,
+  `cast(UserRepository, found).delete_user`, `via found.(*UserRepository)`;
+- a loop over a collection whose type is written: `for repo in repos` with
+  `repos: list[UserRepository]` (`Sequence`, `Iterable`, `set`, `tuple[T, ...]` and the like),
+  `for (const repo of repos)` with `UserRepository[]`, `Array<T>` or `Set<T>`,
+  `for _, repo := range repos` with `[]*UserRepository`, `[4]T` or `map[K]T`. The collection is a
+  plain name, and every declaration of it writes that type: as an annotation, as the declared
+  return type of the function it was assigned from, or in Go as `make([]T, …)`, a literal `[]T{…}`
+  or a named type declared `type RepoList []*UserRepository`. `repos.word` on the collection itself is no member of `UserRepository`, and a `dict`'s
+  keys, a `Map`'s pairs, `for … in`, a tuple target, a single `range` variable and `async for`
+  stay unknown;
 - a property with a declared return type: `@property`, `@cached_property` or
   `@functools.cached_property` over `def users(self) -> UserRepository`, a getter
   `get users(): UserRepository`.
 
 `T | None`, `Optional[T]`, `Annotated[T, …]`, `T | null` and generic arguments read as `T`.
-Every declaration of `x` in scope counts: in Python every binding in the function, the enclosing
-functions and the module; in TypeScript and Go the declarations above the cursor in the blocks
-around it. They must all read the same type, so a variable shadowed by an inner function, a loop
-variable or a parameter with no annotation is never guessed. The type must be declared once, in
+The innermost scope that declares `x` decides: in Python the function the cursor is in (every
+binding in it, before the cursor or after), else the nearest enclosing function that binds the
+name, else the module; in TypeScript and Go the nearest block around the cursor with a declaration
+above it, a function's parameters counting with its body. So a local hides a module-level name, a
+closure's variable the one of the function around it, a block's the function's. The declarations
+of that one scope must all read the same type, and one that reads none (a loop variable, a
+parameter with no annotation) hides the outer ones all the same, so nothing is guessed: two
+assignments in the branches of an `if` are a picker. In TypeScript and Go a header hides the
+outer scopes only with what it binds for the block under it: the loop or the `catch` it is, the
+function whose body it opens. The parameter of any other function on those lines,
+`if (repos.some((repo: Repo) => …)) {` or `register((repo: Repo) => repo, {`, and of one on the
+cursor's own line, counts and hides nothing, since the cursor stands outside it; and what the
+`if` branch declares is nothing to its `else`. A line inside a docstring, a raw string or a
+template declares nothing. The type must be declared once, in
 the same file, the same Go package or the project module an import names. `d` then looks for the
 member in that type, and in the classes it extends and the structs it embeds, and the status line
 names the link: `via self.repo: UserRepository`, `via NewRepo() *UserRepository`,
@@ -298,6 +347,16 @@ method; a parameter behind a modifier only in a constructor; a line of a docstri
 interface or a base class `d` lands on the declaration there; a second `d`, with the cursor on it,
 lists what implements it.
 
+`super().word` in a Python method and `super.word` in a TypeScript class are `self` / `this` with
+the walk started one level up, so an override leads to what it overrides:
+`store → Archive.store (via super of ColdArchive)`. Under several Python bases only what needs no
+method resolution order is proven: the first base declaring the member itself, or every base
+leading to the same declaration (`Generic[T]`, `Protocol`, `ABC` and `object` aside), at every
+level the member is looked for. Bases that disagree, or one outside the project that may declare
+the member first, leave the word to the search by name, and so do `super()` in a function inside
+the method and a local assigned from `super.make()`, whose return type an override may narrow. Go has no `super`: its
+`i.Base.Touch()` is a chain through the embedded struct.
+
 A chain is followed the same way one field at a time, up to six names in front of the word: on
 `self.uow.users.delete_user` the type of `self.uow`, then the field `users` in that type, then
 `delete_user` in the type of `users`. A field may be declared in a class the type extends, or
@@ -309,8 +368,12 @@ A type declared outside the project or any link the rules cannot prove leaves th
 search by name below. With two or more names in front of the word the status line says where the
 chain broke: `delete_user: by name, 2 declarations (chain broke at item)` when `item` is typed by a
 generic parameter, at a property or a getter with no return type, or at the seventh name of a
-longer chain. A call inside the chain is not followed: `make_uow().users.delete_user` is a member
-of a value whose type is not known.
+longer chain. A chain may hang off the call that starts the expression, which is read as a call
+assigned to a name would be: `make_uow().users.delete_user` is
+`via make_uow() -> UnitOfWork → users: UserRepository`, and so are `pkg.New(x).Run`,
+`new Depot().people` and `self.repos.users.get_one(id).name`. A call of a call,
+`open_depot().people_repo().delete_user`, is not followed: it is a member of a value whose type is
+not known.
 
 When the type of `x` is not known, every method of that name is a candidate: Python `def` and
 `async def` inside a class, TypeScript class and object-literal methods, properties holding a
@@ -353,6 +416,10 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | Java | `class`, `interface`, `enum`, `record`, `@interface`; a method, an abstract or interface method and a field, told from a call by the return type before the name — a primitive, or a name with a capital in it, as Java writes its types; a constructor, behind at least one modifier, since a bare `Name(x) {` is a call. Annotations and modifiers may stand in front of any of them. | every `.java`, `.kt` and `.kts` file: they search each other |
 | Kotlin | `fun` (with the receiver of an extension function), `class`, `interface`, `object`, `enum class`, `typealias`, `val`/`var`, behind `private`/`open`/`data`/`sealed`/`suspend`/`override` and the rest | every `.java`, `.kt` and `.kts` file: they search each other |
 | Ruby | `def`, `def self.name`, `class`, `module`, an assignment (a constant, an `@ivar`, a local), `attr_accessor`/`attr_reader`/`attr_writer`, `alias`/`alias_method`. A trailing `?` or `!` is not part of the word, so `d` on `empty?` finds `def empty?`. Rails-style DSL (`scope`, `has_many`) has no rule. | every `.rb`, `.rake`, `.gemspec`, `.podspec`, `.rbi`, `.ru` file and `Rakefile`, `Gemfile`, `Vagrantfile` and friends |
+| C / C++ | a function, a prototype and an out-of-line method (`Type::name(`) in column zero, where the languages have no statements, so a call is never one — the return type may sit on the line above, as GNU style writes it; a method or a function indented, when its body opens on the line; `struct`, `class`, `union`, `enum`, `enum class`, `namespace`, behind a template head, a storage specifier and an attribute or export macro (`struct __attribute__ ((__packed__)) sdshdr8`, `class FMT_API name`), a template specialization included; `typedef` in every form, `using x =`, `#define` (function-like too), a global. A header's prototype is offered next to the definition, in the picker's usual order, by path. An enum constant has no rule — `NAME,` in an `enum` body and in an initializer list are the same line — nor has a field, a local, a template parameter or a member function only declared inside its class. | every `.c`, `.h`, `.cc`, `.cpp`, `.cxx`, `.hpp`, `.hh` and `.hxx` file: they search each other |
+| Lua | `function name(`, `local function name(`, `function M.name(`, `function M:name(` and the longer `function a.b.name(`; a function literal bound to a name (`M.name = function(`, `name = function(` in a table of handlers); `local name`, one of several on the line included. A field holding anything else has no rule: `limit = 10` in a table constructor and a re-assignment inside a body are the same line, and the language has no keyword to tell them apart. | every `.lua` file |
+| Elixir | every `def` form — `def`, `defp`, `defmacro`, `defmacrop`, `defguard`, `defguardp`, `defdelegate` — written `def name(x) do`, `def name do` or `def name, do: x`, a trailing `?` or `!` included; `defmodule` and `defprotocol` under the namespace they are written with, by their last part, so `defmodule MyApp.Repo` declares `MyApp.Repo` and nothing called `MyApp`; a `defstruct` field, atom list or keyword form, on the `defstruct` line itself — a field on a continuation line of a struct written over several lines has no rule, since that line is the shape of any keyword list; a module attribute where it is given a value (`@timeout 5_000`). Several clauses of one function are several declarations and all are offered. `@spec`, `@type` and the rest of the attributes the language and the libraries everyone uses own — ExUnit's `@tag`, Mix's `@shortdoc` — are directives: `@spec parse(t) :: t` is no declaration of `parse`, and `d` on one of those names has nothing to find. That is a list of known names, which is all a line pattern can have: any library may define an attribute, and `@tag :slow` and `@timeout 5_000` are the same line. `defimpl` declares the module `Protocol.Type`, where neither half is a name of its own, as a Rust `impl` is not. | every `.ex` and `.exs` file |
+| Zig | `fn name(`, behind `pub`, `export`, `extern "c"`, `inline`, `noinline`; `const` and `var`, which is how the language declares a type (`const Ledger = struct {`, `const Status = enum {`, `const Value = union(enum) {`), an import, a constant and a local alike, `threadlocal` and `comptime` included. A struct field (`total: u32,`) has no rule, as a C field has none: it is the shape of a value in a struct literal. Neither has a `test`: a word inside its description declares nothing, so `d` can never land there — `D` lists the tests instead. | every `.zig` file |
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
 | SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns have no rule. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable | every Makefile |
@@ -370,13 +437,19 @@ exported, since indented they are locals), plus shell functions (`name()`; the `
 the single regex already finds), SQL `CREATE`d objects under the name as written (`public.orders`,
 not CTEs), Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`,
 `module.x`, `var.x`, `output.x`), Dockerfile stages and YAML anchors, each read only from its own
-kind of file; recomputed on each press. Java, Kotlin and Ruby are read from rules of their own
-instead of that regex — Java's types and its methods, told from a call by the return type before the
-name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and `const val`;
-Ruby's methods, classes and modules, `def self.name` included — so none of them is listed twice or
-under a modifier or a receiver. TypeScript's class methods, with neither a keyword nor a type in
-front, are not listed: the regex cannot tell `name(` from a call. Neither are fields, a Ruby
-constant, or the names a Ruby `attr_accessor` line declares, since one line can declare several.
+kind of file; recomputed on each press. Zig adds a function behind `inline` or `noinline` and a
+`test`, under the description it is written with, which that regex has no word for. Java, Kotlin,
+Ruby, C, C++, Lua and Elixir are read from rules of their own instead of that regex — Java's types and its methods, told from a call by the return type before
+the name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and
+`const val`; Ruby's methods, classes and modules, `def self.name` included; C and C++ functions,
+methods, types, `typedef`s, `using` aliases and `#define`s; Lua's functions in both of the forms
+it writes them, under the name and not the table they hang off; Elixir's modules, protocols and
+every `def` form — so none of them is listed twice or under a modifier or a receiver. A C prototype is not listed, since every function of a header would
+be there twice, and a `typedef struct x { … } y;` is listed once, under the `y` the project writes.
+TypeScript's class methods, with neither a keyword nor a type in front, are not listed: the regex
+cannot tell `name(` from a call. Neither are fields, a C or Zig global, a Lua local, a Ruby
+constant, an Elixir module attribute or `defimpl`, or the names a Ruby `attr_accessor` or an
+Elixir `defstruct` line declares, since one line can declare several.
 Searches are smart-case — an all-lowercase query ignores case, one uppercase letter makes it
 case-sensitive — and `/` and `s` look for the text as typed: `foo(` finds the calls and the
 definition, `a.b` only `a.b`. There is no regex mode. `s` lists its hits while you type, the open
@@ -415,9 +488,14 @@ keeps the theme you had.
 
 The infrastructure half of a repository is highlighted too: Dockerfiles and `Containerfile` (with
 `RUN` lines as shell), compose, Kubernetes and CI YAML, Makefiles, Terraform, nginx, `.env`, TOML,
-INI and systemd units, `.dockerignore`, `CODEOWNERS`, Sorbet's `.rbi` files and `Dangerfile`. Helm
+INI and systemd units, `.dockerignore`, `CODEOWNERS`, Sorbet's `.rbi` files and `Dangerfile`. A
+`.h` file is painted as C++ rather than as the Objective-C bat's syntax set gives it: the C++
+grammar is the C one plus templates, classes and namespaces, so it reads a header of either
+language. An Objective-C header pays for that — its `@interface` and `@property` go unscoped,
+while its `.m` file keeps the Objective-C grammar. Helm
 templates are read as plain YAML, so their `{{ }}` blocks are not highlighted as a template
-language.
+language. A `build.zig.zon` is painted as Zig, which bat's grammar covers, though the data format
+it holds declares nothing `d` or `D` looks for.
 
 ## Config
 
