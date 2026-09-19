@@ -2157,6 +2157,7 @@ impl App {
                 .grep(r"^export\s+default\b", false, false, wanted)
                 .unwrap_or_default();
         }
+        let hits = self.host_built(kind, here, hits);
         // A file, or a Go package's directory.
         let label = |hit: &Hit| match (kind, hit.path.parent()) {
             (Kind::Go, Some(dir)) if dir != Path::new("") => format!("{}/", dir.display()),
@@ -2605,7 +2606,7 @@ impl App {
                 })
                 .collect();
             if !hits.is_empty() {
-                return one(hits);
+                return one(self.host_built(kind, file, hits));
             }
         }
         let imports = search::imports(kind, &self.text_of(file)?);
@@ -2642,17 +2643,39 @@ impl App {
         let want = Some(format!("{owner}.{word}"));
         let patterns = search::member_or_signature(kind, word).unwrap_or_default();
         let files = self.package_files(kind, &ty.path);
-        self.grep(&patterns.join("|"), false, false, |p| {
-            files.iter().any(|f| f == p)
-        })
-        .unwrap_or_default()
-        .into_iter()
-        .filter(|h| {
-            self.text_of(&h.path)
-                .and_then(|text| search::qualified(kind, &text, h.line, word))
-                == want
-        })
-        .collect()
+        let hits = self
+            .grep(&patterns.join("|"), false, false, |p| {
+                files.iter().any(|f| f == p)
+            })
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|h| {
+                self.text_of(&h.path)
+                    .and_then(|text| search::qualified(kind, &text, h.line, word))
+                    == want
+            })
+            .collect();
+        self.host_built(kind, &ty.path, hits)
+    }
+
+    /// Of several Go declarations of one name, those in files the host's `go build` compiles
+    /// (#100): `Clock` of `clock_linux.go` and of `clock_windows.go` is one type per platform.
+    /// Asked from `file`, which has to be built there itself: inside `clock_windows.go` on
+    /// another host nothing is preferred. A tag of the project's own decides nothing.
+    fn host_built(&self, kind: Kind, file: &Path, hits: Vec<Hit>) -> Vec<Hit> {
+        if kind != Kind::Go || hits.len() < 2 {
+            return hits;
+        }
+        let (goos, goarch) = search::go_host();
+        let built = |p: &Path| {
+            self.text_of(p)
+                .is_none_or(|t| search::go_built(p, &t, goos, goarch) != Some(false))
+        };
+        if !built(file) {
+            return hits;
+        }
+        let kept: Vec<Hit> = hits.iter().filter(|h| built(&h.path)).cloned().collect();
+        if kept.is_empty() { hits } else { kept }
     }
 
     /// The line on which `ty` itself declares the field `word` (#104), [`search::field_line`]: a
@@ -8433,6 +8456,68 @@ mod tests {
         d_on(&mut a, "a.go", "x.Run");
         assert_eq!(a.message, "Run \u{2192} B.Run (by name, 1 match)");
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #100. A Go type declared once per platform (`clock_windows.go` beside a
+    /// `//go:build !windows` file) is the one the host builds. A tag of the project's own decides
+    /// nothing, and neither does the host from inside a file it does not build.
+    #[test]
+    fn a_go_declaration_per_platform_is_the_hosts() {
+        let (mine, other) = match cfg!(windows) {
+            true => ("clock_windows.go", "clock_other.go"),
+            false => ("clock_other.go", "clock_windows.go"),
+        };
+        let now = |file: &str| format!("platform/{file}:11");
+        let via = |via: &str| format!("Now \u{2192} Clock.Now (via {via})");
+        let both = |status: &str, name: &str, a: &str, b: &str| {
+            Shown::Picker(
+                status.into(),
+                vec![
+                    (name.into(), "by name".into(), a.into()),
+                    (name.into(), "by name".into(), b.into()),
+                ],
+            )
+        };
+        go_rows(vec![
+            (
+                "platforms.go",
+                "clock.Now",
+                jump(&via("clock: Clock"), &now(mine)),
+            ),
+            (
+                "platforms.go",
+                "made.Now",
+                jump(&via("platform.NewClock() *Clock"), &now(mine)),
+            ),
+            (
+                "platforms.go",
+                "platform.NewClock",
+                jump(
+                    "NewClock: via import platform/",
+                    &format!("platform/{mine}:7"),
+                ),
+            ),
+            (
+                "platforms.go",
+                "codec.Encode",
+                both(
+                    "Encode: by name, 2 declarations",
+                    "Codec.Encode",
+                    "platform/codec_fast.go:8",
+                    "platform/codec_slow.go:7",
+                ),
+            ),
+            (
+                &format!("platform/{other}"),
+                "c.Now",
+                both(
+                    "Now: by name, 2 declarations",
+                    "Clock.Now",
+                    &now(other),
+                    &now(mine),
+                ),
+            ),
+        ]);
     }
 
     /// Step 6 of #68 over the same project in three languages: on the declaration of a member of

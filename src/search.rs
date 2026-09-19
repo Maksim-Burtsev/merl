@@ -3895,6 +3895,111 @@ pub fn declares_type(kind: Kind, line: &str) -> bool {
     }
 }
 
+/// The `GOOS` and `GOARCH` of the machine merl runs on, which is what `go build` targets there.
+pub fn go_host() -> (&'static str, &'static str) {
+    let os = match std::env::consts::OS {
+        "macos" => "darwin",
+        os => os,
+    };
+    let arch = match std::env::consts::ARCH {
+        "x86_64" => "amd64",
+        "aarch64" => "arm64",
+        "x86" => "386",
+        arch => arch,
+    };
+    (os, arch)
+}
+
+const GO_UNIX: &[&str] = &[
+    "aix",
+    "android",
+    "darwin",
+    "dragonfly",
+    "freebsd",
+    "hurd",
+    "illumos",
+    "ios",
+    "linux",
+    "netbsd",
+    "openbsd",
+    "solaris",
+];
+const GO_OS: &[&str] = &["js", "nacl", "plan9", "wasip1", "windows", "zos"];
+const GO_ARCH: &[&str] = &[
+    "386", "amd64", "arm", "arm64", "loong64", "mips", "mips64", "mips64le", "mipsle", "ppc64",
+    "ppc64le", "riscv64", "s390x", "wasm",
+];
+
+/// Whether `go build` for `goos` / `goarch` compiles the Go file `path` with the text `text`, as
+/// far as the platform decides it: the `_GOOS`, `_GOARCH` and `_GOOS_GOARCH` endings of its name
+/// and its `//go:build` line. `None` when the line names a tag that is no platform (`gogit`,
+/// `cgo`, `ignore`): what a build sets is not written in the source.
+pub fn go_built(path: &Path, text: &str, goos: &str, goarch: &str) -> Option<bool> {
+    let is_os = |t: &str| GO_UNIX.contains(&t) || GO_OS.contains(&t);
+    let tag = |t: &str| -> Option<bool> {
+        match t {
+            "unix" => Some(GO_UNIX.contains(&goos)),
+            t if is_os(t) => Some(t == goos),
+            t if GO_ARCH.contains(&t) => Some(t == goarch),
+            _ => None,
+        }
+    };
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+    let stem = stem.strip_suffix("_test").unwrap_or(stem);
+    let mut parts: Vec<&str> = stem.split('_').skip(1).collect();
+    let mut named = true;
+    if let Some(arch) = parts.pop_if(|p| GO_ARCH.contains(p)) {
+        named &= arch == goarch;
+    }
+    if let Some(os) = parts.pop_if(|p| is_os(p)) {
+        named &= os == goos;
+    }
+    if !named {
+        return Some(false);
+    }
+    let Some(expr) = text
+        .lines()
+        .take_while(|l| !l.starts_with("package "))
+        .find_map(|l| l.strip_prefix("//go:build "))
+    else {
+        return Some(true);
+    };
+    // `!` binds tightest, then `&&`, then `||`.
+    static TOKEN: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"&&|\|\||[!()]|[\w.]+").unwrap());
+    let tokens: Vec<&str> = TOKEN.find_iter(expr).map(|m| m.as_str()).collect();
+    fn any<'a>(t: &[&'a str], i: &mut usize, tag: &dyn Fn(&str) -> Option<bool>) -> Option<bool> {
+        let mut value = all(t, i, tag)?;
+        while t.get(*i) == Some(&"||") {
+            *i += 1;
+            value |= all(t, i, tag)?;
+        }
+        Some(value)
+    }
+    fn all<'a>(t: &[&'a str], i: &mut usize, tag: &dyn Fn(&str) -> Option<bool>) -> Option<bool> {
+        let mut value = one(t, i, tag)?;
+        while t.get(*i) == Some(&"&&") {
+            *i += 1;
+            value &= one(t, i, tag)?;
+        }
+        Some(value)
+    }
+    fn one<'a>(t: &[&'a str], i: &mut usize, tag: &dyn Fn(&str) -> Option<bool>) -> Option<bool> {
+        let token = *t.get(*i)?;
+        *i += 1;
+        match token {
+            "!" => one(t, i, tag).map(|v| !v),
+            "(" => {
+                let value = any(t, i, tag)?;
+                *i += 1;
+                Some(value)
+            }
+            name => tag(name),
+        }
+    }
+    any(&tokens, &mut 0, &tag)
+}
+
 /// What the Go line `type X = Y` names, `Y` as written; `None` for a defined type, `type X Y`,
 /// and for an alias with type parameters, whose arguments the rules do not carry.
 pub fn go_alias(kind: Kind, line: &str) -> Option<&str> {
@@ -4331,6 +4436,115 @@ mod tests {
         assert_eq!(
             q(Kind::Ruby, rb, 3, "total").as_deref(),
             Some("Billing.Invoice.total")
+        );
+    }
+
+    /// #100. A Go file is compiled for a platform by its name and its `//go:build` line; a tag
+    /// that is no platform leaves it undecided.
+    #[test]
+    fn a_go_file_is_built_for_a_platform_by_its_name_and_its_build_line() {
+        let built = |name: &str, line: &str, os: &str, arch: &str| {
+            let text = format!("// Copyright\n\n{line}\n\npackage p\n");
+            go_built(Path::new(name), &text, os, arch)
+        };
+        for (name, line, os, arch, want) in [
+            ("clock.go", "", "linux", "amd64", Some(true)),
+            ("clock_linux.go", "", "linux", "amd64", Some(true)),
+            ("clock_linux.go", "", "darwin", "arm64", Some(false)),
+            ("clock_linux_test.go", "", "darwin", "arm64", Some(false)),
+            ("clock_arm64.go", "", "darwin", "arm64", Some(true)),
+            ("clock_arm64.go", "", "darwin", "amd64", Some(false)),
+            ("clock_linux_arm64.go", "", "linux", "arm64", Some(true)),
+            ("clock_linux_arm64.go", "", "darwin", "arm64", Some(false)),
+            // The name of a file is no ending of it, and `unix` is no `GOOS` a name can spell.
+            ("linux.go", "", "darwin", "arm64", Some(true)),
+            ("clock_unix.go", "", "windows", "amd64", Some(true)),
+            (
+                "clock_unix.go",
+                "//go:build unix",
+                "windows",
+                "amd64",
+                Some(false),
+            ),
+            (
+                "clock_unix.go",
+                "//go:build unix",
+                "darwin",
+                "arm64",
+                Some(true),
+            ),
+            (
+                "clock_other.go",
+                "//go:build !windows",
+                "linux",
+                "amd64",
+                Some(true),
+            ),
+            (
+                "clock_other.go",
+                "//go:build !windows",
+                "windows",
+                "amd64",
+                Some(false),
+            ),
+            (
+                "c.go",
+                "//go:build linux || darwin",
+                "darwin",
+                "arm64",
+                Some(true),
+            ),
+            (
+                "c.go",
+                "//go:build linux && arm64",
+                "linux",
+                "amd64",
+                Some(false),
+            ),
+            (
+                "c.go",
+                "//go:build !(js && wasm)",
+                "linux",
+                "amd64",
+                Some(true),
+            ),
+            (
+                "c.go",
+                "//go:build (linux || darwin) && !amd64",
+                "darwin",
+                "amd64",
+                Some(false),
+            ),
+            (
+                "c.go",
+                "//go:build linux || darwin && amd64",
+                "linux",
+                "arm64",
+                Some(true),
+            ),
+            // The name and the line both have to hold.
+            (
+                "c_linux.go",
+                "//go:build arm64",
+                "linux",
+                "amd64",
+                Some(false),
+            ),
+            ("c.go", "//go:build gogit", "linux", "amd64", None),
+            ("c.go", "//go:build !gogit && linux", "linux", "amd64", None),
+            ("c.go", "//go:build ignore", "linux", "amd64", None),
+        ] {
+            assert_eq!(
+                built(name, line, os, arch),
+                want,
+                "{name} {line} on {os}/{arch}"
+            );
+        }
+        // A `//go:build` under the package clause is a comment.
+        let late = "package p\n\n//go:build windows\n";
+        assert_eq!(
+            go_built(Path::new("c.go"), late, "linux", "amd64"),
+            Some(true)
         );
     }
 
