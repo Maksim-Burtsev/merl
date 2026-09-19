@@ -142,6 +142,14 @@ no lines to read (images and other binaries, marked `bin`, a mode change, a pure
 stops: `c` walks past them and says how many, and Enter in the panel still opens them. A deleted
 file opens read-only from the base. Comments and approvals stay in the browser.
 
+The review can stay open next to an agent that is still working on the branch: the panel is the
+branch as it is now. A file touched for the first time gets its row, the counts and `file 3/12`
+follow every save, commit, rebase and `git switch`, and a file whose changes were reverted leaves
+(the open one stays open, without marks). A file git does not track yet, and does not ignore, is
+listed as `A` with every line added, and `c` walks into it. None of this moves the open file, the
+cursor or either scroll, and nothing opens on its own; when the agent writes above the hunk you
+are reading, the cursor goes down with the text, so `c` goes on from your hunk.
+
 ## Editing
 
 Enter turns the cursor into a text cursor, Esc turns it back. In between, merl is a plain
@@ -183,7 +191,7 @@ read-only, and so does a line too long to be shown whole.
 
 ## How navigation works
 
-There is no language server and no index: every lookup is a regex over the files found at startup,
+There is no language server and no index: every lookup is a regex over the project's files,
 run through [ripgrep](https://github.com/BurntSushi/ripgrep)'s library crates. `d` knows the
 declaration forms below and searches only where such a definition can live.
 
@@ -223,15 +231,23 @@ roots are the system headers: the SDK `xcrun` reports on a Mac, `/usr/include` o
 `/usr/local/include` and `/opt/homebrew/include`. `#include` binds no name of its own, so nothing
 narrows the search — not even a `std::` qualifier, which names a namespace and no directory — and a
 word the project does not declare is looked for in all of them. The C++ standard headers carry no
-extension, so `<vector>` itself is not read; what its implementation puts in `.h` files is. Java, Kotlin,
-Ruby and the rest have no roots yet, so `d` stays inside the project for them; Lua has none to
-ask for, since `package.path` belongs to whatever interpreter embeds it and neither a Neovim
-runtime nor a LuaRocks tree is a standard library every project shares; Elixir needs none, since
-`mix` puts the dependencies and their sources in `deps/` inside the project, where they are
-project files already, and an installed standard library is `.beam` files rather than `.ex`. Zig's
-root is the `std_dir` its own `zig env` reports; its dependencies live in the global package cache
-under hashed directory names no source line spells out, so they are left out, and
-`const std = @import("std")` narrows nothing — `std` is that root, not a directory inside it. A parameter has no
+extension, so `<vector>` itself is not read; what its implementation puts in `.h` files is. C# has
+nothing to point at — a NuGet package ships compiled assemblies and the runtime's own source is not
+on the machine. Swift has what SwiftPM checks a package's dependencies out into,
+`.build/checkouts`; its standard library ships compiled, with no `.swift` file to read, and an
+`import` names a module and makes everything in it visible unqualified, so it binds no name of its
+own and nothing narrows the search. PHP has Composer's `vendor/`, which is gitignored and so
+outside the project walk the way `node_modules` is, and a `use Illuminate\Support\Str` in column
+zero binds `Str` to that path, since PSR-4 spells a namespace the way the file system does; an
+indented `use` pulls in a trait and names no file. Zig's root is the `std_dir` its own `zig env`
+reports; its dependencies live in the global package cache under hashed directory names no source
+line spells out, so they are left out, and `const std = @import("std")` narrows nothing — `std` is
+that root, not a directory inside it. Lua has none to ask for, since `package.path` belongs to
+whatever interpreter embeds it and neither a Neovim runtime nor a LuaRocks tree is a standard
+library every project shares; Elixir needs none, since `mix` puts the dependencies and their
+sources in `deps/` inside the project, where they are project files already, and an installed
+standard library is `.beam` files rather than `.ex`. Java, Kotlin,
+Ruby and the rest have no roots yet, so `d` stays inside the project for them. A parameter has no
 declaration the rules know, nor has an enum variant unless its class declares it as a field (a
 Python `Enum` member, a TypeScript enum member with a value): `d` says so, and `u` lists every
 whole-word use of the identifier. On `x.field` the word is a member: in Python, TypeScript and Go
@@ -409,6 +425,9 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | Kotlin | `fun` (with the receiver of an extension function), `class`, `interface`, `object`, `enum class`, `typealias`, `val`/`var`, behind `private`/`open`/`data`/`sealed`/`suspend`/`override` and the rest | every `.java`, `.kt` and `.kts` file: they search each other |
 | Ruby | `def`, `def self.name`, `class`, `module`, an assignment (a constant, an `@ivar`, a local), `attr_accessor`/`attr_reader`/`attr_writer`, `alias`/`alias_method`. A trailing `?` or `!` is not part of the word, so `d` on `empty?` finds `def empty?`. Rails-style DSL (`scope`, `has_many`) has no rule. | every `.rb`, `.rake`, `.gemspec`, `.podspec`, `.rbi`, `.ru` file and `Rakefile`, `Gemfile`, `Vagrantfile` and friends |
 | C / C++ | a function, a prototype and an out-of-line method (`Type::name(`) in column zero, where the languages have no statements, so a call is never one — the return type may sit on the line above, as GNU style writes it; a method or a function indented, when its body opens on the line; `struct`, `class`, `union`, `enum`, `enum class`, `namespace`, behind a template head, a storage specifier and an attribute or export macro (`struct __attribute__ ((__packed__)) sdshdr8`, `class FMT_API name`), a template specialization included; `typedef` in every form, `using x =`, `#define` (function-like too), a global. A header's prototype is offered next to the definition, in the picker's usual order, by path. An enum constant has no rule — `NAME,` in an `enum` body and in an initializer list are the same line — nor has a field, a local, a template parameter or a member function only declared inside its class. | every `.c`, `.h`, `.cc`, `.cpp`, `.cxx`, `.hpp`, `.hh` and `.hxx` file: they search each other |
+| C# | `class`, `struct`, `interface`, `enum`, `record`, `record class`, `record struct`, `delegate`, past the generic parameters they declare and behind `[Attribute]` lists and any modifiers (`public sealed partial class Foo<T>`); a `namespace`, under its last part; a `using x =` alias; a constructor, behind at least one access modifier, since a bare `Invoice(n)` is a call; and a method, a property, an event, a field or a local, told from a call by the type before the name — a predefined one, `var`, or a name with a capital in it, as C# names its types — so `public int X { get; }`, `public string Name => _name;` and `int IComparable.CompareTo(o)` all count. An enum member has no rule: `Open,` in an `enum` body and in a collection initialiser are the same line. | every `.cs` and `.csx` file |
+| Swift | `class`, `struct`, `enum`, `protocol`, `actor`, `typealias`, `associatedtype`, `extension Type` — where a project keeps its own members of a type, often the only place — `func` past its generic parameters, `init`, `init?`, `subscript` and `deinit`, `let` / `var`, and an `enum` case, alone or among several on a line, with the associated or raw value it carries. All of them behind their `@attributes` and any modifiers (`public final override class func`, `private(set)` included), and a backticked name counts. A `case .open:` or `case let .open(x):` of a `switch` is a pattern, not a declaration, and a binding made by `if let` / `guard let` has no rule: it rebinds a name declared elsewhere. | every `.swift` file |
+| PHP | `function` (`&` included), `class`, `interface`, `trait`, `enum`, a `const` and a `define('X', …)`, an `enum` case, a property with the type it carries, and a constructor parameter promoted to one — all behind their `#[Attribute]`s and modifiers (`final public static function`) — plus an assignment that opens a line (`$x =`, `.=`, `??=`, `+=`). A `case X:` of a `switch`, a `$key => $value` pair, `$rows['x'] =` and `$this->name = …`, which writes to a property declared elsewhere, are not declarations, and a `foreach` target and a parameter have no rule. | every `.php` and `.phtml` file |
 | Lua | `function name(`, `local function name(`, `function M.name(`, `function M:name(` and the longer `function a.b.name(`; a function literal bound to a name (`M.name = function(`, `name = function(` in a table of handlers); `local name`, one of several on the line included. A field holding anything else has no rule: `limit = 10` in a table constructor and a re-assignment inside a body are the same line, and the language has no keyword to tell them apart. | every `.lua` file |
 | Elixir | every `def` form — `def`, `defp`, `defmacro`, `defmacrop`, `defguard`, `defguardp`, `defdelegate` — written `def name(x) do`, `def name do` or `def name, do: x`, a trailing `?` or `!` included; `defmodule` and `defprotocol` under the namespace they are written with, by their last part, so `defmodule MyApp.Repo` declares `MyApp.Repo` and nothing called `MyApp`; a `defstruct` field, atom list or keyword form, on the `defstruct` line itself — a field on a continuation line of a struct written over several lines has no rule, since that line is the shape of any keyword list; a module attribute where it is given a value (`@timeout 5_000`). Several clauses of one function are several declarations and all are offered. `@spec`, `@type` and the rest of the attributes the language and the libraries everyone uses own — ExUnit's `@tag`, Mix's `@shortdoc` — are directives: `@spec parse(t) :: t` is no declaration of `parse`, and `d` on one of those names has nothing to find. That is a list of known names, which is all a line pattern can have: any library may define an attribute, and `@tag :slow` and `@timeout 5_000` are the same line. `defimpl` declares the module `Protocol.Type`, where neither half is a name of its own, as a Rust `impl` is not. | every `.ex` and `.exs` file |
 | Zig | `fn name(`, behind `pub`, `export`, `extern "c"`, `inline`, `noinline`; `const` and `var`, which is how the language declares a type (`const Ledger = struct {`, `const Status = enum {`, `const Value = union(enum) {`), an import, a constant and a local alike, `threadlocal` and `comptime` included. A struct field (`total: u32,`) has no rule, as a C field has none: it is the shape of a value in a struct literal. Neither has a `test`: a word inside its description declares nothing, so `d` can never land there — `D` lists the tests instead. | every `.zig` file |
@@ -431,15 +450,24 @@ not CTEs), Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, 
 `module.x`, `var.x`, `output.x`), Dockerfile stages and YAML anchors, each read only from its own
 kind of file; recomputed on each press. Zig adds a function behind `inline` or `noinline` and a
 `test`, under the description it is written with, which that regex has no word for. Java, Kotlin,
-Ruby, C, C++, Lua and Elixir are read from rules of their own instead of that regex — Java's types and its methods, told from a call by the return type before
+Ruby, C, C++, C#, Swift, PHP, Lua and Elixir are read from rules of their
+own instead of that regex — Java's types and its methods, told from a call by the return type before
 the name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and
 `const val`; Ruby's methods, classes and modules, `def self.name` included; C and C++ functions,
-methods, types, `typedef`s, `using` aliases and `#define`s; Lua's functions in both of the forms
-it writes them, under the name and not the table they hang off; Elixir's modules, protocols and
-every `def` form — so none of them is listed twice or under a modifier or a receiver. A C prototype is not listed, since every function of a header would
+methods, types, `typedef`s, `using` aliases and `#define`s; C#'s types, delegates and namespaces
+behind their attributes and modifiers, and its methods and properties, told apart from a call the
+way Java's are; Swift's types, `protocol`s, `actor`s, `typealias`es, `func`s and `extension`s, an
+extension under the type it extends; PHP's types and `const`s in one row and its functions and
+methods in another, behind `final public static` and the rest; Lua's functions in both of the
+forms it writes them, under the name and not the table they hang off; Elixir's modules, protocols
+and every `def` form — so none of them is listed twice or
+under a modifier or a receiver. A C prototype is not listed, since every function of a header would
 be there twice, and a `typedef struct x { … } y;` is listed once, under the `y` the project writes.
 TypeScript's class methods, with neither a keyword nor a type in front, are not listed: the regex
-cannot tell `name(` from a call. Neither are fields, a C or Zig global, a Lua local, a Ruby
+cannot tell `name(` from a call. Neither are fields, a C or Zig global, a Lua local, a C#
+constructor (its class is already a row), a Swift `let`, `var`, `init` or `enum` case, a PHP
+property, `enum` case, `define()` or magic method (`__construct`, `__toString`: the language's
+hook, not the project's), a Ruby
 constant, an Elixir module attribute or `defimpl`, or the names a Ruby `attr_accessor` or an
 Elixir `defstruct` line declares, since one line can declare several.
 Past 5,000 declarations the grep stops, so the list is only what it reached in file order: the
@@ -456,9 +484,13 @@ case-sensitive — and `/` and `s` look for the text as typed: `foo(` finds the 
 definition, `a.b` only `a.b`. There is no regex mode. `s` lists its hits while you type, the open
 file's first; Up / Down pick one and Enter jumps to it.
 
-The file list comes from one `.gitignore`-respecting walk at startup and is not refreshed, so
-files created while merl is open show up after a restart. Dotfiles are part of it — `.github/`,
-`.env`, `.dockerignore` — and only the `.git`, `.hg` and `.svn` stores are skipped. The open file
+The file list comes from a `.gitignore`-respecting walk, and the project on screen is the project
+on disk: merl watches the root, and a file that an agent in the next pane creates, deletes or
+renames is in the tree, in `o` and in what `s`, `u` and `d` search a moment later, with no key and
+no restart. The tree cursor stays on its entry, expanded directories stay expanded, an open picker
+keeps its rows until it is reopened, and an edited `.gitignore` is picked up. Dotfiles are part of
+the list — `.github/`, `.env`, `.dockerignore` — and only the `.git`, `.hg` and `.svn` stores are
+skipped. The open file
 itself is watched and reloads on every change on disk, keeping the cursor, the scroll position and
 the jump history.
 
