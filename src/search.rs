@@ -1106,6 +1106,9 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     static RECEIVER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^func\s+\(\s*(?:\w+\s+)?\*?\s*([A-Za-z_]\w*)").unwrap()
     });
+    static FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)").unwrap()
+    });
     static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").unwrap()
     });
@@ -1130,6 +1133,13 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     };
     let lines: Vec<&str> = text.lines().collect();
     let target = *lines.get(line.checked_sub(1)?)?;
+    // Any other name on a Go function's line is the function's, a parameter or a named result,
+    // and reads as a local of its body does (#100): `Load.err`, not the field `Issue.err`.
+    if kind == Kind::Go
+        && let Some(c) = FUNC.captures(target).filter(|c| &c[1] != name)
+    {
+        return Some(format!("{}{sep}{name}", &c[1]));
+    }
     if let Some(c) = RECEIVER.captures(target).filter(|_| kind == Kind::Go) {
         return Some(format!("{}{sep}{name}", &c[1]));
     }
@@ -1873,6 +1883,12 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
         | Kind::Yaml => {}
     }
     out
+}
+
+/// The 1-based line of the Go file `text` whose import binds `name`, as [`imports`] reads it.
+pub fn go_import_line(text: &str, name: &str) -> Option<usize> {
+    let binds = |l: &str| imports(Kind::Go, l).iter().any(|(n, _)| n == name);
+    text.lines().position(binds).map(|i| i + 1)
 }
 
 /// One `use` tree: `a::b::{c, d as e, f::*}` binds `c`, `e` and every name of `f`. A `crate`,
@@ -3206,7 +3222,8 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
                 }
             } else if t
                 .strip_prefix("const ")
-                .is_some_and(|rest| names(rest, name))
+                // The names, not the value: `const csp = "… http://…"` declares no `http`.
+                .is_some_and(|rest| names(rest.split('=').next().unwrap_or(rest), name))
             {
                 Value::Unknown
             } else {
@@ -3216,6 +3233,94 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
         _ => return,
     };
     out.push(Binding { line, value });
+}
+
+/// Whether the Go function around 1-based `line` of `text` may declare `name` (#100): the name
+/// stands as a whole word, outside strings and comments, somewhere from the function's `func`
+/// line down to `line` itself, other than in front of a `.` or a `)`. A declaration never
+/// writes its name there, whatever its form (`f(repo)` hands it on, and a parameter list of bare
+/// names is a list of types), so `false` proves there is no local of the
+/// name, which an empty [`bindings`] does not: its walk misses a header with a function-typed
+/// parameter, a `var (` block inside a function, the lines above a label. Uses of the name as
+/// an argument say `true` as well, and the caller then proves nothing.
+pub fn go_may_declare(text: &str, line: usize, name: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Go, text);
+    let at = line.saturating_sub(1).min(lines.len());
+    let mentions = |l: &str| {
+        let code: String = {
+            let mut bytes = vec![b' '; l.len()];
+            for (i, c) in code(Kind::Go, l) {
+                bytes[i] = if c == 0 { b' ' } else { c };
+            }
+            String::from_utf8_lossy(&bytes).into_owned()
+        };
+        code.match_indices(name).any(|(i, m)| {
+            let ident = |c: char| c.is_alphanumeric() || c == '_';
+            !code[..i].ends_with(ident)
+                && !code[i + m.len()..].starts_with(ident)
+                && !code[i + m.len()..].trim_start().starts_with(['.', ')'])
+        })
+    };
+    // The line itself counts: `if repo := get(); repo.Do() {`, a function written on one line.
+    for i in (0..=at.min(lines.len().saturating_sub(1))).rev() {
+        let l = lines[i];
+        if literal[i] || l.trim().is_empty() {
+            continue;
+        }
+        if mentions(l) {
+            return true;
+        }
+        // The function starts at the `func` in column 0, and what ends the declaration above
+        // it, or starts another, is the package's, as the cursor then is. Any other line in
+        // column 0 still belongs to the function: a header's closer (`) error {`, `}) {`), a
+        // label, whatever else: reading on can only find more mentions.
+        let ends = l.starts_with("func")
+            || ["}", ")"].contains(&l.trim_end())
+            || ["type ", "var ", "const ", "import ", "package "]
+                .iter()
+                .any(|k| l.starts_with(k));
+        if i < at && ends {
+            return false;
+        }
+    }
+    false
+}
+
+/// What the Go file `text` declares `name` as at the level of its package: `var name T`,
+/// `var name = …`, alone or as a line of a `var (` block, anywhere in the file (#100). The scope
+/// walk of [`bindings`] reads the open file upwards only, so another file of the package and the
+/// lines below the cursor are read through this.
+pub fn package_bindings(text: &str, name: &str) -> Vec<Binding> {
+    let literal = literal_lines(Kind::Go, text);
+    let mut out = Vec::new();
+    let mut block = false;
+    // The indent of the open block's entries: that of its first line.
+    let mut level = None;
+    for (i, l) in text.lines().enumerate() {
+        let code = uncommented(Kind::Go, l);
+        let t = code.trim();
+        if literal[i] || t.is_empty() {
+            continue;
+        }
+        match (indent(l), block) {
+            (0, _) if t == "var (" => (block, level) = (true, None),
+            (0, _) => {
+                block = false;
+                statement_bindings(Kind::Go, t, i + 1, name, &mut out);
+            }
+            // gofmt aligns the `=` of a block with spaces, which one `var` line never has. A
+            // deeper line belongs to an entry's value or type, `cfg struct {` / `repo *Repo`.
+            (n, true) if Some(n) == level.or(Some(n)) => {
+                level = Some(n);
+                let words: Vec<&str> = t.split_whitespace().collect();
+                let t = format!("var {}", words.join(" "));
+                statement_bindings(Kind::Go, &t, i + 1, name, &mut out);
+            }
+            _ => {}
+        }
+    }
+    out
 }
 
 /// The lines of the body of the class, interface or struct declared on line `k`: past a Python
@@ -3863,6 +3968,158 @@ pub fn declares_type(kind: Kind, line: &str) -> bool {
     }
 }
 
+/// The `GOOS` and `GOARCH` of the machine merl runs on, which is what `go build` targets there.
+pub fn go_host() -> (&'static str, &'static str) {
+    let os = match std::env::consts::OS {
+        "macos" => "darwin",
+        os => os,
+    };
+    let arch = match std::env::consts::ARCH {
+        "x86_64" => "amd64",
+        "aarch64" => "arm64",
+        "x86" => "386",
+        arch => arch,
+    };
+    (os, arch)
+}
+
+const GO_UNIX: &[&str] = &[
+    "aix",
+    "android",
+    "darwin",
+    "dragonfly",
+    "freebsd",
+    "hurd",
+    "illumos",
+    "ios",
+    "linux",
+    "netbsd",
+    "openbsd",
+    "solaris",
+];
+const GO_OS: &[&str] = &["js", "nacl", "plan9", "wasip1", "windows", "zos"];
+const GO_ARCH: &[&str] = &[
+    "386",
+    "amd64",
+    "amd64p32",
+    "arm",
+    "arm64",
+    "arm64be",
+    "armbe",
+    "loong64",
+    "mips",
+    "mips64",
+    "mips64le",
+    "mips64p32",
+    "mips64p32le",
+    "mipsle",
+    "ppc",
+    "ppc64",
+    "ppc64le",
+    "riscv",
+    "riscv64",
+    "s390",
+    "s390x",
+    "sparc",
+    "sparc64",
+    "wasm",
+];
+
+/// Whether `go build` for `goos` / `goarch` compiles the Go file `path` with the text `text`, as
+/// far as the platform decides it: the `_GOOS`, `_GOARCH` and `_GOOS_GOARCH` endings of its name
+/// and its `//go:build` line. `None` when the line names a tag that is no platform (`gogit`,
+/// `cgo`, `ignore`): what a build sets is not written in the source.
+pub fn go_built(path: &Path, text: &str, goos: &str, goarch: &str) -> Option<bool> {
+    let is_os = |t: &str| GO_UNIX.contains(&t) || GO_OS.contains(&t);
+    let tag = |t: &str| -> Option<bool> {
+        match t {
+            "unix" => Some(GO_UNIX.contains(&goos)),
+            t if is_os(t) => Some(t == goos),
+            t if GO_ARCH.contains(&t) => Some(t == goarch),
+            _ => None,
+        }
+    };
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+    let stem = stem.strip_suffix("_test").unwrap_or(stem);
+    let mut parts: Vec<&str> = stem.split('_').skip(1).collect();
+    let mut named = true;
+    if let Some(arch) = parts.pop_if(|p| GO_ARCH.contains(p)) {
+        named &= arch == goarch;
+    }
+    if let Some(os) = parts.pop_if(|p| is_os(p)) {
+        named &= os == goos;
+    }
+    if !named {
+        return Some(false);
+    }
+    // A line inside a `/* */` block in front of the package clause is a comment's.
+    let literal = literal_lines(Kind::Go, text);
+    let head = || {
+        let lines = text.lines().take_while(|l| !l.starts_with("package "));
+        lines
+            .enumerate()
+            .filter(|(i, _)| !literal[*i])
+            .map(|(_, l)| l)
+    };
+    let Some(expr) = head().find_map(|l| l.strip_prefix("//go:build ")) else {
+        // The constraint of before Go 1.17 is not read: undecided, never "no constraint".
+        return (!head().any(|l| l.starts_with("// +build"))).then_some(true);
+    };
+    // `!` binds tightest, then `&&`, then `||`. A tag that is no platform is unknown, and
+    // decides nothing only where the platforms around it have not decided already.
+    static TOKEN: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"&&|\|\||[!()]|[\w.]+").unwrap());
+    let tokens: Vec<&str> = TOKEN.find_iter(expr).map(|m| m.as_str()).collect();
+    type Tag<'a> = &'a dyn Fn(&str) -> Option<bool>;
+    fn any(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
+        let mut value = all(t, i, tag);
+        while t.get(*i) == Some(&"||") {
+            *i += 1;
+            value = match (value, all(t, i, tag)) {
+                (Some(true), _) | (_, Some(true)) => Some(true),
+                (Some(false), Some(false)) => Some(false),
+                _ => None,
+            };
+        }
+        value
+    }
+    fn all(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
+        let mut value = one(t, i, tag);
+        while t.get(*i) == Some(&"&&") {
+            *i += 1;
+            value = match (value, one(t, i, tag)) {
+                (Some(false), _) | (_, Some(false)) => Some(false),
+                (Some(true), Some(true)) => Some(true),
+                _ => None,
+            };
+        }
+        value
+    }
+    fn one(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
+        let token = *t.get(*i)?;
+        *i += 1;
+        match token {
+            "!" => one(t, i, tag).map(|v| !v),
+            "(" => {
+                let value = any(t, i, tag);
+                *i += 1;
+                value
+            }
+            name => tag(name),
+        }
+    }
+    any(&tokens, &mut 0, &tag)
+}
+
+/// What the Go line `type X = Y` names, `Y` as written; `None` for a defined type, `type X Y`,
+/// and for an alias with type parameters, whose arguments the rules do not carry.
+pub fn go_alias(kind: Kind, line: &str) -> Option<&str> {
+    static ALIAS: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^type\s+[A-Za-z_]\w*\s*=\s*([^/]+)").unwrap());
+    let named = ALIAS.captures(line).filter(|_| kind == Kind::Go)?;
+    Some(named.get(1)?.as_str().trim())
+}
+
 /// The name a written type comes down to, as its dotted parts: `["UserRepository"]`,
 /// `["store", "Session"]`. `T | None`, `Optional[T]`, `Annotated[T, …]`, `T | null | undefined`, a
 /// quoted forward reference, a Go pointer and generic arguments read as `T`. A list, a function
@@ -3961,25 +4218,44 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
 /// `toml@v1.2.3`), a Go module escapes upper case (`!burnt!sushi`) and a crate name spells
 /// `_` as `-`: those are ignored.
 pub fn in_module(path: &Path, parts: &[String]) -> bool {
-    let norm = |s: &str| -> String {
-        let s = s.split('@').next().unwrap_or(s);
-        // `fs.d.ts`, `python3.13`, `github.com`: the stem before every extension.
-        let s = s.split('.').next().unwrap_or(s);
-        // `name-1.2.3`: the version after the first `-` followed by a digit.
-        let s = s
-            .match_indices('-')
-            .find(|(i, _)| s[i + 1..].starts_with(|c: char| c.is_ascii_digit()))
-            .map_or(s, |(i, _)| &s[..i]);
-        s.replace('!', "").replace('-', "_").to_ascii_lowercase()
-    };
-    let mut want = parts.iter().map(|p| norm(p)).peekable();
+    let mut want = parts.iter().map(|p| module_part(p)).peekable();
     for c in path.components() {
         let c = c.as_os_str().to_string_lossy();
-        if want.peek().is_some_and(|w| *w == norm(&c)) {
+        if want.peek().is_some_and(|w| *w == module_part(&c)) {
             want.next();
         }
     }
     want.peek().is_none()
+}
+
+/// A directory or a part of a module path without what only one of the two carries.
+fn module_part(s: &str) -> String {
+    let s = s.split('@').next().unwrap_or(s);
+    // `fs.d.ts`, `python3.13`, `github.com`: the stem before every extension.
+    let s = s.split('.').next().unwrap_or(s);
+    // `name-1.2.3`: the version after the first `-` followed by a digit.
+    let s = s
+        .match_indices('-')
+        .find(|(i, _)| s[i + 1..].starts_with(|c: char| c.is_ascii_digit()))
+        .map_or(s, |(i, _)| &s[..i]);
+    s.replace('!', "").replace('-', "_").to_ascii_lowercase()
+}
+
+/// Whether the Go file `path` is of the package imported as `parts` (#100): a Go package is one
+/// directory, so the file's own directory ends with the import path, and `database/sql` is not
+/// `database/sql/driver`. A path with no dot in its first part is the standard library's, which
+/// sits right under GOROOT's `src` (or a `vendor` there): `errors` is not `github.com/pkg/errors`.
+pub fn in_package(path: &Path, parts: &[String]) -> bool {
+    let dirs: Vec<String> = path
+        .parent()
+        .into_iter()
+        .flat_map(Path::components)
+        .map(|c| module_part(&c.as_os_str().to_string_lossy()))
+        .collect();
+    let want: Vec<String> = parts.iter().map(|p| module_part(p)).collect();
+    let std = parts.first().is_some_and(|p| !p.contains('.'));
+    dirs.strip_suffix(want.as_slice())
+        .is_some_and(|above| !std || above.last().is_some_and(|d| d == "src" || d == "vendor"))
 }
 
 /// The name `D` lists for a line matched by `re`, one of the [`SYMBOLS`] patterns: Terraform
@@ -4290,6 +4566,279 @@ mod tests {
         assert_eq!(
             q(Kind::Ruby, rb, 3, "total").as_deref(),
             Some("Billing.Invoice.total")
+        );
+    }
+
+    /// #100. A `var (` block declares what stands at its own level; a function may declare a
+    /// name wherever it mentions it other than in front of a `.`.
+    #[test]
+    fn a_go_package_block_is_read_at_its_level_and_a_mention_may_declare() {
+        let block = "var (\n\tcfg struct {\n\t\trepo *B\n\t}\n\n\t// the audit log\n\taudit AuditLog // shared\n)\n\nfunc f() {\n\trepo := 1\n}\n\ntype T struct {\n\taudit *B\n}\n";
+        assert_eq!(package_bindings(block, "repo"), vec![]);
+        assert_eq!(
+            package_bindings(block, "audit"),
+            vec![Binding {
+                line: 7,
+                value: Value::Type("AuditLog".into())
+            }]
+        );
+        // The cursor is on the last `repo.Do()` of each.
+        for (code, want) in [
+            ("var x = repo.Do()\n", false),
+            (
+                "func Run(repo *A, fn func() error) {\n\trepo.Do()\n}\n",
+                true,
+            ),
+            ("func Wide(\n\trepo *A,\n) error {\n\trepo.Do()\n}\n", true),
+            (
+                "func Struct(repo *A, fn func()) (out struct {\n\tX int\n}) {\n\trepo.Do()\n}\n",
+                true,
+            ),
+            // A word of a comment or a string, a receiver of `.`, an argument handed on.
+            (
+                "func Free() {\n\t// repo is a word\n\tlog(\"repo\")\n\trepo.Do()\n\tsave(repo)\n\trepo.Do()\n}\n",
+                false,
+            ),
+            ("func Arg() {\n\tsave(repo, 1)\n\trepo.Do()\n}\n", true),
+            (
+                "func Label() {\n\trepo := 1\nretry: // again\n\trepo.Do()\n}\n",
+                true,
+            ),
+            // On the line itself.
+            ("func One(repo *A, fn func()) { repo.Do() }\n", true),
+            (
+                "func If() {\n\tif repo := get(); repo.Do() {\n\t}\n}\n",
+                true,
+            ),
+            // The function above is another function.
+            (
+                "func Above(repo *A) {\n}\n\nfunc Below() {\n\trepo.Do()\n}\n",
+                false,
+            ),
+        ] {
+            let text = format!("package p\n\n{code}");
+            let lines: Vec<&str> = text.lines().collect();
+            let line = lines.iter().rposition(|l| l.contains("repo.Do()")).unwrap() + 1;
+            assert_eq!(go_may_declare(&text, line, "repo"), want, "{code}");
+        }
+    }
+
+    /// #100. A Go package is the one directory its import path ends at.
+    #[test]
+    fn a_go_package_is_one_directory() {
+        let parts = |p: &str| -> Vec<String> { p.split('/').map(str::to_owned).collect() };
+        for (file, import, want) in [
+            ("/go/src/database/sql/sql.go", "database/sql", true),
+            (
+                "/go/src/database/sql/driver/driver.go",
+                "database/sql",
+                false,
+            ),
+            (
+                "/go/src/database/sql/driver/driver.go",
+                "database/sql/driver",
+                true,
+            ),
+            (
+                "/go/src/vendor/golang.org/x/net/http2/h.go",
+                "golang.org/x/net/http2",
+                true,
+            ),
+            (
+                "/mod/gopkg.in/yaml.v3@v3.0.1/yaml.go",
+                "gopkg.in/yaml.v3",
+                true,
+            ),
+            (
+                "/mod/github.com/!burnt!sushi/toml@v1.2.3/lex.go",
+                "github.com/BurntSushi/toml",
+                true,
+            ),
+            (
+                "/mod/github.com/foo/bar/v2@v2.1.0/sub/s.go",
+                "github.com/foo/bar/v2/sub",
+                true,
+            ),
+            (
+                "/mod/github.com/foo/bar/v2@v2.1.0/sub/s.go",
+                "github.com/foo/bar/v2",
+                false,
+            ),
+            ("/go/src/errors/errors.go", "errors", true),
+            (
+                "/mod/github.com/pkg/errors@v0.9.1/errors.go",
+                "errors",
+                false,
+            ),
+            ("/go/src/internal/errors/e.go", "errors", false),
+            ("/proj/vendor/errors/e.go", "errors", true),
+            ("/proj/lib/errors/e.go", "errors", false),
+        ] {
+            assert_eq!(
+                in_package(Path::new(file), &parts(import)),
+                want,
+                "{file} as {import}"
+            );
+        }
+    }
+
+    /// #100. A Go file is compiled for a platform by its name and its `//go:build` line; a tag
+    /// that is no platform leaves it undecided.
+    #[test]
+    fn a_go_file_is_built_for_a_platform_by_its_name_and_its_build_line() {
+        let built = |name: &str, line: &str, os: &str, arch: &str| {
+            let text = format!("// Copyright\n\n{line}\n\npackage p\n");
+            go_built(Path::new(name), &text, os, arch)
+        };
+        for (name, line, os, arch, want) in [
+            ("clock.go", "", "linux", "amd64", Some(true)),
+            ("clock_linux.go", "", "linux", "amd64", Some(true)),
+            ("clock_linux.go", "", "darwin", "arm64", Some(false)),
+            ("clock_linux_test.go", "", "darwin", "arm64", Some(false)),
+            ("clock_arm64.go", "", "darwin", "arm64", Some(true)),
+            ("clock_arm64.go", "", "darwin", "amd64", Some(false)),
+            ("clock_linux_arm64.go", "", "linux", "arm64", Some(true)),
+            ("clock_linux_arm64.go", "", "darwin", "arm64", Some(false)),
+            // The name of a file is no ending of it, and `unix` is no `GOOS` a name can spell.
+            ("linux.go", "", "darwin", "arm64", Some(true)),
+            ("clock_unix.go", "", "windows", "amd64", Some(true)),
+            (
+                "clock_unix.go",
+                "//go:build unix",
+                "windows",
+                "amd64",
+                Some(false),
+            ),
+            (
+                "clock_unix.go",
+                "//go:build unix",
+                "darwin",
+                "arm64",
+                Some(true),
+            ),
+            (
+                "clock_other.go",
+                "//go:build !windows",
+                "linux",
+                "amd64",
+                Some(true),
+            ),
+            (
+                "clock_other.go",
+                "//go:build !windows",
+                "windows",
+                "amd64",
+                Some(false),
+            ),
+            (
+                "c.go",
+                "//go:build linux || darwin",
+                "darwin",
+                "arm64",
+                Some(true),
+            ),
+            (
+                "c.go",
+                "//go:build linux && arm64",
+                "linux",
+                "amd64",
+                Some(false),
+            ),
+            (
+                "c.go",
+                "//go:build !(js && wasm)",
+                "linux",
+                "amd64",
+                Some(true),
+            ),
+            (
+                "c.go",
+                "//go:build (linux || darwin) && !amd64",
+                "darwin",
+                "amd64",
+                Some(false),
+            ),
+            (
+                "c.go",
+                "//go:build linux || darwin && amd64",
+                "linux",
+                "arm64",
+                Some(true),
+            ),
+            // The name and the line both have to hold.
+            (
+                "c_linux.go",
+                "//go:build arm64",
+                "linux",
+                "amd64",
+                Some(false),
+            ),
+            ("c.go", "//go:build gogit", "linux", "amd64", None),
+            ("c.go", "//go:build !gogit && linux", "linux", "amd64", None),
+            (
+                "c.go",
+                "//go:build !gogit && linux",
+                "darwin",
+                "arm64",
+                Some(false),
+            ),
+            ("c.go", "//go:build ignore", "linux", "amd64", None),
+            // A platform that has decided is not undone by a tag that is none.
+            (
+                "c.go",
+                "//go:build windows && cgo",
+                "darwin",
+                "arm64",
+                Some(false),
+            ),
+            (
+                "c.go",
+                "//go:build cgo && windows",
+                "darwin",
+                "arm64",
+                Some(false),
+            ),
+            (
+                "c.go",
+                "//go:build darwin || cgo",
+                "darwin",
+                "arm64",
+                Some(true),
+            ),
+            ("c.go", "//go:build darwin && cgo", "darwin", "arm64", None),
+            ("c.go", "//go:build windows || cgo", "darwin", "arm64", None),
+            (
+                "c.go",
+                "//go:build !(windows && cgo)",
+                "darwin",
+                "arm64",
+                Some(true),
+            ),
+            // The old spelling is not read, and an architecture is one whatever the host.
+            ("c.go", "// +build windows", "darwin", "arm64", None),
+            ("c_sparc64.go", "", "darwin", "arm64", Some(false)),
+        ] {
+            assert_eq!(
+                built(name, line, os, arch),
+                want,
+                "{name} {line} on {os}/{arch}"
+            );
+        }
+        // The host is spelled as Go spells it.
+        let (os, arch) = go_host();
+        assert!(GO_UNIX.contains(&os) || GO_OS.contains(&os), "{os}");
+        assert!(GO_ARCH.contains(&arch), "{arch}");
+        // So is one inside a block comment above it.
+        let block = "/*\n//go:build windows\n*/\n\npackage p\n";
+        assert_eq!(
+            go_built(Path::new("c.go"), block, "linux", "amd64"),
+            Some(true)
+        );
+        // A `//go:build` under the package clause is a comment.
+        let late = "package p\n\n//go:build windows\n";
+        assert_eq!(
+            go_built(Path::new("c.go"), late, "linux", "amd64"),
+            Some(true)
         );
     }
 

@@ -174,6 +174,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `v, ok := i.(T)` and the variable of `switch v := x.(type)` inside a `case T:`, assigned to a
   name or with the member hanging off the cast, `(x as T).find`, `i.(T).Find`. A cast to a type
   the project does not declare, a `case` of several types and `default` stay by name. (#100)
+- `d` proves more Go receivers: a package-level `var` declared in another file of the package,
+  in a `var (` block or below the cursor (`defaultRepo.DeleteUser`); a type behind `type X = Y`,
+  which is `Y`, where `type X Y` stays a type of its own; and a type declared once per platform
+  (`clock_windows.go` beside a `//go:build !windows` file), where the file the host's `go build`
+  compiles counts. A build tag that is no platform, two files that disagree and a question asked
+  from inside a file the host does not build stay a picker. (#100)
+- `d` on a Go package qualifier, `db` in `db.Get`, lands on the import line of the open file,
+  `db: via import code.gitea.io/gitea/models/db`, where it used to list every `db` of the project
+  by name. (#100)
 
 ### Changed
 
@@ -182,6 +191,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   six-step "A day with merl", and "What merl is not". The editing and navigation reference moved
   to `docs/editing.md` and `docs/navigation.md`, the theme details to `docs/themes.md`, and the
   `Cargo.toml` description says the same as the tagline (#72).
+- A reload from disk no longer empties the undo history: it is one step of it, as in VS Code and
+  Vim. After an agent writes the open file, Ctrl+Z takes back what it wrote, line endings and the
+  final newline included, and then the edits made before it; Ctrl+Y replays both. The step holds
+  only the lines that changed. The edits Ctrl+R drops after a conflict are one Ctrl+Z away.
+  (#122)
 - `u` lists the same hits in the order a reader wants them: the declarations of the word first,
   each row marked `declaration`, then the open file, then the rest of the project's code with the
   nearest directories first, and tests, mocks, fixtures, generated and vendored files last
@@ -216,8 +230,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Symbols (94 hits)` for its answer, `5000+` when the cut caught that one too. Under the cap
   nothing changes. (#79)
 
+- `via import database/sql` lists that package and no longer `database/sql/driver`: outside the
+  project a Go import is one directory, the standard library's right under GOROOT's `src`, so
+  `errors` is not `github.com/pkg/errors`. A package that is not installed is `by name`, not `via
+  import` of the directory above it. (#100)
+- A Go parameter or named result found as `local` reads `Load.err`, as a local of the body does,
+  not `Issue.err`, which named a field. (#100)
+- A count behind a grep that stopped at its cap says `+` also when a filter made the list short
+  afterwards (`Pick: via import example.com/lib, 1+ declarations`), and the one candidate left
+  is offered, not jumped to. (#100)
+
 ### Fixed
 
+- A standard-library or dependency file stays read-only when it changes on disk or Ctrl+R
+  reloads it; the reload made it editable.
+- A Go `const` whose value spells a name no longer declares it: `const csp = "… http://…"` hid
+  the `net/http` import of its file, so `http.Server` went by name into the project. Found by the
+  hand pass of #100.
 - SIGTERM, SIGHUP (a closed terminal or tmux pane) and SIGINT from outside end merl as `q` does:
   unsaved edits are written and the terminal is restored, instead of a shell left on the
   alternate screen with merl's last frame. (#80)

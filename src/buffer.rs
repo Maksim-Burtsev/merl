@@ -60,6 +60,16 @@ pub struct Buffer {
     checkpoints: Vec<(ParseState, HighlightState)>,
 }
 
+/// What a file is besides its lines: how they go back to disk, what Tab inserts, whether they
+/// may change. A reload can change it with the text, and undoing the reload puts it back.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Format {
+    crlf: bool,
+    trailing_newline: bool,
+    tabs: bool,
+    pub readonly: Option<&'static str>,
+}
+
 impl Buffer {
     /// An empty scratch buffer, used when merl is opened on a directory.
     pub fn empty() -> Self {
@@ -119,6 +129,20 @@ impl Buffer {
             out.push_str(nl);
         }
         out.into_bytes()
+    }
+
+    pub fn format(&self) -> Format {
+        Format {
+            crlf: self.crlf,
+            trailing_newline: self.trailing_newline,
+            tabs: self.tabs,
+            readonly: self.readonly,
+        }
+    }
+
+    pub fn set_format(&mut self, f: Format) {
+        (self.crlf, self.trailing_newline) = (f.crlf, f.trailing_newline);
+        (self.tabs, self.readonly) = (f.tabs, f.readonly);
     }
 
     /// Forgets the highlighting from line `l` on: the next `highlight_to` re-parses from the

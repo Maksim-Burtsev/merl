@@ -37,7 +37,10 @@ word to: `np.array` behind `import numpy as np` looks in `numpy`, `load` behind
 `from json import load` in `json`, `Regex::new` behind `use regex::Regex` in the `regex` crate,
 `chromium.launch()` behind `import { chromium } from 'playwright'` in that package; a bare
 `std::fs::read_to_string` is its own path, and a relative import (`from . import views`,
-`./utils`) is never looked for outside. A compiled module such as `orjson` lands in its `.pyi`
+`./utils`) is never looked for outside. A Go package is one directory, so `sql.Open` behind
+`import "database/sql"` reads the files of `database/sql` and none of `database/sql/driver`, the
+standard library's right under GOROOT's `src`; a package that is not installed is a search by
+name, never `via import` of the directory above it. A compiled module such as `orjson` lands in its `.pyi`
 stub. The standard library's hits come before the dependencies', the picker shows paths relative
 to their root, and files opened from there are read-only. Go's `_test.go` files, `testdata` and
 nested modules such as GOROOT's `cmd` are skipped, since no import reaches them. C and C++ have no
@@ -62,7 +65,10 @@ whatever interpreter embeds it and neither a Neovim runtime nor a LuaRocks tree 
 library every project shares; Elixir needs none, since `mix` puts the dependencies and their
 sources in `deps/` inside the project, where they are project files already, and an installed
 standard library is `.beam` files rather than `.ex`. Java, Kotlin,
-Ruby and the rest have no roots yet, so `d` stays inside the project for them. A parameter has no
+Ruby and the rest have no roots yet, so `d` stays inside the project for them. `d` on a Go package
+qualifier, `db` in `db.Get`, lands on the import line of the open file, `db: via import
+code.gitea.io/gitea/models/db`, unless a local or a top-level name of the package is called
+that, or the function mentions the name other than as a qualifier. A parameter has no
 declaration the rules know, nor has an enum variant unless its class declares it as a field (a
 Python `Enum` member, a TypeScript enum member with a value): `d` says so, and `u` lists every
 whole-word use of the identifier. On `x.field` the word is a member: in Python, TypeScript and Go
@@ -155,8 +161,23 @@ function whose body it opens. The parameter of any other function on those lines
 `if (repos.some((repo: Repo) => …)) {` or `register((repo: Repo) => repo, {`, and of one on the
 cursor's own line, counts and hides nothing, since the cursor stands outside it; and what the
 `if` branch declares is nothing to its `else`. A line inside a docstring, a raw string or a
-template declares nothing. The type must be declared once, in
-the same file, the same Go package or the project module an import names. `d` then looks for the
+template declares nothing. A Go name no scope of the file declares is the package's: a `var`
+of any file of the package, alone or in a `var (` block, above the cursor or below it, and two
+files that declare it as different types (build tags) agree on nothing. An empty scope walk is no
+proof that there is no local, since the walk does not read every form of one: the function around
+the cursor must not mention the name anywhere other than in front of a `.` or a `)`, and the file must not
+import it. The type must be
+declared once, in
+the same file, the same Go package or the project module an import names. Go's `type X = Y` is
+`Y`, through another alias and another package, unless methods are declared on `X` itself, which
+then answers under its own name; `type X Y` is a type of its own. Of a Go
+declaration written once per platform, `clock_windows.go` beside a `//go:build !windows` file, the
+one the host's `go build` compiles counts: the `_GOOS` / `_GOARCH` ending of the file's name and
+its `//go:build` line decide. Only on certainty: every declaration's file must be known to be
+built or known not to be. A tag that is no platform (`gogit`, `cgo`) is unknown unless the
+platforms around it have decided already (`windows && cgo` is not built on a Mac), the older
+`// +build` line is not read, and from inside a file the host does not build nothing is preferred:
+those stay a picker. `d` then looks for the
 member in that type, and in the classes it extends and the structs it embeds, and the status line
 names the link: `via self.repo: UserRepository`, `via NewRepo() *UserRepository`,
 `via makeAudit() returns new AuditLog()`. A member that is no method is a field, and `d` lands on
@@ -331,5 +352,5 @@ no restart. The tree cursor stays on its entry, expanded directories stay expand
 keeps its rows until it is reopened, and an edited `.gitignore` is picked up. Dotfiles are part of
 the list — `.github/`, `.env`, `.dockerignore` — and only the `.git`, `.hg` and `.svn` stores are
 skipped. The open file
-itself is watched and reloads on every change on disk, keeping the cursor, the scroll position and
-the jump history.
+itself is watched and reloads on every change on disk, keeping the cursor, the scroll position,
+the jump history and the undo history, where the change is one more step.

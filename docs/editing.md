@@ -29,7 +29,9 @@ added lines, blue for changed ones, red under a line where lines were deleted. T
 from `git diff` after every save and reload, so they trail an edit by the autosave delay.
 
 Ctrl+Z and Ctrl+Y undo and redo, per file, for as long as it is open; a run of keystrokes on one
-line is one step, as in VS Code. There is no save step: edits reach the disk `autosave_delay_ms` after the last keystroke, and
+line is one step, as in VS Code. A reload from disk is one step too, as in VS Code and Vim: after
+an agent writes the open file, Ctrl+Z takes back what it wrote, line endings included, and then
+your own edits before it; the edits Ctrl+R drops are one Ctrl+Z away. There is no save step: edits reach the disk `autosave_delay_ms` after the last keystroke, and
 at once when you leave edit mode, switch files or quit. Ctrl+S saves now. A file that changes on
 disk under unsaved edits is neither reloaded nor overwritten: the status bar says so, Ctrl+S keeps
 your version and Ctrl+R takes the disk's — VS Code's conflict prompt, with keys. A file deleted or
