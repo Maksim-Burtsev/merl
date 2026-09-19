@@ -256,7 +256,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A Python binding that does not start its line is a binding: `if fresh: ledger = A()`,
   `else: …`, `a = 1; ledger = A()`, `try: from m import ledger`, `first = ledger = A()`, and
   `if cold: self.ledger = A()` for a field. `d` did not read them, so a module-level `ledger` of
-  another type was proven in their place and jumped to. (#131)
+  another type was proven in their place and jumped to. The same behind the last line of a header
+  wrapped over several lines, `        cold): ledger = A()`. (#131)
+- A Python import in a docstring's example is no second source of the name, which made
+  `Depends` in fastapi's `applications.py` a picker of two modules. (#100)
+- Under a Python class header wrapped over several lines, `self.get()` no longer skips the class's
+  own `get` for a base's: the methods were named after nothing, so the class looked empty. (#100)
 - A standard-library or dependency file stays read-only when it changes on disk or Ctrl+R
   reloads it; the reload made it editable.
 - A Go `const` whose value spells a name no longer declares it: `const csp = "… http://…"` hid
