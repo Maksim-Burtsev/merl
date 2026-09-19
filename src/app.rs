@@ -1775,6 +1775,25 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // A Go package qualifier, `db` in `db.Get`, is declared by the import line of this file
+        // (#100), unless a local hides it (taken out above) or the package declares the name
+        // itself: an import's name is read off its path, and a package may be called otherwise.
+        if kind == Kind::Go
+            && !dotted
+            && self.line_str()[range.end..].starts_with('.')
+            && let Some(path) = bound(&imports, &word)
+            && let Some(line) = search::go_import_line(&text, &word)
+            && self.package_declarations(kind, &here, &word).is_empty()
+        {
+            let hit = Hit {
+                path: here.clone(),
+                line,
+                text: self.buf.lines[line - 1].clone(),
+            };
+            let reason = Reason::Import(path.join("/"));
+            self.show_definitions(kind, &word, &here, vec![Candidate { hit, reason }], None);
+            return;
+        }
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
         let on_value = dotted && !own && chain.first().is_none_or(|f| bound(&imports, f).is_none());
         let members = on_value
@@ -2594,17 +2613,7 @@ impl App {
         let (name, chain) = parts.split_last()?;
         let one = |hits: Vec<Hit>| <[Hit; 1]>::try_from(hits).ok().map(|[hit]| hit);
         if chain.is_empty() {
-            let own = self.package_files(kind, file);
-            let pattern = search::def_patterns(kind, name).join("|");
-            let hits: Vec<Hit> = self
-                .grep(&pattern, false, false, |p| own.iter().any(|f| f == p))
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|h| {
-                    self.text_of(&h.path)
-                        .is_some_and(|text| search::qualified(kind, &text, h.line, name).is_none())
-                })
-                .collect();
+            let hits = self.package_declarations(kind, file, name);
             if !hits.is_empty() {
                 return one(self.host_built(kind, file, hits));
             }
@@ -2613,6 +2622,20 @@ impl App {
         let path = bound(&imports, chain.first().unwrap_or(name))?;
         let found = self.imported_definitions(kind, file, name, chain, &path)?;
         one(found.into_iter().map(|c| c.hit).collect())
+    }
+
+    /// The top-level declarations of `name` that `file` sees without an import.
+    fn package_declarations(&self, kind: Kind, file: &Path, name: &str) -> Vec<Hit> {
+        let own = self.package_files(kind, file);
+        let pattern = search::def_patterns(kind, name).join("|");
+        self.grep(&pattern, false, false, |p| own.iter().any(|f| f == p))
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|h| {
+                self.text_of(&h.path)
+                    .is_some_and(|text| search::qualified(kind, &text, h.line, name).is_none())
+            })
+            .collect()
     }
 
     /// The files a name of `file` is declared in without an import: the file, or for Go every
@@ -8522,6 +8545,53 @@ mod tests {
                     "Clock.Now",
                     &now(other),
                     &now(mine),
+                ),
+            ),
+        ]);
+    }
+
+    /// #100. `d` on a Go package qualifier is the import line of the open file. A local of the
+    /// name is the local, and a name the package declares itself is not the import its path
+    /// happens to spell.
+    #[test]
+    fn a_go_package_qualifier_is_its_import_line() {
+        go_rows(vec![
+            (
+                "qualifiers.go",
+                "depot|.Open",
+                jump(
+                    "depot: via import example.com/fixture/store",
+                    "qualifiers.go:7",
+                ),
+            ),
+            (
+                "qualifiers.go",
+                "fmt|.Println",
+                jump("fmt: via import fmt", "qualifiers.go:4"),
+            ),
+            // On the import line itself the name is no qualifier.
+            (
+                "qualifiers.go",
+                "depot| \"example",
+                jump("no definition for depot", "qualifiers.go:7"),
+            ),
+            (
+                "qualifiers.go",
+                "depot|.Remove",
+                jump("depot: local", "qualifiers.go:16"),
+            ),
+            (
+                "qualifiers.go",
+                "ledger|.DeleteUser",
+                picker(
+                    "ledger: by name, 5 declarations",
+                    &[
+                        ("ledger", "scopes.go:3"),
+                        ("ScopedRotate.ledger", "scopes.go:10"),
+                        ("ScopedNested.ledger", "scopes.go:15"),
+                        ("ledger", "scopes.go:17"),
+                        ("ledger", "scopes.go:34"),
+                    ],
                 ),
             ),
         ]);

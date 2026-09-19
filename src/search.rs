@@ -1875,6 +1875,12 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
     out
 }
 
+/// The 1-based line of the Go file `text` whose import binds `name`, as [`imports`] reads it.
+pub fn go_import_line(text: &str, name: &str) -> Option<usize> {
+    let binds = |l: &str| imports(Kind::Go, l).iter().any(|(n, _)| n == name);
+    text.lines().position(binds).map(|i| i + 1)
+}
+
 /// One `use` tree: `a::b::{c, d as e, f::*}` binds `c`, `e` and every name of `f`. A `crate`,
 /// `self` or `super` root is the project.
 fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<(String, Vec<String>)>) {
