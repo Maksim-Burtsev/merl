@@ -157,6 +157,10 @@ pub struct App {
     /// Per kind, the standard library and dependency roots outside the project and the files of
     /// that kind under them; filled the first time `d` leaves the project.
     external: HashMap<Kind, (Vec<PathBuf>, Arc<Vec<PathBuf>>)>,
+    /// The walk of each `node_modules`, and the file the TypeScript entry of `external` was put
+    /// together for: a workspace has one per package, and each file sees those above it.
+    node_modules: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
+    node_modules_of: Option<PathBuf>,
     /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
     /// keyword argument, which names a parameter no rule reads.
     offer_only: bool,
@@ -288,6 +292,8 @@ impl App {
             tree,
             files,
             external: HashMap::new(),
+            node_modules: HashMap::new(),
+            node_modules_of: None,
             offer_only: false,
             truncated: false,
             focus,
@@ -3131,6 +3137,27 @@ impl App {
     /// ponytail: lives for the session, unlike the project walk. A `pip install` mid-session
     /// needs a restart.
     fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
+        // TypeScript's roots depend on where the open file is (#100). Each `node_modules` is
+        // walked once; one inside another already listed adds no file of its own.
+        let here = self.buf.path.as_ref().and_then(|p| p.parent());
+        if let Some(here) = here.filter(|_| kind == Kind::TsJs)
+            && (self.node_modules_of.is_some() || !self.external.contains_key(&kind))
+            && self.node_modules_of.as_deref() != Some(here)
+        {
+            let roots = search::node_modules(&self.root, here);
+            let mut files = Vec::new();
+            for dir in &roots {
+                if roots.iter().any(|o| o != dir && dir.starts_with(o)) {
+                    continue;
+                }
+                let walked = self.node_modules.entry(dir.clone()).or_insert_with(|| {
+                    Arc::new(search::external_files(kind, std::slice::from_ref(dir)))
+                });
+                files.extend(walked.iter().cloned());
+            }
+            self.external.insert(kind, (roots, Arc::new(files)));
+            self.node_modules_of = Some(here.to_path_buf());
+        }
         self.external
             .entry(kind)
             .or_insert_with(|| {
@@ -3189,10 +3216,15 @@ impl App {
         named
             .into_iter()
             .map(|(name, why, c)| {
-                let shown = roots
-                    .iter()
-                    .find_map(|r| c.hit.path.strip_prefix(r).ok())
-                    .unwrap_or(&c.hit.path);
+                // A workspace package's own `node_modules` is named from the project root, so
+                // its `lib/index.d.ts` reads apart from the one at the top.
+                let shown = match kind {
+                    Kind::TsJs => roots.last().into_iter().chain([&self.root]).collect(),
+                    _ => roots.iter().collect::<Vec<_>>(),
+                }
+                .into_iter()
+                .find_map(|r| c.hit.path.strip_prefix(r).ok())
+                .unwrap_or(&c.hit.path);
                 let head = format!(
                     "{name}{}  {why}{}  {}:{}: ",
                     pad(name_w, &name),
@@ -8782,6 +8814,93 @@ mod tests {
             d_on(&mut a, "scopes.ts", code);
             assert_eq!(shown(&mut a), want, "{code}");
         }
+    }
+
+    /// #100, TypeScript workspaces: a file sees the `node_modules` of every directory above it, the
+    /// nearest first, and not those of the package beside it.
+    #[test]
+    fn a_workspace_package_sees_the_node_modules_above_it() {
+        let main = "import { pick } from \"lib\";\n\npick(1);\n";
+        let (dir, mut a) = project_app(
+            "workspace",
+            &[
+                ("packages/api/src/main.ts", main),
+                ("packages/web/src/main.ts", main),
+                ("main.ts", main),
+            ],
+        );
+        // Written after the project walk, which a `.gitignore` keeps out of them.
+        for (path, text) in [
+            (
+                "packages/api/node_modules/lib/index.d.ts",
+                "import { deep } from \"deep\";\nexport declare function pick(n: number): number;\nexport declare const made: typeof deep;\n",
+            ),
+            (
+                "packages/api/node_modules/lib/node_modules/deep/index.d.ts",
+                "export declare function deep(): void;\n",
+            ),
+            (
+                "node_modules/lib/index.d.ts",
+                "// An older one.\nexport declare function pick(n: string): string;\n",
+            ),
+        ] {
+            std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
+            std::fs::write(dir.join(path), text).unwrap();
+        }
+        let top = || jump("pick: via import lib", "node_modules/lib/index.d.ts:2");
+        let both = || {
+            Shown::Picker(
+                "pick: via import lib, 2 declarations".into(),
+                vec![
+                    (
+                        "pick".into(),
+                        "via import lib".into(),
+                        "packages/api/node_modules/lib/index.d.ts:2".into(),
+                    ),
+                    (
+                        "pick".into(),
+                        "via import lib".into(),
+                        "lib/index.d.ts:2".into(),
+                    ),
+                ],
+            )
+        };
+        // Back in `api` after `web`: each file has its own view, and no directory is walked twice.
+        for (file, want) in [
+            ("packages/api/src/main.ts", both()),
+            ("packages/web/src/main.ts", top()),
+            ("main.ts", top()),
+            ("packages/api/src/main.ts", both()),
+        ] {
+            d_on(&mut a, file, "^pick");
+            assert_eq!(shown(&mut a), want, "{file}");
+        }
+        assert_eq!(a.node_modules.len(), 2);
+        // From inside a dependency, its own `node_modules` is the nearest, and the one it lies
+        // in is not listed twice.
+        d_on(
+            &mut a,
+            "packages/api/node_modules/lib/index.d.ts",
+            "made: typeof deep",
+        );
+        assert_eq!(
+            shown(&mut a),
+            jump(
+                "deep: via import deep",
+                "packages/api/node_modules/lib/node_modules/deep/index.d.ts:1"
+            )
+        );
+        let (roots, files) = a.external[&Kind::TsJs].clone();
+        assert_eq!(
+            roots,
+            [
+                dir.join("packages/api/node_modules/lib/node_modules"),
+                dir.join("packages/api/node_modules"),
+                dir.join("node_modules"),
+            ]
+        );
+        assert_eq!(files.len(), 3);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// Step 6 of #68 over the same project in three languages: on the declaration of a member of

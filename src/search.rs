@@ -1379,7 +1379,7 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             }
             dirs
         }
-        Kind::TsJs => vec![root.join("node_modules")],
+        Kind::TsJs => node_modules(root, root),
         // Zig's standard library, where its own `zig env` says it is. The dependencies of a
         // project live in the global package cache under hashed directory names no source line
         // spells out, so they are left out.
@@ -1446,6 +1446,18 @@ fn zig_roots(env: &str) -> Vec<PathBuf> {
     value("std_dir")
         .or_else(|| value("lib_dir").map(|d| d.join("std")))
         .into_iter()
+        .collect()
+}
+
+/// The `node_modules` a TypeScript file of the project `root` resolves an import in: the one of
+/// every directory from the file's up to `root`, nearest first, as Node walks them (#100). A
+/// workspace keeps a package's dependencies beside the package, and pnpm keeps a dependency's own
+/// under `.pnpm/<name>@<version>/node_modules`.
+pub fn node_modules(root: &Path, file: &Path) -> Vec<PathBuf> {
+    file.ancestors()
+        .take_while(|dir| dir.starts_with(root))
+        .map(|dir| dir.join("node_modules"))
+        .filter(|dir| dir.is_dir())
         .collect()
 }
 
@@ -7608,6 +7620,30 @@ func Close() {
             "/node_modules/@scope/pkg/sub/index.d.ts",
             &["@scope", "pkg", "sub"]
         ));
+    }
+
+    #[test]
+    fn node_modules_are_those_from_the_file_up_to_the_root() {
+        let dir = std::env::temp_dir().join(format!("merl-nm-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let root = dir.join("project");
+        for d in [
+            "node_modules",
+            "project/node_modules",
+            "project/api/node_modules",
+            "project/web/src",
+        ] {
+            std::fs::create_dir_all(dir.join(d)).unwrap();
+        }
+        assert_eq!(
+            node_modules(&root, &root.join("api/src")),
+            [root.join("api/node_modules"), root.join("node_modules")]
+        );
+        assert_eq!(
+            node_modules(&root, &root.join("web/src")),
+            [root.join("node_modules")]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
