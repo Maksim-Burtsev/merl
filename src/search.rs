@@ -4633,6 +4633,8 @@ mod tests {
                 false,
             ),
             ("/go/src/internal/errors/e.go", "errors", false),
+            ("/proj/vendor/errors/e.go", "errors", true),
+            ("/proj/lib/errors/e.go", "errors", false),
         ] {
             assert_eq!(
                 in_package(Path::new(file), &parts(import)),

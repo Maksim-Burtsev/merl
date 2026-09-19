@@ -31,3 +31,12 @@ func QualifierGuess() {
 func QualifierFuncParam(depot *UserService, each func()) {
 	depot.Remove(2)
 }
+
+// A field called like the import is a field.
+type qualifierHolder struct {
+	depot *UserService
+}
+
+func (h qualifierHolder) Run() {
+	h.depot.Remove(3)
+}

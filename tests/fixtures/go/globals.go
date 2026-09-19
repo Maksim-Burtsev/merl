@@ -9,6 +9,8 @@ func GlobalRotate(id int) {
 	lateRepo.DeleteUser(id + 13)
 	spareAudit.DeleteUser(id + 14)
 	taggedRepo.DeleteUser(id + 17)
+	twinRepo.DeleteUser(id + 23)
+	mixedRepo.DeleteUser(id + 24)
 }
 
 // A local of the name hides the package's, whatever the rules read of it.

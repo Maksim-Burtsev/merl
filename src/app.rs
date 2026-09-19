@@ -1923,6 +1923,8 @@ impl App {
                 self.show_definitions(kind, &word, &here, named, None);
                 return;
             }
+            // A cut in a grep whose result is dropped says nothing about the list below.
+            self.truncated.set(false);
         }
         // A parameter or a local in front of the word is a value for certain: it has members,
         // and a function or a variable at the top of a module is not one of them.
@@ -2604,8 +2606,17 @@ impl App {
         // Go's `type X = Y` is `Y` itself, methods and fields (#100), where `Y` is a type the
         // project declares; `type X = []Y` and the like stay what their line says.
         // ponytail: eight aliases deep, which also ends a cycle.
+        // An alias that methods are declared on, `func (t Twin) Close()`, answers for them under
+        // its own name, as before.
+        let receiver = |alias: &str| {
+            let files = self.package_files(kind, &decl.path);
+            let pattern = format!(r"^func\s+\(\s*(?:\w+\s+)?\*?{}\b", regex::escape(alias));
+            self.grep(&pattern, false, false, |p| files.iter().any(|f| f == p))
+                .is_ok_and(|hits| !hits.is_empty())
+        };
         if depth < 8
             && let Some(named) = search::go_alias(kind, &decl.text)
+            && !parts.last().is_some_and(|alias| receiver(alias))
             && let Some(ty) = self.type_decl_at(kind, &decl.path, named, depth + 1)
         {
             return Some(ty);
@@ -8444,6 +8455,17 @@ mod tests {
                 "taggedRepo.DeleteUser",
                 picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
             ),
+            // Two files that agree, and two of which one cannot be read.
+            (
+                "globals.go",
+                "twinRepo.DeleteUser",
+                repo("twinRepo: UserRepository"),
+            ),
+            (
+                "globals.go",
+                "mixedRepo.DeleteUser",
+                picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            ),
             (
                 "globals.go",
                 "defaultRepo.DeleteUser|(id + 15",
@@ -8538,18 +8560,27 @@ mod tests {
                 ),
             ),
         ]);
+        let mut a = fixture_app("go");
+        d_on(&mut a, "aliases.go", "twin.Seal");
+        assert_eq!(
+            shown(&mut a),
+            jump(
+                "Seal \u{2192} AuditTwin.Seal (via twin: AuditTwin)",
+                "aliases.go:39"
+            )
+        );
         // Two aliases of each other, which no compiler accepts, end.
         let (dir, mut a) = project_app(
             "alias-cycle",
             &[(
                 "a.go",
-                "package a\n\ntype A = B\n\ntype B = A\n\nfunc (b B) Run() {}\n\nfunc f(x A) {\n\tx.Run()\n}\n",
+                "package a\n\ntype A = B\n\ntype B = A\n\ntype C struct{}\n\nfunc (c C) Run() {}\n\nfunc f(x A) {\n\tx.Run()\n}\n",
             )],
         );
         a.external
             .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
         d_on(&mut a, "a.go", "x.Run");
-        assert_eq!(a.message, "Run \u{2192} B.Run (by name, 1 match)");
+        assert_eq!(a.message, "Run \u{2192} C.Run (by name, 1 match)");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -8721,6 +8752,14 @@ mod tests {
                 "qualifiers.go",
                 "depot|.Remove(2",
                 jump("no definition for depot", "qualifiers.go:32"),
+            ),
+            (
+                "qualifiers.go",
+                "h.depot|.Remove",
+                jump(
+                    "depot \u{2192} qualifierHolder.depot (via h: qualifierHolder)",
+                    "qualifiers.go:37",
+                ),
             ),
             (
                 "qualifiers.go",
@@ -9894,6 +9933,31 @@ mod tests {
         );
         std::fs::remove_dir_all(&dir).unwrap();
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// A cut in a grep whose hits are all dropped (`x.String` looked for as `x`'s own `String`)
+    /// does not mark the members that are then listed: one match is a jump, as it was.
+    #[test]
+    fn a_cut_grep_that_is_dropped_marks_nothing() {
+        let plain = "func String() {}\n".repeat(search::MAX_HITS);
+        let (dir, mut a) = project_app(
+            "cut-dropped",
+            &[
+                ("a/many.go", &format!("package a\n\n{plain}")),
+                (
+                    "main.go",
+                    "package main\n\ntype T struct{}\n\nfunc (t T) String() {}\n\nfunc main() {\n\tx.String()\n}\n",
+                ),
+            ],
+        );
+        a.external
+            .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+        d_on(&mut a, "main.go", "x.String");
+        assert_eq!(
+            shown(&mut a),
+            jump("String \u{2192} T.String (by name, 1 match)", "main.go:5")
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// #104. The field lines of a name are grepped apart from its methods: a file of object-literal

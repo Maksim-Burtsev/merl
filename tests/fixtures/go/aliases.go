@@ -25,3 +25,19 @@ func AliasRotate(first *RepoTwin, again *RepoAgain, session *SessionAlias, kind 
 	kind.Flush()
 	twin.Close()
 }
+
+// Methods declared on the alias are found under its name, not skipped for what `auditBook`
+// declares or embeds.
+type auditBase struct{}
+
+func (b auditBase) Seal() {}
+
+type auditBook struct{ auditBase }
+
+type AuditTwin = auditBook
+
+func (t AuditTwin) Seal() {}
+
+func AliasSeal(twin AuditTwin) {
+	twin.Seal()
+}
