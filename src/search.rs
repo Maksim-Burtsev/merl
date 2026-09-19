@@ -3218,6 +3218,38 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
     out.push(Binding { line, value });
 }
 
+/// What the Go file `text` declares `name` as at the level of its package: `var name T`,
+/// `var name = …`, alone or as a line of a `var (` block, anywhere in the file (#100). The scope
+/// walk of [`bindings`] reads the open file upwards only, so another file of the package and the
+/// lines below the cursor are read through this.
+pub fn package_bindings(text: &str, name: &str) -> Vec<Binding> {
+    let literal = literal_lines(Kind::Go, text);
+    let mut out = Vec::new();
+    let mut block = false;
+    for (i, l) in text.lines().enumerate() {
+        let code = uncommented(Kind::Go, l);
+        let t = code.trim();
+        if literal[i] || t.is_empty() {
+            continue;
+        }
+        match (indent(l), block) {
+            (0, _) if t == "var (" => block = true,
+            (0, _) => {
+                block = false;
+                statement_bindings(Kind::Go, t, i + 1, name, &mut out);
+            }
+            // gofmt aligns the `=` of a block with spaces, which one `var` line never has.
+            (_, true) => {
+                let words: Vec<&str> = t.split_whitespace().collect();
+                let t = format!("var {}", words.join(" "));
+                statement_bindings(Kind::Go, &t, i + 1, name, &mut out);
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
 /// The lines of the body of the class, interface or struct declared on line `k`: past a Python
 /// header over several lines, up to the first line back at the declaration's indent.
 fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {

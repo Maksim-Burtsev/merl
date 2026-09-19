@@ -2324,7 +2324,28 @@ impl App {
         hops: usize,
     ) -> Option<(Typed, Option<String>)> {
         let bindings = search::bindings(kind, text, line, name);
-        self.agree(kind, file, text, &bindings, hops)
+        if !bindings.is_empty() || kind != Kind::Go {
+            return self.agree(kind, file, text, &bindings, hops);
+        }
+        // A Go name no scope of the file declares is the package's, declared in any of its
+        // files (#100); each is read in the file that writes it, and they have to agree.
+        let mut found: Option<(Typed, Option<String>)> = None;
+        for f in self.package_files(kind, file) {
+            let Some(text) = self.text_of(&f) else {
+                continue;
+            };
+            let bindings = search::package_bindings(&text, name);
+            if bindings.is_empty() {
+                continue;
+            }
+            let this = self.agree(kind, &f, &text, &bindings, hops)?;
+            match &found {
+                Some((ty, _)) if (&ty.path, ty.line) != (&this.0.path, this.0.line) => return None,
+                Some(_) => {}
+                None => found = Some(this),
+            }
+        }
+        found
     }
 
     /// The field `field` as `ty` itself declares it: `None` when it does not, `Some(None)` when
@@ -8262,6 +8283,82 @@ mod tests {
             d_on(&mut a, file, code);
             assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
         }
+    }
+
+    /// The rows of the Go section of #100, each on the `go` fixture.
+    fn go_rows(cases: Vec<(&str, &str, Shown)>) {
+        for (file, code, want) in cases {
+            let mut a = fixture_app("go");
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{file}: {code}");
+        }
+    }
+
+    const BOTH_DELETE_USER: [(&str, &str); 2] = [
+        ("UserRepository.DeleteUser", "repos.go:15"),
+        ("AuditLog.DeleteUser", "repos.go:21"),
+    ];
+
+    /// #100. A Go name no scope of the file declares is the package's: a `var` of another file,
+    /// of a `var (` block, or below the cursor. A local of the name hides it, readable or not.
+    #[test]
+    fn a_go_package_level_name_is_read_in_every_file_of_the_package() {
+        let repo = |via: &str| {
+            jump(
+                &format!("DeleteUser \u{2192} UserRepository.DeleteUser (via {via})"),
+                "repos.go:15",
+            )
+        };
+        let audit = |via: &str| {
+            jump(
+                &format!("DeleteUser \u{2192} AuditLog.DeleteUser (via {via})"),
+                "repos.go:21",
+            )
+        };
+        go_rows(vec![
+            (
+                "globals.go",
+                "defaultRepo.DeleteUser|(id + 10",
+                repo("defaultRepo: UserRepository"),
+            ),
+            // The `var` inside `globalsInner` and the raw string's line are not the package's.
+            (
+                "globals.go",
+                "sharedAudit.DeleteUser|(id + 11",
+                audit("sharedAudit: AuditLog"),
+            ),
+            (
+                "globals.go",
+                "sharedRepo.DeleteUser",
+                repo("NewRepo() *UserRepository"),
+            ),
+            (
+                "globals.go",
+                "lateRepo.DeleteUser",
+                repo("lateRepo: UserRepository"),
+            ),
+            (
+                "globals.go",
+                "spareAudit.DeleteUser",
+                picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            ),
+            // Declared twice under build tags, as two types.
+            (
+                "globals.go",
+                "taggedRepo.DeleteUser",
+                picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            ),
+            (
+                "globals.go",
+                "defaultRepo.DeleteUser|(id + 15",
+                audit("defaultRepo: AuditLog"),
+            ),
+            (
+                "globals.go",
+                "sharedAudit.DeleteUser|(id + 16",
+                picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            ),
+        ]);
     }
 
     /// Step 6 of #68 over the same project in three languages: on the declaration of a member of
