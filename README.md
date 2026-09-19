@@ -293,11 +293,14 @@ What `d` does not claim, in Python, TypeScript and Go:
 - `Outer.find`, with `Outer` a namespace or a class, is what `Outer` declares (`via Outer`), not a
   method `find` of some other class. Rust, C++ and PHP write it `Depot::open`, with modules in
   front of the type only when the path starts inside the project (`crate::`, `self::`, `super::`,
-  a file or a directory called so); `Self::open` and a value's `shed.open()` stay by name. A
+  a file or a directory called so), only for a type the project declares once, and not when a
+  `use` of the file binds the path's first name outside it; `Self::open` and a value's
+  `shed.open()` stay by name. A
   Python `Limits.MAX_USERS`, `Color.RED` of an `Enum` or a dataclass field is read in the body of
   the class the qualifier names, declared in the file or imported, or of a class above it; an
-  attribute a method assigns to `self` is an instance's, and a class declared inside the function
-  is not read.
+  attribute a method assigns to `self` is an instance's, a class declared inside the function is
+  not read, and a class whose body writes the word in a form the rules do not read (a tuple
+  target, a `def` under an `if`) is not passed over for its base.
 - An imported name is looked up at the top of the module it comes from, outside the project as
   inside it, and a name imported from two modules (`try` / `except ImportError`) offers both.
 - A line inside a triple-quoted string — a Python docstring, an Elixir `@moduledoc` — a Go raw

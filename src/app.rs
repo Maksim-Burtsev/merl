@@ -1954,6 +1954,21 @@ impl App {
             "." => on_value,
             _ => self.line_str()[..range.start].ends_with(&format!("{path}{sep}")),
         };
+        // A type's name is no proof of which type (#129): in a `::` kind the project has to
+        // declare it once, and a `use` of the file must not bind the path's first name to
+        // somewhere outside, whatever `io.rs` the project has beside `std::io`.
+        let pathed = pathed
+            && !chain.is_empty()
+            && (sep == "." || {
+                let outside = bound(&imports, &chain[0])
+                    .is_some_and(|p| !matches!(p[0].as_str(), "crate" | "self" | "super"));
+                let owner = &chain[chain.len() - 1];
+                let owners = search::def_patterns(kind, owner).join("|");
+                let one = self.project_definitions(kind, &here, owner, &owners).len() == 1;
+                // A cut in this grep says nothing about the list shown in the end.
+                self.truncated.set(false);
+                !outside && one
+            });
         if pathed && locals.is_empty() && !chain.is_empty() {
             let full = format!("{path}{sep}{word}");
             // `depot::Shed::open` has the modules of the project in front of `Shed::open`.
@@ -9370,6 +9385,23 @@ mod tests {
                     "store/sessions.py:1",
                 ),
             ),
+            // Four modules that hand the name on are followed, five are not.
+            (
+                "relays.py",
+                "parcel.wrap_up",
+                jump(
+                    "wrap_up \u{2192} Parcel.wrap_up (via parcel: Parcel)",
+                    "relay5.py:2",
+                ),
+            ),
+            (
+                "relays.py",
+                "bundle.wrap_up",
+                jump(
+                    "wrap_up \u{2192} Parcel.wrap_up (by name, 1 match)",
+                    "relay5.py:2",
+                ),
+            ),
             // An import in a docstring's example is no source.
             (
                 "docstring_import.py",
@@ -10287,7 +10319,25 @@ mod tests {
             &[
                 (
                     "depot.rs",
-                    "pub struct Depot;\n\nimpl Depot {\n    pub fn open() -> Self {\n        Depot\n    }\n\n    pub fn again() -> Self {\n        Self::open()\n    }\n}\n\npub struct Shed;\n\nimpl Shed {\n    pub fn open() -> Self {\n        Shed\n    }\n}\n\npub struct Bare;\n\npub fn run(shed: Shed) {\n    let _ = Depot::open();\n    let _ = depot::Shed::open();\n    let _ = Bare::open();\n    let _ = shed.open();\n    let _ = vendored::Shed::open();\n}\n",
+                    "pub struct Depot;\n\nimpl Depot {\n    pub fn open() -> Self {\n        Depot\n    }\n\n    pub fn again() -> Self {\n        Self::open()\n    }\n}\n\npub struct Shed;\n\nimpl Shed {\n    pub fn open() -> Self {\n        Shed\n    }\n}\n\npub struct Bare;\n\npub fn run(shed: Shed) {\n    let _ = Depot::open();\n    let _ = depot::Shed::open();\n    let _ = Bare::open();\n    let _ = shed.open();\n    let _ = vendored::Shed::open();\n    let _ = crate::depot::Shed::open();\n    let _ = store::Shelf::stock();\n    let _ = <Shed>::open();\n}\n",
+                ),
+                (
+                    "store/shelf.rs",
+                    "pub struct Shelf;\n\nimpl Shelf {\n    pub fn stock() -> Self {\n        Shelf\n    }\n}\n",
+                ),
+                ("cli.rs", "#[derive(Parser)]\npub struct Config;\n"),
+                (
+                    "settings.rs",
+                    "pub struct Config;\n\nimpl Config {\n    pub fn parse() -> Self {\n        Config\n    }\n}\n",
+                ),
+                ("io.rs", "pub fn read() {}\n"),
+                (
+                    "error.rs",
+                    "pub struct Error;\n\nimpl Error {\n    pub fn new() -> Self {\n        Error\n    }\n}\n",
+                ),
+                (
+                    "main.rs",
+                    "use crate::cli::Config;\nuse std::io;\n\nfn main() {\n    let _ = Config::parse();\n    let _ = io::Error::new();\n}\n",
                 ),
                 (
                     "depot.cpp",
@@ -10315,6 +10365,45 @@ mod tests {
                 "depot.rs",
                 "depot::Shed::open",
                 jump("open \u{2192} Shed::open (via depot::Shed)", "depot.rs:16"),
+            ),
+            (
+                "depot.rs",
+                "crate::depot::Shed::open",
+                jump(
+                    "open \u{2192} Shed::open (via crate::depot::Shed)",
+                    "depot.rs:16",
+                ),
+            ),
+            // A directory of the project.
+            (
+                "depot.rs",
+                "store::Shelf::stock",
+                jump(
+                    "stock \u{2192} Shelf::stock (via store::Shelf)",
+                    "store/shelf.rs:4",
+                ),
+            ),
+            // Two types called `Config`, and the derive of the imported one supplies `parse`:
+            // the name of a type is no proof of which one.
+            (
+                "main.rs",
+                "Config::parse",
+                jump(
+                    "parse \u{2192} Config::parse (by name, 1 match)",
+                    "settings.rs:4",
+                ),
+            ),
+            // `io` is `std::io` by the file's `use`, whatever `io.rs` the project has.
+            (
+                "main.rs",
+                "io::Error::new",
+                jump("new \u{2192} Error::new (by name, 1 match)", "error.rs:4"),
+            ),
+            // No name in front of the `::`.
+            (
+                "depot.rs",
+                "<Shed>::open",
+                picker("open: by name, 2 declarations", &rs),
             ),
             // No file or directory of the project is called `vendored`.
             (

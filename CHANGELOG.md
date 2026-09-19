@@ -195,8 +195,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` on `Depot::open` in Rust, C++ and PHP answers `open → Depot::open (via Depot)` where it
   listed every `open` by name: the path in front of the word is joined with `::` as those
   languages qualify a name. Modules in front of the type count when the path starts inside the
-  project (`crate::`, `self::`, `super::`, a file or a directory called so); `Self::`, a type that
-  does not declare the word and a value's `.method()` stay by name. (#129)
+  project (`crate::`, `self::`, `super::`, a file or a directory called so). The name of a type
+  is no proof of which type: the project has to declare it once, and a `use` of the file must
+  not bind the path's first name outside the project (`io::Error::new` behind `use std::io;`).
+  `Self::`, a type that does not declare the word and a value's `.method()` stay by name. (#129)
 
 ### Changed
 
