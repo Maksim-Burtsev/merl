@@ -183,6 +183,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` on a Go package qualifier, `db` in `db.Get`, lands on the import line of the open file,
   `db: via import code.gitea.io/gitea/models/db`, where it used to list every `db` of the project
   by name. (#100)
+- `d` proves more in Python. `from repos import UserRepository as Users` types a receiver as
+  `UserRepository`. A module of the project that imports a name without declaring it, a package's
+  `__init__.py`, hands it on: its own module-level imports are followed, `from .labels import *`
+  included, four modules deep (`Session: via import store/sessions.py`); two sources, a name the
+  module also assigns and an import inside a function stay by name. `Limits.MAX_USERS`, an `Enum`
+  member and a dataclass field are read in the class body or a class above it
+  (`RED → Color.RED (via Color)`); an attribute a method assigns to `self` is an instance's and is
+  not. A class header wrapped over several lines keeps its name for `self` and its bases for
+  `d` on a base's method. (#100)
+- `d` on `Depot::open` in Rust, C++ and PHP answers `open → Depot::open (via Depot)` where it
+  listed every `open` by name: the path in front of the word is joined with `::` as those
+  languages qualify a name. Modules in front of the type count when the path starts inside the
+  project (`crate::`, `self::`, `super::`, a file or a directory called so); `Self::`, a type that
+  does not declare the word and a value's `.method()` stay by name. (#129)
 
 ### Changed
 
@@ -234,9 +248,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A count behind a grep that stopped at its cap says `+` also when a filter made the list short
   afterwards (`Pick: via import example.com/lib, 1+ declarations`), and the one candidate left
   is offered, not jumped to. (#100)
+- A Python parameter found as `local` reads `RecipeController.get_one.slug`, as a local of the
+  body does, not `RecipeController.slug`, which named a field. (#100)
 
 ### Fixed
 
+- A Python binding that does not start its line is a binding: `if fresh: ledger = A()`,
+  `else: …`, `a = 1; ledger = A()`, `try: from m import ledger`, `first = ledger = A()`, and
+  `if cold: self.ledger = A()` for a field. `d` did not read them, so a module-level `ledger` of
+  another type was proven in their place and jumped to. (#131)
 - A standard-library or dependency file stays read-only when it changes on disk or Ctrl+R
   reloads it; the reload made it editable.
 - A Go `const` whose value spells a name no longer declares it: `const csp = "… http://…"` hid
