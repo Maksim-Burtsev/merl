@@ -2181,7 +2181,7 @@ impl App {
                 .grep(r"^export\s+default\b", false, false, wanted)
                 .unwrap_or_default();
         }
-        let hits = self.host_built(kind, here, hits);
+        let hits = self.host_built(kind, hits);
         // A file, or a Go package's directory.
         let label = |hit: &Hit| match (kind, hit.path.parent()) {
             (Kind::Go, Some(dir)) if dir != Path::new("") => format!("{}/", dir.display()),
@@ -2626,7 +2626,7 @@ impl App {
         if chain.is_empty() {
             let hits = self.package_declarations(kind, file, name);
             if !hits.is_empty() {
-                return one(self.host_built(kind, file, hits));
+                return one(self.host_built(kind, hits));
             }
         }
         let imports = search::imports(kind, &self.text_of(file)?);
@@ -2689,27 +2689,38 @@ impl App {
                     == want
             })
             .collect();
-        self.host_built(kind, &ty.path, hits)
+        self.host_built(kind, hits)
     }
 
     /// Of several Go declarations of one name, those in files the host's `go build` compiles
     /// (#100): `Clock` of `clock_linux.go` and of `clock_windows.go` is one type per platform.
-    /// Asked from `file`, which has to be built there itself: inside `clock_windows.go` on
-    /// another host nothing is preferred. A tag of the project's own decides nothing.
-    fn host_built(&self, kind: Kind, file: &Path, hits: Vec<Hit>) -> Vec<Hit> {
+    /// Only on certainty: every file is known to be built or known not to be
+    /// ([`search::go_built`]), so a tag of the project's own or a constraint the rules do not
+    /// read leaves all of them. Asked from the open file, which the host must not be known to
+    /// skip: inside `clock_windows.go` on another host nothing is preferred.
+    fn host_built(&self, kind: Kind, hits: Vec<Hit>) -> Vec<Hit> {
         if kind != Kind::Go || hits.len() < 2 {
             return hits;
         }
         let (goos, goarch) = search::go_host();
         let built = |p: &Path| {
             self.text_of(p)
-                .is_none_or(|t| search::go_built(p, &t, goos, goarch) != Some(false))
+                .and_then(|t| search::go_built(p, &t, goos, goarch))
         };
-        if !built(file) {
+        if self
+            .rel_current()
+            .is_some_and(|here| built(&here) == Some(false))
+        {
             return hits;
         }
-        let kept: Vec<Hit> = hits.iter().filter(|h| built(&h.path)).cloned().collect();
-        if kept.is_empty() { hits } else { kept }
+        let known: Option<Vec<bool>> = hits.iter().map(|h| built(&h.path)).collect();
+        let Some(known) = known.filter(|k| k.contains(&true)) else {
+            return hits;
+        };
+        let mut keep = known.into_iter();
+        hits.into_iter()
+            .filter(|_| keep.next() == Some(true))
+            .collect()
     }
 
     /// The line on which `ty` itself declares the field `word` (#104), [`search::field_line`]: a
@@ -8551,6 +8562,16 @@ mod tests {
             true => ("clock_windows.go", "clock_other.go"),
             false => ("clock_other.go", "clock_windows.go"),
         };
+        let host = if cfg!(windows) {
+            ("windows", 3)
+        } else {
+            ("other", 5)
+        };
+        let gauge = if cfg!(windows) {
+            ("fast", 8)
+        } else {
+            ("other", 7)
+        };
         let now = |file: &str| format!("platform/{file}:11");
         let via = |via: &str| format!("Now \u{2192} Clock.Now (via {via})");
         let both = |status: &str, name: &str, a: &str, b: &str| {
@@ -8591,6 +8612,24 @@ mod tests {
                     "platform/codec_slow.go:7",
                 ),
             ),
+            // The type is declared once and its method per platform.
+            (
+                "platforms.go",
+                "timer.Tick",
+                jump(
+                    "Tick \u{2192} Timer.Tick (via timer: Timer)",
+                    &format!("platform/timer_{}.go:{}", host.0, host.1),
+                ),
+            ),
+            // A platform that has decided is not undone by a tag that is none: `windows && !slow`.
+            (
+                "platforms.go",
+                "gauge.Read",
+                jump(
+                    "Read \u{2192} Gauge.Read (via gauge: Gauge)",
+                    &format!("platform/gauge_{}.go:{}", gauge.0, gauge.1),
+                ),
+            ),
             (
                 &format!("platform/{other}"),
                 "c.Now",
@@ -8602,6 +8641,47 @@ mod tests {
                 ),
             ),
         ]);
+        // Asked from inside the file the host does not build, a method per platform is both;
+        // and where no declaration is built (`gate_windows.go`, `gate_plan9.go`), all stay.
+        if !cfg!(windows) {
+            let mut a = fixture_app("go");
+            d_on(&mut a, "platform/timer_windows.go", "t.Tick");
+            let row = |place: &str| ("Timer.Tick".into(), "via t: Timer".into(), place.into());
+            assert_eq!(
+                shown(&mut a),
+                Shown::Picker(
+                    "Tick: via t: Timer, 2 declarations".into(),
+                    vec![
+                        row("platform/timer_windows.go:3"),
+                        row("platform/timer_other.go:5")
+                    ],
+                )
+            );
+            d_on(&mut a, "platforms_gate.go", "gate.Lift");
+            assert_eq!(
+                shown(&mut a),
+                both(
+                    "Lift: by name, 2 declarations",
+                    "Gate.Lift",
+                    "platform/gate_plan9.go:5",
+                    "platform/gate_windows.go:6",
+                )
+            );
+            d_on(&mut a, "platforms_gate.go", "platform.NewGate");
+            assert_eq!(a.message, "NewGate: via import platform/, 2 declarations");
+            press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+            // `meter_fast.go` is not known to be built, so `meter_windows.go` loses to nothing.
+            d_on(&mut a, "platforms_gate.go", "meter.Sample");
+            assert_eq!(
+                shown(&mut a),
+                both(
+                    "Sample: by name, 2 declarations",
+                    "Meter.Sample",
+                    "platform/meter_fast.go:8",
+                    "platform/meter_windows.go:5",
+                )
+            );
+        }
     }
 
     /// #100. `d` on a Go package qualifier is the import line of the open file. A local of the

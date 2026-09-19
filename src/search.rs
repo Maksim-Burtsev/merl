@@ -3997,8 +3997,30 @@ const GO_UNIX: &[&str] = &[
 ];
 const GO_OS: &[&str] = &["js", "nacl", "plan9", "wasip1", "windows", "zos"];
 const GO_ARCH: &[&str] = &[
-    "386", "amd64", "arm", "arm64", "loong64", "mips", "mips64", "mips64le", "mipsle", "ppc64",
-    "ppc64le", "riscv64", "s390x", "wasm",
+    "386",
+    "amd64",
+    "amd64p32",
+    "arm",
+    "arm64",
+    "arm64be",
+    "armbe",
+    "loong64",
+    "mips",
+    "mips64",
+    "mips64le",
+    "mips64p32",
+    "mips64p32le",
+    "mipsle",
+    "ppc",
+    "ppc64",
+    "ppc64le",
+    "riscv",
+    "riscv64",
+    "s390",
+    "s390x",
+    "sparc",
+    "sparc64",
+    "wasm",
 ];
 
 /// Whether `go build` for `goos` / `goarch` compiles the Go file `path` with the text `text`, as
@@ -4028,42 +4050,50 @@ pub fn go_built(path: &Path, text: &str, goos: &str, goarch: &str) -> Option<boo
     if !named {
         return Some(false);
     }
-    let Some(expr) = text
-        .lines()
-        .take_while(|l| !l.starts_with("package "))
-        .find_map(|l| l.strip_prefix("//go:build "))
-    else {
-        return Some(true);
+    let head = || text.lines().take_while(|l| !l.starts_with("package "));
+    let Some(expr) = head().find_map(|l| l.strip_prefix("//go:build ")) else {
+        // The constraint of before Go 1.17 is not read: undecided, never "no constraint".
+        return (!head().any(|l| l.starts_with("// +build"))).then_some(true);
     };
-    // `!` binds tightest, then `&&`, then `||`.
+    // `!` binds tightest, then `&&`, then `||`. A tag that is no platform is unknown, and
+    // decides nothing only where the platforms around it have not decided already.
     static TOKEN: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"&&|\|\||[!()]|[\w.]+").unwrap());
     let tokens: Vec<&str> = TOKEN.find_iter(expr).map(|m| m.as_str()).collect();
-    fn any<'a>(t: &[&'a str], i: &mut usize, tag: &dyn Fn(&str) -> Option<bool>) -> Option<bool> {
-        let mut value = all(t, i, tag)?;
+    type Tag<'a> = &'a dyn Fn(&str) -> Option<bool>;
+    fn any(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
+        let mut value = all(t, i, tag);
         while t.get(*i) == Some(&"||") {
             *i += 1;
-            value |= all(t, i, tag)?;
+            value = match (value, all(t, i, tag)) {
+                (Some(true), _) | (_, Some(true)) => Some(true),
+                (Some(false), Some(false)) => Some(false),
+                _ => None,
+            };
         }
-        Some(value)
+        value
     }
-    fn all<'a>(t: &[&'a str], i: &mut usize, tag: &dyn Fn(&str) -> Option<bool>) -> Option<bool> {
-        let mut value = one(t, i, tag)?;
+    fn all(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
+        let mut value = one(t, i, tag);
         while t.get(*i) == Some(&"&&") {
             *i += 1;
-            value &= one(t, i, tag)?;
+            value = match (value, one(t, i, tag)) {
+                (Some(false), _) | (_, Some(false)) => Some(false),
+                (Some(true), Some(true)) => Some(true),
+                _ => None,
+            };
         }
-        Some(value)
+        value
     }
-    fn one<'a>(t: &[&'a str], i: &mut usize, tag: &dyn Fn(&str) -> Option<bool>) -> Option<bool> {
+    fn one(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
         let token = *t.get(*i)?;
         *i += 1;
         match token {
             "!" => one(t, i, tag).map(|v| !v),
             "(" => {
-                let value = any(t, i, tag)?;
+                let value = any(t, i, tag);
                 *i += 1;
-                Some(value)
+                value
             }
             name => tag(name),
         }
@@ -4705,7 +4735,48 @@ mod tests {
             ),
             ("c.go", "//go:build gogit", "linux", "amd64", None),
             ("c.go", "//go:build !gogit && linux", "linux", "amd64", None),
+            (
+                "c.go",
+                "//go:build !gogit && linux",
+                "darwin",
+                "arm64",
+                Some(false),
+            ),
             ("c.go", "//go:build ignore", "linux", "amd64", None),
+            // A platform that has decided is not undone by a tag that is none.
+            (
+                "c.go",
+                "//go:build windows && cgo",
+                "darwin",
+                "arm64",
+                Some(false),
+            ),
+            (
+                "c.go",
+                "//go:build cgo && windows",
+                "darwin",
+                "arm64",
+                Some(false),
+            ),
+            (
+                "c.go",
+                "//go:build darwin || cgo",
+                "darwin",
+                "arm64",
+                Some(true),
+            ),
+            ("c.go", "//go:build darwin && cgo", "darwin", "arm64", None),
+            ("c.go", "//go:build windows || cgo", "darwin", "arm64", None),
+            (
+                "c.go",
+                "//go:build !(windows && cgo)",
+                "darwin",
+                "arm64",
+                Some(true),
+            ),
+            // The old spelling is not read, and an architecture is one whatever the host.
+            ("c.go", "// +build windows", "darwin", "arm64", None),
+            ("c_sparc64.go", "", "darwin", "arm64", Some(false)),
         ] {
             assert_eq!(
                 built(name, line, os, arch),
@@ -4713,6 +4784,10 @@ mod tests {
                 "{name} {line} on {os}/{arch}"
             );
         }
+        // The host is spelled as Go spells it.
+        let (os, arch) = go_host();
+        assert!(GO_UNIX.contains(&os) || GO_OS.contains(&os), "{os}");
+        assert!(GO_ARCH.contains(&arch), "{arch}");
         // A `//go:build` under the package clause is a comment.
         let late = "package p\n\n//go:build windows\n";
         assert_eq!(
