@@ -1744,7 +1744,14 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
                 )
                 .unwrap()
             });
-            for c in IMPORT.captures_iter(text) {
+            // An import in a docstring's example binds nothing.
+            let literal = literal_lines(kind, text);
+            let code: Vec<&str> = text
+                .lines()
+                .zip(&literal)
+                .map(|(l, inside)| if *inside { "" } else { l })
+                .collect();
+            for c in IMPORT.captures_iter(&code.join("\n")) {
                 if let (Some(module), Some(names)) = (c.get(1), c.get(2)) {
                     let module = module.as_str();
                     let relative = module.trim_start_matches('.');
@@ -2848,8 +2855,8 @@ fn python_statements(t: &str, continues: bool) -> Vec<&str> {
         .collect()
 }
 
-/// `text` without the bodies of its functions and classes and without its docstrings: the lines
-/// a Python module runs itself, where an import binds a name of the module.
+/// `text` without the bodies of its functions and classes: the lines a Python module runs
+/// itself, where an import binds a name of the module.
 pub fn python_module_level(text: &str) -> String {
     let literal = literal_lines(Kind::Python, text);
     let mut skip: Option<usize> = None;
@@ -2863,7 +2870,10 @@ pub fn python_module_level(text: &str) -> String {
             }
             skip = None;
         }
+        // A docstring stays whole, for [`imports`] to tell it from code.
         if literal[i] {
+            out.push_str(l);
+            out.push('\n');
             continue;
         }
         if ["def ", "async def ", "class "]

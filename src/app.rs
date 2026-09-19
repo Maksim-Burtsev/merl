@@ -9344,6 +9344,12 @@ mod tests {
                     "store/sessions.py:1",
                 ),
             ),
+            // An import in a docstring's example is no source.
+            (
+                "docstring_import.py",
+                "repo: UserRepository",
+                jump("UserRepository: via import repos.py", "repos.py:4"),
+            ),
             // `try` / `except ImportError` names two sources: both are offered, neither typed.
             (
                 "aliases.py",
