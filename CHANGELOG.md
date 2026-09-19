@@ -186,6 +186,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- A reload from disk no longer empties the undo history: it is one step of it, as in VS Code and
+  Vim. After an agent writes the open file, Ctrl+Z takes back what it wrote, line endings and the
+  final newline included, and then the edits made before it; Ctrl+Y replays both. The step holds
+  only the lines that changed. The edits Ctrl+R drops after a conflict are one Ctrl+Z away.
+  (#122)
 - `u` lists the same hits in the order a reader wants them: the declarations of the word first,
   each row marked `declaration`, then the open file, then the rest of the project's code with the
   nearest directories first, and tests, mocks, fixtures, generated and vendored files last
@@ -232,6 +237,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A standard-library or dependency file stays read-only when it changes on disk or Ctrl+R
+  reloads it; the reload made it editable.
 - A Go `const` whose value spells a name no longer declares it: `const csp = "… http://…"` hid
   the `net/http` import of its file, so `http.Server` went by name into the project. Found by the
   hand pass of #100.

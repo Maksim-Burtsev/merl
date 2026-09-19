@@ -263,6 +263,8 @@ struct Edit {
     /// Cursor before and after, for undo and redo to put it back.
     before: (usize, usize),
     after: (usize, usize),
+    /// A reload's: the file's format before and after, which undo and redo put back too.
+    format: Option<(buffer::Format, buffer::Format)>,
 }
 
 /// `1 hit`, `2 hits`.
@@ -844,22 +846,7 @@ impl App {
             }
             match self.load(path) {
                 Ok(mut buf) => {
-                    // The standard library and dependencies are read here, never edited. A
-                    // `.venv` or `node_modules` sits inside the root, so the roots decide, but
-                    // not over a file the project walk listed: an editable install puts the
-                    // project's own `src` on `sys.path`.
-                    let listed = path
-                        .strip_prefix(&self.root)
-                        .is_ok_and(|rel| self.files.iter().any(|f| f == rel));
-                    let external = !path.starts_with(&self.root)
-                        || !listed
-                            && self
-                                .external
-                                .values()
-                                .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)));
-                    if external {
-                        buf.readonly.get_or_insert("outside the project");
-                    }
+                    self.lock_outside(&mut buf);
                     self.buf = buf;
                     self.anchor = None;
                     self.dirty = false;
@@ -886,6 +873,28 @@ impl App {
         }
         self.reveal(path);
         true
+    }
+
+    /// The standard library and dependencies are read here, never edited: on open and on every
+    /// reload. A `.venv` or `node_modules` sits inside the root, so the roots decide, but not
+    /// over a file the project walk listed: an editable install puts the project's own `src` on
+    /// `sys.path`.
+    fn lock_outside(&self, buf: &mut Buffer) {
+        let Some(path) = buf.path.as_deref() else {
+            return;
+        };
+        let listed = path
+            .strip_prefix(&self.root)
+            .is_ok_and(|rel| self.files.iter().any(|f| f == rel));
+        let external = !path.starts_with(&self.root)
+            || !listed
+                && self
+                    .external
+                    .values()
+                    .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)));
+        if external {
+            buf.readonly.get_or_insert("outside the project");
+        }
     }
 
     /// The file from disk; in review mode a file the branch deleted comes from the base,
@@ -1092,9 +1101,11 @@ impl App {
     }
 
     /// Re-reads the open file after it changed on disk. Cursor, scroll, history and find pattern
-    /// survive; the cursor is clamped to whatever the file is now. merl's own saves are
-    /// recognised and ignored; a change under unsaved edits is a conflict, not a reload,
-    /// unless `force` (Ctrl+R) says the edits go. Returns whether anything on screen changed.
+    /// survive; the cursor is clamped to whatever the file is now. The reload is one undo step,
+    /// as in VS Code and Vim (#122): Ctrl+Z takes back what was written, then the edits before
+    /// it. merl's own saves are recognised and ignored; a change under unsaved edits is a
+    /// conflict, not a reload, unless `force` (Ctrl+R) says the edits go; Ctrl+Z brings them
+    /// back. Returns whether anything on screen changed.
     pub fn reload(&mut self, force: bool) -> bool {
         let Some(path) = self.buf.path.clone() else {
             return false;
@@ -1120,7 +1131,9 @@ impl App {
                 return true;
             }
         }
-        let old = std::mem::replace(&mut self.buf, Buffer::from_bytes(path.clone(), &bytes));
+        let mut buf = Buffer::from_bytes(path.clone(), &bytes);
+        self.lock_outside(&mut buf);
+        let old = std::mem::replace(&mut self.buf, buf);
         if self.review.is_some() {
             // The reader stays in the hunk they are in when an agent writes above it: every
             // line kept of this file goes down with its text, before anything is clamped.
@@ -1137,8 +1150,16 @@ impl App {
         self.dirty = false;
         self.conflict = false;
         self.last_edit = None;
-        self.undo.clear();
         self.redo.clear();
+        if old.readonly.is_some() {
+            // The text on screen could not be edited, or was not the file's (a binary
+            // placeholder, bytes read lossily): there is nothing to go back to.
+            self.undo.clear();
+        } else {
+            self.undo
+                .extend(reload_step(&old.lines, old.format(), &self.buf));
+        }
+        self.undo_break = true;
         self.refresh_diff();
         let last = self.buf.lines.len() - 1;
         (self.line, self.col) = self.clamp_pos((self.line, self.col));
@@ -3678,6 +3699,7 @@ impl App {
             new,
             before,
             after: (self.line, self.col),
+            format: None,
         };
         let continues = !self.undo_break
             && self.undo.last().is_some_and(|e| {
@@ -3715,8 +3737,16 @@ impl App {
             .lines
             .splice(edit.line..edit.line + from.len(), to.iter().cloned());
         (self.line, self.col) = at;
+        if let Some((was, is)) = edit.format {
+            self.buf.set_format(if back { was } else { is });
+        }
         self.touched(edit.line);
         self.undo_break = true;
+        // A reload to what no save can write back as it came (binary, not UTF-8, mixed line
+        // endings) is not redone: it would be an edit left on screen for good.
+        if back && edit.format.is_some_and(|(_, is)| is.readonly.is_some()) {
+            return;
+        }
         (if back { &mut self.redo } else { &mut self.undo }).push(edit);
     }
 
@@ -4252,6 +4282,17 @@ fn resolution(
 /// that changed the file in several places the lines between them are off by what changed
 /// above them; a line diff would place those too.
 fn carried(old: &[String], new: &[String], l: usize) -> usize {
+    let (_, tail) = common_ends(old, new);
+    if l >= old.len() - tail {
+        l + new.len() - old.len()
+    } else {
+        l.min(new.len() - tail)
+    }
+}
+
+/// How many lines `old` and `new` start with alike, and then end with alike: what lies between
+/// is what changed, found as VS Code's `ModelService._computeEdits` finds it.
+fn common_ends(old: &[String], new: &[String]) -> (usize, usize) {
     let same = |(a, b): &(&String, &String)| a == b;
     let head = old.iter().zip(new).take_while(same).count();
     let ends = old.iter().rev().zip(new.iter().rev());
@@ -4259,11 +4300,27 @@ fn carried(old: &[String], new: &[String], l: usize) -> usize {
         .take(old.len().min(new.len()) - head)
         .take_while(same)
         .count();
-    if l >= old.len() - tail {
-        l + new.len() - old.len()
-    } else {
-        l.min(new.len() - tail)
+    (head, tail)
+}
+
+/// A reload as one undo step, as VS Code's `ModelService.updateModel` makes it: the lines that
+/// changed from `old` to what `buf` holds now, and the format on either side. `None` when neither
+/// changed.
+fn reload_step(old: &[String], was: buffer::Format, buf: &Buffer) -> Option<Edit> {
+    let (new, is) = (&buf.lines, buf.format());
+    let (head, tail) = common_ends(old, new);
+    if head == old.len() && head == new.len() && was == is {
+        return None;
     }
+    Some(Edit {
+        line: head,
+        old: old[head..old.len() - tail].to_vec(),
+        new: new[head..new.len() - tail].to_vec(),
+        // Undo and redo land where the file changed, so what they take back is in sight.
+        before: (head.min(old.len() - 1), 0),
+        after: (head.min(new.len() - 1), 0),
+        format: Some((was, is)),
+    })
 }
 
 /// Cuts `s` to `max` chars, marking the cut.
@@ -10832,6 +10889,7 @@ mod tests {
         // Ctrl+R takes the disk's version, edits and all.
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
         typed(&mut a, "again ");
+        let dropped = a.line_str().to_string();
         std::fs::write(&path, "theirs\n").unwrap();
         a.reload(false);
         assert!(a.conflict);
@@ -10840,10 +10898,14 @@ mod tests {
             (a.conflict, a.dirty, a.line_str()),
             (false, false, "theirs")
         );
+        // #122: the reload is a step, so the edits Ctrl+R dropped are one Ctrl+Z away, and then
+        // they are edits like any other: the autosave writes them over the disk's version.
         press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        assert_eq!((a.dirty, a.line_str()), (true, dropped.as_str()));
+        assert!(a.tick());
         assert_eq!(
-            a.message, "nothing to undo",
-            "a reload starts a fresh history"
+            std::fs::read_to_string(&path).unwrap(),
+            format!("{dropped}\n")
         );
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
@@ -11024,6 +11086,111 @@ mod tests {
         assert_eq!(a.col, 1);
         assert_eq!(a.message, "reloaded");
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    fn ctrl(a: &mut App, c: char) {
+        press(a, KeyCode::Char(c), KeyModifiers::CONTROL);
+    }
+
+    /// #122, the issue's steps: a write from outside is one step of the history, as in VS Code.
+    /// Ctrl+Z takes it back first, then the edits before it, and Ctrl+Y replays both.
+    #[test]
+    fn a_reload_is_an_undo_step_over_the_edits_before_it() {
+        let (path, mut a) = temp_file("undo-reload", "one\ntwo\n");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "MINE");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        std::fs::write(&path, "MINEone\ntwo\nagent line\n").unwrap();
+        assert!(a.reload(false));
+        assert_eq!(a.message, "reloaded");
+        let step = a.undo.last().unwrap();
+        assert_eq!(
+            (step.line, step.old.len(), step.new.len()),
+            (2, 0, 1),
+            "the step holds what changed, not the file"
+        );
+        ctrl(&mut a, 'z');
+        assert_eq!(
+            (a.buf.lines.join("|"), a.line),
+            ("MINEone|two".into(), 1),
+            "undo lands where the file changed"
+        );
+        ctrl(&mut a, 'z');
+        assert_eq!(a.buf.lines.join("|"), "one|two");
+        ctrl(&mut a, 'y');
+        ctrl(&mut a, 'y');
+        assert_eq!(a.buf.lines.join("|"), "MINEone|two|agent line");
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    /// What is typed after a reload is a step of its own, also where the reload's step ends.
+    #[test]
+    fn typing_after_a_reload_is_a_step_of_its_own() {
+        let (path, mut a) = temp_file("undo-reload-typing", "one\ntwo\n");
+        a.autosave = Duration::ZERO;
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert!(a.tick());
+        std::fs::write(&path, "\nONE\ntwo\n").unwrap();
+        a.reload(false);
+        assert_eq!((a.line, a.col), (1, 0));
+        typed(&mut a, "x");
+        ctrl(&mut a, 'z');
+        assert_eq!(a.buf.lines.join("|"), "|ONE|two");
+        ctrl(&mut a, 'z');
+        assert_eq!(a.buf.lines.join("|"), "|one|two");
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    /// Undoing a reload puts the file's format back with its text. A reload to what no save can
+    /// write back as it came is undone, never redone; one from it starts a new history.
+    #[test]
+    fn undoing_a_reload_puts_the_format_back() {
+        let (path, mut a) = temp_file("undo-format", "a\r\nb\r\n");
+        a.autosave = Duration::ZERO;
+        std::fs::write(&path, "a\nb\nc").unwrap();
+        a.reload(false);
+        ctrl(&mut a, 'z');
+        assert_eq!(
+            a.buf.to_bytes(),
+            b"a\r\nb\r\n",
+            "CRLF and the final newline"
+        );
+        ctrl(&mut a, 'y');
+        assert_eq!(a.buf.to_bytes(), b"a\nb\nc");
+        assert!(a.tick());
+        std::fs::write(&path, "a\r\nb\nc\r\n").unwrap();
+        a.reload(false);
+        assert_eq!(a.buf.readonly, Some("mixed line endings"));
+        ctrl(&mut a, 'z');
+        assert_eq!(
+            (a.buf.readonly, a.buf.to_bytes()),
+            (None, b"a\nb\nc".to_vec())
+        );
+        ctrl(&mut a, 'y');
+        assert_eq!(a.message, "nothing to redo");
+        assert!(a.tick());
+        std::fs::write(&path, "\0").unwrap();
+        a.reload(false);
+        std::fs::write(&path, "t\n").unwrap();
+        a.reload(false);
+        ctrl(&mut a, 'z');
+        assert_eq!(a.message, "nothing to undo");
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    /// A dependency changed on disk (a `pip install -U`) or reloaded with Ctrl+R stays read-only.
+    #[test]
+    fn a_reload_keeps_a_file_outside_the_project_read_only() {
+        let (path, mut a) = temp_file("reload-outside", "x\n");
+        let outside = std::env::temp_dir().join(format!("merl-dep-{}.py", std::process::id()));
+        std::fs::write(&outside, "def x(): pass\n").unwrap();
+        a.jump_to(&outside, 1);
+        std::fs::write(&outside, "def y(): pass\n").unwrap();
+        a.reload(false);
+        assert_eq!(a.buf.readonly, Some("outside the project"));
+        std::fs::remove_file(&outside).unwrap();
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 
     /// Every alias in `KEYS` reaches the same action as its primary key.
