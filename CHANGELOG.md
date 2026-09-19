@@ -9,6 +9,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` no longer offers a line inside an embedded literal as a declaration: `literal_lines` reads
+  a Swift or C# `"""` block, a C# verbatim `@"…"` (where `""` is a quote, not the end) and a PHP
+  heredoc, so the SQL a migration embeds stops answering `d`. (#17)
+- The project is live: a file created, deleted or renamed while merl runs (by an agent in the
+  next pane, a `git checkout`, a build) shows up in the tree, in `o` and in what `s`, `u`, `d` and
+  `D` search within a moment, with no key and no restart. The tree cursor stays on its entry and
+  on its screen row, expanded directories stay expanded, an open picker keeps its rows until it is
+  reopened. `.gitignore` is respected as at startup (a new `node_modules/` adds nothing) and an
+  edited one is picked up. A burst of changes is one walk, off the UI thread; on Linux ignored
+  directories are not watched (#75).
+- The review is live: `merl --review` can stay open next to an agent working on the branch. A
+  file it touches for the first time appears in the panel, the counts and `file 3/12` follow
+  every save, commit, rebase and `git switch` within a moment, and a file whose changes were
+  reverted leaves (the open one stays open, without marks). Untracked files that are not ignored
+  are part of the review: listed as `A` with every line added, and `c` walks into them; a branch
+  with nothing but a new, unadded module opens now. The open file, the cursor and both scrolls
+  stay where they are, the panel cursor keeps its file, and nothing opens on its own. When lines
+  are written above the hunk being read, the cursor goes down with its text, so the hunk stays
+  the current one and `c` goes on from it. `git` runs off the UI thread; `HEAD` and the refs are
+  watched explicitly, also in a linked worktree (#76).
+- `d` and `D` in Zig, over every `.zig` file. `d` finds `fn name(` behind `pub`, `export`,
+  `extern "c"`, `inline` and `noinline`, and the `const` or `var` the language declares everything
+  else with — a type (`const Ledger = struct {`, `const Status = enum {`,
+  `const Value = union(enum) {`), an import, a constant, a global and a local alike. A struct field
+  has no rule, as a C field has none, and neither has a `test`: a word inside its description
+  declares nothing, so `d` can never land on one. Zig has no literal that runs over lines — a
+  `\\` string ends with its line — so the markdown a `\\` block holds is read as code. `d` leaves the project for the standard library
+  where `zig env` says it is. `D` keeps the declaration pattern every language shares, which
+  already reads Zig's `fn` and `const`, and adds the two forms it has no word for: a function
+  behind `inline` or `noinline`, and a `test`, listed under its description. A `build.zig.zon` is
+  painted as Zig but has no rules: the data format declares nothing. (#17)
+- `d` and `D` in Elixir, over every `.ex` and `.exs` file. `d` finds every `def` form — `def`,
+  `defp`, `defmacro`, `defmacrop`, `defguard`, `defguardp`, `defdelegate`, written with parens,
+  with `do` or with `, do:`, a trailing `?` or `!` included — a `defmodule` or a `defprotocol`
+  under the namespace it is written with, a `defstruct` field in either form, and a module
+  attribute where it is given a value (`@timeout 5_000`), the `defstruct` line itself, not the
+  continuation lines of a struct written over several. Several clauses of one function are
+  several declarations and all are offered. `@spec`, `@type` and the other attributes the
+  language and the libraries everyone uses own — ExUnit's `@tag`, Mix's `@shortdoc` — are
+  directives, not declarations: `@spec parse(t) :: t` is a promise about `parse`, not its
+  definition. A line inside an `@moduledoc """` heredoc declares nothing, as one
+  inside a Python docstring does not. `D` lists modules, protocols and every `def` form from a
+  rule of its own, where the pattern every language shares knew `def` and nothing else of the
+  family and read the `x` of an anonymous `fn x -> …` as a declaration. (#17)
+- `d` and `D` in Lua, over every `.lua` file. `d` finds a function in each form the language
+  writes one — `function name(`, `local function name(`, `function M.name(`, `function M:name(`,
+  `M.name = function(` and the `name = function(` of a table of handlers — and a `local`, one of
+  several on the line included. A field holding anything but a function has no rule on purpose:
+  `limit = 10` in a table constructor and a re-assignment inside a body are the same line, so `u`
+  lists the uses instead. A `[[ ]]` or `[==[ ]==]` long string and a `--[[ ]]` block comment
+  declare nothing, as a Python docstring does not. `D` lists functions from rules of its own, so
+  `function M.setup(` is listed as `setup` where the pattern every language shares called it
+  `M`, and `local function` is listed at all. (#17)
+- `d` and `D` in PHP, over every `.php` and `.phtml` file. `d` finds a `function` (returned by
+  reference too), a `class`, `interface`, `trait` and `enum`, a `const` and a `define('X', …)`, an
+  `enum` case, a property with the type it carries and a constructor parameter promoted to one —
+  all behind their `#[Attribute]`s and modifiers — plus an assignment that opens a line. A
+  `case X:` of a `switch`, a `$key => $value` pair and `$this->name = …`, which writes to a
+  property declared elsewhere, are not declarations. `d` leaves the project for Composer's
+  `vendor/`, which is gitignored and so outside the project walk the way `node_modules` is, and a
+  `use Illuminate\Support\Str` in column zero binds `Str` to that path, since PSR-4 spells a
+  namespace the way the file system does. `D` lists the types and `const`s from one rule of its
+  own and the functions and methods from another — two rows, because the hit cap is counted per
+  row and one shared row would let a big project's methods crowd its classes off the list — so the
+  declaration pattern every other language shares is untouched and nothing is listed twice; a
+  property, an `enum` case, a `define()` and a magic method (`__construct`, `__toString`, the
+  language's hook rather than the project's) are left out. (#17)
+- `d` and `D` in Swift, over every `.swift` file. `d` finds a `class`, `struct`, `enum`,
+  `protocol`, `actor`, `typealias`, `associatedtype` and an `extension` of a type — where a
+  project keeps its own members of one, often the only place — a `func` past its generic
+  parameters, `init`, `init?`, `subscript` and `deinit`, a `let` or a `var`, and an `enum` case,
+  alone or among several on a line, with the associated or raw value it carries; all of them
+  behind their `@attributes` and any modifiers, `private(set)` and a backticked name included. A
+  `case .open:` or a `case let .open(x):` of a `switch` is a pattern, not a declaration, and a binding made by `if let` or `guard let` has no
+  rule, since it rebinds a name declared elsewhere. `d` leaves the project for `.build/checkouts`,
+  where SwiftPM keeps a package's dependencies as source; the standard library ships compiled,
+  with no `.swift` file to read. `D` lists the types, the functions and the extensions from a rule
+  of its own, so the declaration pattern every other language shares is untouched and nothing is
+  listed twice; a `let`, a `var`, an `init` and an `enum` case are left out, as what a type holds
+  is in every other kind. (#17)
+- `d` and `D` in C#, over every `.cs` and `.csx` file. `d` finds a `class`, `struct`,
+  `interface`, `enum`, `record`, `record class`, `record struct` and `delegate` past the generic
+  parameters they declare and behind their `[Attribute]` lists and modifiers, a `namespace` under its last part, a
+  `using x =` alias, a constructor behind at least one access modifier — a bare `Invoice(n)` is a
+  call — and a method, a property, an event, a field or a local, told from a call by the type
+  before the name, so `public int X { get; }`, `public string Name => _name;` and
+  `int IComparable.CompareTo(o)` all count. An enum member has no rule: `Open,` in an `enum` body
+  and in a collection initialiser are the same line, so `u` lists its uses. `d` stays inside the
+  project, since a NuGet package ships compiled assemblies and the runtime's own source is not on
+  the machine. `D` lists the types and the members from rows of its own, so the declaration
+  pattern every other language shares is untouched and nothing is listed twice; a field and a
+  constructor are left out, as in every other kind. (#17)
 - `d` and `D` in C and C++, which are one kind over every `.c`, `.h`, `.cc`, `.cpp`, `.cxx`,
   `.hpp`, `.hh` and `.hxx` file, so a header finds what a `.c` or a `.cc` defines and the other
   way round. In column zero, where neither language has statements, `d` reads a function, a
@@ -85,8 +177,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `u` lists the same hits in the order a reader wants them: the declarations of the word first,
+  each row marked `declaration`, then the open file, then the rest of the project's code with the
+  nearest directories first, and tests, mocks, fixtures, generated and vendored files last
+  (`tests/`, `__tests__/`, `spec/`, `testdata/`, `mocks/`, `vendor/`, `test_*`, `*_test.*`,
+  `*.spec.*`, `*_pb2.py`, `*.gen.go` and friends). The title says how the list splits:
+  `Usages of delete_user: 1 declaration, 6 in code, 14 in tests`. The candidates `d` offers are
+  demoted by the same table, so a copy of a declaration under `spec/` comes after the real one.
+  (#81)
 - No silent keys: a press that cannot act says why, in a word or two. `d` and `u` off a word
-  say `no word`; `d` in a file whose kind has no rules says `no rules for .lua` instead of a
+  say `no word`; `d` in a file whose kind has no rules says `no rules for .css` instead of a
   `no definition` that never looked; `/` shows `no match` or the match count (`3/17`) next to
   the query while it is typed, and `n` / `N` keep the count, which replaces `wrapped`; Esc no
   longer says `find cleared` with nothing to clear; a file deleted on disk is named
@@ -103,6 +203,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the hits arrive waits for them. The title counts the hits, and shows `Search (…)` until the
   query on screen is answered, so `0 hits` always means nothing was found. Narrowing is done by
   typing more of the query; the fuzzy filter over the results is gone. (#53, #107)
+- `D` searches past its cap: on a project with more than 5,000 declarations the list is only the
+  ones found before the cut, so the query no longer filters those rows — it greps the declaration
+  patterns for a name that matches it, after a pause in the typing, as `s` does. A name declared
+  in a file the cut never reached is found that way. The title says which list is on screen:
+  `Symbols (first 5232, type to search all)`, then `Symbols (…)` while the grep runs and
+  `Symbols (94 hits)` for its answer, `5000+` when the cut caught that one too. Under the cap
+  nothing changes. (#79)
 
 ### Fixed
 

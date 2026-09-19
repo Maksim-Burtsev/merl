@@ -159,11 +159,9 @@ impl Picker {
         }
     }
 
-    /// Hands the edited query to nucleo; `old` is what it was before the key.
-    fn requery(&mut self, old: &str) {
-        // nucleo can refine the previous result set instead of rescoring everything, but only
-        // when the new pattern extends the old one.
-        let append = self.query.starts_with(old);
+    /// Hands the query to nucleo. `append`: the new pattern extends the old one, so nucleo can
+    /// refine the previous result set instead of rescoring everything.
+    pub(crate) fn requery(&mut self, append: bool) {
         self.nucleo.pattern.reparse(
             0,
             &self.query,
@@ -197,7 +195,7 @@ impl Picker {
                     if self.live {
                         return Pick::Typed;
                     }
-                    self.requery(&old);
+                    self.requery(self.query.starts_with(&old));
                 }
             }
         }

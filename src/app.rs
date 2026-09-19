@@ -12,7 +12,7 @@ use crate::buffer::{self, Buffer};
 use crate::git;
 use crate::line_edit::LineEdit;
 use crate::picker::{Pick, PickItem, Picker};
-use crate::search::{self, Candidate, Hit, Kind, Reason};
+use crate::search::{self, Candidate, Hit, Kind, Reason, Tier};
 use crate::tree::Tree;
 use crate::tutor::{self, Tutor};
 use crate::wrap;
@@ -923,12 +923,7 @@ impl App {
                     .collect(),
                 ..Default::default()
             },
-            _ => git::diff(
-                &self.root,
-                &path,
-                Some(&r.merge_base),
-                file.and_then(|f| f.old.as_deref()),
-            ),
+            _ => r.diff(&self.root, &path, file),
         };
         // Ghosts change how many rows a line has; the viewport must not point past them.
         self.top_line = self.top_line.min(self.buf.lines.len() - 1);
@@ -1024,7 +1019,7 @@ impl App {
         let path = self.root.join(&f.path);
         let hunks = match f.status {
             'D' => Vec::new(),
-            _ => git::diff(&self.root, &path, Some(&r.merge_base), f.old.as_deref()).hunks,
+            _ => r.diff(&self.root, &path, Some(f)).hunks,
         };
         let h = if last { hunks.last() } else { hunks.first() };
         self.jump_to(&path, h.map_or(1, |h| h + 1));
@@ -1047,13 +1042,61 @@ impl App {
         ))
     }
 
+    /// The project changed on disk and was walked again: the file list is the new one for the
+    /// next `o`, `s`, `u` and `d` (an open picker keeps its rows), and the tree takes the new rows
+    /// around its cursor. The review panel lists the branch, not the walk, and is left alone.
+    pub fn project_walked(&mut self, tree: Tree, files: Vec<PathBuf>) {
+        self.files = files;
+        if self.review.is_none() {
+            self.refresh_tree(tree);
+        }
+    }
+
+    /// The branch was listed again after a commit or an edit (`git::Review::refresh`): the
+    /// panel takes the new rows and counts around its cursor, which stays on its file. Nothing
+    /// opens and the code pane does not move; the open file gets new marks when the base moved
+    /// or its row came, went or changed its kind (a reverted file stays open, without marks).
+    /// Returns whether anything on screen changed.
+    pub fn review_refreshed(&mut self, fresh: git::Review) -> bool {
+        let Some(old) = &self.review else {
+            return false;
+        };
+        if *old == fresh {
+            return false;
+        }
+        let rel = self.rel_current();
+        let kind = |r: &git::Review| {
+            let f = r.file(rel.as_deref()?)?;
+            Some((f.status, f.old.clone(), f.untracked))
+        };
+        let stale = old.merge_base != fresh.merge_base || kind(old) != kind(&fresh);
+        let paths: Vec<PathBuf> = fresh.files.iter().map(|f| f.path.clone()).collect();
+        self.review = Some(fresh);
+        self.refresh_tree(crate::tree::from_files(&paths));
+        if stale {
+            self.refresh_diff();
+        }
+        true
+    }
+
+    fn refresh_tree(&mut self, tree: Tree) {
+        let row = |t: &Tree| t.visible().iter().position(|&i| i == t.cursor).unwrap_or(0);
+        let before = row(&self.tree);
+        self.tree.refresh(tree);
+        // A scrolled panel follows its cursor, so rows arriving above the pane move nothing on
+        // screen; one showing its first row keeps showing it.
+        if self.tree_top > 0 {
+            self.tree_top = (self.tree_top + row(&self.tree)).saturating_sub(before);
+        }
+    }
+
     /// Re-reads the open file after it changed on disk. Cursor, scroll, history and find pattern
     /// survive; the cursor is clamped to whatever the file is now. merl's own saves are
     /// recognised and ignored; a change under unsaved edits is a conflict, not a reload,
-    /// unless `force` (Ctrl+R) says the edits go.
-    pub fn reload(&mut self, force: bool) {
+    /// unless `force` (Ctrl+R) says the edits go. Returns whether anything on screen changed.
+    pub fn reload(&mut self, force: bool) -> bool {
         let Some(path) = self.buf.path.clone() else {
-            return;
+            return false;
         };
         // Mid-save the file can be briefly gone; the rename that follows sends another event
         // and overwrites the message. Gone for good, the message stays.
@@ -1064,20 +1107,32 @@ impl App {
                 (self.dirty, self.conflict) = (false, false);
             }
             self.message = format!("{} gone", self.rel_path());
-            return;
+            return true;
         };
         if !force {
             if buffer::hash(&bytes) == self.buf.disk {
                 // Gone and back as merl last saw it (a writer's delete-then-write): no conflict.
-                self.conflict = false;
-                return;
+                return std::mem::take(&mut self.conflict);
             }
             if self.dirty {
                 self.conflict = true;
-                return;
+                return true;
             }
         }
-        self.buf = Buffer::from_bytes(path, &bytes);
+        let old = std::mem::replace(&mut self.buf, Buffer::from_bytes(path.clone(), &bytes));
+        if self.review.is_some() {
+            // The reader stays in the hunk they are in when an agent writes above it: every
+            // line kept of this file goes down with its text, before anything is clamped.
+            let to = |l: &mut usize| *l = carried(&old.lines, &self.buf.lines, *l);
+            let stop = self.history.get_mut(self.hist_idx);
+            let stop = stop.filter(|s| s.0 == path && s.1 == self.line);
+            [&mut self.line, &mut self.top_line, &mut self.find_anchor.0]
+                .into_iter()
+                .chain(self.anchor.as_mut().map(|a| &mut a.0))
+                .chain(self.find_sel.as_mut().map(|a| &mut a.0))
+                .chain(stop.map(|s| &mut s.1))
+                .for_each(to);
+        }
         self.dirty = false;
         self.conflict = false;
         self.last_edit = None;
@@ -1091,6 +1146,7 @@ impl App {
         self.sync_want_x();
         self.clamp_scroll();
         self.message = "reloaded".into();
+        true
     }
 
     fn pos(&self) -> Option<(PathBuf, usize, usize)> {
@@ -1266,10 +1322,14 @@ impl App {
         match picker.key(key) {
             Pick::Stay => return,
             Pick::Typed => {
+                // `s` has nothing to show without a query. `D` has the list it opened on, so an
+                // emptied query asks for that list again rather than for nothing.
+                let empty =
+                    picker.query.is_empty() && self.mode == Mode::Picker(PickerKind::Search);
                 self.search_seq += 1;
                 (self.search_sent, self.search_enter) = (None, false);
                 self.search_due = Some(Instant::now() + SEARCH_PAUSE);
-                if picker.query.is_empty() {
+                if empty {
                     self.search_due = None;
                     self.search_done(self.search_seq, Vec::new());
                 }
@@ -1501,6 +1561,7 @@ impl App {
             root: self.root.clone(),
             files,
             pattern: pattern.to_string(),
+            symbols: false,
             current,
             // With unsaved edits the open file is searched as it is on screen, so a hit's line
             // is a line of the buffer the jump lands in.
@@ -1542,7 +1603,12 @@ impl App {
         if let Some(p) = &mut self.picker {
             p.live = true;
         }
-        // An answer still on its way belongs to the search that was closed.
+        self.drop_pending_search();
+    }
+
+    /// Forgets the grep on its way: its answer belongs to a picker that is gone, and its number
+    /// must not be the one the next picker waits for.
+    fn drop_pending_search(&mut self) {
         self.search_seq += 1;
         (self.search_due, self.search_sent, self.search_enter) = (None, None, false);
     }
@@ -1562,25 +1628,41 @@ impl App {
         }
         self.search_due = None;
         self.search_sent = Some(self.search_seq);
-        Some(self.grep_job(self.search_seq, &regex::escape(&query), |_| true))
+        // ponytail: nothing stops a walk whose answer is already stale — `D` past the cap reads
+        // the project once per pause in the typing, and [`search::MAX_HITS`] does not bound it,
+        // since a narrowing query never fills the cap. A stop flag on the job, read per file, is
+        // the upgrade if typing on a large project ever waits on them.
+        // `s` greps the query itself, as text; `D` past the cap greps the declaration patterns
+        // and keeps the names the query matches.
+        let symbols = self.mode == Mode::Picker(PickerKind::Symbols);
+        let pattern = if symbols {
+            query
+        } else {
+            regex::escape(&query)
+        };
+        Some(SearchJob {
+            symbols,
+            ..self.grep_job(self.search_seq, &pattern, |_| true)
+        })
     }
 
-    /// Test helper: the pending grep, run here, and its hits in the picker.
+    /// Test helper: the pending grep, run here, and its rows in the picker.
     #[cfg(test)]
     pub(crate) fn settle_search(&mut self) {
         self.search_due = self.search_due.map(|_| Instant::now());
         if let Some(job) = self.search_tick() {
-            self.search_done(job.seq, job.hits());
+            self.search_done(job.seq, job.items());
         }
         if let Some(p) = &mut self.picker {
             p.settle();
         }
     }
 
-    /// The hits of grep number `seq`. An answer to anything but the query on screen is dropped:
-    /// no grep is ever cancelled, [`search::MAX_HITS`] bounds what a stale one costs. Returns
+    /// The rows of grep number `seq`. An answer to anything but the query on screen is dropped:
+    /// no grep is ever cancelled. What a stale one costs is [`search::MAX_HITS`] for `s`, and
+    /// for `D` a walk of the project, since a narrowing query never fills that cap. Returns
     /// whether the screen changed.
-    pub fn search_done(&mut self, seq: u64, hits: Vec<Hit>) -> bool {
+    pub fn search_done(&mut self, seq: u64, items: Vec<PickItem>) -> bool {
         let Some(old) = self.picker.as_mut().filter(|p| p.live) else {
             return false;
         };
@@ -1588,8 +1670,8 @@ impl App {
             return false;
         }
         self.search_sent = None;
-        let items = Self::hit_items(hits);
-        // The rows keep their order between queries, so the cursor stays on its hit.
+        // `s` keeps the order its grep found between queries, so the cursor stays on its hit.
+        // `D` re-ranks below and takes the cursor to the best row instead.
         let selected = old
             .current()
             .and_then(|cur| {
@@ -1615,6 +1697,13 @@ impl App {
         new.selected = selected;
         new.query = std::mem::take(&mut old.query);
         new.bufs = std::mem::take(&mut old.bufs);
+        // `D` hands nucleo the query too: the grep says which declarations the name reaches,
+        // nucleo ranks them and marks the letters, and the cursor goes to the best of them —
+        // the same reset a keystroke under the cap does. `s` keeps the order its grep found,
+        // and with it the row the cursor was on.
+        if self.mode == Mode::Picker(PickerKind::Symbols) {
+            new.requery(false);
+        }
         self.picker = Some(new);
         true
     }
@@ -1921,6 +2010,11 @@ impl App {
             && found
                 .iter()
                 .any(|c| c.hit.line != self.line + 1 || c.hit.path != here);
+        // Tests, mocks, fixtures, generated and vendored copies of a declaration come last here
+        // too (#81) — except in the file on screen, which is what the reader is reading. The sort
+        // is stable and every candidate is a declaration, so the rest keep the order the search
+        // found them in, standard library and all.
+        found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).0);
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
         match found.as_slice() {
@@ -3015,8 +3109,8 @@ impl App {
 
     /// The files of `kind` outside the project, walked once per kind.
     ///
-    /// ponytail: lives for the session, like the project walk. A `pip install` mid-session
-    /// needs a restart, as a new project file does.
+    /// ponytail: lives for the session, unlike the project walk. A `pip install` mid-session
+    /// needs a restart.
     fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
         self.external
             .entry(kind)
@@ -3106,7 +3200,10 @@ impl App {
         }
     }
 
-    /// `u` / Shift+F12: every whole-word occurrence of the identifier, case-sensitive.
+    /// `u` / Shift+F12: every whole-word occurrence of the identifier, case-sensitive, in the
+    /// order a reader wants them (#81): the declarations first, marked, then the open file, then
+    /// the rest of the project's code nearest first, then tests, mocks, fixtures, generated and
+    /// vendored files. The title says how the list splits.
     fn usages(&mut self) {
         let Some(word) = self.word_under(search::word_chars(self.kind(), false)) else {
             self.message = "no word under the cursor".into();
@@ -3119,28 +3216,128 @@ impl App {
             self.message = format!("no usages of {word}");
             return;
         }
-        self.show_picker(PickerKind::Usages, Self::hit_items(hits));
+        let here = self.rel_current();
+        // What tells a declaration of the word from a use of it is `def_patterns`, and which
+        // ones apply is the hit file's own kind: one regex per kind met, built once.
+        let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
+        let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
+        let mut ranked: Vec<_> = hits
+            .into_iter()
+            .map(|h| {
+                let kind = search::kind_of(&h.path);
+                let re = rules.entry(kind).or_insert_with_key(|k| {
+                    let patterns = k
+                        .map(|k| search::def_patterns(k, &word))
+                        .unwrap_or_default();
+                    (!patterns.is_empty())
+                        .then(|| Regex::new(&patterns.join("|")).ok())
+                        .flatten()
+                });
+                // A pattern that matched inside a docstring, a raw string or a block comment
+                // declares nothing, as `d` reads it too; only a file with a match is read.
+                let declares = re.as_ref().is_some_and(|re| re.is_match(&h.text))
+                    && !literal
+                        .entry(h.path.clone())
+                        .or_insert_with(|| {
+                            kind.zip(self.text_of(&h.path))
+                                .map_or_else(Vec::new, |(k, t)| search::literal_lines(k, &t))
+                        })
+                        .get(h.line - 1)
+                        .copied()
+                        .unwrap_or(false);
+                (search::rank(&h.path, here.as_deref(), declares), h)
+            })
+            .collect();
+        ranked.sort_by(|(a, x), (b, y)| {
+            a.cmp(b)
+                .then_with(|| (&x.path, x.line).cmp(&(&y.path, y.line)))
+        });
+        let tiers: Vec<Tier> = ranked.iter().map(|(r, _)| r.0).collect();
+        let items = Self::hit_items(ranked.into_iter().map(|(_, h)| h).collect());
+        let declarations = tiers.iter().filter(|&&t| t == Tier::Declaration).count();
+        let tests = tiers.iter().filter(|&&t| t == Tier::Tests).count();
+        // A declaration row says so in the column `d` puts its reason in; with no declaration
+        // among the hits the column is not there at all.
+        let width = if declarations > 0 {
+            "declaration".len() + 2
+        } else {
+            0
+        };
+        let items = items
+            .into_iter()
+            .zip(&tiers)
+            .map(|(it, &tier)| {
+                let mark = if tier == Tier::Declaration {
+                    "declaration"
+                } else {
+                    ""
+                };
+                let head = format!("{mark:width$}");
+                PickItem {
+                    code_at: it.code_at.map(|at| at + head.len()),
+                    label: head + &it.label,
+                    ..it
+                }
+            })
+            .collect();
+        let counts = [
+            (
+                declarations,
+                if declarations == 1 {
+                    "declaration"
+                } else {
+                    "declarations"
+                },
+            ),
+            (tiers.len() - declarations - tests, "in code"),
+            (tests, "in tests"),
+        ];
+        let split: Vec<String> = counts
+            .iter()
+            .filter(|(n, _)| *n > 0)
+            .map(|(n, what)| format!("{n} {what}"))
+            .collect();
+        let status = format!("Usages of {word}: {}", split.join(", "));
+        self.show_picker(PickerKind::Usages, items);
+        if let Some(p) = &mut self.picker {
+            p.title = p.title.replacen(PickerKind::Usages.title(), &status, 1);
+        }
     }
 
-    /// `D`: every declaration in the project, recomputed on each press.
+    /// `D`: every declaration in the project, recomputed on each press. A list the
+    /// [`search::MAX_HITS`] cut left short is not the project's symbols, so the query stops
+    /// filtering it: it greps the declaration patterns for a name of its own, as `s` greps
+    /// ([`App::search_tick`]). The rows stay on screen meanwhile, under a title that says what
+    /// they are.
     fn symbols(&mut self) {
-        let mut named: Vec<(String, Hit)> = Vec::new();
-        for (kind, pattern) in search::SYMBOLS {
-            let re = Regex::new(pattern).expect("built-in symbol patterns are valid");
-            let wanted = |p: &Path| match kind {
-                Some(k) => search::kind_of(p) == Some(*k),
-                None => search::shared_symbols(search::kind_of(p)),
-            };
-            let hits = self.grep(pattern, false, false, wanted).unwrap_or_default();
-            named.extend(
-                hits.into_iter()
-                    .filter_map(|h| Some((search::symbol_name(&re, &h.text)?, h))),
-            );
-        }
+        let (named, cut) = self.grep_job(0, "", |_| true).symbol_hits();
         if named.is_empty() {
             self.message = "no symbols".into();
             return;
         }
+        // Not `show_picker`: it reads a cut off the row count, and the cap belongs to each
+        // pattern. What is on screen is the cut list until a query is typed, and the answer to
+        // that query after, so the title (`ui::draw_picker`) is the live picker's business.
+        let items = Self::symbol_items(named);
+        self.picker = Some(Picker::new(
+            PickerKind::Symbols.title(),
+            items,
+            false,
+            self.wake.clone(),
+        ));
+        self.mode = Mode::Picker(PickerKind::Symbols);
+        if !cut {
+            return;
+        }
+        // An answer still on its way belongs to a search that is gone.
+        self.drop_pending_search();
+        if let Some(p) = &mut self.picker {
+            p.live = true;
+        }
+    }
+
+    /// `name  path:line` rows for `D`, sorted by name, the names padded into a column.
+    fn symbol_items(mut named: Vec<(String, Hit)>) -> Vec<PickItem> {
         named.sort_by_cached_key(|(n, h)| (n.to_lowercase(), h.path.clone(), h.line));
         let width = named
             .iter()
@@ -3148,7 +3345,7 @@ impl App {
             .max()
             .unwrap_or(0)
             .min(MAX_NAME_PAD);
-        let items = named
+        named
             .into_iter()
             .map(|(name, h)| PickItem {
                 label: format!(
@@ -3161,8 +3358,7 @@ impl App {
                 line: h.line,
                 code_at: None,
             })
-            .collect();
-        self.show_picker(PickerKind::Symbols, items);
+            .collect()
     }
 
     // ---- tree ------------------------------------------------------------
@@ -3600,7 +3796,9 @@ impl App {
                 self.prompt.clear();
             }
             KeyCode::Char('s') if ctrl => self.save(),
-            KeyCode::Char('r') if ctrl => self.reload(true),
+            KeyCode::Char('r') if ctrl => {
+                self.reload(true);
+            }
             KeyCode::Char('z') if ctrl => self.undo(true),
             KeyCode::Char('y') if ctrl => self.undo(false),
             KeyCode::Char(':') => {
@@ -3731,12 +3929,16 @@ impl App {
 /// How long the `s` query has to stand still before it is grepped.
 const SEARCH_PAUSE: Duration = Duration::from_millis(80);
 
-/// One project grep with everything it reads, owned: `s` runs it in a thread.
+/// One project grep with everything it reads, owned: `s` and `D` run it in a thread.
 pub struct SearchJob {
     pub seq: u64,
     root: PathBuf,
     files: Vec<PathBuf>,
+    /// The text `s` looks for, escaped; for a `symbols` job, the query as typed.
     pattern: String,
+    /// `D` past the cap: the job greps the [`search::SYMBOLS`] patterns and keeps the
+    /// declarations whose name matches `pattern`, rather than the text of the lines.
+    symbols: bool,
     current: Option<PathBuf>,
     unsaved: Option<Vec<u8>>,
 }
@@ -3754,10 +3956,60 @@ impl SearchJob {
         )
     }
 
-    /// The `s` search: smart case, the query anywhere in a line.
-    pub fn hits(&self) -> Vec<Hit> {
-        self.run(false, true)
-            .expect("an escaped literal always compiles")
+    /// The rows the answer becomes: the lines `s` found, smart case and the query anywhere in
+    /// them, or the declarations `D` lists.
+    pub fn items(&self) -> Vec<PickItem> {
+        if self.symbols {
+            return App::symbol_items(self.symbol_hits().0);
+        }
+        App::hit_items(
+            self.run(false, true)
+                .expect("an escaped literal always compiles"),
+        )
+    }
+
+    /// Every declaration the [`search::SYMBOLS`] rows read out of the project, as
+    /// `(listed name, hit)`, keeping the names `pattern` matches — all of them when it is empty,
+    /// which is the press of `D`. Each row is read only from the files it is written for; the
+    /// name decides before the [`search::MAX_HITS`] cut, so a query reaches past a cut list.
+    fn symbol_hits(&self) -> (Vec<(String, Hit)>, bool) {
+        let mut named: Vec<(String, Hit)> = Vec::new();
+        let mut cut = false;
+        for (kind, pattern) in search::SYMBOLS {
+            let re = Regex::new(pattern).expect("built-in symbol patterns are valid");
+            let files: Vec<PathBuf> = self
+                .files
+                .iter()
+                .filter(|p| match kind {
+                    Some(k) => search::kind_of(p) == Some(*k),
+                    None => search::shared_symbols(search::kind_of(p)),
+                })
+                .cloned()
+                .collect();
+            let hits = search::grep_filtered(
+                &self.root,
+                &files,
+                pattern,
+                self.current.as_deref(),
+                self.unsaved.as_deref(),
+                // The press of `D` reads every declaration, so it pays for no name it will
+                // not list: the filter is the query's, and there is none until one is typed.
+                |line| {
+                    self.pattern.is_empty()
+                        || search::symbol_name(&re, line)
+                            .is_some_and(|name| search::fuzzy_match(&self.pattern, &name))
+                },
+            )
+            .unwrap_or_default();
+            // Each row has the cap to itself, so a cut is this row's, never the total's: on a
+            // project whose kinds add up past it with none of them cut, the list is whole.
+            cut |= hits.len() >= search::MAX_HITS;
+            named.extend(
+                hits.into_iter()
+                    .filter_map(|h| Some((search::symbol_name(&re, &h.text)?, h))),
+            );
+        }
+        (named, cut)
     }
 }
 
@@ -3863,6 +4115,28 @@ fn resolution(
     } else {
         // Each row says its own reason.
         format!("{word}: {n} declarations{note}")
+    }
+}
+
+/// Where line `l` of `old` is in `new` when the text was changed above it: the lines the two
+/// end with alike move by the difference in length, the ones they start with alike stay, and
+/// a line of the rewritten middle stays too, but not below the middle's new end.
+///
+/// ponytail: one rewritten region per reload, which is what an agent's edit is. After a write
+/// that changed the file in several places the lines between them are off by what changed
+/// above them; a line diff would place those too.
+fn carried(old: &[String], new: &[String], l: usize) -> usize {
+    let same = |(a, b): &(&String, &String)| a == b;
+    let head = old.iter().zip(new).take_while(same).count();
+    let ends = old.iter().rev().zip(new.iter().rev());
+    let tail = ends
+        .take(old.len().min(new.len()) - head)
+        .take_while(same)
+        .count();
+    if l >= old.len() - tail {
+        l + new.len() - old.len()
+    } else {
+        l.min(new.len() - tail)
     }
 }
 
@@ -4352,8 +4626,73 @@ mod tests {
         (dir, app)
     }
 
+    /// #75: the walk is redone while merl runs. The tree cursor keeps its entry and its screen
+    /// row, an open `o` keeps its rows until it is reopened, and the review panel is not the walk.
+    #[test]
+    fn a_new_walk_keeps_the_cursor_row_and_an_open_picker() {
+        let (dir, mut a) = files_app("live");
+        let walk = |a: &mut App| {
+            let (tree, files) = crate::tree::build(&a.root);
+            a.project_walked(tree, files);
+        };
+        walk(&mut a);
+        a.tree.reveal(Path::new("b.rs"));
+        std::fs::write(dir.join("a2.rs"), "x\n").unwrap();
+        walk(&mut a);
+        assert_eq!(
+            a.tree_top, 0,
+            "a panel showing its first row keeps showing it"
+        );
+        std::fs::remove_file(dir.join("a2.rs")).unwrap();
+        walk(&mut a);
+        a.tree_top = 1;
+        press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+
+        std::fs::write(dir.join("a0.rs"), "x\n").unwrap();
+        std::fs::remove_file(dir.join("a.rs")).unwrap();
+        std::fs::write(dir.join("a1.rs"), "x\n").unwrap();
+        walk(&mut a);
+        assert_eq!(a.files, ["a0.rs", "a1.rs", "b.rs"].map(PathBuf::from));
+        assert_eq!(a.tree.selected().unwrap().path, Path::new("b.rs"));
+        assert_eq!(
+            a.tree_top, 2,
+            "one row more above the cursor: the scroll follows"
+        );
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert_eq!(p.counts().1, 2, "the open picker still lists a.rs and b.rs");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert_eq!(p.counts().1, 3);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+
+        // Rows leaving above the cursor pull the scroll back, never below the first row.
+        a.tree.reveal(Path::new("b.rs"));
+        a.tree_top = 2;
+        std::fs::remove_file(dir.join("a0.rs")).unwrap();
+        walk(&mut a);
+        assert_eq!(a.tree_top, 1);
+        a.tree_top = 1;
+        std::fs::remove_file(dir.join("a1.rs")).unwrap();
+        std::fs::write(dir.join("c.rs"), "x\n").unwrap();
+        walk(&mut a);
+        assert_eq!((a.tree_top, a.tree.cursor), (0, 0));
+
+        let (_, mut r) = review_app("live-review");
+        let panel = |r: &App| {
+            let rows = r.tree.nodes.iter().map(|n| (n.path.clone(), n.expanded));
+            (rows.collect::<Vec<_>>(), r.tree.cursor, r.tree_top)
+        };
+        let before = panel(&r);
+        let (tree, files) = crate::tree::build(&r.root);
+        r.project_walked(tree, files.clone());
+        assert_eq!((panel(&r), &r.files), (before, &files));
+    }
+
     /// A repository with a `feature` branch checked out: `src/a.rs` changed twice, `new`
-    /// added, `gone` deleted; the app is in review mode on it.
+    /// added, `gone` deleted, `src/keep.rs` as it was; the app is in review mode on it.
     fn review_app(tag: &str) -> (PathBuf, App) {
         review_app_with(tag, &[])
     }
@@ -4379,6 +4718,7 @@ mod tests {
         std::fs::write(dir.join("gone"), "x\ny\n").unwrap();
         std::fs::write(dir.join("tail"), "t1\nt2\nt3\n").unwrap();
         std::fs::write(dir.join("crlf.txt"), "one\r\ntwo\n").unwrap();
+        std::fs::write(dir.join("src/keep.rs"), "k1\nk2\nk3\n").unwrap();
         git(&["add", "."]);
         git(&["commit", "-q", "-m", "base"]);
         git(&["switch", "-q", "-c", "feature"]);
@@ -4435,6 +4775,280 @@ mod tests {
         assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
         assert_eq!(a.message, "skipped 1 file without hunks");
         assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/7");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #76: the review is left open next to an agent. What `main` does on a change is
+    /// `Review::refresh` and `review_refreshed`; the open file, the cursor and both scrolls stay.
+    #[test]
+    fn a_live_review_follows_edits_untracked_files_and_commits() {
+        let (dir, mut a) = review_app("livereview");
+        let git = |args: &[&str]| {
+            let mut cmd = std::process::Command::new("git");
+            let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+            assert!(out.status.success(), "git {args:?}");
+        };
+        let refresh = |a: &mut App| {
+            let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+            a.review_refreshed(fresh)
+        };
+        let rows = |a: &App| -> Vec<(char, String, usize, usize)> {
+            let files = a.review.as_ref().unwrap().files.iter();
+            files
+                .map(|f| (f.status, f.path.display().to_string(), f.added, f.deleted))
+                .collect()
+        };
+        let row = |s: char, p: &str, n: usize, m: usize| (s, p.to_string(), n, m);
+        // Where the reader is: the code pane, the panel cursor and its row on screen.
+        let place = |a: &App| {
+            let vis = a.tree.visible();
+            let row = vis.iter().position(|&i| i == a.tree.cursor).unwrap();
+            let selected = a.tree.selected().unwrap().path.clone();
+            (at(a), a.col, a.top_line, selected, row - a.tree_top)
+        };
+        assert!(!refresh(&mut a), "nothing changed: nothing to draw");
+        a.tree.reveal(Path::new("new"));
+        a.tree_top = 1;
+        let before = place(&a);
+        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 4/5");
+
+        // The agent touches a file for the first time, writes a module in a new directory and
+        // one at the root, neither added, and a log that is ignored.
+        std::fs::write(dir.join("src/keep.rs"), "k1\nk2\nK\nk3\n").unwrap();
+        std::fs::create_dir(dir.join("pkg")).unwrap();
+        std::fs::write(dir.join("pkg/mod.py"), "x = 1\ny = 2\n").unwrap();
+        std::fs::write(dir.join("pkg/logo.png"), b"\x89PNG\0").unwrap();
+        std::fs::write(dir.join("zz.py"), "z = 1\nz = 2\nlast").unwrap();
+        std::fs::write(dir.join(".gitignore"), "*.log\n").unwrap();
+        std::fs::write(dir.join("agent.log"), "noise\n").unwrap();
+        assert!(refresh(&mut a));
+        assert_eq!(
+            rows(&a),
+            vec![
+                row('A', "pkg/logo.png", 0, 0),
+                row('A', "pkg/mod.py", 2, 0),
+                row('M', "src/a.rs", 2, 2),
+                row('M', "src/keep.rs", 1, 0),
+                row('A', ".gitignore", 1, 0),
+                row('M', "crlf.txt", 1, 1),
+                row('D', "gone", 0, 2),
+                row('A', "new", 1, 0),
+                row('M', "tail", 0, 2),
+                row('A', "zz.py", 3, 0),
+            ]
+        );
+        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 8/10");
+        assert_eq!(place(&a), before, "rows came in above: nothing moved");
+        let shown = |a: &App, p: &str| {
+            a.tree
+                .visible()
+                .iter()
+                .any(|&i| a.tree.nodes[i].path == Path::new(p))
+        };
+        assert!(shown(&a, "pkg/mod.py"), "a new directory comes open");
+        // A directory the reader closed stays closed.
+        a.tree.reveal(Path::new("src"));
+        a.tree.collapse();
+        a.tree.reveal(Path::new("new"));
+        std::fs::write(dir.join("pkg/mod.py"), "x = 1\n").unwrap();
+        assert!(refresh(&mut a));
+        assert_eq!(rows(&a)[1], row('A', "pkg/mod.py", 1, 0));
+        assert!(a.review.as_ref().unwrap().files[0].binary);
+        assert!(!shown(&a, "src/a.rs"));
+
+        // `c` walks into the untracked file as into any added one: every line is added.
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("zz.py"), 0));
+        assert_eq!((a.diff.marks.len(), &a.diff.hunks), (3, &vec![0]));
+        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 10/10");
+
+        // A reverted file leaves the panel. The open one stays open, without marks.
+        a.jump_to(&dir.join("src/keep.rs"), 3);
+        assert_eq!(a.diff.marks.len(), 1);
+        std::fs::write(dir.join("src/keep.rs"), "k1\nk2\nk3\n").unwrap();
+        a.reload(false);
+        assert!(refresh(&mut a));
+        assert!(
+            a.review
+                .as_ref()
+                .unwrap()
+                .file(Path::new("src/keep.rs"))
+                .is_none()
+        );
+        assert_eq!(at(&a), (dir.join("src/keep.rs"), 2));
+        assert!(a.diff.marks.is_empty());
+        assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/9");
+
+        // The agent commits: the rows are the same ones, tracked now. Then the base moves up to
+        // the branch's first commit, and only the second one is left to review; `new`, open
+        // and not touched on disk, loses its marks.
+        a.jump_to(&dir.join("new"), 1);
+        assert_eq!(a.diff.marks.len(), 1);
+        let listed = rows(&a);
+        git(&["add", "-A"]);
+        git(&["commit", "-q", "-m", "more work"]);
+        assert!(
+            refresh(&mut a),
+            "the rows are tracked now: `untracked` went"
+        );
+        assert_eq!(rows(&a), listed);
+        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 7/9");
+        git(&["branch", "-f", "main", "HEAD~1"]);
+        assert!(refresh(&mut a));
+        assert_eq!(
+            rows(&a),
+            vec![
+                row('A', "pkg/logo.png", 0, 0),
+                row('A', "pkg/mod.py", 1, 0),
+                row('A', ".gitignore", 1, 0),
+                row('A', "zz.py", 3, 0),
+            ]
+        );
+        assert_eq!(at(&a), (dir.join("new"), 0));
+        assert!(a.diff.marks.is_empty());
+        assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/4");
+        // The base caught up with the branch: an empty panel, and keys that find no row.
+        git(&["branch", "-f", "main", "HEAD"]);
+        assert!(refresh(&mut a));
+        assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/0");
+        a.focus = Focus::Tree;
+        for key in [KeyCode::Down, KeyCode::Enter, KeyCode::Char('c')] {
+            press(&mut a, key, KeyModifiers::NONE);
+        }
+        assert_eq!(at(&a), (dir.join("new"), 0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #76: the marks of the open file are read again when the base moves under it or its row
+    /// changes kind, with no write to the file itself, which is what `reload` answers.
+    #[test]
+    fn the_open_file_gets_new_marks_when_only_the_branch_changed() {
+        let (dir, mut a) = review_app("livemarks");
+        let git = |args: &[&str]| {
+            let mut cmd = std::process::Command::new("git");
+            let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+            assert!(out.status.success(), "git {args:?}");
+        };
+        let refresh = |a: &mut App| {
+            let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+            a.review_refreshed(fresh)
+        };
+        let keep = dir.join("src/keep.rs");
+        std::fs::write(&keep, "k1\nK2\nk3\n").unwrap();
+        git(&["commit", "-qam", "second"]);
+        std::fs::write(&keep, "k1\nK2\nK3\n").unwrap();
+        git(&["commit", "-qam", "third"]);
+        assert!(refresh(&mut a));
+        a.jump_to(&keep, 1);
+        assert_eq!(a.diff.marks.len(), 2);
+        // The base moves up to `second`: the row stays `M`, one mark is left.
+        git(&["branch", "-f", "main", "HEAD~1"]);
+        assert!(refresh(&mut a));
+        assert_eq!(a.diff.marks.len(), 1);
+        // The file leaves the index: the same merge base, a row of another kind, every line
+        // added. One row: the file on disk, not the deletion.
+        git(&["rm", "-q", "--cached", "src/keep.rs"]);
+        assert!(refresh(&mut a));
+        let rows = a.review.as_ref().unwrap().files.iter();
+        let rows: Vec<_> = rows
+            .filter(|f| f.path == Path::new("src/keep.rs"))
+            .collect();
+        assert_eq!(
+            (rows.len(), rows[0].status, rows[0].untracked),
+            (1, 'A', true)
+        );
+        assert_eq!(a.diff.marks.len(), 3);
+        assert_eq!(at(&a), (keep, 0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #76: the branch deleted `gone` and the agent writes it again, not added: git lists the
+    /// path as deleted and as untracked. It is one row, read from disk, and `c` walks past it.
+    #[test]
+    fn a_deleted_file_written_again_is_one_row() {
+        let (dir, mut a) = review_app("liveagain");
+        std::fs::write(dir.join("gone"), "fresh\n").unwrap();
+        let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+        assert!(a.review_refreshed(fresh));
+        let names = a.tree.nodes.iter().map(|n| n.path.to_str().unwrap());
+        assert_eq!(
+            names.collect::<Vec<_>>(),
+            vec!["src", "src/a.rs", "crlf.txt", "gone", "new", "tail"]
+        );
+        press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("gone"), 0));
+        assert_eq!(
+            (a.buf.lines.clone(), a.buf.readonly),
+            (vec!["fresh".to_string()], None)
+        );
+        press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("new"), 0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #76: the reader is in the second hunk when the agent adds one above it. The cursor and
+    /// the scroll go down with the text, so the hunk is still the current one and `c` goes on.
+    #[test]
+    fn the_current_hunk_stays_current_when_one_is_added_above() {
+        let (dir, mut a) = review_app("livehunk");
+        a.jump_to(&dir.join("src/a.rs"), 6);
+        a.view_h = 4;
+        a.clamp_scroll();
+        a.top_line = 3;
+        a.anchor = Some((4, 0));
+        let stop = |a: &App| a.history[a.hist_idx].clone();
+        assert_eq!(stop(&a), (dir.join("src/a.rs"), 5, 0));
+        assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/5");
+        std::fs::write(dir.join("src/a.rs"), "new\nnew\na\nB\nc\nd\ne\nF\n").unwrap();
+        assert!(a.reload(false));
+        assert_eq!(
+            (a.line, a.top_line, a.buf.lines[a.line].as_str()),
+            (7, 5, "F")
+        );
+        assert_eq!(a.review_status().unwrap(), "hunk 3/3  file 1/5");
+        // What is selected is still selected, and the history stop is still under the cursor.
+        assert_eq!(a.anchor, Some((6, 0)));
+        assert_eq!(stop(&a), (dir.join("src/a.rs"), 7, 0));
+        a.anchor = None;
+        // A block deleted above the pane, from a file longer than what is left of it: the
+        // scroll is carried from where it was, not from where the shorter file clamps it.
+        let text = |r: std::ops::Range<usize>| r.map(|i| format!("l{i}\n")).collect::<String>();
+        std::fs::write(dir.join("src/a.rs"), text(0..40)).unwrap();
+        a.reload(false);
+        (a.view_h, a.line, a.top_line) = (10, 35, 30);
+        std::fs::write(dir.join("src/a.rs"), text(25..40)).unwrap();
+        a.reload(false);
+        assert_eq!(
+            (a.line, a.top_line, a.buf.lines[a.line].as_str()),
+            (10, 5, "l35")
+        );
+        std::fs::write(dir.join("src/a.rs"), "new\nnew\na\nB\nc\nd\ne\nF\n").unwrap();
+        a.reload(false);
+        a.jump_to(&dir.join("src/a.rs"), 8);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+        // Written below the cursor, or the cursor's own line: nothing to follow.
+        let text = |n: usize| (0..n).map(|i| format!("{i}\n")).collect::<String>();
+        for (old, new, l, want) in [
+            (text(6), text(6) + "x\n", 3, 3),
+            (text(6), "x\n".to_string() + &text(6), 3, 4),
+            (text(6), text(6).replace("3\n", "x\ny\n"), 3, 3),
+            (text(6), text(6).replace("1\n", ""), 3, 2),
+            ("a\nb\n".into(), "a\na\nb\n".into(), 0, 0),
+            // The cursor's own lines went: the line that followed them.
+            (text(6), text(6).replace("2\n3\n", ""), 3, 2),
+        ] {
+            let lines = |s: &str| s.lines().map(String::from).collect::<Vec<_>>();
+            assert_eq!(
+                carried(&lines(&old), &lines(&new), l),
+                want,
+                "{old:?} {new:?}"
+            );
+        }
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -8996,6 +9610,24 @@ mod tests {
                     "invoice.h",
                     "#define LIMIT 10\nstruct invoice {\n    int total;\n};\nint sum(struct invoice *i);\n",
                 ),
+                // Lua from its own rows too: the shared pattern reads `function M.setup(` as a
+                // declaration of `M`.
+                (
+                    "init.lua",
+                    "local M = {}\n\nfunction M.setup(opts)\n  return opts\nend\n",
+                ),
+                // Elixir from its own rows: the shared pattern knows `def` and nothing else of
+                // the family, and `defp` would be missing.
+                (
+                    "ledger.ex",
+                    "defmodule Ledger do\n  @timeout 5\n\n  defp normalise(raw), do: raw\nend\n",
+                ),
+                // Zig keeps the shared pattern and complements it: `pub fn` comes from there,
+                // the test from a row of its own.
+                (
+                    "ledger.zig",
+                    "pub fn total() u32 {\n    return 0;\n}\n\ntest \"it adds up\" {}\n",
+                ),
             ],
         );
         press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
@@ -9015,11 +9647,158 @@ mod tests {
                 "build",
                 "build",
                 "invoice",
+                // The first word of `it adds up`, the Zig test's description.
+                "it",
+                "Ledger",
                 "LIMIT",
+                "normalise",
                 "serve",
+                "setup",
+                "total",
                 "var.region"
             ]
         );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A project past the cap: `a.go` fills the list on its own, so the walk stops before
+    /// `z.go` and `zebra` is behind the cut. `main.tf` is there for a name with a dot in it.
+    fn capped_project(tag: &str) -> (PathBuf, App) {
+        let many: String = (0..search::MAX_HITS)
+            .map(|i| format!("func a{i}() {{}}\n"))
+            .collect();
+        project_app(
+            tag,
+            &[
+                ("a.go", &many),
+                ("main.tf", "variable \"region\" {}\n"),
+                ("z.go", "func zebra() {}\nfunc Zebra() {}\n"),
+            ],
+        )
+    }
+
+    /// Past the cap the rows are the declarations found before it, not the project's, so the
+    /// query greps for a name instead of filtering them: what the cut never reached is found by
+    /// typing it, in either case. An answer to a query that has changed since is dropped, and an
+    /// emptied query brings the opening list back. Under the cap nothing of this happens.
+    #[test]
+    fn symbols_past_the_cap_are_grepped_not_filtered() {
+        let (small, mut b) = project_app("cap-under", &[("z.go", "func zebra() {}\n")]);
+        press(&mut b, KeyCode::Char('D'), KeyModifiers::NONE);
+        let p = b.picker.as_ref().unwrap();
+        assert_eq!(
+            (p.title.as_str(), p.live),
+            ("Symbols", false),
+            "the whole list"
+        );
+        std::fs::remove_dir_all(&small).unwrap();
+
+        let (dir, mut a) = capped_project("cap-symbols");
+        // A grep of the search that was open answers to a number `D` must not be waiting for.
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "zebra");
+        std::thread::sleep(SEARCH_PAUSE);
+        let of_the_search = a.search_tick().expect("the grep for the `s` query").seq;
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+
+        press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert_eq!(
+            p.counts().1 as usize,
+            search::MAX_HITS + 1,
+            "a.go fills the cap of the shared pattern; main.tf is another pattern's row"
+        );
+        assert!(
+            p.live,
+            "the query greps the project, it does not filter these rows"
+        );
+        assert!(
+            !a.search_done(of_the_search, App::hit_items(Vec::new())),
+            "the search's answer is not the symbol list"
+        );
+
+        typed(&mut a, "zebr");
+        std::thread::sleep(SEARCH_PAUSE);
+        let stale = a.search_tick().expect("the grep for zebr").seq;
+        typed(&mut a, "a");
+        assert!(!a.search_done(stale, Vec::new()), "zebr is not on screen");
+        let cut = a.picker.as_ref().unwrap().counts().1 as usize;
+        assert_eq!(cut, search::MAX_HITS + 1, "a stale answer settles nothing");
+
+        // Smart case, as everywhere else: an all-lowercase query finds both spellings.
+        a.settle_search();
+        let p = a.picker.as_mut().unwrap();
+        assert_eq!(p.counts(), (2, 2));
+        let rows = p.window(5).0;
+        let mut labels: Vec<&str> = rows.iter().map(|r| r.item.label.as_str()).collect();
+        labels.sort_unstable();
+        assert_eq!(labels, ["Zebra  z.go:2", "zebra  z.go:1"]);
+        // nucleo ranks and marks what the grep brought back, as it does under the cap.
+        assert_eq!(rows[0].matched, [0, 1, 2, 3, 4]);
+
+        // One capital of its own makes the query case-sensitive, before the picker sees it.
+        press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+        typed(&mut a, "Zebra");
+        a.settle_search();
+        let p = a.picker.as_mut().unwrap();
+        assert_eq!(p.counts(), (1, 1));
+        assert_eq!(p.window(5).0[0].item.label, "Zebra  z.go:2");
+
+        press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+        a.settle_search();
+        let p = a.picker.as_ref().unwrap();
+        assert_eq!(
+            p.counts().1 as usize,
+            search::MAX_HITS + 1,
+            "the list it opened on"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The cap belongs to each declaration pattern, not to the list: a project whose kinds add
+    /// up past it with none of them cut has its whole list, and the query filters it as ever.
+    #[test]
+    fn a_list_no_pattern_cut_short_is_the_whole_list() {
+        let half = search::MAX_HITS / 2 + 100;
+        let go: String = (0..half).map(|i| format!("func a{i}() {{}}\n")).collect();
+        let rb: String = (0..half).map(|i| format!("def b{i}\nend\n")).collect();
+        let (dir, mut a) = project_app("cap-two-kinds", &[("a.go", &go), ("b.rb", &rb)]);
+        press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert!(2 * half > search::MAX_HITS, "past the cap in total");
+        assert_eq!(p.counts().1 as usize, 2 * half, "both kinds, whole");
+        assert_eq!(
+            (p.title.as_str(), p.live),
+            ("Symbols", false),
+            "nothing was cut, so the query still filters the rows"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The query past the cap is a name to find, not a pattern: a regex would read `a1.*` as
+    /// a thousand of the names in `a.go`, and an escaped one would look for a backslash in
+    /// `var.region`.
+    #[test]
+    fn a_symbol_query_is_literal_not_a_regex() {
+        let (dir, mut a) = capped_project("cap-regex");
+        press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+        for (query, hits, why) in [
+            ("a1.*", 0, "a dot and a star are characters of a name"),
+            (
+                "var.region",
+                1,
+                "and a name written with a dot is typed with it",
+            ),
+        ] {
+            typed(&mut a, query);
+            a.settle_search();
+            let p = a.picker.as_ref().expect(why);
+            assert_eq!(p.counts().1, hits, "{why}: {}", a.message);
+            press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+            a.settle_search();
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -9685,6 +10464,13 @@ mod tests {
         a.reload(false);
         assert_eq!(a.message, "");
 
+        // Outside a review the cursor keeps its line number when lines are written above it.
+        a.line = 3;
+        std::fs::write(&path, "new\n".to_string() + &"line\n".repeat(10)).unwrap();
+        a.reload(false);
+        assert_eq!(a.line, 3);
+        a.line = 9;
+
         std::fs::write(&path, "a\nb\nc\n").unwrap();
         a.reload(false);
         assert_eq!(a.buf.lines.len(), 3);
@@ -10008,8 +10794,244 @@ two
         press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
         let p = a.picker.as_mut().unwrap();
         p.settle();
-        assert_eq!(p.title, format!("Usages (first {})", search::MAX_HITS));
+        // The split counts what the list holds, and the cut still says so behind it.
+        assert_eq!(
+            p.title,
+            format!(
+                "Usages of x: {} in code (first {})",
+                search::MAX_HITS,
+                search::MAX_HITS
+            )
+        );
         assert_eq!(p.counts().1 as usize, search::MAX_HITS);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The rows of the open result picker, each split into its mark and the `path:line` it
+    /// points at.
+    fn usage_rows(a: &mut App) -> Vec<(String, String)> {
+        let picker = a.picker.as_mut().expect("a picker");
+        picker.settle();
+        picker
+            .window(50)
+            .0
+            .into_iter()
+            .map(|r| {
+                let head = r.item.label[..r.item.code_at.unwrap()].trim_end();
+                let (mark, place) = head.rsplit_once(' ').unwrap_or(("", head));
+                (mark.trim().into(), place.trim_end_matches(':').into())
+            })
+            .collect()
+    }
+
+    /// Puts the cursor on `word` in `file` at `line` and presses `u`.
+    fn usages_at(a: &mut App, dir: &Path, file: &str, line: usize, word: &str) {
+        a.jump_to(&dir.join(file), line);
+        a.col = a.line_str().find(word).expect(word);
+        press(a, KeyCode::Char('u'), KeyModifiers::NONE);
+    }
+
+    /// #81: the declaration first and marked as one, then the open file, then the rest of the
+    /// project's code nearest first, then the tests — a test file next door still sorts below
+    /// code a package away.
+    #[test]
+    fn usages_put_the_declaration_first_and_the_tests_last() {
+        let (dir, mut a) = project_app(
+            "u-order",
+            &[
+                (
+                    "src/users/repo.py",
+                    "class Repo:\n    def delete_user(self, id):\n        pass\n",
+                ),
+                (
+                    "src/users/admin.py",
+                    "def purge(repo, id):\n    repo.delete_user(id)\n",
+                ),
+                (
+                    "src/users/repo_test.py",
+                    "def check(repo):\n    repo.delete_user(2)\n",
+                ),
+                (
+                    "src/api/view.py",
+                    "def view(repo):\n    repo.delete_user(1)\n",
+                ),
+                (
+                    "tests/test_repo.py",
+                    "def test_delete(repo):\n    repo.delete_user(1)\n",
+                ),
+            ],
+        );
+        usages_at(&mut a, &dir, "src/users/admin.py", 2, "delete_user");
+        assert_eq!(
+            usage_rows(&mut a),
+            [
+                ("declaration".to_string(), "src/users/repo.py:2".to_string()),
+                (String::new(), "src/users/admin.py:2".into()),
+                (String::new(), "src/api/view.py:2".into()),
+                (String::new(), "src/users/repo_test.py:2".into()),
+                (String::new(), "tests/test_repo.py:2".into()),
+            ]
+        );
+        assert_eq!(
+            a.picker.as_ref().unwrap().title,
+            "Usages of delete_user: 1 declaration, 2 in code, 2 in tests"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The title says how the list splits, and a part with no hits is left out rather than
+    /// printed as a zero.
+    #[test]
+    fn the_usages_title_splits_the_counts_and_omits_what_is_not_there() {
+        let (dir, mut a) = project_app(
+            "u-title",
+            &[
+                (
+                    "src/repo.py",
+                    "class Repo:\n    def delete_user(self, id):\n        pass\n",
+                ),
+                ("src/api/repo.py", "class Repo:\n    pass\n"),
+                (
+                    "src/admin.py",
+                    "import log\n\ndef purge(repo, id):\n    log.info(\"purge\")\n    repo.delete_user(id)\n",
+                ),
+                (
+                    "tests/test_repo.py",
+                    "import log\n\ndef test_delete(repo):\n    log.info(\"t\")\n    repo.delete_user(1)\n",
+                ),
+            ],
+        );
+        for (file, line, word, title) in [
+            (
+                "src/admin.py",
+                5,
+                "delete_user",
+                "Usages of delete_user: 1 declaration, 1 in code, 1 in tests",
+            ),
+            // Two declarations and nothing else: only the one part, and it is plural.
+            ("src/repo.py", 1, "Repo", "Usages of Repo: 2 declarations"),
+            // A name no rule declares: no declaration part at all.
+            (
+                "src/admin.py",
+                4,
+                "info",
+                "Usages of info: 1 in code, 1 in tests",
+            ),
+        ] {
+            usages_at(&mut a, &dir, file, line, word);
+            let p = a.picker.as_mut().unwrap();
+            p.settle();
+            assert_eq!(p.title, title);
+            press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #81: the candidates of `d` share the demotion — the copy of the declaration under `spec/`
+    /// is offered last, though its path sorts first.
+    #[test]
+    fn d_offers_the_test_copy_of_a_declaration_last() {
+        let (dir, mut a) = project_app(
+            "d-tests",
+            &[
+                ("spec/repo.py", "def delete_user(id):\n    pass\n"),
+                ("src/repo.py", "def delete_user(id):\n    pass\n"),
+                ("src/admin.py", "def purge(id):\n    delete_user(id)\n"),
+            ],
+        );
+        let rows = |a: &mut App| {
+            definition_rows(a)
+                .into_iter()
+                .map(|(_, _, place)| place)
+                .collect::<Vec<_>>()
+        };
+        a.jump_to(&dir.join("src/admin.py"), 2);
+        a.col = a.line_str().find("delete_user").unwrap();
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        assert_eq!(rows(&mut a), ["src/repo.py:1", "spec/repo.py:1"]);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        // Read from inside `spec/` and that file is not a test copy, it is what is on screen:
+        // its declaration stays first.
+        a.jump_to(&dir.join("spec/repo.py"), 2);
+        a.col = 4;
+        a.buf.lines[1] = "    delete_user(id)".into();
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        assert_eq!(rows(&mut a), ["spec/repo.py:1", "src/repo.py:1"]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #81: the mark says what `d` would call a declaration — not a `def` line inside a
+    /// docstring, nothing at all where the kind has no rule for the word, and nothing in a file
+    /// the list demotes, whose count belongs to the tests.
+    #[test]
+    fn the_usages_mark_is_only_for_a_declaration_d_would_offer() {
+        let (dir, mut a) = project_app(
+            "u-marks",
+            &[
+                (
+                    "src/repo.py",
+                    "class Repo:\n    def delete_user(self, id):\n        pass\n",
+                ),
+                (
+                    "docs/guide.py",
+                    "HELP = \"\"\"\nUsage:\n\ndef delete_user(id):\n\"\"\"\n",
+                ),
+                (
+                    "src/admin.py",
+                    "def purge(repo, id):\n    repo.delete_user(id)\n\ndef build():\n    return make_repo()\n",
+                ),
+                ("tests/test_repo.py", "def make_repo():\n    return None\n"),
+                (
+                    "main.tf",
+                    "resource \"aws_s3_bucket\" \"logs\" {\n  count = 2\n}\n",
+                ),
+                (
+                    "other.tf",
+                    "resource \"aws_s3_bucket\" \"data\" {\n  count = 3\n}\n",
+                ),
+            ],
+        );
+        usages_at(&mut a, &dir, "src/admin.py", 2, "delete_user");
+        assert_eq!(
+            usage_rows(&mut a),
+            [
+                ("declaration".to_string(), "src/repo.py:2".to_string()),
+                (String::new(), "src/admin.py:2".into()),
+                (String::new(), "docs/guide.py:4".into()),
+            ]
+        );
+        assert_eq!(
+            a.picker.as_ref().unwrap().title,
+            "Usages of delete_user: 1 declaration, 2 in code"
+        );
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        // Terraform declares no bare `count`: with no rule there is no mark and no column for it.
+        usages_at(&mut a, &dir, "main.tf", 2, "count");
+        assert_eq!(
+            usage_rows(&mut a),
+            [
+                (String::new(), "main.tf:2".to_string()),
+                (String::new(), "other.tf:2".into()),
+            ]
+        );
+        assert_eq!(
+            a.picker.as_ref().unwrap().title,
+            "Usages of count: 2 in code"
+        );
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        // A word declared only in a test file: the declaration is a test row, marked as neither.
+        usages_at(&mut a, &dir, "src/admin.py", 5, "make_repo");
+        assert_eq!(
+            usage_rows(&mut a),
+            [
+                (String::new(), "src/admin.py:5".to_string()),
+                (String::new(), "tests/test_repo.py:1".into()),
+            ]
+        );
+        assert_eq!(
+            a.picker.as_ref().unwrap().title,
+            "Usages of make_repo: 1 in code, 1 in tests"
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
