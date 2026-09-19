@@ -1715,6 +1715,22 @@ pub fn call_head(
 /// for the whole module (`* as ns`, `require`). Rust's in-crate `crate::` and `super::` paths are
 /// left out.
 pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
+    // A Python import in a docstring's example binds nothing of the file.
+    if kind == Kind::Python {
+        let literal = literal_lines(kind, text);
+        let code: Vec<&str> = text
+            .lines()
+            .zip(&literal)
+            .map(|(l, inside)| if *inside { "" } else { l })
+            .collect();
+        return imports_as_written(kind, &code.join("\n"));
+    }
+    imports_as_written(kind, text)
+}
+
+/// [`imports`] over every line of `text`, a docstring's too: what a reader inside the docstring's
+/// example goes by.
+pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
     let mut out = Vec::new();
     let parts = |module: &str, sep: &str| -> Vec<String> {
         module
@@ -1744,14 +1760,7 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
                 )
                 .unwrap()
             });
-            // An import in a docstring's example binds nothing.
-            let literal = literal_lines(kind, text);
-            let code: Vec<&str> = text
-                .lines()
-                .zip(&literal)
-                .map(|(l, inside)| if *inside { "" } else { l })
-                .collect();
-            for c in IMPORT.captures_iter(&code.join("\n")) {
+            for c in IMPORT.captures_iter(text) {
                 if let (Some(module), Some(names)) = (c.get(1), c.get(2)) {
                     let module = module.as_str();
                     let relative = module.trim_start_matches('.');

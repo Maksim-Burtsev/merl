@@ -1765,7 +1765,12 @@ impl App {
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
         self.truncated.set(false);
-        let mut imports = search::imports(kind, &text);
+        // Inside a docstring's example the imports written there count too.
+        let in_literal = search::literal_lines(kind, &text).get(self.line) == Some(&true);
+        let mut imports = match in_literal {
+            true => search::imports_as_written(kind, &text),
+            false => search::imports(kind, &text),
+        };
         // A parameter or a local of the same name hides the import where the cursor is: `json`
         // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
         let first = chain.first().map_or(word.as_str(), String::as_str);
@@ -9349,6 +9354,26 @@ mod tests {
                 "docstring_import.py",
                 "repo: UserRepository",
                 jump("UserRepository: via import repos.py", "repos.py:4"),
+            ),
+            // … but for the reader of that example, as it was.
+            (
+                "docstring_import.py",
+                "from fakes import UserRepository",
+                Shown::Picker(
+                    "UserRepository: 2 declarations".into(),
+                    vec![
+                        (
+                            "UserRepository".into(),
+                            "via import repos.py".into(),
+                            "repos.py:4".into(),
+                        ),
+                        (
+                            "UserRepository".into(),
+                            "via import fakes.py".into(),
+                            "fakes.py:1".into(),
+                        ),
+                    ],
+                ),
             ),
             // `try` / `except ImportError` names two sources: both are offered, neither typed.
             (
