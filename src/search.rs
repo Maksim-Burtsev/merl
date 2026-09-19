@@ -2883,8 +2883,9 @@ pub fn python_module_level(text: &str) -> String {
             continue;
         }
         if let Some(k) = skip {
-            // A closer at the header's indent ends a signature wrapped over several lines.
-            if t.is_empty() || indent(l) > k || t.starts_with([')', ']']) {
+            // A closer at the header's indent ends a signature wrapped over several lines, and
+            // a comment at the margin ends no body.
+            if t.is_empty() || indent(l) > k || t.starts_with([')', ']', '#']) {
                 continue;
             }
             skip = None;

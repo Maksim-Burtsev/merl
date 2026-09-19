@@ -37,6 +37,8 @@ if stamp is None:
 
 
 def lazy() -> None:
+    stamp()
+# a comment at column 0 ends no body
     from .crates import Hook
 
     Hook().seal()

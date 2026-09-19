@@ -125,3 +125,36 @@ def unread() -> None:
     Unread.check
     Unread.Meta
     Unread.CODE
+
+
+class Noted(Plain):
+    x = 1
+# a comment at column 0 ends no class body
+    class Meta:
+        pass
+
+
+class Queried(Plain):
+    QUERY = """
+select 1
+"""
+    RANK, y = 4, 5
+
+
+class Short(Plain): CODE, z = 6, 7
+
+
+def cut_short() -> None:
+    Noted.Meta
+    Queried.RANK
+    Short.CODE
+
+
+class Flush(
+Plain,
+):
+    CODE, w = 8, 9
+
+
+def flush() -> None:
+    Flush.CODE

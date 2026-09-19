@@ -1960,9 +1960,25 @@ impl App {
         let pathed = pathed
             && !chain.is_empty()
             && (sep == "." || {
-                let outside = bound(&imports, &chain[0])
-                    .is_some_and(|p| !matches!(p[0].as_str(), "crate" | "self" | "super"));
+                // A glob, a `using` or a grouped `use` may bring the name in unread, and a PHP
+                // `\Vendor\Depot::open` spells out another namespace.
                 let owner = &chain[chain.len() - 1];
+                let brings = Regex::new(&format!(
+                    r"^\s*(?:pub\s+)?us(?:e|ing)\b.*(?:\*|\bnamespace\b|\b{}\b)",
+                    regex::escape(owner)
+                ))
+                .expect("an escaped name keeps the pattern valid");
+                let inside = |l: &str| ["crate", "self::", "super::"].iter().any(|k| l.contains(k));
+                let outside = bound(&imports, &chain[0])
+                    .is_some_and(|p| !matches!(p[0].as_str(), "crate" | "self" | "super"))
+                    || self
+                        .buf
+                        .lines
+                        .iter()
+                        .any(|l| brings.is_match(l) && !inside(l))
+                    || self.line_str()[..range.start]
+                        .strip_suffix(&format!("{path}{sep}"))
+                        .is_some_and(|b| b.ends_with('\\'));
                 let owners = search::def_patterns(kind, owner).join("|");
                 let one = self.project_definitions(kind, &here, owner, &owners).len() == 1;
                 // A cut in this grep says nothing about the list shown in the end.
@@ -2468,21 +2484,34 @@ impl App {
             .collect()
     }
 
-    /// Whether the body of the Python class `ty` writes `word` other than behind a `.`.
+    /// Whether the Python class `ty` writes `word` other than behind a `.`: on its header's
+    /// lines, which a one-line body shares, or in its body, which a comment, a string's text or
+    /// a closer at the margin does not end.
     fn class_writes(&self, ty: &Typed, word: &str) -> bool {
         let Some(text) = self.text_of(&ty.path) else {
             return true;
         };
         let bare = Regex::new(&format!(r"(?:^|[^\w.]){}\b", regex::escape(word)))
             .expect("an escaped name keeps the pattern valid");
+        let literal = search::literal_lines(Kind::Python, &text);
         let indent = |l: &str| l.len() - l.trim_start().len();
-        let mut lines = text.lines().skip(ty.line - 1);
-        let base = lines.next().map_or(0, indent);
-        lines
-            .take_while(|l| {
-                l.trim().is_empty() || indent(l) > base || l.trim_start().starts_with(')')
-            })
-            .any(|l| bare.is_match(l))
+        let lines: Vec<&str> = text.lines().collect();
+        let base = lines.get(ty.line - 1).map_or(0, |l| indent(l));
+        let mut header = true;
+        for (i, l) in lines.iter().enumerate().skip(ty.line - 1) {
+            let t = l.trim();
+            let inert =
+                t.is_empty() || t.starts_with(['#', ')', ']']) || literal.get(i) == Some(&true);
+            if !header && !inert && indent(l) <= base {
+                break;
+            }
+            if bare.is_match(l) && !(i == ty.line - 1 && t.starts_with(&format!("class {word}"))) {
+                return true;
+            }
+            // The header ends on the line whose code ends in `:`, or holds the body behind it.
+            header = header && !l.split('#').next().unwrap_or(l).contains(':');
+        }
+        false
     }
 
     /// The type of the chain `x.f.g` on 1-based `line` of `text`, the text of `file`, and the links
@@ -9651,6 +9680,38 @@ mod tests {
                     "consts.py:103",
                 ),
             ),
+            // The body goes on past a comment and a string at column 0, and may share the
+            // header's line.
+            (
+                "consts.py",
+                "    Noted.Meta",
+                jump("Meta \u{2192} Noted.Meta (via Noted)", "consts.py:133"),
+            ),
+            (
+                "consts.py",
+                "    Queried.RANK",
+                jump(
+                    "RANK \u{2192} Plain.RANK (by name, 1 match)",
+                    "consts.py:101",
+                ),
+            ),
+            (
+                "consts.py",
+                "    Short.CODE",
+                jump(
+                    "CODE \u{2192} Plain.CODE (by name, 1 match)",
+                    "consts.py:103",
+                ),
+            ),
+            // The header's own lines at the margin end nothing either.
+            (
+                "consts.py",
+                "    Flush.CODE",
+                jump(
+                    "CODE \u{2192} Plain.CODE (by name, 1 match)",
+                    "consts.py:103",
+                ),
+            ),
             // … and a nested class, which is what the class declares.
             (
                 "consts.py",
@@ -10332,12 +10393,32 @@ mod tests {
                 ),
                 ("io.rs", "pub fn read() {}\n"),
                 (
+                    "app/Yard.php",
+                    "<?php\nnamespace App;\n\nclass Yard\n{\n    public static function open(): void\n    {\n    }\n}\n\nfunction near(): void\n{\n    Yard::open();\n}\n",
+                ),
+                (
+                    "app/Far.php",
+                    "<?php\nnamespace Other;\n\nfunction far(): void\n{\n    \\Vendor\\Pkg\\Yard::open();\n}\n",
+                ),
+                (
+                    "app/Grouped.php",
+                    "<?php\nnamespace Other;\n\nuse Vendor\\Pkg\\{Yard, Shed};\n\nfunction grouped(): void\n{\n    Yard::open( );\n}\n",
+                ),
+                (
+                    "glob.rs",
+                    "use std::io::*;\n\nfn glob() {\n    let _ = Error::new();\n}\n",
+                ),
+                (
+                    "using.cpp",
+                    "using std::filesystem::Depot;\n\nvoid far() {\n    Depot::open();\n}\n",
+                ),
+                (
                     "error.rs",
                     "pub struct Error;\n\nimpl Error {\n    pub fn new() -> Self {\n        Error\n    }\n}\n",
                 ),
                 (
                     "main.rs",
-                    "use crate::cli::Config;\nuse std::io;\n\nfn main() {\n    let _ = Config::parse();\n    let _ = io::Error::new();\n}\n",
+                    "use crate::cli::Config;\nuse crate::depot::Depot;\nuse std::io;\n\nfn main() {\n    let _ = Depot::open();\n    let _ = Config::parse();\n    let _ = io::Error::new();\n}\n",
                 ),
                 (
                     "depot.cpp",
@@ -10383,6 +10464,12 @@ mod tests {
                     "store/shelf.rs:4",
                 ),
             ),
+            // A `use` of the project's own type is no reason to doubt it.
+            (
+                "main.rs",
+                "= Depot::open",
+                jump("open \u{2192} Depot::open (via Depot)", "depot.rs:4"),
+            ),
             // Two types called `Config`, and the derive of the imported one supplies `parse`:
             // the name of a type is no proof of which one.
             (
@@ -10398,6 +10485,40 @@ mod tests {
                 "main.rs",
                 "io::Error::new",
                 jump("new \u{2192} Error::new (by name, 1 match)", "error.rs:4"),
+            ),
+            // A glob may bring in an `Error` of its own; so may a C++ `using`.
+            (
+                "glob.rs",
+                "Error::new",
+                jump("new \u{2192} Error::new (by name, 1 match)", "error.rs:4"),
+            ),
+            (
+                "using.cpp",
+                "    Depot::open",
+                picker("open: by name, 4 declarations", &cpp),
+            ),
+            // PHP: the class of the project, one spelled out in another namespace, one a
+            // grouped `use` brings in.
+            (
+                "app/Yard.php",
+                "    Yard::open",
+                jump("open \u{2192} Yard::open (via Yard)", "app/Yard.php:6"),
+            ),
+            (
+                "app/Far.php",
+                "Pkg\\Yard::open",
+                jump(
+                    "open \u{2192} Yard::open (by name, 1 match)",
+                    "app/Yard.php:6",
+                ),
+            ),
+            (
+                "app/Grouped.php",
+                "Yard::open|( )",
+                jump(
+                    "open \u{2192} Yard::open (by name, 1 match)",
+                    "app/Yard.php:6",
+                ),
             ),
             // No name in front of the `::`.
             (
