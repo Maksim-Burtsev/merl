@@ -14,6 +14,13 @@ export class Crate<K> {
   }
 
   open(): void {}
+
+  stash<
+    A extends string,
+    B extends object,
+  >(a: A, b: B): void {
+    console.log(a, b);
+  }
 }
 
 // prettier wraps a long list of type parameters: the header ends in `> extends … {`.
@@ -34,6 +41,11 @@ export class Shelf<
     this.seal(key);
     super.seal(key);
     console.log(this.spare);
+    this.stash(key, this.spare);
+    this.stash<
+      K,
+      V
+    >(key, this.spare);
   }
 
   open(): void {}

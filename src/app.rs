@@ -8413,7 +8413,7 @@ mod tests {
                 "this.spare|)",
                 jump(
                     "spare \u{2192} Shelf.spare (via this: Shelf)",
-                    "headers.ts:27",
+                    "headers.ts:34",
                 ),
             ),
             // Under `extends` and `implements` on their own lines and a lone `{`.
@@ -8435,7 +8435,16 @@ mod tests {
                 "seal|(key: string): void;",
                 jump(
                     "seal \u{2192} LongNamedShelfOfStrings.seal (implementations of Sealable.seal)",
-                    "headers.ts:58",
+                    "headers.ts:70",
+                ),
+            ),
+            // A method whose own type parameters are wrapped, `stash<` over `>(a: A, b: B)`; a
+            // call written so inside a method is no declaration of it.
+            (
+                "this.stash|(key, this.spare)",
+                jump(
+                    "stash \u{2192} Crate.stash (via this: Shelf)",
+                    "headers.ts:18",
                 ),
             ),
             // What overrides a method of the base, and a field found by name, are told to be
@@ -8444,19 +8453,19 @@ mod tests {
                 "^  open|(): void {}",
                 jump(
                     "open \u{2192} Shelf.open (implementations of Crate.open)",
-                    "headers.ts:39",
+                    "headers.ts:51",
                 ),
             ),
             (
                 "found.spare|)",
                 jump(
                     "spare \u{2192} Shelf.spare (by name, 1 match)",
-                    "headers.ts:27",
+                    "headers.ts:34",
                 ),
             ),
             (
                 "found.one|)",
-                jump("one \u{2192} Bin.one (by name, 1 match)", "headers.ts:69"),
+                jump("one \u{2192} Bin.one (by name, 1 match)", "headers.ts:81"),
             ),
             // `other: T` is typed by a parameter of the wrapped list: the chain breaks there.
             (
@@ -8466,8 +8475,8 @@ mod tests {
                     &[
                         ("Sealable.seal", "headers.ts:6"),
                         ("Crate.seal", "headers.ts:12"),
-                        ("LongNamedShelfOfStrings.seal", "headers.ts:58"),
-                        ("Bin.seal", "headers.ts:73"),
+                        ("LongNamedShelfOfStrings.seal", "headers.ts:70"),
+                        ("Bin.seal", "headers.ts:85"),
                     ],
                 ),
             ),

@@ -1023,6 +1023,9 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
                 // A class or object-literal method: `foo(` at the end of the line, `foo(..) {`,
                 // or an empty `foo(): void {}`. A `;` on the line means it was a call statement.
                 format!(r"{mods}{w}\s*(?:<.*>)?\((?:[^;]*\{{\s*\}}?)?\s*$"),
+                // A method whose type parameters prettier wrapped: `route<` over `  T,` over
+                // `>(path: T): this {` (#100).
+                format!(r"{mods}{w}\??\s*<\s*$"),
                 // A property holding a function: `foo = () =>`, `foo: async (x) =>`,
                 // `foo: function`.
                 format!(
