@@ -2783,6 +2783,37 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     out
 }
 
+/// `text` without the bodies of its functions and classes and without its docstrings: the lines
+/// a Python module runs itself, where an import binds a name of the module.
+pub fn python_module_level(text: &str) -> String {
+    let literal = literal_lines(Kind::Python, text);
+    let mut skip: Option<usize> = None;
+    let mut out = String::new();
+    for (i, l) in text.lines().enumerate() {
+        let t = l.trim_start();
+        if let Some(k) = skip {
+            // A closer at the header's indent ends a signature wrapped over several lines.
+            if t.is_empty() || indent(l) > k || t.starts_with([')', ']']) {
+                continue;
+            }
+            skip = None;
+        }
+        if literal[i] {
+            continue;
+        }
+        if ["def ", "async def ", "class "]
+            .iter()
+            .any(|k| t.starts_with(k))
+        {
+            skip = Some(indent(l));
+            continue;
+        }
+        out.push_str(l);
+        out.push('\n');
+    }
+    out
+}
+
 /// The binding of `name` among the parameters of the `def` on line `d`: its annotation, the class
 /// for the first parameter of a method, else unknown.
 fn python_params(lines: &[&str], d: usize, params: &str, name: &str, out: &mut Vec<Binding>) {

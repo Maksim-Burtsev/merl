@@ -2121,6 +2121,20 @@ impl App {
         chain: &[String],
         path: &[String],
     ) -> Option<Vec<Candidate>> {
+        self.imported_at(kind, here, word, chain, path, 0)
+    }
+
+    /// [`App::imported_definitions`], `depth` modules of the project that only hand the name on
+    /// away from the file that asked.
+    fn imported_at(
+        &self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        chain: &[String],
+        path: &[String],
+        depth: usize,
+    ) -> Option<Vec<Candidate>> {
         let module_files =
             |module: &[String]| search::module_files(kind, &self.root, &self.files, here, module);
         // The names from the module down to the word: what the import takes, then the chain.
@@ -2183,6 +2197,25 @@ impl App {
                 .grep(r"^export\s+default\b", false, false, wanted)
                 .unwrap_or_default();
         }
+        // A Python module of the project that does not declare the name but imports it hands
+        // it on (#100): `from .sessions import open_session` in a package's `__init__.py`.
+        // ponytail: four modules deep, which also ends a cycle.
+        if hits.is_empty() && kind == Kind::Python && depth < 4 {
+            let mut found: Vec<Candidate> = Vec::new();
+            for f in &files {
+                for c in self.handed_on(kind, f, &inside, depth) {
+                    if !found
+                        .iter()
+                        .any(|o| (&o.hit.path, o.hit.line) == (&c.hit.path, c.hit.line))
+                    {
+                        found.push(c);
+                    }
+                }
+            }
+            if !found.is_empty() {
+                return Some(found);
+            }
+        }
         let hits = self.host_built(kind, hits);
         // A file, or a Go package's directory.
         let label = |hit: &Hit| match (kind, hit.path.parent()) {
@@ -2198,6 +2231,43 @@ impl App {
                 })
                 .collect(),
         )
+    }
+
+    /// What the imports of the Python module `file` lead to for `names`, the first of which the
+    /// module was asked for and does not declare: an import of the module itself, not of a
+    /// function in it, binds that name, or a `from x import *` may. Every source is followed,
+    /// and which one the module ends up with is not computed: several are a picker. A name the
+    /// module binds in any other way as well (an assignment under an `if`, a loop) is left to
+    /// the search by name.
+    fn handed_on(&self, kind: Kind, file: &Path, names: &[String], depth: usize) -> Vec<Candidate> {
+        let (Some(text), Some((first, last))) =
+            (self.text_of(file), names.first().zip(names.last()))
+        else {
+            return Vec::new();
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let import =
+            |l: &str| l.trim_start().starts_with("from ") || l.trim_start().starts_with("import ");
+        if search::bindings(kind, &text, 1, first)
+            .iter()
+            .any(|b| !lines.get(b.line - 1).is_some_and(|l| import(l)))
+        {
+            return Vec::new();
+        }
+        let chain = &names[..names.len() - 1];
+        search::imports(kind, &search::python_module_level(&text))
+            .into_iter()
+            .filter_map(|(name, mut path)| {
+                if name == "*" {
+                    path.pop();
+                    path.push(first.clone());
+                } else if name != *first {
+                    return None;
+                }
+                self.imported_at(kind, file, last, chain, &path, depth + 1)
+            })
+            .flatten()
+            .collect()
     }
 
     /// The declarations of `word` in the type of the receiver `chain`, `x.f.g…`, when every link is
@@ -2561,7 +2631,7 @@ impl App {
         };
         if search::declares_type(kind, &decl.text) {
             let ty = Typed {
-                name: parts.last()?.clone(),
+                name: declared_name(kind, &decl.text, &parts),
                 path: decl.path,
                 line: decl.line,
             };
@@ -2621,8 +2691,10 @@ impl App {
         {
             return Some(ty);
         }
+        // The name is the declaration's own: behind `from repos import UserRepository as Users`
+        // the members are `UserRepository`'s (#100).
         search::declares_type(kind, &decl.text).then(|| Typed {
-            name: parts.last().cloned().unwrap_or_default(),
+            name: declared_name(kind, &decl.text, &parts),
             path: decl.path,
             line: decl.line,
         })
@@ -4181,6 +4253,16 @@ fn names_itself(line: &str, name: &str) -> bool {
             .is_some_and(|after| !after.starts_with(is_word))
     });
     declares || t.starts_with("import ") || t.starts_with("from ")
+}
+
+/// The name of the type the line `decl` declares, reached as `parts`. Python reads it off the
+/// line: behind `from repos import UserRepository as Users` the last part is the alias, and the
+/// members are `UserRepository`'s (#100).
+fn declared_name(kind: Kind, decl: &str, parts: &[String]) -> String {
+    search::type_name(kind, decl)
+        .filter(|_| kind == Kind::Python)
+        .or_else(|| parts.last().cloned())
+        .unwrap_or_default()
 }
 
 /// A call and the return type its function declares, spelled as the language writes it.
@@ -8980,6 +9062,211 @@ mod tests {
         );
     }
 
+    fn py_rows(cases: Vec<(&str, &str, Shown)>) {
+        for (file, code, want) in cases {
+            let mut a = fixture_app("python");
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{file}: {code}");
+        }
+    }
+
+    const EVERY_SEAL: [(&str, &str); 7] = [
+        ("Crate.seal", "depot/crates.py:2"),
+        ("Lid.seal", "depot/crates.py:7"),
+        ("Pallet.seal", "depot/crates.py:12"),
+        ("Tray.seal", "depot/crates.py:17"),
+        ("Hook.seal", "depot/crates.py:22"),
+        ("Label.seal", "depot/labels.py:5"),
+        ("Pallet.seal", "depot/labels.py:10"),
+    ];
+
+    /// #100. `from x import y as z` types a receiver as `y`, and a module of the project that
+    /// imports a name without declaring it hands it on: a package's `__init__.py`, by a relative
+    /// import, under another name, from another package that hands it on in turn, through
+    /// `import *`. What the module may not end up with stays by name: two sources, a name it
+    /// also assigns, the import of a function in it, a cycle.
+    #[test]
+    fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
+        py_rows(vec![
+            (
+                "aliases.py",
+                "repo.delete_user|(1",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via repo: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "aliases.py",
+                "log.delete_user|(2",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via log: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            // The alias called: the class it names.
+            (
+                "aliases.py",
+                "Users().find_user",
+                jump(
+                    "find_user \u{2192} UserRepository.find_user (via Users(): UserRepository)",
+                    "repos.py:5",
+                ),
+            ),
+            (
+                "aliases.py",
+                "repo.delete_user|(4",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via repo: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            // `depot/__init__.py` declares none of these.
+            (
+                "aliases.py",
+                "crate.seal",
+                jump(
+                    "seal \u{2192} Crate.seal (via crate: Crate)",
+                    "depot/crates.py:2",
+                ),
+            ),
+            // `from .crates import Lid as Cover`.
+            (
+                "aliases.py",
+                "cover.seal",
+                jump(
+                    "seal \u{2192} Lid.seal (via cover: Lid)",
+                    "depot/crates.py:7",
+                ),
+            ),
+            // Two modules on: `depot` has it from `store`, which has it from `.sessions`.
+            (
+                "aliases.py",
+                "conn.close",
+                jump(
+                    "close \u{2192} Session.close (via conn: Session)",
+                    "store/sessions.py:6",
+                ),
+            ),
+            (
+                "aliases.py",
+                "trail.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via trail: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            (
+                "aliases.py",
+                "dial().close",
+                jump(
+                    "close \u{2192} Session.close (via dial() -> Session)",
+                    "store/sessions.py:6",
+                ),
+            ),
+            // `from .labels import *`.
+            (
+                "aliases.py",
+                "label.seal",
+                jump(
+                    "seal \u{2192} Label.seal (via label: Label)",
+                    "depot/labels.py:5",
+                ),
+            ),
+            // `fakes.UserRepository`, not the one of `repos`.
+            (
+                "aliases.py",
+                "users.users",
+                jump(
+                    "users \u{2192} UserRepository.users (via users: UserRepository)",
+                    "fakes.py:3",
+                ),
+            ),
+            // A parameter called like the alias is a value of its own type.
+            (
+                "aliases.py",
+                "Users.delete_user|(7",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via Users: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            // `d` on the imported word itself. `Crate` comes by two routes, the import and
+            // the `*` of a module that imports it too, to one declaration.
+            (
+                "aliases.py",
+                "crate: Crate",
+                jump("Crate: via import depot/crates.py", "depot/crates.py:1"),
+            ),
+            (
+                "aliases.py",
+                "cover: Cover",
+                jump("Cover: via import depot/crates.py", "depot/crates.py:6"),
+            ),
+            (
+                "aliases.py",
+                "conn: Session",
+                jump(
+                    "Session: via import store/sessions.py",
+                    "store/sessions.py:1",
+                ),
+            ),
+            // `try` / `except ImportError` names two sources: both are offered, neither typed.
+            (
+                "aliases.py",
+                "pallet: Pallet",
+                Shown::Picker(
+                    "Pallet: 2 declarations".into(),
+                    vec![
+                        (
+                            "Pallet".into(),
+                            "via import depot/labels.py".into(),
+                            "depot/labels.py:9".into(),
+                        ),
+                        (
+                            "Pallet".into(),
+                            "via import depot/crates.py".into(),
+                            "depot/crates.py:11".into(),
+                        ),
+                    ],
+                ),
+            ),
+            (
+                "aliases.py",
+                "pallet.seal",
+                picker("seal: by name, 7 declarations", &EVERY_SEAL),
+            ),
+            // `Tray` is imported and, under an `if`, assigned.
+            (
+                "aliases.py",
+                "tray: Tray",
+                jump("Tray: by name, 1 match", "depot/crates.py:16"),
+            ),
+            (
+                "aliases.py",
+                "tray.seal",
+                picker("seal: by name, 7 declarations", &EVERY_SEAL),
+            ),
+            // An import inside a function of the module binds nothing of the module.
+            (
+                "aliases.py",
+                "hook: Hook",
+                jump("Hook: by name, 1 match", "depot/crates.py:21"),
+            ),
+            (
+                "aliases.py",
+                "hook.seal",
+                picker("seal: by name, 7 declarations", &EVERY_SEAL),
+            ),
+            // `depot` has `Ring` from `depot.loop`, which has it from `depot`.
+            (
+                "aliases.py",
+                "ring: Ring",
+                jump("no definition for Ring", "aliases.py:35"),
+            ),
+        ]);
+    }
+
     /// Step 5 of #68 over the same project in three languages: a word or a qualifier an import
     /// binds to a module of the project is looked for in that module, and the status line names
     /// the file or the package directory. A module that does not declare the word re-exports it,
@@ -9008,12 +9295,10 @@ mod tests {
                 "python",
                 "jobs.py",
                 "    open_session",
-                picker(
-                    "open_session: by name, 2 declarations",
-                    &[
-                        ("open_session", "fakes.py:6"),
-                        ("open_session", "store/sessions.py:16"),
-                    ],
+                // `store/__init__.py` imports it from `.sessions` and hands it on (#100).
+                jump(
+                    "open_session: via import store/sessions.py",
+                    "store/sessions.py:16",
                 ),
             ),
             (
