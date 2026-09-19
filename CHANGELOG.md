@@ -174,6 +174,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `v, ok := i.(T)` and the variable of `switch v := x.(type)` inside a `case T:`, assigned to a
   name or with the member hanging off the cast, `(x as T).find`, `i.(T).Find`. A cast to a type
   the project does not declare, a `case` of several types and `default` stay by name. (#100)
+- `d` in TypeScript reads what prettier and the language write around a member (#100): a class
+  header wrapped over several lines, a list of type parameters ending in `> extends Base<K> {`
+  or the clauses over a lone `{`, no longer hides `this`, `super`, the fields and the bases of the
+  whole class; a member access broken in front of its dots, `return this.db` over
+  `.selectFrom(`, is one chain; `repo!.find()` and `uow?.users.find()` are the plain access;
+  `const { repo, audit: trail } = this` hands the fields on; `new Local.Tool()` finds the class
+  inside a namespace of the same file.
+- `d` on a TypeScript `#private` member takes the name with its `#`, on the `#` and on the name:
+  `this.#addRoute(` lands on `#addRoute(`, where it used to say nothing or find the public
+  `addRoute`. (#100)
+- In a workspace `d` looks for a TypeScript dependency in the `node_modules` of every directory
+  from the open file up to the project root, the nearest first, where it used to read
+  `<root>/node_modules` alone. Each is walked once; a package's own copy is listed by its path
+  from the root. (#100)
 
 ### Changed
 
@@ -213,6 +227,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` no longer proves a module-level namesake for a name a TypeScript destructuring wrapped
+  over several lines binds (`const {` / `  ledger,` / `} = deps;`): the statement is read whole,
+  and out of a name whose type is written the field's type is the local's. (#131)
+- With the cursor on an interface method, a class that implements a namesake interface of
+  another file through a barrel (`export * from`, `export { Name } from`) is no longer listed as
+  an implementation, and neither is a class for the constraint of a type parameter on a line
+  of its wrapped header, `S extends Notifier,`. (#100)
 - SIGTERM, SIGHUP (a closed terminal or tmux pane) and SIGINT from outside end merl as `q` does:
   unsaved edits are written and the terminal is restored, instead of a shell left on the
   alternate screen with merl's last frame. (#80)
