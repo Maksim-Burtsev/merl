@@ -923,12 +923,7 @@ impl App {
                     .collect(),
                 ..Default::default()
             },
-            _ => git::diff(
-                &self.root,
-                &path,
-                Some(&r.merge_base),
-                file.and_then(|f| f.old.as_deref()),
-            ),
+            _ => r.diff(&self.root, &path, file),
         };
         // Ghosts change how many rows a line has; the viewport must not point past them.
         self.top_line = self.top_line.min(self.buf.lines.len() - 1);
@@ -1024,7 +1019,7 @@ impl App {
         let path = self.root.join(&f.path);
         let hunks = match f.status {
             'D' => Vec::new(),
-            _ => git::diff(&self.root, &path, Some(&r.merge_base), f.old.as_deref()).hunks,
+            _ => r.diff(&self.root, &path, Some(f)).hunks,
         };
         let h = if last { hunks.last() } else { hunks.first() };
         self.jump_to(&path, h.map_or(1, |h| h + 1));
@@ -1047,13 +1042,61 @@ impl App {
         ))
     }
 
+    /// The project changed on disk and was walked again: the file list is the new one for the
+    /// next `o`, `s`, `u` and `d` (an open picker keeps its rows), and the tree takes the new rows
+    /// around its cursor. The review panel lists the branch, not the walk, and is left alone.
+    pub fn project_walked(&mut self, tree: Tree, files: Vec<PathBuf>) {
+        self.files = files;
+        if self.review.is_none() {
+            self.refresh_tree(tree);
+        }
+    }
+
+    /// The branch was listed again after a commit or an edit (`git::Review::refresh`): the
+    /// panel takes the new rows and counts around its cursor, which stays on its file. Nothing
+    /// opens and the code pane does not move; the open file gets new marks when the base moved
+    /// or its row came, went or changed its kind (a reverted file stays open, without marks).
+    /// Returns whether anything on screen changed.
+    pub fn review_refreshed(&mut self, fresh: git::Review) -> bool {
+        let Some(old) = &self.review else {
+            return false;
+        };
+        if *old == fresh {
+            return false;
+        }
+        let rel = self.rel_current();
+        let kind = |r: &git::Review| {
+            let f = r.file(rel.as_deref()?)?;
+            Some((f.status, f.old.clone(), f.untracked))
+        };
+        let stale = old.merge_base != fresh.merge_base || kind(old) != kind(&fresh);
+        let paths: Vec<PathBuf> = fresh.files.iter().map(|f| f.path.clone()).collect();
+        self.review = Some(fresh);
+        self.refresh_tree(crate::tree::from_files(&paths));
+        if stale {
+            self.refresh_diff();
+        }
+        true
+    }
+
+    fn refresh_tree(&mut self, tree: Tree) {
+        let row = |t: &Tree| t.visible().iter().position(|&i| i == t.cursor).unwrap_or(0);
+        let before = row(&self.tree);
+        self.tree.refresh(tree);
+        // A scrolled panel follows its cursor, so rows arriving above the pane move nothing on
+        // screen; one showing its first row keeps showing it.
+        if self.tree_top > 0 {
+            self.tree_top = (self.tree_top + row(&self.tree)).saturating_sub(before);
+        }
+    }
+
     /// Re-reads the open file after it changed on disk. Cursor, scroll, history and find pattern
     /// survive; the cursor is clamped to whatever the file is now. merl's own saves are
     /// recognised and ignored; a change under unsaved edits is a conflict, not a reload,
-    /// unless `force` (Ctrl+R) says the edits go.
-    pub fn reload(&mut self, force: bool) {
+    /// unless `force` (Ctrl+R) says the edits go. Returns whether anything on screen changed.
+    pub fn reload(&mut self, force: bool) -> bool {
         let Some(path) = self.buf.path.clone() else {
-            return;
+            return false;
         };
         // Mid-save the file can be briefly gone; the rename that follows sends another event
         // and overwrites the message. Gone for good, the message stays.
@@ -1064,20 +1107,32 @@ impl App {
                 (self.dirty, self.conflict) = (false, false);
             }
             self.message = format!("{} gone", self.rel_path());
-            return;
+            return true;
         };
         if !force {
             if buffer::hash(&bytes) == self.buf.disk {
                 // Gone and back as merl last saw it (a writer's delete-then-write): no conflict.
-                self.conflict = false;
-                return;
+                return std::mem::take(&mut self.conflict);
             }
             if self.dirty {
                 self.conflict = true;
-                return;
+                return true;
             }
         }
-        self.buf = Buffer::from_bytes(path, &bytes);
+        let old = std::mem::replace(&mut self.buf, Buffer::from_bytes(path.clone(), &bytes));
+        if self.review.is_some() {
+            // The reader stays in the hunk they are in when an agent writes above it: every
+            // line kept of this file goes down with its text, before anything is clamped.
+            let to = |l: &mut usize| *l = carried(&old.lines, &self.buf.lines, *l);
+            let stop = self.history.get_mut(self.hist_idx);
+            let stop = stop.filter(|s| s.0 == path && s.1 == self.line);
+            [&mut self.line, &mut self.top_line, &mut self.find_anchor.0]
+                .into_iter()
+                .chain(self.anchor.as_mut().map(|a| &mut a.0))
+                .chain(self.find_sel.as_mut().map(|a| &mut a.0))
+                .chain(stop.map(|s| &mut s.1))
+                .for_each(to);
+        }
         self.dirty = false;
         self.conflict = false;
         self.last_edit = None;
@@ -1091,6 +1146,7 @@ impl App {
         self.sync_want_x();
         self.clamp_scroll();
         self.message = "reloaded".into();
+        true
     }
 
     fn pos(&self) -> Option<(PathBuf, usize, usize)> {
@@ -3013,8 +3069,8 @@ impl App {
 
     /// The files of `kind` outside the project, walked once per kind.
     ///
-    /// ponytail: lives for the session, like the project walk. A `pip install` mid-session
-    /// needs a restart, as a new project file does.
+    /// ponytail: lives for the session, unlike the project walk. A `pip install` mid-session
+    /// needs a restart.
     fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
         self.external
             .entry(kind)
@@ -3598,7 +3654,9 @@ impl App {
                 self.prompt.clear();
             }
             KeyCode::Char('s') if ctrl => self.save(),
-            KeyCode::Char('r') if ctrl => self.reload(true),
+            KeyCode::Char('r') if ctrl => {
+                self.reload(true);
+            }
             KeyCode::Char('z') if ctrl => self.undo(true),
             KeyCode::Char('y') if ctrl => self.undo(false),
             KeyCode::Char(':') => {
@@ -3861,6 +3919,28 @@ fn resolution(
     } else {
         // Each row says its own reason.
         format!("{word}: {n} declarations{note}")
+    }
+}
+
+/// Where line `l` of `old` is in `new` when the text was changed above it: the lines the two
+/// end with alike move by the difference in length, the ones they start with alike stay, and
+/// a line of the rewritten middle stays too, but not below the middle's new end.
+///
+/// ponytail: one rewritten region per reload, which is what an agent's edit is. After a write
+/// that changed the file in several places the lines between them are off by what changed
+/// above them; a line diff would place those too.
+fn carried(old: &[String], new: &[String], l: usize) -> usize {
+    let same = |(a, b): &(&String, &String)| a == b;
+    let head = old.iter().zip(new).take_while(same).count();
+    let ends = old.iter().rev().zip(new.iter().rev());
+    let tail = ends
+        .take(old.len().min(new.len()) - head)
+        .take_while(same)
+        .count();
+    if l >= old.len() - tail {
+        l + new.len() - old.len()
+    } else {
+        l.min(new.len() - tail)
     }
 }
 
@@ -4350,8 +4430,73 @@ mod tests {
         (dir, app)
     }
 
+    /// #75: the walk is redone while merl runs. The tree cursor keeps its entry and its screen
+    /// row, an open `o` keeps its rows until it is reopened, and the review panel is not the walk.
+    #[test]
+    fn a_new_walk_keeps_the_cursor_row_and_an_open_picker() {
+        let (dir, mut a) = files_app("live");
+        let walk = |a: &mut App| {
+            let (tree, files) = crate::tree::build(&a.root);
+            a.project_walked(tree, files);
+        };
+        walk(&mut a);
+        a.tree.reveal(Path::new("b.rs"));
+        std::fs::write(dir.join("a2.rs"), "x\n").unwrap();
+        walk(&mut a);
+        assert_eq!(
+            a.tree_top, 0,
+            "a panel showing its first row keeps showing it"
+        );
+        std::fs::remove_file(dir.join("a2.rs")).unwrap();
+        walk(&mut a);
+        a.tree_top = 1;
+        press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+
+        std::fs::write(dir.join("a0.rs"), "x\n").unwrap();
+        std::fs::remove_file(dir.join("a.rs")).unwrap();
+        std::fs::write(dir.join("a1.rs"), "x\n").unwrap();
+        walk(&mut a);
+        assert_eq!(a.files, ["a0.rs", "a1.rs", "b.rs"].map(PathBuf::from));
+        assert_eq!(a.tree.selected().unwrap().path, Path::new("b.rs"));
+        assert_eq!(
+            a.tree_top, 2,
+            "one row more above the cursor: the scroll follows"
+        );
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert_eq!(p.counts().1, 2, "the open picker still lists a.rs and b.rs");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert_eq!(p.counts().1, 3);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+
+        // Rows leaving above the cursor pull the scroll back, never below the first row.
+        a.tree.reveal(Path::new("b.rs"));
+        a.tree_top = 2;
+        std::fs::remove_file(dir.join("a0.rs")).unwrap();
+        walk(&mut a);
+        assert_eq!(a.tree_top, 1);
+        a.tree_top = 1;
+        std::fs::remove_file(dir.join("a1.rs")).unwrap();
+        std::fs::write(dir.join("c.rs"), "x\n").unwrap();
+        walk(&mut a);
+        assert_eq!((a.tree_top, a.tree.cursor), (0, 0));
+
+        let (_, mut r) = review_app("live-review");
+        let panel = |r: &App| {
+            let rows = r.tree.nodes.iter().map(|n| (n.path.clone(), n.expanded));
+            (rows.collect::<Vec<_>>(), r.tree.cursor, r.tree_top)
+        };
+        let before = panel(&r);
+        let (tree, files) = crate::tree::build(&r.root);
+        r.project_walked(tree, files.clone());
+        assert_eq!((panel(&r), &r.files), (before, &files));
+    }
+
     /// A repository with a `feature` branch checked out: `src/a.rs` changed twice, `new`
-    /// added, `gone` deleted; the app is in review mode on it.
+    /// added, `gone` deleted, `src/keep.rs` as it was; the app is in review mode on it.
     fn review_app(tag: &str) -> (PathBuf, App) {
         review_app_with(tag, &[])
     }
@@ -4377,6 +4522,7 @@ mod tests {
         std::fs::write(dir.join("gone"), "x\ny\n").unwrap();
         std::fs::write(dir.join("tail"), "t1\nt2\nt3\n").unwrap();
         std::fs::write(dir.join("crlf.txt"), "one\r\ntwo\n").unwrap();
+        std::fs::write(dir.join("src/keep.rs"), "k1\nk2\nk3\n").unwrap();
         git(&["add", "."]);
         git(&["commit", "-q", "-m", "base"]);
         git(&["switch", "-q", "-c", "feature"]);
@@ -4433,6 +4579,280 @@ mod tests {
         assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
         assert_eq!(a.message, "skipped 1 file without hunks");
         assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/7");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #76: the review is left open next to an agent. What `main` does on a change is
+    /// `Review::refresh` and `review_refreshed`; the open file, the cursor and both scrolls stay.
+    #[test]
+    fn a_live_review_follows_edits_untracked_files_and_commits() {
+        let (dir, mut a) = review_app("livereview");
+        let git = |args: &[&str]| {
+            let mut cmd = std::process::Command::new("git");
+            let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+            assert!(out.status.success(), "git {args:?}");
+        };
+        let refresh = |a: &mut App| {
+            let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+            a.review_refreshed(fresh)
+        };
+        let rows = |a: &App| -> Vec<(char, String, usize, usize)> {
+            let files = a.review.as_ref().unwrap().files.iter();
+            files
+                .map(|f| (f.status, f.path.display().to_string(), f.added, f.deleted))
+                .collect()
+        };
+        let row = |s: char, p: &str, n: usize, m: usize| (s, p.to_string(), n, m);
+        // Where the reader is: the code pane, the panel cursor and its row on screen.
+        let place = |a: &App| {
+            let vis = a.tree.visible();
+            let row = vis.iter().position(|&i| i == a.tree.cursor).unwrap();
+            let selected = a.tree.selected().unwrap().path.clone();
+            (at(a), a.col, a.top_line, selected, row - a.tree_top)
+        };
+        assert!(!refresh(&mut a), "nothing changed: nothing to draw");
+        a.tree.reveal(Path::new("new"));
+        a.tree_top = 1;
+        let before = place(&a);
+        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 4/5");
+
+        // The agent touches a file for the first time, writes a module in a new directory and
+        // one at the root, neither added, and a log that is ignored.
+        std::fs::write(dir.join("src/keep.rs"), "k1\nk2\nK\nk3\n").unwrap();
+        std::fs::create_dir(dir.join("pkg")).unwrap();
+        std::fs::write(dir.join("pkg/mod.py"), "x = 1\ny = 2\n").unwrap();
+        std::fs::write(dir.join("pkg/logo.png"), b"\x89PNG\0").unwrap();
+        std::fs::write(dir.join("zz.py"), "z = 1\nz = 2\nlast").unwrap();
+        std::fs::write(dir.join(".gitignore"), "*.log\n").unwrap();
+        std::fs::write(dir.join("agent.log"), "noise\n").unwrap();
+        assert!(refresh(&mut a));
+        assert_eq!(
+            rows(&a),
+            vec![
+                row('A', "pkg/logo.png", 0, 0),
+                row('A', "pkg/mod.py", 2, 0),
+                row('M', "src/a.rs", 2, 2),
+                row('M', "src/keep.rs", 1, 0),
+                row('A', ".gitignore", 1, 0),
+                row('M', "crlf.txt", 1, 1),
+                row('D', "gone", 0, 2),
+                row('A', "new", 1, 0),
+                row('M', "tail", 0, 2),
+                row('A', "zz.py", 3, 0),
+            ]
+        );
+        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 8/10");
+        assert_eq!(place(&a), before, "rows came in above: nothing moved");
+        let shown = |a: &App, p: &str| {
+            a.tree
+                .visible()
+                .iter()
+                .any(|&i| a.tree.nodes[i].path == Path::new(p))
+        };
+        assert!(shown(&a, "pkg/mod.py"), "a new directory comes open");
+        // A directory the reader closed stays closed.
+        a.tree.reveal(Path::new("src"));
+        a.tree.collapse();
+        a.tree.reveal(Path::new("new"));
+        std::fs::write(dir.join("pkg/mod.py"), "x = 1\n").unwrap();
+        assert!(refresh(&mut a));
+        assert_eq!(rows(&a)[1], row('A', "pkg/mod.py", 1, 0));
+        assert!(a.review.as_ref().unwrap().files[0].binary);
+        assert!(!shown(&a, "src/a.rs"));
+
+        // `c` walks into the untracked file as into any added one: every line is added.
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("zz.py"), 0));
+        assert_eq!((a.diff.marks.len(), &a.diff.hunks), (3, &vec![0]));
+        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 10/10");
+
+        // A reverted file leaves the panel. The open one stays open, without marks.
+        a.jump_to(&dir.join("src/keep.rs"), 3);
+        assert_eq!(a.diff.marks.len(), 1);
+        std::fs::write(dir.join("src/keep.rs"), "k1\nk2\nk3\n").unwrap();
+        a.reload(false);
+        assert!(refresh(&mut a));
+        assert!(
+            a.review
+                .as_ref()
+                .unwrap()
+                .file(Path::new("src/keep.rs"))
+                .is_none()
+        );
+        assert_eq!(at(&a), (dir.join("src/keep.rs"), 2));
+        assert!(a.diff.marks.is_empty());
+        assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/9");
+
+        // The agent commits: the rows are the same ones, tracked now. Then the base moves up to
+        // the branch's first commit, and only the second one is left to review; `new`, open
+        // and not touched on disk, loses its marks.
+        a.jump_to(&dir.join("new"), 1);
+        assert_eq!(a.diff.marks.len(), 1);
+        let listed = rows(&a);
+        git(&["add", "-A"]);
+        git(&["commit", "-q", "-m", "more work"]);
+        assert!(
+            refresh(&mut a),
+            "the rows are tracked now: `untracked` went"
+        );
+        assert_eq!(rows(&a), listed);
+        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 7/9");
+        git(&["branch", "-f", "main", "HEAD~1"]);
+        assert!(refresh(&mut a));
+        assert_eq!(
+            rows(&a),
+            vec![
+                row('A', "pkg/logo.png", 0, 0),
+                row('A', "pkg/mod.py", 1, 0),
+                row('A', ".gitignore", 1, 0),
+                row('A', "zz.py", 3, 0),
+            ]
+        );
+        assert_eq!(at(&a), (dir.join("new"), 0));
+        assert!(a.diff.marks.is_empty());
+        assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/4");
+        // The base caught up with the branch: an empty panel, and keys that find no row.
+        git(&["branch", "-f", "main", "HEAD"]);
+        assert!(refresh(&mut a));
+        assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/0");
+        a.focus = Focus::Tree;
+        for key in [KeyCode::Down, KeyCode::Enter, KeyCode::Char('c')] {
+            press(&mut a, key, KeyModifiers::NONE);
+        }
+        assert_eq!(at(&a), (dir.join("new"), 0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #76: the marks of the open file are read again when the base moves under it or its row
+    /// changes kind, with no write to the file itself, which is what `reload` answers.
+    #[test]
+    fn the_open_file_gets_new_marks_when_only_the_branch_changed() {
+        let (dir, mut a) = review_app("livemarks");
+        let git = |args: &[&str]| {
+            let mut cmd = std::process::Command::new("git");
+            let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+            assert!(out.status.success(), "git {args:?}");
+        };
+        let refresh = |a: &mut App| {
+            let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+            a.review_refreshed(fresh)
+        };
+        let keep = dir.join("src/keep.rs");
+        std::fs::write(&keep, "k1\nK2\nk3\n").unwrap();
+        git(&["commit", "-qam", "second"]);
+        std::fs::write(&keep, "k1\nK2\nK3\n").unwrap();
+        git(&["commit", "-qam", "third"]);
+        assert!(refresh(&mut a));
+        a.jump_to(&keep, 1);
+        assert_eq!(a.diff.marks.len(), 2);
+        // The base moves up to `second`: the row stays `M`, one mark is left.
+        git(&["branch", "-f", "main", "HEAD~1"]);
+        assert!(refresh(&mut a));
+        assert_eq!(a.diff.marks.len(), 1);
+        // The file leaves the index: the same merge base, a row of another kind, every line
+        // added. One row: the file on disk, not the deletion.
+        git(&["rm", "-q", "--cached", "src/keep.rs"]);
+        assert!(refresh(&mut a));
+        let rows = a.review.as_ref().unwrap().files.iter();
+        let rows: Vec<_> = rows
+            .filter(|f| f.path == Path::new("src/keep.rs"))
+            .collect();
+        assert_eq!(
+            (rows.len(), rows[0].status, rows[0].untracked),
+            (1, 'A', true)
+        );
+        assert_eq!(a.diff.marks.len(), 3);
+        assert_eq!(at(&a), (keep, 0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #76: the branch deleted `gone` and the agent writes it again, not added: git lists the
+    /// path as deleted and as untracked. It is one row, read from disk, and `c` walks past it.
+    #[test]
+    fn a_deleted_file_written_again_is_one_row() {
+        let (dir, mut a) = review_app("liveagain");
+        std::fs::write(dir.join("gone"), "fresh\n").unwrap();
+        let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+        assert!(a.review_refreshed(fresh));
+        let names = a.tree.nodes.iter().map(|n| n.path.to_str().unwrap());
+        assert_eq!(
+            names.collect::<Vec<_>>(),
+            vec!["src", "src/a.rs", "crlf.txt", "gone", "new", "tail"]
+        );
+        press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("gone"), 0));
+        assert_eq!(
+            (a.buf.lines.clone(), a.buf.readonly),
+            (vec!["fresh".to_string()], None)
+        );
+        press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("new"), 0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #76: the reader is in the second hunk when the agent adds one above it. The cursor and
+    /// the scroll go down with the text, so the hunk is still the current one and `c` goes on.
+    #[test]
+    fn the_current_hunk_stays_current_when_one_is_added_above() {
+        let (dir, mut a) = review_app("livehunk");
+        a.jump_to(&dir.join("src/a.rs"), 6);
+        a.view_h = 4;
+        a.clamp_scroll();
+        a.top_line = 3;
+        a.anchor = Some((4, 0));
+        let stop = |a: &App| a.history[a.hist_idx].clone();
+        assert_eq!(stop(&a), (dir.join("src/a.rs"), 5, 0));
+        assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/5");
+        std::fs::write(dir.join("src/a.rs"), "new\nnew\na\nB\nc\nd\ne\nF\n").unwrap();
+        assert!(a.reload(false));
+        assert_eq!(
+            (a.line, a.top_line, a.buf.lines[a.line].as_str()),
+            (7, 5, "F")
+        );
+        assert_eq!(a.review_status().unwrap(), "hunk 3/3  file 1/5");
+        // What is selected is still selected, and the history stop is still under the cursor.
+        assert_eq!(a.anchor, Some((6, 0)));
+        assert_eq!(stop(&a), (dir.join("src/a.rs"), 7, 0));
+        a.anchor = None;
+        // A block deleted above the pane, from a file longer than what is left of it: the
+        // scroll is carried from where it was, not from where the shorter file clamps it.
+        let text = |r: std::ops::Range<usize>| r.map(|i| format!("l{i}\n")).collect::<String>();
+        std::fs::write(dir.join("src/a.rs"), text(0..40)).unwrap();
+        a.reload(false);
+        (a.view_h, a.line, a.top_line) = (10, 35, 30);
+        std::fs::write(dir.join("src/a.rs"), text(25..40)).unwrap();
+        a.reload(false);
+        assert_eq!(
+            (a.line, a.top_line, a.buf.lines[a.line].as_str()),
+            (10, 5, "l35")
+        );
+        std::fs::write(dir.join("src/a.rs"), "new\nnew\na\nB\nc\nd\ne\nF\n").unwrap();
+        a.reload(false);
+        a.jump_to(&dir.join("src/a.rs"), 8);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+        // Written below the cursor, or the cursor's own line: nothing to follow.
+        let text = |n: usize| (0..n).map(|i| format!("{i}\n")).collect::<String>();
+        for (old, new, l, want) in [
+            (text(6), text(6) + "x\n", 3, 3),
+            (text(6), "x\n".to_string() + &text(6), 3, 4),
+            (text(6), text(6).replace("3\n", "x\ny\n"), 3, 3),
+            (text(6), text(6).replace("1\n", ""), 3, 2),
+            ("a\nb\n".into(), "a\na\nb\n".into(), 0, 0),
+            // The cursor's own lines went: the line that followed them.
+            (text(6), text(6).replace("2\n3\n", ""), 3, 2),
+        ] {
+            let lines = |s: &str| s.lines().map(String::from).collect::<Vec<_>>();
+            assert_eq!(
+                carried(&lines(&old), &lines(&new), l),
+                want,
+                "{old:?} {new:?}"
+            );
+        }
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -9607,6 +10027,13 @@ mod tests {
         // An event that changes nothing must not even report a reload.
         a.reload(false);
         assert_eq!(a.message, "");
+
+        // Outside a review the cursor keeps its line number when lines are written above it.
+        a.line = 3;
+        std::fs::write(&path, "new\n".to_string() + &"line\n".repeat(10)).unwrap();
+        a.reload(false);
+        assert_eq!(a.line, 3);
+        a.line = 9;
 
         std::fs::write(&path, "a\nb\nc\n").unwrap();
         a.reload(false);

@@ -12,6 +12,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` no longer offers a line inside an embedded literal as a declaration: `literal_lines` reads
   a Swift or C# `"""` block, a C# verbatim `@"…"` (where `""` is a quote, not the end) and a PHP
   heredoc, so the SQL a migration embeds stops answering `d`. (#17)
+- The project is live: a file created, deleted or renamed while merl runs (by an agent in the
+  next pane, a `git checkout`, a build) shows up in the tree, in `o` and in what `s`, `u`, `d` and
+  `D` search within a moment, with no key and no restart. The tree cursor stays on its entry and
+  on its screen row, expanded directories stay expanded, an open picker keeps its rows until it is
+  reopened. `.gitignore` is respected as at startup (a new `node_modules/` adds nothing) and an
+  edited one is picked up. A burst of changes is one walk, off the UI thread; on Linux ignored
+  directories are not watched (#75).
+- The review is live: `merl --review` can stay open next to an agent working on the branch. A
+  file it touches for the first time appears in the panel, the counts and `file 3/12` follow
+  every save, commit, rebase and `git switch` within a moment, and a file whose changes were
+  reverted leaves (the open one stays open, without marks). Untracked files that are not ignored
+  are part of the review: listed as `A` with every line added, and `c` walks into them; a branch
+  with nothing but a new, unadded module opens now. The open file, the cursor and both scrolls
+  stay where they are, the panel cursor keeps its file, and nothing opens on its own. When lines
+  are written above the hunk being read, the cursor goes down with its text, so the hunk stays
+  the current one and `c` goes on from it. `git` runs off the UI thread; `HEAD` and the refs are
+  watched explicitly, also in a linked worktree (#76).
 - `d` and `D` in Zig, over every `.zig` file. `d` finds `fn name(` behind `pub`, `export`,
   `extern "c"`, `inline` and `noinline`, and the `const` or `var` the language declares everything
   else with — a type (`const Ledger = struct {`, `const Status = enum {`,

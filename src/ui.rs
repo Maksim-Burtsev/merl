@@ -1462,6 +1462,7 @@ z
                 added: 6,
                 deleted: 2,
                 binary: false,
+                untracked: false,
             }],
         });
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -1502,6 +1503,7 @@ z
                 added: 0,
                 deleted: 0,
                 binary: true,
+                untracked: false,
             }],
         });
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
