@@ -190,7 +190,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   code. The workflow, a new demo recorded on gitea and install come first, then the argument, a
   six-step "A day with merl", and "What merl is not". The editing and navigation reference moved
   to `docs/editing.md` and `docs/navigation.md`, the theme details to `docs/themes.md`, and the
-  `Cargo.toml` description says the same as the tagline (#72).
+  `Cargo.toml` description says the same as the tagline. The demo and the walkthrough GIFs are
+  vhs recordings, one `.tape` next to each, re-recorded with `assets/tapes/record.sh` (#72).
 - A reload from disk no longer empties the undo history: it is one step of it, as in VS Code and
   Vim. After an agent writes the open file, Ctrl+Z takes back what it wrote, line endings and the
   final newline included, and then the edits made before it; Ctrl+Y replays both. The step holds
