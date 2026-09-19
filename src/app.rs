@@ -3049,7 +3049,9 @@ impl App {
                     bound(&search::imports(kind, &text), first)
                         .is_some_and(|module| !another(first, &module))
                 };
-                let derives = search::bases(kind, &text, hit.line)
+                // Python's bases are read off the header's first line, wherever the hit is.
+                let header = if kind == Kind::Python { decl } else { hit.line };
+                let derives = search::bases(kind, &text, header)
                     .into_iter()
                     .chain(search::interfaces(kind, &text, hit.line))
                     .filter_map(|b| search::type_path(kind, &b))
@@ -8958,12 +8960,16 @@ mod tests {
                 "impls.py",
                 "def run",
                 impls(
-                    "run: implementations of BaseJob.run, 3 declarations",
+                    "run: implementations of BaseJob.run, 5 declarations",
                     "BaseJob.run",
                     &[
                         ("ImportJob.run", "impls.py:10"),
                         ("ExportJob.run", "impls.py:15"),
+                        // A header black wrapped, one base to a line (#100), and a class
+                        // below it. `Roster` has a `BaseJob,` line too, an argument of a call.
+                        ("WrappedJob.run", "impls.py:57"),
                         ("NightlyJob.run", "impls.py:24"),
+                        ("DeepJob.run", "impls.py:81"),
                     ],
                 ),
             ),
@@ -9475,6 +9481,47 @@ mod tests {
                 "consts.py",
                 "wrapped.delete_user",
                 picker("delete_user: by name, 2 declarations", &both_delete_user),
+            ),
+        ]);
+    }
+
+    /// #100. A Python class header wrapped over several lines: its members are the class's,
+    /// its bases are read, and from inside it a member's implementations are found, the
+    /// bases of the implementing class sharing one line under theirs.
+    #[test]
+    fn a_wrapped_python_class_header_keeps_its_name_and_its_bases() {
+        py_rows(vec![
+            (
+                "impls.py",
+                "self.mop",
+                jump(
+                    "mop \u{2192} WrappedJob.mop (via self: WrappedJob)",
+                    "impls.py:60",
+                ),
+            ),
+            (
+                "impls.py",
+                "job.mop",
+                jump(
+                    "mop \u{2192} WrappedJob.mop (via job: WrappedJob)",
+                    "impls.py:60",
+                ),
+            ),
+            (
+                "impls.py",
+                "def tick",
+                jump(
+                    "tick \u{2192} Narrow.tick (implementations of WideBase.tick)",
+                    "impls.py:94",
+                ),
+            ),
+            (
+                "impls.py",
+                "self.sweep",
+                jump(
+                    "sweep \u{2192} Sweeper.sweep (via self: Narrow)",
+                    "impls.py:44",
+                ),
             ),
         ]);
     }

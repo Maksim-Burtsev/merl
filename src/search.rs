@@ -1167,9 +1167,13 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         // prettier writes a long TypeScript class header; it names nothing itself. Neither does
         // a C++ access specifier, which is a label inside the class, not a wall in front of it.
         let access = kind == Kind::C && matches!(t, "public:" | "private:" | "protected:");
+        // Python's `):` closes a class header or a signature wrapped over several lines (#100):
+        // what it opens is named on the line the bracket opened on, further up.
+        let closer = kind == Kind::Python && t.starts_with([')', ']']);
         if t.is_empty()
             || t == "{"
             || access
+            || closer
             || indent(l) >= depth
             || ["#", "//", "/*", "*", "--"]
                 .iter()
@@ -3844,7 +3848,9 @@ pub fn owner_decl(kind: Kind, text: &str, line: usize) -> Option<usize> {
     let depth = indent(lines.get(line.checked_sub(1)?)?);
     let (i, above) = lines[..line - 1].iter().enumerate().rev().find(|(_, l)| {
         let t = l.trim_start();
-        !t.is_empty() && t.trim_end() != "{" && !comment(kind, t) && indent(l) < depth
+        // Python's `):` ends a header wrapped over several lines, which starts further up.
+        let closer = kind == Kind::Python && t.starts_with([')', ']']);
+        !t.is_empty() && t.trim_end() != "{" && !comment(kind, t) && !closer && indent(l) < depth
     })?;
     declares_type(kind, above).then_some(i + 1)
 }
@@ -3864,14 +3870,18 @@ pub fn type_name(kind: Kind, line: &str) -> Option<String> {
 /// A grep for the line that names one of `names` as a base: `class X(Base)` in Python,
 /// `class X extends Base`, `class X implements Base` and `interface I extends Base` in
 /// TypeScript, where the clause may also stand on a line of its own under a wrapped header —
-/// [`type_decl_at`] walks up to the declaration it belongs to. A Python header wrapped over
-/// several lines keeps its bases off the `class` line and is missed. `None` for Go, whose types
+/// [`type_decl_at`] walks up to the declaration it belongs to — as a Python base does under a
+/// wrapped `class X(`. `None` for Go, whose types
 /// implement an interface by carrying its methods and never name it.
 pub fn subtype_patterns(kind: Kind, names: &[String]) -> Option<String> {
     let any: Vec<String> = names.iter().map(|n| regex::escape(n)).collect();
     let any = any.join("|");
     match kind {
-        Kind::Python => Some(format!(r"^\s*class\s+\w+\s*\(.*\b({any})\b")),
+        // Not only the `class` line: black writes one base to a line under it (#100). Such a
+        // line holds names and commas alone, and the caller reads the header it belongs to.
+        Kind::Python => Some(format!(
+            r#"^\s*class\s+\w+\s*\(.*\b({any})\b|^\s+[\w.\[\]"', ]*\b({any})\b[\w.\[\]"', ]*(?:\)\s*:)?\s*(?:#.*)?$"#
+        )),
         // Not only the header line: prettier writes `extends Base` on a line of its own.
         Kind::TsJs => Some(format!(r"\b(?:extends|implements)\s[^;]*\b({any})\b")),
         _ => None,
