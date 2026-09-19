@@ -210,9 +210,14 @@ module's `export default`; `ns.x` behind `import * as ns` finds `x`. A Go import
 `module` of a `go.mod` in the project is that package's directory. The word must be declared
 directly in the module, or in the class the chain goes through (`UserRepo.create`), so `store.Open`
 never lands on a method called `Open`. The status line names the file or the package:
-`UserRepo: via import app/repos.py`, `Open: via import store/`. A module that does not declare the
-word itself — an `__init__.py` or an `index.ts` that re-exports it — is not followed further: `d`
-falls back to the search by name below and says `by name`.
+`UserRepo: via import app/repos.py`, `Open: via import store/`. A Python module of the project that
+does not declare the word but imports it — a package's `__init__.py` — hands it on: its own
+module-level imports are followed, under another name and through `from .labels import *` too,
+four modules deep, and the status line names the file the word ends up in. Two sources, a name
+the module also assigns, an import inside a function and a cycle are not followed. Any other
+module that does not declare the word itself — an `index.ts` that re-exports it — is not followed
+further: `d` falls back to the search by name below and says `by name`. Behind
+`from repos import UserRepository as Users` a receiver typed `Users` is a `UserRepository`.
 
 An import of anything else is looked for outside the project first, even when the project declares
 a word of the same name (Rust still looks in the project first). A word no import binds goes
@@ -286,7 +291,16 @@ What `d` does not claim, in Python, TypeScript and Go:
   value, and `d` on the name itself lands on that binding, `helper → f.helper (local)`. In front of
   a dot it keeps the search to members: a function at the top of a module is not one.
 - `Outer.find`, with `Outer` a namespace or a class, is what `Outer` declares (`via Outer`), not a
-  method `find` of some other class.
+  method `find` of some other class. Rust, C++ and PHP write it `Depot::open`, with modules in
+  front of the type only when the path starts inside the project (`crate::`, `self::`, `super::`,
+  a file or a directory called so), only for a type the project declares once, and not when a
+  `use` of the file binds the path's first name outside it; `Self::open` and a value's
+  `shed.open()` stay by name. A
+  Python `Limits.MAX_USERS`, `Color.RED` of an `Enum` or a dataclass field is read in the body of
+  the class the qualifier names, declared in the file or imported, or of a class above it; an
+  attribute a method assigns to `self` is an instance's, a class declared inside the function is
+  not read, and a class whose body writes the word in a form the rules do not read (a tuple
+  target, a `def` under an `if`) is not passed over for its base.
 - An imported name is looked up at the top of the module it comes from, outside the project as
   inside it, and a name imported from two modules (`try` / `except ImportError`) offers both.
 - A line inside a triple-quoted string — a Python docstring, an Elixir `@moduledoc` — a Go raw
@@ -342,7 +356,8 @@ above it, a function's parameters counting with its body. So a local hides a mod
 closure's variable the one of the function around it, a block's the function's. The declarations
 of that one scope must all read the same type, and one that reads none (a loop variable, a
 parameter with no annotation) hides the outer ones all the same, so nothing is guessed: two
-assignments in the branches of an `if` are a picker. In TypeScript and Go a header hides the
+assignments in the branches of an `if` are a picker. A Python binding need not start its line:
+`if fresh: ledger = A()`, `a = 1; ledger = A()` and `first = ledger = A()` (no type read) bind. In TypeScript and Go a header hides the
 outer scopes only with what it binds for the block under it: the loop or the `catch` it is, the
 function whose body it opens. The parameter of any other function on those lines,
 `if (repos.some((repo: Repo) => …)) {` or `register((repo: Repo) => repo, {`, and of one on the
@@ -434,8 +449,8 @@ member itself, so a class that inherits it is not listed. A Python `Protocol` an
 name nothing, so there the rule is structural, the way both languages mean it: every member of that
 name taking the same number of parameters. Only the project is searched, since an interface is
 opened to find what this project does with it. A TypeScript header wrapped over several lines is
-read, as prettier writes `export class X` over `  extends Base` over `{`; a Python one, whose bases
-stand under the `class` line, is not. Nothing implements the declaration — a method beside its Go
+read, as prettier writes `export class X` over `  extends Base` over `{`, and so is a Python one,
+whose bases stand under the `class` line. Nothing implements the declaration — a method beside its Go
 type, a class with no subclasses — and `d` goes on to the search by name below.
 
 | File | What `d` recognises | Searched |
