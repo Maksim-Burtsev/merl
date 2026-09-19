@@ -95,3 +95,33 @@ class Diamond(Left, Right):
 def diamond() -> int:
     # Python reads `Right.LEVEL`; a walk by depth would pass it.
     return Diamond.LEVEL
+
+
+class Plain:
+    RANK = 1
+    Meta = object
+    CODE = 0
+
+    def check(self) -> bool:
+        return True
+
+
+class Unread(Plain):
+    RANK, OTHER = 2, 3
+    if RANK:
+        def check(self) -> bool:
+            return False
+
+    class Meta:
+        pass
+
+    for CODE in (1, 2):
+        pass
+
+
+def unread() -> None:
+    # Every one is `Unread`'s own, in a shape the rules do not read.
+    Unread.RANK
+    Unread.check
+    Unread.Meta
+    Unread.CODE

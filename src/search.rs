@@ -2843,15 +2843,18 @@ fn python_statements(t: &str, continues: bool) -> Vec<&str> {
         )
         .unwrap()
     });
-    let (mut depth, mut header) = (0i32, HEADER.is_match(t));
+    // The `:` right behind a closer the line did not open ends a wrapped header; one further
+    // on is a lambda's or a slice's behind the end of a call's arguments.
+    let (mut depth, header, mut closed) = (0i32, HEADER.is_match(t), None);
     let colon = code(Kind::Python, t).find(|&(i, c)| {
         match c {
             b'(' | b'[' | b'{' => depth += 1,
-            b')' | b']' | b'}' if depth == 0 => header = true,
+            b')' | b']' | b'}' if depth == 0 => closed = Some(i + 1),
             b')' | b']' | b'}' => depth -= 1,
             _ => {}
         }
-        c == b':' && header && depth == 0 && !t[i + 1..].starts_with('=')
+        let ends = header || closed.is_some_and(|k| k <= i && t[k..i].trim().is_empty());
+        c == b':' && ends && depth == 0 && !t[i + 1..].starts_with('=')
     });
     let rest = match colon {
         Some((i, _)) => &t[i + 1..],
@@ -2865,26 +2868,26 @@ fn python_statements(t: &str, continues: bool) -> Vec<&str> {
         .collect()
 }
 
-/// `text` without the bodies of its functions and classes: the lines a Python module runs
-/// itself, where an import binds a name of the module.
+/// `text` without the bodies of its functions and classes and without the lines inside its
+/// docstrings and strings: the lines a Python module runs itself, where an import binds a name
+/// of the module.
 pub fn python_module_level(text: &str) -> String {
     let literal = literal_lines(Kind::Python, text);
     let mut skip: Option<usize> = None;
     let mut out = String::new();
     for (i, l) in text.lines().enumerate() {
         let t = l.trim_start();
+        // A line of a docstring or of a string is no code, and ends no body however it is
+        // indented. With none left, the result is read by [`imports_as_written`].
+        if literal[i] {
+            continue;
+        }
         if let Some(k) = skip {
             // A closer at the header's indent ends a signature wrapped over several lines.
             if t.is_empty() || indent(l) > k || t.starts_with([')', ']']) {
                 continue;
             }
             skip = None;
-        }
-        // A docstring stays whole, for [`imports`] to tell it from code.
-        if literal[i] {
-            out.push_str(l);
-            out.push('\n');
-            continue;
         }
         if ["def ", "async def ", "class "]
             .iter()

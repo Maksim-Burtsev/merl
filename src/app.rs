@@ -2321,7 +2321,7 @@ impl App {
             return Vec::new();
         }
         let chain = &names[..names.len() - 1];
-        search::imports(kind, &search::python_module_level(&text))
+        search::imports_as_written(kind, &search::python_module_level(&text))
             .into_iter()
             .filter_map(|(name, mut path)| {
                 if name == "*" {
@@ -2435,10 +2435,14 @@ impl App {
         };
         // Above the class the bases are read as `super` reads them: several that disagree, or
         // one outside the project, prove nothing.
+        // Reading no declaration in the class is no proof that it has none: a tuple target, a
+        // `def` under an `if`, a nested class. A body that writes the word other than behind a
+        // `.` leaves it to the rules below and the search by name.
         let members = self.members_of(kind, &ty, word);
         let hits = match (members.is_empty(), self.field_of(kind, &ty, word, false)) {
             (false, _) => members,
             (true, Some(hit)) => vec![hit],
+            (true, None) if self.class_writes(&ty, word) => Vec::new(),
             (true, None) => self.above(kind, &ty, word, 0).unwrap_or_default(),
         };
         hits.into_iter()
@@ -2447,6 +2451,23 @@ impl App {
                 reason: Reason::Path(chain.join(".")),
             })
             .collect()
+    }
+
+    /// Whether the body of the Python class `ty` writes `word` other than behind a `.`.
+    fn class_writes(&self, ty: &Typed, word: &str) -> bool {
+        let Some(text) = self.text_of(&ty.path) else {
+            return true;
+        };
+        let bare = Regex::new(&format!(r"(?:^|[^\w.]){}\b", regex::escape(word)))
+            .expect("an escaped name keeps the pattern valid");
+        let indent = |l: &str| l.len() - l.trim_start().len();
+        let mut lines = text.lines().skip(ty.line - 1);
+        let base = lines.next().map_or(0, indent);
+        lines
+            .take_while(|l| {
+                l.trim().is_empty() || indent(l) > base || l.trim_start().starts_with(')')
+            })
+            .any(|l| bare.is_match(l))
     }
 
     /// The type of the chain `x.f.g` on 1-based `line` of `text`, the text of `file`, and the links
@@ -9567,6 +9588,43 @@ mod tests {
                     "consts.py:12",
                 ),
             ),
+            // The class binds the word in a shape the rules do not read: a tuple, a `def` under
+            // an `if`, a `for`. Not reading it is no proof that the base's is meant.
+            (
+                "consts.py",
+                "    Unread.RANK",
+                jump(
+                    "RANK \u{2192} Plain.RANK (by name, 1 match)",
+                    "consts.py:101",
+                ),
+            ),
+            (
+                "consts.py",
+                "    Unread.check",
+                picker(
+                    "check: by name, 3 declarations",
+                    &[
+                        ("Limits.check", "consts.py:15"),
+                        ("Plain.check", "consts.py:105"),
+                        // Under an `if` the walk of `qualified` names nothing.
+                        ("check", "consts.py:112"),
+                    ],
+                ),
+            ),
+            (
+                "consts.py",
+                "    Unread.CODE",
+                jump(
+                    "CODE \u{2192} Plain.CODE (by name, 1 match)",
+                    "consts.py:103",
+                ),
+            ),
+            // … and a nested class, which is what the class declares.
+            (
+                "consts.py",
+                "    Unread.Meta",
+                jump("Meta \u{2192} Unread.Meta (via Unread)", "consts.py:115"),
+            ),
             // Two bases that disagree: the order Python reads them in is not computed.
             (
                 "consts.py",
@@ -9768,6 +9826,8 @@ mod tests {
             // argument on a line that continues a call: the module's.
             module("17"),
             module("21"),
+            // A lambda's `:` behind the end of a call's arguments is no header's.
+            module("22"),
         ];
         for (file, code, want) in cases {
             let mut a = fixture_app("python");

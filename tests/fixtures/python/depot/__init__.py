@@ -17,6 +17,13 @@ __all__ = ["Cover", "Crate", "FakeUsers", "Session", "Trail", "stamp"]
 def stamp() -> None:
     pass
 
+
+def usage() -> str:
+    return """
+usage: depot [options]
+    from .crates import Hook
+"""
+
 try:
     from .crates import Pallet
 except ImportError:

@@ -114,3 +114,9 @@ def a_keyword_on_its_own_line() -> None:
     dict(users = 1,
          ledger = UserRepository())
     ledger.delete_user(21)
+
+
+def a_lambda_on_a_continued_line() -> None:
+    dict(users=(1,
+                2), key=lambda v: v, ledger=1)
+    ledger.delete_user(22)
