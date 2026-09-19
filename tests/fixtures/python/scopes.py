@@ -43,3 +43,54 @@ def documented(user_id: int) -> None:
         ledger = UserRepository()
     """
     ledger.delete_user(user_id + 5)
+
+
+def one_line(fresh: bool) -> None:
+    if fresh: ledger = UserRepository()
+    ledger.delete_user(10)
+
+
+def one_line_unread(fresh: bool) -> None:
+    if fresh: ledger = UserRepository()
+    else: ledger = open("ledger")
+    ledger.delete_user(11)
+
+
+def after_a_semicolon() -> None:
+    count = 1; ledger = UserRepository()
+    ledger.delete_user(12 + count)
+
+
+def behind_a_loop(names: dict[str, int]) -> None:
+    for name in names["a:b"]: ledger = UserRepository()
+    ledger.delete_user(13)
+
+
+def annotated_behind_a_with() -> None:
+    with open("ledger") as source: ledger: UserRepository = source
+    ledger.delete_user(14)
+
+
+def chained() -> None:
+    first = ledger = UserRepository()
+    ledger.delete_user(15 + len(first.users))
+
+
+def imported_in_a_try() -> None:
+    try: from fakes import ledger
+    except ImportError: pass
+    ledger.delete_user(16)
+
+
+def only_compared(flag: bool) -> None:
+    if ledger == flag: print(ledger)
+    ledger.delete_user(17)
+
+
+class Vault:
+    def __init__(self, cold: bool) -> None:
+        self.ledger = AuditLog()
+        if cold: self.ledger = UserRepository()
+
+    def purge(self) -> None:
+        self.ledger.delete_user(18)

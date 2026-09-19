@@ -9580,6 +9580,71 @@ mod tests {
         ]);
     }
 
+    /// #131. A Python binding that does not start its line is a binding: behind the `:` of a
+    /// header on the same line, behind a `;`, annotated, chained. It used to be unseen, and the
+    /// module's `ledger`, an `AuditLog`, was proven in its place. One the rules cannot read hides
+    /// the module's all the same; a comparison binds nothing.
+    #[test]
+    fn a_python_binding_need_not_start_its_line() {
+        let users = |n: &str| {
+            (
+                "scopes.py",
+                format!("ledger.delete_user|({n}"),
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via ledger: UserRepository)",
+                    "repos.py:8",
+                ),
+            )
+        };
+        let unproven = |n: &str, status: &str| {
+            let rows = [
+                ("UserRepository.delete_user", "repos.py:8"),
+                ("AuditLog.delete_user", "repos.py:13"),
+            ];
+            (
+                "scopes.py",
+                format!("ledger.delete_user|({n}"),
+                picker(status, &rows),
+            )
+        };
+        let by_name = "delete_user: by name, 2 declarations";
+        let cases = vec![
+            // `if fresh: ledger = UserRepository()`.
+            users("10"),
+            // … and `else: ledger = open("ledger")`.
+            unproven("11", by_name),
+            // `count = 1; ledger = UserRepository()`.
+            users("12 + count"),
+            // `for name in names["a:b"]: ledger = …`: the `:` of the string ends no header.
+            users("13"),
+            // `with … as source: ledger: UserRepository = source`.
+            users("14"),
+            // `first = ledger = UserRepository()`.
+            unproven("15 + len", by_name),
+            // `try: from fakes import ledger`: only the statement starts with `from`.
+            unproven("16", by_name),
+            // `if cold: self.ledger = UserRepository()` beside `self.ledger = AuditLog()`.
+            unproven(
+                "18",
+                "delete_user: by name, 2 declarations (chain broke at ledger)",
+            ),
+            // `if ledger == flag: print(ledger)` binds nothing: the module's.
+            (
+                "scopes.py",
+                "ledger.delete_user|(17".to_owned(),
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via ledger: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+        ];
+        for (file, code, want) in cases {
+            let mut a = fixture_app("python");
+            d_on(&mut a, file, &code);
+            assert_eq!(shown(&mut a), want, "{file}: {code}");
+        }
+    }
+
     /// Step 5 of #68 over the same project in three languages: a word or a qualifier an import
     /// binds to a module of the project is looked for in that module, and the status line names
     /// the file or the package directory. A module that does not declare the word re-exports it,
