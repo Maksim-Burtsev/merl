@@ -4131,6 +4131,20 @@ pub fn fuzzy_match(query: &str, name: &str) -> bool {
         .all(|q| left.any(|c| c == q || (!exact && c.to_lowercase().eq(q.to_lowercase()))))
 }
 
+/// The word `d` asks about at byte `col` of `line`: [`word_at`], and in TypeScript a `#private`
+/// name with its `#`, on the `#` as on the name (#100): `#addRoute` is no `addRoute`.
+pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Range<usize>, &str)> {
+    let extra = word_chars(kind, true);
+    let hash = |i: usize| kind == Some(Kind::TsJs) && line.as_bytes().get(i) == Some(&b'#');
+    // On the `#`, the word is the one right behind it.
+    let (range, _) = word_at(line, if hash(col) { col + 1 } else { col }, extra)?;
+    let start = match range.start.checked_sub(1).filter(|&i| hash(i)) {
+        Some(i) => i,
+        None => range.start,
+    };
+    Some((start..range.end, &line[start..range.end]))
+}
+
 /// The run of `[A-Za-z0-9_]` and `extra` characters at byte offset `col`, or the one that ends
 /// there when the cursor sits right after a word. `extra` characters do not start or end a word.
 pub fn word_at<'a>(line: &'a str, col: usize, extra: &str) -> Option<(Range<usize>, &'a str)> {

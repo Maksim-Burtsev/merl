@@ -1725,8 +1725,7 @@ impl App {
     /// `u` lists the uses.
     fn goto_definition(&mut self) {
         let kind = self.kind();
-        let extra = search::word_chars(kind, true);
-        let Some((range, word)) = search::word_at(self.line_str(), self.col, extra) else {
+        let Some((range, word)) = search::definition_word(kind, self.line_str(), self.col) else {
             self.message = "no word".into();
             return;
         };
@@ -1797,7 +1796,8 @@ impl App {
         let pattern = patterns.join("|");
         // On the declaration of a member of an interface, a protocol, an abstract or a base
         // class, `d` offers what implements it (#68, step 6).
-        if !dotted {
+        // A `#private` member is nobody's to override.
+        if !dotted && !word.starts_with('#') {
             let found = self.implementations(kind, &here, &text, &word);
             if !found.is_empty() {
                 self.show_definitions(kind, &word, &here, found, None);
@@ -1999,11 +1999,7 @@ impl App {
         let offer_only = std::mem::take(&mut self.offer_only);
         let truncated = std::mem::take(&mut self.truncated);
         let on_member = || {
-            let at = search::word_at(
-                self.line_str(),
-                self.col,
-                search::word_chars(Some(kind), true),
-            );
+            let at = search::definition_word(Some(kind), self.line_str(), self.col);
             let bare =
                 at.is_some_and(|(r, w)| w == word && !self.line_str()[..r.start].ends_with('.'));
             bare && search::member_or_signature(kind, word)
@@ -8533,6 +8529,83 @@ mod tests {
         for (code, want) in cases {
             let mut a = fixture_app("typescript");
             d_on(&mut a, "optional.ts", code);
+            assert_eq!(shown(&mut a), want, "{code}");
+        }
+    }
+
+    /// #100, TypeScript: a `#private` member is the word with its `#`, on the `#` and on the name.
+    #[test]
+    fn a_private_name_keeps_its_hash() {
+        let private = jump(
+            "#addRoute \u{2192} Router.#addRoute (via this: Router)",
+            "privates.ts:12",
+        );
+        let cases: Vec<(&str, Shown)> = vec![
+            // On the name and on the `#`: the private method, not the public `addRoute`.
+            ("this.#addRoute|(path);", private),
+            (
+                "this.|#addRoute(path + \"/\")",
+                jump(
+                    "#addRoute \u{2192} Router.#addRoute (via this: Router)",
+                    "privates.ts:12",
+                ),
+            ),
+            // A private field, as a target and as a link.
+            (
+                "this.#repo|.deleteUser(id)",
+                jump(
+                    "#repo \u{2192} Router.#repo (via this: Router)",
+                    "privates.ts:5",
+                ),
+            ),
+            (
+                "console.log(this.#audit|)",
+                jump(
+                    "#audit \u{2192} Router.#audit (via this: Router)",
+                    "privates.ts:6",
+                ),
+            ),
+            (
+                "other.#repo.deleteUser|(id + 2)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via other.#repo: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            // The public name never reaches a private one, by name or through a type.
+            (
+                "found.addRoute|(path)",
+                jump(
+                    "addRoute \u{2192} Router.addRoute (by name, 1 match)",
+                    "privates.ts:16",
+                ),
+            ),
+            (
+                "this.addRoute|(path);",
+                jump(
+                    "addRoute \u{2192} Router.addRoute (via this: SubRouter)",
+                    "privates.ts:16",
+                ),
+            ),
+            // A subclass's `#addRoute` is its own, and implements nothing of the base's.
+            (
+                "this.#addRoute|(path, 1)",
+                jump(
+                    "#addRoute \u{2192} SubRouter.#addRoute (via this: SubRouter)",
+                    "privates.ts:34",
+                ),
+            ),
+            (
+                "^  #addRoute|(path: string): void {",
+                picker(
+                    "#addRoute: at a declaration, 1 other by name",
+                    &[("SubRouter.#addRoute", "privates.ts:34")],
+                ),
+            ),
+        ];
+        for (code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, "privates.ts", code);
             assert_eq!(shown(&mut a), want, "{code}");
         }
     }
