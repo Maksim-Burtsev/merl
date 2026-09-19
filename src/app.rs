@@ -160,9 +160,10 @@ pub struct App {
     /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
     /// keyword argument, which names a parameter no rule reads.
     offer_only: bool,
-    /// Set by a search by name whose field grep stopped at [`search::MAX_HITS`]: the candidates
-    /// are a lower bound, so the count says `+` and a single one is offered, not jumped to.
-    truncated: bool,
+    /// Set by a grep of this `d` that stopped at [`search::MAX_HITS`], whatever was filtered out
+    /// of it afterwards: the candidates are a lower bound, so the count says `+` and a single
+    /// one is offered, not jumped to.
+    truncated: std::cell::Cell<bool>,
     pub focus: Focus,
     pub show_tree: bool,
     /// First visible row of the tree pane, clamped by `ui`.
@@ -289,7 +290,7 @@ impl App {
             files,
             external: HashMap::new(),
             offer_only: false,
-            truncated: false,
+            truncated: Default::default(),
             focus,
             show_tree: true,
             tree_top: 0,
@@ -1742,7 +1743,7 @@ impl App {
         let text = self.buf.lines.join("\n");
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
-        self.truncated = false;
+        self.truncated.set(false);
         let mut imports = search::imports(kind, &text);
         // A parameter or a local of the same name hides the import where the cursor is: `json`
         // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
@@ -2008,7 +2009,7 @@ impl App {
         // The line of an interface method is a declaration no pattern of `d` lists, so nothing
         // was dropped above, and what is found is its namesakes all the same.
         let offer_only = std::mem::take(&mut self.offer_only);
-        let truncated = std::mem::take(&mut self.truncated);
+        let truncated = self.truncated.take();
         let on_member = || {
             let at = search::word_at(
                 self.line_str(),
@@ -2090,6 +2091,7 @@ impl App {
                 search::in_def_scope(kind, here, p)
             })
             .unwrap_or_default();
+        self.note_cut(&hits);
         if let Some(block) = search::def_block(kind, word) {
             hits.retain(|h| {
                 std::fs::read_to_string(self.root.join(&h.path))
@@ -2725,7 +2727,6 @@ impl App {
             return hits;
         };
         let raw = self.project_definitions(kind, here, word, &fields.join("|"));
-        self.truncated |= raw.len() >= search::MAX_HITS;
         let mut by_file: Vec<(PathBuf, Vec<usize>)> = Vec::new();
         for h in raw {
             match by_file.last_mut() {
@@ -3172,6 +3173,14 @@ impl App {
             .collect()
     }
 
+    /// A grep that came back full stopped at the cap: what `d` counts from it is a lower bound,
+    /// also after a filter has made the list short (#100).
+    fn note_cut(&self, hits: &[Hit]) {
+        if hits.len() >= search::MAX_HITS {
+            self.truncated.set(true);
+        }
+    }
+
     /// `pattern` over `files` outside the project, standard library first. The paths are
     /// absolute: `root.join` leaves them alone, so a hit opens where it is.
     fn external_grep(&self, kind: Kind, files: &[PathBuf], pattern: &str) -> Vec<Hit> {
@@ -3182,6 +3191,7 @@ impl App {
             .unwrap_or_default();
         let mut hits = search::grep_project(&self.root, files, pattern, false, false, None, None)
             .unwrap_or_default();
+        self.note_cut(&hits);
         hits.sort_by_cached_key(|h| {
             (
                 roots.iter().position(|r| h.path.starts_with(r)),
@@ -9716,6 +9726,43 @@ mod tests {
         use_roots(&mut a, Kind::Python, std::slice::from_ref(&root));
         d_on(&mut a, "a.py", "self.stop");
         assert_eq!(shown(&mut a), jump("no definition for stop", "a.py:6"));
+        std::fs::remove_dir_all(&dir).unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// #100. A grep that stopped at the cap counts a lower bound also after a filter has made
+    /// the list short: the one top-level `Pick` left of a cut list is offered with a `+`, not
+    /// jumped to as the package's only one.
+    #[test]
+    fn a_count_behind_a_cut_grep_says_so() {
+        let (dir, mut a) = project_app(
+            "cut-count",
+            &[(
+                "main.go",
+                "package main\n\nimport \"example.com/lib\"\n\nfunc main() {\n\tlib.Pick()\n}\n",
+            )],
+        );
+        let methods = "func (o Row) Pick() {}\n".repeat(search::MAX_HITS);
+        let root = external_root(
+            "cut-count",
+            &[(
+                "example.com/lib@v1.0.0/lib.go",
+                &format!("package lib\n\nfunc Pick() {{}}\n\n{methods}"),
+            )],
+        );
+        use_roots(&mut a, Kind::Go, std::slice::from_ref(&root));
+        d_on(&mut a, "main.go", "lib.Pick");
+        assert_eq!(
+            shown(&mut a),
+            Shown::Picker(
+                "Pick: via import example.com/lib, 1+ declarations".into(),
+                vec![(
+                    "Pick".into(),
+                    "via import example.com/lib".into(),
+                    "example.com/lib@v1.0.0/lib.go:3".into()
+                )],
+            )
+        );
         std::fs::remove_dir_all(&dir).unwrap();
         std::fs::remove_dir_all(&root).unwrap();
     }
