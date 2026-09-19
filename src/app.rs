@@ -2812,21 +2812,21 @@ impl App {
                         .any(|l| search::type_name(kind, l).as_deref() == Some(name))
                 };
                 // The import may name another type of the same name: a module of the project
-                // that declares one, in a file none of the types found so far lives in. A
-                // module that only hands the name on (a barrel) says nothing either way.
+                // that declares one, in a file none of the types found so far lives in, looked
+                // for behind a barrel too (#100).
                 let another = |first: &str, module: &[String]| {
                     let module = match kind {
                         Kind::TsJs => &module[..module.len().saturating_sub(1)],
                         _ => module,
                     };
-                    (1..=module.len()).rev().any(|n| {
-                        let files = search::module_files(
-                            kind,
-                            &self.root,
-                            &self.files,
-                            &hit.path,
-                            &module[..n],
-                        );
+                    // A Python import may name a module or a name in one; a TypeScript one
+                    // names its module whole, and a shorter path is another module.
+                    let shortest = match kind {
+                        Kind::TsJs => module.len(),
+                        _ => 1,
+                    };
+                    (shortest..=module.len()).rev().any(|n| {
+                        let files = self.behind_barrels(kind, &hit.path, &module[..n], first, 0);
                         let ours = |f: &PathBuf| types.iter().any(|(t, p)| t == first && p == f);
                         !files.iter().any(ours)
                             && files
@@ -2871,6 +2871,40 @@ impl App {
             types = found;
         }
         out
+    }
+
+    /// The files of the project `module` names as `from` spells it, a TypeScript barrel among
+    /// them replaced by the files it hands `name` on from (`export * from "./a"`), which may be
+    /// barrels again. A barrel that leads nowhere in the project stays itself.
+    fn behind_barrels(
+        &self,
+        kind: Kind,
+        from: &Path,
+        module: &[String],
+        name: &str,
+        depth: usize,
+    ) -> Vec<PathBuf> {
+        let files = search::module_files(kind, &self.root, &self.files, from, module);
+        // ponytail: four barrels deep, which also ends two that export each other.
+        if kind != Kind::TsJs || depth == 4 {
+            return files;
+        }
+        files
+            .into_iter()
+            .flat_map(|f| {
+                let behind: Vec<PathBuf> = self
+                    .text_of(&f)
+                    .map(|t| search::reexports(&t, name))
+                    .unwrap_or_default()
+                    .iter()
+                    .flat_map(|m| self.behind_barrels(kind, &f, m, name, depth + 1))
+                    .collect();
+                match behind.is_empty() {
+                    true => vec![f],
+                    false => behind,
+                }
+            })
+            .collect()
     }
 
     /// Every member of `word` the project declares with as many parameters as the one on `line`,
@@ -9563,42 +9597,84 @@ mod tests {
     #[test]
     fn an_implementation_of_a_namesake_interface_is_not_one_of_ours() {
         let iface = "export interface Notifier {\n  send(to: string): void;\n}\n";
+        let class = |name: &str, from: &str| {
+            format!(
+                "import {{ Notifier }} from \"./{from}\";\n\nexport class {name} implements Notifier {{\n  send(to: string): void {{}}\n}}\n"
+            )
+        };
+        let looped = class("LoopedNotifier", "loop_a");
+        let (mail, sms, push, deep, loose) = (
+            class("MailNotifier", "a"),
+            class("SmsNotifier", "index"),
+            class("PushNotifier", "named"),
+            class("DeepNotifier", "deep"),
+            class("LooseNotifier", "renamed"),
+        );
         let (dir, mut a) = project_app(
             "dupiface",
             &[
                 ("a.ts", iface),
                 ("b.ts", iface),
+                // Barrels (#100): everything of `a`, the name out of `b`, a barrel of a barrel,
+                // and one that hands on another interface under this name, which is not followed.
                 ("index.ts", "export * from \"./a\";\n"),
+                ("named.ts", "export { type Notifier } from \"./b\";\n"),
+                ("deep.ts", "export * from \"./named\";\n"),
                 (
-                    "impl.ts",
-                    "import { Notifier } from \"./a\";\n\nexport class MailNotifier implements Notifier {\n  send(to: string): void {}\n}\n",
+                    "things.ts",
+                    "export interface Thing {\n  send(to: string): void;\n}\ninterface Notifier {}\n",
                 ),
                 (
-                    "barrel.ts",
-                    "import { Notifier } from \"./index\";\n\nexport class SmsNotifier implements Notifier {\n  send(to: string): void {}\n}\n",
+                    "renamed.ts",
+                    "export { Thing as Notifier } from \"./things\";\n",
                 ),
+                // Two barrels that export each other lead nowhere, and end.
+                ("loop_a.ts", "export * from \"./loop_b\";\n"),
+                ("loop_b.ts", "export * from \"./loop_a\";\n"),
+                ("looped.ts", &looped),
+                ("impl.ts", &mail),
+                ("barrel.ts", &sms),
+                ("named_impl.ts", &push),
+                ("deep_impl.ts", &deep),
+                ("loose.ts", &loose),
             ],
         );
         a.external
             .insert(Kind::TsJs, (Vec::new(), Arc::new(Vec::new())));
-        // Through a barrel the file is not known: the class stays, as it was.
-        d_on(&mut a, "b.ts", "  send");
-        assert_eq!(
-            shown(&mut a),
-            jump(
-                "send \u{2192} SmsNotifier.send (implementations of Notifier.send)",
-                "barrel.ts:4"
-            )
-        );
-        d_on(&mut a, "a.ts", "  send");
-        let Shown::Picker(status, rows) = shown(&mut a) else {
-            panic!("{}", a.message);
-        };
-        assert_eq!(
-            status,
-            "send: implementations of Notifier.send, 2 declarations"
-        );
-        assert_eq!(rows.len(), 2);
+        for (file, want) in [
+            (
+                "a.ts",
+                [
+                    ("SmsNotifier.send", "barrel.ts:4"),
+                    ("MailNotifier.send", "impl.ts:4"),
+                    ("LoopedNotifier.send", "looped.ts:4"),
+                    ("LooseNotifier.send", "loose.ts:4"),
+                ],
+            ),
+            (
+                "b.ts",
+                [
+                    ("DeepNotifier.send", "deep_impl.ts:4"),
+                    ("LoopedNotifier.send", "looped.ts:4"),
+                    ("LooseNotifier.send", "loose.ts:4"),
+                    ("PushNotifier.send", "named_impl.ts:4"),
+                ],
+            ),
+        ] {
+            d_on(&mut a, file, "  send");
+            let Shown::Picker(status, rows) = shown(&mut a) else {
+                panic!("{}", a.message);
+            };
+            assert_eq!(
+                status,
+                "send: implementations of Notifier.send, 4 declarations"
+            );
+            let rows: Vec<(&str, &str)> = rows
+                .iter()
+                .map(|(n, _, at)| (n.as_str(), at.as_str()))
+                .collect();
+            assert_eq!(rows, want, "{file}");
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

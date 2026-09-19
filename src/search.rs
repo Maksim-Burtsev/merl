@@ -1935,6 +1935,37 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
     out
 }
 
+/// The modules a TypeScript barrel hands `name` on from, as [`imports`] spells a module:
+/// `export * from "./a"` and `export { name } from "./a"`. Under another name
+/// (`export { x as name }`) nothing is followed.
+pub fn reexports(text: &str, name: &str) -> Vec<Vec<String>> {
+    static EXPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"(?m)^\s*export\s+(?:type\s+)?(\*|\{[^}]*\})\s*from\s*['"]([^'"]+)['"]"#)
+            .unwrap()
+    });
+    EXPORT
+        .captures_iter(text)
+        .filter(|c| {
+            let items = c[1].trim_matches(['{', '}']);
+            &c[1] == "*"
+                || items
+                    .split(',')
+                    .any(|i| i.trim().strip_prefix("type ").unwrap_or(i.trim()) == name)
+        })
+        .map(|c| {
+            let mut path: Vec<String> = c[2]
+                .split('/')
+                .filter(|p| !p.is_empty())
+                .map(str::to_owned)
+                .collect();
+            if c[2].starts_with('/') {
+                path.insert(0, ".".to_owned());
+            }
+            path
+        })
+        .collect()
+}
+
 /// One `use` tree: `a::b::{c, d as e, f::*}` binds `c`, `e` and every name of `f`. A `crate`,
 /// `self` or `super` root is the project.
 fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<(String, Vec<String>)>) {
