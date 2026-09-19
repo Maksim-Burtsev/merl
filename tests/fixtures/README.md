@@ -110,5 +110,23 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   several lines: with a name commented out at the margin, behind a default, and a plain `const`
   closed by `} as T;`.
 
+- Go (#100): `globals` reads package-level names that `globals_vars.go` declares (a `var`, a
+  `var (` block, a list whose second name has no value the rules pair up), one declared below
+  its use, one declared as two types under build tags, and locals that hide them; a `var` inside
+  a function and a raw string's line declare nothing. `aliases` follows `type X = Y` through a
+  second alias, another package and an alias declared in that package, next to a defined type
+  with a method of its own. `platform` declares `Clock` once per platform (by file name and by
+  `//go:build !windows`) and `Codec` under a tag that is no platform. `qualifiers` has an aliased
+  import, a parameter of the alias's name, and `go-ledger`, whose path reads `ledger` while its
+  package is `books` and `ledger` is a variable of `scopes`. `results` has a method with named
+  results, a parameter and a local. After the review: `globals` also holds the locals the scope
+  walk does not read (a header with a function-typed parameter, a receiver on one, a `var (`
+  block in a function, the lines above a label, a local handed on) and `globals_x_test.go`, the
+  external test package importing under a variable's name; `platform` a `Timer` whose method is
+  per platform, a `Gauge` under `windows && !slow`, a `Gate` no CI host builds and a `Meter`
+  under a tag of its own, the last two used from `platforms_gate.go` (`//go:build gated`);
+  `aliases` an alias with a method of its own over an embedded namesake; `qualifiers` a parameter
+  behind a function-typed one and a field called like the import.
+
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.
