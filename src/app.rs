@@ -1731,9 +1731,13 @@ impl App {
             return;
         };
         let word = word.to_owned();
-        let before = &self.line_str()[..range.start];
+        // A member access broken over lines reads as the one line it is.
+        let (written, start) = kind
+            .and_then(|k| search::unbroken(k, &self.buf.lines, self.line, range.start))
+            .unwrap_or_else(|| (self.line_str().to_owned(), range.start));
+        let before = &written[..start];
         let dotted = before.ends_with('.') && !before.ends_with("..");
-        let chain = search::qualifier(self.line_str(), range.start);
+        let chain = search::qualifier(&written, start);
         let here = self.rel_current();
         let (Some(kind), Some(here)) = (kind, here) else {
             self.message = self.no_rules();
@@ -1807,7 +1811,7 @@ impl App {
         let mut broke = None;
         // A chain with no name to start from may hang off a call: `make_uow().users.word` (#100).
         let head = (dotted && chain.is_empty())
-            .then(|| search::call_head(kind, self.line_str(), range.start))
+            .then(|| search::call_head(kind, &written, start))
             .flatten();
         if dotted
             && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go)
@@ -8381,6 +8385,85 @@ mod tests {
         for (code, want) in cases {
             let mut a = fixture_app("typescript");
             d_on(&mut a, "headers.ts", code);
+            assert_eq!(shown(&mut a), want, "{code}");
+        }
+    }
+
+    /// #100, TypeScript: a member access prettier broke in front of its dots reads as the one line
+    /// it is; a comment at the end of the line above names no receiver.
+    #[test]
+    fn a_member_access_broken_over_lines_is_one_chain() {
+        let user = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} UserRepository.deleteUser (via {via})"),
+                "repos.ts:10",
+            )
+        };
+        let by_name = || {
+            picker(
+                "deleteUser: by name, 2 declarations",
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
+            )
+        };
+        let cases: Vec<(&str, Shown)> = vec![
+            // One break, two breaks with a comment between them, and the name in the middle.
+            (
+                "      .deleteUser|(id);",
+                user("this.uow: UnitOfWork \u{2192} users: UserRepository"),
+            ),
+            (
+                "      .deleteUser|(id + 1);",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via this.uow: UnitOfWork \u{2192} audit: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "      .audit",
+                jump(
+                    "audit \u{2192} UnitOfWork.audit (via this.uow: UnitOfWork)",
+                    "chains.ts:5",
+                ),
+            ),
+            // Off a method's call and off a function's, as on one line.
+            (
+                "      .deleteUser|(id + 2);",
+                user("this.depot.peopleRepo(): UserRepository"),
+            ),
+            (
+                "      .peopleRepo|()",
+                jump(
+                    "peopleRepo \u{2192} Depot.peopleRepo (via this.depot: Depot)",
+                    "calls.ts:10",
+                ),
+            ),
+            (
+                "      .people.deleteUser|(id + 3);",
+                user("openDepot(): Depot \u{2192} people: UserRepository"),
+            ),
+            (
+                "      .people|.deleteUser(id + 3);",
+                jump(
+                    "people \u{2192} Depot.people (via openDepot(): Depot)",
+                    "calls.ts:8",
+                ),
+            ),
+            // `found // note`: the module's `note` is an `AuditLog`, and no receiver here.
+            ("      .deleteUser|(id + 4);", by_name()),
+            // A call of a call, and a call closed on a line of its own, stay by name.
+            ("      .deleteUser|(id + 5);", by_name()),
+            ("      .deleteUser|(id + 6);", by_name()),
+            (
+                "      .length",
+                jump("no definition for length", "fluent.ts:39"),
+            ),
+        ];
+        for (code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, "fluent.ts", code);
             assert_eq!(shown(&mut a), want, "{code}");
         }
     }

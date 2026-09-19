@@ -1624,6 +1624,42 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
     chain
 }
 
+/// The line a member access reads as when prettier has broken it in front of its dots (#100):
+/// `return this.db` over `  .selectFrom(` is `return this.db.selectFrom(`. Gives the lines joined,
+/// without their comments, and where the word that starts at byte `word_start` of line `at`
+/// stands in them; `None` for a line that does not start with a dot.
+pub fn unbroken(
+    kind: Kind,
+    lines: &[String],
+    at: usize,
+    word_start: usize,
+) -> Option<(String, usize)> {
+    let led = |l: &str| l.trim_start().starts_with('.') && !l.trim_start().starts_with("..");
+    if kind != Kind::TsJs || !led(&lines[at]) {
+        return None;
+    }
+    let mut joined = lines[at].trim_start().to_owned();
+    let mut start = word_start - indent(&lines[at]);
+    // ponytail: forty lines of one expression.
+    for above in lines[at.saturating_sub(40)..at].iter().rev() {
+        let code = uncommented(kind, above);
+        let code = match led(&code) {
+            true => code.trim(),
+            false => code.trim_end(),
+        };
+        // A comment between two links, or a blank line, breaks nothing.
+        if code.is_empty() {
+            continue;
+        }
+        start += code.len();
+        joined.insert_str(0, code);
+        if !led(code) {
+            return Some((joined, start));
+        }
+    }
+    None
+}
+
 /// The call a member access hangs off, where [`qualifier`] has no name to start from:
 /// `pkg.New(x).word`, `make_uow().users.word`, `new Repo().word`, or the cast: `(x as T).word`,
 /// `i.(T).word`, `cast(T, x).word`. Gives the call without its arguments (a cast as written), what
