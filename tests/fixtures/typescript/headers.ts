@@ -133,3 +133,17 @@ export function peek(found: any): void {
 export function audit(id: number): void {
   repo.deleteUser(id);
 }
+
+// The parameter of an arrow in a wrapped constraint is no parameter of the function, in a
+// declaration and in a call with wrapped type arguments alike.
+export function restock<
+  F extends (repo: AuditLog) => void,
+>(repo: UserRepository, visit: F): void {
+  void repo.deleteUser(visit.length);
+  stash<
+    (repo: AuditLog) => void,
+    object
+  >(() => {
+    void repo.deleteUser(visit.length + 1);
+  }, {});
+}

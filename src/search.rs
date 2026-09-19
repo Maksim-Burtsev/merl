@@ -3061,9 +3061,10 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
             .find(|&j| !lines[j].trim().is_empty() && indent(lines[j]) <= ind);
         let body = t == "{" && opener.is_some_and(|j| declares_type(kind, lines[j]));
         // A `>` closes type parameters, a line ending in `<`; the `>` of a JSX tag closes no header.
-        let params =
-            t.starts_with('>') && opener.is_some_and(|j| lines[j].trim_end().ends_with('<'));
-        let wrapped = kind == Kind::TsJs && (params || body);
+        let params = kind == Kind::TsJs
+            && t.starts_with('>')
+            && opener.is_some_and(|j| lines[j].trim_end().ends_with('<'));
+        let wrapped = params || (kind == Kind::TsJs && body);
         if t.starts_with([')', '}', ']']) || wrapped {
             while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > ind) {
                 i -= 1;
@@ -3076,7 +3077,9 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         let sibling = ["else", "catch", "finally"]
             .iter()
             .any(|k| t.trim_start_matches('}').trim_start().starts_with(k));
-        let header: Vec<&str> = match sibling && end > i {
+        // So do the type parameters between `route<` and `>(repo: Repo) {`: the parameter of an
+        // arrow among them, `H extends (repo: Log) => void,`, is none of the function's.
+        let header: Vec<&str> = match (sibling || params) && end > i {
             true => vec![lines[i].trim(), t],
             false => lines[i..=end].iter().map(|l| l.trim()).collect(),
         };
@@ -4212,11 +4215,12 @@ pub fn go_signature(text: &str, line: usize) -> Option<(Vec<String>, String)> {
 }
 
 /// Whether `line` declares a type: a Python class, a TypeScript class, interface, type alias or
-/// enum, a Go `type`.
+/// enum, a Go `type`. An alias goes on as `=` or `<`: `type Notifier,` is an item of a wrapped
+/// import or export list.
 pub fn declares_type(kind: Kind, line: &str) -> bool {
     static TS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
-            r"^\s*(?:(?:export|default|declare|abstract)\s+)*(?:class|interface|type|enum)\s",
+            r"^\s*(?:(?:export|default|declare|abstract)\s+)*(?:(?:class|interface|enum)\s|type\s+[\w$]+\s*[=<])",
         )
         .unwrap()
     });

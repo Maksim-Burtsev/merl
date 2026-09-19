@@ -8724,6 +8724,16 @@ mod tests {
                 user("repo: UserRepository"),
             ),
             ("^  repo.deleteUser|(id)", audit("repo: AuditLog")),
+            // `(repo: AuditLog) => void` among wrapped type parameters, or wrapped type
+            // arguments, types the function's `repo` no more than it does on one line.
+            (
+                "void repo.deleteUser|(visit.length);",
+                user("repo: UserRepository"),
+            ),
+            (
+                "void repo.deleteUser|(visit.length + 1)",
+                user("repo: UserRepository"),
+            ),
         ];
         for (code, want) in cases {
             let mut a = fixture_app("typescript");
@@ -10474,7 +10484,9 @@ mod tests {
         let (mail, sms, push, deep, loose) = (
             class("MailNotifier", "a"),
             class("SmsNotifier", "index"),
-            class("PushNotifier", "named"),
+            // `type Notifier,` on a line of a wrapped list declares no alias, in the class's
+            // file and in the barrel alike.
+            class("PushNotifier", "named").replace("{ Notifier }", "{\n  type Notifier,\n}"),
             class("DeepNotifier", "deep"),
             class("LooseNotifier", "renamed"),
         );
@@ -10486,7 +10498,7 @@ mod tests {
                 // Barrels (#100): everything of `a`, the name out of `b`, a barrel of a barrel,
                 // and one that hands on another interface under this name, which is not followed.
                 ("index.ts", "export * from \"./a\";\n"),
-                ("named.ts", "export type {\n  Notifier,\n} from \"./b\";\n"),
+                ("named.ts", "export {\n  type Notifier,\n} from \"./b\";\n"),
                 ("deep.ts", "export * from \"./named\";\n"),
                 (
                     "things.ts",
@@ -10531,7 +10543,7 @@ mod tests {
                     ("DeepNotifier.send", "deep_impl.ts:4"),
                     ("LoopedNotifier.send", "looped.ts:4"),
                     ("LooseNotifier.send", "loose.ts:4"),
-                    ("PushNotifier.send", "named_impl.ts:4"),
+                    ("PushNotifier.send", "named_impl.ts:6"),
                 ],
             ),
         ] {
