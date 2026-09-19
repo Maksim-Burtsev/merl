@@ -484,6 +484,20 @@ case-sensitive — and `/` and `s` look for the text as typed: `foo(` finds the 
 definition, `a.b` only `a.b`. There is no regex mode. `s` lists its hits while you type, the open
 file's first; Up / Down pick one and Enter jumps to it.
 
+`u` lists every whole-word use of the identifier, case-sensitive, in the order a reader wants
+them: the declarations of the word, told by the same rules `d` uses — its patterns, and not a line
+inside a docstring, a raw string or a block comment — and marked `declaration` in the row, then
+the open file, then the rest of the project's code with the nearest directories
+first, and last the tests, mocks, fixtures, generated and vendored files — a `test/`, `tests/`,
+`__tests__/`, `spec/`, `specs/`, `testdata/`, `fixtures/`, `mocks/` (also `__fixtures__/`,
+`__mocks__/`), `vendor/` or `third_party/` directory anywhere in the path, and the file names
+`test_*`, `conftest.py`, `*_test.*`, `*_spec.*`, `*.test.*`, `*.spec.*`, `*_pb2.py`,
+`*_pb2_grpc.py`, `*.pb.go`, `*.gen.go` and `*.generated.*`. The title says how the list splits —
+`Usages of delete_user: 1 declaration, 6 in code, 14 in tests` — and leaves out a part with no
+hits. The file on screen is never demoted, whatever it is called, and the candidates `d` offers
+are demoted by the same table, so a copy of a declaration under `spec/` is offered after the real
+one.
+
 The file list comes from a `.gitignore`-respecting walk, and the project on screen is the project
 on disk: merl watches the root, and a file that an agent in the next pane creates, deletes or
 renames is in the tree, in `o` and in what `s`, `u` and `d` search a moment later, with no key and

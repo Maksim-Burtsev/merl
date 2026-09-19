@@ -177,6 +177,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `u` lists the same hits in the order a reader wants them: the declarations of the word first,
+  each row marked `declaration`, then the open file, then the rest of the project's code with the
+  nearest directories first, and tests, mocks, fixtures, generated and vendored files last
+  (`tests/`, `__tests__/`, `spec/`, `testdata/`, `mocks/`, `vendor/`, `test_*`, `*_test.*`,
+  `*.spec.*`, `*_pb2.py`, `*.gen.go` and friends). The title says how the list splits:
+  `Usages of delete_user: 1 declaration, 6 in code, 14 in tests`. The candidates `d` offers are
+  demoted by the same table, so a copy of a declaration under `spec/` comes after the real one.
+  (#81)
 - No silent keys: a press that cannot act says why, in a word or two. `d` and `u` off a word
   say `no word`; `d` in a file whose kind has no rules says `no rules for .css` instead of a
   `no definition` that never looked; `/` shows `no match` or the match count (`3/17`) next to

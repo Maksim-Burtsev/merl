@@ -105,8 +105,9 @@ pub const LESSONS: &[Lesson] = &[
     Lesson {
         title: "Usages",
         text: "The jump left the cursor on `load_config`, and `u` (or Shift+F12) lists every \
-               use of the word under it — Alt+Left and Alt+Right (Option on a Mac) move a word \
-               when it is not there yet. Press `u`, then pick the hit in cli.py with Down and Enter.",
+               use of the word under it, the declaration first and the tests last — Alt+Left and \
+               Alt+Right (Option on a Mac) move a word when it is not there yet. Press `u`, then \
+               pick the hit in cli.py with Down and Enter.",
         done: |a| at(a, "cli.py"),
     },
     Lesson {
