@@ -94,3 +94,23 @@ class Vault:
 
     def purge(self) -> None:
         self.ledger.delete_user(18)
+
+
+def behind_a_wrapped_header(fresh: bool, cold: bool) -> None:
+    if (fresh and
+            cold): ledger = UserRepository()
+    ledger.delete_user(19)
+
+
+def behind_a_wrapped_call(fresh: bool) -> None:
+    if bool(
+            fresh): ledger = UserRepository()
+    ledger.delete_user(20)
+
+
+def a_keyword_on_its_own_line() -> None:
+    print("purge",
+          end = "\n")
+    dict(users = 1,
+         ledger = UserRepository())
+    ledger.delete_user(21)

@@ -9699,6 +9699,16 @@ mod tests {
                 picker(status, &rows),
             )
         };
+        let module = |n: &str| {
+            (
+                "scopes.py",
+                format!("ledger.delete_user|({n}"),
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via ledger: AuditLog)",
+                    "repos.py:13",
+                ),
+            )
+        };
         let by_name = "delete_user: by name, 2 declarations";
         let cases = vec![
             // `if fresh: ledger = UserRepository()`.
@@ -9711,6 +9721,9 @@ mod tests {
             users("13"),
             // `with … as source: ledger: UserRepository = source`.
             users("14"),
+            // The `:` of a header wrapped over two lines, the first ending in `and`, in `(`.
+            users("19"),
+            users("20"),
             // `first = ledger = UserRepository()`.
             unproven("15 + len", by_name),
             // `try: from fakes import ledger`: only the statement starts with `from`.
@@ -9720,15 +9733,10 @@ mod tests {
                 "18",
                 "delete_user: by name, 2 declarations (chain broke at ledger)",
             ),
-            // `if ledger == flag: print(ledger)` binds nothing: the module's.
-            (
-                "scopes.py",
-                "ledger.delete_user|(17".to_owned(),
-                jump(
-                    "delete_user \u{2192} AuditLog.delete_user (via ledger: AuditLog)",
-                    "repos.py:13",
-                ),
-            ),
+            // `if ledger == flag: print(ledger)` binds nothing, and neither does a keyword
+            // argument on a line that continues a call: the module's.
+            module("17"),
+            module("21"),
         ];
         for (file, code, want) in cases {
             let mut a = fixture_app("python");

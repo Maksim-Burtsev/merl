@@ -2780,11 +2780,9 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
                 Some(Value::Element(c[1].to_owned()))
             } else if unknown.is_match(t) || (i == at && inline.is_match(t)) {
                 Some(Value::Unknown)
-            } else if continued(Kind::Python, lines, i) {
-                None
             } else {
                 // A binding need not start its line (#131): `if x: ledger = A()`, `a = 1; b = 2`.
-                for s in python_statements(t) {
+                for s in python_statements(t, continued(Kind::Python, lines, i)) {
                     let value = if unknown.is_match(s) || chained.is_match(s) {
                         Some(Value::Unknown)
                     } else if let Some(c) = annotated.captures(s) {
@@ -2818,29 +2816,31 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
 /// The simple statements the trimmed Python line `t` holds: what follows the `:` of a compound
 /// header written on the same line (`if x: a = 1`, `else: a = 2`, `for … : a = 3`), cut at each
 /// `;`. A line with neither is its one statement. A `:` inside brackets or a string, and the one
-/// of `:=`, end no header.
-fn python_statements(t: &str) -> Vec<&str> {
+/// of `:=`, end no header. A line that `continues` the one above it holds a statement only behind
+/// the end of a header wrapped over several lines, `    flag): a = 1`: a bracket closed that the
+/// line did not open, then the `:`.
+fn python_statements(t: &str, continues: bool) -> Vec<&str> {
     static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
             r"^(?:(?:if|elif|else|try|except|finally|while|with|for|async\s+with|async\s+for)\b|case\s)",
         )
         .unwrap()
     });
-    let mut rest = t;
-    if HEADER.is_match(t) {
-        let mut depth = 0i32;
-        let colon = code(Kind::Python, t).find(|&(i, c)| {
-            match c {
-                b'(' | b'[' | b'{' => depth += 1,
-                b')' | b']' | b'}' => depth -= 1,
-                _ => {}
-            }
-            c == b':' && depth == 0 && !t[i + 1..].starts_with('=')
-        });
-        if let Some((i, _)) = colon {
-            rest = &t[i + 1..];
+    let (mut depth, mut header) = (0i32, HEADER.is_match(t));
+    let colon = code(Kind::Python, t).find(|&(i, c)| {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' if depth == 0 => header = true,
+            b')' | b']' | b'}' => depth -= 1,
+            _ => {}
         }
-    }
+        c == b':' && header && depth == 0 && !t[i + 1..].starts_with('=')
+    });
+    let rest = match colon {
+        Some((i, _)) => &t[i + 1..],
+        None if continues => return Vec::new(),
+        None => t,
+    };
     split_top(Kind::Python, rest, b';')
         .into_iter()
         .map(str::trim)
@@ -3518,7 +3518,7 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
                     push(i, Value::Unknown);
                     continue;
                 }
-                for s in python_statements(t) {
+                for s in python_statements(t, false) {
                     if let Some(c) = annotated.captures(s).filter(right) {
                         push(i, Value::Type(c[2].to_owned()));
                     } else if let Some(c) = assigned.captures(s).filter(right) {
@@ -7762,7 +7762,20 @@ func Close() {
             ("x = \"a;b\"", &["x = \"a;b\""]),
         ];
         for (line, want) in cases {
-            assert_eq!(python_statements(line), want, "{line}");
+            assert_eq!(python_statements(line, false), want, "{line}");
+        }
+        // The last line of a wrapped header, whatever the line above it ends in.
+        for continues in [false, true] {
+            let got = python_statements("flag): x = 1; y = 2", continues);
+            assert_eq!(got, ["x = 1", "y = 2"]);
+        }
+        let continued: [(&str, &[&str]); 3] = [
+            ("b=2, x = 1", &[]),
+            ("if c else d)", &[]),
+            ("key=lambda v: v)", &[]),
+        ];
+        for (line, want) in continued {
+            assert_eq!(python_statements(line, true), want, "{line}");
         }
     }
 
