@@ -1920,19 +1920,33 @@ impl App {
         // A qualifier that is no value and no import can be what declares the word: a namespace,
         // a class with a static member, a nested class. A declaration that reads `Outer.find`
         // is the answer then, and a method `find` of some other class is not.
-        if on_value && locals.is_empty() && !chain.is_empty() {
-            let full = format!("{}.{word}", chain.join("."));
+        // The chain is joined as the kind qualifies a name (#129): Rust and C++ write the path
+        // with `::`, where no `.` stands in front of the word, and a `.` there is a value's.
+        let sep = search::separator(kind);
+        let path = chain.join(sep);
+        let pathed = match sep {
+            "." => on_value,
+            _ => self.line_str()[..range.start].ends_with(&format!("{path}{sep}")),
+        };
+        if pathed && locals.is_empty() && !chain.is_empty() {
+            let full = format!("{path}{sep}{word}");
+            // `depot::Shed::open` has the modules of the project in front of `Shed::open`.
+            let in_project = sep != "." && self.names_module(&chain[0]);
             let named: Vec<Candidate> = self
                 .project_definitions(kind, &here, &word, &pattern)
                 .into_iter()
                 .filter(|h| {
                     self.text_of(&h.path)
                         .and_then(|t| search::qualified(kind, &t, h.line, &word))
-                        .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")))
+                        .is_some_and(|q| {
+                            q == full
+                                || q.ends_with(&format!("{sep}{full}"))
+                                || (in_project && full.ends_with(&format!("{sep}{q}")))
+                        })
                 })
                 .map(|hit| Candidate {
                     hit,
-                    reason: Reason::Path(chain.join(".")),
+                    reason: Reason::Path(path.clone()),
                 })
                 .collect();
             if !named.is_empty() {
@@ -1995,6 +2009,16 @@ impl App {
             found = self.external_definitions(kind, &word, &chain, dotted, &pattern, &imports);
         }
         self.show_definitions(kind, &word, &here, found, broke.as_deref());
+    }
+
+    /// Whether `first` starts a path inside the project: `crate`, `self`, `super`, or a file or a
+    /// directory of the project called so.
+    fn names_module(&self, first: &str) -> bool {
+        matches!(first, "crate" | "self" | "super")
+            || self.files.iter().any(|f| {
+                f.file_stem().is_some_and(|s| s == first)
+                    || f.parent().is_some_and(|d| d.ends_with(first))
+            })
     }
 
     /// Jumps to the one candidate, or opens the picker over several, and says how they were found
@@ -10083,6 +10107,90 @@ mod tests {
             shown(&mut a),
             jump("find \u{2192} Outer.find (via Outer)", "ns.ts:2")
         );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #129. The chain in front of the word is joined as the kind qualifies a name, `Depot::open`
+    /// in Rust and C++, so a declaration that reads so is the answer there as `Outer.find` is
+    /// elsewhere. A type nothing declares the word in, `Self`, and a value's method stay by name.
+    #[test]
+    fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
+        let (dir, mut a) = project_app(
+            "paths",
+            &[
+                (
+                    "depot.rs",
+                    "pub struct Depot;\n\nimpl Depot {\n    pub fn open() -> Self {\n        Depot\n    }\n\n    pub fn again() -> Self {\n        Self::open()\n    }\n}\n\npub struct Shed;\n\nimpl Shed {\n    pub fn open() -> Self {\n        Shed\n    }\n}\n\npub struct Bare;\n\npub fn run(shed: Shed) {\n    let _ = Depot::open();\n    let _ = depot::Shed::open();\n    let _ = Bare::open();\n    let _ = shed.open();\n    let _ = vendored::Shed::open();\n}\n",
+                ),
+                (
+                    "depot.cpp",
+                    "struct Depot {\n    static Depot open() {\n        return Depot{};\n    }\n};\n\nstruct Shed {\n    static Shed open() {\n        return Shed{};\n    }\n};\n\nstruct Bare {};\n\nstruct crate {\n    void open() {}\n};\n\nstruct lid {\n    void open() {}\n};\n\nvoid use(lid crate) {\n    crate.open();\n}\n\nint main() {\n    Depot::open();\n    Bare::open();\n    return 0;\n}\n",
+                ),
+            ],
+        );
+        for kind in [Kind::Rust, Kind::C] {
+            a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
+        }
+        let rs = [("Depot::open", "depot.rs:4"), ("Shed::open", "depot.rs:16")];
+        let cpp = [
+            ("Depot::open", "depot.cpp:2"),
+            ("Shed::open", "depot.cpp:8"),
+            ("crate::open", "depot.cpp:16"),
+            ("lid::open", "depot.cpp:20"),
+        ];
+        let cases = [
+            (
+                "depot.rs",
+                "= Depot::open",
+                jump("open \u{2192} Depot::open (via Depot)", "depot.rs:4"),
+            ),
+            (
+                "depot.rs",
+                "depot::Shed::open",
+                jump("open \u{2192} Shed::open (via depot::Shed)", "depot.rs:16"),
+            ),
+            // No file or directory of the project is called `vendored`.
+            (
+                "depot.rs",
+                "vendored::Shed::open",
+                picker("open: by name, 2 declarations", &rs),
+            ),
+            (
+                "depot.rs",
+                "Bare::open",
+                picker("open: by name, 2 declarations", &rs),
+            ),
+            (
+                "depot.rs",
+                "Self::open",
+                picker("open: by name, 2 declarations", &rs),
+            ),
+            (
+                "depot.rs",
+                "shed.open",
+                picker("open: by name, 2 declarations", &rs),
+            ),
+            (
+                "depot.cpp",
+                "    Depot::open",
+                jump("open \u{2192} Depot::open (via Depot)", "depot.cpp:2"),
+            ),
+            (
+                "depot.cpp",
+                "Bare::open",
+                picker("open: by name, 4 declarations", &cpp),
+            ),
+            // A value called like a type, behind a `.`: a `lid`, whatever `crate::open` reads.
+            (
+                "depot.cpp",
+                "crate.open",
+                picker("open: by name, 4 declarations", &cpp),
+            ),
+        ];
+        for (file, code, want) in cases {
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{file}: {code}");
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

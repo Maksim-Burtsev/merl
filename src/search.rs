@@ -1095,6 +1095,15 @@ pub fn field_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
     })
 }
 
+/// What stands between the names of a qualified name of `kind`: `Depot::open`, `Outer.find`.
+pub fn separator(kind: Kind) -> &'static str {
+    if matches!(kind, Kind::Rust | Kind::C | Kind::Php) {
+        "::"
+    } else {
+        "."
+    }
+}
+
 /// The name a reader knows the declaration on 1-based `line` of `text` by: `name` behind what it
 /// is declared in, `UserRepository.delete_user` for a method, `Outer.Inner.run` for a nested
 /// one, the receiver type of a Go method, the type a Rust `impl … for Type` is for. `None` at
@@ -1128,11 +1137,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     if kind == Kind::Yaml {
         return None;
     }
-    let sep = if matches!(kind, Kind::Rust | Kind::C | Kind::Php) {
-        "::"
-    } else {
-        "."
-    };
+    let sep = separator(kind);
     let lines: Vec<&str> = text.lines().collect();
     let target = *lines.get(line.checked_sub(1)?)?;
     // Any other name on a Go function's line is the function's, a parameter or a named result,
