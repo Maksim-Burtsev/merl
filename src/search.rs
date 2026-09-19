@@ -140,6 +140,148 @@ const C_TYPEDEF_SYMBOL: &str =
 /// An object- or function-like macro.
 const C_MACRO_SYMBOL: &str = r"^\s*#\s*define\s+(?P<name>[A-Za-z_]\w*)";
 
+/// Everything that can stand before a C# declaration: the attribute lists written on the same
+/// line (`[Fact] public void …`) and the modifiers, which come in any order. The argument is the
+/// repetition the run takes: `"*"` for a rule that reads them if they are there, `"+"` for one
+/// that needs at least one. A macro, so [`def_patterns`] and the [`SYMBOLS`] rows share one
+/// spelling of it.
+macro_rules! cs_mods {
+    () => {
+        cs_mods!("*")
+    };
+    ($rep:literal) => {
+        concat!(
+            r"^\s*(?:\[[^\]]*\]\s*)*",
+            r"(?:(?:public|private|protected|internal|file|static|readonly|const|sealed|abstract",
+            r"|virtual|override|partial|async|extern|unsafe|new|volatile|event|required|fixed",
+            r"|implicit|explicit|ref)\s+)",
+            $rep
+        )
+    };
+    // A constructor is told from a call by its modifiers alone, so its run is the access ones
+    // only: `new` is a member modifier too, and a bare `new Invoice(id)` must not read as one.
+    (access) => {
+        concat!(
+            r"^\s*(?:\[[^\]]*\]\s*)*",
+            r"(?:(?:public|private|protected|internal|static|unsafe|extern|partial)\s+)+"
+        )
+    };
+}
+
+/// A C# type as it stands before the name it declares: a predefined type, `var`, or a name with a
+/// capital in it, which is how C# names its types — the same trick Java's rules use, and what
+/// keeps `return Compute(x);` from reading as a declaration. A tuple type counts too, and needs
+/// the comma it is written with: without it, `if (x) Run();` would read as a declaration of `Run`.
+/// Generics nest one level, and the nullable `?`, the array `[]` and a qualified name all count.
+macro_rules! cs_type {
+    () => {
+        concat!(
+            r"(?:void|var|bool|byte|sbyte|char|decimal|double|float|int|uint|long|ulong|short",
+            r"|ushort|object|string|dynamic|nint|nuint|\([^()]*,[^()]*\)|[\w.]*[A-Z][\w.]*)",
+            cs_generics!(),
+            r"\??(?:\[[,\s]*\])*\??"
+        )
+    };
+}
+
+/// A generic argument list, nesting three levels: a regex counts no brackets, and
+/// `Task<ActionResult<QueryResult<T>>>` is what an ASP.NET controller action returns.
+macro_rules! cs_generics {
+    () => {
+        r"(?:<[^<>]*(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>[^<>]*)*>)?"
+    };
+}
+
+/// The C# half of [`SYMBOLS`], first half: what the language declares with a keyword. A
+/// `delegate` carries its return type between the keyword and the name, and a `namespace` is
+/// listed under its last part, the one `d` finds it by.
+const CS_DECL_SYMBOL: &str = concat!(
+    cs_mods!(),
+    r"(?:(?:class|struct|interface|enum|record\s+class|record\s+struct|record)\s+",
+    r"|delegate\s+",
+    cs_type!(),
+    r"\s+|namespace\s+(?:[\w.]+\.)?)",
+    r"(?P<name>[A-Za-z_]\w*)"
+);
+
+/// The other C# half: a member with no keyword at all, told from a call by the type before its
+/// name — a method by the `(` of its parameters, a property by the `{` of its accessors, the `=>`
+/// of its expression body or the end of the line, where they open on the next one. A field
+/// (`… name;`, `… name = 1;`) is left out, as in every other kind, and so is a constructor, which
+/// is listed under its class.
+const CS_MEMBER_SYMBOL: &str = concat!(
+    cs_mods!(),
+    cs_type!(),
+    r"\s+(?:[\w.]+\.)?(?P<name>[A-Za-z_]\w*)\s*(?:<[^<>]*>\s*)?(?:\(|\{|=>|$)"
+);
+
+/// Everything that can stand before a Swift declaration: its attributes and property wrappers,
+/// and the modifiers, which come in any order. `class` is one of them — `class func load()` is
+/// Swift's static method — and the keyword alternations below read past it. The argument is the
+/// repetition the run takes, as [`cs_mods`]. A macro, so [`def_patterns`] and the [`SYMBOLS`] row
+/// share one spelling of it.
+macro_rules! swift_mods {
+    () => {
+        swift_mods!("*")
+    };
+    ($rep:literal) => {
+        concat!(
+            r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*",
+            r"(?:(?:public|private|fileprivate|internal|open|package|static|class|final|override",
+            r"|mutating|nonmutating|required|convenience|lazy|weak|unowned|dynamic|indirect",
+            r"|optional|prefix|postfix|infix|nonisolated|distributed|borrowing|consuming)",
+            // `private(set)`: the setter's own access, the one place Swift parenthesises a
+            // modifier. Without it the run stops at the `(` and the declaration is never read.
+            r"(?:\(set\))?\s+)",
+            $rep
+        )
+    };
+}
+
+/// The Swift half of [`SYMBOLS`]: what the language declares with a keyword. An `extension` is
+/// listed under the type it extends, since that is where a project keeps its own members of one —
+/// often the only place, when the type itself comes from a framework. A `let`, a `var` and an
+/// `enum` case are what a type holds, which no kind lists, and an `init` is listed under its type.
+const SWIFT_DECL_SYMBOL: &str = concat!(
+    swift_mods!(),
+    r"(?:class|struct|enum|protocol|actor|extension|typealias|associatedtype|func)\s+",
+    r"`?(?P<name>[A-Za-z_]\w*)"
+);
+
+/// Everything that can stand before a PHP declaration: its attributes and the modifiers a class
+/// member carries. The argument is the repetition the run takes, as [`cs_mods`]. A macro, so
+/// [`def_patterns`] and the [`SYMBOLS`] row share one spelling of it.
+macro_rules! php_mods {
+    () => {
+        php_mods!("*")
+    };
+    ($rep:literal) => {
+        concat!(
+            r"^\s*(?:#\[[^\]]*\]\s*)*",
+            r"(?:(?:public|private|protected|static|final|abstract|readonly|var)\s+)",
+            $rep
+        )
+    };
+}
+
+/// The PHP half of [`SYMBOLS`], first half: what the language declares with a keyword other than
+/// `function`, behind the modifiers a member carries. A namespace is listed under its last part,
+/// the one `d` finds it by. A property is a field, which no kind lists, and an `enum` case is what
+/// a type holds, as in every other kind; `define('X', …)` has no keyword before the name and is
+/// left out with them.
+const PHP_DECL_SYMBOL: &str = concat!(
+    php_mods!(),
+    r"(?:(?:class|interface|trait|enum)\s+|const\s+|namespace\s+(?:[\w\\]+\\)?)",
+    r"(?P<name>[A-Za-z_]\w*)"
+);
+
+/// The other half: a function or a method. A row of its own because a project holds far more of
+/// them than types and [`MAX_HITS`] is counted per row — one shared row would let the methods of
+/// the first files crowd every later class off the list. A name opening with two underscores is
+/// the language's own hook rather than the project's (`__construct`, `__toString`), and is left
+/// out the way C leaves out the implementation's names.
+const PHP_FUNC_SYMBOL: &str = concat!(php_mods!(), r"function\s+&?\s*(?P<name>_?[A-Za-z0-9]\w*)");
+
 /// The Ruby half of [`SYMBOLS`]: a method, including the `self.` form and the `name=` setter, and
 /// a class or module under the namespace it is written with. A constant and the names an
 /// `attr_accessor` line declares stay off the list: there is no keyword to go by, and one such
@@ -258,6 +400,17 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::C), C_TYPE_SYMBOL),
     (Some(Kind::C), C_TYPEDEF_SYMBOL),
     (Some(Kind::C), C_MACRO_SYMBOL),
+    // C# likewise: `public sealed partial class Foo<T>` stands behind modifiers the shared
+    // pattern does not know, and a method or a property carries no keyword at all.
+    (Some(Kind::CSharp), CS_DECL_SYMBOL),
+    (Some(Kind::CSharp), CS_MEMBER_SYMBOL),
+    // Swift likewise: a declaration stands behind its attributes and modifiers, and `extension`,
+    // `protocol` and `actor` are no keywords of the shared pattern.
+    (Some(Kind::Swift), SWIFT_DECL_SYMBOL),
+    // PHP likewise: a method stands behind `final public static`, which the shared pattern does
+    // not read, so `function` alone would be the only form it listed.
+    (Some(Kind::Php), PHP_DECL_SYMBOL),
+    (Some(Kind::Php), PHP_FUNC_SYMBOL),
     // Lua likewise: the shared pattern reads `function M.name(` as a declaration of `M`, and has
     // no word for `local function` at all.
     (Some(Kind::Lua), LUA_FUNCTION_SYMBOL),
@@ -285,13 +438,23 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Yaml), r"(^|\s)&(?P<anchor>[\w.-]+)"),
 ];
 
-/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, Lua and
-/// Elixir have rows of their own in [`SYMBOLS`], written for what those languages declare and how they
-/// name it, so reading the all-language pattern over them too would list a declaration twice.
+/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, C#,
+/// Swift, PHP, Lua and Elixir have rows of their own in [`SYMBOLS`], written for what those
+/// languages declare and how they name it, so reading the all-language pattern over them too
+/// would list a declaration twice.
 pub fn shared_symbols(kind: Option<Kind>) -> bool {
     !matches!(
         kind,
-        Some(Kind::Jvm | Kind::Ruby | Kind::C | Kind::Lua | Kind::Elixir)
+        Some(
+            Kind::Jvm
+                | Kind::Ruby
+                | Kind::C
+                | Kind::CSharp
+                | Kind::Swift
+                | Kind::Php
+                | Kind::Lua
+                | Kind::Elixir
+        )
     )
 }
 
@@ -307,6 +470,9 @@ pub enum Kind {
     Ruby,
     /// C and C++ together, headers included.
     C,
+    CSharp,
+    Swift,
+    Php,
     Lua,
     Elixir,
     Zig,
@@ -333,6 +499,10 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         // C and C++ are one kind: a header declares what a `.c` or a `.cc` defines, and either
         // language reads the other's headers, so they have to search each other.
         (_, "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx") => Kind::C,
+        // `.csx` is a C# script: the same language, run by `dotnet script`.
+        (_, "cs" | "csx") => Kind::CSharp,
+        (_, "swift") => Kind::Swift,
+        (_, "php" | "phtml") => Kind::Php,
         (_, "lua") => Kind::Lua,
         (_, "ex" | "exs") => Kind::Elixir,
         // Not `.zon`: Zig's data format declares nothing the rules look for, and a key of a
@@ -601,6 +771,93 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"^\w[^;(){{}}=<>]*[\s*&]{w}\s*(?:\[[^\]]*\])*\s*(?:=[^=]|;)"),
             ]
         }
+        // C# writes its modifiers and its attributes in front of everything and its type before
+        // the name, as Java does, so a member is told from a call by that type: a primitive,
+        // `var`, or a name with a capital in it. A field and a local land here too — a `;` or an
+        // `=` after the name is as much a declaration as the `(` of a method.
+        Kind::CSharp => {
+            let (mods, ty, access) = (cs_mods!(), cs_type!(), cs_mods!(access));
+            vec![
+                // A type, past the generic parameters it declares; the `(` is a record's or a
+                // class's primary constructor, `where` its first constraint.
+                format!(
+                    r"{mods}(?:class|struct|interface|enum|record\s+class|record\s+struct|record)\s+{w}\s*(?:<[^>]*>)?\s*(?:[:{{;(]|where\b|$)"
+                ),
+                format!(r"{mods}delegate\s+{ty}\s+{w}\s*(?:<[^>]*>)?\s*\("),
+                // A file-scoped or a block namespace, under its last part, as it is read.
+                format!(r"^\s*namespace\s+(?:[\w.]+\.)?{w}\s*[;{{]?\s*$"),
+                // `using Rows = List<int>;`: the alias form, where a plain `using` imports a
+                // namespace and declares nothing.
+                format!(r"^\s*(?:global\s+)?using\s+(?:unsafe\s+)?{w}\s*="),
+                // A constructor, behind at least one access modifier. With nothing in front,
+                // `Invoice(n);` is a call, so a bare name before `(` is never a declaration here.
+                format!(r"{access}{w}\s*\([^;]*\)\s*(?::\s*(?:base|this)\b.*)?[{{=]?\s*$"),
+                // A method, a property, an event and a field: the type, the name, and the `(` of
+                // the parameters, the `{` of the accessors, the `=>` of an expression body, the
+                // `=` of an initialiser, the `;` of a declaration with none — or the end of the
+                // line, where a property's accessors open on the next one.
+                format!(r"{mods}{ty}\s+(?:[\w.]+\.)?{w}\s*(?:<[^>]*>\s*)?(?:[({{;=]|$)"),
+            ]
+        }
+        // Swift writes its attributes and modifiers in front of a keyword, and every declaration
+        // has one, so there is no need to guess at a type. What has no rule is a binding made by
+        // an `if let` or a `guard let`, which is a shadowing rebind of a name declared elsewhere,
+        // and a parameter, as in every kind.
+        Kind::Swift => {
+            let mods = swift_mods!();
+            let mut patterns = vec![
+                // A type; `extension Foo` counts, since a project's own members of a type live
+                // there and often the type itself does not.
+                format!(
+                    r"{mods}(?:class|struct|enum|protocol|actor|extension|typealias|associatedtype)\s+`?{w}\b"
+                ),
+                // A function, past its generic parameters.
+                format!(r"{mods}func\s+`?{w}\s*[(<]"),
+                format!(r"{mods}(?:let|var)\s+`?{w}\b"),
+                // An enum case, alone or among several on one line, with the associated values or
+                // the raw value it can carry. A `case .open:` or a `case let .open(x):` of a
+                // `switch` is a pattern, and a `case open:` there matches against a constant, so
+                // what follows the name must not be a `:`.
+                format!(
+                    r"^\s*(?:indirect\s+)?case\s+(?:\w+(?:\([^)]*\))?\s*,\s*)*{w}\s*(?:\(|=[^=]|,|$)"
+                ),
+            ];
+            // `init` and `subscript` are keywords, so the word under the cursor is the keyword
+            // itself and there is no name to read past.
+            if matches!(word, "init" | "subscript" | "deinit") {
+                patterns.push(format!(r"{mods}{w}\s*[?!(<{{]"));
+            }
+            patterns
+        }
+        // PHP declares with a keyword too, and what has none — a property, a promoted constructor
+        // parameter — carries the modifiers that tell it from a use. A parameter and a `foreach`
+        // target have no rule, as in every kind, and neither has `$this->name = …`, which writes
+        // to a property the class declares elsewhere.
+        Kind::Php => {
+            let mods = php_mods!();
+            let mods_one = php_mods!("+");
+            vec![
+                // A function or a method; `&` returns by reference.
+                format!(r"{mods}function\s+&?\s*{w}\s*\("),
+                format!(r"{mods}(?:class|interface|trait|enum)\s+{w}\b"),
+                format!(r"^\s*namespace\s+(?:[\w\\]+\\)?{w}\s*[;{{]"),
+                // A constant: the `const` of a class or a file, and the `define()` of a global.
+                format!(r"{mods}const\s+{w}\b"),
+                format!(r#"^\s*define\s*\(\s*['"]{w}['"]"#),
+                // An enum case. A `case X:` of a `switch` matches against a constant, so what
+                // follows the name must not be a `:`.
+                format!(r"^\s*case\s+{w}\s*(?:=[^=]|;|$)"),
+                // A property, with the type it can carry between its modifiers and the `$`.
+                format!(r"{mods_one}(?:\??[\w\\|]+\s+)?\${w}\b"),
+                // A constructor parameter promoted to one, wherever it sits in the list.
+                format!(
+                    r"function\s+__construct\s*\(.*\b(?:public|private|protected|readonly)\s+(?:\??[\w\\|]+\s+)?\${w}\b"
+                ),
+                // An assignment that opens a line, `.=` and `??=` included. `==` compares, `=>`
+                // is a key in an array literal, and `$rows['x'] =` writes to an element.
+                format!(r"^\s*\${w}\s*(?:\.|\?\?|\+)?=(?:$|[^=>])"),
+            ]
+        }
         // Lua declares with `function` and `local`, and with nothing else: a bare `name = value`
         // is an assignment to whatever `name` already is, and a field of a table constructor is
         // written exactly the same way, so only a function literal on the right counts.
@@ -760,6 +1017,9 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::CSharp
+        | Kind::Swift
+        | Kind::Php
         | Kind::Lua
         | Kind::Elixir
         | Kind::Zig
@@ -829,7 +1089,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     if kind == Kind::Yaml {
         return None;
     }
-    let sep = if matches!(kind, Kind::Rust | Kind::C) {
+    let sep = if matches!(kind, Kind::Rust | Kind::C | Kind::Php) {
         "::"
     } else {
         "."
@@ -975,6 +1235,9 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::CSharp
+        | Kind::Swift
+        | Kind::Php
         | Kind::Lua
         | Kind::Elixir
         | Kind::Zig
@@ -1100,15 +1363,26 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             dirs.push(PathBuf::from("/opt/homebrew/include"));
             dirs
         }
+        // Composer installs a project's dependencies into `vendor/`, as source, and gitignores
+        // it, so the project walk does not list it: it is outside in the same way `node_modules`
+        // is. PHP's own library is built into the interpreter and has no source to read.
+        Kind::Php => vec![root.join("vendor")],
+        // Where SwiftPM checks a package's dependencies out, as source. The standard library is
+        // not there: the toolchain ships it compiled, with `.swiftinterface` stubs beside it and
+        // no `.swift` file to read.
+        Kind::Swift => vec![root.join(".build/checkouts")],
         // Java, Kotlin and Ruby have no roots yet: the JDK and Gradle caches, and a gem path,
-        // are their own lookups. Lua has no root at all to ask for: `package.path` is whatever
-        // the interpreter embedding it was built with, and a Neovim or a LuaRocks tree is not a
-        // standard library any project can be assumed to use. `d` stays inside the project for
-        // them, as for the rest. Elixir needs none: `mix` puts both the dependencies and their
-        // sources in `deps/` inside the project, so they are project files already, and the
-        // standard library ships compiled — an installed Elixir has `.beam` files, not `.ex`.
+        // are their own lookups. C# has nothing to point at: a NuGet package is compiled
+        // assemblies, and the runtime's own source is not on the machine at all. Lua has no root
+        // to ask for either: `package.path` is whatever the interpreter embedding it was built
+        // with, and a Neovim or a LuaRocks tree is not a standard library any project can be
+        // assumed to use. Elixir needs none: `mix` puts both the dependencies and their sources
+        // in `deps/` inside the project, so they are project files already, and the standard
+        // library ships compiled — an installed Elixir has `.beam` files, not `.ex`. `d` stays
+        // inside the project for all of them, as for the rest.
         Kind::Jvm
         | Kind::Ruby
+        | Kind::CSharp
         | Kind::Lua
         | Kind::Elixir
         | Kind::Shell
@@ -1433,14 +1707,36 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
                 }
             }
         }
+        // A `use` names one class, function or constant, and PSR-4 spells a namespace the way a
+        // file system does, so the path is the name split on `\`: `use Illuminate\Support\Str`
+        // binds `Str` to `vendor/…/Illuminate/Support/Str.php`. In column zero only — indented,
+        // `use` pulls a trait into a class body and names no file — and a group `use A\{B, C}`
+        // is left out, since one clause then binds several.
+        Kind::Php => {
+            static USE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r"(?m)^use\s+(?:function\s+|const\s+)?([^;{]+);").unwrap()
+            });
+            for c in USE.captures_iter(text) {
+                for item in c[1].split(',') {
+                    if let Some((alias, name)) = bound(item.trim()) {
+                        let path = parts(&name, "\\");
+                        if let Some(last) = path.last().cloned() {
+                            out.push((if alias == name { last } else { alias }, path));
+                        }
+                    }
+                }
+            }
+        }
         // Nothing to bind without roots to resolve an `import` or a `require` against. A C
         // `#include` binds no name of its own either: it pastes a file in, and everything the
-        // file declares is then visible unqualified. Zig's `const std = @import("std")` does bind
-        // one, but `std` is the root itself, not a directory inside it, so narrowing by it would
-        // find nothing.
+        // file declares is then visible unqualified, and a C# `using` opens a whole namespace
+        // the same way. Zig's `const std = @import("std")` does bind one, but `std` is the root
+        // itself, not a directory inside it, so narrowing by it would find nothing.
         Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::CSharp
+        | Kind::Swift
         | Kind::Lua
         | Kind::Elixir
         | Kind::Zig
@@ -1630,6 +1926,9 @@ pub fn module_files(
         | Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::CSharp
+        | Kind::Swift
+        | Kind::Php
         | Kind::Lua
         | Kind::Elixir
         | Kind::Zig
@@ -1792,9 +2091,11 @@ fn comment(kind: Kind, t: &str) -> bool {
 
 /// The 1-based lines of `text` that start inside a literal or a comment running over several
 /// lines: a Python or Elixir triple-quoted string (a docstring or an `@moduledoc` with an example
-/// in it), a Go raw string, a TypeScript template, a Lua `[[ ]]` or `[==[ ]==]` long string or
-/// block comment, a `/* */` block. A line there that reads like a declaration declares nothing.
-/// Strings of one line end with their line, whatever they hold.
+/// in it), which Swift and C# write with `"` alone, a Go raw string, a TypeScript template, a Lua
+/// `[[ ]]` or `[==[ ]==]` long string or block comment, a C# verbatim `@"…"`, a PHP heredoc, a
+/// `/* */` block. A line there that reads like a declaration declares nothing — the SQL a
+/// migration embeds in one is the common case. Strings of one line end with their line, whatever
+/// they hold.
 ///
 /// Each kind says which forms it has rather than inheriting another language's: Zig has none at
 /// all — a `\\` string ends with its line — and reading it with the backtick and `/* */` of the C
@@ -1804,25 +2105,29 @@ fn comment(kind: Kind, t: &str) -> bool {
 /// ponytail: Elixir's `~S"""` sigil is read from its `"""`, and its one-line `~s(…)` forms not at
 /// all.
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
-    // Elixir writes its heredocs and its comments exactly as Python does; Lua's long bracket is
-    // its own string and, behind `--`, its block comment.
-    let (heredoc, long_bracket, template) = match kind {
-        Kind::Python | Kind::Elixir => (true, false, false),
-        Kind::Lua => (false, true, false),
-        Kind::Zig => (false, false, false),
-        _ => (false, false, true),
+    // What this kind writes: the comment that runs to the end of a line, the triple quote of a
+    // heredoc, Lua's long bracket, and the backtick template with the `/* */` block of the C
+    // family. Elixir writes its heredocs and its comments exactly as Python does; Swift and C#
+    // write the same `"""` block with the C family's comments around it.
+    let (heredoc, long_bracket, template, line_comment): (bool, bool, bool, &[u8]) = match kind {
+        Kind::Python | Kind::Elixir => (true, false, false, b"#"),
+        Kind::Lua => (false, true, false, b"--"),
+        Kind::Zig => (false, false, false, b"//"),
+        Kind::Swift | Kind::CSharp => (true, false, true, b"//"),
+        _ => (false, false, true, b"//"),
     };
-    let line_comment: &[u8] = match (heredoc, long_bracket) {
-        (true, _) => b"#",
-        (_, true) => b"--",
-        _ => b"//",
-    };
+    // The two forms one language each has: C#'s verbatim string, which closes on a `"` that no
+    // second `"` follows, since `""` is how it writes a quote, and PHP's `<<<ID`, which closes on
+    // the line that repeats its label.
+    let (verbatim_strings, labelled) = (kind == Kind::CSharp, kind == Kind::Php);
     let b = text.as_bytes();
     let mut out = vec![false];
     // The multi-line literal the scan is in, by its closing bytes, and, for a long bracket, the
-    // number of `=` its closer carries; a one-line quote.
+    // number of `=` its closer carries; a one-line quote. A heredoc has no closing bytes at all:
+    // `label` holds the word its last line repeats, and `verbatim` marks a `@"…"`.
     let (mut block, mut level, mut quote, mut i): (Option<&[u8]>, usize, Option<u8>, usize) =
         (None, 0, None, 0);
+    let (mut verbatim, mut label) = (false, Vec::new());
     // A long bracket opening at `at` — `[[` or `[==[`, behind `--` or not: how many `=` it
     // carries, and how far past `at` its second `[` sits. A `[` that opens nothing, as the one in
     // the `\[[A-Za-z]\+\]` of a Vim regex, is no opener, so the `[=[` around it has to be read.
@@ -1842,9 +2147,27 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
         let c = b[i];
         if c == b'\n' {
             quote = None;
+            // A heredoc ends on the line that repeats its label, as `ID;`, `ID,` or `ID)`.
+            if !label.is_empty() {
+                let rest = &b[i + 1..];
+                let word = rest
+                    .iter()
+                    .position(|c| !c.is_ascii_whitespace())
+                    .map_or(rest, |n| &rest[n..]);
+                if word.starts_with(&label[..])
+                    && !word[label.len()..]
+                        .first()
+                        .is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_')
+                {
+                    label.clear();
+                    block = None;
+                }
+            }
             out.push(block.is_some());
         } else if let Some(end) = block {
-            // A long bracket closes on `]`, the `=` its opener carried, and `]`.
+            // A long bracket closes on `]`, the `=` its opener carried, and `]`; a verbatim
+            // string on a `"` that no second `"` follows; a heredoc only on its label, above.
+            let doubled = verbatim && c == b'"' && b.get(i + 1) == Some(&b'"');
             let closes = if long_bracket {
                 c == b']'
                     && b[i + 1..]
@@ -1855,15 +2178,21 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
                         == level
                     && b.get(i + 1 + level) == Some(&b']')
             } else {
-                b[i..].starts_with(end) && (end.len() > 1 || b[i - 1] != b'\\')
+                label.is_empty()
+                    && !doubled
+                    && b[i..].starts_with(end)
+                    && (end.len() > 1 || b[i - 1] != b'\\')
             };
             if closes {
                 block = None;
+                verbatim = false;
                 i += if long_bracket {
                     level + 1
                 } else {
                     end.len() - 1
                 };
+            } else if doubled {
+                i += 1;
             }
         } else if let Some(q) = quote {
             if c == b'\\' {
@@ -1871,9 +2200,29 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             } else if c == q {
                 quote = None;
             }
-        } else if heredoc && (b[i..].starts_with(b"\"\"\"") || b[i..].starts_with(b"'''")) {
+        } else if heredoc
+            && (b[i..].starts_with(b"\"\"\"") || (!template && b[i..].starts_with(b"'''")))
+        {
+            // `'''` is Python's and Elixir's alone; Swift and C# write the block with `"` only.
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" });
             i += 2;
+        } else if verbatim_strings && b[i..].starts_with(b"@\"") {
+            block = Some(b"\"");
+            verbatim = true;
+            i += 1;
+        } else if labelled && b[i..].starts_with(b"<<<") {
+            // `<<<SQL`, `<<<"SQL"` or `<<<'SQL'`: the label is what ends it.
+            let word: Vec<u8> = b[i + 3..]
+                .iter()
+                .skip_while(|c| **c == b'"' || **c == b'\'')
+                .take_while(|c| c.is_ascii_alphanumeric() || **c == b'_')
+                .copied()
+                .collect();
+            if !word.is_empty() {
+                i += 2;
+                block = Some(b"");
+                label = word;
+            }
         } else if let Some((eq, skip)) = long_bracket.then(|| opens(i)).flatten() {
             block = Some(b"]]");
             level = eq;
@@ -3700,6 +4049,15 @@ mod tests {
         assert_eq!(inside(Kind::Go, go), [2, 3, 6, 7]);
         let ts = "const q = `\n  find(id: string): User;\n  ${x}`;\nclass A {\n  find(id: string): User {}\n}\n";
         assert_eq!(inside(Kind::TsJs, ts), [2, 3]);
+        // A migration embeds SQL, and a raw or a verbatim string is where it puts it. `""` is how
+        // a verbatim string writes a quote, so it does not close one.
+        let cs = "var q = \"\"\"\n    WHERE EXISTS(SELECT 1 FROM t)\n    \"\"\";\nvar v = @\"\n    SELECT MIN(\"\"rowid\"\") FROM t\n    \";\npublic int Real() => 1;\n";
+        assert_eq!(inside(Kind::CSharp, cs), [2, 3, 5, 6]);
+        let sw = "let doc = \"\"\"\n    class Ghost {}\n    \"\"\"\nclass Real {}\n";
+        assert_eq!(inside(Kind::Swift, sw), [2, 3]);
+        // A heredoc ends on the line that repeats its label, and only there.
+        let php = "$sql = <<<SQL\n    function ghost() {}\n    class Ghost {}\nSQL;\n$n = <<<'TXT'\n    class Nowdoc {}\nTXT;\nclass Real {}\n";
+        assert_eq!(inside(Kind::Php, php), [2, 3, 6]);
     }
 
     #[test]
@@ -4465,6 +4823,476 @@ enum class Status {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    const CS: &str = r#"namespace Billing.Core;
+
+using Rows = System.Collections.Generic.List<int>;
+
+[Serializable]
+public sealed partial class Invoice<T> : Base, IEnumerable<T>
+{
+    private const int Limit = 10;
+    private readonly ILogger<Invoice<T>> _logger;
+    public static event EventHandler? Saved;
+
+    public Invoice(int n)
+    {
+        _logger = Create(n);
+    }
+
+    public int Total { get; private set; }
+
+    public string Name => _name;
+
+    [HttpGet("{id}")]
+    public async Task<Invoice<T>> LoadAsync(int id)
+    {
+        var rows = Compute(id);
+        if (Check(rows))
+        {
+            Console.WriteLine(rows);
+        }
+        return new Invoice<T>(id);
+    }
+
+    int IComparable.CompareTo(object? other) => 0;
+
+    private static Rows Compute(int id) => new Rows();
+}
+
+public interface IStore
+{
+    void Save(Invoice<int> inv);
+}
+
+public record struct Point(int X, int Y);
+
+public record Money(decimal Amount);
+
+public enum Status
+{
+    Open,
+}
+
+public delegate int Comparison<T>(T a, T b);
+
+public static class Registry
+{
+    public static Dictionary<string, Invoice<int>> All = new();
+}
+"#;
+
+    #[test]
+    fn csharp_def_patterns_find_types_members_and_fields() {
+        let (dir, files) = scratch("cs", &[("Invoice.cs", CS)]);
+        let d = |w| defs(&dir, &files, Kind::CSharp, w);
+        assert_eq!(d("Core"), [1], "a file-scoped namespace, by its last part");
+        assert_eq!(
+            d("Rows"),
+            [3],
+            "a `using` alias, not the `Rows` it is used as"
+        );
+        // The class past its generic parameters and its attribute, and the constructor; the
+        // caller shows a picker.
+        assert_eq!(d("Invoice"), [6, 12]);
+        assert_eq!(d("Limit"), [8]);
+        assert_eq!(d("_logger"), [9], "not the `_logger = Create(n);` write");
+        assert_eq!(d("Saved"), [10], "an event");
+        assert_eq!(d("Total"), [17], "a property, by its accessor block");
+        assert_eq!(d("Name"), [19], "an expression-bodied property");
+        assert_eq!(
+            d("LoadAsync"),
+            [22],
+            "behind an attribute and `public async`"
+        );
+        assert_eq!(d("rows"), [24], "a local");
+        assert_eq!(d("Compute"), [34], "not the `Compute(id)` call above it");
+        assert_eq!(d("CompareTo"), [32], "an explicit interface implementation");
+        assert_eq!(d("IStore"), [37]);
+        assert_eq!(d("Save"), [39], "an interface method has no modifiers");
+        assert_eq!(d("Point"), [42], "a positional `record struct`");
+        assert_eq!(d("Money"), [44]);
+        assert_eq!(d("Status"), [46]);
+        assert_eq!(d("Comparison"), [51], "a delegate, past its return type");
+        assert_eq!(d("Registry"), [53]);
+        assert_eq!(d("All"), [55]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn csharp_def_patterns_tell_a_declaration_from_a_call() {
+        let (dir, files) = scratch("cs-calls", &[("Invoice.cs", CS)]);
+        let d = |w| defs(&dir, &files, Kind::CSharp, w);
+        let none = Vec::<usize>::new();
+        assert_eq!(d("Check"), none, "a call inside `if`");
+        assert_eq!(d("Console"), none);
+        assert_eq!(d("WriteLine"), none, "a call statement");
+        assert_eq!(d("Create"), none, "a call on the right of an assignment");
+        assert_eq!(d("Base"), none, "a base list is a use of the type");
+        assert_eq!(d("IEnumerable"), none);
+        assert_eq!(d("id"), none, "a parameter has no rule");
+        assert_eq!(
+            d("Open"),
+            none,
+            "an enum member has no rule: `Open,` is also a line of a collection initialiser"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn csharp_scope_stays_in_the_project() {
+        let here = Path::new("Invoice.cs");
+        assert!(in_def_scope(Kind::CSharp, here, Path::new("src/Store.csx")));
+        assert!(!in_def_scope(Kind::CSharp, here, Path::new("main.rs")));
+        // A `using` opens a whole namespace, so it binds no name of its own, and there is nothing
+        // to bind it to: a NuGet package ships assemblies, not source.
+        assert!(imports(Kind::CSharp, CS).is_empty());
+        assert!(external_roots(Kind::CSharp, Path::new("/")).is_empty());
+        assert!(member_patterns(Kind::CSharp, "Total").is_none());
+        // A member is named by the type it is declared in, as the picker rows show it.
+        assert_eq!(
+            qualified(Kind::CSharp, CS, 22, "LoadAsync").as_deref(),
+            Some("Invoice.LoadAsync")
+        );
+    }
+
+    const SWIFT: &str = r#"import Foundation
+
+public protocol RequestDelegate: AnyObject {
+    associatedtype Value
+
+    func didFinish(_ request: Request)
+}
+
+@objc(AFSession)
+public final class Session: NSObject {
+    public static let `default` = Session()
+
+    private let queue: DispatchQueue
+    public var isRunning = false
+
+    public init(queue: DispatchQueue = .main) {
+        self.queue = queue
+    }
+
+    convenience init?(name: String) {
+        self.init()
+    }
+
+    public func request<T: Encodable>(_ url: URL, with body: T) -> Request {
+        let request = Request(url)
+        queue.async {
+            self.start(request)
+        }
+        if let delegate = delegate {
+            delegate.didFinish(request)
+        }
+        return request
+    }
+
+    class func shared() -> Session {
+        return Session()
+    }
+}
+
+extension Session: RequestDelegate {
+    public func didFinish(_ request: Request) {
+        switch request.state {
+        case .finished:
+            break
+        case let .failed(error):
+            print(error)
+        }
+    }
+}
+
+public enum State {
+    case initialized
+    case resumed(Int), suspended
+    case failed(Error)
+}
+
+public struct Response<Value> {
+    let value: Value
+}
+
+actor Cache {
+    var entries: [String: Data] = [:]
+}
+
+public typealias Rows = [Int]
+
+public final class Store {
+    public private(set) weak var owner: Session?
+}
+
+let opened = 0
+
+func describe(_ code: Int) -> String {
+    switch code {
+    case opened:
+        return "opened"
+    default:
+        return ""
+    }
+}
+"#;
+
+    #[test]
+    fn swift_def_patterns_find_declarations_behind_attributes_and_modifiers() {
+        let (dir, files) = scratch("swift", &[("Session.swift", SWIFT)]);
+        let d = |w| defs(&dir, &files, Kind::Swift, w);
+        assert_eq!(d("RequestDelegate"), [3], "a protocol");
+        assert_eq!(d("Value"), [4], "an `associatedtype`");
+        // The class and the extension of it: a project's own members of a type live in one.
+        assert_eq!(d("Session"), [10, 40], "not the `Session()` calls");
+        assert_eq!(d("didFinish"), [6, 41], "not the `delegate.didFinish` call");
+        assert_eq!(d("default"), [11], "a backticked name");
+        assert_eq!(d("queue"), [13], "not the `self.queue = queue` write");
+        assert_eq!(d("isRunning"), [14]);
+        assert_eq!(
+            d("init"),
+            [16, 20],
+            "`init?` too, not the `self.init()` call"
+        );
+        assert_eq!(d("request"), [24, 25], "the function and the local");
+        assert_eq!(d("shared"), [35], "behind `class`, Swift's static method");
+        assert_eq!(d("initialized"), [52], "an enum case");
+        assert_eq!(d("resumed"), [53], "with its associated value");
+        assert_eq!(d("suspended"), [53], "second on the line");
+        assert_eq!(
+            d("failed"),
+            [54],
+            "not the `case let .failed(error):` pattern"
+        );
+        assert_eq!(d("State"), [51]);
+        assert_eq!(d("Response"), [57], "past the generic parameters");
+        assert_eq!(d("Cache"), [61], "an actor");
+        assert_eq!(d("entries"), [62]);
+        assert_eq!(d("Rows"), [65], "a `typealias`");
+        assert_eq!(d("Store"), [67]);
+        assert_eq!(d("owner"), [68], "behind `public private(set) weak`");
+        // The `let`, not the `case opened:` of the `switch` below it, which matches against
+        // that constant: a bare name there is a pattern, not a declaration.
+        assert_eq!(d("opened"), [71]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn swift_def_patterns_tell_a_declaration_from_a_call_or_a_pattern() {
+        let (dir, files) = scratch("swift-calls", &[("Session.swift", SWIFT)]);
+        let d = |w| defs(&dir, &files, Kind::Swift, w);
+        let none = Vec::<usize>::new();
+        assert_eq!(d("finished"), none, "`case .finished:` is a pattern");
+        assert_eq!(d("start"), none, "a call on `self`");
+        assert_eq!(d("print"), none);
+        assert_eq!(d("Request"), none, "a type this file only uses");
+        assert_eq!(
+            d("delegate"),
+            none,
+            "an `if let` rebinds a name declared elsewhere: no rule, so `u` answers"
+        );
+        assert_eq!(d("body"), none, "a parameter has no rule");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn swift_scope_roots_and_names() {
+        let here = Path::new("Session.swift");
+        assert!(in_def_scope(
+            Kind::Swift,
+            here,
+            Path::new("Source/Request.swift")
+        ));
+        assert!(!in_def_scope(Kind::Swift, here, Path::new("main.rs")));
+        // An `import` names a module and makes everything in it visible unqualified, so it binds
+        // no name of its own.
+        assert!(imports(Kind::Swift, SWIFT).is_empty());
+        // Outside the project is where SwiftPM checks the dependencies out; nothing else on the
+        // machine holds Swift source, so an absent directory leaves the list empty.
+        let (dir, _) = scratch(
+            "swift-roots",
+            &[(".build/checkouts/nio/Sources/a.swift", "")],
+        );
+        assert_eq!(
+            external_roots(Kind::Swift, &dir),
+            [dir.join(".build/checkouts")]
+        );
+        assert!(external_roots(Kind::Swift, Path::new("/")).is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+        // A member is named by the type its extension extends.
+        assert_eq!(
+            qualified(Kind::Swift, SWIFT, 41, "didFinish").as_deref(),
+            Some("Session.didFinish")
+        );
+    }
+
+    const PHP: &str = r#"<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Str;
+use App\Models\User as Account;
+
+define('BILLING_LIMIT', 10);
+
+abstract class Invoice implements Arrayable
+{
+    public const STATUS_OPEN = 'open';
+
+    protected array $rows = [];
+
+    private ?Logger $logger;
+
+    public function __construct(private readonly Account $account, string $name)
+    {
+        $this->logger = null;
+        $total = 0;
+        foreach ($this->rows as $key => $value) {
+            $total += $value;
+        }
+        $this->name = $name;
+    }
+
+    final public static function parse(string $text): static
+    {
+        return new static($text);
+    }
+
+    public function &rows(): array
+    {
+        return $this->rows;
+    }
+
+    abstract protected function compute(): int;
+}
+
+interface Arrayable
+{
+    public function toArray(): array;
+}
+
+trait Macroable
+{
+    public function macro(string $name): void
+    {
+    }
+}
+
+enum Status: string
+{
+    case Open = 'open';
+    case Closed;
+}
+
+function billing_total(Invoice $invoice): int
+{
+    $sum = 0;
+    return $sum;
+}
+
+function billing_report(array $rows, int $total): array
+{
+    $map = [
+        $key => $value,
+    ];
+
+    return
+        $total == 0 ? $map : $rows;
+}
+"#;
+
+    #[test]
+    fn php_def_patterns_find_declarations_behind_modifiers() {
+        let (dir, files) = scratch("php", &[("Invoice.php", PHP)]);
+        let d = |w| defs(&dir, &files, Kind::Php, w);
+        assert_eq!(d("Services"), [3], "a namespace, by its last part");
+        assert_eq!(d("BILLING_LIMIT"), [8], "a `define()` constant");
+        assert_eq!(d("Invoice"), [10], "not the `Invoice $invoice` parameter");
+        assert_eq!(d("STATUS_OPEN"), [12], "a class constant");
+        // The property and the method that returns it, not the `$this->rows` uses.
+        assert_eq!(d("rows"), [14, 33]);
+        assert_eq!(d("logger"), [16], "not the `$this->logger = null;` write");
+        assert_eq!(d("account"), [18], "a promoted constructor parameter");
+        assert_eq!(
+            d("total"),
+            [21, 23],
+            "the assignment and the `+=` that follows"
+        );
+        assert_eq!(d("parse"), [28], "behind `final public static`");
+        assert_eq!(d("compute"), [38], "an abstract method has no body");
+        assert_eq!(d("Arrayable"), [41], "not the `implements Arrayable`");
+        assert_eq!(d("toArray"), [43]);
+        assert_eq!(d("Macroable"), [46], "a trait");
+        assert_eq!(d("macro"), [48]);
+        assert_eq!(d("Status"), [53], "a backed enum");
+        assert_eq!(d("Open"), [55], "an enum case with its value");
+        assert_eq!(d("Closed"), [56]);
+        assert_eq!(d("billing_total"), [59], "a function at the top level");
+        assert_eq!(d("sum"), [61], "not the `return $sum;`");
+        assert_eq!(d("map"), [67]);
+        // Not the `$total == 0` that opens line 72: `==` compares, it declares nothing.
+        assert_eq!(d("total"), [21, 23]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn php_def_patterns_tell_a_declaration_from_a_use() {
+        let (dir, files) = scratch("php-uses", &[("Invoice.php", PHP)]);
+        let d = |w| defs(&dir, &files, Kind::Php, w);
+        let none = Vec::<usize>::new();
+        assert_eq!(d("Str"), none, "a `use` imports a name, it declares none");
+        assert_eq!(d("Account"), none, "nor does the alias of one");
+        assert_eq!(d("Logger"), none, "a type a property is written with");
+        assert_eq!(d("text"), none, "a parameter has no rule");
+        assert_eq!(
+            d("name"),
+            none,
+            "`$this->name = $name;` writes to a property declared elsewhere"
+        );
+        assert_eq!(
+            d("key"),
+            none,
+            "a `foreach` target has no rule, and `$key => $value,` is an array pair"
+        );
+        assert_eq!(d("value"), none);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn php_scope_roots_imports_and_names() {
+        let here = Path::new("src/Invoice.php");
+        assert!(in_def_scope(Kind::Php, here, Path::new("views/show.phtml")));
+        assert!(!in_def_scope(Kind::Php, here, Path::new("main.rs")));
+        // A `use` in column zero binds the last part of the path, or its alias; PSR-4 spells the
+        // namespace the way the file system does, so the path is the name split on `\`.
+        assert_eq!(
+            imports(Kind::Php, PHP),
+            [
+                (
+                    "Str".to_owned(),
+                    vec!["Illuminate".into(), "Support".into(), "Str".into()]
+                ),
+                (
+                    "Account".to_owned(),
+                    vec!["App".into(), "Models".into(), "User".into()]
+                ),
+            ]
+        );
+        // An indented `use` pulls a trait into a class body and names no file.
+        assert!(imports(Kind::Php, "class X {\n    use Macroable;\n}\n").is_empty());
+        // Composer installs the dependencies into `vendor/`, which is gitignored and so outside
+        // the project walk, the way `node_modules` is.
+        let (dir, _) = scratch("php-roots", &[("vendor/laravel/framework/src/a.php", "")]);
+        assert_eq!(external_roots(Kind::Php, &dir), [dir.join("vendor")]);
+        assert!(external_roots(Kind::Php, Path::new("/")).is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+        // PHP writes a method of a class behind `::`, as its own documentation does.
+        assert_eq!(
+            qualified(Kind::Php, PHP, 28, "parse").as_deref(),
+            Some("Invoice::parse")
+        );
+    }
+
     const LUA: &str = r#"local uv = vim.uv
 
 local M = {}
@@ -5223,6 +6051,11 @@ output "bucket" {
             ("ledger.hpp", Some(Kind::C)),
             ("ledger.hh", Some(Kind::C)),
             ("ledger.hxx", Some(Kind::C)),
+            ("Invoice.cs", Some(Kind::CSharp)),
+            ("build.csx", Some(Kind::CSharp)),
+            ("Session.swift", Some(Kind::Swift)),
+            ("Invoice.php", Some(Kind::Php)),
+            ("show.phtml", Some(Kind::Php)),
             ("init.lua", Some(Kind::Lua)),
             ("ledger.ex", Some(Kind::Elixir)),
             ("mix.exs", Some(Kind::Elixir)),
@@ -6986,6 +7819,190 @@ func Close() {
     }
 
     #[test]
+    fn csharp_symbol_names() {
+        let cs = |line| one(Kind::CSharp, line);
+        for (line, name) in [
+            // A type, past its attributes, its modifiers and the generics it declares.
+            (
+                "public sealed partial class Invoice<T> : Base, IEnumerable<T>",
+                Some("Invoice"),
+            ),
+            ("internal readonly struct Tag", Some("Tag")),
+            ("public interface IStore<T> where T : class", Some("IStore")),
+            ("public enum Status", Some("Status")),
+            ("public record Money(decimal Amount);", Some("Money")),
+            ("public record struct Point(int X, int Y);", Some("Point")),
+            (
+                "public delegate int Comparison<T>(T a, T b);",
+                Some("Comparison"),
+            ),
+            // A namespace under its last part, the one `d` finds it by.
+            ("namespace Billing.Core;", Some("Core")),
+            ("namespace Billing", Some("Billing")),
+            // A member: the type before the name is what tells it from a call.
+            (
+                "    public async Task<Invoice<T>> LoadAsync(int id)",
+                Some("LoadAsync"),
+            ),
+            ("    void Save(Invoice<int> inv);", Some("Save")),
+            (
+                "    [Fact] public void Handles_Empty() {",
+                Some("Handles_Empty"),
+            ),
+            (
+                "    int IComparable.CompareTo(object? other) => 0;",
+                Some("CompareTo"),
+            ),
+            (
+                "    private static Rows Compute(int id) => new Rows();",
+                Some("Compute"),
+            ),
+            // A property, by its accessors, its expression body, or the brace on the next line.
+            ("    public int Total { get; private set; }", Some("Total")),
+            ("    public string Name => _name;", Some("Name")),
+            ("    public IReadOnlyList<int> Rows", Some("Rows")),
+            // A field is not a symbol, in this kind as in every other.
+            ("    private const int Limit = 10;", None),
+            ("    private readonly ILogger<Invoice<T>> _logger;", None),
+            ("    public static event EventHandler? Saved;", None),
+            (
+                "    public static Dictionary<string, Invoice<int>> All = new();",
+                None,
+            ),
+            // The constructor is listed under its class, and a `using` alias is file-local.
+            ("    public Invoice(int n)", None),
+            ("using Rows = System.Collections.Generic.List<int>;", None),
+            ("using System.Text.Json;", None),
+            // A call, a statement and a block header are not declarations.
+            ("        var rows = Compute(id);", None),
+            ("        if (Check(rows))", None),
+            ("        Console.WriteLine(rows);", None),
+            ("        services.AddSingleton<IFoo, Foo>();", None),
+            ("        return new Invoice<T>(id);", None),
+            ("        foreach (var row in rows)", None),
+            ("        catch (InvalidOperationException ex)", None),
+            ("        using (var scope = provider.CreateScope())", None),
+            ("        await client.SendAsync(request);", None),
+            ("    Open,", None),
+        ] {
+            assert_eq!(cs(line).as_deref(), name, "{line}");
+        }
+    }
+
+    #[test]
+    fn swift_symbol_names() {
+        let sw = |line| one(Kind::Swift, line);
+        for (line, name) in [
+            ("public final class Session: NSObject {", Some("Session")),
+            (
+                "@MainActor public struct Response<Value> {",
+                Some("Response"),
+            ),
+            ("actor Cache {", Some("Cache")),
+            ("public enum State {", Some("State")),
+            (
+                "public protocol RequestDelegate: AnyObject {",
+                Some("RequestDelegate"),
+            ),
+            ("public typealias Rows = [Int]", Some("Rows")),
+            ("    associatedtype Value", Some("Value")),
+            // An extension is listed under the type it extends, which is what a project's own
+            // members of that type sit in.
+            ("extension Session: RequestDelegate {", Some("Session")),
+            ("extension Array where Element: Hashable {", Some("Array")),
+            // A function, past its generics; `class func` is a static method, not a class.
+            (
+                "    public func request<T: Encodable>(_ url: URL) -> Request {",
+                Some("request"),
+            ),
+            ("    class func shared() -> Session {", Some("shared")),
+            ("    mutating func append(_ row: Int) {", Some("append")),
+            (
+                "    @discardableResult func resume() -> Self {",
+                Some("resume"),
+            ),
+            ("    func `default`() {", Some("default")),
+            // What a type holds is not a symbol, in this kind as in every other, and an `init` is
+            // listed under its type.
+            ("    public static let `default` = Session()", None),
+            ("    private let queue: DispatchQueue", None),
+            ("    public var isRunning = false", None),
+            ("    case initialized", None),
+            ("    public init(queue: DispatchQueue = .main) {", None),
+            // An operator has no name a reader would look it up by.
+            (
+                "    public static func == (lhs: Self, rhs: Self) -> Bool {",
+                None,
+            ),
+            // A call, a binding and a pattern are not declarations.
+            ("        let request = Request(url)", None),
+            ("        queue.async {", None),
+            ("        if let delegate = delegate {", None),
+            ("        guard let url = url else { return }", None),
+            ("        return Session()", None),
+            ("        case let .failed(error):", None),
+            ("        switch request.state {", None),
+        ] {
+            assert_eq!(sw(line).as_deref(), name, "{line}");
+        }
+    }
+
+    #[test]
+    fn php_symbol_names() {
+        let php = |line| one(Kind::Php, line);
+        for (line, name) in [
+            (
+                "abstract class Invoice implements Arrayable",
+                Some("Invoice"),
+            ),
+            ("#[Attribute] final class Money", Some("Money")),
+            ("interface Arrayable", Some("Arrayable")),
+            ("trait Macroable", Some("Macroable")),
+            ("enum Status: string", Some("Status")),
+            ("namespace App\\Services;", Some("Services")),
+            (
+                "function billing_total(Invoice $invoice): int",
+                Some("billing_total"),
+            ),
+            (
+                "    final public static function parse(string $text): static",
+                Some("parse"),
+            ),
+            (
+                "    abstract protected function compute(): int;",
+                Some("compute"),
+            ),
+            ("    public function &rows(): array", Some("rows")),
+            (
+                "    public const STATUS_OPEN = 'open';",
+                Some("STATUS_OPEN"),
+            ),
+            // A property is a field, an enum case is what a type holds, and a `define()` has no
+            // keyword before the name: none of them is a symbol.
+            ("    protected array $rows = [];", None),
+            ("    private ?Logger $logger;", None),
+            ("    case Open = 'open';", None),
+            ("define('BILLING_LIMIT', 10);", None),
+            // A magic method is the language's hook, not the project's, as in C.
+            (
+                "    public function __construct(private readonly Account $account)",
+                None,
+            ),
+            ("    public function __toString(): string", None),
+            // A `use` imports, an anonymous function has no name, and a call is not a
+            // declaration.
+            ("use Illuminate\\Support\\Str;", None),
+            ("    use Macroable;", None),
+            ("$handler = function ($x) use ($y) {", None),
+            ("        return $this->rows;", None),
+            ("        foreach ($this->rows as $key => $value) {", None),
+            ("        $total = 0;", None),
+        ] {
+            assert_eq!(php(line).as_deref(), name, "{line}");
+        }
+    }
+
+    #[test]
     fn the_shared_pattern_skips_the_kinds_with_rows_of_their_own() {
         // Java, Kotlin, Ruby, C, C++, Lua and Elixir are listed from their own rows only, so
         // nothing is listed twice, `def self.parse` is not `self` and `function M.setup(` is
@@ -6993,6 +8010,9 @@ func Close() {
         assert!(!shared_symbols(Some(Kind::Jvm)));
         assert!(!shared_symbols(Some(Kind::Ruby)));
         assert!(!shared_symbols(Some(Kind::C)));
+        assert!(!shared_symbols(Some(Kind::CSharp)));
+        assert!(!shared_symbols(Some(Kind::Swift)));
+        assert!(!shared_symbols(Some(Kind::Php)));
         assert!(!shared_symbols(Some(Kind::Lua)));
         assert!(!shared_symbols(Some(Kind::Elixir)));
         // Shell and SQL rows complement the shared pattern instead, and it reads every other
