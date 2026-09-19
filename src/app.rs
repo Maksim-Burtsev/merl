@@ -160,9 +160,10 @@ pub struct App {
     /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
     /// keyword argument, which names a parameter no rule reads.
     offer_only: bool,
-    /// Set by a search by name whose field grep stopped at [`search::MAX_HITS`]: the candidates
-    /// are a lower bound, so the count says `+` and a single one is offered, not jumped to.
-    truncated: bool,
+    /// Set by a grep of this `d` that stopped at [`search::MAX_HITS`], whatever was filtered out
+    /// of it afterwards: the candidates are a lower bound, so the count says `+` and a single
+    /// one is offered, not jumped to.
+    truncated: std::cell::Cell<bool>,
     pub focus: Focus,
     pub show_tree: bool,
     /// First visible row of the tree pane, clamped by `ui`.
@@ -289,7 +290,7 @@ impl App {
             files,
             external: HashMap::new(),
             offer_only: false,
-            truncated: false,
+            truncated: Default::default(),
             focus,
             show_tree: true,
             tree_top: 0,
@@ -1742,7 +1743,7 @@ impl App {
         let text = self.buf.lines.join("\n");
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
-        self.truncated = false;
+        self.truncated.set(false);
         let mut imports = search::imports(kind, &text);
         // A parameter or a local of the same name hides the import where the cursor is: `json`
         // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
@@ -1773,6 +1774,25 @@ impl App {
                 })
                 .collect();
             self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
+        // A Go package qualifier, `db` in `db.Get`, is declared by the import line of this file
+        // (#100), unless a local hides it (taken out above) or the package declares the name
+        // itself: an import's name is read off its path, and a package may be called otherwise.
+        if kind == Kind::Go
+            && !dotted
+            && self.line_str()[range.end..].starts_with('.')
+            && let Some(path) = bound(&imports, &word)
+            && let Some(line) = search::go_import_line(&text, &word)
+            && self.package_declarations(kind, &here, &word).is_empty()
+        {
+            let hit = Hit {
+                path: here.clone(),
+                line,
+                text: self.buf.lines[line - 1].clone(),
+            };
+            let reason = Reason::Import(path.join("/"));
+            self.show_definitions(kind, &word, &here, vec![Candidate { hit, reason }], None);
             return;
         }
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
@@ -1989,7 +2009,7 @@ impl App {
         // The line of an interface method is a declaration no pattern of `d` lists, so nothing
         // was dropped above, and what is found is its namesakes all the same.
         let offer_only = std::mem::take(&mut self.offer_only);
-        let truncated = std::mem::take(&mut self.truncated);
+        let truncated = self.truncated.take();
         let on_member = || {
             let at = search::word_at(
                 self.line_str(),
@@ -2071,6 +2091,7 @@ impl App {
                 search::in_def_scope(kind, here, p)
             })
             .unwrap_or_default();
+        self.note_cut(&hits);
         if let Some(block) = search::def_block(kind, word) {
             hits.retain(|h| {
                 std::fs::read_to_string(self.root.join(&h.path))
@@ -2157,6 +2178,7 @@ impl App {
                 .grep(r"^export\s+default\b", false, false, wanted)
                 .unwrap_or_default();
         }
+        let hits = self.host_built(kind, here, hits);
         // A file, or a Go package's directory.
         let label = |hit: &Hit| match (kind, hit.path.parent()) {
             (Kind::Go, Some(dir)) if dir != Path::new("") => format!("{}/", dir.display()),
@@ -2324,7 +2346,28 @@ impl App {
         hops: usize,
     ) -> Option<(Typed, Option<String>)> {
         let bindings = search::bindings(kind, text, line, name);
-        self.agree(kind, file, text, &bindings, hops)
+        if !bindings.is_empty() || kind != Kind::Go {
+            return self.agree(kind, file, text, &bindings, hops);
+        }
+        // A Go name no scope of the file declares is the package's, declared in any of its
+        // files (#100); each is read in the file that writes it, and they have to agree.
+        let mut found: Option<(Typed, Option<String>)> = None;
+        for f in self.package_files(kind, file) {
+            let Some(text) = self.text_of(&f) else {
+                continue;
+            };
+            let bindings = search::package_bindings(&text, name);
+            if bindings.is_empty() {
+                continue;
+            }
+            let this = self.agree(kind, &f, &text, &bindings, hops)?;
+            match &found {
+                Some((ty, _)) if (&ty.path, ty.line) != (&this.0.path, this.0.line) => return None,
+                Some(_) => {}
+                None => found = Some(this),
+            }
+        }
+        found
     }
 
     /// The field `field` as `ty` itself declares it: `None` when it does not, `Some(None)` when
@@ -2543,8 +2586,21 @@ impl App {
 
     /// The declaration of the type written as `written` in `file`.
     fn type_decl(&self, kind: Kind, file: &Path, written: &str) -> Option<Typed> {
+        self.type_decl_at(kind, file, written, 0)
+    }
+
+    fn type_decl_at(&self, kind: Kind, file: &Path, written: &str, depth: usize) -> Option<Typed> {
         let parts = search::type_path(kind, written)?;
         let decl = self.declaration(kind, file, &parts)?;
+        // Go's `type X = Y` is `Y` itself, methods and fields (#100), where `Y` is a type the
+        // project declares; `type X = []Y` and the like stay what their line says.
+        // ponytail: eight aliases deep, which also ends a cycle.
+        if depth < 8
+            && let Some(named) = search::go_alias(kind, &decl.text)
+            && let Some(ty) = self.type_decl_at(kind, &decl.path, named, depth + 1)
+        {
+            return Some(ty);
+        }
         search::declares_type(kind, &decl.text).then(|| Typed {
             name: parts.last().cloned().unwrap_or_default(),
             path: decl.path,
@@ -2559,25 +2615,29 @@ impl App {
         let (name, chain) = parts.split_last()?;
         let one = |hits: Vec<Hit>| <[Hit; 1]>::try_from(hits).ok().map(|[hit]| hit);
         if chain.is_empty() {
-            let own = self.package_files(kind, file);
-            let pattern = search::def_patterns(kind, name).join("|");
-            let hits: Vec<Hit> = self
-                .grep(&pattern, false, false, |p| own.iter().any(|f| f == p))
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|h| {
-                    self.text_of(&h.path)
-                        .is_some_and(|text| search::qualified(kind, &text, h.line, name).is_none())
-                })
-                .collect();
+            let hits = self.package_declarations(kind, file, name);
             if !hits.is_empty() {
-                return one(hits);
+                return one(self.host_built(kind, file, hits));
             }
         }
         let imports = search::imports(kind, &self.text_of(file)?);
         let path = bound(&imports, chain.first().unwrap_or(name))?;
         let found = self.imported_definitions(kind, file, name, chain, &path)?;
         one(found.into_iter().map(|c| c.hit).collect())
+    }
+
+    /// The top-level declarations of `name` that `file` sees without an import.
+    fn package_declarations(&self, kind: Kind, file: &Path, name: &str) -> Vec<Hit> {
+        let own = self.package_files(kind, file);
+        let pattern = search::def_patterns(kind, name).join("|");
+        self.grep(&pattern, false, false, |p| own.iter().any(|f| f == p))
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|h| {
+                self.text_of(&h.path)
+                    .is_some_and(|text| search::qualified(kind, &text, h.line, name).is_none())
+            })
+            .collect()
     }
 
     /// The files a name of `file` is declared in without an import: the file, or for Go every
@@ -2608,17 +2668,39 @@ impl App {
         let want = Some(format!("{owner}.{word}"));
         let patterns = search::member_or_signature(kind, word).unwrap_or_default();
         let files = self.package_files(kind, &ty.path);
-        self.grep(&patterns.join("|"), false, false, |p| {
-            files.iter().any(|f| f == p)
-        })
-        .unwrap_or_default()
-        .into_iter()
-        .filter(|h| {
-            self.text_of(&h.path)
-                .and_then(|text| search::qualified(kind, &text, h.line, word))
-                == want
-        })
-        .collect()
+        let hits = self
+            .grep(&patterns.join("|"), false, false, |p| {
+                files.iter().any(|f| f == p)
+            })
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|h| {
+                self.text_of(&h.path)
+                    .and_then(|text| search::qualified(kind, &text, h.line, word))
+                    == want
+            })
+            .collect();
+        self.host_built(kind, &ty.path, hits)
+    }
+
+    /// Of several Go declarations of one name, those in files the host's `go build` compiles
+    /// (#100): `Clock` of `clock_linux.go` and of `clock_windows.go` is one type per platform.
+    /// Asked from `file`, which has to be built there itself: inside `clock_windows.go` on
+    /// another host nothing is preferred. A tag of the project's own decides nothing.
+    fn host_built(&self, kind: Kind, file: &Path, hits: Vec<Hit>) -> Vec<Hit> {
+        if kind != Kind::Go || hits.len() < 2 {
+            return hits;
+        }
+        let (goos, goarch) = search::go_host();
+        let built = |p: &Path| {
+            self.text_of(p)
+                .is_none_or(|t| search::go_built(p, &t, goos, goarch) != Some(false))
+        };
+        if !built(file) {
+            return hits;
+        }
+        let kept: Vec<Hit> = hits.iter().filter(|h| built(&h.path)).cloned().collect();
+        if kept.is_empty() { hits } else { kept }
     }
 
     /// The line on which `ty` itself declares the field `word` (#104), [`search::field_line`]: a
@@ -2645,7 +2727,6 @@ impl App {
             return hits;
         };
         let raw = self.project_definitions(kind, here, word, &fields.join("|"));
-        self.truncated |= raw.len() >= search::MAX_HITS;
         let mut by_file: Vec<(PathBuf, Vec<usize>)> = Vec::new();
         for h in raw {
             match by_file.last_mut() {
@@ -3007,6 +3088,13 @@ impl App {
             .map_or(chain.len(), Vec::len)
             .saturating_sub(1)
             .max(1);
+        // A Go import names its package's directory in full, so down to its length a file has
+        // to be in that directory, and anything shorter is a search by name (#100).
+        let package = bound_path
+            .as_ref()
+            .filter(|_| kind == Kind::Go)
+            .map(Vec::len);
+        let floor = package.unwrap_or(floor);
         let mut module = match chain.first() {
             // A C++ `std::` or `detail::` qualifier names a namespace, and no directory of the
             // system headers is called that, so narrowing by it would find nothing at all.
@@ -3021,11 +3109,11 @@ impl App {
         let all = self.external_files(kind);
         let mut files: Vec<PathBuf> = Vec::new();
         while let Some(m) = &mut module {
-            files = all
-                .iter()
-                .filter(|p| search::in_module(p, m))
-                .cloned()
-                .collect();
+            let within = |p: &PathBuf| match package {
+                Some(n) if m.len() >= n => search::in_package(p, m),
+                _ => search::in_module(p, m),
+            };
+            files = all.iter().filter(|p| within(p)).cloned().collect();
             if !files.is_empty() {
                 break;
             }
@@ -3085,6 +3173,14 @@ impl App {
             .collect()
     }
 
+    /// A grep that came back full stopped at the cap: what `d` counts from it is a lower bound,
+    /// also after a filter has made the list short (#100).
+    fn note_cut(&self, hits: &[Hit]) {
+        if hits.len() >= search::MAX_HITS {
+            self.truncated.set(true);
+        }
+    }
+
     /// `pattern` over `files` outside the project, standard library first. The paths are
     /// absolute: `root.join` leaves them alone, so a hit opens where it is.
     fn external_grep(&self, kind: Kind, files: &[PathBuf], pattern: &str) -> Vec<Hit> {
@@ -3095,6 +3191,7 @@ impl App {
             .unwrap_or_default();
         let mut hits = search::grep_project(&self.root, files, pattern, false, false, None, None)
             .unwrap_or_default();
+        self.note_cut(&hits);
         hits.sort_by_cached_key(|h| {
             (
                 roots.iter().position(|r| h.path.starts_with(r)),
@@ -8264,6 +8361,283 @@ mod tests {
         }
     }
 
+    /// The rows of the Go section of #100, each on the `go` fixture.
+    fn go_rows(cases: Vec<(&str, &str, Shown)>) {
+        for (file, code, want) in cases {
+            let mut a = fixture_app("go");
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{file}: {code}");
+        }
+    }
+
+    const BOTH_DELETE_USER: [(&str, &str); 2] = [
+        ("UserRepository.DeleteUser", "repos.go:15"),
+        ("AuditLog.DeleteUser", "repos.go:21"),
+    ];
+
+    /// #100. A Go name no scope of the file declares is the package's: a `var` of another file,
+    /// of a `var (` block, or below the cursor. A local of the name hides it, readable or not.
+    #[test]
+    fn a_go_package_level_name_is_read_in_every_file_of_the_package() {
+        let repo = |via: &str| {
+            jump(
+                &format!("DeleteUser \u{2192} UserRepository.DeleteUser (via {via})"),
+                "repos.go:15",
+            )
+        };
+        let audit = |via: &str| {
+            jump(
+                &format!("DeleteUser \u{2192} AuditLog.DeleteUser (via {via})"),
+                "repos.go:21",
+            )
+        };
+        go_rows(vec![
+            (
+                "globals.go",
+                "defaultRepo.DeleteUser|(id + 10",
+                repo("defaultRepo: UserRepository"),
+            ),
+            // The `var` inside `globalsInner` and the raw string's line are not the package's.
+            (
+                "globals.go",
+                "sharedAudit.DeleteUser|(id + 11",
+                audit("sharedAudit: AuditLog"),
+            ),
+            (
+                "globals.go",
+                "sharedRepo.DeleteUser",
+                repo("NewRepo() *UserRepository"),
+            ),
+            (
+                "globals.go",
+                "lateRepo.DeleteUser",
+                repo("lateRepo: UserRepository"),
+            ),
+            (
+                "globals.go",
+                "spareAudit.DeleteUser",
+                picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            ),
+            // Declared twice under build tags, as two types.
+            (
+                "globals.go",
+                "taggedRepo.DeleteUser",
+                picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            ),
+            (
+                "globals.go",
+                "defaultRepo.DeleteUser|(id + 15",
+                audit("defaultRepo: AuditLog"),
+            ),
+            (
+                "globals.go",
+                "sharedAudit.DeleteUser|(id + 16",
+                picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            ),
+        ]);
+    }
+
+    /// #100. Go's `type X = Y` is followed to `Y`, through a second alias and into another
+    /// package; `type X Y` declares a type with methods of its own.
+    #[test]
+    fn a_go_alias_is_the_type_it_names() {
+        go_rows(vec![
+            (
+                "aliases.go",
+                "first.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via first: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "aliases.go",
+                "again.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via again: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "aliases.go",
+                "session.Close",
+                jump(
+                    "Close \u{2192} Session.Close (via session: Session)",
+                    "store/store.go:15",
+                ),
+            ),
+            (
+                "aliases.go",
+                "twin.Close",
+                jump(
+                    "Close \u{2192} Session.Close (via twin: Session)",
+                    "store/store.go:15",
+                ),
+            ),
+            (
+                "aliases.go",
+                "kind.Flush",
+                jump(
+                    "Flush \u{2192} AuditKind.Flush (via kind: AuditKind)",
+                    "aliases.go:19",
+                ),
+            ),
+        ]);
+        // Two aliases of each other, which no compiler accepts, end.
+        let (dir, mut a) = project_app(
+            "alias-cycle",
+            &[(
+                "a.go",
+                "package a\n\ntype A = B\n\ntype B = A\n\nfunc (b B) Run() {}\n\nfunc f(x A) {\n\tx.Run()\n}\n",
+            )],
+        );
+        a.external
+            .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+        d_on(&mut a, "a.go", "x.Run");
+        assert_eq!(a.message, "Run \u{2192} B.Run (by name, 1 match)");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #100. A Go type declared once per platform (`clock_windows.go` beside a
+    /// `//go:build !windows` file) is the one the host builds. A tag of the project's own decides
+    /// nothing, and neither does the host from inside a file it does not build.
+    #[test]
+    fn a_go_declaration_per_platform_is_the_hosts() {
+        let (mine, other) = match cfg!(windows) {
+            true => ("clock_windows.go", "clock_other.go"),
+            false => ("clock_other.go", "clock_windows.go"),
+        };
+        let now = |file: &str| format!("platform/{file}:11");
+        let via = |via: &str| format!("Now \u{2192} Clock.Now (via {via})");
+        let both = |status: &str, name: &str, a: &str, b: &str| {
+            Shown::Picker(
+                status.into(),
+                vec![
+                    (name.into(), "by name".into(), a.into()),
+                    (name.into(), "by name".into(), b.into()),
+                ],
+            )
+        };
+        go_rows(vec![
+            (
+                "platforms.go",
+                "clock.Now",
+                jump(&via("clock: Clock"), &now(mine)),
+            ),
+            (
+                "platforms.go",
+                "made.Now",
+                jump(&via("platform.NewClock() *Clock"), &now(mine)),
+            ),
+            (
+                "platforms.go",
+                "platform.NewClock",
+                jump(
+                    "NewClock: via import platform/",
+                    &format!("platform/{mine}:7"),
+                ),
+            ),
+            (
+                "platforms.go",
+                "codec.Encode",
+                both(
+                    "Encode: by name, 2 declarations",
+                    "Codec.Encode",
+                    "platform/codec_fast.go:8",
+                    "platform/codec_slow.go:7",
+                ),
+            ),
+            (
+                &format!("platform/{other}"),
+                "c.Now",
+                both(
+                    "Now: by name, 2 declarations",
+                    "Clock.Now",
+                    &now(other),
+                    &now(mine),
+                ),
+            ),
+        ]);
+    }
+
+    /// #100. `d` on a Go package qualifier is the import line of the open file. A local of the
+    /// name is the local, and a name the package declares itself is not the import its path
+    /// happens to spell.
+    #[test]
+    fn a_go_package_qualifier_is_its_import_line() {
+        go_rows(vec![
+            (
+                "qualifiers.go",
+                "depot|.Open",
+                jump(
+                    "depot: via import example.com/fixture/store",
+                    "qualifiers.go:7",
+                ),
+            ),
+            (
+                "qualifiers.go",
+                "fmt|.Println",
+                jump("fmt: via import fmt", "qualifiers.go:4"),
+            ),
+            // On the import line itself the name is no qualifier.
+            (
+                "qualifiers.go",
+                "depot| \"example",
+                jump("no definition for depot", "qualifiers.go:7"),
+            ),
+            (
+                "qualifiers.go",
+                "depot|.Remove",
+                jump(
+                    "depot \u{2192} QualifierHidden.depot (local)",
+                    "qualifiers.go:19",
+                ),
+            ),
+            (
+                "qualifiers.go",
+                "ledger|.DeleteUser",
+                picker(
+                    "ledger: by name, 5 declarations",
+                    &[
+                        ("ledger", "scopes.go:3"),
+                        ("ScopedRotate.ledger", "scopes.go:10"),
+                        ("ScopedNested.ledger", "scopes.go:15"),
+                        ("ledger", "scopes.go:17"),
+                        ("ledger", "scopes.go:34"),
+                    ],
+                ),
+            ),
+        ]);
+    }
+
+    /// #100. A named result or a parameter of a Go function is named after the function, as a
+    /// local of its body is: `Reload.err`, not `UserRepository.err`, which would be a field.
+    #[test]
+    fn a_go_named_result_is_named_after_its_function() {
+        go_rows(vec![
+            (
+                "results.go",
+                "return user, err",
+                jump("err \u{2192} Reload.err (local)", "results.go:4"),
+            ),
+            (
+                "results.go",
+                "count| == 0",
+                jump("count \u{2192} Reload.count (local)", "results.go:5"),
+            ),
+            (
+                "results.go",
+                "FindUser(id|)",
+                jump("id \u{2192} Reload.id (local)", "results.go:4"),
+            ),
+            (
+                "results.go",
+                "\treturn err",
+                jump("err \u{2192} ReloadPlain.err (local)", "results.go:12"),
+            ),
+        ]);
+    }
+
     /// Step 6 of #68 over the same project in three languages: on the declaration of a member of
     /// an interface, a protocol, an abstract or a base class, `d` offers what implements it,
     /// labelled with the member it comes from. A type that inherits the member without declaring
@@ -9127,7 +9501,7 @@ mod tests {
             &[
                 (
                     "main.go",
-                    "package main\n\nimport (\n\t\"github.com/foo/bar\"\n\t\"gopkg.in/yaml.v3\"\n)\n\nfunc main() {\n\t_ = yaml.Unmarshal(nil, nil)\n\tbar.Baz()\n}\n",
+                    "package main\n\nimport (\n\t\"database/sql\"\n\t\"database/sql/pq\"\n\t\"errors\"\n\t\"github.com/foo/bar\"\n\t\"gopkg.in/yaml.v3\"\n)\n\nfunc main() {\n\t_ = yaml.Unmarshal(nil, nil)\n\tbar.Baz()\n\tsql.Open(\"\", \"\")\n\t_ = errors.New(\"\")\n\tpq.Open(\"\")\n}\n",
                 ),
                 (
                     "main.rs",
@@ -9159,6 +9533,24 @@ mod tests {
                 (
                     "github.com/other/lib@v1.0.0/lib.go",
                     "package lib\n\nfunc Baz() {}\n",
+                ),
+                // A Go package is one directory: `database/sql` is not `database/sql/driver`,
+                // and the standard library's `errors` is not a module's.
+                (
+                    "src/database/sql/sql.go",
+                    "package sql\n\nfunc Open(driver, dsn string) {}\n",
+                ),
+                (
+                    "src/database/sql/driver/driver.go",
+                    "package driver\n\nfunc Open(name string) {}\n",
+                ),
+                (
+                    "src/errors/errors.go",
+                    "package errors\n\nfunc New(text string) error { return nil }\n",
+                ),
+                (
+                    "github.com/pkg/errors@v0.9.1/errors.go",
+                    "package errors\n\nfunc New(message string) error { return nil }\n",
                 ),
                 (
                     "alloc/src/borrow.rs",
@@ -9200,6 +9592,31 @@ mod tests {
                 jump(
                     "Baz: by name, 1 match",
                     &at("github.com/other/lib@v1.0.0/lib.go:3"),
+                ),
+            ),
+            (
+                "main.go",
+                "sql.Open",
+                jump(
+                    "Open: via import database/sql",
+                    &at("src/database/sql/sql.go:3"),
+                ),
+            ),
+            (
+                "main.go",
+                "errors.New",
+                jump("New: via import errors", &at("src/errors/errors.go:3")),
+            ),
+            // A package that is not installed: its parent directory is no proof.
+            (
+                "main.go",
+                "pq.Open",
+                picker(
+                    "Open: by name, 2 declarations",
+                    &[
+                        ("Open", "src/database/sql/driver/driver.go:3"),
+                        ("Open", "src/database/sql/sql.go:3"),
+                    ],
                 ),
             ),
             // A Rust call on a value still looks outside the project.
@@ -9309,6 +9726,43 @@ mod tests {
         use_roots(&mut a, Kind::Python, std::slice::from_ref(&root));
         d_on(&mut a, "a.py", "self.stop");
         assert_eq!(shown(&mut a), jump("no definition for stop", "a.py:6"));
+        std::fs::remove_dir_all(&dir).unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// #100. A grep that stopped at the cap counts a lower bound also after a filter has made
+    /// the list short: the one top-level `Pick` left of a cut list is offered with a `+`, not
+    /// jumped to as the package's only one.
+    #[test]
+    fn a_count_behind_a_cut_grep_says_so() {
+        let (dir, mut a) = project_app(
+            "cut-count",
+            &[(
+                "main.go",
+                "package main\n\nimport \"example.com/lib\"\n\nfunc main() {\n\tlib.Pick()\n}\n",
+            )],
+        );
+        let methods = "func (o Row) Pick() {}\n".repeat(search::MAX_HITS);
+        let root = external_root(
+            "cut-count",
+            &[(
+                "example.com/lib@v1.0.0/lib.go",
+                &format!("package lib\n\nfunc Pick() {{}}\n\n{methods}"),
+            )],
+        );
+        use_roots(&mut a, Kind::Go, std::slice::from_ref(&root));
+        d_on(&mut a, "main.go", "lib.Pick");
+        assert_eq!(
+            shown(&mut a),
+            Shown::Picker(
+                "Pick: via import example.com/lib, 1+ declarations".into(),
+                vec![(
+                    "Pick".into(),
+                    "via import example.com/lib".into(),
+                    "example.com/lib@v1.0.0/lib.go:3".into()
+                )],
+            )
+        );
         std::fs::remove_dir_all(&dir).unwrap();
         std::fs::remove_dir_all(&root).unwrap();
     }

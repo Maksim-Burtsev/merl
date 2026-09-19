@@ -95,5 +95,16 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   two type switches over a `v`, one after the other: a `case` of one type, from a block inside the
   arm too, a `case` of two types and `default`.
 
+- Go (#100): `globals` reads package-level names that `globals_vars.go` declares (a `var`, a
+  `var (` block, a list whose second name has no value the rules pair up), one declared below
+  its use, one declared as two types under build tags, and locals that hide them; a `var` inside
+  a function and a raw string's line declare nothing. `aliases` follows `type X = Y` through a
+  second alias, another package and an alias declared in that package, next to a defined type
+  with a method of its own. `platform` declares `Clock` once per platform (by file name and by
+  `//go:build !windows`) and `Codec` under a tag that is no platform. `qualifiers` has an aliased
+  import, a parameter of the alias's name, and `go-ledger`, whose path reads `ledger` while its
+  package is `books` and `ledger` is a variable of `scopes`. `results` has a method with named
+  results, a parameter and a local.
+
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.
