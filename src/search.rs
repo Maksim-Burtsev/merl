@@ -1660,6 +1660,16 @@ pub fn unbroken(
     None
 }
 
+/// A TypeScript line with `a?.b` and `a!.b` in front of byte `start` written as the plain `a.b`
+/// they are for a member lookup (#100), and where `start` stands in it.
+pub fn plain_access(kind: Kind, line: &str, start: usize) -> (String, usize) {
+    if kind != Kind::TsJs {
+        return (line.to_owned(), start);
+    }
+    let before = line[..start].replace("?.", ".").replace("!.", ".");
+    (format!("{before}{}", &line[start..]), before.len())
+}
+
 /// The call a member access hangs off, where [`qualifier`] has no name to start from:
 /// `pkg.New(x).word`, `make_uow().users.word`, `new Repo().word`, or the cast: `(x as T).word`,
 /// `i.(T).word`, `cast(T, x).word`. Gives the call without its arguments (a cast as written), what

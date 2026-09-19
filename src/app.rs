@@ -1735,6 +1735,10 @@ impl App {
         let (written, start) = kind
             .and_then(|k| search::unbroken(k, &self.buf.lines, self.line, range.start))
             .unwrap_or_else(|| (self.line_str().to_owned(), range.start));
+        let (written, start) = match kind {
+            Some(k) => search::plain_access(k, &written, start),
+            None => (written, start),
+        };
         let before = &written[..start];
         let dotted = before.ends_with('.') && !before.ends_with("..");
         let chain = search::qualifier(&written, start);
@@ -8464,6 +8468,71 @@ mod tests {
         for (code, want) in cases {
             let mut a = fixture_app("typescript");
             d_on(&mut a, "fluent.ts", code);
+            assert_eq!(shown(&mut a), want, "{code}");
+        }
+    }
+
+    /// #100, TypeScript: `r!.m()` and `a?.b.m()` have the type of the plain access for a member
+    /// lookup.
+    #[test]
+    fn a_non_null_or_optional_access_is_the_plain_one() {
+        let user = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} UserRepository.deleteUser (via {via})"),
+                "repos.ts:10",
+            )
+        };
+        let audit = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} AuditLog.deleteUser (via {via})"),
+                "repos.ts:16",
+            )
+        };
+        let users = "this.uow: UnitOfWork \u{2192} users: UserRepository";
+        let cases: Vec<(&str, Shown)> = vec![
+            (
+                "this.repo!.deleteUser|(id)",
+                user("this.repo: UserRepository"),
+            ),
+            (
+                "this.repo?.deleteUser|(id + 1)",
+                user("this.repo: UserRepository"),
+            ),
+            ("this.uow?.users.deleteUser|(id + 2)", user(users)),
+            (
+                "this.uow?.users|.deleteUser(id + 2)",
+                jump(
+                    "users \u{2192} UnitOfWork.users (via this.uow: UnitOfWork)",
+                    "chains.ts:4",
+                ),
+            ),
+            // Two marks in one chain, and two around a name of one letter.
+            (
+                "this.uow!.audit!.deleteUser|(id + 3)",
+                audit("this.uow: UnitOfWork \u{2192} audit: AuditLog"),
+            ),
+            (
+                "u!.users!.deleteUser|(id + 9)",
+                user("u.users: UserRepository"),
+            ),
+            ("spare?.deleteUser|(id + 4)", audit("spare: AuditLog")),
+            ("spare!.deleteUser|(id + 5)", audit("spare: AuditLog")),
+            // A receiver nobody typed stays by name.
+            (
+                "found?.deleteUser|(id + 6)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            ("!note.deleteUser|.length", audit("note: AuditLog")),
+        ];
+        for (code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, "optional.ts", code);
             assert_eq!(shown(&mut a), want, "{code}");
         }
     }
