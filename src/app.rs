@@ -8745,6 +8745,45 @@ mod tests {
         }
     }
 
+    /// #131, TypeScript: a destructuring prettier wrapped over several lines binds its names, so
+    /// the module's `ledger`, an `AuditLog`, does not answer for them.
+    #[test]
+    fn a_wrapped_destructuring_binds_its_names() {
+        let user = jump(
+            "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+            "repos.ts:10",
+        );
+        let by_name = || {
+            picker(
+                "deleteUser: by name, 2 declarations",
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
+            )
+        };
+        let cases: Vec<(&str, Shown)> = vec![
+            // Out of `deps: Deps`, whose `ledger` is a `UserRepository`; from a block below too.
+            ("ledger.deleteUser|(id + 13)", user),
+            (
+                "ledger.deleteUser|(id + 14)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            // With a type literal behind the pattern, and an array's pattern: nothing is read,
+            // and nothing outside answers.
+            ("ledger.deleteUser|(count + 15)", by_name()),
+            ("ledger.deleteUser|(16)", by_name()),
+        ];
+        for (code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, "scopes.ts", code);
+            assert_eq!(shown(&mut a), want, "{code}");
+        }
+    }
+
     /// Step 6 of #68 over the same project in three languages: on the declaration of a member of
     /// an interface, a protocol, an abstract or a base class, `d` offers what implements it,
     /// labelled with the member it comes from. A type that inherits the member without declaring

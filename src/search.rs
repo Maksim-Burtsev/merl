@@ -2903,7 +2903,24 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         if ind == depth {
             if !this {
                 let before = out.len();
-                statement_bindings(kind, t, i + 1, name, &mut out);
+                // `} = deps;` closes a destructuring prettier wrapped (#131): its names are on
+                // the lines above, down from the `const {` that is back at this indent. Any
+                // statement closed so is read whole.
+                let opener = (kind == Kind::TsJs && t.starts_with(['}', ']']))
+                    .then(|| {
+                        (0..i)
+                            .rev()
+                            .find(|&j| indent(lines[j]) <= ind && !lines[j].trim().is_empty())
+                    })
+                    .flatten();
+                match opener {
+                    Some(j) => {
+                        let whole: Vec<&str> = lines[j..=i].iter().map(|l| l.trim()).collect();
+                        let whole = uncommented(kind, &whole.join("\n")).replace('\n', " ");
+                        statement_bindings(kind, &whole, j + 1, name, &mut out);
+                    }
+                    None => statement_bindings(kind, t, i + 1, name, &mut out),
+                }
                 // In `case *Repo:` the variable of a type switch is a `*Repo`; under several
                 // types or `default` it is whatever came in. A `switch` met with no `case` on
                 // the way up is one the cursor is not in.

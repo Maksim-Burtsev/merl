@@ -95,3 +95,31 @@ export function ticked(id: number): string {
   void ledger.deleteUser(id + 12);
   return parts.join("`");
 }
+
+// A destructuring wrapped by prettier binds its names all the same (#131): with a type, out of a
+// name whose type is written, and inside a block under it.
+export function unpacked(deps: Deps, flag: boolean): void {
+  const {
+    ledger,
+    id,
+  } = deps;
+  void ledger.deleteUser(id + 13);
+  if (flag) {
+    void ledger.deleteUser(id + 14);
+  }
+}
+
+export function unpackedLoose(loose: any): void {
+  const {
+    ledger,
+    id: count,
+  }: { ledger: any; id: number } = loose;
+  ledger.deleteUser(count + 15);
+}
+
+export function unpackedList(pairs: UserRepository[][]): void {
+  const [
+    [ledger],
+  ] = pairs;
+  void ledger.deleteUser(16);
+}
