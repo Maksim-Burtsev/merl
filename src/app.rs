@@ -2564,8 +2564,21 @@ impl App {
 
     /// The declaration of the type written as `written` in `file`.
     fn type_decl(&self, kind: Kind, file: &Path, written: &str) -> Option<Typed> {
+        self.type_decl_at(kind, file, written, 0)
+    }
+
+    fn type_decl_at(&self, kind: Kind, file: &Path, written: &str, depth: usize) -> Option<Typed> {
         let parts = search::type_path(kind, written)?;
         let decl = self.declaration(kind, file, &parts)?;
+        // Go's `type X = Y` is `Y` itself, methods and fields (#100), where `Y` is a type the
+        // project declares; `type X = []Y` and the like stay what their line says.
+        // ponytail: eight aliases deep, which also ends a cycle.
+        if depth < 8
+            && let Some(named) = search::go_alias(kind, &decl.text)
+            && let Some(ty) = self.type_decl_at(kind, &decl.path, named, depth + 1)
+        {
+            return Some(ty);
+        }
         search::declares_type(kind, &decl.text).then(|| Typed {
             name: parts.last().cloned().unwrap_or_default(),
             path: decl.path,
@@ -8359,6 +8372,67 @@ mod tests {
                 picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
             ),
         ]);
+    }
+
+    /// #100. Go's `type X = Y` is followed to `Y`, through a second alias and into another
+    /// package; `type X Y` declares a type with methods of its own.
+    #[test]
+    fn a_go_alias_is_the_type_it_names() {
+        go_rows(vec![
+            (
+                "aliases.go",
+                "first.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via first: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "aliases.go",
+                "again.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via again: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "aliases.go",
+                "session.Close",
+                jump(
+                    "Close \u{2192} Session.Close (via session: Session)",
+                    "store/store.go:15",
+                ),
+            ),
+            (
+                "aliases.go",
+                "twin.Close",
+                jump(
+                    "Close \u{2192} Session.Close (via twin: Session)",
+                    "store/store.go:15",
+                ),
+            ),
+            (
+                "aliases.go",
+                "kind.Flush",
+                jump(
+                    "Flush \u{2192} AuditKind.Flush (via kind: AuditKind)",
+                    "aliases.go:19",
+                ),
+            ),
+        ]);
+        // Two aliases of each other, which no compiler accepts, end.
+        let (dir, mut a) = project_app(
+            "alias-cycle",
+            &[(
+                "a.go",
+                "package a\n\ntype A = B\n\ntype B = A\n\nfunc (b B) Run() {}\n\nfunc f(x A) {\n\tx.Run()\n}\n",
+            )],
+        );
+        a.external
+            .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+        d_on(&mut a, "a.go", "x.Run");
+        assert_eq!(a.message, "Run \u{2192} B.Run (by name, 1 match)");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// Step 6 of #68 over the same project in three languages: on the declaration of a member of

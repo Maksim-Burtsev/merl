@@ -3895,6 +3895,15 @@ pub fn declares_type(kind: Kind, line: &str) -> bool {
     }
 }
 
+/// What the Go line `type X = Y` names, `Y` as written; `None` for a defined type, `type X Y`,
+/// and for an alias with type parameters, whose arguments the rules do not carry.
+pub fn go_alias(kind: Kind, line: &str) -> Option<&str> {
+    static ALIAS: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^type\s+[A-Za-z_]\w*\s*=\s*([^/]+)").unwrap());
+    let named = ALIAS.captures(line).filter(|_| kind == Kind::Go)?;
+    Some(named.get(1)?.as_str().trim())
+}
+
 /// The name a written type comes down to, as its dotted parts: `["UserRepository"]`,
 /// `["store", "Session"]`. `T | None`, `Optional[T]`, `Annotated[T, …]`, `T | null | undefined`, a
 /// quoted forward reference, a Go pointer and generic arguments read as `T`. A list, a function
