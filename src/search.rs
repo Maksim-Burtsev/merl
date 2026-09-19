@@ -3237,8 +3237,9 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
 
 /// Whether the Go function around 1-based `line` of `text` may declare `name` (#100): the name
 /// stands as a whole word, outside strings and comments, somewhere from the function's `func`
-/// line down to the line above `line`, other than in front of a `.`. A declaration never writes
-/// its name in front of a `.`, whatever its form, so `false` proves there is no local of the
+/// line down to `line` itself, other than in front of a `.` or a `)`. A declaration never
+/// writes its name there, whatever its form (`f(repo)` hands it on, and a parameter list of bare
+/// names is a list of types), so `false` proves there is no local of the
 /// name, which an empty [`bindings`] does not: its walk misses a header with a function-typed
 /// parameter, a `var (` block inside a function, the lines above a label. Uses of the name as
 /// an argument say `true` as well, and the caller then proves nothing.
@@ -3258,10 +3259,11 @@ pub fn go_may_declare(text: &str, line: usize, name: &str) -> bool {
             let ident = |c: char| c.is_alphanumeric() || c == '_';
             !code[..i].ends_with(ident)
                 && !code[i + m.len()..].starts_with(ident)
-                && !code[i + m.len()..].trim_start().starts_with('.')
+                && !code[i + m.len()..].trim_start().starts_with(['.', ')'])
         })
     };
-    for i in (0..at).rev() {
+    // The line itself counts: `if repo := get(); repo.Do() {`, a function written on one line.
+    for i in (0..=at.min(lines.len().saturating_sub(1))).rev() {
         let l = lines[i];
         if literal[i] || l.trim().is_empty() {
             continue;
@@ -3269,17 +3271,17 @@ pub fn go_may_declare(text: &str, line: usize, name: &str) -> bool {
         if mentions(l) {
             return true;
         }
-        // The function starts at the `func` in column 0. Above it a header's closer `) error {`
-        // and a label still belong to the function; anything else in column 0 is the package's,
-        // and so is the cursor.
-        let label = l.trim_end().ends_with(':') && !l.contains(' ');
-        if indent(l) == 0 && !comment(Kind::Go, l) && !label {
-            if l.starts_with("func") {
-                return false;
-            }
-            if !(l.starts_with(')') && l.trim_end().ends_with('{')) {
-                return false;
-            }
+        // The function starts at the `func` in column 0, and what ends the declaration above
+        // it, or starts another, is the package's, as the cursor then is. Any other line in
+        // column 0 still belongs to the function: a header's closer (`) error {`, `}) {`), a
+        // label, whatever else: reading on can only find more mentions.
+        let ends = l.starts_with("func")
+            || ["}", ")"].contains(&l.trim_end())
+            || ["type ", "var ", "const ", "import ", "package "]
+                .iter()
+                .any(|k| l.starts_with(k));
+        if i < at && ends {
+            return false;
         }
     }
     false
@@ -4050,7 +4052,15 @@ pub fn go_built(path: &Path, text: &str, goos: &str, goarch: &str) -> Option<boo
     if !named {
         return Some(false);
     }
-    let head = || text.lines().take_while(|l| !l.starts_with("package "));
+    // A line inside a `/* */` block in front of the package clause is a comment's.
+    let literal = literal_lines(Kind::Go, text);
+    let head = || {
+        let lines = text.lines().take_while(|l| !l.starts_with("package "));
+        lines
+            .enumerate()
+            .filter(|(i, _)| !literal[*i])
+            .map(|(_, l)| l)
+    };
     let Some(expr) = head().find_map(|l| l.strip_prefix("//go:build ")) else {
         // The constraint of before Go 1.17 is not read: undecided, never "no constraint".
         return (!head().any(|l| l.starts_with("// +build"))).then_some(true);
@@ -4572,16 +4582,44 @@ mod tests {
                 value: Value::Type("AuditLog".into())
             }]
         );
-        let text = "package p\n\nvar x = repo.Top()\n\nfunc Run(repo *A, fn func() error) {\n\trepo.Do()\n}\n\nfunc Wide(\n\trepo *A,\n) error {\n\trepo.Do()\n\treturn nil\n}\n\nfunc Free(id int) {\n\t// repo is a word here\n\tlog(\"repo\")\n\trepo.Do()\n\tsave(repo)\n\trepo.Do()\n}\n\nfunc Label() {\n\trepo := 1\nretry:\n\trepo.Do()\n}\n";
-        for (line, want) in [
-            (3, false),
-            (6, true),
-            (12, true),
-            (19, false),
-            (21, true),
-            (27, true),
+        // The cursor is on the last `repo.Do()` of each.
+        for (code, want) in [
+            ("var x = repo.Do()\n", false),
+            (
+                "func Run(repo *A, fn func() error) {\n\trepo.Do()\n}\n",
+                true,
+            ),
+            ("func Wide(\n\trepo *A,\n) error {\n\trepo.Do()\n}\n", true),
+            (
+                "func Struct(repo *A, fn func()) (out struct {\n\tX int\n}) {\n\trepo.Do()\n}\n",
+                true,
+            ),
+            // A word of a comment or a string, a receiver of `.`, an argument handed on.
+            (
+                "func Free() {\n\t// repo is a word\n\tlog(\"repo\")\n\trepo.Do()\n\tsave(repo)\n\trepo.Do()\n}\n",
+                false,
+            ),
+            ("func Arg() {\n\tsave(repo, 1)\n\trepo.Do()\n}\n", true),
+            (
+                "func Label() {\n\trepo := 1\nretry: // again\n\trepo.Do()\n}\n",
+                true,
+            ),
+            // On the line itself.
+            ("func One(repo *A, fn func()) { repo.Do() }\n", true),
+            (
+                "func If() {\n\tif repo := get(); repo.Do() {\n\t}\n}\n",
+                true,
+            ),
+            // The function above is another function.
+            (
+                "func Above(repo *A) {\n}\n\nfunc Below() {\n\trepo.Do()\n}\n",
+                false,
+            ),
         ] {
-            assert_eq!(go_may_declare(text, line, "repo"), want, "line {line}");
+            let text = format!("package p\n\n{code}");
+            let lines: Vec<&str> = text.lines().collect();
+            let line = lines.iter().rposition(|l| l.contains("repo.Do()")).unwrap() + 1;
+            assert_eq!(go_may_declare(&text, line, "repo"), want, "{code}");
         }
     }
 
@@ -4790,6 +4828,12 @@ mod tests {
         let (os, arch) = go_host();
         assert!(GO_UNIX.contains(&os) || GO_OS.contains(&os), "{os}");
         assert!(GO_ARCH.contains(&arch), "{arch}");
+        // So is one inside a block comment above it.
+        let block = "/*\n//go:build windows\n*/\n\npackage p\n";
+        assert_eq!(
+            go_built(Path::new("c.go"), block, "linux", "amd64"),
+            Some(true)
+        );
         // A `//go:build` under the package clause is a comment.
         let late = "package p\n\n//go:build windows\n";
         assert_eq!(

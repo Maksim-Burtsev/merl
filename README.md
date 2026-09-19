@@ -350,7 +350,7 @@ template declares nothing. A Go name no scope of the file declares is the packag
 of any file of the package, alone or in a `var (` block, above the cursor or below it, and two
 files that declare it as different types (build tags) agree on nothing. An empty scope walk is no
 proof that there is no local, since the walk does not read every form of one: the function around
-the cursor must not mention the name anywhere other than in front of a `.`, and the file must not
+the cursor must not mention the name anywhere other than in front of a `.` or a `)`, and the file must not
 import it. The type must be
 declared once, in
 the same file, the same Go package or the project module an import names. Go's `type X = Y` is
