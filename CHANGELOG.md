@@ -180,7 +180,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whole class; a member access broken in front of its dots, `return this.db` over
   `.selectFrom(`, is one chain; `repo!.find()` and `uow?.users.find()` are the plain access;
   `const { repo, audit: trail } = this` hands the fields on; `new Local.Tool()` finds the class
-  inside a namespace of the same file.
+  inside a namespace of the same file; a class a module declares under one name and exports under
+  another, `export { Hono as HonoBase }`, is found by the import of the new name.
 - `d` on a TypeScript `#private` member takes the name with its `#`, on the `#` and on the name:
   `this.#addRoute(` lands on `#addRoute(`, where it used to say nothing or find the public
   `addRoute`. (#100)

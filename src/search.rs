@@ -1935,6 +1935,27 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
     out
 }
 
+/// The name a TypeScript module declares what it exports as `name` under: `Hono` for
+/// `export { Hono as HonoBase }`. A re-export `… from "./x"` declares nothing here.
+pub fn exported_as(text: &str, name: &str) -> Option<String> {
+    static EXPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"(?m)^\s*export\s+(?:type\s+)?\{([^}]*)\}\s*(from\b)?"#).unwrap()
+    });
+    EXPORT
+        .captures_iter(text)
+        .filter(|c| c.get(2).is_none())
+        .find_map(|c| {
+            c[1].split(',').find_map(|item| {
+                let item = item.trim();
+                let (local, exported) = item
+                    .strip_prefix("type ")
+                    .unwrap_or(item)
+                    .split_once(" as ")?;
+                (exported.trim() == name).then(|| local.trim().to_owned())
+            })
+        })
+}
+
 /// The modules a TypeScript barrel hands `name` on from, as [`imports`] spells a module:
 /// `export * from "./a"` and `export { name } from "./a"`. Under another name
 /// (`export { x as name }`) nothing is followed.

@@ -347,7 +347,8 @@ cursor's own line, counts and hides nothing, since the cursor stands outside it;
 template declares nothing. A TypeScript class header prettier wrapped is one header: a list of
 type parameters that ends in `> extends Base<K> {`, the clauses over a lone `{`; `this`, `super`,
 the fields and what the class extends are read through it, and `new Local.Tool()` is the `Tool`
-inside `namespace Local` of the file or of the import. The type must be declared once, in
+inside `namespace Local` of the file or of the import, and an import of `HonoBase` finds the class a
+module declares as `Hono` and hands out with `export { Hono as HonoBase }`. The type must be declared once, in
 the same file, the same Go package or the project module an import names. `d` then looks for the
 member in that type, and in the classes it extends and the structs it embeds, and the status line
 names the link: `via self.repo: UserRepository`, `via NewRepo() *UserRepository`,

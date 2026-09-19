@@ -104,7 +104,9 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   beside an `addRoute` and a subclass with a `#addRoute` of its own; `nest` a NestJS service with
   a wrapped, decorated constructor (hence `experimentalDecorators`), `const { repo } = this` in
   its forms, and classes behind namespaces of `nest_parts` and of the file itself, each with a
-  namesake outside the namespace. `scopes` ends with destructurings wrapped over several lines.
+  namesake outside the namespace. `aliased` declares a `Trunk` it exports as `TrunkBase`, beside a `Trunk` inside a namespace and a
+  re-export under a new name, and `aliased_use` extends and types by it. `scopes` ends with
+  destructurings wrapped over several lines.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.

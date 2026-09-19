@@ -2162,6 +2162,23 @@ impl App {
                 .and_then(|text| search::qualified(kind, &text, h.line, name))
                 == within
         });
+        // `export { Hono as HonoBase }`: the module declares it under another name.
+        if hits.is_empty() && kind == Kind::TsJs && within.is_none() {
+            let local = files
+                .iter()
+                .find_map(|f| search::exported_as(&self.text_of(f)?, name));
+            if let Some(local) = local {
+                let pattern = search::def_patterns(kind, &local).join("|");
+                hits = self
+                    .grep(&pattern, false, false, wanted)
+                    .unwrap_or_default();
+                hits.retain(|h| {
+                    self.text_of(&h.path).is_some_and(|text| {
+                        search::qualified(kind, &text, h.line, &local).is_none()
+                    })
+                });
+            }
+        }
         if hits.is_empty() && kind == Kind::TsJs && path.last().is_some_and(|t| t == "default") {
             hits = self
                 .grep(r"^export\s+default\b", false, false, wanted)
@@ -2568,8 +2585,11 @@ impl App {
     fn type_decl(&self, kind: Kind, file: &Path, written: &str) -> Option<Typed> {
         let parts = search::type_path(kind, written)?;
         let decl = self.declaration(kind, file, &parts)?;
+        // The name it is declared under, which an `export { Hono as HonoBase }` changes.
         search::declares_type(kind, &decl.text).then(|| Typed {
-            name: parts.last().cloned().unwrap_or_default(),
+            name: search::type_name(kind, &decl.text)
+                .or_else(|| parts.last().cloned())
+                .unwrap_or_default(),
             path: decl.path,
             line: decl.line,
         })
@@ -8954,6 +8974,60 @@ mod tests {
         );
         assert_eq!(files.len(), 3);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #100, TypeScript: `export { Trunk as TrunkBase }` is followed to the class the module
+    /// declares under its own name, as hono exports the `HonoBase` its `Hono` extends. A re-export
+    /// from another module under a new name is not.
+    #[test]
+    fn an_export_under_another_name_is_followed() {
+        let cases: Vec<(&str, Shown)> = vec![
+            (
+                "super.lock|()",
+                jump(
+                    "lock \u{2192} Trunk.lock (via super of Boot)",
+                    "aliased.ts:7",
+                ),
+            ),
+            (
+                "this.audit.deleteUser|(1)",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via this.audit: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "trunk.lock|()",
+                jump(
+                    "lock \u{2192} Trunk.lock (via trunk: Trunk)",
+                    "aliased.ts:7",
+                ),
+            ),
+            (
+                "extends TrunkBase|",
+                jump("TrunkBase: via import aliased.ts", "aliased.ts:4"),
+            ),
+            (
+                "import { HatchBase|",
+                jump("no definition for HatchBase", "aliased_use.ts:1"),
+            ),
+            // `HatchBase` is the `UserRepository` of `repos`, not the one `aliased` declares.
+            (
+                "hatch.deleteUser|(2)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+        ];
+        for (code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, "aliased_use.ts", code);
+            assert_eq!(shown(&mut a), want, "{code}");
+        }
     }
 
     /// Step 6 of #68 over the same project in three languages: on the declaration of a member of
