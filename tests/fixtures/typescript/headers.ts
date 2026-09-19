@@ -116,9 +116,18 @@ export function bare(id: number): void {
   }
 }
 
+function stash<A, B>(a: A, b: B): void {
+  console.log(a, b);
+}
+
 export function peek(found: any): void {
   console.log(found.spare);
   console.log(found.one);
+  found.stash(1, {});
+  stash<
+    string,
+    object
+  >("a", {});
 }
 
 export function audit(id: number): void {

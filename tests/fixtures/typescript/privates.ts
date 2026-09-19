@@ -24,6 +24,8 @@ export class Router {
     console.log(this.#audit);
     found.addRoute(path);
     console.log("see route#addRoute");
+    // As #addRoute does, see issue #addRoute.
+    console.log("#addRoute");
   }
 
   same(other: Router, id: number): void {

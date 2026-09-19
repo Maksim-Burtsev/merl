@@ -105,8 +105,10 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   a wrapped, decorated constructor (hence `experimentalDecorators`), `const { repo } = this` in
   its forms, and classes behind namespaces of `nest_parts` and of the file itself, each with a
   namesake outside the namespace. `aliased` declares a `Trunk` it exports as `TrunkBase`, beside a `Trunk` inside a namespace and a
-  re-export under a new name, and `aliased_use` extends and types by it. `scopes` ends with
-  destructurings wrapped over several lines.
+  re-export under a new name, and `aliased_use` extends and types by it. `shadowed` has a namespace `svc` and a
+  function whose parameter `svc` is something else. `scopes` ends with destructurings wrapped over
+  several lines: with a name commented out at the margin, behind a default, and a plain `const`
+  closed by `} as T;`.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.

@@ -861,7 +861,9 @@ impl App {
                             && self
                                 .external
                                 .values()
-                                .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)));
+                                .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)))
+                            // Another package's `node_modules`, walked from a file opened before.
+                            || !listed && self.node_modules.keys().any(|r| path.starts_with(r));
                     if external {
                         buf.readonly.get_or_insert("outside the project");
                     }
@@ -1993,7 +1995,13 @@ impl App {
                     self.text_of(&c.hit.path)
                         .map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
                 });
-                !lines.get(c.hit.line - 1).copied().unwrap_or(false)
+                // `register<` over its type arguments over `>(1);` is a call prettier wrapped.
+                let call = kind == Kind::TsJs
+                    && c.hit.text.trim_end().ends_with('<')
+                    && self
+                        .text_of(&c.hit.path)
+                        .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));
+                !call && !lines.get(c.hit.line - 1).copied().unwrap_or(false)
             });
         }
         let all = found.len();
@@ -2400,6 +2408,11 @@ impl App {
     ) -> Option<(Typed, Option<String>)> {
         match &b.value {
             search::Value::Type(t) | search::Value::New(t) => {
+                // `new api.Tool()` on a parameter `api` names no namespace of the file.
+                let path = search::type_path(kind, t).filter(|p| p.len() > 1);
+                if path.is_some_and(|p| hidden(kind, text, b.line, &p[0])) {
+                    return None;
+                }
                 self.type_decl(kind, file, t).map(|ty| (ty, None))
             }
             search::Value::Class(line) => {
@@ -2441,6 +2454,11 @@ impl App {
                             (t.clone(), file.to_path_buf(), format!("{n}: {}", t.trim()))
                         }
                         search::Value::Call(callee) => {
+                            // `api.list()` on a parameter `api` is no function of the file.
+                            let first = callee.split('.').next().unwrap_or(callee);
+                            if hidden(kind, text, c.line, first) {
+                                return None;
+                            }
                             let (t, at) = self.declared_return(kind, file, callee)?;
                             let link = signature(kind, callee, &t);
                             (t, at, link)
@@ -2531,15 +2549,7 @@ impl App {
             None => {
                 // A parameter or a local named like a function or an import is a value: what it
                 // returns when called is not what that function declares.
-                let lines: Vec<&str> = text.lines().collect();
-                let hidden = search::bindings(kind, text, line, &parts[0])
-                    .iter()
-                    .any(|b| {
-                        lines
-                            .get(b.line - 1)
-                            .is_some_and(|l| !names_itself(l, &parts[0]))
-                    });
-                if hidden {
+                if hidden(kind, text, line, &parts[0]) {
                     return None;
                 }
                 self.declaration(kind, file, &parts)?
@@ -2588,6 +2598,8 @@ impl App {
         // The name it is declared under, which an `export { Hono as HonoBase }` changes.
         search::declares_type(kind, &decl.text).then(|| Typed {
             name: search::type_name(kind, &decl.text)
+                // `export default class extends Base {` has no name of its own.
+                .filter(|n| n != "extends")
                 .or_else(|| parts.last().cloned())
                 .unwrap_or_default(),
             path: decl.path,
@@ -2912,8 +2924,12 @@ impl App {
         files
             .into_iter()
             .flat_map(|f| {
-                let behind: Vec<PathBuf> = self
-                    .text_of(&f)
+                // A file that declares the name answers for itself, whatever else it hands on.
+                let text = self.text_of(&f).filter(|t| {
+                    !t.lines()
+                        .any(|l| search::type_name(kind, l).as_deref() == Some(name))
+                });
+                let behind: Vec<PathBuf> = text
                     .map(|t| search::reexports(&t, name))
                     .unwrap_or_default()
                     .iter()
@@ -4133,6 +4149,17 @@ fn is_protocol(text: &str, decl: usize) -> bool {
         .iter()
         .filter_map(|b| search::type_path(Kind::Python, b))
         .any(|p| p.last().is_some_and(|n| n == "Protocol"))
+}
+
+/// Whether a parameter or a local binds `name` where 1-based `line` of `text` reads it: a value
+/// then, whatever function, import or namespace of that name the file can see.
+fn hidden(kind: Kind, text: &str, line: usize, name: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    search::bindings(kind, text, line, name).iter().any(|b| {
+        lines
+            .get(b.line - 1)
+            .is_some_and(|l| !names_itself(l, name))
+    })
 }
 
 /// Whether a line `search::bindings` gave for `name` is an import, or the declaration of a class,
@@ -8721,14 +8748,14 @@ mod tests {
                 "this.#addRoute|(path, 1)",
                 jump(
                     "#addRoute \u{2192} SubRouter.#addRoute (via this: SubRouter)",
-                    "privates.ts:35",
+                    "privates.ts:37",
                 ),
             ),
             (
                 "^  #addRoute|(path: string): void {",
                 picker(
                     "#addRoute: at a declaration, 1 other by name",
-                    &[("SubRouter.#addRoute", "privates.ts:35")],
+                    &[("SubRouter.#addRoute", "privates.ts:37")],
                 ),
             ),
         ];
@@ -8890,6 +8917,14 @@ mod tests {
             // and nothing outside answers.
             ("ledger.deleteUser|(count + 15)", by_name()),
             ("ledger.deleteUser|(16)", by_name()),
+            // Any statement closed so is read whole, once: `const ledger = {` … `} as T;`.
+            (
+                "ledger.deleteUser|(id + 17)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
         ];
         for (code, want) in cases {
             let mut a = fixture_app("typescript");
@@ -8972,6 +9007,16 @@ mod tests {
                 "packages/api/node_modules/lib/node_modules/deep/index.d.ts:1"
             )
         );
+        assert_eq!(a.buf.readonly, Some("outside the project"));
+        // A dependency of `api` is outside the project from wherever `d` was pressed last.
+        d_on(&mut a, "packages/web/src/main.ts", "^pick");
+        a.jump_to(&dir.join("packages/api/node_modules/lib/index.d.ts"), 1);
+        assert_eq!(a.buf.readonly, Some("outside the project"));
+        d_on(
+            &mut a,
+            "packages/api/node_modules/lib/index.d.ts",
+            "made: typeof deep",
+        );
         let (roots, files) = a.external[&Kind::TsJs].clone();
         assert_eq!(
             roots,
@@ -9037,6 +9082,117 @@ mod tests {
             d_on(&mut a, "aliased_use.ts", code);
             assert_eq!(shown(&mut a), want, "{code}");
         }
+    }
+
+    /// What the Punchcard review of the TypeScript items (#100, #131) found: each row was a wrong
+    /// jump, a lost one or a picker of doubles on the first build of them.
+    #[test]
+    fn what_the_review_of_the_typescript_items_found() {
+        let user = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} UserRepository.deleteUser (via {via})"),
+                "repos.ts:10",
+            )
+        };
+        let by_name = || {
+            picker(
+                "deleteUser: by name, 2 declarations",
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
+            )
+        };
+        let public = || {
+            jump(
+                "addRoute \u{2192} Router.addRoute (by name, 1 match)",
+                "privates.ts:16",
+            )
+        };
+        let cases: Vec<(&str, &str, Shown)> = vec![
+            // `svc.list()` is the namespace's function, until a parameter `svc` hides it: as a
+            // callee and as the namespace of `new svc.Tool()`.
+            (
+                "shadowed.ts",
+                "log.deleteUser|(id)",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via svc.list(): AuditLog[])",
+                    "repos.ts:16",
+                ),
+            ),
+            ("shadowed.ts", "r.deleteUser|(id + 1)", by_name()),
+            (
+                "shadowed.ts",
+                "tool.turn|(String(id + 2))",
+                picker(
+                    "turn: by name, 3 declarations",
+                    &[
+                        ("svc.Tool.turn", "shadowed.ts:10"),
+                        ("Local.Tool.turn", "nest.ts:46"),
+                        ("Tool.turn", "nest.ts:53"),
+                    ],
+                ),
+            ),
+            // A statement closed by `}` is one declaration, not its first line and itself.
+            (
+                "scopes.ts",
+                "void ledger|.deleteUser(id + 17)",
+                jump(
+                    "ledger \u{2192} wrappedCast.ledger (local)",
+                    "scopes.ts:129",
+                ),
+            ),
+            // `this.stash<` over its type arguments over `>(key, this.spare);` is a call.
+            (
+                "headers.ts",
+                "found.stash|(1, {})",
+                jump(
+                    "stash \u{2192} Crate.stash (by name, 1 match)",
+                    "headers.ts:18",
+                ),
+            ),
+            // #131 under a name commented out at the margin, and behind another name's default.
+            (
+                "scopes.ts",
+                "ledger.deleteUser|(18)",
+                user("ledger: UserRepository"),
+            ),
+            ("scopes.ts", "ledger?.deleteUser|(id + 19)", by_name()),
+            // A `#` in a comment or a string starts no private name.
+            ("privates.ts", "// As #addRoute|", public()),
+            ("privates.ts", "console.log(\"#addRoute|", public()),
+        ];
+        for (file, code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{file}: {code}");
+        }
+        // A JSX tag's `>` closes no header: the parameter of an attribute's callback is not the
+        // children's `repo`.
+        let (dir, mut a) = project_app(
+            "jsx",
+            &[
+                (
+                    "repos.ts",
+                    "export class UserRepository {\n  deleteUser(id: number): void {}\n}\nexport class AuditLog {\n  deleteUser(id: number): void {}\n}\n",
+                ),
+                (
+                    "page.tsx",
+                    "import { AuditLog, UserRepository } from \"./repos\";\n\nexport function Page(repo: UserRepository, id: number) {\n  return (\n    <List\n      title=\"every user of the long named list\"\n      render={(repo: AuditLog) => repo.deleteUser(id)}\n    >\n      {repo.deleteUser(id + 1)}\n    </List>\n  );\n}\n",
+                ),
+            ],
+        );
+        a.external
+            .insert(Kind::TsJs, (Vec::new(), Arc::new(Vec::new())));
+        d_on(&mut a, "page.tsx", "{repo.deleteUser|(id + 1)");
+        assert_eq!(
+            shown(&mut a),
+            jump(
+                "deleteUser \u{2192} UserRepository.deleteUser (via repo: UserRepository)",
+                "repos.ts:2"
+            )
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// Step 6 of #68 over the same project in three languages: on the declaration of a member of
@@ -9705,6 +9861,7 @@ mod tests {
             )
         };
         let looped = class("LoopedNotifier", "loop_a");
+        let own = class("OwnNotifier", "own");
         let (mail, sms, push, deep, loose) = (
             class("MailNotifier", "a"),
             class("SmsNotifier", "index"),
@@ -9720,7 +9877,7 @@ mod tests {
                 // Barrels (#100): everything of `a`, the name out of `b`, a barrel of a barrel,
                 // and one that hands on another interface under this name, which is not followed.
                 ("index.ts", "export * from \"./a\";\n"),
-                ("named.ts", "export { type Notifier } from \"./b\";\n"),
+                ("named.ts", "export type {\n  Notifier,\n} from \"./b\";\n"),
                 ("deep.ts", "export * from \"./named\";\n"),
                 (
                     "things.ts",
@@ -9734,6 +9891,12 @@ mod tests {
                 ("loop_a.ts", "export * from \"./loop_b\";\n"),
                 ("loop_b.ts", "export * from \"./loop_a\";\n"),
                 ("looped.ts", &looped),
+                // A barrel that declares a `Notifier` of its own, whatever else it hands on.
+                (
+                    "own.ts",
+                    "export interface Notifier {\n  send(to: string): void;\n}\nexport * from \"./loop_a\";\n",
+                ),
+                ("own_impl.ts", &own),
                 ("impl.ts", &mail),
                 ("barrel.ts", &sms),
                 ("named_impl.ts", &push),

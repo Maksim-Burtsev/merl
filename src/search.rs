@@ -1938,6 +1938,28 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
     out
 }
 
+/// Whether 1-based `line` of `text`, a TypeScript line ending in `name<`, declares a method: the
+/// `>` that closes the type parameters is followed by a parameter list and then a body or a
+/// return type. prettier writes a call with long type arguments the same way, and its
+/// `>(…)` ends in `);` or goes on as an expression.
+pub fn declares_wrapped_generic(text: &str, line: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
+        return false;
+    };
+    let ind = indent(lines[k]);
+    let closer = (k + 1..lines.len().min(k + 40))
+        .find(|&i| !lines[i].trim().is_empty() && indent(lines[i]) <= ind);
+    let Some(i) = closer.filter(|&i| lines[i].trim_start().starts_with(">(")) else {
+        return false;
+    };
+    let open = lines[i].find('(').unwrap_or(0);
+    group(Kind::TsJs, &lines, i, open).is_some_and(|(_, _, rest)| {
+        let rest = rest.trim();
+        rest.starts_with(':') || rest.starts_with('{')
+    })
+}
+
 /// The name a TypeScript module declares what it exports as `name` under: `Hono` for
 /// `export { Hono as HonoBase }`. A re-export `… from "./x"` declares nothing here.
 pub fn exported_as(text: &str, name: &str) -> Option<String> {
@@ -2954,6 +2976,8 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
     // may belong to (#100): gofmt writes the two at one indent, so the `switch` is met as a
     // statement right after its `case`.
     let mut arm: Option<Vec<String>> = None;
+    // The first line of a statement already read whole, from the line that closes it.
+    let mut read: Option<usize> = None;
     let type_switch = Regex::new(&format!(
         r"^switch\s+(?:[^;{{]*;\s*)?{}\s*:=\s*[^;{{]+\.\(type\)\s*\{{$",
         regex::escape(name)
@@ -2975,9 +2999,10 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                 // statement closed so is read whole.
                 let opener = (kind == Kind::TsJs && t.starts_with(['}', ']']))
                     .then(|| {
-                        (0..i)
-                            .rev()
-                            .find(|&j| indent(lines[j]) <= ind && !lines[j].trim().is_empty())
+                        (0..i).rev().find(|&j| {
+                            let l = lines[j].trim();
+                            indent(lines[j]) <= ind && !l.is_empty() && !comment(kind, l)
+                        })
                     })
                     .flatten();
                 match opener {
@@ -2985,7 +3010,10 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                         let whole: Vec<&str> = lines[j..=i].iter().map(|l| l.trim()).collect();
                         let whole = uncommented(kind, &whole.join("\n")).replace('\n', " ");
                         statement_bindings(kind, &whole, j + 1, name, &mut out);
+                        // Its first line alone would read `const repo = {` again, as less.
+                        read = Some(j);
                     }
+                    None if read == Some(i) => {}
                     None => statement_bindings(kind, t, i + 1, name, &mut out),
                 }
                 // In `case *Repo:` the variable of a type switch is a `*Repo`; under several
@@ -3016,7 +3044,10 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
             .rev()
             .find(|&j| !lines[j].trim().is_empty() && indent(lines[j]) <= ind);
         let body = t == "{" && opener.is_some_and(|j| declares_type(kind, lines[j]));
-        let wrapped = kind == Kind::TsJs && (t.starts_with('>') || body);
+        // A `>` closes type parameters, a line ending in `<`; the `>` of a JSX tag closes no header.
+        let params =
+            t.starts_with('>') && opener.is_some_and(|j| lines[j].trim_end().ends_with('<'));
+        let wrapped = kind == Kind::TsJs && (params || body);
         if t.starts_with([')', '}', ']']) || wrapped {
             while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > ind) {
                 i -= 1;
@@ -3316,7 +3347,7 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
         .unwrap()
     });
     static TS_DESTRUCTURE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:export\s+)?(?:const|let|var)\s*[\[{]([^=]*)").unwrap()
+        Regex::new(r"^(?:export\s+)?(?:const|let|var)\s*[\[{](.*)[\]}]\s*(?::.*)?=").unwrap()
     });
     let n = regex::escape(name);
     let value = match kind {
@@ -4251,9 +4282,23 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
     let hash = |i: usize| kind == Some(Kind::TsJs) && line.as_bytes().get(i) == Some(&b'#');
     // On the `#`, the word is the one right behind it.
     let (range, _) = word_at(line, if hash(col) { col + 1 } else { col }, extra)?;
-    // `page#anchor` in a string is no private name: nothing of a word stands in front of one.
-    let named = |i: usize| i > 0 && line.as_bytes()[i - 1].is_ascii_alphanumeric();
-    let start = match range.start.checked_sub(1).filter(|&i| hash(i) && !named(i)) {
+    // A private name stands behind a `.` or starts a member's line, behind its modifiers. An
+    // issue number in a comment, a CSS id or a hash route in a string is no such name.
+    let private = |i: usize| {
+        let before = line[..i].trim_end();
+        before.ends_with('.')
+            || before.split_whitespace().all(|w| {
+                matches!(
+                    w,
+                    "static" | "readonly" | "async" | "get" | "set" | "accessor" | "declare"
+                )
+            })
+    };
+    let start = match range
+        .start
+        .checked_sub(1)
+        .filter(|&i| hash(i) && private(i))
+    {
         Some(i) => i,
         None => range.start,
     };
@@ -7684,6 +7729,81 @@ func Close() {
             "/node_modules/@scope/pkg/sub/index.d.ts",
             &["@scope", "pkg", "sub"]
         ));
+    }
+
+    #[test]
+    fn typescript_spellings_are_read_in_typescript_only() {
+        let lines = vec![
+            "    repo".to_owned(),
+            "        .find(1)?.name!.x".to_owned(),
+        ];
+        // A line led by a dot, `?.`, `!.` and a `#` are what they are in every other language: a
+        // Python chain in brackets, Rust's `?`, a C `#define`.
+        for kind in [Kind::Python, Kind::Go, Kind::Rust, Kind::C] {
+            assert_eq!(unbroken(kind, &lines, 1, 9), None);
+            assert_eq!(plain_access(kind, &lines[1], 24), (lines[1].clone(), 24));
+            let word = definition_word(Some(kind), "#define LIMIT", 1);
+            assert_eq!(word, Some((1..7, "define")));
+        }
+        assert_eq!(
+            unbroken(Kind::TsJs, &lines, 1, 9),
+            Some(("    repo.find(1)?.name!.x".to_owned(), 9))
+        );
+        assert_eq!(
+            plain_access(Kind::TsJs, "    repo.find(1)?.name!.x", 24),
+            ("    repo.find(1).name.x".to_owned(), 22)
+        );
+        // The forms a destructuring is written in, and what is none.
+        let field = |from: &[&str], name: &str| {
+            Some(Value::Field(
+                from.iter().map(|s| s.to_string()).collect(),
+                name.into(),
+            ))
+        };
+        for (t, want) in [
+            ("let { repo } = this", field(&["this"], "repo")),
+            (
+                "export const { a, repo } = deps.inner;",
+                field(&["deps", "inner"], "repo"),
+            ),
+            (
+                "var { users: repo } = this.#uow",
+                field(&["this", "#uow"], "users"),
+            ),
+            ("const { repo = spare } = this;", None),
+            ("const { ...repo } = this;", None),
+            ("const { inner: { repo } } = this;", None),
+            ("const { repo } = make();", None),
+        ] {
+            assert_eq!(ts_destructured(t, "repo"), want, "{t}");
+        }
+        // A barrel's list wrapped by prettier, and `export type`.
+        let list =
+            "export type {\n  Other,\n  Notifier,\n} from \"./b\";\nexport * as ns from \"./c\";\n";
+        assert_eq!(
+            reexports(list, "Notifier"),
+            [vec![".".to_owned(), "b".to_owned()]]
+        );
+        assert_eq!(reexports(list, "ns"), Vec::<Vec<String>>::new());
+        let alias =
+            "export {\n  Hatch,\n  type Trunk as TrunkBase,\n};\nexport { A as B } from \"./x\";\n";
+        assert_eq!(exported_as(alias, "TrunkBase"), Some("Trunk".to_owned()));
+        assert_eq!(exported_as(alias, "B"), None);
+        // A header with brackets and a `{}` default in it ends at the `{` of its body.
+        let header = [
+            "class Vault<S = {}>",
+            "  extends mixin(Crate, { sealed: true })",
+            "  implements Sealable",
+            "{",
+        ];
+        assert_eq!(
+            ts_header(&header, 0),
+            (
+                "class Vault extends mixin(Crate, { sealed: true }) implements Sealable {"
+                    .to_owned(),
+                3
+            )
+        );
     }
 
     #[test]

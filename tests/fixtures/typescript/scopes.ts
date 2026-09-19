@@ -123,3 +123,28 @@ export function unpackedList(pairs: UserRepository[][]): void {
   ] = pairs;
   void ledger.deleteUser(16);
 }
+
+// A statement closed by `}` that is no destructuring is read whole too: the cast decides.
+export function wrappedCast(id: number): void {
+  const ledger = {
+    id,
+  } as unknown as UserRepository;
+  void ledger.deleteUser(id + 17);
+}
+
+// A name commented out at the margin, and a name behind another's default.
+export function unpackedMore(deps: Deps): void {
+  const {
+    ledger,
+//  id,
+  } = deps;
+  void ledger.deleteUser(18);
+}
+
+export function unpackedDefault(deps: Partial<Deps>): void {
+  const {
+    id = 1,
+    ledger,
+  } = deps;
+  void ledger?.deleteUser(id + 19);
+}

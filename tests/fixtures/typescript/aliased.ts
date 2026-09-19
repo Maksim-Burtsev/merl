@@ -25,5 +25,9 @@ class UserRepository {
   }
 }
 
-export { Trunk as TrunkBase, Hatch, Spare };
+export {
+  Hatch,
+  Spare,
+  Trunk as TrunkBase,
+};
 export { UserRepository as HatchBase } from "./repos";
