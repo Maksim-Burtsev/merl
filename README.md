@@ -231,7 +231,14 @@ on the machine. Swift has what SwiftPM checks a package's dependencies out into,
 own and nothing narrows the search. PHP has Composer's `vendor/`, which is gitignored and so
 outside the project walk the way `node_modules` is, and a `use Illuminate\Support\Str` in column
 zero binds `Str` to that path, since PSR-4 spells a namespace the way the file system does; an
-indented `use` pulls in a trait and names no file. Java, Kotlin,
+indented `use` pulls in a trait and names no file. Zig's root is the `std_dir` its own `zig env`
+reports; its dependencies live in the global package cache under hashed directory names no source
+line spells out, so they are left out, and `const std = @import("std")` narrows nothing — `std` is
+that root, not a directory inside it. Lua has none to ask for, since `package.path` belongs to
+whatever interpreter embeds it and neither a Neovim runtime nor a LuaRocks tree is a standard
+library every project shares; Elixir needs none, since `mix` puts the dependencies and their
+sources in `deps/` inside the project, where they are project files already, and an installed
+standard library is `.beam` files rather than `.ex`. Java, Kotlin,
 Ruby and the rest have no roots yet, so `d` stays inside the project for them. A parameter has no
 declaration the rules know, nor has an enum variant unless its class declares it as a field (a
 Python `Enum` member, a TypeScript enum member with a value): `d` says so, and `u` lists every
@@ -266,8 +273,11 @@ What `d` does not claim, in Python, TypeScript and Go:
   method `find` of some other class.
 - An imported name is looked up at the top of the module it comes from, outside the project as
   inside it, and a name imported from two modules (`try` / `except ImportError`) offers both.
-- A line inside a triple-quoted string, a Go raw string, a template literal or a `/* */` block
-  declares nothing.
+- A line inside a triple-quoted string — a Python docstring, an Elixir `@moduledoc` — a Go raw
+  string, a template literal, a Lua `[[ ]]` or `[==[ ]==]` long string or block comment, or a
+  `/* */` block declares nothing. Each language says which of those forms it has rather than
+  inheriting another's: Zig has none at all, since a `\\` string ends with its line, so the
+  markdown a `\\` block holds is read as the code it sits in.
 
 On `x.word`, `x.f.word` and longer chains in Python, TypeScript and Go, `d` first looks for the
 type of the receiver. `x` is `self` or `cls` in a method, `this` in a class, a Go method's
@@ -410,6 +420,9 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | C# | `class`, `struct`, `interface`, `enum`, `record`, `record class`, `record struct`, `delegate`, past the generic parameters they declare and behind `[Attribute]` lists and any modifiers (`public sealed partial class Foo<T>`); a `namespace`, under its last part; a `using x =` alias; a constructor, behind at least one access modifier, since a bare `Invoice(n)` is a call; and a method, a property, an event, a field or a local, told from a call by the type before the name — a predefined one, `var`, or a name with a capital in it, as C# names its types — so `public int X { get; }`, `public string Name => _name;` and `int IComparable.CompareTo(o)` all count. An enum member has no rule: `Open,` in an `enum` body and in a collection initialiser are the same line. | every `.cs` and `.csx` file |
 | Swift | `class`, `struct`, `enum`, `protocol`, `actor`, `typealias`, `associatedtype`, `extension Type` — where a project keeps its own members of a type, often the only place — `func` past its generic parameters, `init`, `init?`, `subscript` and `deinit`, `let` / `var`, and an `enum` case, alone or among several on a line, with the associated or raw value it carries. All of them behind their `@attributes` and any modifiers (`public final override class func`, `private(set)` included), and a backticked name counts. A `case .open:` or `case let .open(x):` of a `switch` is a pattern, not a declaration, and a binding made by `if let` / `guard let` has no rule: it rebinds a name declared elsewhere. | every `.swift` file |
 | PHP | `function` (`&` included), `class`, `interface`, `trait`, `enum`, a `const` and a `define('X', …)`, an `enum` case, a property with the type it carries, and a constructor parameter promoted to one — all behind their `#[Attribute]`s and modifiers (`final public static function`) — plus an assignment that opens a line (`$x =`, `.=`, `??=`, `+=`). A `case X:` of a `switch`, a `$key => $value` pair, `$rows['x'] =` and `$this->name = …`, which writes to a property declared elsewhere, are not declarations, and a `foreach` target and a parameter have no rule. | every `.php` and `.phtml` file |
+| Lua | `function name(`, `local function name(`, `function M.name(`, `function M:name(` and the longer `function a.b.name(`; a function literal bound to a name (`M.name = function(`, `name = function(` in a table of handlers); `local name`, one of several on the line included. A field holding anything else has no rule: `limit = 10` in a table constructor and a re-assignment inside a body are the same line, and the language has no keyword to tell them apart. | every `.lua` file |
+| Elixir | every `def` form — `def`, `defp`, `defmacro`, `defmacrop`, `defguard`, `defguardp`, `defdelegate` — written `def name(x) do`, `def name do` or `def name, do: x`, a trailing `?` or `!` included; `defmodule` and `defprotocol` under the namespace they are written with, by their last part, so `defmodule MyApp.Repo` declares `MyApp.Repo` and nothing called `MyApp`; a `defstruct` field, atom list or keyword form, on the `defstruct` line itself — a field on a continuation line of a struct written over several lines has no rule, since that line is the shape of any keyword list; a module attribute where it is given a value (`@timeout 5_000`). Several clauses of one function are several declarations and all are offered. `@spec`, `@type` and the rest of the attributes the language and the libraries everyone uses own — ExUnit's `@tag`, Mix's `@shortdoc` — are directives: `@spec parse(t) :: t` is no declaration of `parse`, and `d` on one of those names has nothing to find. That is a list of known names, which is all a line pattern can have: any library may define an attribute, and `@tag :slow` and `@timeout 5_000` are the same line. `defimpl` declares the module `Protocol.Type`, where neither half is a name of its own, as a Rust `impl` is not. | every `.ex` and `.exs` file |
+| Zig | `fn name(`, behind `pub`, `export`, `extern "c"`, `inline`, `noinline`; `const` and `var`, which is how the language declares a type (`const Ledger = struct {`, `const Status = enum {`, `const Value = union(enum) {`), an import, a constant and a local alike, `threadlocal` and `comptime` included. A struct field (`total: u32,`) has no rule, as a C field has none: it is the shape of a value in a struct literal. Neither has a `test`: a word inside its description declares nothing, so `d` can never land there — `D` lists the tests instead. | every `.zig` file |
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
 | SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns have no rule. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable | every Makefile |
@@ -427,23 +440,28 @@ exported, since indented they are locals), plus shell functions (`name()`; the `
 the single regex already finds), SQL `CREATE`d objects under the name as written (`public.orders`,
 not CTEs), Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`,
 `module.x`, `var.x`, `output.x`), Dockerfile stages and YAML anchors, each read only from its own
-kind of file; recomputed on each press. Java, Kotlin, Ruby, C, C++, C#, Swift and PHP are read from rules of their
+kind of file; recomputed on each press. Zig adds a function behind `inline` or `noinline` and a
+`test`, under the description it is written with, which that regex has no word for. Java, Kotlin,
+Ruby, C, C++, C#, Swift, PHP, Lua and Elixir are read from rules of their
 own instead of that regex — Java's types and its methods, told from a call by the return type before
 the name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and
 `const val`; Ruby's methods, classes and modules, `def self.name` included; C and C++ functions,
 methods, types, `typedef`s, `using` aliases and `#define`s; C#'s types, delegates and namespaces
 behind their attributes and modifiers, and its methods and properties, told apart from a call the
 way Java's are; Swift's types, `protocol`s, `actor`s, `typealias`es, `func`s and `extension`s, an
-extension under the type it extends; PHP's types and `const`s in one row and its functions and methods in another, behind
-`final public static` and the rest — so none of them is listed twice or
+extension under the type it extends; PHP's types and `const`s in one row and its functions and
+methods in another, behind `final public static` and the rest; Lua's functions in both of the
+forms it writes them, under the name and not the table they hang off; Elixir's modules, protocols
+and every `def` form — so none of them is listed twice or
 under a modifier or a receiver. A C prototype is not listed, since every function of a header would
 be there twice, and a `typedef struct x { … } y;` is listed once, under the `y` the project writes.
 TypeScript's class methods, with neither a keyword nor a type in front, are not listed: the regex
-cannot tell `name(` from a call. Neither are fields, a C global, a C# constructor (its class is
-already a row), a Swift `let`, `var`, `init` or `enum` case, a PHP property, `enum` case,
-`define()` or magic method (`__construct`, `__toString`: the language's hook, not the project's),
-a Ruby
-constant, or the names a Ruby `attr_accessor` line declares, since one line can declare several.
+cannot tell `name(` from a call. Neither are fields, a C or Zig global, a Lua local, a C#
+constructor (its class is already a row), a Swift `let`, `var`, `init` or `enum` case, a PHP
+property, `enum` case, `define()` or magic method (`__construct`, `__toString`: the language's
+hook, not the project's), a Ruby
+constant, an Elixir module attribute or `defimpl`, or the names a Ruby `attr_accessor` or an
+Elixir `defstruct` line declares, since one line can declare several.
 Searches are smart-case — an all-lowercase query ignores case, one uppercase letter makes it
 case-sensitive — and `/` and `s` look for the text as typed: `foo(` finds the calls and the
 definition, `a.b` only `a.b`. There is no regex mode. `s` lists its hits while you type, the open
@@ -484,7 +502,8 @@ grammar is the C one plus templates, classes and namespaces, so it reads a heade
 language. An Objective-C header pays for that — its `@interface` and `@property` go unscoped,
 while its `.m` file keeps the Objective-C grammar. Helm
 templates are read as plain YAML, so their `{{ }}` blocks are not highlighted as a template
-language.
+language. A `build.zig.zon` is painted as Zig, which bat's grammar covers, though the data format
+it holds declares nothing `d` or `D` looks for.
 
 ## Config
 

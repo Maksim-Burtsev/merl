@@ -12,6 +12,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` no longer offers a line inside an embedded literal as a declaration: `literal_lines` reads
   a Swift or C# `"""` block, a C# verbatim `@"…"` (where `""` is a quote, not the end) and a PHP
   heredoc, so the SQL a migration embeds stops answering `d`. (#17)
+- `d` and `D` in Zig, over every `.zig` file. `d` finds `fn name(` behind `pub`, `export`,
+  `extern "c"`, `inline` and `noinline`, and the `const` or `var` the language declares everything
+  else with — a type (`const Ledger = struct {`, `const Status = enum {`,
+  `const Value = union(enum) {`), an import, a constant, a global and a local alike. A struct field
+  has no rule, as a C field has none, and neither has a `test`: a word inside its description
+  declares nothing, so `d` can never land on one. Zig has no literal that runs over lines — a
+  `\\` string ends with its line — so the markdown a `\\` block holds is read as code. `d` leaves the project for the standard library
+  where `zig env` says it is. `D` keeps the declaration pattern every language shares, which
+  already reads Zig's `fn` and `const`, and adds the two forms it has no word for: a function
+  behind `inline` or `noinline`, and a `test`, listed under its description. A `build.zig.zon` is
+  painted as Zig but has no rules: the data format declares nothing. (#17)
+- `d` and `D` in Elixir, over every `.ex` and `.exs` file. `d` finds every `def` form — `def`,
+  `defp`, `defmacro`, `defmacrop`, `defguard`, `defguardp`, `defdelegate`, written with parens,
+  with `do` or with `, do:`, a trailing `?` or `!` included — a `defmodule` or a `defprotocol`
+  under the namespace it is written with, a `defstruct` field in either form, and a module
+  attribute where it is given a value (`@timeout 5_000`), the `defstruct` line itself, not the
+  continuation lines of a struct written over several. Several clauses of one function are
+  several declarations and all are offered. `@spec`, `@type` and the other attributes the
+  language and the libraries everyone uses own — ExUnit's `@tag`, Mix's `@shortdoc` — are
+  directives, not declarations: `@spec parse(t) :: t` is a promise about `parse`, not its
+  definition. A line inside an `@moduledoc """` heredoc declares nothing, as one
+  inside a Python docstring does not. `D` lists modules, protocols and every `def` form from a
+  rule of its own, where the pattern every language shares knew `def` and nothing else of the
+  family and read the `x` of an anonymous `fn x -> …` as a declaration. (#17)
+- `d` and `D` in Lua, over every `.lua` file. `d` finds a function in each form the language
+  writes one — `function name(`, `local function name(`, `function M.name(`, `function M:name(`,
+  `M.name = function(` and the `name = function(` of a table of handlers — and a `local`, one of
+  several on the line included. A field holding anything but a function has no rule on purpose:
+  `limit = 10` in a table constructor and a re-assignment inside a body are the same line, so `u`
+  lists the uses instead. A `[[ ]]` or `[==[ ]==]` long string and a `--[[ ]]` block comment
+  declare nothing, as a Python docstring does not. `D` lists functions from rules of its own, so
+  `function M.setup(` is listed as `setup` where the pattern every language shares called it
+  `M`, and `local function` is listed at all. (#17)
 - `d` and `D` in PHP, over every `.php` and `.phtml` file. `d` finds a `function` (returned by
   reference too), a `class`, `interface`, `trait` and `enum`, a `const` and a `define('X', …)`, an
   `enum` case, a property with the type it carries and a constructor parameter promoted to one —
@@ -128,7 +161,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - No silent keys: a press that cannot act says why, in a word or two. `d` and `u` off a word
-  say `no word`; `d` in a file whose kind has no rules says `no rules for .lua` instead of a
+  say `no word`; `d` in a file whose kind has no rules says `no rules for .css` instead of a
   `no definition` that never looked; `/` shows `no match` or the match count (`3/17`) next to
   the query while it is typed, and `n` / `N` keep the count, which replaces `wrapped`; Esc no
   longer says `find cleared` with nothing to clear; a file deleted on disk is named
