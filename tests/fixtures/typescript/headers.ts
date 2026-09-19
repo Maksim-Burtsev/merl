@@ -12,11 +12,14 @@ export class Crate<K> {
   seal(key: K): void {
     console.log(key);
   }
+
+  open(): void {}
 }
 
 // prettier wraps a long list of type parameters: the header ends in `> extends … {`.
 export class Shelf<
   K extends string = string,
+  F extends (key: K) => void = (key: K) => void,
   V extends object = object,
 > extends Crate<K> {
   private repo = new UserRepository();
@@ -31,6 +34,12 @@ export class Shelf<
     this.seal(key);
     super.seal(key);
     console.log(this.spare);
+  }
+
+  open(): void {}
+
+  each(visit: F): void {
+    console.log(visit);
   }
 }
 
@@ -82,6 +91,11 @@ export function bare(id: number): void {
   {
     void repo.deleteUser(id + 4);
   }
+}
+
+export function peek(found: any): void {
+  console.log(found.spare);
+  console.log(found.one);
 }
 
 export function audit(id: number): void {
