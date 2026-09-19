@@ -3235,6 +3235,56 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
     out.push(Binding { line, value });
 }
 
+/// Whether the Go function around 1-based `line` of `text` may declare `name` (#100): the name
+/// stands as a whole word, outside strings and comments, somewhere from the function's `func`
+/// line down to the line above `line`, other than in front of a `.`. A declaration never writes
+/// its name in front of a `.`, whatever its form, so `false` proves there is no local of the
+/// name, which an empty [`bindings`] does not: its walk misses a header with a function-typed
+/// parameter, a `var (` block inside a function, the lines above a label. Uses of the name as
+/// an argument say `true` as well, and the caller then proves nothing.
+pub fn go_may_declare(text: &str, line: usize, name: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Go, text);
+    let at = line.saturating_sub(1).min(lines.len());
+    let mentions = |l: &str| {
+        let code: String = {
+            let mut bytes = vec![b' '; l.len()];
+            for (i, c) in code(Kind::Go, l) {
+                bytes[i] = if c == 0 { b' ' } else { c };
+            }
+            String::from_utf8_lossy(&bytes).into_owned()
+        };
+        code.match_indices(name).any(|(i, m)| {
+            let ident = |c: char| c.is_alphanumeric() || c == '_';
+            !code[..i].ends_with(ident)
+                && !code[i + m.len()..].starts_with(ident)
+                && !code[i + m.len()..].trim_start().starts_with('.')
+        })
+    };
+    for i in (0..at).rev() {
+        let l = lines[i];
+        if literal[i] || l.trim().is_empty() {
+            continue;
+        }
+        if mentions(l) {
+            return true;
+        }
+        // The function starts at the `func` in column 0. Above it a header's closer `) error {`
+        // and a label still belong to the function; anything else in column 0 is the package's,
+        // and so is the cursor.
+        let label = l.trim_end().ends_with(':') && !l.contains(' ');
+        if indent(l) == 0 && !comment(Kind::Go, l) && !label {
+            if l.starts_with("func") {
+                return false;
+            }
+            if !(l.starts_with(')') && l.trim_end().ends_with('{')) {
+                return false;
+            }
+        }
+    }
+    false
+}
+
 /// What the Go file `text` declares `name` as at the level of its package: `var name T`,
 /// `var name = …`, alone or as a line of a `var (` block, anywhere in the file (#100). The scope
 /// walk of [`bindings`] reads the open file upwards only, so another file of the package and the
@@ -3243,6 +3293,8 @@ pub fn package_bindings(text: &str, name: &str) -> Vec<Binding> {
     let literal = literal_lines(Kind::Go, text);
     let mut out = Vec::new();
     let mut block = false;
+    // The indent of the open block's entries: that of its first line.
+    let mut level = None;
     for (i, l) in text.lines().enumerate() {
         let code = uncommented(Kind::Go, l);
         let t = code.trim();
@@ -3250,13 +3302,15 @@ pub fn package_bindings(text: &str, name: &str) -> Vec<Binding> {
             continue;
         }
         match (indent(l), block) {
-            (0, _) if t == "var (" => block = true,
+            (0, _) if t == "var (" => (block, level) = (true, None),
             (0, _) => {
                 block = false;
                 statement_bindings(Kind::Go, t, i + 1, name, &mut out);
             }
-            // gofmt aligns the `=` of a block with spaces, which one `var` line never has.
-            (_, true) => {
+            // gofmt aligns the `=` of a block with spaces, which one `var` line never has. A
+            // deeper line belongs to an entry's value or type, `cfg struct {` / `repo *Repo`.
+            (n, true) if Some(n) == level.or(Some(n)) => {
+                level = Some(n);
                 let words: Vec<&str> = t.split_whitespace().collect();
                 let t = format!("var {}", words.join(" "));
                 statement_bindings(Kind::Go, &t, i + 1, name, &mut out);
@@ -4473,6 +4527,32 @@ mod tests {
             q(Kind::Ruby, rb, 3, "total").as_deref(),
             Some("Billing.Invoice.total")
         );
+    }
+
+    /// #100. A `var (` block declares what stands at its own level; a function may declare a
+    /// name wherever it mentions it other than in front of a `.`.
+    #[test]
+    fn a_go_package_block_is_read_at_its_level_and_a_mention_may_declare() {
+        let block = "var (\n\tcfg struct {\n\t\trepo *B\n\t}\n\n\t// the audit log\n\taudit AuditLog // shared\n)\n\nfunc f() {\n\trepo := 1\n}\n\ntype T struct {\n\taudit *B\n}\n";
+        assert_eq!(package_bindings(block, "repo"), vec![]);
+        assert_eq!(
+            package_bindings(block, "audit"),
+            vec![Binding {
+                line: 7,
+                value: Value::Type("AuditLog".into())
+            }]
+        );
+        let text = "package p\n\nvar x = repo.Top()\n\nfunc Run(repo *A, fn func() error) {\n\trepo.Do()\n}\n\nfunc Wide(\n\trepo *A,\n) error {\n\trepo.Do()\n\treturn nil\n}\n\nfunc Free(id int) {\n\t// repo is a word here\n\tlog(\"repo\")\n\trepo.Do()\n\tsave(repo)\n\trepo.Do()\n}\n\nfunc Label() {\n\trepo := 1\nretry:\n\trepo.Do()\n}\n";
+        for (line, want) in [
+            (3, false),
+            (6, true),
+            (12, true),
+            (19, false),
+            (21, true),
+            (27, true),
+        ] {
+            assert_eq!(go_may_declare(text, line, "repo"), want, "line {line}");
+        }
     }
 
     /// #100. A Go package is the one directory its import path ends at.

@@ -20,3 +20,36 @@ func GlobalHidden(id int) {
 }
 
 var lateRepo = &UserRepository{}
+
+// Locals the scope walk does not read hide the package's name all the same: a header with a
+// function-typed parameter, a receiver on one, a `var (` block in a function, the lines above a
+// label, a local handed on.
+func GlobalFuncParam(defaultRepo AuditLog, each func(id int) error) {
+	defaultRepo.DeleteUser(18)
+}
+
+func (defaultRepo AuditLog) GlobalReceiver(each func(id int) bool) {
+	defaultRepo.DeleteUser(19)
+}
+
+func GlobalVarBlock() {
+	var (
+		defaultRepo = AuditLog{}
+	)
+	defaultRepo.DeleteUser(20)
+}
+
+func GlobalLabel(n int) {
+	defaultRepo := AuditLog{}
+retry:
+	defaultRepo.DeleteUser(21)
+	if n > 0 {
+		n--
+		goto retry
+	}
+}
+
+func GlobalHop(defaultRepo AuditLog, each func()) {
+	hop := defaultRepo
+	hop.DeleteUser(22)
+}

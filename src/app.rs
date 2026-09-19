@@ -1777,13 +1777,16 @@ impl App {
             return;
         }
         // A Go package qualifier, `db` in `db.Get`, is declared by the import line of this file
-        // (#100), unless a local hides it (taken out above) or the package declares the name
-        // itself: an import's name is read off its path, and a package may be called otherwise.
+        // (#100), unless a local hides it (taken out above, or one the walk may have missed:
+        // the function mentions the name other than as a qualifier) or the package declares the
+        // name itself: an import's name is read off its path, and a package may be called
+        // otherwise.
         if kind == Kind::Go
             && !dotted
             && self.line_str()[range.end..].starts_with('.')
             && let Some(path) = bound(&imports, &word)
             && let Some(line) = search::go_import_line(&text, &word)
+            && !search::go_may_declare(&text, self.line + 1, &word)
             && self.package_declarations(kind, &here, &word).is_empty()
         {
             let hit = Hit {
@@ -2350,7 +2353,13 @@ impl App {
             return self.agree(kind, file, text, &bindings, hops);
         }
         // A Go name no scope of the file declares is the package's, declared in any of its
-        // files (#100); each is read in the file that writes it, and they have to agree.
+        // files (#100); each is read in the file that writes it, and they have to agree. An
+        // empty list is no proof of that: the walk misses locals, so the function around the
+        // line must not so much as mention the name, and an import of the file is no variable.
+        let imported = search::imports(kind, text).iter().any(|(n, _)| n == name);
+        if imported || search::go_may_declare(text, line, name) {
+            return None;
+        }
         let mut found: Option<(Typed, Option<String>)> = None;
         for f in self.package_files(kind, file) {
             let Some(text) = self.text_of(&f) else {
@@ -8434,6 +8443,41 @@ mod tests {
                 "sharedAudit.DeleteUser|(id + 16",
                 picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
             ),
+            // Locals the scope walk does not read: nothing is proven from their absence.
+            (
+                "globals.go",
+                "defaultRepo.DeleteUser|(18",
+                picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            ),
+            (
+                "globals.go",
+                "defaultRepo.DeleteUser|(19",
+                picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            ),
+            (
+                "globals.go",
+                "defaultRepo.DeleteUser|(20",
+                picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            ),
+            (
+                "globals.go",
+                "defaultRepo.DeleteUser|(21",
+                picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            ),
+            (
+                "globals.go",
+                "hop.DeleteUser",
+                picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            ),
+            // An import of the external test package is no variable of `package main`.
+            (
+                "globals_x_test.go",
+                "session.Close",
+                jump(
+                    "Close \u{2192} Session.Close (via defaultRepo.Open() *Session)",
+                    "store/store.go:15",
+                ),
+            ),
         ]);
     }
 
@@ -8592,6 +8636,11 @@ mod tests {
                     "depot \u{2192} QualifierHidden.depot (local)",
                     "qualifiers.go:19",
                 ),
+            ),
+            (
+                "qualifiers.go",
+                "depot|.Remove(2",
+                jump("no definition for depot", "qualifiers.go:32"),
             ),
             (
                 "qualifiers.go",

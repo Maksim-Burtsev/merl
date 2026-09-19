@@ -26,3 +26,8 @@ func QualifierGuess() {
 	books.Post()
 	ledger.DeleteUser(2)
 }
+
+// A parameter the scope walk misses, behind a function-typed one, is no import either.
+func QualifierFuncParam(depot *UserService, each func()) {
+	depot.Remove(2)
+}
