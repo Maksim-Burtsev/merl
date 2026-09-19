@@ -2453,7 +2453,20 @@ impl App {
                 }
                 found
             }
-            search::Value::Name(_) | search::Value::Element(_) | search::Value::Unknown => None,
+            // `const { repo } = this`: the field of what the chain on the right proves.
+            search::Value::Field(from, field) if hops > 0 => {
+                let (ty, _) = self
+                    .chain_type(kind, file, text, b.line, from, hops - 1)
+                    .ok()?;
+                let (ty, _) = self
+                    .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
+                    .flatten()?;
+                Some((ty, None))
+            }
+            search::Value::Name(_)
+            | search::Value::Element(_)
+            | search::Value::Field(..)
+            | search::Value::Unknown => None,
         }
     }
 
@@ -2562,7 +2575,9 @@ impl App {
     fn declaration(&self, kind: Kind, file: &Path, parts: &[String]) -> Option<Hit> {
         let (name, chain) = parts.split_last()?;
         let one = |hits: Vec<Hit>| <[Hit; 1]>::try_from(hits).ok().map(|[hit]| hit);
-        if chain.is_empty() {
+        // TypeScript's `Outer.Inner.Widget` may be behind namespaces of the file itself (#100).
+        if chain.is_empty() || kind == Kind::TsJs {
+            let within = (!chain.is_empty()).then(|| parts.join("."));
             let own = self.package_files(kind, file);
             let pattern = search::def_patterns(kind, name).join("|");
             let hits: Vec<Hit> = self
@@ -2571,7 +2586,7 @@ impl App {
                 .into_iter()
                 .filter(|h| {
                     self.text_of(&h.path)
-                        .is_some_and(|text| search::qualified(kind, &text, h.line, name).is_none())
+                        .is_some_and(|text| search::qualified(kind, &text, h.line, name) == within)
                 })
                 .collect();
             if !hits.is_empty() {
@@ -8606,6 +8621,126 @@ mod tests {
         for (code, want) in cases {
             let mut a = fixture_app("typescript");
             d_on(&mut a, "privates.ts", code);
+            assert_eq!(shown(&mut a), want, "{code}");
+        }
+    }
+
+    /// #100, TypeScript: a NestJS service. Its dependencies are constructor parameters wrapped one
+    /// to a line, decorated or not; `const { repo } = this` hands fields on; a class may stand
+    /// behind namespaces, of an import or of the file itself.
+    #[test]
+    fn a_nest_service_reads_its_dependencies() {
+        let user = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} UserRepository.deleteUser (via {via})"),
+                "repos.ts:10",
+            )
+        };
+        let audit = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} AuditLog.deleteUser (via {via})"),
+                "repos.ts:16",
+            )
+        };
+        let field = |name: &str, line: usize| {
+            jump(
+                &format!("{name} \u{2192} AlbumService.{name} (via this: AlbumService)"),
+                &format!("nest.ts:{line}"),
+            )
+        };
+        let spin = |via: &str, to: &str, line: usize| {
+            jump(
+                &format!("spin \u{2192} {to}.spin (via {via})"),
+                &format!("nest_parts.ts:{line}"),
+            )
+        };
+        let cases: Vec<(&str, Shown)> = vec![
+            // The wrapped constructor: a decorated parameter, a plain one, one under its
+            // decorator's line; as a link and as a target.
+            (
+                "this.repo.deleteUser|(id)",
+                user("this.repo: UserRepository"),
+            ),
+            (
+                "this.audit.deleteUser|(id + 1)",
+                audit("this.audit: AuditLog"),
+            ),
+            (
+                "this.uow.users.deleteUser|(id + 2)",
+                user("this.uow: UnitOfWork \u{2192} users: UserRepository"),
+            ),
+            ("console.log(this.repo|,", field("repo", 15)),
+            ("console.log(this.repo, this.audit|,", field("audit", 16)),
+            (
+                "console.log(this.repo, this.audit, this.uow|)",
+                field("uow", 18),
+            ),
+            // `const { repo, audit: trail } = this` and `const { users } = this.uow`; the
+            // module's `repo` is an `AuditLog`.
+            (
+                "void repo.deleteUser|(id + 3)",
+                user("repo: UserRepository"),
+            ),
+            ("trail.deleteUser|(id + 4)", audit("trail: AuditLog")),
+            (
+                "void users.deleteUser|(id + 5)",
+                user("users: UserRepository"),
+            ),
+            // A default may be what the name holds.
+            (
+                "uow.audit.deleteUser|(id + 6)",
+                picker(
+                    "deleteUser: by name, 2 declarations (chain broke at uow)",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            ("^  repo.deleteUser|(id + 7)", audit("repo: AuditLog")),
+            // Namespaces of an import, of a module taken whole, and of the file itself, where a
+            // `Tool` and a `Widget` outside them are other classes.
+            (
+                "widget.spin|(id)",
+                spin("widget: Widget", "Outer.Inner.Widget", 4),
+            ),
+            (
+                "new Outer.Inner.Widget().spin|(id + 1)",
+                spin("new Outer.Inner.Widget(): Widget", "Outer.Inner.Widget", 4),
+            ),
+            (
+                "other.spin|(id + 2)",
+                spin("other: Widget", "Outer.Inner.Widget", 4),
+            ),
+            (
+                "gadget.spin|(id + 3)",
+                spin("gadget: Gadget", "Outer.Gadget", 11),
+            ),
+            (
+                "tool.turn|(id)",
+                jump(
+                    "turn \u{2192} Local.Tool.turn (via tool: Tool)",
+                    "nest.ts:46",
+                ),
+            ),
+            (
+                "new Local.Tool().turn|(id + 1)",
+                jump(
+                    "turn \u{2192} Local.Tool.turn (via new Local.Tool(): Tool)",
+                    "nest.ts:46",
+                ),
+            ),
+            (
+                "new Tool().turn|(id + 2)",
+                jump(
+                    "turn \u{2192} Tool.turn (via new Tool(): Tool)",
+                    "nest.ts:53",
+                ),
+            ),
+        ];
+        for (code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, "nest.ts", code);
             assert_eq!(shown(&mut a), want, "{code}");
         }
     }

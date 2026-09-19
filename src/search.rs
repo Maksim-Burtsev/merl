@@ -2238,6 +2238,9 @@ pub enum Value {
     /// `for (const r of repos)`, `for _, r := range repos`. [`element_type`] reads it off the
     /// collection's written type.
     Element(String),
+    /// A field of a chain of names, as a TypeScript destructuring hands it on: `this` and `repo`
+    /// for `const { repo } = this`, `this.uow` and `users` for `const { users: u } = this.uow`.
+    Field(Vec<String>, String),
     /// A declaration whose type the rules cannot read: `for repo in`, a tuple, a parameter with
     /// no annotation.
     Unknown,
@@ -3199,6 +3202,23 @@ fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
     }
 }
 
+/// What `const { repo, audit: name } = this.deps;` gives `name` (#100): the field it is taken
+/// from and the chain of names it is taken out of. `None` when the statement does not bind the
+/// name so: a default (`{ name = … }`) and a rest are no item that reads as the name, and a
+/// nested pattern, an array's or a right side that is more than names is not read.
+fn ts_destructured(t: &str, name: &str) -> Option<Value> {
+    static SHAPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:export\s+)?(?:const|let|var)\s*\{([^{}\[\]]*)\}\s*=\s*((?:this|[A-Za-z_$][\w$]*)(?:\.#?[A-Za-z_$][\w$]*)*)\s*;?$").unwrap()
+    });
+    let c = SHAPE.captures(t)?;
+    let field = c[1].split(',').find_map(|item| {
+        let (field, local) = item.split_once(':').unwrap_or((item, item));
+        (local.trim() == name).then(|| field.trim().to_owned())
+    })?;
+    let from = c[2].split('.').map(str::to_owned).collect();
+    Some(Value::Field(from, field))
+}
+
 /// The binding of `name` a statement at a block's level makes: a TypeScript `const` / `let` /
 /// `var`, a Go `:=` or `var`. A destructuring, a second name of a Go `:=` or a declaration the
 /// rules cannot type is unknown.
@@ -3232,6 +3252,8 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
                     (None, Some(v)) => value_of(kind, v.as_str()),
                     (None, None) => Value::Unknown,
                 }
+            } else if let Some(field) = ts_destructured(t, name) {
+                field
             } else if named.is_match(t)
                 || TS_DESTRUCTURE
                     .captures(t)
@@ -6647,7 +6669,11 @@ export function cleanup(id: number): void {
         assert_eq!(at(28, "made"), [(16, Value::Call("createRepo".into()))]);
         assert_eq!(at(28, "shared"), [(3, new("AuditLog"))]);
         assert_eq!(at(18, "item"), [(17, Value::Element("items".into()))]);
-        assert_eq!(at(28, "a"), [(20, Value::Unknown)]);
+        // A destructuring hands on a field of what stands on its right (#100).
+        assert_eq!(
+            at(28, "a"),
+            [(20, Value::Field(vec!["user".into()], "a".into()))]
+        );
         assert_eq!(at(21, "x"), [(21, ty("Item"))]);
         // The innermost block around the cursor that declares the name; the inner `repo` is
         // gone below its arrow.
