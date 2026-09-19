@@ -258,6 +258,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `if cold: self.ledger = A()` for a field. `d` did not read them, so a module-level `ledger` of
   another type was proven in their place and jumped to. The same behind the last line of a header
   wrapped over several lines, `        cold): ledger = A()`. (#131)
+- `d` on `x.member` no longer crashes merl in a Python file that continues a string with a
+  backslash at the end of a line: the scan for docstrings lost count of the lines there. (#100)
 - A Python import in a docstring's example is no second source of the name, which made
   `Depends` in fastapi's `applications.py` a picker of two modules. (#100)
 - Under a Python class header wrapped over several lines, `self.get()` no longer skips the class's

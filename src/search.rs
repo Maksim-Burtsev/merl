@@ -2371,7 +2371,8 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
                 i += 1;
             }
         } else if let Some(q) = quote {
-            if c == b'\\' {
+            // A backslash escapes the next byte, but the end of a line is still one.
+            if c == b'\\' && b.get(i + 1) != Some(&b'\n') {
                 i += 1;
             } else if c == q {
                 quote = None;
@@ -7762,6 +7763,17 @@ func Close() {
         assert_eq!(returns(Kind::Go, go, 4), Some(ty("Trail")));
         assert_eq!(returns(Kind::Go, go, 8), Some(ty("*Repo")));
         assert_eq!(returns(Kind::Go, go, 9), None);
+    }
+
+    /// Found by the hand pass of #100 in mealie: a string continued with a backslash swallowed
+    /// the end of its line, the answer came out a line short, and `d` anywhere in such a Python
+    /// file indexed past it and crashed.
+    #[test]
+    fn a_backslash_at_the_end_of_a_line_keeps_the_line_count() {
+        let py = "log(\"a \\\n    b\")\nledger = A()\nledger.go()";
+        assert_eq!(literal_lines(Kind::Python, py), [false; 4]);
+        let found = bindings(Kind::Python, py, 4, "ledger");
+        assert_eq!(found.len(), 1);
     }
 
     #[test]
