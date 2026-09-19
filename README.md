@@ -470,6 +470,15 @@ property, `enum` case, `define()` or magic method (`__construct`, `__toString`: 
 hook, not the project's), a Ruby
 constant, an Elixir module attribute or `defimpl`, or the names a Ruby `attr_accessor` or an
 Elixir `defstruct` line declares, since one line can declare several.
+Past 5,000 declarations the grep stops, so the list is only what it reached in file order: the
+title counts those rows and says what they are (`Symbols (first 5232, type to search all)`), and
+the query stops filtering them and greps the project for a declaration whose name it matches,
+after a pause in the typing, the way `s` does. A name declared in a file the cut never reached is
+found that way; the title then counts the answer (`Symbols (94 hits)`, `Symbols (5000+ hits)` for
+one the cut caught too, `Symbols (…)` while the grep runs). What the query matches there is the
+declared name as typed — not the path beside it, and not the picker's own pattern syntax, so
+`^`, `!`, a space and an accent are characters to find. Under 5,000 the rows are the whole list
+and the query filters them, as before.
 Searches are smart-case — an all-lowercase query ignores case, one uppercase letter makes it
 case-sensitive — and `/` and `s` look for the text as typed: `foo(` finds the calls and the
 definition, `a.b` only `a.b`. There is no regex mode. `s` lists its hits while you type, the open

@@ -1322,10 +1322,14 @@ impl App {
         match picker.key(key) {
             Pick::Stay => return,
             Pick::Typed => {
+                // `s` has nothing to show without a query. `D` has the list it opened on, so an
+                // emptied query asks for that list again rather than for nothing.
+                let empty =
+                    picker.query.is_empty() && self.mode == Mode::Picker(PickerKind::Search);
                 self.search_seq += 1;
                 (self.search_sent, self.search_enter) = (None, false);
                 self.search_due = Some(Instant::now() + SEARCH_PAUSE);
-                if picker.query.is_empty() {
+                if empty {
                     self.search_due = None;
                     self.search_done(self.search_seq, Vec::new());
                 }
@@ -1557,6 +1561,7 @@ impl App {
             root: self.root.clone(),
             files,
             pattern: pattern.to_string(),
+            symbols: false,
             current,
             // With unsaved edits the open file is searched as it is on screen, so a hit's line
             // is a line of the buffer the jump lands in.
@@ -1598,7 +1603,12 @@ impl App {
         if let Some(p) = &mut self.picker {
             p.live = true;
         }
-        // An answer still on its way belongs to the search that was closed.
+        self.drop_pending_search();
+    }
+
+    /// Forgets the grep on its way: its answer belongs to a picker that is gone, and its number
+    /// must not be the one the next picker waits for.
+    fn drop_pending_search(&mut self) {
         self.search_seq += 1;
         (self.search_due, self.search_sent, self.search_enter) = (None, None, false);
     }
@@ -1618,25 +1628,41 @@ impl App {
         }
         self.search_due = None;
         self.search_sent = Some(self.search_seq);
-        Some(self.grep_job(self.search_seq, &regex::escape(&query), |_| true))
+        // ponytail: nothing stops a walk whose answer is already stale — `D` past the cap reads
+        // the project once per pause in the typing, and [`search::MAX_HITS`] does not bound it,
+        // since a narrowing query never fills the cap. A stop flag on the job, read per file, is
+        // the upgrade if typing on a large project ever waits on them.
+        // `s` greps the query itself, as text; `D` past the cap greps the declaration patterns
+        // and keeps the names the query matches.
+        let symbols = self.mode == Mode::Picker(PickerKind::Symbols);
+        let pattern = if symbols {
+            query
+        } else {
+            regex::escape(&query)
+        };
+        Some(SearchJob {
+            symbols,
+            ..self.grep_job(self.search_seq, &pattern, |_| true)
+        })
     }
 
-    /// Test helper: the pending grep, run here, and its hits in the picker.
+    /// Test helper: the pending grep, run here, and its rows in the picker.
     #[cfg(test)]
     pub(crate) fn settle_search(&mut self) {
         self.search_due = self.search_due.map(|_| Instant::now());
         if let Some(job) = self.search_tick() {
-            self.search_done(job.seq, job.hits());
+            self.search_done(job.seq, job.items());
         }
         if let Some(p) = &mut self.picker {
             p.settle();
         }
     }
 
-    /// The hits of grep number `seq`. An answer to anything but the query on screen is dropped:
-    /// no grep is ever cancelled, [`search::MAX_HITS`] bounds what a stale one costs. Returns
+    /// The rows of grep number `seq`. An answer to anything but the query on screen is dropped:
+    /// no grep is ever cancelled. What a stale one costs is [`search::MAX_HITS`] for `s`, and
+    /// for `D` a walk of the project, since a narrowing query never fills that cap. Returns
     /// whether the screen changed.
-    pub fn search_done(&mut self, seq: u64, hits: Vec<Hit>) -> bool {
+    pub fn search_done(&mut self, seq: u64, items: Vec<PickItem>) -> bool {
         let Some(old) = self.picker.as_mut().filter(|p| p.live) else {
             return false;
         };
@@ -1644,8 +1670,8 @@ impl App {
             return false;
         }
         self.search_sent = None;
-        let items = Self::hit_items(hits);
-        // The rows keep their order between queries, so the cursor stays on its hit.
+        // `s` keeps the order its grep found between queries, so the cursor stays on its hit.
+        // `D` re-ranks below and takes the cursor to the best row instead.
         let selected = old
             .current()
             .and_then(|cur| {
@@ -1671,6 +1697,13 @@ impl App {
         new.selected = selected;
         new.query = std::mem::take(&mut old.query);
         new.bufs = std::mem::take(&mut old.bufs);
+        // `D` hands nucleo the query too: the grep says which declarations the name reaches,
+        // nucleo ranks them and marks the letters, and the cursor goes to the best of them —
+        // the same reset a keystroke under the cap does. `s` keeps the order its grep found,
+        // and with it the row the cursor was on.
+        if self.mode == Mode::Picker(PickerKind::Symbols) {
+            new.requery(false);
+        }
         self.picker = Some(new);
         true
     }
@@ -3176,25 +3209,40 @@ impl App {
         self.show_picker(PickerKind::Usages, Self::hit_items(hits));
     }
 
-    /// `D`: every declaration in the project, recomputed on each press.
+    /// `D`: every declaration in the project, recomputed on each press. A list the
+    /// [`search::MAX_HITS`] cut left short is not the project's symbols, so the query stops
+    /// filtering it: it greps the declaration patterns for a name of its own, as `s` greps
+    /// ([`App::search_tick`]). The rows stay on screen meanwhile, under a title that says what
+    /// they are.
     fn symbols(&mut self) {
-        let mut named: Vec<(String, Hit)> = Vec::new();
-        for (kind, pattern) in search::SYMBOLS {
-            let re = Regex::new(pattern).expect("built-in symbol patterns are valid");
-            let wanted = |p: &Path| match kind {
-                Some(k) => search::kind_of(p) == Some(*k),
-                None => search::shared_symbols(search::kind_of(p)),
-            };
-            let hits = self.grep(pattern, false, false, wanted).unwrap_or_default();
-            named.extend(
-                hits.into_iter()
-                    .filter_map(|h| Some((search::symbol_name(&re, &h.text)?, h))),
-            );
-        }
+        let (named, cut) = self.grep_job(0, "", |_| true).symbol_hits();
         if named.is_empty() {
             self.message = "no symbols".into();
             return;
         }
+        // Not `show_picker`: it reads a cut off the row count, and the cap belongs to each
+        // pattern. What is on screen is the cut list until a query is typed, and the answer to
+        // that query after, so the title (`ui::draw_picker`) is the live picker's business.
+        let items = Self::symbol_items(named);
+        self.picker = Some(Picker::new(
+            PickerKind::Symbols.title(),
+            items,
+            false,
+            self.wake.clone(),
+        ));
+        self.mode = Mode::Picker(PickerKind::Symbols);
+        if !cut {
+            return;
+        }
+        // An answer still on its way belongs to a search that is gone.
+        self.drop_pending_search();
+        if let Some(p) = &mut self.picker {
+            p.live = true;
+        }
+    }
+
+    /// `name  path:line` rows for `D`, sorted by name, the names padded into a column.
+    fn symbol_items(mut named: Vec<(String, Hit)>) -> Vec<PickItem> {
         named.sort_by_cached_key(|(n, h)| (n.to_lowercase(), h.path.clone(), h.line));
         let width = named
             .iter()
@@ -3202,7 +3250,7 @@ impl App {
             .max()
             .unwrap_or(0)
             .min(MAX_NAME_PAD);
-        let items = named
+        named
             .into_iter()
             .map(|(name, h)| PickItem {
                 label: format!(
@@ -3215,8 +3263,7 @@ impl App {
                 line: h.line,
                 code_at: None,
             })
-            .collect();
-        self.show_picker(PickerKind::Symbols, items);
+            .collect()
     }
 
     // ---- tree ------------------------------------------------------------
@@ -3787,12 +3834,16 @@ impl App {
 /// How long the `s` query has to stand still before it is grepped.
 const SEARCH_PAUSE: Duration = Duration::from_millis(80);
 
-/// One project grep with everything it reads, owned: `s` runs it in a thread.
+/// One project grep with everything it reads, owned: `s` and `D` run it in a thread.
 pub struct SearchJob {
     pub seq: u64,
     root: PathBuf,
     files: Vec<PathBuf>,
+    /// The text `s` looks for, escaped; for a `symbols` job, the query as typed.
     pattern: String,
+    /// `D` past the cap: the job greps the [`search::SYMBOLS`] patterns and keeps the
+    /// declarations whose name matches `pattern`, rather than the text of the lines.
+    symbols: bool,
     current: Option<PathBuf>,
     unsaved: Option<Vec<u8>>,
 }
@@ -3810,10 +3861,60 @@ impl SearchJob {
         )
     }
 
-    /// The `s` search: smart case, the query anywhere in a line.
-    pub fn hits(&self) -> Vec<Hit> {
-        self.run(false, true)
-            .expect("an escaped literal always compiles")
+    /// The rows the answer becomes: the lines `s` found, smart case and the query anywhere in
+    /// them, or the declarations `D` lists.
+    pub fn items(&self) -> Vec<PickItem> {
+        if self.symbols {
+            return App::symbol_items(self.symbol_hits().0);
+        }
+        App::hit_items(
+            self.run(false, true)
+                .expect("an escaped literal always compiles"),
+        )
+    }
+
+    /// Every declaration the [`search::SYMBOLS`] rows read out of the project, as
+    /// `(listed name, hit)`, keeping the names `pattern` matches — all of them when it is empty,
+    /// which is the press of `D`. Each row is read only from the files it is written for; the
+    /// name decides before the [`search::MAX_HITS`] cut, so a query reaches past a cut list.
+    fn symbol_hits(&self) -> (Vec<(String, Hit)>, bool) {
+        let mut named: Vec<(String, Hit)> = Vec::new();
+        let mut cut = false;
+        for (kind, pattern) in search::SYMBOLS {
+            let re = Regex::new(pattern).expect("built-in symbol patterns are valid");
+            let files: Vec<PathBuf> = self
+                .files
+                .iter()
+                .filter(|p| match kind {
+                    Some(k) => search::kind_of(p) == Some(*k),
+                    None => search::shared_symbols(search::kind_of(p)),
+                })
+                .cloned()
+                .collect();
+            let hits = search::grep_filtered(
+                &self.root,
+                &files,
+                pattern,
+                self.current.as_deref(),
+                self.unsaved.as_deref(),
+                // The press of `D` reads every declaration, so it pays for no name it will
+                // not list: the filter is the query's, and there is none until one is typed.
+                |line| {
+                    self.pattern.is_empty()
+                        || search::symbol_name(&re, line)
+                            .is_some_and(|name| search::fuzzy_match(&self.pattern, &name))
+                },
+            )
+            .unwrap_or_default();
+            // Each row has the cap to itself, so a cut is this row's, never the total's: on a
+            // project whose kinds add up past it with none of them cut, the list is whole.
+            cut |= hits.len() >= search::MAX_HITS;
+            named.extend(
+                hits.into_iter()
+                    .filter_map(|h| Some((search::symbol_name(&re, &h.text)?, h))),
+            );
+        }
+        (named, cut)
     }
 }
 
@@ -9363,6 +9464,147 @@ mod tests {
                 "var.region"
             ]
         );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A project past the cap: `a.go` fills the list on its own, so the walk stops before
+    /// `z.go` and `zebra` is behind the cut. `main.tf` is there for a name with a dot in it.
+    fn capped_project(tag: &str) -> (PathBuf, App) {
+        let many: String = (0..search::MAX_HITS)
+            .map(|i| format!("func a{i}() {{}}\n"))
+            .collect();
+        project_app(
+            tag,
+            &[
+                ("a.go", &many),
+                ("main.tf", "variable \"region\" {}\n"),
+                ("z.go", "func zebra() {}\nfunc Zebra() {}\n"),
+            ],
+        )
+    }
+
+    /// Past the cap the rows are the declarations found before it, not the project's, so the
+    /// query greps for a name instead of filtering them: what the cut never reached is found by
+    /// typing it, in either case. An answer to a query that has changed since is dropped, and an
+    /// emptied query brings the opening list back. Under the cap nothing of this happens.
+    #[test]
+    fn symbols_past_the_cap_are_grepped_not_filtered() {
+        let (small, mut b) = project_app("cap-under", &[("z.go", "func zebra() {}\n")]);
+        press(&mut b, KeyCode::Char('D'), KeyModifiers::NONE);
+        let p = b.picker.as_ref().unwrap();
+        assert_eq!(
+            (p.title.as_str(), p.live),
+            ("Symbols", false),
+            "the whole list"
+        );
+        std::fs::remove_dir_all(&small).unwrap();
+
+        let (dir, mut a) = capped_project("cap-symbols");
+        // A grep of the search that was open answers to a number `D` must not be waiting for.
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "zebra");
+        std::thread::sleep(SEARCH_PAUSE);
+        let of_the_search = a.search_tick().expect("the grep for the `s` query").seq;
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+
+        press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert_eq!(
+            p.counts().1 as usize,
+            search::MAX_HITS + 1,
+            "a.go fills the cap of the shared pattern; main.tf is another pattern's row"
+        );
+        assert!(
+            p.live,
+            "the query greps the project, it does not filter these rows"
+        );
+        assert!(
+            !a.search_done(of_the_search, App::hit_items(Vec::new())),
+            "the search's answer is not the symbol list"
+        );
+
+        typed(&mut a, "zebr");
+        std::thread::sleep(SEARCH_PAUSE);
+        let stale = a.search_tick().expect("the grep for zebr").seq;
+        typed(&mut a, "a");
+        assert!(!a.search_done(stale, Vec::new()), "zebr is not on screen");
+        let cut = a.picker.as_ref().unwrap().counts().1 as usize;
+        assert_eq!(cut, search::MAX_HITS + 1, "a stale answer settles nothing");
+
+        // Smart case, as everywhere else: an all-lowercase query finds both spellings.
+        a.settle_search();
+        let p = a.picker.as_mut().unwrap();
+        assert_eq!(p.counts(), (2, 2));
+        let rows = p.window(5).0;
+        let mut labels: Vec<&str> = rows.iter().map(|r| r.item.label.as_str()).collect();
+        labels.sort_unstable();
+        assert_eq!(labels, ["Zebra  z.go:2", "zebra  z.go:1"]);
+        // nucleo ranks and marks what the grep brought back, as it does under the cap.
+        assert_eq!(rows[0].matched, [0, 1, 2, 3, 4]);
+
+        // One capital of its own makes the query case-sensitive, before the picker sees it.
+        press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+        typed(&mut a, "Zebra");
+        a.settle_search();
+        let p = a.picker.as_mut().unwrap();
+        assert_eq!(p.counts(), (1, 1));
+        assert_eq!(p.window(5).0[0].item.label, "Zebra  z.go:2");
+
+        press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+        a.settle_search();
+        let p = a.picker.as_ref().unwrap();
+        assert_eq!(
+            p.counts().1 as usize,
+            search::MAX_HITS + 1,
+            "the list it opened on"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The cap belongs to each declaration pattern, not to the list: a project whose kinds add
+    /// up past it with none of them cut has its whole list, and the query filters it as ever.
+    #[test]
+    fn a_list_no_pattern_cut_short_is_the_whole_list() {
+        let half = search::MAX_HITS / 2 + 100;
+        let go: String = (0..half).map(|i| format!("func a{i}() {{}}\n")).collect();
+        let rb: String = (0..half).map(|i| format!("def b{i}\nend\n")).collect();
+        let (dir, mut a) = project_app("cap-two-kinds", &[("a.go", &go), ("b.rb", &rb)]);
+        press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert!(2 * half > search::MAX_HITS, "past the cap in total");
+        assert_eq!(p.counts().1 as usize, 2 * half, "both kinds, whole");
+        assert_eq!(
+            (p.title.as_str(), p.live),
+            ("Symbols", false),
+            "nothing was cut, so the query still filters the rows"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The query past the cap is a name to find, not a pattern: a regex would read `a1.*` as
+    /// a thousand of the names in `a.go`, and an escaped one would look for a backslash in
+    /// `var.region`.
+    #[test]
+    fn a_symbol_query_is_literal_not_a_regex() {
+        let (dir, mut a) = capped_project("cap-regex");
+        press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+        for (query, hits, why) in [
+            ("a1.*", 0, "a dot and a star are characters of a name"),
+            (
+                "var.region",
+                1,
+                "and a name written with a dot is typed with it",
+            ),
+        ] {
+            typed(&mut a, query);
+            a.settle_search();
+            let p = a.picker.as_ref().expect(why);
+            assert_eq!(p.counts().1, hits, "{why}: {}", a.message);
+            press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+            a.settle_search();
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

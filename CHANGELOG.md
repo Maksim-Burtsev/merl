@@ -195,6 +195,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the hits arrive waits for them. The title counts the hits, and shows `Search (…)` until the
   query on screen is answered, so `0 hits` always means nothing was found. Narrowing is done by
   typing more of the query; the fuzzy filter over the results is gone. (#53, #107)
+- `D` searches past its cap: on a project with more than 5,000 declarations the list is only the
+  ones found before the cut, so the query no longer filters those rows — it greps the declaration
+  patterns for a name that matches it, after a pause in the typing, as `s` does. A name declared
+  in a file the cut never reached is found that way. The title says which list is on screen:
+  `Symbols (first 5232, type to search all)`, then `Symbols (…)` while the grep runs and
+  `Symbols (94 hits)` for its answer, `5000+` when the cut caught that one too. Under the cap
+  nothing changes. (#79)
 
 ### Fixed
 
