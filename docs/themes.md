@@ -140,6 +140,28 @@ The screenshot comes from `cargo build --release && tools/theme-shots.sh NAME` (
 with Pillow; the font is macOS's Menlo). A test fails while
 a theme in `THEMES` has no row or no screenshot here.
 
+## Your own themes
+
+Your own themes go in `~/.config/merl/themes/` as `NAME.tmTheme`, where `NAME` is what `T` and
+`--theme` call them. They are listed after the built-ins, and a file named after a built-in
+replaces it, so a shipped theme can be copied and edited. Any TextMate theme works — the ones
+bat and Sublime Text use, or one made with [`tools/port-theme.sh`](../tools/port-theme.sh). A broken
+file is an error naming the path: at startup merl exits with code 1, and in `T` it says so and
+keeps the theme you had.
+
+## What else is highlighted
+
+The infrastructure half of a repository is highlighted too: Dockerfiles and `Containerfile` (with
+`RUN` lines as shell), compose, Kubernetes and CI YAML, Makefiles, Terraform, nginx, `.env`, TOML,
+INI and systemd units, `.dockerignore`, `CODEOWNERS`, Sorbet's `.rbi` files and `Dangerfile`. A
+`.h` file is painted as C++ rather than as the Objective-C bat's syntax set gives it: the C++
+grammar is the C one plus templates, classes and namespaces, so it reads a header of either
+language. An Objective-C header pays for that — its `@interface` and `@property` go unscoped,
+while its `.m` file keeps the Objective-C grammar. Helm
+templates are read as plain YAML, so their `{{ }}` blocks are not highlighted as a template
+language. A `build.zig.zon` is painted as Zig, which bat's grammar covers, though the data format
+it holds declares nothing `d` or `D` looks for.
+
 ## Licences
 
 The ported themes keep their authors' licences, shipped next to them in `themes/`:

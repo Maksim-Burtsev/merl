@@ -177,6 +177,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The README is rewritten around what merl is for: the one editor you need when agents write the
+  code. The workflow, a new demo recorded on gitea and install come first, then the argument, a
+  six-step "A day with merl", and "What merl is not". The editing and navigation reference moved
+  to `docs/editing.md` and `docs/navigation.md`, the theme details to `docs/themes.md`, and the
+  `Cargo.toml` description says the same as the tagline (#72).
 - `u` lists the same hits in the order a reader wants them: the declarations of the word first,
   each row marked `declaration`, then the open file, then the rest of the project's code with the
   nearest directories first, and tests, mocks, fixtures, generated and vendored files last
