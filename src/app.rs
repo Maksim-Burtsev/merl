@@ -2724,9 +2724,11 @@ impl App {
                     bound(&search::imports(kind, &text), first)
                         .is_some_and(|module| !another(first, &module))
                 };
-                let derives = search::bases(kind, &text, hit.line)
+                // Read off the whole header: the matched line alone may be a constraint of a
+                // type parameter, `S extends Notifier,`.
+                let derives = search::bases(kind, &text, decl)
                     .into_iter()
-                    .chain(search::interfaces(kind, &text, hit.line))
+                    .chain(search::interfaces(kind, &text, decl))
                     .filter_map(|b| search::type_path(kind, &b))
                     .any(|p| p.last().is_some_and(|n| names.contains(n)) && sees(&p[0]));
                 if !derives {
@@ -7647,6 +7649,105 @@ mod tests {
             let mut a = fixture_app(fixture);
             d_on(&mut a, file, code);
             assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100, TypeScript: a class header prettier wraps is still the class's header. A list of type
+    /// parameters over several lines ends in `> extends Base<K> {`, the clauses may stand on lines
+    /// of their own over a lone `{`; `this`, `super`, the fields and what the class extends are
+    /// read through both. The parameters of a function behind a wrapped `<…>` hide a module's
+    /// namesake.
+    #[test]
+    fn a_wrapped_class_header_is_a_header() {
+        let user = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} UserRepository.deleteUser (via {via})"),
+                "repos.ts:10",
+            )
+        };
+        let audit = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} AuditLog.deleteUser (via {via})"),
+                "repos.ts:16",
+            )
+        };
+        let seal = |via: &str| {
+            jump(
+                &format!("seal \u{2192} Crate.seal (via {via})"),
+                "headers.ts:12",
+            )
+        };
+        let cases: Vec<(&str, Shown)> = vec![
+            // Under `> extends Crate<K> {`: a field of the class, one of its base, a method of
+            // the base through `this` and through `super`, a constructor parameter.
+            (
+                "this.repo.deleteUser|(id)",
+                user("this.repo: UserRepository"),
+            ),
+            (
+                "this.audit.deleteUser|(id + 1)",
+                audit("this.audit: AuditLog"),
+            ),
+            ("this.seal|(key)", seal("this: Shelf")),
+            ("super.seal|(key)", seal("super of Shelf")),
+            (
+                "this.spare|)",
+                jump(
+                    "spare \u{2192} Shelf.spare (via this: Shelf)",
+                    "headers.ts:24",
+                ),
+            ),
+            // Under `extends` and `implements` on their own lines and a lone `{`.
+            (
+                "this.repo.deleteUser|(id + 2)",
+                user("this.repo: UserRepository"),
+            ),
+            (
+                "this.audit.deleteUser|(id + 3)",
+                audit("this.audit: AuditLog"),
+            ),
+            (
+                "super.seal|(key + \"!\")",
+                seal("super of LongNamedShelfOfStrings"),
+            ),
+            // `implements Sealable` on its own line is read; the constraint `S extends Sealable`
+            // of `Bin` implements nothing.
+            (
+                "seal|(key: string): void;",
+                jump(
+                    "seal \u{2192} LongNamedShelfOfStrings.seal (implementations of Sealable.seal)",
+                    "headers.ts:49",
+                ),
+            ),
+            // `other: T` is typed by a parameter of the wrapped list: the chain breaks there.
+            (
+                "this.other.seal|(key)",
+                picker(
+                    "seal: by name, 4 declarations (chain broke at other)",
+                    &[
+                        ("Sealable.seal", "headers.ts:6"),
+                        ("Crate.seal", "headers.ts:12"),
+                        ("LongNamedShelfOfStrings.seal", "headers.ts:49"),
+                        ("Bin.seal", "headers.ts:64"),
+                    ],
+                ),
+            ),
+            // A lone `{` under a statement is a block, and the statement above it still binds.
+            (
+                "void repo.deleteUser|(id + 4)",
+                user("repo: UserRepository"),
+            ),
+            // `>(repo: UserRepository, …` binds the parameter: the module's `repo` is hidden.
+            (
+                "void repo.deleteUser|(key.length)",
+                user("repo: UserRepository"),
+            ),
+            ("^  repo.deleteUser|(id)", audit("repo: AuditLog")),
+        ];
+        for (code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, "headers.ts", code);
+            assert_eq!(shown(&mut a), want, "{code}");
         }
     }
 

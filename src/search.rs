@@ -705,8 +705,10 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         // prettier writes a long TypeScript class header; it names nothing itself. Neither does
         // a C++ access specifier, which is a label inside the class, not a wall in front of it.
         let access = kind == Kind::C && matches!(t, "public:" | "private:" | "protected:");
+        // `> extends Base<K> {` closes the type parameters of the header above it.
         if t.is_empty()
             || t == "{"
+            || (kind == Kind::TsJs && t.starts_with('>'))
             || access
             || indent(l) >= depth
             || ["#", "//", "/*", "*"].iter().any(|c| t.starts_with(c))
@@ -2141,8 +2143,18 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         }
         // A header over several lines ends in a closer (`) {`, `} else {`) and starts at the
         // line above that is back at its indent.
+        // TypeScript's `> extends Base<K> {` closes a wrapped list of type parameters, and a lone
+        // `{` is the body of the clauses wrapped above it (#100), unless a statement ends there:
+        // then it is a block of its own.
         let end = i;
-        if t.starts_with([')', '}', ']']) {
+        let above = lines[..i]
+            .iter()
+            .rev()
+            .map(|l| l.trim())
+            .find(|l| !l.is_empty());
+        let body = t == "{" && !above.is_some_and(|l| l.ends_with([';', '{', '}', ':']));
+        let wrapped = kind == Kind::TsJs && (t.starts_with('>') || body);
+        if t.starts_with([')', '}', ']']) || wrapped {
             while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > ind) {
                 i -= 1;
             }
@@ -2487,6 +2499,56 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
     out.push(Binding { line, value });
 }
 
+/// The header of the TypeScript declaration on line `k` as one line, up to the `{` of its body,
+/// and the index of the line that `{` stands on. prettier wraps a long one (#100): the clauses on
+/// lines of their own over a lone `{`, or the type parameters, which are left out here, since
+/// their `extends` are constraints: `class Hono<⏎  E extends Env,⏎> extends Base<E> {`.
+fn ts_header(lines: &[&str], k: usize) -> (String, usize) {
+    // ponytail: forty lines of header; hono's widest list of type parameters runs to six.
+    let text = uncommented(Kind::TsJs, &lines[k..lines.len().min(k + 40)].join("\n"));
+    let b = text.as_bytes();
+    let (mut depth, mut angle) = (0i32, 0i32);
+    // The type parameters: the first `<…>` outside brackets, when no clause comes before it.
+    let (mut from, mut to) = (None, None);
+    let mut open = None;
+    for (i, c) in code(Kind::TsJs, &text) {
+        match c {
+            b'{' if depth == 0 && angle == 0 => {
+                open = Some(i);
+                break;
+            }
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            b'<' if depth == 0 => {
+                if angle == 0 && from.is_none() && !names(&text[..i], "extends") {
+                    from = Some(i);
+                }
+                angle += 1;
+            }
+            // The `>` of a `=>` closes nothing.
+            b'>' if depth == 0 && angle > 0 && b[i - 1] != b'=' => {
+                angle -= 1;
+                if angle == 0 && from.is_some() && to.is_none() {
+                    to = Some(i + 1);
+                }
+            }
+            _ => {}
+        }
+    }
+    let Some(open) = open else {
+        return (lines[k].to_owned(), k);
+    };
+    let last = k + text[..open].matches('\n').count();
+    let mut header = text[..=open].to_owned();
+    if let (Some(from), Some(to)) = (from, to) {
+        header.replace_range(from..to, "");
+    }
+    (
+        header.split_whitespace().collect::<Vec<_>>().join(" "),
+        last,
+    )
+}
+
 /// The lines of the body of the class, interface or struct declared on line `k`: past a Python
 /// header over several lines, up to the first line back at the declaration's indent.
 fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
@@ -2494,6 +2556,7 @@ fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
         (Kind::Python, Some(open)) => {
             group(kind, lines, k, open).map_or(k + 1, |(_, end, _)| end + 1)
         }
+        (Kind::TsJs, _) => ts_header(lines, k).1 + 1,
         _ => k + 1,
     };
     let base = indent(lines[k]);
@@ -2683,6 +2746,7 @@ fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usize> {
             || t == "{"
             || comment(kind, t)
             || t.starts_with([')', ']'])
+            || (kind == Kind::TsJs && t.starts_with('>'))
             || indent(lines[i]) >= depth
         {
             continue;
@@ -2931,7 +2995,7 @@ pub fn bases(kind: Kind, text: &str, decl: usize) -> Vec<String> {
             .and_then(|open| group(kind, &lines, k, open))
             .map_or_else(Vec::new, |(inner, ..)| list(&inner)),
         Kind::TsJs => TS_EXTENDS
-            .captures(lines[k])
+            .captures(&ts_header(&lines, k).0)
             .map_or_else(Vec::new, |c| list(&c[1])),
         Kind::Go if lines[k].contains("struct") || lines[k].contains("interface") => {
             let body = body_of(kind, &lines, k);
@@ -2962,10 +3026,15 @@ pub fn interfaces(kind: Kind, text: &str, decl: usize) -> Vec<String> {
     if kind != Kind::TsJs {
         return Vec::new();
     }
+    let lines: Vec<&str> = text.lines().collect();
     decl.checked_sub(1)
-        .and_then(|k| text.lines().nth(k))
-        .and_then(|l| TS_IMPLEMENTS.captures(l))
-        .map_or_else(Vec::new, |c| type_list(kind, &c[1]))
+        .filter(|&k| k < lines.len())
+        .and_then(|k| {
+            TS_IMPLEMENTS
+                .captures(&ts_header(&lines, k).0)
+                .map(|c| type_list(kind, &c[1]))
+        })
+        .unwrap_or_default()
 }
 
 /// The 1-based line of the type declaration the member on 1-based `line` of `text` is written
@@ -2977,7 +3046,8 @@ pub fn owner_decl(kind: Kind, text: &str, line: usize) -> Option<usize> {
     let depth = indent(lines.get(line.checked_sub(1)?)?);
     let (i, above) = lines[..line - 1].iter().enumerate().rev().find(|(_, l)| {
         let t = l.trim_start();
-        !t.is_empty() && t.trim_end() != "{" && !comment(kind, t) && indent(l) < depth
+        let closer = kind == Kind::TsJs && t.starts_with('>');
+        !t.is_empty() && t.trim_end() != "{" && !closer && !comment(kind, t) && indent(l) < depth
     })?;
     declares_type(kind, above).then_some(i + 1)
 }
