@@ -3222,7 +3222,8 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
                 }
             } else if t
                 .strip_prefix("const ")
-                .is_some_and(|rest| names(rest, name))
+                // The names, not the value: `const csp = "… http://…"` declares no `http`.
+                .is_some_and(|rest| names(rest.split('=').next().unwrap_or(rest), name))
             {
                 Value::Unknown
             } else {

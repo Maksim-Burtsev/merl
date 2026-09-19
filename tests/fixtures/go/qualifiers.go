@@ -7,6 +7,9 @@ import (
 	depot "example.com/fixture/store"
 )
 
+// A constant's value spells names and declares none of them.
+const qualifierNote = "fmt and depot are imports"
+
 // `d` on a package qualifier is its import line (#100); on a local of the name, the local.
 func QualifierOpen() {
 	depot.Open().Close()

@@ -8590,7 +8590,7 @@ mod tests {
                 "depot|.Remove",
                 jump(
                     "depot \u{2192} QualifierHidden.depot (local)",
-                    "qualifiers.go:16",
+                    "qualifiers.go:19",
                 ),
             ),
             (

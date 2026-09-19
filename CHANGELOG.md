@@ -232,6 +232,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A Go `const` whose value spells a name no longer declares it: `const csp = "… http://…"` hid
+  the `net/http` import of its file, so `http.Server` went by name into the project. Found by the
+  hand pass of #100.
 - SIGTERM, SIGHUP (a closed terminal or tmux pane) and SIGINT from outside end merl as `q` does:
   unsaved edits are written and the terminal is restored, instead of a shell left on the
   alternate screen with merl's last frame. (#80)
