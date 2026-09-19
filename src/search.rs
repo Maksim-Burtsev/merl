@@ -147,6 +147,82 @@ const C_MACRO_SYMBOL: &str = r"^\s*#\s*define\s+(?P<name>[A-Za-z_]\w*)";
 const RUBY_SYMBOL: &str =
     r"^\s*(?:def\s+(?:self\.|[A-Z]\w*\.)?|(?:class|module)\s+(?:[\w:]*::)?)(?P<name>[A-Za-z_]\w*)";
 
+/// The Lua half of [`SYMBOLS`], first half: a function written with the keyword, `local` and the
+/// table it hangs off included. The table prefix is dropped, as Ruby's `def self.parse` and an
+/// out-of-line C++ definition are, so the row is listed under the name the language calls it by.
+const LUA_FUNCTION_SYMBOL: &str =
+    r"^\s*(?:local\s+)?function\s+(?:[\w.]+[.:])?(?P<name>[A-Za-z_]\w*)\s*\(";
+
+/// The second half: a function literal bound to a name, the other way Lua writes a declaration —
+/// `M.name = function(`, and the `name = function(` of a table of handlers. A value that is not a
+/// function is left out: `name = 1` in a table constructor and a re-assignment inside a body are
+/// the same line, and Lua has no keyword to tell them apart.
+const LUA_ASSIGNED_SYMBOL: &str =
+    r"^\s*(?:local\s+)?(?:[\w.]+[.:])?(?P<name>[A-Za-z_]\w*)\s*=\s*function\b";
+
+/// The Elixir half of [`SYMBOLS`]: a module, a protocol and every `def` form, under the name
+/// alone — a `defmodule A.B.C` is listed as `C`, the way Ruby's `class A::B` is. A `defimpl` is
+/// left out: it declares the module `Protocol.Type`, and neither the protocol nor the type is a
+/// name of its own there, as a Rust `impl` is not. A `defstruct` is left out too, since one line
+/// declares every field, and so is a module attribute: `@doc`, `@spec` and `@moduledoc` are the
+/// language's own and would fill the list.
+const ELIXIR_SYMBOL: &str = concat!(
+    r"^\s*def(?:(?:module|protocol)\s+(?:[\w.]+\.)?|(?:p|macro|macrop|guard|guardp|delegate)?\s+)",
+    r"(?P<name>[A-Za-z_]\w*[!?]?)"
+);
+
+/// The Zig half of [`SYMBOLS`], first half: what the shared pattern has no word for. Zig declares
+/// with `fn` and `const`, which [`SYMBOL_PATTERN`] already reads, so this row adds only the
+/// function behind `inline` or `noinline` — modifiers that pattern's run does not know. A `var` is
+/// a global, and globals stay off the list, as in every other kind.
+const ZIG_INLINE_FN_SYMBOL: &str = concat!(
+    r#"^\s*(?:(?:pub|export|extern(?:\s+"[^"]*")?)\s+)*"#,
+    r"(?:inline|noinline)\s+fn\s+(?P<name>[A-Za-z_]\w*)"
+);
+
+/// The second half: a test, under the description it is written with. Half a Zig file is its
+/// tests, and the description is the only name one has. [`def_patterns`] has no rule for it, so
+/// `d` can never jump to a test: a word inside a description declares nothing.
+const ZIG_TEST_SYMBOL: &str = r#"^\s*test\s+"(?P<name>[^"]*)""#;
+
+/// The module attributes Elixir and the libraries everyone uses give a meaning to, rather than a
+/// project. They are directives, so [`def_patterns`] has no rule for the name itself. A list of
+/// known names is all a line pattern can have here: any library may define an attribute, and
+/// `@tag :slow` and `@timeout 5_000` are the same line.
+const ELIXIR_DIRECTIVES: &[&str] = &[
+    // ExUnit and Mix, which every project in the language meets.
+    "describetag",
+    "endpoint",
+    "moduletag",
+    "shortdoc",
+    "switches",
+    "tag",
+    "after_compile",
+    "before_compile",
+    "behaviour",
+    "callback",
+    "compile",
+    "deprecated",
+    "derive",
+    "dialyzer",
+    "doc",
+    "enforce_keys",
+    "external_resource",
+    "file",
+    "impl",
+    "macrocallback",
+    "moduledoc",
+    "on_definition",
+    "on_load",
+    "opaque",
+    "optional_callbacks",
+    "spec",
+    "type",
+    "typedoc",
+    "typep",
+    "vsn",
+];
+
 /// A name in a `CREATE` statement, as written: bare, `"quoted"` or `` `backticked` ``, and
 /// optionally schema-qualified (`public.orders`).
 const SQL_NAME: &str = r#"(?:"[^"]+"|`[^`]+`|\w+)"#;
@@ -182,6 +258,17 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::C), C_TYPE_SYMBOL),
     (Some(Kind::C), C_TYPEDEF_SYMBOL),
     (Some(Kind::C), C_MACRO_SYMBOL),
+    // Lua likewise: the shared pattern reads `function M.name(` as a declaration of `M`, and has
+    // no word for `local function` at all.
+    (Some(Kind::Lua), LUA_FUNCTION_SYMBOL),
+    (Some(Kind::Lua), LUA_ASSIGNED_SYMBOL),
+    // Elixir likewise: the shared pattern knows `def` and nothing else of the family, and reads
+    // the `x` of an anonymous `fn x -> …` as a declaration.
+    (Some(Kind::Elixir), ELIXIR_SYMBOL),
+    // Zig fits the shared pattern — it declares with `fn` and `const` — so these two rows only
+    // complement it, the way Shell's and SQL's do.
+    (Some(Kind::Zig), ZIG_INLINE_FN_SYMBOL),
+    (Some(Kind::Zig), ZIG_TEST_SYMBOL),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -198,11 +285,14 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Yaml), r"(^|\s)&(?P<anchor>[\w.-]+)"),
 ];
 
-/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C and C++ have
-/// rows of their own in [`SYMBOLS`], written for what those languages declare and how they name
-/// it, so reading the all-language pattern over them too would list a declaration twice.
+/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, Lua and
+/// Elixir have rows of their own in [`SYMBOLS`], written for what those languages declare and how they
+/// name it, so reading the all-language pattern over them too would list a declaration twice.
 pub fn shared_symbols(kind: Option<Kind>) -> bool {
-    !matches!(kind, Some(Kind::Jvm | Kind::Ruby | Kind::C))
+    !matches!(
+        kind,
+        Some(Kind::Jvm | Kind::Ruby | Kind::C | Kind::Lua | Kind::Elixir)
+    )
 }
 
 /// A file kind with navigation rules of its own. Told by the file name, since a `Makefile` or a
@@ -217,6 +307,9 @@ pub enum Kind {
     Ruby,
     /// C and C++ together, headers included.
     C,
+    Lua,
+    Elixir,
+    Zig,
     Shell,
     Sql,
     Make,
@@ -240,6 +333,12 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         // C and C++ are one kind: a header declares what a `.c` or a `.cc` defines, and either
         // language reads the other's headers, so they have to search each other.
         (_, "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx") => Kind::C,
+        (_, "lua") => Kind::Lua,
+        (_, "ex" | "exs") => Kind::Elixir,
+        // Not `.zon`: Zig's data format declares nothing the rules look for, and a key of a
+        // build manifest is no reason to send `d` into the standard library. bat paints it
+        // as Zig all the same.
+        (_, "zig") => Kind::Zig,
         (
             "Rakefile" | "rakefile" | "Gemfile" | "Guardfile" | "Capfile" | "Vagrantfile"
             | "Podfile" | "Brewfile" | "Dangerfile" | "Fastfile",
@@ -536,6 +635,62 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"^\w[^;(){{}}=<>]*[\s*&]{w}\s*(?:\[[^\]]*\])*\s*(?:=[^=]|;)"),
             ]
         }
+        // Lua declares with `function` and `local`, and with nothing else: a bare `name = value`
+        // is an assignment to whatever `name` already is, and a field of a table constructor is
+        // written exactly the same way, so only a function literal on the right counts.
+        Kind::Lua => vec![
+            // `function name(`, `local function name(`, and the table forms `function M.name(`,
+            // `function M:name(`, `function a.b.name(`.
+            format!(r"^\s*(?:local\s+)?function\s+(?:[\w.]+[.:])?{w}\s*\("),
+            // A function literal bound to a name: `name = function(`, `M.name = function(`, and
+            // the `name = function(` of a table of handlers.
+            format!(r"^\s*(?:local\s+)?(?:[\w.]+[.:])?{w}\s*=\s*function\b"),
+            // A local, the one declaration keyword the language has; `local a, b = f()`
+            // declares both.
+            format!(r"^\s*local\s+(?:[\w\s,]*,\s*)?{w}\b"),
+        ],
+        // Elixir declares with a `def` macro and with nothing else. Several clauses of one
+        // function are several declarations, so `d` offers them all and the picker's rows say
+        // which is which, the way a C++ overload set is offered.
+        Kind::Elixir => {
+            let mut patterns = vec![
+                // Every `def` form. A name can end in `?` or `!`, and a clause is written
+                // `def name(x) do`, `def name do` or `def name, do: x`.
+                format!(
+                    r"^\s*def(?:p|macro|macrop|guard|guardp|delegate)?\s+{w}[!?]?\s*(?:\(|,|do\b|$)"
+                ),
+                // A module or a protocol, under the namespace it is written with. The word has
+                // to be the last part: `defmodule MyApp.Repo` declares `MyApp.Repo` and nothing
+                // called `MyApp`. A `defimpl` declares the module `Protocol.Type`, where neither
+                // name is its own, as a Rust `impl` is a use of the trait and the type.
+                format!(r"^\s*def(?:module|protocol)\s+(?:[\w.]+\.)?{w}\s+do\b"),
+                // A field of the struct, in the atom list or the keyword form.
+                format!(r"^\s*defstruct\b.*(?::{w}\b|\b{w}:)"),
+            ];
+            // A module attribute is a declaration where it is given a value: `@timeout 5_000`.
+            // The attributes the language itself gives a meaning to are directives, not names a
+            // project declares — `@spec parse(t) :: t` is a promise about `parse`, not a
+            // declaration of `spec` — so `d` on one of them has nothing to find, and says so.
+            if !ELIXIR_DIRECTIVES.contains(&word) {
+                patterns.push(format!(r"^\s*@{w}\s+[^\s|]"));
+            }
+            patterns
+        }
+        // Zig writes every declaration behind a keyword: `fn`, or the `const` a type, a constant
+        // and an imported module alike are bound with. A struct field (`total: u32,`) has no rule,
+        // as a C field has none: it is the shape of a value in a struct literal.
+        Kind::Zig => {
+            let mods = r#"^\s*(?:(?:pub|export|extern(?:\s+"[^"]*")?|inline|noinline|threadlocal|comptime)\s+)*"#;
+            vec![
+                format!(r"{mods}fn\s+{w}\s*\("),
+                // `const Name = struct {`, `const Name = enum {` and a plain constant are one
+                // form; a `var` and a local inside a body are declarations all the same. A
+                // `const` at the start of a line always declares the name after it — the
+                // `[]const Row` of a type never starts one — so nothing has to follow the name,
+                // and the first name of a destructuring `const a, const b = t;` is found too.
+                format!(r"{mods}(?:const|var)\s+{w}\b"),
+            ]
+        }
         // A function in either form, an assignment behind the declaration keywords that can
         // precede it (`+=` appends to one), or an alias. A shell has no declaration for the rest,
         // so a `$w` use or a `[ "$w" = x ]` test must not look like one.
@@ -639,6 +794,9 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::Lua
+        | Kind::Elixir
+        | Kind::Zig
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -743,7 +901,9 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             || t == "{"
             || access
             || indent(l) >= depth
-            || ["#", "//", "/*", "*"].iter().any(|c| t.starts_with(c))
+            || ["#", "//", "/*", "*", "--"]
+                .iter()
+                .any(|c| t.starts_with(c))
         {
             continue;
         }
@@ -849,6 +1009,9 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::Lua
+        | Kind::Elixir
+        | Kind::Zig
         | Kind::Shell
         | Kind::Sql
         | Kind::Make => kind_of(path) == Some(kind),
@@ -952,6 +1115,10 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             dirs
         }
         Kind::TsJs => vec![root.join("node_modules")],
+        // Zig's standard library, where its own `zig env` says it is. The dependencies of a
+        // project live in the global package cache under hashed directory names no source line
+        // spells out, so they are left out.
+        Kind::Zig => zig_roots(&run("zig", &["env"]).unwrap_or_default()),
         // The system headers, which is where a C or C++ project's standard library and most of
         // its dependencies are: the SDK the toolchain reports on macOS, `/usr/include` on Linux,
         // and the two prefixes a package manager installs into. There is no per-project manifest
@@ -968,9 +1135,16 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             dirs
         }
         // Java, Kotlin and Ruby have no roots yet: the JDK and Gradle caches, and a gem path,
-        // are their own lookups. `d` stays inside the project for them, as for the rest.
+        // are their own lookups. Lua has no root at all to ask for: `package.path` is whatever
+        // the interpreter embedding it was built with, and a Neovim or a LuaRocks tree is not a
+        // standard library any project can be assumed to use. `d` stays inside the project for
+        // them, as for the rest. Elixir needs none: `mix` puts both the dependencies and their
+        // sources in `deps/` inside the project, so they are project files already, and the
+        // standard library ships compiled — an installed Elixir has `.beam` files, not `.ex`.
         Kind::Jvm
         | Kind::Ruby
+        | Kind::Lua
+        | Kind::Elixir
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -981,6 +1155,22 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
     dirs.retain(|d| d.is_dir() && d != root && !d.as_os_str().is_empty());
     dirs.dedup();
     dirs
+}
+
+/// The standard library directory in the output of `zig env`, which is JSON on some versions and
+/// ZON on others: the value is the first quoted string after the key either way. A version that
+/// reports no `std_dir` still reports the library directory it sits in. Empty when `zig` is not
+/// on the PATH, as every root is when its toolchain is not installed.
+fn zig_roots(env: &str) -> Vec<PathBuf> {
+    let value = |key: &str| {
+        let rest = env.split_once(key)?.1.trim_start_matches('"');
+        let rest = rest.split_once('"')?.1;
+        Some(PathBuf::from(rest.split_once('"')?.0))
+    };
+    value("std_dir")
+        .or_else(|| value("lib_dir").map(|d| d.join("std")))
+        .into_iter()
+        .collect()
 }
 
 /// Every file of `kind` under `dirs`, as absolute paths. Nothing is ignored: `node_modules`
@@ -1279,10 +1469,15 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
         }
         // Nothing to bind without roots to resolve an `import` or a `require` against. A C
         // `#include` binds no name of its own either: it pastes a file in, and everything the
-        // file declares is then visible unqualified.
+        // file declares is then visible unqualified. Zig's `const std = @import("std")` does bind
+        // one, but `std` is the root itself, not a directory inside it, so narrowing by it would
+        // find nothing.
         Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::Lua
+        | Kind::Elixir
+        | Kind::Zig
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -1469,6 +1664,9 @@ pub fn module_files(
         | Kind::Jvm
         | Kind::Ruby
         | Kind::C
+        | Kind::Lua
+        | Kind::Elixir
+        | Kind::Zig
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -1627,24 +1825,79 @@ fn comment(kind: Kind, t: &str) -> bool {
 }
 
 /// The 1-based lines of `text` that start inside a literal or a comment running over several
-/// lines: a Python triple-quoted string (a docstring with an example in it), a Go raw string, a
-/// TypeScript template, a `/* */` block. A line there that reads like a declaration declares
-/// nothing. Strings of one line end with their line, whatever they hold.
+/// lines: a Python or Elixir triple-quoted string (a docstring or an `@moduledoc` with an example
+/// in it), a Go raw string, a TypeScript template, a Lua `[[ ]]` or `[==[ ]==]` long string or
+/// block comment, a `/* */` block. A line there that reads like a declaration declares nothing.
+/// Strings of one line end with their line, whatever they hold.
+///
+/// Each kind says which forms it has rather than inheriting another language's: Zig has none at
+/// all — a `\\` string ends with its line — and reading it with the backtick and `/* */` of the C
+/// family would take the ``` ``` ``` fences of the markdown a `\\` block holds for a literal and
+/// hide the rest of the file behind them.
+///
+/// ponytail: Elixir's `~S"""` sigil is read from its `"""`, and its one-line `~s(…)` forms not at
+/// all.
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
-    let python = kind == Kind::Python;
+    // Elixir writes its heredocs and its comments exactly as Python does; Lua's long bracket is
+    // its own string and, behind `--`, its block comment.
+    let (heredoc, long_bracket, template) = match kind {
+        Kind::Python | Kind::Elixir => (true, false, false),
+        Kind::Lua => (false, true, false),
+        Kind::Zig => (false, false, false),
+        _ => (false, false, true),
+    };
+    let line_comment: &[u8] = match (heredoc, long_bracket) {
+        (true, _) => b"#",
+        (_, true) => b"--",
+        _ => b"//",
+    };
     let b = text.as_bytes();
     let mut out = vec![false];
-    // The multi-line literal the scan is in, by its closing bytes; a one-line quote.
-    let (mut block, mut quote, mut i): (Option<&[u8]>, Option<u8>, usize) = (None, None, 0);
+    // The multi-line literal the scan is in, by its closing bytes, and, for a long bracket, the
+    // number of `=` its closer carries; a one-line quote.
+    let (mut block, mut level, mut quote, mut i): (Option<&[u8]>, usize, Option<u8>, usize) =
+        (None, 0, None, 0);
+    // A long bracket opening at `at` — `[[` or `[==[`, behind `--` or not: how many `=` it
+    // carries, and how far past `at` its second `[` sits. A `[` that opens nothing, as the one in
+    // the `\[[A-Za-z]\+\]` of a Vim regex, is no opener, so the `[=[` around it has to be read.
+    let opens = |at: usize| -> Option<(usize, usize)> {
+        let open = if b[at..].starts_with(b"--[") {
+            at + 2
+        } else {
+            at
+        };
+        if b.get(open) != Some(&b'[') {
+            return None;
+        }
+        let eq = b[open + 1..].iter().take_while(|&&c| c == b'=').count();
+        (b.get(open + 1 + eq) == Some(&b'[')).then_some((eq, open + 1 + eq - at))
+    };
     while i < b.len() {
         let c = b[i];
         if c == b'\n' {
             quote = None;
             out.push(block.is_some());
         } else if let Some(end) = block {
-            if b[i..].starts_with(end) && (end.len() > 1 || b[i - 1] != b'\\') {
+            // A long bracket closes on `]`, the `=` its opener carried, and `]`.
+            let closes = if long_bracket {
+                c == b']'
+                    && b[i + 1..]
+                        .iter()
+                        .take(level)
+                        .filter(|&&c| c == b'=')
+                        .count()
+                        == level
+                    && b.get(i + 1 + level) == Some(&b']')
+            } else {
+                b[i..].starts_with(end) && (end.len() > 1 || b[i - 1] != b'\\')
+            };
+            if closes {
                 block = None;
-                i += end.len() - 1;
+                i += if long_bracket {
+                    level + 1
+                } else {
+                    end.len() - 1
+                };
             }
         } else if let Some(q) = quote {
             if c == b'\\' {
@@ -1652,21 +1905,25 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             } else if c == q {
                 quote = None;
             }
-        } else if python && (b[i..].starts_with(b"\"\"\"") || b[i..].starts_with(b"'''")) {
+        } else if heredoc && (b[i..].starts_with(b"\"\"\"") || b[i..].starts_with(b"'''")) {
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" });
             i += 2;
-        } else if !python && c == b'`' {
+        } else if let Some((eq, skip)) = long_bracket.then(|| opens(i)).flatten() {
+            block = Some(b"]]");
+            level = eq;
+            i += skip;
+        } else if template && c == b'`' {
             // ponytail: `/`/` is a regex, told by the slash in front; a division by a template
             // is not written.
             if i == 0 || b[i - 1] != b'/' {
                 block = Some(b"`");
             }
-        } else if !python && b[i..].starts_with(b"/*") {
+        } else if template && b[i..].starts_with(b"/*") {
             block = Some(b"*/");
             i += 1;
         } else if c == b'"' || c == b'\'' {
             quote = Some(c);
-        } else if (python && c == b'#') || (!python && b[i..].starts_with(b"//")) {
+        } else if b[i..].starts_with(line_comment) {
             while i + 1 < b.len() && b[i + 1] != b'\n' {
                 i += 1;
             }
@@ -4256,6 +4513,587 @@ enum class Status {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    const LUA: &str = r#"local uv = vim.uv
+
+local M = {}
+local cache, hits = {}, 0
+
+function M.setup(opts)
+  local defaults = { limit = 10 }
+  cache = defaults
+  return M.normalise(opts)
+end
+
+function M:render(row)
+  return row
+end
+
+function normalise(opts)
+  return opts
+end
+
+local function trim(s)
+  return s
+end
+
+M.format = function(row)
+  return trim(row)
+end
+
+local handlers = {
+  open = function(id)
+    return id
+  end,
+  limit = 10,
+}
+
+--[[
+function M.ghost(x)
+  return x
+end
+]]
+
+M.setup({ limit = 1 })
+return M
+
+local pat = [=[
+^\s*\%(\[[A-Za-z]\+\]\)* ]-] x
+function M.ghosted(x)
+end
+]=]
+
+function M.after(x)
+  return x
+end
+
+local sql = [[
+function M.ghost2(x)
+end
+]]
+
+function M.last() end
+"#;
+
+    #[test]
+    fn lua_def_patterns_find_functions_and_locals() {
+        let (dir, files) = scratch("lua", &[("init.lua", LUA)]);
+        let d = |w| defs(&dir, &files, Kind::Lua, w);
+        assert_eq!(d("setup"), [6], "the declaration, not the call on line 41");
+        assert_eq!(d("render"), [12], "the `M:name` form");
+        assert_eq!(d("normalise"), [16], "not the `M.normalise(opts)` call");
+        assert_eq!(d("trim"), [20], "`local function`");
+        assert_eq!(d("format"), [24], "`M.name = function`");
+        assert_eq!(d("open"), [29], "a function in a table of handlers");
+        assert_eq!(d("M"), [3]);
+        assert_eq!(d("uv"), [1]);
+        // `local a, b = …` declares both, and a later bare `cache = …` is an assignment to the
+        // local already declared, not a declaration of its own.
+        assert_eq!(d("cache"), [4]);
+        assert_eq!(d("hits"), [4]);
+        assert_eq!(d("defaults"), [7], "a local inside a body");
+        assert_eq!(
+            d("limit"),
+            Vec::<usize>::new(),
+            "a table field holding a value has no rule: the line is also an assignment"
+        );
+        assert_eq!(d("opts"), Vec::<usize>::new(), "a parameter");
+        assert_eq!(d("row"), Vec::<usize>::new());
+        assert_eq!(
+            d("vim"),
+            Vec::<usize>::new(),
+            "the right-hand side of a local"
+        );
+        // A `[=[ … ]=]` long string closes on the `=` it was opened with, so neither the
+        // `\[[` of the Vim regex inside it nor the `]-]` closes it, and what follows the
+        // string is still read as code.
+        assert_eq!(d("pat"), [44]);
+        assert_eq!(d("after"), [50]);
+        assert_eq!(d("last"), [59]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn lua_long_brackets_hide_what_they_hold() {
+        // The `--[[ … ]]` block comment on lines 35-39, the `[=[ … ]=]` string on 44-48 and
+        // the `[[ … ]]` one on 54-57: the functions inside them declare nothing, the way a
+        // Python docstring's example does not.
+        let lit = literal_lines(Kind::Lua, LUA);
+        assert_eq!(
+            lit.iter()
+                .enumerate()
+                .filter(|(_, l)| **l)
+                .map(|(i, _)| i + 1)
+                .collect::<Vec<_>>(),
+            [36, 37, 38, 39, 45, 46, 47, 48, 55, 56, 57]
+        );
+        // A `--` line comment is still one line, whatever quote it holds.
+        assert!(
+            literal_lines(Kind::Lua, "-- don't\nlocal x = 1\n")[1..]
+                .iter()
+                .all(|l| !l)
+        );
+    }
+
+    #[test]
+    fn lua_scope_roots_and_names() {
+        let here = Path::new("lua/config/init.lua");
+        assert!(in_def_scope(
+            Kind::Lua,
+            here,
+            Path::new("lua/plugins/ui.lua")
+        ));
+        assert!(!in_def_scope(Kind::Lua, here, Path::new("main.c")));
+        // `require "x"` binds a name, but there is no root to resolve it against and Lua's own
+        // `package.path` is the embedding interpreter's, so nothing is bound and nothing is
+        // searched outside the project.
+        assert!(imports(Kind::Lua, LUA).is_empty());
+        assert!(external_roots(Kind::Lua, Path::new("/")).is_empty());
+        assert!(member_patterns(Kind::Lua, "setup").is_none());
+        // A function nested in another is named under it, as in every kind, and a `--`
+        // comment in between is a comment, not a declaration that names nothing.
+        assert_eq!(
+            qualified(
+                Kind::Lua,
+                "function M.setup()\n-- a note\n  local function inner() end\nend\n",
+                3,
+                "inner"
+            )
+            .as_deref(),
+            Some("setup.inner")
+        );
+    }
+
+    #[test]
+    fn lua_symbol_names() {
+        let lua = |line| one(Kind::Lua, line);
+        for (line, name) in [
+            ("function setup(opts)", Some("setup")),
+            ("function M.setup(opts)", Some("setup")),
+            ("function M:render(row)", Some("render")),
+            ("function vim.lsp.util.clamp(x)", Some("clamp")),
+            ("local function trim(s)", Some("trim")),
+            ("  local function inner()", Some("inner")),
+            ("M.format = function(row)", Some("format")),
+            ("local format = function(row)", Some("format")),
+            ("  open = function(id)", Some("open")),
+            // Not a declaration: a call, a field holding a value, a local, a return.
+            ("M.setup({ limit = 1 })", None),
+            ("  limit = 10,", None),
+            ("local M = {}", None),
+            ("local cache, hits = {}, 0", None),
+            ("  return M.normalise(opts)", None),
+            ("  end,", None),
+            ("-- function ghost(x)", None),
+        ] {
+            assert_eq!(lua(line).as_deref(), name, "{line}");
+        }
+    }
+
+    const EX: &str = r#"defmodule MyApp.Ledger do
+  @moduledoc """
+  Examples:
+
+      def ghost(x), do: x
+  """
+
+  @timeout 5_000
+  @derive {Jason.Encoder, only: [:id]}
+
+  defstruct [:id, :total, currency: "EUR"]
+
+  @type t :: %__MODULE__{}
+
+  @spec parse(String.t()) :: t
+  def parse(nil), do: nil
+
+  def parse(raw) when is_binary(raw) do
+    %__MODULE__{id: raw}
+  end
+
+  defp normalise(raw) do
+    String.trim(raw)
+  end
+
+  defmacro with_total(do: block) do
+    block
+  end
+
+  defguard is_positive(n) when n > 0
+
+  defdelegate encode(value), to: Jason
+
+  def timeout, do: @timeout
+end
+
+defprotocol Renderable do
+  def render(value)
+end
+
+defimpl Renderable, for: MyApp.Ledger do
+  def render(ledger), do: ledger.id
+end
+
+defmodule MyApp.LedgerTest do
+  @moduletag :slow
+  @tag :external
+
+  defmacrop guard!(x), do: x
+  defguardp is_even(n) when rem(n, 2) == 0
+
+  def empty?(rows), do: rows == []
+  def put!(row), do: row
+end
+"#;
+
+    #[test]
+    fn elixir_def_patterns_find_every_def_form() {
+        let (dir, files) = scratch("ex", &[("ledger.ex", EX)]);
+        let d = |w| defs(&dir, &files, Kind::Elixir, w);
+        assert_eq!(
+            d("Ledger"),
+            [1],
+            "the last part of `defmodule MyApp.Ledger`"
+        );
+        assert_eq!(d("Renderable"), [37], "not the `defimpl` that uses it");
+        // Two clauses of one function are two declarations, so both are offered; the `@spec`
+        // above them is a promise about `parse`, not its definition.
+        assert_eq!(d("parse"), [16, 18]);
+        assert_eq!(d("normalise"), [22], "`defp`");
+        assert_eq!(d("with_total"), [26], "`defmacro`");
+        assert_eq!(d("is_positive"), [30], "`defguard`");
+        assert_eq!(d("encode"), [32], "`defdelegate`");
+        assert_eq!(d("render"), [38, 42], "the protocol and its implementation");
+        // The attribute and the function of the same name are both declarations, of different
+        // things, so `d` offers both rather than guessing.
+        assert_eq!(d("timeout"), [8, 34]);
+        assert_eq!(d("id"), [11], "a struct field, atom list form");
+        assert_eq!(d("currency"), [11], "the keyword form of the same line");
+        // The attributes the language owns, and the names they talk about.
+        assert_eq!(d("t"), Vec::<usize>::new(), "`@type t ::` declares no `t`");
+        assert_eq!(d("spec"), Vec::<usize>::new());
+        assert_eq!(d("type"), Vec::<usize>::new());
+        assert_eq!(d("moduledoc"), Vec::<usize>::new());
+        assert_eq!(d("derive"), Vec::<usize>::new());
+        assert_eq!(d("MyApp"), Vec::<usize>::new(), "a namespace, not a module");
+        assert_eq!(d("raw"), Vec::<usize>::new(), "a parameter");
+        assert_eq!(d("block"), Vec::<usize>::new());
+        assert_eq!(d("Jason"), Vec::<usize>::new());
+        assert_eq!(d("guard"), [49], "`defmacrop`, past the trailing `!`");
+        assert_eq!(d("is_even"), [50], "`defguardp`");
+        // A name Elixir spells with a trailing `?` or `!` is found from the bare word, as
+        // Ruby's is: the cursor on `empty` in `empty?(rows)` reaches `def empty?`.
+        assert_eq!(d("empty"), [52]);
+        assert_eq!(d("put"), [53]);
+        // ExUnit's and Mix's attributes are directives too, so `d` on one has nothing to find
+        // rather than a picker of every place the directive is written.
+        assert_eq!(d("tag"), Vec::<usize>::new());
+        assert_eq!(d("moduletag"), Vec::<usize>::new());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn elixir_heredocs_hide_what_they_hold() {
+        // `@moduledoc """ … """` on lines 2-6: the `def ghost(x)` of its example declares
+        // nothing, as a Python docstring's does not.
+        let lit = literal_lines(Kind::Elixir, EX);
+        assert_eq!(
+            lit.iter()
+                .enumerate()
+                .filter(|(_, l)| **l)
+                .map(|(i, _)| i + 1)
+                .collect::<Vec<_>>(),
+            [3, 4, 5, 6]
+        );
+    }
+
+    #[test]
+    fn elixir_scope_roots_and_names() {
+        let here = Path::new("lib/my_app/ledger.ex");
+        assert!(in_def_scope(
+            Kind::Elixir,
+            here,
+            Path::new("test/ledger_test.exs")
+        ));
+        assert!(!in_def_scope(Kind::Elixir, here, Path::new("mix.lock")));
+        // `alias` and `import` bind names, but `mix` puts the dependencies in `deps/` inside the
+        // project, so they are project files already and there is no root to leave for.
+        assert!(imports(Kind::Elixir, EX).is_empty());
+        assert!(external_roots(Kind::Elixir, Path::new("/")).is_empty());
+        assert!(member_patterns(Kind::Elixir, "parse").is_none());
+        // A function is named under the module it is written in, as in every kind.
+        assert_eq!(
+            qualified(Kind::Elixir, EX, 22, "normalise").as_deref(),
+            Some("Ledger.normalise")
+        );
+        assert_eq!(qualified(Kind::Elixir, EX, 1, "Ledger"), None);
+    }
+
+    #[test]
+    fn elixir_symbol_names() {
+        let ex = |line| one(Kind::Elixir, line);
+        for (line, name) in [
+            ("defmodule MyApp.Ledger do", Some("Ledger")),
+            ("defmodule Ledger do", Some("Ledger")),
+            ("defprotocol Renderable do", Some("Renderable")),
+            ("  def parse(nil), do: nil", Some("parse")),
+            ("  def timeout, do: @timeout", Some("timeout")),
+            ("  defp normalise(raw) do", Some("normalise")),
+            ("  def empty?(rows), do: rows == []", Some("empty?")),
+            ("  def put!(row), do: row", Some("put!")),
+            ("  defmacro with_total(do: block) do", Some("with_total")),
+            ("  defmacrop guard!(x), do: x", Some("guard!")),
+            ("  defguard is_positive(n) when n > 0", Some("is_positive")),
+            (
+                "  defguardp is_even(n) when rem(n, 2) == 0",
+                Some("is_even"),
+            ),
+            ("  defdelegate encode(value), to: Jason", Some("encode")),
+            // A `defimpl` names the module `Protocol.Type`, and neither half is its own name;
+            // `defstruct` declares every field on one line; an attribute belongs to the language.
+            ("defimpl Renderable, for: MyApp.Ledger do", None),
+            ("  defstruct [:id, :total]", None),
+            ("  @spec parse(String.t()) :: t", None),
+            ("  @type t :: %__MODULE__{}", None),
+            ("  @moduledoc \"\"\"", None),
+            ("  @timeout 5_000", None),
+            // The shared pattern called this a declaration of `x`.
+            ("    Enum.map(rows, fn x -> x.id end)", None),
+            ("    String.trim(raw)", None),
+            ("  end", None),
+        ] {
+            assert_eq!(ex(line).as_deref(), name, "{line}");
+        }
+    }
+
+    const ZIG: &str = r#"const std = @import("std");
+const Allocator = std.mem.Allocator;
+
+pub const Error = error{OutOfRange};
+
+pub const Ledger = struct {
+    total: u32,
+    rows: []const Row,
+
+    const empty: Ledger = .{ .total = 0, .rows = &.{} };
+
+    pub fn init(allocator: Allocator) Ledger {
+        var self = Ledger{ .total = 0, .rows = &.{} };
+        return self;
+    }
+
+    pub inline fn isEmpty(self: Ledger) bool {
+        return self.rows.len == 0;
+    }
+
+    fn compute(self: Ledger) u32 {
+        return self.total;
+    }
+};
+
+pub const Row = struct { id: u32 };
+
+const Status = enum { open, closed };
+
+const Value = union(enum) { n: u32, s: []const u8 };
+
+pub var counter: u32 = 0;
+threadlocal var scratch: [16]u8 = undefined;
+
+export fn ledger_total(l: *Ledger) u32 {
+    return l.total;
+}
+
+pub extern "c" fn strlen(s: [*:0]const u8) usize;
+
+noinline fn slow(x: u32) u32 {
+    return x;
+}
+
+test "a ledger starts empty" {
+    const l = Ledger.init(std.testing.allocator);
+    try std.testing.expect(l.isEmpty());
+}
+
+const first, const second = .{ 1, 2 };
+
+extern fn puts(s: [*:0]const u8) c_int;
+
+export inline fn fast(x: u32) u32 {
+    comptime var seen: u32 = 0;
+    seen += x;
+    return seen;
+}
+
+const help =
+    \\```zig
+    \\const x = 1;
+    \\```
+;
+
+pub fn after() void {}
+"#;
+
+    #[test]
+    fn zig_def_patterns_find_functions_types_and_constants() {
+        let (dir, files) = scratch("zig", &[("ledger.zig", ZIG)]);
+        let d = |w| defs(&dir, &files, Kind::Zig, w);
+        assert_eq!(d("std"), [1]);
+        assert_eq!(d("Allocator"), [2]);
+        assert_eq!(d("Error"), [4]);
+        assert_eq!(
+            d("Ledger"),
+            [6],
+            "not the literal on line 13 or the call on line 46"
+        );
+        assert_eq!(d("empty"), [10], "a constant in a struct body");
+        assert_eq!(d("init"), [12], "not the `Ledger.init(…)` call on line 46");
+        assert_eq!(d("isEmpty"), [17], "`pub inline fn`");
+        assert_eq!(d("compute"), [21]);
+        assert_eq!(
+            d("Row"),
+            [26],
+            "not the `rows: []const Row` field that uses it"
+        );
+        assert_eq!(d("Status"), [28], "`const X = enum`");
+        assert_eq!(d("Value"), [30], "`const X = union(enum)`");
+        assert_eq!(d("counter"), [32], "`pub var`");
+        assert_eq!(d("scratch"), [33], "`threadlocal var`");
+        assert_eq!(d("ledger_total"), [35], "`export fn`");
+        assert_eq!(d("strlen"), [39], r#"`pub extern "c" fn`"#);
+        assert_eq!(d("slow"), [41], "`noinline fn`");
+        assert_eq!(
+            d("self"),
+            [13],
+            "a local; the parameters of lines 17 and 21 are not"
+        );
+        assert_eq!(d("l"), [46]);
+        assert_eq!(
+            d("total"),
+            Vec::<usize>::new(),
+            "a struct field has no rule"
+        );
+        assert_eq!(d("id"), Vec::<usize>::new());
+        assert_eq!(
+            d("ledger"),
+            Vec::<usize>::new(),
+            "a word inside a test description declares nothing"
+        );
+        assert_eq!(d("open"), Vec::<usize>::new(), "an enum field");
+        // A destructuring declares both names, but only the first one starts the line, and every
+        // rule here is anchored there.
+        assert_eq!(d("first"), [50]);
+        assert_eq!(d("second"), Vec::<usize>::new());
+        assert_eq!(d("puts"), [52], "`extern fn`, with no calling convention");
+        assert_eq!(d("fast"), [54], "`export inline fn`");
+        assert_eq!(d("seen"), [55], "`comptime var`");
+        // Zig has no literal that runs over lines: a `\\` string ends with its line, so the
+        // markdown fences on 61-63 open nothing and the declaration below them is still found.
+        assert_eq!(d("after"), [66]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn zig_has_no_literal_that_runs_over_lines() {
+        // A `\\` string holding markdown is idiomatic in Zig, and its ``` fences are not a
+        // TypeScript template: reading Zig with the C family's rules would hide every line
+        // after the first fence, and `d` would say `no definition` over code it can see.
+        assert!(
+            literal_lines(Kind::Zig, ZIG).iter().all(|l| !l),
+            "a Zig line was taken for the inside of a literal"
+        );
+    }
+
+    #[test]
+    fn zig_scope_roots_and_names() {
+        let here = Path::new("src/main.zig");
+        assert!(in_def_scope(Kind::Zig, here, Path::new("src/ledger.zig")));
+        assert!(!in_def_scope(Kind::Zig, here, Path::new("build.zig.zon")));
+        assert!(imports(Kind::Zig, ZIG).is_empty());
+        assert!(member_patterns(Kind::Zig, "init").is_none());
+        // The standard library `zig env` reports, on a machine that has a `zig`; nothing at all
+        // on one that does not, as for every kind whose toolchain is not installed.
+        assert!(
+            external_roots(Kind::Zig, Path::new("/"))
+                .iter()
+                .all(|r| r.is_dir() && r.ends_with("std")),
+            "a Zig root that is not an existing `std` directory"
+        );
+        // A method is named under the type it is declared in, as in every kind.
+        assert_eq!(
+            qualified(Kind::Zig, ZIG, 12, "init").as_deref(),
+            Some("Ledger.init")
+        );
+        assert_eq!(qualified(Kind::Zig, ZIG, 6, "Ledger"), None);
+    }
+
+    #[test]
+    fn zig_std_comes_from_zig_env() {
+        // What `zig env` prints: JSON on some versions, ZON on others.
+        let json = "{\n \"zig_exe\": \"/opt/homebrew/bin/zig\",\n \"lib_dir\": \"/opt/lib/zig\",\n \"std_dir\": \"/opt/lib/zig/std\"\n}\n";
+        assert_eq!(zig_roots(json), [PathBuf::from("/opt/lib/zig/std")]);
+        let zon = ".{ .zig_exe = \"/usr/bin/zig\", .lib_dir = \"/usr/lib/zig\", .std_dir = \"/usr/lib/zig/std\" }\n";
+        assert_eq!(zig_roots(zon), [PathBuf::from("/usr/lib/zig/std")]);
+        // A version that reports only the library directory the standard library sits in.
+        assert_eq!(
+            zig_roots("{\"lib_dir\": \"/usr/lib/zig\"}"),
+            [PathBuf::from("/usr/lib/zig/std")]
+        );
+        // No `zig` on this machine: nothing to search outside the project.
+        assert!(zig_roots("").is_empty());
+    }
+
+    #[test]
+    fn zig_symbol_names() {
+        let zig = |line| one(Kind::Zig, line);
+        for (line, name) in [
+            // The shared pattern reads these; the rows of this kind must not list them again.
+            ("pub const Ledger = struct {", Some("Ledger")),
+            ("const Status = enum { open, closed };", Some("Status")),
+            ("const Value = union(enum) { n: u32 };", Some("Value")),
+            (
+                "    pub fn init(allocator: Allocator) Ledger {",
+                Some("init"),
+            ),
+            ("    fn compute(self: Ledger) u32 {", Some("compute")),
+            (
+                "export fn ledger_total(l: *Ledger) u32 {",
+                Some("ledger_total"),
+            ),
+            (
+                "pub extern \"c\" fn strlen(s: [*:0]const u8) usize;",
+                Some("strlen"),
+            ),
+            // These it has no word for.
+            (
+                "    pub inline fn isEmpty(self: Ledger) bool {",
+                Some("isEmpty"),
+            ),
+            ("noinline fn slow(x: u32) u32 {", Some("slow")),
+            (
+                "export inline fn ledger_total(l: *Ledger) u32 {",
+                Some("ledger_total"),
+            ),
+            (
+                "pub extern \"c\" inline fn strlen(s: [*:0]const u8) usize;",
+                Some("strlen"),
+            ),
+            (
+                "test \"a ledger starts empty\" {",
+                Some("a ledger starts empty"),
+            ),
+            // A global, a local and a field stay off the list, as in every other kind.
+            ("pub var counter: u32 = 0;", None),
+            ("threadlocal var scratch: [16]u8 = undefined;", None),
+            ("        var self = Ledger{ .total = 0 };", None),
+            ("    const empty: Ledger = .{ .total = 0 };", None),
+            ("    total: u32,", None),
+            ("    return self.total;", None),
+            ("    try std.testing.expect(l.isEmpty());", None),
+        ] {
+            assert_eq!(zig(line).as_deref(), name, "{line}");
+        }
+    }
+
     const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
 
     #[test]
@@ -4433,6 +5271,12 @@ output "bucket" {
             ("ledger.hpp", Some(Kind::C)),
             ("ledger.hh", Some(Kind::C)),
             ("ledger.hxx", Some(Kind::C)),
+            ("init.lua", Some(Kind::Lua)),
+            ("ledger.ex", Some(Kind::Elixir)),
+            ("mix.exs", Some(Kind::Elixir)),
+            ("ledger.zig", Some(Kind::Zig)),
+            // Zig's data format: painted as Zig, but it declares nothing.
+            ("build.zig.zon", None),
             ("app.kt", Some(Kind::Jvm)),
             ("build.gradle.kts", Some(Kind::Jvm)),
             ("run.sh", Some(Kind::Shell)),
@@ -6191,11 +7035,14 @@ func Close() {
 
     #[test]
     fn the_shared_pattern_skips_the_kinds_with_rows_of_their_own() {
-        // Java, Kotlin, Ruby, C and C++ are listed from their own rows only, so nothing is listed
-        // twice and `def self.parse` is not `self`.
+        // Java, Kotlin, Ruby, C, C++, Lua and Elixir are listed from their own rows only, so
+        // nothing is listed twice, `def self.parse` is not `self` and `function M.setup(` is
+        // not `M`.
         assert!(!shared_symbols(Some(Kind::Jvm)));
         assert!(!shared_symbols(Some(Kind::Ruby)));
         assert!(!shared_symbols(Some(Kind::C)));
+        assert!(!shared_symbols(Some(Kind::Lua)));
+        assert!(!shared_symbols(Some(Kind::Elixir)));
         // Shell and SQL rows complement the shared pattern instead, and it reads every other
         // file, known kind or not.
         assert!(shared_symbols(Some(Kind::Shell)));
