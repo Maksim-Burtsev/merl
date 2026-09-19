@@ -1109,6 +1109,8 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     static FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)").unwrap()
     });
+    static PY_DEF: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)").unwrap());
     static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").unwrap()
     });
@@ -1153,6 +1155,14 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         && let Some(ty) = type_name(kind, lines[decl - 1])
     {
         let owner = qualified(kind, text, decl, &ty).unwrap_or(ty);
+        return Some(format!("{owner}{sep}{name}"));
+    }
+    // Any other name on a Python `def` line is a parameter (#100): `Recipes.get_one.slug`, as a
+    // local of the body reads, not `Recipes.slug`, a field's name.
+    if kind == Kind::Python
+        && let Some(c) = PY_DEF.captures(target).filter(|c| &c[1] != name)
+    {
+        let owner = qualified(kind, text, line, &c[1]).unwrap_or_else(|| c[1].to_owned());
         return Some(format!("{owner}{sep}{name}"));
     }
     let indent = |s: &str| s.len() - s.trim_start().len();

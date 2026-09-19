@@ -6641,12 +6641,12 @@ mod tests {
                 "^        self.poster_id",
                 namesakes("poster_id", ("Issue.poster_id", "fields.py:16")),
             ),
-            // The parameter handed on, not the field it is handed to.
+            // The parameter handed on, not the field it is handed to, and named so (#100).
             (
                 "python",
                 "fields.py",
                 "self.repo = repo",
-                jump("repo \u{2192} Issue.repo (local)", "fields.py:19"),
+                jump("repo \u{2192} Issue.__init__.repo (local)", "fields.py:19"),
             ),
             // A class whose base is not the project's: its declarations by name, fields
             // included, and a nested class among them.
@@ -9522,6 +9522,60 @@ mod tests {
                     "sweep \u{2192} Sweeper.sweep (via self: Narrow)",
                     "impls.py:44",
                 ),
+            ),
+        ]);
+    }
+
+    /// #100. A parameter of a Python function is named after the function, as a local of its
+    /// body is: `RecipeController.get_one.slug`, not `RecipeController.slug`, a field's name.
+    #[test]
+    fn a_python_parameter_is_named_after_its_function() {
+        py_rows(vec![
+            (
+                "params.py",
+                "found = slug",
+                jump(
+                    "slug \u{2192} RecipeController.get_one.slug (local)",
+                    "params.py:2",
+                ),
+            ),
+            (
+                "params.py",
+                "return found",
+                jump(
+                    "found \u{2192} RecipeController.get_one.found (local)",
+                    "params.py:3",
+                ),
+            ),
+            // A signature wrapped over several lines: the parameter, and a local under its `)`.
+            (
+                "params.py",
+                "kept = slugs",
+                jump(
+                    "slugs \u{2192} RecipeController.get_many.slugs (local)",
+                    "params.py:6",
+                ),
+            ),
+            (
+                "params.py",
+                "return kept",
+                jump(
+                    "kept \u{2192} RecipeController.get_many.kept (local)",
+                    "params.py:10",
+                ),
+            ),
+            (
+                "params.py",
+                "        return slug",
+                jump(
+                    "slug \u{2192} RecipeController.get_later.slug (local)",
+                    "params.py:13",
+                ),
+            ),
+            (
+                "params.py",
+                "return level",
+                jump("level \u{2192} top.level (local)", "params.py:17"),
             ),
         ]);
     }
