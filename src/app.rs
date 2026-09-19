@@ -264,6 +264,11 @@ struct Edit {
     after: (usize, usize),
 }
 
+/// `1 hit`, `2 hits`.
+pub fn plural(n: usize) -> &'static str {
+    if n == 1 { "" } else { "s" }
+}
+
 impl App {
     pub fn new(
         root: PathBuf,
@@ -918,12 +923,7 @@ impl App {
                     .collect(),
                 ..Default::default()
             },
-            _ => git::diff(
-                &self.root,
-                &path,
-                Some(&r.merge_base),
-                file.and_then(|f| f.old.as_deref()),
-            ),
+            _ => r.diff(&self.root, &path, file),
         };
         // Ghosts change how many rows a line has; the viewport must not point past them.
         self.top_line = self.top_line.min(self.buf.lines.len() - 1);
@@ -973,46 +973,58 @@ impl App {
         let at = self
             .rel_current()
             .and_then(|rel| r.files.iter().position(|f| f.path == rel));
-        // Files with nothing to read (binary, a mode change, a pure rename) are not stops.
         let ahead: Vec<&git::ReviewFile> = match (at, dir > 0) {
             (Some(i), true) => r.files[i + 1..].iter().collect(),
             (Some(i), false) => r.files[..i].iter().rev().collect(),
             (None, true) => r.files.iter().collect(),
             (None, false) => r.files.iter().rev().collect(),
         };
-        let skipped = ahead.iter().take_while(|f| !f.has_hunks()).count();
-        let Some(f) = ahead.get(skipped) else {
-            self.message = if dir > 0 {
-                "last hunk of the review".into()
+        // Files with nothing to read (binary, a mode change, a pure rename, a submodule) are not
+        // stops. Nor is one that does not open: the walk goes on, and the status says why.
+        let (mut skipped, mut failed) = (0, None);
+        for f in ahead {
+            if !f.has_hunks() {
+                skipped += 1;
+            } else if self.open_review_file(f, dir < 0) {
+                match failed {
+                    Some(why) => self.message = why,
+                    None => self.say_skipped(skipped),
+                }
+                return;
+            } else if self.dirty {
+                // Edits that could not be saved hold merl on this file, whatever is ahead.
+                return;
             } else {
-                "first hunk of the review".into()
-            };
-            return;
-        };
-        self.open_review_file(f, dir < 0);
-        self.say_skipped(skipped);
+                failed = Some(std::mem::take(&mut self.message));
+            }
+        }
+        self.message = failed.unwrap_or_else(|| {
+            let end = if dir > 0 { "last" } else { "first" };
+            format!("{end} hunk of the review")
+        });
     }
 
     /// Why `file 1` became `file 74`.
     fn say_skipped(&mut self, skipped: usize) {
         if skipped > 0 {
-            let s = if skipped == 1 { "" } else { "s" };
+            let s = plural(skipped);
             self.message = format!("skipped {skipped} file{s} without hunks");
         }
     }
 
     /// Opens a file of the review on its first (or `last`) hunk. The hunks are read before
     /// the file opens, so this is one stop in the history.
-    fn open_review_file(&mut self, f: &git::ReviewFile, last: bool) {
-        let Some(r) = &self.review else { return };
+    fn open_review_file(&mut self, f: &git::ReviewFile, last: bool) -> bool {
+        let Some(r) = &self.review else { return false };
         let path = self.root.join(&f.path);
         let hunks = match f.status {
             'D' => Vec::new(),
-            _ => git::diff(&self.root, &path, Some(&r.merge_base), f.old.as_deref()).hunks,
+            _ => r.diff(&self.root, &path, Some(f)).hunks,
         };
         let h = if last { hunks.last() } else { hunks.first() };
         self.jump_to(&path, h.map_or(1, |h| h + 1));
         self.center = true;
+        self.buf.path.as_deref() == Some(&path)
     }
 
     /// `hunk 2/5 · file 1/3` for the status bar.
@@ -1030,30 +1042,97 @@ impl App {
         ))
     }
 
+    /// The project changed on disk and was walked again: the file list is the new one for the
+    /// next `o`, `s`, `u` and `d` (an open picker keeps its rows), and the tree takes the new rows
+    /// around its cursor. The review panel lists the branch, not the walk, and is left alone.
+    pub fn project_walked(&mut self, tree: Tree, files: Vec<PathBuf>) {
+        self.files = files;
+        if self.review.is_none() {
+            self.refresh_tree(tree);
+        }
+    }
+
+    /// The branch was listed again after a commit or an edit (`git::Review::refresh`): the
+    /// panel takes the new rows and counts around its cursor, which stays on its file. Nothing
+    /// opens and the code pane does not move; the open file gets new marks when the base moved
+    /// or its row came, went or changed its kind (a reverted file stays open, without marks).
+    /// Returns whether anything on screen changed.
+    pub fn review_refreshed(&mut self, fresh: git::Review) -> bool {
+        let Some(old) = &self.review else {
+            return false;
+        };
+        if *old == fresh {
+            return false;
+        }
+        let rel = self.rel_current();
+        let kind = |r: &git::Review| {
+            let f = r.file(rel.as_deref()?)?;
+            Some((f.status, f.old.clone(), f.untracked))
+        };
+        let stale = old.merge_base != fresh.merge_base || kind(old) != kind(&fresh);
+        let paths: Vec<PathBuf> = fresh.files.iter().map(|f| f.path.clone()).collect();
+        self.review = Some(fresh);
+        self.refresh_tree(crate::tree::from_files(&paths));
+        if stale {
+            self.refresh_diff();
+        }
+        true
+    }
+
+    fn refresh_tree(&mut self, tree: Tree) {
+        let row = |t: &Tree| t.visible().iter().position(|&i| i == t.cursor).unwrap_or(0);
+        let before = row(&self.tree);
+        self.tree.refresh(tree);
+        // A scrolled panel follows its cursor, so rows arriving above the pane move nothing on
+        // screen; one showing its first row keeps showing it.
+        if self.tree_top > 0 {
+            self.tree_top = (self.tree_top + row(&self.tree)).saturating_sub(before);
+        }
+    }
+
     /// Re-reads the open file after it changed on disk. Cursor, scroll, history and find pattern
     /// survive; the cursor is clamped to whatever the file is now. merl's own saves are
     /// recognised and ignored; a change under unsaved edits is a conflict, not a reload,
-    /// unless `force` (Ctrl+R) says the edits go.
-    pub fn reload(&mut self, force: bool) {
+    /// unless `force` (Ctrl+R) says the edits go. Returns whether anything on screen changed.
+    pub fn reload(&mut self, force: bool) -> bool {
         let Some(path) = self.buf.path.clone() else {
-            return;
+            return false;
         };
         // Mid-save the file can be briefly gone; the rename that follows sends another event
         // and overwrites the message. Gone for good, the message stays.
         let Ok(bytes) = std::fs::read(&path) else {
+            // Ctrl+R has no disk version to take, but the edits still go: merl is not held on
+            // a file that is gone.
+            if force {
+                (self.dirty, self.conflict) = (false, false);
+            }
             self.message = format!("{} gone", self.rel_path());
-            return;
+            return true;
         };
         if !force {
             if buffer::hash(&bytes) == self.buf.disk {
-                return;
+                // Gone and back as merl last saw it (a writer's delete-then-write): no conflict.
+                return std::mem::take(&mut self.conflict);
             }
             if self.dirty {
                 self.conflict = true;
-                return;
+                return true;
             }
         }
-        self.buf = Buffer::from_bytes(path, &bytes);
+        let old = std::mem::replace(&mut self.buf, Buffer::from_bytes(path.clone(), &bytes));
+        if self.review.is_some() {
+            // The reader stays in the hunk they are in when an agent writes above it: every
+            // line kept of this file goes down with its text, before anything is clamped.
+            let to = |l: &mut usize| *l = carried(&old.lines, &self.buf.lines, *l);
+            let stop = self.history.get_mut(self.hist_idx);
+            let stop = stop.filter(|s| s.0 == path && s.1 == self.line);
+            [&mut self.line, &mut self.top_line, &mut self.find_anchor.0]
+                .into_iter()
+                .chain(self.anchor.as_mut().map(|a| &mut a.0))
+                .chain(self.find_sel.as_mut().map(|a| &mut a.0))
+                .chain(stop.map(|s| &mut s.1))
+                .for_each(to);
+        }
         self.dirty = false;
         self.conflict = false;
         self.last_edit = None;
@@ -1067,6 +1146,7 @@ impl App {
         self.sync_want_x();
         self.clamp_scroll();
         self.message = "reloaded".into();
+        true
     }
 
     fn pos(&self) -> Option<(PathBuf, usize, usize)> {
@@ -1113,22 +1193,48 @@ impl App {
 
     /// `[` and `]`: walks the recorded stops.
     fn hist_go(&mut self, delta: isize) {
-        let next = self
-            .hist_idx
-            .checked_add_signed(delta)
-            .filter(|i| *i < self.history.len());
-        let Some(i) = next else {
-            self.message = if delta < 0 {
-                "start of history".into()
-            } else {
-                "end of history".into()
+        // A stop whose file is gone (an agent renamed it) is dropped, and the walk goes on.
+        let mut gone = Vec::new();
+        let landed = loop {
+            let next = self
+                .hist_idx
+                .checked_add_signed(delta)
+                .filter(|i| *i < self.history.len());
+            let Some(i) = next else {
+                self.message = if delta < 0 {
+                    "start of history".into()
+                } else {
+                    "end of history".into()
+                };
+                break None;
             };
-            return;
+            let (path, line, col) = self.history[i].clone();
+            // With the stops between them dropped, this one can be where the cursor already
+            // is: not a step, it goes too.
+            let twin = self.history[i] == self.history[self.hist_idx];
+            if !twin && self.open(&path, line + 1) {
+                break Some((i, path, col));
+            }
+            // Edits that could not be saved, or a file that is there and does not open: the
+            // stop stays, and `open` has said why.
+            if !twin && (self.dirty || path.exists()) {
+                return;
+            }
+            self.history.remove(i);
+            self.hist_idx -= usize::from(i < self.hist_idx);
+            if !twin && !gone.contains(&path) {
+                gone.push(path);
+            }
         };
-        let (path, line, col) = self.history[i].clone();
-        if !self.open(&path, line + 1) {
-            return;
+        match &gone[..] {
+            [] => {}
+            [one] => {
+                let rel = one.strip_prefix(&self.root).unwrap_or(one);
+                self.message = format!("{} gone", rel.display());
+            }
+            _ => self.message = format!("{} files gone", gone.len()),
         }
+        let Some((i, path, col)) = landed else { return };
         self.hist_idx = i;
         self.focus = Focus::Code;
         (self.line, self.col) = self.clamp_pos((self.line, col));
@@ -1216,10 +1322,14 @@ impl App {
         match picker.key(key) {
             Pick::Stay => return,
             Pick::Typed => {
+                // `s` has nothing to show without a query. `D` has the list it opened on, so an
+                // emptied query asks for that list again rather than for nothing.
+                let empty =
+                    picker.query.is_empty() && self.mode == Mode::Picker(PickerKind::Search);
                 self.search_seq += 1;
                 (self.search_sent, self.search_enter) = (None, false);
                 self.search_due = Some(Instant::now() + SEARCH_PAUSE);
-                if picker.query.is_empty() {
+                if empty {
                     self.search_due = None;
                     self.search_done(self.search_seq, Vec::new());
                 }
@@ -1451,6 +1561,7 @@ impl App {
             root: self.root.clone(),
             files,
             pattern: pattern.to_string(),
+            symbols: false,
             current,
             // With unsaved edits the open file is searched as it is on screen, so a hit's line
             // is a line of the buffer the jump lands in.
@@ -1492,7 +1603,12 @@ impl App {
         if let Some(p) = &mut self.picker {
             p.live = true;
         }
-        // An answer still on its way belongs to the search that was closed.
+        self.drop_pending_search();
+    }
+
+    /// Forgets the grep on its way: its answer belongs to a picker that is gone, and its number
+    /// must not be the one the next picker waits for.
+    fn drop_pending_search(&mut self) {
         self.search_seq += 1;
         (self.search_due, self.search_sent, self.search_enter) = (None, None, false);
     }
@@ -1512,25 +1628,41 @@ impl App {
         }
         self.search_due = None;
         self.search_sent = Some(self.search_seq);
-        Some(self.grep_job(self.search_seq, &regex::escape(&query), |_| true))
+        // ponytail: nothing stops a walk whose answer is already stale — `D` past the cap reads
+        // the project once per pause in the typing, and [`search::MAX_HITS`] does not bound it,
+        // since a narrowing query never fills the cap. A stop flag on the job, read per file, is
+        // the upgrade if typing on a large project ever waits on them.
+        // `s` greps the query itself, as text; `D` past the cap greps the declaration patterns
+        // and keeps the names the query matches.
+        let symbols = self.mode == Mode::Picker(PickerKind::Symbols);
+        let pattern = if symbols {
+            query
+        } else {
+            regex::escape(&query)
+        };
+        Some(SearchJob {
+            symbols,
+            ..self.grep_job(self.search_seq, &pattern, |_| true)
+        })
     }
 
-    /// Test helper: the pending grep, run here, and its hits in the picker.
+    /// Test helper: the pending grep, run here, and its rows in the picker.
     #[cfg(test)]
     pub(crate) fn settle_search(&mut self) {
         self.search_due = self.search_due.map(|_| Instant::now());
         if let Some(job) = self.search_tick() {
-            self.search_done(job.seq, job.hits());
+            self.search_done(job.seq, job.items());
         }
         if let Some(p) = &mut self.picker {
             p.settle();
         }
     }
 
-    /// The hits of grep number `seq`. An answer to anything but the query on screen is dropped:
-    /// no grep is ever cancelled, [`search::MAX_HITS`] bounds what a stale one costs. Returns
+    /// The rows of grep number `seq`. An answer to anything but the query on screen is dropped:
+    /// no grep is ever cancelled. What a stale one costs is [`search::MAX_HITS`] for `s`, and
+    /// for `D` a walk of the project, since a narrowing query never fills that cap. Returns
     /// whether the screen changed.
-    pub fn search_done(&mut self, seq: u64, hits: Vec<Hit>) -> bool {
+    pub fn search_done(&mut self, seq: u64, items: Vec<PickItem>) -> bool {
         let Some(old) = self.picker.as_mut().filter(|p| p.live) else {
             return false;
         };
@@ -1538,8 +1670,8 @@ impl App {
             return false;
         }
         self.search_sent = None;
-        let items = Self::hit_items(hits);
-        // The rows keep their order between queries, so the cursor stays on its hit.
+        // `s` keeps the order its grep found between queries, so the cursor stays on its hit.
+        // `D` re-ranks below and takes the cursor to the best row instead.
         let selected = old
             .current()
             .and_then(|cur| {
@@ -1565,6 +1697,13 @@ impl App {
         new.selected = selected;
         new.query = std::mem::take(&mut old.query);
         new.bufs = std::mem::take(&mut old.bufs);
+        // `D` hands nucleo the query too: the grep says which declarations the name reaches,
+        // nucleo ranks them and marks the letters, and the cursor goes to the best of them —
+        // the same reset a keystroke under the cap does. `s` keeps the order its grep found,
+        // and with it the row the cursor was on.
+        if self.mode == Mode::Picker(PickerKind::Symbols) {
+            new.requery(false);
+        }
         self.picker = Some(new);
         true
     }
@@ -1608,33 +1747,12 @@ impl App {
         // A parameter or a local of the same name hides the import where the cursor is: `json`
         // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
         let first = chain.first().map_or(word.as_str(), String::as_str);
+        // `super` is no local, whatever the member lookup reads it as.
         let locals: Vec<usize> = search::bindings(kind, &text, self.line + 1, first)
             .iter()
             .map(|b| b.line)
             .filter(|&n| {
-                // An import is what the name hides, and a class, a function or a namespace of
-                // that name is no value: `Outer.Inner` reads a declaration, not a member.
-                let t = self.buf.lines[n - 1].trim_start();
-                let t = t.strip_prefix("export ").unwrap_or(t);
-                let t = t.strip_prefix("abstract ").unwrap_or(t);
-                let declares = [
-                    "class ",
-                    "def ",
-                    "async def ",
-                    "function ",
-                    "func ",
-                    "type ",
-                    "interface ",
-                    "namespace ",
-                    "enum ",
-                ]
-                .iter()
-                .filter_map(|k| t.strip_prefix(k))
-                .any(|rest| {
-                    rest.strip_prefix(first)
-                        .is_some_and(|after| !after.starts_with(is_word))
-                });
-                !declares && !t.starts_with("import ") && !t.starts_with("from ")
+                (dotted || word != "super") && !names_itself(&self.buf.lines[n - 1], first)
             })
             .collect();
         if !locals.is_empty() {
@@ -1687,11 +1805,15 @@ impl App {
         }
         // A receiver whose type is proven narrows the member to that type (#68, steps 2 to 4).
         let mut broke = None;
+        // A chain with no name to start from may hang off a call: `make_uow().users.word` (#100).
+        let head = (dotted && chain.is_empty())
+            .then(|| search::call_head(kind, self.line_str(), range.start))
+            .flatten();
         if dotted
             && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go)
-            && chain.first().is_some_and(|f| bound(&imports, f).is_none())
+            && (head.is_some() || chain.first().is_some_and(|f| bound(&imports, f).is_none()))
         {
-            match self.typed_definitions(kind, &here, &word, &chain) {
+            match self.typed_definitions(kind, &here, &word, &chain, head.as_ref()) {
                 // `self.repo` that leads to this very line is the field's declaration.
                 Ok(found)
                     if own
@@ -1707,7 +1829,10 @@ impl App {
                 }
                 Ok(_) => {}
                 // With one name in front of the word, `by name` already says where.
-                Err(at) => broke = (chain.len() > 1).then_some(at),
+                Err(at) => {
+                    let names = head.as_ref().map_or(chain.len(), |(_, _, f)| f.len() + 1);
+                    broke = (names > 1).then_some(at);
+                }
             }
         }
         // An import names where the word is declared: the project's module, else the one outside
@@ -2062,35 +2187,43 @@ impl App {
         here: &Path,
         word: &str,
         chain: &[String],
+        head: Option<&(String, search::Value, Vec<String>)>,
     ) -> Result<Vec<Candidate>, String> {
         let text = self.buf.lines.join("\n");
-        let (mut ty, call) = self
-            .value_type(kind, here, &text, self.line + 1, &chain[0], 1)
-            .ok_or_else(|| chain[0].clone())?;
-        // What the status line lists: `repo: UserRepository`, or `self.uow: UnitOfWork` for the
-        // receiver and its field, then `users: UserRepository` for each field after them.
-        let mut links = vec![call.unwrap_or_else(|| format!("{}: {}", chain[0], ty.name))];
-        for (i, field) in chain.iter().enumerate().skip(1) {
-            // ponytail: six names in front of the word; a longer chain breaks at the seventh.
-            if i == 6 {
-                return Err(field.clone());
-            }
-            let (next, call) = self
-                .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
-                .flatten()
-                .ok_or_else(|| field.clone())?;
-            let name = match i {
-                1 => format!("{}.{field}", chain[0]),
-                _ => field.clone(),
+        let line = self.line + 1;
+        // `super().m()` / `super.m()` is `self` / `this` with the walk started one level up.
+        if chain.first().is_some_and(|f| f == "super") {
+            let [_] = chain else {
+                return Err(chain[1].clone());
             };
-            let link = call.unwrap_or_else(|| format!("{name}: {}", next.name));
-            if i == 1 {
-                links[0] = link;
-            } else {
-                links.push(link);
-            }
-            ty = next;
+            let (ty, _) = self
+                .value_type(kind, here, &text, line, &chain[0], 1)
+                .ok_or_else(|| chain[0].clone())?;
+            let hits = self.above(kind, &ty, word, 0)?;
+            let label = format!("super of {}", ty.name);
+            return Ok(hits
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(label.clone()),
+                })
+                .collect());
         }
+        let (ty, links) = match head {
+            // The chain hangs off a call: `make_uow().users.word`.
+            Some((call, value, fields)) => {
+                let value = value.clone();
+                // A cast is its own link, as written: `via (repo as UserRepository)`.
+                let cast = matches!(value, search::Value::Type(_) | search::Value::Cast(..))
+                    .then(|| call.clone());
+                let (ty, link) = self
+                    .binding_type(kind, here, &text, &search::Binding { line, value }, 1)
+                    .ok_or_else(|| call.clone())?;
+                let start = (ty, link.or(cast));
+                self.follow(kind, start, call, false, fields)?
+            }
+            None => self.chain_type(kind, here, &text, line, chain, 1)?,
+        };
         let declared = self.hierarchy(kind, &ty, 0, &mut |t| {
             let members = self.members_of(kind, t, word);
             if members.is_empty() {
@@ -2121,6 +2254,61 @@ impl App {
                 reason: Reason::Receiver(label.clone()),
             })
             .collect())
+    }
+
+    /// The type of the chain `x.f.g` on 1-based `line` of `text`, the text of `file`, and the links
+    /// that prove it; `Err` names the first name that is not proven.
+    fn chain_type(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line: usize,
+        chain: &[String],
+        hops: usize,
+    ) -> Result<(Typed, Vec<String>), String> {
+        let start = self
+            .value_type(kind, file, text, line, &chain[0], hops)
+            .ok_or_else(|| chain[0].clone())?;
+        self.follow(kind, start, &chain[0], true, &chain[1..])
+    }
+
+    /// From the type `start` of `name`, each of `fields` in the type before it. What the status
+    /// line lists: `repo: UserRepository`, or with `merge` `self.uow: UnitOfWork` for the receiver
+    /// and its field, then `users: UserRepository` for each field after them.
+    fn follow(
+        &self,
+        kind: Kind,
+        start: (Typed, Option<String>),
+        name: &str,
+        merge: bool,
+        fields: &[String],
+    ) -> Result<(Typed, Vec<String>), String> {
+        let (mut ty, call) = start;
+        let mut links = vec![call.unwrap_or_else(|| format!("{name}: {}", ty.name))];
+        for (i, field) in fields.iter().enumerate() {
+            // ponytail: six names in front of the word; a longer chain breaks at the seventh.
+            if i == 5 {
+                return Err(field.clone());
+            }
+            let (next, call) = self
+                .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
+                .flatten()
+                .ok_or_else(|| field.clone())?;
+            let first = i == 0 && merge;
+            let label = match first {
+                true => format!("{name}.{field}"),
+                false => field.clone(),
+            };
+            let link = call.unwrap_or_else(|| format!("{label}: {}", next.name));
+            if first {
+                links[0] = link;
+            } else {
+                links.push(link);
+            }
+            ty = next;
+        }
+        Ok((ty, links))
     }
 
     /// The type of `name` on 1-based `line` of `text`, the text of `file`: the one type all its
@@ -2203,20 +2391,120 @@ impl App {
                 };
                 Some((ty, None))
             }
-            search::Value::Call(callee) => self.call_type(kind, file, callee),
+            search::Value::Call(callee) => self.call_type(kind, file, text, b.line, callee, hops),
+            // `cast(T, x)` writes `T`, unless the project declares the `cast` this file calls:
+            // that one is a function, with whatever it returns.
+            search::Value::Cast(callee, t) => {
+                let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
+                match self.declaration(kind, file, &parts) {
+                    Some(_) => self.call_type(kind, file, text, b.line, callee, hops),
+                    None => self.type_decl(kind, file, t).map(|ty| (ty, None)),
+                }
+            }
             search::Value::Name(n) if hops > 0 => {
                 self.value_type(kind, file, text, b.line, n, hops - 1)
             }
-            search::Value::Name(_) | search::Value::Unknown => None,
+            // An element of a collection whose every declaration writes its type: an
+            // annotation, or the return type of the function it was assigned from.
+            search::Value::Element(n) if hops > 0 => {
+                let mut found: Option<(Typed, Option<String>)> = None;
+                for c in search::bindings(kind, text, b.line, n) {
+                    let (written, at, link) = match &c.value {
+                        search::Value::Type(t) => {
+                            (t.clone(), file.to_path_buf(), format!("{n}: {}", t.trim()))
+                        }
+                        search::Value::Call(callee) => {
+                            let (t, at) = self.declared_return(kind, file, callee)?;
+                            let link = signature(kind, callee, &t);
+                            (t, at, link)
+                        }
+                        _ => return None,
+                    };
+                    // Go's `type IssueList []*Issue` says what it holds on its own line.
+                    let named = |written: &str| {
+                        let list = self
+                            .type_decl(kind, &at, written)
+                            .filter(|_| kind == Kind::Go)?;
+                        let text = self.text_of(&list.path)?;
+                        let decl = text
+                            .lines()
+                            .nth(list.line - 1)?
+                            .trim()
+                            .strip_prefix("type ")?;
+                        let holds = decl.trim_start().strip_prefix(list.name.as_str())?;
+                        Some((search::element_type(kind, holds)?, list.path))
+                    };
+                    let (element, at) = match search::element_type(kind, &written) {
+                        Some(element) => (element, at.clone()),
+                        None => named(&written)?,
+                    };
+                    let ty = self.type_decl(kind, &at, &element)?;
+                    match &found {
+                        Some((one, _)) if (&one.path, one.line) != (&ty.path, ty.line) => {
+                            return None;
+                        }
+                        Some(_) => {}
+                        None => found = Some((ty, Some(link))),
+                    }
+                }
+                found
+            }
+            search::Value::Name(_) | search::Value::Element(_) | search::Value::Unknown => None,
         }
     }
 
-    /// What a call of `callee` in `file` gives: the class it constructs, or the declared return
-    /// type of the function, resolved in the file declaring it. One hop: a return type is never
-    /// followed through another call. The signature is spelled as the language writes it.
-    fn call_type(&self, kind: Kind, file: &Path, callee: &str) -> Option<(Typed, Option<String>)> {
+    /// What a call of `callee` on 1-based `line` of `file` gives: the class it constructs, or the
+    /// declared return type of the function, resolved in the file declaring it. `e.RequestInfo()`
+    /// on a receiver whose type is proven is the method of that type, or of one it extends. A
+    /// return type is never followed through another call; the receiver may itself come from a
+    /// call, and `hops` bounds that, so two locals assigned from each other end. The signature is spelled as the language writes it.
+    fn call_type(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line: usize,
+        callee: &str,
+        hops: usize,
+    ) -> Option<(Typed, Option<String>)> {
         let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
-        let decl = self.declaration(kind, file, &parts)?;
+        let (method, receiver) = parts.split_last()?;
+        // `super.make()` is the base's `make`, which only `typed_definitions` knows how to find:
+        // read as a call on `this`, an override's narrower return type would answer.
+        if receiver.first().is_some_and(|r| r == "super") {
+            return None;
+        }
+        let proven = (hops > 0 && !receiver.is_empty())
+            .then(|| {
+                self.chain_type(kind, file, text, line, receiver, hops - 1)
+                    .ok()
+            })
+            .flatten();
+        let decl = match proven {
+            Some((ty, _)) => {
+                let found = self.hierarchy(kind, &ty, 0, &mut |t| {
+                    let members = self.members_of(kind, t, method);
+                    (!members.is_empty()).then_some(members)
+                })?;
+                <[Hit; 1]>::try_from(found).ok().map(|[hit]| hit)?
+            }
+            None => {
+                // A parameter or a local named like a function or an import is a value: what it
+                // returns when called is not what that function declares.
+                let lines: Vec<&str> = text.lines().collect();
+                let hidden = search::bindings(kind, text, line, &parts[0])
+                    .iter()
+                    .any(|b| {
+                        lines
+                            .get(b.line - 1)
+                            .is_some_and(|l| !names_itself(l, &parts[0]))
+                    });
+                if hidden {
+                    return None;
+                }
+                self.declaration(kind, file, &parts)?
+            }
+        };
         if search::declares_type(kind, &decl.text) {
             let ty = Typed {
                 name: parts.last()?.clone(),
@@ -2227,19 +2515,30 @@ impl App {
         }
         let text = self.text_of(&decl.path)?;
         let (written, signature) = match search::returns(kind, &text, decl.line)? {
+            search::Value::New(t) if kind == Kind::Python => {
+                (t.clone(), format!("{callee}() returns {t}()"))
+            }
             search::Value::New(t) => (t.clone(), format!("{callee}() returns new {t}()")),
             search::Value::Type(t) => {
-                let signature = match kind {
-                    Kind::Python => format!("{callee}() -> {t}"),
-                    Kind::TsJs => format!("{callee}(): {t}"),
-                    _ => format!("{callee}() {t}"),
-                };
+                let signature = signature(kind, callee, &t);
                 (t, signature)
             }
             _ => return None,
         };
         let ty = self.type_decl(kind, &decl.path, &written)?;
         Some((ty, Some(signature)))
+    }
+
+    /// The return type the function `callee` of `file` declares, as written, and the file that
+    /// writes it. A class, and a function that declares none, give nothing.
+    fn declared_return(&self, kind: Kind, file: &Path, callee: &str) -> Option<(String, PathBuf)> {
+        let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
+        let decl = self.declaration(kind, file, &parts)?;
+        let text = self.text_of(&decl.path)?;
+        match search::returns(kind, &text, decl.line)? {
+            search::Value::Type(t) => Some((t, decl.path)),
+            _ => None,
+        }
     }
 
     /// The declaration of the type written as `written` in `file`.
@@ -2596,6 +2895,58 @@ impl App {
             .collect()
     }
 
+    /// The declaration of `word` that `super` reaches from `ty`: a method, else a declared field,
+    /// of the types above it. Under one base that is the nearest one up the line. Under several,
+    /// Python orders them as no walk by depth does, so only what needs no ordering is proven: the
+    /// first base declaring the member itself, or every base leading to the same line. `Err` when
+    /// they differ, or when a base is outside the project and may declare the member first. The
+    /// same holds at every level the answer is looked for, so a diamond or an outside base under
+    /// the one direct base proves nothing either.
+    fn above(&self, kind: Kind, ty: &Typed, word: &str, depth: usize) -> Result<Vec<Hit>, String> {
+        let broke = || "super".to_owned();
+        let find = |t: &Typed| {
+            let members = self.members_of(kind, t, word);
+            match members.is_empty() {
+                true => self.field_of(kind, t, word, false).map(|hit| vec![hit]),
+                false => Some(members),
+            }
+        };
+        // ponytail: eight levels up, which also ends a cycle.
+        let text = self
+            .text_of(&ty.path)
+            .filter(|_| depth < 8)
+            .ok_or_else(broke)?;
+        // ponytail: bases that declare no member worth a jump, by their usual spelling.
+        let plain = |b: &str| {
+            let b = b.split('[').next().unwrap_or(b);
+            let b = b.rsplit('.').next().unwrap_or(b);
+            matches!(b, "Generic" | "Protocol" | "ABC" | "object")
+        };
+        let written = search::bases(kind, &text, ty.line);
+        let bases: Vec<&String> = written.iter().filter(|b| !plain(b)).collect();
+        let mut answers: Vec<Vec<Hit>> = Vec::new();
+        for (i, base) in bases.iter().enumerate() {
+            let Some(base) = self.type_decl(kind, &ty.path, base) else {
+                return Err(broke());
+            };
+            let hits = match find(&base) {
+                Some(own) if i == 0 => return Ok(own),
+                Some(own) => own,
+                None => self.above(kind, &base, word, depth + 1)?,
+            };
+            let lines = |hits: &[Hit]| -> Vec<(PathBuf, usize)> {
+                hits.iter().map(|h| (h.path.clone(), h.line)).collect()
+            };
+            if !hits.is_empty() && answers.iter().all(|a| lines(a) != lines(&hits)) {
+                answers.push(hits);
+            }
+        }
+        match answers.len() {
+            0 | 1 => Ok(answers.pop().unwrap_or_default()),
+            _ => Err(broke()),
+        }
+    }
+
     /// `find` in `ty`, then in the types it extends or embeds, nearest first: the first answer.
     fn hierarchy<R>(
         &self,
@@ -2657,6 +3008,9 @@ impl App {
             .saturating_sub(1)
             .max(1);
         let mut module = match chain.first() {
+            // A C++ `std::` or `detail::` qualifier names a namespace, and no directory of the
+            // system headers is called that, so narrowing by it would find nothing at all.
+            Some(_) if kind == Kind::C => None,
             Some(first) => {
                 let mut p = bound_path.unwrap_or_else(|| vec![first.clone()]);
                 p.extend(chain[1..].iter().cloned());
@@ -2753,8 +3107,8 @@ impl App {
 
     /// The files of `kind` outside the project, walked once per kind.
     ///
-    /// ponytail: lives for the session, like the project walk. A `pip install` mid-session
-    /// needs a restart, as a new project file does.
+    /// ponytail: lives for the session, unlike the project walk. A `pip install` mid-session
+    /// needs a restart.
     fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
         self.external
             .entry(kind)
@@ -2948,25 +3302,40 @@ impl App {
         }
     }
 
-    /// `D`: every declaration in the project, recomputed on each press.
+    /// `D`: every declaration in the project, recomputed on each press. A list the
+    /// [`search::MAX_HITS`] cut left short is not the project's symbols, so the query stops
+    /// filtering it: it greps the declaration patterns for a name of its own, as `s` greps
+    /// ([`App::search_tick`]). The rows stay on screen meanwhile, under a title that says what
+    /// they are.
     fn symbols(&mut self) {
-        let mut named: Vec<(String, Hit)> = Vec::new();
-        for (kind, pattern) in search::SYMBOLS {
-            let re = Regex::new(pattern).expect("built-in symbol patterns are valid");
-            let wanted = |p: &Path| match kind {
-                Some(k) => search::kind_of(p) == Some(*k),
-                None => search::shared_symbols(search::kind_of(p)),
-            };
-            let hits = self.grep(pattern, false, false, wanted).unwrap_or_default();
-            named.extend(
-                hits.into_iter()
-                    .filter_map(|h| Some((search::symbol_name(&re, &h.text)?, h))),
-            );
-        }
+        let (named, cut) = self.grep_job(0, "", |_| true).symbol_hits();
         if named.is_empty() {
             self.message = "no symbols".into();
             return;
         }
+        // Not `show_picker`: it reads a cut off the row count, and the cap belongs to each
+        // pattern. What is on screen is the cut list until a query is typed, and the answer to
+        // that query after, so the title (`ui::draw_picker`) is the live picker's business.
+        let items = Self::symbol_items(named);
+        self.picker = Some(Picker::new(
+            PickerKind::Symbols.title(),
+            items,
+            false,
+            self.wake.clone(),
+        ));
+        self.mode = Mode::Picker(PickerKind::Symbols);
+        if !cut {
+            return;
+        }
+        // An answer still on its way belongs to a search that is gone.
+        self.drop_pending_search();
+        if let Some(p) = &mut self.picker {
+            p.live = true;
+        }
+    }
+
+    /// `name  path:line` rows for `D`, sorted by name, the names padded into a column.
+    fn symbol_items(mut named: Vec<(String, Hit)>) -> Vec<PickItem> {
         named.sort_by_cached_key(|(n, h)| (n.to_lowercase(), h.path.clone(), h.line));
         let width = named
             .iter()
@@ -2974,7 +3343,7 @@ impl App {
             .max()
             .unwrap_or(0)
             .min(MAX_NAME_PAD);
-        let items = named
+        named
             .into_iter()
             .map(|(name, h)| PickItem {
                 label: format!(
@@ -2987,8 +3356,7 @@ impl App {
                 line: h.line,
                 code_at: None,
             })
-            .collect();
-        self.show_picker(PickerKind::Symbols, items);
+            .collect()
     }
 
     // ---- tree ------------------------------------------------------------
@@ -3006,7 +3374,7 @@ impl App {
                     // The review panel opens a file on its first hunk; the tree where it was.
                     match self.review.as_ref().and_then(|r| r.file(&n.path)).cloned() {
                         Some(f) if self.buf.path.as_deref() != Some(&*path) => {
-                            self.open_review_file(&f, false)
+                            self.open_review_file(&f, false);
                         }
                         _ => self.jump_to(&path, 0),
                     }
@@ -3245,7 +3613,15 @@ impl App {
         }
         // ponytail: read, compare, then write; a writer landing between the read and the write
         // still loses. Files have no compare-and-swap, and the window is one read long.
-        if !self.conflict && std::fs::read(path).is_ok_and(|b| buffer::hash(&b) != self.buf.disk) {
+        // Gone (deleted, renamed) is changed too: only Ctrl+S puts the file back. Any other read
+        // error, its directory gone among them, is left to the write below to report and retry.
+        let changed = match std::fs::read(path) {
+            Ok(b) => buffer::hash(&b) != self.buf.disk,
+            Err(e) => {
+                e.kind() == std::io::ErrorKind::NotFound && path.parent().is_some_and(Path::exists)
+            }
+        };
+        if !self.conflict && changed {
             self.conflict = true;
             return;
         }
@@ -3326,7 +3702,12 @@ impl App {
         // Legacy terminals report Alt+X as Esc followed by X; treat it that way. When the Esc
         // closes a picker, a prompt or the help, the letter belonged to that overlay and is
         // dropped, so Alt+q over a picker cannot quit merl. Alt+arrow is unambiguous everywhere.
+        // Edit mode is no overlay and binds no Alt+letter: there the chord does nothing, rather
+        // than an Esc nobody pressed turning the rest of the word into commands.
         if key.modifiers.contains(KeyModifiers::ALT) && matches!(key.code, KeyCode::Char(_)) {
+            if self.mode == Mode::Edit {
+                return false;
+            }
             key.modifiers.remove(KeyModifiers::ALT);
             let overlay = self.picker.is_some() || self.mode != Mode::Normal;
             self.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
@@ -3413,7 +3794,9 @@ impl App {
                 self.prompt.clear();
             }
             KeyCode::Char('s') if ctrl => self.save(),
-            KeyCode::Char('r') if ctrl => self.reload(true),
+            KeyCode::Char('r') if ctrl => {
+                self.reload(true);
+            }
             KeyCode::Char('z') if ctrl => self.undo(true),
             KeyCode::Char('y') if ctrl => self.undo(false),
             KeyCode::Char(':') => {
@@ -3544,12 +3927,16 @@ impl App {
 /// How long the `s` query has to stand still before it is grepped.
 const SEARCH_PAUSE: Duration = Duration::from_millis(80);
 
-/// One project grep with everything it reads, owned: `s` runs it in a thread.
+/// One project grep with everything it reads, owned: `s` and `D` run it in a thread.
 pub struct SearchJob {
     pub seq: u64,
     root: PathBuf,
     files: Vec<PathBuf>,
+    /// The text `s` looks for, escaped; for a `symbols` job, the query as typed.
     pattern: String,
+    /// `D` past the cap: the job greps the [`search::SYMBOLS`] patterns and keeps the
+    /// declarations whose name matches `pattern`, rather than the text of the lines.
+    symbols: bool,
     current: Option<PathBuf>,
     unsaved: Option<Vec<u8>>,
 }
@@ -3567,10 +3954,60 @@ impl SearchJob {
         )
     }
 
-    /// The `s` search: smart case, the query anywhere in a line.
-    pub fn hits(&self) -> Vec<Hit> {
-        self.run(false, true)
-            .expect("an escaped literal always compiles")
+    /// The rows the answer becomes: the lines `s` found, smart case and the query anywhere in
+    /// them, or the declarations `D` lists.
+    pub fn items(&self) -> Vec<PickItem> {
+        if self.symbols {
+            return App::symbol_items(self.symbol_hits().0);
+        }
+        App::hit_items(
+            self.run(false, true)
+                .expect("an escaped literal always compiles"),
+        )
+    }
+
+    /// Every declaration the [`search::SYMBOLS`] rows read out of the project, as
+    /// `(listed name, hit)`, keeping the names `pattern` matches — all of them when it is empty,
+    /// which is the press of `D`. Each row is read only from the files it is written for; the
+    /// name decides before the [`search::MAX_HITS`] cut, so a query reaches past a cut list.
+    fn symbol_hits(&self) -> (Vec<(String, Hit)>, bool) {
+        let mut named: Vec<(String, Hit)> = Vec::new();
+        let mut cut = false;
+        for (kind, pattern) in search::SYMBOLS {
+            let re = Regex::new(pattern).expect("built-in symbol patterns are valid");
+            let files: Vec<PathBuf> = self
+                .files
+                .iter()
+                .filter(|p| match kind {
+                    Some(k) => search::kind_of(p) == Some(*k),
+                    None => search::shared_symbols(search::kind_of(p)),
+                })
+                .cloned()
+                .collect();
+            let hits = search::grep_filtered(
+                &self.root,
+                &files,
+                pattern,
+                self.current.as_deref(),
+                self.unsaved.as_deref(),
+                // The press of `D` reads every declaration, so it pays for no name it will
+                // not list: the filter is the query's, and there is none until one is typed.
+                |line| {
+                    self.pattern.is_empty()
+                        || search::symbol_name(&re, line)
+                            .is_some_and(|name| search::fuzzy_match(&self.pattern, &name))
+                },
+            )
+            .unwrap_or_default();
+            // Each row has the cap to itself, so a cut is this row's, never the total's: on a
+            // project whose kinds add up past it with none of them cut, the list is whole.
+            cut |= hits.len() >= search::MAX_HITS;
+            named.extend(
+                hits.into_iter()
+                    .filter_map(|h| Some((search::symbol_name(&re, &h.text)?, h))),
+            );
+        }
+        (named, cut)
     }
 }
 
@@ -3589,6 +4026,42 @@ fn is_protocol(text: &str, decl: usize) -> bool {
         .iter()
         .filter_map(|b| search::type_path(Kind::Python, b))
         .any(|p| p.last().is_some_and(|n| n == "Protocol"))
+}
+
+/// Whether a line `search::bindings` gave for `name` is an import, or the declaration of a class,
+/// a function or a namespace of that name: what a value of the name would hide, and no value
+/// itself. `Outer.Inner` reads a declaration, not a member.
+fn names_itself(line: &str, name: &str) -> bool {
+    let t = line.trim_start();
+    let t = t.strip_prefix("export ").unwrap_or(t);
+    let t = t.strip_prefix("abstract ").unwrap_or(t);
+    let declares = [
+        "class ",
+        "def ",
+        "async def ",
+        "function ",
+        "func ",
+        "type ",
+        "interface ",
+        "namespace ",
+        "enum ",
+    ]
+    .iter()
+    .filter_map(|k| t.strip_prefix(k))
+    .any(|rest| {
+        rest.strip_prefix(name)
+            .is_some_and(|after| !after.starts_with(is_word))
+    });
+    declares || t.starts_with("import ") || t.starts_with("from ")
+}
+
+/// A call and the return type its function declares, spelled as the language writes it.
+fn signature(kind: Kind, callee: &str, returns: &str) -> String {
+    match kind {
+        Kind::Python => format!("{callee}() -> {returns}"),
+        Kind::TsJs => format!("{callee}(): {returns}"),
+        _ => format!("{callee}() {returns}"),
+    }
 }
 
 /// The module path an import in `imports` binds `name` to.
@@ -3643,6 +4116,28 @@ fn resolution(
     }
 }
 
+/// Where line `l` of `old` is in `new` when the text was changed above it: the lines the two
+/// end with alike move by the difference in length, the ones they start with alike stay, and
+/// a line of the rewritten middle stays too, but not below the middle's new end.
+///
+/// ponytail: one rewritten region per reload, which is what an agent's edit is. After a write
+/// that changed the file in several places the lines between them are off by what changed
+/// above them; a line diff would place those too.
+fn carried(old: &[String], new: &[String], l: usize) -> usize {
+    let same = |(a, b): &(&String, &String)| a == b;
+    let head = old.iter().zip(new).take_while(same).count();
+    let ends = old.iter().rev().zip(new.iter().rev());
+    let tail = ends
+        .take(old.len().min(new.len()) - head)
+        .take_while(same)
+        .count();
+    if l >= old.len() - tail {
+        l + new.len() - old.len()
+    } else {
+        l.min(new.len() - tail)
+    }
+}
+
 /// Cuts `s` to `max` chars, marking the cut.
 pub(crate) fn clip(s: &str, max: usize) -> String {
     match s.char_indices().nth(max) {
@@ -3673,13 +4168,13 @@ mod tests {
     use super::*;
 
     fn app(text: &str) -> App {
-        // Edits get saved, so each test has a file of its own, absent until the first save.
+        // Edits get saved, so each test has a file of its own.
         let name = std::thread::current()
             .name()
             .unwrap_or("main")
             .replace("::", "-");
         let path = std::env::temp_dir().join(format!("merl-{name}.txt"));
-        let _ = std::fs::remove_file(&path);
+        std::fs::write(&path, text).unwrap();
         let mut a = App::new(
             PathBuf::from("/tmp"),
             Tree::default(),
@@ -4129,8 +4624,73 @@ mod tests {
         (dir, app)
     }
 
+    /// #75: the walk is redone while merl runs. The tree cursor keeps its entry and its screen
+    /// row, an open `o` keeps its rows until it is reopened, and the review panel is not the walk.
+    #[test]
+    fn a_new_walk_keeps_the_cursor_row_and_an_open_picker() {
+        let (dir, mut a) = files_app("live");
+        let walk = |a: &mut App| {
+            let (tree, files) = crate::tree::build(&a.root);
+            a.project_walked(tree, files);
+        };
+        walk(&mut a);
+        a.tree.reveal(Path::new("b.rs"));
+        std::fs::write(dir.join("a2.rs"), "x\n").unwrap();
+        walk(&mut a);
+        assert_eq!(
+            a.tree_top, 0,
+            "a panel showing its first row keeps showing it"
+        );
+        std::fs::remove_file(dir.join("a2.rs")).unwrap();
+        walk(&mut a);
+        a.tree_top = 1;
+        press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+
+        std::fs::write(dir.join("a0.rs"), "x\n").unwrap();
+        std::fs::remove_file(dir.join("a.rs")).unwrap();
+        std::fs::write(dir.join("a1.rs"), "x\n").unwrap();
+        walk(&mut a);
+        assert_eq!(a.files, ["a0.rs", "a1.rs", "b.rs"].map(PathBuf::from));
+        assert_eq!(a.tree.selected().unwrap().path, Path::new("b.rs"));
+        assert_eq!(
+            a.tree_top, 2,
+            "one row more above the cursor: the scroll follows"
+        );
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert_eq!(p.counts().1, 2, "the open picker still lists a.rs and b.rs");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert_eq!(p.counts().1, 3);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+
+        // Rows leaving above the cursor pull the scroll back, never below the first row.
+        a.tree.reveal(Path::new("b.rs"));
+        a.tree_top = 2;
+        std::fs::remove_file(dir.join("a0.rs")).unwrap();
+        walk(&mut a);
+        assert_eq!(a.tree_top, 1);
+        a.tree_top = 1;
+        std::fs::remove_file(dir.join("a1.rs")).unwrap();
+        std::fs::write(dir.join("c.rs"), "x\n").unwrap();
+        walk(&mut a);
+        assert_eq!((a.tree_top, a.tree.cursor), (0, 0));
+
+        let (_, mut r) = review_app("live-review");
+        let panel = |r: &App| {
+            let rows = r.tree.nodes.iter().map(|n| (n.path.clone(), n.expanded));
+            (rows.collect::<Vec<_>>(), r.tree.cursor, r.tree_top)
+        };
+        let before = panel(&r);
+        let (tree, files) = crate::tree::build(&r.root);
+        r.project_walked(tree, files.clone());
+        assert_eq!((panel(&r), &r.files), (before, &files));
+    }
+
     /// A repository with a `feature` branch checked out: `src/a.rs` changed twice, `new`
-    /// added, `gone` deleted; the app is in review mode on it.
+    /// added, `gone` deleted, `src/keep.rs` as it was; the app is in review mode on it.
     fn review_app(tag: &str) -> (PathBuf, App) {
         review_app_with(tag, &[])
     }
@@ -4156,6 +4716,7 @@ mod tests {
         std::fs::write(dir.join("gone"), "x\ny\n").unwrap();
         std::fs::write(dir.join("tail"), "t1\nt2\nt3\n").unwrap();
         std::fs::write(dir.join("crlf.txt"), "one\r\ntwo\n").unwrap();
+        std::fs::write(dir.join("src/keep.rs"), "k1\nk2\nk3\n").unwrap();
         git(&["add", "."]);
         git(&["commit", "-q", "-m", "base"]);
         git(&["switch", "-q", "-c", "feature"]);
@@ -4212,6 +4773,334 @@ mod tests {
         assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
         assert_eq!(a.message, "skipped 1 file without hunks");
         assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/7");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #76: the review is left open next to an agent. What `main` does on a change is
+    /// `Review::refresh` and `review_refreshed`; the open file, the cursor and both scrolls stay.
+    #[test]
+    fn a_live_review_follows_edits_untracked_files_and_commits() {
+        let (dir, mut a) = review_app("livereview");
+        let git = |args: &[&str]| {
+            let mut cmd = std::process::Command::new("git");
+            let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+            assert!(out.status.success(), "git {args:?}");
+        };
+        let refresh = |a: &mut App| {
+            let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+            a.review_refreshed(fresh)
+        };
+        let rows = |a: &App| -> Vec<(char, String, usize, usize)> {
+            let files = a.review.as_ref().unwrap().files.iter();
+            files
+                .map(|f| (f.status, f.path.display().to_string(), f.added, f.deleted))
+                .collect()
+        };
+        let row = |s: char, p: &str, n: usize, m: usize| (s, p.to_string(), n, m);
+        // Where the reader is: the code pane, the panel cursor and its row on screen.
+        let place = |a: &App| {
+            let vis = a.tree.visible();
+            let row = vis.iter().position(|&i| i == a.tree.cursor).unwrap();
+            let selected = a.tree.selected().unwrap().path.clone();
+            (at(a), a.col, a.top_line, selected, row - a.tree_top)
+        };
+        assert!(!refresh(&mut a), "nothing changed: nothing to draw");
+        a.tree.reveal(Path::new("new"));
+        a.tree_top = 1;
+        let before = place(&a);
+        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 4/5");
+
+        // The agent touches a file for the first time, writes a module in a new directory and
+        // one at the root, neither added, and a log that is ignored.
+        std::fs::write(dir.join("src/keep.rs"), "k1\nk2\nK\nk3\n").unwrap();
+        std::fs::create_dir(dir.join("pkg")).unwrap();
+        std::fs::write(dir.join("pkg/mod.py"), "x = 1\ny = 2\n").unwrap();
+        std::fs::write(dir.join("pkg/logo.png"), b"\x89PNG\0").unwrap();
+        std::fs::write(dir.join("zz.py"), "z = 1\nz = 2\nlast").unwrap();
+        std::fs::write(dir.join(".gitignore"), "*.log\n").unwrap();
+        std::fs::write(dir.join("agent.log"), "noise\n").unwrap();
+        assert!(refresh(&mut a));
+        assert_eq!(
+            rows(&a),
+            vec![
+                row('A', "pkg/logo.png", 0, 0),
+                row('A', "pkg/mod.py", 2, 0),
+                row('M', "src/a.rs", 2, 2),
+                row('M', "src/keep.rs", 1, 0),
+                row('A', ".gitignore", 1, 0),
+                row('M', "crlf.txt", 1, 1),
+                row('D', "gone", 0, 2),
+                row('A', "new", 1, 0),
+                row('M', "tail", 0, 2),
+                row('A', "zz.py", 3, 0),
+            ]
+        );
+        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 8/10");
+        assert_eq!(place(&a), before, "rows came in above: nothing moved");
+        let shown = |a: &App, p: &str| {
+            a.tree
+                .visible()
+                .iter()
+                .any(|&i| a.tree.nodes[i].path == Path::new(p))
+        };
+        assert!(shown(&a, "pkg/mod.py"), "a new directory comes open");
+        // A directory the reader closed stays closed.
+        a.tree.reveal(Path::new("src"));
+        a.tree.collapse();
+        a.tree.reveal(Path::new("new"));
+        std::fs::write(dir.join("pkg/mod.py"), "x = 1\n").unwrap();
+        assert!(refresh(&mut a));
+        assert_eq!(rows(&a)[1], row('A', "pkg/mod.py", 1, 0));
+        assert!(a.review.as_ref().unwrap().files[0].binary);
+        assert!(!shown(&a, "src/a.rs"));
+
+        // `c` walks into the untracked file as into any added one: every line is added.
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("zz.py"), 0));
+        assert_eq!((a.diff.marks.len(), &a.diff.hunks), (3, &vec![0]));
+        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 10/10");
+
+        // A reverted file leaves the panel. The open one stays open, without marks.
+        a.jump_to(&dir.join("src/keep.rs"), 3);
+        assert_eq!(a.diff.marks.len(), 1);
+        std::fs::write(dir.join("src/keep.rs"), "k1\nk2\nk3\n").unwrap();
+        a.reload(false);
+        assert!(refresh(&mut a));
+        assert!(
+            a.review
+                .as_ref()
+                .unwrap()
+                .file(Path::new("src/keep.rs"))
+                .is_none()
+        );
+        assert_eq!(at(&a), (dir.join("src/keep.rs"), 2));
+        assert!(a.diff.marks.is_empty());
+        assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/9");
+
+        // The agent commits: the rows are the same ones, tracked now. Then the base moves up to
+        // the branch's first commit, and only the second one is left to review; `new`, open
+        // and not touched on disk, loses its marks.
+        a.jump_to(&dir.join("new"), 1);
+        assert_eq!(a.diff.marks.len(), 1);
+        let listed = rows(&a);
+        git(&["add", "-A"]);
+        git(&["commit", "-q", "-m", "more work"]);
+        assert!(
+            refresh(&mut a),
+            "the rows are tracked now: `untracked` went"
+        );
+        assert_eq!(rows(&a), listed);
+        assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 7/9");
+        git(&["branch", "-f", "main", "HEAD~1"]);
+        assert!(refresh(&mut a));
+        assert_eq!(
+            rows(&a),
+            vec![
+                row('A', "pkg/logo.png", 0, 0),
+                row('A', "pkg/mod.py", 1, 0),
+                row('A', ".gitignore", 1, 0),
+                row('A', "zz.py", 3, 0),
+            ]
+        );
+        assert_eq!(at(&a), (dir.join("new"), 0));
+        assert!(a.diff.marks.is_empty());
+        assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/4");
+        // The base caught up with the branch: an empty panel, and keys that find no row.
+        git(&["branch", "-f", "main", "HEAD"]);
+        assert!(refresh(&mut a));
+        assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/0");
+        a.focus = Focus::Tree;
+        for key in [KeyCode::Down, KeyCode::Enter, KeyCode::Char('c')] {
+            press(&mut a, key, KeyModifiers::NONE);
+        }
+        assert_eq!(at(&a), (dir.join("new"), 0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #76: the marks of the open file are read again when the base moves under it or its row
+    /// changes kind, with no write to the file itself, which is what `reload` answers.
+    #[test]
+    fn the_open_file_gets_new_marks_when_only_the_branch_changed() {
+        let (dir, mut a) = review_app("livemarks");
+        let git = |args: &[&str]| {
+            let mut cmd = std::process::Command::new("git");
+            let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+            assert!(out.status.success(), "git {args:?}");
+        };
+        let refresh = |a: &mut App| {
+            let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+            a.review_refreshed(fresh)
+        };
+        let keep = dir.join("src/keep.rs");
+        std::fs::write(&keep, "k1\nK2\nk3\n").unwrap();
+        git(&["commit", "-qam", "second"]);
+        std::fs::write(&keep, "k1\nK2\nK3\n").unwrap();
+        git(&["commit", "-qam", "third"]);
+        assert!(refresh(&mut a));
+        a.jump_to(&keep, 1);
+        assert_eq!(a.diff.marks.len(), 2);
+        // The base moves up to `second`: the row stays `M`, one mark is left.
+        git(&["branch", "-f", "main", "HEAD~1"]);
+        assert!(refresh(&mut a));
+        assert_eq!(a.diff.marks.len(), 1);
+        // The file leaves the index: the same merge base, a row of another kind, every line
+        // added. One row: the file on disk, not the deletion.
+        git(&["rm", "-q", "--cached", "src/keep.rs"]);
+        assert!(refresh(&mut a));
+        let rows = a.review.as_ref().unwrap().files.iter();
+        let rows: Vec<_> = rows
+            .filter(|f| f.path == Path::new("src/keep.rs"))
+            .collect();
+        assert_eq!(
+            (rows.len(), rows[0].status, rows[0].untracked),
+            (1, 'A', true)
+        );
+        assert_eq!(a.diff.marks.len(), 3);
+        assert_eq!(at(&a), (keep, 0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #76: the branch deleted `gone` and the agent writes it again, not added: git lists the
+    /// path as deleted and as untracked. It is one row, read from disk, and `c` walks past it.
+    #[test]
+    fn a_deleted_file_written_again_is_one_row() {
+        let (dir, mut a) = review_app("liveagain");
+        std::fs::write(dir.join("gone"), "fresh\n").unwrap();
+        let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+        assert!(a.review_refreshed(fresh));
+        let names = a.tree.nodes.iter().map(|n| n.path.to_str().unwrap());
+        assert_eq!(
+            names.collect::<Vec<_>>(),
+            vec!["src", "src/a.rs", "crlf.txt", "gone", "new", "tail"]
+        );
+        press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("gone"), 0));
+        assert_eq!(
+            (a.buf.lines.clone(), a.buf.readonly),
+            (vec!["fresh".to_string()], None)
+        );
+        press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("new"), 0));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #76: the reader is in the second hunk when the agent adds one above it. The cursor and
+    /// the scroll go down with the text, so the hunk is still the current one and `c` goes on.
+    #[test]
+    fn the_current_hunk_stays_current_when_one_is_added_above() {
+        let (dir, mut a) = review_app("livehunk");
+        a.jump_to(&dir.join("src/a.rs"), 6);
+        a.view_h = 4;
+        a.clamp_scroll();
+        a.top_line = 3;
+        a.anchor = Some((4, 0));
+        let stop = |a: &App| a.history[a.hist_idx].clone();
+        assert_eq!(stop(&a), (dir.join("src/a.rs"), 5, 0));
+        assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/5");
+        std::fs::write(dir.join("src/a.rs"), "new\nnew\na\nB\nc\nd\ne\nF\n").unwrap();
+        assert!(a.reload(false));
+        assert_eq!(
+            (a.line, a.top_line, a.buf.lines[a.line].as_str()),
+            (7, 5, "F")
+        );
+        assert_eq!(a.review_status().unwrap(), "hunk 3/3  file 1/5");
+        // What is selected is still selected, and the history stop is still under the cursor.
+        assert_eq!(a.anchor, Some((6, 0)));
+        assert_eq!(stop(&a), (dir.join("src/a.rs"), 7, 0));
+        a.anchor = None;
+        // A block deleted above the pane, from a file longer than what is left of it: the
+        // scroll is carried from where it was, not from where the shorter file clamps it.
+        let text = |r: std::ops::Range<usize>| r.map(|i| format!("l{i}\n")).collect::<String>();
+        std::fs::write(dir.join("src/a.rs"), text(0..40)).unwrap();
+        a.reload(false);
+        (a.view_h, a.line, a.top_line) = (10, 35, 30);
+        std::fs::write(dir.join("src/a.rs"), text(25..40)).unwrap();
+        a.reload(false);
+        assert_eq!(
+            (a.line, a.top_line, a.buf.lines[a.line].as_str()),
+            (10, 5, "l35")
+        );
+        std::fs::write(dir.join("src/a.rs"), "new\nnew\na\nB\nc\nd\ne\nF\n").unwrap();
+        a.reload(false);
+        a.jump_to(&dir.join("src/a.rs"), 8);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+        // Written below the cursor, or the cursor's own line: nothing to follow.
+        let text = |n: usize| (0..n).map(|i| format!("{i}\n")).collect::<String>();
+        for (old, new, l, want) in [
+            (text(6), text(6) + "x\n", 3, 3),
+            (text(6), "x\n".to_string() + &text(6), 3, 4),
+            (text(6), text(6).replace("3\n", "x\ny\n"), 3, 3),
+            (text(6), text(6).replace("1\n", ""), 3, 2),
+            ("a\nb\n".into(), "a\na\nb\n".into(), 0, 0),
+            // The cursor's own lines went: the line that followed them.
+            (text(6), text(6).replace("2\n3\n", ""), 3, 2),
+        ] {
+            let lines = |s: &str| s.lines().map(String::from).collect::<Vec<_>>();
+            assert_eq!(
+                carried(&lines(&old), &lines(&new), l),
+                want,
+                "{old:?} {new:?}"
+            );
+        }
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A submodule is a gitlink, which `git diff --numstat` counts as one added line: listed,
+    /// not a stop. And a file that does not open is walked past with the reason, not retried.
+    #[test]
+    fn review_walks_past_a_submodule_and_a_file_that_does_not_open() {
+        let (dir, mut a) = review_app("reviewsub");
+        let git = |at: &Path, args: &[&str]| {
+            let out = std::process::Command::new("git")
+                .arg("-C")
+                .arg(at)
+                .args(["-c", "user.email=t@t", "-c", "user.name=t"])
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "git {args:?}");
+        };
+        let sub = dir.join("sub");
+        std::fs::create_dir(&sub).unwrap();
+        git(&sub, &["init", "-q"]);
+        git(&sub, &["commit", "-q", "--allow-empty", "-m", "sub"]);
+        git(&dir, &["add", "-A"]);
+        git(&dir, &["commit", "-q", "-m", "submodule"]);
+        a.start_review(git::Review::open(&dir, None, None).unwrap());
+        // Panel order: src/a.rs, crlf.txt, gone, new, sub, tail.
+        let r = a.review.as_ref().unwrap();
+        assert_eq!(r.files[4].path, Path::new("sub"));
+        assert!(!r.files[4].has_hunks());
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("tail"), 0));
+        assert_eq!(a.message, "skipped 1 file without hunks");
+        // `new` stops opening: `c` from `gone` goes past it to `tail`, and the status says
+        // what happened to `new`.
+        std::fs::remove_file(dir.join("new")).unwrap();
+        std::fs::create_dir(dir.join("new")).unwrap();
+        a.jump_to(&dir.join("gone"), 1);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("tail"), 0));
+        assert!(a.message.contains("new: "), "{}", a.message);
+        // Edits that cannot be saved hold merl on the file; what the status says stays.
+        a.jump_to(&dir.join("gone"), 1);
+        (a.dirty, a.conflict) = (true, true);
+        a.message = "save failed: x".into();
+        a.hunk(1);
+        assert_eq!(at(&a), (dir.join("gone"), 0));
+        assert_eq!(a.message, "save failed: x");
+        (a.dirty, a.conflict) = (false, false);
+        // Nothing ahead opens: the reason again, not a retry that hides it.
+        std::fs::remove_file(dir.join("tail")).unwrap();
+        a.jump_to(&dir.join("gone"), 1);
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        assert_eq!(at(&a), (dir.join("gone"), 0));
+        assert!(a.message.contains("tail: "), "{}", a.message);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -4637,21 +5526,26 @@ mod tests {
     }
 
     /// Presses `d` on the last word of the first line of `file` that contains `code`, or starts
-    /// with it when `code` starts with `^`.
+    /// with it when `code` starts with `^`. A `|` in `code` is not part of the line: it stands
+    /// after the word to press `d` on, and what follows it only picks the line.
     fn d_on(a: &mut App, file: &str, code: &str) {
+        let (code, rest) = code.split_once('|').unwrap_or((code, ""));
+        let whole = format!("{code}{rest}");
+        let (code, whole) = (code, whole.as_str());
         let path = a.root.join(file);
         let text = std::fs::read_to_string(&path).unwrap();
         let (n, line) = text
             .lines()
             .enumerate()
-            .find(|(_, l)| match code.strip_prefix('^') {
+            .find(|(_, l)| match whole.strip_prefix('^') {
                 Some(start) => l.starts_with(start),
-                None => l.contains(code),
+                None => l.contains(whole),
             })
-            .unwrap_or_else(|| panic!("no `{code}` in {file}"));
+            .unwrap_or_else(|| panic!("no `{whole}` in {file}"));
         let code = code.trim_start_matches('^');
         a.jump_to(&path, n + 1);
-        a.col = line.find(code).unwrap() + code.rfind(|c: char| !is_word(c)).map_or(0, |i| i + 1);
+        a.col = line.find(whole.trim_start_matches('^')).unwrap()
+            + code.rfind(|c: char| !is_word(c)).map_or(0, |i| i + 1);
         press(a, KeyCode::Char('d'), KeyModifiers::NONE);
     }
 
@@ -4764,7 +5658,7 @@ mod tests {
                     ("AuditLog.deleteUser", "repos.ts:16"),
                 ),
             ),
-            // A `range` variable.
+            // The variable of a `range` over a channel, which the rules do not read.
             (
                 "go",
                 "factories.go",
@@ -4859,30 +5753,6 @@ mod tests {
     /// to the search by name: a picker of two.
     #[test]
     fn a_member_of_a_typed_receiver_is_looked_up_in_its_type() {
-        let by_name = |status: &str, first: (&str, &str), second: (&str, &str)| {
-            picker(status, &[first, second])
-        };
-        let py_both = || {
-            by_name(
-                "delete_user: by name, 2 declarations",
-                ("UserRepository.delete_user", "repos.py:8"),
-                ("AuditLog.delete_user", "repos.py:13"),
-            )
-        };
-        let ts_both = || {
-            by_name(
-                "deleteUser: by name, 2 declarations",
-                ("UserRepository.deleteUser", "repos.ts:10"),
-                ("AuditLog.deleteUser", "repos.ts:16"),
-            )
-        };
-        let go_both = || {
-            by_name(
-                "DeleteUser: by name, 2 declarations",
-                ("UserRepository.DeleteUser", "repos.go:15"),
-                ("AuditLog.DeleteUser", "repos.go:21"),
-            )
-        };
         let cases: Vec<(&str, &str, &str, Shown)> = vec![
             // Two same-named methods: each field lands on its own class's.
             (
@@ -4914,7 +5784,7 @@ mod tests {
                 ),
             ),
             // Shadowing: below the nested function only the outer `repo` is in scope; inside it
-            // both are, and they disagree.
+            // the inner one hides it (#100).
             (
                 "python",
                 "service.py",
@@ -4924,7 +5794,15 @@ mod tests {
                     "repos.py:13",
                 ),
             ),
-            ("python", "service.py", "await repo.delete_user", py_both()),
+            (
+                "python",
+                "service.py",
+                "await repo.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via repo: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
             (
                 "python",
                 "factories.py",
@@ -4934,7 +5812,16 @@ mod tests {
                     "repos.py:8",
                 ),
             ),
-            ("python", "factories.py", "audit.delete_user", py_both()),
+            // No return type, but every `return` constructs one (#100).
+            (
+                "python",
+                "factories.py",
+                "audit.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via make_audit() returns AuditLog())",
+                    "repos.py:13",
+                ),
+            ),
             // The return type is resolved where the function is declared.
             (
                 "python",
@@ -4985,7 +5872,10 @@ mod tests {
                 "typescript",
                 "service.ts",
                 "await repo.deleteUser",
-                ts_both(),
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via repo: UserRepository)",
+                    "repos.ts:10",
+                ),
             ),
             (
                 "typescript",
@@ -5052,7 +5942,15 @@ mod tests {
                     "repos.go:21",
                 ),
             ),
-            ("go", "service.go", "^\t\trepo.DeleteUser", go_both()),
+            (
+                "go",
+                "service.go",
+                "^\t\trepo.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via repo: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
             (
                 "go",
                 "factories.go",
@@ -5154,12 +6052,16 @@ mod tests {
                     &py_both,
                 ),
             ),
-            // Not the local `users`: the chain hangs off a call.
+            // Not the local `users`: the chain hangs off a call, whose declared return type
+            // starts it (#100).
             (
                 "python",
                 "chains.py",
                 "make_uow().users.delete_user",
-                by_name("delete_user: by name, 2 declarations", &py_both),
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via make_uow() -> UnitOfWork \u{2192} users: UserRepository)",
+                    "repos.py:8",
+                ),
             ),
             (
                 "python",
@@ -5236,7 +6138,10 @@ mod tests {
                 "typescript",
                 "chains.ts",
                 "makeUow().users.deleteUser",
-                by_name("deleteUser: by name, 2 declarations", &ts_both),
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via makeUow(): UnitOfWork \u{2192} users: UserRepository)",
+                    "repos.ts:10",
+                ),
             ),
             (
                 "typescript",
@@ -5314,7 +6219,10 @@ mod tests {
                 "go",
                 "chains.go",
                 "NewUnitOfWork().Users.DeleteUser",
-                by_name("DeleteUser: by name, 2 declarations", &go_both),
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via NewUnitOfWork() *UnitOfWork \u{2192} Users: UserRepository)",
+                    "repos.go:15",
+                ),
             ),
             (
                 "go",
@@ -5701,7 +6609,7 @@ mod tests {
                     "chains.go:4",
                 ),
             ),
-            // A `range` variable.
+            // The variable of a `range` over a channel, which the rules do not read.
             (
                 "go",
                 "fields.go",
@@ -5749,6 +6657,1604 @@ mod tests {
                 "fields.go",
                 "^\tPosterID",
                 namesakes("PosterID", ("Comment.PosterID", "fields.go:20")),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100: `super().m()` / `super.m()` is `self` / `this` with the walk started one level up, so
+    /// an override leads to what it overrides and never to itself. Go has no `super`: its
+    /// `i.Base.M()` is a chain through the embedded struct. Under several Python bases only what
+    /// needs no method resolution order is proven.
+    #[test]
+    fn super_starts_one_level_up() {
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // One base: the nearest declaration above the class, a method or a declared field.
+            (
+                "python",
+                "supers.py",
+                "super().__init__",
+                jump(
+                    "__init__ \u{2192} Archive.__init__ (via super of ColdArchive)",
+                    "supers.py:12",
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().store|(item)",
+                jump(
+                    "store \u{2192} Archive.store (via super of ColdArchive)",
+                    "supers.py:15",
+                ),
+            ),
+            // An override leads to what it overrides, never to itself; `Generic[T]` declares nothing.
+            (
+                "python",
+                "supers.py",
+                "super().store|(item + 1)",
+                jump(
+                    "store \u{2192} ColdArchive.store (via super of GlacierArchive)",
+                    "supers.py:26",
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().flush|()",
+                jump(
+                    "flush \u{2192} Archive.flush (via super of GlacierArchive)",
+                    "supers.py:18",
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().label",
+                jump(
+                    "label \u{2192} Archive.label (via super of GlacierArchive)",
+                    "supers.py:10",
+                ),
+            ),
+            // A function inside the method: `super()` has no arguments to find there.
+            (
+                "python",
+                "supers.py",
+                "super().flush|(), \"no arg",
+                picker(
+                    "flush: by name, 4 declarations",
+                    &[
+                        ("Archive.flush", "supers.py:18"),
+                        ("GlacierArchive.flush", "supers.py:36"),
+                        ("Right.flush", "supers.py:63"),
+                        ("Diamond.flush", "supers.py:68"),
+                    ],
+                ),
+            ),
+            // Several bases: the first one declaring the member itself is first in any order.
+            (
+                "python",
+                "supers.py",
+                "super().store|(item + 2)",
+                jump(
+                    "store \u{2192} Stamped.store (via super of Mixed)",
+                    "supers.py:44",
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().stamp",
+                jump(
+                    "stamp \u{2192} Stamped.stamp (via super of Mixed)",
+                    "supers.py:47",
+                ),
+            ),
+            // Only one of the bases leads to a `flush`.
+            (
+                "python",
+                "supers.py",
+                "super().flush|(), \"one base",
+                jump(
+                    "flush \u{2192} Archive.flush (via super of Mixed)",
+                    "supers.py:18",
+                ),
+            ),
+            // `Left` leads to `Archive.flush`, `Right` declares its own, and Python asks `Right` first: a
+            // walk by depth would jump to the wrong one, so none is proven.
+            (
+                "python",
+                "supers.py",
+                "super().flush|(), \"Right",
+                picker(
+                    "flush: by name, 4 declarations",
+                    &[
+                        ("Archive.flush", "supers.py:18"),
+                        ("GlacierArchive.flush", "supers.py:36"),
+                        ("Right.flush", "supers.py:63"),
+                        ("Diamond.flush", "supers.py:68"),
+                    ],
+                ),
+            ),
+            // `json.JSONEncoder` is outside the project and may declare the member first.
+            (
+                "python",
+                "supers.py",
+                "super().store|(item + 3)",
+                picker(
+                    "store: by name, 6 declarations",
+                    &[
+                        ("Archive.store", "supers.py:15"),
+                        ("ColdArchive.store", "supers.py:26"),
+                        ("GlacierArchive.store", "supers.py:31"),
+                        ("Stamped.store", "supers.py:44"),
+                        ("Mixed.store", "supers.py:52"),
+                        ("Wire.store", "supers.py:73"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().default",
+                picker(
+                    "default: by name, 2 declarations",
+                    &[
+                        ("Wire.default", "supers.py:76"),
+                        ("Encoder.default", "fields.py:60"),
+                    ],
+                ),
+            ),
+            // A name between `super()` and the word is not followed: the word is not looked for
+            // above the class as if it stood behind `super()` itself.
+            (
+                "python",
+                "supers.py",
+                "super().audit.store",
+                picker(
+                    "store: by name, 6 declarations (chain broke at audit)",
+                    &[
+                        ("Archive.store", "supers.py:15"),
+                        ("ColdArchive.store", "supers.py:26"),
+                        ("GlacierArchive.store", "supers.py:31"),
+                        ("Stamped.store", "supers.py:44"),
+                        ("Mixed.store", "supers.py:52"),
+                        ("Wire.store", "supers.py:73"),
+                    ],
+                ),
+            ),
+            // TypeScript: one `extends`.
+            (
+                "typescript",
+                "supers.ts",
+                "super.store|(item);",
+                jump(
+                    "store \u{2192} Archive.store (via super of ColdArchive)",
+                    "supers.ts:8",
+                ),
+            ),
+            (
+                "typescript",
+                "supers.ts",
+                "super.store|(item + 1)",
+                jump(
+                    "store \u{2192} ColdArchive.store (via super of GlacierArchive)",
+                    "supers.ts:18",
+                ),
+            ),
+            (
+                "typescript",
+                "supers.ts",
+                "super.flush",
+                jump(
+                    "flush \u{2192} Archive.flush (via super of GlacierArchive)",
+                    "supers.ts:10",
+                ),
+            ),
+            // An arrow function passes `super` through as it does `this`.
+            (
+                "typescript",
+                "supers.ts",
+                "super.store|(n)",
+                jump(
+                    "store \u{2192} ColdArchive.store (via super of GlacierArchive)",
+                    "supers.ts:18",
+                ),
+            ),
+            // In an object literal `super` is the literal's prototype, not the class around it.
+            (
+                "typescript",
+                "supers.ts",
+                "super.toString",
+                picker(
+                    "toString: by name, 2 declarations",
+                    &[
+                        ("Archive.toString", "supers.ts:12"),
+                        ("toString", "supers.ts:32"),
+                    ],
+                ),
+            ),
+            // The same conditions hold at every level the answer is found through: a diamond
+            // or an outside base under the one direct base proves nothing either.
+            (
+                "python",
+                "supers.py",
+                "super().drain|(), \"a diamond",
+                picker(
+                    "drain: by name, 6 declarations",
+                    &[
+                        ("Tank.drain", "supers.py:89"),
+                        ("LoudTank.drain", "supers.py:102"),
+                        ("LeafTank.drain", "supers.py:111"),
+                        ("LeafWire.drain", "supers.py:120"),
+                        ("SameTank.drain", "supers.py:125"),
+                        ("AbcTank.drain", "supers.py:130"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().drain|(), \"an outside",
+                picker(
+                    "drain: by name, 6 declarations",
+                    &[
+                        ("Tank.drain", "supers.py:89"),
+                        ("LoudTank.drain", "supers.py:102"),
+                        ("LeafTank.drain", "supers.py:111"),
+                        ("LeafWire.drain", "supers.py:120"),
+                        ("SameTank.drain", "supers.py:125"),
+                        ("AbcTank.drain", "supers.py:130"),
+                    ],
+                ),
+            ),
+            // Two bases that lead to the same declaration, and `ABC`, which declares nothing.
+            (
+                "python",
+                "supers.py",
+                "super().drain|(), \"both",
+                jump(
+                    "drain \u{2192} Tank.drain (via super of SameTank)",
+                    "supers.py:89",
+                ),
+            ),
+            (
+                "python",
+                "supers.py",
+                "super().drain|(), \"ABC",
+                jump(
+                    "drain \u{2192} Tank.drain (via super of AbcTank)",
+                    "supers.py:89",
+                ),
+            ),
+            // `d` on the word itself is what it was: `super` is no local.
+            (
+                "python",
+                "supers.py",
+                "super|().stamp",
+                jump("no definition for super", "supers.py:54"),
+            ),
+            (
+                "typescript",
+                "supers.ts",
+                "super|.flush",
+                jump("no definition for super", "supers.ts:26"),
+            ),
+            // `super.open()` returns what the base's `open` declares, not the override's
+            // narrower type: a call on `super` is not read as a call on `this`.
+            (
+                "typescript",
+                "supers.ts",
+                "opened.store",
+                picker(
+                    "store: by name, 3 declarations",
+                    &[
+                        ("Archive.store", "supers.ts:8"),
+                        ("ColdArchive.store", "supers.ts:18"),
+                        ("GlacierArchive.store", "supers.ts:24"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "supers.ts",
+                "super.open().store",
+                picker(
+                    "store: by name, 3 declarations",
+                    &[
+                        ("Archive.store", "supers.ts:8"),
+                        ("ColdArchive.store", "supers.ts:18"),
+                        ("GlacierArchive.store", "supers.ts:24"),
+                    ],
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100: the innermost scope that binds a name decides what it is. A module-level or
+    /// package-level name, a variable of the function around a closure and one of the block
+    /// around a block are hidden, where they used to disagree with the inner one. What hides may
+    /// be unknown, and then nothing behind it answers; two bindings of one scope still disagree.
+    #[test]
+    fn the_innermost_binding_wins() {
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // A parameter named like a module-level `def`.
+            (
+                "python",
+                "scopes.py",
+                "save.find_user",
+                jump(
+                    "find_user \u{2192} UserRepository.find_user (via save: UserRepository)",
+                    "repos.py:5",
+                ),
+            ),
+            // A local hides the module's variable, in the function and in a closure inside it.
+            (
+                "python",
+                "scopes.py",
+                "ledger.find_user|(user_id)",
+                jump(
+                    "find_user \u{2192} UserRepository.find_user (via ledger: UserRepository)",
+                    "repos.py:5",
+                ),
+            ),
+            (
+                "python",
+                "scopes.py",
+                "ledger.find_user|(user_id + 1)",
+                jump(
+                    "find_user \u{2192} UserRepository.find_user (via ledger: UserRepository)",
+                    "repos.py:5",
+                ),
+            ),
+            // A function that binds no `ledger` reads the module's.
+            (
+                "python",
+                "scopes.py",
+                "ledger.delete_user|(user_id + 2)",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via ledger: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            // Two bindings in one function disagree: which one reaches the line is control flow.
+            (
+                "python",
+                "scopes.py",
+                "ledger.delete_user|(3)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A parameter with no annotation hides the module's `ledger`, which must not answer.
+            (
+                "python",
+                "scopes.py",
+                "ledger.delete_user|(user_id + 4)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // On the name itself, the declaration in its scope.
+            (
+                "python",
+                "scopes.py",
+                "    ledger|.find_user(user_id)",
+                jump("ledger \u{2192} rotate.ledger (local)", "scopes.py:15"),
+            ),
+            // TypeScript: a `const` of the function, an arrow function's parameter, a block's `const`
+            // over the function's, and the function's own below that block.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.findUser",
+                jump(
+                    "findUser \u{2192} UserRepository.findUser (via ledger: UserRepository)",
+                    "repos.ts:6",
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id);",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 1)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 2)",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via ledger: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            // `any` hides the module's `ledger`.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 3)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // The cursor is not inside an arrow function on its own line, or on the line the
+            // statement started on: its parameter counts and hides nothing.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(repos.map",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 4)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "  ledger|.findUser(id)",
+                jump("ledger \u{2192} rotate.ledger (local)", "scopes.ts:6"),
+            ),
+            // A literal under a line that also holds an arrow function: the cursor is in the
+            // literal, and the arrow's parameter hides nothing.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 5)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // Go: a `:=` over the package's `var`, a block's over the function's, and the package's
+            // where nothing hides it.
+            (
+                "go",
+                "scopes.go",
+                "ledger.FindUser",
+                jump(
+                    "FindUser \u{2192} UserRepository.FindUser (via NewRepo() *UserRepository)",
+                    "repos.go:11",
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 1)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via NewRepo() *UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 2)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via ledger: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 3)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via ledger: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            // The second name of a `:=` is unknown and hides the package's.
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 4)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            // An `if` header and its body are read as one scope, so their two `ledger` disagree.
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 5)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "	ledger|.FindUser(id)",
+                jump(
+                    "ledger \u{2192} ScopedRotate.ledger (local)",
+                    "scopes.go:10",
+                ),
+            ),
+            // A composite literal under a line that also holds a `func`.
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(id + 6)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            // A sibling block's callback or loop is not around the cursor of the `else` or the
+            // `catch`, which reads the parameter of its own function. A callback on the lines
+            // of the header itself counts, as one on the cursor's line does, and hides nothing.
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(7)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via ledger: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(8)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via ledger: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "scopes.go",
+                "ledger.DeleteUser|(9)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 6)",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via ledger: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 7)",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via ledger: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 8)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 9",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // A docstring's example binds nothing: the module's `ledger` is read.
+            (
+                "python",
+                "scopes.py",
+                "ledger.delete_user|(user_id + 5)",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via ledger: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            // The arrow function's line ends in `=>`: its body is the lines below.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 10)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            // A destructured parameter under a header closed by `}: Deps): void {` hides the
+            // module's `ledger` and has no type of its own.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 11)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // A backtick inside a regex opens no template: the `const` under it is read.
+            (
+                "typescript",
+                "scopes.ts",
+                "ledger.deleteUser|(id + 12)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100: a loop variable is an element of what it loops over, where that collection's type is
+    /// written: `list[T]`, `T[]`, `[]T`, `map[K]T`, as an annotation or as the return type of the
+    /// function it came from. The collection itself is no `T`, and keys, pairs, a tuple target
+    /// and a collection declared twice stay unknown.
+    #[test]
+    fn a_loop_variable_is_an_element_of_a_written_collection() {
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // An annotated parameter: `list[T]`, and `tuple[T, ...]` in quotes.
+            (
+                "python",
+                "elements.py",
+                "repo.delete_user|(user_id)",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via repos: list[UserRepository])",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "elements.py",
+                "log.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via logs: \"tuple[AuditLog, ...]\")",
+                    "repos.py:13",
+                ),
+            ),
+            // The collection came from a function that declares what it returns.
+            (
+                "python",
+                "elements.py",
+                "repo.delete_user|(user_id + 3)",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via load_repos() -> list[UserRepository])",
+                    "repos.py:8",
+                ),
+            ),
+            // The list itself is no `UserRepository`.
+            (
+                "python",
+                "elements.py",
+                "repos.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A `dict` hands out its keys; a tuple target over a call is not read.
+            (
+                "python",
+                "elements.py",
+                "key.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "elements.py",
+                "repo.delete_user|(user_id + 5)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // `repos` is assigned again with no type written: not every declaration says what it holds.
+            (
+                "python",
+                "elements.py",
+                "repo.delete_user|(user_id + 6)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // Two annotations that disagree.
+            (
+                "python",
+                "elements.py",
+                "repo.delete_user|(user_id + 7)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // TypeScript: `T[]`, `ReadonlyArray<T>`, a declared return type.
+            (
+                "typescript",
+                "elements.ts",
+                "repo.deleteUser|(id);",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via repos: UserRepository[])",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "elements.ts",
+                "log.deleteUser",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via logs: ReadonlyArray<AuditLog>)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "elements.ts",
+                "repo.deleteUser|(id + 2)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via loadRepos(): UserRepository[])",
+                    "repos.ts:10",
+                ),
+            ),
+            // The array itself, a `Map`'s pairs and the keys of `for … in`.
+            (
+                "typescript",
+                "elements.ts",
+                "repos.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "elements.ts",
+                "entry.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "elements.ts",
+                "index.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // Go: the second variable of a `range` over `[]*T`, over `map[K]T`, over a declared result.
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via repos: []*UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "elements.go",
+                "entry.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via logs: map[string]AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 2)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via LoadRepos() []*UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            // A single variable is an index or a key, or the element of a channel the rules do not read.
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 3)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            // A slice made or written out in place says what it holds.
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 4)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via made: []*UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "elements.go",
+                "entry.DeleteUser|(id + 5)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via listed: []AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            // A named slice type, read where it is declared.
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 6)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via repos: RepoList)",
+                    "repos.go:15",
+                ),
+            ),
+            // An element handed on to another name is one hop too many.
+            (
+                "python",
+                "elements.py",
+                "current.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A named map, a named slice declared in another package, and a `type X = []T`
+            // alias, which is not read.
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 7)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via index: RepoIndex)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "elements.go",
+                "session.Close",
+                jump(
+                    "Close \u{2192} Session.Close (via sessions: store.SessionList)",
+                    "store/store.go:15",
+                ),
+            ),
+            (
+                "go",
+                "elements.go",
+                "repo.DeleteUser|(id + 8)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100: one more hop on a call. A method called on a receiver whose type is proven gives
+    /// what it declares to return, a Python function or method with no annotation what every
+    /// `return` of it constructs, and a chain may hang off a call that starts the expression.
+    /// A call of a call, returns that differ and an unproven receiver stay by name.
+    #[test]
+    fn a_call_is_one_more_hop() {
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // A method of a parameter whose type is written, with the return type it declares.
+            (
+                "python",
+                "calls.py",
+                "repo.delete_user|(user_id)",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via depot.people_repo() -> UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            // No annotation, and every `return` constructs an `AuditLog`.
+            (
+                "python",
+                "calls.py",
+                "trail.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via depot.trail() returns AuditLog())",
+                    "repos.py:13",
+                ),
+            ),
+            // A chain off a call that starts the expression: a function, a class, and the field itself.
+            (
+                "python",
+                "calls.py",
+                "open_depot().people.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via open_depot() -> Depot \u{2192} people: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "Depot().people.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via Depot(): Depot \u{2192} people: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "open_depot().people|.delete_user",
+                jump(
+                    "people \u{2192} Depot.people (via open_depot() -> Depot)",
+                    "calls.py:8",
+                ),
+            ),
+            // The returns differ; one of them is `None`; a decorator may return anything.
+            (
+                "python",
+                "calls.py",
+                "either.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "maybe.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "shared.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A call of a call hangs off a value nobody typed.
+            (
+                "python",
+                "calls.py",
+                "open_depot().people_repo().delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // The receiver of the method is a parameter with no annotation.
+            (
+                "python",
+                "calls.py",
+                "repo.delete_user|(user_id + 8)",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // TypeScript: a method's `): T`, a method whose every `return` is `new T()`, a chain off a
+            // function and off `new`, and the method line of an interface.
+            (
+                "typescript",
+                "calls.ts",
+                "repo.deleteUser|(id);",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via depot.peopleRepo(): UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "trail.deleteUser",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via depot.trail() returns new AuditLog())",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "openDepot().people.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via openDepot(): Depot \u{2192} people: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "new Depot().people.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via new Depot(): Depot \u{2192} people: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "sourced.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via src.source(): UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            // Overloads declare the method three times: which one is called is not read.
+            (
+                "typescript",
+                "calls.ts",
+                "picked.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // A call of a call, and a receiver typed `any`.
+            (
+                "typescript",
+                "calls.ts",
+                "openDepot().peopleRepo().deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "repo.deleteUser|(id + 6)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // Go: a method behind its receiver, the first of two results, a chain off a function and
+            // off a package's, and the method line of an interface.
+            (
+                "go",
+                "calls.go",
+                "repo.DeleteUser|(id)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via depot.PeopleRepo() *UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "calls.go",
+                "trail.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via depot.Trail() AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "calls.go",
+                "OpenDepot().People.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via OpenDepot() *Depot \u{2192} People: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "calls.go",
+                "store.Open().Close",
+                jump(
+                    "Close \u{2192} Session.Close (via store.Open() *Session)",
+                    "store/store.go:15",
+                ),
+            ),
+            (
+                "go",
+                "calls.go",
+                "sourced.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via src.Source() *UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            // A call of a call, and a receiver that is the second name of a `:=`.
+            (
+                "go",
+                "calls.go",
+                "OpenDepot().PeopleRepo().DeleteUser",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            (
+                "go",
+                "calls.go",
+                "repo.DeleteUser|(id + 5)",
+                picker(
+                    "DeleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.DeleteUser", "repos.go:15"),
+                        ("AuditLog.DeleteUser", "repos.go:21"),
+                    ],
+                ),
+            ),
+            // A decorator written over several lines may return anything too.
+            (
+                "python",
+                "calls.py",
+                "wrapped.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A parameter named like a function of the module is a value nobody typed.
+            (
+                "python",
+                "calls.py",
+                "open_depot().people.delete_user|(user_id + 10)",
+                picker(
+                    "delete_user: by name, 2 declarations (chain broke at open_depot())",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "made.people.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations (chain broke at made)",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // The method is inherited; the receiver is a field; the chain hangs off a method
+            // of a proven receiver.
+            (
+                "python",
+                "calls.py",
+                "inherited.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via sub.people_repo() -> UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "through.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via self.depot.people_repo() -> UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "calls.py",
+                "self.depot.people_repo().delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via self.depot.people_repo() -> UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            // Two locals assigned from each other's methods end in a picker, and end.
+            (
+                "python",
+                "calls.py",
+                "ahead.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // A `return` behind an `if` on its own line is a return the rules do not read.
+            (
+                "python",
+                "calls.py",
+                "picked.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "calls.ts",
+                "inline.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+        ];
+        for (fixture, file, code, want) in cases {
+            let mut a = fixture_app(fixture);
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
+        }
+    }
+
+    /// #100: a cast writes the type. `typing.cast(T, x)`, `x as T`, `v, ok := i.(T)`, and the
+    /// variable of `switch v := x.(type)` inside a `case T:`, assigned to a name or with the chain
+    /// hanging off the cast itself. A cast to a type the project does not declare, a `case` of
+    /// several types and `default` prove nothing.
+    #[test]
+    fn a_cast_writes_the_type() {
+        let cases: Vec<(&str, &str, &str, Shown)> = vec![
+            // `cast(T, x)` and `typing.cast("T", x)` assigned to a name, and with the member hanging
+            // off the cast itself.
+            (
+                "python",
+                "casts.py",
+                "repo.delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via repo: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "python",
+                "casts.py",
+                "audit.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via audit: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            (
+                "python",
+                "casts.py",
+                "cast(UserRepository, found).delete_user",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via cast(UserRepository, found))",
+                    "repos.py:8",
+                ),
+            ),
+            // A cast to a type the project does not declare proves nothing.
+            (
+                "python",
+                "casts.py",
+                "missing.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            (
+                "python",
+                "casts.py",
+                "loose.delete_user",
+                picker(
+                    "delete_user: by name, 2 declarations",
+                    &[
+                        ("UserRepository.delete_user", "repos.py:8"),
+                        ("AuditLog.delete_user", "repos.py:13"),
+                    ],
+                ),
+            ),
+            // TypeScript: `x as T`, the last type of `x as unknown as T`, and `(x as T).member`.
+            (
+                "typescript",
+                "casts.ts",
+                "repo.deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via repo: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            (
+                "typescript",
+                "casts.ts",
+                "audit.deleteUser",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via audit: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "typescript",
+                "casts.ts",
+                "(found as UserRepository).deleteUser",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via found as UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            // `any`, and a generic wrapper that is no type of the project.
+            (
+                "typescript",
+                "casts.ts",
+                "loose.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            (
+                "typescript",
+                "casts.ts",
+                "partial.deleteUser",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // Go: `v, ok := i.(T)`, `v := i.(T)` and `i.(T).Member`.
+            (
+                "go",
+                "casts.go",
+                "repo.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via repo: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "casts.go",
+                "audit.DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via audit: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            (
+                "go",
+                "casts.go",
+                "found.(*UserRepository).DeleteUser",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via found.(*UserRepository))",
+                    "repos.go:15",
+                ),
+            ),
+            // `fmt.Stringer` is declared outside the project.
+            (
+                "go",
+                "casts.go",
+                "found.(fmt.Stringer).String",
+                jump("no definition for String", "casts.go:25"),
+            ),
+            // The variable of a type switch has the type of the `case` the cursor is in, also from a
+            // block inside it.
+            (
+                "go",
+                "casts.go",
+                "v.DeleteUser|(id + 3)",
+                jump(
+                    "DeleteUser \u{2192} UserRepository.DeleteUser (via v: UserRepository)",
+                    "repos.go:15",
+                ),
+            ),
+            (
+                "go",
+                "casts.go",
+                "v.DeleteUser|(id + 4)",
+                jump(
+                    "DeleteUser \u{2192} AuditLog.DeleteUser (via v: AuditLog)",
+                    "repos.go:21",
+                ),
+            ),
+            // A second type switch below the first: the first one's `v` is out of scope.
+            (
+                "go",
+                "casts.go",
+                "return v.Area|()",
+                jump("Area \u{2192} Square.Area (via v: Square)", "casts.go:11"),
+            ),
+            // A `case` of two types and `default` leave `v` what it was.
+            (
+                "go",
+                "casts.go",
+                "v.Area|() + 1",
+                picker(
+                    "Area: by name, 2 declarations",
+                    &[
+                        ("Square.Area", "casts.go:11"),
+                        ("Circle.Area", "casts.go:15"),
+                    ],
+                ),
+            ),
+            (
+                "go",
+                "casts.go",
+                "v.Area|() + 2",
+                picker(
+                    "Area: by name, 2 declarations",
+                    &[
+                        ("Square.Area", "casts.go:11"),
+                        ("Circle.Area", "casts.go:15"),
+                    ],
+                ),
+            ),
+            // A `cast` the project declares itself is a function with a return type.
+            (
+                "python",
+                "casts_own.py",
+                "repo.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via cast() -> AuditLog)",
+                    "repos.py:13",
+                ),
             ),
         ];
         for (fixture, file, code, want) in cases {
@@ -6997,6 +9503,30 @@ mod tests {
                 ("main.tf", "variable \"region\" {}\n"),
                 ("Dockerfile", "FROM rust AS build\n"),
                 ("app.py", "def serve():\n    pass\n"),
+                // C is read from its own rows: `struct` must not be listed by the shared
+                // pattern as well, and a prototype is not a symbol.
+                (
+                    "invoice.h",
+                    "#define LIMIT 10\nstruct invoice {\n    int total;\n};\nint sum(struct invoice *i);\n",
+                ),
+                // Lua from its own rows too: the shared pattern reads `function M.setup(` as a
+                // declaration of `M`.
+                (
+                    "init.lua",
+                    "local M = {}\n\nfunction M.setup(opts)\n  return opts\nend\n",
+                ),
+                // Elixir from its own rows: the shared pattern knows `def` and nothing else of
+                // the family, and `defp` would be missing.
+                (
+                    "ledger.ex",
+                    "defmodule Ledger do\n  @timeout 5\n\n  defp normalise(raw), do: raw\nend\n",
+                ),
+                // Zig keeps the shared pattern and complements it: `pub fn` comes from there,
+                // the test from a row of its own.
+                (
+                    "ledger.zig",
+                    "pub fn total() u32 {\n    return 0;\n}\n\ntest \"it adds up\" {}\n",
+                ),
             ],
         );
         press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
@@ -7009,7 +9539,165 @@ mod tests {
             .map(|r| r.item.label.split_whitespace().next().unwrap().to_string())
             .collect();
         // `apiVersion:` has the shape of a Makefile target; the target rule only reads Makefiles.
-        assert_eq!(names, ["&base", "build", "build", "serve", "var.region"]);
+        assert_eq!(
+            names,
+            [
+                "&base",
+                "build",
+                "build",
+                "invoice",
+                // The first word of `it adds up`, the Zig test's description.
+                "it",
+                "Ledger",
+                "LIMIT",
+                "normalise",
+                "serve",
+                "setup",
+                "total",
+                "var.region"
+            ]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A project past the cap: `a.go` fills the list on its own, so the walk stops before
+    /// `z.go` and `zebra` is behind the cut. `main.tf` is there for a name with a dot in it.
+    fn capped_project(tag: &str) -> (PathBuf, App) {
+        let many: String = (0..search::MAX_HITS)
+            .map(|i| format!("func a{i}() {{}}\n"))
+            .collect();
+        project_app(
+            tag,
+            &[
+                ("a.go", &many),
+                ("main.tf", "variable \"region\" {}\n"),
+                ("z.go", "func zebra() {}\nfunc Zebra() {}\n"),
+            ],
+        )
+    }
+
+    /// Past the cap the rows are the declarations found before it, not the project's, so the
+    /// query greps for a name instead of filtering them: what the cut never reached is found by
+    /// typing it, in either case. An answer to a query that has changed since is dropped, and an
+    /// emptied query brings the opening list back. Under the cap nothing of this happens.
+    #[test]
+    fn symbols_past_the_cap_are_grepped_not_filtered() {
+        let (small, mut b) = project_app("cap-under", &[("z.go", "func zebra() {}\n")]);
+        press(&mut b, KeyCode::Char('D'), KeyModifiers::NONE);
+        let p = b.picker.as_ref().unwrap();
+        assert_eq!(
+            (p.title.as_str(), p.live),
+            ("Symbols", false),
+            "the whole list"
+        );
+        std::fs::remove_dir_all(&small).unwrap();
+
+        let (dir, mut a) = capped_project("cap-symbols");
+        // A grep of the search that was open answers to a number `D` must not be waiting for.
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "zebra");
+        std::thread::sleep(SEARCH_PAUSE);
+        let of_the_search = a.search_tick().expect("the grep for the `s` query").seq;
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+
+        press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert_eq!(
+            p.counts().1 as usize,
+            search::MAX_HITS + 1,
+            "a.go fills the cap of the shared pattern; main.tf is another pattern's row"
+        );
+        assert!(
+            p.live,
+            "the query greps the project, it does not filter these rows"
+        );
+        assert!(
+            !a.search_done(of_the_search, App::hit_items(Vec::new())),
+            "the search's answer is not the symbol list"
+        );
+
+        typed(&mut a, "zebr");
+        std::thread::sleep(SEARCH_PAUSE);
+        let stale = a.search_tick().expect("the grep for zebr").seq;
+        typed(&mut a, "a");
+        assert!(!a.search_done(stale, Vec::new()), "zebr is not on screen");
+        let cut = a.picker.as_ref().unwrap().counts().1 as usize;
+        assert_eq!(cut, search::MAX_HITS + 1, "a stale answer settles nothing");
+
+        // Smart case, as everywhere else: an all-lowercase query finds both spellings.
+        a.settle_search();
+        let p = a.picker.as_mut().unwrap();
+        assert_eq!(p.counts(), (2, 2));
+        let rows = p.window(5).0;
+        let mut labels: Vec<&str> = rows.iter().map(|r| r.item.label.as_str()).collect();
+        labels.sort_unstable();
+        assert_eq!(labels, ["Zebra  z.go:2", "zebra  z.go:1"]);
+        // nucleo ranks and marks what the grep brought back, as it does under the cap.
+        assert_eq!(rows[0].matched, [0, 1, 2, 3, 4]);
+
+        // One capital of its own makes the query case-sensitive, before the picker sees it.
+        press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+        typed(&mut a, "Zebra");
+        a.settle_search();
+        let p = a.picker.as_mut().unwrap();
+        assert_eq!(p.counts(), (1, 1));
+        assert_eq!(p.window(5).0[0].item.label, "Zebra  z.go:2");
+
+        press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+        a.settle_search();
+        let p = a.picker.as_ref().unwrap();
+        assert_eq!(
+            p.counts().1 as usize,
+            search::MAX_HITS + 1,
+            "the list it opened on"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The cap belongs to each declaration pattern, not to the list: a project whose kinds add
+    /// up past it with none of them cut has its whole list, and the query filters it as ever.
+    #[test]
+    fn a_list_no_pattern_cut_short_is_the_whole_list() {
+        let half = search::MAX_HITS / 2 + 100;
+        let go: String = (0..half).map(|i| format!("func a{i}() {{}}\n")).collect();
+        let rb: String = (0..half).map(|i| format!("def b{i}\nend\n")).collect();
+        let (dir, mut a) = project_app("cap-two-kinds", &[("a.go", &go), ("b.rb", &rb)]);
+        press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        assert!(2 * half > search::MAX_HITS, "past the cap in total");
+        assert_eq!(p.counts().1 as usize, 2 * half, "both kinds, whole");
+        assert_eq!(
+            (p.title.as_str(), p.live),
+            ("Symbols", false),
+            "nothing was cut, so the query still filters the rows"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The query past the cap is a name to find, not a pattern: a regex would read `a1.*` as
+    /// a thousand of the names in `a.go`, and an escaped one would look for a backslash in
+    /// `var.region`.
+    #[test]
+    fn a_symbol_query_is_literal_not_a_regex() {
+        let (dir, mut a) = capped_project("cap-regex");
+        press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+        for (query, hits, why) in [
+            ("a1.*", 0, "a dot and a star are characters of a name"),
+            (
+                "var.region",
+                1,
+                "and a name written with a dot is typed with it",
+            ),
+        ] {
+            typed(&mut a, query);
+            a.settle_search();
+            let p = a.picker.as_ref().expect(why);
+            assert_eq!(p.counts().1, hits, "{why}: {}", a.message);
+            press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+            a.settle_search();
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -7619,6 +10307,40 @@ mod tests {
         assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
     }
 
+    /// README: a file that changes on disk under unsaved edits is "neither reloaded nor
+    /// overwritten". Deleted or renamed is changed: only Ctrl+S puts it back.
+    #[test]
+    fn autosave_does_not_recreate_a_file_that_is_gone() {
+        let (path, mut a) = temp_file("gone-save", "one\n");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "X");
+        std::fs::remove_file(&path).unwrap();
+        a.last_edit = Some(Instant::now() - a.autosave);
+        assert!(a.tick());
+        assert!(!a.flush());
+        assert!(!path.exists());
+        assert!(a.conflict && a.dirty);
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "Xone\n");
+        assert!(!a.conflict && !a.dirty);
+        // Back as merl last saw it (a writer's delete-then-write) is no conflict any more.
+        typed(&mut a, "Y");
+        std::fs::remove_file(&path).unwrap();
+        a.save();
+        assert!(a.conflict);
+        std::fs::write(&path, "Xone\n").unwrap();
+        a.reload(false);
+        assert!(!a.conflict && a.dirty);
+        // Ctrl+R has no disk version to take; the edits go all the same, or nothing but
+        // writing the file back would let merl off it.
+        std::fs::remove_file(&path).unwrap();
+        a.save();
+        press(&mut a, KeyCode::Char('r'), KeyModifiers::CONTROL);
+        assert!(!a.conflict && !a.dirty && !path.exists());
+        assert!(a.flush());
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
     #[test]
     fn reload_clamps_the_cursor_into_a_shrunken_file() {
         let dir = std::env::temp_dir().join(format!("merl-reload-{}", std::process::id()));
@@ -7641,6 +10363,13 @@ mod tests {
         a.reload(false);
         assert_eq!(a.message, "");
 
+        // Outside a review the cursor keeps its line number when lines are written above it.
+        a.line = 3;
+        std::fs::write(&path, "new\n".to_string() + &"line\n".repeat(10)).unwrap();
+        a.reload(false);
+        assert_eq!(a.line, 3);
+        a.line = 9;
+
         std::fs::write(&path, "a\nb\nc\n").unwrap();
         a.reload(false);
         assert_eq!(a.buf.lines.len(), 3);
@@ -7654,6 +10383,8 @@ mod tests {
     #[test]
     fn aliases_reach_the_same_actions() {
         let mut a = app("foo bar\n");
+        // Not on disk: the grep for usages has nothing to read.
+        std::fs::remove_file(a.buf.path.as_ref().unwrap()).unwrap();
         press(&mut a, KeyCode::F(12), KeyModifiers::NONE);
         assert_eq!(a.message, "no rules for .txt");
         press(&mut a, KeyCode::F(12), KeyModifiers::SHIFT);
@@ -7695,6 +10426,18 @@ mod tests {
         assert_eq!((a.mode, a.message.as_str()), (Mode::Normal, ""));
         // In normal mode the letter still counts.
         assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT));
+    }
+
+    /// Edit mode is not an overlay for an Esc to close: Option+letter mid-word must not drop
+    /// into navigation, where the rest of the word runs as commands and its `q` quits.
+    #[test]
+    fn an_unbound_alt_letter_while_editing_is_ignored() {
+        let mut a = app("foo\n");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('p'), KeyModifiers::ALT);
+        assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT));
+        assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+        assert_eq!((a.mode, a.buf.lines[0].as_str()), (Mode::Edit, "qfoo"));
     }
 
     #[test]
@@ -7828,16 +10571,100 @@ two
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// An agent renames a file: its stops are dropped and `[` goes on to the next one that
+    /// opens, instead of retrying the dead stop with everything behind it out of reach.
     #[test]
-    fn a_stop_whose_file_is_gone_leaves_the_history_alone() {
+    fn a_stop_whose_file_is_gone_is_dropped_and_walked_past() {
         let (dir, mut a) = files_app("gone");
+        let (x, y, z) = (dir.join("a.rs"), dir.join("b.rs"), dir.join("c.rs"));
+        std::fs::write(&z, "x\n".repeat(40)).unwrap();
+        a.jump_to(&z, 3);
+        a.jump_to(&x, 5);
+        a.jump_to(&x, 30);
+        a.jump_to(&y, 1);
+        std::fs::remove_file(&x).unwrap();
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(
+            (at(&a), a.hist_idx, a.history.len()),
+            ((z.clone(), 2), 0, 2)
+        );
+        assert_eq!(a.message, "a.rs gone");
+        press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+        assert_eq!(
+            (at(&a), a.hist_idx, a.message.as_str()),
+            ((y.clone(), 0), 1, "")
+        );
+        // `]` drops them the same way, two files at once; a walk that runs off the end says
+        // what it dropped first, and then that this is the end.
+        let w = dir.join("d.rs");
+        for p in [&x, &w] {
+            std::fs::write(p, "x\n".repeat(40)).unwrap();
+            a.jump_to(p, 9);
+        }
+        a.jump_to(&y, 20);
+        for _ in 0..3 {
+            press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        }
+        assert_eq!(
+            (at(&a), a.hist_idx, a.history.len()),
+            ((y.clone(), 0), 1, 5)
+        );
+        std::fs::remove_file(&x).unwrap();
+        std::fs::remove_file(&w).unwrap();
+        press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+        assert_eq!(
+            (at(&a), a.hist_idx, a.history.len()),
+            ((y.clone(), 19), 2, 3)
+        );
+        assert_eq!(a.message, "2 files gone");
+        std::fs::remove_file(&z).unwrap();
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(
+            (at(&a), a.hist_idx, a.history.len()),
+            ((y.clone(), 0), 0, 2)
+        );
+        assert_eq!(a.message, "c.rs gone");
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(a.message, "start of history");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// b, a, b with `a` gone would leave `b` next to itself: a press that moves nothing.
+    #[test]
+    fn dropping_a_stop_does_not_leave_its_neighbours_as_twins() {
+        let (dir, mut a) = files_app("twins");
         let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+        a.jump_to(&y, 1);
         a.jump_to(&x, 5);
         a.jump_to(&y, 1);
         std::fs::remove_file(&x).unwrap();
         press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!((at(&a), a.hist_idx, a.history.len()), ((y, 0), 0, 1));
+        assert_eq!(a.message, "a.rs gone");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Edits that cannot be saved keep merl on the file; that is no reason to drop a stop.
+    #[test]
+    fn a_stop_that_does_not_open_for_another_reason_leaves_the_history_alone() {
+        let (dir, mut a) = files_app("stuck");
+        let (x, y) = (dir.join("a.rs"), dir.join("b.rs"));
+        a.jump_to(&x, 5);
+        a.jump_to(&y, 1);
+        (a.dirty, a.conflict) = (true, true);
+        std::fs::remove_file(&x).unwrap();
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(
+            (at(&a), a.hist_idx, a.history.len()),
+            ((y.clone(), 0), 1, 2)
+        );
+        // Nor is a file that is there and does not open.
+        (a.dirty, a.conflict) = (false, false);
+        std::fs::create_dir(&x).unwrap();
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
         assert_eq!((at(&a), a.hist_idx, a.history.len()), ((y, 0), 1, 2));
-        assert!(a.message.contains("a.rs"), "{}", a.message);
+        assert!(a.message.contains("a.rs: "), "{}", a.message);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

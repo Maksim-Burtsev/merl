@@ -10,7 +10,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use grep_regex::RegexMatcherBuilder;
+use grep_regex::{RegexMatcher, RegexMatcherBuilder};
 use grep_searcher::{BinaryDetection, Searcher, SearcherBuilder, Sink, SinkMatch};
 use regex::Regex;
 
@@ -87,12 +87,283 @@ const JAVA_METHOD_SYMBOL: &str = concat!(
     r"\s+(?P<name>[A-Za-z_]\w*)\s*\("
 );
 
+/// Everything C and C++ can write between the start of a declaration and its keyword: a template
+/// head, the storage specifiers, and the attribute or export macro a library puts there
+/// (`class FMT_API name`, `struct __attribute__ ((__packed__)) sdshdr8`). The macro's arguments
+/// nest one level. A macro, so [`def_patterns`] and the [`SYMBOLS`] rows share one spelling of it.
+macro_rules! c_mods {
+    () => {
+        concat!(
+            r"(?:template\s*<[^>]*>\s*)?",
+            r"(?:(?:static|extern|const|inline|constexpr|thread_local)\s+)*"
+        )
+    };
+    (macros) => {
+        r"(?:(?:[A-Z][A-Z0-9_]*|__\w+)\s*(?:\((?:[^()]|\([^()]*\))*\))?\s+)*"
+    };
+}
+
+/// The C and C++ half of [`SYMBOLS`], first half: a function at the top level, where the language
+/// has no statements, so anything shaped like a declaration is one. A line that ends its
+/// parameters with a `;` is a prototype and is left out — every function of a header would be
+/// listed twice — which leaves the definition, brace on the line or on the next one, and the
+/// signature that wraps. The return type may sit on the line above, as GNU style writes it, so
+/// the run before the name is optional here. A name opening with two underscores is the
+/// implementation's, not the project's, and sits exactly where a function name would
+/// (`struct __attribute__ ((__packed__)) sdshdr8 {`), so it is left out.
+const C_FUNC_SYMBOL: &str = r"^(?:\w[^;(){}=]*[\s*&:])?(?P<name>_?[A-Za-z0-9]\w*)\s*\([^;]*$";
+
+/// The second half: a method in a class body or a function in an indented namespace, told from a
+/// call by the body it opens on the line. Indented, so it never lists what [`C_FUNC_SYMBOL`] does.
+const C_METHOD_SYMBOL: &str =
+    r"^\s+[^;(){}=]*\w[\s*&]+(?P<name>[A-Za-z_]\w*)\s*\([^;{}]*\)[^;{}=]*\{";
+
+/// A type, a namespace and a C++ `using` alias. What follows the name keeps `struct dict *d;` out;
+/// a `<` is a template specialization (`struct formatter<path, Char> {`), and a lone `:` a base
+/// list, where the `::` of a `using a::b;` names an imported symbol, not a declared one. A
+/// `typedef struct name { … }` is listed from the line it closes on instead, under the name the
+/// project uses.
+const C_TYPE_SYMBOL: &str = concat!(
+    r"^\s*",
+    c_mods!(),
+    r"(?:struct|class|union|enum\s+class|enum\s+struct|enum|namespace|using)\s+",
+    c_mods!(macros),
+    r"(?P<name>[A-Za-z_]\w*)\s*(?:[{=<]|:[^:]|final\b|$)"
+);
+
+/// The name a `typedef` or a `} name;` gives a type. The closing brace is in column zero: an
+/// indented one closes a nested anonymous struct, and that name is a field. A global stays off the
+/// list, as a field does in every other kind.
+const C_TYPEDEF_SYMBOL: &str =
+    r"^(?:\s*typedef\s+[^;]*?|\}\s*[\w\s,*]*)\b(?P<name>[A-Za-z_]\w*)\s*(?:\[[^\]]*\])?\s*;\s*$";
+
+/// An object- or function-like macro.
+const C_MACRO_SYMBOL: &str = r"^\s*#\s*define\s+(?P<name>[A-Za-z_]\w*)";
+
+/// Everything that can stand before a C# declaration: the attribute lists written on the same
+/// line (`[Fact] public void …`) and the modifiers, which come in any order. The argument is the
+/// repetition the run takes: `"*"` for a rule that reads them if they are there, `"+"` for one
+/// that needs at least one. A macro, so [`def_patterns`] and the [`SYMBOLS`] rows share one
+/// spelling of it.
+macro_rules! cs_mods {
+    () => {
+        cs_mods!("*")
+    };
+    ($rep:literal) => {
+        concat!(
+            r"^\s*(?:\[[^\]]*\]\s*)*",
+            r"(?:(?:public|private|protected|internal|file|static|readonly|const|sealed|abstract",
+            r"|virtual|override|partial|async|extern|unsafe|new|volatile|event|required|fixed",
+            r"|implicit|explicit|ref)\s+)",
+            $rep
+        )
+    };
+    // A constructor is told from a call by its modifiers alone, so its run is the access ones
+    // only: `new` is a member modifier too, and a bare `new Invoice(id)` must not read as one.
+    (access) => {
+        concat!(
+            r"^\s*(?:\[[^\]]*\]\s*)*",
+            r"(?:(?:public|private|protected|internal|static|unsafe|extern|partial)\s+)+"
+        )
+    };
+}
+
+/// A C# type as it stands before the name it declares: a predefined type, `var`, or a name with a
+/// capital in it, which is how C# names its types — the same trick Java's rules use, and what
+/// keeps `return Compute(x);` from reading as a declaration. A tuple type counts too, and needs
+/// the comma it is written with: without it, `if (x) Run();` would read as a declaration of `Run`.
+/// Generics nest one level, and the nullable `?`, the array `[]` and a qualified name all count.
+macro_rules! cs_type {
+    () => {
+        concat!(
+            r"(?:void|var|bool|byte|sbyte|char|decimal|double|float|int|uint|long|ulong|short",
+            r"|ushort|object|string|dynamic|nint|nuint|\([^()]*,[^()]*\)|[\w.]*[A-Z][\w.]*)",
+            cs_generics!(),
+            r"\??(?:\[[,\s]*\])*\??"
+        )
+    };
+}
+
+/// A generic argument list, nesting three levels: a regex counts no brackets, and
+/// `Task<ActionResult<QueryResult<T>>>` is what an ASP.NET controller action returns.
+macro_rules! cs_generics {
+    () => {
+        r"(?:<[^<>]*(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>[^<>]*)*>)?"
+    };
+}
+
+/// The C# half of [`SYMBOLS`], first half: what the language declares with a keyword. A
+/// `delegate` carries its return type between the keyword and the name, and a `namespace` is
+/// listed under its last part, the one `d` finds it by.
+const CS_DECL_SYMBOL: &str = concat!(
+    cs_mods!(),
+    r"(?:(?:class|struct|interface|enum|record\s+class|record\s+struct|record)\s+",
+    r"|delegate\s+",
+    cs_type!(),
+    r"\s+|namespace\s+(?:[\w.]+\.)?)",
+    r"(?P<name>[A-Za-z_]\w*)"
+);
+
+/// The other C# half: a member with no keyword at all, told from a call by the type before its
+/// name — a method by the `(` of its parameters, a property by the `{` of its accessors, the `=>`
+/// of its expression body or the end of the line, where they open on the next one. A field
+/// (`… name;`, `… name = 1;`) is left out, as in every other kind, and so is a constructor, which
+/// is listed under its class.
+const CS_MEMBER_SYMBOL: &str = concat!(
+    cs_mods!(),
+    cs_type!(),
+    r"\s+(?:[\w.]+\.)?(?P<name>[A-Za-z_]\w*)\s*(?:<[^<>]*>\s*)?(?:\(|\{|=>|$)"
+);
+
+/// Everything that can stand before a Swift declaration: its attributes and property wrappers,
+/// and the modifiers, which come in any order. `class` is one of them — `class func load()` is
+/// Swift's static method — and the keyword alternations below read past it. The argument is the
+/// repetition the run takes, as [`cs_mods`]. A macro, so [`def_patterns`] and the [`SYMBOLS`] row
+/// share one spelling of it.
+macro_rules! swift_mods {
+    () => {
+        swift_mods!("*")
+    };
+    ($rep:literal) => {
+        concat!(
+            r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*",
+            r"(?:(?:public|private|fileprivate|internal|open|package|static|class|final|override",
+            r"|mutating|nonmutating|required|convenience|lazy|weak|unowned|dynamic|indirect",
+            r"|optional|prefix|postfix|infix|nonisolated|distributed|borrowing|consuming)",
+            // `private(set)`: the setter's own access, the one place Swift parenthesises a
+            // modifier. Without it the run stops at the `(` and the declaration is never read.
+            r"(?:\(set\))?\s+)",
+            $rep
+        )
+    };
+}
+
+/// The Swift half of [`SYMBOLS`]: what the language declares with a keyword. An `extension` is
+/// listed under the type it extends, since that is where a project keeps its own members of one —
+/// often the only place, when the type itself comes from a framework. A `let`, a `var` and an
+/// `enum` case are what a type holds, which no kind lists, and an `init` is listed under its type.
+const SWIFT_DECL_SYMBOL: &str = concat!(
+    swift_mods!(),
+    r"(?:class|struct|enum|protocol|actor|extension|typealias|associatedtype|func)\s+",
+    r"`?(?P<name>[A-Za-z_]\w*)"
+);
+
+/// Everything that can stand before a PHP declaration: its attributes and the modifiers a class
+/// member carries. The argument is the repetition the run takes, as [`cs_mods`]. A macro, so
+/// [`def_patterns`] and the [`SYMBOLS`] row share one spelling of it.
+macro_rules! php_mods {
+    () => {
+        php_mods!("*")
+    };
+    ($rep:literal) => {
+        concat!(
+            r"^\s*(?:#\[[^\]]*\]\s*)*",
+            r"(?:(?:public|private|protected|static|final|abstract|readonly|var)\s+)",
+            $rep
+        )
+    };
+}
+
+/// The PHP half of [`SYMBOLS`], first half: what the language declares with a keyword other than
+/// `function`, behind the modifiers a member carries. A namespace is listed under its last part,
+/// the one `d` finds it by. A property is a field, which no kind lists, and an `enum` case is what
+/// a type holds, as in every other kind; `define('X', …)` has no keyword before the name and is
+/// left out with them.
+const PHP_DECL_SYMBOL: &str = concat!(
+    php_mods!(),
+    r"(?:(?:class|interface|trait|enum)\s+|const\s+|namespace\s+(?:[\w\\]+\\)?)",
+    r"(?P<name>[A-Za-z_]\w*)"
+);
+
+/// The other half: a function or a method. A row of its own because a project holds far more of
+/// them than types and [`MAX_HITS`] is counted per row — one shared row would let the methods of
+/// the first files crowd every later class off the list. A name opening with two underscores is
+/// the language's own hook rather than the project's (`__construct`, `__toString`), and is left
+/// out the way C leaves out the implementation's names.
+const PHP_FUNC_SYMBOL: &str = concat!(php_mods!(), r"function\s+&?\s*(?P<name>_?[A-Za-z0-9]\w*)");
+
 /// The Ruby half of [`SYMBOLS`]: a method, including the `self.` form and the `name=` setter, and
 /// a class or module under the namespace it is written with. A constant and the names an
 /// `attr_accessor` line declares stay off the list: there is no keyword to go by, and one such
 /// line can declare several.
 const RUBY_SYMBOL: &str =
     r"^\s*(?:def\s+(?:self\.|[A-Z]\w*\.)?|(?:class|module)\s+(?:[\w:]*::)?)(?P<name>[A-Za-z_]\w*)";
+
+/// The Lua half of [`SYMBOLS`], first half: a function written with the keyword, `local` and the
+/// table it hangs off included. The table prefix is dropped, as Ruby's `def self.parse` and an
+/// out-of-line C++ definition are, so the row is listed under the name the language calls it by.
+const LUA_FUNCTION_SYMBOL: &str =
+    r"^\s*(?:local\s+)?function\s+(?:[\w.]+[.:])?(?P<name>[A-Za-z_]\w*)\s*\(";
+
+/// The second half: a function literal bound to a name, the other way Lua writes a declaration —
+/// `M.name = function(`, and the `name = function(` of a table of handlers. A value that is not a
+/// function is left out: `name = 1` in a table constructor and a re-assignment inside a body are
+/// the same line, and Lua has no keyword to tell them apart.
+const LUA_ASSIGNED_SYMBOL: &str =
+    r"^\s*(?:local\s+)?(?:[\w.]+[.:])?(?P<name>[A-Za-z_]\w*)\s*=\s*function\b";
+
+/// The Elixir half of [`SYMBOLS`]: a module, a protocol and every `def` form, under the name
+/// alone — a `defmodule A.B.C` is listed as `C`, the way Ruby's `class A::B` is. A `defimpl` is
+/// left out: it declares the module `Protocol.Type`, and neither the protocol nor the type is a
+/// name of its own there, as a Rust `impl` is not. A `defstruct` is left out too, since one line
+/// declares every field, and so is a module attribute: `@doc`, `@spec` and `@moduledoc` are the
+/// language's own and would fill the list.
+const ELIXIR_SYMBOL: &str = concat!(
+    r"^\s*def(?:(?:module|protocol)\s+(?:[\w.]+\.)?|(?:p|macro|macrop|guard|guardp|delegate)?\s+)",
+    r"(?P<name>[A-Za-z_]\w*[!?]?)"
+);
+
+/// The Zig half of [`SYMBOLS`], first half: what the shared pattern has no word for. Zig declares
+/// with `fn` and `const`, which [`SYMBOL_PATTERN`] already reads, so this row adds only the
+/// function behind `inline` or `noinline` — modifiers that pattern's run does not know. A `var` is
+/// a global, and globals stay off the list, as in every other kind.
+const ZIG_INLINE_FN_SYMBOL: &str = concat!(
+    r#"^\s*(?:(?:pub|export|extern(?:\s+"[^"]*")?)\s+)*"#,
+    r"(?:inline|noinline)\s+fn\s+(?P<name>[A-Za-z_]\w*)"
+);
+
+/// The second half: a test, under the description it is written with. Half a Zig file is its
+/// tests, and the description is the only name one has. [`def_patterns`] has no rule for it, so
+/// `d` can never jump to a test: a word inside a description declares nothing.
+const ZIG_TEST_SYMBOL: &str = r#"^\s*test\s+"(?P<name>[^"]*)""#;
+
+/// The module attributes Elixir and the libraries everyone uses give a meaning to, rather than a
+/// project. They are directives, so [`def_patterns`] has no rule for the name itself. A list of
+/// known names is all a line pattern can have here: any library may define an attribute, and
+/// `@tag :slow` and `@timeout 5_000` are the same line.
+const ELIXIR_DIRECTIVES: &[&str] = &[
+    // ExUnit and Mix, which every project in the language meets.
+    "describetag",
+    "endpoint",
+    "moduletag",
+    "shortdoc",
+    "switches",
+    "tag",
+    "after_compile",
+    "before_compile",
+    "behaviour",
+    "callback",
+    "compile",
+    "deprecated",
+    "derive",
+    "dialyzer",
+    "doc",
+    "enforce_keys",
+    "external_resource",
+    "file",
+    "impl",
+    "macrocallback",
+    "moduledoc",
+    "on_definition",
+    "on_load",
+    "opaque",
+    "optional_callbacks",
+    "spec",
+    "type",
+    "typedoc",
+    "typep",
+    "vsn",
+];
 
 /// A name in a `CREATE` statement, as written: bare, `"quoted"` or `` `backticked` ``, and
 /// optionally schema-qualified (`public.orders`).
@@ -122,6 +393,35 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Jvm), JAVA_METHOD_SYMBOL),
     // Ruby likewise: `def self.parse` is `parse`, which the shared pattern would call `self`.
     (Some(Kind::Ruby), RUBY_SYMBOL),
+    // C and C++ likewise: a function carries no keyword at all, and `struct dict *d;` is a use of
+    // a type the shared pattern would list as its declaration.
+    (Some(Kind::C), C_FUNC_SYMBOL),
+    (Some(Kind::C), C_METHOD_SYMBOL),
+    (Some(Kind::C), C_TYPE_SYMBOL),
+    (Some(Kind::C), C_TYPEDEF_SYMBOL),
+    (Some(Kind::C), C_MACRO_SYMBOL),
+    // C# likewise: `public sealed partial class Foo<T>` stands behind modifiers the shared
+    // pattern does not know, and a method or a property carries no keyword at all.
+    (Some(Kind::CSharp), CS_DECL_SYMBOL),
+    (Some(Kind::CSharp), CS_MEMBER_SYMBOL),
+    // Swift likewise: a declaration stands behind its attributes and modifiers, and `extension`,
+    // `protocol` and `actor` are no keywords of the shared pattern.
+    (Some(Kind::Swift), SWIFT_DECL_SYMBOL),
+    // PHP likewise: a method stands behind `final public static`, which the shared pattern does
+    // not read, so `function` alone would be the only form it listed.
+    (Some(Kind::Php), PHP_DECL_SYMBOL),
+    (Some(Kind::Php), PHP_FUNC_SYMBOL),
+    // Lua likewise: the shared pattern reads `function M.name(` as a declaration of `M`, and has
+    // no word for `local function` at all.
+    (Some(Kind::Lua), LUA_FUNCTION_SYMBOL),
+    (Some(Kind::Lua), LUA_ASSIGNED_SYMBOL),
+    // Elixir likewise: the shared pattern knows `def` and nothing else of the family, and reads
+    // the `x` of an anonymous `fn x -> …` as a declaration.
+    (Some(Kind::Elixir), ELIXIR_SYMBOL),
+    // Zig fits the shared pattern — it declares with `fn` and `const` — so these two rows only
+    // complement it, the way Shell's and SQL's do.
+    (Some(Kind::Zig), ZIG_INLINE_FN_SYMBOL),
+    (Some(Kind::Zig), ZIG_TEST_SYMBOL),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -138,11 +438,24 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     (Some(Kind::Yaml), r"(^|\s)&(?P<anchor>[\w.-]+)"),
 ];
 
-/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin and Ruby have rows of
-/// their own in [`SYMBOLS`], written for what those languages declare and how they name it, so
-/// reading the all-language pattern over them too would list a declaration twice.
+/// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, C#,
+/// Swift, PHP, Lua and Elixir have rows of their own in [`SYMBOLS`], written for what those
+/// languages declare and how they name it, so reading the all-language pattern over them too
+/// would list a declaration twice.
 pub fn shared_symbols(kind: Option<Kind>) -> bool {
-    !matches!(kind, Some(Kind::Jvm | Kind::Ruby))
+    !matches!(
+        kind,
+        Some(
+            Kind::Jvm
+                | Kind::Ruby
+                | Kind::C
+                | Kind::CSharp
+                | Kind::Swift
+                | Kind::Php
+                | Kind::Lua
+                | Kind::Elixir
+        )
+    )
 }
 
 /// A file kind with navigation rules of its own. Told by the file name, since a `Makefile` or a
@@ -155,6 +468,14 @@ pub enum Kind {
     TsJs,
     Jvm,
     Ruby,
+    /// C and C++ together, headers included.
+    C,
+    CSharp,
+    Swift,
+    Php,
+    Lua,
+    Elixir,
+    Zig,
     Shell,
     Sql,
     Make,
@@ -175,6 +496,19 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         // a `.kt` file has to find the `.java` class it uses, as `.tsx` finds `.ts`.
         (_, "java" | "kt" | "kts") => Kind::Jvm,
         (_, "rb" | "rake" | "gemspec" | "podspec" | "rbi" | "ru") => Kind::Ruby,
+        // C and C++ are one kind: a header declares what a `.c` or a `.cc` defines, and either
+        // language reads the other's headers, so they have to search each other.
+        (_, "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx") => Kind::C,
+        // `.csx` is a C# script: the same language, run by `dotnet script`.
+        (_, "cs" | "csx") => Kind::CSharp,
+        (_, "swift") => Kind::Swift,
+        (_, "php" | "phtml") => Kind::Php,
+        (_, "lua") => Kind::Lua,
+        (_, "ex" | "exs") => Kind::Elixir,
+        // Not `.zon`: Zig's data format declares nothing the rules look for, and a key of a
+        // build manifest is no reason to send `d` into the standard library. bat paints it
+        // as Zig all the same.
+        (_, "zig") => Kind::Zig,
         (
             "Rakefile" | "rakefile" | "Gemfile" | "Guardfile" | "Capfile" | "Vagrantfile"
             | "Podfile" | "Brewfile" | "Dangerfile" | "Fastfile",
@@ -236,6 +570,35 @@ pub fn grep_project(
         .word(whole_word)
         .build(pattern)
         .with_context(|| format!("bad pattern `{pattern}`"))?;
+    Ok(collect(root, files, &matcher, current, unsaved, |_| true))
+}
+
+/// Greps `pattern` over `files`, keeping only the lines `keep` takes. The filter runs before the
+/// [`MAX_HITS`] cut, so what the cut drops are matches of the query, not whatever the walk
+/// reached first: `D` past the cap searches with this.
+pub fn grep_filtered(
+    root: &Path,
+    files: &[PathBuf],
+    pattern: &str,
+    current: Option<&Path>,
+    unsaved: Option<&[u8]>,
+    keep: impl Fn(&str) -> bool,
+) -> Result<Vec<Hit>> {
+    let matcher = RegexMatcherBuilder::new()
+        .build(pattern)
+        .with_context(|| format!("bad pattern `{pattern}`"))?;
+    Ok(collect(root, files, &matcher, current, unsaved, keep))
+}
+
+/// The file walk both greps share: one `Hit` per line `matcher` matches and `keep` takes.
+fn collect(
+    root: &Path,
+    files: &[PathBuf],
+    matcher: &RegexMatcher,
+    current: Option<&Path>,
+    unsaved: Option<&[u8]>,
+    keep: impl Fn(&str) -> bool,
+) -> Vec<Hit> {
     let mut searcher = SearcherBuilder::new()
         .line_number(true)
         .binary_detection(BinaryDetection::quit(0))
@@ -249,31 +612,36 @@ pub fn grep_project(
         let sink = Collect {
             path: rel,
             hits: &mut hits,
+            keep: &keep,
         };
         let _ = match unsaved.filter(|_| current == Some(rel.as_path())) {
-            Some(text) => searcher.search_slice(&matcher, text, sink),
-            None => searcher.search_path(&matcher, root.join(rel), sink),
+            Some(text) => searcher.search_slice(matcher, text, sink),
+            None => searcher.search_path(matcher, root.join(rel), sink),
         };
     }
     hits.sort_by_cached_key(|h| (current != Some(h.path.as_path()), h.path.clone(), h.line));
-    Ok(hits)
+    hits
 }
 
-/// Collects one `Hit` per matching line, stopping the whole search at [`MAX_HITS`].
+/// Collects one `Hit` per matching line `keep` takes, stopping the whole search at [`MAX_HITS`].
 struct Collect<'a> {
     path: &'a Path,
     hits: &'a mut Vec<Hit>,
+    keep: &'a dyn Fn(&str) -> bool,
 }
 
 impl Sink for Collect<'_> {
     type Error = std::io::Error;
 
     fn matched(&mut self, _searcher: &Searcher, m: &SinkMatch<'_>) -> std::io::Result<bool> {
-        self.hits.push(Hit {
-            path: self.path.to_path_buf(),
-            line: m.line_number().unwrap_or(0) as usize,
-            text: String::from_utf8_lossy(m.bytes()).trim_end().to_string(),
-        });
+        let text = String::from_utf8_lossy(m.bytes()).trim_end().to_string();
+        if (self.keep)(&text) {
+            self.hits.push(Hit {
+                path: self.path.to_path_buf(),
+                line: m.line_number().unwrap_or(0) as usize,
+                text,
+            });
+        }
         Ok(self.hits.len() < MAX_HITS)
     }
 }
@@ -402,6 +770,184 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^\s*attr_(?:accessor|reader|writer)\s+(?:[:\w]+\s*,\s*)*:{w}\b"),
             format!(r"^\s*alias(?:_method)?\s+:?{w}\b"),
         ],
+        // C and C++ have no statements at the top level, so a line in column zero that is shaped
+        // like a declaration is one — a definition, a prototype and a signature that wraps alike.
+        // Indented, only a line that opens a body can be told from a call. An enum constant has no
+        // rule: `NAME,` in an `enum` body and in an initializer list are the same line, and C
+        // writes tables of callbacks that way everywhere.
+        Kind::C => {
+            let (mods, macros) = (c_mods!(), c_mods!(macros));
+            vec![
+                // A function, and the out-of-line definition of a method (`Type::name(`). GNU
+                // style puts the return type on the line above, so the run before the name is
+                // optional: in column zero a bare `name(` is a declaration all the same.
+                format!(r"^(?:\w[^;(){{}}=]*[\s*&:])?{w}\s*\("),
+                // The same indented — a method in a class body, a function in an indented
+                // namespace — when the body opens on the line.
+                format!(r"^[^;(){{}}=]*\w[\s*&]+{w}\s*\([^;{{}}]*\)[^;{{}}=]*\{{"),
+                // A type. What follows the name — the body, a base list, a `<` of a template
+                // specialization, a `;` or the end of the line — keeps the `struct dict *d;` that
+                // uses one out.
+                format!(
+                    r"^\s*{mods}(?:typedef\s+)?(?:struct|class|union|enum\s+class|enum\s+struct|enum|namespace)\s+{macros}{w}\s*(?:[:{{;<]|final\b|$)"
+                ),
+                // `typedef unsigned long ull;`, `typedef int (*cb)(void);`, and the name a
+                // `typedef struct { … } client;` closes with, whose brace is in column zero: an
+                // indented one closes a nested anonymous struct, and that name is a field.
+                format!(r"^\s*typedef\s+[^;]*(?:\(\s*\*+\s*{w}\s*\)|\b{w}\s*(?:\[[^\]]*\])*\s*;)"),
+                format!(r"^\}}\s*[\w\s,*]*\b{w}\s*[,;]"),
+                format!(r"^\s*(?:template\s*<[^>]*>\s*)?using\s+{w}\s*="),
+                // An object- or function-like macro.
+                format!(r"^\s*#\s*define\s+{w}\b"),
+                // A global, with the array bounds it can carry. In column zero again, so an
+                // assignment inside a function body is not one; no angle brackets, or a
+                // `template <typename T = U>` head would read as a declaration of `T`.
+                format!(r"^\w[^;(){{}}=<>]*[\s*&]{w}\s*(?:\[[^\]]*\])*\s*(?:=[^=]|;)"),
+            ]
+        }
+        // C# writes its modifiers and its attributes in front of everything and its type before
+        // the name, as Java does, so a member is told from a call by that type: a primitive,
+        // `var`, or a name with a capital in it. A field and a local land here too — a `;` or an
+        // `=` after the name is as much a declaration as the `(` of a method.
+        Kind::CSharp => {
+            let (mods, ty, access) = (cs_mods!(), cs_type!(), cs_mods!(access));
+            vec![
+                // A type, past the generic parameters it declares; the `(` is a record's or a
+                // class's primary constructor, `where` its first constraint.
+                format!(
+                    r"{mods}(?:class|struct|interface|enum|record\s+class|record\s+struct|record)\s+{w}\s*(?:<[^>]*>)?\s*(?:[:{{;(]|where\b|$)"
+                ),
+                format!(r"{mods}delegate\s+{ty}\s+{w}\s*(?:<[^>]*>)?\s*\("),
+                // A file-scoped or a block namespace, under its last part, as it is read.
+                format!(r"^\s*namespace\s+(?:[\w.]+\.)?{w}\s*[;{{]?\s*$"),
+                // `using Rows = List<int>;`: the alias form, where a plain `using` imports a
+                // namespace and declares nothing.
+                format!(r"^\s*(?:global\s+)?using\s+(?:unsafe\s+)?{w}\s*="),
+                // A constructor, behind at least one access modifier. With nothing in front,
+                // `Invoice(n);` is a call, so a bare name before `(` is never a declaration here.
+                format!(r"{access}{w}\s*\([^;]*\)\s*(?::\s*(?:base|this)\b.*)?[{{=]?\s*$"),
+                // A method, a property, an event and a field: the type, the name, and the `(` of
+                // the parameters, the `{` of the accessors, the `=>` of an expression body, the
+                // `=` of an initialiser, the `;` of a declaration with none — or the end of the
+                // line, where a property's accessors open on the next one.
+                format!(r"{mods}{ty}\s+(?:[\w.]+\.)?{w}\s*(?:<[^>]*>\s*)?(?:[({{;=]|$)"),
+            ]
+        }
+        // Swift writes its attributes and modifiers in front of a keyword, and every declaration
+        // has one, so there is no need to guess at a type. What has no rule is a binding made by
+        // an `if let` or a `guard let`, which is a shadowing rebind of a name declared elsewhere,
+        // and a parameter, as in every kind.
+        Kind::Swift => {
+            let mods = swift_mods!();
+            let mut patterns = vec![
+                // A type; `extension Foo` counts, since a project's own members of a type live
+                // there and often the type itself does not.
+                format!(
+                    r"{mods}(?:class|struct|enum|protocol|actor|extension|typealias|associatedtype)\s+`?{w}\b"
+                ),
+                // A function, past its generic parameters.
+                format!(r"{mods}func\s+`?{w}\s*[(<]"),
+                format!(r"{mods}(?:let|var)\s+`?{w}\b"),
+                // An enum case, alone or among several on one line, with the associated values or
+                // the raw value it can carry. A `case .open:` or a `case let .open(x):` of a
+                // `switch` is a pattern, and a `case open:` there matches against a constant, so
+                // what follows the name must not be a `:`.
+                format!(
+                    r"^\s*(?:indirect\s+)?case\s+(?:\w+(?:\([^)]*\))?\s*,\s*)*{w}\s*(?:\(|=[^=]|,|$)"
+                ),
+            ];
+            // `init` and `subscript` are keywords, so the word under the cursor is the keyword
+            // itself and there is no name to read past.
+            if matches!(word, "init" | "subscript" | "deinit") {
+                patterns.push(format!(r"{mods}{w}\s*[?!(<{{]"));
+            }
+            patterns
+        }
+        // PHP declares with a keyword too, and what has none — a property, a promoted constructor
+        // parameter — carries the modifiers that tell it from a use. A parameter and a `foreach`
+        // target have no rule, as in every kind, and neither has `$this->name = …`, which writes
+        // to a property the class declares elsewhere.
+        Kind::Php => {
+            let mods = php_mods!();
+            let mods_one = php_mods!("+");
+            vec![
+                // A function or a method; `&` returns by reference.
+                format!(r"{mods}function\s+&?\s*{w}\s*\("),
+                format!(r"{mods}(?:class|interface|trait|enum)\s+{w}\b"),
+                format!(r"^\s*namespace\s+(?:[\w\\]+\\)?{w}\s*[;{{]"),
+                // A constant: the `const` of a class or a file, and the `define()` of a global.
+                format!(r"{mods}const\s+{w}\b"),
+                format!(r#"^\s*define\s*\(\s*['"]{w}['"]"#),
+                // An enum case. A `case X:` of a `switch` matches against a constant, so what
+                // follows the name must not be a `:`.
+                format!(r"^\s*case\s+{w}\s*(?:=[^=]|;|$)"),
+                // A property, with the type it can carry between its modifiers and the `$`.
+                format!(r"{mods_one}(?:\??[\w\\|]+\s+)?\${w}\b"),
+                // A constructor parameter promoted to one, wherever it sits in the list.
+                format!(
+                    r"function\s+__construct\s*\(.*\b(?:public|private|protected|readonly)\s+(?:\??[\w\\|]+\s+)?\${w}\b"
+                ),
+                // An assignment that opens a line, `.=` and `??=` included. `==` compares, `=>`
+                // is a key in an array literal, and `$rows['x'] =` writes to an element.
+                format!(r"^\s*\${w}\s*(?:\.|\?\?|\+)?=(?:$|[^=>])"),
+            ]
+        }
+        // Lua declares with `function` and `local`, and with nothing else: a bare `name = value`
+        // is an assignment to whatever `name` already is, and a field of a table constructor is
+        // written exactly the same way, so only a function literal on the right counts.
+        Kind::Lua => vec![
+            // `function name(`, `local function name(`, and the table forms `function M.name(`,
+            // `function M:name(`, `function a.b.name(`.
+            format!(r"^\s*(?:local\s+)?function\s+(?:[\w.]+[.:])?{w}\s*\("),
+            // A function literal bound to a name: `name = function(`, `M.name = function(`, and
+            // the `name = function(` of a table of handlers.
+            format!(r"^\s*(?:local\s+)?(?:[\w.]+[.:])?{w}\s*=\s*function\b"),
+            // A local, the one declaration keyword the language has; `local a, b = f()`
+            // declares both.
+            format!(r"^\s*local\s+(?:[\w\s,]*,\s*)?{w}\b"),
+        ],
+        // Elixir declares with a `def` macro and with nothing else. Several clauses of one
+        // function are several declarations, so `d` offers them all and the picker's rows say
+        // which is which, the way a C++ overload set is offered.
+        Kind::Elixir => {
+            let mut patterns = vec![
+                // Every `def` form. A name can end in `?` or `!`, and a clause is written
+                // `def name(x) do`, `def name do` or `def name, do: x`.
+                format!(
+                    r"^\s*def(?:p|macro|macrop|guard|guardp|delegate)?\s+{w}[!?]?\s*(?:\(|,|do\b|$)"
+                ),
+                // A module or a protocol, under the namespace it is written with. The word has
+                // to be the last part: `defmodule MyApp.Repo` declares `MyApp.Repo` and nothing
+                // called `MyApp`. A `defimpl` declares the module `Protocol.Type`, where neither
+                // name is its own, as a Rust `impl` is a use of the trait and the type.
+                format!(r"^\s*def(?:module|protocol)\s+(?:[\w.]+\.)?{w}\s+do\b"),
+                // A field of the struct, in the atom list or the keyword form.
+                format!(r"^\s*defstruct\b.*(?::{w}\b|\b{w}:)"),
+            ];
+            // A module attribute is a declaration where it is given a value: `@timeout 5_000`.
+            // The attributes the language itself gives a meaning to are directives, not names a
+            // project declares — `@spec parse(t) :: t` is a promise about `parse`, not a
+            // declaration of `spec` — so `d` on one of them has nothing to find, and says so.
+            if !ELIXIR_DIRECTIVES.contains(&word) {
+                patterns.push(format!(r"^\s*@{w}\s+[^\s|]"));
+            }
+            patterns
+        }
+        // Zig writes every declaration behind a keyword: `fn`, or the `const` a type, a constant
+        // and an imported module alike are bound with. A struct field (`total: u32,`) has no rule,
+        // as a C field has none: it is the shape of a value in a struct literal.
+        Kind::Zig => {
+            let mods = r#"^\s*(?:(?:pub|export|extern(?:\s+"[^"]*")?|inline|noinline|threadlocal|comptime)\s+)*"#;
+            vec![
+                format!(r"{mods}fn\s+{w}\s*\("),
+                // `const Name = struct {`, `const Name = enum {` and a plain constant are one
+                // form; a `var` and a local inside a body are declarations all the same. A
+                // `const` at the start of a line always declares the name after it — the
+                // `[]const Row` of a type never starts one — so nothing has to follow the name,
+                // and the first name of a destructuring `const a, const b = t;` is found too.
+                format!(r"{mods}(?:const|var)\s+{w}\b"),
+            ]
+        }
         // A function in either form, an assignment behind the declaration keywords that can
         // precede it (`+=` appends to one), or an alias. A shell has no declaration for the rest,
         // so a `$w` use or a `[ "$w" = x ]` test must not look like one.
@@ -504,6 +1050,13 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         Kind::Rust
         | Kind::Jvm
         | Kind::Ruby
+        | Kind::C
+        | Kind::CSharp
+        | Kind::Swift
+        | Kind::Php
+        | Kind::Lua
+        | Kind::Elixir
+        | Kind::Zig
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -570,7 +1123,11 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     if kind == Kind::Yaml {
         return None;
     }
-    let sep = if kind == Kind::Rust { "::" } else { "." };
+    let sep = if matches!(kind, Kind::Rust | Kind::C | Kind::Php) {
+        "::"
+    } else {
+        "."
+    };
     let lines: Vec<&str> = text.lines().collect();
     let target = *lines.get(line.checked_sub(1)?)?;
     if let Some(c) = RECEIVER.captures(target).filter(|_| kind == Kind::Go) {
@@ -597,11 +1154,16 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         }
         let t = l.trim_start();
         // A lone `{` opens the body of a declaration wrapped over the lines above it, as
-        // prettier writes a long TypeScript class header; it names nothing itself.
+        // prettier writes a long TypeScript class header; it names nothing itself. Neither does
+        // a C++ access specifier, which is a label inside the class, not a wall in front of it.
+        let access = kind == Kind::C && matches!(t, "public:" | "private:" | "protected:");
         if t.is_empty()
             || t == "{"
+            || access
             || indent(l) >= depth
-            || ["#", "//", "/*", "*"].iter().any(|c| t.starts_with(c))
+            || ["#", "//", "/*", "*", "--"]
+                .iter()
+                .any(|c| t.starts_with(c))
         {
             continue;
         }
@@ -706,6 +1268,13 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::TsJs
         | Kind::Jvm
         | Kind::Ruby
+        | Kind::C
+        | Kind::CSharp
+        | Kind::Swift
+        | Kind::Php
+        | Kind::Lua
+        | Kind::Elixir
+        | Kind::Zig
         | Kind::Shell
         | Kind::Sql
         | Kind::Make => kind_of(path) == Some(kind),
@@ -809,10 +1378,47 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             dirs
         }
         Kind::TsJs => vec![root.join("node_modules")],
+        // Zig's standard library, where its own `zig env` says it is. The dependencies of a
+        // project live in the global package cache under hashed directory names no source line
+        // spells out, so they are left out.
+        Kind::Zig => zig_roots(&run("zig", &["env"]).unwrap_or_default()),
+        // The system headers, which is where a C or C++ project's standard library and most of
+        // its dependencies are: the SDK the toolchain reports on macOS, `/usr/include` on Linux,
+        // and the two prefixes a package manager installs into. There is no per-project manifest
+        // to read — what a build system was told with `-I` is not in the source — so the
+        // directories are the same for every project, and the ones that do not exist fall out
+        // below.
+        Kind::C => {
+            let mut dirs = vec![PathBuf::from("/usr/include")];
+            if let Some(sdk) = run("xcrun", &["--show-sdk-path"]) {
+                dirs.push(PathBuf::from(sdk.trim()).join("usr/include"));
+            }
+            dirs.push(PathBuf::from("/usr/local/include"));
+            dirs.push(PathBuf::from("/opt/homebrew/include"));
+            dirs
+        }
+        // Composer installs a project's dependencies into `vendor/`, as source, and gitignores
+        // it, so the project walk does not list it: it is outside in the same way `node_modules`
+        // is. PHP's own library is built into the interpreter and has no source to read.
+        Kind::Php => vec![root.join("vendor")],
+        // Where SwiftPM checks a package's dependencies out, as source. The standard library is
+        // not there: the toolchain ships it compiled, with `.swiftinterface` stubs beside it and
+        // no `.swift` file to read.
+        Kind::Swift => vec![root.join(".build/checkouts")],
         // Java, Kotlin and Ruby have no roots yet: the JDK and Gradle caches, and a gem path,
-        // are their own lookups. `d` stays inside the project for them, as for the rest.
+        // are their own lookups. C# has nothing to point at: a NuGet package is compiled
+        // assemblies, and the runtime's own source is not on the machine at all. Lua has no root
+        // to ask for either: `package.path` is whatever the interpreter embedding it was built
+        // with, and a Neovim or a LuaRocks tree is not a standard library any project can be
+        // assumed to use. Elixir needs none: `mix` puts both the dependencies and their sources
+        // in `deps/` inside the project, so they are project files already, and the standard
+        // library ships compiled — an installed Elixir has `.beam` files, not `.ex`. `d` stays
+        // inside the project for all of them, as for the rest.
         Kind::Jvm
         | Kind::Ruby
+        | Kind::CSharp
+        | Kind::Lua
+        | Kind::Elixir
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -823,6 +1429,22 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
     dirs.retain(|d| d.is_dir() && d != root && !d.as_os_str().is_empty());
     dirs.dedup();
     dirs
+}
+
+/// The standard library directory in the output of `zig env`, which is JSON on some versions and
+/// ZON on others: the value is the first quoted string after the key either way. A version that
+/// reports no `std_dir` still reports the library directory it sits in. Empty when `zig` is not
+/// on the PATH, as every root is when its toolchain is not installed.
+fn zig_roots(env: &str) -> Vec<PathBuf> {
+    let value = |key: &str| {
+        let rest = env.split_once(key)?.1.trim_start_matches('"');
+        let rest = rest.split_once('"')?.1;
+        Some(PathBuf::from(rest.split_once('"')?.0))
+    };
+    value("std_dir")
+        .or_else(|| value("lib_dir").map(|d| d.join("std")))
+        .into_iter()
+        .collect()
 }
 
 /// Every file of `kind` under `dirs`, as absolute paths. Nothing is ignored: `node_modules`
@@ -972,6 +1594,14 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
         .strip_suffix("::")
         .or_else(|| before.strip_suffix('.'))
     {
+        // Python's `super().` reads as TypeScript's `super.` does: one name.
+        if let Some(head) = rest.strip_suffix("super()")
+            && !head.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '.')
+        {
+            chain.insert(0, "super".to_owned());
+            before = head;
+            break;
+        }
         let mut start = rest
             .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
             .map_or(0, |i| i + 1);
@@ -990,6 +1620,61 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
         return Vec::new();
     }
     chain
+}
+
+/// The call a member access hangs off, where [`qualifier`] has no name to start from:
+/// `pkg.New(x).word`, `make_uow().users.word`, `new Repo().word`, or the cast: `(x as T).word`,
+/// `i.(T).word`, `cast(T, x).word`. Gives the call without its arguments (a cast as written), what
+/// it is worth ([`Value::Call`], [`Value::New`] or the [`Value::Type`] of a cast) and the names
+/// between it and the word. Only a call that starts the expression: `a.b().c().word` hangs off a
+/// call of a value nobody typed.
+pub fn call_head(
+    kind: Kind,
+    line: &str,
+    word_start: usize,
+) -> Option<(String, Value, Vec<String>)> {
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$';
+    let mut before = line[..word_start].strip_suffix('.')?;
+    let mut fields = Vec::new();
+    while !before.ends_with(')') {
+        let start = before.rfind(|c: char| !is_name(c)).map_or(0, |i| i + 1);
+        if start == before.len() {
+            return None;
+        }
+        fields.insert(0, before[start..].to_owned());
+        before = before[..start].strip_suffix('.')?;
+    }
+    // The `(` this `)` closes, as a scan that knows strings pairs them.
+    let open = code(kind, before)
+        .filter(|(_, c)| *c == b'(')
+        .map(|(i, _)| i)
+        .find(|&i| close_of(kind, before, i) == Some(before.len()))?;
+    let mut start = before[..open]
+        .rfind(|c: char| !(is_name(c) || c == '.'))
+        .map_or(0, |i| i + 1);
+    // `.c` in `a.b().c()` is no callee [`value_of`] reads, and nor is nothing at all.
+    let callee = &before[start..open];
+    if kind == Kind::TsJs
+        && let Some(rest) = before[..start].trim_end().strip_suffix("new")
+        && !rest.ends_with(is_name)
+    {
+        start = rest.len();
+    }
+    // `(x as T)` is read without its brackets.
+    let written = &before[start..];
+    let inner = match callee.is_empty() {
+        true => &written[1..written.len() - 1],
+        false => written,
+    };
+    match value_of(kind, inner) {
+        Value::Call(name) => Some((format!("{name}()"), Value::Call(name), fields)),
+        Value::New(name) => Some((format!("new {name}()"), Value::New(name), fields)),
+        // A cast the chain hangs off, as written: `(x as T)`, `i.(T)`, `cast(T, x)`.
+        value @ (Value::Type(_) | Value::Cast(..)) => {
+            Some((inner.trim().to_owned(), value, fields))
+        }
+        _ => None,
+    }
 }
 
 /// The names a file binds by importing, each with the module path it comes from, as the parts
@@ -1147,9 +1832,39 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
                 }
             }
         }
-        // Nothing to bind without roots to resolve an `import` or a `require` against.
+        // A `use` names one class, function or constant, and PSR-4 spells a namespace the way a
+        // file system does, so the path is the name split on `\`: `use Illuminate\Support\Str`
+        // binds `Str` to `vendor/…/Illuminate/Support/Str.php`. In column zero only — indented,
+        // `use` pulls a trait into a class body and names no file — and a group `use A\{B, C}`
+        // is left out, since one clause then binds several.
+        Kind::Php => {
+            static USE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r"(?m)^use\s+(?:function\s+|const\s+)?([^;{]+);").unwrap()
+            });
+            for c in USE.captures_iter(text) {
+                for item in c[1].split(',') {
+                    if let Some((alias, name)) = bound(item.trim()) {
+                        let path = parts(&name, "\\");
+                        if let Some(last) = path.last().cloned() {
+                            out.push((if alias == name { last } else { alias }, path));
+                        }
+                    }
+                }
+            }
+        }
+        // Nothing to bind without roots to resolve an `import` or a `require` against. A C
+        // `#include` binds no name of its own either: it pastes a file in, and everything the
+        // file declares is then visible unqualified, and a C# `using` opens a whole namespace
+        // the same way. Zig's `const std = @import("std")` does bind one, but `std` is the root
+        // itself, not a directory inside it, so narrowing by it would find nothing.
         Kind::Jvm
         | Kind::Ruby
+        | Kind::C
+        | Kind::CSharp
+        | Kind::Swift
+        | Kind::Lua
+        | Kind::Elixir
+        | Kind::Zig
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -1335,6 +2050,13 @@ pub fn module_files(
         Kind::Rust
         | Kind::Jvm
         | Kind::Ruby
+        | Kind::C
+        | Kind::CSharp
+        | Kind::Swift
+        | Kind::Php
+        | Kind::Lua
+        | Kind::Elixir
+        | Kind::Zig
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -1461,6 +2183,13 @@ pub enum Value {
     Name(String),
     /// The class declared on this 1-based line: Python's `self` and `cls`, TypeScript's `this`.
     Class(usize),
+    /// Python's `cast(T, x)` as written: the callee and `T`. It writes the type when the callee
+    /// is `typing`'s, which only the caller can tell: a project may declare a `cast` of its own.
+    Cast(String, String),
+    /// An element of the named collection, as a loop hands it out: `for r in repos`,
+    /// `for (const r of repos)`, `for _, r := range repos`. [`element_type`] reads it off the
+    /// collection's written type.
+    Element(String),
     /// A declaration whose type the rules cannot read: `for repo in`, a tuple, a parameter with
     /// no annotation.
     Unknown,
@@ -1486,24 +2215,109 @@ fn comment(kind: Kind, t: &str) -> bool {
 }
 
 /// The 1-based lines of `text` that start inside a literal or a comment running over several
-/// lines: a Python triple-quoted string (a docstring with an example in it), a Go raw string, a
-/// TypeScript template, a `/* */` block. A line there that reads like a declaration declares
-/// nothing. Strings of one line end with their line, whatever they hold.
+/// lines: a Python or Elixir triple-quoted string (a docstring or an `@moduledoc` with an example
+/// in it), which Swift and C# write with `"` alone, a Go raw string, a TypeScript template, a Lua
+/// `[[ ]]` or `[==[ ]==]` long string or block comment, a C# verbatim `@"…"`, a PHP heredoc, a
+/// `/* */` block. A line there that reads like a declaration declares nothing — the SQL a
+/// migration embeds in one is the common case. Strings of one line end with their line, whatever
+/// they hold.
+///
+/// Each kind says which forms it has rather than inheriting another language's: Zig has none at
+/// all — a `\\` string ends with its line — and reading it with the backtick and `/* */` of the C
+/// family would take the ``` ``` ``` fences of the markdown a `\\` block holds for a literal and
+/// hide the rest of the file behind them.
+///
+/// ponytail: Elixir's `~S"""` sigil is read from its `"""`, and its one-line `~s(…)` forms not at
+/// all.
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
-    let python = kind == Kind::Python;
+    // What this kind writes: the comment that runs to the end of a line, the triple quote of a
+    // heredoc, Lua's long bracket, and the backtick template with the `/* */` block of the C
+    // family. Elixir writes its heredocs and its comments exactly as Python does; Swift and C#
+    // write the same `"""` block with the C family's comments around it.
+    let (heredoc, long_bracket, template, line_comment): (bool, bool, bool, &[u8]) = match kind {
+        Kind::Python | Kind::Elixir => (true, false, false, b"#"),
+        Kind::Lua => (false, true, false, b"--"),
+        Kind::Zig => (false, false, false, b"//"),
+        Kind::Swift | Kind::CSharp => (true, false, true, b"//"),
+        _ => (false, false, true, b"//"),
+    };
+    // The two forms one language each has: C#'s verbatim string, which closes on a `"` that no
+    // second `"` follows, since `""` is how it writes a quote, and PHP's `<<<ID`, which closes on
+    // the line that repeats its label.
+    let (verbatim_strings, labelled) = (kind == Kind::CSharp, kind == Kind::Php);
     let b = text.as_bytes();
     let mut out = vec![false];
-    // The multi-line literal the scan is in, by its closing bytes; a one-line quote.
-    let (mut block, mut quote, mut i): (Option<&[u8]>, Option<u8>, usize) = (None, None, 0);
+    // The multi-line literal the scan is in, by its closing bytes, and, for a long bracket, the
+    // number of `=` its closer carries; a one-line quote. A heredoc has no closing bytes at all:
+    // `label` holds the word its last line repeats, and `verbatim` marks a `@"…"`.
+    let (mut block, mut level, mut quote, mut i): (Option<&[u8]>, usize, Option<u8>, usize) =
+        (None, 0, None, 0);
+    let (mut verbatim, mut label) = (false, Vec::new());
+    // A long bracket opening at `at` — `[[` or `[==[`, behind `--` or not: how many `=` it
+    // carries, and how far past `at` its second `[` sits. A `[` that opens nothing, as the one in
+    // the `\[[A-Za-z]\+\]` of a Vim regex, is no opener, so the `[=[` around it has to be read.
+    let opens = |at: usize| -> Option<(usize, usize)> {
+        let open = if b[at..].starts_with(b"--[") {
+            at + 2
+        } else {
+            at
+        };
+        if b.get(open) != Some(&b'[') {
+            return None;
+        }
+        let eq = b[open + 1..].iter().take_while(|&&c| c == b'=').count();
+        (b.get(open + 1 + eq) == Some(&b'[')).then_some((eq, open + 1 + eq - at))
+    };
     while i < b.len() {
         let c = b[i];
         if c == b'\n' {
             quote = None;
+            // A heredoc ends on the line that repeats its label, as `ID;`, `ID,` or `ID)`.
+            if !label.is_empty() {
+                let rest = &b[i + 1..];
+                let word = rest
+                    .iter()
+                    .position(|c| !c.is_ascii_whitespace())
+                    .map_or(rest, |n| &rest[n..]);
+                if word.starts_with(&label[..])
+                    && !word[label.len()..]
+                        .first()
+                        .is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_')
+                {
+                    label.clear();
+                    block = None;
+                }
+            }
             out.push(block.is_some());
         } else if let Some(end) = block {
-            if b[i..].starts_with(end) && (end.len() > 1 || b[i - 1] != b'\\') {
+            // A long bracket closes on `]`, the `=` its opener carried, and `]`; a verbatim
+            // string on a `"` that no second `"` follows; a heredoc only on its label, above.
+            let doubled = verbatim && c == b'"' && b.get(i + 1) == Some(&b'"');
+            let closes = if long_bracket {
+                c == b']'
+                    && b[i + 1..]
+                        .iter()
+                        .take(level)
+                        .filter(|&&c| c == b'=')
+                        .count()
+                        == level
+                    && b.get(i + 1 + level) == Some(&b']')
+            } else {
+                label.is_empty()
+                    && !doubled
+                    && b[i..].starts_with(end)
+                    && (end.len() > 1 || b[i - 1] != b'\\')
+            };
+            if closes {
                 block = None;
-                i += end.len() - 1;
+                verbatim = false;
+                i += if long_bracket {
+                    level + 1
+                } else {
+                    end.len() - 1
+                };
+            } else if doubled {
+                i += 1;
             }
         } else if let Some(q) = quote {
             if c == b'\\' {
@@ -1511,17 +2325,45 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             } else if c == q {
                 quote = None;
             }
-        } else if python && (b[i..].starts_with(b"\"\"\"") || b[i..].starts_with(b"'''")) {
+        } else if heredoc
+            && (b[i..].starts_with(b"\"\"\"") || (!template && b[i..].starts_with(b"'''")))
+        {
+            // `'''` is Python's and Elixir's alone; Swift and C# write the block with `"` only.
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" });
             i += 2;
-        } else if !python && c == b'`' {
-            block = Some(b"`");
-        } else if !python && b[i..].starts_with(b"/*") {
+        } else if verbatim_strings && b[i..].starts_with(b"@\"") {
+            block = Some(b"\"");
+            verbatim = true;
+            i += 1;
+        } else if labelled && b[i..].starts_with(b"<<<") {
+            // `<<<SQL`, `<<<"SQL"` or `<<<'SQL'`: the label is what ends it.
+            let word: Vec<u8> = b[i + 3..]
+                .iter()
+                .skip_while(|c| **c == b'"' || **c == b'\'')
+                .take_while(|c| c.is_ascii_alphanumeric() || **c == b'_')
+                .copied()
+                .collect();
+            if !word.is_empty() {
+                i += 2;
+                block = Some(b"");
+                label = word;
+            }
+        } else if let Some((eq, skip)) = long_bracket.then(|| opens(i)).flatten() {
+            block = Some(b"]]");
+            level = eq;
+            i += skip;
+        } else if template && c == b'`' {
+            // ponytail: `/`/` is a regex, told by the slash in front; a division by a template
+            // is not written.
+            if i == 0 || b[i - 1] != b'/' {
+                block = Some(b"`");
+            }
+        } else if template && b[i..].starts_with(b"/*") {
             block = Some(b"*/");
             i += 1;
         } else if c == b'"' || c == b'\'' {
             quote = Some(c);
-        } else if (python && c == b'#') || (!python && b[i..].starts_with(b"//")) {
+        } else if b[i..].starts_with(line_comment) {
             while i + 1 < b.len() && b[i + 1] != b'\n' {
                 i += 1;
             }
@@ -1657,10 +2499,55 @@ fn value_of(kind: Kind, expr: &str) -> Value {
     });
     static NAME: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^[A-Za-z_$][\w$]*$").unwrap());
+    static ASSERTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^[A-Za-z_][\w.]*\.\(\s*(\*?[A-Za-z_][\w.]*)\s*\)$").unwrap()
+    });
     let e = uncommented(kind, expr);
     let e = e.trim().trim_end_matches(';').trim_end();
     // What comes after the bracket that opens at `open` must be nothing, or the next lines.
     let ends = |open: usize| close_of(kind, e, open).is_none_or(|end| e[end..].trim().is_empty());
+    // A cast writes the type (#100): `x as T` (the last one of `x as unknown as T`), Go's
+    // `i.(T)`, and below Python's `cast(T, x)`.
+    if kind == Kind::TsJs {
+        let mut depth = 0i32;
+        // The first and the last ` as ` outside brackets.
+        let mut cast: Option<(usize, usize)> = None;
+        for (i, c) in code(kind, e) {
+            match c {
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                b' ' if depth == 0 && e[i..].starts_with(" as ") => {
+                    cast = Some((cast.map_or(i, |(first, _)| first), i + 4));
+                }
+                _ => {}
+            }
+        }
+        // `as` binds tighter than `?:`, `||`, `??` and `=>`: only one operand in front of it, a
+        // name, a call or a literal, is what the cast types.
+        let operand = |head: &str| {
+            let head = head.trim_start_matches("await ").trim_start_matches("new ");
+            let mut depth = 0i32;
+            code(kind, head).all(|(_, c)| {
+                match c {
+                    b'(' | b'[' | b'{' => depth += 1,
+                    b')' | b']' | b'}' => depth -= 1,
+                    _ => {}
+                }
+                c != b' ' || depth > 0
+            })
+        };
+        if let Some((first, i)) = cast {
+            return match operand(&e[..first]) {
+                true => Value::Type(e[i..].trim().to_owned()),
+                false => Value::Unknown,
+            };
+        }
+    }
+    if kind == Kind::Go
+        && let Some(c) = ASSERTION.captures(e)
+    {
+        return Value::Type(c[1].to_owned());
+    }
     if let Some(c) = CALL.captures(e) {
         let open = c.get(0).unwrap().end() - 1;
         let name = c[2].to_owned();
@@ -1670,6 +2557,15 @@ fn value_of(kind: Kind, expr: &str) -> Value {
             (true, false) if kind == Kind::Go && name == "new" => {
                 let inner = &e[open + 1..e.len().saturating_sub(1)];
                 Value::New(inner.trim().to_owned())
+            }
+            (true, false) if kind == Kind::Python && matches!(&*name, "cast" | "typing.cast") => {
+                let inner = &e[open + 1..e.len().saturating_sub(1)];
+                Value::Cast(name, split_top(kind, inner, b',')[0].trim().to_owned())
+            }
+            // `make([]*Repo, 0, n)` writes the type of what it makes.
+            (true, false) if kind == Kind::Go && name == "make" => {
+                let inner = &e[open + 1..e.len().saturating_sub(1)];
+                Value::Type(split_top(kind, inner, b',')[0].trim().to_owned())
             }
             (true, false) => Value::Call(name),
             (true, true) => Value::Unknown,
@@ -1681,24 +2577,36 @@ fn value_of(kind: Kind, expr: &str) -> Value {
     {
         return Value::New(c[2].to_owned());
     }
+    // A slice, array or map literal writes its type in front of its `{`: `[]Repo{…}`.
+    if kind == Kind::Go
+        && (e.starts_with('[') || e.starts_with("map["))
+        && let Some(end) = e.find('[').and_then(|i| close_of(kind, e, i))
+        && let Some(open) = e[end..].find('{').map(|i| end + i)
+        && ends(open)
+    {
+        return Value::Type(e[..open].trim().to_owned());
+    }
     if NAME.is_match(e) && !matches!(e, "None" | "null" | "undefined" | "nil" | "this" | "self") {
         return Value::Name(e.to_owned());
     }
     Value::Unknown
 }
 
-/// The declarations of `name` visible on 1-based `line` of `text`, a file of `kind`, with what
-/// each gives it. Every one counts, the enclosing scopes' too: the caller trusts them only when
-/// they agree.
+/// The declarations of `name` that 1-based `line` of `text`, a file of `kind`, reads, with what
+/// each gives it: those of the innermost scope that declares it, which hides the scopes around
+/// it (#100). Every one of that scope counts, and the caller trusts them only when they agree.
 ///
 /// - Python: a name belongs to its function, so its parameters and every binding in the body
-///   count, before the cursor or after it, then the enclosing functions', then the module's.
-///   Nested functions and classes are scopes of their own. A comprehension or a `lambda` counts
-///   on the cursor line only. `self` / `cls` is the class a method sits in.
+///   count, before the cursor or after it; a function that binds none reads the enclosing
+///   function's, then the module's. Nested functions and classes are scopes of their own. A comprehension or a `lambda` counts
+///   on the cursor line only. `self` / `cls` is the class a method sits in, and so is `super`
+///   (what [`qualifier`] makes of `super()`): the caller starts above that class.
 /// - TypeScript and Go: `const`, `let` and `:=` belong to their block, so the declarations above
-///   the cursor count, in the blocks around it, told by indentation: a function's parameters, a Go
-///   receiver, the statements at each block's level. `this` is the class around it, unless a
-///   `function` or an object literal comes first.
+///   the cursor count, in the nearest block around it that has any, told by indentation: the
+///   statements at the block's level and what its header binds (a function's parameters, a Go
+///   receiver). Only what a header binds for the block under it hides: another function on its
+///   lines, or on the cursor's own line, binds without hiding. `this` is the class around it, unless a
+///   `function` or an object literal comes first, and `super` reads as `this` does.
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -1755,6 +2663,8 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let inline = rule(format!(
         r"\bfor\s+[^=]*?\b{n}\b[^=]*?\s+in\b|\blambda\b[^:]*\b{n}\b"
     ));
+    // A plain loop over a plain name; `async for`, a tuple target and a call are unknown.
+    let element = rule(format!(r"^for\s+{n}\s+in\s+([A-Za-z_]\w*)\s*:"));
     // `a, repo = …` or `(a, repo) = …`, not the keyword argument of a call.
     let tuple = Regex::new(r"^(\(?[\w\s,.*\[\]]+\)?)\s*=[^=]").unwrap();
 
@@ -1777,7 +2687,17 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     }
     scopes.push(None);
 
+    let literal = literal_lines(Kind::Python, &lines.join("\n"));
     let mut out = Vec::new();
+    // `super()` is the class of the method it is written in, and nothing in a function inside
+    // that method, where the call has no arguments to find.
+    if name == "super" {
+        if let Some(line) = scopes[0].and_then(|d| python_class_of(lines, d)) {
+            let value = Value::Class(line);
+            out.push(Binding { line, value });
+        }
+        return out;
+    }
     for scope in scopes {
         let (start, base) = match scope {
             Some(d) => {
@@ -1795,7 +2715,8 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         for (i, l) in lines.iter().enumerate().skip(start) {
             let code = uncommented(Kind::Python, l);
             let t = code.trim();
-            if t.is_empty() {
+            // A docstring's example binds nothing.
+            if t.is_empty() || literal[i] {
                 continue;
             }
             let ind = indent(l);
@@ -1818,7 +2739,9 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
                 skip = Some(ind);
                 continue;
             }
-            let value = if unknown.is_match(t) || (i == at && inline.is_match(t)) {
+            let value = if let Some(c) = element.captures(t) {
+                Some(Value::Element(c[1].to_owned()))
+            } else if unknown.is_match(t) || (i == at && inline.is_match(t)) {
                 Some(Value::Unknown)
             } else if continued(Kind::Python, lines, i) {
                 None
@@ -1835,6 +2758,10 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             if let Some(value) = value {
                 out.push(Binding { line: i + 1, value });
             }
+        }
+        // The innermost function that binds the name is the one the cursor reads.
+        if !out.is_empty() {
+            break;
         }
     }
     out
@@ -1894,24 +2821,52 @@ fn python_class_of(lines: &[&str], d: usize) -> Option<usize> {
 /// statement, a line indented less opens the block the walk is in, and deeper lines belong to
 /// blocks already closed.
 fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    let this = kind == Kind::TsJs && name == "this";
+    let this = kind == Kind::TsJs && (name == "this" || name == "super");
     let mut out = Vec::new();
     if !this {
         opener_bindings(kind, &uncommented(kind, lines[at]), at + 1, name, &mut out);
     }
+    // A raw string, a template or a block comment over several lines declares nothing.
+    let literal = literal_lines(kind, &lines.join("\n"));
     let mut depth = indent(lines[at]);
     let mut i = at;
+    // Whether a declaration of the block the walk is in, or of its header, has been found.
+    let mut scoped = false;
+    // The types of the innermost Go `case` around the cursor, for the `switch v := x.(type)` it
+    // may belong to (#100): gofmt writes the two at one indent, so the `switch` is met as a
+    // statement right after its `case`.
+    let mut arm: Option<Vec<String>> = None;
+    let type_switch = Regex::new(&format!(
+        r"^switch\s+(?:[^;{{]*;\s*)?{}\s*:=\s*[^;{{]+\.\(type\)\s*\{{$",
+        regex::escape(name)
+    ))
+    .expect("an escaped name keeps the pattern valid");
     while i > 0 {
         i -= 1;
         let code = uncommented(kind, lines[i]);
         let t = code.trim();
         let ind = indent(lines[i]);
-        if t.is_empty() || comment(kind, t) || ind > depth {
+        if t.is_empty() || comment(kind, t) || ind > depth || literal[i] {
             continue;
         }
         if ind == depth {
             if !this {
+                let before = out.len();
                 statement_bindings(kind, t, i + 1, name, &mut out);
+                // In `case *Repo:` the variable of a type switch is a `*Repo`; under several
+                // types or `default` it is whatever came in. A `switch` met with no `case` on
+                // the way up is one the cursor is not in.
+                if let Some(types) = arm.as_deref().filter(|_| type_switch.is_match(t)) {
+                    let value = match types {
+                        [one] => Value::Type(one.clone()),
+                        _ => Value::Unknown,
+                    };
+                    out.push(Binding { line: i + 1, value });
+                }
+                if t.starts_with("switch ") || t.starts_with("select ") {
+                    arm = None;
+                }
+                scoped |= out.len() > before;
             }
             continue;
         }
@@ -1924,11 +2879,37 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
             }
             i = i.saturating_sub(1);
         }
-        let header: Vec<&str> = lines[i..=end].iter().map(|l| l.trim()).collect();
+        // Between an `if` and its `} else {` lies a block the cursor is not in: only the two
+        // lines are the header, where a signature closed by `) {` or `}: Deps) {` is all of
+        // its lines.
+        let sibling = ["else", "catch", "finally"]
+            .iter()
+            .any(|k| t.trim_start_matches('}').trim_start().starts_with(k));
+        let header: Vec<&str> = match sibling && end > i {
+            true => vec![lines[i].trim(), t],
+            false => lines[i..=end].iter().map(|l| l.trim()).collect(),
+        };
         let header = uncommented(kind, &header.join("\n"));
         depth = ind.min(indent(lines[i]));
         if !this {
-            opener_bindings(kind, &header, i + 1, name, &mut out);
+            if kind == Kind::Go {
+                let types = header
+                    .strip_prefix("case ")
+                    .and_then(|h| h.strip_suffix(':'));
+                arm = match (types, header.starts_with("default")) {
+                    (Some(types), _) => Some(type_list(kind, types)),
+                    (None, true) => Some(Vec::new()),
+                    (None, false) => arm,
+                };
+            }
+            // The innermost block that declares the name hides the ones around it: a statement
+            // of the block the walk leaves here, or what the header binds for that block. A
+            // callback elsewhere on the header's lines (`if (xs.some((repo: Repo) => …)) {`,
+            // `register((repo: Repo) => repo, {`) is a function the cursor is not in, as one on
+            // the cursor's own line may be: its parameters count, and hide nothing.
+            if opener_bindings(kind, &header, i + 1, name, &mut out) || scoped {
+                break;
+            }
         } else if let Some(value) = this_opener(&header, i + 1) {
             out.push(Binding { line: i + 1, value });
             break;
@@ -1964,8 +2945,15 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
 
 /// The bindings of `name` a block's header makes for the lines inside it: the parameters of a
 /// function, a method or an arrow, a Go receiver and named results, the variables of a loop, a
-/// `catch` or a Go `if x := …;`.
-fn opener_bindings(kind: Kind, header: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
+/// `catch` or a Go `if x := …;`. Returns whether one of them is made for the block under the
+/// header, and so hides the scopes around it.
+fn opener_bindings(
+    kind: Kind,
+    header: &str,
+    line: usize,
+    name: &str,
+    out: &mut Vec<Binding>,
+) -> bool {
     static TS_LOOP: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bfor\s*\(\s*(?:const|let|var)\s+([^;]+?)\s+(?:of|in)\s|\bfor\s*\(\s*(?:const|let|var)\s+([^;]*);|\bcatch\s*\(([^)]*)\)").unwrap()
     });
@@ -1978,6 +2966,10 @@ fn opener_bindings(kind: Kind, header: &str, line: usize, name: &str, out: &mut 
     });
     static TS_BODY: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^(?::.*)?\{").unwrap());
+    // What follows the parameters of the function whose body ends the header: a return type,
+    // an arrow, the brace.
+    static TS_OPENS: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^(?::[^(){}]+?)?\s*(?:=>)?\s*\{?\s*$").unwrap());
     static GO_ASSIGN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|\belse\s+)(?:if|for|switch|case)\s+([^;{]*?)\s*:=").unwrap()
     });
@@ -1991,14 +2983,36 @@ fn opener_bindings(kind: Kind, header: &str, line: usize, name: &str, out: &mut 
             value: Value::Unknown,
         })
     };
+    let n = regex::escape(name);
+    let element = |p: String| {
+        let rule = Regex::new(&p).expect("an escaped name keeps the pattern valid");
+        let value = Value::Element(rule.captures(header)?[1].to_owned());
+        Some(Binding { line, value })
+    };
+    // Whether a binding is made for the block under the header: by the loop, the `catch` or the
+    // Go statement the header is, or by the function whose body ends it. A callback elsewhere on
+    // these lines, `if (xs.some((repo: Repo) => …)) {`, binds for a body the cursor is not in.
+    let mut own = false;
     match kind {
         Kind::TsJs => {
-            if TS_LOOP
+            let starts = |l: &str| {
+                let l = l.trim_start_matches('}').trim_start();
+                l.starts_with("for") || l.starts_with("catch")
+            };
+            let is_loop = starts(header) || header.rsplit('\n').next().is_some_and(starts);
+            let count = out.len();
+            // `for (const r of repos)` over a plain name hands out elements; `in` hands out keys.
+            if let Some(b) = element(format!(
+                r"\bfor\s*\(\s*(?:const|let|var)\s+{n}\s+of\s+([A-Za-z_$][\w$]*)\s*\)"
+            )) {
+                out.push(b);
+            } else if TS_LOOP
                 .captures_iter(header)
                 .any(|c| c.iter().skip(1).flatten().any(|m| names(m.as_str(), name)))
             {
                 unknown(out);
             }
+            own |= is_loop && out.len() > count;
             for (open, _) in header.match_indices('(') {
                 let Some(close) = close_of(kind, header, open) else {
                     continue;
@@ -2011,20 +3025,35 @@ fn opener_bindings(kind: Kind, header: &str, line: usize, name: &str, out: &mut 
                     ) && TS_BODY.is_match(after)
                 });
                 if TS_ARROW.is_match(after) || TS_FUNCTION.is_match(before) || method {
+                    let count = out.len();
                     ts_params(&header[open + 1..close - 1], line, name, out);
+                    own |= out.len() > count && TS_OPENS.is_match(after);
                 }
             }
-            let arrow = Regex::new(&format!(r"(?:^|[^\w$.]){}\s*=>", regex::escape(name)))
-                .expect("an escaped name keeps the pattern valid");
-            if arrow.is_match(header) {
+            let arrow = Regex::new(&format!(
+                r"(?:^|[^\w$.]){}\s*=>(\s*\{{?\s*$)?",
+                regex::escape(name)
+            ))
+            .expect("an escaped name keeps the pattern valid");
+            if let Some(c) = arrow.captures_iter(header).last() {
                 unknown(out);
+                own |= c.get(1).is_some();
             }
         }
         Kind::Go => {
-            if GO_ASSIGN.captures_iter(header).any(|c| names(&c[1], name)) {
+            let count = out.len();
+            // The second variable of a `range` over a plain name is an element of a slice, an
+            // array or a map; the first is an index or a key.
+            if let Some(b) = element(format!(
+                r"^for\s+[A-Za-z_]\w*\s*,\s*{n}\s*:=\s*range\s+([A-Za-z_]\w*)\s*\{{"
+            )) {
+                out.push(b);
+            } else if GO_ASSIGN.captures_iter(header).any(|c| names(&c[1], name)) {
                 unknown(out);
             }
+            own |= out.len() > count;
             if let Some(c) = GO_FUNC.captures_iter(header).last() {
+                let count = out.len();
                 if let Some(receiver) = c.get(1) {
                     go_params(receiver.as_str(), line, name, out);
                 }
@@ -2037,11 +3066,16 @@ fn opener_bindings(kind: Kind, header: &str, line: usize, name: &str, out: &mut 
                     {
                         go_params(&results[1..end - 1], line, name, out);
                     }
+                    // Between the parameters and the `{` that ends the header stand results
+                    // only: another brace there closes this function or opens a literal.
+                    let body = results.trim_end().strip_suffix('{');
+                    own |= out.len() > count && body.is_some_and(|r| !r.contains(['{', '}']));
                 }
             }
         }
         _ => {}
     }
+    own
 }
 
 /// The binding of `name` among TypeScript parameters: its annotation, else its default value.
@@ -2466,13 +3500,15 @@ pub fn field_decl_at(kind: Kind, text: &str, line: usize, start: usize, name: &s
 pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
     static PY_DEF: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:async\s+)?def\s+\w+\s*\(").unwrap());
+    // A function, a `const` holding one, or a method of a class or an interface.
     static TS_FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:export|default|declare|async)\s+)*(?:function\*?\s*[\w$]*|(?:const|let|var)\s+[\w$]+\s*(?::[^=]+)?=\s*(?:async\s+)?(?:function\*?\s*[\w$]*)?)\s*(?:<[^>]*>)?\s*\(").unwrap()
+        Regex::new(r"^\s*(?:(?:export|default|declare|async)\s+)*(?:function\*?\s*[\w$]*|(?:const|let|var)\s+[\w$]+\s*(?::[^=]+)?=\s*(?:async\s+)?(?:function\*?\s*[\w$]*)?)\s*(?:<[^>]*>)?\s*\(|^\s*(?:(?:public|private|protected|static|override|abstract|async)\s+)*#?[\w$]+\??\s*(?:<[^>]*>)?\s*\(").unwrap()
     });
     static TS_RETURN: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*:\s*(.+?)\s*(?:\{|=>)").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*:\s*(.+?)\s*(?:\{|=>|;|$)").unwrap());
+    // A function, a method behind its receiver, or the method line of an interface.
     static GO_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^func\s+[A-Za-z_]\w*\s*(?:\[[^\]]*\])?\s*\(").unwrap()
+        Regex::new(r"^(?:func\s*(?:\([^)]*\)\s*)?|\s+)[A-Za-z_]\w*\s*(?:\[[^\]]*\])?\s*\(").unwrap()
     });
     let lines: Vec<&str> = text.lines().collect();
     let k = decl.checked_sub(1).filter(|&i| i < lines.len())?;
@@ -2488,8 +3524,11 @@ pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
         // `-> T:` ends at the first colon outside strings and brackets; a body may follow it.
         Kind::Python => {
             let parts = split_top(kind, after, b':');
-            let t = parts[0].trim().strip_prefix("->")?.trim();
-            (parts.len() > 1 && !t.is_empty()).then(|| Value::Type(t.to_owned()))
+            match parts[0].trim().strip_prefix("->") {
+                Some(t) => (parts.len() > 1 && !t.trim().is_empty())
+                    .then(|| Value::Type(t.trim().to_owned())),
+                None => python_constructs(text, &lines, k, end),
+            }
         }
         Kind::TsJs => {
             if let Some(c) = TS_RETURN.captures(after) {
@@ -2503,8 +3542,14 @@ pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
                     lines[end + 1..]
                         .iter()
                         .take_while(|l| !(indent(l) <= base && l.trim_start().starts_with('}')))
-                        .filter_map(|l| l.trim().strip_prefix("return "))
-                        .map(|e| value_of(kind, e))
+                        .map(|l| uncommented(kind, l))
+                        .filter(|l| names(l, "return"))
+                        // `if (x) return new A();` returns behind something the rules do not
+                        // read: unknown, which no other `return` can agree with.
+                        .map(|l| match l.trim().strip_prefix("return ") {
+                            Some(e) => value_of(kind, e),
+                            None => Value::Unknown,
+                        })
                         .collect()
                 }
             };
@@ -2530,6 +3575,60 @@ pub fn returns(kind: Kind, text: &str, decl: usize) -> Option<Value> {
             (!first.is_empty()).then(|| Value::Type(first.to_owned()))
         }
     }
+}
+
+/// What an undecorated Python `def` on line `k`, its signature ending on line `end`, returns when
+/// it declares nothing: the class every `return` of its body calls, `return Repo(…)`. A bare
+/// `return`, a `yield` or any other value leaves it unknown; a decorator may return anything.
+fn python_constructs(text: &str, lines: &[&str], k: usize, end: usize) -> Option<Value> {
+    let base = indent(lines[k]);
+    // The nearest line above at the `def`'s indent that is no closer: `@retry(` of a decorator
+    // written over several lines, whose arguments and `)` come first on the way up.
+    let decorated = lines[..k]
+        .iter()
+        .rev()
+        .map(|l| (indent(l), l.trim()))
+        .find(|(ind, t)| !t.is_empty() && !t.starts_with(['#', ')', ']', '}']) && *ind <= base)
+        .is_some_and(|(ind, t)| ind == base && t.starts_with('@'));
+    if decorated {
+        return None;
+    }
+    let literal = literal_lines(Kind::Python, text);
+    let mut constructed: Option<String> = None;
+    // A function or a class inside the body returns for itself.
+    let mut skip: Option<usize> = None;
+    for (i, l) in lines.iter().enumerate().skip(end + 1) {
+        let code = uncommented(Kind::Python, l);
+        let (t, ind) = (code.trim(), indent(l));
+        if t.is_empty() || literal.get(i).copied().unwrap_or(false) {
+            continue;
+        }
+        if ind <= base {
+            break;
+        }
+        if skip.is_some_and(|s| ind > s) {
+            continue;
+        }
+        let inner = ["def ", "async def ", "class "];
+        skip = inner.iter().any(|p| t.starts_with(p)).then_some(ind);
+        if names(t, "yield") {
+            return None;
+        }
+        // `if flag: return A()` returns behind something the rules do not read.
+        if names(t, "return") && !t.starts_with("return") {
+            return None;
+        }
+        if t == "return" || t.starts_with("return ") {
+            let Value::Call(name) = value_of(Kind::Python, t.strip_prefix("return")?) else {
+                return None;
+            };
+            if constructed.as_ref().is_some_and(|c| *c != name) {
+                return None;
+            }
+            constructed = Some(name);
+        }
+    }
+    constructed.map(Value::New)
 }
 
 /// The written types a class header lists between its commas: `Base, Generic[T]`. A default
@@ -2807,6 +3906,56 @@ pub fn type_path(kind: Kind, written: &str) -> Option<Vec<String>> {
         .then(|| t.split('.').map(str::to_owned).collect())
 }
 
+/// The written type of an element of the collection written as `written`, where the type says so:
+/// Python's `list[T]`, `Sequence[T]`, `set[T]`, `tuple[T, ...]` and the like, TypeScript's `T[]`,
+/// `Array<T>`, `Set<T>`, Go's `[]T`, `[4]T` and `map[K]T`. A Python `dict` and a TypeScript `Map`
+/// hand out keys or pairs, and anything else is not known to hand out anything.
+pub fn element_type(kind: Kind, written: &str) -> Option<String> {
+    // `Head<A, B>` or `Head[A, B]` as the last name of its head and its arguments.
+    fn generic(kind: Kind, t: &str, open: char, close: char) -> Option<(&str, Vec<&str>)> {
+        let i = t.find(open).filter(|_| t.ends_with(close))?;
+        let head = t[..i].trim_end();
+        let args = split_top(kind, &t[i + 1..t.len() - 1], b',');
+        Some((head.rsplit('.').next().unwrap_or(head), args))
+    }
+    let t = written.trim().trim_end_matches([';', ',']).trim();
+    let element = match kind {
+        Kind::Python => match generic(kind, t.trim_matches(['"', '\'']), '[', ']')? {
+            ("tuple" | "Tuple", args) if args.len() == 2 && args[1].trim() == "..." => args[0],
+            (
+                "list" | "List" | "Sequence" | "MutableSequence" | "Iterable" | "Iterator"
+                | "Collection" | "set" | "Set" | "frozenset" | "FrozenSet" | "AbstractSet"
+                | "deque",
+                args,
+            ) => args[0],
+            _ => return None,
+        },
+        Kind::TsJs => {
+            let t = t.strip_prefix("readonly ").unwrap_or(t).trim();
+            match (t.strip_suffix("[]"), generic(kind, t, '<', '>')) {
+                (Some(one), _) => one,
+                (
+                    None,
+                    Some((
+                        "Array" | "ReadonlyArray" | "Set" | "ReadonlySet" | "Iterable"
+                        | "IterableIterator",
+                        args,
+                    )),
+                ) => args[0],
+                _ => return None,
+            }
+        }
+        Kind::Go => {
+            let rest = t.strip_prefix("map").unwrap_or(t);
+            let close = close_of(kind, rest, 0).filter(|_| rest.starts_with('['))?;
+            &rest[close..]
+        }
+        _ => return None,
+    };
+    let element = element.trim();
+    (!element.is_empty()).then(|| element.to_owned())
+}
+
 /// Whether `path` is (in) the module spelled by `parts`: every part is a directory or file
 /// stem on it, in order. A package directory carries a version (`regex-1.11.1`,
 /// `toml@v1.2.3`), a Go module escapes upper case (`!burnt!sushi`) and a crate name spells
@@ -2850,6 +3999,20 @@ pub fn symbol_name(re: &Regex, line: &str) -> Option<String> {
     group("anchor")
         .map(|a| format!("&{a}"))
         .or_else(|| group("name").map(str::to_owned))
+}
+
+/// Whether `name` matches `query` as a name: the query's characters in order, case-insensitively
+/// until the query has a capital of its own (smart case, as `/` and `s`). `D` past the cap
+/// narrows its grep by this, so what comes back is what the picker then ranks. It is a name, not
+/// a pattern: the picker's matcher also reads `^`, `!`, `'` and spaces as syntax of its own,
+/// folds the accents off a letter, and matches the path beside the name — none of that reaches
+/// the grep, so past the cap those keystrokes are characters of a name like any other.
+pub fn fuzzy_match(query: &str, name: &str) -> bool {
+    let exact = query.chars().any(char::is_uppercase);
+    let mut left = name.chars();
+    query
+        .chars()
+        .all(|q| left.any(|c| c == q || (!exact && c.to_lowercase().eq(q.to_lowercase()))))
 }
 
 /// The run of `[A-Za-z0-9_]` and `extra` characters at byte offset `col`, or the one that ends
@@ -3025,6 +4188,15 @@ mod tests {
         assert_eq!(inside(Kind::Go, go), [2, 3, 6, 7]);
         let ts = "const q = `\n  find(id: string): User;\n  ${x}`;\nclass A {\n  find(id: string): User {}\n}\n";
         assert_eq!(inside(Kind::TsJs, ts), [2, 3]);
+        // A migration embeds SQL, and a raw or a verbatim string is where it puts it. `""` is how
+        // a verbatim string writes a quote, so it does not close one.
+        let cs = "var q = \"\"\"\n    WHERE EXISTS(SELECT 1 FROM t)\n    \"\"\";\nvar v = @\"\n    SELECT MIN(\"\"rowid\"\") FROM t\n    \";\npublic int Real() => 1;\n";
+        assert_eq!(inside(Kind::CSharp, cs), [2, 3, 5, 6]);
+        let sw = "let doc = \"\"\"\n    class Ghost {}\n    \"\"\"\nclass Real {}\n";
+        assert_eq!(inside(Kind::Swift, sw), [2, 3]);
+        // A heredoc ends on the line that repeats its label, and only there.
+        let php = "$sql = <<<SQL\n    function ghost() {}\n    class Ghost {}\nSQL;\n$n = <<<'TXT'\n    class Nowdoc {}\nTXT;\nclass Real {}\n";
+        assert_eq!(inside(Kind::Php, php), [2, 3, 6]);
     }
 
     #[test]
@@ -3529,6 +4701,1318 @@ end
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    const C_H: &str = r#"#ifndef INVOICE_H
+#define INVOICE_H
+
+#define LRU_BITS 24
+#define serverLog(level, ...) do { emit(level); } while (0)
+
+typedef char *sds;
+typedef int (*compare_fn)(const void *a, const void *b);
+
+struct client;
+
+struct __attribute__ ((__packed__)) sdshdr8 {
+    uint8_t len;
+};
+
+static struct config {
+    int port;
+} server_config;
+
+typedef struct invoice {
+    sds name;
+    int total;
+    struct {
+        int index;
+    } offset;
+} invoice;
+
+typedef enum {
+    STATE_NONE = 0,
+    STATE_OPEN,
+} state;
+
+union value {
+    int n;
+    sds s;
+};
+
+extern struct invoice *current;
+
+int invoice_total(struct invoice *inv);
+
+#endif
+"#;
+
+    const C_C: &str = r#"#include "invoice.h"
+
+struct invoice *current = NULL;
+static int counter;
+
+int invoice_total(struct invoice *inv) {
+    if (invoice_valid(inv)) {
+        return compute(inv);
+    }
+    return counter;
+}
+
+static int compute(struct invoice *inv)
+{
+    struct invoice *copy = inv;
+    return copy->total;
+}
+
+static unsigned
+invoice_index(const struct invoice *inv)
+{
+    return 0;
+}
+
+void invoice_free(struct invoice *inv,
+                  int deep)
+{
+    free(inv);
+}
+"#;
+
+    const CPP: &str = r#"#include "invoice.h"
+
+namespace billing {
+
+using Rows = std::vector<int>;
+using std::swap;
+
+template <typename T> struct Box : Base {
+  T value;
+};
+
+template <typename T> struct Box<T *> : Base {
+};
+
+template <typename T = int>
+class LEDGER_API Ledger : public Base {
+ public:
+  explicit Ledger(int n) : total_(n) {}
+
+  auto total() const -> int { return total_; }
+
+  void append(Rows rows);
+
+  using Row = int;
+
+ private:
+  int total_;
+};
+
+void Ledger::append(Rows rows) {
+  if (check(rows)) {
+    log::write(rows);
+  }
+}
+
+enum class Status {
+  Open,
+};
+
+}  // namespace billing
+"#;
+
+    #[test]
+    fn c_def_patterns_find_types_macros_functions_and_globals() {
+        let (dir, files) = scratch("c-h", &[("invoice.h", C_H)]);
+        let d = |w| defs(&dir, &files, Kind::C, w);
+        assert_eq!(d("LRU_BITS"), [4]);
+        assert_eq!(d("serverLog"), [5], "a function-like macro");
+        assert_eq!(d("sds"), [7], "not the `sds name;` field it types");
+        assert_eq!(d("compare_fn"), [8], "a function pointer");
+        assert_eq!(d("client"), [10], "a forward declaration");
+        assert_eq!(d("sdshdr8"), [12], "behind a lower-case attribute");
+        assert_eq!(d("config"), [16], "behind a storage specifier");
+        assert_eq!(d("server_config"), [18], "the name the block closes with");
+        // The `typedef struct invoice {` and the `} invoice;` it closes with: `d` offers both,
+        // where `D` lists the type once, under the name the project uses.
+        assert_eq!(d("invoice"), [20, 26]);
+        assert_eq!(d("state"), [31]);
+        assert_eq!(d("value"), [33]);
+        assert_eq!(d("current"), [38]);
+        assert_eq!(d("invoice_total"), [40], "the prototype");
+        assert_eq!(d("total"), Vec::<usize>::new(), "a field has no rule");
+        assert_eq!(
+            d("offset"),
+            Vec::<usize>::new(),
+            "an indented closing brace ends a nested anonymous struct: a field, not a type"
+        );
+        assert_eq!(
+            d("STATE_OPEN"),
+            Vec::<usize>::new(),
+            "an enum constant has no rule: `NAME,` is also a line of an initializer list"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn c_def_patterns_tell_a_definition_from_a_call() {
+        let (dir, files) = scratch("c-c", &[("invoice.c", C_C)]);
+        let d = |w| defs(&dir, &files, Kind::C, w);
+        assert_eq!(d("current"), [3]);
+        assert_eq!(d("counter"), [4], "a global, not the `return counter;`");
+        assert_eq!(d("invoice_total"), [6]);
+        assert_eq!(d("compute"), [13], "the brace opens on the next line");
+        assert_eq!(
+            d("invoice_index"),
+            [20],
+            "the return type is on the line above"
+        );
+        assert_eq!(d("invoice_free"), [25], "the parameters wrap");
+        // Column zero is where C declares; indented, only a body opening on the line counts.
+        assert_eq!(
+            d("invoice_valid"),
+            Vec::<usize>::new(),
+            "a call inside `if`"
+        );
+        assert_eq!(d("free"), Vec::<usize>::new(), "a call statement");
+        assert_eq!(d("copy"), Vec::<usize>::new(), "a local");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn cpp_def_patterns_cover_classes_methods_and_aliases() {
+        let (dir, files) = scratch("cpp", &[("ledger.cc", CPP)]);
+        let d = |w| defs(&dir, &files, Kind::C, w);
+        assert_eq!(d("billing"), [3], "not the closing comment");
+        assert_eq!(d("Rows"), [5]);
+        assert_eq!(d("Box"), [8, 12], "the template and its specialization");
+        assert_eq!(
+            d("Ledger"),
+            [16, 18],
+            "past the template head; and its constructor"
+        );
+        assert_eq!(d("total"), [20], "a method defined in the class body");
+        assert_eq!(d("Row"), [24], "a `using` alias indented in a class body");
+        // The out-of-line definition. The declaration on line 22 has no rule: indented, it is
+        // the shape of a call, and the definition is what `d` is asked for anyway.
+        assert_eq!(d("append"), [30]);
+        assert_eq!(d("Status"), [36]);
+        assert_eq!(
+            d("T"),
+            Vec::<usize>::new(),
+            "a template parameter is no global: `template <typename T = int>` declares nothing"
+        );
+        assert_eq!(
+            d("swap"),
+            Vec::<usize>::new(),
+            "`using std::swap;` imports a name"
+        );
+        assert_eq!(d("check"), Vec::<usize>::new(), "a call inside `if`");
+        assert_eq!(d("write"), Vec::<usize>::new(), "a qualified call");
+        assert_eq!(d("Open"), Vec::<usize>::new(), "an enum constant");
+        assert_eq!(d("total_"), Vec::<usize>::new(), "a field");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn c_and_cpp_scope_roots_and_names() {
+        // One kind: a `.cc` is searched for a definition asked for in a `.h`, and a file of
+        // another kind is not.
+        let here = Path::new("ledger.hpp");
+        assert!(in_def_scope(Kind::C, here, Path::new("src/invoice.c")));
+        assert!(in_def_scope(Kind::C, here, Path::new("ledger.cc")));
+        assert!(!in_def_scope(Kind::C, here, Path::new("main.rs")));
+        // `#include` binds no name, and a member of a value has no rule of its own.
+        assert!(imports(Kind::C, C_C).is_empty());
+        assert!(member_patterns(Kind::C, "total").is_none());
+        // The system headers, wherever this machine keeps them: the SDK on a Mac,
+        // `/usr/include` on Linux. Both exist on CI, so the list is never empty there.
+        let roots = external_roots(Kind::C, Path::new("/"));
+        assert!(
+            roots.iter().any(|r| r.ends_with("usr/include")),
+            "no system include directory among {roots:?}"
+        );
+        // C++ writes a member behind `::`, as Rust does, and an access specifier is a label
+        // inside the class, not a wall in front of it. The enclosing `namespace billing {` is
+        // not indented, so, as in every kind, the walk ends at the first column-zero declaration.
+        assert_eq!(
+            qualified(Kind::C, CPP, 20, "total").as_deref(),
+            Some("Ledger::total")
+        );
+        assert_eq!(qualified(Kind::C, CPP, 3, "billing"), None);
+    }
+
+    #[test]
+    fn c_and_cpp_files_find_each_other() {
+        let (dir, files) = scratch(
+            "c-family",
+            &[("invoice.h", C_H), ("invoice.c", C_C), ("ledger.cc", CPP)],
+        );
+        // The header's prototype and the definition that follows it are both offered; the
+        // picker's rows say which file each is in.
+        let pat = def_patterns(Kind::C, "invoice_total").join("|");
+        assert_eq!(
+            lines(&grep(&dir, &files, &pat, false, false)),
+            [("invoice.c".into(), 6), ("invoice.h".into(), 40)],
+            "the picker's order is by path, as everywhere: it is not definition before prototype"
+        );
+        // A type of the C header, reached from the C++ file that includes it.
+        let pat = def_patterns(Kind::C, "sds").join("|");
+        assert_eq!(
+            lines(&grep(&dir, &files, &pat, false, false)),
+            [("invoice.h".into(), 7)]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    const CS: &str = r#"namespace Billing.Core;
+
+using Rows = System.Collections.Generic.List<int>;
+
+[Serializable]
+public sealed partial class Invoice<T> : Base, IEnumerable<T>
+{
+    private const int Limit = 10;
+    private readonly ILogger<Invoice<T>> _logger;
+    public static event EventHandler? Saved;
+
+    public Invoice(int n)
+    {
+        _logger = Create(n);
+    }
+
+    public int Total { get; private set; }
+
+    public string Name => _name;
+
+    [HttpGet("{id}")]
+    public async Task<Invoice<T>> LoadAsync(int id)
+    {
+        var rows = Compute(id);
+        if (Check(rows))
+        {
+            Console.WriteLine(rows);
+        }
+        return new Invoice<T>(id);
+    }
+
+    int IComparable.CompareTo(object? other) => 0;
+
+    private static Rows Compute(int id) => new Rows();
+}
+
+public interface IStore
+{
+    void Save(Invoice<int> inv);
+}
+
+public record struct Point(int X, int Y);
+
+public record Money(decimal Amount);
+
+public enum Status
+{
+    Open,
+}
+
+public delegate int Comparison<T>(T a, T b);
+
+public static class Registry
+{
+    public static Dictionary<string, Invoice<int>> All = new();
+}
+"#;
+
+    #[test]
+    fn csharp_def_patterns_find_types_members_and_fields() {
+        let (dir, files) = scratch("cs", &[("Invoice.cs", CS)]);
+        let d = |w| defs(&dir, &files, Kind::CSharp, w);
+        assert_eq!(d("Core"), [1], "a file-scoped namespace, by its last part");
+        assert_eq!(
+            d("Rows"),
+            [3],
+            "a `using` alias, not the `Rows` it is used as"
+        );
+        // The class past its generic parameters and its attribute, and the constructor; the
+        // caller shows a picker.
+        assert_eq!(d("Invoice"), [6, 12]);
+        assert_eq!(d("Limit"), [8]);
+        assert_eq!(d("_logger"), [9], "not the `_logger = Create(n);` write");
+        assert_eq!(d("Saved"), [10], "an event");
+        assert_eq!(d("Total"), [17], "a property, by its accessor block");
+        assert_eq!(d("Name"), [19], "an expression-bodied property");
+        assert_eq!(
+            d("LoadAsync"),
+            [22],
+            "behind an attribute and `public async`"
+        );
+        assert_eq!(d("rows"), [24], "a local");
+        assert_eq!(d("Compute"), [34], "not the `Compute(id)` call above it");
+        assert_eq!(d("CompareTo"), [32], "an explicit interface implementation");
+        assert_eq!(d("IStore"), [37]);
+        assert_eq!(d("Save"), [39], "an interface method has no modifiers");
+        assert_eq!(d("Point"), [42], "a positional `record struct`");
+        assert_eq!(d("Money"), [44]);
+        assert_eq!(d("Status"), [46]);
+        assert_eq!(d("Comparison"), [51], "a delegate, past its return type");
+        assert_eq!(d("Registry"), [53]);
+        assert_eq!(d("All"), [55]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn csharp_def_patterns_tell_a_declaration_from_a_call() {
+        let (dir, files) = scratch("cs-calls", &[("Invoice.cs", CS)]);
+        let d = |w| defs(&dir, &files, Kind::CSharp, w);
+        let none = Vec::<usize>::new();
+        assert_eq!(d("Check"), none, "a call inside `if`");
+        assert_eq!(d("Console"), none);
+        assert_eq!(d("WriteLine"), none, "a call statement");
+        assert_eq!(d("Create"), none, "a call on the right of an assignment");
+        assert_eq!(d("Base"), none, "a base list is a use of the type");
+        assert_eq!(d("IEnumerable"), none);
+        assert_eq!(d("id"), none, "a parameter has no rule");
+        assert_eq!(
+            d("Open"),
+            none,
+            "an enum member has no rule: `Open,` is also a line of a collection initialiser"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn csharp_scope_stays_in_the_project() {
+        let here = Path::new("Invoice.cs");
+        assert!(in_def_scope(Kind::CSharp, here, Path::new("src/Store.csx")));
+        assert!(!in_def_scope(Kind::CSharp, here, Path::new("main.rs")));
+        // A `using` opens a whole namespace, so it binds no name of its own, and there is nothing
+        // to bind it to: a NuGet package ships assemblies, not source.
+        assert!(imports(Kind::CSharp, CS).is_empty());
+        assert!(external_roots(Kind::CSharp, Path::new("/")).is_empty());
+        assert!(member_patterns(Kind::CSharp, "Total").is_none());
+        // A member is named by the type it is declared in, as the picker rows show it.
+        assert_eq!(
+            qualified(Kind::CSharp, CS, 22, "LoadAsync").as_deref(),
+            Some("Invoice.LoadAsync")
+        );
+    }
+
+    const SWIFT: &str = r#"import Foundation
+
+public protocol RequestDelegate: AnyObject {
+    associatedtype Value
+
+    func didFinish(_ request: Request)
+}
+
+@objc(AFSession)
+public final class Session: NSObject {
+    public static let `default` = Session()
+
+    private let queue: DispatchQueue
+    public var isRunning = false
+
+    public init(queue: DispatchQueue = .main) {
+        self.queue = queue
+    }
+
+    convenience init?(name: String) {
+        self.init()
+    }
+
+    public func request<T: Encodable>(_ url: URL, with body: T) -> Request {
+        let request = Request(url)
+        queue.async {
+            self.start(request)
+        }
+        if let delegate = delegate {
+            delegate.didFinish(request)
+        }
+        return request
+    }
+
+    class func shared() -> Session {
+        return Session()
+    }
+}
+
+extension Session: RequestDelegate {
+    public func didFinish(_ request: Request) {
+        switch request.state {
+        case .finished:
+            break
+        case let .failed(error):
+            print(error)
+        }
+    }
+}
+
+public enum State {
+    case initialized
+    case resumed(Int), suspended
+    case failed(Error)
+}
+
+public struct Response<Value> {
+    let value: Value
+}
+
+actor Cache {
+    var entries: [String: Data] = [:]
+}
+
+public typealias Rows = [Int]
+
+public final class Store {
+    public private(set) weak var owner: Session?
+}
+
+let opened = 0
+
+func describe(_ code: Int) -> String {
+    switch code {
+    case opened:
+        return "opened"
+    default:
+        return ""
+    }
+}
+"#;
+
+    #[test]
+    fn swift_def_patterns_find_declarations_behind_attributes_and_modifiers() {
+        let (dir, files) = scratch("swift", &[("Session.swift", SWIFT)]);
+        let d = |w| defs(&dir, &files, Kind::Swift, w);
+        assert_eq!(d("RequestDelegate"), [3], "a protocol");
+        assert_eq!(d("Value"), [4], "an `associatedtype`");
+        // The class and the extension of it: a project's own members of a type live in one.
+        assert_eq!(d("Session"), [10, 40], "not the `Session()` calls");
+        assert_eq!(d("didFinish"), [6, 41], "not the `delegate.didFinish` call");
+        assert_eq!(d("default"), [11], "a backticked name");
+        assert_eq!(d("queue"), [13], "not the `self.queue = queue` write");
+        assert_eq!(d("isRunning"), [14]);
+        assert_eq!(
+            d("init"),
+            [16, 20],
+            "`init?` too, not the `self.init()` call"
+        );
+        assert_eq!(d("request"), [24, 25], "the function and the local");
+        assert_eq!(d("shared"), [35], "behind `class`, Swift's static method");
+        assert_eq!(d("initialized"), [52], "an enum case");
+        assert_eq!(d("resumed"), [53], "with its associated value");
+        assert_eq!(d("suspended"), [53], "second on the line");
+        assert_eq!(
+            d("failed"),
+            [54],
+            "not the `case let .failed(error):` pattern"
+        );
+        assert_eq!(d("State"), [51]);
+        assert_eq!(d("Response"), [57], "past the generic parameters");
+        assert_eq!(d("Cache"), [61], "an actor");
+        assert_eq!(d("entries"), [62]);
+        assert_eq!(d("Rows"), [65], "a `typealias`");
+        assert_eq!(d("Store"), [67]);
+        assert_eq!(d("owner"), [68], "behind `public private(set) weak`");
+        // The `let`, not the `case opened:` of the `switch` below it, which matches against
+        // that constant: a bare name there is a pattern, not a declaration.
+        assert_eq!(d("opened"), [71]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn swift_def_patterns_tell_a_declaration_from_a_call_or_a_pattern() {
+        let (dir, files) = scratch("swift-calls", &[("Session.swift", SWIFT)]);
+        let d = |w| defs(&dir, &files, Kind::Swift, w);
+        let none = Vec::<usize>::new();
+        assert_eq!(d("finished"), none, "`case .finished:` is a pattern");
+        assert_eq!(d("start"), none, "a call on `self`");
+        assert_eq!(d("print"), none);
+        assert_eq!(d("Request"), none, "a type this file only uses");
+        assert_eq!(
+            d("delegate"),
+            none,
+            "an `if let` rebinds a name declared elsewhere: no rule, so `u` answers"
+        );
+        assert_eq!(d("body"), none, "a parameter has no rule");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn swift_scope_roots_and_names() {
+        let here = Path::new("Session.swift");
+        assert!(in_def_scope(
+            Kind::Swift,
+            here,
+            Path::new("Source/Request.swift")
+        ));
+        assert!(!in_def_scope(Kind::Swift, here, Path::new("main.rs")));
+        // An `import` names a module and makes everything in it visible unqualified, so it binds
+        // no name of its own.
+        assert!(imports(Kind::Swift, SWIFT).is_empty());
+        // Outside the project is where SwiftPM checks the dependencies out; nothing else on the
+        // machine holds Swift source, so an absent directory leaves the list empty.
+        let (dir, _) = scratch(
+            "swift-roots",
+            &[(".build/checkouts/nio/Sources/a.swift", "")],
+        );
+        assert_eq!(
+            external_roots(Kind::Swift, &dir),
+            [dir.join(".build/checkouts")]
+        );
+        assert!(external_roots(Kind::Swift, Path::new("/")).is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+        // A member is named by the type its extension extends.
+        assert_eq!(
+            qualified(Kind::Swift, SWIFT, 41, "didFinish").as_deref(),
+            Some("Session.didFinish")
+        );
+    }
+
+    const PHP: &str = r#"<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Str;
+use App\Models\User as Account;
+
+define('BILLING_LIMIT', 10);
+
+abstract class Invoice implements Arrayable
+{
+    public const STATUS_OPEN = 'open';
+
+    protected array $rows = [];
+
+    private ?Logger $logger;
+
+    public function __construct(private readonly Account $account, string $name)
+    {
+        $this->logger = null;
+        $total = 0;
+        foreach ($this->rows as $key => $value) {
+            $total += $value;
+        }
+        $this->name = $name;
+    }
+
+    final public static function parse(string $text): static
+    {
+        return new static($text);
+    }
+
+    public function &rows(): array
+    {
+        return $this->rows;
+    }
+
+    abstract protected function compute(): int;
+}
+
+interface Arrayable
+{
+    public function toArray(): array;
+}
+
+trait Macroable
+{
+    public function macro(string $name): void
+    {
+    }
+}
+
+enum Status: string
+{
+    case Open = 'open';
+    case Closed;
+}
+
+function billing_total(Invoice $invoice): int
+{
+    $sum = 0;
+    return $sum;
+}
+
+function billing_report(array $rows, int $total): array
+{
+    $map = [
+        $key => $value,
+    ];
+
+    return
+        $total == 0 ? $map : $rows;
+}
+"#;
+
+    #[test]
+    fn php_def_patterns_find_declarations_behind_modifiers() {
+        let (dir, files) = scratch("php", &[("Invoice.php", PHP)]);
+        let d = |w| defs(&dir, &files, Kind::Php, w);
+        assert_eq!(d("Services"), [3], "a namespace, by its last part");
+        assert_eq!(d("BILLING_LIMIT"), [8], "a `define()` constant");
+        assert_eq!(d("Invoice"), [10], "not the `Invoice $invoice` parameter");
+        assert_eq!(d("STATUS_OPEN"), [12], "a class constant");
+        // The property and the method that returns it, not the `$this->rows` uses.
+        assert_eq!(d("rows"), [14, 33]);
+        assert_eq!(d("logger"), [16], "not the `$this->logger = null;` write");
+        assert_eq!(d("account"), [18], "a promoted constructor parameter");
+        assert_eq!(
+            d("total"),
+            [21, 23],
+            "the assignment and the `+=` that follows"
+        );
+        assert_eq!(d("parse"), [28], "behind `final public static`");
+        assert_eq!(d("compute"), [38], "an abstract method has no body");
+        assert_eq!(d("Arrayable"), [41], "not the `implements Arrayable`");
+        assert_eq!(d("toArray"), [43]);
+        assert_eq!(d("Macroable"), [46], "a trait");
+        assert_eq!(d("macro"), [48]);
+        assert_eq!(d("Status"), [53], "a backed enum");
+        assert_eq!(d("Open"), [55], "an enum case with its value");
+        assert_eq!(d("Closed"), [56]);
+        assert_eq!(d("billing_total"), [59], "a function at the top level");
+        assert_eq!(d("sum"), [61], "not the `return $sum;`");
+        assert_eq!(d("map"), [67]);
+        // Not the `$total == 0` that opens line 72: `==` compares, it declares nothing.
+        assert_eq!(d("total"), [21, 23]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn php_def_patterns_tell_a_declaration_from_a_use() {
+        let (dir, files) = scratch("php-uses", &[("Invoice.php", PHP)]);
+        let d = |w| defs(&dir, &files, Kind::Php, w);
+        let none = Vec::<usize>::new();
+        assert_eq!(d("Str"), none, "a `use` imports a name, it declares none");
+        assert_eq!(d("Account"), none, "nor does the alias of one");
+        assert_eq!(d("Logger"), none, "a type a property is written with");
+        assert_eq!(d("text"), none, "a parameter has no rule");
+        assert_eq!(
+            d("name"),
+            none,
+            "`$this->name = $name;` writes to a property declared elsewhere"
+        );
+        assert_eq!(
+            d("key"),
+            none,
+            "a `foreach` target has no rule, and `$key => $value,` is an array pair"
+        );
+        assert_eq!(d("value"), none);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn php_scope_roots_imports_and_names() {
+        let here = Path::new("src/Invoice.php");
+        assert!(in_def_scope(Kind::Php, here, Path::new("views/show.phtml")));
+        assert!(!in_def_scope(Kind::Php, here, Path::new("main.rs")));
+        // A `use` in column zero binds the last part of the path, or its alias; PSR-4 spells the
+        // namespace the way the file system does, so the path is the name split on `\`.
+        assert_eq!(
+            imports(Kind::Php, PHP),
+            [
+                (
+                    "Str".to_owned(),
+                    vec!["Illuminate".into(), "Support".into(), "Str".into()]
+                ),
+                (
+                    "Account".to_owned(),
+                    vec!["App".into(), "Models".into(), "User".into()]
+                ),
+            ]
+        );
+        // An indented `use` pulls a trait into a class body and names no file.
+        assert!(imports(Kind::Php, "class X {\n    use Macroable;\n}\n").is_empty());
+        // Composer installs the dependencies into `vendor/`, which is gitignored and so outside
+        // the project walk, the way `node_modules` is.
+        let (dir, _) = scratch("php-roots", &[("vendor/laravel/framework/src/a.php", "")]);
+        assert_eq!(external_roots(Kind::Php, &dir), [dir.join("vendor")]);
+        assert!(external_roots(Kind::Php, Path::new("/")).is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+        // PHP writes a method of a class behind `::`, as its own documentation does.
+        assert_eq!(
+            qualified(Kind::Php, PHP, 28, "parse").as_deref(),
+            Some("Invoice::parse")
+        );
+    }
+
+    const LUA: &str = r#"local uv = vim.uv
+
+local M = {}
+local cache, hits = {}, 0
+
+function M.setup(opts)
+  local defaults = { limit = 10 }
+  cache = defaults
+  return M.normalise(opts)
+end
+
+function M:render(row)
+  return row
+end
+
+function normalise(opts)
+  return opts
+end
+
+local function trim(s)
+  return s
+end
+
+M.format = function(row)
+  return trim(row)
+end
+
+local handlers = {
+  open = function(id)
+    return id
+  end,
+  limit = 10,
+}
+
+--[[
+function M.ghost(x)
+  return x
+end
+]]
+
+M.setup({ limit = 1 })
+return M
+
+local pat = [=[
+^\s*\%(\[[A-Za-z]\+\]\)* ]-] x
+function M.ghosted(x)
+end
+]=]
+
+function M.after(x)
+  return x
+end
+
+local sql = [[
+function M.ghost2(x)
+end
+]]
+
+function M.last() end
+"#;
+
+    #[test]
+    fn lua_def_patterns_find_functions_and_locals() {
+        let (dir, files) = scratch("lua", &[("init.lua", LUA)]);
+        let d = |w| defs(&dir, &files, Kind::Lua, w);
+        assert_eq!(d("setup"), [6], "the declaration, not the call on line 41");
+        assert_eq!(d("render"), [12], "the `M:name` form");
+        assert_eq!(d("normalise"), [16], "not the `M.normalise(opts)` call");
+        assert_eq!(d("trim"), [20], "`local function`");
+        assert_eq!(d("format"), [24], "`M.name = function`");
+        assert_eq!(d("open"), [29], "a function in a table of handlers");
+        assert_eq!(d("M"), [3]);
+        assert_eq!(d("uv"), [1]);
+        // `local a, b = …` declares both, and a later bare `cache = …` is an assignment to the
+        // local already declared, not a declaration of its own.
+        assert_eq!(d("cache"), [4]);
+        assert_eq!(d("hits"), [4]);
+        assert_eq!(d("defaults"), [7], "a local inside a body");
+        assert_eq!(
+            d("limit"),
+            Vec::<usize>::new(),
+            "a table field holding a value has no rule: the line is also an assignment"
+        );
+        assert_eq!(d("opts"), Vec::<usize>::new(), "a parameter");
+        assert_eq!(d("row"), Vec::<usize>::new());
+        assert_eq!(
+            d("vim"),
+            Vec::<usize>::new(),
+            "the right-hand side of a local"
+        );
+        // A `[=[ … ]=]` long string closes on the `=` it was opened with, so neither the
+        // `\[[` of the Vim regex inside it nor the `]-]` closes it, and what follows the
+        // string is still read as code.
+        assert_eq!(d("pat"), [44]);
+        assert_eq!(d("after"), [50]);
+        assert_eq!(d("last"), [59]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn lua_long_brackets_hide_what_they_hold() {
+        // The `--[[ … ]]` block comment on lines 35-39, the `[=[ … ]=]` string on 44-48 and
+        // the `[[ … ]]` one on 54-57: the functions inside them declare nothing, the way a
+        // Python docstring's example does not.
+        let lit = literal_lines(Kind::Lua, LUA);
+        assert_eq!(
+            lit.iter()
+                .enumerate()
+                .filter(|(_, l)| **l)
+                .map(|(i, _)| i + 1)
+                .collect::<Vec<_>>(),
+            [36, 37, 38, 39, 45, 46, 47, 48, 55, 56, 57]
+        );
+        // A `--` line comment is still one line, whatever quote it holds.
+        assert!(
+            literal_lines(Kind::Lua, "-- don't\nlocal x = 1\n")[1..]
+                .iter()
+                .all(|l| !l)
+        );
+    }
+
+    #[test]
+    fn lua_scope_roots_and_names() {
+        let here = Path::new("lua/config/init.lua");
+        assert!(in_def_scope(
+            Kind::Lua,
+            here,
+            Path::new("lua/plugins/ui.lua")
+        ));
+        assert!(!in_def_scope(Kind::Lua, here, Path::new("main.c")));
+        // `require "x"` binds a name, but there is no root to resolve it against and Lua's own
+        // `package.path` is the embedding interpreter's, so nothing is bound and nothing is
+        // searched outside the project.
+        assert!(imports(Kind::Lua, LUA).is_empty());
+        assert!(external_roots(Kind::Lua, Path::new("/")).is_empty());
+        assert!(member_patterns(Kind::Lua, "setup").is_none());
+        // A function nested in another is named under it, as in every kind, and a `--`
+        // comment in between is a comment, not a declaration that names nothing.
+        assert_eq!(
+            qualified(
+                Kind::Lua,
+                "function M.setup()\n-- a note\n  local function inner() end\nend\n",
+                3,
+                "inner"
+            )
+            .as_deref(),
+            Some("setup.inner")
+        );
+    }
+
+    #[test]
+    fn lua_symbol_names() {
+        let lua = |line| one(Kind::Lua, line);
+        for (line, name) in [
+            ("function setup(opts)", Some("setup")),
+            ("function M.setup(opts)", Some("setup")),
+            ("function M:render(row)", Some("render")),
+            ("function vim.lsp.util.clamp(x)", Some("clamp")),
+            ("local function trim(s)", Some("trim")),
+            ("  local function inner()", Some("inner")),
+            ("M.format = function(row)", Some("format")),
+            ("local format = function(row)", Some("format")),
+            ("  open = function(id)", Some("open")),
+            // Not a declaration: a call, a field holding a value, a local, a return.
+            ("M.setup({ limit = 1 })", None),
+            ("  limit = 10,", None),
+            ("local M = {}", None),
+            ("local cache, hits = {}, 0", None),
+            ("  return M.normalise(opts)", None),
+            ("  end,", None),
+            ("-- function ghost(x)", None),
+        ] {
+            assert_eq!(lua(line).as_deref(), name, "{line}");
+        }
+    }
+
+    const EX: &str = r#"defmodule MyApp.Ledger do
+  @moduledoc """
+  Examples:
+
+      def ghost(x), do: x
+  """
+
+  @timeout 5_000
+  @derive {Jason.Encoder, only: [:id]}
+
+  defstruct [:id, :total, currency: "EUR"]
+
+  @type t :: %__MODULE__{}
+
+  @spec parse(String.t()) :: t
+  def parse(nil), do: nil
+
+  def parse(raw) when is_binary(raw) do
+    %__MODULE__{id: raw}
+  end
+
+  defp normalise(raw) do
+    String.trim(raw)
+  end
+
+  defmacro with_total(do: block) do
+    block
+  end
+
+  defguard is_positive(n) when n > 0
+
+  defdelegate encode(value), to: Jason
+
+  def timeout, do: @timeout
+end
+
+defprotocol Renderable do
+  def render(value)
+end
+
+defimpl Renderable, for: MyApp.Ledger do
+  def render(ledger), do: ledger.id
+end
+
+defmodule MyApp.LedgerTest do
+  @moduletag :slow
+  @tag :external
+
+  defmacrop guard!(x), do: x
+  defguardp is_even(n) when rem(n, 2) == 0
+
+  def empty?(rows), do: rows == []
+  def put!(row), do: row
+end
+"#;
+
+    #[test]
+    fn elixir_def_patterns_find_every_def_form() {
+        let (dir, files) = scratch("ex", &[("ledger.ex", EX)]);
+        let d = |w| defs(&dir, &files, Kind::Elixir, w);
+        assert_eq!(
+            d("Ledger"),
+            [1],
+            "the last part of `defmodule MyApp.Ledger`"
+        );
+        assert_eq!(d("Renderable"), [37], "not the `defimpl` that uses it");
+        // Two clauses of one function are two declarations, so both are offered; the `@spec`
+        // above them is a promise about `parse`, not its definition.
+        assert_eq!(d("parse"), [16, 18]);
+        assert_eq!(d("normalise"), [22], "`defp`");
+        assert_eq!(d("with_total"), [26], "`defmacro`");
+        assert_eq!(d("is_positive"), [30], "`defguard`");
+        assert_eq!(d("encode"), [32], "`defdelegate`");
+        assert_eq!(d("render"), [38, 42], "the protocol and its implementation");
+        // The attribute and the function of the same name are both declarations, of different
+        // things, so `d` offers both rather than guessing.
+        assert_eq!(d("timeout"), [8, 34]);
+        assert_eq!(d("id"), [11], "a struct field, atom list form");
+        assert_eq!(d("currency"), [11], "the keyword form of the same line");
+        // The attributes the language owns, and the names they talk about.
+        assert_eq!(d("t"), Vec::<usize>::new(), "`@type t ::` declares no `t`");
+        assert_eq!(d("spec"), Vec::<usize>::new());
+        assert_eq!(d("type"), Vec::<usize>::new());
+        assert_eq!(d("moduledoc"), Vec::<usize>::new());
+        assert_eq!(d("derive"), Vec::<usize>::new());
+        assert_eq!(d("MyApp"), Vec::<usize>::new(), "a namespace, not a module");
+        assert_eq!(d("raw"), Vec::<usize>::new(), "a parameter");
+        assert_eq!(d("block"), Vec::<usize>::new());
+        assert_eq!(d("Jason"), Vec::<usize>::new());
+        assert_eq!(d("guard"), [49], "`defmacrop`, past the trailing `!`");
+        assert_eq!(d("is_even"), [50], "`defguardp`");
+        // A name Elixir spells with a trailing `?` or `!` is found from the bare word, as
+        // Ruby's is: the cursor on `empty` in `empty?(rows)` reaches `def empty?`.
+        assert_eq!(d("empty"), [52]);
+        assert_eq!(d("put"), [53]);
+        // ExUnit's and Mix's attributes are directives too, so `d` on one has nothing to find
+        // rather than a picker of every place the directive is written.
+        assert_eq!(d("tag"), Vec::<usize>::new());
+        assert_eq!(d("moduletag"), Vec::<usize>::new());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn elixir_heredocs_hide_what_they_hold() {
+        // `@moduledoc """ … """` on lines 2-6: the `def ghost(x)` of its example declares
+        // nothing, as a Python docstring's does not.
+        let lit = literal_lines(Kind::Elixir, EX);
+        assert_eq!(
+            lit.iter()
+                .enumerate()
+                .filter(|(_, l)| **l)
+                .map(|(i, _)| i + 1)
+                .collect::<Vec<_>>(),
+            [3, 4, 5, 6]
+        );
+    }
+
+    #[test]
+    fn elixir_scope_roots_and_names() {
+        let here = Path::new("lib/my_app/ledger.ex");
+        assert!(in_def_scope(
+            Kind::Elixir,
+            here,
+            Path::new("test/ledger_test.exs")
+        ));
+        assert!(!in_def_scope(Kind::Elixir, here, Path::new("mix.lock")));
+        // `alias` and `import` bind names, but `mix` puts the dependencies in `deps/` inside the
+        // project, so they are project files already and there is no root to leave for.
+        assert!(imports(Kind::Elixir, EX).is_empty());
+        assert!(external_roots(Kind::Elixir, Path::new("/")).is_empty());
+        assert!(member_patterns(Kind::Elixir, "parse").is_none());
+        // A function is named under the module it is written in, as in every kind.
+        assert_eq!(
+            qualified(Kind::Elixir, EX, 22, "normalise").as_deref(),
+            Some("Ledger.normalise")
+        );
+        assert_eq!(qualified(Kind::Elixir, EX, 1, "Ledger"), None);
+    }
+
+    #[test]
+    fn elixir_symbol_names() {
+        let ex = |line| one(Kind::Elixir, line);
+        for (line, name) in [
+            ("defmodule MyApp.Ledger do", Some("Ledger")),
+            ("defmodule Ledger do", Some("Ledger")),
+            ("defprotocol Renderable do", Some("Renderable")),
+            ("  def parse(nil), do: nil", Some("parse")),
+            ("  def timeout, do: @timeout", Some("timeout")),
+            ("  defp normalise(raw) do", Some("normalise")),
+            ("  def empty?(rows), do: rows == []", Some("empty?")),
+            ("  def put!(row), do: row", Some("put!")),
+            ("  defmacro with_total(do: block) do", Some("with_total")),
+            ("  defmacrop guard!(x), do: x", Some("guard!")),
+            ("  defguard is_positive(n) when n > 0", Some("is_positive")),
+            (
+                "  defguardp is_even(n) when rem(n, 2) == 0",
+                Some("is_even"),
+            ),
+            ("  defdelegate encode(value), to: Jason", Some("encode")),
+            // A `defimpl` names the module `Protocol.Type`, and neither half is its own name;
+            // `defstruct` declares every field on one line; an attribute belongs to the language.
+            ("defimpl Renderable, for: MyApp.Ledger do", None),
+            ("  defstruct [:id, :total]", None),
+            ("  @spec parse(String.t()) :: t", None),
+            ("  @type t :: %__MODULE__{}", None),
+            ("  @moduledoc \"\"\"", None),
+            ("  @timeout 5_000", None),
+            // The shared pattern called this a declaration of `x`.
+            ("    Enum.map(rows, fn x -> x.id end)", None),
+            ("    String.trim(raw)", None),
+            ("  end", None),
+        ] {
+            assert_eq!(ex(line).as_deref(), name, "{line}");
+        }
+    }
+
+    const ZIG: &str = r#"const std = @import("std");
+const Allocator = std.mem.Allocator;
+
+pub const Error = error{OutOfRange};
+
+pub const Ledger = struct {
+    total: u32,
+    rows: []const Row,
+
+    const empty: Ledger = .{ .total = 0, .rows = &.{} };
+
+    pub fn init(allocator: Allocator) Ledger {
+        var self = Ledger{ .total = 0, .rows = &.{} };
+        return self;
+    }
+
+    pub inline fn isEmpty(self: Ledger) bool {
+        return self.rows.len == 0;
+    }
+
+    fn compute(self: Ledger) u32 {
+        return self.total;
+    }
+};
+
+pub const Row = struct { id: u32 };
+
+const Status = enum { open, closed };
+
+const Value = union(enum) { n: u32, s: []const u8 };
+
+pub var counter: u32 = 0;
+threadlocal var scratch: [16]u8 = undefined;
+
+export fn ledger_total(l: *Ledger) u32 {
+    return l.total;
+}
+
+pub extern "c" fn strlen(s: [*:0]const u8) usize;
+
+noinline fn slow(x: u32) u32 {
+    return x;
+}
+
+test "a ledger starts empty" {
+    const l = Ledger.init(std.testing.allocator);
+    try std.testing.expect(l.isEmpty());
+}
+
+const first, const second = .{ 1, 2 };
+
+extern fn puts(s: [*:0]const u8) c_int;
+
+export inline fn fast(x: u32) u32 {
+    comptime var seen: u32 = 0;
+    seen += x;
+    return seen;
+}
+
+const help =
+    \\```zig
+    \\const x = 1;
+    \\```
+;
+
+pub fn after() void {}
+"#;
+
+    #[test]
+    fn zig_def_patterns_find_functions_types_and_constants() {
+        let (dir, files) = scratch("zig", &[("ledger.zig", ZIG)]);
+        let d = |w| defs(&dir, &files, Kind::Zig, w);
+        assert_eq!(d("std"), [1]);
+        assert_eq!(d("Allocator"), [2]);
+        assert_eq!(d("Error"), [4]);
+        assert_eq!(
+            d("Ledger"),
+            [6],
+            "not the literal on line 13 or the call on line 46"
+        );
+        assert_eq!(d("empty"), [10], "a constant in a struct body");
+        assert_eq!(d("init"), [12], "not the `Ledger.init(…)` call on line 46");
+        assert_eq!(d("isEmpty"), [17], "`pub inline fn`");
+        assert_eq!(d("compute"), [21]);
+        assert_eq!(
+            d("Row"),
+            [26],
+            "not the `rows: []const Row` field that uses it"
+        );
+        assert_eq!(d("Status"), [28], "`const X = enum`");
+        assert_eq!(d("Value"), [30], "`const X = union(enum)`");
+        assert_eq!(d("counter"), [32], "`pub var`");
+        assert_eq!(d("scratch"), [33], "`threadlocal var`");
+        assert_eq!(d("ledger_total"), [35], "`export fn`");
+        assert_eq!(d("strlen"), [39], r#"`pub extern "c" fn`"#);
+        assert_eq!(d("slow"), [41], "`noinline fn`");
+        assert_eq!(
+            d("self"),
+            [13],
+            "a local; the parameters of lines 17 and 21 are not"
+        );
+        assert_eq!(d("l"), [46]);
+        assert_eq!(
+            d("total"),
+            Vec::<usize>::new(),
+            "a struct field has no rule"
+        );
+        assert_eq!(d("id"), Vec::<usize>::new());
+        assert_eq!(
+            d("ledger"),
+            Vec::<usize>::new(),
+            "a word inside a test description declares nothing"
+        );
+        assert_eq!(d("open"), Vec::<usize>::new(), "an enum field");
+        // A destructuring declares both names, but only the first one starts the line, and every
+        // rule here is anchored there.
+        assert_eq!(d("first"), [50]);
+        assert_eq!(d("second"), Vec::<usize>::new());
+        assert_eq!(d("puts"), [52], "`extern fn`, with no calling convention");
+        assert_eq!(d("fast"), [54], "`export inline fn`");
+        assert_eq!(d("seen"), [55], "`comptime var`");
+        // Zig has no literal that runs over lines: a `\\` string ends with its line, so the
+        // markdown fences on 61-63 open nothing and the declaration below them is still found.
+        assert_eq!(d("after"), [66]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn zig_has_no_literal_that_runs_over_lines() {
+        // A `\\` string holding markdown is idiomatic in Zig, and its ``` fences are not a
+        // TypeScript template: reading Zig with the C family's rules would hide every line
+        // after the first fence, and `d` would say `no definition` over code it can see.
+        assert!(
+            literal_lines(Kind::Zig, ZIG).iter().all(|l| !l),
+            "a Zig line was taken for the inside of a literal"
+        );
+    }
+
+    #[test]
+    fn zig_scope_roots_and_names() {
+        let here = Path::new("src/main.zig");
+        assert!(in_def_scope(Kind::Zig, here, Path::new("src/ledger.zig")));
+        assert!(!in_def_scope(Kind::Zig, here, Path::new("build.zig.zon")));
+        assert!(imports(Kind::Zig, ZIG).is_empty());
+        assert!(member_patterns(Kind::Zig, "init").is_none());
+        // The standard library `zig env` reports, on a machine that has a `zig`; nothing at all
+        // on one that does not, as for every kind whose toolchain is not installed.
+        assert!(
+            external_roots(Kind::Zig, Path::new("/"))
+                .iter()
+                .all(|r| r.is_dir() && r.ends_with("std")),
+            "a Zig root that is not an existing `std` directory"
+        );
+        // A method is named under the type it is declared in, as in every kind.
+        assert_eq!(
+            qualified(Kind::Zig, ZIG, 12, "init").as_deref(),
+            Some("Ledger.init")
+        );
+        assert_eq!(qualified(Kind::Zig, ZIG, 6, "Ledger"), None);
+    }
+
+    #[test]
+    fn zig_std_comes_from_zig_env() {
+        // What `zig env` prints: JSON on some versions, ZON on others.
+        let json = "{\n \"zig_exe\": \"/opt/homebrew/bin/zig\",\n \"lib_dir\": \"/opt/lib/zig\",\n \"std_dir\": \"/opt/lib/zig/std\"\n}\n";
+        assert_eq!(zig_roots(json), [PathBuf::from("/opt/lib/zig/std")]);
+        let zon = ".{ .zig_exe = \"/usr/bin/zig\", .lib_dir = \"/usr/lib/zig\", .std_dir = \"/usr/lib/zig/std\" }\n";
+        assert_eq!(zig_roots(zon), [PathBuf::from("/usr/lib/zig/std")]);
+        // A version that reports only the library directory the standard library sits in.
+        assert_eq!(
+            zig_roots("{\"lib_dir\": \"/usr/lib/zig\"}"),
+            [PathBuf::from("/usr/lib/zig/std")]
+        );
+        // No `zig` on this machine: nothing to search outside the project.
+        assert!(zig_roots("").is_empty());
+    }
+
+    #[test]
+    fn zig_symbol_names() {
+        let zig = |line| one(Kind::Zig, line);
+        for (line, name) in [
+            // The shared pattern reads these; the rows of this kind must not list them again.
+            ("pub const Ledger = struct {", Some("Ledger")),
+            ("const Status = enum { open, closed };", Some("Status")),
+            ("const Value = union(enum) { n: u32 };", Some("Value")),
+            (
+                "    pub fn init(allocator: Allocator) Ledger {",
+                Some("init"),
+            ),
+            ("    fn compute(self: Ledger) u32 {", Some("compute")),
+            (
+                "export fn ledger_total(l: *Ledger) u32 {",
+                Some("ledger_total"),
+            ),
+            (
+                "pub extern \"c\" fn strlen(s: [*:0]const u8) usize;",
+                Some("strlen"),
+            ),
+            // These it has no word for.
+            (
+                "    pub inline fn isEmpty(self: Ledger) bool {",
+                Some("isEmpty"),
+            ),
+            ("noinline fn slow(x: u32) u32 {", Some("slow")),
+            (
+                "export inline fn ledger_total(l: *Ledger) u32 {",
+                Some("ledger_total"),
+            ),
+            (
+                "pub extern \"c\" inline fn strlen(s: [*:0]const u8) usize;",
+                Some("strlen"),
+            ),
+            (
+                "test \"a ledger starts empty\" {",
+                Some("a ledger starts empty"),
+            ),
+            // A global, a local and a field stay off the list, as in every other kind.
+            ("pub var counter: u32 = 0;", None),
+            ("threadlocal var scratch: [16]u8 = undefined;", None),
+            ("        var self = Ledger{ .total = 0 };", None),
+            ("    const empty: Ledger = .{ .total = 0 };", None),
+            ("    total: u32,", None),
+            ("    return self.total;", None),
+            ("    try std.testing.expect(l.isEmpty());", None),
+        ] {
+            assert_eq!(zig(line).as_deref(), name, "{line}");
+        }
+    }
+
     const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
 
     #[test]
@@ -3698,6 +6182,25 @@ output "bucket" {
             ("merl.gemspec", Some(Kind::Ruby)),
             ("tasks.rake", Some(Kind::Ruby)),
             ("invoice.rbi", Some(Kind::Ruby)),
+            ("invoice.c", Some(Kind::C)),
+            ("invoice.h", Some(Kind::C)),
+            ("ledger.cc", Some(Kind::C)),
+            ("ledger.cpp", Some(Kind::C)),
+            ("ledger.cxx", Some(Kind::C)),
+            ("ledger.hpp", Some(Kind::C)),
+            ("ledger.hh", Some(Kind::C)),
+            ("ledger.hxx", Some(Kind::C)),
+            ("Invoice.cs", Some(Kind::CSharp)),
+            ("build.csx", Some(Kind::CSharp)),
+            ("Session.swift", Some(Kind::Swift)),
+            ("Invoice.php", Some(Kind::Php)),
+            ("show.phtml", Some(Kind::Php)),
+            ("init.lua", Some(Kind::Lua)),
+            ("ledger.ex", Some(Kind::Elixir)),
+            ("mix.exs", Some(Kind::Elixir)),
+            ("ledger.zig", Some(Kind::Zig)),
+            // Zig's data format: painted as Zig, but it declares nothing.
+            ("build.zig.zon", None),
             ("app.kt", Some(Kind::Jvm)),
             ("build.gradle.kts", Some(Kind::Jvm)),
             ("run.sh", Some(Kind::Shell)),
@@ -3752,9 +6255,74 @@ output "bucket" {
         assert!(q("a[0].users.find()", 11).is_empty());
         assert!(q("a?.users.find()", 9).is_empty());
         assert!(q("  .users.find()", 9).is_empty());
+        // Python's `super()` is one name, as TypeScript's `super` is; `my_super()` is a call.
+        assert_eq!(q("        super().store(item)", 16), ["super"]);
+        assert_eq!(q("    print(super().label)", 18), ["super"]);
+        assert!(q("    my_super().store(item)", 15).is_empty());
+        assert!(q("    a.super().store(item)", 14).is_empty());
         // A spread and a range are no member access.
         assert_eq!(q("f(...this.repo.find())", 15), ["this", "repo"]);
         assert_eq!(q("for i in 0..v.len() {", 14), ["v"]);
+    }
+
+    #[test]
+    fn a_loop_hands_out_elements_only_where_the_type_says_so() {
+        let cases = [
+            (Kind::Python, "list[Repo]", Some("Repo")),
+            (
+                Kind::Python,
+                "typing.Sequence[models.Repo]",
+                Some("models.Repo"),
+            ),
+            (Kind::Python, "\"tuple[Repo, ...]\"", Some("Repo")),
+            (Kind::Python, "set[Repo | None]", Some("Repo | None")),
+            // Keys, a fixed tuple, a type of the project's own, no arguments at all.
+            (Kind::Python, "dict[str, Repo]", None),
+            (Kind::Python, "tuple[Repo, Audit]", None),
+            (Kind::Python, "Page[Repo]", None),
+            (Kind::Python, "list", None),
+            (Kind::TsJs, "Repo[]", Some("Repo")),
+            (Kind::TsJs, "readonly Repo[]", Some("Repo")),
+            (Kind::TsJs, "Array<Box<Repo>>", Some("Box<Repo>")),
+            (Kind::TsJs, "Set<Repo>;", Some("Repo")),
+            (Kind::TsJs, "Map<string, Repo>", None),
+            (Kind::TsJs, "Promise<Repo[]>", None),
+            (Kind::TsJs, "Repo", None),
+            (Kind::Go, "[]*Repo", Some("*Repo")),
+            (Kind::Go, "[4]Repo", Some("Repo")),
+            (Kind::Go, "map[Key]*models.Repo", Some("*models.Repo")),
+            (Kind::Go, "map[[2]int][]Repo", Some("[]Repo")),
+            (Kind::Go, "chan *Repo", None),
+            (Kind::Go, "*[]Repo", None),
+            (Kind::Go, "Repos", None),
+        ];
+        for (kind, written, want) in cases {
+            let got = element_type(kind, written);
+            assert_eq!(got.as_deref(), want, "{written}");
+        }
+        // The loops that hand out something else are unknown.
+        let element = |name: &str| Value::Element(name.into());
+        let py = "async def f(repos):\n    for r in repos:\n        r\n    async for r in repos:\n        r\n    for i, r in pairs:\n        r\n    for r in load():\n        r\n";
+        let at = |kind, text, line, name| bound_at(kind, text, line, name);
+        assert_eq!(
+            at(Kind::Python, py, 3, "r"),
+            [
+                (2, element("repos")),
+                (4, Value::Unknown),
+                (6, Value::Unknown),
+                (8, Value::Unknown)
+            ]
+        );
+        let ts = "for (const r of repos) {\n  r;\n}\nfor (const k in repos) {\n  k;\n}\nfor (const [k, r] of pairs) {\n  r;\n}\nfor (const r of load()) {\n  r;\n}\n";
+        assert_eq!(at(Kind::TsJs, ts, 2, "r"), [(1, element("repos"))]);
+        assert_eq!(at(Kind::TsJs, ts, 5, "k"), [(4, Value::Unknown)]);
+        assert_eq!(at(Kind::TsJs, ts, 8, "r"), [(7, Value::Unknown)]);
+        assert_eq!(at(Kind::TsJs, ts, 11, "r"), [(10, Value::Unknown)]);
+        let go = "func f() {\n\tfor _, r := range repos {\n\t\tr.Go()\n\t}\n\tfor i, r := range repos {\n\t\ti.Go()\n\t}\n\tfor r := range repos {\n\t\tr.Go()\n\t}\n\tfor _, r := range s.repos {\n\t\tr.Go()\n\t}\n}\n";
+        assert_eq!(at(Kind::Go, go, 3, "r"), [(2, element("repos"))]);
+        assert_eq!(at(Kind::Go, go, 6, "i"), [(5, Value::Unknown)]);
+        assert_eq!(at(Kind::Go, go, 9, "r"), [(8, Value::Unknown)]);
+        assert_eq!(at(Kind::Go, go, 12, "r"), [(11, Value::Unknown)]);
     }
 
     /// The bindings of `name` on `line` of `text`, as (line, value) pairs.
@@ -3805,31 +6373,21 @@ class Service:
 import os.path, store.sessions as sessions
 "#;
         let at = |line, name| bound_at(Kind::Python, text, line, name);
-        // A parameter over a multi-line signature, and the module's `repo` above.
-        assert_eq!(
-            at(14, "repo"),
-            [
-                (9, ty("UserRepository")),
-                (3, Value::Call("UserRepository".into()))
-            ]
-        );
+        // A parameter over a multi-line signature hides the module's `repo` above.
+        assert_eq!(at(14, "repo"), [(9, ty("UserRepository"))]);
+        assert_eq!(at(1, "repo"), [(3, Value::Call("UserRepository".into()))]);
         assert_eq!(at(14, "cache"), [(9, ty("\"Cache | None\""))]);
         assert_eq!(at(14, "local"), [(15, ty("Optional[Repo]"))]);
         assert_eq!(at(24, "self"), [(21, Value::Class(6))]);
         // A static method's first parameter is no `self`, and an unannotated one is unknown.
         assert_eq!(at(19, "first"), [(18, Value::Unknown)]);
         assert_eq!(at(19, "second"), [(18, ty("int"))]);
-        assert_eq!(at(23, "item"), [(22, Value::Unknown)]);
+        assert_eq!(at(23, "item"), [(22, Value::Element("items".into()))]);
         // A comprehension or a lambda binds on its own line only.
         assert_eq!(at(25, "r"), [(25, Value::Unknown)]);
         assert_eq!(at(24, "r"), []);
-        assert_eq!(
-            at(26, "repo"),
-            [
-                (26, Value::Unknown),
-                (3, Value::Call("UserRepository".into()))
-            ]
-        );
+        // Unknown where it is written, it hides the module's `repo` and proves nothing.
+        assert_eq!(at(26, "repo"), [(26, Value::Unknown)]);
         // A tuple and `as` are unknown; a keyword argument is no binding.
         assert_eq!(at(29, "a"), [(27, Value::Unknown)]);
         assert_eq!(at(29, "fh"), [(28, Value::Unknown)]);
@@ -3892,14 +6450,10 @@ def delete(
         let text = "def cleanup(user_id: int) -> None:\n    repo = AuditLog()\n\n    async def purge() -> None:\n        repo = UserRepository()\n        await repo.delete_user(user_id)\n\n    repo.delete_user(user_id)\n    repo = make_repo()  # later\n";
         let at = |line, name| bound_at(Kind::Python, text, line, name);
         let call = |c: &str| Value::Call(c.into());
-        assert_eq!(
-            at(6, "repo"),
-            [
-                (5, call("UserRepository")),
-                (2, call("AuditLog")),
-                (9, call("make_repo"))
-            ]
-        );
+        // The innermost function binding the name hides the one around it.
+        assert_eq!(at(6, "repo"), [(5, call("UserRepository"))]);
+        // One that does not bind it reads the enclosing function's.
+        assert_eq!(at(6, "user_id"), [(1, ty("int"))]);
         // The whole function counts, the lines after the cursor too.
         assert_eq!(
             at(8, "repo"),
@@ -3962,15 +6516,35 @@ export function cleanup(id: number): void {
         assert_eq!(at(16, "user"), [(15, ty("User"))]);
         assert_eq!(at(28, "made"), [(16, Value::Call("createRepo".into()))]);
         assert_eq!(at(28, "shared"), [(3, new("AuditLog"))]);
-        assert_eq!(at(18, "item"), [(17, Value::Unknown)]);
+        assert_eq!(at(18, "item"), [(17, Value::Element("items".into()))]);
         assert_eq!(at(28, "a"), [(20, Value::Unknown)]);
         assert_eq!(at(21, "x"), [(21, ty("Item"))]);
-        // Only the blocks around the cursor: the inner `repo` is gone below its arrow.
-        assert_eq!(
-            at(36, "repo"),
-            [(35, new("UserRepository")), (33, new("AuditLog"))]
-        );
+        // The innermost block around the cursor that declares the name; the inner `repo` is
+        // gone below its arrow.
+        assert_eq!(at(36, "repo"), [(35, new("UserRepository"))]);
         assert_eq!(at(38, "repo"), [(33, new("AuditLog"))]);
+    }
+
+    #[test]
+    fn what_a_header_binds_for_another_body_hides_nothing() {
+        let new = |t: &str| Value::New(t.into());
+        // A loop and a one-name arrow inside a callback on the line that opens a literal or
+        // another callback: the cursor below is in neither, and the outer `repo` still counts.
+        let ts = "const repo = new AuditLog();\nrun(() => { for (const repo of repos) { use(repo); } }, {\n  done: repo.x(),\n});\nrepos.map(repo => repo.id).forEach((id) => {\n  repo.y(id);\n});\nrepos.forEach(repo => {\n  repo.z();\n});\n";
+        let at = |line| bound_at(Kind::TsJs, ts, line, "repo");
+        assert_eq!(
+            at(3),
+            [(2, Value::Element("repos".into())), (1, new("AuditLog"))]
+        );
+        assert_eq!(at(6), [(5, Value::Unknown), (1, new("AuditLog"))]);
+        // The arrow whose body the line opens is the cursor's own.
+        assert_eq!(at(9), [(8, Value::Unknown)]);
+        // A declaration inside a raw string over several lines is none.
+        let go = "func f() {\n\trepo := NewAudit()\n\tif ok {\n\t\tconst doc = `\n\t\trepo := NewRepo()\n\t\t`\n\t\trepo.Go(doc)\n\t}\n}\n";
+        assert_eq!(
+            bound_at(Kind::Go, go, 7, "repo"),
+            [(2, Value::Call("NewAudit".into()))]
+        );
     }
 
     #[test]
@@ -4011,7 +6585,7 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
         assert_eq!(at(21, "built"), [(9, new("Repo"))]);
         assert_eq!(at(21, "fresh"), [(10, new("Repo"))]);
         assert_eq!(at(21, "shared"), [(3, new("AuditLog"))]);
-        assert_eq!(at(12, "item"), [(11, Value::Unknown)]);
+        assert_eq!(at(12, "item"), [(11, Value::Element("items".into()))]);
         assert_eq!(at(15, "r"), [(14, Value::Unknown)]);
         assert_eq!(at(18, "repo"), [(17, ty("*UserRepository"))]);
         assert_eq!(at(21, "other"), [(20, Value::Unknown)]);
@@ -4388,7 +6962,11 @@ func (b Batch) Send(text string, retries int) {
         let py = "def make_repo() -> UserRepository:\n    return UserRepository()\n\nasync def connect(\n    url: str,\n) -> \"Session\":\n    ...\n\ndef untyped():\n    return Repo()\n\ndef stub() -> Repo: ...\n\ndef documented() -> Annotated[Repo, \"doc: x\"]: ...\n";
         assert_eq!(returns(Kind::Python, py, 1), Some(ty("UserRepository")));
         assert_eq!(returns(Kind::Python, py, 4), Some(ty("\"Session\"")));
-        assert_eq!(returns(Kind::Python, py, 9), None);
+        // No annotation: what every `return` constructs (#100).
+        assert_eq!(
+            returns(Kind::Python, py, 9),
+            Some(Value::New("Repo".into()))
+        );
         assert_eq!(returns(Kind::Python, py, 12), Some(ty("Repo")));
         // A `: ` inside a string is not the end of the annotation.
         assert_eq!(
@@ -4443,6 +7021,191 @@ func Close() {
         assert_eq!(returns(Kind::Go, go, 4), Some(ty("AuditLog")));
         assert_eq!(returns(Kind::Go, go, 7), Some(ty("*Session")));
         assert_eq!(returns(Kind::Go, go, 10), None);
+    }
+
+    #[test]
+    fn returns_read_methods_and_what_an_unannotated_python_def_constructs() {
+        let new = |t: &str| Some(Value::New(t.into()));
+        let py = r#"class Depot:
+    def repo(self) -> Repo:
+        return self.people
+
+    def trail(self):
+        """Doc.
+
+        return Wrong()
+        """
+        def inner():
+            return Other()
+
+        if self.people:
+            return Trail(
+                self,
+            )
+        return Trail()  # again
+
+    def either(self):
+        if self.people:
+            return Trail()
+        return Repo()
+
+    def maybe(self):
+        if self.people:
+            return Trail()
+        return
+
+    def stream(self):
+        yield Trail()
+        return Trail()
+
+    @cache
+    def cached(self):
+        return Trail()
+
+    def handed_on(self):
+        return self.people
+"#;
+        assert_eq!(returns(Kind::Python, py, 2), Some(ty("Repo")));
+        assert_eq!(returns(Kind::Python, py, 5), new("Trail"));
+        assert_eq!(returns(Kind::Python, py, 19), None);
+        assert_eq!(returns(Kind::Python, py, 24), None);
+        assert_eq!(returns(Kind::Python, py, 29), None);
+        assert_eq!(returns(Kind::Python, py, 34), None);
+        assert_eq!(returns(Kind::Python, py, 37), None);
+        let ts = "export class Depot {\n  async repo<T>(id: T): Promise<Repo> {\n    return load(id);\n  }\n  private static trail() {\n    return new Trail();\n  }\n  find = (id: number): Repo => load(id);\n}\ninterface Source {\n  source(): Repo;\n  maybe?(): Repo\n}\n";
+        assert_eq!(returns(Kind::TsJs, ts, 2), Some(ty("Promise<Repo>")));
+        assert_eq!(returns(Kind::TsJs, ts, 5), new("Trail"));
+        // A property holding a function is not read.
+        assert_eq!(returns(Kind::TsJs, ts, 8), None);
+        assert_eq!(returns(Kind::TsJs, ts, 11), Some(ty("Repo")));
+        assert_eq!(returns(Kind::TsJs, ts, 12), Some(ty("Repo")));
+        let go = "func (d *Depot) Repo(id int) *Repo {\n\treturn d.people\n}\nfunc (d Depot) Trail() (Trail, error) {\n\treturn Trail{}, nil\n}\ntype Source interface {\n\tSource() *Repo\n\tClose()\n}\n";
+        assert_eq!(returns(Kind::Go, go, 1), Some(ty("*Repo")));
+        assert_eq!(returns(Kind::Go, go, 4), Some(ty("Trail")));
+        assert_eq!(returns(Kind::Go, go, 8), Some(ty("*Repo")));
+        assert_eq!(returns(Kind::Go, go, 9), None);
+    }
+
+    #[test]
+    fn a_cast_is_read_as_the_type_it_writes() {
+        let v = |kind, e| value_of(kind, e);
+        let pycast = |callee: &str, t: &str| Value::Cast(callee.into(), t.into());
+        assert_eq!(v(Kind::Python, "cast(Repo, row)"), pycast("cast", "Repo"));
+        assert_eq!(
+            v(Kind::Python, "typing.cast(\"models.Repo\", rows[0])"),
+            pycast("typing.cast", "\"models.Repo\"")
+        );
+        assert_eq!(v(Kind::Python, "cast(Repo, row).other"), Value::Unknown);
+        assert_eq!(
+            v(Kind::Python, "recast(Repo, row)"),
+            Value::Call("recast".into())
+        );
+        assert_eq!(v(Kind::TsJs, "row as Repo;"), ty("Repo"));
+        assert_eq!(v(Kind::TsJs, "load(id) as unknown as Repo"), ty("Repo"));
+        assert_eq!(v(Kind::TsJs, "{ a: 1 } as const"), ty("const"));
+        assert_eq!(v(Kind::TsJs, "await load(a, b) as Repo"), ty("Repo"));
+        // `as` takes the operand next to it, not the whole expression.
+        assert_eq!(v(Kind::TsJs, "ok ? a : b as Repo"), Value::Unknown);
+        assert_eq!(v(Kind::TsJs, "a ?? b as Repo"), Value::Unknown);
+        assert_eq!(v(Kind::TsJs, "() => row as Repo"), Value::Unknown);
+        assert_eq!(
+            v(Kind::TsJs, "check(x as Foo) ? other : found as Repo"),
+            Value::Unknown
+        );
+        assert_eq!(v(Kind::TsJs, "new Wrapper(x as Foo) as Repo"), ty("Repo"));
+        // An `as` inside brackets or a string casts something else.
+        assert_eq!(
+            v(Kind::TsJs, "load(row as Repo)"),
+            Value::Call("load".into())
+        );
+        assert_eq!(
+            v(Kind::TsJs, "pick(\"x as Repo\")"),
+            Value::Call("pick".into())
+        );
+        assert_eq!(v(Kind::Go, "i.(*Repo)"), ty("*Repo"));
+        assert_eq!(v(Kind::Go, "ctx.Value.(models.Repo)"), ty("models.Repo"));
+        assert_eq!(v(Kind::Go, "i.(*Repo).Owner"), Value::Unknown);
+
+        let go = "func f(x any) {\n\tswitch v := x.(type) {\n\tcase *Repo:\n\t\tv.Go()\n\tcase A, B:\n\t\tv.Go()\n\tdefault:\n\t\tv.Go()\n\t}\n\tswitch v := x.(type) {\n\tcase *Audit:\n\t\tswitch x {\n\t\tcase 1:\n\t\t\tv.Go()\n\t\t}\n\t}\n\tswitch v := pick(); v {\n\tcase 1:\n\t\tv.Go()\n\t}\n}\n";
+        let at = |line| bound_at(Kind::Go, go, line, "v");
+        assert_eq!(at(4), [(2, ty("*Repo"))]);
+        assert_eq!(at(6), [(2, Value::Unknown)]);
+        assert_eq!(at(8), [(2, Value::Unknown)]);
+        // Past a plain `switch` inside the arm, and not the closed type switch above.
+        assert_eq!(at(14), [(10, ty("*Audit"))]);
+        // No type switch: nothing the rules read binds `v` here.
+        assert_eq!(at(19), []);
+        // A `select` ends its `case` as a `switch` does: the closed type switch above it is not
+        // read with the `case` of the `select`, and the parameter `v` stays what it is.
+        let chans = "func f(v *Repo, x any, ch chan int) {\n\tswitch v := x.(type) {\n\tcase *Audit:\n\t\tv.Go()\n\t}\n\tselect {\n\tcase <-ch:\n\t\tv.Go()\n\t}\n}\n";
+        assert_eq!(bound_at(Kind::Go, chans, 8, "v"), [(1, ty("*Repo"))]);
+    }
+
+    #[test]
+    fn a_chain_may_hang_off_the_call_that_starts_it() {
+        let head = |kind, line: &str| {
+            let at = line.rfind('.').unwrap() + 1;
+            call_head(kind, line, at).map(|(label, value, fields)| (label, value, fields.join(".")))
+        };
+        let call = |label: &str, callee: &str, fields: &str| {
+            Some((
+                label.to_owned(),
+                Value::Call(callee.into()),
+                fields.to_owned(),
+            ))
+        };
+        assert_eq!(
+            head(Kind::Go, "\treturn pkg.New(x, y).Run()"),
+            call("pkg.New()", "pkg.New", "")
+        );
+        assert_eq!(
+            head(
+                Kind::Python,
+                "    await make_uow(\")\").users.delete_user(1)"
+            ),
+            call("make_uow()", "make_uow", "users")
+        );
+        assert_eq!(
+            head(Kind::Python, "x = self.repos.users.get_one(f(a), b).name"),
+            call("self.repos.users.get_one()", "self.repos.users.get_one", "")
+        );
+        assert_eq!(
+            head(Kind::TsJs, "  void new Depot(a).people.deleteUser(1);"),
+            Some((
+                "new Depot()".to_owned(),
+                Value::New("Depot".into()),
+                "people".to_owned()
+            ))
+        );
+        let cast = |written: &str, t: &str| Some((written.to_owned(), ty(t), String::new()));
+        assert_eq!(
+            head(Kind::TsJs, "  void (found as Repo).find()"),
+            cast("found as Repo", "Repo")
+        );
+        assert_eq!(
+            head(Kind::Go, "\tfound.(*Repo).Find()"),
+            cast("found.(*Repo)", "*Repo")
+        );
+        assert_eq!(
+            head(Kind::Python, "    cast(Repo, found).find()"),
+            Some((
+                "cast(Repo, found)".to_owned(),
+                Value::Cast("cast".into(), "Repo".into()),
+                String::new()
+            ))
+        );
+        // Brackets around a call are read through, as an `await` in front of one is.
+        assert_eq!(
+            head(Kind::TsJs, "  (await load()).find()"),
+            call("load()", "load", "")
+        );
+        // A call of a call, an index, a generic call, a condition, a plain name.
+        assert_eq!(head(Kind::Go, "\tOpen().Repo().Delete()"), None);
+        assert_eq!(head(Kind::Python, "    make()[0].delete()"), None);
+        assert_eq!(head(Kind::Python, "    items[0].load().delete()"), None);
+        assert_eq!(head(Kind::TsJs, "  load<Repo>(id).find()"), None);
+        assert_eq!(head(Kind::TsJs, "  if (ok).find()"), None);
+        assert_eq!(head(Kind::Python, "    repo.find()"), None);
     }
 
     #[test]
@@ -5179,11 +7942,294 @@ func Close() {
     }
 
     #[test]
+    fn c_symbol_names() {
+        let c = |line| one(Kind::C, line);
+        for (line, name) in [
+            // A function: in column zero, where C has no statements, anything but a prototype.
+            (
+                "int invoice_total(struct invoice *inv) {",
+                Some("invoice_total"),
+            ),
+            ("static int compute(struct invoice *inv)", Some("compute")),
+            (
+                "void invoice_free(struct invoice *inv,",
+                Some("invoice_free"),
+            ),
+            (
+                "sds *sdssplitlen(const char *s, ssize_t len)",
+                Some("sdssplitlen"),
+            ),
+            ("void Ledger::append(Rows rows) {", Some("append")),
+            // GNU style: the return type is on the line above, so the name starts the line.
+            (
+                "edata_ind_get(const edata_t *edata) {",
+                Some("edata_ind_get"),
+            ),
+            ("static unsigned", None),
+            (
+                "FMT_FUNC auto vformat(string_view f) -> std::string {",
+                Some("vformat"),
+            ),
+            ("int invoice_total(struct invoice *inv);", None),
+            // A method, indented, told from a call by the body it opens.
+            (
+                "  auto total() const -> int { return total_; }",
+                Some("total"),
+            ),
+            ("  explicit Ledger(int n) : total_(n) {}", Some("Ledger")),
+            (
+                "  template <typename T> void write(T value) {",
+                Some("write"),
+            ),
+            ("  void append(Rows rows);", None),
+            ("    if (check(rows)) {", None),
+            ("    log::write(rows);", None),
+            ("    return compute(inv);", None),
+            ("        fmt::format_to(out, \"{}\", 42);", None),
+            ("template <typename Context = context, typename... T,", None),
+            // A type, a namespace and an alias.
+            ("struct invoice {", Some("invoice")),
+            (
+                "struct __attribute__ ((__packed__)) sdshdr8 {",
+                Some("sdshdr8"),
+            ),
+            ("static struct config {", Some("config")),
+            ("template <typename T> struct Box : Base {", Some("Box")),
+            (
+                "struct formatter<std::filesystem::path, Char> {",
+                Some("formatter"),
+            ),
+            ("struct client;", None),
+            ("union value {", Some("value")),
+            ("enum class Status {", Some("Status")),
+            ("namespace billing {", Some("billing")),
+            ("class LEDGER_API Ledger : public Base {", Some("Ledger")),
+            (
+                "class basic_memory_buffer : public detail::buffer<T> {",
+                Some("basic_memory_buffer"),
+            ),
+            ("using Rows = std::vector<int>;", Some("Rows")),
+            ("using namespace detail;", None),
+            // `using a::b;` imports a name; the row would otherwise be called `a`.
+            ("using std::swap;", None),
+            ("  using fmt::buffered_file;", None),
+            ("struct invoice *current = NULL;", None),
+            // The name a typedef gives a type, once: the opening `typedef struct invoice {` is
+            // not listed, so the type is one row, under the name the project writes.
+            ("typedef char *sds;", Some("sds")),
+            ("typedef struct redisObject robj;", Some("robj")),
+            ("} invoice;", Some("invoice")),
+            ("typedef struct invoice {", None),
+            // Indented, a closing brace ends a nested anonymous struct: that name is a field.
+            ("    } offset;", None),
+            ("} while (0);", None),
+            ("};", None),
+            // A macro, function-like or not.
+            ("#define LRU_BITS 24", Some("LRU_BITS")),
+            ("#  define FMT_THROW(x) throw x", Some("FMT_THROW")),
+            ("#ifndef INVOICE_H", None),
+        ] {
+            assert_eq!(c(line).as_deref(), name, "{line}");
+        }
+    }
+
+    #[test]
+    fn csharp_symbol_names() {
+        let cs = |line| one(Kind::CSharp, line);
+        for (line, name) in [
+            // A type, past its attributes, its modifiers and the generics it declares.
+            (
+                "public sealed partial class Invoice<T> : Base, IEnumerable<T>",
+                Some("Invoice"),
+            ),
+            ("internal readonly struct Tag", Some("Tag")),
+            ("public interface IStore<T> where T : class", Some("IStore")),
+            ("public enum Status", Some("Status")),
+            ("public record Money(decimal Amount);", Some("Money")),
+            ("public record struct Point(int X, int Y);", Some("Point")),
+            (
+                "public delegate int Comparison<T>(T a, T b);",
+                Some("Comparison"),
+            ),
+            // A namespace under its last part, the one `d` finds it by.
+            ("namespace Billing.Core;", Some("Core")),
+            ("namespace Billing", Some("Billing")),
+            // A member: the type before the name is what tells it from a call.
+            (
+                "    public async Task<Invoice<T>> LoadAsync(int id)",
+                Some("LoadAsync"),
+            ),
+            ("    void Save(Invoice<int> inv);", Some("Save")),
+            (
+                "    [Fact] public void Handles_Empty() {",
+                Some("Handles_Empty"),
+            ),
+            (
+                "    int IComparable.CompareTo(object? other) => 0;",
+                Some("CompareTo"),
+            ),
+            (
+                "    private static Rows Compute(int id) => new Rows();",
+                Some("Compute"),
+            ),
+            // A property, by its accessors, its expression body, or the brace on the next line.
+            ("    public int Total { get; private set; }", Some("Total")),
+            ("    public string Name => _name;", Some("Name")),
+            ("    public IReadOnlyList<int> Rows", Some("Rows")),
+            // A field is not a symbol, in this kind as in every other.
+            ("    private const int Limit = 10;", None),
+            ("    private readonly ILogger<Invoice<T>> _logger;", None),
+            ("    public static event EventHandler? Saved;", None),
+            (
+                "    public static Dictionary<string, Invoice<int>> All = new();",
+                None,
+            ),
+            // The constructor is listed under its class, and a `using` alias is file-local.
+            ("    public Invoice(int n)", None),
+            ("using Rows = System.Collections.Generic.List<int>;", None),
+            ("using System.Text.Json;", None),
+            // A call, a statement and a block header are not declarations.
+            ("        var rows = Compute(id);", None),
+            ("        if (Check(rows))", None),
+            ("        Console.WriteLine(rows);", None),
+            ("        services.AddSingleton<IFoo, Foo>();", None),
+            ("        return new Invoice<T>(id);", None),
+            ("        foreach (var row in rows)", None),
+            ("        catch (InvalidOperationException ex)", None),
+            ("        using (var scope = provider.CreateScope())", None),
+            ("        await client.SendAsync(request);", None),
+            ("    Open,", None),
+        ] {
+            assert_eq!(cs(line).as_deref(), name, "{line}");
+        }
+    }
+
+    #[test]
+    fn swift_symbol_names() {
+        let sw = |line| one(Kind::Swift, line);
+        for (line, name) in [
+            ("public final class Session: NSObject {", Some("Session")),
+            (
+                "@MainActor public struct Response<Value> {",
+                Some("Response"),
+            ),
+            ("actor Cache {", Some("Cache")),
+            ("public enum State {", Some("State")),
+            (
+                "public protocol RequestDelegate: AnyObject {",
+                Some("RequestDelegate"),
+            ),
+            ("public typealias Rows = [Int]", Some("Rows")),
+            ("    associatedtype Value", Some("Value")),
+            // An extension is listed under the type it extends, which is what a project's own
+            // members of that type sit in.
+            ("extension Session: RequestDelegate {", Some("Session")),
+            ("extension Array where Element: Hashable {", Some("Array")),
+            // A function, past its generics; `class func` is a static method, not a class.
+            (
+                "    public func request<T: Encodable>(_ url: URL) -> Request {",
+                Some("request"),
+            ),
+            ("    class func shared() -> Session {", Some("shared")),
+            ("    mutating func append(_ row: Int) {", Some("append")),
+            (
+                "    @discardableResult func resume() -> Self {",
+                Some("resume"),
+            ),
+            ("    func `default`() {", Some("default")),
+            // What a type holds is not a symbol, in this kind as in every other, and an `init` is
+            // listed under its type.
+            ("    public static let `default` = Session()", None),
+            ("    private let queue: DispatchQueue", None),
+            ("    public var isRunning = false", None),
+            ("    case initialized", None),
+            ("    public init(queue: DispatchQueue = .main) {", None),
+            // An operator has no name a reader would look it up by.
+            (
+                "    public static func == (lhs: Self, rhs: Self) -> Bool {",
+                None,
+            ),
+            // A call, a binding and a pattern are not declarations.
+            ("        let request = Request(url)", None),
+            ("        queue.async {", None),
+            ("        if let delegate = delegate {", None),
+            ("        guard let url = url else { return }", None),
+            ("        return Session()", None),
+            ("        case let .failed(error):", None),
+            ("        switch request.state {", None),
+        ] {
+            assert_eq!(sw(line).as_deref(), name, "{line}");
+        }
+    }
+
+    #[test]
+    fn php_symbol_names() {
+        let php = |line| one(Kind::Php, line);
+        for (line, name) in [
+            (
+                "abstract class Invoice implements Arrayable",
+                Some("Invoice"),
+            ),
+            ("#[Attribute] final class Money", Some("Money")),
+            ("interface Arrayable", Some("Arrayable")),
+            ("trait Macroable", Some("Macroable")),
+            ("enum Status: string", Some("Status")),
+            ("namespace App\\Services;", Some("Services")),
+            (
+                "function billing_total(Invoice $invoice): int",
+                Some("billing_total"),
+            ),
+            (
+                "    final public static function parse(string $text): static",
+                Some("parse"),
+            ),
+            (
+                "    abstract protected function compute(): int;",
+                Some("compute"),
+            ),
+            ("    public function &rows(): array", Some("rows")),
+            (
+                "    public const STATUS_OPEN = 'open';",
+                Some("STATUS_OPEN"),
+            ),
+            // A property is a field, an enum case is what a type holds, and a `define()` has no
+            // keyword before the name: none of them is a symbol.
+            ("    protected array $rows = [];", None),
+            ("    private ?Logger $logger;", None),
+            ("    case Open = 'open';", None),
+            ("define('BILLING_LIMIT', 10);", None),
+            // A magic method is the language's hook, not the project's, as in C.
+            (
+                "    public function __construct(private readonly Account $account)",
+                None,
+            ),
+            ("    public function __toString(): string", None),
+            // A `use` imports, an anonymous function has no name, and a call is not a
+            // declaration.
+            ("use Illuminate\\Support\\Str;", None),
+            ("    use Macroable;", None),
+            ("$handler = function ($x) use ($y) {", None),
+            ("        return $this->rows;", None),
+            ("        foreach ($this->rows as $key => $value) {", None),
+            ("        $total = 0;", None),
+        ] {
+            assert_eq!(php(line).as_deref(), name, "{line}");
+        }
+    }
+
+    #[test]
     fn the_shared_pattern_skips_the_kinds_with_rows_of_their_own() {
-        // Java, Kotlin and Ruby are listed from their own rows only, so nothing is listed twice
-        // and `def self.parse` is not `self`.
+        // Java, Kotlin, Ruby, C, C++, Lua and Elixir are listed from their own rows only, so
+        // nothing is listed twice, `def self.parse` is not `self` and `function M.setup(` is
+        // not `M`.
         assert!(!shared_symbols(Some(Kind::Jvm)));
         assert!(!shared_symbols(Some(Kind::Ruby)));
+        assert!(!shared_symbols(Some(Kind::C)));
+        assert!(!shared_symbols(Some(Kind::CSharp)));
+        assert!(!shared_symbols(Some(Kind::Swift)));
+        assert!(!shared_symbols(Some(Kind::Php)));
+        assert!(!shared_symbols(Some(Kind::Lua)));
+        assert!(!shared_symbols(Some(Kind::Elixir)));
         // Shell and SQL rows complement the shared pattern instead, and it reads every other
         // file, known kind or not.
         assert!(shared_symbols(Some(Kind::Shell)));

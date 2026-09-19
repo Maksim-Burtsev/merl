@@ -291,6 +291,8 @@ fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
 
 fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
     let pending = app.search_pending();
+    // `s> ` is the prompt of `s`; `D` greps for the query too, and stays `D`'s picker.
+    let search = app.mode == Mode::Picker(crate::app::PickerKind::Search);
     let Some(picker) = &mut app.picker else {
         return;
     };
@@ -307,10 +309,16 @@ fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base
         .title(if picker.live && pending {
             // The rows answer an older query: `0 hits` only ever means "grepped, found nothing".
             format!("{} (…)", picker.title)
+        } else if picker.live && picker.query.is_empty() && total > 0 {
+            // `D` past the cap: the rows are what the walk found before the cut, not the list,
+            // and the query greps the project instead of filtering them. (`s` has no rows
+            // without a query, so it never reads this way.)
+            format!("{} (first {total}, type to search all)", picker.title)
         } else if picker.live {
             // Nothing filters the hits, and the grep stops at MAX_HITS: that many is a floor.
             let more = if total as usize >= MAX_HITS { "+" } else { "" };
-            format!("{} ({total}{more} hits)", picker.title)
+            let s = crate::app::plural(total as usize);
+            format!("{} ({total}{more} hit{s})", picker.title)
         } else {
             format!("{} ({matched}/{total})", picker.title)
         })
@@ -325,7 +333,7 @@ fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base
     }
 
     let [prompt, list] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(inner);
-    let prefix = if picker.live { "s> " } else { "> " };
+    let prefix = if search { "s> " } else { "> " };
     draw_prompt(frame, prefix, &picker.query, base, prompt);
 
     let (rows, selected) = picker.window(list.height as usize);
@@ -793,6 +801,7 @@ mod tests {
     use crate::app::App;
     use crate::buffer::Buffer;
     use crate::git::Mark;
+    use crate::search::MAX_HITS;
     use crate::tree::Tree;
 
     fn rows(terminal: &Terminal<TestBackend>) -> Vec<String> {
@@ -897,6 +906,59 @@ mod tests {
         assert_eq!(title(&mut app), "Search (…)");
         app.settle_search();
         assert_eq!(title(&mut app), "Search (0 hits)");
+        // With the project files in, one line matches.
+        app.files = crate::tree::build(&app.root).1;
+        app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        for c in "sfromisoformat".chars() {
+            app.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+        }
+        app.settle_search();
+        assert_eq!(title(&mut app), "Search (1 hit)");
+    }
+
+    /// A `D` list the cap cut short never reads as the project's symbols: the title says what
+    /// the rows are, and once a query is typed it counts the answer to that query.
+    #[test]
+    fn symbol_title_says_the_list_is_cut_until_the_query_answers() {
+        let dir = std::env::temp_dir().join(format!("merl-ui-cap-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let many: String = (0..MAX_HITS)
+            .map(|i| format!("func a{i}() {{}}\n"))
+            .collect();
+        std::fs::write(dir.join("a.go"), many).unwrap();
+        std::fs::write(dir.join("z.go"), "func zebra() {}\n").unwrap();
+        let (tree, files) = crate::tree::build(&dir);
+        let mut app = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
+        let mut title = |app: &mut App| {
+            terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+            let text = rows(&terminal).join("\n");
+            let at = text.find("Symbols (").expect("the title");
+            text[at..].split_inclusive(')').next().unwrap().to_string()
+        };
+
+        app.key(KeyEvent::new(KeyCode::Char('D'), KeyModifiers::NONE));
+        // The event loop ticks an open picker before it draws it.
+        app.picker.as_mut().unwrap().settle();
+        assert_eq!(
+            title(&mut app),
+            format!("Symbols (first {MAX_HITS}, type to search all)")
+        );
+        for c in "zebra".chars() {
+            app.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+        }
+        assert_eq!(title(&mut app), "Symbols (…)");
+        app.settle_search();
+        assert_eq!(title(&mut app), "Symbols (1 hit)");
+        // The query greps like `s`, but the picker is `D`'s and its prompt says so.
+        let prompt = rows(&terminal)
+            .into_iter()
+            .find(|r| r.contains("zebra"))
+            .expect("the query on screen");
+        assert!(prompt.contains("│> zebra"), "not `s> `: {prompt}");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// A usages row is drawn with the colours of the file line it quotes: the `//!` comment
@@ -1453,6 +1515,7 @@ z
                 added: 6,
                 deleted: 2,
                 binary: false,
+                untracked: false,
             }],
         });
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -1493,6 +1556,7 @@ z
                 added: 0,
                 deleted: 0,
                 binary: true,
+                untracked: false,
             }],
         });
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
