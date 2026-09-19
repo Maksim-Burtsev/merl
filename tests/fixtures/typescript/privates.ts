@@ -23,6 +23,7 @@ export class Router {
     this.#audit.deleteUser(id + 1);
     console.log(this.#audit);
     found.addRoute(path);
+    console.log("see route#addRoute");
   }
 
   same(other: Router, id: number): void {

@@ -85,9 +85,20 @@ export function stock<
   console.log(spare);
 }
 
+// An alias has no body: the class under it is not it.
+export type Loose = any;
+
+export class Lid {
+  audit = new AuditLog();
+}
+
+export function lift(loose: Loose, id: number): void {
+  loose.audit.deleteUser(id + 5);
+}
+
 // A block of its own under a statement: the `{` is no body of the line above it.
 export function bare(id: number): void {
-  const repo = new UserRepository();
+  const repo = new UserRepository()
   {
     void repo.deleteUser(id + 4);
   }

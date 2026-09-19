@@ -8451,7 +8451,18 @@ mod tests {
                     ],
                 ),
             ),
-            // A lone `{` under a statement is a block, and the statement above it still binds.
+            // `type Loose = any;` has no body: the fields of the class under it are not its.
+            (
+                "loose.audit.deleteUser|(id + 5)",
+                picker(
+                    "deleteUser: by name, 2 declarations (chain broke at audit)",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // A lone `{` under a statement, with no `;`, is a block, and the statement still binds.
             (
                 "void repo.deleteUser|(id + 4)",
                 user("repo: UserRepository"),
@@ -8668,19 +8679,27 @@ mod tests {
                     "privates.ts:16",
                 ),
             ),
+            // `route#addRoute` in a string is no private name.
+            (
+                "see route#addRoute|",
+                jump(
+                    "addRoute \u{2192} Router.addRoute (by name, 1 match)",
+                    "privates.ts:16",
+                ),
+            ),
             // A subclass's `#addRoute` is its own, and implements nothing of the base's.
             (
                 "this.#addRoute|(path, 1)",
                 jump(
                     "#addRoute \u{2192} SubRouter.#addRoute (via this: SubRouter)",
-                    "privates.ts:34",
+                    "privates.ts:35",
                 ),
             ),
             (
                 "^  #addRoute|(path: string): void {",
                 picker(
                     "#addRoute: at a declaration, 1 other by name",
-                    &[("SubRouter.#addRoute", "privates.ts:34")],
+                    &[("SubRouter.#addRoute", "privates.ts:35")],
                 ),
             ),
         ];

@@ -2984,15 +2984,14 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         // A header over several lines ends in a closer (`) {`, `} else {`) and starts at the
         // line above that is back at its indent.
         // TypeScript's `> extends Base<K> {` closes a wrapped list of type parameters, and a lone
-        // `{` is the body of the clauses wrapped above it (#100), unless a statement ends there:
-        // then it is a block of its own.
+        // `{` is the body of the clauses wrapped above it (#100), when what they are wrapped under
+        // declares a type: under a statement it is a block of its own.
         let end = i;
-        let above = lines[..i]
-            .iter()
+        // The line the closer is back at the indent of.
+        let opener = (0..i)
             .rev()
-            .map(|l| l.trim())
-            .find(|l| !l.is_empty());
-        let body = t == "{" && !above.is_some_and(|l| l.ends_with([';', '{', '}', ':']));
+            .find(|&j| !lines[j].trim().is_empty() && indent(lines[j]) <= ind);
+        let body = t == "{" && opener.is_some_and(|j| declares_type(kind, lines[j]));
         let wrapped = kind == Kind::TsJs && (t.starts_with('>') || body);
         if t.starts_with([')', '}', ']']) || wrapped {
             while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > ind) {
@@ -3375,6 +3374,14 @@ fn ts_header(lines: &[&str], k: usize) -> (String, usize) {
             b'{' if depth == 0 && angle == 0 => {
                 open = Some(i);
                 break;
+            }
+            // The declaration ended with no body, `type Loose = any;`: the line under it is back
+            // at its indent and is no `{`. The next `{` is another declaration's.
+            b'\n' if depth == 0 && angle == 0 => {
+                let next = text[i + 1..].lines().next().unwrap_or("");
+                if indent(next) <= indent(lines[k]) && !next.trim_start().starts_with('{') {
+                    break;
+                }
             }
             b'(' | b'[' | b'{' => depth += 1,
             b')' | b']' | b'}' => depth -= 1,
@@ -4220,7 +4227,9 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
     let hash = |i: usize| kind == Some(Kind::TsJs) && line.as_bytes().get(i) == Some(&b'#');
     // On the `#`, the word is the one right behind it.
     let (range, _) = word_at(line, if hash(col) { col + 1 } else { col }, extra)?;
-    let start = match range.start.checked_sub(1).filter(|&i| hash(i)) {
+    // `page#anchor` in a string is no private name: nothing of a word stands in front of one.
+    let named = |i: usize| i > 0 && line.as_bytes()[i - 1].is_ascii_alphanumeric();
+    let start = match range.start.checked_sub(1).filter(|&i| hash(i) && !named(i)) {
         Some(i) => i,
         None => range.start,
     };
