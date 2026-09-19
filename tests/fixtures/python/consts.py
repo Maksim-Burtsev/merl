@@ -1,0 +1,76 @@
+from dataclasses import dataclass
+from enum import Enum
+
+from repos import AuditLog
+from store import open_session
+
+conn = AuditLog()
+wrapped = AuditLog()
+
+
+class Limits:
+    MAX_USERS = 10
+    timeout: int = 30
+
+    def check(self) -> None:
+        pass
+
+
+class Tight(Limits):
+    timeout = 5
+
+    def __init__(self) -> None:
+        self.count = 0
+
+
+class Color(Enum):
+    RED = 1
+    GREEN = 2
+
+
+class Shade(Enum):
+    RED = "dark"
+
+
+@dataclass
+class Point:
+    x: int
+    label: str = ""
+
+
+def paint(p: Point) -> None:
+    Limits.MAX_USERS
+    Limits.timeout
+    Color.RED
+    Shade.RED
+    Point.label
+    p.label
+    Limits.missing
+    Tight.MAX_USERS
+    Tight.timeout
+    Tight.count
+    Tight.check
+    Color.RED.value
+    scan.cache
+
+
+def inner() -> None:
+    class Color:
+        RED = 3
+
+    Color.RED  # the class of this function
+
+
+def hidden(Color: Shade, Limits) -> None:
+    Color.RED  # a parameter
+    Limits.MAX_USERS  # a parameter
+
+
+def scan() -> None:
+    with open_session() as conn, open("x") as handle:
+        conn.delete_user(1)
+        handle.read()
+    with (
+        open_session() as wrapped,
+    ):
+        wrapped.delete_user(2)

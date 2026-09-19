@@ -1899,6 +1899,22 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // Python's `Cls.CONST`, an `Enum` member, a dataclass field (#100): the qualifier is a
+        // class the file declares or imports, no value of the scope, and the word is what the
+        // class body declares, or a class above it.
+        // A class or an import inside a function is not the one the top of the file names.
+        let nested = |a: &Self| {
+            search::bindings(kind, &text, a.line + 1, first)
+                .iter()
+                .any(|b| a.buf.lines[b.line - 1].starts_with([' ', '\t']))
+        };
+        if kind == Kind::Python && locals.is_empty() && !chain.is_empty() && !nested(self) {
+            let found = self.class_attribute(kind, &here, &chain, &word);
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
         // A member in the project first. A qualifier no import names can still be a class, a
         // namespace or a module of the project, which declares the word at its top level.
         // A qualifier that is no value and no import can be what declares the word: a namespace,
@@ -2351,6 +2367,37 @@ impl App {
                 reason: Reason::Receiver(label.clone()),
             })
             .collect())
+    }
+
+    /// `word` as the class `chain` names declares it for the class itself: a method, else a line
+    /// of the class body (`CONST = 1`, `RED = 1` of an `Enum`, a dataclass's `x: int`, a
+    /// property), in the class or the nearest one above it. An attribute a method assigns to
+    /// `self` is an instance's, and no answer here.
+    fn class_attribute(
+        &self,
+        kind: Kind,
+        here: &Path,
+        chain: &[String],
+        word: &str,
+    ) -> Vec<Candidate> {
+        let Some(ty) = self.type_decl(kind, here, &chain.join(".")) else {
+            return Vec::new();
+        };
+        let hits = self
+            .hierarchy(kind, &ty, 0, &mut |t| {
+                let members = self.members_of(kind, t, word);
+                match members.is_empty() {
+                    true => self.field_of(kind, t, word, false).map(|hit| vec![hit]),
+                    false => Some(members),
+                }
+            })
+            .unwrap_or_default();
+        hits.into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Path(chain.join(".")),
+            })
+            .collect()
     }
 
     /// The type of the chain `x.f.g` on 1-based `line` of `text`, the text of `file`, and the links
@@ -9263,6 +9310,171 @@ mod tests {
                 "aliases.py",
                 "ring: Ring",
                 jump("no definition for Ring", "aliases.py:35"),
+            ),
+        ]);
+    }
+
+    /// #100. `Cls.CONST`, an `Enum` member and a dataclass field are what the class body
+    /// declares, in the class the qualifier names or one above it: `via Cls`. An attribute a
+    /// method assigns to `self`, a member of a member, a function's attribute, a class declared
+    /// inside the function and a parameter of the class's name are not that. A `with … as x`
+    /// target is a local, which hides the module's name whatever its type (so on master).
+    #[test]
+    fn a_python_class_attribute_is_looked_up_in_the_class() {
+        let both_delete_user = [
+            ("UserRepository.delete_user", "repos.py:8"),
+            ("AuditLog.delete_user", "repos.py:13"),
+        ];
+        py_rows(vec![
+            (
+                "consts.py",
+                "Limits.MAX_USERS",
+                jump(
+                    "MAX_USERS \u{2192} Limits.MAX_USERS (via Limits)",
+                    "consts.py:12",
+                ),
+            ),
+            (
+                "consts.py",
+                "Limits.timeout",
+                jump(
+                    "timeout \u{2192} Limits.timeout (via Limits)",
+                    "consts.py:13",
+                ),
+            ),
+            // Two enums with a `RED`.
+            (
+                "consts.py",
+                "    Color.RED",
+                jump("RED \u{2192} Color.RED (via Color)", "consts.py:27"),
+            ),
+            (
+                "consts.py",
+                "    Shade.RED",
+                jump("RED \u{2192} Shade.RED (via Shade)", "consts.py:32"),
+            ),
+            // A dataclass field; `Archive.label` is a namesake.
+            (
+                "consts.py",
+                "Point.label",
+                jump("label \u{2192} Point.label (via Point)", "consts.py:38"),
+            ),
+            // Inherited, overridden, and a method as before.
+            (
+                "consts.py",
+                "Tight.MAX_USERS",
+                jump(
+                    "MAX_USERS \u{2192} Limits.MAX_USERS (via Tight)",
+                    "consts.py:12",
+                ),
+            ),
+            (
+                "consts.py",
+                "Tight.timeout",
+                jump("timeout \u{2192} Tight.timeout (via Tight)", "consts.py:20"),
+            ),
+            (
+                "consts.py",
+                "Tight.check",
+                jump("check \u{2192} Limits.check (via Tight)", "consts.py:15"),
+            ),
+            // Behind an import, an alias and a module.
+            (
+                "consts_use.py",
+                "Color.GREEN",
+                jump("GREEN \u{2192} Color.GREEN (via Color)", "consts.py:28"),
+            ),
+            (
+                "consts_use.py",
+                "Caps.MAX_USERS",
+                jump(
+                    "MAX_USERS \u{2192} Limits.MAX_USERS (via Caps)",
+                    "consts.py:12",
+                ),
+            ),
+            (
+                "consts_use.py",
+                "consts.Shade.RED",
+                jump("RED \u{2192} Shade.RED (via consts.Shade)", "consts.py:32"),
+            ),
+            // `self.count = 0` is an instance's.
+            (
+                "consts.py",
+                "Tight.count",
+                jump(
+                    "count \u{2192} Tight.count (by name, 1 match)",
+                    "consts.py:23",
+                ),
+            ),
+            (
+                "consts.py",
+                "Limits.missing",
+                jump("no definition for missing", "consts.py:48"),
+            ),
+            (
+                "consts.py",
+                "Color.RED.value",
+                jump(
+                    "no definition for value (chain broke at Color)",
+                    "consts.py:53",
+                ),
+            ),
+            (
+                "consts.py",
+                "scan.cache",
+                jump("no definition for cache", "consts.py:54"),
+            ),
+            // The function's own `class Color`, which the rules do not read (#101).
+            (
+                "consts.py",
+                "Color.RED|  # the class",
+                picker(
+                    "RED: by name, 3 declarations",
+                    &[
+                        ("Color.RED", "consts.py:27"),
+                        ("Shade.RED", "consts.py:32"),
+                        ("inner.Color.RED", "consts.py:59"),
+                    ],
+                ),
+            ),
+            (
+                "consts.py",
+                "Color.RED|  # a parameter",
+                jump("RED \u{2192} Shade.RED (via Color: Shade)", "consts.py:32"),
+            ),
+            (
+                "consts.py",
+                "Limits.MAX_USERS|  # a parameter",
+                jump(
+                    "MAX_USERS \u{2192} Limits.MAX_USERS (by name, 1 match)",
+                    "consts.py:12",
+                ),
+            ),
+            // `with … as`: one line, two targets, and wrapped in brackets.
+            (
+                "consts.py",
+                "        conn|.delete",
+                jump("conn \u{2192} scan.conn (local)", "consts.py:70"),
+            ),
+            (
+                "consts.py",
+                "        handle|.read",
+                jump("handle \u{2192} scan.handle (local)", "consts.py:70"),
+            ),
+            (
+                "consts.py",
+                "        wrapped|.delete",
+                jump("wrapped: local", "consts.py:74"),
+            ),
+            (
+                "consts.py",
+                "conn.delete_user",
+                picker("delete_user: by name, 2 declarations", &both_delete_user),
+            ),
+            (
+                "consts.py",
+                "wrapped.delete_user",
+                picker("delete_user: by name, 2 declarations", &both_delete_user),
             ),
         ]);
     }
