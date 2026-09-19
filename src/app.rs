@@ -8578,7 +8578,10 @@ mod tests {
             (
                 "qualifiers.go",
                 "depot|.Remove",
-                jump("depot: local", "qualifiers.go:16"),
+                jump(
+                    "depot \u{2192} QualifierHidden.depot (local)",
+                    "qualifiers.go:16",
+                ),
             ),
             (
                 "qualifiers.go",
@@ -8593,6 +8596,34 @@ mod tests {
                         ("ledger", "scopes.go:34"),
                     ],
                 ),
+            ),
+        ]);
+    }
+
+    /// #100. A named result or a parameter of a Go function is named after the function, as a
+    /// local of its body is: `Reload.err`, not `UserRepository.err`, which would be a field.
+    #[test]
+    fn a_go_named_result_is_named_after_its_function() {
+        go_rows(vec![
+            (
+                "results.go",
+                "return user, err",
+                jump("err \u{2192} Reload.err (local)", "results.go:4"),
+            ),
+            (
+                "results.go",
+                "count| == 0",
+                jump("count \u{2192} Reload.count (local)", "results.go:5"),
+            ),
+            (
+                "results.go",
+                "FindUser(id|)",
+                jump("id \u{2192} Reload.id (local)", "results.go:4"),
+            ),
+            (
+                "results.go",
+                "\treturn err",
+                jump("err \u{2192} ReloadPlain.err (local)", "results.go:12"),
             ),
         ]);
     }

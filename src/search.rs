@@ -1106,6 +1106,9 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     static RECEIVER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^func\s+\(\s*(?:\w+\s+)?\*?\s*([A-Za-z_]\w*)").unwrap()
     });
+    static FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)").unwrap()
+    });
     static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").unwrap()
     });
@@ -1130,6 +1133,13 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     };
     let lines: Vec<&str> = text.lines().collect();
     let target = *lines.get(line.checked_sub(1)?)?;
+    // Any other name on a Go function's line is the function's, a parameter or a named result,
+    // and reads as a local of its body does (#100): `Load.err`, not the field `Issue.err`.
+    if kind == Kind::Go
+        && let Some(c) = FUNC.captures(target).filter(|c| &c[1] != name)
+    {
+        return Some(format!("{}{sep}{name}", &c[1]));
+    }
     if let Some(c) = RECEIVER.captures(target).filter(|_| kind == Kind::Go) {
         return Some(format!("{}{sep}{name}", &c[1]));
     }
