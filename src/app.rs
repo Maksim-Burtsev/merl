@@ -3064,6 +3064,13 @@ impl App {
             .map_or(chain.len(), Vec::len)
             .saturating_sub(1)
             .max(1);
+        // A Go import names its package's directory in full, so down to its length a file has
+        // to be in that directory, and anything shorter is a search by name (#100).
+        let package = bound_path
+            .as_ref()
+            .filter(|_| kind == Kind::Go)
+            .map(Vec::len);
+        let floor = package.unwrap_or(floor);
         let mut module = match chain.first() {
             // A C++ `std::` or `detail::` qualifier names a namespace, and no directory of the
             // system headers is called that, so narrowing by it would find nothing at all.
@@ -3078,11 +3085,11 @@ impl App {
         let all = self.external_files(kind);
         let mut files: Vec<PathBuf> = Vec::new();
         while let Some(m) = &mut module {
-            files = all
-                .iter()
-                .filter(|p| search::in_module(p, m))
-                .cloned()
-                .collect();
+            let within = |p: &PathBuf| match package {
+                Some(n) if m.len() >= n => search::in_package(p, m),
+                _ => search::in_module(p, m),
+            };
+            files = all.iter().filter(|p| within(p)).cloned().collect();
             if !files.is_empty() {
                 break;
             }
@@ -9383,7 +9390,7 @@ mod tests {
             &[
                 (
                     "main.go",
-                    "package main\n\nimport (\n\t\"github.com/foo/bar\"\n\t\"gopkg.in/yaml.v3\"\n)\n\nfunc main() {\n\t_ = yaml.Unmarshal(nil, nil)\n\tbar.Baz()\n}\n",
+                    "package main\n\nimport (\n\t\"database/sql\"\n\t\"database/sql/pq\"\n\t\"errors\"\n\t\"github.com/foo/bar\"\n\t\"gopkg.in/yaml.v3\"\n)\n\nfunc main() {\n\t_ = yaml.Unmarshal(nil, nil)\n\tbar.Baz()\n\tsql.Open(\"\", \"\")\n\t_ = errors.New(\"\")\n\tpq.Open(\"\")\n}\n",
                 ),
                 (
                     "main.rs",
@@ -9415,6 +9422,24 @@ mod tests {
                 (
                     "github.com/other/lib@v1.0.0/lib.go",
                     "package lib\n\nfunc Baz() {}\n",
+                ),
+                // A Go package is one directory: `database/sql` is not `database/sql/driver`,
+                // and the standard library's `errors` is not a module's.
+                (
+                    "src/database/sql/sql.go",
+                    "package sql\n\nfunc Open(driver, dsn string) {}\n",
+                ),
+                (
+                    "src/database/sql/driver/driver.go",
+                    "package driver\n\nfunc Open(name string) {}\n",
+                ),
+                (
+                    "src/errors/errors.go",
+                    "package errors\n\nfunc New(text string) error { return nil }\n",
+                ),
+                (
+                    "github.com/pkg/errors@v0.9.1/errors.go",
+                    "package errors\n\nfunc New(message string) error { return nil }\n",
                 ),
                 (
                     "alloc/src/borrow.rs",
@@ -9456,6 +9481,31 @@ mod tests {
                 jump(
                     "Baz: by name, 1 match",
                     &at("github.com/other/lib@v1.0.0/lib.go:3"),
+                ),
+            ),
+            (
+                "main.go",
+                "sql.Open",
+                jump(
+                    "Open: via import database/sql",
+                    &at("src/database/sql/sql.go:3"),
+                ),
+            ),
+            (
+                "main.go",
+                "errors.New",
+                jump("New: via import errors", &at("src/errors/errors.go:3")),
+            ),
+            // A package that is not installed: its parent directory is no proof.
+            (
+                "main.go",
+                "pq.Open",
+                picker(
+                    "Open: by name, 2 declarations",
+                    &[
+                        ("Open", "src/database/sql/driver/driver.go:3"),
+                        ("Open", "src/database/sql/sql.go:3"),
+                    ],
                 ),
             ),
             // A Rust call on a value still looks outside the project.

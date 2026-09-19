@@ -4107,25 +4107,44 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
 /// `toml@v1.2.3`), a Go module escapes upper case (`!burnt!sushi`) and a crate name spells
 /// `_` as `-`: those are ignored.
 pub fn in_module(path: &Path, parts: &[String]) -> bool {
-    let norm = |s: &str| -> String {
-        let s = s.split('@').next().unwrap_or(s);
-        // `fs.d.ts`, `python3.13`, `github.com`: the stem before every extension.
-        let s = s.split('.').next().unwrap_or(s);
-        // `name-1.2.3`: the version after the first `-` followed by a digit.
-        let s = s
-            .match_indices('-')
-            .find(|(i, _)| s[i + 1..].starts_with(|c: char| c.is_ascii_digit()))
-            .map_or(s, |(i, _)| &s[..i]);
-        s.replace('!', "").replace('-', "_").to_ascii_lowercase()
-    };
-    let mut want = parts.iter().map(|p| norm(p)).peekable();
+    let mut want = parts.iter().map(|p| module_part(p)).peekable();
     for c in path.components() {
         let c = c.as_os_str().to_string_lossy();
-        if want.peek().is_some_and(|w| *w == norm(&c)) {
+        if want.peek().is_some_and(|w| *w == module_part(&c)) {
             want.next();
         }
     }
     want.peek().is_none()
+}
+
+/// A directory or a part of a module path without what only one of the two carries.
+fn module_part(s: &str) -> String {
+    let s = s.split('@').next().unwrap_or(s);
+    // `fs.d.ts`, `python3.13`, `github.com`: the stem before every extension.
+    let s = s.split('.').next().unwrap_or(s);
+    // `name-1.2.3`: the version after the first `-` followed by a digit.
+    let s = s
+        .match_indices('-')
+        .find(|(i, _)| s[i + 1..].starts_with(|c: char| c.is_ascii_digit()))
+        .map_or(s, |(i, _)| &s[..i]);
+    s.replace('!', "").replace('-', "_").to_ascii_lowercase()
+}
+
+/// Whether the Go file `path` is of the package imported as `parts` (#100): a Go package is one
+/// directory, so the file's own directory ends with the import path, and `database/sql` is not
+/// `database/sql/driver`. A path with no dot in its first part is the standard library's, which
+/// sits right under GOROOT's `src` (or a `vendor` there): `errors` is not `github.com/pkg/errors`.
+pub fn in_package(path: &Path, parts: &[String]) -> bool {
+    let dirs: Vec<String> = path
+        .parent()
+        .into_iter()
+        .flat_map(Path::components)
+        .map(|c| module_part(&c.as_os_str().to_string_lossy()))
+        .collect();
+    let want: Vec<String> = parts.iter().map(|p| module_part(p)).collect();
+    let std = parts.first().is_some_and(|p| !p.contains('.'));
+    dirs.strip_suffix(want.as_slice())
+        .is_some_and(|above| !std || above.last().is_some_and(|d| d == "src" || d == "vendor"))
 }
 
 /// The name `D` lists for a line matched by `re`, one of the [`SYMBOLS`] patterns: Terraform
@@ -4437,6 +4456,63 @@ mod tests {
             q(Kind::Ruby, rb, 3, "total").as_deref(),
             Some("Billing.Invoice.total")
         );
+    }
+
+    /// #100. A Go package is the one directory its import path ends at.
+    #[test]
+    fn a_go_package_is_one_directory() {
+        let parts = |p: &str| -> Vec<String> { p.split('/').map(str::to_owned).collect() };
+        for (file, import, want) in [
+            ("/go/src/database/sql/sql.go", "database/sql", true),
+            (
+                "/go/src/database/sql/driver/driver.go",
+                "database/sql",
+                false,
+            ),
+            (
+                "/go/src/database/sql/driver/driver.go",
+                "database/sql/driver",
+                true,
+            ),
+            (
+                "/go/src/vendor/golang.org/x/net/http2/h.go",
+                "golang.org/x/net/http2",
+                true,
+            ),
+            (
+                "/mod/gopkg.in/yaml.v3@v3.0.1/yaml.go",
+                "gopkg.in/yaml.v3",
+                true,
+            ),
+            (
+                "/mod/github.com/!burnt!sushi/toml@v1.2.3/lex.go",
+                "github.com/BurntSushi/toml",
+                true,
+            ),
+            (
+                "/mod/github.com/foo/bar/v2@v2.1.0/sub/s.go",
+                "github.com/foo/bar/v2/sub",
+                true,
+            ),
+            (
+                "/mod/github.com/foo/bar/v2@v2.1.0/sub/s.go",
+                "github.com/foo/bar/v2",
+                false,
+            ),
+            ("/go/src/errors/errors.go", "errors", true),
+            (
+                "/mod/github.com/pkg/errors@v0.9.1/errors.go",
+                "errors",
+                false,
+            ),
+            ("/go/src/internal/errors/e.go", "errors", false),
+        ] {
+            assert_eq!(
+                in_package(Path::new(file), &parts(import)),
+                want,
+                "{file} as {import}"
+            );
+        }
     }
 
     /// #100. A Go file is compiled for a platform by its name and its `//go:build` line; a tag
