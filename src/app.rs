@@ -2416,8 +2416,8 @@ impl App {
 
     /// `word` as the class `chain` names declares it for the class itself: a method, else a line
     /// of the class body (`CONST = 1`, `RED = 1` of an `Enum`, a dataclass's `x: int`, a
-    /// property), in the class or the nearest one above it. An attribute a method assigns to
-    /// `self` is an instance's, and no answer here.
+    /// property), in the class or what [`App::above`] proves over it. An attribute a method
+    /// assigns to `self` is an instance's, and no answer here.
     fn class_attribute(
         &self,
         kind: Kind,
@@ -2428,15 +2428,14 @@ impl App {
         let Some(ty) = self.type_decl(kind, here, &chain.join(".")) else {
             return Vec::new();
         };
-        let hits = self
-            .hierarchy(kind, &ty, 0, &mut |t| {
-                let members = self.members_of(kind, t, word);
-                match members.is_empty() {
-                    true => self.field_of(kind, t, word, false).map(|hit| vec![hit]),
-                    false => Some(members),
-                }
-            })
-            .unwrap_or_default();
+        // Above the class the bases are read as `super` reads them: several that disagree, or
+        // one outside the project, prove nothing.
+        let members = self.members_of(kind, &ty, word);
+        let hits = match (members.is_empty(), self.field_of(kind, &ty, word, false)) {
+            (false, _) => members,
+            (true, Some(hit)) => vec![hit],
+            (true, None) => self.above(kind, &ty, word, 0).unwrap_or_default(),
+        };
         hits.into_iter()
             .map(|hit| Candidate {
                 hit,
@@ -9535,6 +9534,18 @@ mod tests {
                 jump(
                     "MAX_USERS \u{2192} Limits.MAX_USERS (by name, 1 match)",
                     "consts.py:12",
+                ),
+            ),
+            // Two bases that disagree: the order Python reads them in is not computed.
+            (
+                "consts.py",
+                "Diamond.LEVEL",
+                picker(
+                    "LEVEL: by name, 2 declarations",
+                    &[
+                        ("Root.LEVEL", "consts.py:80"),
+                        ("Right.LEVEL", "consts.py:88"),
+                    ],
                 ),
             ),
             // `with … as`: one line, two targets, and wrapped in brackets.

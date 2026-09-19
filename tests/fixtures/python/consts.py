@@ -74,3 +74,24 @@ def scan() -> None:
         open_session() as wrapped,
     ):
         wrapped.delete_user(2)
+
+
+class Root:
+    LEVEL = 0
+
+
+class Left(Root):
+    pass
+
+
+class Right(Root):
+    LEVEL = 2
+
+
+class Diamond(Left, Right):
+    pass
+
+
+def diamond() -> int:
+    # Python reads `Right.LEVEL`; a walk by depth would pass it.
+    return Diamond.LEVEL
