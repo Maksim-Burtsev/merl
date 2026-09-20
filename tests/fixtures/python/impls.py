@@ -48,3 +48,48 @@ class Sweeper:
 class NightlySweeper(Sweeper):
     def sweep(self) -> None:
         pass
+
+
+class WrappedJob(
+    BaseJob,  # a header black wrapped over several lines
+    metaclass=type,
+):
+    def run(self) -> None:
+        self.mop()
+
+    def mop(self) -> None:
+        pass
+
+
+class Roster:
+    jobs = sorted(
+        BaseJob,
+    )
+
+    def run(self) -> None:
+        pass
+
+    def mop(self) -> None:
+        pass
+
+
+def wrapped(job: WrappedJob) -> None:
+    job.mop()
+
+
+class DeepJob(WrappedJob):
+    def run(self) -> None:
+        pass
+
+
+class WideBase(
+    object,
+):
+    def tick(self) -> None:
+        pass
+
+
+class Narrow(
+    Sweeper, WideBase):
+    def tick(self) -> None:
+        self.sweep()
