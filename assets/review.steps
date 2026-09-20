@@ -39,17 +39,16 @@ key [
 wait hunk 1/10
 sleep 1.6
 
-# a typo in the comment above the call: End, Enter, one letter, Esc, saved
-key Up End
-sleep 0.6
-key Enter
-sleep 0.8
-type s
-sleep 1.4
-key Escape
-sleep 1.8
-
-# and on with the review
+# and on with the review: the rest of the rewritten service, then the test the agent added
 key c
 wait hunk 2/10
-sleep 1.8
+sleep 1.6
+key@0.22 c*8
+wait hunk 10/10
+sleep 1.2
+key c
+wait file 5/5
+sleep 1.4
+key c
+wait hunk 2/2
+sleep 2.8
