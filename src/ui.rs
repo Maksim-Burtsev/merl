@@ -124,7 +124,7 @@ fn draw_welcome(frame: &mut Frame, theme: &Theme, area: Rect, base: Style) {
     } else {
         let hint = Line::from(Span::styled(
             " o: open file   ?: help",
-            base.fg(theme.gutter_fg),
+            base.fg(theme.ghost_fg),
         ));
         frame.render_widget(Paragraph::new(hint).style(base), area);
         return;
@@ -198,7 +198,7 @@ fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
                     format!(" {key:key_w$}  "),
                     base.add_modifier(Modifier::BOLD),
                 ),
-                Span::styled(*action, base.fg(theme.gutter_fg)),
+                Span::styled(*action, base.fg(theme.ghost_fg)),
             ])
         })
         .collect();
@@ -854,6 +854,50 @@ mod tests {
             !text.contains(super::LOGO[0].trim()),
             "logo must go first\n{text}"
         );
+    }
+
+    /// Text a reader has to read is never `gutter_fg`: that is the line numbers' colour, under
+    /// 2:1 against the background in most themes (#146). The `?` overlay's actions and the
+    /// one-line welcome hint take the theme's readable grey instead.
+    #[test]
+    fn help_actions_and_the_narrow_hint_are_drawn_in_the_readable_grey() {
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mk = || {
+            App::new(
+                PathBuf::from("/demo"),
+                Tree::default(),
+                Vec::new(),
+                Buffer::empty(),
+                None,
+            )
+        };
+        let at = |terminal: &Terminal<TestBackend>, needle: &str| {
+            let buf = terminal.backend().buffer();
+            for y in 0..buf.area.height {
+                for x in 0..=buf.area.width.saturating_sub(needle.len() as u16) {
+                    let got: String = (0..needle.len() as u16)
+                        .map(|i| buf[(x + i, y)].symbol())
+                        .collect();
+                    if got == needle {
+                        return buf[(x, y)].fg;
+                    }
+                }
+            }
+            panic!("{needle:?} is not on screen");
+        };
+
+        let mut app = mk();
+        app.mode = crate::app::Mode::Help;
+        let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        assert_eq!(at(&terminal, "Open a file (fuzzy)"), theme.ghost_fg);
+
+        // Too short for the five key rows: the pane falls back to the single hint line.
+        let mut app = mk();
+        app.show_tree = false;
+        let mut terminal = Terminal::new(TestBackend::new(40, 4)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        assert_eq!(at(&terminal, "o: open file"), theme.ghost_fg);
     }
 
     #[test]
