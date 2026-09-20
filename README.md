@@ -224,7 +224,8 @@ a word of the same name (Rust still looks in the project first). A word no impor
 outside only when the project has no definition of it. Outside means the standard library and the
 installed dependencies the toolchain on this machine knows about — `sys.path` of
 `.venv/bin/python` (or `python3`), `rustc --print sysroot` and the crates in `Cargo.lock`, `GOROOT`
-and the modules in `go.mod`, `node_modules` — narrowed to the module the file's imports bind the
+and the modules in `go.mod`, the `node_modules` of every directory from the open file up to the
+project root (a workspace keeps a package's dependencies beside it) — narrowed to the module the file's imports bind the
 word to: `np.array` behind `import numpy as np` looks in `numpy`, `load` behind
 `from json import load` in `json`, `Regex::new` behind `use regex::Regex` in the `regex` crate,
 `chromium.launch()` behind `import { chromium } from 'playwright'` in that package; a bare
@@ -346,7 +347,10 @@ the type before it. The type comes from the declaration:
   stay unknown;
 - a property with a declared return type: `@property`, `@cached_property` or
   `@functools.cached_property` over `def users(self) -> UserRepository`, a getter
-  `get users(): UserRepository`.
+  `get users(): UserRepository`;
+- a TypeScript destructuring out of a chain of names, `const { repo, audit: trail } = this` or
+  `= this.uow`, on one line or wrapped over several: the field's type. A default, a rest, a nested
+  or an array's pattern is a binding of no readable type.
 
 `T | None`, `Optional[T]`, `Annotated[T, …]`, `T | null` and generic arguments read as `T`.
 The innermost scope that declares `x` decides: in Python the function the cursor is in (every
@@ -363,7 +367,11 @@ function whose body it opens. The parameter of any other function on those lines
 `if (repos.some((repo: Repo) => …)) {` or `register((repo: Repo) => repo, {`, and of one on the
 cursor's own line, counts and hides nothing, since the cursor stands outside it; and what the
 `if` branch declares is nothing to its `else`. A line inside a docstring, a raw string or a
-template declares nothing. A Go name no scope of the file declares is the package's: a `var`
+template declares nothing. A TypeScript class header prettier wrapped is one header: a list of
+type parameters that ends in `> extends Base<K> {`, the clauses over a lone `{`; `this`, `super`,
+the fields and what the class extends are read through it, and `new Local.Tool()` is the `Tool`
+inside `namespace Local` of the file or of the import, and an import of `HonoBase` finds the class a
+module declares as `Hono` and hands out with `export { Hono as HonoBase }`. A Go name no scope of the file declares is the package's: a `var`
 of any file of the package, alone or in a `var (` block, above the cursor or below it, and two
 files that declare it as different types (build tags) agree on nothing. An empty scope walk is no
 proof that there is no local, since the walk does not read every form of one: the function around
@@ -409,6 +417,10 @@ A chain is followed the same way one field at a time, up to six names in front o
 promoted from a Go struct it embeds, and an embedded struct can be a link by its name
 (`h.Deps.uow`). The status line lists the links:
 `delete_user → UserRepository.delete_user (via self.uow: UnitOfWork → users: UserRepository)`.
+A TypeScript chain is read as the language means it: broken by prettier in front of its dots
+(`return this.db` over `.selectFrom(`) it is one line, `repo!.find` and `uow?.users.find` are
+`repo.find` and `uow.users.find`, and a `#private` name is the word with its `#`, on the `#` and
+on the name, never the public name beside it.
 
 A type declared outside the project or any link the rules cannot prove leaves the word to the
 search by name below. With two or more names in front of the word the status line says where the
@@ -444,13 +456,16 @@ method of an abstract or a plain base class — `d` offers what implements it in
 implementations of Notifier.send, 3 declarations`. In Python and TypeScript that is the types that
 name it: the subclasses, the classes and interfaces that `extends` or `implements` it, and the
 subclasses of those, four levels down. A type counts only when its own header names one of them and
-its file can see that name — it declares it, or an import binds it — and only when it declares the
-member itself, so a class that inherits it is not listed. A Python `Protocol` and a Go interface
+its file can see that name — it declares it, or an import binds it, followed through a barrel's
+`export * from` and `export { Name } from` to the file that declares it — and only when it
+declares the member itself, so a class that inherits it is not listed. A Python `Protocol` and a Go interface
 name nothing, so there the rule is structural, the way both languages mean it: every member of that
 name taking the same number of parameters. Only the project is searched, since an interface is
 opened to find what this project does with it. A TypeScript header wrapped over several lines is
-read, as prettier writes `export class X` over `  extends Base` over `{`, and so is a Python one,
-whose bases stand under the `class` line. Nothing implements the declaration — a method beside its Go
+read whole, as prettier writes `export class X` over `  extends Base` over `{` (a type
+parameter's `S extends Notifier,` is a constraint and implements nothing), and a `#private` member
+has no implementations; so is a Python one, whose bases stand under the `class` line. Nothing
+implements the declaration — a method beside its Go
 type, a class with no subclasses — and `d` goes on to the search by name below.
 
 | File | What `d` recognises | Searched |

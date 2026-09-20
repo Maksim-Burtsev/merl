@@ -174,6 +174,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `v, ok := i.(T)` and the variable of `switch v := x.(type)` inside a `case T:`, assigned to a
   name or with the member hanging off the cast, `(x as T).find`, `i.(T).Find`. A cast to a type
   the project does not declare, a `case` of several types and `default` stay by name. (#100)
+- `d` in TypeScript reads what prettier and the language write around a member (#100): a class
+  header wrapped over several lines, a list of type parameters ending in `> extends Base<K> {`
+  or the clauses over a lone `{`, no longer hides `this`, `super`, the fields and the bases of the
+  whole class; a member access broken in front of its dots, `return this.db` over
+  `.selectFrom(`, is one chain; `repo!.find()` and `uow?.users.find()` are the plain access;
+  `const { repo, audit: trail } = this` hands the fields on; `new Local.Tool()` finds the class
+  inside a namespace of the same file; a class a module declares under one name and exports under
+  another, `export { Hono as HonoBase }`, is found by the import of the new name.
+- `d` on a TypeScript `#private` member takes the name with its `#`, on the `#` and on the name:
+  `this.#addRoute(` lands on `#addRoute(`, where it used to say nothing or find the public
+  `addRoute`. (#100)
+- In a workspace `d` looks for a TypeScript dependency in the `node_modules` of every directory
+  from the open file up to the project root, the nearest first, where it used to read
+  `<root>/node_modules` alone. Each is walked once; a package's own copy is listed by its path
+  from the root. (#100)
 - `d` proves more Go receivers: a package-level `var` declared in another file of the package,
   in a `var (` block or below the cursor (`defaultRepo.DeleteUser`); a type behind `type X = Y`,
   which is `Y`, where `type X Y` stays a type of its own; and a type declared once per platform
@@ -255,6 +270,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` no longer proves a module-level namesake for a name a TypeScript destructuring wrapped
+  over several lines binds (`const {` / `  ledger,` / `} = deps;`): the statement is read whole,
+  and out of a name whose type is written the field's type is the local's. (#131)
+- With the cursor on an interface method, a class that implements a namesake interface of
+  another file through a barrel (`export * from`, `export { Name } from`) is no longer listed as
+  an implementation, and neither is a class for the constraint of a type parameter on a line
+  of its wrapped header, `S extends Notifier,`. A class that imports the interface as
+  `type Notifier,` on a line of a wrapped list is listed again: the line read as an alias of
+  that name. (#100)
 - A Python binding that does not start its line is a binding: `if fresh: ledger = A()`,
   `else: …`, `a = 1; ledger = A()`, `try: from m import ledger`, `first = ledger = A()`, and
   `if cold: self.ledger = A()` for a field. `d` did not read them, so a module-level `ledger` of
