@@ -111,7 +111,9 @@ def render(grid, cursor, fonts, cell):
         for col, (char, fg, bg, bold, italic) in enumerate(cells):
             x, y = col * cw, row * ch
             if cursor == (col, row):
-                fg, bg = bg, fg
+                # A block of one colour, as a terminal with a cursor colour draws it. Swapping the
+                # cell's own colours turns the cursor on a find match into a dark hole in it.
+                fg, bg = DEFAULT_BG, DEFAULT_FG
             if bg != DEFAULT_BG or cursor == (col, row):
                 draw.rectangle([x, y, x + cw - 1, y + ch - 1], fill=bg)
             if char in SEGMENTS:
