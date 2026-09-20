@@ -1,0 +1,18 @@
+# The agent is still working: the file it writes shows up in the review, and c walks into it.
+merl --review
+wait hunk 1/1
+key c
+wait file 2/5
+key c
+wait file 3/5
+key c
+wait hunk 1/10
+sleep 1
+show
+spawn "$ROOT/assets/tapes/agent.sh" 2.5
+sleep 2.5
+wait block_note_test
+sleep 2.5
+key@0.18 c*10
+wait file 5/6
+sleep 2.5

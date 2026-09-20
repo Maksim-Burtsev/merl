@@ -1,0 +1,54 @@
+# The reviewing half: an agent's branch walked hunk by hunk, twice into the code it calls, one fix.
+merl --review
+wait hunk 1/1
+sleep 0.5
+show
+sleep 2.4
+
+# c walks the hunks: the two helpers the branch added, their test, on into the rewritten service
+key c
+wait file 2/5
+sleep 1.6
+key c
+wait file 3/5
+sleep 1.6
+key c
+wait hunk 1/10
+sleep 2.6
+
+# the rewritten function, its deleted lines above it: Alt+Right hops word by word onto the new
+# call, d goes into the helper
+key Down
+sleep 0.4
+key@0.2 M-Right*4
+sleep 0.7
+key d
+wait via import models/repo
+sleep 2.6
+
+# and again, out of the helper into the engine it queries; [ [ walks back to the hunk
+key Down Down
+key@0.2 M-Right*4
+sleep 0.6
+key d
+wait GetEngine: via import
+sleep 2.8
+key [
+sleep 1
+key [
+wait hunk 1/10
+sleep 1.6
+
+# and on with the review: the rest of the rewritten service, then the test the agent added
+key c
+wait hunk 2/10
+sleep 1.6
+key@0.22 c*8
+wait hunk 10/10
+sleep 1.2
+key c
+wait file 5/5
+sleep 1.4
+key c
+wait hunk 2/2
+sleep 2.8

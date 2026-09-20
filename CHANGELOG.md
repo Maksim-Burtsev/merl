@@ -222,6 +222,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The README is rewritten around what merl is for: the one editor you need when agents write the
+  code. The workflow, a new demo recorded on gitea and install come first, then the argument in a
+  few sentences and "What merl is not"; the keys show the daily dozen with the rest folded. The
+  editing and navigation reference moved to `docs/editing.md` and `docs/navigation.md`, a review
+  walked step by step to `docs/a-day-with-merl.md`, the theme details to `docs/themes.md`, and the
+  `Cargo.toml` description says the same as the tagline. The demo, the review demo and the
+  walkthrough GIFs are recorded terminal sessions (asciinema and agg), one `.steps` file next to
+  each, re-recorded with `assets/tapes/record.py` (#72).
 - A reload from disk no longer empties the undo history: it is one step of it, as in VS Code and
   Vim. After an agent writes the open file, Ctrl+Z takes back what it wrote, line endings and the
   final newline included, and then the edits made before it; Ctrl+Y replays both. The step holds
