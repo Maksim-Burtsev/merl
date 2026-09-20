@@ -3,7 +3,7 @@ merl --review
 wait hunk 1/1
 key c
 wait hunk 1/5
-key@0.02 Right*76
+key@0.02 Right*73
 sleep 1
 show
 sleep 1.8

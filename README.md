@@ -67,6 +67,9 @@ those two things out of the box, with nothing to configure and nothing to switch
 - **Review a branch.** `merl --review` draws the branch's diff over the real files, so from any
   changed line you can look up what it calls and who else uses it. It stays current while the
   agent keeps working. [A review, step by step](docs/a-day-with-merl.md).
+
+  <img src="assets/review.gif" alt="merl --review on an agent's branch: c goes on into the file where a function was rewritten, the deleted lines standing in grey above the new ones; arrows onto the new call, d into the helper the branch added, [ back, then Enter, one letter and Esc fix a typo in place" width="900">
+
 - **Touch up a line.** Enter, type, Esc. It saves itself. Enough for a typo, a constant, or a
   secret you would rather not hand to an agent. [More on editing](docs/editing.md).
 
