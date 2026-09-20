@@ -1,8 +1,8 @@
-//go:build fast && !windows
+// +build !windows
 
 package platform
 
-// Meter: a tag that is no platform is not known to be built, so it is preferred to nothing.
+// Meter: the old constraint is not read, so the file is not known to be built and wins nothing.
 type Meter struct{}
 
 func (m *Meter) Sample() int {

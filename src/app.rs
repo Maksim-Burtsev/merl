@@ -161,6 +161,8 @@ pub struct App {
     /// together for: a workspace has one per package, and each file sees those above it.
     node_modules: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
     node_modules_of: Option<PathBuf>,
+    /// What `go build` compiles here, which picks among a Go declaration's twins.
+    go_build: search::GoBuild,
     /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
     /// keyword argument, which names a parameter no rule reads.
     offer_only: bool,
@@ -297,6 +299,10 @@ impl App {
             external: HashMap::new(),
             node_modules: HashMap::new(),
             node_modules_of: None,
+            go_build: search::GoBuild::host().env(
+                std::env::var("CGO_ENABLED").ok().as_deref(),
+                std::env::var("GOFLAGS").ok().as_deref(),
+            ),
             offer_only: false,
             truncated: Default::default(),
             focus,
@@ -3001,18 +3007,18 @@ impl App {
 
     /// Of several Go declarations of one name, those in files the host's `go build` compiles
     /// (#100): `Clock` of `clock_linux.go` and of `clock_windows.go` is one type per platform.
-    /// Only on certainty: every file is known to be built or known not to be
-    /// ([`search::go_built`]), so a tag of the project's own or a constraint the rules do not
-    /// read leaves all of them. Asked from the open file, which the host must not be known to
-    /// skip: inside `clock_windows.go` on another host nothing is preferred.
+    /// A tag of the project's own (`gogit`) is unset, as it is for a plain `go build`, unless
+    /// `GOFLAGS` sets it (#137). Only on certainty: every file is known to be built or known not
+    /// to be ([`search::go_built`]), so a constraint the rules do not read leaves all of them.
+    /// Asked from the open file, which the host must not be known to skip: inside
+    /// `clock_windows.go` on another host, or inside `repo_gogit.go`, nothing is preferred.
     fn host_built(&self, kind: Kind, hits: Vec<Hit>) -> Vec<Hit> {
         if kind != Kind::Go || hits.len() < 2 {
             return hits;
         }
-        let (goos, goarch) = search::go_host();
         let built = |p: &Path| {
             self.text_of(p)
-                .and_then(|t| search::go_built(p, &t, goos, goarch))
+                .and_then(|t| search::go_built(p, &t, &self.go_build))
         };
         if self
             .rel_current()
@@ -6069,6 +6075,8 @@ mod tests {
             .join(name);
         let (tree, files) = crate::tree::build(&dir);
         let mut a = App::new(dir, tree, files, Buffer::empty(), None);
+        // The fixtures are read as a plain build reads them, whatever `GOFLAGS` the tests run under.
+        a.go_build = search::GoBuild::host();
         for kind in [Kind::Python, Kind::TsJs, Kind::Go] {
             a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
         }
@@ -9814,8 +9822,9 @@ mod tests {
     }
 
     /// #100. A Go type declared once per platform (`clock_windows.go` beside a
-    /// `//go:build !windows` file) is the one the host builds. A tag of the project's own decides
-    /// nothing, and neither does the host from inside a file it does not build.
+    /// `//go:build !windows` file) is the one the host builds, and one declared under a tag of
+    /// the project's own is the one a plain `go build` compiles, or the one `-tags` asks for
+    /// (#137). From inside a file that is not built nothing is preferred.
     #[test]
     fn a_go_declaration_per_platform_is_the_hosts() {
         let (mine, other) = match cfg!(windows) {
@@ -9865,6 +9874,14 @@ mod tests {
             (
                 "platforms.go",
                 "codec.Encode",
+                jump(
+                    "Encode \u{2192} Codec.Encode (via codec: Codec)",
+                    "platform/codec_slow.go:7",
+                ),
+            ),
+            (
+                "platform/codec_fast.go",
+                "c.Encode",
                 both(
                     "Encode: by name, 2 declarations",
                     "Codec.Encode",
@@ -9881,7 +9898,7 @@ mod tests {
                     &format!("platform/timer_{}.go:{}", host.0, host.1),
                 ),
             ),
-            // A platform that has decided is not undone by a tag that is none: `windows && !slow`.
+            // A platform and a tag of the project's own: `windows && !slow`.
             (
                 "platforms.go",
                 "gauge.Read",
@@ -9901,6 +9918,17 @@ mod tests {
                 ),
             ),
         ]);
+        // `GOFLAGS=-tags=fast` builds the other one.
+        let mut a = fixture_app("go");
+        a.go_build.tags = vec!["fast".into()];
+        d_on(&mut a, "platforms.go", "codec.Encode");
+        assert_eq!(
+            shown(&mut a),
+            jump(
+                "Encode \u{2192} Codec.Encode (via codec: Codec)",
+                "platform/codec_fast.go:8",
+            )
+        );
         // Asked from inside the file the host does not build, a method per platform is both;
         // and where no declaration is built (`gate_windows.go`, `gate_plan9.go`), all stay.
         if !cfg!(windows) {
@@ -9930,7 +9958,8 @@ mod tests {
             d_on(&mut a, "platforms_gate.go", "platform.NewGate");
             assert_eq!(a.message, "NewGate: via import platform/, 2 declarations");
             press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-            // `meter_fast.go` is not known to be built, so `meter_windows.go` loses to nothing.
+            // `meter_fast.go` (`// +build`) is not known to be built, so `meter_windows.go` loses
+            // to nothing.
             d_on(&mut a, "platforms_gate.go", "meter.Sample");
             assert_eq!(
                 shown(&mut a),

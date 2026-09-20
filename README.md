@@ -383,11 +383,13 @@ the same file, the same Go package or the project module an import names. Go's `
 then answers under its own name; `type X Y` is a type of its own. Of a Go
 declaration written once per platform, `clock_windows.go` beside a `//go:build !windows` file, the
 one the host's `go build` compiles counts: the `_GOOS` / `_GOARCH` ending of the file's name and
-its `//go:build` line decide. Only on certainty: every declaration's file must be known to be
-built or known not to be. A tag that is no platform (`gogit`, `cgo`) is unknown unless the
-platforms around it have decided already (`windows && cgo` is not built on a Mac), the older
-`// +build` line is not read, and from inside a file the host does not build nothing is preferred:
-those stay a picker. `d` then looks for the
+its `//go:build` line decide, read as a plain `go build` reads them: the platform, `cgo`, `gc` and
+the releases (`go1.21`) are set, a tag of the project's own (`gogit`, `bindata`) is not, so of
+`repo.go` (`!gogit`) and `repo_gogit.go` the first counts. `GOFLAGS=-tags=gogit` in the
+environment, the variable `go build` and gopls read, turns it around, and `CGO_ENABLED=0` unsets
+`cgo`. Only on certainty: every declaration's file must be known to be built or known not to be.
+The older `// +build` line is not read, and from inside a file that is not built (`repo_gogit.go`
+itself) nothing is preferred: those stay a picker. `d` then looks for the
 member in that type, and in the classes it extends and the structs it embeds, and the status line
 names the link: `via self.repo: UserRepository`, `via NewRepo() *UserRepository`,
 `via makeAudit() returns new AuditLog()`. A member that is no method is a field, and `d` lands on

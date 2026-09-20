@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` in Go reads a build tag of the project's own as a plain `go build` does: unset. Of a type
+  declared twice, under `//go:build gogit` and `//go:build !gogit`, `d` goes to the one that is
+  built instead of asking; `cgo`, `gc` and `go1.N` count as set, `//go:build ignore` files drop
+  out. `GOFLAGS=-tags=…` and `CGO_ENABLED=0` in the environment are honoured, and from inside
+  the file under the tag both declarations are still offered. (#137)
 - `d` no longer offers a line inside an embedded literal as a declaration: `literal_lines` reads
   a Swift or C# `"""` block, a C# verbatim `@"…"` (where `""` is a quote, not the end) and a PHP
   heredoc, so the SQL a migration embeds stops answering `d`. (#17)

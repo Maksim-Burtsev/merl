@@ -2,7 +2,7 @@
 
 package platform
 
-// Gauge: a platform that has decided is not undone by a tag that is none.
+// Gauge: a platform and a tag of the project's own in one line.
 type Gauge struct{}
 
 func (g *Gauge) Read() int {
