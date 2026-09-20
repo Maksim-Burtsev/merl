@@ -258,7 +258,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - With the cursor on an interface method, a class that implements a namesake interface of
   another file through a barrel (`export * from`, `export { Name } from`) is no longer listed as
   an implementation, and neither is a class for the constraint of a type parameter on a line
-  of its wrapped header, `S extends Notifier,`. (#100)
+  of its wrapped header, `S extends Notifier,`. A class that imports the interface as
+  `type Notifier,` on a line of a wrapped list is listed again: the line read as an alias of
+  that name. (#100)
 - A standard-library or dependency file stays read-only when it changes on disk or Ctrl+R
   reloads it; the reload made it editable.
 - A Go `const` whose value spells a name no longer declares it: `const csp = "… http://…"` hid
