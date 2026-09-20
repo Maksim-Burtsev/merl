@@ -47,11 +47,9 @@ sleep 1.6
 # s: search the project, the hits follow the typing
 key s
 sleep 0.7
-type@0.15 ErrBlockedUser
-wait hits)
+type@0.13 QueueSettings{}
+wait queue.go:49
 sleep 1.8
-key Down Down
-sleep 0.6
 key Enter
-wait models/user/block.go
+wait modules/setting/queue.go
 sleep 1
