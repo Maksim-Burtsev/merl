@@ -278,12 +278,30 @@ pub fn plural(n: usize) -> &'static str {
     if n == 1 { "" } else { "s" }
 }
 
+/// A file merl has no permission to write is read-only before the first keystroke, not after the
+/// first failed save (#123). The test is an open for writing, not the permission bits: the bits
+/// lie in both directions — root writes a 444 file, an ACL or a read-only mount refuses a 644 one
+/// — and a save is `fs::write` on this very path, so the open it would do is the honest question.
+/// Nothing is truncated, so the file is left as it was. A file that is not there is not a file
+/// that refuses to be written: merl keeps the text of one deleted under it, and Ctrl+S puts it
+/// back. Every other reason says more, so this one never takes a place.
+fn lock_no_write(buf: &mut Buffer) {
+    let Some(path) = buf.path.as_deref() else {
+        return;
+    };
+    if let Err(e) = std::fs::OpenOptions::new().write(true).open(path)
+        && e.kind() != std::io::ErrorKind::NotFound
+    {
+        buf.readonly.get_or_insert("no write permission");
+    }
+}
+
 impl App {
     pub fn new(
         root: PathBuf,
         tree: Tree,
         files: Vec<PathBuf>,
-        buf: Buffer,
+        mut buf: Buffer,
         line: Option<usize>,
     ) -> Self {
         let focus = if buf.path.is_some() {
@@ -293,7 +311,7 @@ impl App {
         };
         let mut app = Self {
             root,
-            buf,
+            buf: Buffer::empty(),
             tree,
             files,
             external: HashMap::new(),
@@ -353,6 +371,9 @@ impl App {
             config: None,
             quit_again: false,
         };
+        // The file named on the command line is asked the same question as one opened later.
+        lock_no_write(&mut buf);
+        app.buf = buf;
         if let Some(n) = line {
             app.goto_line(n);
         }
@@ -858,7 +879,7 @@ impl App {
             }
             match self.load(path) {
                 Ok(mut buf) => {
-                    self.lock_outside(&mut buf);
+                    self.lock_unwritable(&mut buf);
                     self.buf = buf;
                     self.anchor = None;
                     self.dirty = false;
@@ -887,11 +908,19 @@ impl App {
         true
     }
 
-    /// The standard library and dependencies are read here, never edited: on open and on every
-    /// reload. A `.venv` or `node_modules` sits inside the root, so the roots decide, but not
-    /// over a file the project walk listed: an editable install puts the project's own `src` on
-    /// `sys.path`.
-    fn lock_outside(&self, buf: &mut Buffer) {
+    /// Where the file sits, rather than what it holds, says it cannot be edited: on open and on
+    /// every reload.
+    ///
+    /// The standard library and dependencies are read here, never edited. A `.venv` or
+    /// `node_modules` sits inside the root, so the roots decide, but not over a file the project
+    /// walk listed: an editable install puts the project's own `src` on `sys.path`.
+    ///
+    /// Then the file merl has no permission to write (#123). The test is an open for writing,
+    /// not the permission bits: the bits lie in both directions — root writes a 444 file, an ACL
+    /// or a read-only mount refuses a 644 one — and a save is `fs::write` on this very path, so
+    /// the open it would do is the honest question. Nothing is truncated, so the file is left as
+    /// it was. It comes last because every other reason says more.
+    fn lock_unwritable(&self, buf: &mut Buffer) {
         let Some(path) = buf.path.as_deref() else {
             return;
         };
@@ -909,6 +938,7 @@ impl App {
         if external {
             buf.readonly.get_or_insert("outside the project");
         }
+        lock_no_write(buf);
     }
 
     /// The file from disk; in review mode a file the branch deleted comes from the base,
@@ -1146,7 +1176,7 @@ impl App {
             }
         }
         let mut buf = Buffer::from_bytes(path.clone(), &bytes);
-        self.lock_outside(&mut buf);
+        self.lock_unwritable(&mut buf);
         let old = std::mem::replace(&mut self.buf, buf);
         if self.review.is_some() {
             // The reader stays in the hunk they are in when an agent writes above it: every
@@ -5750,6 +5780,65 @@ mod tests {
         assert_eq!(a.buf.readonly, Some("outside the project"));
         assert!(a.diff.marks.is_empty() && a.diff.hunks.is_empty());
         std::fs::remove_file(&outside).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A file merl cannot write is read-only from the moment it opens, not from the first failed
+    /// save (#123). Every load asks again, so a `chmod` outside merl is picked up by Ctrl+R, and
+    /// a reason that tells the reader more keeps its place.
+    #[test]
+    #[cfg(unix)]
+    fn a_file_without_write_permission_is_read_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let (dir, mut a) = project_app(
+            "readonly",
+            &[("src/a.rs", "fn x() {}\n"), (".env", "API_KEY=\n")],
+        );
+        let (env, other) = (dir.join(".env"), dir.join("src/a.rs"));
+        let open = |a: &mut App, p: &Path| {
+            a.jump_to(&other, 1);
+            a.jump_to(p, 1);
+        };
+        let chmod = |p: &Path, mode| {
+            std::fs::set_permissions(p, std::fs::Permissions::from_mode(mode)).unwrap()
+        };
+        open(&mut a, &env);
+        assert_eq!(a.buf.readonly, None);
+
+        chmod(&env, 0o444);
+        open(&mut a, &env);
+        // As root every file is writable, and there is nothing to assert.
+        if std::fs::OpenOptions::new().write(true).open(&env).is_ok() {
+            std::fs::remove_dir_all(&dir).unwrap();
+            return;
+        }
+        assert_eq!(a.buf.readonly, Some("no write permission"));
+
+        // Where the file is says more than what it is missing: the standard library and a
+        // dependency are unwritable on most machines, and `outside the project` is the reason
+        // that explains them.
+        let outside = std::env::temp_dir().join(format!("merl-ro-out-{}", std::process::id()));
+        std::fs::write(&outside, "fn x() {}\n").unwrap();
+        chmod(&outside, 0o444);
+        open(&mut a, &outside);
+        assert_eq!(a.buf.readonly, Some("outside the project"));
+        chmod(&outside, 0o644);
+        std::fs::remove_file(&outside).unwrap();
+
+        // `merl .env`: the file named on the command line never reaches `open`.
+        chmod(&env, 0o444);
+        let started = App::new(
+            dir.clone(),
+            Tree::default(),
+            Vec::new(),
+            Buffer::load(&env).unwrap(),
+            None,
+        );
+        assert_eq!(started.buf.readonly, Some("no write permission"));
+
+        chmod(&env, 0o644);
+        open(&mut a, &env);
+        assert_eq!(a.buf.readonly, None);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
