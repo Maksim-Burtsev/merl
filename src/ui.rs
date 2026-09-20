@@ -424,7 +424,7 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     let text_hl = app.selected_bytes(app.line).is_none_or(|r| !r.is_empty());
 
     let nowrap = app.nowrap();
-    let ghost = base.fg(theme.gutter_fg).add_modifier(Modifier::DIM);
+    let ghost = base.fg(theme.ghost_fg);
     let ghost_row = |text: &str| {
         Line::from(vec![
             Span::styled(" ".repeat(gutter_w - 1), gutter_style),
@@ -1408,6 +1408,11 @@ z
             rows(&terminal)[..5],
             ["1 a", "\u{258e}old1", "\u{258e}old2", "2\u{258e}b", "3 c"]
         );
+        // Greyed by the theme's own readable grey, never by the terminal's `dim` (#144).
+        let buf = terminal.backend().buffer();
+        let o = (0..8).find(|x| buf[(*x, 1)].symbol() == "o").unwrap();
+        assert_eq!(buf[(o, 1)].fg, theme.ghost_fg);
+        assert!(!buf[(o, 1)].modifier.contains(ratatui::style::Modifier::DIM));
         assert_eq!(terminal.get_cursor_position().unwrap().y, 4);
         // Up from `c` lands on `b`, not on a ghost; up again on `a`.
         app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
