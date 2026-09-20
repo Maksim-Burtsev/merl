@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` in Go reads a build tag of the project's own as a plain `go build` does: unset. Of a type
+  declared twice, under `//go:build gogit` and `//go:build !gogit`, `d` goes to the one that is
+  built instead of asking; `cgo`, `gc` and `go1.N` count as set, `//go:build ignore` files drop
+  out. `GOFLAGS=-tags=…` and `CGO_ENABLED=0` in the environment are honoured, and from inside
+  the file under the tag both declarations are still offered. (#137)
 - `d` no longer offers a line inside an embedded literal as a declaration: `literal_lines` reads
   a Swift or C# `"""` block, a C# verbatim `@"…"` (where `""` is a quote, not the end) and a PHP
   heredoc, so the SQL a migration embeds stops answering `d`. (#17)
@@ -278,6 +283,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` no longer takes merl down on a word standing behind a character outside ASCII. Three places
+  read the name in front of the cursor from the byte index `rfind` gives and added one to it,
+  which lands inside a wider character: `d` on `load` in `данные.load(x)`, or on `word` in
+  `café().word`, panicked out of raw mode and left the terminal unusable until `reset`. The name
+  is read by characters now; one written outside ASCII is still no name to the rules, so `d`
+  falls back to the search by name. (#150)
 - Review: the lines a branch deleted can be read. They were drawn in the line-number colour with
   the terminal's `dim` on top, which in the default theme and many others left an empty-looking
   block beside the red bar, and a blank page for a deleted file. They are now the theme's text

@@ -161,6 +161,8 @@ pub struct App {
     /// together for: a workspace has one per package, and each file sees those above it.
     node_modules: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
     node_modules_of: Option<PathBuf>,
+    /// What `go build` compiles here, which picks among a Go declaration's twins.
+    go_build: search::GoBuild,
     /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
     /// keyword argument, which names a parameter no rule reads.
     offer_only: bool,
@@ -276,12 +278,30 @@ pub fn plural(n: usize) -> &'static str {
     if n == 1 { "" } else { "s" }
 }
 
+/// A file merl has no permission to write is read-only before the first keystroke, not after the
+/// first failed save (#123). The test is an open for writing, not the permission bits: the bits
+/// lie in both directions — root writes a 444 file, an ACL or a read-only mount refuses a 644 one
+/// — and a save is `fs::write` on this very path, so the open it would do is the honest question.
+/// Nothing is truncated, so the file is left as it was. A file that is not there is not a file
+/// that refuses to be written: merl keeps the text of one deleted under it, and Ctrl+S puts it
+/// back. Every other reason says more, so this one never takes a place.
+fn lock_no_write(buf: &mut Buffer) {
+    let Some(path) = buf.path.as_deref() else {
+        return;
+    };
+    if let Err(e) = std::fs::OpenOptions::new().write(true).open(path)
+        && e.kind() != std::io::ErrorKind::NotFound
+    {
+        buf.readonly.get_or_insert("no write permission");
+    }
+}
+
 impl App {
     pub fn new(
         root: PathBuf,
         tree: Tree,
         files: Vec<PathBuf>,
-        buf: Buffer,
+        mut buf: Buffer,
         line: Option<usize>,
     ) -> Self {
         let focus = if buf.path.is_some() {
@@ -291,12 +311,16 @@ impl App {
         };
         let mut app = Self {
             root,
-            buf,
+            buf: Buffer::empty(),
             tree,
             files,
             external: HashMap::new(),
             node_modules: HashMap::new(),
             node_modules_of: None,
+            go_build: search::GoBuild::host().env(
+                std::env::var("CGO_ENABLED").ok().as_deref(),
+                std::env::var("GOFLAGS").ok().as_deref(),
+            ),
             offer_only: false,
             truncated: Default::default(),
             focus,
@@ -347,6 +371,9 @@ impl App {
             config: None,
             quit_again: false,
         };
+        // The file named on the command line is asked the same question as one opened later.
+        lock_no_write(&mut buf);
+        app.buf = buf;
         if let Some(n) = line {
             app.goto_line(n);
         }
@@ -852,7 +879,7 @@ impl App {
             }
             match self.load(path) {
                 Ok(mut buf) => {
-                    self.lock_outside(&mut buf);
+                    self.lock_unwritable(&mut buf);
                     self.buf = buf;
                     self.anchor = None;
                     self.dirty = false;
@@ -881,11 +908,19 @@ impl App {
         true
     }
 
-    /// The standard library and dependencies are read here, never edited: on open and on every
-    /// reload. A `.venv` or `node_modules` sits inside the root, so the roots decide, but not
-    /// over a file the project walk listed: an editable install puts the project's own `src` on
-    /// `sys.path`.
-    fn lock_outside(&self, buf: &mut Buffer) {
+    /// Where the file sits, rather than what it holds, says it cannot be edited: on open and on
+    /// every reload.
+    ///
+    /// The standard library and dependencies are read here, never edited. A `.venv` or
+    /// `node_modules` sits inside the root, so the roots decide, but not over a file the project
+    /// walk listed: an editable install puts the project's own `src` on `sys.path`.
+    ///
+    /// Then the file merl has no permission to write (#123). The test is an open for writing,
+    /// not the permission bits: the bits lie in both directions — root writes a 444 file, an ACL
+    /// or a read-only mount refuses a 644 one — and a save is `fs::write` on this very path, so
+    /// the open it would do is the honest question. Nothing is truncated, so the file is left as
+    /// it was. It comes last because every other reason says more.
+    fn lock_unwritable(&self, buf: &mut Buffer) {
         let Some(path) = buf.path.as_deref() else {
             return;
         };
@@ -903,6 +938,7 @@ impl App {
         if external {
             buf.readonly.get_or_insert("outside the project");
         }
+        lock_no_write(buf);
     }
 
     /// The file from disk; in review mode a file the branch deleted comes from the base,
@@ -1140,7 +1176,7 @@ impl App {
             }
         }
         let mut buf = Buffer::from_bytes(path.clone(), &bytes);
-        self.lock_outside(&mut buf);
+        self.lock_unwritable(&mut buf);
         let old = std::mem::replace(&mut self.buf, buf);
         if self.review.is_some() {
             // The reader stays in the hunk they are in when an agent writes above it: every
@@ -3001,18 +3037,18 @@ impl App {
 
     /// Of several Go declarations of one name, those in files the host's `go build` compiles
     /// (#100): `Clock` of `clock_linux.go` and of `clock_windows.go` is one type per platform.
-    /// Only on certainty: every file is known to be built or known not to be
-    /// ([`search::go_built`]), so a tag of the project's own or a constraint the rules do not
-    /// read leaves all of them. Asked from the open file, which the host must not be known to
-    /// skip: inside `clock_windows.go` on another host nothing is preferred.
+    /// A tag of the project's own (`gogit`) is unset, as it is for a plain `go build`, unless
+    /// `GOFLAGS` sets it (#137). Only on certainty: every file is known to be built or known not
+    /// to be ([`search::go_built`]), so a constraint the rules do not read leaves all of them.
+    /// Asked from the open file, which the host must not be known to skip: inside
+    /// `clock_windows.go` on another host, or inside `repo_gogit.go`, nothing is preferred.
     fn host_built(&self, kind: Kind, hits: Vec<Hit>) -> Vec<Hit> {
         if kind != Kind::Go || hits.len() < 2 {
             return hits;
         }
-        let (goos, goarch) = search::go_host();
         let built = |p: &Path| {
             self.text_of(p)
-                .and_then(|t| search::go_built(p, &t, goos, goarch))
+                .and_then(|t| search::go_built(p, &t, &self.go_build))
         };
         if self
             .rel_current()
@@ -5747,6 +5783,65 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// A file merl cannot write is read-only from the moment it opens, not from the first failed
+    /// save (#123). Every load asks again, so a `chmod` outside merl is picked up by Ctrl+R, and
+    /// a reason that tells the reader more keeps its place.
+    #[test]
+    #[cfg(unix)]
+    fn a_file_without_write_permission_is_read_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let (dir, mut a) = project_app(
+            "readonly",
+            &[("src/a.rs", "fn x() {}\n"), (".env", "API_KEY=\n")],
+        );
+        let (env, other) = (dir.join(".env"), dir.join("src/a.rs"));
+        let open = |a: &mut App, p: &Path| {
+            a.jump_to(&other, 1);
+            a.jump_to(p, 1);
+        };
+        let chmod = |p: &Path, mode| {
+            std::fs::set_permissions(p, std::fs::Permissions::from_mode(mode)).unwrap()
+        };
+        open(&mut a, &env);
+        assert_eq!(a.buf.readonly, None);
+
+        chmod(&env, 0o444);
+        open(&mut a, &env);
+        // As root every file is writable, and there is nothing to assert.
+        if std::fs::OpenOptions::new().write(true).open(&env).is_ok() {
+            std::fs::remove_dir_all(&dir).unwrap();
+            return;
+        }
+        assert_eq!(a.buf.readonly, Some("no write permission"));
+
+        // Where the file is says more than what it is missing: the standard library and a
+        // dependency are unwritable on most machines, and `outside the project` is the reason
+        // that explains them.
+        let outside = std::env::temp_dir().join(format!("merl-ro-out-{}", std::process::id()));
+        std::fs::write(&outside, "fn x() {}\n").unwrap();
+        chmod(&outside, 0o444);
+        open(&mut a, &outside);
+        assert_eq!(a.buf.readonly, Some("outside the project"));
+        chmod(&outside, 0o644);
+        std::fs::remove_file(&outside).unwrap();
+
+        // `merl .env`: the file named on the command line never reaches `open`.
+        chmod(&env, 0o444);
+        let started = App::new(
+            dir.clone(),
+            Tree::default(),
+            Vec::new(),
+            Buffer::load(&env).unwrap(),
+            None,
+        );
+        assert_eq!(started.buf.readonly, Some("no write permission"));
+
+        chmod(&env, 0o644);
+        open(&mut a, &env);
+        assert_eq!(a.buf.readonly, None);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn history_walks_back_and_forward() {
         let (dir, mut a) = files_app("walk");
@@ -6069,6 +6164,8 @@ mod tests {
             .join(name);
         let (tree, files) = crate::tree::build(&dir);
         let mut a = App::new(dir, tree, files, Buffer::empty(), None);
+        // The fixtures are read as a plain build reads them, whatever `GOFLAGS` the tests run under.
+        a.go_build = search::GoBuild::host();
         for kind in [Kind::Python, Kind::TsJs, Kind::Go] {
             a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
         }
@@ -9814,8 +9911,9 @@ mod tests {
     }
 
     /// #100. A Go type declared once per platform (`clock_windows.go` beside a
-    /// `//go:build !windows` file) is the one the host builds. A tag of the project's own decides
-    /// nothing, and neither does the host from inside a file it does not build.
+    /// `//go:build !windows` file) is the one the host builds, and one declared under a tag of
+    /// the project's own is the one a plain `go build` compiles, or the one `-tags` asks for
+    /// (#137). From inside a file that is not built nothing is preferred.
     #[test]
     fn a_go_declaration_per_platform_is_the_hosts() {
         let (mine, other) = match cfg!(windows) {
@@ -9865,6 +9963,14 @@ mod tests {
             (
                 "platforms.go",
                 "codec.Encode",
+                jump(
+                    "Encode \u{2192} Codec.Encode (via codec: Codec)",
+                    "platform/codec_slow.go:7",
+                ),
+            ),
+            (
+                "platform/codec_fast.go",
+                "c.Encode",
                 both(
                     "Encode: by name, 2 declarations",
                     "Codec.Encode",
@@ -9881,7 +9987,7 @@ mod tests {
                     &format!("platform/timer_{}.go:{}", host.0, host.1),
                 ),
             ),
-            // A platform that has decided is not undone by a tag that is none: `windows && !slow`.
+            // A platform and a tag of the project's own: `windows && !slow`.
             (
                 "platforms.go",
                 "gauge.Read",
@@ -9901,6 +10007,17 @@ mod tests {
                 ),
             ),
         ]);
+        // `GOFLAGS=-tags=fast` builds the other one.
+        let mut a = fixture_app("go");
+        a.go_build.tags = vec!["fast".into()];
+        d_on(&mut a, "platforms.go", "codec.Encode");
+        assert_eq!(
+            shown(&mut a),
+            jump(
+                "Encode \u{2192} Codec.Encode (via codec: Codec)",
+                "platform/codec_fast.go:8",
+            )
+        );
         // Asked from inside the file the host does not build, a method per platform is both;
         // and where no declaration is built (`gate_windows.go`, `gate_plan9.go`), all stay.
         if !cfg!(windows) {
@@ -9930,7 +10047,8 @@ mod tests {
             d_on(&mut a, "platforms_gate.go", "platform.NewGate");
             assert_eq!(a.message, "NewGate: via import platform/, 2 declarations");
             press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-            // `meter_fast.go` is not known to be built, so `meter_windows.go` loses to nothing.
+            // `meter_fast.go` (`// +build`) is not known to be built, so `meter_windows.go` loses
+            // to nothing.
             d_on(&mut a, "platforms_gate.go", "meter.Sample");
             assert_eq!(
                 shown(&mut a),
