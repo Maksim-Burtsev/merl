@@ -1,0 +1,14 @@
+# The editing half: the few lines a human still types. A typo in a comment, fixed in place.
+merl services/user/block.go:136
+wait unstarRepos
+sleep 0.6
+show
+sleep 2.2
+key End
+sleep 0.9
+key Enter
+sleep 1
+type s
+sleep 1.8
+key Escape
+sleep 3

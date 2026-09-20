@@ -23,12 +23,11 @@ and other binaries are skipped, and merl says how many.
 
 <img src="../assets/day/4-back.gif" alt="two [ walk back from the engine through the helper to the hunk" width="800">
 
-**5. A typo.** `End`, Enter, fix it, Esc. It is on disk before you look up.
-
-<img src="../assets/day/5-fix.gif" alt="End, Enter, one letter typed, Esc, saved" width="800">
-
-**6. The agent is still working** in the other split. The file it just wrote shows up in the
+**5. The agent is still working** in the other split. The file it just wrote shows up in the
 review on its own, and `c` will walk into it.
 
-<img src="../assets/day/6-live.gif" alt="a file the agent writes appears in the review panel" width="800">
+<img src="../assets/day/5-live.gif" alt="a file the agent writes appears in the review panel" width="800">
+
+Nothing here types into the branch: a review is reading, and a fix typed over it reaches no pull
+request. When the line is yours to change, Enter and Esc are in [Editing](editing.md).
 
