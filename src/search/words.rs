@@ -144,6 +144,15 @@ pub(super) fn in_method(t: &str, name: &str) -> bool {
             .any(|(i, m)| !t[..i].ends_with(ident) && !t[i + m.len()..].starts_with(ident))
     })
 }
+/// The byte the name at the end of `s` starts at: past the last character that is no name char,
+/// or 0 where every character is one. `rfind` gives that character's first byte, and a character
+/// outside ASCII is wider than the byte a slice at `i + 1` would assume (#150).
+fn name_start(s: &str, is_name: impl Fn(char) -> bool) -> usize {
+    s.char_indices()
+        .rev()
+        .find(|&(_, c)| !is_name(c))
+        .map_or(0, |(i, c)| i + c.len_utf8())
+}
 /// The dotted or `::` chain in front of the word under the cursor: `["json"]` for
 /// `json.load(`, `["os", "path"]` for `os.path.join(`, `["fs"]` for `fs::read(`. Empty when the
 /// word stands alone. A TypeScript private field keeps its `#`: `["this", "#root"]`. A chain that
@@ -164,9 +173,7 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
             before = head;
             break;
         }
-        let mut start = rest
-            .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
-            .map_or(0, |i| i + 1);
+        let mut start = name_start(rest, |c| c.is_ascii_alphanumeric() || c == '_');
         if start == rest.len() {
             break;
         }
@@ -242,7 +249,7 @@ pub fn call_head(
     let mut before = line[..word_start].strip_suffix('.')?;
     let mut fields = Vec::new();
     while !before.ends_with(')') {
-        let start = before.rfind(|c: char| !is_name(c)).map_or(0, |i| i + 1);
+        let start = name_start(before, is_name);
         if start == before.len() {
             return None;
         }
@@ -254,9 +261,7 @@ pub fn call_head(
         .filter(|(_, c)| *c == b'(')
         .map(|(i, _)| i)
         .find(|&i| close_of(kind, before, i) == Some(before.len()))?;
-    let mut start = before[..open]
-        .rfind(|c: char| !(is_name(c) || c == '.'))
-        .map_or(0, |i| i + 1);
+    let mut start = name_start(&before[..open], |c| is_name(c) || c == '.');
     // `.c` in `a.b().c()` is no callee [`value_of`] reads, and nor is nothing at all.
     let callee = &before[start..open];
     if kind == Kind::TsJs

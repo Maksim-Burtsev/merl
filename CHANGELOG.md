@@ -275,6 +275,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` no longer takes merl down on a word standing behind a character outside ASCII. Three places
+  read the name in front of the cursor from the byte index `rfind` gives and added one to it,
+  which lands inside a wider character: `d` on `load` in `данные.load(x)`, or on `word` in
+  `café().word`, panicked out of raw mode and left the terminal unusable until `reset`. The name
+  is read by characters now; one written outside ASCII is still no name to the rules, so `d`
+  falls back to the search by name. (#150)
 - Review: the lines a branch deleted can be read. They were drawn in the line-number colour with
   the terminal's `dim` on top, which in the default theme and many others left an empty-looking
   block beside the red bar, and a blank page for a deleted file. They are now the theme's text

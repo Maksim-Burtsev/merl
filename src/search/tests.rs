@@ -2527,6 +2527,10 @@ fn qualifier_is_the_chain_in_front_of_the_word() {
     // A spread and a range are no member access.
     assert_eq!(q("f(...this.repo.find())", 15), ["this", "repo"]);
     assert_eq!(q("for i in 0..v.len() {", 14), ["v"]);
+    // A character outside ASCII in front of the word is no name char, and the chain is read
+    // without slicing inside it (#150).
+    assert!(q("    данные.load(x)", 17).is_empty());
+    assert!(q("  café.load(x)", 8).is_empty());
 }
 
 #[test]
@@ -3518,6 +3522,10 @@ fn a_chain_may_hang_off_the_call_that_starts_it() {
     assert_eq!(head(Kind::TsJs, "  load<Repo>(id).find()"), None);
     assert_eq!(head(Kind::TsJs, "  if (ok).find()"), None);
     assert_eq!(head(Kind::Python, "    repo.find()"), None);
+    // A callee or a field with a character outside ASCII: no name to read, and no slice inside
+    // the character either (#150).
+    assert_eq!(head(Kind::TsJs, "  void café().word"), None);
+    assert_eq!(head(Kind::Python, "    café.users.delete(1)"), None);
 }
 
 #[test]
