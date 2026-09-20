@@ -14,18 +14,18 @@ and other binaries are skipped, and merl says how many.
 
 <img src="../assets/day/2-hunks.gif" alt="c walks from hunk to hunk and into the next file" width="800">
 
-**3. A hunk calls something you do not know.** `d` opens its definition, `u` lists who else
-calls it.
+**3. A hunk calls something you do not know.** `Alt+Left` / `Alt+Right` hop word by word onto it,
+`d` opens its definition, `u` lists who else calls it.
 
-<img src="../assets/day/3-into.gif" alt="d from a changed line to the definition, then u for its usages" width="800">
+<img src="../assets/day/3-into.gif" alt="d from a changed line to the definition the branch added, then u for its usages" width="800">
 
-**4. `[` goes back** to the hunk you left, however far you wandered.
+**4. `[` goes back** to the hunk you left, however far you wandered: one `[` per jump.
 
-<img src="../assets/day/4-back.gif" alt="[ returns to the hunk" width="800">
+<img src="../assets/day/4-back.gif" alt="two [ walk back from the engine through the helper to the hunk" width="800">
 
-**5. A typo.** Enter, fix it, Esc. It is on disk before you look up.
+**5. A typo.** `End`, Enter, fix it, Esc. It is on disk before you look up.
 
-<img src="../assets/day/5-fix.gif" alt="Enter, one letter typed, Esc, saved" width="800">
+<img src="../assets/day/5-fix.gif" alt="End, Enter, one letter typed, Esc, saved" width="800">
 
 **6. The agent is still working** in the other split. The file it just wrote shows up in the
 review on its own, and `c` will walk into it.

@@ -22,5 +22,5 @@ git clean -fdq
 git branch -q -D agent/unstar-paging 2>/dev/null || true
 git checkout -q -b agent/unstar-paging
 git apply "$here/agent-branch.patch"
-git -c user.name=agent -c user.email=agent@example.com commit -qam "user: unstar by ID when blocking, paging skipped rows"
+git -c user.name=agent -c user.email=agent@example.com commit -qam "user: unstar and unwatch by ID when blocking, paging skipped rows"
 echo "ready: $dir/gitea on $(git branch --show-current)"

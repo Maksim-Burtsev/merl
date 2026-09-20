@@ -2,15 +2,19 @@
 merl --review
 wait hunk 1/1
 key c
-wait hunk 1/5
+wait file 2/5
+key c
+wait file 3/5
+key c
+wait hunk 1/10
 key Down
-key@0.02 Right*28
+key@0.05 M-Right*4
 sleep 1
 show
 sleep 1.8
 key d
-wait via import
+wait via import models/repo
 sleep 2.6
 key u
 wait Usages of
-sleep 2.5
+sleep 3

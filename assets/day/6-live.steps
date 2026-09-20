@@ -2,15 +2,17 @@
 merl --review
 wait hunk 1/1
 key c
-wait hunk 1/5
+wait file 2/5
+key c
+wait file 3/5
+key c
+wait hunk 1/10
 sleep 1
 show
 spawn "$ROOT/assets/tapes/agent.sh" 2.5
 sleep 2.5
 wait block_note_test
 sleep 2.5
-key C
-sleep 0.2
-key c c c c c c
-wait file 3/3
-sleep 2
+key@0.18 c*10
+wait file 5/6
+sleep 2.5

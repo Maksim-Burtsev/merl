@@ -68,7 +68,7 @@ those two things out of the box, with nothing to configure and nothing to switch
   changed line you can look up what it calls and who else uses it. It stays current while the
   agent keeps working. [A review, step by step](docs/a-day-with-merl.md).
 
-  <img src="assets/review.gif" alt="merl --review on an agent's branch: c goes on into the file where a function was rewritten, the deleted lines standing in grey above the new ones; arrows onto the new call, d into the helper the branch added, [ back, then Enter, one letter and Esc fix a typo in place" width="900">
+  <img src="assets/review.gif" alt="merl --review on an agent's branch: c walks the hunks and on into the file where a function was rewritten, the deleted lines standing in grey above the new ones; Alt+Right hops word by word onto the new call, d goes into the helper the branch added and d again into the engine it queries, [ [ comes back to the hunk, then Enter, one letter and Esc fix a typo in place" width="900">
 
 - **Touch up a line.** Enter, type, Esc. It saves itself. Enough for a typo, a constant, or a
   secret you would rather not hand to an agent. [More on editing](docs/editing.md).
@@ -104,6 +104,7 @@ The dozen you will use every day. `?` inside merl shows the rest.
 | D | Project symbols (fuzzy) |
 | [ / ] | Back / forward in the jump history |
 | c / C | Review: next / previous hunk, on to the next file |
+| Alt+Left / Alt+Right | Move one word |
 | Enter | Edit at the cursor (Esc returns to navigation) |
 | t | Show or hide the file tree |
 | ? | This help |
