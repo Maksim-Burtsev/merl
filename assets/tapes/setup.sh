@@ -1,7 +1,7 @@
 #!/bin/sh
 # Prepares what the tapes record: a checkout of gitea at a pinned commit in /tmp/merl-demo/gitea,
 # on a branch that plays the agent's work (agent-branch.patch), and an empty HOME so that merl
-# runs with its defaults. Run once, then: vhs assets/demo.tape, vhs assets/day/1-review.tape, ...
+# runs with its defaults. Run once, then: assets/tapes/record.py assets/demo.steps, ...
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 dir=/tmp/merl-demo
@@ -19,8 +19,8 @@ fi
 cd "$dir/gitea"
 git checkout -q -f main
 git clean -fdq
-git branch -q -D agent/assignee-cap 2>/dev/null || true
-git checkout -q -b agent/assignee-cap
+git branch -q -D agent/blocking-note 2>/dev/null || true
+git checkout -q -b agent/blocking-note
 git apply "$here/agent-branch.patch"
-git -c user.name=agent -c user.email=agent@example.com commit -qam "issues: cap the assignees of an issue"
+git -c user.name=agent -c user.email=agent@example.com commit -qam "user: trim the note of a blocking"
 echo "ready: $dir/gitea on $(git branch --show-current)"

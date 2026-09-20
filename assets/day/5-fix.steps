@@ -1,0 +1,19 @@
+# A typo: Enter, fix it, Esc. It is saved on its own.
+merl --review
+wait hunk 1/2
+key c c
+wait file 2/2
+key /
+type@0.03 enought
+key Enter Escape
+sleep 1
+show
+sleep 1.8
+key Enter
+sleep 0.9
+key@0.12 Right*7
+sleep 0.7
+key BSpace
+sleep 1.2
+key Escape
+sleep 2

@@ -1,62 +1,55 @@
-diff --git a/models/issues/assignees.go b/models/issues/assignees.go
-index 622df6a..e94aaf2 100644
---- a/models/issues/assignees.go
-+++ b/models/issues/assignees.go
-@@ -50,6 +50,14 @@ func (issue *Issue) LoadAssignees(ctx context.Context) (err error) {
- 	return nil
- }
- 
-+// MaxAssignees is the most users one issue can be assigned to.
-+const MaxAssignees = 10
-+
-+// CountAssignees returns how many users are assigned to the issue.
-+func CountAssignees(ctx context.Context, issueID int64) (int64, error) {
-+	return db.GetEngine(ctx).Where("issue_id = ?", issueID).Count(new(IssueAssignees))
-+}
-+
- // GetAssigneeIDsByIssue returns the IDs of users assigned to an issue
- // but skips joining with `user` for performance reasons.
- // User permissions must be verified elsewhere if required.
-diff --git a/services/issue/assignee.go b/services/issue/assignee.go
-index 4b24115..afbe756 100644
---- a/services/issue/assignee.go
-+++ b/services/issue/assignee.go
-@@ -12,6 +12,7 @@ import (
- 	repo_model "gitea.dev/models/repo"
- 	user_model "gitea.dev/models/user"
- 	"gitea.dev/modules/container"
-+	"gitea.dev/modules/util"
- 	notify_service "gitea.dev/services/notify"
+diff --git a/models/user/block.go b/models/user/block.go
+index e4e4756..482594c 100644
+--- a/models/user/block.go
++++ b/models/user/block.go
+@@ -22,12 +22,12 @@ var (
  )
  
-@@ -55,8 +56,30 @@ func DeleteNotPassedAssignee(ctx context.Context, issue *issues_model.Issue, doe
- 	return nil
+ type Blocking struct {
+-	ID          int64 `xorm:"pk autoincr"`
+-	BlockerID   int64 `xorm:"UNIQUE(block)"`
+-	Blocker     *User `xorm:"-"`
+-	BlockeeID   int64 `xorm:"UNIQUE(block)"`
+-	Blockee     *User `xorm:"-"`
+-	Note        string
++	ID          int64              `xorm:"pk autoincr"`
++	BlockerID   int64              `xorm:"UNIQUE(block)"`
++	Blocker     *User              `xorm:"-"`
++	BlockeeID   int64              `xorm:"UNIQUE(block)"`
++	Blockee     *User              `xorm:"-"`
++	Note        string             `xorm:"VARCHAR(255)"`
+ 	CreatedUnix timeutil.TimeStamp `xorm:"INDEX created"`
  }
  
-+func checkAssigneeCap(ctx context.Context, issue *issues_model.Issue) error {
-+	count, err := issues_model.CountAssignees(ctx, issue.ID)
-+	if err != nil {
-+		return err
+@@ -39,6 +39,17 @@ func init() {
+ 	db.RegisterModel(new(Blocking))
+ }
+ 
++// MaxBlockingNoteLen is the longest note a blocking can carry.
++const MaxBlockingNoteLen = 255
++
++// TrimBlockingNote cuts a note down to what the column holds.
++func TrimBlockingNote(note string) string {
++	if len(note) > MaxBlockingNoteLen {
++		return note[:MaxBlockingNoteLen]
 +	}
-+	if count >= issues_model.MaxAssignees {
-+		return util.NewInvalidArgumentErrorf("an issue takes %d assignees", issues_model.MaxAssignees)
-+	}
-+	return nil
++	return note
 +}
 +
- // ToggleAssignee changes a user between assigned and not assigned for this issue, and make issue comment for it.
- func ToggleAssignee(ctx context.Context, issue *issues_model.Issue, doer, assignee *user_model.User) (removed bool, comment *issues_model.Comment, err error) {
-+	// Refuse a new assignee when the issue has to many.
-+	assigned, err := issues_model.IsUserAssignedToIssue(ctx, issue, assignee.ID)
-+	if err != nil {
-+		return false, nil, err
-+	}
-+	if !assigned {
-+		if err = checkAssigneeCap(ctx, issue); err != nil {
-+			return false, nil, err
-+		}
-+	}
+ func UpdateBlockingNote(ctx context.Context, id int64, note string) error {
+ 	_, err := db.GetEngine(ctx).ID(id).Cols("note").Update(&Blocking{Note: note})
+ 	return err
+diff --git a/services/user/block.go b/services/user/block.go
+index 48e6ed3..2e3825c 100644
+--- a/services/user/block.go
++++ b/services/user/block.go
+@@ -75,6 +75,9 @@ func BlockUser(ctx context.Context, doer, blocker, blockee *user_model.User, not
+ 		return user_model.ErrCanNotBlock
+ 	}
+ 
++	// Keep the note short enought for the column.
++	note = user_model.TrimBlockingNote(note)
 +
- 	removed, comment, err = issues_model.ToggleIssueAssignee(ctx, issue, doer, assignee.ID)
- 	if err != nil {
- 		return false, nil, err
+ 	return db.WithTx(ctx, func(ctx context.Context) error {
+ 		// unfollow each other
+ 		if err := user_model.UnfollowUser(ctx, blocker.ID, blockee.ID); err != nil {

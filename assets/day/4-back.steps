@@ -1,0 +1,15 @@
+# [ goes back to the hunk you left.
+merl --review
+wait hunk 1/2
+key c c
+wait file 2/2
+key /
+type@0.03 TrimBlockingNote
+key Enter Escape d
+wait via import
+sleep 1
+show
+sleep 3
+key [
+wait file 2/2
+sleep 1.5

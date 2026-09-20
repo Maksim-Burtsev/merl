@@ -1,0 +1,57 @@
+# The reading half: open, find, go to definition, back, usages, search.
+merl
+wait Open a file
+sleep 0.5
+show
+sleep 1.5
+
+# o: a file by a few letters of its name; the second row is the one
+key o
+sleep 0.8
+type user block
+sleep 1.5
+key Down
+sleep 0.8
+key Enter
+wait services/user/block.go
+sleep 1.5
+
+# /: find in the file, the match moves with every letter
+key /
+sleep 0.6
+type@0.3 IsOw
+sleep 1.4
+key Enter
+sleep 1.2
+
+# d: the definition, and the status line says how it was proven
+key d
+wait via org_model
+sleep 2.6
+
+# [: back
+key [
+wait services/user/block.go
+sleep 1.6
+
+# u: usages, the declarations first and the test last
+key u
+wait Usages of
+sleep 2.2
+key Down Down Down Down
+sleep 0.6
+key Enter
+wait services/context/org.go
+sleep 1.6
+
+# s: search the project, the hits follow the typing
+key s
+sleep 0.7
+type@0.15 ErrBlockedUser
+wait hits)
+sleep 1.8
+key Down Down
+sleep 0.6
+key Enter
+wait models/user/block.go
+sleep 1

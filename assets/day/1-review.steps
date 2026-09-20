@@ -1,0 +1,13 @@
+# The agent says the branch is done: merl --review, and the panel lists what it touched.
+merl --review
+wait hunk 1/2
+sleep 0.5
+show
+sleep 2.5
+key Tab
+sleep 1
+key Down Down Down
+sleep 0.8
+key Enter
+wait file 2/2
+sleep 2

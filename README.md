@@ -22,7 +22,7 @@ and now and then type a secret into a `.env`. No setup, no config, no modes. It 
 terminal does, SSH and tmux included.
 
 <p align="center">
-  <img src="assets/demo.gif" alt="merl on a checkout of gitea: fuzzy-open a file, go to definition with the status line saying how it was proven, usages with the declaration first, back, project search as you type, then merl --review: walk the hunks, go to definition from a hunk, fix a typo, saved on its own" width="900">
+  <img src="assets/demo.gif" alt="merl on a checkout of gitea: open a file by a few letters of its name, find in the file, go to definition with the status line saying how it was proven, back, usages with the declarations first and the test last, then project search with the hits following the typing" width="900">
 </p>
 
 <p align="center"><sub>A checkout of <a href="https://github.com/go-gitea/gitea">gitea</a>, 5,500 files. Nothing was indexed or configured first.</sub></p>
@@ -92,6 +92,10 @@ calls and who else uses the function it changed without leaving the review, so a
 less attention. It stays open while the agent keeps working: new files appear in the panel, the
 counts follow every save, commit and rebase, and your cursor stays where it was. Comments and
 approvals stay in the browser.
+
+<p align="center">
+  <img src="assets/review.gif" alt="merl --review on an agent's branch: c walks the hunks and on into the next file, d goes from a changed line to the function it calls, [ comes back, Enter fixes a typo in place and Esc saves it" width="900">
+</p>
 
 **Fix a line.** Enter, type, Esc. It is saved on its own. That covers a typo, a constant, and
 the secret you would rather not paste into an agent. [More on editing](docs/editing.md).

@@ -1,0 +1,17 @@
+# A hunk calls something you do not know: d opens it, u lists who else calls it.
+merl --review
+wait hunk 1/2
+key c c
+wait file 2/2
+key /
+type@0.03 TrimBlockingNote
+key Enter Escape
+sleep 1
+show
+sleep 1.8
+key d
+wait via import
+sleep 2.6
+key u
+wait Usages of
+sleep 2.5
