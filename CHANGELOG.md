@@ -218,9 +218,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The README is rewritten around what merl is for: the one editor you need when agents write the
-  code. The workflow, a new demo recorded on gitea and install come first, then the argument, a
-  six-step "A day with merl", and "What merl is not". The editing and navigation reference moved
-  to `docs/editing.md` and `docs/navigation.md`, the theme details to `docs/themes.md`, and the
+  code. The workflow, a new demo recorded on gitea and install come first, then the argument in a
+  few sentences and "What merl is not"; the keys show the daily dozen with the rest folded. The editing and navigation reference moved
+  to `docs/editing.md` and `docs/navigation.md`, a review walked step by step to
+  `docs/a-day-with-merl.md`, the theme details to `docs/themes.md`, and the
   `Cargo.toml` description says the same as the tagline. The demo, the review demo and
   the walkthrough GIFs are recorded terminal sessions (asciinema and agg), one `.steps` file next
   to each, re-recorded with `assets/tapes/record.py` (#72).

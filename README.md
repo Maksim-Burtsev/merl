@@ -58,78 +58,22 @@ merl --tutor         # every key, hands on, in about ten minutes
 
 ## Why
 
-Agents write almost all of my code now. What is left for me is knowing the code: how it is built,
-where things live, what answers for what. That is what makes an architecture call a good one and
-an estimate in a meeting an honest one. And every branch still needs a person to read it before
-it merges.
+Agents write most of the code now. Your part is to understand it and to review it, and merl does
+those two things out of the box, with nothing to configure and nothing to switch off.
 
-I did that in VS Code for five years, and spent the first few filing it down. What survived was
-a file tree, a file with syntax highlighting, go to definition, search and a list of symbols.
-Everything else I switched off, and it kept coming back: a new panel, a chatbot button, a popup
-in the middle of a search, an extension complaining about a linter.
+- **Understand the code.** Open a file by a few letters of its name, search the project as you
+  type, go to a definition or list its usages, and come back with `[`. It follows you into the
+  standard library and the dependencies.
+- **Review a branch.** `merl --review` draws the branch's diff over the real files, so from any
+  changed line you can look up what it calls and who else uses it. It stays current while the
+  agent keeps working. [A review, step by step](docs/a-day-with-merl.md).
+- **Touch up a line.** Enter, type, Esc. It saves itself. Enough for a typo, a constant, or a
+  secret you would rather not hand to an agent. [More on editing](docs/editing.md).
 
-Meanwhile the work moved into terminals, next to the agents, and every extra window is one more
-thing to keep in my head. Vim and Helix already live there, but they want weeks of learning and
-a config before they pay off. I needed to switch yesterday.
-
-merl has no autocomplete, and I only noticed recently. A large part of every editor is there
-for typing code, and I had stopped typing it.
-
-So merl is a bicycle. Not a spaceship filed down to a bicycle.
-
-## Two jobs, and a small third
-
-**Find your way around.** Open any file by a few letters of its name. Search the project and see
-the hits while you type. Go to a definition and the status line says how merl got there: through
-an import, through the type of the receiver, or only by name. Ask for usages and the declaration
-comes first and the tests last. It follows you out of the project into the standard library and
-the installed dependencies. `[` always takes you back.
-
-**Review a branch.** `merl --review` is the review page of GitHub or GitLab with one difference:
-the diff is drawn over the real files. Added lines carry a green mark, deleted lines stand in
-place as grey ghosts, and everything above works from any changed line. You see what a new call
-calls and who else uses the function it changed without leaving the review, so a review takes
-less attention. It stays open while the agent keeps working: new files appear in the panel, the
-counts follow every save, commit and rebase, and your cursor stays where it was. Comments and
-approvals stay in the browser.
-
-<p align="center">
-  <img src="assets/review.gif" alt="merl --review on an agent's branch: c walks the hunks and on into the next file, d goes from a changed line to the function it calls, [ comes back, Enter fixes a typo in place and Esc saves it" width="900">
-</p>
-
-**Fix a line.** Enter, type, Esc. It is saved on its own. That covers a typo, a constant, and
-the secret you would rather not paste into an agent. [More on editing](docs/editing.md).
-
-## A day with merl
-
-**1. The agent says the branch is done.** `merl --review` opens it on its first hunk. The panel
-lists what the branch touched. `merl --review=feature-x` fetches and switches first, `--base
-origin/dev` compares against another base.
-
-<img src="assets/day/1-review.gif" alt="merl --review opens the agent's branch on its first hunk" width="800">
-
-**2. `c` walks the hunks**, through the file and on into the next one. `C` walks back. Images
-and other binaries are skipped, and merl says how many.
-
-<img src="assets/day/2-hunks.gif" alt="c walks from hunk to hunk and into the next file" width="800">
-
-**3. A hunk calls something you do not know.** `d` opens its definition, `u` lists who else
-calls it.
-
-<img src="assets/day/3-into.gif" alt="d from a changed line to the definition, then u for its usages" width="800">
-
-**4. `[` goes back** to the hunk you left, however far you wandered.
-
-<img src="assets/day/4-back.gif" alt="[ returns to the hunk" width="800">
-
-**5. A typo.** Enter, fix it, Esc. It is on disk before you look up.
-
-<img src="assets/day/5-fix.gif" alt="Enter, one letter typed, Esc, saved" width="800">
-
-**6. The agent is still working** in the other split. The file it just wrote shows up in the
-review on its own, and `c` will walk into it.
-
-<img src="assets/day/6-live.gif" alt="a file the agent writes appears in the review panel" width="800">
+I spent years switching things off in VS Code to get down to a tree, a highlighted file, go to
+definition and search. Vim and Helix want weeks of learning and a config first. merl starts
+there. It has no autocomplete, and it took me a while to notice: most of an editor is for typing
+code, and I had stopped typing it.
 
 ## What merl is not
 
@@ -145,28 +89,42 @@ merl.
 
 ## Keys
 
-Letters while you read, VS Code habits while you type, and the usual chords (Ctrl+E, Ctrl+F,
-Ctrl+G, F12) in both. `?` shows all of this inside merl.
-
-**Read and review**
+The dozen you will use every day. `?` inside merl shows the rest.
 
 | Key | Action |
 |---|---|
 | o / Ctrl+E | Open a file (fuzzy) |
 | s | Search the project |
+| / / Ctrl+F | Find in the open file |
 | d / F12 | Go to definition of the word under the cursor, or its implementations |
 | u / Shift+F12 | Usages of the word under the cursor |
 | D | Project symbols (fuzzy) |
 | [ / ] | Back / forward in the jump history |
 | c / C | Review: next / previous hunk, on to the next file |
-| / / Ctrl+F | Find in the open file |
-| n / N | Next / previous match |
-| : / Ctrl+G | Go to line |
+| Enter | Edit at the cursor (Esc returns to navigation) |
+| t | Show or hide the file tree |
+| ? | This help |
+| q | Quit |
 
-**Edit**
+<details>
+<summary>Every key</summary>
 
 | Key | Action |
 |---|---|
+| o / Ctrl+E | Open a file (fuzzy) |
+| / / Ctrl+F | Find in the open file |
+| n / N | Next / previous match |
+| s | Search the project |
+| d / F12 | Go to definition of the word under the cursor, or its implementations |
+| D | Project symbols (fuzzy) |
+| u / Shift+F12 | Usages of the word under the cursor |
+| [ / ] | Back / forward in the jump history |
+| c / C | Review: next / previous hunk, on to the next file |
+| : / Ctrl+G | Go to line |
+| t | Show or hide the file tree |
+| T | Pick a theme (live preview) |
+| w | Wrap long lines, or cut them at the edge and scroll sideways |
+| Tab | Switch focus between tree and code |
 | Enter | Edit at the cursor (Esc returns to navigation) |
 | Ctrl+S | Save now (edits are saved on their own after a pause) |
 | Ctrl+R | Reload from disk, dropping unsaved edits |
@@ -174,24 +132,6 @@ Ctrl+G, F12) in both. `?` shows all of this inside merl.
 | Ctrl+C | Copy the selection, or the line, to the clipboard |
 | Edit: Ctrl+X | Cut the selection, or the line |
 | Edit: Alt+Backspace / Alt+Delete | Delete the word before / after the cursor |
-
-**View**
-
-| Key | Action |
-|---|---|
-| t | Show or hide the file tree |
-| T | Pick a theme (live preview) |
-| w | Wrap long lines, or cut them at the edge and scroll sideways |
-| Tab | Switch focus between tree and code |
-| Esc | Close an overlay, leave edit mode, or clear selection and find |
-| ? | This help |
-| q | Quit |
-
-<details>
-<summary><b>Moving, selecting, the tree and the pickers</b>: arrows, Shift, Alt, Home and End, as everywhere else</summary>
-
-| Key | Action |
-|---|---|
 | Arrows | Move the cursor; Up / Down go by screen row |
 | Shift+Up / Shift+Down | Extend the selection by a screen row |
 | Shift+Left / Shift+Right | Extend the selection by a char |
@@ -204,6 +144,9 @@ Ctrl+G, F12) in both. `?` shows all of this inside merl.
 | PgUp / PgDn | Move one screen |
 | Home / End | Start / end of the screen row, then of the line |
 | Ctrl+Home / Ctrl+End | Start / end of the file |
+| Esc | Close an overlay, leave edit mode, or clear selection and find |
+| ? | This help |
+| q | Quit |
 | Tree: Up / Down | Move |
 | Tree: Enter | Open the file, or expand the directory |
 | Tree: Left / Right | Collapse / expand |
@@ -217,40 +160,24 @@ Ctrl+G, F12) in both. `?` shows all of this inside merl.
 
 ## Languages
 
-There is no language server and no index. Every lookup is a regex over the project's files, run
-through [ripgrep](https://github.com/BurntSushi/ripgrep)'s library crates, so a project works
-the moment you open it and a file the agent wrote a second ago is already searchable.
+`d`, `u` and `D` work in all of these, with no language server and no index: a project works the
+moment you open it. In Python, TypeScript and Go, `d` also follows the type of the receiver
+(`self.repo.save`), and it always says how it found its target.
 
-`d` never jumps without saying how it found the target. `via import app/repos.py` and
-`via self.repo: UserRepository` are proven. `by name, 2 declarations` is a picker with an honest
-label. `u` lists every whole-word use: the declaration first, then the open file, then the rest
-of the code nearest first, and tests, mocks and generated files last. `/` and `s` look for the
-text as typed, with no regex mode, and an uppercase letter makes them case-sensitive.
+| Language | `d` also reaches |
+|---|---|
+| Python | the standard library and the `.venv` |
+| TypeScript, JavaScript | `node_modules` |
+| Go | GOROOT and the modules in `go.mod` |
+| Rust | the sysroot and the crates in `Cargo.lock` |
+| C, C++ | the system headers |
+| Swift | `.build/checkouts` |
+| PHP | Composer's `vendor/` |
+| Zig | the standard library |
+| Java, Kotlin, Ruby, C#, Lua, Elixir | |
+| Shell, SQL, Makefile, Terraform, Dockerfile, YAML | |
 
-| Language | `d` and `D` find | `d` leaves the project for |
-|---|---|---|
-| Python | functions, classes, module-level names, fields; the receiver's type is followed (`self.repo.save`) | the standard library and the `.venv` |
-| TypeScript / JavaScript | functions, classes, interfaces, types, enums, `const`, methods, fields; the receiver's type is followed; `tsconfig` paths | `node_modules` |
-| Go | functions, methods, types, `var` / `const`, struct fields; the receiver's type is followed | GOROOT and the modules in `go.mod` |
-| Rust | `fn`, `struct`, `enum`, `trait`, `type`, `const`, `static`, `mod`, `macro_rules!` | the sysroot and the crates in `Cargo.lock` |
-| Java, Kotlin | types, methods, fields, constructors, `fun`, `object`, `val` / `var`; they search each other | |
-| Ruby | `def`, classes, modules, constants, `attr_accessor`, `alias` | |
-| C / C++ | functions, prototypes, methods, types, `typedef`, `using`, `#define`, globals | the system headers |
-| C# | types, records, delegates, namespaces, methods, properties, fields | |
-| Swift | types, protocols, actors, extensions, `func`, `init`, `let` / `var`, enum cases | `.build/checkouts` |
-| PHP | functions, classes, interfaces, traits, enums, constants, properties | Composer's `vendor/` |
-| Lua | every function form, `local` | |
-| Elixir | every `def` form, modules, protocols, struct fields, module attributes | |
-| Zig | `fn`, `const`, `var`, and tests in `D` | the standard library |
-| Shell | functions, assignments, `alias` | |
-| SQL | everything `CREATE`d, CTEs | |
-| Makefile | targets, variables | |
-| Terraform | the block behind `var.x`, `module.x`, `local.x`, `data.T.N`, `T.N` | |
-| Dockerfile | `FROM … AS` stages | |
-| YAML | anchors, keys that open a block (compose services, CI jobs) | |
-
-The first column is what `d` finds; `D` lists the functions and types among them. What each rule
-reads, what it refuses to guess, and why: [docs/navigation.md](docs/navigation.md).
+What each rule reads and what it refuses to guess: [docs/navigation.md](docs/navigation.md).
 
 ## Themes
 
@@ -267,25 +194,18 @@ There is none to write. `T` remembers your theme in `~/.config/merl/config.toml`
 
 ## Terminals
 
-merl runs in any terminal, and the same keys work over SSH and in tmux. There is no Cmd chord,
-because terminals keep Cmd for themselves, so copy is Ctrl+C and quit is `q`. Ghostty, kitty,
-WezTerm, iTerm2, foot and agterm get the kitty keyboard protocol. Terminal.app works, but it sends
-neither Shift+arrows nor Ctrl+Home and cannot copy.
+Any terminal, and the same keys over SSH and in tmux. Terminals keep Cmd for themselves, so copy
+is Ctrl+C and quit is `q`. Terminal.app is the weak one: no Shift+arrows, no Ctrl+Home, no copy.
 
-Copy reaches the system clipboard through the terminal (OSC 52), and paste is the terminal's
-own. In Ghostty one line makes Cmd+C and Cmd+X work too:
-`keybind = performable:cmd+c=copy_to_clipboard:mixed`.
+In Ghostty, `keybind = performable:cmd+c=copy_to_clipboard:mixed` makes Cmd+C and Cmd+X work too.
 
 ## Status
 
-1.0 is next. I work in merl every day, on my own machine and over SSH. What is left before 1.0
-is in the [milestone](https://github.com/Maksim-Burtsev/merl/milestone/1). Issues are
-welcome. A pull request that adds one of the things [merl is not](#what-merl-is-not) will be
-declined, kindly.
+I use merl every working day. 1.0 is next, and what is left for it is in the
+[milestone](https://github.com/Maksim-Burtsev/merl/milestone/1). Issues are welcome.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). The syntax definitions come from
-[bat](https://github.com/sharkdp/bat) via [two-face](https://github.com/CosmicHorrorDev/two-face).
-The ported themes keep their authors' licences, shipped next to them in `themes/` and listed in
-[docs/themes.md](docs/themes.md#licences).
+MIT. Syntax definitions come from [bat](https://github.com/sharkdp/bat) via
+[two-face](https://github.com/CosmicHorrorDev/two-face); the themes keep
+[their authors' licences](docs/themes.md#licences).

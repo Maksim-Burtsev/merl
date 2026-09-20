@@ -1,55 +1,70 @@
-diff --git a/models/user/block.go b/models/user/block.go
-index e4e4756..482594c 100644
---- a/models/user/block.go
-+++ b/models/user/block.go
-@@ -22,12 +22,12 @@ var (
- )
- 
- type Blocking struct {
--	ID          int64 `xorm:"pk autoincr"`
--	BlockerID   int64 `xorm:"UNIQUE(block)"`
--	Blocker     *User `xorm:"-"`
--	BlockeeID   int64 `xorm:"UNIQUE(block)"`
--	Blockee     *User `xorm:"-"`
--	Note        string
-+	ID          int64              `xorm:"pk autoincr"`
-+	BlockerID   int64              `xorm:"UNIQUE(block)"`
-+	Blocker     *User              `xorm:"-"`
-+	BlockeeID   int64              `xorm:"UNIQUE(block)"`
-+	Blockee     *User              `xorm:"-"`
-+	Note        string             `xorm:"VARCHAR(255)"`
- 	CreatedUnix timeutil.TimeStamp `xorm:"INDEX created"`
+diff --git a/models/repo/star.go b/models/repo/star.go
+index cecaecf..71537aa 100644
+--- a/models/repo/star.go
++++ b/models/repo/star.go
+@@ -25,6 +25,18 @@ func init() {
+ 	db.RegisterModel(new(Star))
  }
  
-@@ -39,6 +39,17 @@ func init() {
- 	db.RegisterModel(new(Blocking))
- }
- 
-+// MaxBlockingNoteLen is the longest note a blocking can carry.
-+const MaxBlockingNoteLen = 255
-+
-+// TrimBlockingNote cuts a note down to what the column holds.
-+func TrimBlockingNote(note string) string {
-+	if len(note) > MaxBlockingNoteLen {
-+		return note[:MaxBlockingNoteLen]
-+	}
-+	return note
++// StarredRepoIDsOfOwner lists the repositories of one owner that a user has starred.
++func StarredRepoIDsOfOwner(ctx context.Context, starrerID, ownerID int64) ([]int64, error) {
++	repoIDs := make([]int64, 0, 25)
++	return repoIDs, db.GetEngine(ctx).Table("star").
++		Join("INNER", "repository", "repository.id = star.repo_id").
++		Where("star.uid = ?", starrerID).
++		And("repository.owner_id = ?", ownerID).
++		OrderBy("star.repo_id").
++		Cols("star.repo_id").
++		Find(&repoIDs)
 +}
 +
- func UpdateBlockingNote(ctx context.Context, id int64, note string) error {
- 	_, err := db.GetEngine(ctx).ID(id).Cols("note").Update(&Blocking{Note: note})
- 	return err
+ // StarRepo or unstar repository.
+ func StarRepo(ctx context.Context, doer *user_model.User, repo *Repository, star bool) error {
+ 	return db.WithTx(ctx, func(ctx context.Context) error {
 diff --git a/services/user/block.go b/services/user/block.go
-index 48e6ed3..2e3825c 100644
+index 48e6ed3..4c2fb3e 100644
 --- a/services/user/block.go
 +++ b/services/user/block.go
-@@ -75,6 +75,9 @@ func BlockUser(ctx context.Context, doer, blocker, blockee *user_model.User, not
- 		return user_model.ErrCanNotBlock
+@@ -133,33 +133,22 @@ func BlockUser(ctx context.Context, doer, blocker, blockee *user_model.User, not
+ }
+ 
+ func unstarRepos(ctx context.Context, starrer, repoOwner *user_model.User) error {
+-	opts := &repo_model.StarredReposOptions{
+-		ListOptions: db.ListOptions{
+-			Page:     1,
+-			PageSize: 25,
+-		},
+-		StarrerID:   starrer.ID,
+-		RepoOwnerID: repoOwner.ID,
++	// Ask for the IDs once: paging over a list that shrinks as it is unstared skips rows.
++	repoIDs, err := repo_model.StarredRepoIDsOfOwner(ctx, starrer.ID, repoOwner.ID)
++	if err != nil {
++		return err
  	}
  
-+	// Keep the note short enought for the column.
-+	note = user_model.TrimBlockingNote(note)
-+
- 	return db.WithTx(ctx, func(ctx context.Context) error {
- 		// unfollow each other
- 		if err := user_model.UnfollowUser(ctx, blocker.ID, blockee.ID); err != nil {
+-	for {
+-		repos, err := repo_model.GetStarredRepos(ctx, opts)
++	for _, repoID := range repoIDs {
++		repo, err := repo_model.GetRepositoryByID(ctx, repoID)
+ 		if err != nil {
+ 			return err
+ 		}
+-
+-		if len(repos) == 0 {
+-			return nil
++		if err := repo_model.StarRepo(ctx, starrer, repo, false); err != nil {
++			return err
+ 		}
+-
+-		for _, repo := range repos {
+-			if err := repo_model.StarRepo(ctx, starrer, repo, false); err != nil {
+-				return err
+-			}
+-		}
+-
+-		opts.Page++
+ 	}
++	return nil
+ }
+ 
+ func unwatchRepos(ctx context.Context, watcher, repoOwner *user_model.User) error {

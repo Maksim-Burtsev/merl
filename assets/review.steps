@@ -1,42 +1,35 @@
-# The reviewing half: the agent's branch, hunk by hunk, into the code and back, one fix.
+# The reviewing half: the agent's branch, from a hunk into the code it calls and back, one fix.
 merl --review
-wait hunk 1/2
+wait hunk 1/1
 sleep 0.5
 show
-sleep 1.5
+sleep 2.5
 
-# c: the next hunk, a changed line with the old one as a ghost; c again: on into the next file
+# c: on into the next file, where a function body was rewritten; the old lines stand as ghosts
 key c
-wait hunk 2/2
-sleep 1.6
-key c
-wait file 2/2
-sleep 1.8
+wait hunk 1/5
+sleep 3
 
-# what is TrimBlockingNote? find it in the hunk, d goes into the code, [ comes back
-key /
-sleep 0.6
-type@0.22 Trim
+# onto the new call with the arrows, d goes into the helper the branch added, [ comes back
+key Down
+sleep 0.5
+key@0.04 Right*28
 sleep 1
-key Enter
-sleep 1.2
 key d
 wait via import
-sleep 2.2
+sleep 3
 key [
 wait file 2/2
-sleep 1.2
-key Escape
-sleep 0.8
+sleep 1.5
 
-# a typo one line up: Enter edits, Esc saves
+# a typo in the comment one line up: Enter edits, Esc saves
 key Up
-sleep 1
+sleep 0.4
+key@0.03 Right*45
+sleep 0.8
 key Enter
-sleep 0.9
-key@0.09 Right*12
-sleep 0.7
-key BSpace
+sleep 0.8
+type r
 sleep 1.2
 key Escape
 sleep 1.5

@@ -1,15 +1,15 @@
 # c walks the hunks and on into the next file, C walks back.
 merl --review
-wait hunk 1/2
+wait hunk 1/1
 sleep 0.5
 show
 sleep 1.5
 key c
-wait hunk 2/2
+wait hunk 1/5
 sleep 2
 key c
-wait file 2/2
+wait hunk 2/5
 sleep 2
 key C
-wait hunk 2/2
+wait hunk 1/5
 sleep 1.5

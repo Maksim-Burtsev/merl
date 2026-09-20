@@ -1,6 +1,6 @@
 # The agent says the branch is done: merl --review, and the panel lists what it touched.
 merl --review
-wait hunk 1/2
+wait hunk 1/1
 sleep 0.5
 show
 sleep 2.5

@@ -1,11 +1,11 @@
 # [ goes back to the hunk you left.
 merl --review
-wait hunk 1/2
-key c c
-wait file 2/2
-key /
-type@0.03 TrimBlockingNote
-key Enter Escape d
+wait hunk 1/1
+key c
+wait hunk 1/5
+key Down
+key@0.02 Right*28
+key d
 wait via import
 sleep 1
 show
