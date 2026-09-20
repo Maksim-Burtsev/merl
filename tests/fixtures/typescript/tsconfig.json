@@ -5,6 +5,8 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    // nest.ts decorates constructor parameters, as NestJS does.
+    "experimentalDecorators": true,
     // `@/` is this directory: jobs.ts reaches the store through it.
     "paths": { "@/*": ["./*"] },
   },

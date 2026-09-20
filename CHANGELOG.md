@@ -174,6 +174,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `v, ok := i.(T)` and the variable of `switch v := x.(type)` inside a `case T:`, assigned to a
   name or with the member hanging off the cast, `(x as T).find`, `i.(T).Find`. A cast to a type
   the project does not declare, a `case` of several types and `default` stay by name. (#100)
+- `d` in TypeScript reads what prettier and the language write around a member (#100): a class
+  header wrapped over several lines, a list of type parameters ending in `> extends Base<K> {`
+  or the clauses over a lone `{`, no longer hides `this`, `super`, the fields and the bases of the
+  whole class; a member access broken in front of its dots, `return this.db` over
+  `.selectFrom(`, is one chain; `repo!.find()` and `uow?.users.find()` are the plain access;
+  `const { repo, audit: trail } = this` hands the fields on; `new Local.Tool()` finds the class
+  inside a namespace of the same file; a class a module declares under one name and exports under
+  another, `export { Hono as HonoBase }`, is found by the import of the new name.
+- `d` on a TypeScript `#private` member takes the name with its `#`, on the `#` and on the name:
+  `this.#addRoute(` lands on `#addRoute(`, where it used to say nothing or find the public
+  `addRoute`. (#100)
+- In a workspace `d` looks for a TypeScript dependency in the `node_modules` of every directory
+  from the open file up to the project root, the nearest first, where it used to read
+  `<root>/node_modules` alone. Each is walked once; a package's own copy is listed by its path
+  from the root. (#100)
 - `d` proves more Go receivers: a package-level `var` declared in another file of the package,
   in a `var (` block or below the cursor (`defaultRepo.DeleteUser`); a type behind `type X = Y`,
   which is `Y`, where `type X Y` stays a type of its own; and a type declared once per platform
@@ -183,6 +198,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` on a Go package qualifier, `db` in `db.Get`, lands on the import line of the open file,
   `db: via import code.gitea.io/gitea/models/db`, where it used to list every `db` of the project
   by name. (#100)
+- `d` proves more in Python. `from repos import UserRepository as Users` types a receiver as
+  `UserRepository`. A module of the project that imports a name without declaring it, a package's
+  `__init__.py`, hands it on: its own module-level imports are followed, `from .labels import *`
+  included, four modules deep (`Session: via import store/sessions.py`); two sources, a name the
+  module also assigns and an import inside a function stay by name. `Limits.MAX_USERS`, an `Enum`
+  member and a dataclass field are read in the class body or a class above it
+  (`RED → Color.RED (via Color)`); an attribute a method assigns to `self` is an instance's and is
+  not. A class header wrapped over several lines keeps its name for `self` and its bases for
+  `d` on a base's method. (#100)
+- `d` on `Depot::open` in Rust, C++ and PHP answers `open → Depot::open (via Depot)` where it
+  listed every `open` by name: the path in front of the word is joined with `::` as those
+  languages qualify a name. Modules in front of the type count when the path starts inside the
+  project (`crate::`, `self::`, `super::`, a file or a directory called so). The name of a type
+  is no proof of which type: the project has to declare it once, and a `use` of the file must
+  not bind the path's first name outside the project (`io::Error::new` behind `use std::io;`).
+  `Self::`, a type that does not declare the word and a value's `.method()` stay by name. (#129)
 
 ### Changed
 
@@ -240,9 +271,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A count behind a grep that stopped at its cap says `+` also when a filter made the list short
   afterwards (`Pick: via import example.com/lib, 1+ declarations`), and the one candidate left
   is offered, not jumped to. (#100)
+- A Python parameter found as `local` reads `RecipeController.get_one.slug`, as a local of the
+  body does, not `RecipeController.slug`, which named a field. (#100)
 
 ### Fixed
 
+- `d` no longer proves a module-level namesake for a name a TypeScript destructuring wrapped
+  over several lines binds (`const {` / `  ledger,` / `} = deps;`): the statement is read whole,
+  and out of a name whose type is written the field's type is the local's. (#131)
+- With the cursor on an interface method, a class that implements a namesake interface of
+  another file through a barrel (`export * from`, `export { Name } from`) is no longer listed as
+  an implementation, and neither is a class for the constraint of a type parameter on a line
+  of its wrapped header, `S extends Notifier,`. A class that imports the interface as
+  `type Notifier,` on a line of a wrapped list is listed again: the line read as an alias of
+  that name. (#100)
+- A Python binding that does not start its line is a binding: `if fresh: ledger = A()`,
+  `else: …`, `a = 1; ledger = A()`, `try: from m import ledger`, `first = ledger = A()`, and
+  `if cold: self.ledger = A()` for a field. `d` did not read them, so a module-level `ledger` of
+  another type was proven in their place and jumped to. The same behind the last line of a header
+  wrapped over several lines, `        cold): ledger = A()`. (#131)
+- `d` on `x.member` no longer crashes merl in a Python file that continues a string with a
+  backslash at the end of a line: the scan for docstrings lost count of the lines there. (#100)
+- A Python import in a docstring's example is no second source of the name, which made
+  `Depends` in fastapi's `applications.py` a picker of two modules. (#100)
+- Under a Python class header wrapped over several lines, `self.get()` no longer skips the class's
+  own `get` for a base's: the methods were named after nothing, so the class looked empty. (#100)
 - A standard-library or dependency file stays read-only when it changes on disk or Ctrl+R
   reloads it; the reload made it editable.
 - A Go `const` whose value spells a name no longer declares it: `const csp = "… http://…"` hid

@@ -94,6 +94,21 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   `casts_own.py` declares a `cast` of its own, which is a function and no cast. Go has
   two type switches over a `v`, one after the other: a `case` of one type, from a block inside the
   arm too, a `case` of two types and `default`.
+- TypeScript as it is written (#100, #131), in files of their own with no Python or Go twin:
+  `headers` has classes whose header prettier wrapped — type parameters ending in
+  `> extends Crate<K> {`, one of them with an arrow in it, the clauses over a lone `{` — a `Bin`
+  whose type parameter is only constrained by `Sealable`, a function behind a wrapped `<…>` and a
+  block of its own under a statement; `fluent` breaks member accesses in front of their dots, with
+  a comment between two links, one at the end of the line above, a call of a call and a call
+  closed on its own line; `optional` has `!.` and `?.` in every position; `privates` a `#addRoute`
+  beside an `addRoute` and a subclass with a `#addRoute` of its own; `nest` a NestJS service with
+  a wrapped, decorated constructor (hence `experimentalDecorators`), `const { repo } = this` in
+  its forms, and classes behind namespaces of `nest_parts` and of the file itself, each with a
+  namesake outside the namespace. `aliased` declares a `Trunk` it exports as `TrunkBase`, beside a `Trunk` inside a namespace and a
+  re-export under a new name, and `aliased_use` extends and types by it. `shadowed` has a namespace `svc` and a
+  function whose parameter `svc` is something else. `scopes` ends with destructurings wrapped over
+  several lines: with a name commented out at the margin, behind a default, and a plain `const`
+  closed by `} as T;`.
 
 - Go (#100): `globals` reads package-level names that `globals_vars.go` declares (a `var`, a
   `var (` block, a list whose second name has no value the rules pair up), one declared below

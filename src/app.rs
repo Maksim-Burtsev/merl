@@ -157,6 +157,10 @@ pub struct App {
     /// Per kind, the standard library and dependency roots outside the project and the files of
     /// that kind under them; filled the first time `d` leaves the project.
     external: HashMap<Kind, (Vec<PathBuf>, Arc<Vec<PathBuf>>)>,
+    /// The walk of each `node_modules`, and the file the TypeScript entry of `external` was put
+    /// together for: a workspace has one per package, and each file sees those above it.
+    node_modules: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
+    node_modules_of: Option<PathBuf>,
     /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
     /// keyword argument, which names a parameter no rule reads.
     offer_only: bool,
@@ -291,6 +295,8 @@ impl App {
             tree,
             files,
             external: HashMap::new(),
+            node_modules: HashMap::new(),
+            node_modules_of: None,
             offer_only: false,
             truncated: Default::default(),
             focus,
@@ -891,7 +897,9 @@ impl App {
                 && self
                     .external
                     .values()
-                    .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)));
+                    .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)))
+                // Another package's `node_modules`, walked from a file opened before.
+                || !listed && self.node_modules.keys().any(|r| path.starts_with(r));
         if external {
             buf.readonly.get_or_insert("outside the project");
         }
@@ -1747,15 +1755,22 @@ impl App {
     /// `u` lists the uses.
     fn goto_definition(&mut self) {
         let kind = self.kind();
-        let extra = search::word_chars(kind, true);
-        let Some((range, word)) = search::word_at(self.line_str(), self.col, extra) else {
+        let Some((range, word)) = search::definition_word(kind, self.line_str(), self.col) else {
             self.message = "no word".into();
             return;
         };
         let word = word.to_owned();
-        let before = &self.line_str()[..range.start];
+        // A member access broken over lines reads as the one line it is.
+        let (written, start) = kind
+            .and_then(|k| search::unbroken(k, &self.buf.lines, self.line, range.start))
+            .unwrap_or_else(|| (self.line_str().to_owned(), range.start));
+        let (written, start) = match kind {
+            Some(k) => search::plain_access(k, &written, start),
+            None => (written, start),
+        };
+        let before = &written[..start];
         let dotted = before.ends_with('.') && !before.ends_with("..");
-        let chain = search::qualifier(self.line_str(), range.start);
+        let chain = search::qualifier(&written, start);
         let here = self.rel_current();
         let (Some(kind), Some(here)) = (kind, here) else {
             self.message = self.no_rules();
@@ -1765,7 +1780,12 @@ impl App {
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
         self.truncated.set(false);
-        let mut imports = search::imports(kind, &text);
+        // Inside a docstring's example the imports written there count too.
+        let in_literal = search::literal_lines(kind, &text).get(self.line) == Some(&true);
+        let mut imports = match in_literal {
+            true => search::imports_as_written(kind, &text),
+            false => search::imports(kind, &text),
+        };
         // A parameter or a local of the same name hides the import where the cursor is: `json`
         // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
         let first = chain.first().map_or(word.as_str(), String::as_str);
@@ -1808,7 +1828,9 @@ impl App {
             && let Some(path) = bound(&imports, &word)
             && let Some(line) = search::go_import_line(&text, &word)
             && !search::go_may_declare(&text, self.line + 1, &word)
-            && self.package_declarations(kind, &here, &word).is_empty()
+            && self
+                .package_declarations(kind, &here, &word, None)
+                .is_empty()
         {
             let hit = Hit {
                 path: here.clone(),
@@ -1833,7 +1855,8 @@ impl App {
         let pattern = patterns.join("|");
         // On the declaration of a member of an interface, a protocol, an abstract or a base
         // class, `d` offers what implements it (#68, step 6).
-        if !dotted {
+        // A `#private` member is nobody's to override.
+        if !dotted && !word.starts_with('#') {
             let found = self.implementations(kind, &here, &text, &word);
             if !found.is_empty() {
                 self.show_definitions(kind, &word, &here, found, None);
@@ -1851,7 +1874,7 @@ impl App {
         let mut broke = None;
         // A chain with no name to start from may hang off a call: `make_uow().users.word` (#100).
         let head = (dotted && chain.is_empty())
-            .then(|| search::call_head(kind, self.line_str(), range.start))
+            .then(|| search::call_head(kind, &written, start))
             .flatten();
         if dotted
             && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go)
@@ -1920,24 +1943,85 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // Python's `Cls.CONST`, an `Enum` member, a dataclass field (#100): the qualifier is a
+        // class the file declares or imports, no value of the scope, and the word is what the
+        // class body declares, or a class above it.
+        // A class or an import inside a function is not the one the top of the file names.
+        let nested = |a: &Self| {
+            search::bindings(kind, &text, a.line + 1, first)
+                .iter()
+                .any(|b| a.buf.lines[b.line - 1].starts_with([' ', '\t']))
+        };
+        if kind == Kind::Python && locals.is_empty() && !chain.is_empty() && !nested(self) {
+            let found = self.class_attribute(kind, &here, &chain, &word);
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
         // A member in the project first. A qualifier no import names can still be a class, a
         // namespace or a module of the project, which declares the word at its top level.
         // A qualifier that is no value and no import can be what declares the word: a namespace,
         // a class with a static member, a nested class. A declaration that reads `Outer.find`
         // is the answer then, and a method `find` of some other class is not.
-        if on_value && locals.is_empty() && !chain.is_empty() {
-            let full = format!("{}.{word}", chain.join("."));
+        // The chain is joined as the kind qualifies a name (#129): Rust and C++ write the path
+        // with `::`, where no `.` stands in front of the word, and a `.` there is a value's.
+        let sep = search::separator(kind);
+        let path = chain.join(sep);
+        let pathed = match sep {
+            "." => on_value,
+            _ => self.line_str()[..range.start].ends_with(&format!("{path}{sep}")),
+        };
+        // A type's name is no proof of which type (#129): in a `::` kind the project has to
+        // declare it once, and a `use` of the file must not bind the path's first name to
+        // somewhere outside, whatever `io.rs` the project has beside `std::io`.
+        let pathed = pathed
+            && !chain.is_empty()
+            && (sep == "." || {
+                // A glob, a `using` or a grouped `use` may bring the name in unread, and a PHP
+                // `\Vendor\Depot::open` spells out another namespace.
+                let owner = &chain[chain.len() - 1];
+                let brings = Regex::new(&format!(
+                    r"^\s*(?:pub\s+)?us(?:e|ing)\b.*(?:\*|\bnamespace\b|\b{}\b)",
+                    regex::escape(owner)
+                ))
+                .expect("an escaped name keeps the pattern valid");
+                let inside = |l: &str| ["crate", "self::", "super::"].iter().any(|k| l.contains(k));
+                let outside = bound(&imports, &chain[0])
+                    .is_some_and(|p| !matches!(p[0].as_str(), "crate" | "self" | "super"))
+                    || self
+                        .buf
+                        .lines
+                        .iter()
+                        .any(|l| brings.is_match(l) && !inside(l))
+                    || self.line_str()[..range.start]
+                        .strip_suffix(&format!("{path}{sep}"))
+                        .is_some_and(|b| b.ends_with('\\'));
+                let owners = search::def_patterns(kind, owner).join("|");
+                let one = self.project_definitions(kind, &here, owner, &owners).len() == 1;
+                // A cut in this grep says nothing about the list shown in the end.
+                self.truncated.set(false);
+                !outside && one
+            });
+        if pathed && locals.is_empty() && !chain.is_empty() {
+            let full = format!("{path}{sep}{word}");
+            // `depot::Shed::open` has the modules of the project in front of `Shed::open`.
+            let in_project = sep != "." && self.names_module(&chain[0]);
             let named: Vec<Candidate> = self
                 .project_definitions(kind, &here, &word, &pattern)
                 .into_iter()
                 .filter(|h| {
                     self.text_of(&h.path)
                         .and_then(|t| search::qualified(kind, &t, h.line, &word))
-                        .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")))
+                        .is_some_and(|q| {
+                            q == full
+                                || q.ends_with(&format!("{sep}{full}"))
+                                || (in_project && full.ends_with(&format!("{sep}{q}")))
+                        })
                 })
                 .map(|hit| Candidate {
                     hit,
-                    reason: Reason::Path(chain.join(".")),
+                    reason: Reason::Path(path.clone()),
                 })
                 .collect();
             if !named.is_empty() {
@@ -2002,6 +2086,16 @@ impl App {
         self.show_definitions(kind, &word, &here, found, broke.as_deref());
     }
 
+    /// Whether `first` starts a path inside the project: `crate`, `self`, `super`, or a file or a
+    /// directory of the project called so.
+    fn names_module(&self, first: &str) -> bool {
+        matches!(first, "crate" | "self" | "super")
+            || self.files.iter().any(|f| {
+                f.file_stem().is_some_and(|s| s == first)
+                    || f.parent().is_some_and(|d| d.ends_with(first))
+            })
+    }
+
     /// Jumps to the one candidate, or opens the picker over several, and says how they were found
     /// and at which name of the chain in front of the word the typed lookup `broke`, if it did.
     fn show_definitions(
@@ -2025,7 +2119,13 @@ impl App {
                     self.text_of(&c.hit.path)
                         .map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
                 });
-                !lines.get(c.hit.line - 1).copied().unwrap_or(false)
+                // `register<` over its type arguments over `>(1);` is a call prettier wrapped.
+                let call = kind == Kind::TsJs
+                    && c.hit.text.trim_end().ends_with('<')
+                    && self
+                        .text_of(&c.hit.path)
+                        .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));
+                !call && !lines.get(c.hit.line - 1).copied().unwrap_or(false)
             });
         }
         let all = found.len();
@@ -2037,11 +2137,7 @@ impl App {
         let offer_only = std::mem::take(&mut self.offer_only);
         let truncated = self.truncated.take();
         let on_member = || {
-            let at = search::word_at(
-                self.line_str(),
-                self.col,
-                search::word_chars(Some(kind), true),
-            );
+            let at = search::definition_word(Some(kind), self.line_str(), self.col);
             let bare =
                 at.is_some_and(|(r, w)| w == word && !self.line_str()[..r.start].ends_with('.'));
             bare && search::member_or_signature(kind, word)
@@ -2142,6 +2238,20 @@ impl App {
         chain: &[String],
         path: &[String],
     ) -> Option<Vec<Candidate>> {
+        self.imported_at(kind, here, word, chain, path, 0)
+    }
+
+    /// [`App::imported_definitions`], `depth` modules of the project that only hand the name on
+    /// away from the file that asked.
+    fn imported_at(
+        &self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        chain: &[String],
+        path: &[String],
+        depth: usize,
+    ) -> Option<Vec<Candidate>> {
         let module_files =
             |module: &[String]| search::module_files(kind, &self.root, &self.files, here, module);
         // The names from the module down to the word: what the import takes, then the chain.
@@ -2199,10 +2309,46 @@ impl App {
                 .and_then(|text| search::qualified(kind, &text, h.line, name))
                 == within
         });
+        // `export { Hono as HonoBase }`: the module declares it under another name.
+        if hits.is_empty() && kind == Kind::TsJs && within.is_none() {
+            let local = files
+                .iter()
+                .find_map(|f| search::exported_as(&self.text_of(f)?, name));
+            if let Some(local) = local {
+                let pattern = search::def_patterns(kind, &local).join("|");
+                hits = self
+                    .grep(&pattern, false, false, wanted)
+                    .unwrap_or_default();
+                hits.retain(|h| {
+                    self.text_of(&h.path).is_some_and(|text| {
+                        search::qualified(kind, &text, h.line, &local).is_none()
+                    })
+                });
+            }
+        }
         if hits.is_empty() && kind == Kind::TsJs && path.last().is_some_and(|t| t == "default") {
             hits = self
                 .grep(r"^export\s+default\b", false, false, wanted)
                 .unwrap_or_default();
+        }
+        // A Python module of the project that does not declare the name but imports it hands
+        // it on (#100): `from .sessions import open_session` in a package's `__init__.py`.
+        // ponytail: four modules deep, which also ends a cycle.
+        if hits.is_empty() && kind == Kind::Python && depth < 4 {
+            let mut found: Vec<Candidate> = Vec::new();
+            for f in &files {
+                for c in self.handed_on(kind, f, &inside, depth) {
+                    if !found
+                        .iter()
+                        .any(|o| (&o.hit.path, o.hit.line) == (&c.hit.path, c.hit.line))
+                    {
+                        found.push(c);
+                    }
+                }
+            }
+            if !found.is_empty() {
+                return Some(found);
+            }
         }
         let hits = self.host_built(kind, hits);
         // A file, or a Go package's directory.
@@ -2219,6 +2365,43 @@ impl App {
                 })
                 .collect(),
         )
+    }
+
+    /// What the imports of the Python module `file` lead to for `names`, the first of which the
+    /// module was asked for and does not declare: an import of the module itself, not of a
+    /// function in it, binds that name, or a `from x import *` may. Every source is followed,
+    /// and which one the module ends up with is not computed: several are a picker. A name the
+    /// module binds in any other way as well (an assignment under an `if`, a loop) is left to
+    /// the search by name.
+    fn handed_on(&self, kind: Kind, file: &Path, names: &[String], depth: usize) -> Vec<Candidate> {
+        let (Some(text), Some((first, last))) =
+            (self.text_of(file), names.first().zip(names.last()))
+        else {
+            return Vec::new();
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let import =
+            |l: &str| l.trim_start().starts_with("from ") || l.trim_start().starts_with("import ");
+        if search::bindings(kind, &text, 1, first)
+            .iter()
+            .any(|b| !lines.get(b.line - 1).is_some_and(|l| import(l)))
+        {
+            return Vec::new();
+        }
+        let chain = &names[..names.len() - 1];
+        search::imports_as_written(kind, &search::python_module_level(&text))
+            .into_iter()
+            .filter_map(|(name, mut path)| {
+                if name == "*" {
+                    path.pop();
+                    path.push(first.clone());
+                } else if name != *first {
+                    return None;
+                }
+                self.imported_at(kind, file, last, chain, &path, depth + 1)
+            })
+            .flatten()
+            .collect()
     }
 
     /// The declarations of `word` in the type of the receiver `chain`, `x.f.g…`, when every link is
@@ -2302,6 +2485,70 @@ impl App {
                 reason: Reason::Receiver(label.clone()),
             })
             .collect())
+    }
+
+    /// `word` as the class `chain` names declares it for the class itself: a method, else a line
+    /// of the class body (`CONST = 1`, `RED = 1` of an `Enum`, a dataclass's `x: int`, a
+    /// property), in the class or what [`App::above`] proves over it. An attribute a method
+    /// assigns to `self` is an instance's, and no answer here.
+    fn class_attribute(
+        &self,
+        kind: Kind,
+        here: &Path,
+        chain: &[String],
+        word: &str,
+    ) -> Vec<Candidate> {
+        let Some(ty) = self.type_decl(kind, here, &chain.join(".")) else {
+            return Vec::new();
+        };
+        // Above the class the bases are read as `super` reads them: several that disagree, or
+        // one outside the project, prove nothing.
+        // Reading no declaration in the class is no proof that it has none: a tuple target, a
+        // `def` under an `if`, a nested class. A body that writes the word other than behind a
+        // `.` leaves it to the rules below and the search by name.
+        let members = self.members_of(kind, &ty, word);
+        let hits = match (members.is_empty(), self.field_of(kind, &ty, word, false)) {
+            (false, _) => members,
+            (true, Some(hit)) => vec![hit],
+            (true, None) if self.class_writes(&ty, word) => Vec::new(),
+            (true, None) => self.above(kind, &ty, word, 0).unwrap_or_default(),
+        };
+        hits.into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Path(chain.join(".")),
+            })
+            .collect()
+    }
+
+    /// Whether the Python class `ty` writes `word` other than behind a `.`: on its header's
+    /// lines, which a one-line body shares, or in its body, which a comment, a string's text or
+    /// a closer at the margin does not end.
+    fn class_writes(&self, ty: &Typed, word: &str) -> bool {
+        let Some(text) = self.text_of(&ty.path) else {
+            return true;
+        };
+        let bare = Regex::new(&format!(r"(?:^|[^\w.]){}\b", regex::escape(word)))
+            .expect("an escaped name keeps the pattern valid");
+        let literal = search::literal_lines(Kind::Python, &text);
+        let indent = |l: &str| l.len() - l.trim_start().len();
+        let lines: Vec<&str> = text.lines().collect();
+        let base = lines.get(ty.line - 1).map_or(0, |l| indent(l));
+        let mut header = true;
+        for (i, l) in lines.iter().enumerate().skip(ty.line - 1) {
+            let t = l.trim();
+            let inert =
+                t.is_empty() || t.starts_with(['#', ')', ']']) || literal.get(i) == Some(&true);
+            if !header && !inert && indent(l) <= base {
+                break;
+            }
+            if bare.is_match(l) && !(i == ty.line - 1 && t.starts_with(&format!("class {word}"))) {
+                return true;
+            }
+            // The header ends on the line whose code ends in `:`, or holds the body behind it.
+            header = header && !l.split('#').next().unwrap_or(l).contains(':');
+        }
+        false
     }
 
     /// The type of the chain `x.f.g` on 1-based `line` of `text`, the text of `file`, and the links
@@ -2448,6 +2695,11 @@ impl App {
     ) -> Option<(Typed, Option<String>)> {
         match &b.value {
             search::Value::Type(t) | search::Value::New(t) => {
+                // `new api.Tool()` on a parameter `api` names no namespace of the file.
+                let path = search::type_path(kind, t).filter(|p| p.len() > 1);
+                if path.is_some_and(|p| hidden(kind, text, b.line, &p[0])) {
+                    return None;
+                }
                 self.type_decl(kind, file, t).map(|ty| (ty, None))
             }
             search::Value::Class(line) => {
@@ -2489,6 +2741,11 @@ impl App {
                             (t.clone(), file.to_path_buf(), format!("{n}: {}", t.trim()))
                         }
                         search::Value::Call(callee) => {
+                            // `api.list()` on a parameter `api` is no function of the file.
+                            let first = callee.split('.').next().unwrap_or(callee);
+                            if hidden(kind, text, c.line, first) {
+                                return None;
+                            }
                             let (t, at) = self.declared_return(kind, file, callee)?;
                             let link = signature(kind, callee, &t);
                             (t, at, link)
@@ -2524,7 +2781,20 @@ impl App {
                 }
                 found
             }
-            search::Value::Name(_) | search::Value::Element(_) | search::Value::Unknown => None,
+            // `const { repo } = this`: the field of what the chain on the right proves.
+            search::Value::Field(from, field) if hops > 0 => {
+                let (ty, _) = self
+                    .chain_type(kind, file, text, b.line, from, hops - 1)
+                    .ok()?;
+                let (ty, _) = self
+                    .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
+                    .flatten()?;
+                Some((ty, None))
+            }
+            search::Value::Name(_)
+            | search::Value::Element(_)
+            | search::Value::Field(..)
+            | search::Value::Unknown => None,
         }
     }
 
@@ -2566,15 +2836,7 @@ impl App {
             None => {
                 // A parameter or a local named like a function or an import is a value: what it
                 // returns when called is not what that function declares.
-                let lines: Vec<&str> = text.lines().collect();
-                let hidden = search::bindings(kind, text, line, &parts[0])
-                    .iter()
-                    .any(|b| {
-                        lines
-                            .get(b.line - 1)
-                            .is_some_and(|l| !names_itself(l, &parts[0]))
-                    });
-                if hidden {
+                if hidden(kind, text, line, &parts[0]) {
                     return None;
                 }
                 self.declaration(kind, file, &parts)?
@@ -2582,7 +2844,7 @@ impl App {
         };
         if search::declares_type(kind, &decl.text) {
             let ty = Typed {
-                name: parts.last()?.clone(),
+                name: declared_name(kind, &decl.text, &parts),
                 path: decl.path,
                 line: decl.line,
             };
@@ -2642,8 +2904,11 @@ impl App {
         {
             return Some(ty);
         }
+        // The name is the declaration's own: behind `from repos import UserRepository as Users`
+        // the members are `UserRepository`'s (#100).
+        // So is a TypeScript one, which an `export { Hono as HonoBase }` renames.
         search::declares_type(kind, &decl.text).then(|| Typed {
-            name: parts.last().cloned().unwrap_or_default(),
+            name: declared_name(kind, &decl.text, &parts),
             path: decl.path,
             line: decl.line,
         })
@@ -2655,8 +2920,10 @@ impl App {
     fn declaration(&self, kind: Kind, file: &Path, parts: &[String]) -> Option<Hit> {
         let (name, chain) = parts.split_last()?;
         let one = |hits: Vec<Hit>| <[Hit; 1]>::try_from(hits).ok().map(|[hit]| hit);
-        if chain.is_empty() {
-            let hits = self.package_declarations(kind, file, name);
+        // TypeScript's `Outer.Inner.Widget` may be behind namespaces of the file itself (#100).
+        if chain.is_empty() || kind == Kind::TsJs {
+            let within = (!chain.is_empty()).then(|| parts.join("."));
+            let hits = self.package_declarations(kind, file, name, within.as_deref());
             if !hits.is_empty() {
                 return one(self.host_built(kind, hits));
             }
@@ -2667,16 +2934,24 @@ impl App {
         one(found.into_iter().map(|c| c.hit).collect())
     }
 
-    /// The top-level declarations of `name` that `file` sees without an import.
-    fn package_declarations(&self, kind: Kind, file: &Path, name: &str) -> Vec<Hit> {
+    /// The declarations of `name` that `file` sees without an import: at the top level, or
+    /// `within` the namespaces a TypeScript path spells (`Outer.Inner`).
+    fn package_declarations(
+        &self,
+        kind: Kind,
+        file: &Path,
+        name: &str,
+        within: Option<&str>,
+    ) -> Vec<Hit> {
         let own = self.package_files(kind, file);
         let pattern = search::def_patterns(kind, name).join("|");
         self.grep(&pattern, false, false, |p| own.iter().any(|f| f == p))
             .unwrap_or_default()
             .into_iter()
             .filter(|h| {
-                self.text_of(&h.path)
-                    .is_some_and(|text| search::qualified(kind, &text, h.line, name).is_none())
+                self.text_of(&h.path).is_some_and(|text| {
+                    search::qualified(kind, &text, h.line, name).as_deref() == within
+                })
             })
             .collect()
     }
@@ -2920,21 +3195,21 @@ impl App {
                         .any(|l| search::type_name(kind, l).as_deref() == Some(name))
                 };
                 // The import may name another type of the same name: a module of the project
-                // that declares one, in a file none of the types found so far lives in. A
-                // module that only hands the name on (a barrel) says nothing either way.
+                // that declares one, in a file none of the types found so far lives in, looked
+                // for behind a barrel too (#100).
                 let another = |first: &str, module: &[String]| {
                     let module = match kind {
                         Kind::TsJs => &module[..module.len().saturating_sub(1)],
                         _ => module,
                     };
-                    (1..=module.len()).rev().any(|n| {
-                        let files = search::module_files(
-                            kind,
-                            &self.root,
-                            &self.files,
-                            &hit.path,
-                            &module[..n],
-                        );
+                    // A Python import may name a module or a name in one; a TypeScript one
+                    // names its module whole, and a shorter path is another module.
+                    let shortest = match kind {
+                        Kind::TsJs => module.len(),
+                        _ => 1,
+                    };
+                    (shortest..=module.len()).rev().any(|n| {
+                        let files = self.behind_barrels(kind, &hit.path, &module[..n], first, 0);
                         let ours = |f: &PathBuf| types.iter().any(|(t, p)| t == first && p == f);
                         !files.iter().any(ours)
                             && files
@@ -2951,9 +3226,12 @@ impl App {
                     bound(&search::imports(kind, &text), first)
                         .is_some_and(|module| !another(first, &module))
                 };
-                let derives = search::bases(kind, &text, hit.line)
+                // Read off the header's first line, wherever the hit is: Python's bases, and
+                // TypeScript's, where the matched line alone may be a constraint of a type
+                // parameter, `S extends Notifier,`.
+                let derives = search::bases(kind, &text, decl)
                     .into_iter()
-                    .chain(search::interfaces(kind, &text, hit.line))
+                    .chain(search::interfaces(kind, &text, decl))
                     .filter_map(|b| search::type_path(kind, &b))
                     .any(|p| p.last().is_some_and(|n| names.contains(n)) && sees(&p[0]));
                 if !derives {
@@ -2977,6 +3255,44 @@ impl App {
             types = found;
         }
         out
+    }
+
+    /// The files of the project `module` names as `from` spells it, a TypeScript barrel among
+    /// them replaced by the files it hands `name` on from (`export * from "./a"`), which may be
+    /// barrels again. A barrel that leads nowhere in the project stays itself.
+    fn behind_barrels(
+        &self,
+        kind: Kind,
+        from: &Path,
+        module: &[String],
+        name: &str,
+        depth: usize,
+    ) -> Vec<PathBuf> {
+        let files = search::module_files(kind, &self.root, &self.files, from, module);
+        // ponytail: four barrels deep, which also ends two that export each other.
+        if kind != Kind::TsJs || depth == 4 {
+            return files;
+        }
+        files
+            .into_iter()
+            .flat_map(|f| {
+                // A file that declares the name answers for itself, whatever else it hands on.
+                let text = self.text_of(&f).filter(|t| {
+                    !t.lines()
+                        .any(|l| search::type_name(kind, l).as_deref() == Some(name))
+                });
+                let behind: Vec<PathBuf> = text
+                    .map(|t| search::reexports(&t, name))
+                    .unwrap_or_default()
+                    .iter()
+                    .flat_map(|m| self.behind_barrels(kind, &f, m, name, depth + 1))
+                    .collect();
+                match behind.is_empty() {
+                    true => vec![f],
+                    false => behind,
+                }
+            })
+            .collect()
     }
 
     /// Every member of `word` the project declares with as many parameters as the one on `line`,
@@ -3259,6 +3575,27 @@ impl App {
     /// ponytail: lives for the session, unlike the project walk. A `pip install` mid-session
     /// needs a restart.
     fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
+        // TypeScript's roots depend on where the open file is (#100). Each `node_modules` is
+        // walked once; one inside another already listed adds no file of its own.
+        let here = self.buf.path.as_ref().and_then(|p| p.parent());
+        if let Some(here) = here.filter(|_| kind == Kind::TsJs)
+            && (self.node_modules_of.is_some() || !self.external.contains_key(&kind))
+            && self.node_modules_of.as_deref() != Some(here)
+        {
+            let roots = search::node_modules(&self.root, here);
+            let mut files = Vec::new();
+            for dir in &roots {
+                if roots.iter().any(|o| o != dir && dir.starts_with(o)) {
+                    continue;
+                }
+                let walked = self.node_modules.entry(dir.clone()).or_insert_with(|| {
+                    Arc::new(search::external_files(kind, std::slice::from_ref(dir)))
+                });
+                files.extend(walked.iter().cloned());
+            }
+            self.external.insert(kind, (roots, Arc::new(files)));
+            self.node_modules_of = Some(here.to_path_buf());
+        }
         self.external
             .entry(kind)
             .or_insert_with(|| {
@@ -3317,10 +3654,15 @@ impl App {
         named
             .into_iter()
             .map(|(name, why, c)| {
-                let shown = roots
-                    .iter()
-                    .find_map(|r| c.hit.path.strip_prefix(r).ok())
-                    .unwrap_or(&c.hit.path);
+                // A workspace package's own `node_modules` is named from the project root, so
+                // its `lib/index.d.ts` reads apart from the one at the top.
+                let shown = match kind {
+                    Kind::TsJs => roots.last().into_iter().chain([&self.root]).collect(),
+                    _ => roots.iter().collect::<Vec<_>>(),
+                }
+                .into_iter()
+                .find_map(|r| c.hit.path.strip_prefix(r).ok())
+                .unwrap_or(&c.hit.path);
                 let head = format!(
                     "{name}{}  {why}{}  {}:{}: ",
                     pad(name_w, &name),
@@ -4186,6 +4528,17 @@ fn is_protocol(text: &str, decl: usize) -> bool {
         .any(|p| p.last().is_some_and(|n| n == "Protocol"))
 }
 
+/// Whether a parameter or a local binds `name` where 1-based `line` of `text` reads it: a value
+/// then, whatever function, import or namespace of that name the file can see.
+fn hidden(kind: Kind, text: &str, line: usize, name: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    search::bindings(kind, text, line, name).iter().any(|b| {
+        lines
+            .get(b.line - 1)
+            .is_some_and(|l| !names_itself(l, name))
+    })
+}
+
 /// Whether a line `search::bindings` gave for `name` is an import, or the declaration of a class,
 /// a function or a namespace of that name: what a value of the name would hide, and no value
 /// itself. `Outer.Inner` reads a declaration, not a member.
@@ -4211,6 +4564,18 @@ fn names_itself(line: &str, name: &str) -> bool {
             .is_some_and(|after| !after.starts_with(is_word))
     });
     declares || t.starts_with("import ") || t.starts_with("from ")
+}
+
+/// The name of the type the line `decl` declares, reached as `parts`. Python and TypeScript read
+/// it off the line: behind `from repos import UserRepository as Users`, or
+/// `export { Hono as HonoBase }`, the last part is the alias, and the members are the
+/// declaration's (#100).
+fn declared_name(kind: Kind, decl: &str, parts: &[String]) -> String {
+    search::type_name(kind, decl)
+        // `export default class extends Base {` has no name of its own.
+        .filter(|n| kind == Kind::Python || kind == Kind::TsJs && n != "extends")
+        .or_else(|| parts.last().cloned())
+        .unwrap_or_default()
 }
 
 /// A call and the return type its function declares, spelled as the language writes it.
@@ -6567,12 +6932,12 @@ mod tests {
                 "^        self.poster_id",
                 namesakes("poster_id", ("Issue.poster_id", "fields.py:16")),
             ),
-            // The parameter handed on, not the field it is handed to.
+            // The parameter handed on, not the field it is handed to, and named so (#100).
             (
                 "python",
                 "fields.py",
                 "self.repo = repo",
-                jump("repo \u{2192} Issue.repo (local)", "fields.py:19"),
+                jump("repo \u{2192} Issue.__init__.repo (local)", "fields.py:19"),
             ),
             // A class whose base is not the project's: its declarations by name, fields
             // included, and a nested class among them.
@@ -8449,6 +8814,813 @@ mod tests {
         }
     }
 
+    /// #100, TypeScript: a class header prettier wraps is still the class's header. A list of type
+    /// parameters over several lines ends in `> extends Base<K> {`, the clauses may stand on lines
+    /// of their own over a lone `{`; `this`, `super`, the fields and what the class extends are
+    /// read through both. The parameters of a function behind a wrapped `<…>` hide a module's
+    /// namesake.
+    #[test]
+    fn a_wrapped_class_header_is_a_header() {
+        let user = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} UserRepository.deleteUser (via {via})"),
+                "repos.ts:10",
+            )
+        };
+        let audit = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} AuditLog.deleteUser (via {via})"),
+                "repos.ts:16",
+            )
+        };
+        let seal = |via: &str| {
+            jump(
+                &format!("seal \u{2192} Crate.seal (via {via})"),
+                "headers.ts:12",
+            )
+        };
+        let cases: Vec<(&str, Shown)> = vec![
+            // Under `> extends Crate<K> {`: a field of the class, one of its base, a method of
+            // the base through `this` and through `super`, a constructor parameter.
+            (
+                "this.repo.deleteUser|(id)",
+                user("this.repo: UserRepository"),
+            ),
+            (
+                "this.audit.deleteUser|(id + 1)",
+                audit("this.audit: AuditLog"),
+            ),
+            ("this.seal|(key)", seal("this: Shelf")),
+            ("super.seal|(key)", seal("super of Shelf")),
+            (
+                "this.spare|)",
+                jump(
+                    "spare \u{2192} Shelf.spare (via this: Shelf)",
+                    "headers.ts:34",
+                ),
+            ),
+            // Under `extends` and `implements` on their own lines and a lone `{`.
+            (
+                "this.repo.deleteUser|(id + 2)",
+                user("this.repo: UserRepository"),
+            ),
+            (
+                "this.audit.deleteUser|(id + 3)",
+                audit("this.audit: AuditLog"),
+            ),
+            (
+                "super.seal|(key + \"!\")",
+                seal("super of LongNamedShelfOfStrings"),
+            ),
+            // `implements Sealable` on its own line is read; the constraint `S extends Sealable`
+            // of `Bin` implements nothing.
+            (
+                "seal|(key: string): void;",
+                jump(
+                    "seal \u{2192} LongNamedShelfOfStrings.seal (implementations of Sealable.seal)",
+                    "headers.ts:70",
+                ),
+            ),
+            // A method whose own type parameters are wrapped, `stash<` over `>(a: A, b: B)`; a
+            // call written so inside a method is no declaration of it.
+            (
+                "this.stash|(key, this.spare)",
+                jump(
+                    "stash \u{2192} Crate.stash (via this: Shelf)",
+                    "headers.ts:18",
+                ),
+            ),
+            // What overrides a method of the base, and a field found by name, are told to be
+            // the class's under `> extends … {` too.
+            (
+                "^  open|(): void {}",
+                jump(
+                    "open \u{2192} Shelf.open (implementations of Crate.open)",
+                    "headers.ts:51",
+                ),
+            ),
+            (
+                "found.spare|)",
+                jump(
+                    "spare \u{2192} Shelf.spare (by name, 1 match)",
+                    "headers.ts:34",
+                ),
+            ),
+            (
+                "found.one|)",
+                jump("one \u{2192} Bin.one (by name, 1 match)", "headers.ts:81"),
+            ),
+            // `other: T` is typed by a parameter of the wrapped list: the chain breaks there.
+            (
+                "this.other.seal|(key)",
+                picker(
+                    "seal: by name, 4 declarations (chain broke at other)",
+                    &[
+                        ("Sealable.seal", "headers.ts:6"),
+                        ("Crate.seal", "headers.ts:12"),
+                        ("LongNamedShelfOfStrings.seal", "headers.ts:70"),
+                        ("Bin.seal", "headers.ts:85"),
+                    ],
+                ),
+            ),
+            // `type Loose = any;` has no body: the fields of the class under it are not its.
+            (
+                "loose.audit.deleteUser|(id + 5)",
+                picker(
+                    "deleteUser: by name, 2 declarations (chain broke at audit)",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            // A lone `{` under a statement, with no `;`, is a block, and the statement still binds.
+            (
+                "void repo.deleteUser|(id + 4)",
+                user("repo: UserRepository"),
+            ),
+            // `>(repo: UserRepository, …` binds the parameter: the module's `repo` is hidden.
+            (
+                "void repo.deleteUser|(key.length)",
+                user("repo: UserRepository"),
+            ),
+            ("^  repo.deleteUser|(id)", audit("repo: AuditLog")),
+            // `(repo: AuditLog) => void` among wrapped type parameters, or wrapped type
+            // arguments, types the function's `repo` no more than it does on one line.
+            (
+                "void repo.deleteUser|(visit.length);",
+                user("repo: UserRepository"),
+            ),
+            (
+                "void repo.deleteUser|(visit.length + 1)",
+                user("repo: UserRepository"),
+            ),
+        ];
+        for (code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, "headers.ts", code);
+            assert_eq!(shown(&mut a), want, "{code}");
+        }
+    }
+
+    /// #100, TypeScript: a member access prettier broke in front of its dots reads as the one line
+    /// it is; a comment at the end of the line above names no receiver.
+    #[test]
+    fn a_member_access_broken_over_lines_is_one_chain() {
+        let user = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} UserRepository.deleteUser (via {via})"),
+                "repos.ts:10",
+            )
+        };
+        let by_name = || {
+            picker(
+                "deleteUser: by name, 2 declarations",
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
+            )
+        };
+        let cases: Vec<(&str, Shown)> = vec![
+            // One break, two breaks with a comment between them, and the name in the middle.
+            (
+                "      .deleteUser|(id);",
+                user("this.uow: UnitOfWork \u{2192} users: UserRepository"),
+            ),
+            (
+                "      .deleteUser|(id + 1);",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via this.uow: UnitOfWork \u{2192} audit: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "      .audit",
+                jump(
+                    "audit \u{2192} UnitOfWork.audit (via this.uow: UnitOfWork)",
+                    "chains.ts:5",
+                ),
+            ),
+            // Off a method's call and off a function's, as on one line.
+            (
+                "      .deleteUser|(id + 2);",
+                user("this.depot.peopleRepo(): UserRepository"),
+            ),
+            (
+                "      .peopleRepo|()",
+                jump(
+                    "peopleRepo \u{2192} Depot.peopleRepo (via this.depot: Depot)",
+                    "calls.ts:10",
+                ),
+            ),
+            (
+                "      .people.deleteUser|(id + 3);",
+                user("openDepot(): Depot \u{2192} people: UserRepository"),
+            ),
+            (
+                "      .people|.deleteUser(id + 3);",
+                jump(
+                    "people \u{2192} Depot.people (via openDepot(): Depot)",
+                    "calls.ts:8",
+                ),
+            ),
+            // `found // note`: the module's `note` is an `AuditLog`, and no receiver here.
+            ("      .deleteUser|(id + 4);", by_name()),
+            // A call of a call, and a call closed on a line of its own, stay by name.
+            ("      .deleteUser|(id + 5);", by_name()),
+            ("      .deleteUser|(id + 6);", by_name()),
+            (
+                "      .length",
+                jump("no definition for length", "fluent.ts:39"),
+            ),
+        ];
+        for (code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, "fluent.ts", code);
+            assert_eq!(shown(&mut a), want, "{code}");
+        }
+    }
+
+    /// #100, TypeScript: `r!.m()` and `a?.b.m()` have the type of the plain access for a member
+    /// lookup.
+    #[test]
+    fn a_non_null_or_optional_access_is_the_plain_one() {
+        let user = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} UserRepository.deleteUser (via {via})"),
+                "repos.ts:10",
+            )
+        };
+        let audit = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} AuditLog.deleteUser (via {via})"),
+                "repos.ts:16",
+            )
+        };
+        let users = "this.uow: UnitOfWork \u{2192} users: UserRepository";
+        let cases: Vec<(&str, Shown)> = vec![
+            (
+                "this.repo!.deleteUser|(id)",
+                user("this.repo: UserRepository"),
+            ),
+            (
+                "this.repo?.deleteUser|(id + 1)",
+                user("this.repo: UserRepository"),
+            ),
+            ("this.uow?.users.deleteUser|(id + 2)", user(users)),
+            (
+                "this.uow?.users|.deleteUser(id + 2)",
+                jump(
+                    "users \u{2192} UnitOfWork.users (via this.uow: UnitOfWork)",
+                    "chains.ts:4",
+                ),
+            ),
+            // Two marks in one chain, and two around a name of one letter.
+            (
+                "this.uow!.audit!.deleteUser|(id + 3)",
+                audit("this.uow: UnitOfWork \u{2192} audit: AuditLog"),
+            ),
+            (
+                "u!.users!.deleteUser|(id + 9)",
+                user("u.users: UserRepository"),
+            ),
+            ("spare?.deleteUser|(id + 4)", audit("spare: AuditLog")),
+            ("spare!.deleteUser|(id + 5)", audit("spare: AuditLog")),
+            // A receiver nobody typed stays by name.
+            (
+                "found?.deleteUser|(id + 6)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            ("!note.deleteUser|.length", audit("note: AuditLog")),
+        ];
+        for (code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, "optional.ts", code);
+            assert_eq!(shown(&mut a), want, "{code}");
+        }
+    }
+
+    /// #100, TypeScript: a `#private` member is the word with its `#`, on the `#` and on the name.
+    #[test]
+    fn a_private_name_keeps_its_hash() {
+        let private = jump(
+            "#addRoute \u{2192} Router.#addRoute (via this: Router)",
+            "privates.ts:12",
+        );
+        let cases: Vec<(&str, Shown)> = vec![
+            // On the name and on the `#`: the private method, not the public `addRoute`.
+            ("this.#addRoute|(path);", private),
+            (
+                "this.|#addRoute(path + \"/\")",
+                jump(
+                    "#addRoute \u{2192} Router.#addRoute (via this: Router)",
+                    "privates.ts:12",
+                ),
+            ),
+            // A private field, as a target and as a link.
+            (
+                "this.#repo|.deleteUser(id)",
+                jump(
+                    "#repo \u{2192} Router.#repo (via this: Router)",
+                    "privates.ts:5",
+                ),
+            ),
+            (
+                "console.log(this.#audit|)",
+                jump(
+                    "#audit \u{2192} Router.#audit (via this: Router)",
+                    "privates.ts:6",
+                ),
+            ),
+            (
+                "other.#repo.deleteUser|(id + 2)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via other.#repo: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            // The public name never reaches a private one, by name or through a type.
+            (
+                "found.addRoute|(path)",
+                jump(
+                    "addRoute \u{2192} Router.addRoute (by name, 1 match)",
+                    "privates.ts:16",
+                ),
+            ),
+            (
+                "this.addRoute|(path);",
+                jump(
+                    "addRoute \u{2192} Router.addRoute (via this: SubRouter)",
+                    "privates.ts:16",
+                ),
+            ),
+            // `route#addRoute` in a string is no private name.
+            (
+                "see route#addRoute|",
+                jump(
+                    "addRoute \u{2192} Router.addRoute (by name, 1 match)",
+                    "privates.ts:16",
+                ),
+            ),
+            // A subclass's `#addRoute` is its own, and implements nothing of the base's.
+            (
+                "this.#addRoute|(path, 1)",
+                jump(
+                    "#addRoute \u{2192} SubRouter.#addRoute (via this: SubRouter)",
+                    "privates.ts:37",
+                ),
+            ),
+            (
+                "^  #addRoute|(path: string): void {",
+                picker(
+                    "#addRoute: at a declaration, 1 other by name",
+                    &[("SubRouter.#addRoute", "privates.ts:37")],
+                ),
+            ),
+        ];
+        for (code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, "privates.ts", code);
+            assert_eq!(shown(&mut a), want, "{code}");
+        }
+    }
+
+    /// #100, TypeScript: a NestJS service. Its dependencies are constructor parameters wrapped one
+    /// to a line, decorated or not; `const { repo } = this` hands fields on; a class may stand
+    /// behind namespaces, of an import or of the file itself.
+    #[test]
+    fn a_nest_service_reads_its_dependencies() {
+        let user = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} UserRepository.deleteUser (via {via})"),
+                "repos.ts:10",
+            )
+        };
+        let audit = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} AuditLog.deleteUser (via {via})"),
+                "repos.ts:16",
+            )
+        };
+        let field = |name: &str, line: usize| {
+            jump(
+                &format!("{name} \u{2192} AlbumService.{name} (via this: AlbumService)"),
+                &format!("nest.ts:{line}"),
+            )
+        };
+        let spin = |via: &str, to: &str, line: usize| {
+            jump(
+                &format!("spin \u{2192} {to}.spin (via {via})"),
+                &format!("nest_parts.ts:{line}"),
+            )
+        };
+        let cases: Vec<(&str, Shown)> = vec![
+            // The wrapped constructor: a decorated parameter, a plain one, one under its
+            // decorator's line; as a link and as a target.
+            (
+                "this.repo.deleteUser|(id)",
+                user("this.repo: UserRepository"),
+            ),
+            (
+                "this.audit.deleteUser|(id + 1)",
+                audit("this.audit: AuditLog"),
+            ),
+            (
+                "this.uow.users.deleteUser|(id + 2)",
+                user("this.uow: UnitOfWork \u{2192} users: UserRepository"),
+            ),
+            ("console.log(this.repo|,", field("repo", 15)),
+            ("console.log(this.repo, this.audit|,", field("audit", 16)),
+            (
+                "console.log(this.repo, this.audit, this.uow|)",
+                field("uow", 18),
+            ),
+            // `const { repo, audit: trail } = this` and `const { users } = this.uow`; the
+            // module's `repo` is an `AuditLog`.
+            (
+                "void repo.deleteUser|(id + 3)",
+                user("repo: UserRepository"),
+            ),
+            ("trail.deleteUser|(id + 4)", audit("trail: AuditLog")),
+            (
+                "void users.deleteUser|(id + 5)",
+                user("users: UserRepository"),
+            ),
+            // A default may be what the name holds.
+            (
+                "uow.audit.deleteUser|(id + 6)",
+                picker(
+                    "deleteUser: by name, 2 declarations (chain broke at uow)",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+            ("^  repo.deleteUser|(id + 7)", audit("repo: AuditLog")),
+            // Namespaces of an import, of a module taken whole, and of the file itself, where a
+            // `Tool` and a `Widget` outside them are other classes.
+            (
+                "widget.spin|(id)",
+                spin("widget: Widget", "Outer.Inner.Widget", 4),
+            ),
+            (
+                "new Outer.Inner.Widget().spin|(id + 1)",
+                spin("new Outer.Inner.Widget(): Widget", "Outer.Inner.Widget", 4),
+            ),
+            (
+                "other.spin|(id + 2)",
+                spin("other: Widget", "Outer.Inner.Widget", 4),
+            ),
+            (
+                "gadget.spin|(id + 3)",
+                spin("gadget: Gadget", "Outer.Gadget", 11),
+            ),
+            (
+                "tool.turn|(id)",
+                jump(
+                    "turn \u{2192} Local.Tool.turn (via tool: Tool)",
+                    "nest.ts:46",
+                ),
+            ),
+            (
+                "new Local.Tool().turn|(id + 1)",
+                jump(
+                    "turn \u{2192} Local.Tool.turn (via new Local.Tool(): Tool)",
+                    "nest.ts:46",
+                ),
+            ),
+            (
+                "new Tool().turn|(id + 2)",
+                jump(
+                    "turn \u{2192} Tool.turn (via new Tool(): Tool)",
+                    "nest.ts:53",
+                ),
+            ),
+        ];
+        for (code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, "nest.ts", code);
+            assert_eq!(shown(&mut a), want, "{code}");
+        }
+    }
+
+    /// #131, TypeScript: a destructuring prettier wrapped over several lines binds its names, so
+    /// the module's `ledger`, an `AuditLog`, does not answer for them.
+    #[test]
+    fn a_wrapped_destructuring_binds_its_names() {
+        let user = jump(
+            "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+            "repos.ts:10",
+        );
+        let by_name = || {
+            picker(
+                "deleteUser: by name, 2 declarations",
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
+            )
+        };
+        let cases: Vec<(&str, Shown)> = vec![
+            // Out of `deps: Deps`, whose `ledger` is a `UserRepository`; from a block below too.
+            ("ledger.deleteUser|(id + 13)", user),
+            (
+                "ledger.deleteUser|(id + 14)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+            // With a type literal behind the pattern, and an array's pattern: nothing is read,
+            // and nothing outside answers.
+            ("ledger.deleteUser|(count + 15)", by_name()),
+            ("ledger.deleteUser|(16)", by_name()),
+            // Any statement closed so is read whole, once: `const ledger = {` … `} as T;`.
+            (
+                "ledger.deleteUser|(id + 17)",
+                jump(
+                    "deleteUser \u{2192} UserRepository.deleteUser (via ledger: UserRepository)",
+                    "repos.ts:10",
+                ),
+            ),
+        ];
+        for (code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, "scopes.ts", code);
+            assert_eq!(shown(&mut a), want, "{code}");
+        }
+    }
+
+    /// #100, TypeScript workspaces: a file sees the `node_modules` of every directory above it, the
+    /// nearest first, and not those of the package beside it.
+    #[test]
+    fn a_workspace_package_sees_the_node_modules_above_it() {
+        let main = "import { pick } from \"lib\";\n\npick(1);\n";
+        let (dir, mut a) = project_app(
+            "workspace",
+            &[
+                ("packages/api/src/main.ts", main),
+                ("packages/web/src/main.ts", main),
+                ("main.ts", main),
+            ],
+        );
+        // Written after the project walk, which a `.gitignore` keeps out of them.
+        for (path, text) in [
+            (
+                "packages/api/node_modules/lib/index.d.ts",
+                "import { deep } from \"deep\";\nexport declare function pick(n: number): number;\nexport declare const made: typeof deep;\n",
+            ),
+            (
+                "packages/api/node_modules/lib/node_modules/deep/index.d.ts",
+                "export declare function deep(): void;\n",
+            ),
+            (
+                "node_modules/lib/index.d.ts",
+                "// An older one.\nexport declare function pick(n: string): string;\n",
+            ),
+        ] {
+            std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
+            std::fs::write(dir.join(path), text).unwrap();
+        }
+        let top = || jump("pick: via import lib", "node_modules/lib/index.d.ts:2");
+        let both = || {
+            Shown::Picker(
+                "pick: via import lib, 2 declarations".into(),
+                vec![
+                    (
+                        "pick".into(),
+                        "via import lib".into(),
+                        "packages/api/node_modules/lib/index.d.ts:2".into(),
+                    ),
+                    (
+                        "pick".into(),
+                        "via import lib".into(),
+                        "lib/index.d.ts:2".into(),
+                    ),
+                ],
+            )
+        };
+        // Back in `api` after `web`: each file has its own view, and no directory is walked twice.
+        for (file, want) in [
+            ("packages/api/src/main.ts", both()),
+            ("packages/web/src/main.ts", top()),
+            ("main.ts", top()),
+            ("packages/api/src/main.ts", both()),
+        ] {
+            d_on(&mut a, file, "^pick");
+            assert_eq!(shown(&mut a), want, "{file}");
+        }
+        assert_eq!(a.node_modules.len(), 2);
+        // From inside a dependency, its own `node_modules` is the nearest, and the one it lies
+        // in is not listed twice.
+        d_on(
+            &mut a,
+            "packages/api/node_modules/lib/index.d.ts",
+            "made: typeof deep",
+        );
+        assert_eq!(
+            shown(&mut a),
+            jump(
+                "deep: via import deep",
+                "packages/api/node_modules/lib/node_modules/deep/index.d.ts:1"
+            )
+        );
+        assert_eq!(a.buf.readonly, Some("outside the project"));
+        // A dependency of `api` is outside the project from wherever `d` was pressed last.
+        d_on(&mut a, "packages/web/src/main.ts", "^pick");
+        a.jump_to(&dir.join("packages/api/node_modules/lib/index.d.ts"), 1);
+        assert_eq!(a.buf.readonly, Some("outside the project"));
+        d_on(
+            &mut a,
+            "packages/api/node_modules/lib/index.d.ts",
+            "made: typeof deep",
+        );
+        let (roots, files) = a.external[&Kind::TsJs].clone();
+        assert_eq!(
+            roots,
+            [
+                dir.join("packages/api/node_modules/lib/node_modules"),
+                dir.join("packages/api/node_modules"),
+                dir.join("node_modules"),
+            ]
+        );
+        assert_eq!(files.len(), 3);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #100, TypeScript: `export { Trunk as TrunkBase }` is followed to the class the module
+    /// declares under its own name, as hono exports the `HonoBase` its `Hono` extends. A re-export
+    /// from another module under a new name is not.
+    #[test]
+    fn an_export_under_another_name_is_followed() {
+        let cases: Vec<(&str, Shown)> = vec![
+            (
+                "super.lock|()",
+                jump(
+                    "lock \u{2192} Trunk.lock (via super of Boot)",
+                    "aliased.ts:7",
+                ),
+            ),
+            (
+                "this.audit.deleteUser|(1)",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via this.audit: AuditLog)",
+                    "repos.ts:16",
+                ),
+            ),
+            (
+                "trunk.lock|()",
+                jump(
+                    "lock \u{2192} Trunk.lock (via trunk: Trunk)",
+                    "aliased.ts:7",
+                ),
+            ),
+            (
+                "extends TrunkBase|",
+                jump("TrunkBase: via import aliased.ts", "aliased.ts:4"),
+            ),
+            (
+                "import { HatchBase|",
+                jump("no definition for HatchBase", "aliased_use.ts:1"),
+            ),
+            // `HatchBase` is the `UserRepository` of `repos`, not the one `aliased` declares.
+            (
+                "hatch.deleteUser|(2)",
+                picker(
+                    "deleteUser: by name, 2 declarations",
+                    &[
+                        ("UserRepository.deleteUser", "repos.ts:10"),
+                        ("AuditLog.deleteUser", "repos.ts:16"),
+                    ],
+                ),
+            ),
+        ];
+        for (code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, "aliased_use.ts", code);
+            assert_eq!(shown(&mut a), want, "{code}");
+        }
+    }
+
+    /// What the Punchcard review of the TypeScript items (#100, #131) found: each row was a wrong
+    /// jump, a lost one or a picker of doubles on the first build of them.
+    #[test]
+    fn what_the_review_of_the_typescript_items_found() {
+        let user = |via: &str| {
+            jump(
+                &format!("deleteUser \u{2192} UserRepository.deleteUser (via {via})"),
+                "repos.ts:10",
+            )
+        };
+        let by_name = || {
+            picker(
+                "deleteUser: by name, 2 declarations",
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
+            )
+        };
+        let public = || {
+            jump(
+                "addRoute \u{2192} Router.addRoute (by name, 1 match)",
+                "privates.ts:16",
+            )
+        };
+        let cases: Vec<(&str, &str, Shown)> = vec![
+            // `svc.list()` is the namespace's function, until a parameter `svc` hides it: as a
+            // callee and as the namespace of `new svc.Tool()`.
+            (
+                "shadowed.ts",
+                "log.deleteUser|(id)",
+                jump(
+                    "deleteUser \u{2192} AuditLog.deleteUser (via svc.list(): AuditLog[])",
+                    "repos.ts:16",
+                ),
+            ),
+            ("shadowed.ts", "r.deleteUser|(id + 1)", by_name()),
+            (
+                "shadowed.ts",
+                "tool.turn|(String(id + 2))",
+                picker(
+                    "turn: by name, 3 declarations",
+                    &[
+                        ("svc.Tool.turn", "shadowed.ts:10"),
+                        ("Local.Tool.turn", "nest.ts:46"),
+                        ("Tool.turn", "nest.ts:53"),
+                    ],
+                ),
+            ),
+            // A statement closed by `}` is one declaration, not its first line and itself.
+            (
+                "scopes.ts",
+                "void ledger|.deleteUser(id + 17)",
+                jump(
+                    "ledger \u{2192} wrappedCast.ledger (local)",
+                    "scopes.ts:129",
+                ),
+            ),
+            // `this.stash<` over its type arguments over `>(key, this.spare);` is a call.
+            (
+                "headers.ts",
+                "found.stash|(1, {})",
+                jump(
+                    "stash \u{2192} Crate.stash (by name, 1 match)",
+                    "headers.ts:18",
+                ),
+            ),
+            // #131 under a name commented out at the margin, and behind another name's default.
+            (
+                "scopes.ts",
+                "ledger.deleteUser|(18)",
+                user("ledger: UserRepository"),
+            ),
+            ("scopes.ts", "ledger?.deleteUser|(id + 19)", by_name()),
+            // A `#` in a comment or a string starts no private name.
+            ("privates.ts", "// As #addRoute|", public()),
+            ("privates.ts", "console.log(\"#addRoute|", public()),
+        ];
+        for (file, code, want) in cases {
+            let mut a = fixture_app("typescript");
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{file}: {code}");
+        }
+        // A JSX tag's `>` closes no header: the parameter of an attribute's callback is not the
+        // children's `repo`.
+        let (dir, mut a) = project_app(
+            "jsx",
+            &[
+                (
+                    "repos.ts",
+                    "export class UserRepository {\n  deleteUser(id: number): void {}\n}\nexport class AuditLog {\n  deleteUser(id: number): void {}\n}\n",
+                ),
+                (
+                    "page.tsx",
+                    "import { AuditLog, UserRepository } from \"./repos\";\n\nexport function Page(repo: UserRepository, id: number) {\n  return (\n    <List\n      title=\"every user of the long named list\"\n      render={(repo: AuditLog) => repo.deleteUser(id)}\n    >\n      {repo.deleteUser(id + 1)}\n    </List>\n  );\n}\n",
+                ),
+            ],
+        );
+        a.external
+            .insert(Kind::TsJs, (Vec::new(), Arc::new(Vec::new())));
+        d_on(&mut a, "page.tsx", "{repo.deleteUser|(id + 1)");
+        assert_eq!(
+            shown(&mut a),
+            jump(
+                "deleteUser \u{2192} UserRepository.deleteUser (via repo: UserRepository)",
+                "repos.ts:2"
+            )
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// The rows of the Go section of #100, each on the `go` fixture.
     fn go_rows(cases: Vec<(&str, &str, Shown)>) {
         for (file, code, want) in cases {
@@ -8886,12 +10058,16 @@ mod tests {
                 "impls.py",
                 "def run",
                 impls(
-                    "run: implementations of BaseJob.run, 3 declarations",
+                    "run: implementations of BaseJob.run, 5 declarations",
                     "BaseJob.run",
                     &[
                         ("ImportJob.run", "impls.py:10"),
                         ("ExportJob.run", "impls.py:15"),
+                        // A header black wrapped, one base to a line (#100), and a class
+                        // below it. `Roster` has a `BaseJob,` line too, an argument of a call.
+                        ("WrappedJob.run", "impls.py:57"),
                         ("NightlyJob.run", "impls.py:24"),
+                        ("DeepJob.run", "impls.py:81"),
                     ],
                 ),
             ),
@@ -9037,6 +10213,670 @@ mod tests {
         );
     }
 
+    fn py_rows(cases: Vec<(&str, &str, Shown)>) {
+        for (file, code, want) in cases {
+            let mut a = fixture_app("python");
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{file}: {code}");
+        }
+    }
+
+    const EVERY_SEAL: [(&str, &str); 7] = [
+        ("Crate.seal", "depot/crates.py:2"),
+        ("Lid.seal", "depot/crates.py:7"),
+        ("Pallet.seal", "depot/crates.py:12"),
+        ("Tray.seal", "depot/crates.py:17"),
+        ("Hook.seal", "depot/crates.py:22"),
+        ("Label.seal", "depot/labels.py:5"),
+        ("Pallet.seal", "depot/labels.py:10"),
+    ];
+
+    /// #100. `from x import y as z` types a receiver as `y`, and a module of the project that
+    /// imports a name without declaring it hands it on: a package's `__init__.py`, by a relative
+    /// import, under another name, from another package that hands it on in turn, through
+    /// `import *`. What the module may not end up with stays by name: two sources, a name it
+    /// also assigns, the import of a function in it, a cycle.
+    #[test]
+    fn a_python_alias_and_a_module_that_hands_a_name_on_are_followed() {
+        py_rows(vec![
+            (
+                "aliases.py",
+                "repo.delete_user|(1",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via repo: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            (
+                "aliases.py",
+                "log.delete_user|(2",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via log: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            // The alias called: the class it names.
+            (
+                "aliases.py",
+                "Users().find_user",
+                jump(
+                    "find_user \u{2192} UserRepository.find_user (via Users(): UserRepository)",
+                    "repos.py:5",
+                ),
+            ),
+            (
+                "aliases.py",
+                "repo.delete_user|(4",
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via repo: UserRepository)",
+                    "repos.py:8",
+                ),
+            ),
+            // `depot/__init__.py` declares none of these.
+            (
+                "aliases.py",
+                "crate.seal",
+                jump(
+                    "seal \u{2192} Crate.seal (via crate: Crate)",
+                    "depot/crates.py:2",
+                ),
+            ),
+            // `from .crates import Lid as Cover`.
+            (
+                "aliases.py",
+                "cover.seal",
+                jump(
+                    "seal \u{2192} Lid.seal (via cover: Lid)",
+                    "depot/crates.py:7",
+                ),
+            ),
+            // Two modules on: `depot` has it from `store`, which has it from `.sessions`.
+            (
+                "aliases.py",
+                "conn.close",
+                jump(
+                    "close \u{2192} Session.close (via conn: Session)",
+                    "store/sessions.py:6",
+                ),
+            ),
+            (
+                "aliases.py",
+                "trail.delete_user",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via trail: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            (
+                "aliases.py",
+                "dial().close",
+                jump(
+                    "close \u{2192} Session.close (via dial() -> Session)",
+                    "store/sessions.py:6",
+                ),
+            ),
+            // `from .labels import *`.
+            (
+                "aliases.py",
+                "label.seal",
+                jump(
+                    "seal \u{2192} Label.seal (via label: Label)",
+                    "depot/labels.py:5",
+                ),
+            ),
+            // `fakes.UserRepository`, not the one of `repos`.
+            (
+                "aliases.py",
+                "users.users",
+                jump(
+                    "users \u{2192} UserRepository.users (via users: UserRepository)",
+                    "fakes.py:3",
+                ),
+            ),
+            // A parameter called like the alias is a value of its own type.
+            (
+                "aliases.py",
+                "Users.delete_user|(7",
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via Users: AuditLog)",
+                    "repos.py:13",
+                ),
+            ),
+            // `d` on the imported word itself. `Crate` comes by two routes, the import and
+            // the `*` of a module that imports it too, to one declaration.
+            (
+                "aliases.py",
+                "crate: Crate",
+                jump("Crate: via import depot/crates.py", "depot/crates.py:1"),
+            ),
+            (
+                "aliases.py",
+                "cover: Cover",
+                jump("Cover: via import depot/crates.py", "depot/crates.py:6"),
+            ),
+            (
+                "aliases.py",
+                "conn: Session",
+                jump(
+                    "Session: via import store/sessions.py",
+                    "store/sessions.py:1",
+                ),
+            ),
+            // Four modules that hand the name on are followed, five are not.
+            (
+                "relays.py",
+                "parcel.wrap_up",
+                jump(
+                    "wrap_up \u{2192} Parcel.wrap_up (via parcel: Parcel)",
+                    "relay5.py:2",
+                ),
+            ),
+            (
+                "relays.py",
+                "bundle.wrap_up",
+                jump(
+                    "wrap_up \u{2192} Parcel.wrap_up (by name, 1 match)",
+                    "relay5.py:2",
+                ),
+            ),
+            // An import in a docstring's example is no source.
+            (
+                "docstring_import.py",
+                "repo: UserRepository",
+                jump("UserRepository: via import repos.py", "repos.py:4"),
+            ),
+            // … but for the reader of that example, as it was.
+            (
+                "docstring_import.py",
+                "from fakes import UserRepository",
+                Shown::Picker(
+                    "UserRepository: 2 declarations".into(),
+                    vec![
+                        (
+                            "UserRepository".into(),
+                            "via import repos.py".into(),
+                            "repos.py:4".into(),
+                        ),
+                        (
+                            "UserRepository".into(),
+                            "via import fakes.py".into(),
+                            "fakes.py:1".into(),
+                        ),
+                    ],
+                ),
+            ),
+            // `try` / `except ImportError` names two sources: both are offered, neither typed.
+            (
+                "aliases.py",
+                "pallet: Pallet",
+                Shown::Picker(
+                    "Pallet: 2 declarations".into(),
+                    vec![
+                        (
+                            "Pallet".into(),
+                            "via import depot/labels.py".into(),
+                            "depot/labels.py:9".into(),
+                        ),
+                        (
+                            "Pallet".into(),
+                            "via import depot/crates.py".into(),
+                            "depot/crates.py:11".into(),
+                        ),
+                    ],
+                ),
+            ),
+            (
+                "aliases.py",
+                "pallet.seal",
+                picker("seal: by name, 7 declarations", &EVERY_SEAL),
+            ),
+            // `Tray` is imported and, under an `if`, assigned.
+            (
+                "aliases.py",
+                "tray: Tray",
+                jump("Tray: by name, 1 match", "depot/crates.py:16"),
+            ),
+            (
+                "aliases.py",
+                "tray.seal",
+                picker("seal: by name, 7 declarations", &EVERY_SEAL),
+            ),
+            // An import inside a function of the module binds nothing of the module.
+            (
+                "aliases.py",
+                "hook: Hook",
+                jump("Hook: by name, 1 match", "depot/crates.py:21"),
+            ),
+            (
+                "aliases.py",
+                "hook.seal",
+                picker("seal: by name, 7 declarations", &EVERY_SEAL),
+            ),
+            // `depot` has `Ring` from `depot.loop`, which has it from `depot`.
+            (
+                "aliases.py",
+                "ring: Ring",
+                jump("no definition for Ring", "aliases.py:35"),
+            ),
+        ]);
+    }
+
+    /// #100. `Cls.CONST`, an `Enum` member and a dataclass field are what the class body
+    /// declares, in the class the qualifier names or one above it: `via Cls`. An attribute a
+    /// method assigns to `self`, a member of a member, a function's attribute, a class declared
+    /// inside the function and a parameter of the class's name are not that. A `with … as x`
+    /// target is a local, which hides the module's name whatever its type (so on master).
+    #[test]
+    fn a_python_class_attribute_is_looked_up_in_the_class() {
+        let both_delete_user = [
+            ("UserRepository.delete_user", "repos.py:8"),
+            ("AuditLog.delete_user", "repos.py:13"),
+        ];
+        py_rows(vec![
+            (
+                "consts.py",
+                "Limits.MAX_USERS",
+                jump(
+                    "MAX_USERS \u{2192} Limits.MAX_USERS (via Limits)",
+                    "consts.py:12",
+                ),
+            ),
+            (
+                "consts.py",
+                "Limits.timeout",
+                jump(
+                    "timeout \u{2192} Limits.timeout (via Limits)",
+                    "consts.py:13",
+                ),
+            ),
+            // Two enums with a `RED`.
+            (
+                "consts.py",
+                "    Color.RED",
+                jump("RED \u{2192} Color.RED (via Color)", "consts.py:27"),
+            ),
+            (
+                "consts.py",
+                "    Shade.RED",
+                jump("RED \u{2192} Shade.RED (via Shade)", "consts.py:32"),
+            ),
+            // A dataclass field; `Archive.label` is a namesake.
+            (
+                "consts.py",
+                "Point.label",
+                jump("label \u{2192} Point.label (via Point)", "consts.py:38"),
+            ),
+            // Inherited, overridden, and a method as before.
+            (
+                "consts.py",
+                "Tight.MAX_USERS",
+                jump(
+                    "MAX_USERS \u{2192} Limits.MAX_USERS (via Tight)",
+                    "consts.py:12",
+                ),
+            ),
+            (
+                "consts.py",
+                "Tight.timeout",
+                jump("timeout \u{2192} Tight.timeout (via Tight)", "consts.py:20"),
+            ),
+            (
+                "consts.py",
+                "Tight.check",
+                jump("check \u{2192} Limits.check (via Tight)", "consts.py:15"),
+            ),
+            // Behind an import, an alias and a module.
+            (
+                "consts_use.py",
+                "Color.GREEN",
+                jump("GREEN \u{2192} Color.GREEN (via Color)", "consts.py:28"),
+            ),
+            (
+                "consts_use.py",
+                "Caps.MAX_USERS",
+                jump(
+                    "MAX_USERS \u{2192} Limits.MAX_USERS (via Caps)",
+                    "consts.py:12",
+                ),
+            ),
+            (
+                "consts_use.py",
+                "consts.Shade.RED",
+                jump("RED \u{2192} Shade.RED (via consts.Shade)", "consts.py:32"),
+            ),
+            // `self.count = 0` is an instance's.
+            (
+                "consts.py",
+                "Tight.count",
+                jump(
+                    "count \u{2192} Tight.count (by name, 1 match)",
+                    "consts.py:23",
+                ),
+            ),
+            (
+                "consts.py",
+                "Limits.missing",
+                jump("no definition for missing", "consts.py:48"),
+            ),
+            (
+                "consts.py",
+                "Color.RED.value",
+                jump(
+                    "no definition for value (chain broke at Color)",
+                    "consts.py:53",
+                ),
+            ),
+            (
+                "consts.py",
+                "scan.cache",
+                jump("no definition for cache", "consts.py:54"),
+            ),
+            // The function's own `class Color`, which the rules do not read (#101).
+            (
+                "consts.py",
+                "Color.RED|  # the class",
+                picker(
+                    "RED: by name, 3 declarations",
+                    &[
+                        ("Color.RED", "consts.py:27"),
+                        ("Shade.RED", "consts.py:32"),
+                        ("inner.Color.RED", "consts.py:59"),
+                    ],
+                ),
+            ),
+            (
+                "consts.py",
+                "Color.RED|  # a parameter",
+                jump("RED \u{2192} Shade.RED (via Color: Shade)", "consts.py:32"),
+            ),
+            (
+                "consts.py",
+                "Limits.MAX_USERS|  # a parameter",
+                jump(
+                    "MAX_USERS \u{2192} Limits.MAX_USERS (by name, 1 match)",
+                    "consts.py:12",
+                ),
+            ),
+            // The class binds the word in a shape the rules do not read: a tuple, a `def` under
+            // an `if`, a `for`. Not reading it is no proof that the base's is meant.
+            (
+                "consts.py",
+                "    Unread.RANK",
+                jump(
+                    "RANK \u{2192} Plain.RANK (by name, 1 match)",
+                    "consts.py:101",
+                ),
+            ),
+            (
+                "consts.py",
+                "    Unread.check",
+                picker(
+                    "check: by name, 3 declarations",
+                    &[
+                        ("Limits.check", "consts.py:15"),
+                        ("Plain.check", "consts.py:105"),
+                        // Under an `if` the walk of `qualified` names nothing.
+                        ("check", "consts.py:112"),
+                    ],
+                ),
+            ),
+            (
+                "consts.py",
+                "    Unread.CODE",
+                jump(
+                    "CODE \u{2192} Plain.CODE (by name, 1 match)",
+                    "consts.py:103",
+                ),
+            ),
+            // The body goes on past a comment and a string at column 0, and may share the
+            // header's line.
+            (
+                "consts.py",
+                "    Noted.Meta",
+                jump("Meta \u{2192} Noted.Meta (via Noted)", "consts.py:133"),
+            ),
+            (
+                "consts.py",
+                "    Queried.RANK",
+                jump(
+                    "RANK \u{2192} Plain.RANK (by name, 1 match)",
+                    "consts.py:101",
+                ),
+            ),
+            (
+                "consts.py",
+                "    Short.CODE",
+                jump(
+                    "CODE \u{2192} Plain.CODE (by name, 1 match)",
+                    "consts.py:103",
+                ),
+            ),
+            // The header's own lines at the margin end nothing either.
+            (
+                "consts.py",
+                "    Flush.CODE",
+                jump(
+                    "CODE \u{2192} Plain.CODE (by name, 1 match)",
+                    "consts.py:103",
+                ),
+            ),
+            // … and a nested class, which is what the class declares.
+            (
+                "consts.py",
+                "    Unread.Meta",
+                jump("Meta \u{2192} Unread.Meta (via Unread)", "consts.py:115"),
+            ),
+            // Two bases that disagree: the order Python reads them in is not computed.
+            (
+                "consts.py",
+                "Diamond.LEVEL",
+                picker(
+                    "LEVEL: by name, 2 declarations",
+                    &[
+                        ("Root.LEVEL", "consts.py:80"),
+                        ("Right.LEVEL", "consts.py:88"),
+                    ],
+                ),
+            ),
+            // `with … as`: one line, two targets, and wrapped in brackets.
+            (
+                "consts.py",
+                "        conn|.delete",
+                jump("conn \u{2192} scan.conn (local)", "consts.py:70"),
+            ),
+            (
+                "consts.py",
+                "        handle|.read",
+                jump("handle \u{2192} scan.handle (local)", "consts.py:70"),
+            ),
+            (
+                "consts.py",
+                "        wrapped|.delete",
+                jump("wrapped: local", "consts.py:74"),
+            ),
+            (
+                "consts.py",
+                "conn.delete_user",
+                picker("delete_user: by name, 2 declarations", &both_delete_user),
+            ),
+            (
+                "consts.py",
+                "wrapped.delete_user",
+                picker("delete_user: by name, 2 declarations", &both_delete_user),
+            ),
+        ]);
+    }
+
+    /// #100. A Python class header wrapped over several lines: its members are the class's,
+    /// its bases are read, and from inside it a member's implementations are found, the
+    /// bases of the implementing class sharing one line under theirs.
+    #[test]
+    fn a_wrapped_python_class_header_keeps_its_name_and_its_bases() {
+        py_rows(vec![
+            (
+                "impls.py",
+                "self.mop",
+                jump(
+                    "mop \u{2192} WrappedJob.mop (via self: WrappedJob)",
+                    "impls.py:60",
+                ),
+            ),
+            (
+                "impls.py",
+                "job.mop",
+                jump(
+                    "mop \u{2192} WrappedJob.mop (via job: WrappedJob)",
+                    "impls.py:60",
+                ),
+            ),
+            (
+                "impls.py",
+                "def tick",
+                jump(
+                    "tick \u{2192} Narrow.tick (implementations of WideBase.tick)",
+                    "impls.py:94",
+                ),
+            ),
+            (
+                "impls.py",
+                "self.sweep",
+                jump(
+                    "sweep \u{2192} Sweeper.sweep (via self: Narrow)",
+                    "impls.py:44",
+                ),
+            ),
+        ]);
+    }
+
+    /// #100. A parameter of a Python function is named after the function, as a local of its
+    /// body is: `RecipeController.get_one.slug`, not `RecipeController.slug`, a field's name.
+    #[test]
+    fn a_python_parameter_is_named_after_its_function() {
+        py_rows(vec![
+            (
+                "params.py",
+                "found = slug",
+                jump(
+                    "slug \u{2192} RecipeController.get_one.slug (local)",
+                    "params.py:2",
+                ),
+            ),
+            (
+                "params.py",
+                "return found",
+                jump(
+                    "found \u{2192} RecipeController.get_one.found (local)",
+                    "params.py:3",
+                ),
+            ),
+            // A signature wrapped over several lines: the parameter, and a local under its `)`.
+            (
+                "params.py",
+                "kept = slugs",
+                jump(
+                    "slugs \u{2192} RecipeController.get_many.slugs (local)",
+                    "params.py:6",
+                ),
+            ),
+            (
+                "params.py",
+                "return kept",
+                jump(
+                    "kept \u{2192} RecipeController.get_many.kept (local)",
+                    "params.py:10",
+                ),
+            ),
+            (
+                "params.py",
+                "        return slug",
+                jump(
+                    "slug \u{2192} RecipeController.get_later.slug (local)",
+                    "params.py:13",
+                ),
+            ),
+            (
+                "params.py",
+                "return level",
+                jump("level \u{2192} top.level (local)", "params.py:17"),
+            ),
+        ]);
+    }
+
+    /// #131. A Python binding that does not start its line is a binding: behind the `:` of a
+    /// header on the same line, behind a `;`, annotated, chained. It used to be unseen, and the
+    /// module's `ledger`, an `AuditLog`, was proven in its place. One the rules cannot read hides
+    /// the module's all the same; a comparison binds nothing.
+    #[test]
+    fn a_python_binding_need_not_start_its_line() {
+        let users = |n: &str| {
+            (
+                "scopes.py",
+                format!("ledger.delete_user|({n}"),
+                jump(
+                    "delete_user \u{2192} UserRepository.delete_user (via ledger: UserRepository)",
+                    "repos.py:8",
+                ),
+            )
+        };
+        let unproven = |n: &str, status: &str| {
+            let rows = [
+                ("UserRepository.delete_user", "repos.py:8"),
+                ("AuditLog.delete_user", "repos.py:13"),
+            ];
+            (
+                "scopes.py",
+                format!("ledger.delete_user|({n}"),
+                picker(status, &rows),
+            )
+        };
+        let module = |n: &str| {
+            (
+                "scopes.py",
+                format!("ledger.delete_user|({n}"),
+                jump(
+                    "delete_user \u{2192} AuditLog.delete_user (via ledger: AuditLog)",
+                    "repos.py:13",
+                ),
+            )
+        };
+        let by_name = "delete_user: by name, 2 declarations";
+        let cases = vec![
+            // `if fresh: ledger = UserRepository()`.
+            users("10"),
+            // … and `else: ledger = open("ledger")`.
+            unproven("11", by_name),
+            // `count = 1; ledger = UserRepository()`.
+            users("12 + count"),
+            // `for name in names["a:b"]: ledger = …`: the `:` of the string ends no header.
+            users("13"),
+            // `with … as source: ledger: UserRepository = source`.
+            users("14"),
+            // The `:` of a header wrapped over two lines, the first ending in `and`, in `(`.
+            users("19"),
+            users("20"),
+            // `first = ledger = UserRepository()`.
+            unproven("15 + len", by_name),
+            // `try: from fakes import ledger`: only the statement starts with `from`.
+            unproven("16", by_name),
+            // `if cold: self.ledger = UserRepository()` beside `self.ledger = AuditLog()`.
+            unproven(
+                "18",
+                "delete_user: by name, 2 declarations (chain broke at ledger)",
+            ),
+            // `if ledger == flag: print(ledger)` binds nothing, and neither does a keyword
+            // argument on a line that continues a call: the module's.
+            module("17"),
+            module("21"),
+            // A lambda's `:` behind the end of a call's arguments is no header's.
+            module("22"),
+        ];
+        for (file, code, want) in cases {
+            let mut a = fixture_app("python");
+            d_on(&mut a, file, &code);
+            assert_eq!(shown(&mut a), want, "{file}: {code}");
+        }
+    }
+
     /// Step 5 of #68 over the same project in three languages: a word or a qualifier an import
     /// binds to a module of the project is looked for in that module, and the status line names
     /// the file or the package directory. A module that does not declare the word re-exports it,
@@ -9065,12 +10905,10 @@ mod tests {
                 "python",
                 "jobs.py",
                 "    open_session",
-                picker(
-                    "open_session: by name, 2 declarations",
-                    &[
-                        ("open_session", "fakes.py:6"),
-                        ("open_session", "store/sessions.py:16"),
-                    ],
+                // `store/__init__.py` imports it from `.sessions` and hands it on (#100).
+                jump(
+                    "open_session: via import store/sessions.py",
+                    "store/sessions.py:16",
                 ),
             ),
             (
@@ -9480,6 +11318,207 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// #129. The chain in front of the word is joined as the kind qualifies a name, `Depot::open`
+    /// in Rust and C++, so a declaration that reads so is the answer there as `Outer.find` is
+    /// elsewhere. A type nothing declares the word in, `Self`, and a value's method stay by name.
+    #[test]
+    fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
+        let (dir, mut a) = project_app(
+            "paths",
+            &[
+                (
+                    "depot.rs",
+                    "pub struct Depot;\n\nimpl Depot {\n    pub fn open() -> Self {\n        Depot\n    }\n\n    pub fn again() -> Self {\n        Self::open()\n    }\n}\n\npub struct Shed;\n\nimpl Shed {\n    pub fn open() -> Self {\n        Shed\n    }\n}\n\npub struct Bare;\n\npub fn run(shed: Shed) {\n    let _ = Depot::open();\n    let _ = depot::Shed::open();\n    let _ = Bare::open();\n    let _ = shed.open();\n    let _ = vendored::Shed::open();\n    let _ = crate::depot::Shed::open();\n    let _ = store::Shelf::stock();\n    let _ = <Shed>::open();\n}\n",
+                ),
+                (
+                    "store/shelf.rs",
+                    "pub struct Shelf;\n\nimpl Shelf {\n    pub fn stock() -> Self {\n        Shelf\n    }\n}\n",
+                ),
+                ("cli.rs", "#[derive(Parser)]\npub struct Config;\n"),
+                (
+                    "settings.rs",
+                    "pub struct Config;\n\nimpl Config {\n    pub fn parse() -> Self {\n        Config\n    }\n}\n",
+                ),
+                ("io.rs", "pub fn read() {}\n"),
+                (
+                    "app/Yard.php",
+                    "<?php\nnamespace App;\n\nclass Yard\n{\n    public static function open(): void\n    {\n    }\n}\n\nfunction near(): void\n{\n    Yard::open();\n}\n",
+                ),
+                (
+                    "app/Far.php",
+                    "<?php\nnamespace Other;\n\nfunction far(): void\n{\n    \\Vendor\\Pkg\\Yard::open();\n}\n",
+                ),
+                (
+                    "app/Grouped.php",
+                    "<?php\nnamespace Other;\n\nuse Vendor\\Pkg\\{Yard, Shed};\n\nfunction grouped(): void\n{\n    Yard::open( );\n}\n",
+                ),
+                (
+                    "glob.rs",
+                    "use std::io::*;\n\nfn glob() {\n    let _ = Error::new();\n}\n",
+                ),
+                (
+                    "using.cpp",
+                    "using std::filesystem::Depot;\n\nvoid far() {\n    Depot::open();\n}\n",
+                ),
+                (
+                    "error.rs",
+                    "pub struct Error;\n\nimpl Error {\n    pub fn new() -> Self {\n        Error\n    }\n}\n",
+                ),
+                (
+                    "main.rs",
+                    "use crate::cli::Config;\nuse crate::depot::Depot;\nuse std::io;\n\nfn main() {\n    let _ = Depot::open();\n    let _ = Config::parse();\n    let _ = io::Error::new();\n}\n",
+                ),
+                (
+                    "depot.cpp",
+                    "struct Depot {\n    static Depot open() {\n        return Depot{};\n    }\n};\n\nstruct Shed {\n    static Shed open() {\n        return Shed{};\n    }\n};\n\nstruct Bare {};\n\nstruct crate {\n    void open() {}\n};\n\nstruct lid {\n    void open() {}\n};\n\nvoid use(lid crate) {\n    crate.open();\n}\n\nint main() {\n    Depot::open();\n    Bare::open();\n    return 0;\n}\n",
+                ),
+            ],
+        );
+        for kind in [Kind::Rust, Kind::C] {
+            a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
+        }
+        let rs = [("Depot::open", "depot.rs:4"), ("Shed::open", "depot.rs:16")];
+        let cpp = [
+            ("Depot::open", "depot.cpp:2"),
+            ("Shed::open", "depot.cpp:8"),
+            ("crate::open", "depot.cpp:16"),
+            ("lid::open", "depot.cpp:20"),
+        ];
+        let cases = [
+            (
+                "depot.rs",
+                "= Depot::open",
+                jump("open \u{2192} Depot::open (via Depot)", "depot.rs:4"),
+            ),
+            (
+                "depot.rs",
+                "depot::Shed::open",
+                jump("open \u{2192} Shed::open (via depot::Shed)", "depot.rs:16"),
+            ),
+            (
+                "depot.rs",
+                "crate::depot::Shed::open",
+                jump(
+                    "open \u{2192} Shed::open (via crate::depot::Shed)",
+                    "depot.rs:16",
+                ),
+            ),
+            // A directory of the project.
+            (
+                "depot.rs",
+                "store::Shelf::stock",
+                jump(
+                    "stock \u{2192} Shelf::stock (via store::Shelf)",
+                    "store/shelf.rs:4",
+                ),
+            ),
+            // A `use` of the project's own type is no reason to doubt it.
+            (
+                "main.rs",
+                "= Depot::open",
+                jump("open \u{2192} Depot::open (via Depot)", "depot.rs:4"),
+            ),
+            // Two types called `Config`, and the derive of the imported one supplies `parse`:
+            // the name of a type is no proof of which one.
+            (
+                "main.rs",
+                "Config::parse",
+                jump(
+                    "parse \u{2192} Config::parse (by name, 1 match)",
+                    "settings.rs:4",
+                ),
+            ),
+            // `io` is `std::io` by the file's `use`, whatever `io.rs` the project has.
+            (
+                "main.rs",
+                "io::Error::new",
+                jump("new \u{2192} Error::new (by name, 1 match)", "error.rs:4"),
+            ),
+            // A glob may bring in an `Error` of its own; so may a C++ `using`.
+            (
+                "glob.rs",
+                "Error::new",
+                jump("new \u{2192} Error::new (by name, 1 match)", "error.rs:4"),
+            ),
+            (
+                "using.cpp",
+                "    Depot::open",
+                picker("open: by name, 4 declarations", &cpp),
+            ),
+            // PHP: the class of the project, one spelled out in another namespace, one a
+            // grouped `use` brings in.
+            (
+                "app/Yard.php",
+                "    Yard::open",
+                jump("open \u{2192} Yard::open (via Yard)", "app/Yard.php:6"),
+            ),
+            (
+                "app/Far.php",
+                "Pkg\\Yard::open",
+                jump(
+                    "open \u{2192} Yard::open (by name, 1 match)",
+                    "app/Yard.php:6",
+                ),
+            ),
+            (
+                "app/Grouped.php",
+                "Yard::open|( )",
+                jump(
+                    "open \u{2192} Yard::open (by name, 1 match)",
+                    "app/Yard.php:6",
+                ),
+            ),
+            // No name in front of the `::`.
+            (
+                "depot.rs",
+                "<Shed>::open",
+                picker("open: by name, 2 declarations", &rs),
+            ),
+            // No file or directory of the project is called `vendored`.
+            (
+                "depot.rs",
+                "vendored::Shed::open",
+                picker("open: by name, 2 declarations", &rs),
+            ),
+            (
+                "depot.rs",
+                "Bare::open",
+                picker("open: by name, 2 declarations", &rs),
+            ),
+            (
+                "depot.rs",
+                "Self::open",
+                picker("open: by name, 2 declarations", &rs),
+            ),
+            (
+                "depot.rs",
+                "shed.open",
+                picker("open: by name, 2 declarations", &rs),
+            ),
+            (
+                "depot.cpp",
+                "    Depot::open",
+                jump("open \u{2192} Depot::open (via Depot)", "depot.cpp:2"),
+            ),
+            (
+                "depot.cpp",
+                "Bare::open",
+                picker("open: by name, 4 declarations", &cpp),
+            ),
+            // A value called like a type, behind a `.`: a `lid`, whatever `crate::open` reads.
+            (
+                "depot.cpp",
+                "crate.open",
+                picker("open: by name, 4 declarations", &cpp),
+            ),
+        ];
+        for (file, code, want) in cases {
+            d_on(&mut a, file, code);
+            assert_eq!(shown(&mut a), want, "{file}: {code}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// Found by the acceptance pass of #68: a Go method of the same name and as many parameters,
     /// of other types, was the one implementation `d` jumped to.
     #[test]
@@ -9523,42 +11562,93 @@ mod tests {
     #[test]
     fn an_implementation_of_a_namesake_interface_is_not_one_of_ours() {
         let iface = "export interface Notifier {\n  send(to: string): void;\n}\n";
+        let class = |name: &str, from: &str| {
+            format!(
+                "import {{ Notifier }} from \"./{from}\";\n\nexport class {name} implements Notifier {{\n  send(to: string): void {{}}\n}}\n"
+            )
+        };
+        let looped = class("LoopedNotifier", "loop_a");
+        let own = class("OwnNotifier", "own");
+        let (mail, sms, push, deep, loose) = (
+            class("MailNotifier", "a"),
+            class("SmsNotifier", "index"),
+            // `type Notifier,` on a line of a wrapped list declares no alias, in the class's
+            // file and in the barrel alike.
+            class("PushNotifier", "named").replace("{ Notifier }", "{\n  type Notifier,\n}"),
+            class("DeepNotifier", "deep"),
+            class("LooseNotifier", "renamed"),
+        );
         let (dir, mut a) = project_app(
             "dupiface",
             &[
                 ("a.ts", iface),
                 ("b.ts", iface),
+                // Barrels (#100): everything of `a`, the name out of `b`, a barrel of a barrel,
+                // and one that hands on another interface under this name, which is not followed.
                 ("index.ts", "export * from \"./a\";\n"),
+                ("named.ts", "export {\n  type Notifier,\n} from \"./b\";\n"),
+                ("deep.ts", "export * from \"./named\";\n"),
                 (
-                    "impl.ts",
-                    "import { Notifier } from \"./a\";\n\nexport class MailNotifier implements Notifier {\n  send(to: string): void {}\n}\n",
+                    "things.ts",
+                    "export interface Thing {\n  send(to: string): void;\n}\ninterface Notifier {}\n",
                 ),
                 (
-                    "barrel.ts",
-                    "import { Notifier } from \"./index\";\n\nexport class SmsNotifier implements Notifier {\n  send(to: string): void {}\n}\n",
+                    "renamed.ts",
+                    "export { Thing as Notifier } from \"./things\";\n",
                 ),
+                // Two barrels that export each other lead nowhere, and end.
+                ("loop_a.ts", "export * from \"./loop_b\";\n"),
+                ("loop_b.ts", "export * from \"./loop_a\";\n"),
+                ("looped.ts", &looped),
+                // A barrel that declares a `Notifier` of its own, whatever else it hands on.
+                (
+                    "own.ts",
+                    "export interface Notifier {\n  send(to: string): void;\n}\nexport * from \"./loop_a\";\n",
+                ),
+                ("own_impl.ts", &own),
+                ("impl.ts", &mail),
+                ("barrel.ts", &sms),
+                ("named_impl.ts", &push),
+                ("deep_impl.ts", &deep),
+                ("loose.ts", &loose),
             ],
         );
         a.external
             .insert(Kind::TsJs, (Vec::new(), Arc::new(Vec::new())));
-        // Through a barrel the file is not known: the class stays, as it was.
-        d_on(&mut a, "b.ts", "  send");
-        assert_eq!(
-            shown(&mut a),
-            jump(
-                "send \u{2192} SmsNotifier.send (implementations of Notifier.send)",
-                "barrel.ts:4"
-            )
-        );
-        d_on(&mut a, "a.ts", "  send");
-        let Shown::Picker(status, rows) = shown(&mut a) else {
-            panic!("{}", a.message);
-        };
-        assert_eq!(
-            status,
-            "send: implementations of Notifier.send, 2 declarations"
-        );
-        assert_eq!(rows.len(), 2);
+        for (file, want) in [
+            (
+                "a.ts",
+                [
+                    ("SmsNotifier.send", "barrel.ts:4"),
+                    ("MailNotifier.send", "impl.ts:4"),
+                    ("LoopedNotifier.send", "looped.ts:4"),
+                    ("LooseNotifier.send", "loose.ts:4"),
+                ],
+            ),
+            (
+                "b.ts",
+                [
+                    ("DeepNotifier.send", "deep_impl.ts:4"),
+                    ("LoopedNotifier.send", "looped.ts:4"),
+                    ("LooseNotifier.send", "loose.ts:4"),
+                    ("PushNotifier.send", "named_impl.ts:6"),
+                ],
+            ),
+        ] {
+            d_on(&mut a, file, "  send");
+            let Shown::Picker(status, rows) = shown(&mut a) else {
+                panic!("{}", a.message);
+            };
+            assert_eq!(
+                status,
+                "send: implementations of Notifier.send, 4 declarations"
+            );
+            let rows: Vec<(&str, &str)> = rows
+                .iter()
+                .map(|(n, _, at)| (n.as_str(), at.as_str()))
+                .collect();
+            assert_eq!(rows, want, "{file}");
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
