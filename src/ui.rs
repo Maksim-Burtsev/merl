@@ -1408,6 +1408,11 @@ z
             rows(&terminal)[..5],
             ["1 a", "\u{258e}old1", "\u{258e}old2", "2\u{258e}b", "3 c"]
         );
+        // Greyed by the theme's own readable grey, never by the terminal's `dim` (#144).
+        let buf = terminal.backend().buffer();
+        let o = (0..8).find(|x| buf[(*x, 1)].symbol() == "o").unwrap();
+        assert_eq!(buf[(o, 1)].fg, theme.ghost_fg);
+        assert!(!buf[(o, 1)].modifier.contains(ratatui::style::Modifier::DIM));
         assert_eq!(terminal.get_cursor_position().unwrap().y, 4);
         // Up from `c` lands on `b`, not on a ghost; up again on `a`.
         app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
