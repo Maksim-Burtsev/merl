@@ -424,7 +424,7 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     let text_hl = app.selected_bytes(app.line).is_none_or(|r| !r.is_empty());
 
     let nowrap = app.nowrap();
-    let ghost = base.fg(theme.gutter_fg).add_modifier(Modifier::DIM);
+    let ghost = base.fg(theme.ghost_fg);
     let ghost_row = |text: &str| {
         Line::from(vec![
             Span::styled(" ".repeat(gutter_w - 1), gutter_style),

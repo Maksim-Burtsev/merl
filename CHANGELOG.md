@@ -270,6 +270,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Review: the lines a branch deleted can be read. They were drawn in the line-number colour with
+  the terminal's `dim` on top, which in the default theme and many others left an empty-looking
+  block beside the red bar, and a blank page for a deleted file. They are now the theme's text
+  colour greyed toward the background, at 4:1 contrast or better (in the few themes whose own
+  text is softer than that allows, 85 % of the text colour), the same in every terminal. (#144)
 - `d` no longer proves a module-level namesake for a name a TypeScript destructuring wrapped
   over several lines binds (`const {` / `  ledger,` / `} = deps;`): the statement is read whole,
   and out of a name whose type is written the field's type is the local's. (#131)
