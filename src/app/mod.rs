@@ -1,4 +1,4 @@
-//! All editor state and every key binding. Rendering lives in `ui.rs`.
+//! All editor state and every key binding. Rendering lives in `ui/`.
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
