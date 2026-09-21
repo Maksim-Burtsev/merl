@@ -62,7 +62,7 @@ enum Msg {
     about = "Keyboard-only code navigator for the terminal"
 )]
 struct Cli {
-    /// Directory, file, or file:LINE to open (default: the current directory)
+    /// Directory, file, or FILE:LINE[:COL] to open (default: the current directory)
     target: Option<String>,
     /// Colour theme
     #[arg(long, value_name = "NAME")]
@@ -443,8 +443,11 @@ fn concerns_open_file(app: &App, ev: &notify::Event) -> bool {
     })
 }
 
-/// Turns the CLI target into `(project root, file to open, 1-based line)`.
-fn resolve(target: Option<&str>) -> Result<(PathBuf, Option<PathBuf>, Option<usize>)> {
+/// A 1-based line and column, as compilers print them.
+type LineCol = (usize, usize);
+
+/// Turns the CLI target into `(project root, file to open, where in it)`.
+fn resolve(target: Option<&str>) -> Result<(PathBuf, Option<PathBuf>, Option<LineCol>)> {
     let Some(target) = target else {
         return Ok((std::env::current_dir()?, None, None));
     };
@@ -464,15 +467,24 @@ fn resolve(target: Option<&str>) -> Result<(PathBuf, Option<PathBuf>, Option<usi
     Ok((root, Some(path), line))
 }
 
-/// Splits a trailing `:LINE`, but only when the prefix is a path that exists.
-fn split_line(target: &str) -> (&str, Option<usize>) {
+/// Splits `FILE:LINE[:COL]`, as compilers print it, into the path and `(line, column)`. The path
+/// is the longest prefix before a colon that exists, so the rest of a grep line, `FILE:LINE:text`,
+/// is ignored, and a file really called `a:12` opens as itself. No column is column 1.
+fn split_line(target: &str) -> (&str, Option<LineCol>) {
     if Path::new(target).exists() {
         return (target, None);
     }
-    match target.rsplit_once(':') {
-        Some((path, n)) if Path::new(path).exists() => (path, n.parse().ok()),
-        _ => (target, None),
-    }
+    let found = target
+        .rmatch_indices(':')
+        .map(|(i, _)| (&target[..i], &target[i + 1..]))
+        .find(|(path, _)| Path::new(path).exists());
+    let Some((path, rest)) = found else {
+        return (target, None);
+    };
+    let mut nums = rest.split(':').map(|n| n.parse().ok());
+    let line = nums.next().flatten();
+    let col = nums.next().flatten().unwrap_or(1);
+    (path, line.map(|n| (n, col)))
 }
 
 /// Standard base64 with padding; the stdlib has none and a dependency is more than this.
@@ -550,13 +562,33 @@ mod tests {
     }
 
     #[test]
-    fn splits_only_on_existing_paths() {
+    fn splits_what_compilers_and_grep_print() {
+        use super::split_line;
+        let main = "src/main.rs";
+        assert_eq!(split_line("src/main.rs:20"), (main, Some((20, 1))));
+        assert_eq!(split_line("src/main.rs:12:5"), (main, Some((12, 5))));
+        assert_eq!(split_line("src/main.rs:12:"), (main, Some((12, 1))));
+        assert_eq!(split_line("src/main.rs:"), (main, None));
+        assert_eq!(split_line("src/main.rs"), (main, None));
+        // A grep line, and ripgrep's `--column` one, whose text has colons of its own.
+        assert_eq!(split_line("src/main.rs:12:mod app;"), (main, Some((12, 1))));
         assert_eq!(
-            super::split_line("src/main.rs:20"),
-            ("src/main.rs", Some(20))
+            split_line("src/main.rs:16:5:use std::collections::HashSet;"),
+            (main, Some((16, 5)))
         );
-        assert_eq!(super::split_line("src/main.rs"), ("src/main.rs", None));
-        // A colon in a name that really exists must not be treated as a line number.
-        assert_eq!(super::split_line("nope:12"), ("nope:12", None));
+        assert_eq!(split_line("nope:12"), ("nope:12", None));
+        assert_eq!(split_line("nope.rs:12:5"), ("nope.rs:12:5", None));
+
+        // A colon in a name that really exists is part of the name.
+        let dir = std::env::temp_dir().join(format!("merl-colon-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("a:12").display().to_string();
+        std::fs::write(&file, "x\n").unwrap();
+        assert_eq!(split_line(&file), (file.as_str(), None));
+        assert_eq!(
+            split_line(&format!("{file}:3:4")),
+            (file.as_str(), Some((3, 4)))
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

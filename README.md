@@ -51,7 +51,7 @@ Then:
 
 ```
 merl                 # the current directory
-merl FILE:LINE       # what compilers, linters and grep print, pasted straight in
+merl FILE:LINE[:COL] # what compilers, linters and grep print, pasted straight in
 merl --review        # the branch you are on, as a diff over the real files
 merl --tutor         # every key, hands on, in about ten minutes
 ```
