@@ -26,6 +26,12 @@ the shell's Ctrl+A, Ctrl+E, Ctrl+W and Ctrl+U. Results follow every edit. While 
 is active (until Esc clears it), `/` opens with it selected: type to replace it, press an arrow
 or Home to edit it.
 
+Ctrl+N makes a new file, from the code, from edit mode or from the tree. The prompt asks for a
+path from the project root and starts in the directory of the open file, or of the selected tree
+row; Enter creates the file with the directories it needs and opens it for editing, and it is in
+the tree and in `o` at once. A file that is already there is opened as it is, never overwritten,
+and a path that leaves the project is refused.
+
 In a git repository the gutter shows what differs from the index, as VS Code's does: green for
 added lines, blue for changed ones, red under a line where lines were deleted. The marks come
 from `git diff` after every save and reload, so they trail an edit by the autosave delay.

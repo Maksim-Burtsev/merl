@@ -615,6 +615,7 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
     let prefix = match app.mode {
         Mode::Goto => ":",
         Mode::Find => "/",
+        Mode::New => "new: ",
         _ => "",
     };
     if !prefix.is_empty() {

@@ -340,6 +340,8 @@ mod tests {
         "Shift+Up / Shift+Down",
         "Shift+Left / Shift+Right",
         "Ctrl+C",
+        // The lessons only read the sample project.
+        "Ctrl+N",
         "Alt+Shift+Left / Right",
         "Ctrl+Shift+Left / Right",
         "Ctrl+D / Ctrl+U",

@@ -116,6 +116,7 @@ The dozen you will use every day. `?` inside merl shows the rest.
 | Key | Action |
 |---|---|
 | o / Ctrl+E | Open a file (fuzzy) |
+| Ctrl+N | New file: type its path, Enter creates and edits it |
 | / / Ctrl+F | Find in the open file |
 | n / N | Next / previous match |
 | s | Search the project |
