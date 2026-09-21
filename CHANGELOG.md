@@ -229,7 +229,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   walked step by step to `docs/a-day-with-merl.md`, the theme details to `docs/themes.md`, and the
   `Cargo.toml` description says the same as the tagline. The demo, the review demo and the
   walkthrough GIFs are recorded terminal sessions (asciinema and agg), one `.steps` file next to
-  each, re-recorded with `assets/tapes/record.py` (#72).
+  each, re-recorded with `assets/tapes/record.py`. The walkthrough only reviews: a fix typed over
+  a branch under review reaches no pull request, so the Enter / Esc demo sits in
+  `docs/editing.md` (#72).
 - A reload from disk no longer empties the undo history: it is one step of it, as in VS Code and
   Vim. After an agent writes the open file, Ctrl+Z takes back what it wrote, line endings and the
   final newline included, and then the edits made before it; Ctrl+Y replays both. The step holds

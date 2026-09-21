@@ -3,6 +3,8 @@
 merl edits the few lines a human still types. This page is the full behaviour; the
 [README](../README.md) has the short version.
 
+<img src="../assets/edit.gif" alt="End to the end of the line, Enter, one letter typed, the dot by the file name goes as merl saves on its own, Esc, and the gutter marks the changed line" width="800">
+
 Enter turns the cursor into a text cursor, Esc turns it back. In between, merl is a plain
 editor with VS Code habits: letters insert, Enter splits the line and keeps its indentation, Tab
 indents the way the file already does (tabs or four spaces, shown in the status bar), arrows and
