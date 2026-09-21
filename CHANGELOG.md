@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Opening another file no longer empties the undo history: each file keeps its own for the whole
+  session, as a VS Code tab that stays open does. Fix a line, `d` to see what it calls, `[` back,
+  and Ctrl+Z still takes the fix back; Ctrl+Y works the same. A file an agent wrote while you
+  were in another one comes back with the write as one more step on top, as if it had been on
+  screen. (#163)
+
 ### Fixed
 
 - `d` and `D` outside the project walk a Python directory once when `sys.path` lists it twice,
