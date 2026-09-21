@@ -67,6 +67,34 @@ fn python_def_patterns_find_declarations_only() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// `sys.path` can list a directory twice, far apart (a `PYTHONPATH` entry, a `.pth` file):
+/// walked once, where it first stands (#152).
+#[test]
+#[cfg(unix)]
+fn python_roots_keep_the_order_of_sys_path_and_drop_its_repeats() {
+    use std::os::unix::fs::PermissionsExt;
+    let (dir, _) = scratch("py-roots", &[("a/x.py", ""), ("b/x.py", "")]);
+    let (a, b) = (dir.join("a"), dir.join("b"));
+    // The project's interpreter, standing in for `.venv/bin/python -c 'print(sys.path)'`.
+    let python = dir.join(".venv/bin/python");
+    std::fs::create_dir_all(python.parent().unwrap()).unwrap();
+    let script = format!(
+        "#!/bin/sh\necho {0}\necho {1}\necho {0}\n",
+        b.display(),
+        a.display()
+    );
+    std::fs::write(&python, script).unwrap();
+    std::fs::set_permissions(&python, std::fs::Permissions::from_mode(0o755)).unwrap();
+    // A script this fresh fails to start while a fork of another test still holds it open for
+    // writing (ETXTBSY); the roots are empty then, and the next try starts it.
+    let roots = (0..20)
+        .map(|_| external_roots(Kind::Python, &dir))
+        .find(|r| !r.is_empty())
+        .unwrap_or_default();
+    assert_eq!(roots, [b, a]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// The lines `d`'s member patterns match for `word` in `files`: what `x.word` reaches.
 fn members(dir: &Path, files: &[PathBuf], kind: Kind, word: &str) -> Vec<usize> {
     let pat = member_patterns(kind, word).unwrap().join("|");

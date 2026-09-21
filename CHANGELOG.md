@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `d` and `D` outside the project walk a Python directory once when `sys.path` lists it twice,
+  apart (a `PYTHONPATH` entry, a `.pth` file): every hit there was offered twice. In a Rust
+  project the cargo registry is listed once per `d`, not once per package of `Cargo.lock`. (#152)
+
 ## [0.6.0] - 2026-09-21
 
 ### Added

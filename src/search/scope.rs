@@ -83,15 +83,19 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
                 .join("registry/src");
             // `[[package]]` tables: `name = "x"` then `version = "y"` is the directory `x-y`.
             let lock = std::fs::read_to_string(root.join("Cargo.lock")).unwrap_or_default();
+            let indexes: Vec<PathBuf> = std::fs::read_dir(&cargo)
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|e| e.path())
+                .collect();
             let mut name = None;
             for line in lock.lines() {
                 if let Some(n) = line.strip_prefix("name = ") {
                     name = Some(n.trim_matches('"').to_owned());
                 } else if let (Some(v), Some(n)) = (line.strip_prefix("version = "), name.take()) {
                     let crate_dir = format!("{n}-{}", v.trim_matches('"'));
-                    for index in std::fs::read_dir(&cargo).into_iter().flatten().flatten() {
-                        dirs.push(index.path().join(&crate_dir));
-                    }
+                    dirs.extend(indexes.iter().map(|index| index.join(&crate_dir)));
                 }
             }
             dirs
@@ -178,8 +182,9 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         | Kind::Docker
         | Kind::Yaml => Vec::new(),
     };
-    dirs.retain(|d| d.is_dir() && d != root && !d.as_os_str().is_empty());
-    dirs.dedup();
+    // The order is deliberate, so no sort: `sys.path` can list a directory twice, far apart.
+    let mut seen = std::collections::HashSet::new();
+    dirs.retain(|d| d.is_dir() && d != root && !d.as_os_str().is_empty() && seen.insert(d.clone()));
     dirs
 }
 /// The standard library directory in the output of `zig env`, which is JSON on some versions and
