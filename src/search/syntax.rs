@@ -176,20 +176,34 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
 /// skipped to the end of its line.
 pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '_ {
     let b = s.as_bytes();
-    let (mut quote, mut comment) = (None, false);
+    let (mut quote, mut comment, mut escaped) = (None, false, false);
     (0..b.len()).filter_map(move |i| {
         let c = b[i];
         if comment {
             comment = c != b'\n';
             return None;
         }
+        // A backslash escapes the next byte, so `"\\"` ends on its second quote.
         if let Some(q) = quote {
-            if c == q && b[i - 1] != b'\\' {
+            if escaped {
+                escaped = false;
+            } else if c == b'\\' {
+                escaped = true;
+            } else if c == q {
                 quote = None;
             }
             return None;
         }
         match c {
+            // Rust's lifetime `'a` and C++'s digit separator `1'000` open nothing: there `'`
+            // quotes only a char literal, `'x'` or `'\n'`.
+            b'\''
+                if matches!(kind, Kind::Rust | Kind::C)
+                    && b.get(i + 1) != Some(&b'\\')
+                    && b.get(i + 2) != Some(&b'\'') =>
+            {
+                Some((i, c))
+            }
             b'"' | b'\'' | b'`' => {
                 quote = Some(c);
                 None

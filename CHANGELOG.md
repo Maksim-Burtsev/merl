@@ -289,6 +289,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` reads the return type of a function whose signature holds `"\\"`: the scan the rules pair
+  brackets and drop comments with took the escaped backslash for an escape of the closing quote,
+  so the string ran on to the next quote in the file. `d` on `save` in `windows_repo().save(1)`,
+  for `def windows_repo(sep="\\") -> Repo:`, offered every `save` by name instead of going to
+  `Repo.save`. A Rust lifetime `'a` and a C++ digit separator `1'000` no longer open a quote in
+  that scan either; nothing `d` does in Rust or C reads it yet. (#151)
 - A picker over thousands of rows no longer holds up the keys typed after it opens: every row
   queued a redraw of its own, so on a 6,000-file project `o` took over a second to show the first
   letter of the filter. `u`, `d` and `D` read the open file first, so a list cut at 5000 hits

@@ -130,6 +130,37 @@ fn ts_members_include_signatures_without_a_body() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// A literal ends where the language ends it (#151): `"\\"` on its second quote, while a Rust
+/// lifetime and a C++ digit separator open none, and a char literal still hides what it holds.
+#[test]
+fn a_literal_ends_where_the_language_ends_it() {
+    assert_eq!(
+        uncommented(Kind::Python, "sep = \"\\\\\"  # note"),
+        "sep = \"\\\\\"  "
+    );
+    assert_eq!(
+        returns(
+            Kind::Python,
+            "def windows_repo(sep=\"\\\\\") -> Repo:\n    return Repo()\n",
+            1
+        ),
+        Some(ty("Repo"))
+    );
+    assert_eq!(
+        uncommented(Kind::Rust, "fn f<'a>(x: &str) // note"),
+        "fn f<'a>(x: &str) "
+    );
+    assert_eq!(
+        uncommented(Kind::C, "int n = 1'000; // note"),
+        "int n = 1'000; "
+    );
+    assert_eq!(
+        uncommented(Kind::Rust, "let q = '\"'; // note"),
+        "let q = '\"'; "
+    );
+    assert_eq!(close_of(Kind::Rust, "f('\\\\', ')')", 1), Some(12));
+}
+
 #[test]
 fn lines_inside_a_literal_or_a_block_comment_are_told() {
     let inside = |kind, text: &str| -> Vec<usize> {
