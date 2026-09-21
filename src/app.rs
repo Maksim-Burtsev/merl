@@ -1007,7 +1007,7 @@ impl App {
     /// `c` / `C`: the next / previous hunk, crossing into the next file of the review.
     fn hunk(&mut self, dir: isize) {
         let Some(r) = self.review.clone() else {
-            self.message = "not in review mode: merl --review".into();
+            self.message = "not in review mode".into();
             return;
         };
         let here = if dir > 0 {
@@ -12735,6 +12735,7 @@ mod tests {
             assert!(!a.message.is_empty(), "`{key}` said nothing");
             assert_eq!(a.mode, Mode::Normal, "`{key}`");
         }
+        assert_eq!(a.message, "not in review mode");
         // Esc with nothing to clear no longer claims `find cleared`.
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         assert_eq!(a.message, "");
