@@ -41,6 +41,7 @@ pub const KEYS: &[(&str, &str)] = &[
     ("u / Shift+F12", "Usages of the word under the cursor"),
     ("[ / ]", "Back / forward in the jump history"),
     ("c / C", "Review: next / previous hunk, on to the next file"),
+    ("m", "Review: mark the file as viewed, or take the mark off"),
     (": / Ctrl+G", "Go to line"),
     ("t", "Show or hide the file tree"),
     ("T", "Pick a theme (live preview)"),
@@ -258,6 +259,9 @@ pub struct App {
     pub want_diff: bool,
     /// `--review`: the branch under review. The tree pane then lists its files.
     pub review: Option<git::Review>,
+    /// Review: the files marked as viewed, each with the hash of what was on disk then. A file
+    /// that has changed since is not viewed any more (`drop_stale_viewed`). Kept for the session.
+    pub viewed: HashMap<PathBuf, u64>,
     /// The theme in use, by name. Set by `main`; the theme picker previews others over it.
     pub theme: String,
     /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
@@ -377,6 +381,7 @@ impl App {
             diff: git::Diff::default(),
             want_diff: true,
             review: None,
+            viewed: HashMap::new(),
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
             quit_again: false,
@@ -1047,7 +1052,6 @@ impl App {
     /// `c` / `C`: the next / previous hunk, crossing into the next file of the review.
     fn hunk(&mut self, dir: isize) {
         let Some(r) = self.review.clone() else {
-            self.message = "not in review mode".into();
             return;
         };
         let here = if dir > 0 {
@@ -1064,6 +1068,9 @@ impl App {
         let at = self
             .rel_current()
             .and_then(|rel| r.files.iter().position(|f| f.path == rel));
+        // `c` stopped on every hunk of this file and now leaves it: the file is viewed. The last
+        // file of the review has nowhere to go, and the same press marks it.
+        let mut read = at.filter(|_| dir > 0).map(|i| r.files[i].path.clone());
         let ahead: Vec<&git::ReviewFile> = match (at, dir > 0) {
             (Some(i), true) => r.files[i + 1..].iter().collect(),
             (Some(i), false) => r.files[..i].iter().rev().collect(),
@@ -1077,6 +1084,7 @@ impl App {
             if !f.has_hunks() {
                 skipped += 1;
             } else if self.open_review_file(f, dir < 0) {
+                self.mark_viewed(read.take());
                 match failed {
                     Some(why) => self.message = why,
                     None => self.say_skipped(skipped),
@@ -1089,10 +1097,59 @@ impl App {
                 failed = Some(std::mem::take(&mut self.message));
             }
         }
+        self.mark_viewed(read.take());
         self.message = failed.unwrap_or_else(|| {
             let end = if dir > 0 { "last" } else { "first" };
             format!("{end} hunk of the review")
         });
+    }
+
+    /// `m`: the open file, or the panel's row, is viewed; again, and it is not. A key for the
+    /// review's files only: anywhere else it does nothing and says nothing.
+    fn toggle_viewed(&mut self) {
+        let rel = match self.focus {
+            Focus::Tree => self.tree.selected().map(|n| n.path.clone()),
+            Focus::Code => self.rel_current(),
+        };
+        let Some(rel) = rel.filter(|p| self.review.as_ref().is_some_and(|r| r.file(p).is_some()))
+        else {
+            return;
+        };
+        self.message = if self.viewed.remove(&rel).is_some() {
+            "not viewed".into()
+        } else {
+            self.mark_viewed(Some(rel));
+            "viewed".into()
+        };
+    }
+
+    fn mark_viewed(&mut self, rel: Option<PathBuf>) {
+        if let Some(rel) = rel {
+            let hash = self.disk_hash(&rel);
+            self.viewed.insert(rel, hash);
+        }
+    }
+
+    /// What is on disk at `rel`, hashed; a file the branch deleted hashes as nothing.
+    fn disk_hash(&self, rel: &Path) -> u64 {
+        use std::hash::{DefaultHasher, Hash, Hasher};
+        let mut h = DefaultHasher::new();
+        std::fs::read(self.root.join(rel)).ok().hash(&mut h);
+        h.finish()
+    }
+
+    /// A viewed file that changed on disk, or left the review, is not viewed any more. Returns
+    /// whether a mark went.
+    // ponytail: reads every viewed file on each refresh; compare mtimes first if a review of
+    // thousands of viewed files ever makes the refresh slow.
+    fn drop_stale_viewed(&mut self) -> bool {
+        let before = self.viewed.len();
+        let mut viewed = std::mem::take(&mut self.viewed);
+        viewed.retain(|p, h| {
+            self.review.as_ref().is_some_and(|r| r.file(p).is_some()) && self.disk_hash(p) == *h
+        });
+        self.viewed = viewed;
+        self.viewed.len() != before
     }
 
     /// Why `file 1` became `file 74`.
@@ -1153,7 +1210,8 @@ impl App {
             return false;
         };
         if *old == fresh {
-            return false;
+            // An edit can leave every count as it was.
+            return self.drop_stale_viewed();
         }
         let rel = self.rel_current();
         let kind = |r: &git::Review| {
@@ -1167,6 +1225,7 @@ impl App {
         if stale {
             self.refresh_diff();
         }
+        self.drop_stale_viewed();
         true
     }
 
@@ -4514,6 +4573,7 @@ impl App {
             KeyCode::Char(']') => self.hist_go(1),
             KeyCode::Char('c') if !ctrl => self.hunk(1),
             KeyCode::Char('C') => self.hunk(-1),
+            KeyCode::Char('m') => self.toggle_viewed(),
             KeyCode::Char('v') if self.focus == Focus::Code => self.grow_selection(),
             _ if self.focus == Focus::Tree => self.tree_key(key.code),
             KeyCode::Enter => self.start_edit(),
@@ -5517,6 +5577,70 @@ mod tests {
         assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
         assert_eq!(a.message, "skipped 1 file without hunks");
         assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/7");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #162: `c` leaving a file forward marks it as viewed, the last file on the press that has
+    /// nowhere to go; `C` marks nothing, `m` toggles, and a changed file loses its mark.
+    #[test]
+    fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
+        let (dir, mut a) = review_app("viewed");
+        let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
+        let viewed = |a: &App| {
+            let mut v: Vec<_> = a.viewed.keys().cloned().collect();
+            v.sort();
+            v
+        };
+        // The review opens on `new`; `C` walks back to the first hunk and marks nothing.
+        while a.message != "first hunk of the review" {
+            press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+        }
+        a.message.clear();
+        while at(&a).0 == dir.join("src/a.rs") {
+            assert!(a.viewed.is_empty(), "still inside the file");
+            c(&mut a);
+        }
+        assert_eq!(viewed(&a), [PathBuf::from("src/a.rs")]);
+        assert_eq!(a.message, "", "the walk marks in silence");
+        press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+        assert_eq!(
+            at(&a).0,
+            dir.join("src/a.rs"),
+            "a viewed file is still a stop"
+        );
+        assert_eq!(viewed(&a), [PathBuf::from("src/a.rs")], "`C` marks nothing");
+
+        while a.message != "last hunk of the review" {
+            c(&mut a);
+        }
+        assert_eq!(at(&a).0, dir.join("tail"));
+        assert_eq!(viewed(&a).len(), a.review.as_ref().unwrap().files.len());
+
+        press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+        assert_eq!(a.message, "not viewed");
+        assert!(!a.viewed.contains_key(Path::new("tail")));
+        press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+        assert_eq!(a.message, "viewed");
+        // The panel's row, not the open file; a directory is not a file of the review.
+        a.focus = Focus::Tree;
+        a.tree.reveal(Path::new("new"));
+        press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+        assert!(
+            !a.viewed.contains_key(Path::new("new")) && a.viewed.contains_key(Path::new("tail"))
+        );
+        a.tree.reveal(Path::new("src"));
+        a.message.clear();
+        let before = viewed(&a);
+        press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+        assert_eq!((viewed(&a), a.message.as_str()), (before, ""));
+
+        // The agent rewrites a viewed line: the counts are the same, the content is not.
+        let text = std::fs::read_to_string(dir.join("tail")).unwrap();
+        std::fs::write(dir.join("tail"), text.to_uppercase()).unwrap();
+        let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+        assert!(a.review_refreshed(fresh), "the tick leaves the screen");
+        assert!(!a.viewed.contains_key(Path::new("tail")));
+        assert!(a.viewed.contains_key(Path::new("src/a.rs")));
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -12886,12 +13010,17 @@ mod tests {
     #[test]
     fn no_key_is_silent_on_an_empty_line() {
         let mut a = app("\nfoo\n");
-        for key in ['d', 'u', 'D', 'n', 'N', '[', ']', 'c', 'C'] {
+        for key in ['d', 'u', 'D', 'n', 'N', '[', ']'] {
             press(&mut a, KeyCode::Char(key), KeyModifiers::NONE);
             assert!(!a.message.is_empty(), "`{key}` said nothing");
             assert_eq!(a.mode, Mode::Normal, "`{key}`");
         }
-        assert_eq!(a.message, "not in review mode");
+        // The review's keys are not keys outside a review: nothing happens, nothing is said.
+        a.message.clear();
+        for key in ['c', 'C', 'm'] {
+            press(&mut a, KeyCode::Char(key), KeyModifiers::NONE);
+            assert_eq!(a.message, "", "`{key}`");
+        }
         // Esc with nothing to clear no longer claims `find cleared`.
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         assert_eq!(a.message, "");

@@ -10,7 +10,9 @@ origin/dev` compares against another base.
 <img src="../assets/day/1-review.gif" alt="merl --review opens the agent's branch on its first hunk" width="800">
 
 **2. `c` walks the hunks**, through the file and on into the next one. `C` walks back. Images
-and other binaries are skipped, and merl says how many.
+and other binaries are skipped, and merl says how many. A file `c` has walked to the end gets a
+tick in the panel; `m` puts it or takes it off by hand, and it goes on its own when the agent
+changes the file. The ticks last as long as the session.
 
 <img src="../assets/day/2-hunks.gif" alt="c walks from hunk to hunk and into the next file" width="800">
 

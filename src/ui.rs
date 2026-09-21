@@ -247,6 +247,13 @@ fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
                 (false, _) => "  ",
             };
             let mut text = format!("{}{marker}{}", "  ".repeat(n.depth), n.name());
+            // Review: a column of ticks for the viewed files, before every row.
+            let tick = match (&app.review, app.viewed.contains_key(&n.path)) {
+                (None, _) => "",
+                (Some(_), false) => "  ",
+                (Some(_), true) => "\u{2713} ",
+            };
+            let width = width.saturating_sub(wrap::width(tick));
             // Review: `M name  +6 -2`, the status in place of the marker.
             if let Some(f) = app.review.as_ref().and_then(|r| r.file(&n.path)) {
                 let counts = if f.binary {
@@ -281,6 +288,7 @@ fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
             };
             let pad = width.saturating_sub(wrap::width(&text));
             Line::from(vec![
+                Span::styled(tick, style.fg(theme.accent)),
                 Span::styled(text, style),
                 Span::styled(" ".repeat(pad), style),
             ])
@@ -1611,7 +1619,16 @@ z
             r[0]
         );
         assert!(
-            r[1].starts_with("\u{2502}M a.rs                 +6 \u{2212}2\u{2502}"),
+            r[1].starts_with("\u{2502}  M a.rs               +6 \u{2212}2\u{2502}"),
+            "{}",
+            r[1]
+        );
+        // #162: a viewed file has a tick in the column before the status.
+        app.viewed.insert("a.rs".into(), 0);
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        let r = rows(&terminal);
+        assert!(
+            r[1].starts_with("\u{2502}\u{2713} M a.rs               +6 \u{2212}2\u{2502}"),
             "{}",
             r[1]
         );

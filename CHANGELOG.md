@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Review: a file `c` has walked to the end gets a tick in the panel, the last file on the `c`
+  that has nowhere left to go. `m` puts the tick on the open file, or the panel's row, and takes
+  it off. A ticked file that changes on disk loses the tick, on screen, while the agent works.
+  The ticks last for the session; `c` / `C` still stop in ticked files. (#162)
+
 ### Changed
+
+- `c` / `C` outside a review do nothing and no longer say `not in review mode`. (#162)
 
 - Opening another file no longer empties the undo history: each file keeps its own for the whole
   session, as a VS Code tab that stays open does. Fix a line, `d` to see what it calls, `[` back,
