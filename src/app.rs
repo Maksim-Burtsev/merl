@@ -243,6 +243,9 @@ pub struct App {
     redo: Vec<Edit>,
     /// Set when the next edit must start its own undo step even if it continues the last one.
     undo_break: bool,
+    /// The history of each file left with one, by path (#163): coming back is like coming back
+    /// to a VS Code tab that stayed open.
+    stash: HashMap<PathBuf, Stashed>,
     /// The overlay on screen (find, goto, a prompt, a picker) was opened from edit mode with a
     /// chord alias: closing it without leaving the file goes back to editing.
     resume_edit: bool,
@@ -263,6 +266,9 @@ pub struct App {
     /// leaves them behind.
     quit_again: bool,
 }
+
+/// A file's lines and format as it was left, and its undo and redo stacks.
+type Stashed = (Vec<String>, buffer::Format, Vec<Edit>, Vec<Edit>);
 
 /// One undoable change: `old` lines from `line` on became `new`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -365,6 +371,7 @@ impl App {
             undo: Vec::new(),
             redo: Vec::new(),
             undo_break: false,
+            stash: HashMap::new(),
             resume_edit: false,
             clipboard: None,
             diff: git::Diff::default(),
@@ -890,12 +897,32 @@ impl App {
             match self.load(path) {
                 Ok(mut buf) => {
                     self.lock_unwritable(&mut buf);
-                    self.buf = buf;
+                    let old = std::mem::replace(&mut self.buf, buf);
+                    let (undo, redo) = (
+                        std::mem::take(&mut self.undo),
+                        std::mem::take(&mut self.redo),
+                    );
+                    // Flushed, so what is stashed is the disk as it was left. A read-only
+                    // buffer's text is not the file's: as in `reload`, nothing to go back to.
+                    if let Some(p) = old.path.clone()
+                        && old.readonly.is_none()
+                        && !(undo.is_empty() && redo.is_empty())
+                    {
+                        let format = old.format();
+                        self.stash.insert(p, (old.lines, format, undo, redo));
+                    }
+                    if let Some((lines, format, undo, redo)) = self.stash.remove(path) {
+                        self.undo = undo;
+                        // Written meanwhile: one more step, as if it had been on screen.
+                        match reload_step(&lines, format, &self.buf) {
+                            Some(step) => self.undo.push(step),
+                            None => self.redo = redo,
+                        }
+                    }
+                    self.undo_break = true;
                     self.anchor = None;
                     self.dirty = false;
                     self.conflict = false;
-                    self.undo.clear();
-                    self.redo.clear();
                     if self.mode == Mode::Edit {
                         self.mode = Mode::Normal;
                     }
@@ -13583,6 +13610,46 @@ mod tests {
         ctrl(&mut a, 'y');
         assert_eq!(a.buf.lines.join("|"), "MINEone|two|agent line");
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    /// #163, the issue's steps: a file left keeps its history, as a VS Code tab does. Written on
+    /// disk while away, it comes back with the write as one more step on top.
+    #[test]
+    fn leaving_a_file_keeps_its_undo_history() {
+        let (dir, mut a) = project_app(
+            "undo-away",
+            &[
+                ("a.py", "x = 1\nhelper()\n"),
+                ("b.py", "def helper():\n    pass\n"),
+            ],
+        );
+        a.external
+            .insert(Kind::Python, (Vec::new(), Arc::new(Vec::new())));
+        let away_and_back = |a: &mut App| {
+            a.jump_to(&dir.join("a.py"), 2);
+            press(a, KeyCode::Char('d'), KeyModifiers::NONE);
+            assert_eq!(at(a), (dir.join("b.py"), 0), "{}", a.message);
+            press(a, KeyCode::Char('['), KeyModifiers::NONE);
+            assert_eq!(at(a).0, dir.join("a.py"));
+        };
+        a.jump_to(&dir.join("a.py"), 1);
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "MINE");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        away_and_back(&mut a);
+        ctrl(&mut a, 'z');
+        assert_eq!(a.buf.lines.join("|"), "x = 1|helper()");
+        away_and_back(&mut a);
+        ctrl(&mut a, 'y');
+        assert_eq!(a.buf.lines.join("|"), "MINEx = 1|helper()", "redo too");
+        a.jump_to(&dir.join("b.py"), 1);
+        std::fs::write(dir.join("a.py"), "MINEx = 1\nhelper()\nagent line\n").unwrap();
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        ctrl(&mut a, 'z');
+        assert_eq!(a.buf.lines.join("|"), "MINEx = 1|helper()");
+        ctrl(&mut a, 'z');
+        assert_eq!(a.buf.lines.join("|"), "x = 1|helper()");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// What is typed after a reload is a step of its own, also where the reload's step ends.
