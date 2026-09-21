@@ -9,6 +9,121 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` in Go reads a build tag of the project's own as a plain `go build` does: unset. Of a type
+  declared twice, under `//go:build gogit` and `//go:build !gogit`, `d` goes to the one that is
+  built instead of asking; `cgo`, `gc` and `go1.N` count as set, `//go:build ignore` files drop
+  out. `GOFLAGS=-tags=…` and `CGO_ENABLED=0` in the environment are honoured, and from inside
+  the file under the tag both declarations are still offered. (#137)
+- `d` no longer offers a line inside an embedded literal as a declaration: `literal_lines` reads
+  a Swift or C# `"""` block, a C# verbatim `@"…"` (where `""` is a quote, not the end) and a PHP
+  heredoc, so the SQL a migration embeds stops answering `d`. (#17)
+- The project is live: a file created, deleted or renamed while merl runs (by an agent in the
+  next pane, a `git checkout`, a build) shows up in the tree, in `o` and in what `s`, `u`, `d` and
+  `D` search within a moment, with no key and no restart. The tree cursor stays on its entry and
+  on its screen row, expanded directories stay expanded, an open picker keeps its rows until it is
+  reopened. `.gitignore` is respected as at startup (a new `node_modules/` adds nothing) and an
+  edited one is picked up. A burst of changes is one walk, off the UI thread; on Linux ignored
+  directories are not watched (#75).
+- The review is live: `merl --review` can stay open next to an agent working on the branch. A
+  file it touches for the first time appears in the panel, the counts and `file 3/12` follow
+  every save, commit, rebase and `git switch` within a moment, and a file whose changes were
+  reverted leaves (the open one stays open, without marks). Untracked files that are not ignored
+  are part of the review: listed as `A` with every line added, and `c` walks into them; a branch
+  with nothing but a new, unadded module opens now. The open file, the cursor and both scrolls
+  stay where they are, the panel cursor keeps its file, and nothing opens on its own. When lines
+  are written above the hunk being read, the cursor goes down with its text, so the hunk stays
+  the current one and `c` goes on from it. `git` runs off the UI thread; `HEAD` and the refs are
+  watched explicitly, also in a linked worktree (#76).
+- `d` and `D` in Zig, over every `.zig` file. `d` finds `fn name(` behind `pub`, `export`,
+  `extern "c"`, `inline` and `noinline`, and the `const` or `var` the language declares everything
+  else with — a type (`const Ledger = struct {`, `const Status = enum {`,
+  `const Value = union(enum) {`), an import, a constant, a global and a local alike. A struct field
+  has no rule, as a C field has none, and neither has a `test`: a word inside its description
+  declares nothing, so `d` can never land on one. Zig has no literal that runs over lines — a
+  `\\` string ends with its line — so the markdown a `\\` block holds is read as code. `d` leaves the project for the standard library
+  where `zig env` says it is. `D` keeps the declaration pattern every language shares, which
+  already reads Zig's `fn` and `const`, and adds the two forms it has no word for: a function
+  behind `inline` or `noinline`, and a `test`, listed under its description. A `build.zig.zon` is
+  painted as Zig but has no rules: the data format declares nothing. (#17)
+- `d` and `D` in Elixir, over every `.ex` and `.exs` file. `d` finds every `def` form — `def`,
+  `defp`, `defmacro`, `defmacrop`, `defguard`, `defguardp`, `defdelegate`, written with parens,
+  with `do` or with `, do:`, a trailing `?` or `!` included — a `defmodule` or a `defprotocol`
+  under the namespace it is written with, a `defstruct` field in either form, and a module
+  attribute where it is given a value (`@timeout 5_000`), the `defstruct` line itself, not the
+  continuation lines of a struct written over several. Several clauses of one function are
+  several declarations and all are offered. `@spec`, `@type` and the other attributes the
+  language and the libraries everyone uses own — ExUnit's `@tag`, Mix's `@shortdoc` — are
+  directives, not declarations: `@spec parse(t) :: t` is a promise about `parse`, not its
+  definition. A line inside an `@moduledoc """` heredoc declares nothing, as one
+  inside a Python docstring does not. `D` lists modules, protocols and every `def` form from a
+  rule of its own, where the pattern every language shares knew `def` and nothing else of the
+  family and read the `x` of an anonymous `fn x -> …` as a declaration. (#17)
+- `d` and `D` in Lua, over every `.lua` file. `d` finds a function in each form the language
+  writes one — `function name(`, `local function name(`, `function M.name(`, `function M:name(`,
+  `M.name = function(` and the `name = function(` of a table of handlers — and a `local`, one of
+  several on the line included. A field holding anything but a function has no rule on purpose:
+  `limit = 10` in a table constructor and a re-assignment inside a body are the same line, so `u`
+  lists the uses instead. A `[[ ]]` or `[==[ ]==]` long string and a `--[[ ]]` block comment
+  declare nothing, as a Python docstring does not. `D` lists functions from rules of its own, so
+  `function M.setup(` is listed as `setup` where the pattern every language shares called it
+  `M`, and `local function` is listed at all. (#17)
+- `d` and `D` in PHP, over every `.php` and `.phtml` file. `d` finds a `function` (returned by
+  reference too), a `class`, `interface`, `trait` and `enum`, a `const` and a `define('X', …)`, an
+  `enum` case, a property with the type it carries and a constructor parameter promoted to one —
+  all behind their `#[Attribute]`s and modifiers — plus an assignment that opens a line. A
+  `case X:` of a `switch`, a `$key => $value` pair and `$this->name = …`, which writes to a
+  property declared elsewhere, are not declarations. `d` leaves the project for Composer's
+  `vendor/`, which is gitignored and so outside the project walk the way `node_modules` is, and a
+  `use Illuminate\Support\Str` in column zero binds `Str` to that path, since PSR-4 spells a
+  namespace the way the file system does. `D` lists the types and `const`s from one rule of its
+  own and the functions and methods from another — two rows, because the hit cap is counted per
+  row and one shared row would let a big project's methods crowd its classes off the list — so the
+  declaration pattern every other language shares is untouched and nothing is listed twice; a
+  property, an `enum` case, a `define()` and a magic method (`__construct`, `__toString`, the
+  language's hook rather than the project's) are left out. (#17)
+- `d` and `D` in Swift, over every `.swift` file. `d` finds a `class`, `struct`, `enum`,
+  `protocol`, `actor`, `typealias`, `associatedtype` and an `extension` of a type — where a
+  project keeps its own members of one, often the only place — a `func` past its generic
+  parameters, `init`, `init?`, `subscript` and `deinit`, a `let` or a `var`, and an `enum` case,
+  alone or among several on a line, with the associated or raw value it carries; all of them
+  behind their `@attributes` and any modifiers, `private(set)` and a backticked name included. A
+  `case .open:` or a `case let .open(x):` of a `switch` is a pattern, not a declaration, and a binding made by `if let` or `guard let` has no
+  rule, since it rebinds a name declared elsewhere. `d` leaves the project for `.build/checkouts`,
+  where SwiftPM keeps a package's dependencies as source; the standard library ships compiled,
+  with no `.swift` file to read. `D` lists the types, the functions and the extensions from a rule
+  of its own, so the declaration pattern every other language shares is untouched and nothing is
+  listed twice; a `let`, a `var`, an `init` and an `enum` case are left out, as what a type holds
+  is in every other kind. (#17)
+- `d` and `D` in C#, over every `.cs` and `.csx` file. `d` finds a `class`, `struct`,
+  `interface`, `enum`, `record`, `record class`, `record struct` and `delegate` past the generic
+  parameters they declare and behind their `[Attribute]` lists and modifiers, a `namespace` under its last part, a
+  `using x =` alias, a constructor behind at least one access modifier — a bare `Invoice(n)` is a
+  call — and a method, a property, an event, a field or a local, told from a call by the type
+  before the name, so `public int X { get; }`, `public string Name => _name;` and
+  `int IComparable.CompareTo(o)` all count. An enum member has no rule: `Open,` in an `enum` body
+  and in a collection initialiser are the same line, so `u` lists its uses. `d` stays inside the
+  project, since a NuGet package ships compiled assemblies and the runtime's own source is not on
+  the machine. `D` lists the types and the members from rows of its own, so the declaration
+  pattern every other language shares is untouched and nothing is listed twice; a field and a
+  constructor are left out, as in every other kind. (#17)
+- `d` and `D` in C and C++, which are one kind over every `.c`, `.h`, `.cc`, `.cpp`, `.cxx`,
+  `.hpp`, `.hh` and `.hxx` file, so a header finds what a `.c` or a `.cc` defines and the other
+  way round. In column zero, where neither language has statements, `d` reads a function, a
+  prototype, a signature that wraps and an out-of-line `Type::name(` definition; indented, it
+  takes a method or a function only when its body opens on the line, so `return compute(x);` and
+  `if (check(x)) {` are calls. It also finds `struct`, `class`, `union`, `enum`, `enum class`,
+  `namespace` — behind a template head, a storage specifier and an attribute or export macro,
+  a template specialization included — a `typedef` in every form, `using x =`, a `#define`
+  (function-like too) and a global. When a header declares a function the project defines
+  elsewhere, both are offered. An enum constant has no rule — `NAME,` in an `enum` body and in an
+  initializer list are the same line — and neither has a field, a local or a template parameter:
+  `u` lists their uses. `d` leaves the project
+  for the system headers (the SDK `xcrun` reports, `/usr/include`, `/usr/local/include`,
+  `/opt/homebrew/include`). `D` lists functions, methods, types, `typedef`s, `using` aliases and
+  `#define`s from rules of their own, so the declaration pattern every other language shares is
+  untouched and nothing is listed twice; a prototype and a `typedef struct x {` opening are left
+  out, so a function and a type are one row each. A `.h` file now highlights as C++ instead of
+  the Objective-C bat's syntax set gives it. (#17)
 - `w` stops wrapping the open file: long lines are cut at the edge of the pane, `›` and `‹`
   mark a line with more to the right or left, and the view follows the cursor sideways (End shows
   the end of the line, Home the start). For Markdown tables, CSV and minified files, which
@@ -38,9 +153,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `@functools.cached_property` and a TypeScript getter that declare their return type, so
   `self.repos.users.get_one` in a FastAPI service reaches the repository. One without a return
   type is where the chain breaks, and the search by name answers. (#87)
+- `d` on `super().store` in Python and `super.store` in TypeScript lands on what the method
+  overrides: the lookup of `self` / `this` started one level up, `store → Archive.store (via super
+  of ColdArchive)`, where it used to list every `store` by name. Under several Python bases it
+  jumps only when the answer needs no method resolution order. (#100)
+- `d` reads a name from the innermost scope that declares it: a local hides a module-level or
+  package-level name, a closure's variable the one of the function around it, a block's the
+  function's, where the two used to disagree and leave a picker. A Python parameter named like a
+  module-level `def` is the parameter. Two declarations in one scope that disagree, and an inner
+  one with no readable type, are still a picker. On the name itself `d` lists the declarations of
+  that scope only. (#100)
+- A loop variable has the type of an element where the collection's type is written:
+  `for repo in repos` with `repos: list[UserRepository]`, `for (const repo of repos)` with
+  `UserRepository[]`, `for _, repo := range repos` with `[]*UserRepository` or `map[K]T`, written
+  as an annotation, as the return type of the function the collection came from, or as Go's
+  `make([]T, …)` and `[]T{…}`: `DeleteUser → UserRepository.DeleteUser (via repos:
+  []*UserRepository)`. The collection itself, keys and pairs stay by name. (#100)
+- `d` takes one more hop on a call: a local assigned from a method of a receiver whose type is
+  proven has the return type that method declares (`info := e.RequestInfo()`,
+  `repo = self.depot.people()`); a Python function with no annotation whose every `return`
+  constructs the same class returns it, as TypeScript's already did; and a chain may hang off the
+  call that starts it, `make_uow().users.delete_user`, `pkg.New(x).Run`, `new Depot().people`. A
+  call of a call is still by name. (#100)
+- A cast tells `d` the type: Python's `cast(T, x)` / `typing.cast`, TypeScript's `x as T`, Go's
+  `v, ok := i.(T)` and the variable of `switch v := x.(type)` inside a `case T:`, assigned to a
+  name or with the member hanging off the cast, `(x as T).find`, `i.(T).Find`. A cast to a type
+  the project does not declare, a `case` of several types and `default` stay by name. (#100)
+- `d` in TypeScript reads what prettier and the language write around a member (#100): a class
+  header wrapped over several lines, a list of type parameters ending in `> extends Base<K> {`
+  or the clauses over a lone `{`, no longer hides `this`, `super`, the fields and the bases of the
+  whole class; a member access broken in front of its dots, `return this.db` over
+  `.selectFrom(`, is one chain; `repo!.find()` and `uow?.users.find()` are the plain access;
+  `const { repo, audit: trail } = this` hands the fields on; `new Local.Tool()` finds the class
+  inside a namespace of the same file; a class a module declares under one name and exports under
+  another, `export { Hono as HonoBase }`, is found by the import of the new name.
+- `d` on a TypeScript `#private` member takes the name with its `#`, on the `#` and on the name:
+  `this.#addRoute(` lands on `#addRoute(`, where it used to say nothing or find the public
+  `addRoute`. (#100)
+- In a workspace `d` looks for a TypeScript dependency in the `node_modules` of every directory
+  from the open file up to the project root, the nearest first, where it used to read
+  `<root>/node_modules` alone. Each is walked once; a package's own copy is listed by its path
+  from the root. (#100)
+- `d` proves more Go receivers: a package-level `var` declared in another file of the package,
+  in a `var (` block or below the cursor (`defaultRepo.DeleteUser`); a type behind `type X = Y`,
+  which is `Y`, where `type X Y` stays a type of its own; and a type declared once per platform
+  (`clock_windows.go` beside a `//go:build !windows` file), where the file the host's `go build`
+  compiles counts. A build tag that is no platform, two files that disagree and a question asked
+  from inside a file the host does not build stay a picker. (#100)
+- `d` on a Go package qualifier, `db` in `db.Get`, lands on the import line of the open file,
+  `db: via import code.gitea.io/gitea/models/db`, where it used to list every `db` of the project
+  by name. (#100)
+- `d` proves more in Python. `from repos import UserRepository as Users` types a receiver as
+  `UserRepository`. A module of the project that imports a name without declaring it, a package's
+  `__init__.py`, hands it on: its own module-level imports are followed, `from .labels import *`
+  included, four modules deep (`Session: via import store/sessions.py`); two sources, a name the
+  module also assigns and an import inside a function stay by name. `Limits.MAX_USERS`, an `Enum`
+  member and a dataclass field are read in the class body or a class above it
+  (`RED → Color.RED (via Color)`); an attribute a method assigns to `self` is an instance's and is
+  not. A class header wrapped over several lines keeps its name for `self` and its bases for
+  `d` on a base's method. (#100)
+- `d` on `Depot::open` in Rust, C++ and PHP answers `open → Depot::open (via Depot)` where it
+  listed every `open` by name: the path in front of the word is joined with `::` as those
+  languages qualify a name. Modules in front of the type count when the path starts inside the
+  project (`crate::`, `self::`, `super::`, a file or a directory called so). The name of a type
+  is no proof of which type: the project has to declare it once, and a `use` of the file must
+  not bind the path's first name outside the project (`io::Error::new` behind `use std::io;`).
+  `Self::`, a type that does not declare the word and a value's `.method()` stay by name. (#129)
 
 ### Changed
 
+- The README is rewritten around what merl is for: the one editor you need when agents write the
+  code. The workflow, a new demo recorded on gitea and install come first, then the argument in a
+  few sentences and "What merl is not"; the keys show the daily dozen with the rest folded. The
+  editing and navigation reference moved to `docs/editing.md` and `docs/navigation.md`, a review
+  walked step by step to `docs/a-day-with-merl.md`, the theme details to `docs/themes.md`, and the
+  `Cargo.toml` description says the same as the tagline. The demo, the review demo and the
+  walkthrough GIFs are recorded terminal sessions (asciinema and agg), one `.steps` file next to
+  each, re-recorded with `assets/tapes/record.py` (#72).
+- A reload from disk no longer empties the undo history: it is one step of it, as in VS Code and
+  Vim. After an agent writes the open file, Ctrl+Z takes back what it wrote, line endings and the
+  final newline included, and then the edits made before it; Ctrl+Y replays both. The step holds
+  only the lines that changed. The edits Ctrl+R drops after a conflict are one Ctrl+Z away.
+  (#122)
+- `u` lists the same hits in the order a reader wants them: the declarations of the word first,
+  each row marked `declaration`, then the open file, then the rest of the project's code with the
+  nearest directories first, and tests, mocks, fixtures, generated and vendored files last
+  (`tests/`, `__tests__/`, `spec/`, `testdata/`, `mocks/`, `vendor/`, `test_*`, `*_test.*`,
+  `*.spec.*`, `*_pb2.py`, `*.gen.go` and friends). The title says how the list splits:
+  `Usages of delete_user: 1 declaration, 6 in code, 14 in tests`. The candidates `d` offers are
+  demoted by the same table, so a copy of a declaration under `spec/` comes after the real one.
+  (#81)
+- No silent keys: a press that cannot act says why, in a word or two. `d` and `u` off a word
+  say `no word`; `d` in a file whose kind has no rules says `no rules for .css` instead of a
+  `no definition` that never looked; `/` shows `no match` or the match count (`3/17`) next to
+  the query while it is typed, and `n` / `N` keep the count, which replaces `wrapped`; Esc no
+  longer says `find cleared` with nothing to clear; a file deleted on disk is named
+  (`clock.c gone`). The status bar says `read-only` before Enter is pressed, and `--review`
+  without a `git` binary names git instead of a bare OS error (#82).
 - Ctrl+C copies everywhere and never quits: outside edit mode too it copies the selection, or
   the current line without one, and the status line says how much (`copied 3 lines`). In a
   prompt or a picker it does nothing. Quitting is `q`. Ctrl+X stays an edit-mode key. (#78)
@@ -54,6 +263,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   come first even when a short query stops at 5000, and Enter on a query that found nothing says
   `no results for …` however soon it is pressed. Narrowing is done by typing more of the query;
   the fuzzy filter over the results is gone. (#53, #107)
+- `D` searches past its cap: on a project with more than 5,000 declarations the list is only the
+  ones found before the cut, so the query no longer filters those rows — it greps the declaration
+  patterns for a name that matches it, after a pause in the typing, as `s` does. A name declared
+  in a file the cut never reached is found that way. The title says which list is on screen:
+  `Symbols (first 5232, type to search all)`, then `Symbols (…)` while the grep runs and
+  `Symbols (94 hits)` for its answer, `5000+` when the cut caught that one too. Under the cap
+  nothing changes. (#79)
+
+- `via import database/sql` lists that package and no longer `database/sql/driver`: outside the
+  project a Go import is one directory, the standard library's right under GOROOT's `src`, so
+  `errors` is not `github.com/pkg/errors`. A package that is not installed is `by name`, not `via
+  import` of the directory above it. (#100)
+- A Go parameter or named result found as `local` reads `Load.err`, as a local of the body does,
+  not `Issue.err`, which named a field. (#100)
+- A count behind a grep that stopped at its cap says `+` also when a filter made the list short
+  afterwards (`Pick: via import example.com/lib, 1+ declarations`), and the one candidate left
+  is offered, not jumped to. (#100)
+- A Python parameter found as `local` reads `RecipeController.get_one.slug`, as a local of the
+  body does, not `RecipeController.slug`, which named a field. (#100)
 
 ### Fixed
 
@@ -61,6 +289,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   queued a redraw of its own, so on a 6,000-file project `o` took over a second to show the first
   letter of the filter. `u`, `d` and `D` read the open file first, so a list cut at 5000 hits
   keeps that file's hits. (#53)
+- `d` no longer takes merl down on a word standing behind a character outside ASCII. Three places
+  read the name in front of the cursor from the byte index `rfind` gives and added one to it,
+  which lands inside a wider character: `d` on `load` in `данные.load(x)`, or on `word` in
+  `café().word`, panicked out of raw mode and left the terminal unusable until `reset`. The name
+  is read by characters now; one written outside ASCII is still no name to the rules, so `d`
+  falls back to the search by name. (#150)
+- Review: the lines a branch deleted can be read. They were drawn in the line-number colour with
+  the terminal's `dim` on top, which in the default theme and many others left an empty-looking
+  block beside the red bar, and a blank page for a deleted file. They are now the theme's text
+  colour greyed toward the background, at 4:1 contrast or better (in the few themes whose own
+  text is softer than that allows, 85 % of the text colour), the same in every terminal. (#144)
+- `d` no longer proves a module-level namesake for a name a TypeScript destructuring wrapped
+  over several lines binds (`const {` / `  ledger,` / `} = deps;`): the statement is read whole,
+  and out of a name whose type is written the field's type is the local's. (#131)
+- With the cursor on an interface method, a class that implements a namesake interface of
+  another file through a barrel (`export * from`, `export { Name } from`) is no longer listed as
+  an implementation, and neither is a class for the constraint of a type parameter on a line
+  of its wrapped header, `S extends Notifier,`. A class that imports the interface as
+  `type Notifier,` on a line of a wrapped list is listed again: the line read as an alias of
+  that name. (#100)
+- A Python binding that does not start its line is a binding: `if fresh: ledger = A()`,
+  `else: …`, `a = 1; ledger = A()`, `try: from m import ledger`, `first = ledger = A()`, and
+  `if cold: self.ledger = A()` for a field. `d` did not read them, so a module-level `ledger` of
+  another type was proven in their place and jumped to. The same behind the last line of a header
+  wrapped over several lines, `        cold): ledger = A()`. (#131)
+- `d` on `x.member` no longer crashes merl in a Python file that continues a string with a
+  backslash at the end of a line: the scan for docstrings lost count of the lines there. (#100)
+- A Python import in a docstring's example is no second source of the name, which made
+  `Depends` in fastapi's `applications.py` a picker of two modules. (#100)
+- Under a Python class header wrapped over several lines, `self.get()` no longer skips the class's
+  own `get` for a base's: the methods were named after nothing, so the class looked empty. (#100)
+- A standard-library or dependency file stays read-only when it changes on disk or Ctrl+R
+  reloads it; the reload made it editable.
+- A Go `const` whose value spells a name no longer declares it: `const csp = "… http://…"` hid
+  the `net/http` import of its file, so `http.Server` went by name into the project. Found by the
+  hand pass of #100.
 - SIGTERM, SIGHUP (a closed terminal or tmux pane) and SIGINT from outside end merl as `q` does:
   unsaved edits are written and the terminal is restored, instead of a shell left on the
   alternate screen with merl's last frame. (#80)
@@ -94,6 +358,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nightfox, gruvbox-material-light and material-light move the selection a step along their own
   palette, solarized-light darkens it, dracula lightens the line highlight instead. The theme test
   now requires the two colours to be apart.
+- Review: `c` / `C` no longer stop dead in front of a submodule, with every file after it out of
+  reach: a submodule is walked past like a binary file and stays in the panel. A file that does
+  not open is walked past too, and the status bar says why it did not open. (#117)
+- `[` / `]` no longer stop dead at a history stop whose file was deleted or renamed, with every
+  stop behind it out of reach: the stop is dropped, the walk goes on to the next one that opens,
+  and the status bar says `hist2.py gone`. (#118)
+- The autosave no longer recreates a file that was deleted or renamed on disk, which left a stale
+  copy next to the file an agent had just renamed. Gone is changed on disk: the conflict is raised
+  as for a modified file, only Ctrl+S writes the file back, and Ctrl+R lets the edits go. (#119)
+- An unbound Alt+letter (Option+letter on a Mac) in edit mode does nothing. It used to leave edit
+  mode without a word, so the rest of the word ran as commands and its `q` quit merl. (#120)
+- The `s` picker titles a single match `Search (1 hit)`, not `1 hits`. (#121)
 
 ### Added
 

@@ -60,6 +60,16 @@ pub struct Buffer {
     checkpoints: Vec<(ParseState, HighlightState)>,
 }
 
+/// What a file is besides its lines: how they go back to disk, what Tab inserts, whether they
+/// may change. A reload can change it with the text, and undoing the reload puts it back.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Format {
+    crlf: bool,
+    trailing_newline: bool,
+    tabs: bool,
+    pub readonly: Option<&'static str>,
+}
+
 impl Buffer {
     /// An empty scratch buffer, used when merl is opened on a directory.
     pub fn empty() -> Self {
@@ -119,6 +129,20 @@ impl Buffer {
             out.push_str(nl);
         }
         out.into_bytes()
+    }
+
+    pub fn format(&self) -> Format {
+        Format {
+            crlf: self.crlf,
+            trailing_newline: self.trailing_newline,
+            tabs: self.tabs,
+            readonly: self.readonly,
+        }
+    }
+
+    pub fn set_format(&mut self, f: Format) {
+        (self.crlf, self.trailing_newline) = (f.crlf, f.trailing_newline);
+        (self.tabs, self.readonly) = (f.tabs, f.readonly);
     }
 
     /// Forgets the highlighting from line `l` on: the next `highlight_to` re-parses from the
@@ -267,6 +291,9 @@ fn known_name(path: &Path) -> Option<&'static str> {
         // bat's set knows Ruby by name for `Rakefile`, `Gemfile` and friends, but not for
         // Sorbet's type files or Danger's.
         (_, "rbi") | ("Dangerfile", _) => "Ruby",
+        // Sublime's set gives `.h` to Objective-C, which paints a C or a C++ header wrong. The
+        // C++ grammar is the C one plus templates, classes and namespaces, so it reads both.
+        (_, "h") => "C++",
         (".npmrc", _) | (_, "service" | "timer" | "socket") => "INI",
         ("Procfile" | "yarn.lock", _) => "YAML",
         // Starlark.
@@ -281,6 +308,100 @@ mod tests {
 
     fn load(bytes: &[u8]) -> Buffer {
         Buffer::from_bytes(PathBuf::from("x"), bytes)
+    }
+
+    #[test]
+    fn lua_highlights_with_every_shipped_theme() {
+        let src =
+            "-- doc\nlocal M = {}\n\nfunction M.setup(opts)\n  return opts\nend\n\nreturn M\n";
+        for name in crate::theme::names() {
+            let theme = crate::theme::load(name).unwrap();
+            let mut b = Buffer::from_bytes(PathBuf::from("init.lua"), src.as_bytes());
+            // bat's set owns `.lua` by name; no mapping of our own.
+            assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Lua"), "{name}");
+            b.highlight_to(3, &theme);
+            let colours: std::collections::HashSet<_> =
+                b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+            assert!(
+                colours.len() > 1,
+                "init.lua {name}: everything is one colour"
+            );
+        }
+    }
+
+    #[test]
+    fn elixir_highlights_with_every_shipped_theme() {
+        let src =
+            "# doc\ndefmodule Ledger do\n  @timeout 5_000\n\n  def parse(raw), do: raw\nend\n";
+        for file in ["ledger.ex", "mix.exs"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                // bat's set owns `.ex` and `.exs` by name; no mapping of our own.
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("Elixir"),
+                    "{file} {name}"
+                );
+                b.highlight_to(3, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn zig_highlights_with_every_shipped_theme() {
+        let src =
+            "// doc\nconst std = @import(\"std\");\n\npub fn main() !void {\n    _ = std;\n}\n";
+        // bat's Zig grammar owns `.zon` as well, so a build manifest is painted even though it
+        // is no kind of its own.
+        for file in ["ledger.zig", "build.zig.zon"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("Zig"),
+                    "{file} {name}"
+                );
+                b.highlight_to(3, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn c_and_cpp_highlight_with_every_shipped_theme() {
+        let src = "// doc\n#include <stdio.h>\n\nstruct invoice { int total; };\n\nint main(void) {\n    return 0;\n}\n";
+        for (file, lang) in [
+            ("invoice.c", "C"),
+            ("ledger.cc", "C++"),
+            ("ledger.cpp", "C++"),
+            ("ledger.cxx", "C++"),
+            ("ledger.hpp", "C++"),
+            ("ledger.hh", "C++"),
+            ("ledger.hxx", "C++"),
+            // Mapped by name above: bat's set gives `.h` to Objective-C.
+            ("invoice.h", "C++"),
+        ] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some(lang),
+                    "{file} {name}"
+                );
+                b.highlight_to(3, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
     }
 
     #[test]
@@ -463,6 +584,61 @@ mod tests {
                     "{file} {name}"
                 );
                 b.highlight_to(1, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn csharp_highlights_with_every_shipped_theme() {
+        // bat's set owns both extensions by name; neither needs a mapping.
+        let src = "// doc\npublic sealed class Invoice\n{\n    private const int Limit = 10;\n}\n";
+        for file in ["Invoice.cs", "build.csx"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("C#"),
+                    "{file} {name}"
+                );
+                b.highlight_to(3, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn swift_highlights_with_every_shipped_theme() {
+        let src = "// doc\npublic final class Session {\n    private let queue = \"main\"\n}\n";
+        for name in crate::theme::names() {
+            let theme = crate::theme::load(name).unwrap();
+            let mut b = Buffer::from_bytes(PathBuf::from("Session.swift"), src.as_bytes());
+            assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Swift"), "{name}");
+            b.highlight_to(2, &theme);
+            let colours: std::collections::HashSet<_> =
+                b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+            assert!(colours.len() > 1, "{name}: everything is one colour");
+        }
+    }
+
+    #[test]
+    fn php_highlights_with_every_shipped_theme() {
+        let src = "<?php\n\nfinal class Invoice\n{\n    public const LIMIT = 10;\n}\n";
+        for file in ["Invoice.php", "show.phtml"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("PHP"),
+                    "{file} {name}"
+                );
+                b.highlight_to(4, &theme);
                 let colours: std::collections::HashSet<_> =
                     b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
                 assert!(colours.len() > 1, "{file} {name}: everything is one colour");

@@ -1,0 +1,21 @@
+# c walks the hunks, through a file and on into the next one; C walks back.
+merl --review
+wait hunk 1/1
+sleep 0.5
+show
+sleep 1.6
+key c
+wait file 2/5
+sleep 1.4
+key c
+wait file 3/5
+sleep 1.4
+key c
+wait hunk 1/10
+sleep 1.8
+key c
+wait hunk 2/10
+sleep 1.6
+key C
+wait hunk 1/10
+sleep 1.8

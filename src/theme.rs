@@ -170,6 +170,9 @@ pub struct Theme {
     pub line_hl: Color,
     /// The tree cursor row while the code pane has the keys: `line_hl` at half strength.
     pub line_hl_dim: Color,
+    /// Review's deleted lines: the text colour greyed toward the background, but never below a
+    /// contrast a reviewer can read. `gutter_fg` is too faint for text in most themes.
+    pub ghost_fg: Color,
     pub status_bg: Color,
     pub status_fg: Color,
     pub find_bg: Color,
@@ -227,6 +230,14 @@ fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         }
         line_hl_dim = blend(fg, bg, percent);
     }
+    // As grey as still reads: the weakest mix that reaches 4:1 against the background. A theme
+    // whose own text is below ~5.4:1 never reaches it, so there the mix stops at 85 %, which keeps
+    // the ghost greyer than the text and within a quarter of the text's own contrast.
+    let ghost_fg = (50..=GHOST_MAX)
+        .step_by(5)
+        .map(|percent| blend(fg, bg, percent))
+        .find(|&c| contrast(c, rgb(bg)) >= GHOST_CONTRAST)
+        .unwrap_or_else(|| blend(fg, bg, GHOST_MAX));
     // The selection is drawn over the cursor line (#62), so a theme whose own selection colour
     // sits within a few points of it gets one blended further from the background instead.
     let mut selection = s.selection.map_or_else(|| blend(fg, bg, 25), over_bg);
@@ -245,6 +256,7 @@ fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
             .map_or_else(|| blend(fg, bg, 45), over_bg),
         line_hl,
         line_hl_dim,
+        ghost_fg,
         status_bg: line_hl,
         status_fg: rgb(fg),
         find_bg: s.find_highlight.map_or_else(|| blend(fg, bg, 35), over_bg),
@@ -305,6 +317,28 @@ fn composite(c: SynColor, bg: SynColor) -> SynColor {
 /// `fg` over `bg` at `percent` opacity, as a ratatui color.
 fn blend(fg: SynColor, bg: SynColor, percent: u32) -> Color {
     rgb(mix(fg, bg, percent))
+}
+
+/// The contrast `ghost_fg` aims for, and the most of the text colour it may take to get there.
+const GHOST_CONTRAST: f64 = 4.0;
+const GHOST_MAX: u32 = 85;
+
+/// WCAG contrast ratio of two colours, 1.0 (the same) to 21.0 (black on white).
+fn contrast(a: Color, b: Color) -> f64 {
+    let lum = |c: Color| {
+        let Color::Rgb(r, g, b) = c else { return 0.0 };
+        let lin = |v: u8| {
+            let v = v as f64 / 255.0;
+            if v <= 0.03928 {
+                v / 12.92
+            } else {
+                ((v + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+    };
+    let (a, b) = (lum(a), lum(b));
+    (a.max(b) + 0.05) / (a.min(b) + 0.05)
 }
 
 /// Whether two chrome colours read as two colours: at least 12 points apart on one channel, the
@@ -653,6 +687,26 @@ mod tests {
             let t = load(name).unwrap();
             assert_ne!(t.line_hl_dim, t.bg, "{name}");
             assert_ne!(t.line_hl_dim, t.line_hl, "{name}");
+        }
+    }
+
+    #[test]
+    fn deleted_lines_are_grey_but_readable_in_every_theme() {
+        for name in names() {
+            let t = load(name).unwrap();
+            let (text, ghost) = (contrast(t.fg, t.bg), contrast(t.ghost_fg, t.bg));
+            // Greyed: clearly weaker than live text.
+            assert!(
+                ghost <= text * 0.9,
+                "{name}: ghost {ghost:.2} vs text {text:.2}"
+            );
+            // Readable: 4:1, or, where the theme's own text is too soft for a grey of it to
+            // get there (material-light is 2.5:1 itself), most of what the text has.
+            assert!(
+                ghost >= GHOST_CONTRAST || ghost >= text * 0.7,
+                "{name}: ghost {ghost:.2} vs text {text:.2}"
+            );
+            assert!(ghost >= 2.0, "{name}: ghost {ghost:.2}");
         }
     }
 }

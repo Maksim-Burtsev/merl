@@ -124,7 +124,7 @@ fn draw_welcome(frame: &mut Frame, theme: &Theme, area: Rect, base: Style) {
     } else {
         let hint = Line::from(Span::styled(
             " o: open file   ?: help",
-            base.fg(theme.gutter_fg),
+            base.fg(theme.ghost_fg),
         ));
         frame.render_widget(Paragraph::new(hint).style(base), area);
         return;
@@ -198,7 +198,7 @@ fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
                     format!(" {key:key_w$}  "),
                     base.add_modifier(Modifier::BOLD),
                 ),
-                Span::styled(*action, base.fg(theme.gutter_fg)),
+                Span::styled(*action, base.fg(theme.ghost_fg)),
             ])
         })
         .collect();
@@ -291,6 +291,8 @@ fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
 
 fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
     let pending = app.search_pending();
+    // `s> ` is the prompt of `s`; `D` greps for the query too, and stays `D`'s picker.
+    let search = app.mode == Mode::Picker(crate::app::PickerKind::Search);
     let Some(picker) = &mut app.picker else {
         return;
     };
@@ -307,10 +309,15 @@ fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base
         .title(if picker.live && pending {
             // The rows answer an older query: `0 hits` only ever means "grepped, found nothing".
             format!("{} (…)", picker.title)
+        } else if picker.live && picker.query.is_empty() && total > 0 {
+            // `D` past the cap: the rows are what the walk found before the cut, not the list,
+            // and the query greps the project instead of filtering them. (`s` has no rows
+            // without a query, so it never reads this way.)
+            format!("{} (first {total}, type to search all)", picker.title)
         } else if picker.live {
             // Nothing filters the hits, and the grep stops at MAX_HITS: that many is a floor.
             let more = if total as usize >= MAX_HITS { "+" } else { "" };
-            let s = if total == 1 { "" } else { "s" };
+            let s = crate::app::plural(total as usize);
             format!("{} ({total}{more} hit{s})", picker.title)
         } else {
             format!("{} ({matched}/{total})", picker.title)
@@ -326,7 +333,7 @@ fn draw_picker(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base
     }
 
     let [prompt, list] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(inner);
-    let prefix = if picker.live { "s> " } else { "> " };
+    let prefix = if search { "s> " } else { "> " };
     draw_prompt(frame, prefix, &picker.query, base, prompt);
 
     let (rows, selected) = picker.window(list.height as usize);
@@ -417,7 +424,7 @@ fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: 
     let text_hl = app.selected_bytes(app.line).is_none_or(|r| !r.is_empty());
 
     let nowrap = app.nowrap();
-    let ghost = base.fg(theme.gutter_fg).add_modifier(Modifier::DIM);
+    let ghost = base.fg(theme.ghost_fg);
     let ghost_row = |text: &str| {
         Line::from(vec![
             Span::styled(" ".repeat(gutter_w - 1), gutter_style),
@@ -612,6 +619,17 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
     };
     if !prefix.is_empty() {
         draw_prompt(frame, prefix, &app.prompt, style, area);
+        // What the query found so far (`3/17`, `no match`), out of the way of the typing.
+        let w = wrap::width(&app.message) as u16 + 1;
+        let typed = wrap::width(prefix) + wrap::width(&app.prompt) + 2;
+        if !app.message.is_empty() && area.width as usize > typed + w as usize {
+            let right = Rect {
+                x: area.right() - w,
+                width: w,
+                ..area
+            };
+            frame.render_widget(Paragraph::new(app.message.as_str()).style(style), right);
+        }
         return;
     }
     let pane = match (app.mode, app.focus) {
@@ -626,12 +644,18 @@ fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
         ),
         Span::styled(
             format!(
-                "{}  {}:{}  [{pane}]{}{}{}",
+                "{}  {}:{}  [{pane}]{}{}{}{}",
                 if app.dirty { " \u{25cf}" } else { "" },
                 app.line + 1,
                 app.display_col(),
                 if app.mode == Mode::Edit {
                     if app.buf.tabs { "  Tab" } else { "  Spaces: 4" }
+                } else {
+                    ""
+                },
+                // Enter on such a file says why (`read-only: not UTF-8`): once is enough.
+                if app.buf.readonly.is_some() && !app.message.starts_with("read-only") {
+                    "  read-only"
                 } else {
                     ""
                 },
@@ -832,6 +856,50 @@ mod tests {
         );
     }
 
+    /// Text a reader has to read is never `gutter_fg`: that is the line numbers' colour, under
+    /// 2:1 against the background in most themes (#146). The `?` overlay's actions and the
+    /// one-line welcome hint take the theme's readable grey instead.
+    #[test]
+    fn help_actions_and_the_narrow_hint_are_drawn_in_the_readable_grey() {
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mk = || {
+            App::new(
+                PathBuf::from("/demo"),
+                Tree::default(),
+                Vec::new(),
+                Buffer::empty(),
+                None,
+            )
+        };
+        let at = |terminal: &Terminal<TestBackend>, needle: &str| {
+            let buf = terminal.backend().buffer();
+            for y in 0..buf.area.height {
+                for x in 0..=buf.area.width.saturating_sub(needle.len() as u16) {
+                    let got: String = (0..needle.len() as u16)
+                        .map(|i| buf[(x + i, y)].symbol())
+                        .collect();
+                    if got == needle {
+                        return buf[(x, y)].fg;
+                    }
+                }
+            }
+            panic!("{needle:?} is not on screen");
+        };
+
+        let mut app = mk();
+        app.mode = crate::app::Mode::Help;
+        let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        assert_eq!(at(&terminal, "Open a file (fuzzy)"), theme.ghost_fg);
+
+        // Too short for the five key rows: the pane falls back to the single hint line.
+        let mut app = mk();
+        app.show_tree = false;
+        let mut terminal = Terminal::new(TestBackend::new(40, 4)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        assert_eq!(at(&terminal, "o: open file"), theme.ghost_fg);
+    }
+
     #[test]
     fn picker_overlay_renders_border_prompt_and_items() {
         let files = ["src/app.rs", "src/wrap.rs"].map(PathBuf::from).to_vec();
@@ -882,6 +950,59 @@ mod tests {
         assert_eq!(title(&mut app), "Search (…)");
         app.settle_search();
         assert_eq!(title(&mut app), "Search (0 hits)");
+        // With the project files in, one line matches.
+        app.files = crate::tree::build(&app.root).1;
+        app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        for c in "sfromisoformat".chars() {
+            app.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+        }
+        app.settle_search();
+        assert_eq!(title(&mut app), "Search (1 hit)");
+    }
+
+    /// A `D` list the cap cut short never reads as the project's symbols: the title says what
+    /// the rows are, and once a query is typed it counts the answer to that query.
+    #[test]
+    fn symbol_title_says_the_list_is_cut_until_the_query_answers() {
+        let dir = std::env::temp_dir().join(format!("merl-ui-cap-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let many: String = (0..MAX_HITS)
+            .map(|i| format!("func a{i}() {{}}\n"))
+            .collect();
+        std::fs::write(dir.join("a.go"), many).unwrap();
+        std::fs::write(dir.join("z.go"), "func zebra() {}\n").unwrap();
+        let (tree, files) = crate::tree::build(&dir);
+        let mut app = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
+        let mut title = |app: &mut App| {
+            terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+            let text = rows(&terminal).join("\n");
+            let at = text.find("Symbols (").expect("the title");
+            text[at..].split_inclusive(')').next().unwrap().to_string()
+        };
+
+        app.key(KeyEvent::new(KeyCode::Char('D'), KeyModifiers::NONE));
+        // The event loop ticks an open picker before it draws it.
+        app.picker.as_mut().unwrap().settle();
+        assert_eq!(
+            title(&mut app),
+            format!("Symbols (first {MAX_HITS}, type to search all)")
+        );
+        for c in "zebra".chars() {
+            app.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+        }
+        assert_eq!(title(&mut app), "Symbols (…)");
+        app.settle_search();
+        assert_eq!(title(&mut app), "Symbols (1 hit)");
+        // The query greps like `s`, but the picker is `D`'s and its prompt says so.
+        let prompt = rows(&terminal)
+            .into_iter()
+            .find(|r| r.contains("zebra"))
+            .expect("the query on screen");
+        assert!(prompt.contains("│> zebra"), "not `s> `: {prompt}");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// The `s` picker has a prompt of its own, and its title counts hits: one, many, or as many
@@ -1364,6 +1485,11 @@ z
             rows(&terminal)[..5],
             ["1 a", "\u{258e}old1", "\u{258e}old2", "2\u{258e}b", "3 c"]
         );
+        // Greyed by the theme's own readable grey, never by the terminal's `dim` (#144).
+        let buf = terminal.backend().buffer();
+        let o = (0..8).find(|x| buf[(*x, 1)].symbol() == "o").unwrap();
+        assert_eq!(buf[(o, 1)].fg, theme.ghost_fg);
+        assert!(!buf[(o, 1)].modifier.contains(ratatui::style::Modifier::DIM));
         assert_eq!(terminal.get_cursor_position().unwrap().y, 4);
         // Up from `c` lands on `b`, not on a ghost; up again on `a`.
         app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
@@ -1471,6 +1597,7 @@ z
                 added: 6,
                 deleted: 2,
                 binary: false,
+                untracked: false,
             }],
         });
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -1511,6 +1638,7 @@ z
                 added: 0,
                 deleted: 0,
                 binary: true,
+                untracked: false,
             }],
         });
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();

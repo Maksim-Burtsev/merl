@@ -1,0 +1,185 @@
+diff --git a/models/repo/star.go b/models/repo/star.go
+index cecaecf..71537aa 100644
+--- a/models/repo/star.go
++++ b/models/repo/star.go
+@@ -25,6 +25,18 @@ func init() {
+ 	db.RegisterModel(new(Star))
+ }
+ 
++// StarredRepoIDsOfOwner lists the repositories of one owner that a user has starred.
++func StarredRepoIDsOfOwner(ctx context.Context, starrerID, ownerID int64) ([]int64, error) {
++	repoIDs := make([]int64, 0, 25)
++	return repoIDs, db.GetEngine(ctx).Table("star").
++		Join("INNER", "repository", "repository.id = star.repo_id").
++		Where("star.uid = ?", starrerID).
++		And("repository.owner_id = ?", ownerID).
++		OrderBy("star.repo_id").
++		Cols("star.repo_id").
++		Find(&repoIDs)
++}
++
+ // StarRepo or unstar repository.
+ func StarRepo(ctx context.Context, doer *user_model.User, repo *Repository, star bool) error {
+ 	return db.WithTx(ctx, func(ctx context.Context) error {
+diff --git a/models/repo/star_test.go b/models/repo/star_test.go
+index d81c3a1..2f06711 100644
+--- a/models/repo/star_test.go
++++ b/models/repo/star_test.go
+@@ -29,6 +29,18 @@ func TestStarRepo(t *testing.T) {
+ 	unittest.AssertNotExistsBean(t, &repo_model.Star{UID: user.ID, RepoID: repo.ID})
+ }
+ 
++func TestStarredRepoIDsOfOwner(t *testing.T) {
++	assert.NoError(t, unittest.PrepareTestDatabase())
++
++	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
++	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
++	assert.NoError(t, repo_model.StarRepo(t.Context(), user, repo, true))
++
++	repoIDs, err := repo_model.StarredRepoIDsOfOwner(t.Context(), user.ID, repo.OwnerID)
++	assert.NoError(t, err)
++	assert.Equal(t, []int64{repo.ID}, repoIDs)
++}
++
+ func TestIsStaring(t *testing.T) {
+ 	assert.NoError(t, unittest.PrepareTestDatabase())
+ 	assert.True(t, repo_model.IsStaring(t.Context(), 2, 4))
+diff --git a/models/repo/watch.go b/models/repo/watch.go
+index f8c413b..51b8e4f 100644
+--- a/models/repo/watch.go
++++ b/models/repo/watch.go
+@@ -243,6 +243,19 @@ func GetRepoIgnorersIDs(ctx context.Context, repoID int64) ([]int64, error) {
+ 		Find(&ids)
+ }
+ 
++// WatchedRepoIDsOfOwner lists the repositories of one owner that a user watches.
++func WatchedRepoIDsOfOwner(ctx context.Context, watcherID, ownerID int64) ([]int64, error) {
++	repoIDs := make([]int64, 0, 25)
++	return repoIDs, db.GetEngine(ctx).Table("watch").
++		Join("INNER", "repository", "repository.id = watch.repo_id").
++		Where("watch.user_id = ?", watcherID).
++		And("watch.mode <> ?", WatchModeDont).
++		And("repository.owner_id = ?", ownerID).
++		OrderBy("watch.repo_id").
++		Select("watch.repo_id").
++		Find(&repoIDs)
++}
++
+ // GetRepoWatchersIDs returns IDs of watchers for a given repo ID that opted into watchType
+ // but avoids joining with `user` for performance reasons
+ // User permissions must be verified elsewhere if required
+diff --git a/services/user/block.go b/services/user/block.go
+index 48e6ed3..8ae9f9f 100644
+--- a/services/user/block.go
++++ b/services/user/block.go
+@@ -133,63 +133,41 @@ func BlockUser(ctx context.Context, doer, blocker, blockee *user_model.User, not
+ }
+ 
+ func unstarRepos(ctx context.Context, starrer, repoOwner *user_model.User) error {
+-	opts := &repo_model.StarredReposOptions{
+-		ListOptions: db.ListOptions{
+-			Page:     1,
+-			PageSize: 25,
+-		},
+-		StarrerID:   starrer.ID,
+-		RepoOwnerID: repoOwner.ID,
++	// Ask for the IDs once: paging over a list that shrinks as it is unstarred skips row
++	repoIDs, err := repo_model.StarredRepoIDsOfOwner(ctx, starrer.ID, repoOwner.ID)
++	if err != nil {
++		return err
+ 	}
+ 
+-	for {
+-		repos, err := repo_model.GetStarredRepos(ctx, opts)
++	for _, repoID := range repoIDs {
++		repo, err := repo_model.GetRepositoryByID(ctx, repoID)
+ 		if err != nil {
+ 			return err
+ 		}
+-
+-		if len(repos) == 0 {
+-			return nil
++		if err := repo_model.StarRepo(ctx, starrer, repo, false); err != nil {
++			return err
+ 		}
+-
+-		for _, repo := range repos {
+-			if err := repo_model.StarRepo(ctx, starrer, repo, false); err != nil {
+-				return err
+-			}
+-		}
+-
+-		opts.Page++
+ 	}
++	return nil
+ }
+ 
+ func unwatchRepos(ctx context.Context, watcher, repoOwner *user_model.User) error {
+-	opts := &repo_model.WatchedReposOptions{
+-		ListOptions: db.ListOptions{
+-			Page:     1,
+-			PageSize: 25,
+-		},
+-		WatcherID:   watcher.ID,
+-		RepoOwnerID: repoOwner.ID,
++	// Same here: one list of IDs, then one unwatch per ID.
++	repoIDs, err := repo_model.WatchedRepoIDsOfOwner(ctx, watcher.ID, repoOwner.ID)
++	if err != nil {
++		return err
+ 	}
+ 
+-	for {
+-		repos, _, err := repo_model.GetWatchedRepos(ctx, opts)
++	for _, repoID := range repoIDs {
++		repo, err := repo_model.GetRepositoryByID(ctx, repoID)
+ 		if err != nil {
+ 			return err
+ 		}
+-
+-		if len(repos) == 0 {
+-			return nil
++		if err := repo_model.WatchRepoAuto(ctx, watcher, repo, false); err != nil {
++			return err
+ 		}
+-
+-		for _, repo := range repos {
+-			if err := repo_model.WatchRepoAuto(ctx, watcher, repo, false); err != nil {
+-				return err
+-			}
+-		}
+-
+-		opts.Page++
+ 	}
++	return nil
+ }
+ 
+ func cancelRepositoryTransfers(ctx context.Context, doer, sender, recipient *user_model.User) error {
+diff --git a/services/user/block_test.go b/services/user/block_test.go
+index dc90ddd..ecca533 100644
+--- a/services/user/block_test.go
++++ b/services/user/block_test.go
+@@ -6,6 +6,7 @@ package user
+ import (
+ 	"testing"
+ 
++	repo_model "gitea.dev/models/repo"
+ 	"gitea.dev/models/unittest"
+ 	user_model "gitea.dev/models/user"
+ 
+@@ -63,3 +64,16 @@ func TestCanUnblockUser(t *testing.T) {
+ 	assert.True(t, CanUnblockUser(t.Context(), user2, user2, user29))
+ 	assert.True(t, CanUnblockUser(t.Context(), user1, org17, user28))
+ }
++
++func TestBlockUserUnstarsTheirRepos(t *testing.T) {
++	assert.NoError(t, unittest.PrepareTestDatabase())
++
++	doer := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
++	blocker := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
++	blockee := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 4})
++	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
++
++	assert.NoError(t, repo_model.StarRepo(t.Context(), blockee, repo, true))
++	assert.NoError(t, BlockUser(t.Context(), doer, blocker, blockee, "spam"))
++	unittest.AssertNotExistsBean(t, &repo_model.Star{UID: blockee.ID, RepoID: repo.ID})
++}
