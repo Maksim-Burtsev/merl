@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Ctrl+N makes a new file from the code, from edit mode or from the tree. The prompt asks for a
+  path from the project root and starts in the directory of the open file or of the selected
+  tree row; Enter creates the file with the directories it needs and opens it for editing, and
+  the tree and `o` have it at once. A file that is there is opened, never overwritten; a path
+  out of the project is refused. (#23)
 - `d` in Go reads a build tag of the project's own as a plain `go build` does: unset. Of a type
   declared twice, under `//go:build gogit` and `//go:build !gogit`, `d` goes to the one that is
   built instead of asking; `cgo`, `gc` and `go1.N` count as set, `//go:build ignore` files drop
@@ -222,6 +227,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The pickers move by Up / Down only: Ctrl+P / Ctrl+N, which doubled the arrows, are gone, so
+  Ctrl+N means one thing everywhere. (#23)
 - `c` / `C` outside review mode say `not in review mode`, the fact without the `merl --review`
   hint, as the other status messages do.
 - The README is rewritten around what merl is for: the one editor you need when agents write the

@@ -340,6 +340,8 @@ mod tests {
         "Shift+Up / Shift+Down",
         "Shift+Left / Shift+Right",
         "Ctrl+C",
+        // The lessons only read the sample project.
+        "Ctrl+N",
         "Alt+Shift+Left / Right",
         "Ctrl+Shift+Left / Right",
         "Ctrl+D / Ctrl+U",
@@ -351,7 +353,7 @@ mod tests {
         "Tree: Up / Down",
         "Tree: Enter",
         "Tree: Left / Right",
-        "Picker: Up / Down, Ctrl+P / Ctrl+N",
+        "Picker: Up / Down",
         "Picker: Enter",
         "Picker: Esc",
         "Picker: PgUp / PgDn",

@@ -34,6 +34,14 @@ impl LineEdit {
         }
     }
 
+    /// A line opened with `text` in it as if typed: the cursor after it, nothing selected.
+    pub fn typed(text: &str) -> Self {
+        Self {
+            anchor: None,
+            ..Self::selected(text)
+        }
+    }
+
     pub fn clear(&mut self) {
         *self = Self::default();
     }

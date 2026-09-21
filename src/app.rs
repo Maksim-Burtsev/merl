@@ -1,7 +1,7 @@
 //! All editor state and every key binding. Rendering lives in `ui.rs`.
 
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -26,6 +26,10 @@ const MAX_NAME_PAD: usize = 40;
 /// truth: a test checks that the README says exactly this.
 pub const KEYS: &[(&str, &str)] = &[
     ("o / Ctrl+E", "Open a file (fuzzy)"),
+    (
+        "Ctrl+N",
+        "New file: type its path, Enter creates and edits it",
+    ),
     ("/ / Ctrl+F", "Find in the open file"),
     ("n / N", "Next / previous match"),
     ("s", "Search the project"),
@@ -91,7 +95,7 @@ pub const KEYS: &[(&str, &str)] = &[
     ("Tree: Up / Down", "Move"),
     ("Tree: Enter", "Open the file, or expand the directory"),
     ("Tree: Left / Right", "Collapse / expand"),
-    ("Picker: Up / Down, Ctrl+P / Ctrl+N", "Move"),
+    ("Picker: Up / Down", "Move"),
     ("Picker: Enter", "Accept"),
     ("Picker: Esc", "Cancel"),
     ("Picker: PgUp / PgDn", "Move one page"),
@@ -128,6 +132,8 @@ pub enum Mode {
     /// `/`: incremental find in the open file.
     Find,
     Goto,
+    /// Ctrl+N: the path of a file to create.
+    New,
     Picker(PickerKind),
     /// `?`: the list of bindings, over everything else.
     Help,
@@ -3914,6 +3920,95 @@ impl App {
         }
     }
 
+    // ---- new file --------------------------------------------------------
+
+    /// Ctrl+N: asks for a path from the project root. It starts in the directory of the tree
+    /// row, or of the open file, as the explorers of VS Code and nvim-tree do.
+    fn start_new(&mut self) {
+        let dir = match (self.focus, self.tree.selected()) {
+            (Focus::Tree, Some(n)) if n.is_dir => Some(n.path.clone()),
+            (Focus::Tree, Some(n)) => n.path.parent().map(Path::to_path_buf),
+            _ => self
+                .rel_current()
+                .and_then(|p| Some(p.parent()?.to_path_buf())),
+        }
+        // A file opened from outside the project has no directory in it.
+        .filter(|d| d.is_relative() && !d.as_os_str().is_empty());
+        self.mode = Mode::New;
+        self.prompt =
+            LineEdit::typed(&dir.map(|d| format!("{}/", d.display())).unwrap_or_default());
+    }
+
+    fn new_key(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Enter | KeyCode::Esc => {
+                let typed = std::mem::take(&mut self.prompt).to_string();
+                self.close_overlay();
+                if key.code == KeyCode::Enter {
+                    self.create(&typed);
+                }
+            }
+            _ => {
+                self.prompt.key(key);
+            }
+        }
+    }
+
+    /// Creates `typed`, a path from the project root, with the directories it needs, and opens
+    /// it for editing. A file that is there already is opened as it is, never overwritten.
+    fn create(&mut self, typed: &str) {
+        // An empty prompt is a cancel, as in `:`.
+        if typed.is_empty() {
+            return;
+        }
+        let mut rel = PathBuf::new();
+        for part in Path::new(typed).components() {
+            match part {
+                Component::Normal(name) => rel.push(name),
+                Component::CurDir => {}
+                Component::ParentDir if rel.pop() => {}
+                _ => {
+                    self.message = "outside the project".into();
+                    return;
+                }
+            }
+        }
+        let path = self.root.join(&rel);
+        if typed.ends_with('/') || rel.as_os_str().is_empty() {
+            self.message = "no file name".into();
+            return;
+        }
+        if path.is_dir() {
+            self.message = format!("{} is a directory", rel.display());
+            return;
+        }
+        // Before anything is created: edits that cannot be saved keep their file open.
+        if !self.flush() {
+            return;
+        }
+        let made = path
+            .parent()
+            .map_or(Ok(()), std::fs::create_dir_all)
+            .and_then(|()| std::fs::File::create_new(&path).map(drop));
+        match made {
+            Ok(()) => {
+                // ponytail: a whole walk on the key press, as at startup, rather than one path
+                // put into the tree and the list; a thread like the watcher's if it ever stalls.
+                let (tree, files) = crate::tree::build(&self.root);
+                self.project_walked(tree, files);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(e) => {
+                self.message = format!("{}: {e}", rel.display());
+                return;
+            }
+        }
+        self.jump_to(&path, 0);
+        if self.buf.path.as_deref() == Some(&*path) {
+            self.start_edit();
+        }
+    }
+
     // ---- editing ---------------------------------------------------------
 
     /// Enter in the code pane: the cursor becomes a text cursor.
@@ -4044,7 +4139,8 @@ impl App {
         let text = text.replace("\r\n", "\n").replace('\r', "\n");
         if self.mode == Mode::Edit {
             self.insert(&text);
-        } else if self.picker.is_some() || matches!(self.mode, Mode::Goto | Mode::Find) {
+        } else if self.picker.is_some() || matches!(self.mode, Mode::Goto | Mode::Find | Mode::New)
+        {
             for c in text.lines().next().unwrap_or_default().chars() {
                 self.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
             }
@@ -4284,6 +4380,10 @@ impl App {
                 self.find_key(key);
                 return false;
             }
+            Mode::New => {
+                self.new_key(key);
+                return false;
+            }
             Mode::Help => {
                 match key.code {
                     KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q') => {
@@ -4331,6 +4431,7 @@ impl App {
                 self.mode = Mode::Goto;
                 self.prompt.clear();
             }
+            KeyCode::Char('n') if ctrl => self.start_new(),
             KeyCode::Char('s') if ctrl => self.save(),
             KeyCode::Char('r') if ctrl => {
                 self.reload(true);
@@ -12779,6 +12880,128 @@ mod tests {
         press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
         assert_eq!(a.mode, Mode::Normal);
         assert_eq!((a.line, a.col), (2, 1));
+    }
+
+    /// A project on disk, `src/a.py` and `README.md`, walked as `main` walks it; `src/a.py` open.
+    fn new_file_project(name: &str) -> (PathBuf, App) {
+        let dir = std::env::temp_dir().join(format!("merl-new-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(dir.join("src/a.py"), "x = 1\n").unwrap();
+        std::fs::write(dir.join("README.md"), "hi\n").unwrap();
+        let dir = dir.canonicalize().unwrap();
+        let (tree, files) = crate::tree::build(&dir);
+        let buf = Buffer::load(&dir.join("src/a.py")).unwrap();
+        let mut a = App::new(dir.clone(), tree, files, buf, None);
+        a.focus = Focus::Code;
+        a.view_w = 40;
+        a.view_h = 10;
+        (dir, a)
+    }
+
+    fn ctrl_n(a: &mut App) {
+        press(a, KeyCode::Char('n'), KeyModifiers::CONTROL);
+    }
+
+    #[test]
+    fn ctrl_n_creates_a_file_next_to_the_open_one_and_edits_it() {
+        let (dir, mut a) = new_file_project("code");
+        ctrl_n(&mut a);
+        assert_eq!((a.mode, &*a.prompt), (Mode::New, "src/"));
+        typed(&mut a, "sub/b.py");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        let made = dir.join("src/sub/b.py");
+        assert_eq!(std::fs::read_to_string(&made).unwrap(), "");
+        assert_eq!((a.buf.path.as_deref(), a.mode), (Some(&*made), Mode::Edit));
+        // In the file list and the tree at once, with no watcher to wait for.
+        let rel = Path::new("src/sub/b.py");
+        assert!(a.files.iter().any(|f| f == rel));
+        assert_eq!(a.tree.selected().map(|n| &*n.path), Some(rel));
+        // `[` is the way back.
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+        assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("src/a.py")));
+    }
+
+    #[test]
+    fn ctrl_n_in_the_tree_starts_from_the_selected_row() {
+        let (_, mut a) = new_file_project("tree");
+        a.focus = Focus::Tree;
+        a.tree.reveal(Path::new("README.md"));
+        ctrl_n(&mut a);
+        assert_eq!(&*a.prompt, "");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        a.tree.reveal(Path::new("src/a.py"));
+        ctrl_n(&mut a);
+        assert_eq!(&*a.prompt, "src/");
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        a.tree.reveal(Path::new("src"));
+        ctrl_n(&mut a);
+        assert_eq!(&*a.prompt, "src/");
+        typed(&mut a, "c.py");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!((a.focus, a.mode), (Focus::Code, Mode::Edit));
+    }
+
+    #[test]
+    fn ctrl_n_from_edit_mode_saves_the_open_file_and_esc_resumes_it() {
+        let (dir, mut a) = new_file_project("edit");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        typed(&mut a, "y");
+        ctrl_n(&mut a);
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!(a.mode, Mode::Edit);
+        ctrl_n(&mut a);
+        typed(&mut a, "b.py");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(
+            std::fs::read_to_string(dir.join("src/a.py")).unwrap(),
+            "yx = 1\n"
+        );
+        assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("src/b.py")));
+    }
+
+    #[test]
+    fn ctrl_n_never_overwrites_and_never_leaves_the_project() {
+        let (dir, mut a) = new_file_project("refuse");
+        let new = |a: &mut App, path: &str| {
+            ctrl_n(a);
+            press(a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+            typed(a, path);
+            press(a, KeyCode::Enter, KeyModifiers::NONE);
+        };
+        // A file that is there opens as it is.
+        new(&mut a, "README.md");
+        assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("README.md")));
+        assert_eq!(
+            std::fs::read_to_string(dir.join("README.md")).unwrap(),
+            "hi\n"
+        );
+        for (path, why) in [
+            ("../out.py", "outside the project"),
+            ("/tmp/merl-out.py", "outside the project"),
+            ("src/../../out.py", "outside the project"),
+            ("src/", "no file name"),
+            ("src", "src is a directory"),
+        ] {
+            new(&mut a, path);
+            assert_eq!(a.message, why, "{path}");
+        }
+        assert!(!dir.parent().unwrap().join("out.py").exists());
+        // An empty prompt is a cancel, as in `:`.
+        new(&mut a, "");
+        assert_eq!(a.message, "");
+    }
+
+    #[test]
+    fn ctrl_n_over_an_overlay_does_nothing() {
+        let (_, mut a) = new_file_project("overlay");
+        for open in ['o', ':', '/', '?'] {
+            press(&mut a, KeyCode::Char(open), KeyModifiers::NONE);
+            ctrl_n(&mut a);
+            assert_ne!(a.mode, Mode::New, "{open}");
+            press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        }
     }
 
     fn temp_file(name: &str, text: &str) -> (PathBuf, App) {
