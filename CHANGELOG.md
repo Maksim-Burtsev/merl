@@ -261,8 +261,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `s` shows its hits while you type: the result picker opens at once with the query as its input
   line and refreshes after each pause, Up / Down move in it and Enter jumps. Enter pressed before
   the hits arrive waits for them. The title counts the hits, and shows `Search (…)` until the
-  query on screen is answered, so `0 hits` always means nothing was found. Narrowing is done by
-  typing more of the query; the fuzzy filter over the results is gone. (#53, #107)
+  query on screen is answered, so `0 hits` always means nothing was found. The open file's hits
+  come first even when a short query stops at 5000, and Enter on a query that found nothing says
+  `no results for …` however soon it is pressed. Narrowing is done by typing more of the query;
+  the fuzzy filter over the results is gone. (#53, #107)
 - `D` searches past its cap: on a project with more than 5,000 declarations the list is only the
   ones found before the cut, so the query no longer filters those rows — it greps the declaration
   patterns for a name that matches it, after a pause in the typing, as `s` does. A name declared
@@ -285,6 +287,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A picker over thousands of rows no longer holds up the keys typed after it opens: every row
+  queued a redraw of its own, so on a 6,000-file project `o` took over a second to show the first
+  letter of the filter. `u`, `d` and `D` read the open file first, so a list cut at 5000 hits
+  keeps that file's hits. (#53)
 - `d` no longer takes merl down on a word standing behind a character outside ASCII. Three places
   read the name in front of the cursor from the byte index `rfind` gives and added one to it,
   which lands inside a wider character: `d` on `load` in `данные.load(x)`, or on `word` in

@@ -6,9 +6,9 @@ use anyhow::{Context, Result};
 use grep_regex::{RegexMatcher, RegexMatcherBuilder};
 use grep_searcher::{BinaryDetection, Searcher, SearcherBuilder, Sink, SinkMatch};
 
-/// ponytail: a hard stop instead of a streaming picker, taken in file order, so the picker
-/// title says "first N" when it hits. Raise it if a picker over the whole result set ever
-/// becomes the point.
+/// ponytail: a hard stop instead of a streaming picker, taken in file order after the open file,
+/// so the picker title says it is cut ("first N", or "N+ hits" for `s`) when it hits. Raise it
+/// if a picker over the whole result set ever becomes the point.
 pub const MAX_HITS: usize = 5_000;
 /// One matching line. `path` is relative to the project root, `line` is 1-based.
 #[derive(Debug, Clone)]

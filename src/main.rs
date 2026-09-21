@@ -41,8 +41,6 @@ enum Msg {
     /// The terminal pasted text (bracketed paste).
     Paste(String),
     Resize,
-    /// nucleo found new matches.
-    Redraw,
     /// Something changed in the directory of the open file, or anywhere in the project.
     Fs(notify::Event),
     /// The project was walked again after it changed on disk.
@@ -195,12 +193,7 @@ fn run() -> Result<()> {
             }
         });
     }
-    let fs = tx.clone();
-    app.wake = std::sync::Arc::new(move || {
-        let _ = tx.send(Msg::Redraw);
-    });
-
-    let result = event_loop(&mut terminal, &mut app, theme, &rx, fs, project);
+    let result = event_loop(&mut terminal, &mut app, theme, &rx, tx, project);
 
     if enhanced {
         let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
@@ -368,7 +361,7 @@ fn event_loop(
                 return Ok(());
             }
             Ok(Msg::Search(seq, items)) => dirty |= app.search_done(seq, items),
-            Ok(Msg::Resize) | Ok(Msg::Redraw) => dirty = true,
+            Ok(Msg::Resize) => dirty = true,
             Ok(Msg::Fs(ev)) => {
                 // A reload that found the file as merl knows it is not worth a frame: the
                 // project watch reports every namesake under the root.

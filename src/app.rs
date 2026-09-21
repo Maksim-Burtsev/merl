@@ -188,8 +188,6 @@ pub struct App {
     /// the cursor (see `hist_note`).
     pub history: Vec<(PathBuf, usize, usize)>,
     pub hist_idx: usize,
-    /// Wakes the event loop when nucleo has new results. Set by `main`.
-    pub wake: Arc<dyn Fn() + Send + Sync>,
     /// Cursor: file line, byte offset into that line, and the display column Up/Down aims for.
     pub line: usize,
     pub col: usize,
@@ -205,7 +203,7 @@ pub struct App {
     /// Files `w` was pressed on: their wrapping is the opposite of what their kind gets.
     wrap_toggled: HashSet<PathBuf>,
     pub mode: Mode,
-    /// What has been typed into the `:`, `/` or `s>` prompt.
+    /// What has been typed into the `:` or `/` prompt.
     pub prompt: LineEdit,
     /// The current query, kept for `n`/`N` and for painting the matches.
     pub find_re: Option<Regex>,
@@ -333,7 +331,6 @@ impl App {
             search_enter: false,
             history: Vec::new(),
             hist_idx: 0,
-            wake: Arc::new(|| {}),
             line: 0,
             col: 0,
             want_x: 0,
@@ -1324,12 +1321,7 @@ impl App {
             })
             .collect();
         // Only the file picker wants nucleo's path-aware scoring.
-        self.picker = Some(Picker::new(
-            PickerKind::Files.title(),
-            items,
-            true,
-            self.wake.clone(),
-        ));
+        self.picker = Some(Picker::new(PickerKind::Files.title(), items, true));
         self.mode = Mode::Picker(PickerKind::Files);
     }
 
@@ -1340,7 +1332,7 @@ impl App {
         } else {
             kind.title().to_string()
         };
-        self.picker = Some(Picker::new(title, items, false, self.wake.clone()));
+        self.picker = Some(Picker::new(title, items, false));
         self.mode = Mode::Picker(kind);
     }
 
@@ -1378,11 +1370,16 @@ impl App {
         let Some(picker) = &mut self.picker else {
             return;
         };
-        // The list on screen answers an older query: Enter waits for this one's.
-        if picker.live && pending && key.code == KeyCode::Enter {
-            self.search_enter = true;
-            // No point in waiting out the pause.
-            self.search_due = self.search_due.map(|_| Instant::now());
+        if picker.live && key.code == KeyCode::Enter {
+            if pending {
+                // The list on screen answers an older query: Enter waits for this one's.
+                self.search_enter = true;
+                // No point in waiting out the pause.
+                self.search_due = self.search_due.map(|_| Instant::now());
+            } else {
+                let (item, query) = (picker.current().cloned(), picker.query.to_string());
+                self.search_jump(item, &query);
+            }
             return;
         }
         match picker.key(key) {
@@ -1600,7 +1597,8 @@ impl App {
     }
 
     /// Greps the project files `wanted` accepts. The open file is searched whenever it is
-    /// wanted, even when the startup walk skipped it (ignored).
+    /// wanted, even when the startup walk skipped it (ignored), and first: its hits sort to the
+    /// top, so they must not be the ones [`search::MAX_HITS`] cuts.
     fn grep(
         &self,
         pattern: &str,
@@ -1618,9 +1616,9 @@ impl App {
         let current = self.rel_current();
         if let Some(cur) = &current
             && wanted(cur)
-            && !files.contains(cur)
         {
-            files.push(cur.clone());
+            files.retain(|p| p != cur);
+            files.insert(0, cur.clone());
         }
         SearchJob {
             seq,
@@ -1719,15 +1717,26 @@ impl App {
         if let Some(job) = self.search_tick() {
             self.search_done(job.seq, job.items());
         }
-        if let Some(p) = &mut self.picker {
-            p.settle();
+    }
+
+    /// Enter in the `s` picker, on the hits of the query on screen, whether they were in before
+    /// the key or came after it: the jump to `item`, or a word that the query found nothing.
+    fn search_jump(&mut self, item: Option<PickItem>, query: &str) {
+        self.picker = None;
+        self.mode = Mode::Normal;
+        match item {
+            Some(item) => self.jump_to(&self.root.join(&item.path), item.line),
+            None if query.is_empty() => {}
+            None => self.message = format!("no results for {query}"),
         }
     }
 
-    /// The rows of grep number `seq`. An answer to anything but the query on screen is dropped:
-    /// no grep is ever cancelled. What a stale one costs is [`search::MAX_HITS`] for `s`, and
-    /// for `D` a walk of the project, since a narrowing query never fills that cap. Returns
-    /// whether the screen changed.
+    /// The rows of grep number `seq`. An answer to anything but the query on screen is dropped.
+    /// ponytail: no grep is cancelled. For `s` a short query stops at [`search::MAX_HITS`]; a
+    /// selective one reads every file, and on gitea (6,000 files) typing at a human pace did not
+    /// delay the answer to the final query (#53). `D` past the cap walks the project for every
+    /// query (see [`App::search_tick`]). A stop flag checked per file is the upgrade if it does.
+    /// Returns whether the screen changed.
     pub fn search_done(&mut self, seq: u64, items: Vec<PickItem>) -> bool {
         let Some(old) = self.picker.as_mut().filter(|p| p.live) else {
             return false;
@@ -1749,16 +1758,11 @@ impl App {
         if std::mem::take(&mut self.search_enter) {
             // Not through the new picker: nucleo has not seen its items yet.
             let query = old.query.to_string();
-            self.picker = None;
-            self.mode = Mode::Normal;
-            match items.get(selected) {
-                Some(item) => self.jump_to(&self.root.join(&item.path), item.line),
-                None => self.message = format!("no results for {query}"),
-            }
+            self.search_jump(items.into_iter().nth(selected), &query);
             tutor::check(self);
             return true;
         }
-        let mut new = Picker::new(old.title.clone(), items, false, self.wake.clone());
+        let mut new = Picker::new(old.title.clone(), items, false);
         new.live = true;
         new.selected = selected;
         new.query = std::mem::take(&mut old.query);
@@ -1770,6 +1774,9 @@ impl App {
         if self.mode == Mode::Picker(PickerKind::Symbols) {
             new.requery(false);
         }
+        // Matched before it is shown: nothing is pending from here on, so an empty list must
+        // mean the grep found nothing, and Enter and the cursor must see the rows it found.
+        new.settle();
         self.picker = Some(new);
         true
     }
@@ -3844,12 +3851,7 @@ impl App {
         // pattern. What is on screen is the cut list until a query is typed, and the answer to
         // that query after, so the title (`ui::draw_picker`) is the live picker's business.
         let items = Self::symbol_items(named);
-        self.picker = Some(Picker::new(
-            PickerKind::Symbols.title(),
-            items,
-            false,
-            self.wake.clone(),
-        ));
+        self.picker = Some(Picker::new(PickerKind::Symbols.title(), items, false));
         self.mode = Mode::Picker(PickerKind::Symbols);
         if !cut {
             return;
@@ -13546,7 +13548,83 @@ two
             (a.picker.is_none(), &*a.message),
             (true, "no results for three")
         );
+
+        // Past the pause, with the grep running: the list on screen is still the older one.
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "one");
+        std::thread::sleep(SEARCH_PAUSE);
+        let job = a.search_tick().expect("the grep for one");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert!(a.picker.is_some(), "the grep for one is still running");
+        a.search_done(job.seq, job.items());
+        assert_eq!((a.picker.is_none(), a.line), (true, 0));
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    /// Enter once the hits are in: the same jump, and the same word for a query that found
+    /// nothing, as an Enter that came before them. An empty query closes without a word.
+    #[test]
+    fn enter_after_the_project_search_answered() {
+        let (path, mut a) = temp_file("enter-late-s", "one\ntwo\n");
+        // The very next key after the answer, before the event loop has ticked or drawn.
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "two");
+        std::thread::sleep(SEARCH_PAUSE);
+        let job = a.search_tick().expect("the grep for two");
+        a.search_done(job.seq, job.items());
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(
+            (a.picker.is_none(), a.mode, a.line, &*a.message),
+            (true, Mode::Normal, 1, "")
+        );
+
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "three");
+        a.settle_search();
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(
+            (a.picker.is_none(), &*a.message),
+            (true, "no results for three")
+        );
+
+        for keys in ["", "x\u{15}"] {
+            a.message.clear();
+            press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+            for c in keys.chars() {
+                match c {
+                    '\u{15}' => press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL),
+                    c => press(&mut a, KeyCode::Char(c), KeyModifiers::NONE),
+                };
+            }
+            press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+            assert_eq!(
+                (a.picker.is_none(), a.mode, &*a.message),
+                (true, Mode::Normal, ""),
+                "{keys:?}"
+            );
+        }
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    /// The grep stops at MAX_HITS. The open file's hits sort to the top, so they are read first
+    /// and never the ones cut, even when other files alone fill the cap.
+    #[test]
+    fn the_cap_never_cuts_the_open_files_hits() {
+        let dir = std::env::temp_dir().join(format!("merl-cap-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("a.py"), "x\n".repeat(search::MAX_HITS)).unwrap();
+        std::fs::write(dir.join("z.py"), "one\nx\n").unwrap();
+        let files = vec![PathBuf::from("a.py"), PathBuf::from("z.py")];
+        let buf = Buffer::load(&dir.join("z.py")).unwrap();
+        let mut a = App::new(dir.clone(), Tree::default(), files, buf, None);
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "x");
+        a.settle_search();
+        let p = a.picker.as_ref().unwrap();
+        let top = p.current().unwrap();
+        assert_eq!((top.path.as_path(), top.line), (Path::new("z.py"), 2));
+        assert_eq!(p.counts().1 as usize, search::MAX_HITS);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// The find anchor, the selection anchor and the history stops are byte positions taken
