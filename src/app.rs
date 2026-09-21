@@ -306,7 +306,7 @@ impl App {
         tree: Tree,
         files: Vec<PathBuf>,
         mut buf: Buffer,
-        line: Option<usize>,
+        at: Option<(usize, usize)>,
     ) -> Self {
         let focus = if buf.path.is_some() {
             Focus::Code
@@ -377,8 +377,15 @@ impl App {
         // The file named on the command line is asked the same question as one opened later.
         lock_no_write(&mut buf);
         app.buf = buf;
-        if let Some(n) = line {
+        if let Some((n, c)) = at {
             app.goto_line(n);
+            // 1-based in chars, as compilers count; past the end of the line is its end.
+            let s = app.line_str();
+            app.col = s
+                .char_indices()
+                .nth(c.saturating_sub(1))
+                .map_or(s.len(), |(i, _)| i);
+            app.sync_want_x();
         }
         if let Some(path) = app.buf.path.clone() {
             app.reveal(&path);
@@ -5015,6 +5022,27 @@ mod tests {
         assert!(!press(&mut a, KeyCode::Esc, KeyModifiers::NONE));
         assert_eq!(a.mode, Mode::Normal);
         assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+    }
+
+    /// `merl FILE:LINE:COL` (#161): the column counts chars, as compilers do, and a column past
+    /// the end of the line is its end. The first stop in the jump history has it too.
+    #[test]
+    fn command_line_column_counts_chars() {
+        let path = PathBuf::from("/tmp/merl-column.txt");
+        let at = |line, col| {
+            let buf = Buffer::from_bytes(path.clone(), "one\nhéllo\n".as_bytes());
+            App::new(
+                PathBuf::from("/tmp"),
+                Tree::default(),
+                Vec::new(),
+                buf,
+                Some((line, col)),
+            )
+        };
+        let a = at(2, 3);
+        assert_eq!((a.line, a.col, a.display_col()), (1, 3, 3));
+        assert_eq!(a.history, [(path.clone(), 1, 3)]);
+        assert_eq!(at(2, 99).col, "héllo".len());
     }
 
     /// The find prompt is edited in place: text typed in front of the query narrows the search
