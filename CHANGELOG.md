@@ -222,7 +222,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `c` / `C` outside review mode say `not in review`, the fact without the `merl --review`
+- `c` / `C` outside review mode say `not in review mode`, the fact without the `merl --review`
   hint, as the other status messages do.
 - The README is rewritten around what merl is for: the one editor you need when agents write the
   code. The workflow, a new demo recorded on gitea and install come first, then the argument in a
