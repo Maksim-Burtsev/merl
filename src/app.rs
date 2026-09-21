@@ -91,7 +91,7 @@ pub const KEYS: &[(&str, &str)] = &[
     ("Tree: Up / Down", "Move"),
     ("Tree: Enter", "Open the file, or expand the directory"),
     ("Tree: Left / Right", "Collapse / expand"),
-    ("Picker: Up / Down, Ctrl+P / Ctrl+N", "Move"),
+    ("Picker: Up / Down", "Move"),
     ("Picker: Enter", "Accept"),
     ("Picker: Esc", "Cancel"),
     ("Picker: PgUp / PgDn", "Move one page"),

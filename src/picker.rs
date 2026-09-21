@@ -170,7 +170,6 @@ impl Picker {
     }
 
     pub fn key(&mut self, key: KeyEvent) -> Pick {
-        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let matched = self.counts().0 as usize;
         let move_by = |sel: &mut usize, delta: isize| {
             *sel = sel
@@ -182,8 +181,6 @@ impl Picker {
             KeyCode::Enter => return self.accept(),
             KeyCode::Up => move_by(&mut self.selected, -1),
             KeyCode::Down => move_by(&mut self.selected, 1),
-            KeyCode::Char('p') if ctrl => move_by(&mut self.selected, -1),
-            KeyCode::Char('n') if ctrl => move_by(&mut self.selected, 1),
             KeyCode::PageUp => move_by(&mut self.selected, -(self.page as isize)),
             KeyCode::PageDown => move_by(&mut self.selected, self.page as isize),
             _ => {
