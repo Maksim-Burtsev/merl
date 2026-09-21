@@ -1,6 +1,6 @@
 [package]
 name = "merl"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2024"
 description = "The one editor you need when agents write the code: read a project, review a branch, fix a line"
 license = "MIT"

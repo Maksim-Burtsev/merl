@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-21
+
 ### Added
 
 - Ctrl+N makes a new file from the code, from edit mode or from the tree. The prompt asks for a
@@ -224,6 +226,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is no proof of which type: the project has to declare it once, and a `use` of the file must
   not bind the path's first name outside the project (`io::Error::new` behind `use std::io;`).
   `Self::`, a type that does not declare the word and a value's `.method()` stay by name. (#129)
+- `d` says how it found the target. After a jump the status line reads
+  `delete_user → UserRepository.delete_user (by name, 1 match)` or `load: via import json`. Over
+  a picker the status line and the title read `delete_user: by name, 2 declarations`, and each row
+  starts with the class, interface or receiver the declaration sits in and why it is listed. A
+  module lookup that falls back past the module an import names, or a value whose name only
+  matches a module, says `by name`. (#69)
+- `d` on `x.word` where `x` is a value (a local, a parameter, `self.repo`) collects every method
+  of that name, from the project and from the standard library and dependencies, instead of
+  stopping: Python `def` in a class, TypeScript methods and signatures (read from `.d.ts` outside
+  the project), Go `func (r *T) Name(`. One candidate jumps, several open the picker. (#69)
+- `d` on a word an import brings in from the project's own code, or on a member of that module,
+  searches only the file or package the import names, and says so:
+  `UserRepo: via import app/repos.py`, `Open: via import store/`. Python absolute and relative
+  modules and packages, TypeScript relative files, `index` files and `tsconfig.json` `paths`,
+  default, named and namespace imports, Go packages under the project's `go.mod`. An alias finds
+  the name it imports (`UR` behind `from .repos import UserRepo as UR`). A module that
+  only re-exports the word falls back to the search by name. An import of anything else goes to
+  the standard library and the dependencies before the project's same-named declarations, so
+  `json.dumps` behind `import json` no longer lands on a project `dumps`. (#73)
+- `d` on `x.word` or `x.f.word` in Python, TypeScript and Go reads the type of the receiver from
+  its declaration and looks for the member in that type and in what it extends or embeds:
+  `self.repo`, `this.repo`, a Go receiver's field, a parameter or a local, annotated, constructed,
+  handed a parameter, or assigned from a call whose function declares its return type (one hop).
+  The status line names the link:
+  `delete_user → UserRepository.delete_user (via self.repo: UserRepository)`,
+  `via NewRepo() *UserRepository`. Declarations in scope that disagree, such as a variable
+  shadowed inside a nested function, keep the search by name. (#83)
+- `d` follows a chain such as `self.uow.users.delete_user` one field at a time, up to six names:
+  each field is looked for in the type before it, in what that type extends, and in the Go structs
+  it embeds. The status line lists the links,
+  `via self.uow: UnitOfWork → users: UserRepository`. A chain that cannot be followed falls back
+  to the search by name and says where it broke: `delete_user: by name, 2 declarations (chain
+  broke at users)`. (#85)
+- `d` on the declaration of a member of an interface, a protocol, an abstract or a base class
+  offers what implements it: `send: implementations of Notifier.send, 3 declarations`. The first
+  `d` on a call still lands on the declaration the receiver's type names, so the implementations
+  are two presses away, as they are with gopls. Python and TypeScript walk the types that name the
+  declaring one, four levels deep; for a Python `Protocol` and a Go interface an implementation is
+  a member of that name taking as many parameters. Only the project is searched. (#88)
+- `d` lands on a field. On `issue.PosterID`, `self.repo` or `this.config` it said `no definition`
+  although the receiver's type was proven; each type of the hierarchy is now asked for a method,
+  else a field, through base classes and Go embedded structs:
+  `PosterID → Issue.PosterID (via issue: Issue)`. By name, the project's fields join the method
+  candidates, and on a field's declaration the other fields and members of the name are offered
+  as its namesakes. (#104)
+- Twenty-three themes, taking the set to forty-seven. The families Vim and Neovim users run most
+  and merl was missing: gruvbox, One Dark, GitHub, VS Code's Dark+ and Light+, Dracula with its
+  light Alucard, Nord, Solarized, Oxocarbon, Sonokai, Material and nightfox itself. Plus the
+  variants of the families already here: `tokyonight-night` and `tokyonight-storm`,
+  `catppuccin-macchiato` and `catppuccin-frappe`. Every one is ported from its Neovim original;
+  `docs/themes.md` says which themes ship and why.
+- Forty-seven niche themes from the Vim and Neovim world, taking the set to ninety-four: iceberg,
+  gotham, jellybeans, PaperColor, vague, miasma, lackluster, mellow, alabaster, bamboo, edge,
+  moonfly, nightfly, srcery, e-ink, mellifluous, ayu, vesper, adwaita, neomodern, darkearth,
+  token, koda, soviet, cendre, selenized, pencil and minischeme — each with its light variant
+  where it has one.
+- Themes of your own: a `.tmTheme` in `~/.config/merl/themes/` is offered in `T` after the
+  built-in themes and loads under its file name, and one named after a built-in replaces it, which
+  is how a shipped theme gets copied and edited. A broken file is an error naming its path, never
+  a silent fall back: at startup merl exits with code 1, in `T` it says so and keeps the theme on
+  screen. (#58)
 
 ### Changed
 
@@ -387,53 +450,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An unbound Alt+letter (Option+letter on a Mac) in edit mode does nothing. It used to leave edit
   mode without a word, so the rest of the word ran as commands and its `q` quit merl. (#120)
 - The `s` picker titles a single match `Search (1 hit)`, not `1 hits`. (#121)
-
-### Added
-
-- `d` says how it found the target. After a jump the status line reads
-  `delete_user → UserRepository.delete_user (by name, 1 match)` or `load: via import json`. Over
-  a picker the status line and the title read `delete_user: by name, 2 declarations`, and each row
-  starts with the class, interface or receiver the declaration sits in and why it is listed. A
-  module lookup that falls back past the module an import names, or a value whose name only
-  matches a module, says `by name`. (#69)
-- `d` on `x.word` where `x` is a value (a local, a parameter, `self.repo`) collects every method
-  of that name, from the project and from the standard library and dependencies, instead of
-  stopping: Python `def` in a class, TypeScript methods and signatures (read from `.d.ts` outside
-  the project), Go `func (r *T) Name(`. One candidate jumps, several open the picker. (#69)
-- `d` on a word an import brings in from the project's own code, or on a member of that module,
-  searches only the file or package the import names, and says so:
-  `UserRepo: via import app/repos.py`, `Open: via import store/`. Python absolute and relative
-  modules and packages, TypeScript relative files, `index` files and `tsconfig.json` `paths`,
-  default, named and namespace imports, Go packages under the project's `go.mod`. An alias finds
-  the name it imports (`UR` behind `from .repos import UserRepo as UR`). A module that
-  only re-exports the word falls back to the search by name. An import of anything else goes to
-  the standard library and the dependencies before the project's same-named declarations, so
-  `json.dumps` behind `import json` no longer lands on a project `dumps`. (#73)
-- `d` on `x.word` or `x.f.word` in Python, TypeScript and Go reads the type of the receiver from
-  its declaration and looks for the member in that type and in what it extends or embeds:
-  `self.repo`, `this.repo`, a Go receiver's field, a parameter or a local, annotated, constructed,
-  handed a parameter, or assigned from a call whose function declares its return type (one hop).
-  The status line names the link:
-  `delete_user → UserRepository.delete_user (via self.repo: UserRepository)`,
-  `via NewRepo() *UserRepository`. Declarations in scope that disagree, such as a variable
-  shadowed inside a nested function, keep the search by name. (#83)
-- `d` follows a chain such as `self.uow.users.delete_user` one field at a time, up to six names:
-  each field is looked for in the type before it, in what that type extends, and in the Go structs
-  it embeds. The status line lists the links,
-  `via self.uow: UnitOfWork → users: UserRepository`. A chain that cannot be followed falls back
-  to the search by name and says where it broke: `delete_user: by name, 2 declarations (chain
-  broke at users)`. (#85)
-- Twenty-three themes, taking the set to forty-seven. The families Vim and Neovim users run most
-  and merl was missing: gruvbox, One Dark, GitHub, VS Code's Dark+ and Light+, Dracula with its
-  light Alucard, Nord, Solarized, Oxocarbon, Sonokai, Material and nightfox itself. Plus the
-  variants of the families already here: `tokyonight-night` and `tokyonight-storm`,
-  `catppuccin-macchiato` and `catppuccin-frappe`. Every one is ported from its Neovim original;
-  `docs/themes.md` says which themes ship and why.
-- Forty-seven niche themes from the Vim and Neovim world, taking the set to ninety-four: iceberg,
-  gotham, jellybeans, PaperColor, vague, miasma, lackluster, mellow, alabaster, bamboo, edge,
-  moonfly, nightfly, srcery, e-ink, mellifluous, ayu, vesper, adwaita, neomodern, darkearth,
-  token, koda, soviet, cendre, selenized, pencil and minischeme — each with its light variant
-  where it has one.
+- The descriptions in the `?` overlay, and the one-line hint a pane too small for the welcome
+  keys falls back to, take the theme's readable grey instead of its line-number colour, which
+  themes choose to disappear: under 3:1 against the background in 67 of the 94. (#146)
+- A file merl cannot write is `read-only` from the moment it opens or is reloaded with Ctrl+R.
+  Enter was accepted and the refusal came a second later with the autosave, after the keystrokes
+  had nowhere to go. merl asks by opening the file for writing, not by the permission bits, which
+  lie both ways: root writes a 444 file, an ACL or a read-only mount refuses a 644 one. (#123)
+- The silent wrong jumps of `d` found by the #68 acceptance pass. A second `d` on a declaration
+  offers its namesakes instead of jumping to one. A parameter or a local hides an import of the
+  same name, so `def handler(json): json.loads()` no longer goes into the standard library, and
+  a qualifier that is a value keeps the search to members. A name imported from outside the
+  project is looked up at the top level of its module; one imported from two modules
+  (`try:` / `except ImportError:`) offers both. A Go generic function, nested type parameters and
+  a TypeScript constructor parameter property are declarations; a line inside a raw string, a
+  docstring or a block comment is none. `Outer.find` is looked up in what `Outer` declares before
+  any method called `find`. (#102)
 
 ## [0.5.0] - 2026-09-16
 
@@ -683,7 +715,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scroll position, the jump history and the find pattern.
 - Help overlay on `?`, listing every binding; Esc in normal mode clears the find highlights.
 
-[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.6.0
 [0.5.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.5.0
 [0.4.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.4.0
 [0.3.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.3.0
