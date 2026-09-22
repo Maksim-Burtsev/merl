@@ -262,7 +262,9 @@ impl App {
     }
 
     /// The one type every binding reads, or `None` when there is none, one cannot be read or
-    /// two disagree.
+    /// two disagree. A binding already being read further out is left to that reading: inside
+    /// it the others say what the name holds, and `self.model = self.model.to(device)` reads
+    /// `to` on the type `self.model = model` gives.
     fn agree(
         &self,
         kind: Kind,
@@ -273,7 +275,14 @@ impl App {
     ) -> Option<(Typed, Option<String>)> {
         let mut found: Option<(Typed, Option<String>)> = None;
         for b in bindings {
-            let this = self.binding_type(kind, file, text, b, hops)?;
+            let at = (file.to_path_buf(), b.line);
+            if self.reading.borrow().contains(&at) {
+                continue;
+            }
+            self.reading.borrow_mut().push(at);
+            let this = self.binding_type(kind, file, text, b, hops);
+            self.reading.borrow_mut().pop();
+            let this = this?;
             match &found {
                 Some((ty, _)) if (&ty.path, ty.line) != (&this.0.path, this.0.line) => return None,
                 Some(_) => {}
