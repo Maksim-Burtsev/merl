@@ -16,31 +16,67 @@ fn python_def_patterns_find_declarations_only() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// `sys.path` can list a directory twice, far apart (a `PYTHONPATH` entry, a `.pth` file):
-/// walked once, where it first stands (#152).
+/// A project's `.venv` is read, never run: its `bin/python` is a file the repository may ship.
+/// The packages are its `site-packages`, the standard library the one beside the interpreter
+/// `pyvenv.cfg` names, reached through a symlinked prefix as Homebrew's `opt` is (#183).
 #[test]
 #[cfg(unix)]
-fn python_roots_keep_the_order_of_sys_path_and_drop_its_repeats() {
+fn python_roots_read_the_venv_and_never_run_it() {
     use std::os::unix::fs::PermissionsExt;
-    let (dir, _) = scratch("py-roots", &[("a/x.py", ""), ("b/x.py", "")]);
-    let (a, b) = (dir.join("a"), dir.join("b"));
-    // The project's interpreter, standing in for `.venv/bin/python -c 'print(sys.path)'`.
+    let (dir, _) = scratch(
+        "py-venv",
+        &[
+            ("cellar/bin/python3.99", ""),
+            ("cellar/lib/python3.99/json/__init__.py", ""),
+            (".venv/lib/python3.99/site-packages/lib/__init__.py", ""),
+        ],
+    );
+    std::os::unix::fs::symlink(dir.join("cellar"), dir.join("opt")).unwrap();
+    let cfg = format!(
+        "home = {}\nversion = 3.99.0\n",
+        dir.join("opt/bin").display()
+    );
+    std::fs::write(dir.join(".venv/pyvenv.cfg"), cfg).unwrap();
     let python = dir.join(".venv/bin/python");
     std::fs::create_dir_all(python.parent().unwrap()).unwrap();
-    let script = format!(
-        "#!/bin/sh\necho {0}\necho {1}\necho {0}\n",
-        b.display(),
-        a.display()
-    );
+    let script = format!("#!/bin/sh\ntouch {}\n", dir.join("ran").display());
     std::fs::write(&python, script).unwrap();
     std::fs::set_permissions(&python, std::fs::Permissions::from_mode(0o755)).unwrap();
-    // A script this fresh fails to start while a fork of another test still holds it open for
-    // writing (ETXTBSY); the roots are empty then, and the next try starts it.
-    let roots = (0..20)
-        .map(|_| external_roots(Kind::Python, &dir))
-        .find(|r| !r.is_empty())
-        .unwrap_or_default();
-    assert_eq!(roots, [b, a]);
+    assert_eq!(
+        external_roots(Kind::Python, &dir),
+        [
+            dir.canonicalize().unwrap().join("cellar/lib/python3.99"),
+            dir.join(".venv/lib/python3.99/site-packages"),
+        ]
+    );
+    assert!(!dir.join("ran").exists());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A toolchain is asked from outside the project, so no file of it picks the toolchain: a
+/// `rust-toolchain.toml` whose `path` is a `rustc` of its own is not run under rustup, and a
+/// `go.mod` asking for a Go that does not exist neither sends Go to download it nor leaves `d`
+/// without the standard library (#183). Each half is skipped where its toolchain is missing.
+#[test]
+#[cfg(unix)]
+fn toolchains_are_not_picked_by_the_project() {
+    use std::os::unix::fs::PermissionsExt;
+    let (dir, _) = scratch("toolchains", &[("go.mod", "module x\n\ngo 1.99.0\n")]);
+    let rustc = dir.join("tc/bin/rustc");
+    std::fs::create_dir_all(rustc.parent().unwrap()).unwrap();
+    let script = format!("#!/bin/sh\ntouch {}\n", dir.join("ran").display());
+    std::fs::write(&rustc, script).unwrap();
+    std::fs::set_permissions(&rustc, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let toml = format!("[toolchain]\npath = \"{}\"\n", dir.join("tc").display());
+    std::fs::write(dir.join("rust-toolchain.toml"), toml).unwrap();
+    external_roots(Kind::Rust, &dir);
+    assert!(!dir.join("ran").exists());
+    let installed = external_roots(Kind::Go, Path::new("/"));
+    if installed.is_empty() {
+        eprintln!("no go, skipped");
+    } else {
+        assert_eq!(external_roots(Kind::Go, &dir).first(), installed.first());
+    }
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

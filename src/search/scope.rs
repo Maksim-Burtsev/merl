@@ -35,10 +35,14 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
 }
 /// Where the standard library and the dependencies of the project at `root` live on this
 /// machine, for a file of `kind`; empty when the toolchain is not installed. Each is asked the
-/// way it answers itself: `sys.path` of the project's interpreter, `rustc --print sysroot` plus
-/// the registry crates `Cargo.lock` names, `GOROOT` plus the `go.mod` requirements in the module
-/// cache, `node_modules`. `pip install -e` and vendored code inside `root` are project files
-/// already, so `root` itself is never returned.
+/// way it answers itself: the project's `.venv`, or `sys.path` of the `python3` on the PATH,
+/// `rustc --print sysroot` plus the registry crates `Cargo.lock` names, `GOROOT` plus the `go.mod`
+/// requirements in the module cache, `node_modules`. `pip install -e` and vendored code inside
+/// `root` are project files already, so `root` itself is never returned.
+///
+/// Nothing the project ships is run (#183). A toolchain runs from `/`, where no
+/// `rust-toolchain.toml` names a `rustc` of the project's choosing and no `go.mod` asks for a Go
+/// to download, and Go is held to the one installed as well.
 ///
 /// ponytail: spawns the toolchain on every `d` that leaves the project. Cache per root if it
 /// ever shows.
@@ -46,7 +50,8 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
     let run = |cmd: &str, args: &[&str]| -> Option<String> {
         let out = std::process::Command::new(cmd)
             .args(args)
-            .current_dir(root)
+            .current_dir("/")
+            .env("GOTOOLCHAIN", "local")
             .output()
             .ok()?;
         out.status
@@ -57,21 +62,40 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         .map(PathBuf::from)
         .unwrap_or_default();
     let mut dirs: Vec<PathBuf> = match kind {
+        // A `.venv` is read, not run: its `bin/python` is whatever the repository put there. The
+        // packages are in `lib/pythonX.Y/site-packages`, and the standard library is beside the
+        // interpreter the venv was made from, `pyvenv.cfg`'s `home`, once its symlinks are
+        // followed out of Homebrew's `opt` or uv's short name.
         Kind::Python => {
-            let venv = root.join(".venv/bin/python");
-            let python = if venv.is_file() {
-                venv
-            } else {
-                PathBuf::from("python3")
-            };
-            run(
-                &python.to_string_lossy(),
-                &["-c", "import sys; print('\\n'.join(sys.path))"],
-            )
-            .unwrap_or_default()
-            .lines()
-            .map(PathBuf::from)
-            .collect()
+            let venv = root.join(".venv");
+            let lib = std::fs::read_dir(venv.join("lib"))
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|e| e.file_name())
+                .find(|n| n.to_string_lossy().starts_with("python"));
+            match lib {
+                Some(lib) => {
+                    let cfg = std::fs::read_to_string(venv.join("pyvenv.cfg")).unwrap_or_default();
+                    let home = cfg.lines().find_map(|l| {
+                        let (key, value) = l.split_once('=')?;
+                        (key.trim() == "home").then(|| PathBuf::from(value.trim()))
+                    });
+                    let stdlib = home
+                        .and_then(|h| h.join(&lib).canonicalize().ok())
+                        .and_then(|exe| Some(exe.parent()?.parent()?.join("lib").join(&lib)));
+                    let site = venv.join("lib").join(&lib).join("site-packages");
+                    stdlib.into_iter().chain([site]).collect()
+                }
+                None => run(
+                    "python3",
+                    &["-c", "import sys; print('\\n'.join(sys.path))"],
+                )
+                .unwrap_or_default()
+                .lines()
+                .map(PathBuf::from)
+                .collect(),
+            }
         }
         Kind::Rust => {
             let mut dirs: Vec<PathBuf> = run("rustc", &["--print", "sysroot"])
