@@ -98,8 +98,8 @@ fn run() -> Result<()> {
     let name = cli.theme.clone().unwrap_or(config.theme);
     let theme = theme::load(&name)?;
 
-    let (mut root, mut file, line) = if cli.tutor {
-        (tutor::extract()?, None, None)
+    let (mut root, shallow, mut file, line) = if cli.tutor {
+        (tutor::extract()?, false, None, None)
     } else {
         resolve(cli.target.as_deref())?
     };
@@ -120,9 +120,9 @@ fn run() -> Result<()> {
         }
         None => None,
     };
-    let (mut tree, files) = tree::build(&root);
+    let (mut tree, files) = tree::build(&root, shallow);
     // Of the walk, before the review panel takes the tree's place.
-    let project = live::Project::new(&root, &tree, &files);
+    let project = live::Project::new(&root, shallow, &tree, &files);
     if let Some(r) = &review {
         tree = tree::from_files(&r.files.iter().map(|f| f.path.clone()).collect::<Vec<_>>());
     }
@@ -132,6 +132,7 @@ fn run() -> Result<()> {
     };
     let dir = root.clone();
     let mut app = App::new(root, tree, files, buf, line);
+    app.shallow = shallow;
     if let Some(r) = review {
         app.start_review(r);
     }
@@ -277,9 +278,9 @@ fn event_loop(
         }
         if project.walk_due(Instant::now()) {
             // In a thread: the walk takes 0.1 s on 12k files.
-            let (tx, root) = (diff_tx.clone(), app.root.clone());
+            let (tx, root, shallow) = (diff_tx.clone(), app.root.clone(), app.shallow);
             std::thread::spawn(move || {
-                let (tree, files) = tree::build(&root);
+                let (tree, files) = tree::build(&root, shallow);
                 let _ = tx.send(Msg::Project(tree, files));
             });
         }
@@ -446,15 +447,15 @@ fn concerns_open_file(app: &App, ev: &notify::Event) -> bool {
 /// A 1-based line and column, as compilers print them.
 type LineCol = (usize, usize);
 
-/// Turns the CLI target into `(project root, file to open, where in it)`.
-fn resolve(target: Option<&str>) -> Result<(PathBuf, Option<PathBuf>, Option<LineCol>)> {
+/// Turns the CLI target into `(project root, shallow, file to open, where in it)`.
+fn resolve(target: Option<&str>) -> Result<(PathBuf, bool, Option<PathBuf>, Option<LineCol>)> {
     let Some(target) = target else {
-        return Ok((std::env::current_dir()?, None, None));
+        return Ok((std::env::current_dir()?, false, None, None));
     };
     let (path, line) = split_line(target);
     let path = PathBuf::from(path);
     if path.is_dir() {
-        return Ok((path.canonicalize()?, None, None));
+        return Ok((path.canonicalize()?, false, None, None));
     }
     if !path.exists() {
         anyhow::bail!("{}: no such file or directory", path.display());
@@ -463,8 +464,10 @@ fn resolve(target: Option<&str>) -> Result<(PathBuf, Option<PathBuf>, Option<Lin
         .canonicalize()
         .with_context(|| format!("{}", path.display()))?;
     let dir = path.parent().unwrap_or(Path::new(".")).to_path_buf();
-    let root = git_toplevel(&dir).unwrap_or(dir);
-    Ok((root, Some(path), line))
+    // Outside a repository nothing names a project, and the directory of `~/.zshrc` is the
+    // whole home: the project is the files next to this one (#182).
+    let (root, shallow) = git_toplevel(&dir).map_or((dir, true), |top| (top, false));
+    Ok((root, shallow, Some(path), line))
 }
 
 /// Splits `FILE:LINE[:COL]`, as compilers print it, into the path and `(line, column)`. The path
@@ -515,6 +518,8 @@ fn git_toplevel(dir: &Path) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     #[test]
     fn base64_matches_the_standard_alphabet_and_padding() {
         assert_eq!(super::base64(b""), "");
@@ -558,6 +563,32 @@ mod tests {
             let ev = Event::new(EventKind::Create(CreateKind::File)).add_path(path.clone());
             assert_eq!(super::concerns_open_file(&app, &ev), want, "{path:?}");
         }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_file_outside_a_repository_lists_its_neighbours_not_all_below_them() {
+        // #182: `merl ~/.zshrc` walked the whole home directory before the first frame.
+        let dir = std::env::temp_dir().join(format!("merl-no-repo-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("deep/er")).unwrap();
+        for f in ["a.txt", "b.txt", "deep/c.txt", "deep/er/d.txt"] {
+            std::fs::write(dir.join(f), "x\n").unwrap();
+        }
+        let real = dir.canonicalize().unwrap();
+        let walk = |target: &Path| {
+            let (root, shallow, file, _) = super::resolve(target.to_str()).unwrap();
+            assert_eq!(root, real);
+            (file, crate::tree::build(&root, shallow).1)
+        };
+        let (file, files) = walk(&dir.join("a.txt"));
+        assert_eq!(file, Some(real.join("a.txt")));
+        assert_eq!(files, [Path::new("a.txt"), Path::new("b.txt")]);
+        // Named, the directory is a project: walked all the way down.
+        assert_eq!(walk(&dir).1.len(), 4);
+        // In a repository, the repository.
+        std::fs::create_dir(dir.join(".git")).unwrap();
+        assert_eq!(walk(&dir.join("deep/c.txt")).1.len(), 4);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

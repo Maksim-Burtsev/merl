@@ -29,7 +29,7 @@ fn new_file_project(name: &str) -> (PathBuf, App) {
     std::fs::write(dir.join("src/a.py"), "x = 1\n").unwrap();
     std::fs::write(dir.join("README.md"), "hi\n").unwrap();
     let dir = dir.canonicalize().unwrap();
-    let (tree, files) = crate::tree::build(&dir);
+    let (tree, files) = crate::tree::build(&dir, false);
     let buf = Buffer::load(&dir.join("src/a.py")).unwrap();
     let mut a = App::new(dir.clone(), tree, files, buf, None);
     a.focus = Focus::Code;

@@ -108,7 +108,7 @@ fn search_title_hides_the_count_until_the_grep_answers() {
     app.settle_search();
     assert_eq!(title(&mut app), "Search (0 hits)");
     // With the project files in, one line matches.
-    app.files = crate::tree::build(&app.root).1;
+    app.files = crate::tree::build(&app.root, false).1;
     app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
     for c in "sfromisoformat".chars() {
         app.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
@@ -129,7 +129,7 @@ fn symbol_title_says_the_list_is_cut_until_the_query_answers() {
         .collect();
     std::fs::write(dir.join("a.go"), many).unwrap();
     std::fs::write(dir.join("z.go"), "func zebra() {}\n").unwrap();
-    let (tree, files) = crate::tree::build(&dir);
+    let (tree, files) = crate::tree::build(&dir, false);
     let mut app = App::new(dir.clone(), tree, files, Buffer::empty(), None);
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();

@@ -8,7 +8,7 @@ use super::*;
 fn a_new_walk_keeps_the_cursor_row_and_an_open_picker() {
     let (dir, mut a) = files_app("live");
     let walk = |a: &mut App| {
-        let (tree, files) = crate::tree::build(&a.root);
+        let (tree, files) = crate::tree::build(&a.root, false);
         a.project_walked(tree, files);
     };
     walk(&mut a);
@@ -62,7 +62,7 @@ fn a_new_walk_keeps_the_cursor_row_and_an_open_picker() {
         (rows.collect::<Vec<_>>(), r.tree.cursor, r.tree_top)
     };
     let before = panel(&r);
-    let (tree, files) = crate::tree::build(&r.root);
+    let (tree, files) = crate::tree::build(&r.root, false);
     r.project_walked(tree, files.clone());
     assert_eq!((panel(&r), &r.files), (before, &files));
 }
@@ -285,7 +285,7 @@ fn a_jump_that_goes_nowhere_keeps_the_forward_history() {
 fn enter_on_the_open_file_in_the_tree_keeps_the_cursor() {
     let (dir, mut a) = files_app("tree");
     let x = dir.join("a.rs");
-    a.tree = crate::tree::build(&dir).0;
+    a.tree = crate::tree::build(&dir, false).0;
     a.jump_to(&x, 5); // also puts the tree cursor on a.rs
     a.focus = Focus::Tree;
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
@@ -301,7 +301,7 @@ fn enter_on_the_open_file_in_the_tree_keeps_the_cursor() {
 fn picking_the_open_file_keeps_the_cursor() {
     let (dir, mut a) = files_app("pick");
     let x = dir.join("a.rs");
-    a.tree = crate::tree::build(&dir).0;
+    a.tree = crate::tree::build(&dir, false).0;
     a.files = vec![PathBuf::from("a.rs"), PathBuf::from("b.rs")];
     a.jump_to(&x, 5);
     a.tree.reveal(Path::new("b.rs"));

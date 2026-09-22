@@ -46,6 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `app.min.js` drew its first frame in 0.03 s instead of 4.1 s, and ten arrow keys over a `/`
   match took 0.04 s instead of 1.9 s; the `T` preview and the picker rows that quote such a line
   parsed it too, and no longer do. (#184)
+- `merl FILE` for a file in no git repository opens at once. It took the file's directory as the
+  project and walked everything below it first, and for `~/.zshrc` that is the whole home: 15.6 s
+  and 1 GB before the first frame, now 0.08 s and 14 MB. There the project is the files next to
+  the one opened: the tree, `o`, `s`, `u` and `d` see them and nothing below. `merl DIR`, plain
+  `merl` and a file inside a repository open the whole project as before. (#182)
 
 ## [0.6.0] - 2026-09-21
 
