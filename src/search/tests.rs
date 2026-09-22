@@ -3516,6 +3516,45 @@ fn a_cast_is_read_as_the_type_it_writes() {
     assert_eq!(bound_at(Kind::Go, chans, 8, "v"), [(1, ty("*Repo"))]);
 }
 
+/// #178: `cast(`, `new(` and `make(` read their arguments, and the three of them sliced the line
+/// up to its last byte. A call black, ruff or gofmt wrapped onto the next lines has no closing
+/// bracket there, so the range ran backwards and `d` aborted the process.
+#[test]
+fn a_call_wrapped_onto_the_next_lines_reads_no_arguments() {
+    let v = |kind, e| value_of(kind, e);
+    assert_eq!(v(Kind::Python, "cast("), Value::Unknown);
+    assert_eq!(v(Kind::Python, "cast(Repo,"), Value::Unknown);
+    assert_eq!(v(Kind::Go, "new("), Value::Unknown);
+    assert_eq!(v(Kind::Go, "make("), Value::Unknown);
+    assert_eq!(v(Kind::Go, "make([]*Repo,"), Value::Unknown);
+    // A call that is not read for a type still names its callee, wrapped or not.
+    assert_eq!(v(Kind::Python, "load("), Value::Call("load".into()));
+    // The same calls closed on their line keep writing the type they always did.
+    assert_eq!(
+        v(Kind::Python, "cast(Repo, row)"),
+        Value::Cast("cast".into(), "Repo".into())
+    );
+    assert_eq!(v(Kind::Go, "new(Repo)"), Value::New("Repo".into()));
+    assert_eq!(v(Kind::Go, "make([]*Repo, 0, 10)"), ty("[]*Repo"));
+    // What the panic was reached through: `d` on a name bound by a wrapped call answers instead.
+    let py = "def handler(container):\n    repo = cast(\n        Repo, container.get(\"repo\")\n    )\n    repo.save()\n";
+    assert_eq!(
+        bindings(Kind::Python, py, 5, "repo"),
+        [Binding {
+            line: 2,
+            value: Value::Unknown
+        }]
+    );
+    let go = "func f() {\n\trepos := make(\n\t\t[]*Repo, 0, 10,\n\t)\n\trepos[0].Save()\n}\n";
+    assert_eq!(
+        bindings(Kind::Go, go, 5, "repos"),
+        [Binding {
+            line: 2,
+            value: Value::Unknown
+        }]
+    );
+}
+
 #[test]
 fn a_chain_may_hang_off_the_call_that_starts_it() {
     let head = |kind, line: &str| {
