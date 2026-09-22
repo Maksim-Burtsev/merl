@@ -1058,7 +1058,7 @@ dependencies = [
  "syntect",
  "toml",
  "two-face",
- "unicode-width",
+ "unicode-segmentation",
 ]
 
 [[package]]

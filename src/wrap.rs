@@ -2,20 +2,36 @@
 
 use std::ops::Range;
 
-use unicode_width::UnicodeWidthChar;
+use ratatui::buffer::CellWidth;
+use unicode_segmentation::UnicodeSegmentation;
 
-/// Display width of one char; zero for combining and other zero-width chars. A tab is drawn as
-/// [`crate::buffer::TAB`], so it is that wide.
-pub fn char_width(c: char) -> usize {
-    if c == '\t' {
-        return crate::buffer::TAB.len();
+/// Display width of one grapheme cluster, as ratatui draws it: `⚠️`, `👍🏽` and `👨‍💻` are
+/// several chars and one two-column cell. Zero for a control char and for a combining mark with
+/// no char to attach to. A tab is drawn as [`crate::buffer::TAB`], so it is that wide.
+pub fn cluster_width(g: &str) -> usize {
+    match g.chars().next() {
+        Some('\t') => crate::buffer::TAB.len(),
+        // A control char is a cluster of its own.
+        Some(c) if c.is_control() => 0,
+        _ => g.cell_width().into(),
     }
-    c.width().unwrap_or(0)
+}
+
+/// The grapheme clusters of `s` with their byte offsets. ASCII, most of any source file, is a
+/// cluster a byte: skipping the segmenter there keeps a long line as cheap as it was per char.
+pub fn clusters(s: &str) -> impl Iterator<Item = (usize, &str)> {
+    let ascii = s.is_ascii();
+    let bytes = ascii.then(|| (0..s.len()).map(move |i| (i, &s[i..=i])));
+    let graphemes = (!ascii).then(|| s.grapheme_indices(true));
+    bytes
+        .into_iter()
+        .flatten()
+        .chain(graphemes.into_iter().flatten())
 }
 
 /// Display width of a string, using the same rules as [`wrap_line`].
 pub fn width(s: &str) -> usize {
-    s.chars().map(char_width).sum()
+    clusters(s).map(|(_, g)| cluster_width(g)).sum()
 }
 
 /// Splits `line` into byte ranges that each fit in `width` display columns. Rows after the first
@@ -25,9 +41,9 @@ pub fn width(s: &str) -> usize {
 /// spaces may run past the edge rather than open the next row with a blank. A word that fits a
 /// row moves down whole. A longer one (a URL, a call chain, a hash) starts where it stands, like
 /// Claude Code, and breaks after its last `/ . , ; ) ] }` that fits, like VS Code, or else by
-/// char; so does indentation wider than the row. Zero-width chars attach to the preceding char; a
-/// width-2 char that does not fit is pushed to the next row. An empty line yields one empty row,
-/// so the result is never empty.
+/// cluster; so does indentation wider than the row. Rows break between grapheme clusters only, so
+/// an emoji keeps its selector and a letter its accents; a width-2 cluster that does not fit is
+/// pushed to the next row. An empty line yields one empty row, so the result is never empty.
 pub fn wrap_line(line: &str, width: usize) -> Vec<Range<usize>> {
     let width = width.max(1);
     let rest = width - indent(line, width);
@@ -42,11 +58,12 @@ pub fn wrap_line(line: &str, width: usize) -> Vec<Range<usize>> {
     // The row's last break after punctuation: where a word longer than a row ends it.
     let mut punct = None;
     let mut prev = ' ';
-    for (i, c) in line.char_indices() {
-        let w = char_width(c);
+    for (i, g) in clusters(line) {
+        let w = cluster_width(g);
         if w == 0 {
-            continue; // attaches to the previous char, never opens a row
+            continue; // a lone combining mark attaches to the previous char, never opens a row
         }
+        let c = g.chars().next().unwrap_or(' ');
         // Not `is_whitespace`: a no-break space must keep its words on one row.
         let space = c == ' ' || c == '\t';
         if !(space && has_text) {
@@ -107,13 +124,13 @@ pub fn indent(line: &str, width: usize) -> usize {
 }
 
 /// What shows of `line` in display columns `from..to` when it is not wrapped: the byte range of
-/// the chars that fit whole, and the blank columns before them where a tab or a wide char
+/// the clusters that fit whole, and the blank columns before them where a tab or a wide cluster
 /// straddles `from`. Empty at the end of the line when it does not reach `from`.
 pub fn cut(line: &str, from: usize, to: usize) -> (Range<usize>, usize) {
     let (mut start, mut lead) = (None, 0);
     let mut x = 0;
-    for (i, c) in line.char_indices() {
-        let w = char_width(c);
+    for (i, g) in clusters(line) {
+        let w = cluster_width(g);
         if start.is_none() && x >= from && w > 0 {
             start = Some(i);
             lead = (x - from).min(to.saturating_sub(from));
@@ -220,6 +237,23 @@ mod tests {
         assert_eq!(wrap_line(s, 2), vec![0..6, 6..9]);
         // A leading combining char cannot open its own row.
         assert_eq!(wrap_line("\u{301}ab", 1), vec![0..3, 3..4]);
+    }
+
+    #[test]
+    fn an_emoji_of_several_code_points_is_one_cell_pair() {
+        // A selector, a skin tone, a ZWJ join and a keycap: two columns each, as drawn.
+        for e in [
+            "\u{26a0}\u{fe0f}",
+            "\u{1f44d}\u{1f3fd}",
+            "\u{1f468}\u{200d}\u{1f4bb}",
+            "1\u{fe0f}\u{20e3}",
+        ] {
+            assert_eq!(width(e), 2, "{e:?}");
+        }
+        // "⚠️" is six bytes: it and `a` fill a row of three, `b` goes down.
+        assert_eq!(wrap_line("\u{26a0}\u{fe0f}ab", 3), vec![0..7, 7..8]);
+        assert_eq!(cut("\u{26a0}\u{fe0f}ab", 0, 2), (0..6, 0));
+        assert_eq!(cut("\u{26a0}\u{fe0f}ab", 1, 4), (6..8, 1));
     }
 
     #[test]
