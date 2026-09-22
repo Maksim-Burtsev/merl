@@ -55,7 +55,8 @@ impl App {
     }
 
     /// Recompiles the query and moves to the first match at or after the anchor.
-    /// The query is literal text with smart case, as in VS Code: `migrator(` hits `Migrator()`.
+    /// The query is literal text and ignores case: `migrator(` hits `Migrator()`, `sameCancel`
+    /// hits `SameCancel`.
     fn refresh_find(&mut self) {
         if self.prompt.is_empty() {
             // Nothing to match: drop the previous pattern so its highlights go with it,
@@ -66,9 +67,8 @@ impl App {
             self.go_to_match(l, c);
             return;
         }
-        let insensitive = !self.prompt.chars().any(char::is_uppercase);
         let re = RegexBuilder::new(&regex::escape(&self.prompt))
-            .case_insensitive(insensitive)
+            .case_insensitive(true)
             .build()
             .expect("an escaped literal always compiles");
         let (l, c) = self.find_anchor;
@@ -86,7 +86,7 @@ impl App {
         self.find_query = self.prompt.to_string();
     }
 
-    /// `3/17`: which match the cursor is on, out of how many in the file.
+    /// `3/17`: which match the cursor is on, out of how many in the file; `no match` for none.
     fn match_count(&self, re: &Regex) -> String {
         let (mut at, mut total) = (0, 0);
         for (l, text) in self.buf.lines.iter().enumerate() {
@@ -96,6 +96,9 @@ impl App {
                     at = total;
                 }
             }
+        }
+        if total == 0 {
+            return "no match".into();
         }
         format!("{at}/{total}")
     }

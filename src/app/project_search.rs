@@ -16,11 +16,11 @@ impl App {
         &self,
         pattern: &str,
         whole_word: bool,
-        smart_case: bool,
+        ignore_case: bool,
         wanted: impl Fn(&Path) -> bool,
     ) -> anyhow::Result<Vec<Hit>> {
         self.grep_job(0, pattern, wanted)
-            .run(whole_word, smart_case)
+            .run(whole_word, ignore_case)
     }
 
     /// Everything a grep for `pattern` needs, owned, so it can run in a thread.
@@ -77,9 +77,9 @@ impl App {
             .collect()
     }
 
-    /// `s`: the result picker, empty, with the query as its input line. The hits are a
-    /// smart-case grep for the query as typed, over every file, refreshed as it changes. Literal
-    /// like `/`: `foo(` finds the calls and the definition, not a regex error.
+    /// `s`: the result picker, empty, with the query as its input line. The hits are a grep for
+    /// the query as typed, ignoring case, over every file, refreshed as it changes. Literal like
+    /// `/`: `foo(` finds the calls and the definition, not a regex error.
     pub(super) fn start_search(&mut self) {
         self.show_picker(PickerKind::Search, Vec::new());
         if let Some(p) = &mut self.picker {

@@ -134,7 +134,7 @@ fn symbols_past_the_cap_are_grepped_not_filtered() {
     let cut = a.picker.as_ref().unwrap().counts().1 as usize;
     assert_eq!(cut, search::MAX_HITS + 1, "a stale answer settles nothing");
 
-    // Smart case, as everywhere else: an all-lowercase query finds both spellings.
+    // Case is ignored, as everywhere else: the query finds both spellings.
     a.settle_search();
     let p = a.picker.as_mut().unwrap();
     assert_eq!(p.counts(), (2, 2));
@@ -145,13 +145,12 @@ fn symbols_past_the_cap_are_grepped_not_filtered() {
     // nucleo ranks and marks what the grep brought back, as it does under the cap.
     assert_eq!(rows[0].matched, [0, 1, 2, 3, 4]);
 
-    // One capital of its own makes the query case-sensitive, before the picker sees it.
+    // A capital of its own does not make the query exact: `zeBra` still finds both (#174).
     press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
-    typed(&mut a, "Zebra");
+    typed(&mut a, "zeBra");
     a.settle_search();
     let p = a.picker.as_mut().unwrap();
-    assert_eq!(p.counts(), (1, 1));
-    assert_eq!(p.window(5).0[0].item.label, "Zebra  z.go:2");
+    assert_eq!(p.counts(), (2, 2));
 
     press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
     a.settle_search();

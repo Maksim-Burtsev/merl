@@ -73,19 +73,35 @@ fn emptying_the_query_drops_the_pattern_and_returns_to_the_anchor() {
 }
 
 #[test]
-fn find_is_smart_case() {
-    let mut a = app("foo\nFoo\nbar\n");
-    // An all-lowercase query is case-insensitive: it stops on `Foo` under the anchor.
+fn find_ignores_case() {
+    let mut a = app("foo\nFoo\nbar\nfmt.Println(SameCancel(a, b))\n");
+    // A lowercase query stops on `Foo` under the anchor.
     a.line = 1;
     find(&mut a, "foo");
     assert_eq!((a.line, a.col), (1, 0));
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(a.mode, Mode::Normal);
 
-    // One uppercase letter makes it case-sensitive: `foo` on line 1 is skipped.
+    // So does a capital: `Foo` stops on `foo` under the anchor.
     a.line = 0;
     find(&mut a, "Foo");
-    assert_eq!((a.line, a.col), (1, 0));
+    assert_eq!((a.line, a.col), (0, 0));
+    assert_eq!(a.message, "1/2");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+
+    // A camelCase name typed with the wrong first letter (#174).
+    find(&mut a, "sameCancel");
+    assert_eq!((a.line, a.col), (3, 12));
+    assert_eq!(a.message, "1/1");
+}
+
+#[test]
+fn reopening_find_on_a_pattern_with_no_match_says_so() {
+    let mut a = app("foo\n");
+    find(&mut a, "bar");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+    assert_eq!((&*a.prompt, a.message.as_str()), ("bar", "no match"));
 }
 
 #[test]

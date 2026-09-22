@@ -20,19 +20,19 @@ pub struct SearchJob {
 }
 
 impl SearchJob {
-    pub(super) fn run(&self, whole_word: bool, smart_case: bool) -> anyhow::Result<Vec<Hit>> {
+    pub(super) fn run(&self, whole_word: bool, ignore_case: bool) -> anyhow::Result<Vec<Hit>> {
         search::grep_project(
             &self.root,
             &self.files,
             &self.pattern,
             whole_word,
-            smart_case,
+            ignore_case,
             self.current.as_deref(),
             self.unsaved.as_deref(),
         )
     }
 
-    /// The rows the answer becomes: the lines `s` found, smart case and the query anywhere in
+    /// The rows the answer becomes: the lines `s` found, any case and the query anywhere in
     /// them, or the declarations `D` lists.
     pub fn items(&self) -> Vec<PickItem> {
         if self.symbols {
