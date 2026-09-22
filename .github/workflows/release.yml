@@ -74,7 +74,9 @@ jobs:
               target = f.name[len("merl-"):-len(".sha256")]
               sha = f.read_text().split()[0]
               # The sha256 line follows the url line that names the target.
-              text = re.sub(rf'({re.escape(target)}\.tar\.gz"\n\s*sha256 ")[0-9a-f]+', rf"\g<1>{sha}", text)
+              # A miss would push the new version with the old sha256: fail instead.
+              text, n = re.subn(rf'({re.escape(target)}\.tar\.gz"\n\s*sha256 ")[0-9a-f]+', rf"\g<1>{sha}", text)
+              assert n == 1, f"Formula/merl.rb has no sha256 line for {target}"
           formula.write_text(text)
           PY
           git diff --exit-code Formula/merl.rb && { echo "formula already at $version"; exit 0; }
