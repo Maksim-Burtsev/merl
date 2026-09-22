@@ -136,12 +136,17 @@ fn next_and_prev_wrap_around() {
 #[test]
 fn no_key_is_silent_on_an_empty_line() {
     let mut a = app("\nfoo\n");
-    for key in ['d', 'u', 'D', 'n', 'N', '[', ']', 'c', 'C'] {
+    for key in ['d', 'u', 'D', 'n', 'N', '[', ']'] {
         press(&mut a, KeyCode::Char(key), KeyModifiers::NONE);
         assert!(!a.message.is_empty(), "`{key}` said nothing");
         assert_eq!(a.mode, Mode::Normal, "`{key}`");
     }
-    assert_eq!(a.message, "not in review mode");
+    // The review's keys are not keys outside a review: nothing happens, nothing is said.
+    a.message.clear();
+    for key in ['c', 'C', 'm'] {
+        press(&mut a, KeyCode::Char(key), KeyModifiers::NONE);
+        assert_eq!(a.message, "", "`{key}`");
+    }
     // Esc with nothing to clear no longer claims `find cleared`.
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     assert_eq!(a.message, "");

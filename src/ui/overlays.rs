@@ -105,6 +105,13 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 (false, _) => "  ",
             };
             let mut text = format!("{}{marker}{}", "  ".repeat(n.depth), n.name());
+            // Review: a column of ticks for the viewed files, before every row.
+            let tick = match (&app.review, app.viewed.contains_key(&n.path)) {
+                (None, _) => "",
+                (Some(_), false) => "  ",
+                (Some(_), true) => "\u{2713} ",
+            };
+            let width = width.saturating_sub(wrap::width(tick));
             // Review: `M name  +6 -2`, the status in place of the marker.
             if let Some(f) = app.review.as_ref().and_then(|r| r.file(&n.path)) {
                 let counts = if f.binary {
@@ -139,6 +146,7 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             };
             let pad = width.saturating_sub(wrap::width(&text));
             Line::from(vec![
+                Span::styled(tick, style.fg(theme.accent)),
                 Span::styled(text, style),
                 Span::styled(" ".repeat(pad), style),
             ])

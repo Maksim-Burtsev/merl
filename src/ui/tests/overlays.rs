@@ -343,7 +343,16 @@ fn review_panel_counts_end_at_the_border() {
         r[0]
     );
     assert!(
-        r[1].starts_with("\u{2502}M a.rs                 +6 \u{2212}2\u{2502}"),
+        r[1].starts_with("\u{2502}  M a.rs               +6 \u{2212}2\u{2502}"),
+        "{}",
+        r[1]
+    );
+    // #162: a viewed file has a tick in the column before the status.
+    app.viewed.insert("a.rs".into(), 0);
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    assert!(
+        r[1].starts_with("\u{2502}\u{2713} M a.rs               +6 \u{2212}2\u{2502}"),
         "{}",
         r[1]
     );

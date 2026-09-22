@@ -62,6 +62,7 @@ pub const KEYS: &[(&str, &str)] = &[
     ("u / Shift+F12", "Usages of the word under the cursor"),
     ("[ / ]", "Back / forward in the jump history"),
     ("c / C", "Review: next / previous hunk, on to the next file"),
+    ("m", "Review: mark the file as viewed, or take the mark off"),
     (": / Ctrl+G", "Go to line"),
     ("t", "Show or hide the file tree"),
     ("T", "Pick a theme (live preview)"),
@@ -279,6 +280,9 @@ pub struct App {
     pub want_diff: bool,
     /// `--review`: the branch under review. The tree pane then lists its files.
     pub review: Option<git::Review>,
+    /// Review: the files marked as viewed, each with the hash of what was on disk then. A file
+    /// that has changed since is not viewed any more (`drop_stale_viewed`). Kept for the session.
+    pub viewed: HashMap<PathBuf, u64>,
     /// The theme in use, by name. Set by `main`; the theme picker previews others over it.
     pub theme: String,
     /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
@@ -398,6 +402,7 @@ impl App {
             diff: git::Diff::default(),
             want_diff: true,
             review: None,
+            viewed: HashMap::new(),
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
             quit_again: false,

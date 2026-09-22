@@ -27,6 +27,68 @@ fn review_walks_past_files_without_hunks() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// #162: `c` leaving a file forward marks it as viewed, the last file on the press that has
+/// nowhere to go; `C` marks nothing, `m` toggles, and a changed file loses its mark.
+#[test]
+fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
+    let (dir, mut a) = review_app("viewed");
+    let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
+    let viewed = |a: &App| {
+        let mut v: Vec<_> = a.viewed.keys().cloned().collect();
+        v.sort();
+        v
+    };
+    // The review opens on `new`; `C` walks back to the first hunk and marks nothing.
+    while a.message != "first hunk of the review" {
+        press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+    }
+    a.message.clear();
+    while at(&a).0 == dir.join("src/a.rs") {
+        assert!(a.viewed.is_empty(), "still inside the file");
+        c(&mut a);
+    }
+    assert_eq!(viewed(&a), [PathBuf::from("src/a.rs")]);
+    assert_eq!(a.message, "", "the walk marks in silence");
+    press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+    assert_eq!(
+        at(&a).0,
+        dir.join("src/a.rs"),
+        "a viewed file is still a stop"
+    );
+    assert_eq!(viewed(&a), [PathBuf::from("src/a.rs")], "`C` marks nothing");
+
+    while a.message != "last hunk of the review" {
+        c(&mut a);
+    }
+    assert_eq!(at(&a).0, dir.join("tail"));
+    assert_eq!(viewed(&a).len(), a.review.as_ref().unwrap().files.len());
+
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    assert_eq!(a.message, "not viewed");
+    assert!(!a.viewed.contains_key(Path::new("tail")));
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    assert_eq!(a.message, "viewed");
+    // The panel's row, not the open file; a directory is not a file of the review.
+    a.focus = Focus::Tree;
+    a.tree.reveal(Path::new("new"));
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    assert!(!a.viewed.contains_key(Path::new("new")) && a.viewed.contains_key(Path::new("tail")));
+    a.tree.reveal(Path::new("src"));
+    a.message.clear();
+    let before = viewed(&a);
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    assert_eq!((viewed(&a), a.message.as_str()), (before, ""));
+
+    // The agent rewrites a viewed line: the counts are the same, the content is not.
+    let text = std::fs::read_to_string(dir.join("tail")).unwrap();
+    std::fs::write(dir.join("tail"), text.to_uppercase()).unwrap();
+    let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+    assert!(a.review_refreshed(fresh), "the tick leaves the screen");
+    assert!(!a.viewed.contains_key(Path::new("tail")));
+    assert!(a.viewed.contains_key(Path::new("src/a.rs")));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// #76: the review is left open next to an agent. What `main` does on a change is
 /// `Review::refresh` and `review_refreshed`; the open file, the cursor and both scrolls stay.
 #[test]

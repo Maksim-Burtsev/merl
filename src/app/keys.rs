@@ -185,6 +185,7 @@ impl App {
             KeyCode::Char(']') => self.hist_go(1),
             KeyCode::Char('c') if !ctrl => self.hunk(1),
             KeyCode::Char('C') => self.hunk(-1),
+            KeyCode::Char('m') => self.toggle_viewed(),
             KeyCode::Char('v') if self.focus == Focus::Code => self.grow_selection(),
             _ if self.focus == Focus::Tree => self.tree_key(key.code),
             KeyCode::Enter => self.start_edit(),

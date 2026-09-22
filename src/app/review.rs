@@ -29,7 +29,6 @@ impl App {
     /// `c` / `C`: the next / previous hunk, crossing into the next file of the review.
     pub(super) fn hunk(&mut self, dir: isize) {
         let Some(r) = self.review.clone() else {
-            self.message = "not in review mode".into();
             return;
         };
         let here = if dir > 0 {
@@ -46,6 +45,9 @@ impl App {
         let at = self
             .rel_current()
             .and_then(|rel| r.files.iter().position(|f| f.path == rel));
+        // `c` stopped on every hunk of this file and now leaves it: the file is viewed. The last
+        // file of the review has nowhere to go, and the same press marks it.
+        let mut read = at.filter(|_| dir > 0).map(|i| r.files[i].path.clone());
         let ahead: Vec<&git::ReviewFile> = match (at, dir > 0) {
             (Some(i), true) => r.files[i + 1..].iter().collect(),
             (Some(i), false) => r.files[..i].iter().rev().collect(),
@@ -59,6 +61,7 @@ impl App {
             if !f.has_hunks() {
                 skipped += 1;
             } else if self.open_review_file(f, dir < 0) {
+                self.mark_viewed(read.take());
                 match failed {
                     Some(why) => self.message = why,
                     None => self.say_skipped(skipped),
@@ -71,10 +74,59 @@ impl App {
                 failed = Some(std::mem::take(&mut self.message));
             }
         }
+        self.mark_viewed(read.take());
         self.message = failed.unwrap_or_else(|| {
             let end = if dir > 0 { "last" } else { "first" };
             format!("{end} hunk of the review")
         });
+    }
+
+    /// `m`: the open file, or the panel's row, is viewed; again, and it is not. A key for the
+    /// review's files only: anywhere else it does nothing and says nothing.
+    pub(super) fn toggle_viewed(&mut self) {
+        let rel = match self.focus {
+            Focus::Tree => self.tree.selected().map(|n| n.path.clone()),
+            Focus::Code => self.rel_current(),
+        };
+        let Some(rel) = rel.filter(|p| self.review.as_ref().is_some_and(|r| r.file(p).is_some()))
+        else {
+            return;
+        };
+        self.message = if self.viewed.remove(&rel).is_some() {
+            "not viewed".into()
+        } else {
+            self.mark_viewed(Some(rel));
+            "viewed".into()
+        };
+    }
+
+    fn mark_viewed(&mut self, rel: Option<PathBuf>) {
+        if let Some(rel) = rel {
+            let hash = self.disk_hash(&rel);
+            self.viewed.insert(rel, hash);
+        }
+    }
+
+    /// What is on disk at `rel`, hashed; a file the branch deleted hashes as nothing.
+    fn disk_hash(&self, rel: &Path) -> u64 {
+        use std::hash::{DefaultHasher, Hash, Hasher};
+        let mut h = DefaultHasher::new();
+        std::fs::read(self.root.join(rel)).ok().hash(&mut h);
+        h.finish()
+    }
+
+    /// A viewed file that changed on disk, or left the review, is not viewed any more. Returns
+    /// whether a mark went.
+    // ponytail: reads every viewed file on each refresh; compare mtimes first if a review of
+    // thousands of viewed files ever makes the refresh slow.
+    fn drop_stale_viewed(&mut self) -> bool {
+        let before = self.viewed.len();
+        let mut viewed = std::mem::take(&mut self.viewed);
+        viewed.retain(|p, h| {
+            self.review.as_ref().is_some_and(|r| r.file(p).is_some()) && self.disk_hash(p) == *h
+        });
+        self.viewed = viewed;
+        self.viewed.len() != before
     }
 
     /// Why `file 1` became `file 74`.
@@ -125,7 +177,8 @@ impl App {
             return false;
         };
         if *old == fresh {
-            return false;
+            // An edit can leave every count as it was.
+            return self.drop_stale_viewed();
         }
         let rel = self.rel_current();
         let kind = |r: &git::Review| {
@@ -139,6 +192,7 @@ impl App {
         if stale {
             self.refresh_diff();
         }
+        self.drop_stale_viewed();
         true
     }
 }
