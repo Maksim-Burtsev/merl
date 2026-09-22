@@ -734,3 +734,27 @@ fn super_starts_one_level_up() {
         assert_eq!(shown(&mut a), want, "{fixture}: {file}: {code}");
     }
 }
+
+/// #175: a field assigned from a call on itself, `this.close = this.close.bind(this)` or
+/// `self.model = self.model.to(device)`, ends; its other assignments still prove its type.
+#[test]
+fn a_field_rebound_from_itself_ends() {
+    let mut a = fixture_app("typescript");
+    d_on(&mut a, "fields.ts", "this.close.bind");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "no definition for bind (chain broke at close)",
+            "fields.ts:18"
+        )
+    );
+    let mut a = fixture_app("python");
+    d_on(&mut a, "trainer.py", "self.model.forward");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "forward \u{2192} Model.forward (via self.model: Model)",
+            "trainer.py:5",
+        ),
+    );
+}
