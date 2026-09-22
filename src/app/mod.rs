@@ -201,6 +201,9 @@ pub struct App {
     /// of it afterwards: the candidates are a lower bound, so the count says `+` and a single
     /// one is offered, not jumped to.
     truncated: std::cell::Cell<bool>,
+    /// The bindings (`path`, `line`) a type is being read from, outermost first: a binding met
+    /// again inside its own reading, `this.close = this.close.bind(this)`, is left out (#175).
+    reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
     pub focus: Focus,
     pub show_tree: bool,
     /// First visible row of the tree pane, clamped by `ui`.
@@ -362,6 +365,7 @@ impl App {
             ),
             offer_only: false,
             truncated: Default::default(),
+            reading: Default::default(),
             focus,
             show_tree: true,
             tree_top: 0,
