@@ -147,8 +147,7 @@ impl App {
             _ => r.diff(&self.root, &path, file),
         };
         // Ghosts change how many rows a line has; the viewport must not point past them.
-        self.top_line = self.top_line.min(self.buf.lines.len() - 1);
-        self.top_row = self.top_row.min(self.row_count(self.top_line) - 1);
+        self.clamp_top();
     }
 
     /// The project changed on disk and was walked again: the file list is the new one for the
@@ -233,10 +232,8 @@ impl App {
         }
         self.undo_break = true;
         self.refresh_diff();
-        let last = self.buf.lines.len() - 1;
         (self.line, self.col) = self.clamp_pos((self.line, self.col));
-        self.top_line = self.top_line.min(last);
-        self.top_row = self.top_row.min(self.row_count(self.top_line) - 1);
+        self.clamp_top();
         self.sync_want_x();
         self.clamp_scroll();
         self.message = "reloaded".into();

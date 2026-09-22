@@ -56,6 +56,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   character of line 1, so a line added at the top went in front of it, and the file stopped
   compiling (`invalid non-printable character U+FEFF`); Delete at 1:1 deleted the mark, and Right
   stepped over nothing. A file without the mark never gains one. (#177)
+- Review: every line a branch deleted at the end of a file can be read. Down, PgDn and Ctrl+D on
+  the last line scroll on through them until the last one is on the bottom row, as Up already
+  brought in the deleted lines above a line; the cursor stays on the last line and Up takes the
+  view back to it. Before, the view stopped at the last line and only the deleted lines that fit
+  under it were ever on screen. (#179)
 
 ## [0.6.0] - 2026-09-21
 

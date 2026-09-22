@@ -16,6 +16,11 @@ impl App {
             return;
         }
         let cur = (self.line, self.cursor_row());
+        // Scrolled on past the end of the text (`move_rows`), the cursor waits above the pane.
+        if cur < (self.top_line, self.top_row) && self.at_text_end() {
+            (self.top_line, self.top_row) = (self.top_line, self.top_row).min(self.bottom_top());
+            return;
+        }
         if cur < (self.top_line, self.top_row) {
             // Moving up shows the line's ghosts with it.
             (self.top_line, self.top_row) = (self.line, cur.1 - self.diff.ghost_n(self.line));
@@ -41,6 +46,32 @@ impl App {
         } else if x + off >= self.left + self.view_w {
             let end = (wrap::width(self.buf.shown(self.line)) + 1).saturating_sub(self.view_w);
             self.left = (x + off + 1 - self.view_w).min(end);
+        }
+    }
+
+    /// The cursor is on the last screen row of the text: Down has no row left to go to.
+    pub(super) fn at_text_end(&self) -> bool {
+        self.line + 1 == self.buf.lines.len() && self.cursor_row() + 1 == self.row_count(self.line)
+    }
+
+    /// The top of the view scrolled down as far as it goes: the last line the branch deleted at
+    /// the end of the file, or the last row of text when there is none, on the bottom row.
+    pub(super) fn bottom_top(&self) -> (usize, usize) {
+        let end = self.buf.lines.len();
+        let last = match self.diff.ghost_n(end) {
+            0 => (end - 1, self.row_count(end - 1) - 1),
+            g => (end, g - 1),
+        };
+        self.back_rows(last, self.view_h.saturating_sub(1))
+    }
+
+    /// The top made valid for the text and ghosts as they are now. It may stay on the lines
+    /// deleted at the end of the file, keyed `lines.len()`, which have ghost rows only.
+    pub(super) fn clamp_top(&mut self) {
+        let end = self.buf.lines.len();
+        if self.top_line != end || self.top_row >= self.diff.ghost_n(end) {
+            self.top_line = self.top_line.min(end - 1);
+            self.top_row = self.top_row.min(self.row_count(self.top_line) - 1);
         }
     }
 
