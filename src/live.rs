@@ -46,6 +46,8 @@ impl Debounce {
 pub struct Project {
     /// Canonical: FSEvents reports canonical paths.
     root: PathBuf,
+    /// The walk lists only the files right in the root, and nothing below it is watched.
+    shallow: bool,
     /// The directories of the last walk, relative to the root.
     dirs: HashSet<PathBuf>,
     /// Its directories and files.
@@ -55,9 +57,10 @@ pub struct Project {
 }
 
 impl Project {
-    pub fn new(root: &Path, tree: &Tree, files: &[PathBuf]) -> Self {
+    pub fn new(root: &Path, shallow: bool, tree: &Tree, files: &[PathBuf]) -> Self {
         let mut p = Self {
             root: root.canonicalize().unwrap_or_else(|_| root.to_path_buf()),
+            shallow,
             dirs: HashSet::new(),
             listed: HashSet::new(),
             changed: Debounce::default(),
@@ -137,14 +140,19 @@ impl Project {
     }
 
     /// Watches the project, at startup and again after every walk. FSEvents and Windows take
-    /// the root recursively. inotify needs a watch per directory and a recursive watch would
+    /// the root recursively, a shallow one alone. inotify needs a watch per directory and a recursive watch would
     /// put one on every directory of `node_modules/`, so on Linux the directories of the walk
     /// are watched one by one. Every one of them every time: a directory deleted and made again
     /// has lost its watch, and a watch that failed (the inotify limit) deserves another try.
     pub fn watch(&self, watcher: &mut RecommendedWatcher, watched: &mut HashSet<PathBuf>) {
         if !cfg!(target_os = "linux") {
             if watched.insert(PathBuf::new()) {
-                let _ = watcher.watch(&self.root, RecursiveMode::Recursive);
+                let mode = if self.shallow {
+                    RecursiveMode::NonRecursive
+                } else {
+                    RecursiveMode::Recursive
+                };
+                let _ = watcher.watch(&self.root, mode);
             }
             return;
         }
@@ -295,8 +303,8 @@ mod tests {
         }
         std::fs::write(dir.join(".gitignore"), "target/\n").unwrap();
         let dir = dir.canonicalize().unwrap();
-        let (tree, files) = tree::build(&dir);
-        let p = Project::new(&dir, &tree, &files);
+        let (tree, files) = tree::build(&dir, false);
+        let p = Project::new(&dir, false, &tree, &files);
         (dir, p)
     }
 
@@ -383,10 +391,10 @@ mod tests {
         // Changes during the walk wait for it, and are not lost.
         create(&mut p, "b.rs", ms(250));
         assert!(!p.walk_due(ms(600)));
-        let (tree, files) = tree::build(&dir);
+        let (tree, files) = tree::build(&dir, false);
         p.walked(&tree, &files, ms(700));
         assert!(p.walk_due(ms(700)));
-        let (tree, files) = tree::build(&dir);
+        let (tree, files) = tree::build(&dir, false);
         p.walked(&tree, &files, ms(800));
         assert!(
             !p.walk_due(ms(5000)),
@@ -399,12 +407,12 @@ mod tests {
         let ev = notify::Event::new(EventKind::Create(CreateKind::Folder));
         p.event(&ev.add_path(dir.join("services")), ms(6000));
         assert!(p.walk_due(ms(6200)));
-        let (tree, files) = tree::build(&dir);
+        let (tree, files) = tree::build(&dir, false);
         p.walked(&tree, &files, ms(6300));
         assert!(!p.walk_due(ms(6400)) && p.walk_due(ms(6500)));
         // A walk that only lost a directory asks for nothing.
         std::fs::remove_dir_all(dir.join("services")).unwrap();
-        let (tree, files) = tree::build(&dir);
+        let (tree, files) = tree::build(&dir, false);
         p.walked(&tree, &files, ms(6600));
         assert!(!p.walk_due(ms(9000)));
         std::fs::remove_dir_all(&dir).unwrap();
@@ -474,7 +482,7 @@ mod tests {
         std::fs::remove_dir_all(dir.join("src/deep")).unwrap();
         std::fs::create_dir_all(dir.join("src/deep")).unwrap();
         std::thread::sleep(Duration::from_millis(300));
-        let (tree, files) = tree::build(&dir);
+        let (tree, files) = tree::build(&dir, false);
         p.walked(&tree, &files, Instant::now());
         p.watch(&mut watcher, &mut watched);
         while rx.try_recv().is_ok() {}

@@ -105,7 +105,7 @@ fn review_app_with(tag: &str, extra: &[(&str, &[u8])]) -> (PathBuf, App) {
     git(&["add", "-A"]);
     git(&["commit", "-q", "-m", "work"]);
     let review = git::Review::open(&dir, None, None).unwrap();
-    let (_, files) = crate::tree::build(&dir);
+    let (_, files) = crate::tree::build(&dir, false);
     let tree = crate::tree::from_files(
         &review
             .files
@@ -136,7 +136,7 @@ fn project_app(tag: &str, files: &[(&str, &str)]) -> (PathBuf, App) {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, text).unwrap();
     }
-    let (tree, files) = crate::tree::build(&dir);
+    let (tree, files) = crate::tree::build(&dir, false);
     let app = App::new(dir.clone(), tree, files, Buffer::empty(), None);
     (dir, app)
 }
@@ -146,7 +146,7 @@ fn fixture_app(name: &str) -> App {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures")
         .join(name);
-    let (tree, files) = crate::tree::build(&dir);
+    let (tree, files) = crate::tree::build(&dir, false);
     let mut a = App::new(dir, tree, files, Buffer::empty(), None);
     // The fixtures are read as a plain build reads them, whatever `GOFLAGS` the tests run under.
     a.go_build = search::GoBuild::host();

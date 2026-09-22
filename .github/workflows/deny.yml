@@ -1,0 +1,20 @@
+name: Deny
+
+# Advisories, licences and duplicate crates, per deny.toml. Not a required check: it runs only
+# when the dependency tree changes, and weekly so a new advisory surfaces without a PR.
+
+on:
+  push:
+    branches: [master]
+    paths: [Cargo.lock, deny.toml]
+  pull_request:
+    paths: [Cargo.lock, deny.toml]
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: EmbarkStudios/cargo-deny-action@v2

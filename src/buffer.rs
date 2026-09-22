@@ -16,6 +16,8 @@ pub const TAB: &str = "    ";
 /// Every `CHECKPOINT` lines the parser state is snapshotted, so an edit only re-highlights from
 /// the last snapshot instead of from line 1.
 const CHECKPOINT: usize = 64;
+/// The UTF-8 byte order mark: kept apart from the text, so no edit can move it off the front.
+const BOM: &[u8] = b"\xEF\xBB\xBF";
 /// How far in we look for a NUL before calling a file binary.
 const SNIFF: usize = 8 * 1024;
 /// ponytail: syntect is sequential, so a huge file would have to be parsed from line 1 before
@@ -42,6 +44,8 @@ pub struct Buffer {
     /// Why the buffer cannot be edited, when it cannot: what was loaded is not what would be
     /// written back.
     pub readonly: Option<&'static str>,
+    /// The file starts with a [`BOM`].
+    bom: bool,
     /// Lines end with `\r\n` on disk.
     crlf: bool,
     /// The file ends with a line terminator (every sane file does; an empty file does not).
@@ -65,6 +69,7 @@ pub struct Buffer {
 /// may change. A reload can change it with the text, and undoing the reload puts it back.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Format {
+    bom: bool,
     crlf: bool,
     trailing_newline: bool,
     tabs: bool,
@@ -88,7 +93,8 @@ impl Buffer {
             b.readonly = Some("binary file");
             return b;
         }
-        let text = String::from_utf8_lossy(bytes);
+        let bom = bytes.starts_with(BOM);
+        let text = String::from_utf8_lossy(bytes.strip_prefix(BOM).unwrap_or(bytes));
         let lossy = matches!(text, std::borrow::Cow::Owned(_));
         let crlf = text.contains("\r\n");
         let trailing_newline = text.ends_with('\n');
@@ -106,6 +112,7 @@ impl Buffer {
         let syntax = (lines.len() <= MAX_HL_LINES && bytes.len() <= MAX_HL_BYTES)
             .then(|| syntax_for(&path, &lines[0]));
         let mut b = Self::new(Some(path), lines, syntax);
+        b.bom = bom;
         b.crlf = crlf;
         b.trailing_newline = trailing_newline;
         // One line ending per file: a mix, or a stray `\r`, would be rewritten by the first save,
@@ -125,15 +132,17 @@ impl Buffer {
     /// The file as it is written back: the lines joined with the line ending they came with.
     pub fn to_bytes(&self) -> Vec<u8> {
         let nl = if self.crlf { "\r\n" } else { "\n" };
-        let mut out = self.lines.join(nl);
+        let mut out = if self.bom { BOM.to_vec() } else { Vec::new() };
+        out.extend_from_slice(self.lines.join(nl).as_bytes());
         if self.trailing_newline {
-            out.push_str(nl);
+            out.extend_from_slice(nl.as_bytes());
         }
-        out.into_bytes()
+        out
     }
 
     pub fn format(&self) -> Format {
         Format {
+            bom: self.bom,
             crlf: self.crlf,
             trailing_newline: self.trailing_newline,
             tabs: self.tabs,
@@ -142,7 +151,7 @@ impl Buffer {
     }
 
     pub fn set_format(&mut self, f: Format) {
-        (self.crlf, self.trailing_newline) = (f.crlf, f.trailing_newline);
+        (self.bom, self.crlf, self.trailing_newline) = (f.bom, f.crlf, f.trailing_newline);
         (self.tabs, self.readonly) = (f.tabs, f.readonly);
     }
 
@@ -167,6 +176,7 @@ impl Buffer {
             path,
             lines,
             readonly: None,
+            bom: false,
             crlf: false,
             trailing_newline: true,
             tabs: false,
@@ -741,6 +751,19 @@ mod tests {
         assert_eq!(b.hl[2], short.hl[1]);
         let colours: std::collections::HashSet<_> = b.hl[2].iter().map(|(s, _)| s.fg).collect();
         assert!(colours.len() > 1, "the last line lost its colours");
+    }
+
+    #[test]
+    fn a_bom_is_kept_apart_from_the_text_and_written_back_first() {
+        let b = load(b"\xEF\xBB\xBFx\r\ny\r\n");
+        assert_eq!(b.lines, vec!["x", "y"]);
+        assert_eq!(b.readonly, None);
+        assert_eq!(b.to_bytes(), b"\xEF\xBB\xBFx\r\ny\r\n");
+        let b = Buffer::from_bytes(
+            PathBuf::from("script"),
+            b"\xEF\xBB\xBF#!/usr/bin/env python3\n",
+        );
+        assert_eq!(b.syntax.unwrap().name, "Python");
     }
 
     #[test]
