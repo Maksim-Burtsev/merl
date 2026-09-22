@@ -14,8 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and Ctrl+Z still takes the fix back; Ctrl+Y works the same. A file an agent wrote while you
   were in another one comes back with the write as one more step on top, as if it had been on
   screen. (#163)
+- Search ignores case whatever letters the query has: `/`, `s`, `D` and `o` find `SameCancel`
+  for `sameCancel`, where one capital used to make the whole query exact and find nothing. There
+  is no switch; `u` still lists a word's uses in its exact case. (#174)
 
 ### Fixed
+
+- Opening `/` again on a pattern that matches nothing in the file says `no match`, as typing it
+  did, instead of `0/0`. (#174)
 
 - `d` and `D` outside the project walk a Python directory once when `sys.path` lists it twice,
   apart (a `PYTHONPATH` entry, a `.pth` file): every hit there was offered twice. In a Rust

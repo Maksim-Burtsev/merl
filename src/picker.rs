@@ -162,7 +162,7 @@ impl Picker {
         self.nucleo.pattern.reparse(
             0,
             &self.query,
-            CaseMatching::Smart,
+            CaseMatching::Ignore,
             Normalization::Smart,
             append,
         );
@@ -235,6 +235,18 @@ mod tests {
         p.key(KeyCode::Backspace.into());
         p.settle();
         assert_eq!(p.counts().0, 3);
+    }
+
+    /// A capital in the query does not make it exact: `sameCancel` finds `SameCancel` (#174).
+    #[test]
+    fn a_capital_in_the_query_still_ignores_case() {
+        let mut p = picker(&["SameCancel", "Walk"]);
+        for c in "sameCancel".chars() {
+            p.key(KeyCode::Char(c).into());
+        }
+        p.settle();
+        assert_eq!(p.counts().0, 1);
+        assert_eq!(p.window(5).0[0].item.label, "SameCancel");
     }
 
     /// `tick` is what the event loop polls; it must report the new results after a query
