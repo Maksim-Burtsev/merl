@@ -23,7 +23,8 @@ const SNIFF: usize = 8 * 1024;
 const MAX_HL_LINES: usize = 30_000;
 const MAX_HL_BYTES: usize = 4 * 1024 * 1024;
 /// ponytail: a single line longer than this is shown truncated. Both the renderer and the
-/// cursor arithmetic wrap [`Buffer::shown`], so they agree on how many rows the line has.
+/// cursor arithmetic wrap [`Buffer::shown`], so they agree on how many rows the line has. It is
+/// also what [`Buffer::highlight_to`] stops colouring past: the rest of the line is on no screen.
 const MAX_SHOWN_BYTES: usize = 20_000;
 
 /// bat's syntax set, with the `\n`-terminated variants `highlight_line` expects.
@@ -219,6 +220,16 @@ impl Buffer {
                 && self.checkpoints.len() == self.hl.len() / CHECKPOINT
             {
                 self.checkpoints.push(state.clone());
+            }
+            // ponytail: syntect parses a line whole, and only its first `MAX_SHOWN_BYTES` are
+            // ever drawn. A minified bundle or a one-line JSON dump is megabytes on one line, so
+            // that parse costs seconds and runs again after every `clear_hl`. Past `shown`, the
+            // line is drawn plain, as VS Code stops tokenizing past `maxTokenizationLineLength`.
+            // The state is left as the line before it: the file below keeps its colours. Parsing
+            // the shown prefix alone would not, it could stop inside a string or a comment.
+            if Self::clips(&self.lines[self.hl.len()]) {
+                self.hl.push(Vec::new());
+                continue;
             }
             let raw = &self.lines[self.hl.len()];
             let line = format!("{raw}\n");
@@ -706,6 +717,30 @@ mod tests {
         let b = load(text.as_bytes());
         assert_eq!(b.shown(0).len(), MAX_SHOWN_BYTES / 3 * 3);
         assert_eq!(load(b"short").shown(0), "short");
+    }
+
+    #[test]
+    fn a_line_longer_than_shown_is_not_parsed_and_the_lines_below_keep_their_colours() {
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        // A minified bundle: one line of `a(b);` past what `shown` draws, between two lines
+        // whose colours the parse state decides.
+        let long = "a(b);".repeat(MAX_SHOWN_BYTES);
+        let mut b = Buffer::from_bytes(
+            PathBuf::from("app.min.js"),
+            format!("const one = \"x\";\n{long}\nconst two = \"y\";\n").as_bytes(),
+        );
+        b.highlight_to(2, &theme);
+        assert_eq!(b.hl[1], Vec::new(), "the long line went to syntect");
+
+        // The state carried on, so the last line is coloured as if the long line were not there.
+        let mut short = Buffer::from_bytes(
+            PathBuf::from("app.min.js"),
+            b"const one = \"x\";\nconst two = \"y\";\n",
+        );
+        short.highlight_to(1, &theme);
+        assert_eq!(b.hl[2], short.hl[1]);
+        let colours: std::collections::HashSet<_> = b.hl[2].iter().map(|(s, _)| s.fg).collect();
+        assert!(colours.len() > 1, "the last line lost its colours");
     }
 
     #[test]
