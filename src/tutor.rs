@@ -394,7 +394,7 @@ mod tests {
     #[test]
     fn tutorial_is_completable() {
         let dir = extract().unwrap();
-        let (tree, files) = crate::tree::build(&dir);
+        let (tree, files) = crate::tree::build(&dir, false);
         let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
         a.show_tree = false;
         a.focus = Focus::Code;

@@ -36,19 +36,22 @@ pub struct Tree {
 /// Walks `root` once and returns the tree plus the flat list of files, both sorted the same
 /// way: inside every directory, directories first, then files, case-insensitively by name.
 /// Done at startup and again, off the UI thread, whenever the project changes on disk.
-pub fn build(root: &Path) -> (Tree, Vec<PathBuf>) {
+/// `shallow` lists only the files right in `root`: its directories would open onto nothing.
+pub fn build(root: &Path, shallow: bool) -> (Tree, Vec<PathBuf>) {
     // Dotfiles are walked: `.github/`, `.env` and `.dockerignore` are part of a project.
     // `.gitignore` still prunes caches; a version-control store is never content.
     let mut entries: Vec<(PathBuf, bool)> = WalkBuilder::new(root)
         .hidden(false)
         .require_git(false)
+        .max_depth(shallow.then_some(1))
         .filter_entry(|e| !matches!(e.file_name().to_str(), Some(".git" | ".hg" | ".svn")))
         .build()
         .filter_map(Result::ok)
         .filter_map(|e| {
             let rel = e.path().strip_prefix(root).ok()?.to_path_buf();
+            let is_dir = e.file_type().is_some_and(|t| t.is_dir());
             // The root itself is the pane title, not a row.
-            (!rel.as_os_str().is_empty()).then(|| (rel, e.file_type().is_some_and(|t| t.is_dir())))
+            (!rel.as_os_str().is_empty() && !(shallow && is_dir)).then_some((rel, is_dir))
         })
         .collect();
     entries.sort_by_cached_key(|(p, is_dir)| sort_key(p, *is_dir));
@@ -238,7 +241,7 @@ mod tests {
         for f in ["Zed.toml", "aaa.rs", "src/app.rs", "src/deep/x.rs"] {
             std::fs::write(dir.join(f), b"x").unwrap();
         }
-        let (tree, files) = build(&dir);
+        let (tree, files) = build(&dir, false);
         std::fs::remove_dir_all(&dir).unwrap();
         // Directories first, then files, both case-insensitive.
         assert_eq!(
@@ -281,7 +284,7 @@ mod tests {
             "keep",
             &["api/a.py", "services/deep/x.py", "services/user.py", "z.py"],
         );
-        let (mut t, _) = build(&dir);
+        let (mut t, _) = build(&dir, false);
         t.reveal(Path::new("services/user.py"));
         assert_eq!(
             rows(&t),
@@ -300,7 +303,7 @@ mod tests {
             std::fs::write(dir.join(f), b"x").unwrap();
         }
         std::fs::remove_file(dir.join("z.py")).unwrap();
-        let (fresh, files) = build(&dir);
+        let (fresh, files) = build(&dir, false);
         t.refresh(fresh);
         assert_eq!(t.selected().unwrap().path, Path::new("services/user.py"));
         assert_eq!(
@@ -322,7 +325,7 @@ mod tests {
     #[test]
     fn refresh_moves_the_cursor_off_a_deleted_entry_to_its_neighbour() {
         let dir = project("gone", &["a.py", "b.py", "c.py", "lib/x.py"]);
-        let (mut t, _) = build(&dir);
+        let (mut t, _) = build(&dir, false);
         for (delete, from, to) in [
             ("b.py", "b.py", "c.py"),    // the row that followed
             ("c.py", "c.py", "a.py"),    // the last row: the one above
@@ -331,11 +334,11 @@ mod tests {
             t.reveal(Path::new(from));
             let _ = std::fs::remove_file(dir.join(delete));
             let _ = std::fs::remove_dir_all(dir.join(delete));
-            t.refresh(build(&dir).0);
+            t.refresh(build(&dir, false).0);
             assert_eq!(t.selected().unwrap().path, Path::new(to), "{delete}");
         }
         std::fs::remove_file(dir.join("a.py")).unwrap();
-        t.refresh(build(&dir).0);
+        t.refresh(build(&dir, false).0);
         assert!(t.selected().is_none() && t.nodes.is_empty());
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -343,20 +346,20 @@ mod tests {
     #[test]
     fn a_directory_that_one_walk_missed_comes_back_expanded() {
         let dir = project("away", &["gen/deep/x.py", "gen/y.py", "z.py"]);
-        let (mut t, _) = build(&dir);
+        let (mut t, _) = build(&dir, false);
         t.reveal(Path::new("gen/deep/x.py"));
         let before = rows(&t);
         // `git stash -u`, a walk, `git stash pop`, a walk.
         std::fs::rename(dir.join("gen"), dir.with_extension("aside")).unwrap();
-        t.refresh(build(&dir).0);
+        t.refresh(build(&dir, false).0);
         assert_eq!(rows(&t), ["z.py"]);
         std::fs::rename(dir.with_extension("aside"), dir.join("gen")).unwrap();
-        t.refresh(build(&dir).0);
+        t.refresh(build(&dir, false).0);
         assert_eq!(rows(&t), before);
         // Collapsed by hand after that, it stays collapsed.
         t.reveal(Path::new("gen"));
         t.collapse();
-        t.refresh(build(&dir).0);
+        t.refresh(build(&dir, false).0);
         assert_eq!(rows(&t), ["gen", "z.py"]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -368,14 +371,14 @@ mod tests {
             &[".gitignore", "a.py", "node_modules/pkg/index.js"],
         );
         std::fs::write(dir.join(".gitignore"), "node_modules/\n").unwrap();
-        let (mut t, files) = build(&dir);
+        let (mut t, files) = build(&dir, false);
         assert_eq!(files, [PathBuf::from(".gitignore"), "a.py".into()]);
         assert!(t.dirs().is_empty(), "an ignored directory is not watched");
 
         std::fs::create_dir_all(dir.join("target/debug")).unwrap();
         std::fs::write(dir.join("target/debug/merl"), b"x").unwrap();
         std::fs::write(dir.join(".gitignore"), "target/\n").unwrap();
-        let (fresh, files) = build(&dir);
+        let (fresh, files) = build(&dir, false);
         t.refresh(fresh);
         assert_eq!(
             files,
@@ -460,7 +463,7 @@ mod tests {
         ] {
             std::fs::write(dir.join(f), text).unwrap();
         }
-        let (_, files) = build(&dir);
+        let (_, files) = build(&dir, false);
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(
             files,

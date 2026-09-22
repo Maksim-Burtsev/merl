@@ -178,6 +178,9 @@ const HIST_MAX: usize = 50;
 
 pub struct App {
     pub root: PathBuf,
+    /// Set by `main` for a file opened outside any repository: the project is the files right
+    /// in the root, and every walk stops there (#182).
+    pub shallow: bool,
     pub buf: Buffer,
     pub tree: Tree,
     /// Every file under the root, sorted like the tree; the file picker's item list.
@@ -349,6 +352,7 @@ impl App {
         };
         let mut app = Self {
             root,
+            shallow: false,
             buf: Buffer::empty(),
             tree,
             files,
