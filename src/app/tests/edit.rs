@@ -662,6 +662,28 @@ fn typing_after_a_reload_is_a_step_of_its_own() {
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
+/// A UTF-8 BOM is not text: the first edit at 1:1 goes after it, and it stays the first bytes.
+#[test]
+fn a_bom_stays_the_first_bytes_of_the_file() {
+    let mut a = app("\u{feff}x = 1\n");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    typed(&mut a, "y");
+    assert_eq!(
+        String::from_utf8(a.buf.to_bytes()).unwrap(),
+        "\u{feff}yx = 1\n",
+        "typing at 1:1"
+    );
+
+    let mut a = app("\u{feff}using System;\n");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Delete, KeyModifiers::NONE);
+    assert_eq!(
+        String::from_utf8(a.buf.to_bytes()).unwrap(),
+        "\u{feff}sing System;\n",
+        "Delete at 1:1"
+    );
+}
+
 /// Undoing a reload puts the file's format back with its text. A reload to what no save can
 /// write back as it came is undone, never redone; one from it starts a new history.
 #[test]
