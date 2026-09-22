@@ -262,6 +262,10 @@ pub fn extract() -> Result<PathBuf> {
     Ok(dir)
 }
 
+// PROTOTYPE for #190, throwaway: the shared task pool.
+#[cfg(test)]
+mod task_pool_prototype;
+
 #[cfg(test)]
 mod tests {
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
