@@ -439,6 +439,51 @@ fn ghosts_after_the_last_line_are_drawn_under_it() {
     assert_eq!(rows(&terminal)[..3], ["1 a", "2 b", "\u{258e}gone"]);
 }
 
+/// Down, PgDn and Ctrl+D on the last line scroll in the lines deleted after it, until the last
+/// one is on the bottom row; the cursor stays on the text, and Up brings it back on screen (#179).
+#[test]
+fn every_ghost_after_the_last_line_can_be_scrolled_to() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\n"),
+        None,
+    );
+    app.show_tree = false;
+    app.diff
+        .ghosts
+        .insert(2, (1..=10).map(|i| format!("g{i}")).collect());
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    // Four rows of code: a, b and ten ghosts are twelve.
+    let mut terminal = Terminal::new(TestBackend::new(8, 5)).unwrap();
+    let key = |c| KeyEvent::new(c, KeyModifiers::NONE);
+    let ctrl = |c| KeyEvent::new(c, KeyModifiers::CONTROL);
+    for (k, top) in [
+        (key(KeyCode::Down), (0, 0)),
+        (key(KeyCode::Down), (1, 0)),
+        (key(KeyCode::PageDown), (2, 3)),
+        (ctrl(KeyCode::Char('d')), (2, 5)),
+        (key(KeyCode::Down), (2, 6)),
+        (key(KeyCode::Down), (2, 6)),
+        (ctrl(KeyCode::End), (2, 6)),
+        (key(KeyCode::Char('w')), (2, 6)),
+    ] {
+        app.key(k);
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        assert_eq!((app.line, (app.top_line, app.top_row)), (1, top), "{k:?}");
+    }
+    assert_eq!(
+        rows(&terminal)[..4],
+        ["\u{258e}g7", "\u{258e}g8", "\u{258e}g9", "\u{258e}g10"]
+    );
+    // Up leaves the last line, and the view comes back to the cursor.
+    app.key(key(KeyCode::Up));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!((app.line, app.top_line, app.top_row), (0, 0, 0));
+    assert_eq!(terminal.get_cursor_position().unwrap().y, 0);
+}
+
 #[test]
 fn git_marks_sit_between_the_number_and_the_text() {
     let mut app = App::new(

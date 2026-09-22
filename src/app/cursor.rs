@@ -172,6 +172,23 @@ impl App {
             self.top_row -= 1;
             return;
         }
+        // Down on the last row of the text scrolls on through the lines deleted after it, the
+        // cursor staying where it is, until the last of them is on the bottom row.
+        if n > 0 && self.at_text_end() {
+            let (end, bottom) = (self.buf.lines.len(), self.bottom_top());
+            for _ in 0..n {
+                let (l, r) = (self.top_line, self.top_row);
+                if (l, r) >= bottom {
+                    break;
+                }
+                (self.top_line, self.top_row) = if l < end && r + 1 == self.row_count(l) {
+                    (l + 1, 0)
+                } else {
+                    (l, r + 1)
+                };
+            }
+            return;
+        }
         let cur = (self.line, self.cursor_row());
         let (mut line, mut row) = if n < 0 {
             self.back_rows(cur, n.unsigned_abs())

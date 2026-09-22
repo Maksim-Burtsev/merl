@@ -478,7 +478,7 @@ impl App {
             self.wrap_toggled.insert(path);
         }
         // The top row and the column Up / Down aim at were counted in the other layout.
-        self.top_row = self.top_row.min(self.row_count(self.top_line) - 1);
+        self.clamp_top();
         self.sync_want_x();
         self.message = if self.nowrap() {
             "wrap off, the view follows the cursor".into()

@@ -148,9 +148,10 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         skip = 0;
         l += 1;
     }
-    // Lines deleted at the end of the file sit under the last line.
+    // Lines deleted at the end of the file sit under the last line, and the view can scroll
+    // on into them: `skip` is still the top row then.
     if l == app.buf.lines.len() {
-        for text in app.diff.ghosts.get(&l).into_iter().flatten() {
+        for text in app.diff.ghosts.get(&l).into_iter().flatten().skip(skip) {
             if lines.len() < area.height as usize {
                 lines.push(ghost_row(text));
             }
