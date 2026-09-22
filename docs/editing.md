@@ -12,7 +12,8 @@ Home / End move, Shift+arrows select. The letter commands are letters again once
 the chord aliases (Ctrl+E, Ctrl+F, Ctrl+G, F12) work while editing. Find, go to line and a
 cancelled prompt or picker bring you back to editing; an entry accepted in a picker ends it.
 
-Typing over a selection replaces it, Backspace and Delete remove it. Alt+Backspace and Alt+Delete
+Typing over a selection replaces it, Backspace and Delete remove it; Tab over a selection of more
+than one line indents every line it touches instead, in one undo step. Alt+Backspace and Alt+Delete
 (Option on a Mac) delete a word back and forward, here and in the prompts. Ctrl+C and Ctrl+X copy and
 cut the selection (or the whole line without one) to the system clipboard through the terminal
 (OSC 52: Ghostty, kitty, WezTerm, agterm, and iTerm2 once "Applications in terminal may access
