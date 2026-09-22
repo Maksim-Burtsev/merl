@@ -105,22 +105,30 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     if let Some(c) = CALL.captures(e) {
         let open = c.get(0).unwrap().end() - 1;
         let name = c[2].to_owned();
+        // The arguments, from the bracket at `open` to the one that closes it. `None` when the
+        // call wraps onto the next lines: the arguments are not on this line to read, so the
+        // three arms below that read them give `Unknown` and `d` falls back (#178).
+        let args = close_of(kind, e, open).map(|end| e[open + 1..end - 1].trim());
         return match (ends(open), c.get(1).is_some()) {
             (false, _) => Value::Unknown,
             (true, true) if kind == Kind::TsJs => Value::New(name),
-            (true, false) if kind == Kind::Go && name == "new" => {
-                let inner = &e[open + 1..e.len().saturating_sub(1)];
-                Value::New(inner.trim().to_owned())
-            }
+            (true, false) if kind == Kind::Go && name == "new" => match args {
+                Some(inner) => Value::New(inner.to_owned()),
+                None => Value::Unknown,
+            },
             (true, false) if kind == Kind::Python && matches!(&*name, "cast" | "typing.cast") => {
-                let inner = &e[open + 1..e.len().saturating_sub(1)];
-                Value::Cast(name, split_top(kind, inner, b',')[0].trim().to_owned())
+                match args {
+                    Some(inner) => {
+                        Value::Cast(name, split_top(kind, inner, b',')[0].trim().to_owned())
+                    }
+                    None => Value::Unknown,
+                }
             }
             // `make([]*Repo, 0, n)` writes the type of what it makes.
-            (true, false) if kind == Kind::Go && name == "make" => {
-                let inner = &e[open + 1..e.len().saturating_sub(1)];
-                Value::Type(split_top(kind, inner, b',')[0].trim().to_owned())
-            }
+            (true, false) if kind == Kind::Go && name == "make" => match args {
+                Some(inner) => Value::Type(split_top(kind, inner, b',')[0].trim().to_owned()),
+                None => Value::Unknown,
+            },
             (true, false) => Value::Call(name),
             (true, true) => Value::Unknown,
         };

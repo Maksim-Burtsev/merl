@@ -1,6 +1,6 @@
 # merl — notes for agents
 
-- `src/app.rs` `KEYS` is the single source of truth for the key bindings: the `?` overlay, the
+- `src/app/mod.rs` `KEYS` is the single source of truth for the key bindings: the `?` overlay, the
   README `## Keys` table (a test compares them) and the tutorial all derive from it.
 - `merl --tutor` (`src/tutor.rs`, sample project in `tutor/notes/`) teaches the navigation keys.
   When you add, remove or rebind a key, or change what an overlay or jump does, update the
