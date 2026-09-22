@@ -78,6 +78,56 @@ fn tab_follows_the_file_and_unicode_edits_stay_on_boundaries() {
     assert_eq!(a.line_str(), "\tif x:");
 }
 
+/// #176: Tab went through `insert`, so over a selection of several lines it replaced them
+/// with one indent and autosave wrote the file without them.
+#[test]
+fn tab_over_a_selection_of_several_lines_indents_them() {
+    let mut a = app("a = 1\nb = 2\nc = 3\n");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
+    // The line the selection ends on at column 0 is not indented, as in VS Code.
+    assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
+    // The same lines are still selected, so a second Tab indents them again.
+    assert_eq!(a.selection(), Some(((0, 0), (2, 0))));
+    press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
+    assert_eq!(a.buf.lines, ["        a = 1", "        b = 2", "c = 3"]);
+    // One undo step each, and the lines are never lost.
+    press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+    assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
+    press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+    assert_eq!(a.buf.lines, ["a = 1", "b = 2", "c = 3"]);
+}
+
+#[test]
+fn tab_indents_from_the_file_own_indent_and_keeps_the_selected_text() {
+    // Ends that stand inside a line move with the text they stand in: the selection below
+    // starts after `a` and ends after `b`, and it still does once both lines are indented.
+    let mut a = app("a = 1\nb = 2\nc = 3\n");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+    assert_eq!(a.selection(), Some(((0, 1), (1, 2))));
+    press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
+    assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
+    assert_eq!(a.selection(), Some(((0, 5), (1, 6))));
+    // A file written with tabs is indented with a tab.
+    let mut a = app("\tif x:\n\t\tpass\nend\n");
+    assert!(a.buf.tabs);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
+    assert_eq!(a.buf.lines, ["\t\tif x:", "\t\tpass", "end"]);
+    // A selection inside one line is still replaced, as any typed letter replaces it.
+    let mut a = app("a = 1\nb = 2\n");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+    press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
+    assert_eq!(a.buf.lines, ["     = 1", "b = 2"]);
+}
+
 #[test]
 fn alt_backspace_and_alt_delete_take_a_word_in_one_undo_step() {
     let mut a = app("x_1 = да мир;\nnext\n");

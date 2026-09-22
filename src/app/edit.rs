@@ -74,7 +74,15 @@ impl App {
                 let indent = &head[..head.len() - head.trim_start().len()];
                 self.insert(&format!("\n{indent}"));
             }
-            KeyCode::Tab => self.insert(if self.buf.tabs { "\t" } else { buffer::TAB }),
+            KeyCode::Tab => {
+                let indent = if self.buf.tabs { "\t" } else { buffer::TAB };
+                match self.selection() {
+                    // Over lines Tab indents them, as in VS Code; over a piece of one line it
+                    // is typed in place of it, as any other letter is.
+                    Some((from, to)) if to.0 > from.0 => self.indent(from, to, indent),
+                    _ => self.insert(indent),
+                }
+            }
             KeyCode::Backspace | KeyCode::Delete if self.selection().is_some() => self.insert(""),
             // Option+Backspace / Option+Delete: up to where Alt+Left / Right would land.
             KeyCode::Backspace | KeyCode::Delete if alt => {
@@ -125,6 +133,35 @@ impl App {
         self.replace(from, to, text);
     }
 
+    /// Tab over a selection of more than one line: one indent at the start of every line the
+    /// selection touches, in one undo step. A line where the selection ends at column 0 is not
+    /// touched, as in VS Code.
+    fn indent(&mut self, from: (usize, usize), to: (usize, usize), indent: &str) {
+        let last = if to.1 == 0 { to.0 - 1 } else { to.0 };
+        let text = (from.0..=last)
+            .map(|l| format!("{indent}{}", self.buf.lines[l]))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let (anchor, cursor) = (self.anchor, (self.line, self.col));
+        let end = (last, self.buf.lines[last].len());
+        // One step of its own: not merged into the typing before it, and not extended by the
+        // typing after it.
+        self.undo_break = true;
+        let indented = self.replace((from.0, 0), end, &text);
+        self.undo_break = true;
+        // The selection keeps the text it had. A position at the start of a line stays there,
+        // so the lines stay whole and a second Tab indents the same ones again.
+        let moved = |(l, c): (usize, usize)| match (from.0..=last).contains(&l) && c > 0 {
+            true => (l, c + indent.len()),
+            false => (l, c),
+        };
+        if indented {
+            self.anchor = anchor.map(moved);
+            (self.line, self.col) = moved(cursor);
+            self.sync_want_x();
+        }
+    }
+
     /// Text the terminal pasted (Cmd+V): inserted while editing, typed into a prompt or a picker
     /// query (its first line), ignored in navigation, where every letter is a command.
     pub fn paste(&mut self, text: &str) {
@@ -142,8 +179,9 @@ impl App {
     /// The one way the text changes: what lies between `from` and `to` (ordered (line, col))
     /// becomes `text`, and the cursor lands after it. Recorded for undo; typing that carries
     /// on where the previous step ended extends that step, as VS Code groups keystrokes. Refused,
-    /// with the reason in the status bar, where `locked` says the text cannot change.
-    fn replace(&mut self, from: (usize, usize), to: (usize, usize), text: &str) {
+    /// with the reason in the status bar, where `locked` says the text cannot change; returns
+    /// whether the text changed, which a caller that moves the cursor itself has to know.
+    fn replace(&mut self, from: (usize, usize), to: (usize, usize), text: &str) -> bool {
         let before = (self.line, self.col);
         let old: Vec<String> = self.buf.lines[from.0..=to.0].to_vec();
         let head = &old[0][..from.1];
@@ -157,7 +195,7 @@ impl App {
         new[last].push_str(tail);
         if let Some(why) = self.locked(old.iter().chain(&new)) {
             self.message = why;
-            return;
+            return false;
         }
         self.buf.lines.splice(from.0..=to.0, new.iter().cloned());
         (self.line, self.col) = (from.0 + last, col);
@@ -183,6 +221,7 @@ impl App {
         self.undo_break = false;
         self.redo.clear();
         self.touched(from.0);
+        true
     }
 
     /// Ctrl+Z / Ctrl+Y: swaps one step between the two stacks and applies it.
