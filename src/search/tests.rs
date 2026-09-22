@@ -4047,26 +4047,33 @@ fn whole_word_excludes_longer_identifiers() {
 }
 
 #[test]
-fn smart_case_only_ignores_case_for_lowercase_patterns() {
+fn ignore_case_finds_every_spelling() {
     let (dir, files) = project("case");
-    // Lowercase: `total`, `total_foobar` and Go's `Total`.
+    let all = [
+        ("a.py".into(), 2),
+        ("a.py".into(), 11),
+        ("a.py".into(), 12),
+        ("b.go".into(), 5),
+    ];
+    // `total`, `total_foobar` and Go's `Total`, whichever letters of the query are capitals:
+    // `sameCancel` typed from memory must find `SameCancel`.
+    assert_eq!(lines(&grep(&dir, &files, "total", false, true)), all);
+    assert_eq!(lines(&grep(&dir, &files, "Total", false, true)), all);
+    assert_eq!(lines(&grep(&dir, &files, "tOTAL", false, true)), all);
+    // `u` and `d` look for a word taken from the code: they keep its case.
     assert_eq!(
-        lines(&grep(&dir, &files, "total", false, true)),
-        [
-            ("a.py".into(), 2),
-            ("a.py".into(), 11),
-            ("a.py".into(), 12),
-            ("b.go".into(), 5)
-        ]
-    );
-    // One uppercase letter makes the whole pattern case-sensitive.
-    assert_eq!(
-        lines(&grep(&dir, &files, "Total", false, true)),
+        lines(&grep(&dir, &files, "Total", false, false)),
         [("b.go".into(), 5)]
     );
-    // Without smart case a lowercase pattern stays case-sensitive too.
     assert_eq!(lines(&grep(&dir, &files, "invoice", false, false)), []);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn fuzzy_match_ignores_case_even_with_a_capital() {
+    assert!(fuzzy_match("sameCancel", "SameCancel"));
+    assert!(fuzzy_match("SC", "sameCancel"));
+    assert!(!fuzzy_match("sameCancel", "SameCall"));
 }
 
 #[test]

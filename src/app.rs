@@ -1517,7 +1517,8 @@ impl App {
     }
 
     /// Recompiles the query and moves to the first match at or after the anchor.
-    /// The query is literal text with smart case, as in VS Code: `migrator(` hits `Migrator()`.
+    /// The query is literal text and ignores case: `migrator(` hits `Migrator()`, `sameCancel`
+    /// hits `SameCancel`.
     fn refresh_find(&mut self) {
         if self.prompt.is_empty() {
             // Nothing to match: drop the previous pattern so its highlights go with it,
@@ -1528,9 +1529,8 @@ impl App {
             self.go_to_match(l, c);
             return;
         }
-        let insensitive = !self.prompt.chars().any(char::is_uppercase);
         let re = RegexBuilder::new(&regex::escape(&self.prompt))
-            .case_insensitive(insensitive)
+            .case_insensitive(true)
             .build()
             .expect("an escaped literal always compiles");
         let (l, c) = self.find_anchor;
@@ -1548,7 +1548,7 @@ impl App {
         self.find_query = self.prompt.to_string();
     }
 
-    /// `3/17`: which match the cursor is on, out of how many in the file.
+    /// `3/17`: which match the cursor is on, out of how many in the file; `no match` for none.
     fn match_count(&self, re: &Regex) -> String {
         let (mut at, mut total) = (0, 0);
         for (l, text) in self.buf.lines.iter().enumerate() {
@@ -1558,6 +1558,9 @@ impl App {
                     at = total;
                 }
             }
+        }
+        if total == 0 {
+            return "no match".into();
         }
         format!("{at}/{total}")
     }
@@ -1643,11 +1646,11 @@ impl App {
         &self,
         pattern: &str,
         whole_word: bool,
-        smart_case: bool,
+        ignore_case: bool,
         wanted: impl Fn(&Path) -> bool,
     ) -> anyhow::Result<Vec<Hit>> {
         self.grep_job(0, pattern, wanted)
-            .run(whole_word, smart_case)
+            .run(whole_word, ignore_case)
     }
 
     /// Everything a grep for `pattern` needs, owned, so it can run in a thread.
@@ -1699,9 +1702,9 @@ impl App {
             .collect()
     }
 
-    /// `s`: the result picker, empty, with the query as its input line. The hits are a
-    /// smart-case grep for the query as typed, over every file, refreshed as it changes. Literal
-    /// like `/`: `foo(` finds the calls and the definition, not a regex error.
+    /// `s`: the result picker, empty, with the query as its input line. The hits are a grep for
+    /// the query as typed, ignoring case, over every file, refreshed as it changes. Literal like
+    /// `/`: `foo(` finds the calls and the definition, not a regex error.
     fn start_search(&mut self) {
         self.show_picker(PickerKind::Search, Vec::new());
         if let Some(p) = &mut self.picker {
@@ -4615,19 +4618,19 @@ pub struct SearchJob {
 }
 
 impl SearchJob {
-    fn run(&self, whole_word: bool, smart_case: bool) -> anyhow::Result<Vec<Hit>> {
+    fn run(&self, whole_word: bool, ignore_case: bool) -> anyhow::Result<Vec<Hit>> {
         search::grep_project(
             &self.root,
             &self.files,
             &self.pattern,
             whole_word,
-            smart_case,
+            ignore_case,
             self.current.as_deref(),
             self.unsaved.as_deref(),
         )
     }
 
-    /// The rows the answer becomes: the lines `s` found, smart case and the query anywhere in
+    /// The rows the answer becomes: the lines `s` found, any case and the query anywhere in
     /// them, or the declarations `D` lists.
     pub fn items(&self) -> Vec<PickItem> {
         if self.symbols {
@@ -12695,7 +12698,7 @@ mod tests {
         let cut = a.picker.as_ref().unwrap().counts().1 as usize;
         assert_eq!(cut, search::MAX_HITS + 1, "a stale answer settles nothing");
 
-        // Smart case, as everywhere else: an all-lowercase query finds both spellings.
+        // Case is ignored, as everywhere else: the query finds both spellings.
         a.settle_search();
         let p = a.picker.as_mut().unwrap();
         assert_eq!(p.counts(), (2, 2));
@@ -12706,13 +12709,12 @@ mod tests {
         // nucleo ranks and marks what the grep brought back, as it does under the cap.
         assert_eq!(rows[0].matched, [0, 1, 2, 3, 4]);
 
-        // One capital of its own makes the query case-sensitive, before the picker sees it.
+        // A capital of its own does not make the query exact: `zeBra` still finds both (#174).
         press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
-        typed(&mut a, "Zebra");
+        typed(&mut a, "zeBra");
         a.settle_search();
         let p = a.picker.as_mut().unwrap();
-        assert_eq!(p.counts(), (1, 1));
-        assert_eq!(p.window(5).0[0].item.label, "Zebra  z.go:2");
+        assert_eq!(p.counts(), (2, 2));
 
         press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
         a.settle_search();
@@ -12839,19 +12841,35 @@ mod tests {
     }
 
     #[test]
-    fn find_is_smart_case() {
-        let mut a = app("foo\nFoo\nbar\n");
-        // An all-lowercase query is case-insensitive: it stops on `Foo` under the anchor.
+    fn find_ignores_case() {
+        let mut a = app("foo\nFoo\nbar\nfmt.Println(SameCancel(a, b))\n");
+        // A lowercase query stops on `Foo` under the anchor.
         a.line = 1;
         find(&mut a, "foo");
         assert_eq!((a.line, a.col), (1, 0));
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
         assert_eq!(a.mode, Mode::Normal);
 
-        // One uppercase letter makes it case-sensitive: `foo` on line 1 is skipped.
+        // So does a capital: `Foo` stops on `foo` under the anchor.
         a.line = 0;
         find(&mut a, "Foo");
-        assert_eq!((a.line, a.col), (1, 0));
+        assert_eq!((a.line, a.col), (0, 0));
+        assert_eq!(a.message, "1/2");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+
+        // A camelCase name typed with the wrong first letter (#174).
+        find(&mut a, "sameCancel");
+        assert_eq!((a.line, a.col), (3, 12));
+        assert_eq!(a.message, "1/1");
+    }
+
+    #[test]
+    fn reopening_find_on_a_pattern_with_no_match_says_so() {
+        let mut a = app("foo\n");
+        find(&mut a, "bar");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+        assert_eq!((&*a.prompt, a.message.as_str()), ("bar", "no match"));
     }
 
     #[test]

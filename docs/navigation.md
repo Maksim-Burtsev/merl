@@ -354,10 +354,11 @@ and the query filters them, as before.
 
 ## `/` and `s`: search
 
-Searches are smart-case — an all-lowercase query ignores case, one uppercase letter makes it
-case-sensitive — and `/` and `s` look for the text as typed: `foo(` finds the calls and the
-definition, `a.b` only `a.b`. There is no regex mode. `s` lists its hits while you type, the open
-file's first; Up / Down pick one and Enter jumps to it.
+Searches ignore case, capitals in the query included: `sameCancel` finds `SameCancel` in `/`,
+`s`, `D` and `o` alike. `/` and `s` look for the text as typed: `foo(` finds the calls and the
+definition, `a.b` only `a.b`. There is no regex mode and no case switch; `u` lists the uses of a
+word in its exact case. `s` lists its hits while you type, the open file's first; Up / Down pick
+one and Enter jumps to it.
 
 ## `u`: usages
 

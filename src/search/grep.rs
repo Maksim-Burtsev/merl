@@ -27,12 +27,12 @@ pub fn grep_project(
     files: &[PathBuf],
     pattern: &str,
     whole_word: bool,
-    smart_case: bool,
+    ignore_case: bool,
     current: Option<&Path>,
     unsaved: Option<&[u8]>,
 ) -> Result<Vec<Hit>> {
     let matcher = RegexMatcherBuilder::new()
-        .case_smart(smart_case)
+        .case_insensitive(ignore_case)
         .word(whole_word)
         .build(pattern)
         .with_context(|| format!("bad pattern `{pattern}`"))?;
