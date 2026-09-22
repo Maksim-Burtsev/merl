@@ -39,6 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   column instead of saying no such file; the column counts chars and stops at the end of the line.
   `FILE:LINE:` and a whole grep line quoted as one argument, `FILE:LINE:text`, open on the line,
   and a file really called `a:12` still opens as itself. (#161)
+- A file that is one long line — a minified bundle, a one-line JSON dump, a source map — opens
+  at once instead of freezing merl for seconds: a line longer than the 20 KB merl draws of it is
+  no longer given to the highlighter and is shown plain, as VS Code stops colouring past
+  `maxTokenizationLineLength`. The lines around it keep their colours. A 700 KB one-line
+  `app.min.js` drew its first frame in 0.03 s instead of 4.1 s, and ten arrow keys over a `/`
+  match took 0.04 s instead of 1.9 s; the `T` preview and the picker rows that quote such a line
+  parsed it too, and no longer do. (#184)
 
 ## [0.6.0] - 2026-09-21
 
