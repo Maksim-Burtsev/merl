@@ -350,6 +350,7 @@ mod tests {
         "Ctrl+Home / Ctrl+End",
         // Review mode only: the sample project has no branch to review.
         "c / C",
+        "m",
         "Tree: Up / Down",
         "Tree: Enter",
         "Tree: Left / Right",

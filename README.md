@@ -66,7 +66,8 @@ those two things out of the box, with nothing to configure and nothing to switch
   standard library and the dependencies.
 - **Review a branch.** `merl --review` draws the branch's diff over the real files, so from any
   changed line you can look up what it calls and who else uses it. It stays current while the
-  agent keeps working. [A review, step by step](docs/a-day-with-merl.md).
+  agent keeps working, and a file you have walked through gets a tick that goes when the file
+  changes. [A review, step by step](docs/a-day-with-merl.md).
 
   <img src="assets/review.gif" alt="merl --review on an agent's branch: c walks the hunks and on into the file where a function was rewritten, the deleted lines standing in grey above the new ones; Alt+Right hops word by word onto the new call, d goes into the helper the branch added and d again into the engine it queries, [ [ comes back to the hunk, and c walks the rest of the branch, down to the test the agent wrote" width="900">
 
@@ -125,6 +126,7 @@ The dozen you will use every day. `?` inside merl shows the rest.
 | u / Shift+F12 | Usages of the word under the cursor |
 | [ / ] | Back / forward in the jump history |
 | c / C | Review: next / previous hunk, on to the next file |
+| m | Review: mark the file as viewed, or take the mark off |
 | : / Ctrl+G | Go to line |
 | t | Show or hide the file tree |
 | T | Pick a theme (live preview) |
