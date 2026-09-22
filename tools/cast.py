@@ -135,7 +135,9 @@ def render(grid, cursor, fonts, cell):
                 if "r" in seg: draw.line([(mx, my), (x + cw, my)], fill=fg)
             elif rect := block(char, x, y, cw, ch):
                 draw.rectangle(rect, fill=fg)
-            elif char != " ":
+            # U+FE0F makes the emoji before it two cells wide. Read a char to a cell, the selector
+            # lands in the second cell, which a terminal leaves blank; Menlo would draw a box.
+            elif char not in (" ", "️"):
                 draw.text((x, y), char, font=fonts[bold + 2 * italic], fill=fg)
     return img
 
