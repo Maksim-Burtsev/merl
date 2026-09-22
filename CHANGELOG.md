@@ -51,6 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and 1 GB before the first frame, now 0.08 s and 14 MB. There the project is the files next to
   the one opened: the tree, `o`, `s`, `u` and `d` see them and nothing below. `merl DIR`, plain
   `merl` and a file inside a repository open the whole project as before. (#182)
+- A file that starts with a UTF-8 byte order mark, as Visual Studio writes C# files and many
+  Windows tools write scripts and exports, keeps the mark as its first bytes. It was the first
+  character of line 1, so a line added at the top went in front of it, and the file stopped
+  compiling (`invalid non-printable character U+FEFF`); Delete at 1:1 deleted the mark, and Right
+  stepped over nothing. A file without the mark never gains one. (#177)
 
 ## [0.6.0] - 2026-09-21
 
