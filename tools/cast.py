@@ -103,6 +103,17 @@ def parse(capture, cols, rows):
     return (grid + [blank] * rows)[:rows]
 
 
+def block(char, x, y, cw, ch):
+    """The rectangle a block element fills, as a terminal draws it: to the edges of the cell.
+    Menlo's glyphs stop short of them, and merl's gutter bars would break between the rows."""
+    n = ord(char) - 0x2580
+    if 1 <= n <= 8:  # ▁ … █, the lower n eighths
+        return [x, y + ch - ch * n // 8, x + cw - 1, y + ch - 1]
+    if 9 <= n <= 15:  # ▉ … ▏, the left 16 - n eighths
+        return [x, y, x + cw * (16 - n) // 8 - 1, y + ch - 1]
+    return None
+
+
 def render(grid, cursor, fonts, cell):
     cw, ch = cell
     img = Image.new("RGB", (len(grid[0]) * cw, len(grid) * ch), DEFAULT_BG)
@@ -122,6 +133,8 @@ def render(grid, cursor, fonts, cell):
                 if "d" in seg: draw.line([(mx, my), (mx, y + ch)], fill=fg)
                 if "l" in seg: draw.line([(x, my), (mx, my)], fill=fg)
                 if "r" in seg: draw.line([(mx, my), (x + cw, my)], fill=fg)
+            elif rect := block(char, x, y, cw, ch):
+                draw.rectangle(rect, fill=fg)
             elif char != " ":
                 draw.text((x, y), char, font=fonts[bold + 2 * italic], fill=fg)
     return img
@@ -274,6 +287,9 @@ def main():
         written.seek(written.n_frames - 1)
         colours = len(written.convert("RGB").getcolors(1 << 20))
         assert colours > 16, "last frame has %d colours: the palette collapsed" % colours
+        red = (255, 0, 0)
+        bar = render([[("\u258e", red, DEFAULT_BG, False, False)]] * 2, None, fonts, cell)
+        assert all(bar.getpixel((0, y)) == red for y in range(bar.height)), "the ▎ bar has gaps"
         print("selftest ok")
 
 
