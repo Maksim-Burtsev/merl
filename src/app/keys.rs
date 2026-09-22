@@ -15,7 +15,7 @@ impl App {
         if !quit {
             self.quit_again = false;
             tutor::check(self);
-            return false;
+            return crate::drill_prototype::check(self, key);
         }
         if self.flush() || std::mem::replace(&mut self.quit_again, true) {
             return true;

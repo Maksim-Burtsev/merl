@@ -10,6 +10,8 @@ mod search;
 mod theme;
 mod tree;
 mod tutor;
+// PROTOTYPE for #194, throwaway.
+mod drill_prototype;
 mod ui;
 mod wrap;
 
@@ -70,6 +72,9 @@ struct Cli {
     /// Walk through every key on a bundled sample project (ignores the target)
     #[arg(long)]
     tutor: bool,
+    /// PROTOTYPE (#194): N tasks without the key named; `MERL_DRILL=A|B|C` picks the look
+    #[arg(long, value_name = "N", num_args = 0..=1, default_missing_value = "20")]
+    drill: Option<usize>,
     /// Review the checked-out branch (or `--review=BRANCH` to switch to it first): its files
     /// in the panel, its diff over the code, c / C between hunks
     #[arg(
@@ -98,7 +103,7 @@ fn run() -> Result<()> {
     let name = cli.theme.clone().unwrap_or(config.theme);
     let theme = theme::load(&name)?;
 
-    let (mut root, mut file, line) = if cli.tutor {
+    let (mut root, mut file, line) = if cli.tutor || cli.drill.is_some() {
         (tutor::extract()?, None, None)
     } else {
         resolve(cli.target.as_deref())?
@@ -142,6 +147,14 @@ fn run() -> Result<()> {
         app.show_tree = false;
         app.focus = Focus::Code;
         app.tutor = Some(Tutor { step: 0, dir });
+    } else if let Some(n) = cli.drill {
+        app.show_tree = false;
+        app.focus = Focus::Code;
+        // The first task opens a file before the first frame has measured the view.
+        let (w, h) = terminal::size().unwrap_or((80, 24));
+        (app.view_w, app.view_h) = (w as usize, h.saturating_sub(4) as usize);
+        app.drill = Some(drill_prototype::Drill::new(dir, n));
+        drill_prototype::start(&mut app);
     }
 
     let mut terminal = ratatui::try_init()?;
@@ -210,6 +223,12 @@ fn run() -> Result<()> {
     // Runs even when the loop returned an error: the sample project is ours to clean up.
     if let Some(t) = &app.tutor {
         let _ = std::fs::remove_dir_all(&t.dir);
+    }
+    if let Some(d) = &app.drill {
+        let _ = std::fs::remove_dir_all(&d.dir);
+        if d.over && d.variant == drill_prototype::Variant::B {
+            print!("{}", drill_prototype::summary(d));
+        }
     }
     result
 }
@@ -396,7 +415,9 @@ fn event_loop(
                     }
                 };
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                dirty |= app.drill.as_ref().is_some_and(|d| d.ticks());
+            }
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
         }
     }

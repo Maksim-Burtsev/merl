@@ -248,6 +248,8 @@ pub struct App {
     center: bool,
     /// `--tutor` only: the running tutorial. `None` in a normal session.
     pub tutor: Option<Tutor>,
+    /// PROTOTYPE (#194): `--drill` only.
+    pub drill: Option<crate::drill_prototype::Drill>,
     /// First row of the `?` overlay, clamped by `ui`.
     pub help_top: usize,
     /// Set by `main` when no file watcher could be started: auto-reload is off.
@@ -387,6 +389,7 @@ impl App {
             view_h: 24,
             center: false,
             tutor: None,
+            drill: None,
             help_top: 0,
             no_watch: false,
             dirty: false,

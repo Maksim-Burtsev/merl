@@ -8,6 +8,8 @@
 //!
 //! to drive every task from cold, after every other task, and print the state around each.
 
+#![allow(dead_code)]
+
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::*;
@@ -85,6 +87,36 @@ pub const POOL: &[Task] = &[
         answer: "<A-S-Right><A-S-Right><A-S-Right>",
         done: |a| selected(a).as_deref() == Some("config or load_config"),
     },
+    Task {
+        key: "[",
+        title: "Back",
+        tutor: "`d` just jumped here from store.py. `[` goes back in the jump history.",
+        drill: "Go back to where you were before this jump.",
+        setup: |a| {
+            open_at(a, "store.py", CALL_LINE, "load_config");
+            keys(a, "d");
+        },
+        answer: "[",
+        done: |a| at(a, "store.py") && a.line + 1 == CALL_LINE,
+    },
+    Task {
+        key: "}",
+        title: "Next paragraph",
+        tutor: "`}` jumps to the next blank line: the end of `remove`.",
+        drill: "Jump to the blank line after this function.",
+        setup: |a| open_at(a, "store.py", 40, ""),
+        answer: "}",
+        done: |a| at(a, "store.py") && a.line + 1 == PARA_DOWN_LINE,
+    },
+    Task {
+        key: "u",
+        title: "Usages",
+        tutor: "With the cursor on `load_config`, `u` lists every use of it.",
+        drill: "List every place `load_config` is used.",
+        setup: |a| open_at(a, "store.py", CALL_LINE, "load_config"),
+        answer: "u",
+        done: |a| a.mode == Mode::Picker(PickerKind::Usages),
+    },
 ];
 
 /// Puts `a` back where a fresh `--tutor` starts: the sample project unpacked anew (edits, new
@@ -117,7 +149,7 @@ fn open_at(a: &mut App, file: &str, line: usize, word: &str) {
 
 /// Presses `notation`: characters as typed, `<Enter>`, `<A-Right>`, `<C-z>`, `<A-S-Right>`.
 /// The picker's matcher runs to completion before every key, as the event loop's tick does.
-fn keys(a: &mut App, notation: &str) {
+pub fn keys(a: &mut App, notation: &str) {
     let mut rest = notation;
     while let Some(c) = rest.chars().next() {
         let (code, mods, len) = match rest.find('>').filter(|_| c == '<') {
@@ -135,7 +167,7 @@ fn keys(a: &mut App, notation: &str) {
     }
 }
 
-fn chord(name: &str) -> (KeyCode, KeyModifiers) {
+pub fn chord(name: &str) -> (KeyCode, KeyModifiers) {
     let mut mods = KeyModifiers::NONE;
     let mut name = name;
     while let Some((m, rest)) = name.split_once('-').filter(|(m, _)| m.len() == 1) {

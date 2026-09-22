@@ -262,9 +262,8 @@ pub fn extract() -> Result<PathBuf> {
     Ok(dir)
 }
 
-// PROTOTYPE for #190, throwaway: the shared task pool.
-#[cfg(test)]
-mod task_pool_prototype;
+// PROTOTYPE for #190, throwaway: the shared task pool. #194's drill prototype runs it.
+pub mod task_pool_prototype;
 
 #[cfg(test)]
 mod tests {
