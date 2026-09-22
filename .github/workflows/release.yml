@@ -12,6 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Tag matches Cargo.toml and CHANGELOG
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          cargo=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          [ "$tag" = "$cargo" ] || { echo "tag v$tag but Cargo.toml says $cargo"; exit 1; }
+          grep -q "^## \[$tag\]" CHANGELOG.md || { echo "CHANGELOG.md has no ## [$tag] section"; exit 1; }
       - uses: taiki-e/create-gh-release-action@v1
         with:
           changelog: CHANGELOG.md
@@ -39,3 +45,42 @@ jobs:
           tar: unix
           checksum: sha256
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Bumps Formula/merl.rb in the Homebrew tap: version, urls and the three sha256s. Needs the
+  # TAP_TOKEN secret, a token with contents:write on Maksim-Burtsev/homebrew-tap; skipped without it.
+  bump-tap:
+    needs: upload-assets
+    runs-on: ubuntu-latest
+    env:
+      TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+    steps:
+      - if: env.TAP_TOKEN != ''
+        uses: actions/checkout@v7
+        with:
+          repository: Maksim-Burtsev/homebrew-tap
+          token: ${{ secrets.TAP_TOKEN }}
+      - if: env.TAP_TOKEN != ''
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          gh release download "$GITHUB_REF_NAME" --repo Maksim-Burtsev/merl --pattern '*.sha256'
+          python3 - "$version" <<'PY'
+          import re, sys, pathlib
+          version = sys.argv[1]
+          formula = pathlib.Path("Formula/merl.rb")
+          text = formula.read_text()
+          old = re.search(r'^  version "(.*)"', text, re.M).group(1)
+          text = text.replace(old, version)
+          for f in pathlib.Path(".").glob("merl-*.sha256"):
+              target = f.name[len("merl-"):-len(".sha256")]
+              sha = f.read_text().split()[0]
+              # The sha256 line follows the url line that names the target.
+              text = re.sub(rf'({re.escape(target)}\.tar\.gz"\n\s*sha256 ")[0-9a-f]+', rf"\g<1>{sha}", text)
+          formula.write_text(text)
+          PY
+          git diff --exit-code Formula/merl.rb && { echo "formula already at $version"; exit 0; }
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git commit -am "merl $version"
+          git push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

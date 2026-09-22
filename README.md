@@ -11,6 +11,9 @@
   <a href="https://github.com/Maksim-Burtsev/merl/releases"><img src="https://img.shields.io/github/v/release/Maksim-Burtsev/merl" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Maksim-Burtsev/merl" alt="License"></a>
   <a href="https://doc.rust-lang.org/edition-guide/rust-2024/index.html"><img src="https://img.shields.io/badge/rust-2024%20edition-orange" alt="Rust 2024 edition"></a>
+  <a href="https://github.com/Maksim-Burtsev/merl/commits/master"><img src="https://img.shields.io/github/last-commit/Maksim-Burtsev/merl" alt="Last commit"></a>
+  <a href="https://github.com/Maksim-Burtsev/homebrew-tap/blob/master/Formula/merl.rb"><img src="https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2FMaksim-Burtsev%2Fhomebrew-tap%2Fmaster%2FFormula%2Fmerl.rb&search=version%20%22(%5B%5E%22%5D%2B)%22&replace=%241&label=homebrew" alt="Homebrew tap version"></a>
+  <img src="https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-lightgrey" alt="macOS and Linux">
 </p>
 
 An agent works in one terminal split. merl sits in the other. You read what the agent wrote, walk
