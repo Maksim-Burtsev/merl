@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `merl --keys` prints how often each key has been pressed, in the last 30 days and in all,
+  and when it was last: strongest first, so the keys you never press sit right above the prompt.
+  merl counts them as you work, `--review` included, and adds the session's numbers to
+  `~/.local/state/merl/keys.tsv` on exit; typing counts nothing, and neither does `--tutor`.
+  An alias counts as its key: Ctrl+E as `o`. (#207)
 - Review: a file `c` has walked to the end gets a tick in the panel, the last file on the `c`
   that has nowhere left to go. `m` puts the tick on the open file, or the panel's row, and takes
   it off. A ticked file that changes on disk loses the tick, on screen, while the agent works.

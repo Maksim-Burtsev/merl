@@ -301,6 +301,11 @@ pub struct App {
     /// A quit was just refused over edits that could not be saved: quitting again right away
     /// leaves them behind.
     quit_again: bool,
+    /// The `KEYS` action the key being handled was routed to, named by `key_inner` for `key`.
+    action: Option<&'static str>,
+    /// Real work's presses by action, since merl started: `main` adds them to the key stats on
+    /// exit. The tutorial counts nothing.
+    pub pressed: HashMap<&'static str, u64>,
 }
 
 /// A file's lines and format as it was left, and its undo and redo stacks.
@@ -421,6 +426,8 @@ impl App {
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
             quit_again: false,
+            action: None,
+            pressed: HashMap::new(),
         };
         // The file named on the command line is asked the same question as one opened later.
         lock_no_write(&mut buf);

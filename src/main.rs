@@ -7,6 +7,7 @@ mod line_edit;
 mod live;
 mod picker;
 mod search;
+mod stats;
 mod theme;
 mod tree;
 mod tutor;
@@ -70,6 +71,9 @@ struct Cli {
     /// Walk through every key on a bundled sample project (ignores the target)
     #[arg(long)]
     tutor: bool,
+    /// Print how often each key has been pressed, the unused last, and exit
+    #[arg(long)]
+    keys: bool,
     /// Review the checked-out branch (or `--review=BRANCH` to switch to it first): its files
     /// in the panel, its diff over the code, c / C between hunks
     #[arg(
@@ -94,6 +98,12 @@ fn main() {
 
 fn run() -> Result<()> {
     let cli = Cli::parse();
+    if cli.keys {
+        let path = stats::path().context("no home directory")?;
+        // `merl --keys | head` closes the pipe early; that is no error.
+        let _ = stdout().write_all(stats::report(&path, stats::today())?.as_bytes());
+        return Ok(());
+    }
     let config = theme::config()?;
     let name = cli.theme.clone().unwrap_or(config.theme);
     let theme = theme::load(&name)?;
@@ -214,6 +224,12 @@ fn run() -> Result<()> {
     // Runs even when the loop returned an error: the sample project is ours to clean up.
     if let Some(t) = &app.tutor {
         let _ = std::fs::remove_dir_all(&t.dir);
+    }
+    // After `q` or a signal alike; a crash loses the session's presses, and only those.
+    if let Some(path) = stats::path()
+        && let Err(e) = stats::add(&path, stats::today(), &app.pressed)
+    {
+        eprintln!("merl: {e:#}");
     }
     result
 }

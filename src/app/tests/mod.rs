@@ -21,6 +21,7 @@ mod open;
 mod picker;
 mod project_search;
 mod review;
+mod stats;
 mod symbols;
 mod tree;
 mod usages;
