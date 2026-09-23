@@ -9,6 +9,12 @@ impl App {
     pub fn key(&mut self, key: KeyEvent) -> bool {
         let was = self.mode;
         let quit = self.key_inner(key);
+        // Real work only: the tutorial's presses are its lessons', not the hand's.
+        if let Some(action) = self.action.take()
+            && self.tutor.is_none()
+        {
+            *self.pressed.entry(action).or_default() += 1;
+        }
         if matches!(was, Mode::Edit | Mode::Normal) && self.mode != was {
             self.resume_edit = was == Mode::Edit && self.mode != Mode::Normal;
         }
@@ -24,6 +30,8 @@ impl App {
         false
     }
 
+    /// Routes the key, and names in `action` the `KEYS` action it was routed to, with an effect
+    /// or without: `d` on a word with no definition counts, typing counts nothing.
     fn key_inner(&mut self, key: KeyEvent) -> bool {
         if key.kind != KeyEventKind::Press {
             return false;
@@ -67,14 +75,20 @@ impl App {
 
         if ctrl && key.code == KeyCode::Char('c') && self.mode != Mode::Edit {
             // Ctrl+C is copy everywhere and never quits; a prompt or picker has nothing to copy.
+            self.action = named("", key);
             if self.mode == Mode::Normal && self.picker.is_none() {
                 self.copy();
             }
             return false;
         }
         if self.picker.is_some() {
+            self.action = named("Picker: ", key);
             self.picker_key(key);
             return false;
+        }
+        // A prompt takes every key but the Esc that closes it as typing.
+        if matches!(self.mode, Mode::Goto | Mode::Find | Mode::New) {
+            self.action = named("", key).filter(|a| *a == "Esc");
         }
         match self.mode {
             Mode::Goto => {
@@ -90,6 +104,8 @@ impl App {
                 return false;
             }
             Mode::Help => {
+                self.action = named("Help: ", key)
+                    .or_else(|| named("", key).filter(|a| matches!(*a, "Esc" | "?" | "q")));
                 match key.code {
                     KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q') => {
                         self.mode = Mode::Normal;
@@ -105,6 +121,9 @@ impl App {
 
         self.message.clear();
         if self.mode == Mode::Edit && self.edit_key(key.code, ctrl, alt) {
+            // Typing counts nothing: edit mode's own chords do, and the Esc that leaves it.
+            self.action = named("Edit: ", key)
+                .or_else(|| named("", key).filter(|a| matches!(*a, "Esc" | "Ctrl+C")));
             self.hist_note(false);
             return false;
         }
@@ -120,6 +139,10 @@ impl App {
         let paging = matches!(key.code, KeyCode::PageUp | KeyCode::PageDown)
             || ctrl && matches!(key.code, KeyCode::Char('d' | 'u'));
         let before = (self.line, self.col);
+        self.action = (self.focus == Focus::Tree)
+            .then(|| named("Tree: ", key))
+            .flatten()
+            .or_else(|| named("", key));
         match key.code {
             KeyCode::Char('q') => return true,
             KeyCode::Char('?') => {
@@ -267,4 +290,10 @@ impl App {
             }
         }
     }
+}
+
+/// The `KEYS` action `key` is where `scope` routes it: `Picker: `, `Tree: `, `Help: `, `Edit: `,
+/// or `""` for the key table itself.
+fn named(scope: &str, key: KeyEvent) -> Option<&'static str> {
+    crate::stats::action(&format!("{scope}{}", crate::stats::name(key)))
 }
