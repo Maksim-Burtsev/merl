@@ -5,7 +5,8 @@ use super::*;
 impl App {
     /// Enters review mode on a freshly built app: marks against the base, the cursor on the
     /// first hunk of the open file (unless a line was asked for).
-    pub fn start_review(&mut self, review: git::Review) {
+    pub fn start_review(&mut self, mut review: git::Review) {
+        let note = review.note.take();
         self.review = Some(review);
         self.refresh_diff();
         if let Some(path) = self.buf.path.clone() {
@@ -23,6 +24,10 @@ impl App {
             if r.files.get(skipped).is_some_and(|f| f.path == rel) {
                 self.say_skipped(skipped);
             }
+        }
+        // A branch older than what was pushed matters more than the files skipped.
+        if let Some(note) = note {
+            self.message = note;
         }
     }
 

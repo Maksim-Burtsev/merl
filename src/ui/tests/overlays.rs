@@ -367,6 +367,7 @@ fn review_panel_counts_end_at_the_border() {
             binary: false,
             untracked: false,
         }],
+        note: None,
     });
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(40, 4)).unwrap();
@@ -417,6 +418,7 @@ fn review_panel_cuts_a_long_name_and_keeps_the_counts() {
             binary: true,
             untracked: false,
         }],
+        note: None,
     });
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(40, 4)).unwrap();

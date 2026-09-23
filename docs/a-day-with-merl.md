@@ -4,8 +4,8 @@ One review, start to finish. The recordings are made by `assets/tapes/record.py`
 file next to each GIF.
 
 **1. The agent says the branch is done.** `merl --review` opens it on its first hunk. The panel
-lists what the branch touched. `merl --review=feature-x` fetches and switches first, `--base
-origin/dev` compares against another base.
+lists what the branch touched. `merl --review=feature-x` fetches it and the base first and
+checks out what was pushed, `--base origin/dev` compares against another base.
 
 <img src="../assets/day/1-review.gif" alt="merl --review opens the agent's branch on its first hunk" width="800">
 
