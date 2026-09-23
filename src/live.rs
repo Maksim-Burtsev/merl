@@ -52,6 +52,11 @@ pub struct Project {
     dirs: HashSet<PathBuf>,
     /// The rows of its tree: its directories and files, and the ignored ones in them.
     listed: HashSet<PathBuf>,
+    /// The ignored directories expanded in the tree on screen, and the rows read into them. The
+    /// tree shows what they hold, so their events count like those of a walked directory, as
+    /// VS Code watches everything; collapsed again, they are silent.
+    open: HashSet<PathBuf>,
+    read: HashSet<PathBuf>,
     changed: Debounce,
     walking: bool,
 }
@@ -63,6 +68,8 @@ impl Project {
             shallow,
             dirs: HashSet::new(),
             listed: HashSet::new(),
+            open: HashSet::new(),
+            read: HashSet::new(),
             changed: Debounce::default(),
             walking: false,
         };
@@ -75,6 +82,19 @@ impl Project {
         self.listed = tree.nodes.iter().map(|n| n.path.clone()).collect();
     }
 
+    /// The tree on screen changed: its open ignored directories are watched from now on, and
+    /// what was read into them is listed. Answers whether the open directories are others than
+    /// before, which is when [`Project::watch`] has something to do.
+    pub fn shown(&mut self, tree: &Tree) -> bool {
+        let open = tree.open_ignored();
+        let inside = tree.nodes.iter().filter(|n| n.ignored && !open.is_empty());
+        let inside = inside.filter(|n| n.path.parent().is_some_and(|d| open.contains(d)));
+        self.read = inside.map(|n| n.path.clone()).collect();
+        let moved = open != self.open;
+        self.open = open;
+        moved
+    }
+
     pub fn event(&mut self, ev: &notify::Event, now: Instant) {
         if self.concerns(ev) {
             self.changed.touch(now);
@@ -85,10 +105,10 @@ impl Project {
     /// a file created seconds ago a create. The disk does: the event counts when its path is
     /// listed and gone, or there and not listed. An event below a directory the walk did not
     /// list is inside `.git` or an ignored `target/` or `node_modules/` and never counts, so a
-    /// build running next to merl costs no walk. An ignored file in a listed directory (`.env`,
-    /// `*.pyc` beside the source) is a row too: a new one is a walk, a write to it is not. A
-    /// write to an ignore file changes what the walk lists, and a watcher that lost events asks
-    /// for a rescan.
+    /// build running next to merl costs no walk, unless the tree has that directory open. An
+    /// ignored file in a listed directory (`.env`, `*.pyc` beside the source) is a row too: a
+    /// new one is a walk, a write to it is not. A write to an ignore file changes what the walk
+    /// lists, and a watcher that lost events asks for a rescan.
     fn concerns(&self, ev: &notify::Event) -> bool {
         if matches!(ev.kind, EventKind::Access(_)) {
             return false;
@@ -101,15 +121,18 @@ impl Project {
                 let name = rel.file_name().and_then(|n| n.to_str());
                 rel.as_os_str().is_empty() // the root itself
                     || matches!(name, Some(".gitignore" | ".ignore"))
-                    || self.listed.contains(rel) != p.symlink_metadata().is_ok()
+                    || (self.listed.contains(rel) || self.read.contains(rel))
+                        != p.symlink_metadata().is_ok()
             })
     }
 
-    /// `p` relative to the root, when it is the root or in a directory the last walk listed.
+    /// `p` relative to the root, when it is the root or in a directory the last walk listed, or
+    /// in an ignored one open in the tree.
     fn in_walk<'a>(&self, p: &'a Path) -> Option<&'a Path> {
         let rel = p.strip_prefix(&self.root).ok()?;
         let dir = rel.parent().unwrap_or(rel);
-        (dir.as_os_str().is_empty() || self.dirs.contains(dir)).then_some(rel)
+        let seen = self.dirs.contains(dir) || self.open.contains(dir);
+        (dir.as_os_str().is_empty() || seen).then_some(rel)
     }
 
     /// Did something happen where the walk lists files, a plain save included? It changes no
@@ -155,7 +178,7 @@ impl Project {
             }
             return;
         }
-        let mut want = self.dirs.clone();
+        let mut want: HashSet<PathBuf> = self.dirs.union(&self.open).cloned().collect();
         want.insert(PathBuf::new());
         // A deleted directory is an error here; one that became ignored loses its watch.
         for d in watched.difference(&want) {
@@ -381,6 +404,38 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// #157: an ignored directory expanded in the tree follows the disk as VS Code's does, and
+    /// only while it is expanded.
+    #[test]
+    fn an_ignored_directory_counts_while_the_tree_has_it_open() {
+        let (dir, mut p) = project("open");
+        let (mut t, _) = tree::build(&dir, false);
+        let create = |f: &str| {
+            std::fs::write(dir.join(f), b"x").unwrap();
+            notify::Event::new(EventKind::Create(CreateKind::Any)).add_path(dir.join(f))
+        };
+        assert!(!p.shown(&t) && !p.concerns(&create("target/one")));
+        t.reveal(Path::new("target"));
+        t.expand();
+        assert!(p.shown(&t), "one more directory to watch");
+        assert!(!p.shown(&t));
+        assert!(
+            !p.concerns(&create("target/one")),
+            "read when it was expanded"
+        );
+        assert!(p.concerns(&create("target/new")));
+        let any = |f: &str| notify::Event::new(EventKind::Any).add_path(dir.join(f));
+        assert!(!p.concerns(&any("target/debug")), "a row read into it");
+        assert!(
+            !p.concerns(&create("target/debug/new")),
+            "`debug` is not open"
+        );
+        t.collapse();
+        assert!(p.shown(&t));
+        assert!(!p.concerns(&create("target/after")));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn one_walk_at_a_time_and_one_more_for_a_new_directory() {
         let (dir, mut p) = project("walks");
@@ -502,6 +557,19 @@ mod tests {
         let seen = std::iter::from_fn(|| rx.recv_timeout(Duration::from_millis(500)).ok())
             .any(|ev| ev.paths.iter().any(|f| f.starts_with(dir.join("target"))));
         assert!(!seen);
+        // Until the tree opens it.
+        let (mut t, _) = tree::build(&dir, false);
+        t.reveal(Path::new("target"));
+        t.expand();
+        assert!(p.shown(&t));
+        p.watch(&mut watcher, &mut watched);
+        std::fs::write(dir.join("target/open"), b"x").unwrap();
+        let seen = std::iter::from_fn(|| rx.recv_timeout(Duration::from_secs(5)).ok())
+            .any(|ev| ev.paths.iter().any(|f| f.ends_with("target/open")));
+        assert!(
+            seen,
+            "no event from the ignored directory the tree has open"
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

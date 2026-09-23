@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Ignored files are in the tree, dim, as in VS Code's Explorer: a `.env` no longer needs
   `merl .env` from the shell. An ignored directory such as `node_modules/` or `target/` is one
-  row, read from disk only when it is expanded. `o` offers the ignored files of the walked
+  row, read from disk only when it is expanded, and followed live only while it is. `o` offers the ignored files of the walked
   directories (`.env`, `config/local.yml`), dim and after the rest; `s`, `u` and `d` search what
   they searched before. (#157)
 - `c` / `C` outside a review do nothing and no longer say `not in review mode`. (#162)

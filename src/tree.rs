@@ -175,7 +175,7 @@ impl Tree {
         }
         fresh.away = expanded;
         // The walk leaves every ignored directory unread; an expanded one is read again.
-        fresh.read_ignored();
+        fresh.sync_ignored();
         let index: HashMap<&Path, usize> = fresh
             .nodes
             .iter()
@@ -194,13 +194,28 @@ impl Tree {
         *self = fresh;
     }
 
-    /// Reads the expanded ignored directories that have no rows below them yet, one level each.
-    /// A directory expanded before is expanded again when its parent is read.
-    fn read_ignored(&mut self) {
+    /// Has an ignored directory rows below it exactly while it is expanded: an expanded one with
+    /// none is read, one level; a collapsed one forgets its rows, so the next expand reads the
+    /// disk again. An expanded directory among the forgotten rows is expanded again when its
+    /// parent is read.
+    fn sync_ignored(&mut self) {
         let mut i = 0;
         while let Some(n) = self.nodes.get(i) {
-            let unread = self.nodes.get(i + 1).is_none_or(|c| c.depth <= n.depth);
-            if n.ignored && n.is_dir && n.expanded && unread {
+            if !(n.ignored && n.is_dir) {
+                i += 1;
+                continue;
+            }
+            let below = self.nodes[i + 1..]
+                .iter()
+                .take_while(|c| c.depth > n.depth)
+                .count();
+            if !n.expanded && below > 0 {
+                let open = self
+                    .nodes
+                    .drain(i + 1..i + 1 + below)
+                    .filter(|c| c.expanded);
+                self.away.extend(open.map(|c| c.path));
+            } else if n.expanded && below == 0 {
                 let mut level: Vec<Node> = read_level(&self.root, &n.path)
                     .into_iter()
                     .map(|(p, is_dir)| Node {
@@ -219,6 +234,15 @@ impl Tree {
     pub fn dirs(&self) -> HashSet<PathBuf> {
         let dirs = self.nodes.iter().filter(|n| n.is_dir && !n.ignored);
         dirs.map(|n| n.path.clone()).collect()
+    }
+
+    /// The expanded ignored directories: the tree shows what they hold, so it is watched.
+    pub fn open_ignored(&self) -> HashSet<PathBuf> {
+        let open = self
+            .nodes
+            .iter()
+            .filter(|n| n.ignored && n.is_dir && n.expanded);
+        open.map(|n| n.path.clone()).collect()
     }
 
     /// The ignored files right in the directories the walk went into: `.env`, `.envrc`,
@@ -277,7 +301,7 @@ impl Tree {
         {
             n.expanded = !n.expanded;
         }
-        self.read_ignored();
+        self.sync_ignored();
     }
 
     pub fn expand(&mut self) {
@@ -286,13 +310,16 @@ impl Tree {
         {
             n.expanded = true;
         }
-        self.read_ignored();
+        self.sync_ignored();
     }
 
     /// Collapses an expanded directory; otherwise jumps to the parent directory.
     pub fn collapse(&mut self) {
         match self.nodes.get_mut(self.cursor) {
-            Some(n) if n.is_dir && n.expanded => n.expanded = false,
+            Some(n) if n.is_dir && n.expanded => {
+                n.expanded = false;
+                self.sync_ignored();
+            }
             Some(n) if n.depth > 0 => {
                 let depth = n.depth;
                 if let Some(p) = self.nodes[..self.cursor]
@@ -650,6 +677,33 @@ mod tests {
         assert_eq!(
             t.ignored_files(),
             [PathBuf::from("src/local.yml"), ".env".into()]
+        );
+
+        // Collapsed, it forgets its rows; expanded again, it reads the disk as it is now, and
+        // what was open inside it opens again.
+        t.reveal(Path::new("node_modules"));
+        t.collapse();
+        assert_eq!(
+            rows(&t),
+            ["node_modules", "src", ".env", ".gitignore", "a.py", "c.py"]
+        );
+        assert_eq!(
+            t.nodes.len(),
+            7,
+            "`src/local.yml` below the collapsed `src`"
+        );
+        std::fs::write(dir.join("node_modules/pkg/new.js"), b"x").unwrap();
+        t.expand();
+        assert_eq!(
+            rows(&t)[..6],
+            [
+                "node_modules",
+                "node_modules/pkg",
+                "node_modules/pkg/lib",
+                "node_modules/pkg/lib/x.js",
+                "node_modules/pkg/index.js",
+                "node_modules/pkg/new.js",
+            ]
         );
         std::fs::remove_dir_all(&dir).unwrap();
     }

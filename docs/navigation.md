@@ -388,7 +388,9 @@ skipped.
 
 What `.gitignore` leaves out is still in the tree, dim, as in VS Code's Explorer: `.env`,
 `target/`, `node_modules/`. The walk does not go into an ignored directory; it is one row until it
-is expanded, and then it is read from disk one level at a time. `o` offers the ignored files that
+is expanded, and then it is read from disk one level at a time. While it is expanded it follows the
+disk like the rest of the tree: what `npm install` or an agent writes there shows up. Collapsed, it
+is silent again, and read anew when it next opens. `o` offers the ignored files that
 sit in a directory the walk went into, `.env` or `config/local.yml`, dim and after the rest, but
 nothing from inside `node_modules/`. `s`, `u` and `d` search only what is not ignored.
 

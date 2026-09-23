@@ -341,6 +341,12 @@ fn event_loop(
                 if app.key(k) {
                     return Ok(());
                 }
+                // An ignored directory expanded or collapsed in the tree is watched, or no more.
+                if project.shown(&app.tree)
+                    && let Some(w) = &mut project_watcher
+                {
+                    project.watch(w, &mut project_watched);
+                }
                 if let Some(text) = app.clipboard.take() {
                     // OSC 52: the terminal puts it on the system clipboard, even over ssh.
                     let mut out = stdout();
@@ -377,10 +383,12 @@ fn event_loop(
             }
             Ok(Msg::Project(tree, files)) => {
                 project.walked(&tree, Instant::now());
+                app.project_walked(tree, files);
+                // The tree read its open ignored directories again: they are listed as read.
+                project.shown(&app.tree);
                 if let Some(w) = &mut project_watcher {
                     project.watch(w, &mut project_watched);
                 }
-                app.project_walked(tree, files);
                 if let Some(r) = &mut review {
                     r.touch(Instant::now());
                 }
