@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::style::Color;
 
 use crate::app::App;
 use crate::buffer::Buffer;
@@ -12,6 +13,55 @@ use crate::search::MAX_HITS;
 use crate::tree::Tree;
 
 use super::rows;
+
+/// The colour of the first cell of `needle`, the first time it is on screen.
+fn at(terminal: &Terminal<TestBackend>, needle: &str) -> Color {
+    let buf = terminal.backend().buffer();
+    for y in 0..buf.area.height {
+        for x in 0..=buf.area.width.saturating_sub(needle.len() as u16) {
+            let got: String = (0..needle.len() as u16)
+                .map(|i| buf[(x + i, y)].symbol())
+                .collect();
+            if got == needle {
+                return buf[(x, y)].fg;
+            }
+        }
+    }
+    panic!("{needle:?} is not on screen");
+}
+
+/// #157: what `.gitignore` leaves out is dim, in the tree and in `o`.
+#[test]
+fn ignored_rows_are_dim_in_the_tree_and_in_the_file_picker() {
+    let dir = std::env::temp_dir().join(format!("merl-ui-ignored-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("node_modules")).unwrap();
+    for (f, text) in [
+        (".gitignore", "node_modules/\n.env\n"),
+        (".env", "PORT=1\n"),
+        ("app.py", "x = 1\n"),
+        ("node_modules/pkg.js", "x\n"),
+    ] {
+        std::fs::write(dir.join(f), text).unwrap();
+    }
+    let (tree, files) = crate::tree::build(&dir, false);
+    let mut app = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(at(&terminal, "node_modules"), theme.ghost_fg);
+    assert_eq!(at(&terminal, ".env"), theme.ghost_fg);
+    assert_eq!(at(&terminal, "app.py"), theme.fg);
+
+    app.show_tree = false;
+    app.key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::NONE));
+    app.picker.as_mut().unwrap().settle();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(at(&terminal, ".env"), theme.ghost_fg);
+    assert_eq!(at(&terminal, "app.py"), theme.fg);
+    assert!(!rows(&terminal).join("\n").contains("pkg.js"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
 
 /// Text a reader has to read is never `gutter_fg`: that is the line numbers' colour, under
 /// 2:1 against the background in most themes (#146). The `?` overlay's actions and the
@@ -28,21 +78,6 @@ fn help_actions_and_the_narrow_hint_are_drawn_in_the_readable_grey() {
             None,
         )
     };
-    let at = |terminal: &Terminal<TestBackend>, needle: &str| {
-        let buf = terminal.backend().buffer();
-        for y in 0..buf.area.height {
-            for x in 0..=buf.area.width.saturating_sub(needle.len() as u16) {
-                let got: String = (0..needle.len() as u16)
-                    .map(|i| buf[(x + i, y)].symbol())
-                    .collect();
-                if got == needle {
-                    return buf[(x, y)].fg;
-                }
-            }
-        }
-        panic!("{needle:?} is not on screen");
-    };
-
     let mut app = mk();
     app.mode = crate::app::Mode::Help;
     let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();

@@ -11,7 +11,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::app::{App, Focus, Mode};
+use crate::app::{App, Focus, Mode, PickerKind};
 use crate::buffer::{Buffer, Spans};
 use crate::picker::PickItem;
 use crate::search::MAX_HITS;
@@ -134,8 +134,15 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 text.push_str(&" ".repeat(gap));
                 text.push_str(&counts);
             }
-            // Directories carry the accent: they are what the eye scans the tree by.
-            let row = if n.is_dir { accent } else { base };
+            // Directories carry the accent: they are what the eye scans the tree by. What
+            // `.gitignore` leaves out is dim, directory or not.
+            let row = if n.ignored {
+                base.fg(theme.ghost_fg)
+            } else if n.is_dir {
+                accent
+            } else {
+                base
+            };
             let style = if i != app.tree.cursor {
                 row
             } else if focused {
@@ -211,10 +218,17 @@ pub(super) fn draw_picker(
 
     let (rows, selected) = picker.window(list.height as usize);
     let width = list.width as usize;
+    let files = app.mode == Mode::Picker(PickerKind::Files);
     let lines: Vec<Line> = rows
         .iter()
         .enumerate()
         .map(|(i, row)| {
+            // An ignored file is dim, as in the tree.
+            let base = if files && app.ignored.contains(&row.item.path) {
+                base.fg(theme.ghost_fg)
+            } else {
+                base
+            };
             let style = if i == selected {
                 base.bg(theme.line_hl)
             } else {

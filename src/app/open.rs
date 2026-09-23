@@ -155,6 +155,7 @@ impl App {
     /// around its cursor. The review panel lists the branch, not the walk, and is left alone.
     pub fn project_walked(&mut self, tree: Tree, files: Vec<PathBuf>) {
         self.files = files;
+        self.ignored = tree.ignored_files();
         if self.review.is_none() {
             self.refresh_tree(tree);
         }

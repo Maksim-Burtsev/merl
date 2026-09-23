@@ -7,6 +7,7 @@ impl App {
         let items = self
             .files
             .iter()
+            .chain(&self.ignored)
             .map(|p| PickItem {
                 label: p.display().to_string(),
                 path: p.clone(),

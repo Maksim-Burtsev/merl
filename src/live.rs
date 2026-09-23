@@ -50,14 +50,14 @@ pub struct Project {
     shallow: bool,
     /// The directories of the last walk, relative to the root.
     dirs: HashSet<PathBuf>,
-    /// Its directories and files.
+    /// The rows of its tree: its directories and files, and the ignored ones in them.
     listed: HashSet<PathBuf>,
     changed: Debounce,
     walking: bool,
 }
 
 impl Project {
-    pub fn new(root: &Path, shallow: bool, tree: &Tree, files: &[PathBuf]) -> Self {
+    pub fn new(root: &Path, shallow: bool, tree: &Tree) -> Self {
         let mut p = Self {
             root: root.canonicalize().unwrap_or_else(|_| root.to_path_buf()),
             shallow,
@@ -66,13 +66,13 @@ impl Project {
             changed: Debounce::default(),
             walking: false,
         };
-        p.list(tree, files);
+        p.list(tree);
         p
     }
 
-    fn list(&mut self, tree: &Tree, files: &[PathBuf]) {
+    fn list(&mut self, tree: &Tree) {
         self.dirs = tree.dirs();
-        self.listed = self.dirs.iter().chain(files).cloned().collect();
+        self.listed = tree.nodes.iter().map(|n| n.path.clone()).collect();
     }
 
     pub fn event(&mut self, ev: &notify::Event, now: Instant) {
@@ -85,11 +85,10 @@ impl Project {
     /// a file created seconds ago a create. The disk does: the event counts when its path is
     /// listed and gone, or there and not listed. An event below a directory the walk did not
     /// list is inside `.git` or an ignored `target/` or `node_modules/` and never counts, so a
-    /// build running next to merl costs no walk. A write to an ignore file changes what the
-    /// walk lists, and a watcher that lost events asks for a rescan.
-    ///
-    /// ponytail: a file ignored by a pattern in a listed directory (`*.pyc` beside the source)
-    /// is there and not listed, so every write to it is a walk. Match the rules if it shows.
+    /// build running next to merl costs no walk. An ignored file in a listed directory (`.env`,
+    /// `*.pyc` beside the source) is a row too: a new one is a walk, a write to it is not. A
+    /// write to an ignore file changes what the walk lists, and a watcher that lost events asks
+    /// for a rescan.
     fn concerns(&self, ev: &notify::Event) -> bool {
         if matches!(ev.kind, EventKind::Access(_)) {
             return false;
@@ -130,10 +129,10 @@ impl Project {
 
     /// The walk [`Project::walk_due`] asked for is back. Files written into a directory before
     /// it was listed (or, on Linux, watched) reported nothing: a new directory is one more walk.
-    pub fn walked(&mut self, tree: &Tree, files: &[PathBuf], now: Instant) {
+    pub fn walked(&mut self, tree: &Tree, now: Instant) {
         self.walking = false;
         let known = std::mem::take(&mut self.dirs);
-        self.list(tree, files);
+        self.list(tree);
         if !self.dirs.is_subset(&known) {
             self.changed.touch(now);
         }
@@ -288,7 +287,8 @@ mod tests {
         assert_eq!(fired, Some(20));
     }
 
-    /// A project on disk, walked: `src/app.rs`, `src/deep/x.rs`, an ignored `target/`.
+    /// A project on disk, walked: `src/app.rs`, `src/deep/x.rs`, an ignored `target/` and
+    /// `.env`.
     fn project(tag: &str) -> (PathBuf, Project) {
         let dir = std::env::temp_dir().join(format!("merl-watch-{}-{tag}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -297,14 +297,15 @@ mod tests {
             "src/deep/x.rs",
             "target/debug/merl",
             ".git/index",
+            ".env",
         ] {
             std::fs::create_dir_all(dir.join(f).parent().unwrap()).unwrap();
             std::fs::write(dir.join(f), b"x").unwrap();
         }
-        std::fs::write(dir.join(".gitignore"), "target/\n").unwrap();
+        std::fs::write(dir.join(".gitignore"), "target/\n.env*\n").unwrap();
         let dir = dir.canonicalize().unwrap();
-        let (tree, files) = tree::build(&dir, false);
-        let p = Project::new(&dir, false, &tree, &files);
+        let (tree, _) = tree::build(&dir, false);
+        let p = Project::new(&dir, false, &tree);
         (dir, p)
     }
 
@@ -316,6 +317,7 @@ mod tests {
             "src/deep/new.rs",
             "target/new",
             "node_modules/a/index.js",
+            ".env.local",
         ] {
             std::fs::create_dir_all(dir.join(f).parent().unwrap()).unwrap();
             std::fs::write(dir.join(f), b"x").unwrap();
@@ -329,6 +331,11 @@ mod tests {
         for (kind, paths, want) in [
             (create, vec!["new.rs"], true),
             (create, vec!["node_modules"], true),
+            // An ignored file is a row: a new one is a walk, a save to one is not, nor is
+            // anything happening to the ignored directory itself.
+            (create, vec![".env.local"], true),
+            (write, vec![".env"], false),
+            (write, vec!["target"], false),
             (write, vec!["src/deep/new.rs"], true), // whatever the kind says
             (remove, vec!["src/app.rs"], true),
             (rename, vec!["src/app.rs"], true),
@@ -391,11 +398,11 @@ mod tests {
         // Changes during the walk wait for it, and are not lost.
         create(&mut p, "b.rs", ms(250));
         assert!(!p.walk_due(ms(600)));
-        let (tree, files) = tree::build(&dir, false);
-        p.walked(&tree, &files, ms(700));
+        let (tree, _) = tree::build(&dir, false);
+        p.walked(&tree, ms(700));
         assert!(p.walk_due(ms(700)));
-        let (tree, files) = tree::build(&dir, false);
-        p.walked(&tree, &files, ms(800));
+        let (tree, _) = tree::build(&dir, false);
+        p.walked(&tree, ms(800));
         assert!(
             !p.walk_due(ms(5000)),
             "no new directory: nothing more to find"
@@ -407,13 +414,13 @@ mod tests {
         let ev = notify::Event::new(EventKind::Create(CreateKind::Folder));
         p.event(&ev.add_path(dir.join("services")), ms(6000));
         assert!(p.walk_due(ms(6200)));
-        let (tree, files) = tree::build(&dir, false);
-        p.walked(&tree, &files, ms(6300));
+        let (tree, _) = tree::build(&dir, false);
+        p.walked(&tree, ms(6300));
         assert!(!p.walk_due(ms(6400)) && p.walk_due(ms(6500)));
         // A walk that only lost a directory asks for nothing.
         std::fs::remove_dir_all(dir.join("services")).unwrap();
-        let (tree, files) = tree::build(&dir, false);
-        p.walked(&tree, &files, ms(6600));
+        let (tree, _) = tree::build(&dir, false);
+        p.walked(&tree, ms(6600));
         assert!(!p.walk_due(ms(9000)));
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -482,8 +489,8 @@ mod tests {
         std::fs::remove_dir_all(dir.join("src/deep")).unwrap();
         std::fs::create_dir_all(dir.join("src/deep")).unwrap();
         std::thread::sleep(Duration::from_millis(300));
-        let (tree, files) = tree::build(&dir, false);
-        p.walked(&tree, &files, Instant::now());
+        let (tree, _) = tree::build(&dir, false);
+        p.walked(&tree, Instant::now());
         p.watch(&mut watcher, &mut watched);
         while rx.try_recv().is_ok() {}
         std::fs::write(dir.join("src/deep/again.rs"), b"x").unwrap();
