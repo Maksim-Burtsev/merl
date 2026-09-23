@@ -294,6 +294,37 @@ fn an_emoji_with_a_selector_wraps_and_holds_the_cursor_as_drawn() {
     assert_eq!(terminal.get_cursor_position().unwrap().x, 2 + 3);
 }
 
+/// #206: a redraw sent the second column of `✔️` as a cell of its own, the backend printed it
+/// right after the emoji without moving the cursor (ratatui/ratatui#2651), and the rest of the
+/// row landed a column late. That column is never sent, so the backend moves past it.
+#[test]
+fn a_redraw_never_sends_the_column_under_an_emoji_with_a_selector() {
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(12, 3)).unwrap();
+    let mut frame = |text: &str| {
+        let mut app = App::new(
+            PathBuf::from("/tmp"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::from_bytes(PathBuf::from("/tmp/f.md"), text.as_bytes()),
+            None,
+        );
+        app.show_tree = false;
+        let done = terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        done.buffer.clone()
+    };
+    let before = frame("abcdefgh\n");
+    let after = frame("\u{2714}\u{fe0f} Tests\n");
+    let sent: Vec<u16> = before
+        .diff(&after)
+        .into_iter()
+        .filter(|&(_, y, _)| y == 0)
+        .map(|(x, ..)| x)
+        .collect();
+    // Gutter is two cells; the emoji covers 2 and 3, and `e` at 6 did not change.
+    assert_eq!(sent, [2, 4, 5, 7, 8, 9]);
+}
+
 #[test]
 fn tabs_draw_four_wide_and_the_status_shows_the_edit_state() {
     let mut app = App::new(

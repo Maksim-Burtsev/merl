@@ -1,6 +1,9 @@
 //! Drawing. Reads `App`, writes only the viewport size back into it.
 
+use std::num::NonZeroU16;
+
 use ratatui::Frame;
+use ratatui::buffer::{CellDiffOption, CellWidth};
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::Style;
 use ratatui::widgets::Block;
@@ -58,6 +61,18 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     }
     if app.mode == Mode::Help {
         draw_help(frame, app, theme, area, base);
+    }
+    // ratatui/ratatui#2651 in ratatui-crossterm 0.1.2: the diff sends the second column of an
+    // emoji with U+FE0F as a cell of its own, and the backend prints it right after the emoji
+    // without a move, so the rest of the row lands a column late. A forced width keeps the diff
+    // off that column, and the backend moves the cursor past it. The upstream fix (#2721) moves
+    // back to that column instead, and tmux erases the emoji there, so this outlives the bump.
+    for cell in &mut frame.buffer_mut().content {
+        if cell.symbol().contains('\u{fe0f}')
+            && let Some(w) = NonZeroU16::new(cell.symbol().cell_width()).filter(|w| w.get() > 1)
+        {
+            cell.set_diff_option(CellDiffOption::ForcedWidth(w));
+        }
     }
 }
 
