@@ -164,25 +164,29 @@ pub struct Review {
     /// working tree lines up with the numbers.
     pub merge_base: String,
     pub files: Vec<ReviewFile>,
+    /// What opening found about the branch against `origin` (`diverged from origin/feat`), for
+    /// the status bar; `App::start_review` takes it, so it is said once.
+    pub note: Option<String>,
 }
 
 impl Review {
-    /// Checks out `branch` when given (after a fetch), finds the base and lists the files.
+    /// Finds the base, checks out `branch` when given, as `origin` has it (see `checkout`), and
+    /// lists the files.
     pub fn open(root: &Path, branch: Option<&str>, base: Option<&str>) -> Result<Self> {
         let git = |args: &[&str]| git(root, args);
-        if let Some(b) = branch {
-            let _ = git(&["fetch", "-q", "origin", b]);
-            git(&["switch", "-q", b]).with_context(|| format!("switching to {b}"))?;
-        }
         let base = match base {
             Some(b) => b.to_string(),
             None => detect_base(&git)?,
+        };
+        let note = match branch {
+            Some(b) => checkout(&git, b, &base)?,
+            None => None,
         };
         let r = Self::list(root, base)?;
         if r.files.is_empty() {
             bail!("{} has no changes against {}", r.branch, r.base);
         }
-        Ok(r)
+        Ok(Self { note, ..r })
     }
 
     /// The same review as the branch and the working tree are now: after a commit, an edit, a
@@ -232,6 +236,7 @@ impl Review {
             base,
             merge_base,
             files,
+            note: None,
         })
     }
 
@@ -387,6 +392,57 @@ fn parse_numstat(out: &str) -> Vec<(PathBuf, Option<(usize, usize)>)> {
         rows.push((PathBuf::from(path), a.parse().ok().zip(d.parse().ok())));
     }
     rows
+}
+
+/// `--review=BRANCH` reads what the merge request shows: the branch and the base are fetched in
+/// one go, and the local branch is brought to what was pushed. The reviewer's own commits are
+/// never rewritten, and local changes are never lost; the answer is then what the status bar
+/// says instead (`diverged from origin/feat`).
+fn checkout(
+    git: &dyn Fn(&[&str]) -> Result<String>,
+    b: &str,
+    base: &str,
+) -> Result<Option<String>> {
+    let mut fetch = vec!["fetch", "-q", "origin", b];
+    fetch.extend(base.strip_prefix("origin/"));
+    let fetched = git(&fetch).is_ok();
+    git(&["switch", "-q", b]).with_context(|| format!("switching to {b}"))?;
+    let remote = format!("origin/{b}");
+    if !fetched {
+        return Ok(Some(format!("{remote} not fetched")));
+    }
+    // A copy nobody committed on takes what was pushed, after a force-push too, unless local
+    // changes are in the way (`--keep`). With commits of one's own it is up to date only ahead.
+    let current = if own_commits(git, b) {
+        git(&["merge-base", "--is-ancestor", &remote, "HEAD"])
+    } else {
+        git(&["reset", "-q", "--keep", &remote])
+    };
+    if current.is_ok() {
+        return Ok(None);
+    }
+    let behind = git(&["merge-base", "--is-ancestor", "HEAD", &remote]).is_ok();
+    let how = if behind { "behind" } else { "diverged from" };
+    Ok(Some(format!("{how} {remote}")))
+}
+
+/// Does the checked-out branch `b` hold commits `origin/b` never pointed at in this repository?
+/// The remote ref's reflog has each tip a fetch or a push brought, but not the one `git clone`
+/// did, so the commit the local branch was created from counts too. An expired reflog only
+/// makes more commits look like one's own, and the branch then stays.
+fn own_commits(git: &dyn Fn(&[&str]) -> Result<String>, b: &str) -> bool {
+    let remote = format!("refs/remotes/origin/{b}");
+    let tips = git(&["reflog", "--format=%H", &remote]).unwrap_or_default();
+    let log = git(&["reflog", "--format=%H %gs", &format!("refs/heads/{b}")]).unwrap_or_default();
+    let created = log
+        .lines()
+        .filter_map(|l| l.split_once(' '))
+        .filter(|(_, subject)| subject.starts_with("branch: Created from"))
+        .map(|(sha, _)| sha);
+    let mut args = vec!["rev-list", "--count", "HEAD", "--not", &remote];
+    args.extend(tips.lines().chain(created));
+    args.push("--");
+    !git(&args).is_ok_and(|n| n == "0")
 }
 
 /// `origin/HEAD`, else the first of `origin/master`, `origin/main`, `origin/develop` that
@@ -631,6 +687,106 @@ mod tests {
         assert!(r.files.iter().all(|f| f.status == 'A' && f.untracked));
         let d = r.diff(&dir, &dir.join("empty.py"), r.file(Path::new("empty.py")));
         assert_eq!(d, Diff::default());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #181: `--review=feat` reads the branch and the base as `origin` has them.
+    #[test]
+    fn a_named_review_reads_what_was_pushed() {
+        let dir = std::env::temp_dir().join(format!("merl-pushed-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let git = |at: &str, args: &[&str]| {
+            let out = Command::new("git")
+                .current_dir(dir.join(at))
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(
+                out.status.success(),
+                "git {args:?}: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+        };
+        let commit = |at: &str, file: &str| {
+            std::fs::write(dir.join(at).join(file), format!("{file}\n")).unwrap();
+            git(at, &["add", "."]);
+            git(at, &["commit", "-q", "-m", file]);
+        };
+        let push = || git("a", &["push", "-q", "-f", "origin", "HEAD"]);
+        let open = || Review::open(&dir.join("b"), Some("feat"), None).unwrap();
+        let names = |r: &Review| {
+            let names = r
+                .files
+                .iter()
+                .map(|f| f.path.to_string_lossy().into_owned());
+            names.collect::<Vec<_>>()
+        };
+        git("", &["init", "-q", "--bare", "-b", "main", "remote.git"]);
+        git("", &["init", "-q", "-b", "main", "a"]);
+        let remote = dir.join("remote.git");
+        git("a", &["remote", "add", "origin", remote.to_str().unwrap()]);
+        commit("a", "README");
+        push();
+        git("a", &["switch", "-q", "-c", "feat"]);
+        commit("a", "one");
+        push();
+        git("", &["clone", "-q", remote.to_str().unwrap(), "b"]);
+        let r = open();
+        assert_eq!((names(&r), r.note), (vec!["one".to_string()], None));
+        git("b", &["switch", "-q", "main"]);
+
+        // Rebased and force-pushed: a copy nobody committed on takes the new history, though
+        // `git clone` left no trace of the tip it was created from.
+        git("a", &["reset", "-q", "--hard", "HEAD~1"]);
+        commit("a", "two");
+        push();
+        assert_eq!(names(&open()), ["two"]);
+        git("b", &["switch", "-q", "main"]);
+
+        // Pushed since: the local branch from the last review moves on to it.
+        commit("a", "three");
+        push();
+        let r = open();
+        assert_eq!(names(&r), ["three", "two"]);
+        assert_eq!(r.note, None);
+
+        // The branch took in a base that moved on: that commit is the base's, not the branch's,
+        // though this clone never fetched it.
+        git("a", &["switch", "-q", "main"]);
+        commit("a", "later");
+        push();
+        git("a", &["switch", "-q", "feat"]);
+        git("a", &["merge", "-q", "--no-edit", "main"]);
+        push();
+        assert_eq!(names(&open()), ["three", "two"]);
+
+        // Local changes in the way: the branch stays, and the review says it is behind.
+        std::fs::write(dir.join("b/two"), "mine\n").unwrap();
+        std::fs::write(dir.join("a/two"), "fixed\n").unwrap();
+        git("a", &["commit", "-q", "-am", "fix"]);
+        push();
+        assert_eq!(open().note.as_deref(), Some("behind origin/feat"));
+        git("b", &["checkout", "-q", "--", "two"]);
+        assert_eq!(open().note, None);
+
+        // The reviewer's own commit stays, ahead of what was pushed or diverged from it.
+        commit("b", "mine");
+        let r = open();
+        assert_eq!((names(&r).contains(&"mine".into()), r.note), (true, None));
+        commit("a", "four");
+        push();
+        let r = open();
+        assert_eq!(names(&r), ["mine", "three", "two"]);
+        assert_eq!(r.note.as_deref(), Some("diverged from origin/feat"));
+
+        // Nothing to fetch from: the branch as it is, and the review says so.
+        git("b", &["reset", "-q", "--hard", "origin/feat~1"]);
+        std::fs::remove_dir_all(&remote).unwrap();
+        let r = open();
+        assert_eq!(names(&r), ["three", "two"]);
+        assert_eq!(r.note.as_deref(), Some("origin/feat not fetched"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

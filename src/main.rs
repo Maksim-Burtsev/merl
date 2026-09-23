@@ -74,8 +74,8 @@ struct Cli {
     /// Print how often each key has been pressed, the unused last, and exit
     #[arg(long)]
     keys: bool,
-    /// Review the checked-out branch (or `--review=BRANCH` to switch to it first): its files
-    /// in the panel, its diff over the code, c / C between hunks
+    /// Review the checked-out branch (or `--review=BRANCH` to fetch it and check out what was
+    /// pushed): its files in the panel, its diff over the code, c / C between hunks
     #[arg(
         long,
         value_name = "BRANCH",

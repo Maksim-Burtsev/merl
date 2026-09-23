@@ -41,6 +41,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Opening `/` again on a pattern that matches nothing in the file says `no match`, as typing it
   did, instead of `0/0`. (#174)
+- `merl --review=feat` reads what the merge request shows. A local `feat` left from an earlier
+  review was opened as it was, so a second review showed the old code, and the base stayed where
+  this clone last fetched it, so what the branch took in from `main` looked like its own. Now the
+  branch and the base are fetched together and the local branch is brought to what was pushed,
+  after a force-push too. Your own commits are never rewritten: when the branch has diverged, or
+  local changes are in the way, the status bar says `diverged from origin/feat` or `behind
+  origin/feat`, and `origin/feat not fetched` when the fetch failed. (#181)
 
 - `d` and `D` outside the project walk a Python directory once when `sys.path` lists it twice,
   apart (a `PYTHONPATH` entry, a `.pth` file): every hit there was offered twice. In a Rust
