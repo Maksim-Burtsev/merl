@@ -67,6 +67,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   brought in the deleted lines above a line; the cursor stays on the last line and Up takes the
   view back to it. Before, the view stopped at the last line and only the deleted lines that fit
   under it were ever on screen. (#179)
+- `d` into the standard library and the dependencies no longer runs a program the project ships.
+  In a Python project it ran `.venv/bin/python` to read `sys.path`, so a repository or a branch
+  under review could run whatever it committed there on a keypress; the venv is now read, and the
+  standard library is the one of the interpreter it was made from. Rust and Go are asked from
+  outside the project: a `rust-toolchain.toml` no longer picks the `rustc` that runs, and a
+  `go.mod` asking for a Go that is not installed no longer freezes `d` while Go tries to download
+  it and then leaves `d` without the standard library for the session. A toolchain that fails to
+  answer is asked again on the next `d`. (#183)
 
 ## [0.6.0] - 2026-09-21
 

@@ -181,15 +181,17 @@ impl App {
             self.external.insert(kind, (roots, Arc::new(files)));
             self.node_modules_of = Some(here.to_path_buf());
         }
-        self.external
-            .entry(kind)
-            .or_insert_with(|| {
-                let roots = search::external_roots(kind, &self.root);
-                let files = search::external_files(kind, &roots);
-                (roots, Arc::new(files))
-            })
-            .1
-            .clone()
+        if let Some((_, files)) = self.external.get(&kind) {
+            return files.clone();
+        }
+        let roots = search::external_roots(kind, &self.root);
+        let files = Arc::new(search::external_files(kind, &roots));
+        // No roots may be a toolchain that failed to answer this once: it is asked again on the
+        // next `d`, rather than leave the session without a standard library (#183).
+        if !roots.is_empty() {
+            self.external.insert(kind, (roots, files.clone()));
+        }
+        files
     }
 
     /// The text of `path` as the search read it: the open file as it is on screen.

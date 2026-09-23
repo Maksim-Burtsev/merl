@@ -94,6 +94,21 @@ fn definitions_outside_the_project_come_from_the_standard_library() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// Roots that come back empty are looked for again on the next `d`: a toolchain that failed to
+/// answer once does not leave the rest of the session without them (#183).
+#[test]
+fn empty_external_roots_are_asked_again() {
+    let (dir, mut a) = project_app("roots-again", &[("index.php", "<?php\n")]);
+    assert!(a.external_files(Kind::Php).is_empty());
+    std::fs::create_dir_all(dir.join("vendor/acme")).unwrap();
+    std::fs::write(dir.join("vendor/acme/Client.php"), "<?php\n").unwrap();
+    assert_eq!(
+        *a.external_files(Kind::Php),
+        [dir.join("vendor/acme/Client.php")]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// Found by the acceptance pass of #68: three ways `d` claimed more than it knew.
 #[test]
 fn a_local_name_is_not_an_import_and_a_member_is_not_a_module_level_name() {
