@@ -380,3 +380,20 @@ fn ctrl_end_goes_to_last_line() {
     press(&mut a, KeyCode::Home, KeyModifiers::CONTROL);
     assert_eq!((a.line, a.col), (0, 0));
 }
+
+/// #185: an emoji written with a selector, a skin tone or a ZWJ is one step and two columns.
+#[test]
+fn an_emoji_is_one_step_and_two_columns() {
+    let mut a = app("\u{26a0}\u{fe0f}ab\n\u{1f468}\u{200d}\u{1f4bb}\u{1f44d}\u{1f3fd}");
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Left, KeyModifiers::NONE);
+    assert_eq!((a.col, a.cursor_x(), a.display_col()), (7, 3, 4));
+    press(&mut a, KeyCode::Left, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Left, KeyModifiers::NONE);
+    assert_eq!(a.col, 0);
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+    assert_eq!((a.col, a.cursor_x()), (11, 2));
+    press(&mut a, KeyCode::Right, KeyModifiers::NONE);
+    assert_eq!((a.col, a.cursor_x()), (19, 4));
+}

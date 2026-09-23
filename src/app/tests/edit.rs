@@ -78,6 +78,19 @@ fn tab_follows_the_file_and_unicode_edits_stay_on_boundaries() {
     assert_eq!(a.line_str(), "\tif x:");
 }
 
+/// #185: Backspace and Delete take a whole emoji, never its selector or half of a ZWJ join.
+#[test]
+fn backspace_and_delete_take_a_whole_emoji() {
+    let mut a = app("\u{26a0}\u{fe0f}x\u{1f468}\u{200d}\u{1f4bb}");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+    assert_eq!(a.line_str(), "\u{26a0}\u{fe0f}x");
+    press(&mut a, KeyCode::Home, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Delete, KeyModifiers::NONE);
+    assert_eq!(a.line_str(), "x");
+}
+
 /// #176: Tab went through `insert`, so over a selection of several lines it replaced them
 /// with one indent and autosave wrote the file without them.
 #[test]

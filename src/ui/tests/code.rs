@@ -265,6 +265,35 @@ fn cursor_stays_on_a_drawn_row_of_a_clipped_line() {
     );
 }
 
+/// #185: merl measured `⚠️` one column wide, ratatui draws it two, so the last letter of a
+/// full row was on no row and the cursor stood a cell to the left of its char.
+#[test]
+fn an_emoji_with_a_selector_wraps_and_holds_the_cursor_as_drawn() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(
+            PathBuf::from("/tmp/f.md"),
+            "\u{26a0}\u{fe0f}abcdefghi\nnext\n".as_bytes(),
+        ),
+        None,
+    );
+    app.show_tree = false;
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    // Gutter is two cells, so the text gets ten.
+    let mut terminal = Terminal::new(TestBackend::new(12, 5)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(
+        rows(&terminal)[..3],
+        ["1 \u{26a0}\u{fe0f} abcdefgh", "i", "2 next"]
+    );
+    app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
+    app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(terminal.get_cursor_position().unwrap().x, 2 + 3);
+}
+
 #[test]
 fn tabs_draw_four_wide_and_the_status_shows_the_edit_state() {
     let mut app = App::new(

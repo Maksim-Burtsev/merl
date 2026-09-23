@@ -8,7 +8,7 @@ impl App {
         self.want_x = self.cursor_x();
     }
 
-    /// Places the cursor on screen row `row` of `self.line`, on the char under the column
+    /// Places the cursor on screen row `row` of `self.line`, on the cluster under the column
     /// `want_x`, or as far right as the row goes. A row other than the last ends on its last
     /// char: its end is where the next row starts.
     fn apply_want_x(&mut self, row: usize) {
@@ -27,12 +27,12 @@ impl App {
             0 => 0,
             _ => wrap::indent(self.buf.shown(self.line), self.view_w),
         };
-        for (i, c) in s[r.start..r.end].char_indices() {
+        for (i, g) in wrap::clusters(&s[r.start..r.end]) {
             if used >= self.want_x {
                 col = r.start + i;
                 break;
             }
-            used += wrap::char_width(c);
+            used += wrap::cluster_width(g);
         }
         self.col = col;
     }

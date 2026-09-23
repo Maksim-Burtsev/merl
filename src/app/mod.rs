@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use regex::{Regex, RegexBuilder};
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::buffer::{self, Buffer};
 use crate::git;
@@ -542,9 +543,9 @@ fn bound(imports: &[(String, Vec<String>)], name: &str) -> Option<Vec<String>> {
         .map(|(_, p)| p.clone())
 }
 
-/// Cuts `s` to `max` chars, marking the cut.
+/// Cuts `s` to `max` grapheme clusters, marking the cut.
 pub(crate) fn clip(s: &str, max: usize) -> String {
-    match s.char_indices().nth(max) {
+    match s.grapheme_indices(true).nth(max) {
         Some((i, _)) => format!("{}\u{2026}", &s[..i]),
         None => s.to_string(),
     }
@@ -555,12 +556,18 @@ pub fn is_word(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
 
-fn next_char(s: &str, i: usize) -> usize {
-    s[i..].chars().next().map_or(i, |c| i + c.len_utf8())
+/// The byte after the grapheme cluster at `i`: an emoji with its selector, skin tone or ZWJ
+/// parts is one step, as it is one cell on screen, and so is a letter with its accents.
+pub(crate) fn next_char(s: &str, i: usize) -> usize {
+    s[i..].graphemes(true).next().map_or(i, |g| i + g.len())
 }
 
-fn prev_char(s: &str, i: usize) -> usize {
-    s[..i].chars().next_back().map_or(0, |c| i - c.len_utf8())
+/// The start of the grapheme cluster before `i`, as [`next_char`] steps.
+pub(crate) fn prev_char(s: &str, i: usize) -> usize {
+    s[..i]
+        .graphemes(true)
+        .next_back()
+        .map_or(0, |g| i - g.len())
 }
 
 /// Whether a line `search::bindings` gave for `name` is an import, or the declaration of a class,

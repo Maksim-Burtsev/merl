@@ -4,7 +4,7 @@ use std::ops::{Deref, Range};
 
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::app::is_word;
+use crate::app::{is_word, next_char, prev_char};
 
 /// A line of text with a cursor and a selection. It reads as a `&str`; the keys are the ones the
 /// buffer uses, so nothing new has to be learned inside a prompt.
@@ -131,17 +131,11 @@ impl LineEdit {
     }
 
     fn left(&self) -> usize {
-        self.text[..self.cur]
-            .chars()
-            .next_back()
-            .map_or(0, |c| self.cur - c.len_utf8())
+        prev_char(&self.text, self.cur)
     }
 
     fn right(&self) -> usize {
-        self.text[self.cur..]
-            .chars()
-            .next()
-            .map_or(self.cur, |c| self.cur + c.len_utf8())
+        next_char(&self.text, self.cur)
     }
 
     fn word_left(&self) -> usize {

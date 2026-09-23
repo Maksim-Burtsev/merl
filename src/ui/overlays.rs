@@ -9,6 +9,7 @@ use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::app::{App, Focus, Mode};
 use crate::buffer::{Buffer, Spans};
@@ -221,10 +222,15 @@ pub(super) fn draw_picker(
             };
             let label = &row.item.label;
             let code = code_hl(&mut picker.bufs, &app.root, &row.item, theme);
+            // A span per cluster: ratatui measures each span apart, so an emoji split from its
+            // selector would be drawn one column narrower than `wrap::width` counts it.
+            let mut c = 0;
             let mut spans: Vec<Span> = label
-                .char_indices()
-                .enumerate()
-                .map(|(c, (b, ch))| {
+                .grapheme_indices(true)
+                .map(|(b, g)| {
+                    // The matcher numbers chars; a cluster is bold when any of its chars matched.
+                    let chars = c..c + g.chars().count() as u32;
+                    c = chars.end;
                     let mut style = style;
                     if let (Some((hl, off)), Some(at)) = (&code, row.item.code_at)
                         && b >= at
@@ -232,11 +238,14 @@ pub(super) fn draw_picker(
                     {
                         style = style.patch(*s);
                     }
-                    if row.matched.binary_search(&(c as u32)).is_ok() {
+                    if chars
+                        .into_iter()
+                        .any(|k| row.matched.binary_search(&k).is_ok())
+                    {
                         style = style.add_modifier(Modifier::BOLD);
                     }
                     // Quoted code keeps its tabs, as the buffer does; `expand` draws them.
-                    Span::styled(expand(&label[b..b + ch.len_utf8()]).into_owned(), style)
+                    Span::styled(expand(g).into_owned(), style)
                 })
                 .collect();
             spans.push(Span::styled(
