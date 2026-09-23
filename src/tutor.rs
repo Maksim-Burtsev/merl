@@ -1,35 +1,88 @@
 //! `merl --tutor`: a vimtutor-style walkthrough of the navigation keys.
 //!
 //! A small Python project is embedded in the binary, unpacked into a temporary directory and
-//! opened like any other project. Lessons advance when a predicate over [`App`] becomes true —
-//! what the key did, not that a key was pressed — so there is no way to fake progress.
+//! opened like any other project. The lessons are tasks of [`POOL`], each training one action
+//! from a start of its own, so they run in any order. A lesson advances when its predicate over
+//! [`App`] becomes true — what the key did, not that a key was pressed — so there is no way to
+//! fake progress.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
+use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::app::{App, Focus, Mode};
+use crate::app::{App, Focus};
+use crate::buffer::Buffer;
 
-/// One step of the tutorial: what to do, and how to tell that it happened.
-pub struct Lesson {
+mod pool;
+
+pub use pool::POOL;
+
+/// One task: trains one action, starts from its own state, checks the effect.
+pub struct Task {
+    /// The action it trains, as the key stats name it: one side of a `KEYS` row, an alias
+    /// folded into its primary.
+    pub key: &'static str,
     pub title: &'static str,
-    pub text: &'static str,
+    /// `--tutor`'s text: names the key.
+    pub tutor: &'static str,
+    /// The drill's (#209): what to do, never the key, nor how many keys it takes.
+    #[allow(dead_code)]
+    pub drill: &'static str,
+    /// The file, 1-based line and word the cursor starts on (`""` is the line start); `None`
+    /// starts with nothing open.
+    pub start: Option<(&'static str, usize, &'static str)>,
+    /// Pressed silently after `start`, in [`press`] notation: the start is always a state real
+    /// work reaches.
+    pub keys: &'static str,
+    /// The shortest keys that do it, in [`press`] notation: the tests press it, the drill will
+    /// show it after a miss.
+    #[allow(dead_code)]
+    pub answer: &'static str,
+    /// It is done: a predicate over the effect, never over the size of the terminal.
     pub done: fn(&App) -> bool,
 }
 
 pub struct Tutor {
-    /// Index into [`LESSONS`]; `LESSONS.len()` means the tutorial is over.
+    /// Index into [`TUTOR`]; `TUTOR.len()` means the tutorial is over.
     pub step: usize,
     /// The unpacked sample project, removed when merl exits.
     pub dir: PathBuf,
 }
+
+/// The tutorial: the keys of the [`POOL`] tasks it walks, in order.
+pub const TUTOR: &[&str] = &[
+    "o",
+    "/",
+    "n",
+    "d",
+    "[",
+    "]",
+    "u",
+    "s",
+    "D",
+    ":",
+    "}",
+    "{",
+    "v",
+    "t",
+    "Tab",
+    "Tree: Enter",
+    "Enter",
+    "Ctrl+Z",
+    "w",
+    "Picker: Esc",
+    "Esc",
+];
 
 /// The sample project, as it sits in `tutor/notes/`.
 pub const FILES: &[(&str, &str)] = &[
     ("Makefile", include_str!("../tutor/notes/Makefile")),
     ("cli.py", include_str!("../tutor/notes/cli.py")),
     ("config.py", include_str!("../tutor/notes/config.py")),
+    ("export.csv", include_str!("../tutor/notes/export.csv")),
     ("models.py", include_str!("../tutor/notes/models.py")),
+    ("notes.json", include_str!("../tutor/notes/notes.json")),
     ("store.py", include_str!("../tutor/notes/store.py")),
     (
         "tests/test_store.py",
@@ -37,17 +90,166 @@ pub const FILES: &[(&str, &str)] = &[
     ),
 ];
 
-/// 1-based lines in `store.py` two lessons land on; the test checks them against the file.
-const CALL_LINE: usize = 13;
-const CLASS_LINE: usize = 9;
-/// The blank lines around `remove` in `store.py`, where the paragraph lessons land.
-const PARA_DOWN_LINE: usize = 47;
-const PARA_UP_LINE: usize = 38;
-/// 1-based line of the `lint` target in `Makefile`, where the Makefile lesson lands.
-const MAKE_LINT_LINE: usize = 6;
-/// 1-based line of `PlainFormatter.render` in `models.py`, the first implementation the
-/// implementations lesson lists.
-const RENDER_LINE: usize = 54;
+/// Shown once every lesson is done.
+pub const DONE: &str = "That is all of merl. Everything else is a VS Code habit. `q` quits.";
+
+/// The lesson at `step` of the tutorial, `None` past its end.
+pub fn lesson(step: usize) -> Option<&'static Task> {
+    let key = TUTOR.get(step)?;
+    POOL.iter().find(|t| t.key == *key)
+}
+
+/// Called after every key: advances at most one step, so a state that happens to satisfy two
+/// predicates cannot skip a lesson. The next lesson is set up at once: a learner who did what
+/// the last one asked sees nothing move, one who wandered off is put back.
+pub fn check(app: &mut App) {
+    let Some(step) = app.tutor.as_ref().map(|t| t.step) else {
+        return;
+    };
+    let Some(task) = lesson(step) else {
+        return;
+    };
+    if !(task.done)(app) {
+        return;
+    }
+    // The tick goes in front of what the key itself reported, such as how `d` found its target.
+    let tick = match app.message.as_str() {
+        "" => format!("\u{2713} {}", task.title),
+        said => format!("\u{2713} {}  {said}", task.title),
+    };
+    if let Some(tutor) = &mut app.tutor {
+        tutor.step = step + 1;
+    }
+    app.message = match begin(app) {
+        Ok(()) => tick,
+        // The next lesson goes on from where this one left off.
+        Err(e) => format!("{tick}  {e:#}"),
+    };
+}
+
+/// Sets the current lesson up on a fresh App; past the last one nothing changes.
+pub fn begin(app: &mut App) -> Result<()> {
+    let Some(task) = app.tutor.as_ref().and_then(|t| lesson(t.step)) else {
+        return Ok(());
+    };
+    fresh(app)?;
+    set_up(app, task);
+    Ok(())
+}
+
+/// Puts `a` back where a fresh `--tutor` starts: the sample project unpacked anew, which drops
+/// edits and the files a task made, and nothing open, no history, no undo, no find. What `main`
+/// set on the old App is carried over. Outside the tutor it does nothing.
+///
+/// A new `App` rather than a field-by-field reset: a field someone forgets to carry over shows
+/// at once (the theme falls back), one someone forgets to reset would leak from a task into the
+/// next unseen.
+pub fn fresh(a: &mut App) -> Result<()> {
+    let Some(dir) = a.tutor.as_ref().map(|t| t.dir.clone()) else {
+        return Ok(());
+    };
+    unpack(&dir).context("the sample project could not be unpacked again")?;
+    let tutor = a.tutor.take();
+    let (tree, files) = crate::tree::build(&dir, false);
+    let mut new = App::new(dir, tree, files, Buffer::empty(), None);
+    (new.show_tree, new.focus) = (false, Focus::Code);
+    new.theme = std::mem::take(&mut a.theme);
+    new.config = a.config.take();
+    new.autosave = a.autosave;
+    new.no_watch = a.no_watch;
+    (new.view_w, new.view_h) = (a.view_w, a.view_h);
+    new.tutor = tutor;
+    *a = new;
+    Ok(())
+}
+
+/// Opens the task's start and presses its keys. Silently: they answer no lesson, count as no
+/// press, and what they said is not on the status bar.
+pub fn set_up(a: &mut App, task: &Task) {
+    let tutor = a.tutor.take();
+    if let Some((file, line, word)) = task.start {
+        a.jump_to(&a.root.join(file), line);
+        // The one thing set by hand: the column, where the jump history follows it too.
+        a.col = a.line_str().find(word).unwrap_or(0);
+        a.sync_want_x();
+        a.hist_note(false);
+    }
+    press(a, task.keys);
+    a.pressed.clear();
+    a.message.clear();
+    a.tutor = tutor;
+}
+
+/// Presses `notation`: characters as typed, and `<Enter>`, `<A-Right>`, `<C-z>`, `<A-S-Right>`
+/// in angle brackets. A picker's matcher runs to completion before every key, as the event
+/// loop's tick lets it.
+pub fn press(a: &mut App, notation: &str) {
+    let mut rest = notation;
+    while let Some(c) = rest.chars().next() {
+        let (code, mods, len) = match rest.find('>').filter(|_| c == '<') {
+            Some(end) => {
+                let (code, mods) = chord(&rest[1..end]);
+                (code, mods, end + 1)
+            }
+            None => (KeyCode::Char(c), KeyModifiers::NONE, c.len_utf8()),
+        };
+        rest = &rest[len..];
+        if let Some(p) = &mut a.picker {
+            p.settle();
+        }
+        a.key(KeyEvent::new(code, mods));
+    }
+}
+
+/// `A-S-Right` in [`press`] notation: `C`, `A` and `S` for Ctrl, Alt and Shift, then the key.
+fn chord(name: &str) -> (KeyCode, KeyModifiers) {
+    let mut mods = KeyModifiers::NONE;
+    let mut name = name;
+    while let Some((m, rest)) = name.split_once('-').filter(|(m, _)| m.len() == 1) {
+        mods |= match m {
+            "C" => KeyModifiers::CONTROL,
+            "A" => KeyModifiers::ALT,
+            "S" => KeyModifiers::SHIFT,
+            _ => panic!("modifier {m} in <{name}>"),
+        };
+        name = rest;
+    }
+    let code = match name {
+        "Enter" => KeyCode::Enter,
+        "Esc" => KeyCode::Esc,
+        "Tab" => KeyCode::Tab,
+        "BS" => KeyCode::Backspace,
+        "Del" => KeyCode::Delete,
+        "Up" => KeyCode::Up,
+        "Down" => KeyCode::Down,
+        "Left" => KeyCode::Left,
+        "Right" => KeyCode::Right,
+        "Home" => KeyCode::Home,
+        "End" => KeyCode::End,
+        "PgUp" => KeyCode::PageUp,
+        "PgDn" => KeyCode::PageDown,
+        c if c.chars().count() == 1 => KeyCode::Char(c.chars().next().unwrap()),
+        _ => panic!("key <{name}>"),
+    };
+    (code, mods)
+}
+
+/// Unpacks the sample project into `dir`, over whatever is there.
+fn unpack(dir: &Path) -> Result<()> {
+    let _ = std::fs::remove_dir_all(dir);
+    std::fs::create_dir_all(dir.join("tests"))?;
+    for (name, text) in FILES {
+        std::fs::write(dir.join(name), text)?;
+    }
+    Ok(())
+}
+
+/// Unpacks the sample project into a fresh temporary directory.
+pub fn extract() -> Result<PathBuf> {
+    let dir = std::env::temp_dir().join(format!("merl-tutor-{}", std::process::id()));
+    unpack(&dir)?;
+    Ok(dir)
+}
 
 fn at(app: &App, file: &str) -> bool {
     app.rel_path() == file
@@ -61,512 +263,178 @@ fn edited(app: &App) -> bool {
         .is_some_and(|(_, text)| text.lines().ne(app.buf.lines.iter().map(String::as_str)))
 }
 
-/// Shown once every lesson is done.
-pub const DONE: &str = "That is all of merl. Everything else is a VS Code habit. `q` quits.";
-
-pub const LESSONS: &[Lesson] = &[
-    Lesson {
-        title: "Open a file",
-        text: "Press `o` (or Ctrl+E), type `store`, and press Enter to open store.py.",
-        done: |a| at(a, "store.py"),
-    },
-    Lesson {
-        title: "Find in the file",
-        text: "Press `/` (or Ctrl+F), type `load_config`, Enter. The search runs as you type.",
-        done: |a| {
-            a.mode == Mode::Normal
-                && a.find_re
-                    .as_ref()
-                    .is_some_and(|r| r.as_str() == "load_config")
-        },
-    },
-    Lesson {
-        title: "Next match",
-        text: "`n` goes to the next match, `N` to the previous one; `/` again brings the query \
-               back, selected, to refine it. Press `n`: the call inside NoteStore.",
-        done: |a| at(a, "store.py") && a.line + 1 == CALL_LINE,
-    },
-    Lesson {
-        title: "Go to definition",
-        text: "With the cursor on `load_config`, press `d` (or F12) to jump to its definition. \
-               The status line says how it was found: via the import at the top, in config.py.",
-        done: |a| at(a, "config.py"),
-    },
-    Lesson {
-        title: "Back",
-        text: "`[` goes back in the jump history — to store.py, where you came from.",
-        done: |a| at(a, "store.py"),
-    },
-    Lesson {
-        title: "Forward",
-        text: "`]` goes forward again, back into config.py.",
-        done: |a| at(a, "config.py"),
-    },
-    Lesson {
-        title: "Usages",
-        text: "The jump left the cursor on `load_config`, and `u` (or Shift+F12) lists every \
-               use of the word under it, the declaration first and the tests last — Alt+Left and \
-               Alt+Right (Option on a Mac) move a word when it is not there yet. Press `u`, then \
-               pick the hit in cli.py with Down and Enter.",
-        done: |a| at(a, "cli.py"),
-    },
-    Lesson {
-        title: "Search the project",
-        text: "`s` searches every file as you type. Type `TODO`, then Enter on the result.",
-        done: |a| at(a, "models.py"),
-    },
-    Lesson {
-        title: "Project symbols",
-        text: "`D` lists every class and function. Type `NoteStore` and press Enter.",
-        done: |a| at(a, "store.py") && a.line + 1 == CLASS_LINE,
-    },
-    Lesson {
-        title: "Go to line",
-        text: "`:` (or Ctrl+G), then a number: type `42` and press Enter.",
-        done: |a| a.line + 1 == 42,
-    },
-    Lesson {
-        title: "Next paragraph",
-        text: "`}` jumps to the next blank line. In code that is the end of the current \
-               function: press it once.",
-        done: |a| at(a, "store.py") && a.line + 1 == PARA_DOWN_LINE,
-    },
-    Lesson {
-        title: "Previous paragraph",
-        text: "`{` jumps to the previous blank line. Press it twice to reach the line above `remove`.",
-        done: |a| at(a, "store.py") && a.line + 1 == PARA_UP_LINE,
-    },
-    Lesson {
-        title: "Select",
-        text: "`v` selects the word under the cursor, again the line, again the paragraph; Ctrl+C \
-               copies the selection, or the line without one. Press Down to step onto `remove`, then `v` three times.",
-        done: |a| at(a, "store.py") && a.selection().is_some_and(|(from, to)| from.0 < to.0),
-    },
-    Lesson {
-        title: "File tree",
-        text: "`t` shows and hides the file tree.",
-        done: |a| a.show_tree,
-    },
-    Lesson {
-        title: "Focus the tree",
-        text: "Tab switches the focus between the code and the tree. Press it once.",
-        done: |a| a.focus == Focus::Tree,
-    },
-    Lesson {
-        title: "Open from the tree",
-        text: "Up five times to `tests`, Right to expand it, Down to test_store.py, Enter.",
-        done: |a| {
-            at(
-                a,
-                &format!("tests{}test_store.py", std::path::MAIN_SEPARATOR),
-            )
-        },
-    },
-    Lesson {
-        title: "Hide the tree",
-        text: "Opening a file gave the focus back to the code. Press `t` to hide the tree again.",
-        done: |a| !a.show_tree,
-    },
-    Lesson {
-        title: "Edit",
-        text: "Enter starts editing at the cursor and the cursor becomes a bar: type `# hi` and \
-               press Esc, the block is back. merl saves a second after you stop typing; Ctrl+S \
-               saves now, Ctrl+R reloads the file from disk.",
-        done: |a| a.mode == Mode::Normal && edited(a),
-    },
-    Lesson {
-        title: "Undo",
-        text: "Ctrl+Z takes an edit back, Ctrl+Y brings it again. Press Ctrl+Z once: the \
-               file is as it was, and a second later so is the disk.",
-        done: |a| a.mode == Mode::Normal && !edited(a),
-    },
-    Lesson {
-        title: "Definitions outside code",
-        text: "`d` reads Makefiles, Terraform, Dockerfiles and YAML too. Open the Makefile with \
-               `o`, go to line 3 with `:`, press End to stand on `lint`, then `d`.",
-        done: |a| at(a, "Makefile") && a.line + 1 == MAKE_LINT_LINE,
-    },
-    Lesson {
-        title: "Implementations",
-        text: "On a declaration `d` shows what implements it. Open models.py with `o`, press \
-               `/`, type `render`, Enter: the cursor is on the protocol's method. Press `d`, \
-               then Enter on the first row.",
-        done: |a| at(a, "models.py") && a.line + 1 == RENDER_LINE,
-    },
-    Lesson {
-        title: "Long lines",
-        text: "Long lines wrap at the edge of the pane, which takes a table apart. `w` cuts them \
-               there instead, `\u{203a}` marks a cut line and the view follows the cursor \
-               sideways; .csv files open that way. Press `w`.",
-        done: |a| a.nowrap(),
-    },
-    Lesson {
-        title: "Wrap again",
-        text: "`w` is remembered for the file until merl quits, and the status bar says \
-               `nowrap`. Press `w` again to wrap.",
-        done: |a| !a.nowrap(),
-    },
-    Lesson {
-        title: "Themes",
-        text: "`T` lists the themes and repaints merl in the one under the cursor as it moves. \
-               Press it, then Down.",
-        done: |a| a.shown_theme() != a.theme,
-    },
-    Lesson {
-        title: "Keep or put back",
-        text: "Enter keeps the theme and saves it to the config file; Esc puts the old one back. \
-               Press Esc.",
-        done: |a| a.picker.is_none(),
-    },
-    Lesson {
-        title: "Help",
-        text: "`?` lists every key merl knows.",
-        done: |a| a.mode == Mode::Help,
-    },
-    Lesson {
-        title: "Close it",
-        text: "Esc closes any overlay, and clears the selection and the find pattern.",
-        done: |a| a.mode == Mode::Normal,
-    },
-];
-
-/// Called after every key: advances at most one step, so a state that happens to satisfy two
-/// predicates cannot skip a lesson.
-pub fn check(app: &mut App) {
-    let Some(tutor) = &app.tutor else { return };
-    let step = tutor.step;
-    let Some(lesson) = LESSONS.get(step) else {
-        return;
-    };
-    if !(lesson.done)(app) {
-        return;
-    }
-    // The tick goes in front of what the key itself reported, such as how `d` found its target.
-    app.message = match app.message.as_str() {
-        "" => format!("\u{2713} {}", lesson.title),
-        said => format!("\u{2713} {}  {said}", lesson.title),
-    };
-    if let Some(tutor) = &mut app.tutor {
-        tutor.step = step + 1;
-    }
-}
-
-/// Unpacks the sample project into a fresh temporary directory.
-pub fn extract() -> Result<PathBuf> {
-    let dir = std::env::temp_dir().join(format!("merl-tutor-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(dir.join("tests"))?;
-    for (name, text) in FILES {
-        std::fs::write(dir.join(name), text)?;
-    }
-    Ok(dir)
+/// The selected text, when the selection sits on one line.
+fn selected(a: &App) -> Option<&str> {
+    let ((l1, c1), (l2, c2)) = a.selection()?;
+    (l1 == l2).then(|| &a.buf.lines[l1][c1..c2])
 }
 
 #[cfg(test)]
 mod tests {
-    use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-
     use super::*;
-    use crate::buffer::Buffer;
+    use crate::stats::ACTIONS;
 
-    /// The `test: lint` line in `Makefile`, which the Makefile lesson names in its text.
-    const MAKE_TEST_LINE: usize = 3;
+    /// Keys in `KEYS` no task trains. A new row in `KEYS` fails the test below until a task of
+    /// [`POOL`] trains each of its sides, or it is listed here on purpose.
+    const NOT_TAUGHT: &[&str] = &[
+        // Nothing to train.
+        "Ctrl+S", "Ctrl+R", "T", "?", "q",
+        // Review mode only: the sample project has no branch to walk yet (#158).
+        "c", "C", "m",
+    ];
 
-    /// One key, with the picker's matcher run to completion first — the event loop ticks it
-    /// between keys, so a test that does not would navigate an empty result list.
-    fn press(a: &mut App, code: KeyCode) {
-        if let Some(p) = &mut a.picker {
-            p.settle();
-        }
-        a.key(KeyEvent::new(code, KeyModifiers::NONE));
+    /// The copy of the sample project a test works in, apart from the other tests' copies.
+    fn dir(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("merl-tutor-{}-{name}", std::process::id()))
     }
 
-    fn typed(a: &mut App, text: &str) {
-        for c in text.chars() {
-            press(a, KeyCode::Char(c));
+    /// A tutor over the copy `name`, its lessons over, so that only the test sets tasks up.
+    fn app(name: &str, (w, h): (usize, usize)) -> App {
+        let dir = dir(name);
+        unpack(&dir).unwrap();
+        let (tree, files) = crate::tree::build(&dir, false);
+        let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+        (a.show_tree, a.focus) = (false, Focus::Code);
+        (a.view_w, a.view_h) = (w, h);
+        a.tutor = Some(Tutor {
+            step: TUTOR.len(),
+            dir,
+        });
+        a
+    }
+
+    /// One line of state, for a failure to say where a task went.
+    fn state(a: &App) -> String {
+        let picker = a
+            .picker
+            .as_ref()
+            .map_or(String::new(), |p| format!(" picker row {}", p.selected));
+        let sel = selected(a).map_or(String::new(), |s| format!(" sel {s:?}"));
+        format!(
+            "{}:{}:{} {:?}{picker}{sel} {:?}",
+            a.rel_path(),
+            a.line + 1,
+            a.col + 1,
+            a.mode,
+            a.message
+        )
+    }
+
+    /// Sets `t` up on a fresh App and presses its answer: the start is not done yet, the
+    /// answer does it, and the answer presses the task's own key.
+    fn run(a: &mut App, t: &Task) {
+        fresh(a).unwrap();
+        set_up(a, t);
+        let before = state(a);
+        assert!(!(t.done)(a), "{}: done before a key: {before}", t.key);
+        // Out of the tutor the presses are counted.
+        let tutor = a.tutor.take();
+        press(a, t.answer);
+        a.settle_search();
+        a.tutor = tutor;
+        let after = state(a);
+        assert!((t.done)(a), "{}: {before} --{}--> {after}", t.key, t.answer);
+        assert!(
+            a.pressed.contains_key(t.key),
+            "{}: the answer {} presses {:?}",
+            t.key,
+            t.answer,
+            a.pressed.keys()
+        );
+    }
+
+    /// Every task from cold, then the whole pool in order and reversed on one App, each run at
+    /// another size: nothing a task leaves behind, on disk or in a field carried over, decides
+    /// the next, and no `done` hangs on the size of the terminal.
+    #[test]
+    fn every_task_starts_undone_and_its_answer_does_it() {
+        for t in POOL {
+            run(&mut app("cold", (80, 24)), t);
+        }
+        let mut a = app("walk", (200, 60));
+        for t in POOL {
+            run(&mut a, t);
+        }
+        (a.view_w, a.view_h) = (60, 16);
+        for t in POOL.iter().rev() {
+            run(&mut a, t);
+        }
+        for name in ["cold", "walk"] {
+            std::fs::remove_dir_all(dir(name)).unwrap();
+        }
+    }
+
+    /// Pressing each lesson's answer walks the whole tutorial: `check` moves on and sets the
+    /// next lesson up, and the tick keeps what the key itself said.
+    #[test]
+    fn the_tutor_sets_up_each_lesson_it_moves_on_to() {
+        let mut a = app("tutor", (80, 24));
+        a.tutor.as_mut().unwrap().step = 0;
+        begin(&mut a).unwrap();
+        for (i, key) in TUTOR.iter().enumerate() {
+            let before = state(&a);
+            press(&mut a, lesson(i).unwrap().answer);
+            a.settle_search();
+            assert_eq!(
+                a.tutor.as_ref().unwrap().step,
+                i + 1,
+                "lesson {key} did not advance: {before} --> {}",
+                state(&a)
+            );
+            if *key == "d" {
+                assert_eq!(
+                    a.message,
+                    "\u{2713} Go to definition  load_config: via import config.py"
+                );
+            }
+        }
+        assert!(lesson(TUTOR.len()).is_none());
+        std::fs::remove_dir_all(dir("tutor")).unwrap();
+    }
+
+    #[test]
+    fn every_key_is_taught_or_skipped_on_purpose() {
+        for a in ACTIONS.iter() {
+            let tasks = POOL.iter().filter(|t| t.key == a.name).count();
+            let skipped = usize::from(NOT_TAUGHT.contains(&a.name.as_str()));
+            assert_eq!(
+                tasks + skipped,
+                1,
+                "`{}` is in KEYS: add a task to POOL that trains it, or list it in NOT_TAUGHT \
+                 if there is nothing to train (one or the other, not both)",
+                a.name
+            );
+        }
+        for t in POOL {
+            assert!(
+                ACTIONS.iter().any(|a| a.name == t.key),
+                "{} is no action of KEYS",
+                t.key
+            );
+        }
+    }
+
+    /// What a text names: its backtick spans, and its words with the punctuation around them
+    /// trimmed. A key is one of them or it is not named: the `d` in "defined" is no `d`.
+    fn named(text: &str) -> Vec<&str> {
+        let words = text
+            .split_whitespace()
+            .map(|w| w.trim_matches(['.', ',', ';', ':', '(', ')']));
+        text.split('`').skip(1).step_by(2).chain(words).collect()
+    }
+
+    #[test]
+    fn a_tutor_text_names_its_key_and_a_drill_text_never_does() {
+        for t in POOL {
+            let key = t.key.rsplit(": ").next().unwrap();
+            assert!(named(t.tutor).contains(&key), "{}: tutor text", t.key);
+            assert!(!named(t.drill).contains(&key), "{}: drill text", t.key);
         }
     }
 
     #[test]
     fn the_sample_project_has_exactly_one_todo() {
         let todos: usize = FILES.iter().map(|(_, t)| t.matches("TODO").count()).sum();
-        assert_eq!(todos, 1, "step 8 searches for the single TODO");
-        let store = FILES.iter().find(|(n, _)| *n == "store.py").unwrap().1;
-        let line = |n: usize| store.lines().nth(n - 1).unwrap();
-        assert!(line(CALL_LINE).contains("load_config()"), "{CALL_LINE}");
-        assert!(
-            line(CLASS_LINE).starts_with("class NoteStore"),
-            "{CLASS_LINE}"
-        );
-        assert!(store.lines().count() >= 42, "step 10 goes to line 42");
-        for n in [PARA_DOWN_LINE, PARA_UP_LINE] {
-            assert!(line(n).trim().is_empty(), "line {n} must be blank");
-        }
-        assert!(
-            line(PARA_UP_LINE + 1).contains("def remove"),
-            "{PARA_UP_LINE}"
-        );
-        let models = FILES.iter().find(|(n, _)| *n == "models.py").unwrap().1;
-        assert!(
-            models
-                .lines()
-                .nth(RENDER_LINE - 1)
-                .is_some_and(|l| l.trim().starts_with("def render")),
-            "{RENDER_LINE}"
-        );
-        let make = FILES.iter().find(|(n, _)| *n == "Makefile").unwrap().1;
-        let make_line = |n: usize| make.lines().nth(n - 1).unwrap();
-        assert!(
-            LESSONS
-                .iter()
-                .any(|l| l.text.contains(&format!("line {MAKE_TEST_LINE} "))),
-            "the Makefile lesson must name line {MAKE_TEST_LINE}"
-        );
-        assert!(
-            make_line(MAKE_TEST_LINE).ends_with(": lint"),
-            "{MAKE_TEST_LINE}"
-        );
-        assert!(
-            make_line(MAKE_LINT_LINE).starts_with("lint:"),
-            "{MAKE_LINT_LINE}"
-        );
-    }
-
-    /// Keys in `KEYS` that the tutorial deliberately skips: VS Code habits and the keys inside
-    /// the tree and the pickers. A new row in `KEYS` fails this test until it is either taught by
-    /// a lesson or listed here on purpose.
-    const NOT_TAUGHT: &[&str] = &[
-        "Arrows",
-        "Shift+Up / Shift+Down",
-        "Shift+Left / Shift+Right",
-        "Ctrl+C",
-        // The lessons only read the sample project.
-        "Ctrl+N",
-        "Alt+Shift+Left / Right",
-        "Ctrl+Shift+Left / Right",
-        "Ctrl+D / Ctrl+U",
-        "PgUp / PgDn",
-        "Home / End",
-        "Ctrl+Home / Ctrl+End",
-        // Review mode only: the sample project has no branch to review.
-        "c / C",
-        "m",
-        "Tree: Up / Down",
-        "Tree: Enter",
-        "Tree: Left / Right",
-        "Picker: Up / Down",
-        "Picker: Enter",
-        "Picker: Esc",
-        "Picker: PgUp / PgDn",
-        "Help: Up / Down",
-        "Edit: Ctrl+X",
-        "Edit: Alt+Backspace / Alt+Delete",
-    ];
-
-    #[test]
-    fn every_key_is_taught_or_skipped_on_purpose() {
-        let text: String = LESSONS
-            .iter()
-            .map(|l| l.text)
-            .chain([DONE])
-            .collect::<Vec<_>>()
-            .join(" ");
-        // A key counts as taught when a lesson names it: in backticks, or as a word.
-        let taught: Vec<&str> = text
-            .split('`')
-            .skip(1)
-            .step_by(2)
-            .chain(text.split_whitespace())
-            .collect();
-        for (label, _) in crate::app::KEYS {
-            if NOT_TAUGHT.contains(label) {
-                continue;
-            }
-            assert!(
-                label.split(" / ").any(|k| taught.contains(&k)),
-                "`{label}` is in KEYS but no lesson mentions it: add a lesson to LESSONS, \
-                 or add it to NOT_TAUGHT if it is a VS Code habit"
-            );
-        }
-    }
-
-    /// Drives the exact keys a learner types and checks that every lesson is reached.
-    #[test]
-    fn tutorial_is_completable() {
-        let dir = extract().unwrap();
-        let (tree, files) = crate::tree::build(&dir, false);
-        let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
-        a.show_tree = false;
-        a.focus = Focus::Code;
-        a.view_w = 80;
-        a.view_h = 24;
-        a.tutor = Some(Tutor {
-            step: 0,
-            dir: dir.clone(),
-        });
-
-        let mut lesson = 0;
-        let mut done = |a: &mut App| {
-            lesson += 1;
-            assert_eq!(
-                a.tutor.as_ref().unwrap().step,
-                lesson,
-                "lesson {lesson} ({}) did not advance",
-                LESSONS[lesson - 1].title
-            );
-        };
-
-        // 1: open a file
-        press(&mut a, KeyCode::Char('o'));
-        typed(&mut a, "store");
-        press(&mut a, KeyCode::Enter);
-        done(&mut a);
-
-        // 2: find in the file
-        press(&mut a, KeyCode::Char('/'));
-        typed(&mut a, "load_config");
-        press(&mut a, KeyCode::Enter);
-        done(&mut a);
-
-        // 3: next match
-        press(&mut a, KeyCode::Char('n'));
-        done(&mut a);
-
-        // 4: go to definition, and the status line the lesson points at
-        press(&mut a, KeyCode::Char('d'));
-        done(&mut a);
-        assert_eq!(
-            a.message,
-            "\u{2713} Go to definition  load_config: via import config.py"
-        );
-
-        // 5 and 6: back and forward
-        press(&mut a, KeyCode::Char('['));
-        done(&mut a);
-        press(&mut a, KeyCode::Char(']'));
-        done(&mut a);
-
-        // 7: usages of the word the jump left the cursor on, then the hit in cli.py
-        press(&mut a, KeyCode::Char('u'));
-        press(&mut a, KeyCode::Down);
-        press(&mut a, KeyCode::Enter);
-        done(&mut a);
-
-        // 8: search the project
-        press(&mut a, KeyCode::Char('s'));
-        typed(&mut a, "TODO");
-        press(&mut a, KeyCode::Enter);
-        a.settle_search();
-        done(&mut a);
-
-        // 9: project symbols
-        press(&mut a, KeyCode::Char('D'));
-        typed(&mut a, "NoteStore");
-        press(&mut a, KeyCode::Enter);
-        done(&mut a);
-
-        // 10: go to line
-        press(&mut a, KeyCode::Char(':'));
-        typed(&mut a, "42");
-        press(&mut a, KeyCode::Enter);
-        done(&mut a);
-
-        // 11 and 12: paragraph down, then up twice
-        press(&mut a, KeyCode::Char('}'));
-        done(&mut a);
-        press(&mut a, KeyCode::Char('{'));
-        press(&mut a, KeyCode::Char('{'));
-        done(&mut a);
-
-        // 13: select the function
-        press(&mut a, KeyCode::Down);
-        for _ in 0..3 {
-            press(&mut a, KeyCode::Char('v'));
-        }
-        done(&mut a);
-
-        // 14 and 15: the tree, then its focus
-        press(&mut a, KeyCode::Char('t'));
-        done(&mut a);
-        press(&mut a, KeyCode::Tab);
-        done(&mut a);
-
-        // 16: open a file from the tree
-        for _ in 0..5 {
-            press(&mut a, KeyCode::Up);
-        }
-        press(&mut a, KeyCode::Right);
-        press(&mut a, KeyCode::Down);
-        press(&mut a, KeyCode::Enter);
-        done(&mut a);
-
-        // 17: hide the tree again
-        press(&mut a, KeyCode::Char('t'));
-        done(&mut a);
-
-        // 18: edit, and the edit reaches the disk on Esc
-        press(&mut a, KeyCode::Enter);
-        typed(&mut a, "# hi");
-        press(&mut a, KeyCode::Esc);
-        done(&mut a);
-        let saved = std::fs::read_to_string(dir.join("tests/test_store.py")).unwrap();
-        assert!(saved.starts_with("# hi"), "{saved:?}");
-        assert!(!a.dirty);
-
-        // 19: undo, which reaches the disk on quit at the latest
-        a.key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
-        done(&mut a);
-        a.flush();
-        let saved = std::fs::read_to_string(dir.join("tests/test_store.py")).unwrap();
-        assert!(!saved.starts_with("# hi"), "{saved:?}");
-
-        // 20: go to definition in the Makefile
-        press(&mut a, KeyCode::Char('o'));
-        typed(&mut a, "Makefile");
-        press(&mut a, KeyCode::Enter);
-        press(&mut a, KeyCode::Char(':'));
-        typed(&mut a, &MAKE_TEST_LINE.to_string());
-        press(&mut a, KeyCode::Enter);
-        press(&mut a, KeyCode::End);
-        press(&mut a, KeyCode::Char('d'));
-        done(&mut a);
-
-        // 21: the implementations of the protocol's method, and the first of them
-        press(&mut a, KeyCode::Char('o'));
-        typed(&mut a, "models");
-        press(&mut a, KeyCode::Enter);
-        press(&mut a, KeyCode::Char('/'));
-        typed(&mut a, "render");
-        press(&mut a, KeyCode::Enter);
-        press(&mut a, KeyCode::Char('d'));
-        assert_eq!(
-            a.message,
-            "render: implementations of Formatter.render, 2 declarations"
-        );
-        press(&mut a, KeyCode::Enter);
-        done(&mut a);
-
-        // 22 and 23: stop wrapping the file, then wrap it again
-        press(&mut a, KeyCode::Char('w'));
-        done(&mut a);
-        press(&mut a, KeyCode::Char('w'));
-        done(&mut a);
-
-        // 24 and 25: preview a theme, then put the old one back
-        press(&mut a, KeyCode::Char('T'));
-        press(&mut a, KeyCode::Down);
-        done(&mut a);
-        press(&mut a, KeyCode::Esc);
-        done(&mut a);
-        assert_eq!(a.shown_theme(), crate::theme::DEFAULT);
-
-        // 26 and 27: help, and closing it
-        press(&mut a, KeyCode::Char('?'));
-        done(&mut a);
-        press(&mut a, KeyCode::Esc);
-        done(&mut a);
-
-        assert_eq!(a.tutor.as_ref().unwrap().step, LESSONS.len());
-        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(todos, 1, "the `s` task searches for the single TODO");
     }
 }

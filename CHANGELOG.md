@@ -21,6 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `--tutor` sets every lesson up on its own: the sample project is unpacked anew, which drops
+  what the last lesson edited, and the lesson opens on the file, line and word it is about. A
+  lesson done the way it asks leads straight into the next; one that wandered off is put back.
+  The lessons are the tasks the key drill will ask, one per key: the four that repeated a key
+  (`t` to hide the tree, `w` to wrap again, `d` in a Makefile and on a declaration) are gone, the
+  last two as a sentence in the `d` lesson, which leaves 21. The sample project has a long
+  `notes.json` and a wide `export.csv` for the keys that page and wrap. (#208)
 - Ignored files are in the tree, dim, as in VS Code's Explorer: a `.env` no longer needs
   `merl .env` from the shell. An ignored directory such as `node_modules/` or `target/` is one
   row, read from disk only when it is expanded, and followed live only while it is. `o` offers the ignored files of the walked

@@ -4,7 +4,7 @@ use super::*;
 
 impl App {
     /// Remembers the screen column the cursor stands on, for Up / Down to aim at.
-    pub(super) fn sync_want_x(&mut self) {
+    pub(crate) fn sync_want_x(&mut self) {
         self.want_x = self.cursor_x();
     }
 

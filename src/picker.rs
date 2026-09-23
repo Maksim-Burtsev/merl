@@ -83,6 +83,11 @@ impl Picker {
         }
     }
 
+    /// Rows a PgUp / PgDn moves: the list's height in the last frame.
+    pub fn page(&self) -> usize {
+        self.page
+    }
+
     /// Runs the matcher to completion, for a list that must be readable at once.
     pub fn settle(&mut self) {
         for _ in 0..100 {
