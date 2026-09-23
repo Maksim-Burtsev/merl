@@ -384,6 +384,15 @@ renames is in the tree, in `o` and in what `s`, `u` and `d` search a moment late
 no restart. The tree cursor stays on its entry, expanded directories stay expanded, an open picker
 keeps its rows until it is reopened, and an edited `.gitignore` is picked up. Dotfiles are part of
 the list — `.github/`, `.env`, `.dockerignore` — and only the `.git`, `.hg` and `.svn` stores are
-skipped. The open file
-itself is watched and reloads on every change on disk, keeping the cursor, the scroll position,
-the jump history and the undo history, where the change is one more step.
+skipped.
+
+What `.gitignore` leaves out is still in the tree, dim, as in VS Code's Explorer: `.env`,
+`target/`, `node_modules/`. The walk does not go into an ignored directory; it is one row until it
+is expanded, and then it is read from disk one level at a time. While it is expanded it follows the
+disk like the rest of the tree: what `npm install` or an agent writes there shows up. Collapsed, it
+is silent again, and read anew when it next opens. `o` offers the ignored files that
+sit in a directory the walk went into, `.env` or `config/local.yml`, dim and after the rest, but
+nothing from inside `node_modules/`. `s`, `u` and `d` search only what is not ignored.
+
+The open file itself is watched and reloads on every change on disk, keeping the cursor, the
+scroll position, the jump history and the undo history, where the change is one more step.

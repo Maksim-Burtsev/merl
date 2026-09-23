@@ -1,6 +1,7 @@
 //! The file tree: the project as the last walk found it.
 
 use std::collections::{HashMap, HashSet};
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use ignore::WalkBuilder;
@@ -11,6 +12,9 @@ pub struct Node {
     pub depth: usize,
     pub is_dir: bool,
     pub expanded: bool,
+    /// Left out by `.gitignore` and the other ignore files: a dim row. The walk does not go into
+    /// an ignored directory; it is read from disk one level at a time, when it is expanded.
+    pub ignored: bool,
 }
 
 impl Node {
@@ -31,20 +35,24 @@ pub struct Tree {
     /// Expanded directories the last walk did not list. A walk can land in the middle of a
     /// `git stash` and `pop`: what comes back comes back expanded.
     away: HashSet<PathBuf>,
+    /// Where the ignored directories are read from; empty in the review panel, which has none.
+    root: PathBuf,
 }
 
 /// Walks `root` once and returns the tree plus the flat list of files, both sorted the same
 /// way: inside every directory, directories first, then files, case-insensitively by name.
 /// Done at startup and again, off the UI thread, whenever the project changes on disk.
 /// `shallow` lists only the files right in `root`: its directories would open onto nothing.
+/// The list leaves out what is ignored; the tree has it as dim rows, an ignored directory
+/// unread.
 pub fn build(root: &Path, shallow: bool) -> (Tree, Vec<PathBuf>) {
     // Dotfiles are walked: `.github/`, `.env` and `.dockerignore` are part of a project.
     // `.gitignore` still prunes caches; a version-control store is never content.
-    let mut entries: Vec<(PathBuf, bool)> = WalkBuilder::new(root)
+    let walked: Vec<(PathBuf, bool)> = WalkBuilder::new(root)
         .hidden(false)
         .require_git(false)
         .max_depth(shallow.then_some(1))
-        .filter_entry(|e| !matches!(e.file_name().to_str(), Some(".git" | ".hg" | ".svn")))
+        .filter_entry(|e| !is_store(e.file_name()))
         .build()
         .filter_map(Result::ok)
         .filter_map(|e| {
@@ -54,14 +62,63 @@ pub fn build(root: &Path, shallow: bool) -> (Tree, Vec<PathBuf>) {
             (!rel.as_os_str().is_empty() && !(shallow && is_dir)).then_some((rel, is_dir))
         })
         .collect();
-    entries.sort_by_cached_key(|(p, is_dir)| sort_key(p, *is_dir));
-
-    let files = entries
-        .iter()
-        .filter(|(_, is_dir)| !is_dir)
-        .map(|(p, _)| p.clone())
+    // Whatever else the walked directories hold is ignored.
+    // ponytail: every walked directory is read a second time for it, one after another: on
+    // gitea (7k rows, 1.4k directories) the walk takes 53 ms instead of 33. Threads won 8 ms
+    // back; `build_parallel` for the walk itself if a project shows the difference.
+    let listed: HashSet<&Path> = walked.iter().map(|(p, _)| p.as_path()).collect();
+    let dirs = walked.iter().filter(|(_, is_dir)| *is_dir);
+    let ignored: Vec<(PathBuf, bool)> = std::iter::once(Path::new(""))
+        .chain(dirs.map(|(p, _)| p.as_path()))
+        .flat_map(|dir| read_level(root, dir))
+        .filter(|(p, is_dir)| !listed.contains(p.as_path()) && !(shallow && *is_dir))
         .collect();
-    (from_entries(entries, false), files)
+    let mut nodes: Vec<Node> = walked
+        .into_iter()
+        .map(|(p, is_dir)| node(p, is_dir, false))
+        .chain(ignored.into_iter().map(|(p, is_dir)| node(p, is_dir, true)))
+        .collect();
+    nodes.sort_by_cached_key(|n| sort_key(&n.path, n.is_dir));
+
+    let files = nodes
+        .iter()
+        .filter(|n| !n.is_dir && !n.ignored)
+        .map(|n| n.path.clone())
+        .collect();
+    let tree = Tree {
+        nodes,
+        root: root.to_path_buf(),
+        ..Tree::default()
+    };
+    (tree, files)
+}
+
+fn is_store(name: &OsStr) -> bool {
+    matches!(name.to_str(), Some(".git" | ".hg" | ".svn"))
+}
+
+/// The entries of `dir` (relative to `root`) and whether each is a directory, unsorted.
+fn read_level(root: &Path, dir: &Path) -> Vec<(PathBuf, bool)> {
+    let Ok(read) = std::fs::read_dir(root.join(dir)) else {
+        return Vec::new();
+    };
+    read.flatten()
+        .filter(|e| !is_store(&e.file_name()))
+        .map(|e| {
+            let is_dir = e.file_type().is_ok_and(|t| t.is_dir());
+            (dir.join(e.file_name()), is_dir)
+        })
+        .collect()
+}
+
+fn node(path: PathBuf, is_dir: bool, ignored: bool) -> Node {
+    Node {
+        depth: path.components().count() - 1,
+        path,
+        is_dir,
+        expanded: false,
+        ignored,
+    }
 }
 
 /// A tree of just `files` (relative paths) and the directories above them, all expanded:
@@ -76,23 +133,16 @@ pub fn from_files(files: &[PathBuf]) -> Tree {
         }
     }
     entries.sort_by_cached_key(|(p, is_dir)| sort_key(p, *is_dir));
-    from_entries(entries, true)
-}
-
-fn from_entries(entries: Vec<(PathBuf, bool)>, expanded: bool) -> Tree {
     let nodes = entries
         .into_iter()
-        .map(|(path, is_dir)| Node {
-            depth: path.components().count() - 1,
-            path,
-            is_dir,
-            expanded,
+        .map(|(p, is_dir)| Node {
+            expanded: true,
+            ..node(p, is_dir, false)
         })
         .collect();
     Tree {
         nodes,
-        cursor: 0,
-        away: HashSet::new(),
+        ..Tree::default()
     }
 }
 
@@ -120,27 +170,89 @@ impl Tree {
         let open = self.nodes.iter().filter(|n| n.expanded);
         expanded.extend(open.map(|n| n.path.clone()));
         let known: HashSet<&Path> = self.nodes.iter().map(|n| n.path.as_path()).collect();
-        let mut index = HashMap::new();
-        for (i, n) in fresh.nodes.iter_mut().enumerate() {
+        for n in &mut fresh.nodes {
             n.expanded = expanded.remove(&n.path) || n.expanded && !known.contains(&*n.path);
-            index.insert(n.path.clone(), i);
         }
         fresh.away = expanded;
+        // The walk leaves every ignored directory unread; an expanded one is read again.
+        fresh.sync_ignored();
+        let index: HashMap<&Path, usize> = fresh
+            .nodes
+            .iter()
+            .enumerate()
+            .map(|(i, n)| (n.path.as_path(), i))
+            .collect();
         let vis = self.visible();
         let at = vis.iter().position(|&i| i == self.cursor).unwrap_or(0);
         let (above, below) = vis.split_at(at.min(vis.len()));
-        fresh.cursor = below
+        let cursor = below
             .iter()
             .chain(above.iter().rev())
-            .find_map(|&i| index.get(&self.nodes[i].path).copied())
+            .find_map(|&i| index.get(self.nodes[i].path.as_path()).copied())
             .unwrap_or(0);
+        fresh.cursor = cursor;
         *self = fresh;
     }
 
-    /// The directories, relative to the root.
+    /// Has an ignored directory rows below it exactly while it is expanded: an expanded one with
+    /// none is read, one level; a collapsed one forgets its rows, so the next expand reads the
+    /// disk again. An expanded directory among the forgotten rows is expanded again when its
+    /// parent is read.
+    fn sync_ignored(&mut self) {
+        let mut i = 0;
+        while let Some(n) = self.nodes.get(i) {
+            if !(n.ignored && n.is_dir) {
+                i += 1;
+                continue;
+            }
+            let below = self.nodes[i + 1..]
+                .iter()
+                .take_while(|c| c.depth > n.depth)
+                .count();
+            if !n.expanded && below > 0 {
+                let open = self
+                    .nodes
+                    .drain(i + 1..i + 1 + below)
+                    .filter(|c| c.expanded);
+                self.away.extend(open.map(|c| c.path));
+            } else if n.expanded && below == 0 {
+                let mut level: Vec<Node> = read_level(&self.root, &n.path)
+                    .into_iter()
+                    .map(|(p, is_dir)| Node {
+                        expanded: self.away.remove(&p),
+                        ..node(p, is_dir, true)
+                    })
+                    .collect();
+                level.sort_by_cached_key(|c| sort_key(&c.path, c.is_dir));
+                self.nodes.splice(i + 1..i + 1, level);
+            }
+            i += 1;
+        }
+    }
+
+    /// The directories the walk went into, relative to the root: not the ignored ones.
     pub fn dirs(&self) -> HashSet<PathBuf> {
-        let dirs = self.nodes.iter().filter(|n| n.is_dir);
+        let dirs = self.nodes.iter().filter(|n| n.is_dir && !n.ignored);
         dirs.map(|n| n.path.clone()).collect()
+    }
+
+    /// The expanded ignored directories: the tree shows what they hold, so it is watched.
+    pub fn open_ignored(&self) -> HashSet<PathBuf> {
+        let open = self
+            .nodes
+            .iter()
+            .filter(|n| n.ignored && n.is_dir && n.expanded);
+        open.map(|n| n.path.clone()).collect()
+    }
+
+    /// The ignored files right in the directories the walk went into: `.env`, `.envrc`,
+    /// `config/local.yml`. Not what an expanded ignored directory holds.
+    pub fn ignored_files(&self) -> Vec<PathBuf> {
+        let dirs = self.dirs();
+        let walked = |p: &Path| p.as_os_str().is_empty() || dirs.contains(p);
+        let files = self.nodes.iter().filter(|n| n.ignored && !n.is_dir);
+        let files = files.filter(|n| n.path.parent().is_some_and(walked));
+        files.map(|n| n.path.clone()).collect()
     }
 
     /// Indices of the nodes whose ancestors are all expanded, in display order.
@@ -189,6 +301,7 @@ impl Tree {
         {
             n.expanded = !n.expanded;
         }
+        self.sync_ignored();
     }
 
     pub fn expand(&mut self) {
@@ -197,12 +310,16 @@ impl Tree {
         {
             n.expanded = true;
         }
+        self.sync_ignored();
     }
 
     /// Collapses an expanded directory; otherwise jumps to the parent directory.
     pub fn collapse(&mut self) {
         match self.nodes.get_mut(self.cursor) {
-            Some(n) if n.is_dir && n.expanded => n.expanded = false,
+            Some(n) if n.is_dir && n.expanded => {
+                n.expanded = false;
+                self.sync_ignored();
+            }
             Some(n) if n.depth > 0 => {
                 let depth = n.depth;
                 if let Some(p) = self.nodes[..self.cursor]
@@ -463,7 +580,7 @@ mod tests {
         ] {
             std::fs::write(dir.join(f), text).unwrap();
         }
-        let (_, files) = build(&dir, false);
+        let (t, files) = build(&dir, false);
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(
             files,
@@ -473,5 +590,121 @@ mod tests {
                 PathBuf::from(".gitignore"),
             ]
         );
+        // The ignored `.cache/` is a row, and nothing below it; the stores are not.
+        let row = |n: &Node| (n.path.to_str().unwrap().to_string(), n.ignored);
+        assert_eq!(
+            t.nodes.iter().map(row).collect::<Vec<_>>(),
+            [
+                (".cache".into(), true),
+                (".github".into(), false),
+                (".github/workflows".into(), false),
+                (".github/workflows/ci.yml".into(), false),
+                (".env".into(), false),
+                (".gitignore".into(), false),
+            ]
+        );
+    }
+
+    /// #157: what `.gitignore` leaves out is in the tree, dim, and an ignored directory is read
+    /// one level at a time, when it is expanded, and again after every walk while it is open.
+    #[test]
+    fn an_ignored_directory_is_read_when_expanded_and_stays_read_across_walks() {
+        let dir = project(
+            "ignored",
+            &[
+                ".gitignore",
+                ".env",
+                "a.py",
+                "src/local.yml",
+                "node_modules/b.js",
+                "node_modules/pkg/index.js",
+                "node_modules/pkg/lib/x.js",
+            ],
+        );
+        std::fs::write(dir.join(".gitignore"), "node_modules/\n.env\nlocal.yml\n").unwrap();
+        let (mut t, files) = build(&dir, false);
+        assert_eq!(files, [PathBuf::from(".gitignore"), "a.py".into()]);
+        assert_eq!(
+            rows(&t),
+            ["node_modules", "src", ".env", ".gitignore", "a.py"]
+        );
+        assert_eq!(t.dirs(), HashSet::from([PathBuf::from("src")]));
+        assert_eq!(
+            t.ignored_files(),
+            [PathBuf::from("src/local.yml"), ".env".into()]
+        );
+
+        t.reveal(Path::new("node_modules"));
+        t.expand();
+        t.down();
+        t.toggle();
+        assert_eq!(t.selected().unwrap().path, Path::new("node_modules/pkg"));
+        assert_eq!(
+            rows(&t)[..5],
+            [
+                "node_modules",
+                "node_modules/pkg",
+                "node_modules/pkg/lib",
+                "node_modules/pkg/index.js",
+                "node_modules/b.js",
+            ]
+        );
+        assert!(
+            t.nodes
+                .iter()
+                .filter(|n| n.path.starts_with("node_modules"))
+                .all(|n| n.ignored)
+        );
+        t.down();
+        t.expand();
+        t.down();
+        assert_eq!(
+            t.selected().unwrap().path,
+            Path::new("node_modules/pkg/lib/x.js")
+        );
+
+        // A walk does not go into `node_modules/`; what was open is read again, and the
+        // cursor keeps its row. What an ignored directory holds is not for `o`.
+        std::fs::write(dir.join("c.py"), b"x").unwrap();
+        let before = rows(&t);
+        t.refresh(build(&dir, false).0);
+        assert_eq!(
+            t.selected().unwrap().path,
+            Path::new("node_modules/pkg/lib/x.js")
+        );
+        assert_eq!(rows(&t)[..before.len()], before[..]);
+        assert_eq!(rows(&t).last().unwrap(), "c.py");
+        assert_eq!(
+            t.ignored_files(),
+            [PathBuf::from("src/local.yml"), ".env".into()]
+        );
+
+        // Collapsed, it forgets its rows; expanded again, it reads the disk as it is now, and
+        // what was open inside it opens again.
+        t.reveal(Path::new("node_modules"));
+        t.collapse();
+        assert_eq!(
+            rows(&t),
+            ["node_modules", "src", ".env", ".gitignore", "a.py", "c.py"]
+        );
+        assert_eq!(
+            t.nodes.len(),
+            7,
+            "`src/local.yml` below the collapsed `src`"
+        );
+        std::fs::write(dir.join("node_modules/pkg/new.js"), b"x").unwrap();
+        t.expand();
+        assert_eq!(
+            rows(&t)[..6],
+            [
+                "node_modules",
+                "node_modules/pkg",
+                "node_modules/pkg/lib",
+                "node_modules/pkg/lib/x.js",
+                "node_modules/pkg/index.js",
+                "node_modules/pkg/new.js",
+            ]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

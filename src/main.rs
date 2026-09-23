@@ -122,7 +122,9 @@ fn run() -> Result<()> {
     };
     let (mut tree, files) = tree::build(&root, shallow);
     // Of the walk, before the review panel takes the tree's place.
-    let project = live::Project::new(&root, shallow, &tree, &files);
+    let project = live::Project::new(&root, shallow, &tree);
+    // `o` offers them in a review too, and the panel has none.
+    let ignored = tree.ignored_files();
     if let Some(r) = &review {
         tree = tree::from_files(&r.files.iter().map(|f| f.path.clone()).collect::<Vec<_>>());
     }
@@ -133,6 +135,7 @@ fn run() -> Result<()> {
     let dir = root.clone();
     let mut app = App::new(root, tree, files, buf, line);
     app.shallow = shallow;
+    app.ignored = ignored;
     if let Some(r) = review {
         app.start_review(r);
     }
@@ -338,6 +341,12 @@ fn event_loop(
                 if app.key(k) {
                     return Ok(());
                 }
+                // An ignored directory expanded or collapsed in the tree is watched, or no more.
+                if project.shown(&app.tree)
+                    && let Some(w) = &mut project_watcher
+                {
+                    project.watch(w, &mut project_watched);
+                }
                 if let Some(text) = app.clipboard.take() {
                     // OSC 52: the terminal puts it on the system clipboard, even over ssh.
                     let mut out = stdout();
@@ -373,11 +382,13 @@ fn event_loop(
                 }
             }
             Ok(Msg::Project(tree, files)) => {
-                project.walked(&tree, &files, Instant::now());
+                project.walked(&tree, Instant::now());
+                app.project_walked(tree, files);
+                // The tree read its open ignored directories again: they are listed as read.
+                project.shown(&app.tree);
                 if let Some(w) = &mut project_watcher {
                     project.watch(w, &mut project_watched);
                 }
-                app.project_walked(tree, files);
                 if let Some(r) = &mut review {
                     r.touch(Instant::now());
                 }

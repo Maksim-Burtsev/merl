@@ -184,8 +184,12 @@ pub struct App {
     pub shallow: bool,
     pub buf: Buffer,
     pub tree: Tree,
-    /// Every file under the root, sorted like the tree; the file picker's item list.
+    /// Every file under the root that is not ignored, sorted like the tree: what `o` offers
+    /// and `s`, `u` and `d` search.
     pub files: Vec<PathBuf>,
+    /// The ignored files of the walked directories (`.env`): `o` offers them after `files`,
+    /// dim, and nothing searches them.
+    pub ignored: Vec<PathBuf>,
     /// Per kind, the standard library and dependency roots outside the project and the files of
     /// that kind under them; filled the first time `d` leaves the project.
     external: HashMap<Kind, (Vec<PathBuf>, Arc<Vec<PathBuf>>)>,
@@ -351,12 +355,14 @@ impl App {
         } else {
             Focus::Tree
         };
+        let ignored = tree.ignored_files();
         let mut app = Self {
             root,
             shallow: false,
             buf: Buffer::empty(),
             tree,
             files,
+            ignored,
             external: HashMap::new(),
             node_modules: HashMap::new(),
             node_modules_of: None,
