@@ -8,6 +8,7 @@ mod cursor;
 mod edit;
 mod find;
 mod keys;
+mod missed;
 mod navigate;
 mod navigate_binding;
 mod navigate_call;

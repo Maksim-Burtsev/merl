@@ -1,5 +1,6 @@
-//! Key stats (#207): how often each action of [`KEYS`] is pressed in real work, a line per UTC
-//! day and action in `~/.local/state/merl/keys.tsv`, which `merl --keys` prints.
+//! Key stats (#207): how often each action of [`KEYS`] is pressed in real work, and missed
+//! (#210), a line per UTC day and action in `~/.local/state/merl/keys.tsv`, which `merl --keys`
+//! prints.
 
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as _;
@@ -97,8 +98,8 @@ pub fn action(key: &str) -> Option<&'static str> {
         .map(|a| a.name.as_str())
 }
 
-/// Presses by UTC day and action.
-type Rows = BTreeMap<(i64, &'static str), u64>;
+/// Presses and misses by UTC day and action.
+type Rows = BTreeMap<(i64, &'static str), (u64, u64)>;
 
 /// Built from the home directory the way `config.toml` is, no `XDG_*`.
 pub fn path() -> Option<PathBuf> {
@@ -140,21 +141,24 @@ fn day(s: &str) -> Option<i64> {
     (date(n) == s).then_some(n)
 }
 
-/// `YYYY-MM-DD<TAB>action<TAB>count` lines. One that is not, or names an action no longer in
-/// `KEYS`, is dropped. Columns after the count are for later: missed keys will add one.
+/// `YYYY-MM-DD<TAB>action<TAB>presses<TAB>misses` lines; a line #207 wrote has no misses and
+/// reads as none. One that is neither, or names an action no longer in `KEYS`, is dropped.
 fn parse(text: &str) -> Rows {
     let mut rows = Rows::new();
     for line in text.lines() {
         let mut cols = line.split('\t');
-        let (Some(day), Some(action), Some(n)) = (
+        let (Some(day), Some(action), Some(n), Some(missed)) = (
             cols.next().and_then(day),
             cols.next()
                 .and_then(|name| ACTIONS.iter().find(|a| a.name == name)),
             cols.next().and_then(|n| n.parse::<u64>().ok()),
+            cols.next().map_or(Some(0), |n| n.parse::<u64>().ok()),
         ) else {
             continue;
         };
-        *rows.entry((day, action.name.as_str())).or_default() += n;
+        let row = rows.entry((day, action.name.as_str())).or_default();
+        row.0 += n;
+        row.1 += missed;
     }
     rows
 }
@@ -167,22 +171,30 @@ fn load(path: &Path) -> Result<Rows> {
     }
 }
 
-/// Adds a session's presses to the file under `today`. The file is read again right before and
-/// replaced whole through a rename, so a merl quitting after this one keeps both numbers and a
-/// reader never sees half a file; only two quitting in the same instant can lose one's. A file
-/// that cannot be read is left as it is.
-pub fn add(path: &Path, today: i64, pressed: &HashMap<&'static str, u64>) -> Result<()> {
-    if pressed.is_empty() {
+/// Adds a session's presses and misses to the file under `today`. The file is read again right
+/// before and replaced whole through a rename, so a merl quitting after this one keeps both
+/// numbers and a reader never sees half a file; only two quitting in the same instant can lose
+/// one's. A file that cannot be read is left as it is.
+pub fn add(
+    path: &Path,
+    today: i64,
+    pressed: &HashMap<&'static str, u64>,
+    missed: &HashMap<&'static str, u64>,
+) -> Result<()> {
+    if pressed.is_empty() && missed.is_empty() {
         return Ok(());
     }
     let ctx = || format!("{}", path.display());
     let mut rows = load(path)?;
     for (action, n) in pressed {
-        *rows.entry((today, action)).or_default() += n;
+        rows.entry((today, action)).or_default().0 += n;
+    }
+    for (action, n) in missed {
+        rows.entry((today, action)).or_default().1 += n;
     }
     let mut text = String::new();
-    for ((day, action), n) in &rows {
-        _ = writeln!(text, "{}\t{action}\t{n}", date(*day));
+    for ((day, action), (n, missed)) in &rows {
+        _ = writeln!(text, "{}\t{action}\t{n}\t{missed}", date(*day));
     }
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).with_context(ctx)?;
@@ -197,34 +209,42 @@ pub fn report(path: &Path, today: i64) -> Result<String> {
     Ok(table(&load(path)?, today))
 }
 
-/// Every action with its presses in the last 30 days, in all, and the day of the last one,
-/// strongest first: the never pressed come last, right above the prompt.
+/// An action with its presses in the last 30 days, its misses in them, its presses in all, the
+/// day of the last press, and what it does.
+type Tally = (&'static str, u64, u64, u64, Option<i64>, &'static str);
+
+/// Every action's [`Tally`], strongest first: the never pressed come last, right above the
+/// prompt.
 fn table(rows: &Rows, today: i64) -> String {
-    let mut keys: Vec<(&str, u64, u64, Option<i64>, &str)> = ACTIONS
+    let mut keys: Vec<Tally> = ACTIONS
         .iter()
-        .map(|a| (a.name.as_str(), 0, 0, None, a.what))
+        .map(|a| (a.name.as_str(), 0, 0, 0, None, a.what))
         .collect();
-    for (&(day, action), n) in rows {
+    for (&(day, action), &(n, missed)) in rows {
         if let Some(k) = keys.iter_mut().find(|k| k.0 == action) {
             if today - day < 30 {
                 k.1 += n;
+                k.2 += missed;
             }
-            k.2 += n;
-            k.3 = k.3.max(Some(day));
+            k.3 += n;
+            if n > 0 {
+                k.4 = k.4.max(Some(day));
+            }
         }
     }
-    keys.sort_by_key(|k| std::cmp::Reverse((k.1, k.2)));
+    keys.sort_by_key(|k| std::cmp::Reverse((k.1, k.3)));
     let last = |day: Option<i64>| match day.map(|d| today - d) {
         None => "never".to_string(),
         Some(..=0) => "today".to_string(),
         Some(n) => format!("{n} day{} ago", plural(n as usize)),
     };
-    let head = ["key", "30d", "all", "last", "what"].map(String::from);
-    let cells: Vec<[String; 5]> = std::iter::once(head)
-        .chain(keys.iter().map(|&(name, month, all, day, what)| {
+    let head = ["key", "30d", "missed", "all", "last", "what"].map(String::from);
+    let cells: Vec<[String; 6]> = std::iter::once(head)
+        .chain(keys.iter().map(|&(name, month, missed, all, day, what)| {
             [
                 name.into(),
                 month.to_string(),
+                missed.to_string(),
                 all.to_string(),
                 last(day),
                 what.into(),
@@ -232,11 +252,11 @@ fn table(rows: &Rows, today: i64) -> String {
         }))
         .collect();
     let w = |i: usize| cells.iter().map(|c| c[i].len()).max().unwrap_or(0);
-    let (w0, w1, w2, w3) = (w(0), w(1), w(2), w(3));
+    let (w0, w1, w2, w3, w4) = (w(0), w(1), w(2), w(3), w(4));
     cells
         .iter()
-        .map(|[key, month, all, last, what]| {
-            format!("{key:<w0$}  {month:>w1$}  {all:>w2$}  {last:<w3$}  {what}\n")
+        .map(|[key, month, missed, all, last, what]| {
+            format!("{key:<w0$}  {month:>w1$}  {missed:>w2$}  {all:>w3$}  {last:<w4$}  {what}\n")
         })
         .collect()
 }
@@ -306,21 +326,22 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         let file = dir.join("state/merl/keys.tsv");
         let today = day("2026-09-23").unwrap();
-        add(&file, today, &HashMap::from([("d", 2), ("]", 1)])).unwrap();
+        let none = HashMap::new();
+        add(&file, today, &HashMap::from([("d", 2), ("]", 1)]), &none).unwrap();
         let old = std::fs::read_to_string(&file).unwrap();
         std::fs::write(
             &file,
             format!("2026-09-20\td\t5\n2026-09-20\tgone\t9\n2026-09-20\tUp\t2\nnot a line\n{old}"),
         )
         .unwrap();
-        add(&file, today, &HashMap::from([("d", 3)])).unwrap();
+        add(&file, today, &HashMap::from([("d", 3)]), &none).unwrap();
         assert_eq!(
             std::fs::read_to_string(&file).unwrap(),
-            "2026-09-20\td\t5\n2026-09-23\t]\t1\n2026-09-23\td\t5\n"
+            "2026-09-20\td\t5\t0\n2026-09-23\t]\t1\t0\n2026-09-23\td\t5\t0\n"
         );
         // A file that cannot be read is not written over.
         std::fs::write(&file, b"\xff\n").unwrap();
-        assert!(add(&file, today, &HashMap::from([("d", 1)])).is_err());
+        assert!(add(&file, today, &HashMap::from([("d", 1)]), &none).is_err());
         assert_eq!(std::fs::read(&file).unwrap(), b"\xff\n");
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -338,19 +359,62 @@ mod tests {
         assert_eq!(
             lines[..4],
             [
-                "key                  30d   all  last         what",
-                "d                    212  1804  today        Go to definition of the word under the \
-                 cursor, or its implementations",
-                "}                      2    17  3 days ago   Previous / next paragraph (blank line)",
-                "v                      0     3  41 days ago  Select the word, then the line, then \
-                 the paragraph",
+                "key                  30d  missed   all  last         what",
+                "d                    212       0  1804  today        Go to definition of the word \
+                 under the cursor, or its implementations",
+                "}                      2       0    17  3 days ago   Previous / next paragraph \
+                 (blank line)",
+                "v                      0       0     3  41 days ago  Select the word, then the line, \
+                 then the paragraph",
             ]
         );
         assert_eq!(lines.len(), 1 + 66);
         assert!(lines[4..].iter().all(|l| l.contains("  never  ")), "{out}");
         assert_eq!(
             lines[4],
-            "o                      0     0  never        Open a file (fuzzy)"
+            "o                      0       0     0  never        Open a file (fuzzy)"
         );
+    }
+
+    /// Misses are a fourth column: a line of three reads as none missed, both numbers add up, and
+    /// `merl --keys` shows the misses of the last 30 days, a key missed but never pressed too.
+    #[test]
+    fn misses_are_a_fourth_column() {
+        let dir = std::env::temp_dir().join(format!("merl-keys-missed-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("keys.tsv");
+        std::fs::write(
+            &file,
+            "2026-08-01\t}\t4\t9\n2026-09-20\td\t5\n2026-09-20\t}\t1\t2\n",
+        )
+        .unwrap();
+        let today = day("2026-09-23").unwrap();
+        add(
+            &file,
+            today,
+            &HashMap::from([("d", 1)]),
+            &HashMap::from([("d", 1), ("PgDn", 3)]),
+        )
+        .unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&file).unwrap(),
+            "2026-08-01\t}\t4\t9\n2026-09-20\td\t5\t0\n2026-09-20\t}\t1\t2\n\
+             2026-09-23\tPgDn\t0\t3\n2026-09-23\td\t1\t1\n"
+        );
+        let out = report(&file, today).unwrap();
+        let row = |key: &str| {
+            out.lines()
+                .find(|l| l.split_whitespace().next() == Some(key))
+                .unwrap()
+                .split_whitespace()
+                .take(4)
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        assert_eq!(row("d"), "d 6 1 6");
+        assert_eq!(row("}"), "} 1 2 5");
+        assert_eq!(row("PgDn"), "PgDn 0 3 0");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

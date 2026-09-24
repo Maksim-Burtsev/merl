@@ -289,21 +289,13 @@ impl App {
     }
 
     pub(super) fn word_right(&mut self) {
-        let s = self.line_str();
-        if self.col >= s.len() {
+        if self.col >= self.line_str().len() {
             if self.line + 1 < self.buf.lines.len() {
                 self.line += 1;
                 self.col = 0;
             }
         } else {
-            let mut i = self.col;
-            while i < s.len() && !is_word(char_at(s, i)) {
-                i = next_char(s, i);
-            }
-            while i < s.len() && is_word(char_at(s, i)) {
-                i = next_char(s, i);
-            }
-            self.col = i;
+            self.col = word_end(self.line_str(), self.col);
         }
         self.sync_want_x();
     }
@@ -315,15 +307,7 @@ impl App {
                 self.col = self.line_str().len();
             }
         } else {
-            let s = self.line_str();
-            let mut i = prev_char(s, self.col);
-            while i > 0 && !is_word(char_at(s, i)) {
-                i = prev_char(s, i);
-            }
-            while i > 0 && is_word(char_at(s, prev_char(s, i))) {
-                i = prev_char(s, i);
-            }
-            self.col = i;
+            self.col = word_start(self.line_str(), self.col);
         }
         self.sync_want_x();
     }
@@ -335,6 +319,33 @@ impl App {
         self.want_x = 0;
         self.center = true;
     }
+}
+
+/// Where Alt+Right lands from `i` inside `s`: past the gap, then past the word.
+pub(super) fn word_end(s: &str, mut i: usize) -> usize {
+    while i < s.len() && !is_word(char_at(s, i)) {
+        i = next_char(s, i);
+    }
+    while i < s.len() && is_word(char_at(s, i)) {
+        i = next_char(s, i);
+    }
+    i
+}
+
+/// Where Alt+Left lands from `i` inside `s`, past its start: back over the gap, then over the
+/// word.
+pub(super) fn word_start(s: &str, i: usize) -> usize {
+    if i == 0 {
+        return 0;
+    }
+    let mut i = prev_char(s, i);
+    while i > 0 && !is_word(char_at(s, i)) {
+        i = prev_char(s, i);
+    }
+    while i > 0 && is_word(char_at(s, prev_char(s, i))) {
+        i = prev_char(s, i);
+    }
+    i
 }
 
 fn char_at(s: &str, i: usize) -> char {

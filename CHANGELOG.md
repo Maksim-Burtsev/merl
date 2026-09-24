@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `merl --keys` has a `missed` column: how often in the last 30 days a key would have done what
+  you did another way in half the presses, saving three or more. `s` or `D` typed for the word
+  under the cursor was `d` on its declaration, `u` on a use; `o` to a file one to three stops
+  away in the jump history was `[` or `]`; a held or fast-tapped arrow, Shift+arrow, Backspace
+  or Delete was the paging, word or line key that lands in the same place; in a review, a run
+  into the next hunk, or `o` to the next file after the last one, was `c` / `C`. Only keys that
+  work where you were count: `}` types in edit mode. Nothing shows while you work, and
+  `--tutor` counts nothing. (#210)
 - `merl --keys` prints how often each key has been pressed, in the last 30 days and in all,
   and when it was last: strongest first, so the keys you never press sit right above the prompt.
   merl counts them as you work, `--review` included, and adds the session's numbers to

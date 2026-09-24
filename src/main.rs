@@ -71,7 +71,7 @@ struct Cli {
     /// Walk through every key on a bundled sample project (ignores the target)
     #[arg(long)]
     tutor: bool,
-    /// Print how often each key has been pressed, the unused last, and exit
+    /// Print how often each key has been pressed and missed, the unused last, and exit
     #[arg(long)]
     keys: bool,
     /// Review the checked-out branch (or `--review=BRANCH` to fetch it and check out what was
@@ -228,7 +228,7 @@ fn run() -> Result<()> {
     }
     // After `q` or a signal alike; a crash loses the session's presses, and only those.
     if let Some(path) = stats::path()
-        && let Err(e) = stats::add(&path, stats::today(), &app.pressed)
+        && let Err(e) = stats::add(&path, stats::today(), &app.pressed, &app.missed)
     {
         eprintln!("merl: {e:#}");
     }
