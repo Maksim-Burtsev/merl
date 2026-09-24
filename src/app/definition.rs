@@ -184,8 +184,12 @@ impl App {
                 let mut found = self
                     .imported_definitions(kind, &here, &word, &chain, &path)
                     .unwrap_or_else(|| {
-                        outside = true;
-                        self.external_definitions(kind, &word, &chain, dotted, &pattern, &imports)
+                        // A workspace package linked in is the project's own: the search by
+                        // name in the project comes first, the one outside after it (below).
+                        let found = self
+                            .external_definitions(kind, &word, &chain, dotted, &pattern, &imports);
+                        outside = found.is_some();
+                        found.unwrap_or_default()
                     });
                 // `try: from a import pick` / `except ImportError: from b import pick` names
                 // two sources: both are offered, and which one ran is not for `d` to guess.
@@ -346,7 +350,12 @@ impl App {
                 Some("self" | "cls" | "this")
             )
         {
-            found = self.external_definitions(kind, &word, &chain, dotted, &pattern, &imports);
+            // What a workspace package of the project does not declare it hands on from a
+            // dependency: outside, by name, as for a word no import binds.
+            found = self
+                .external_definitions(kind, &word, &chain, dotted, &pattern, &imports)
+                .or_else(|| self.external_definitions(kind, &word, &chain, dotted, &pattern, &[]))
+                .unwrap_or_default();
         }
         self.show_definitions(kind, &word, &here, found, broke.as_deref());
     }

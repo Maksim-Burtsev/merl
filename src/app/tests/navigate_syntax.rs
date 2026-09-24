@@ -833,12 +833,15 @@ fn an_imported_package_is_the_copy_node_loads() {
 #[cfg(unix)]
 #[test]
 fn a_linked_package_is_the_version_it_links() {
-    let main = "import { pin } from \"pinned\";\nimport { shared } from \"@app/shared\";\nimport { reach } from \"far\";\n\npin(1);\nshared(1);\nreach(1);\n";
+    let main = "import { pin } from \"pinned\";\nimport { shared, z } from \"@app/shared\";\nimport { reach } from \"far\";\n\npin(1);\nshared(1);\nreach(1);\nz.string();\n";
     let (dir, mut a) = project_app(
         "linked",
         &[
             ("src/main.ts", main),
-            ("packages/shared/index.ts", "export function shared() {}\n"),
+            (
+                "packages/shared/index.ts",
+                "export function shared() {}\nexport { z } from \"zod\";\n",
+            ),
         ],
     );
     let store = external_root(
@@ -859,6 +862,8 @@ fn a_linked_package_is_the_version_it_links() {
             "shared",
         ),
         ("node_modules/other/node_modules/far/index.d.ts", "reach"),
+        // What the workspace package hands on from a dependency.
+        ("node_modules/zod/index.d.ts", "z"),
     ] {
         std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
         std::fs::write(
@@ -892,6 +897,10 @@ fn a_linked_package_is_the_version_it_links() {
         (
             "^shared",
             jump("shared: by name, 1 match", "packages/shared/index.ts:1"),
+        ),
+        (
+            "^z|.string",
+            jump("z: by name, 1 match", "node_modules/zod/index.d.ts:1"),
         ),
         (
             "^reach",

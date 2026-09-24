@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   own, such as `buffer`, is looked for as before, whatever npm polyfill of that name is
   installed. A workspace package linked into `node_modules` is the project's own: `d` finds it
   in its source, `by name`, and no longer in an old published copy another package depends
-  on. (#141)
+  on; a name it only hands on from a dependency is found there, `by name`. (#141)
 - `--tutor` sets every lesson up on its own: the sample project is unpacked anew, which drops
   what the last lesson edited, and the lesson opens on the file, line and word it is about. A
   lesson done the way it asks leads straight into the next; one that wandered off is put back.
