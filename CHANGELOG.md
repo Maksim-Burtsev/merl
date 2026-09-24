@@ -39,9 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `d` on a TypeScript name imported from a package installed more than once lands in the copy
   Node loads: the nearest `node_modules` that has the package or its `@types`, and a farther one
-  only when the nearer lacks the imported path (`lib/extra`) and maps none with `exports`; pnpm's
-  link is followed to the version it points at, whatever the store directory is called, and a
-  copy of JavaScript alone is read with the nearest declarations further up. A workspace root's
+  when the nearer lacks the imported path (`lib/extra`), unless the nearer maps its paths with
+  `exports`, which is then looked for as before; pnpm's link is followed to the version it
+  points at, whatever the store directory is called, and a copy of JavaScript alone is read
+  with the nearest declarations further up. A workspace root's
   copy, a copy another package depends on and another version in pnpm's store are no longer
   offered beside it: a name only such a copy declares is found `by name`, no longer
   `via import`, and one the copy exports under another name (`export { parseCookie as parse }`)
