@@ -63,6 +63,12 @@ impl App {
         let Some(copy) = copy else {
             return Vec::new();
         };
+        // `node:sqlite` is looked for, and named, as `sqlite`.
+        if let Some(first) = bound_path.as_mut().and_then(|p| p.first_mut())
+            && let Some(bare) = first.strip_prefix("node:")
+        {
+            *first = bare.to_owned();
+        }
         let copy: Vec<PathBuf> = all
             .iter()
             .filter(|p| search::in_copy(p, &copy))

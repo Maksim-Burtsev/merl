@@ -66,7 +66,8 @@ fn imports_bind_names_to_module_paths() {
         [
             // The last part is what the import takes: the default export, a name, or the
             // whole module.
-            ("fs".into(), p(&["fs", "default"])),
+            // `node:` stays: the module is Node's own, whatever is installed under its name.
+            ("fs".into(), p(&["node:fs", "default"])),
             ("join".into(), p(&["path", "join"])),
             ("res".into(), p(&["path", "resolve"])),
             ("React".into(), p(&["react", "*"])),

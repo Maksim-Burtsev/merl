@@ -638,7 +638,7 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
 /// depends on. A name only another copy declares is found by name.
 #[test]
 fn an_imported_package_is_the_copy_node_loads() {
-    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { extra } from \"lib/extra\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nextra(1);\n";
+    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { extra } from \"lib/extra\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nextra(1);\n";
     let file = "packages/api/src/main.ts";
     let (dir, mut a) = project_app("copies", &[(file, main)]);
     for (path, names) in [
@@ -687,6 +687,15 @@ fn an_imported_package_is_the_copy_node_loads() {
         (
             "node_modules/@types/node/buffer.d.ts",
             "declare module \"buffer\" {\n    export class Buffer {\n    }\n}\n",
+        ),
+        // `node:sqlite` is Node's own, whatever npm package is called `sqlite`.
+        (
+            "node_modules/sqlite/index.d.ts",
+            "export declare class DatabaseSync {\n}\n",
+        ),
+        (
+            "node_modules/@types/node/sqlite.d.ts",
+            "declare module \"node:sqlite\" {\n    export class DatabaseSync {\n    }\n}\n",
         ),
         // The copy loaded declares `parse` under another name, which another copy has.
         (
@@ -758,6 +767,15 @@ fn an_imported_package_is_the_copy_node_loads() {
                 "Buffer: via import buffer, 2 declarations".into(),
                 ["@types/node/buffer.d.ts:2", "buffer/index.d.ts:1"]
                     .map(|at| ("Buffer".into(), "via import buffer".into(), at.into()))
+                    .to_vec(),
+            ),
+        ),
+        (
+            "^DatabaseSync",
+            Shown::Picker(
+                "DatabaseSync: via import sqlite, 2 declarations".into(),
+                ["@types/node/sqlite.d.ts:2", "sqlite/index.d.ts:1"]
+                    .map(|at| ("DatabaseSync".into(), "via import sqlite".into(), at.into()))
                     .to_vec(),
             ),
         ),

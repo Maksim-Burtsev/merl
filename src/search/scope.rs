@@ -253,10 +253,11 @@ const NODE_BUILTINS: &[&str] = &[
 /// are there. A link is followed, so pnpm's `node_modules/lib` is the version of the store it
 /// points at, spelled under the root it lies in, as the files walked from there are; one that
 /// leads out of the roots (a pnpm store outside them) has no file there and is left out.
-/// Empty when no root has the package (an ambient `declare module`) and for a module of Node's
-/// own: `buffer` is not the npm polyfill of that name but `@types/node`'s `declare module`, which
-/// TypeScript takes over any `node_modules`. `None` when the copy is the source of the project
-/// at `root`, a workspace package linked into `node_modules`: no copy outside is it.
+/// Empty when no root has the package (an ambient `declare module`, and a `node:` module, which
+/// no package directory is called) and for a bare module of Node's own: `buffer` is not the npm
+/// polyfill of that name but `@types/node`'s `declare module`, which TypeScript takes over any
+/// `node_modules`. `None` when the copy is the source of the project at `root`, a workspace
+/// package linked into `node_modules`: no copy outside is it.
 pub fn package_copy(root: &Path, roots: &[PathBuf], module: &[String]) -> Option<Vec<PathBuf>> {
     let name = match module {
         [scope, pkg, ..] if scope.starts_with('@') => format!("{scope}/{pkg}"),

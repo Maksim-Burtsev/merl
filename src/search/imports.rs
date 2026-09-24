@@ -12,8 +12,8 @@ use super::*;
 /// the path until a file matches). A relative import (`from ..models import X`, `./utils`) binds
 /// too, with its dots as the leading part: it names a project file, never one outside. A
 /// TypeScript path ends in what the import takes from the module: the name, `default`, or `*`
-/// for the whole module (`* as ns`, `require`). Rust's in-crate `crate::` and `super::` paths are
-/// left out.
+/// for the whole module (`* as ns`, `require`), and a `node:` module keeps the prefix that makes
+/// it Node's own. Rust's in-crate `crate::` and `super::` paths are left out.
 pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
     // A Python import in a docstring's example binds nothing of the file.
     if kind == Kind::Python {
@@ -142,7 +142,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                 .unwrap()
             });
             for c in IMPORT.captures_iter(text) {
-                let module = c[4].strip_prefix("node:").unwrap_or(&c[4]);
+                let module = &c[4];
                 // `./x` and `../x` keep their dots as the first part; an absolute path gets one.
                 let mut path = parts(module, "/");
                 if module.starts_with('/') {
