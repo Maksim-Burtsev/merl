@@ -156,6 +156,7 @@ fn run() -> Result<()> {
         app.show_tree = false;
         app.focus = Focus::Code;
         app.tutor = Some(Tutor { step: 0, dir });
+        tutor::begin(&mut app)?;
     }
 
     let mut terminal = ratatui::try_init()?;

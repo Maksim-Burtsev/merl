@@ -1,0 +1,297 @@
+[
+  {
+    "id": 1,
+    "text": "buy milk",
+    "tags": [
+      "home"
+    ],
+    "created": "2026-01-08"
+  },
+  {
+    "id": 2,
+    "text": "water the plants",
+    "tags": [
+      "home"
+    ],
+    "created": "2026-01-13"
+  },
+  {
+    "id": 3,
+    "text": "call the dentist about the crown",
+    "tags": [
+      "health"
+    ],
+    "created": "2026-01-18"
+  },
+  {
+    "id": 4,
+    "text": "renew the passport before March",
+    "tags": [
+      "papers"
+    ],
+    "created": "2026-01-23"
+  },
+  {
+    "id": 5,
+    "text": "book a table for Friday",
+    "tags": [],
+    "created": "2026-01-28"
+  },
+  {
+    "id": 6,
+    "text": "return the library books",
+    "tags": [
+      "errands"
+    ],
+    "created": "2026-02-02"
+  },
+  {
+    "id": 7,
+    "text": "fix the squeaky hinge on the back door",
+    "tags": [
+      "home"
+    ],
+    "created": "2026-02-07"
+  },
+  {
+    "id": 8,
+    "text": "send the invoice for August",
+    "tags": [
+      "work",
+      "money"
+    ],
+    "created": "2026-02-12"
+  },
+  {
+    "id": 9,
+    "text": "read the chapter on B-trees",
+    "tags": [
+      "study"
+    ],
+    "created": "2026-02-17"
+  },
+  {
+    "id": 10,
+    "text": "pick up the dry cleaning",
+    "tags": [
+      "errands"
+    ],
+    "created": "2026-02-22"
+  },
+  {
+    "id": 11,
+    "text": "ask Sam about the spare key",
+    "tags": [],
+    "created": "2026-02-27"
+  },
+  {
+    "id": 12,
+    "text": "pay the electricity bill",
+    "tags": [
+      "money"
+    ],
+    "created": "2026-03-04"
+  },
+  {
+    "id": 13,
+    "text": "move the standup to 10:30",
+    "tags": [
+      "work"
+    ],
+    "created": "2026-03-09"
+  },
+  {
+    "id": 14,
+    "text": "try the sourdough recipe",
+    "tags": [
+      "cooking"
+    ],
+    "created": "2026-03-14"
+  },
+  {
+    "id": 15,
+    "text": "cancel the unused gym plan",
+    "tags": [
+      "money",
+      "health"
+    ],
+    "created": "2026-03-19"
+  },
+  {
+    "id": 16,
+    "text": "write the retro notes",
+    "tags": [
+      "work"
+    ],
+    "created": "2026-03-24"
+  },
+  {
+    "id": 17,
+    "text": "order printer ink",
+    "tags": [
+      "errands"
+    ],
+    "created": "2026-03-29"
+  },
+  {
+    "id": 18,
+    "text": "check the tyre pressure",
+    "tags": [
+      "car"
+    ],
+    "created": "2026-04-03"
+  },
+  {
+    "id": 19,
+    "text": "birthday present for Alex",
+    "tags": [
+      "family"
+    ],
+    "created": "2026-04-08"
+  },
+  {
+    "id": 20,
+    "text": "clean the fridge",
+    "tags": [
+      "home"
+    ],
+    "created": "2026-04-13"
+  },
+  {
+    "id": 21,
+    "text": "back up the photos",
+    "tags": [
+      "computer"
+    ],
+    "created": "2026-04-18"
+  },
+  {
+    "id": 22,
+    "text": "look into a cheaper phone plan",
+    "tags": [
+      "money"
+    ],
+    "created": "2026-04-23"
+  },
+  {
+    "id": 23,
+    "text": "practise the scales, twenty minutes",
+    "tags": [
+      "music"
+    ],
+    "created": "2026-04-28"
+  },
+  {
+    "id": 24,
+    "text": "reply to the landlord",
+    "tags": [
+      "home",
+      "papers"
+    ],
+    "created": "2026-05-03"
+  },
+  {
+    "id": 25,
+    "text": "swap the winter tyres",
+    "tags": [
+      "car"
+    ],
+    "created": "2026-05-08"
+  },
+  {
+    "id": 26,
+    "text": "plan the weekend hike",
+    "tags": [
+      "outdoors",
+      "family"
+    ],
+    "created": "2026-05-13"
+  },
+  {
+    "id": 27,
+    "text": "update the CV",
+    "tags": [
+      "work"
+    ],
+    "created": "2026-05-18"
+  },
+  {
+    "id": 28,
+    "text": "defrost the freezer",
+    "tags": [
+      "home"
+    ],
+    "created": "2026-05-23"
+  },
+  {
+    "id": 29,
+    "text": "vote in the local election",
+    "tags": [],
+    "created": "2026-05-28"
+  },
+  {
+    "id": 30,
+    "text": "get the bike serviced",
+    "tags": [
+      "outdoors"
+    ],
+    "created": "2026-06-02"
+  },
+  {
+    "id": 31,
+    "text": "learn the chords of the new song",
+    "tags": [
+      "music"
+    ],
+    "created": "2026-06-07"
+  },
+  {
+    "id": 32,
+    "text": "bring the ladder back to the neighbours",
+    "tags": [
+      "home"
+    ],
+    "created": "2026-06-12"
+  },
+  {
+    "id": 33,
+    "text": "sort out the tax receipts",
+    "tags": [
+      "money",
+      "papers"
+    ],
+    "created": "2026-06-17"
+  },
+  {
+    "id": 34,
+    "text": "buy a new kettle",
+    "tags": [
+      "home"
+    ],
+    "created": "2026-06-22"
+  },
+  {
+    "id": 35,
+    "text": "tidy the downloads folder",
+    "tags": [
+      "computer"
+    ],
+    "created": "2026-06-27"
+  },
+  {
+    "id": 36,
+    "text": "call grandma on Sunday",
+    "tags": [
+      "family"
+    ],
+    "created": "2026-07-02"
+  },
+  {
+    "id": 37,
+    "text": "frame the map from the trip",
+    "tags": [
+      "home"
+    ],
+    "created": "2026-07-07"
+  }
+]

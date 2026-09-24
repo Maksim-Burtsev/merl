@@ -298,16 +298,15 @@ fn code_hl<'a>(
 /// `--tutor`: the current lesson, three rows above the status bar.
 pub(super) fn draw_lesson(frame: &mut Frame, app: &App, theme: &Theme, area: Rect, base: Style) {
     let Some(tutor) = &app.tutor else { return };
-    let lessons = crate::tutor::LESSONS;
-    let (title, text) = match lessons.get(tutor.step) {
-        Some(l) => (
+    let (title, text) = match crate::tutor::lesson(tutor.step) {
+        Some(t) => (
             format!(
                 " Tutor {}/{} \u{00b7} {}",
                 tutor.step + 1,
-                lessons.len(),
-                l.title
+                crate::tutor::TUTOR.len(),
+                t.title
             ),
-            l.text,
+            t.tutor,
         ),
         None => (" Tutor \u{2713} done".to_string(), crate::tutor::DONE),
     };

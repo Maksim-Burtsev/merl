@@ -250,7 +250,7 @@ impl App {
     /// file, or a `jump` (go to definition, `:`, find) becomes a new stop and drops the
     /// forward history. Paging (see `key_inner`) only updates it. Standing on the current stop
     /// records nothing, so walking with `[` / `]` is silent.
-    pub(super) fn hist_note(&mut self, jump: bool) {
+    pub(crate) fn hist_note(&mut self, jump: bool) {
         let Some(pos) = self.pos() else {
             return;
         };
