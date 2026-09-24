@@ -120,7 +120,8 @@ fn typing_counts_nothing() {
     );
 }
 
-/// `--tutor` is no real work: its presses count nothing, so there is nothing to write on exit.
+/// `--tutor` is no real work: its presses count nothing and miss nothing, so there is nothing
+/// to write on exit.
 #[test]
 fn a_press_under_the_tutor_writes_nothing() {
     let mut a = app("foo bar\n");
@@ -128,12 +129,23 @@ fn a_press_under_the_tutor_writes_nothing() {
         step: 0,
         dir: PathBuf::from("/nonexistent"),
     });
-    for key in ["d", "]", "[", "v", "Ctrl+D", "Down", "Enter", "Esc"] {
+    // Right held to the end of the line misses a key in real work.
+    let keys = ["d", "]", "[", "v", "Ctrl+D", "Down", "Enter", "Esc"]
+        .into_iter()
+        .chain(["Right"; 7])
+        .chain(["Esc"]);
+    let mut work = app("foo bar\n");
+    for key in keys.clone() {
+        work.key(read(key));
+    }
+    assert!(!work.missed.is_empty());
+    for key in keys {
         a.key(read(key));
     }
     assert!(a.pressed.is_empty(), "{:?}", a.pressed);
+    assert!(a.missed.is_empty(), "{:?}", a.missed);
     let file = std::env::temp_dir().join(format!("merl-keys-tutor-{}.tsv", std::process::id()));
     let _ = std::fs::remove_file(&file);
-    stats::add(&file, stats::today(), &a.pressed).unwrap();
+    stats::add(&file, stats::today(), &a.pressed, &a.missed).unwrap();
     assert!(!file.exists());
 }
