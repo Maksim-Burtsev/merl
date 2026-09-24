@@ -638,7 +638,7 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
 /// depends on. A name only another copy declares is found by name.
 #[test]
 fn an_imported_package_is_the_copy_node_loads() {
-    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { parseX } from \"multi/sub\";\nimport { Box } from \"boxed\";\nimport { extra, alsoNear } from \"lib/extra\";\nimport { lonely } from \"nested/gone\";\nimport { onlyNested } from \"lib/nested\";\nimport { useState } from \"react\";\nimport { shipped } from \"shipped\";\nimport { jsfn } from \"jsonly\";\nimport { jsown } from \"jsowned\";\nimport { solo } from \"solo\";\nimport { both } from \"dual\";\nimport { deeper } from \"lib/nothere\";\nimport dparse from \"dflt\";\nimport dlocal from \"./dflt\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nparseX(1);\nBox.open(1);\nalsoNear(1);\nlonely(1);\nonlyNested(1);\nuseState(1);\nshipped(1);\njsfn(1);\njsown(1);\nsolo(1);\nboth(1);\ndeeper(1);\ndparse(1);\ndlocal(1);\nextra(1);\n";
+    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { parseX } from \"multi/sub\";\nimport { Box } from \"boxed\";\nimport { extra, alsoNear } from \"lib/extra\";\nimport { lonely } from \"nested/gone\";\nimport { onlyNested } from \"lib/nested\";\nimport { useState } from \"react\";\nimport { shipped } from \"shipped\";\nimport { jsfn } from \"jsonly\";\nimport { jsown } from \"jsowned\";\nimport * as ck from \"cookie\";\nimport { solo } from \"solo\";\nimport { both } from \"dual\";\nimport { deeper } from \"lib/nothere\";\nimport dparse from \"dflt\";\nimport dlocal from \"./dflt\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nparseX(1);\nBox.open(1);\nalsoNear(1);\nlonely(1);\nonlyNested(1);\nuseState(1);\nshipped(1);\njsfn(1);\njsown(1);\nck.parse(1);\nsolo(1);\nboth(1);\ndeeper(1);\ndparse(1);\ndlocal(1);\nextra(1);\n";
     let file = "packages/api/src/main.ts";
     let line = |code: &str| main.lines().position(|l| l.starts_with(code)).unwrap() + 1;
     // What a default import binds is its own name for the default export, whatever the module
@@ -1006,6 +1006,19 @@ fn an_imported_package_is_the_copy_node_loads() {
                 &format!("{file}:{}", line("Box.open")),
             ),
         ),
+        // A name in the module a `* as ck` import names is followed through its renaming too.
+        (
+            "ck.parse",
+            Shown::Picker(
+                "parse: via import cookie, 2 declarations".into(),
+                ["index.d.ts:1", "index.js:1"]
+                    .map(|at| {
+                        let at = format!("packages/api/node_modules/cookie/{at}");
+                        ("parse".into(), "via import cookie".into(), at)
+                    })
+                    .to_vec(),
+            ),
+        ),
         (
             "^parse",
             Shown::Picker(
@@ -1242,11 +1255,11 @@ fn an_alias_is_the_projects_own() {
 }
 
 /// #141: the grep for `as Widget` only says which files to read for a renamed export, so a cut
-/// in it cuts nothing shown, and a Python module, which has no such export, runs none.
+/// in it cuts nothing shown. Python has no renamed exports: a docstring that shows one is no
+/// answer for `Thing`.
 #[test]
 fn a_grep_for_where_to_read_cuts_nothing_shown() {
     let casts = "export const w = x as unknown as Widget;\n".repeat(search::MAX_HITS);
-    let pycasts = "import typing as Widget\n".repeat(search::MAX_HITS);
     let (dir, mut a) = project_app(
         "read-cut",
         &[
@@ -1254,7 +1267,7 @@ fn a_grep_for_where_to_read_cuts_nothing_shown() {
                 "main.ts",
                 "import { Widget } from \"casts\";\n\nnew Widget();\n",
             ),
-            ("main.py", "from casts import Widget\n\nWidget()\n"),
+            ("main.py", "from thing import Thing\n\nThing()\n"),
         ],
     );
     for (path, text) in [
@@ -1269,10 +1282,10 @@ fn a_grep_for_where_to_read_cuts_nothing_shown() {
     }
     let root = external_root(
         "read-cut",
-        &[
-            ("casts/__init__.py", pycasts.as_str()),
-            ("widgets/__init__.py", "class Widget:\n    pass\n"),
-        ],
+        &[(
+            "thing/__init__.py",
+            "\"\"\"Mirrors the JavaScript API:\nexport { Real as Thing }\n\"\"\"\n\n\nclass Real:\n    pass\n",
+        )],
     );
     use_roots(&mut a, Kind::Python, std::slice::from_ref(&root));
     d_on(&mut a, "main.ts", "new Widget");
@@ -1283,14 +1296,45 @@ fn a_grep_for_where_to_read_cuts_nothing_shown() {
             "node_modules/widgets/index.d.ts:1"
         )
     );
-    d_on(&mut a, "main.py", "^Widget");
-    let at = root.join("widgets/__init__.py");
-    assert_eq!(
-        shown(&mut a),
-        jump("Widget: by name, 1 match", &format!("{}:1", at.display()))
-    );
+    d_on(&mut a, "main.py", "^Thing");
+    assert_eq!(shown(&mut a), jump("no definition for Thing", "main.py:3"));
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// #141: `node:util` is Node's own, never the project's `src/util.ts` under `"baseUrl": "src"`.
+#[test]
+fn a_node_import_is_never_a_project_file() {
+    let (dir, mut a) = project_app(
+        "node-util",
+        &[
+            (
+                "tsconfig.json",
+                "{ \"compilerOptions\": { \"baseUrl\": \"src\" } }\n",
+            ),
+            ("src/util.ts", "export function promisify() {}\n"),
+            (
+                "src/main.ts",
+                "import { promisify } from \"node:util\";\n\npromisify(1);\n",
+            ),
+        ],
+    );
+    let types = dir.join("node_modules/@types/node/util.d.ts");
+    std::fs::create_dir_all(types.parent().unwrap()).unwrap();
+    std::fs::write(
+        types,
+        "declare module \"node:util\" {\n    export function promisify(): void;\n}\n",
+    )
+    .unwrap();
+    d_on(&mut a, "src/main.ts", "^promisify");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "promisify: via import util",
+            "node_modules/@types/node/util.d.ts:2"
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 /// #141: the copy is chosen first, a workspace package linked in as any other: Node goes on
