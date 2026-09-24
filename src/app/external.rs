@@ -96,20 +96,13 @@ impl App {
         };
         let named = module.clone();
         let mut files: Vec<PathBuf> = Vec::new();
-        while let Some(m) = &mut module {
-            let within = |p: &PathBuf| match package {
-                Some(n) if m.len() >= n => search::in_package(p, m),
-                _ => search::in_module(p, m),
-            };
-            files = near.iter().filter(|p| within(p)).cloned().collect();
-            if !files.is_empty() {
-                break;
-            }
-            m.pop();
-            if m.is_empty() {
-                // An import of something not installed: nothing outside says what it is.
+        if let Some(m) = &mut module {
+            // An import of something not installed: nothing outside says what it is.
+            let Some((n, found)) = search::module_among(near, m, package) else {
                 return Some(Vec::new());
-            }
+            };
+            m.truncate(n);
+            files = found;
         }
         let by_name = |hits: Vec<Hit>| -> Vec<Candidate> {
             hits.into_iter()
@@ -142,22 +135,12 @@ impl App {
         }
         // An imported module that does not declare the name re-exports it (`std::sync::Arc`
         // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.
-        // Past a copy, first where the module's other copies are, as the loop above finds them
-        // among all the files: no slower and no noisier than without the copy.
+        // Past a copy, first where the module's other copies are, as the module's files among
+        // all of them: no slower and no noisier than without the copy.
         if hits.is_empty() && imported {
             if !copy.is_empty() {
-                let named = named.unwrap_or_default();
-                let others = (1..=named.len())
-                    .rev()
-                    .map(|n| -> Vec<PathBuf> {
-                        let m = &named[..n];
-                        all.iter()
-                            .filter(|p| search::in_module(p, m))
-                            .cloned()
-                            .collect()
-                    })
-                    .find(|files| !files.is_empty())
-                    .unwrap_or_default();
+                let others = search::module_among(&all, &named.unwrap_or_default(), package);
+                let others = others.map(|(_, files)| files).unwrap_or_default();
                 hits = at_top(self, self.external_grep(kind, &others, pattern));
             }
             if hits.is_empty() {

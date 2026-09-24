@@ -620,6 +620,28 @@ fn module_part(s: &str) -> String {
         .map_or(s, |(i, _)| &s[..i]);
     s.replace('!', "").replace('-', "_").to_ascii_lowercase()
 }
+/// The files among `files` of `module`, shortened from its end until some match, with how many
+/// of its parts that left: `from json import load` is `json/load`, then `json`. A Go import of
+/// `package` parts names one directory, so down to that length a file has to be in it
+/// ([`in_package`]). `None` when not even the first part matches.
+pub fn module_among(
+    files: &[PathBuf],
+    module: &[String],
+    package: Option<usize>,
+) -> Option<(usize, Vec<PathBuf>)> {
+    (1..=module.len()).rev().find_map(|n| {
+        let m = &module[..n];
+        let found: Vec<PathBuf> = files
+            .iter()
+            .filter(|p| match package {
+                Some(k) if n >= k => in_package(p, m),
+                _ => in_module(p, m),
+            })
+            .cloned()
+            .collect();
+        (!found.is_empty()).then_some((n, found))
+    })
+}
 /// Whether the Go file `path` is of the package imported as `parts` (#100): a Go package is one
 /// directory, so the file's own directory ends with the import path, and `database/sql` is not
 /// `database/sql/driver`. A path with no dot in its first part is the standard library's, which
