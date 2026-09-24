@@ -40,6 +40,8 @@ impl Diff {
 /// edits into one hunk with the unchanged lines between them.
 pub fn diff(root: &Path, path: &Path, base: Option<&str>, old: Option<&Path>) -> Diff {
     let mut cmd = Command::new("git");
+    // The names are files, not patterns: `[id].tsx` is not `d.tsx` too.
+    cmd.arg("--literal-pathspecs");
     cmd.arg("-C")
         .arg(root)
         .args(["diff", "-U0", "-M", "--no-color", "--no-ext-diff"])
@@ -564,6 +566,39 @@ mod tests {
         assert_eq!(m, HashMap::from([(2, Mark::Changed), (5, Mark::Changed)]));
         assert_eq!(d.hunks, vec![2, 5]);
         assert_eq!(d.ghosts[&5], vec!["6"]);
+    }
+
+    /// #221: a name is the file, not a pattern: `[id].tsx` would match `d.tsx` too.
+    #[test]
+    fn a_name_with_glob_characters_is_that_file_alone() {
+        let dir = std::env::temp_dir().join(format!("merl-glob-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("app")).unwrap();
+        let git = |args: &[&str]| {
+            let out = Command::new("git")
+                .arg("-C")
+                .arg(&dir)
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .output();
+            assert!(out.unwrap().status.success(), "git {args:?}");
+        };
+        git(&["init", "-q"]);
+        for f in ["[id].tsx", "d.tsx", "*.tsx"] {
+            std::fs::write(dir.join("app").join(f), "a\nb\n").unwrap();
+        }
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "base"]);
+        std::fs::write(dir.join("app/d.tsx"), "a\nB\n").unwrap();
+        for base in [None, Some("HEAD")] {
+            for f in ["app/[id].tsx", "app/*.tsx"] {
+                let d = diff(&dir, &dir.join(f), base, None);
+                assert_eq!(d, Diff::default(), "{f} against {base:?}");
+            }
+            let d = diff(&dir, &dir.join("app/d.tsx"), base, None);
+            assert_eq!(d.marks.len(), 1, "d.tsx against {base:?}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
