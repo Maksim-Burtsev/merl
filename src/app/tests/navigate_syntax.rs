@@ -1077,7 +1077,7 @@ fn an_imported_package_is_the_copy_node_loads() {
 #[cfg(unix)]
 #[test]
 fn a_linked_package_is_the_version_it_links() {
-    let main = "import { pin } from \"pinned\";\nimport { shared, z, gone } from \"@app/shared\";\nimport { reach } from \"far\";\nimport { parse } from \"cookie\";\nimport * as sh from \"@app/shared\";\n\npin(1);\nshared(1);\nreach(1);\nz.string();\nparse(1);\nsh.helper();\ngone(1);\n";
+    let main = "import { pin } from \"pinned\";\nimport { shared, z, gone } from \"@app/shared\";\nimport { reach } from \"far\";\nimport { parse } from \"cookie\";\nimport { subfn } from \"cookie/sub\";\nimport * as sh from \"@app/shared\";\n\npin(1);\nshared(1);\nreach(1);\nz.string();\nparse(1);\nsh.helper();\ngone(1);\nsubfn(1);\n";
     let (dir, mut a) = project_app(
         "linked",
         &[
@@ -1119,6 +1119,14 @@ fn a_linked_package_is_the_version_it_links() {
         (
             "node_modules/.pnpm/cookie@0.7.0/node_modules/cookie/index.d.ts",
             "parse",
+        ),
+        (
+            "node_modules/.pnpm/cookie-es@1.0.0/node_modules/cookie-es/sub.d.ts",
+            "subfn",
+        ),
+        (
+            "node_modules/.pnpm/cookie@0.7.0/node_modules/cookie/sub.d.ts",
+            "subfn",
         ),
     ] {
         std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
@@ -1203,6 +1211,14 @@ fn a_linked_package_is_the_version_it_links() {
             jump(
                 "parse: via import cookie",
                 "node_modules/.pnpm/cookie-es@1.0.0/node_modules/cookie-es/index.d.ts:1",
+            ),
+        ),
+        // A path in it is below the store directory, whatever that is called.
+        (
+            "^subfn",
+            jump(
+                "subfn: via import cookie/sub",
+                "node_modules/.pnpm/cookie-es@1.0.0/node_modules/cookie-es/sub.d.ts:1",
             ),
         ),
         (
