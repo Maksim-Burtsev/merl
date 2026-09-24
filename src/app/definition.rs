@@ -179,6 +179,8 @@ impl App {
             })
             .flatten();
         let mut outside = false;
+        // The import names a module of the project's own: a workspace package linked in, an alias.
+        let mut own_module = false;
         let mut found = match import {
             Some(path) => {
                 let mut found = self
@@ -189,6 +191,7 @@ impl App {
                         let found =
                             self.external_definitions(kind, &word, &chain, dotted, &imports, true);
                         outside = found.is_some();
+                        own_module = found.is_none();
                         found.unwrap_or_default()
                     });
                 // `try: from a import pick` / `except ImportError: from b import pick` names
@@ -355,6 +358,13 @@ impl App {
             found = self
                 .external_definitions(kind, &word, &chain, dotted, &imports, false)
                 .unwrap_or_default();
+            // The module the import loads is the project's, searched already: nothing outside is
+            // proven to be what it hands on.
+            if own_module {
+                for c in &mut found {
+                    c.reason = Reason::ByName;
+                }
+            }
         }
         self.show_definitions(kind, &word, &here, found, broke.as_deref());
     }

@@ -1056,7 +1056,7 @@ fn an_imported_package_is_the_copy_node_loads() {
 #[cfg(unix)]
 #[test]
 fn a_linked_package_is_the_version_it_links() {
-    let main = "import { pin } from \"pinned\";\nimport { shared, z } from \"@app/shared\";\nimport { reach } from \"far\";\nimport { parse } from \"cookie\";\nimport * as sh from \"@app/shared\";\n\npin(1);\nshared(1);\nreach(1);\nz.string();\nparse(1);\nsh.helper();\n";
+    let main = "import { pin } from \"pinned\";\nimport { shared, z, gone } from \"@app/shared\";\nimport { reach } from \"far\";\nimport { parse } from \"cookie\";\nimport * as sh from \"@app/shared\";\n\npin(1);\nshared(1);\nreach(1);\nz.string();\nparse(1);\nsh.helper();\ngone(1);\n";
     let (dir, mut a) = project_app(
         "linked",
         &[
@@ -1107,6 +1107,12 @@ fn a_linked_package_is_the_version_it_links() {
         )
         .unwrap();
     }
+    // An old published copy declares a name the workspace package no longer has.
+    std::fs::write(
+        dir.join("node_modules/other/node_modules/@app/shared/index.d.ts"),
+        "export declare function shared(): void;\nexport declare function gone(): void;\n",
+    )
+    .unwrap();
     // A method of the name is no answer for what the import takes.
     std::fs::write(
         dir.join("node_modules/other/index.d.ts"),
@@ -1153,6 +1159,14 @@ fn a_linked_package_is_the_version_it_links() {
             jump(
                 "string: by name, 1 match",
                 "node_modules/zod/schemas.d.ts:1",
+            ),
+        ),
+        // Nothing outside is proven the import's: the copy it loads is the project's own.
+        (
+            "^gone",
+            jump(
+                "gone: by name, 1 match",
+                "node_modules/other/node_modules/@app/shared/index.d.ts:2",
             ),
         ),
         (
