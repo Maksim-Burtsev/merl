@@ -84,6 +84,9 @@ impl App {
         // name, finds its source, where a published copy outside would be a stale one; the
         // caller searches outside by name only after it.
         let copy = copy?;
+        // Only a lookup narrowed to a copy follows the copy's rules below: a renamed export and
+        // the module's other copies. Any other matches modules as it always has.
+        let narrowed = !copy.files.is_empty();
         // `node:sqlite` is looked for, and named, as `sqlite`.
         if let Some(first) = bound_path.as_mut().and_then(|p| p.first_mut())
             && let Some(bare) = first.strip_prefix("node:")
@@ -142,7 +145,7 @@ impl App {
         };
         let mut hits = at_top(self, self.external_grep(kind, &files, pattern));
         // `export { parseCookie as parse }` is the import's own `parse`, as in the project.
-        if hits.is_empty() && whole {
+        if hits.is_empty() && narrowed && whole {
             hits = self.renamed_export(word, |p| self.external_grep(kind, &files, p));
         }
         // An imported module that does not declare the name re-exports it (`std::sync::Arc`
@@ -150,7 +153,7 @@ impl App {
         // Past a copy, first where the module's other copies are, as the module's files among
         // all of them: no slower and no noisier than without the copy.
         if hits.is_empty() && imported {
-            if !copy.files.is_empty() {
+            if narrowed {
                 let others = search::module_among(&all, &named.unwrap_or_default(), package);
                 let others = others.map(|(_, files)| files).unwrap_or_default();
                 hits = at_top(self, self.external_grep(kind, &others, pattern));
