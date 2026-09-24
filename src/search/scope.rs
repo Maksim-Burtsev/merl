@@ -249,17 +249,18 @@ const NODE_BUILTINS: &[&str] = &[
 ];
 /// The files among `files` of the copy of the package a TypeScript import of `module` loads
 /// from a file with [`node_modules`] `roots` (#141). Each root that has the package (`lib`,
-/// `@scope/pkg`) or its types (`@types/lib`, `@types/scope__pkg`) holds a copy, whichever of the
-/// two are there; the nearest whose files have the whole `module` is the one, as Node goes on to
-/// the next `node_modules` when `lib/extra` is not in the nearer one, else the nearest. A link
-/// is followed, so pnpm's `node_modules/lib` is the version of the store it points at, spelled
-/// under the root it lies in, as the files walked from there are; one that leads out of the roots
-/// (a pnpm store outside them) has no file there. Empty when no root has the package (an ambient
-/// `declare module`, and a `node:` module, which no package directory is called) and for a bare
-/// module of Node's own: `buffer` is not the npm polyfill of that name but `@types/node`'s
-/// `declare module`, which TypeScript takes over any `node_modules`. `None` when a copy on the way
-/// is the source of the project at `root`, a workspace package linked into `node_modules`: no
-/// copy outside is it.
+/// `@scope/pkg`) or its types (`@types/lib`, `@types/scope__pkg`) holds a copy: whichever of the
+/// two are there, and when that is a package of JavaScript alone, the nearest `@types` of it
+/// further up, which TypeScript reads for it. The nearest copy whose files have the whole
+/// `module` is the one, as Node goes on to the next `node_modules` when `lib/extra` is not in
+/// the nearer one; when none has it, the nearest. A link is followed, so pnpm's
+/// `node_modules/lib` is the version of the store it points at, spelled under the root it lies
+/// in, as the files walked from there are; one that leads out of the roots (a pnpm store outside
+/// them) has no file there. Empty when no root has the package (an ambient `declare module`, and
+/// a `node:` module, which no package directory is called) and for a bare module of Node's own:
+/// `buffer` is not the npm polyfill of that name but `@types/node`'s `declare module`, which
+/// TypeScript takes over any `node_modules`. `None` when a copy on the way is the source of the
+/// project at `root`, a workspace package linked into `node_modules`: no copy outside is it.
 pub fn package_copy(
     root: &Path,
     roots: &[PathBuf],
@@ -278,8 +279,15 @@ pub fn package_copy(
         .iter()
         .filter_map(|r| Some((r, r.canonicalize().ok()?)))
         .collect();
+    let spelled = |d: &Path| {
+        real.iter()
+            .find_map(|(r, real)| Some(r.join(d.strip_prefix(real).ok()?)))
+    };
+    let files_in = |dirs: &[PathBuf]| -> Vec<PathBuf> {
+        files.iter().filter(|p| in_copy(p, dirs)).cloned().collect()
+    };
     let mut nearest = None;
-    for level in roots {
+    for (i, level) in roots.iter().enumerate() {
         let dirs: Vec<PathBuf> = [&name, &types]
             .iter()
             .filter_map(|d| level.join(d).canonicalize().ok())
@@ -291,21 +299,20 @@ pub fn package_copy(
         }) {
             return None;
         }
-        let dirs: Vec<PathBuf> = dirs
-            .into_iter()
-            .filter_map(|d| {
-                real.iter()
-                    .find_map(|(r, real)| Some(r.join(d.strip_prefix(real).ok()?)))
-            })
-            .collect();
+        let mut dirs: Vec<PathBuf> = dirs.iter().filter_map(|d| spelled(d)).collect();
         if dirs.is_empty() {
             continue;
         }
-        let copy: Vec<PathBuf> = files
-            .iter()
-            .filter(|p| in_copy(p, &dirs))
-            .cloned()
-            .collect();
+        let mut copy = files_in(&dirs);
+        if !copy.iter().any(|f| declaration_file(f)) {
+            let further = roots[i + 1..]
+                .iter()
+                .find_map(|r| spelled(&r.join(&types).canonicalize().ok()?));
+            if let Some(further) = further {
+                dirs.push(further);
+                copy = files_in(&dirs);
+            }
+        }
         if module_among(&copy, module, None).is_some_and(|(n, _)| n == module.len()) {
             return Some(copy);
         }

@@ -638,7 +638,7 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
 /// depends on. A name only another copy declares is found by name.
 #[test]
 fn an_imported_package_is_the_copy_node_loads() {
-    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { parseX } from \"multi/sub\";\nimport { Box } from \"boxed\";\nimport { extra, alsoNear } from \"lib/extra\";\nimport { lonely } from \"nested/gone\";\nimport { onlyNested } from \"lib/nested\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nparseX(1);\nBox.open(1);\nalsoNear(1);\nlonely(1);\nonlyNested(1);\nextra(1);\n";
+    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { parseX } from \"multi/sub\";\nimport { Box } from \"boxed\";\nimport { extra, alsoNear } from \"lib/extra\";\nimport { lonely } from \"nested/gone\";\nimport { onlyNested } from \"lib/nested\";\nimport { useState } from \"react\";\nimport { shipped } from \"shipped\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nparseX(1);\nBox.open(1);\nalsoNear(1);\nlonely(1);\nonlyNested(1);\nuseState(1);\nshipped(1);\nextra(1);\n";
     let file = "packages/api/src/main.ts";
     let line = |code: &str| main.lines().position(|l| l.starts_with(code)).unwrap() + 1;
     let (dir, mut a) = project_app("copies", &[(file, main)]);
@@ -699,6 +699,28 @@ fn an_imported_package_is_the_copy_node_loads() {
         (
             "node_modules/@types/node/buffer.d.ts",
             "declare module \"buffer\" {\n    export class Buffer {\n    }\n}\n",
+        ),
+        // JavaScript alone beside the file, its types further up, as a workspace keeps them.
+        (
+            "packages/api/node_modules/react/index.js",
+            "export function useState() {}\n",
+        ),
+        (
+            "node_modules/@types/react/index.d.ts",
+            "export declare function useState(): void;\n",
+        ),
+        (
+            "node_modules/react/index.js",
+            "export function useState() {}\n",
+        ),
+        // A package that ships its own types takes none from further up.
+        (
+            "packages/api/node_modules/shipped/index.d.ts",
+            "export declare function shipped(): void;\n",
+        ),
+        (
+            "node_modules/@types/shipped/index.d.ts",
+            "export declare function shipped(): void;\n",
         ),
         // A renamed export is looked for in the module the import names, and only for what
         // the import takes: `Box.open` is a member of `Box`.
@@ -834,6 +856,25 @@ fn an_imported_package_is_the_copy_node_loads() {
             jump(
                 "alsoNear: via import lib/extra",
                 "node_modules/lib/extra.d.ts:2",
+            ),
+        ),
+        (
+            "^useState",
+            Shown::Picker(
+                "useState: via import react, 2 declarations".into(),
+                [
+                    "packages/api/node_modules/react/index.js:1",
+                    "@types/react/index.d.ts:1",
+                ]
+                .map(|at| ("useState".into(), "via import react".into(), at.into()))
+                .to_vec(),
+            ),
+        ),
+        (
+            "^shipped",
+            jump(
+                "shipped: via import shipped",
+                "packages/api/node_modules/shipped/index.d.ts:1",
             ),
         ),
         (
