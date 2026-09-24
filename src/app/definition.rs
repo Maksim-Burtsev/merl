@@ -179,13 +179,20 @@ impl App {
             })
             .flatten();
         let mut outside = false;
+        // The import names a module of the project's own: a workspace package linked in, an alias.
+        let mut own_module = false;
         let mut found = match import {
             Some(path) => {
                 let mut found = self
                     .imported_definitions(kind, &here, &word, &chain, &path)
                     .unwrap_or_else(|| {
-                        outside = true;
-                        self.external_definitions(kind, &word, &chain, dotted, &pattern, &imports)
+                        // A workspace package linked in is the project's own: the search by
+                        // name in the project comes first, the one outside after it (below).
+                        let found =
+                            self.external_definitions(kind, &word, &chain, dotted, &imports, true);
+                        outside = found.is_some();
+                        own_module = found.is_none();
+                        found.unwrap_or_default()
                     });
                 // `try: from a import pick` / `except ImportError: from b import pick` names
                 // two sources: both are offered, and which one ran is not for `d` to guess.
@@ -346,7 +353,18 @@ impl App {
                 Some("self" | "cls" | "this")
             )
         {
-            found = self.external_definitions(kind, &word, &chain, dotted, &pattern, &imports);
+            // After the project, outside as the import names the module, every installed copy
+            // of it: what a workspace package linked in hands on from a dependency is there.
+            found = self
+                .external_definitions(kind, &word, &chain, dotted, &imports, false)
+                .unwrap_or_default();
+            // The module the import loads is the project's, searched already: nothing outside is
+            // proven to be what it hands on.
+            if own_module {
+                for c in &mut found {
+                    c.reason = Reason::ByName;
+                }
+            }
         }
         self.show_definitions(kind, &word, &here, found, broke.as_deref());
     }
@@ -512,6 +530,33 @@ impl App {
         self.imported_at(kind, here, word, chain, path, 0)
     }
 
+    /// What a TypeScript module exports as `word` under another name, `export { Hono as HonoBase }`:
+    /// the top-level declarations of `Hono` in the module's files, which `grep` searches. What
+    /// it finds of the `export` line says only which files to read, so a cut in it cuts nothing
+    /// shown.
+    pub(super) fn renamed_export(&self, word: &str, grep: impl Fn(&str) -> Vec<Hit>) -> Vec<Hit> {
+        let cut = self.truncated.get();
+        let mut exports: Vec<PathBuf> = grep(&format!(r"\bas\s+{}\b", regex::escape(word)))
+            .into_iter()
+            .map(|h| h.path)
+            .collect();
+        self.truncated.set(cut);
+        exports.dedup();
+        let Some(local) = exports
+            .iter()
+            .find_map(|f| search::exported_as(&self.text_of(f)?, word))
+        else {
+            return Vec::new();
+        };
+        let pattern = search::def_patterns(Kind::TsJs, &local).join("|");
+        let mut hits = grep(&pattern);
+        hits.retain(|h| {
+            self.text_of(&h.path)
+                .is_some_and(|text| search::qualified(Kind::TsJs, &text, h.line, &local).is_none())
+        });
+        hits
+    }
+
     /// [`App::imported_definitions`], `depth` modules of the project that only hand the name on
     /// away from the file that asked.
     fn imported_at(
@@ -580,22 +625,13 @@ impl App {
                 .and_then(|text| search::qualified(kind, &text, h.line, name))
                 == within
         });
-        // `export { Hono as HonoBase }`: the module declares it under another name.
-        if hits.is_empty() && kind == Kind::TsJs && within.is_none() {
-            let local = files
-                .iter()
-                .find_map(|f| search::exported_as(&self.text_of(f)?, name));
-            if let Some(local) = local {
-                let pattern = search::def_patterns(kind, &local).join("|");
-                hits = self
-                    .grep(&pattern, false, false, wanted)
-                    .unwrap_or_default();
-                hits.retain(|h| {
-                    self.text_of(&h.path).is_some_and(|text| {
-                        search::qualified(kind, &text, h.line, &local).is_none()
-                    })
-                });
-            }
+        // `export { Hono as HonoBase }`: the module declares it under another name. A default
+        // import's name is the importer's own.
+        let named = path.last().is_some_and(|t| t != "default");
+        if hits.is_empty() && kind == Kind::TsJs && within.is_none() && named {
+            hits = self.renamed_export(name, |p| {
+                self.grep(p, false, false, wanted).unwrap_or_default()
+            });
         }
         if hits.is_empty() && kind == Kind::TsJs && path.last().is_some_and(|t| t == "default") {
             hits = self

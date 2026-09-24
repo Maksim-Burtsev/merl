@@ -12,8 +12,8 @@ use super::*;
 /// the path until a file matches). A relative import (`from ..models import X`, `./utils`) binds
 /// too, with its dots as the leading part: it names a project file, never one outside. A
 /// TypeScript path ends in what the import takes from the module: the name, `default`, or `*`
-/// for the whole module (`* as ns`, `require`). Rust's in-crate `crate::` and `super::` paths are
-/// left out.
+/// for the whole module (`* as ns`, `require`), and a `node:` module keeps the prefix that makes
+/// it Node's own. Rust's in-crate `crate::` and `super::` paths are left out.
 pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
     // A Python import in a docstring's example binds nothing of the file.
     if kind == Kind::Python {
@@ -142,7 +142,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                 .unwrap()
             });
             for c in IMPORT.captures_iter(text) {
-                let module = c[4].strip_prefix("node:").unwrap_or(&c[4]);
+                let module = &c[4];
                 // `./x` and `../x` keep their dots as the first part; an absolute path gets one.
                 let mut path = parts(module, "/");
                 if module.starts_with('/') {
@@ -585,16 +585,30 @@ fn lexical(path: &Path) -> Option<PathBuf> {
 /// Whether `path` is (in) the module spelled by `parts`: every part is a directory or file
 /// stem on it, in order. A package directory carries a version (`regex-1.11.1`,
 /// `toml@v1.2.3`), a Go module escapes upper case (`!burnt!sushi`) and a crate name spells
-/// `_` as `-`: those are ignored.
+/// `_` as `-`: those are ignored. The types of `@scope/pkg` are `@types/scope__pkg`, read so when
+/// the scope and the name are those.
 pub fn in_module(path: &Path, parts: &[String]) -> bool {
-    let mut want = parts.iter().map(|p| module_part(p)).peekable();
-    for c in path.components() {
-        let c = c.as_os_str().to_string_lossy();
-        if want.peek().is_some_and(|w| *w == module_part(&c)) {
-            want.next();
+    let want: Vec<String> = parts.iter().map(|p| module_part(p)).collect();
+    let mut components = path
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy())
+        .peekable();
+    let mut i = 0;
+    while let Some(c) = components.next() {
+        let scoped = |scope: &str, pkg: &str, next: &str| {
+            let rest = scope.strip_prefix('@').and_then(|s| next.strip_prefix(s));
+            c == "@types" && rest.and_then(|r| r.strip_prefix("__")) == Some(pkg)
+        };
+        match &parts[i..] {
+            [] => break,
+            [scope, pkg, ..] if components.peek().is_some_and(|n| scoped(scope, pkg, n)) => {
+                components.next();
+                i += 2;
+            }
+            _ => i += usize::from(want[i] == module_part(&c)),
         }
     }
-    want.peek().is_none()
+    i == parts.len()
 }
 /// A directory or a part of a module path without what only one of the two carries.
 fn module_part(s: &str) -> String {
@@ -607,6 +621,28 @@ fn module_part(s: &str) -> String {
         .find(|(i, _)| s[i + 1..].starts_with(|c: char| c.is_ascii_digit()))
         .map_or(s, |(i, _)| &s[..i]);
     s.replace('!', "").replace('-', "_").to_ascii_lowercase()
+}
+/// The files among `files` of `module`, shortened from its end until some match, with how many
+/// of its parts that left: `from json import load` is `json/load`, then `json`. A Go import of
+/// `package` parts names one directory, so down to that length a file has to be in it
+/// ([`in_package`]). `None` when not even the first part matches.
+pub fn module_among<P: AsRef<Path> + Clone>(
+    files: &[P],
+    module: &[String],
+    package: Option<usize>,
+) -> Option<(usize, Vec<P>)> {
+    (1..=module.len()).rev().find_map(|n| {
+        let m = &module[..n];
+        let found: Vec<P> = files
+            .iter()
+            .filter(|p| match package {
+                Some(k) if n >= k => in_package(p.as_ref(), m),
+                _ => in_module(p.as_ref(), m),
+            })
+            .cloned()
+            .collect();
+        (!found.is_empty()).then_some((n, found))
+    })
 }
 /// Whether the Go file `path` is of the package imported as `parts` (#100): a Go package is one
 /// directory, so the file's own directory ends with the import path, and `database/sql` is not

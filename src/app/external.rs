@@ -11,28 +11,41 @@ impl App {
     /// qualifier no import binds is taken as the module path itself: `std::fs::read` spells one,
     /// while a `dotted` qualifier is a value whose name merely matches a module, found by name. A
     /// name nothing installed declares matches no file and the search stops. A bare word no
-    /// import binds (`Vec`, `open`) searches every file, by name.
+    /// import binds (`Vec`, `open`) searches every file, by name. Of a TypeScript package
+    /// installed more than once, only the copy Node loads is the import's when `narrow`; `None`
+    /// when that copy is a workspace package linked into the project, whose source is the
+    /// project's. Without `narrow` it is every copy, as the import names the module.
     pub(super) fn external_definitions(
         &mut self,
         kind: Kind,
         word: &str,
         chain: &[String],
         dotted: bool,
-        pattern: &str,
         imports: &[(String, Vec<String>)],
-    ) -> Vec<Candidate> {
+        narrow: bool,
+    ) -> Option<Vec<Candidate>> {
+        let pattern = &search::def_patterns(kind, word).join("|");
         let mut bound_path = bound(imports, chain.first().map_or(word, String::as_str));
         // What a TypeScript import takes (a name, `default`, `*`) is no part of a file's path.
-        if kind == Kind::TsJs {
-            bound_path.as_mut().map(Vec::pop);
-        }
+        let taken = match kind {
+            Kind::TsJs => bound_path.as_mut().and_then(Vec::pop),
+            _ => None,
+        };
+        // The word is a name the import takes by that name, or a name in the module a `* as ns`
+        // import names: what the module declares, under its own name or another. A default
+        // import's name is the importer's own.
+        let whole = match taken.as_deref() {
+            Some("*") => chain.len() == 1,
+            Some("default") | None => false,
+            Some(_) => chain.is_empty(),
+        };
         let imported = bound_path.is_some();
         if bound_path
             .as_ref()
             .and_then(|p| p.first())
             .is_some_and(|p| p.starts_with('.'))
         {
-            return Vec::new();
+            return Some(Vec::new());
         }
         // The import's own item may go (`from json import load` is `json`), and so may whatever
         // the chain adds past it; the module itself may not.
@@ -48,6 +61,38 @@ impl App {
             .filter(|_| kind == Kind::Go)
             .map(Vec::len);
         let floor = package.unwrap_or(floor);
+        // `@/lib`, `~/lib`, `#lib`: an alias of the project's own module, no package. The search
+        // in the project comes first; after it, by name, never narrowed into `@mui`.
+        let alias = kind == Kind::TsJs
+            && bound_path
+                .as_ref()
+                .and_then(|p| p.first())
+                .is_some_and(|f| f == "@" || f.starts_with(['~', '#']));
+        if alias && narrow {
+            return None;
+        }
+        let all = self.external_files(kind);
+        // Of a package installed more than once, the files of the copy Node loads (#141); a name
+        // only another copy declares is found by name below.
+        let copy = match (&bound_path, self.external.get(&kind)) {
+            (Some(path), Some((roots, _))) if kind == Kind::TsJs && narrow => {
+                search::package_copy(&self.root, roots, &all, &self.files, path)
+            }
+            _ => Some(search::PackageCopy::default()),
+        };
+        // A workspace package linked in is the project's own: the search in the project, by
+        // name, finds its source, where a published copy outside would be a stale one; the
+        // caller searches outside by name only after it.
+        let copy = copy?;
+        // Only a lookup narrowed to a copy follows the copy's rules below: a renamed export and
+        // the module's other copies. Any other matches modules as it always has.
+        let narrowed = !copy.files.is_empty();
+        // `node:sqlite` is looked for, and named, as `sqlite`.
+        if let Some(first) = bound_path.as_mut().and_then(|p| p.first_mut())
+            && let Some(bare) = first.strip_prefix("node:")
+        {
+            *first = bare.to_owned();
+        }
         let mut module = match chain.first() {
             // A C++ `std::` or `detail::` qualifier names a namespace, and no directory of the
             // system headers is called that, so narrowing by it would find nothing at all.
@@ -59,22 +104,20 @@ impl App {
             }
             None => bound_path,
         };
-        let all = self.external_files(kind);
+        let named = module.clone();
         let mut files: Vec<PathBuf> = Vec::new();
-        while let Some(m) = &mut module {
-            let within = |p: &PathBuf| match package {
-                Some(n) if m.len() >= n => search::in_package(p, m),
-                _ => search::in_module(p, m),
+        if let Some(m) = module.as_mut().filter(|_| !alias) {
+            // The copy's files of the module, else, for a copy of no walked files, every file's,
+            // as without a copy.
+            let found = copy
+                .module(m)
+                .or_else(|| search::module_among(&all, m, package));
+            // An import of something not installed: nothing outside says what it is.
+            let Some((n, found)) = found else {
+                return Some(Vec::new());
             };
-            files = all.iter().filter(|p| within(p)).cloned().collect();
-            if !files.is_empty() {
-                break;
-            }
-            m.pop();
-            if m.is_empty() {
-                // An import of something not installed: nothing outside says what it is.
-                return Vec::new();
-            }
+            m.truncate(n);
+            files = found;
         }
         let by_name = |hits: Vec<Hit>| -> Vec<Candidate> {
             hits.into_iter()
@@ -85,7 +128,7 @@ impl App {
                 .collect()
         };
         let Some(module) = module else {
-            return by_name(self.external_grep(kind, &all, pattern));
+            return Some(by_name(self.external_grep(kind, &all, pattern)));
         };
         // `from lib import pick` names something at the top of a module: a method called `pick`
         // is not it, however alone it stands (the real one may be native code).
@@ -100,11 +143,30 @@ impl App {
             }
             hits
         };
-        let hits = at_top(self, self.external_grep(kind, &files, pattern));
+        let mut hits = at_top(self, self.external_grep(kind, &files, pattern));
+        // `export { parseCookie as parse }` is the import's own `parse`, as in the project.
+        if hits.is_empty() && narrowed && whole {
+            // The package itself is its entry, not every file in it: a chunk, a legacy module.
+            let within = match module.len() <= copy.parts {
+                true => copy.entries(),
+                false => files,
+            };
+            hits = self.renamed_export(word, |p| self.external_grep(kind, &within, p));
+        }
         // An imported module that does not declare the name re-exports it (`std::sync::Arc`
         // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.
+        // Past a copy, first where the module's other copies are, as the module's files among
+        // all of them: no slower and no noisier than without the copy.
         if hits.is_empty() && imported {
-            return by_name(at_top(self, self.external_grep(kind, &all, pattern)));
+            if narrowed {
+                let others = search::module_among(&all, &named.unwrap_or_default(), package);
+                let others = others.map(|(_, files)| files).unwrap_or_default();
+                hits = at_top(self, self.external_grep(kind, &others, pattern));
+            }
+            if hits.is_empty() {
+                hits = at_top(self, self.external_grep(kind, &all, pattern));
+            }
+            return Some(by_name(hits));
         }
         let sep = match kind {
             Kind::Python => ".",
@@ -118,12 +180,11 @@ impl App {
         } else {
             Reason::Path(module.join(sep))
         };
-        hits.into_iter()
-            .map(|hit| Candidate {
-                hit,
-                reason: reason.clone(),
-            })
-            .collect()
+        let found = hits.into_iter().map(|hit| Candidate {
+            hit,
+            reason: reason.clone(),
+        });
+        Some(found.collect())
     }
 
     /// A grep that came back full stopped at the cap: what `d` counts from it is a lower bound,

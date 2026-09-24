@@ -579,29 +579,18 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
         std::fs::write(dir.join(path), text).unwrap();
     }
     let top = || jump("pick: via import lib", "node_modules/lib/index.d.ts:2");
-    let both = || {
-        Shown::Picker(
-            "pick: via import lib, 2 declarations".into(),
-            vec![
-                (
-                    "pick".into(),
-                    "via import lib".into(),
-                    "packages/api/node_modules/lib/index.d.ts:2".into(),
-                ),
-                (
-                    "pick".into(),
-                    "via import lib".into(),
-                    "lib/index.d.ts:2".into(),
-                ),
-            ],
+    let api = || {
+        jump(
+            "pick: via import lib",
+            "packages/api/node_modules/lib/index.d.ts:2",
         )
     };
     // Back in `api` after `web`: each file has its own view, and no directory is walked twice.
     for (file, want) in [
-        ("packages/api/src/main.ts", both()),
+        ("packages/api/src/main.ts", api()),
         ("packages/web/src/main.ts", top()),
         ("main.ts", top()),
-        ("packages/api/src/main.ts", both()),
+        ("packages/api/src/main.ts", api()),
     ] {
         d_on(&mut a, file, "^pick");
         assert_eq!(shown(&mut a), want, "{file}");
@@ -642,6 +631,1170 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
     );
     assert_eq!(files.len(), 3);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #141: a package installed more than once is the copy Node and TypeScript load, the one in
+/// the nearest `node_modules` that has it or its `@types`, and not a copy another package
+/// depends on. A name only another copy declares is found by name.
+#[test]
+fn an_imported_package_is_the_copy_node_loads() {
+    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { parseX } from \"multi/sub\";\nimport { Box } from \"boxed\";\nimport { extra, alsoNear } from \"lib/extra\";\nimport { lonely } from \"nested/gone\";\nimport { onlyNested } from \"lib/nested\";\nimport { useState } from \"react\";\nimport { shipped } from \"shipped\";\nimport { jsfn } from \"jsonly\";\nimport { jsown } from \"jsowned\";\nimport { tsf } from \"tssrc\";\nimport * as ck from \"cookie\";\nimport { rparse } from \"rlib\";\nimport { rjsfn } from \"rjs\";\nimport { mfn } from \"mainpkg\";\nimport { ifn } from \"idxpkg\";\nimport { solo, soloRen } from \"solo\";\nimport { both } from \"dual\";\nimport { deeper } from \"lib/nothere\";\nimport dparse from \"dflt\";\nimport dlocal from \"./dflt\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nparseX(1);\nBox.open(1);\nalsoNear(1);\nlonely(1);\nonlyNested(1);\nuseState(1);\nshipped(1);\njsfn(1);\njsown(1);\ntsf(1);\nck.parse(1);\nrparse(1);\nrjsfn(1);\nmfn(1);\nifn(1);\nsolo(1);\nsoloRen(1);\nboth(1);\ndeeper(1);\ndparse(1);\ndlocal(1);\nextra(1);\n";
+    let file = "packages/api/src/main.ts";
+    let line = |code: &str| main.lines().position(|l| l.starts_with(code)).unwrap() + 1;
+    // What a default import binds is its own name for the default export, whatever the module
+    // exports under that name otherwise.
+    let dflt = "function x() {}\nexport { x as dlocal };\nexport default function other() {}\n";
+    let (dir, mut a) = project_app(
+        "copies",
+        &[(file, main), ("packages/api/src/dflt.ts", dflt)],
+    );
+    for (path, names) in [
+        (
+            "packages/api/node_modules/lib/index.d.ts",
+            &["pick", "alsoNear"][..],
+        ),
+        (
+            "node_modules/lib/index.d.ts",
+            &["pick", "onlyFar", "extra", "onlyNested", "deeper"],
+        ),
+        // `lib/nested` is only in a copy another package depends on.
+        (
+            "node_modules/other/node_modules/lib/nested.d.ts",
+            &["onlyNested"],
+        ),
+        // A module only the root's copy has, one of whose names the nearer copy declares.
+        ("node_modules/lib/extra.d.ts", &["extra", "alsoNear"]),
+        // A namesake of `onlyFar` and `deeper` in a package no import names.
+        ("node_modules/unrelated/index.d.ts", &["onlyFar", "deeper"]),
+        // A package installed only as another's dependency: no root has it.
+        ("node_modules/other/node_modules/solo/index.d.ts", &["solo"]),
+        // A package and its types at one level, and another copy further up.
+        (
+            "packages/api/node_modules/@types/dual/index.d.ts",
+            &["both"],
+        ),
+        ("node_modules/dual/index.d.ts", &["both"]),
+        ("packages/api/node_modules/lib/sub.d.ts", &["part"]),
+        ("node_modules/lib/sub.d.ts", &["part"]),
+        // A copy another package depends on, and a package the copy itself depends on.
+        ("node_modules/nested/index.d.ts", &["nest", "lonely"]),
+        (
+            "node_modules/other/node_modules/nested/index.d.ts",
+            &["nest", "lonely"],
+        ),
+        ("node_modules/nested/node_modules/dep/index.d.ts", &["nest"]),
+        // Types with no package beside them, a scoped package's among them.
+        (
+            "packages/api/node_modules/@types/typed/index.d.ts",
+            &["typed"],
+        ),
+        ("node_modules/typed/index.d.ts", &["typed"]),
+        (
+            "packages/api/node_modules/@types/scope__pkg/index.d.ts",
+            &["scoped"],
+        ),
+        ("node_modules/@scope/pkg/index.d.ts", &["scoped"]),
+        // No package is called `fs`: it is Node's own, typed by `@types/node`.
+        ("node_modules/@types/node/fs.d.ts", &["readFile"]),
+    ] {
+        let text: String = names
+            .iter()
+            .map(|n| format!("export declare function {n}(): void;\n"))
+            .collect();
+        std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
+        std::fs::write(dir.join(path), text).unwrap();
+    }
+    for (path, text) in [
+        // `buffer` is Node's own too, whatever npm polyfill of that name is installed.
+        (
+            "node_modules/buffer/index.d.ts",
+            "export declare class Buffer {\n}\n",
+        ),
+        (
+            "node_modules/@types/node/buffer.d.ts",
+            "declare module \"buffer\" {\n    export class Buffer {\n    }\n}\n",
+        ),
+        // JavaScript alone beside the file, its types further up, as a workspace keeps them.
+        (
+            "packages/api/node_modules/react/index.js",
+            "export function useState() {}\n",
+        ),
+        (
+            "node_modules/@types/react/index.d.ts",
+            "export declare function useState(): void;\n",
+        ),
+        (
+            "node_modules/react/index.js",
+            "export function useState() {}\n",
+        ),
+        // Outside a copy, as on master: no renamed export is followed.
+        (
+            "node_modules/other/node_modules/solo/renamed.d.ts",
+            "declare function soloImpl(): void;\nexport { soloImpl as soloRen };\n",
+        ),
+        (
+            "packages/api/node_modules/dflt/index.d.ts",
+            "declare function x(): void;\nexport { x as dparse };\ndeclare function other(): void;\nexport default other;\n",
+        ),
+        (
+            "packages/api/node_modules/dual/index.js",
+            "export function both() {}\n",
+        ),
+        (
+            "packages/api/node_modules/buffer/index.d.ts",
+            "export declare class Buffer {\n}\n",
+        ),
+        // JavaScript alone beside the file, the package's own types further up.
+        (
+            "packages/api/node_modules/jsonly/index.js",
+            "export function jsfn() {}\n",
+        ),
+        (
+            "node_modules/jsonly/index.d.ts",
+            "export declare function jsfn(): void;\n",
+        ),
+        // Only the declarations are borrowed, not the JavaScript beside them.
+        (
+            "node_modules/jsonly/index.js",
+            "export function jsfn() {}\n",
+        ),
+        // TypeScript source is what TypeScript reads: nothing is borrowed.
+        (
+            "packages/api/node_modules/tssrc/index.ts",
+            "export function tsf() {}\n",
+        ),
+        (
+            "node_modules/tssrc/index.d.ts",
+            "export declare function tsf(): void;\n",
+        ),
+        // Further up both a package with its own types and its `@types`: the package's own.
+        (
+            "packages/api/node_modules/jsowned/index.js",
+            "export function jsown() {}\n",
+        ),
+        (
+            "node_modules/jsowned/index.d.ts",
+            "export declare function jsown(): void;\n",
+        ),
+        (
+            "node_modules/@types/jsowned/index.d.ts",
+            "export declare function jsown(): void;\n",
+        ),
+        // A package that ships its own types takes none from further up.
+        (
+            "packages/api/node_modules/shipped/index.d.ts",
+            "export declare function shipped(): void;\n",
+        ),
+        (
+            "node_modules/@types/shipped/index.d.ts",
+            "export declare function shipped(): void;\n",
+        ),
+        // A renamed export is looked for in the module the import names, and only for what
+        // the import takes: `Box.open` is a member of `Box`.
+        (
+            "packages/api/node_modules/multi/sub.d.ts",
+            "declare function parse(): void;\nexport { parse as parseX };\n",
+        ),
+        (
+            "packages/api/node_modules/multi/other.d.ts",
+            "export declare function parse(): void;\n",
+        ),
+        (
+            "packages/api/node_modules/boxed/index.d.ts",
+            "declare function openImpl(): void;\nexport { openImpl as open };\nexport declare class Box {\n    static open(): void;\n}\n",
+        ),
+        // `node:sqlite` is Node's own, whatever npm package is called `sqlite`.
+        (
+            "node_modules/sqlite/index.d.ts",
+            "export declare class DatabaseSync {\n}\n",
+        ),
+        (
+            "node_modules/@types/node/sqlite.d.ts",
+            "declare module \"node:sqlite\" {\n    export class DatabaseSync {\n    }\n}\n",
+        ),
+        // The copy loaded declares `parse` under another name, which another copy has.
+        // As `cookie@1.1.1` lays itself out: the entry `types` names renames what it declares.
+        (
+            "packages/api/node_modules/cookie/package.json",
+            "{ \"name\": \"cookie\", \"types\": \"dist/index.d.ts\", \"main\": \"dist/index.js\" }\n",
+        ),
+        (
+            "packages/api/node_modules/cookie/dist/index.d.ts",
+            "declare function stringifySetCookie(): void;\nexport declare function parseCookie(): void;\nexport declare class Jar {\n    parseCookie(): void;\n}\nexport { stringifySetCookie as serialize, parseCookie as parse };\n",
+        ),
+        (
+            "packages/api/node_modules/cookie/dist/index.js",
+            "function parseCookie() {}\nexports.parse = parseCookie;\n",
+        ),
+        // A file the package's entry does not load renames nothing it exports.
+        (
+            "node_modules/rlib/index.d.ts",
+            "export { rparse } from \"rparse-core\";\n",
+        ),
+        (
+            "node_modules/rlib/legacy.d.ts",
+            "declare function oldParse(): void;\nexport { oldParse as rparse };\n",
+        ),
+        (
+            "node_modules/rparse-core/index.d.ts",
+            "export declare function rparse(): void;\n",
+        ),
+        (
+            "node_modules/rjs/package.json",
+            "{ \"name\": \"rjs\", \"main\": \"dist/index.js\" }\n",
+        ),
+        (
+            "node_modules/rjs/dist/index.js",
+            "export { rjsfn } from \"rjs-core\";\n",
+        ),
+        (
+            "node_modules/rjs/dist/chunk.js",
+            "function n() {}\nexport { n as rjsfn };\n",
+        ),
+        (
+            "node_modules/rjs-core/index.d.ts",
+            "export declare function rjsfn(): void;\n",
+        ),
+        // The entry `main` names, with the declarations beside it; with no `package.json`, the
+        // `index` files.
+        (
+            "node_modules/mainpkg/package.json",
+            "{ \"name\": \"mainpkg\", \"main\": \"lib/index.js\" }\n",
+        ),
+        (
+            "node_modules/mainpkg/lib/index.d.ts",
+            "declare function realMain(): void;\nexport { realMain as mfn };\n",
+        ),
+        (
+            "node_modules/mainpkg/lib/index.js",
+            "function realMain() {}\nexports.mfn = realMain;\n",
+        ),
+        (
+            "node_modules/idxpkg/index.d.ts",
+            "declare function realIdx(): void;\nexport { realIdx as ifn };\n",
+        ),
+        (
+            "node_modules/cookie/index.d.ts",
+            "export declare function parse(): void;\n",
+        ),
+    ] {
+        std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
+        std::fs::write(dir.join(path), text).unwrap();
+    }
+    for (code, want) in [
+        (
+            "^pick",
+            jump(
+                "pick: via import lib",
+                "packages/api/node_modules/lib/index.d.ts:1",
+            ),
+        ),
+        (
+            "^onlyFar",
+            jump("onlyFar: by name, 1 match", "node_modules/lib/index.d.ts:2"),
+        ),
+        (
+            "^part",
+            jump(
+                "part: via import lib/sub",
+                "packages/api/node_modules/lib/sub.d.ts:1",
+            ),
+        ),
+        (
+            "^nest",
+            jump(
+                "nest: via import nested",
+                "node_modules/nested/index.d.ts:1",
+            ),
+        ),
+        (
+            "^typed",
+            jump(
+                "typed: via import typed",
+                "packages/api/node_modules/@types/typed/index.d.ts:1",
+            ),
+        ),
+        (
+            "^scoped",
+            jump(
+                "scoped: via import @scope/pkg",
+                "packages/api/node_modules/@types/scope__pkg/index.d.ts:1",
+            ),
+        ),
+        (
+            "^readFile",
+            jump(
+                "readFile: via import fs",
+                "node_modules/@types/node/fs.d.ts:1",
+            ),
+        ),
+        (
+            "^Buffer",
+            Shown::Picker(
+                "Buffer: via import buffer, 3 declarations".into(),
+                // The nearer root's first.
+                [
+                    "packages/api/node_modules/buffer/index.d.ts:1",
+                    "@types/node/buffer.d.ts:2",
+                    "buffer/index.d.ts:1",
+                ]
+                .map(|at| ("Buffer".into(), "via import buffer".into(), at.into()))
+                .to_vec(),
+            ),
+        ),
+        (
+            "^DatabaseSync",
+            Shown::Picker(
+                "DatabaseSync: via import sqlite, 2 declarations".into(),
+                ["@types/node/sqlite.d.ts:2", "sqlite/index.d.ts:1"]
+                    .map(|at| ("DatabaseSync".into(), "via import sqlite".into(), at.into()))
+                    .to_vec(),
+            ),
+        ),
+        // Only the root's copy has `lib/extra`: Node goes on to it past the nearer one.
+        (
+            "^extra",
+            jump(
+                "extra: via import lib/extra",
+                "node_modules/lib/extra.d.ts:1",
+            ),
+        ),
+        // No copy has `nested/gone`: the nearest that has the package decides, past a root
+        // without it.
+        (
+            "^lonely",
+            jump(
+                "lonely: via import nested",
+                "node_modules/nested/index.d.ts:2",
+            ),
+        ),
+        (
+            "^onlyNested",
+            jump(
+                "onlyNested: by name, 1 match",
+                "node_modules/other/node_modules/lib/nested.d.ts:1",
+            ),
+        ),
+        (
+            "^alsoNear",
+            jump(
+                "alsoNear: via import lib/extra",
+                "node_modules/lib/extra.d.ts:2",
+            ),
+        ),
+        (
+            "^useState",
+            Shown::Picker(
+                "useState: via import react, 2 declarations".into(),
+                [
+                    "packages/api/node_modules/react/index.js:1",
+                    "@types/react/index.d.ts:1",
+                ]
+                .map(|at| ("useState".into(), "via import react".into(), at.into()))
+                .to_vec(),
+            ),
+        ),
+        (
+            "^jsfn",
+            Shown::Picker(
+                "jsfn: via import jsonly, 2 declarations".into(),
+                [
+                    "packages/api/node_modules/jsonly/index.js:1",
+                    "jsonly/index.d.ts:1",
+                ]
+                .map(|at| ("jsfn".into(), "via import jsonly".into(), at.into()))
+                .to_vec(),
+            ),
+        ),
+        (
+            "^tsf",
+            jump(
+                "tsf: via import tssrc",
+                "packages/api/node_modules/tssrc/index.ts:1",
+            ),
+        ),
+        (
+            "^jsown",
+            Shown::Picker(
+                "jsown: via import jsowned, 2 declarations".into(),
+                [
+                    "packages/api/node_modules/jsowned/index.js:1",
+                    "jsowned/index.d.ts:1",
+                ]
+                .map(|at| ("jsown".into(), "via import jsowned".into(), at.into()))
+                .to_vec(),
+            ),
+        ),
+        (
+            "^shipped",
+            jump(
+                "shipped: via import shipped",
+                "packages/api/node_modules/shipped/index.d.ts:1",
+            ),
+        ),
+        (
+            "^dparse",
+            jump(
+                "no definition for dparse",
+                &format!("{file}:{}", line("dparse")),
+            ),
+        ),
+        (
+            "^dlocal",
+            jump(
+                "dlocal: via import packages/api/src/dflt.ts",
+                "packages/api/src/dflt.ts:3",
+            ),
+        ),
+        (
+            "^solo",
+            jump(
+                "solo: via import solo",
+                "node_modules/other/node_modules/solo/index.d.ts:1",
+            ),
+        ),
+        (
+            "^soloRen",
+            jump(
+                "no definition for soloRen",
+                &format!("{file}:{}", line("soloRen")),
+            ),
+        ),
+        (
+            "^both",
+            Shown::Picker(
+                "both: via import dual, 2 declarations".into(),
+                [
+                    "packages/api/node_modules/@types/dual/index.d.ts:1",
+                    "packages/api/node_modules/dual/index.js:1",
+                ]
+                .map(|at| ("both".into(), "via import dual".into(), at.into()))
+                .to_vec(),
+            ),
+        ),
+        // The other copies of `lib/nothere` are those of `lib`, as the module is shortened.
+        (
+            "^deeper",
+            jump("deeper: by name, 1 match", "node_modules/lib/index.d.ts:5"),
+        ),
+        (
+            "^parseX",
+            jump(
+                "parseX: via import multi/sub",
+                "packages/api/node_modules/multi/sub.d.ts:1",
+            ),
+        ),
+        (
+            "^Box.open",
+            jump(
+                "no definition for open",
+                &format!("{file}:{}", line("Box.open")),
+            ),
+        ),
+        // A name in the module a `* as ck` import names is followed through its renaming too.
+        (
+            "ck.parse",
+            jump(
+                "parse: via import cookie",
+                "packages/api/node_modules/cookie/dist/index.d.ts:2",
+            ),
+        ),
+        (
+            "^parse",
+            jump(
+                "parse: via import cookie",
+                "packages/api/node_modules/cookie/dist/index.d.ts:2",
+            ),
+        ),
+        (
+            "^mfn",
+            Shown::Picker(
+                "mfn: via import mainpkg, 2 declarations".into(),
+                ["mainpkg/lib/index.d.ts:1", "mainpkg/lib/index.js:1"]
+                    .map(|at| ("mfn".into(), "via import mainpkg".into(), at.into()))
+                    .to_vec(),
+            ),
+        ),
+        (
+            "^ifn",
+            jump("ifn: via import idxpkg", "node_modules/idxpkg/index.d.ts:1"),
+        ),
+        (
+            "^rparse",
+            jump(
+                "rparse: by name, 1 match",
+                "node_modules/rparse-core/index.d.ts:1",
+            ),
+        ),
+        (
+            "^rjsfn",
+            jump(
+                "rjsfn: by name, 1 match",
+                "node_modules/rjs-core/index.d.ts:1",
+            ),
+        ),
+    ] {
+        d_on(&mut a, file, code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #141, pnpm: `node_modules/lib` links the version of the store a file loads. A workspace
+/// package linked in is the project's own, found in its source by name, and not in a published
+/// copy another package depends on. A package linked out of the walk is looked for as before.
+#[cfg(unix)]
+#[test]
+fn a_linked_package_is_the_version_it_links() {
+    let main = "import { pin } from \"pinned\";\nimport { shared, z, gone } from \"@app/shared\";\nimport { reach } from \"far\";\nimport { parse } from \"cookie\";\nimport { subfn } from \"cookie/sub\";\nimport * as sh from \"@app/shared\";\n\npin(1);\nshared(1);\nreach(1);\nz.string();\nparse(1);\nsh.helper();\ngone(1);\nsubfn(1);\n";
+    let (dir, mut a) = project_app(
+        "linked",
+        &[
+            ("src/main.ts", main),
+            (
+                "packages/shared/index.ts",
+                "export function shared() {}\nexport { z } from \"zod\";\nexport { helper } from \"helpers\";\n",
+            ),
+        ],
+    );
+    let store = external_root(
+        "linked-store",
+        &[("far/index.d.ts", "export declare function reach(): void;\n")],
+    );
+    for (path, name) in [
+        (
+            "node_modules/.pnpm/pinned@1.0.0/node_modules/pinned/index.d.ts",
+            "pin",
+        ),
+        (
+            "node_modules/.pnpm/pinned@2.0.0/node_modules/pinned/index.d.ts",
+            "pin",
+        ),
+        (
+            "node_modules/other/node_modules/@app/shared/index.d.ts",
+            "shared",
+        ),
+        ("node_modules/other/node_modules/far/index.d.ts", "reach"),
+        // What the workspace package hands on from a dependency.
+        ("node_modules/zod/index.d.ts", "z"),
+        ("node_modules/zod/schemas.d.ts", "string"),
+        ("node_modules/helpers/index.d.ts", "helper"),
+        // `cookie` links a store directory of another name; another package depends on a
+        // `cookie` of that name.
+        (
+            "node_modules/.pnpm/cookie-es@1.0.0/node_modules/cookie-es/index.d.ts",
+            "parse",
+        ),
+        (
+            "node_modules/.pnpm/cookie@0.7.0/node_modules/cookie/index.d.ts",
+            "parse",
+        ),
+        (
+            "node_modules/.pnpm/cookie-es@1.0.0/node_modules/cookie-es/sub.d.ts",
+            "subfn",
+        ),
+        (
+            "node_modules/.pnpm/cookie@0.7.0/node_modules/cookie/sub.d.ts",
+            "subfn",
+        ),
+    ] {
+        std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
+        std::fs::write(
+            dir.join(path),
+            format!("export declare function {name}(): void;\n"),
+        )
+        .unwrap();
+    }
+    // An old published copy declares a name the workspace package no longer has.
+    std::fs::write(
+        dir.join("node_modules/other/node_modules/@app/shared/index.d.ts"),
+        "export declare function shared(): void;\nexport declare function gone(): void;\n",
+    )
+    .unwrap();
+    // A method of the name is no answer for what the import takes.
+    std::fs::write(
+        dir.join("node_modules/other/index.d.ts"),
+        "export declare class Other {\n    z(): void;\n}\n",
+    )
+    .unwrap();
+    std::fs::create_dir_all(dir.join("node_modules/@app")).unwrap();
+    for (to, at) in [
+        (
+            Path::new(".pnpm/pinned@2.0.0/node_modules/pinned"),
+            "node_modules/pinned",
+        ),
+        (
+            Path::new("../../packages/shared"),
+            "node_modules/@app/shared",
+        ),
+        (&store.join("far"), "node_modules/far"),
+        (
+            Path::new(".pnpm/cookie-es@1.0.0/node_modules/cookie-es"),
+            "node_modules/cookie",
+        ),
+    ] {
+        std::os::unix::fs::symlink(to, dir.join(at)).unwrap();
+    }
+    for (code, want) in [
+        (
+            "^pin",
+            jump(
+                "pin: via import pinned",
+                "node_modules/.pnpm/pinned@2.0.0/node_modules/pinned/index.d.ts:1",
+            ),
+        ),
+        (
+            "^shared",
+            jump("shared: by name, 1 match", "packages/shared/index.ts:1"),
+        ),
+        (
+            "^z|.string",
+            jump("z: by name, 1 match", "node_modules/zod/index.d.ts:1"),
+        ),
+        // After the project, outside as the import names it: the chain and all.
+        (
+            "^z.string",
+            jump(
+                "string: by name, 1 match",
+                "node_modules/zod/schemas.d.ts:1",
+            ),
+        ),
+        // Nothing outside is proven the import's: the copy it loads is the project's own.
+        (
+            "^gone",
+            jump(
+                "gone: by name, 1 match",
+                "node_modules/other/node_modules/@app/shared/index.d.ts:2",
+            ),
+        ),
+        (
+            "sh.helper",
+            jump(
+                "helper: by name, 1 match",
+                "node_modules/helpers/index.d.ts:1",
+            ),
+        ),
+        // The copy is the package, whatever its store directory is called.
+        (
+            "^parse",
+            jump(
+                "parse: via import cookie",
+                "node_modules/.pnpm/cookie-es@1.0.0/node_modules/cookie-es/index.d.ts:1",
+            ),
+        ),
+        // A path in it is below the store directory, whatever that is called.
+        (
+            "^subfn",
+            jump(
+                "subfn: via import cookie/sub",
+                "node_modules/.pnpm/cookie-es@1.0.0/node_modules/cookie-es/sub.d.ts:1",
+            ),
+        ),
+        (
+            "^reach",
+            jump(
+                "reach: via import far",
+                "node_modules/other/node_modules/far/index.d.ts:1",
+            ),
+        ),
+    ] {
+        d_on(&mut a, "src/main.ts", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&store).unwrap();
+}
+
+/// #141: `@/lib`, `~/lib` and `#lib` are aliases of the project's own modules, no npm scope or
+/// package: what the project does not declare is looked for outside by name, and an alias never
+/// narrows into a scoped package such as `@mui`.
+#[test]
+fn an_alias_is_the_projects_own() {
+    let (dir, mut a) = project_app(
+        "alias",
+        &[
+            (
+                "tsconfig.json",
+                "{ \"compilerOptions\": { \"baseUrl\": \".\", \"paths\": { \"@/*\": [\"src/*\"], \"~/*\": [\"src/*\"], \"@components/*\": [\"src/components/*\"] } } }\n",
+            ),
+            (
+                "src/lib/index.ts",
+                "export { clsx } from \"clsx\";\nexport { twMerge, twJoin } from \"tailwind-merge\";\n",
+            ),
+            (
+                "src/components/ui/index.ts",
+                "export { clsx } from \"clsx\";\n",
+            ),
+            (
+                "src/other.ts",
+                "import { clsx } from \"@components/ui\";\n\nclsx(2);\n",
+            ),
+            (
+                "src/main.ts",
+                "import { clsx } from \"@/lib\";\nimport { twMerge } from \"~/lib\";\nimport { twJoin } from \"#lib\";\n\nclsx(1);\ntwMerge(1);\ntwJoin(1);\n",
+            ),
+        ],
+    );
+    for (path, text) in [
+        (
+            "node_modules/clsx/clsx.d.ts",
+            "export declare function clsx(): void;\n",
+        ),
+        (
+            "node_modules/tailwind-merge/index.d.ts",
+            "export declare function twMerge(): void;\nexport declare function twJoin(): void;\n",
+        ),
+        // As every TypeScript project has.
+        (
+            "node_modules/@types/node/index.d.ts",
+            "declare module \"fs\" {}\n",
+        ),
+    ] {
+        std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
+        std::fs::write(dir.join(path), text).unwrap();
+    }
+    for (code, want) in [
+        (
+            "^clsx",
+            jump("clsx: by name, 1 match", "node_modules/clsx/clsx.d.ts:1"),
+        ),
+        (
+            "^twMerge",
+            jump(
+                "twMerge: by name, 1 match",
+                "node_modules/tailwind-merge/index.d.ts:1",
+            ),
+        ),
+        (
+            "^twJoin",
+            jump(
+                "twJoin: by name, 1 match",
+                "node_modules/tailwind-merge/index.d.ts:2",
+            ),
+        ),
+    ] {
+        d_on(&mut a, "src/main.ts", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    // A named alias is no scope either: its barrel hands `clsx` on, found by name.
+    d_on(&mut a, "src/other.ts", "^clsx");
+    assert_eq!(
+        shown(&mut a),
+        jump("clsx: by name, 1 match", "node_modules/clsx/clsx.d.ts:1")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    // No tsconfig says what `@/` is: the project's `Button`, and not `@mui`'s.
+    let (dir, mut a) = project_app(
+        "alias-bare",
+        &[
+            ("src/components/Button.tsx", "export function Button() {}\n"),
+            (
+                "src/main.ts",
+                "import { Button } from \"@/components/Button\";\n\nButton();\n",
+            ),
+        ],
+    );
+    let mui = dir.join("node_modules/@mui/material/components/Button.d.ts");
+    std::fs::create_dir_all(mui.parent().unwrap()).unwrap();
+    std::fs::write(mui, "export declare function Button(): void;\n").unwrap();
+    d_on(&mut a, "src/main.ts", "^Button");
+    assert_eq!(
+        shown(&mut a),
+        jump("Button: by name, 1 match", "src/components/Button.tsx:1")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #141: the grep for `as Widget` only says which files to read for a renamed export, so a cut
+/// in it cuts nothing shown. Python has no renamed exports: a docstring that shows one is no
+/// answer for `Thing`.
+#[test]
+fn a_grep_for_where_to_read_cuts_nothing_shown() {
+    let casts = "export const w = x as unknown as Widget;\n".repeat(search::MAX_HITS);
+    let (dir, mut a) = project_app(
+        "read-cut",
+        &[
+            (
+                "main.ts",
+                "import { Widget } from \"casts\";\n\nnew Widget();\n",
+            ),
+            ("main.py", "from thing import Thing\n\nThing()\n"),
+        ],
+    );
+    for (path, text) in [
+        ("node_modules/casts/index.d.ts", casts.as_str()),
+        (
+            "node_modules/widgets/index.d.ts",
+            "export declare class Widget {\n}\n",
+        ),
+    ] {
+        std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
+        std::fs::write(dir.join(path), text).unwrap();
+    }
+    let root = external_root(
+        "read-cut",
+        &[(
+            "thing/__init__.py",
+            "\"\"\"Mirrors the JavaScript API:\nexport { Real as Thing }\n\"\"\"\n\n\nclass Real:\n    pass\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&root));
+    d_on(&mut a, "main.ts", "new Widget");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Widget: by name, 1 match",
+            "node_modules/widgets/index.d.ts:1"
+        )
+    );
+    d_on(&mut a, "main.py", "^Thing");
+    assert_eq!(shown(&mut a), jump("no definition for Thing", "main.py:3"));
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// #141: `node:util` is Node's own, never the project's `src/util.ts` under `"baseUrl": "src"`.
+#[test]
+fn a_node_import_is_never_a_project_file() {
+    let (dir, mut a) = project_app(
+        "node-util",
+        &[
+            (
+                "tsconfig.json",
+                "{ \"compilerOptions\": { \"baseUrl\": \"src\" } }\n",
+            ),
+            ("src/util.ts", "export function promisify() {}\n"),
+            (
+                "src/main.ts",
+                "import { promisify } from \"node:util\";\n\npromisify(1);\n",
+            ),
+        ],
+    );
+    let types = dir.join("node_modules/@types/node/util.d.ts");
+    std::fs::create_dir_all(types.parent().unwrap()).unwrap();
+    std::fs::write(
+        types,
+        "declare module \"node:util\" {\n    export function promisify(): void;\n}\n",
+    )
+    .unwrap();
+    d_on(&mut a, "src/main.ts", "^promisify");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "promisify: via import util",
+            "node_modules/@types/node/util.d.ts:2"
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #141: the copy is chosen first, a workspace package linked in as any other: Node goes on
+/// past a package that lacks the path and has no `exports` map, and stops at one whose files are
+/// out of the walk. Only a chosen copy of the project's own leaves the answer to the project.
+#[cfg(unix)]
+#[test]
+fn a_linked_copy_is_chosen_as_any_other() {
+    let main = "import { ex } from \"wlib/extra\";\nimport { Old } from \"@app/ui/old\";\nimport { thing } from \"both/missing\";\nimport { reachOut } from \"outl\";\nimport { esub } from \"elib/sub2\";\nimport { nl1f } from \"nl1/extra\";\nimport { nl2f } from \"nl2/extra\";\nimport { nl3f } from \"nl3/extra\";\n\nex(1);\nOld(1);\nthing(1);\nreachOut(1);\nesub(1);\nnl1f(1);\nnl2f(1);\nnl3f(1);\n";
+    let (dir, mut a) = project_app(
+        "chosen",
+        &[
+            ("packages/api/src/main.ts", main),
+            ("packages/wlib/index.ts", "export function ex() {}\n"),
+            // Only its TypeScript and JavaScript say what paths it has.
+            ("packages/wlib/extra.md", "# extra\n"),
+            ("packages/wlib/extra.json", "{}\n"),
+            ("packages/ui/old.ts", "export function Old() {}\n"),
+            ("packages/both/index.ts", "export function thing() {}\n"),
+        ],
+    );
+    let store = external_root(
+        "chosen-store",
+        &[(
+            "outl/index.d.ts",
+            "export declare function reachOut(): void;\n",
+        )],
+    );
+    for (path, text) in [
+        (
+            "node_modules/wlib/extra.d.ts",
+            "export declare function ex(): void;\n",
+        ),
+        (
+            "packages/api/node_modules/@app/ui/package.json",
+            "{ \"name\": \"@app/ui\", \"exports\": { \"./old\": \"./dist/legacy.js\" } }\n",
+        ),
+        (
+            "packages/api/node_modules/@app/ui/dist/legacy.d.ts",
+            "export declare function Old(): void;\n",
+        ),
+        (
+            "packages/api/node_modules/both/index.d.ts",
+            "export declare function thing(): void;\n",
+        ),
+        (
+            "node_modules/outl/index.d.ts",
+            "export declare function reachOut(): void;\n",
+        ),
+        (
+            "node_modules/x/node_modules/outl/index.d.ts",
+            "export declare function reachOut(): void;\n",
+        ),
+        // `exports` maps `.` alone, and `sub2` is only in the root's copy: as without a copy.
+        (
+            "packages/api/node_modules/elib/package.json",
+            "{ \"name\": \"elib\", \"exports\": { \".\": \"./index.js\" } }\n",
+        ),
+        (
+            "packages/api/node_modules/elib/index.d.ts",
+            "export declare function esub(): void;\n",
+        ),
+        (
+            "node_modules/elib/sub2.d.ts",
+            "export declare function esub(): void;\n",
+        ),
+        // An `exports` that is `null`, or no top-level key: Node goes on past them, to the root's
+        // copy and not the one another package depends on.
+        (
+            "packages/api/node_modules/nl1/package.json",
+            "{ \"name\": \"nl1\", \"exports\": null }\n",
+        ),
+        (
+            "packages/api/node_modules/nl1/index.d.ts",
+            "export declare function nl1f(): void;\n",
+        ),
+        (
+            "node_modules/nl1/extra.d.ts",
+            "export declare function nl1f(): void;\n",
+        ),
+        (
+            "node_modules/x/node_modules/nl1/extra.d.ts",
+            "export declare function nl1f(): void;\n",
+        ),
+        (
+            "packages/api/node_modules/nl2/package.json",
+            "{ \"name\": \"nl2\", \"scripts\": { \"exports\": \"tsc\" } }\n",
+        ),
+        (
+            "packages/api/node_modules/nl2/index.d.ts",
+            "export declare function nl2f(): void;\n",
+        ),
+        (
+            "node_modules/nl2/extra.d.ts",
+            "export declare function nl2f(): void;\n",
+        ),
+        (
+            "node_modules/x/node_modules/nl2/extra.d.ts",
+            "export declare function nl2f(): void;\n",
+        ),
+        (
+            "packages/api/node_modules/nl3/package.json",
+            "{ \"description\": \"a } in it\", \"publishConfig\": { \"exports\": { \"./x\": \"./x.js\" } } }\n",
+        ),
+        (
+            "packages/api/node_modules/nl3/index.d.ts",
+            "export declare function nl3f(): void;\n",
+        ),
+        (
+            "node_modules/nl3/extra.d.ts",
+            "export declare function nl3f(): void;\n",
+        ),
+        (
+            "node_modules/x/node_modules/nl3/extra.d.ts",
+            "export declare function nl3f(): void;\n",
+        ),
+    ] {
+        std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
+        std::fs::write(dir.join(path), text).unwrap();
+    }
+    std::fs::create_dir_all(dir.join("node_modules/@app")).unwrap();
+    for (to, at) in [
+        (Path::new("../../wlib"), "packages/api/node_modules/wlib"),
+        (Path::new("../../packages/ui"), "node_modules/@app/ui"),
+        (Path::new("../packages/both"), "node_modules/both"),
+        (&store.join("outl"), "packages/api/node_modules/outl"),
+    ] {
+        std::os::unix::fs::symlink(to, dir.join(at)).unwrap();
+    }
+    let outl = |at: &str| ("reachOut".into(), "via import outl".into(), at.into());
+    for (code, want) in [
+        // The linked `wlib` lacks `extra`: on to the root's.
+        (
+            "^ex",
+            jump(
+                "ex: via import wlib/extra",
+                "node_modules/wlib/extra.d.ts:1",
+            ),
+        ),
+        // `exports` maps `./old`: the nearer copy, whatever `old` lies further up.
+        (
+            "^Old",
+            jump(
+                "Old: via import @app/ui",
+                "packages/api/node_modules/@app/ui/dist/legacy.d.ts:1",
+            ),
+        ),
+        // Neither has `missing`: the nearer, which is no project's own.
+        (
+            "^thing",
+            jump(
+                "thing: via import both",
+                "packages/api/node_modules/both/index.d.ts:1",
+            ),
+        ),
+        (
+            "^esub",
+            jump(
+                "esub: via import elib/sub2",
+                "node_modules/elib/sub2.d.ts:1",
+            ),
+        ),
+        (
+            "^nl1f",
+            jump(
+                "nl1f: via import nl1/extra",
+                "node_modules/nl1/extra.d.ts:1",
+            ),
+        ),
+        (
+            "^nl2f",
+            jump(
+                "nl2f: via import nl2/extra",
+                "node_modules/nl2/extra.d.ts:1",
+            ),
+        ),
+        (
+            "^nl3f",
+            jump(
+                "nl3f: via import nl3/extra",
+                "node_modules/nl3/extra.d.ts:1",
+            ),
+        ),
+        // A link out of the walk is the level, of no file: every copy, as without one.
+        (
+            "^reachOut",
+            Shown::Picker(
+                "reachOut: via import outl, 2 declarations".into(),
+                vec![
+                    outl("outl/index.d.ts:1"),
+                    outl("x/node_modules/outl/index.d.ts:1"),
+                ],
+            ),
+        ),
+    ] {
+        d_on(&mut a, "packages/api/src/main.ts", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&store).unwrap();
+}
+
+/// #141: a workspace package linked in, with no other copy of it installed, hands on what it
+/// re-exports: after the project, outside as master looks, by name.
+#[cfg(unix)]
+#[test]
+fn a_linked_package_alone_hands_its_names_on() {
+    let (dir, mut a) = project_app(
+        "linked-alone",
+        &[
+            (
+                "src/main.ts",
+                "import { z } from \"@app/shared\";\nimport * as sh from \"@app/shared\";\n\nz.string();\nsh.helper();\n",
+            ),
+            (
+                "packages/shared/index.ts",
+                "export { z } from \"zod\";\nexport { helper } from \"helpers\";\n",
+            ),
+        ],
+    );
+    for (path, text) in [
+        (
+            "node_modules/zod/index.d.ts",
+            "export declare const z: unknown;\n",
+        ),
+        (
+            "node_modules/zod/schemas.d.ts",
+            "export declare function string(): void;\n",
+        ),
+        (
+            "node_modules/helpers/index.d.ts",
+            "export declare function helper(): void;\n",
+        ),
+        // As every TypeScript project has.
+        (
+            "node_modules/@types/node/index.d.ts",
+            "declare module \"fs\" {}\n",
+        ),
+    ] {
+        std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
+        std::fs::write(dir.join(path), text).unwrap();
+    }
+    std::fs::create_dir_all(dir.join("node_modules/@app")).unwrap();
+    std::os::unix::fs::symlink(
+        "../../packages/shared",
+        dir.join("node_modules/@app/shared"),
+    )
+    .unwrap();
+    for (code, want) in [
+        (
+            "^z|.string",
+            jump("z: by name, 1 match", "node_modules/zod/index.d.ts:1"),
+        ),
+        (
+            "^z.string",
+            jump(
+                "string: by name, 1 match",
+                "node_modules/zod/schemas.d.ts:1",
+            ),
+        ),
+        (
+            "sh.helper",
+            jump(
+                "helper: by name, 1 match",
+                "node_modules/helpers/index.d.ts:1",
+            ),
+        ),
+    ] {
+        d_on(&mut a, "src/main.ts", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #141 is npm's rule. Python puts a namespace package together from every root that has a
+/// part of it, so `google.cloud` is found behind a `google` in the first root.
+#[test]
+fn a_python_namespace_package_spans_its_roots() {
+    let (dir, mut a) = project_app(
+        "namespace",
+        &[(
+            "m.py",
+            "from google.cloud import storage\n\nstorage.Client()\n",
+        )],
+    );
+    let first = external_root(
+        "ns-first",
+        &[("google/protobuf/message.py", "class Message:\n    pass\n")],
+    );
+    let second = external_root(
+        "ns-second",
+        &[(
+            "google/cloud/storage/__init__.py",
+            "class Client:\n    pass\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, &[first.clone(), second.clone()]);
+    d_on(&mut a, "m.py", "storage.Client");
+    let at = second.join("google/cloud/storage/__init__.py");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Client: via import google.cloud.storage",
+            &format!("{}:1", at.display())
+        )
+    );
+    for d in [dir, first, second] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
 }
 
 /// #100, TypeScript: `export { Trunk as TrunkBase }` is followed to the class the module

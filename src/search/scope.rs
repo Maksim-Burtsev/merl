@@ -229,13 +229,281 @@ pub(super) fn zig_roots(env: &str) -> Vec<PathBuf> {
 /// The `node_modules` a TypeScript file of the project `root` resolves an import in: the one of
 /// every directory from the file's up to `root`, nearest first, as Node walks them (#100). A
 /// workspace keeps a package's dependencies beside the package, and pnpm keeps a dependency's own
-/// under `.pnpm/<name>@<version>/node_modules`.
+/// under `.pnpm/<name>@<version>/node_modules`. A package installed in several is loaded from
+/// one: [`package_copy`].
 pub fn node_modules(root: &Path, file: &Path) -> Vec<PathBuf> {
     file.ancestors()
         .take_while(|dir| dir.starts_with(root))
         .map(|dir| dir.join("node_modules"))
         .filter(|dir| dir.is_dir())
         .collect()
+}
+/// `require("module").builtinModules` of Node 26, the bare names: no `_`, `/` or `node:` ones.
+#[rustfmt::skip]
+const NODE_BUILTINS: &[&str] = &[
+    "assert", "async_hooks", "buffer", "child_process", "cluster", "console", "constants", "crypto",
+    "dgram", "diagnostics_channel", "dns", "domain", "events", "fs", "http", "http2", "https",
+    "inspector", "module", "net", "os", "path", "perf_hooks", "process", "punycode", "querystring",
+    "readline", "repl", "stream", "string_decoder", "sys", "timers", "tls", "trace_events", "tty",
+    "url", "util", "v8", "vm", "wasi", "worker_threads", "zlib",
+];
+/// The copy of the package a TypeScript import of `module` loads from a file with
+/// [`node_modules`] `roots`, with its files among `files` (#141). Each root that has the package
+/// (`lib`, `@scope/pkg`) or its types (`@types/lib`, `@types/scope__pkg`) holds a copy, whichever
+/// of the two are there. The nearest is the one, unless it lacks the whole `module` and has no
+/// `exports` map in its `package.json`: Node then goes on to the next `node_modules`, as it does
+/// when `lib/extra` is not in the nearer one. A copy of JavaScript alone takes in the nearest
+/// declaration files of the package further up, its own or its `@types`, which TypeScript reads;
+/// TypeScript source counts as declarations. A link is followed, so
+/// pnpm's `node_modules/lib` is the version of the store it points at, spelled under the root it
+/// lies in, as the files walked from there are; one that leads out of the roots (`npm link`, a
+/// pnpm store outside them) is a copy of no file. A copy whose `exports` map the path would come
+/// from, lacking it as a file, is no copy to narrow to. A workspace package linked in is read from
+/// the TypeScript and JavaScript among `own`, the files of the project at `root`, and `None` when
+/// the copy chosen is one: no copy
+/// outside is it. Empty when no root has the package (an ambient `declare module`, and a `node:`
+/// module, which no package directory is called) and for a bare module of Node's own: `buffer`
+/// is not the npm polyfill of that name but `@types/node`'s `declare module`, which TypeScript
+/// takes over any `node_modules`.
+pub fn package_copy(
+    root: &Path,
+    roots: &[PathBuf],
+    files: &[PathBuf],
+    own: &[PathBuf],
+    module: &[String],
+) -> Option<PackageCopy> {
+    let (name, parts) = match module {
+        [scope, pkg, ..] if scope.starts_with('@') => (format!("{scope}/{pkg}"), 2),
+        [pkg, ..] if !NODE_BUILTINS.contains(&pkg.as_str()) => (pkg.clone(), 1),
+        _ => return Some(PackageCopy::default()),
+    };
+    let types = format!("@types/{}", name.trim_start_matches('@').replace('/', "__"));
+    // The project is a package too, its dependencies in a `node_modules` below it.
+    let project = root.canonicalize().ok();
+    let real: Vec<(&PathBuf, PathBuf)> = roots
+        .iter()
+        .filter_map(|r| Some((r, r.canonicalize().ok()?)))
+        .collect();
+    let spelled = |d: &Path| {
+        real.iter()
+            .find_map(|(r, real)| Some(r.join(d.strip_prefix(real).ok()?)))
+    };
+    let copy_in = |files: &[PathBuf], dirs: Vec<PathBuf>| PackageCopy {
+        files: files
+            .iter()
+            .filter(|p| in_copy(p, &dirs))
+            .cloned()
+            .collect(),
+        dirs,
+        parts,
+    };
+    let mut chosen = None;
+    for (i, level) in roots.iter().enumerate() {
+        let dirs: Vec<PathBuf> = [&name, &types]
+            .iter()
+            .filter_map(|d| level.join(d).canonicalize().ok())
+            .collect();
+        if dirs.is_empty() {
+            continue;
+        }
+        let linked = project
+            .as_ref()
+            .is_some_and(|p| dirs.iter().any(|d| in_copy(d, std::slice::from_ref(p))));
+        let copy = match linked {
+            // The project's own TypeScript and JavaScript: a readme says no path is there.
+            true => {
+                let own: Vec<PathBuf> = project
+                    .iter()
+                    .flat_map(|p| own.iter().map(|f| p.join(f)))
+                    .filter(|f| kind_of(f) == Some(Kind::TsJs))
+                    .collect();
+                copy_in(&own, dirs)
+            }
+            false => copy_in(files, dirs.iter().filter_map(|d| spelled(d)).collect()),
+        };
+        let whole = copy.module(module).is_some_and(|(n, _)| n == module.len());
+        let exports = std::fs::read_to_string(level.join(&name).join("package.json"))
+            .is_ok_and(|text| exports_map(&text));
+        // The map is what Node loads the path from, and it is not read here: as without a copy.
+        if exports && !whole {
+            return Some(PackageCopy::default());
+        }
+        let stop = whole || copy.files.is_empty();
+        if chosen.is_none() || stop {
+            chosen = Some((i, linked, copy));
+        }
+        if stop {
+            break;
+        }
+    }
+    let Some((i, linked, mut copy)) = chosen else {
+        return Some(PackageCopy::default());
+    };
+    if linked {
+        return None;
+    }
+    // What TypeScript reads: declarations, and TypeScript source a package may ship instead.
+    let typed = |f: &PathBuf| {
+        f.extension()
+            .is_some_and(|e| ["ts", "tsx", "mts", "cts"].iter().any(|t| e == *t))
+    };
+    let declarations = |d: &PathBuf| -> Vec<PathBuf> {
+        files
+            .iter()
+            .filter(|f| typed(f) && in_copy(f, std::slice::from_ref(d)))
+            .cloned()
+            .collect()
+    };
+    // A copy of JavaScript alone borrows the nearest declarations further up, a package's own
+    // before its `@types`, as TypeScript reads them there; only those, not the JavaScript beside.
+    if !copy.files.is_empty() && !copy.files.iter().any(typed) {
+        let further = roots[i + 1..].iter().find_map(|r| {
+            [&name, &types]
+                .iter()
+                .filter_map(|d| spelled(&r.join(d).canonicalize().ok()?))
+                .map(|d| (declarations(&d), d))
+                .find(|(found, _)| !found.is_empty())
+        });
+        if let Some((found, dir)) = further {
+            copy.files.extend(found);
+            copy.dirs.push(dir);
+        }
+    }
+    Some(copy)
+}
+/// Whether the `package.json` `text` has an `exports` map, a top-level key that is not `null`.
+/// Strings are read whole, so neither a nested `exports` nor a brace inside one counts.
+fn exports_map(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    let (mut i, mut depth) = (0, 0);
+    while i < bytes.len() {
+        match bytes[i] {
+            b'{' | b'[' => depth += 1,
+            b'}' | b']' => depth -= 1,
+            b'"' => {
+                let start = i + 1;
+                i += 1;
+                while i < bytes.len() && bytes[i] != b'"' {
+                    i += if bytes[i] == b'\\' { 2 } else { 1 };
+                }
+                let key = text.get(start..i).unwrap_or_default();
+                let value = text.get(i + 1..).unwrap_or_default().trim_start();
+                if depth == 1
+                    && key == "exports"
+                    && let Some(value) = value.strip_prefix(':')
+                {
+                    return !value.trim_start().starts_with("null");
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    false
+}
+/// A copy of an npm package [`package_copy`] finds: the directories it is in (the package's and
+/// its types'), its walked files there, and how many parts of a module path its name is.
+#[derive(Debug, Default, PartialEq)]
+pub struct PackageCopy {
+    pub dirs: Vec<PathBuf>,
+    pub files: Vec<PathBuf>,
+    pub parts: usize,
+}
+impl PackageCopy {
+    /// The files an import of the package itself loads, in each of its directories: those its
+    /// `package.json` names in `types` or `typings`, else in `main` or `module` with the `.d.ts`
+    /// beside a JavaScript one, else its `index` files. Read as `ts_aliases` reads a key.
+    pub fn entries(&self) -> Vec<PathBuf> {
+        static KEY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r#""(types|typings|main|module)"\s*:\s*"([^"]*)""#).unwrap()
+        });
+        let mut entries = Vec::new();
+        for dir in &self.dirs {
+            let text = std::fs::read_to_string(dir.join("package.json")).unwrap_or_default();
+            let named = |keys: &[&str]| -> Vec<PathBuf> {
+                let mut found = Vec::new();
+                for c in KEY.captures_iter(&text).filter(|c| keys.contains(&&c[1])) {
+                    let entry = c[2].trim_start_matches("./");
+                    let stem = [".js", ".mjs", ".cjs"]
+                        .iter()
+                        .find_map(|e| entry.strip_suffix(e))
+                        .unwrap_or(entry);
+                    for f in [entry.to_owned(), format!("{stem}.d.ts")] {
+                        found.extend(self.files.iter().filter(|p| **p == dir.join(&f)).cloned());
+                    }
+                }
+                found
+            };
+            let index = || -> Vec<PathBuf> {
+                let at_root = |f: &&PathBuf| f.parent() == Some(dir.as_path());
+                let index = |f: &&PathBuf| {
+                    f.file_name()
+                        .is_some_and(|n| n.to_string_lossy().starts_with("index."))
+                };
+                self.files
+                    .iter()
+                    .filter(at_root)
+                    .filter(index)
+                    .cloned()
+                    .collect()
+            };
+            let found = [&["types", "typings"][..], &["main", "module"]]
+                .iter()
+                .map(|keys| named(keys))
+                .find(|found| !found.is_empty());
+            entries.extend(found.unwrap_or_else(index));
+        }
+        entries
+    }
+    /// The files of the copy `module` names, with how many of its parts that is. The package's
+    /// own parts are the copy, whatever its directory is called (pnpm's alias `cookie` links a
+    /// store directory called `cookie-es`); the rest of the path is matched below the copy's
+    /// directories and shortened from its end as [`module_among`] shortens it, down to the whole
+    /// copy. `None` for a copy of no files.
+    pub fn module(&self, module: &[String]) -> Option<(usize, Vec<PathBuf>)> {
+        if self.files.is_empty() {
+            return None;
+        }
+        let below: Vec<Below> = self
+            .files
+            .iter()
+            .map(|file| Below {
+                path: self
+                    .dirs
+                    .iter()
+                    .find_map(|d| file.strip_prefix(d).ok())
+                    .unwrap_or(file),
+                file,
+            })
+            .collect();
+        let rest = module.get(self.parts..).unwrap_or_default();
+        Some(match module_among(&below, rest, None) {
+            Some((n, found)) => (
+                self.parts + n,
+                found.iter().map(|b| b.file.clone()).collect(),
+            ),
+            None => (self.parts, self.files.clone()),
+        })
+    }
+}
+/// A file of a copy, matched by its path below the copy's directory.
+#[derive(Clone)]
+struct Below<'a> {
+    path: &'a Path,
+    file: &'a PathBuf,
+}
+impl AsRef<Path> for Below<'_> {
+    fn as_ref(&self) -> &Path {
+        self.path
+    }
+}
+/// Whether `path` is a file of the package in the directories `copy`, and not of a package it
+/// depends on, in a `node_modules` of its own.
+pub fn in_copy(path: &Path, copy: &[PathBuf]) -> bool {
+    copy.iter().any(|dir| {
+        path.strip_prefix(dir)
+            .is_ok_and(|rest| !rest.components().any(|c| c.as_os_str() == "node_modules"))
+    })
 }
 /// Every file of `kind` under `dirs`, as absolute paths. Nothing is ignored: `node_modules`
 /// and `site-packages` are gitignored by design and are exactly what is wanted here. What no Go

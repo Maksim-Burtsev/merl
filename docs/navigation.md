@@ -46,7 +46,17 @@ word to: `np.array` behind `import numpy as np` looks in `numpy`, `load` behind
 `./utils`) is never looked for outside. A Go package is one directory, so `sql.Open` behind
 `import "database/sql"` reads the files of `database/sql` and none of `database/sql/driver`, the
 standard library's right under GOROOT's `src`; a package that is not installed is a search by
-name, never `via import` of the directory above it. A compiled module such as `orjson` lands in its `.pyi`
+name, never `via import` of the directory above it. Of a TypeScript package installed more than once, `d`
+reads the copy Node loads: the nearest `node_modules` that has the package or its `@types`, and a
+farther one when the nearer lacks the imported path (`lib/extra`), unless the nearer maps its paths
+with `exports`, which is then looked for as before; a pnpm link is followed to its version,
+whatever the store directory is called, and a copy of JavaScript alone is read with the nearest
+declarations further up. A name the copy's entry (as its `package.json` names it) exports
+under another (`export { parseCookie as parse }`) is followed to its declaration; one only another
+copy declares is found by name. A module of Node's own (`buffer`, `node:util`) is `@types/node`'s,
+whatever npm package has the name, and never a project file. A workspace package linked into
+`node_modules`, and an alias such as `@/lib`, `~/lib` or `#lib`, is the project's own: its source is
+searched by name first, then outside, by name. A compiled module such as `orjson` lands in its `.pyi`
 stub. The standard library's hits come before the dependencies', the picker shows paths relative
 to their root, and files opened from there are read-only. Go's `_test.go` files, `testdata` and
 nested modules such as GOROOT's `cmd` are skipped, since no import reaches them. C and C++ have no
