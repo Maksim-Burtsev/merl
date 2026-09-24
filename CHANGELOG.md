@@ -38,16 +38,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `d` on a TypeScript name imported from a package installed more than once lands in the copy
-  Node loads: the one in the nearest `node_modules` that has the package or its `@types`, and
-  the file an import such as `lib/extra` names, with pnpm's link followed to the version it
-  points at. A workspace root's copy, a copy another
-  package depends on and another version in pnpm's store are no longer offered beside it, and a
-  name only such a copy declares is found `by name`, no longer `via import`. A module of Node's
-  own, such as `buffer`, is looked for as before, whatever npm polyfill of that name is
-  installed, and a `node:` import is never a project file: `node:util` is `@types/node`'s, not
-  a `src/util.ts` under `"baseUrl": "src"`. A workspace package linked into `node_modules` is the project's own: `d` finds it
-  in its source, `by name`, and no longer in an old published copy another package depends
-  on; a name it only hands on from a dependency is found there, `by name`. (#141)
+  Node loads: the nearest `node_modules` that has the package or its `@types`, and a farther one
+  only when the nearer lacks the imported path (`lib/extra`) and maps none with `exports`; pnpm's
+  link is followed to the version it points at, whatever the store directory is called, and a
+  copy of JavaScript alone is read with the nearest declarations further up. A workspace root's
+  copy, a copy another package depends on and another version in pnpm's store are no longer
+  offered beside it: a name only such a copy declares is found `by name`, no longer
+  `via import`, and one the copy exports under another name (`export { parseCookie as parse }`)
+  is followed to its declaration. A module of Node's own, such as `buffer`, is looked for as
+  before, whatever npm polyfill of that name is installed, and a `node:` import is never a
+  project file: `node:util` is `@types/node`'s, not a `src/util.ts` under `"baseUrl": "src"`. A
+  workspace package linked into `node_modules`, and an alias import such as `@/lib`, is the
+  project's own: `d` finds the name in its source, `by name`, and no longer in an old published
+  copy another package depends on; a name it only hands on from a dependency is found outside,
+  `by name`. (#141)
 - `--tutor` sets every lesson up on its own: the sample project is unpacked anew, which drops
   what the last lesson edited, and the lesson opens on the file, line and word it is about. A
   lesson done the way it asks leads straight into the next; one that wandered off is put back.
@@ -73,6 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` on a default import in the project lands on its module's `export default`, no longer on
+  what the module exports under that name otherwise (`export { x as dlocal }`). (#141)
 - Opening `/` again on a pattern that matches nothing in the file says `no match`, as typing it
   did, instead of `0/0`. (#174)
 - `merl --review=feat` reads what the merge request shows. A local `feat` left from an earlier
