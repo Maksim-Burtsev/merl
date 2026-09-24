@@ -45,8 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with the nearest declarations further up. A workspace root's
   copy, a copy another package depends on and another version in pnpm's store are no longer
   offered beside it: a name only such a copy declares is found `by name`, no longer
-  `via import`, and one the copy exports under another name (`export { parseCookie as parse }`)
-  is followed to its declaration. A module of Node's own, such as `buffer`, is looked for as
+  `via import`, and one the copy's entry exports under another name
+  (`export { parseCookie as parse }`) is followed to its declaration. A module of Node's own, such as `buffer`, is looked for as
   before, whatever npm polyfill of that name is installed, and a `node:` import is never a
   project file: `node:util` is `@types/node`'s, not a `src/util.ts` under `"baseUrl": "src"`. A
   workspace package linked into `node_modules`, and an alias import such as `@/lib`, is the

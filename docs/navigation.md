@@ -51,7 +51,7 @@ reads the copy Node loads: the nearest `node_modules` that has the package or it
 farther one when the nearer lacks the imported path (`lib/extra`), unless the nearer maps its paths
 with `exports`, which is then looked for as before; a pnpm link is followed to its version,
 whatever the store directory is called, and a copy of JavaScript alone is read with the nearest
-declarations further up. A name the copy exports
+declarations further up. A name the copy's entry (as its `package.json` names it) exports
 under another (`export { parseCookie as parse }`) is followed to its declaration; one only another
 copy declares is found by name. A module of Node's own (`buffer`, `node:util`) is `@types/node`'s,
 whatever npm package has the name, and never a project file. A workspace package linked into

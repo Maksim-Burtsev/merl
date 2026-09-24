@@ -638,7 +638,7 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
 /// depends on. A name only another copy declares is found by name.
 #[test]
 fn an_imported_package_is_the_copy_node_loads() {
-    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { parseX } from \"multi/sub\";\nimport { Box } from \"boxed\";\nimport { extra, alsoNear } from \"lib/extra\";\nimport { lonely } from \"nested/gone\";\nimport { onlyNested } from \"lib/nested\";\nimport { useState } from \"react\";\nimport { shipped } from \"shipped\";\nimport { jsfn } from \"jsonly\";\nimport { jsown } from \"jsowned\";\nimport { tsf } from \"tssrc\";\nimport * as ck from \"cookie\";\nimport { solo, soloRen } from \"solo\";\nimport { both } from \"dual\";\nimport { deeper } from \"lib/nothere\";\nimport dparse from \"dflt\";\nimport dlocal from \"./dflt\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nparseX(1);\nBox.open(1);\nalsoNear(1);\nlonely(1);\nonlyNested(1);\nuseState(1);\nshipped(1);\njsfn(1);\njsown(1);\ntsf(1);\nck.parse(1);\nsolo(1);\nsoloRen(1);\nboth(1);\ndeeper(1);\ndparse(1);\ndlocal(1);\nextra(1);\n";
+    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { parseX } from \"multi/sub\";\nimport { Box } from \"boxed\";\nimport { extra, alsoNear } from \"lib/extra\";\nimport { lonely } from \"nested/gone\";\nimport { onlyNested } from \"lib/nested\";\nimport { useState } from \"react\";\nimport { shipped } from \"shipped\";\nimport { jsfn } from \"jsonly\";\nimport { jsown } from \"jsowned\";\nimport { tsf } from \"tssrc\";\nimport * as ck from \"cookie\";\nimport { rparse } from \"rlib\";\nimport { rjsfn } from \"rjs\";\nimport { mfn } from \"mainpkg\";\nimport { ifn } from \"idxpkg\";\nimport { solo, soloRen } from \"solo\";\nimport { both } from \"dual\";\nimport { deeper } from \"lib/nothere\";\nimport dparse from \"dflt\";\nimport dlocal from \"./dflt\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nparseX(1);\nBox.open(1);\nalsoNear(1);\nlonely(1);\nonlyNested(1);\nuseState(1);\nshipped(1);\njsfn(1);\njsown(1);\ntsf(1);\nck.parse(1);\nrparse(1);\nrjsfn(1);\nmfn(1);\nifn(1);\nsolo(1);\nsoloRen(1);\nboth(1);\ndeeper(1);\ndparse(1);\ndlocal(1);\nextra(1);\n";
     let file = "packages/api/src/main.ts";
     let line = |code: &str| main.lines().position(|l| l.starts_with(code)).unwrap() + 1;
     // What a default import binds is its own name for the default export, whatever the module
@@ -813,13 +813,65 @@ fn an_imported_package_is_the_copy_node_loads() {
             "declare module \"node:sqlite\" {\n    export class DatabaseSync {\n    }\n}\n",
         ),
         // The copy loaded declares `parse` under another name, which another copy has.
+        // As `cookie@1.1.1` lays itself out: the entry `types` names renames what it declares.
         (
-            "packages/api/node_modules/cookie/index.d.ts",
-            "export declare function parseCookie(): void;\nexport { parseCookie as parse };\nexport declare class Jar {\n    parseCookie(): void;\n}\n",
+            "packages/api/node_modules/cookie/package.json",
+            "{ \"name\": \"cookie\", \"types\": \"dist/index.d.ts\", \"main\": \"dist/index.js\" }\n",
         ),
         (
-            "packages/api/node_modules/cookie/index.js",
+            "packages/api/node_modules/cookie/dist/index.d.ts",
+            "declare function stringifySetCookie(): void;\nexport declare function parseCookie(): void;\nexport declare class Jar {\n    parseCookie(): void;\n}\nexport { stringifySetCookie as serialize, parseCookie as parse };\n",
+        ),
+        (
+            "packages/api/node_modules/cookie/dist/index.js",
             "function parseCookie() {}\nexports.parse = parseCookie;\n",
+        ),
+        // A file the package's entry does not load renames nothing it exports.
+        (
+            "node_modules/rlib/index.d.ts",
+            "export { rparse } from \"rparse-core\";\n",
+        ),
+        (
+            "node_modules/rlib/legacy.d.ts",
+            "declare function oldParse(): void;\nexport { oldParse as rparse };\n",
+        ),
+        (
+            "node_modules/rparse-core/index.d.ts",
+            "export declare function rparse(): void;\n",
+        ),
+        (
+            "node_modules/rjs/package.json",
+            "{ \"name\": \"rjs\", \"main\": \"dist/index.js\" }\n",
+        ),
+        (
+            "node_modules/rjs/dist/index.js",
+            "export { rjsfn } from \"rjs-core\";\n",
+        ),
+        (
+            "node_modules/rjs/dist/chunk.js",
+            "function n() {}\nexport { n as rjsfn };\n",
+        ),
+        (
+            "node_modules/rjs-core/index.d.ts",
+            "export declare function rjsfn(): void;\n",
+        ),
+        // The entry `main` names, with the declarations beside it; with no `package.json`, the
+        // `index` files.
+        (
+            "node_modules/mainpkg/package.json",
+            "{ \"name\": \"mainpkg\", \"main\": \"lib/index.js\" }\n",
+        ),
+        (
+            "node_modules/mainpkg/lib/index.d.ts",
+            "declare function realMain(): void;\nexport { realMain as mfn };\n",
+        ),
+        (
+            "node_modules/mainpkg/lib/index.js",
+            "function realMain() {}\nexports.mfn = realMain;\n",
+        ),
+        (
+            "node_modules/idxpkg/index.d.ts",
+            "declare function realIdx(): void;\nexport { realIdx as ifn };\n",
         ),
         (
             "node_modules/cookie/index.d.ts",
@@ -1042,26 +1094,43 @@ fn an_imported_package_is_the_copy_node_loads() {
         // A name in the module a `* as ck` import names is followed through its renaming too.
         (
             "ck.parse",
-            Shown::Picker(
-                "parse: via import cookie, 2 declarations".into(),
-                ["index.d.ts:1", "index.js:1"]
-                    .map(|at| {
-                        let at = format!("packages/api/node_modules/cookie/{at}");
-                        ("parse".into(), "via import cookie".into(), at)
-                    })
-                    .to_vec(),
+            jump(
+                "parse: via import cookie",
+                "packages/api/node_modules/cookie/dist/index.d.ts:2",
             ),
         ),
         (
             "^parse",
+            jump(
+                "parse: via import cookie",
+                "packages/api/node_modules/cookie/dist/index.d.ts:2",
+            ),
+        ),
+        (
+            "^mfn",
             Shown::Picker(
-                "parse: via import cookie, 2 declarations".into(),
-                ["index.d.ts:1", "index.js:1"]
-                    .map(|at| {
-                        let at = format!("packages/api/node_modules/cookie/{at}");
-                        ("parse".into(), "via import cookie".into(), at)
-                    })
+                "mfn: via import mainpkg, 2 declarations".into(),
+                ["mainpkg/lib/index.d.ts:1", "mainpkg/lib/index.js:1"]
+                    .map(|at| ("mfn".into(), "via import mainpkg".into(), at.into()))
                     .to_vec(),
+            ),
+        ),
+        (
+            "^ifn",
+            jump("ifn: via import idxpkg", "node_modules/idxpkg/index.d.ts:1"),
+        ),
+        (
+            "^rparse",
+            jump(
+                "rparse: by name, 1 match",
+                "node_modules/rparse-core/index.d.ts:1",
+            ),
+        ),
+        (
+            "^rjsfn",
+            jump(
+                "rjsfn: by name, 1 match",
+                "node_modules/rjs-core/index.d.ts:1",
             ),
         ),
     ] {

@@ -146,7 +146,12 @@ impl App {
         let mut hits = at_top(self, self.external_grep(kind, &files, pattern));
         // `export { parseCookie as parse }` is the import's own `parse`, as in the project.
         if hits.is_empty() && narrowed && whole {
-            hits = self.renamed_export(word, |p| self.external_grep(kind, &files, p));
+            // The package itself is its entry, not every file in it: a chunk, a legacy module.
+            let within = match module.len() <= copy.parts {
+                true => copy.entries(),
+                false => files,
+            };
+            hits = self.renamed_export(word, |p| self.external_grep(kind, &within, p));
         }
         // An imported module that does not declare the name re-exports it (`std::sync::Arc`
         // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.

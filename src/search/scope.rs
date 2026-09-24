@@ -407,9 +407,54 @@ fn exports_map(text: &str) -> bool {
 pub struct PackageCopy {
     pub dirs: Vec<PathBuf>,
     pub files: Vec<PathBuf>,
-    parts: usize,
+    pub parts: usize,
 }
 impl PackageCopy {
+    /// The files an import of the package itself loads, in each of its directories: those its
+    /// `package.json` names in `types` or `typings`, else in `main` or `module` with the `.d.ts`
+    /// beside a JavaScript one, else its `index` files. Read as `ts_aliases` reads a key.
+    pub fn entries(&self) -> Vec<PathBuf> {
+        static KEY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r#""(types|typings|main|module)"\s*:\s*"([^"]*)""#).unwrap()
+        });
+        let mut entries = Vec::new();
+        for dir in &self.dirs {
+            let text = std::fs::read_to_string(dir.join("package.json")).unwrap_or_default();
+            let named = |keys: &[&str]| -> Vec<PathBuf> {
+                let mut found = Vec::new();
+                for c in KEY.captures_iter(&text).filter(|c| keys.contains(&&c[1])) {
+                    let entry = c[2].trim_start_matches("./");
+                    let stem = [".js", ".mjs", ".cjs"]
+                        .iter()
+                        .find_map(|e| entry.strip_suffix(e))
+                        .unwrap_or(entry);
+                    for f in [entry.to_owned(), format!("{stem}.d.ts")] {
+                        found.extend(self.files.iter().filter(|p| **p == dir.join(&f)).cloned());
+                    }
+                }
+                found
+            };
+            let index = || -> Vec<PathBuf> {
+                let at_root = |f: &&PathBuf| f.parent() == Some(dir.as_path());
+                let index = |f: &&PathBuf| {
+                    f.file_name()
+                        .is_some_and(|n| n.to_string_lossy().starts_with("index."))
+                };
+                self.files
+                    .iter()
+                    .filter(at_root)
+                    .filter(index)
+                    .cloned()
+                    .collect()
+            };
+            let found = [&["types", "typings"][..], &["main", "module"]]
+                .iter()
+                .map(|keys| named(keys))
+                .find(|found| !found.is_empty());
+            entries.extend(found.unwrap_or_else(index));
+        }
+        entries
+    }
     /// The files of the copy `module` names, with how many of its parts that is. The package's
     /// own parts are the copy, whatever its directory is called (pnpm's alias `cookie` links a
     /// store directory called `cookie-es`); the rest of the path is matched below the copy's
