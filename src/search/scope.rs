@@ -256,7 +256,8 @@ const NODE_BUILTINS: &[&str] = &[
 /// declarations of the package further up, its own or its `@types`, which TypeScript reads. A link is followed, so
 /// pnpm's `node_modules/lib` is the version of the store it points at, spelled under the root it
 /// lies in, as the files walked from there are; one that leads out of the roots (`npm link`, a
-/// pnpm store outside them) is a copy of no file. A workspace package linked in is read from
+/// pnpm store outside them) is a copy of no file. A copy whose `exports` map the path would come
+/// from, lacking it as a file, is no copy to narrow to. A workspace package linked in is read from
 /// `own`, the files of the project at `root`, and `None` when the copy chosen is one: no copy
 /// outside is it. Empty when no root has the package (an ambient `declare module`, and a `node:`
 /// module, which no package directory is called) and for a bare module of Node's own: `buffer`
@@ -269,8 +270,6 @@ pub fn package_copy(
     own: &[PathBuf],
     module: &[String],
 ) -> Option<PackageCopy> {
-    static EXPORTS: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r#""exports"\s*:"#).unwrap());
     let (name, parts) = match module {
         [scope, pkg, ..] if scope.starts_with('@') => (format!("{scope}/{pkg}"), 2),
         [pkg, ..] if !NODE_BUILTINS.contains(&pkg.as_str()) => (pkg.clone(), 1),
@@ -318,8 +317,12 @@ pub fn package_copy(
         };
         let whole = copy.module(module).is_some_and(|(n, _)| n == module.len());
         let exports = std::fs::read_to_string(level.join(&name).join("package.json"))
-            .is_ok_and(|text| EXPORTS.is_match(&text));
-        let stop = whole || exports || copy.files.is_empty();
+            .is_ok_and(|text| exports_map(&text));
+        // The map is what Node loads the path from, and it is not read here: as without a copy.
+        if exports && !whole {
+            return Some(PackageCopy::default());
+        }
+        let stop = whole || copy.files.is_empty();
         if chosen.is_none() || stop {
             chosen = Some((i, linked, copy));
         }
@@ -354,6 +357,36 @@ pub fn package_copy(
         }
     }
     Some(copy)
+}
+/// Whether the `package.json` `text` has an `exports` map, a top-level key that is not `null`.
+/// Strings are read whole, so neither a nested `exports` nor a brace inside one counts.
+fn exports_map(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    let (mut i, mut depth) = (0, 0);
+    while i < bytes.len() {
+        match bytes[i] {
+            b'{' | b'[' => depth += 1,
+            b'}' | b']' => depth -= 1,
+            b'"' => {
+                let start = i + 1;
+                i += 1;
+                while i < bytes.len() && bytes[i] != b'"' {
+                    i += if bytes[i] == b'\\' { 2 } else { 1 };
+                }
+                let key = text.get(start..i).unwrap_or_default();
+                let value = text.get(i + 1..).unwrap_or_default().trim_start();
+                if depth == 1
+                    && key == "exports"
+                    && let Some(value) = value.strip_prefix(':')
+                {
+                    return !value.trim_start().starts_with("null");
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    false
 }
 /// A copy of an npm package [`package_copy`] finds: the directories it is in (the package's and
 /// its types'), its walked files there, and how many parts of a module path its name is.

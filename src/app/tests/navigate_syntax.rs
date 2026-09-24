@@ -1374,7 +1374,7 @@ fn a_node_import_is_never_a_project_file() {
 #[cfg(unix)]
 #[test]
 fn a_linked_copy_is_chosen_as_any_other() {
-    let main = "import { ex } from \"wlib/extra\";\nimport { Old } from \"@app/ui/old\";\nimport { thing } from \"both/missing\";\nimport { reachOut } from \"outl\";\n\nex(1);\nOld(1);\nthing(1);\nreachOut(1);\n";
+    let main = "import { ex } from \"wlib/extra\";\nimport { Old } from \"@app/ui/old\";\nimport { thing } from \"both/missing\";\nimport { reachOut } from \"outl\";\nimport { esub } from \"elib/sub2\";\nimport { nl1f } from \"nl1/extra\";\nimport { nl2f } from \"nl2/extra\";\nimport { nl3f } from \"nl3/extra\";\n\nex(1);\nOld(1);\nthing(1);\nreachOut(1);\nesub(1);\nnl1f(1);\nnl2f(1);\nnl3f(1);\n";
     let (dir, mut a) = project_app(
         "chosen",
         &[
@@ -1416,6 +1416,69 @@ fn a_linked_copy_is_chosen_as_any_other() {
             "node_modules/x/node_modules/outl/index.d.ts",
             "export declare function reachOut(): void;\n",
         ),
+        // `exports` maps `.` alone, and `sub2` is only in the root's copy: as without a copy.
+        (
+            "packages/api/node_modules/elib/package.json",
+            "{ \"name\": \"elib\", \"exports\": { \".\": \"./index.js\" } }\n",
+        ),
+        (
+            "packages/api/node_modules/elib/index.d.ts",
+            "export declare function esub(): void;\n",
+        ),
+        (
+            "node_modules/elib/sub2.d.ts",
+            "export declare function esub(): void;\n",
+        ),
+        // An `exports` that is `null`, or no top-level key: Node goes on past them, to the root's
+        // copy and not the one another package depends on.
+        (
+            "packages/api/node_modules/nl1/package.json",
+            "{ \"name\": \"nl1\", \"exports\": null }\n",
+        ),
+        (
+            "packages/api/node_modules/nl1/index.d.ts",
+            "export declare function nl1f(): void;\n",
+        ),
+        (
+            "node_modules/nl1/extra.d.ts",
+            "export declare function nl1f(): void;\n",
+        ),
+        (
+            "node_modules/x/node_modules/nl1/extra.d.ts",
+            "export declare function nl1f(): void;\n",
+        ),
+        (
+            "packages/api/node_modules/nl2/package.json",
+            "{ \"name\": \"nl2\", \"scripts\": { \"exports\": \"tsc\" } }\n",
+        ),
+        (
+            "packages/api/node_modules/nl2/index.d.ts",
+            "export declare function nl2f(): void;\n",
+        ),
+        (
+            "node_modules/nl2/extra.d.ts",
+            "export declare function nl2f(): void;\n",
+        ),
+        (
+            "node_modules/x/node_modules/nl2/extra.d.ts",
+            "export declare function nl2f(): void;\n",
+        ),
+        (
+            "packages/api/node_modules/nl3/package.json",
+            "{ \"description\": \"a } in it\", \"publishConfig\": { \"exports\": { \"./x\": \"./x.js\" } } }\n",
+        ),
+        (
+            "packages/api/node_modules/nl3/index.d.ts",
+            "export declare function nl3f(): void;\n",
+        ),
+        (
+            "node_modules/nl3/extra.d.ts",
+            "export declare function nl3f(): void;\n",
+        ),
+        (
+            "node_modules/x/node_modules/nl3/extra.d.ts",
+            "export declare function nl3f(): void;\n",
+        ),
     ] {
         std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
         std::fs::write(dir.join(path), text).unwrap();
@@ -1453,6 +1516,34 @@ fn a_linked_copy_is_chosen_as_any_other() {
             jump(
                 "thing: via import both",
                 "packages/api/node_modules/both/index.d.ts:1",
+            ),
+        ),
+        (
+            "^esub",
+            jump(
+                "esub: via import elib/sub2",
+                "node_modules/elib/sub2.d.ts:1",
+            ),
+        ),
+        (
+            "^nl1f",
+            jump(
+                "nl1f: via import nl1/extra",
+                "node_modules/nl1/extra.d.ts:1",
+            ),
+        ),
+        (
+            "^nl2f",
+            jump(
+                "nl2f: via import nl2/extra",
+                "node_modules/nl2/extra.d.ts:1",
+            ),
+        ),
+        (
+            "^nl3f",
+            jump(
+                "nl3f: via import nl3/extra",
+                "node_modules/nl3/extra.d.ts:1",
             ),
         ),
         // A link out of the walk is the level, of no file: every copy, as without one.
