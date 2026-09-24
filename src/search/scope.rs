@@ -238,18 +238,29 @@ pub fn node_modules(root: &Path, file: &Path) -> Vec<PathBuf> {
         .filter(|dir| dir.is_dir())
         .collect()
 }
+/// `require("module").builtinModules` of Node 26, the bare names: no `_`, `/` or `node:` ones.
+#[rustfmt::skip]
+const NODE_BUILTINS: &[&str] = &[
+    "assert", "async_hooks", "buffer", "child_process", "cluster", "console", "constants", "crypto",
+    "dgram", "diagnostics_channel", "dns", "domain", "events", "fs", "http", "http2", "https",
+    "inspector", "module", "net", "os", "path", "perf_hooks", "process", "punycode", "querystring",
+    "readline", "repl", "stream", "string_decoder", "sys", "timers", "tls", "trace_events", "tty",
+    "url", "util", "v8", "vm", "wasi", "worker_threads", "zlib",
+];
 /// The copy of the package a TypeScript `module` path is in that a file with [`node_modules`]
 /// `roots` loads, as TypeScript resolves it (#141): at the nearest root that has the package
 /// (`lib`, `@scope/pkg`) or its types (`@types/lib`, `@types/scope__pkg`), whichever of the two
 /// are there. A link is followed, so pnpm's `node_modules/lib` is the version of the store it
 /// points at, spelled under the root it lies in, as the files walked from there are; one that
 /// leads out of the roots (a workspace package linked in) has no file there and is left out.
-/// Empty when no root has the package: Node's own `fs`, an ambient `declare module`.
+/// Empty when no root has the package (an ambient `declare module`) and for a module of Node's
+/// own: `buffer` is not the npm polyfill of that name but `@types/node`'s `declare module`, which
+/// TypeScript takes over any `node_modules`.
 pub fn package_copy(roots: &[PathBuf], module: &[String]) -> Vec<PathBuf> {
     let name = match module {
         [scope, pkg, ..] if scope.starts_with('@') => format!("{scope}/{pkg}"),
-        [pkg, ..] => pkg.clone(),
-        [] => return Vec::new(),
+        [pkg, ..] if !NODE_BUILTINS.contains(&pkg.as_str()) => pkg.clone(),
+        _ => return Vec::new(),
     };
     let types = format!("@types/{}", name.trim_start_matches('@').replace('/', "__"));
     let Some(level) = roots

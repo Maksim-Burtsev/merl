@@ -638,7 +638,7 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
 /// depends on. A name only another copy declares is found by name.
 #[test]
 fn an_imported_package_is_the_copy_node_loads() {
-    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\n";
+    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\n";
     let file = "packages/api/src/main.ts";
     let (dir, mut a) = project_app("copies", &[(file, main)]);
     for (path, names) in [
@@ -672,6 +672,20 @@ fn an_imported_package_is_the_copy_node_loads() {
             .map(|n| format!("export declare function {n}(): void;\n"))
             .collect();
         std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
+        std::fs::write(dir.join(path), text).unwrap();
+    }
+    // `buffer` is Node's own too, whatever npm polyfill of that name is installed.
+    std::fs::create_dir_all(dir.join("node_modules/buffer")).unwrap();
+    for (path, text) in [
+        (
+            "node_modules/buffer/index.d.ts",
+            "export declare class Buffer {\n}\n",
+        ),
+        (
+            "node_modules/@types/node/buffer.d.ts",
+            "declare module \"buffer\" {\n    export class Buffer {\n    }\n}\n",
+        ),
+    ] {
         std::fs::write(dir.join(path), text).unwrap();
     }
     for (code, want) in [
@@ -719,6 +733,15 @@ fn an_imported_package_is_the_copy_node_loads() {
             jump(
                 "readFile: via import fs",
                 "node_modules/@types/node/fs.d.ts:1",
+            ),
+        ),
+        (
+            "^Buffer",
+            Shown::Picker(
+                "Buffer: via import buffer, 2 declarations".into(),
+                ["@types/node/buffer.d.ts:2", "buffer/index.d.ts:1"]
+                    .map(|at| ("Buffer".into(), "via import buffer".into(), at.into()))
+                    .to_vec(),
             ),
         ),
     ] {
