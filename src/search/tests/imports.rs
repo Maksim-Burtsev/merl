@@ -209,6 +209,10 @@ fn in_module_follows_the_parts_through_versions_and_escapes() {
         &["@scope", "pkg"]
     ));
     assert!(!m(
+        "/node_modules/@types/scope__other/index.d.ts",
+        &["@scope", "pkg"]
+    ));
+    assert!(!m(
         "/node_modules/scope__pkg/index.d.ts",
         &["@scope", "pkg"]
     ));

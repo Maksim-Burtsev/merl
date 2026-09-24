@@ -588,21 +588,21 @@ fn lexical(path: &Path) -> Option<PathBuf> {
 /// `_` as `-`: those are ignored. An npm scope is spelled out, and the types of `@scope/pkg`
 /// are `@types/scope__pkg`.
 pub fn in_module(path: &Path, parts: &[String]) -> bool {
+    let want: Vec<String> = parts.iter().map(|p| module_part(p)).collect();
     let mut i = 0;
     let mut types = false;
     for c in path.components() {
         let c = c.as_os_str().to_string_lossy();
+        // `@types/scope__pkg`: the scope's name, `__`, the package's.
         let scoped = |scope: &str, pkg: &str| {
-            types
-                && scope
-                    .strip_prefix('@')
-                    .is_some_and(|s| *c == format!("{s}__{pkg}"))
+            let rest = scope.strip_prefix('@').and_then(|s| c.strip_prefix(s));
+            types && rest.and_then(|r| r.strip_prefix("__")) == Some(pkg)
         };
         i += match &parts[i..] {
             [] => break,
             [scope, pkg, ..] if scoped(scope, pkg) => 2,
             [scope, ..] if scope.starts_with('@') => usize::from(*c == **scope),
-            [part, ..] => usize::from(module_part(part) == module_part(&c)),
+            _ => usize::from(want[i] == module_part(&c)),
         };
         types = c == "@types";
     }
