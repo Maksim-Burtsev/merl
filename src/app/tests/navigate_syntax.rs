@@ -638,23 +638,35 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
 /// depends on. A name only another copy declares is found by name.
 #[test]
 fn an_imported_package_is_the_copy_node_loads() {
-    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { parseX } from \"multi/sub\";\nimport { Box } from \"boxed\";\nimport { extra } from \"lib/extra\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nparseX(1);\nBox.open(1);\nextra(1);\n";
+    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { parseX } from \"multi/sub\";\nimport { Box } from \"boxed\";\nimport { extra, alsoNear } from \"lib/extra\";\nimport { lonely } from \"nested/gone\";\nimport { onlyNested } from \"lib/nested\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nparseX(1);\nBox.open(1);\nalsoNear(1);\nlonely(1);\nonlyNested(1);\nextra(1);\n";
     let file = "packages/api/src/main.ts";
+    let line = |code: &str| main.lines().position(|l| l.starts_with(code)).unwrap() + 1;
     let (dir, mut a) = project_app("copies", &[(file, main)]);
     for (path, names) in [
-        ("packages/api/node_modules/lib/index.d.ts", &["pick"][..]),
-        ("node_modules/lib/index.d.ts", &["pick", "onlyFar", "extra"]),
-        // A module the copy loaded lacks, which another copy has.
-        ("node_modules/lib/extra.d.ts", &["extra"]),
+        (
+            "packages/api/node_modules/lib/index.d.ts",
+            &["pick", "alsoNear"][..],
+        ),
+        (
+            "node_modules/lib/index.d.ts",
+            &["pick", "onlyFar", "extra", "onlyNested"],
+        ),
+        // `lib/nested` is only in a copy another package depends on.
+        (
+            "node_modules/other/node_modules/lib/nested.d.ts",
+            &["onlyNested"],
+        ),
+        // A module only the root's copy has, one of whose names the nearer copy declares.
+        ("node_modules/lib/extra.d.ts", &["extra", "alsoNear"]),
         // A namesake of `onlyFar` in a package no import names.
         ("node_modules/unrelated/index.d.ts", &["onlyFar"]),
         ("packages/api/node_modules/lib/sub.d.ts", &["part"]),
         ("node_modules/lib/sub.d.ts", &["part"]),
         // A copy another package depends on, and a package the copy itself depends on.
-        ("node_modules/nested/index.d.ts", &["nest"]),
+        ("node_modules/nested/index.d.ts", &["nest", "lonely"]),
         (
             "node_modules/other/node_modules/nested/index.d.ts",
-            &["nest"],
+            &["nest", "lonely"],
         ),
         ("node_modules/nested/node_modules/dep/index.d.ts", &["nest"]),
         // Types with no package beside them, a scoped package's among them.
@@ -793,9 +805,36 @@ fn an_imported_package_is_the_copy_node_loads() {
                     .to_vec(),
             ),
         ),
+        // Only the root's copy has `lib/extra`: Node goes on to it past the nearer one.
         (
             "^extra",
-            jump("extra: by name, 1 match", "node_modules/lib/extra.d.ts:1"),
+            jump(
+                "extra: via import lib/extra",
+                "node_modules/lib/extra.d.ts:1",
+            ),
+        ),
+        // No copy has `nested/gone`: the nearest that has the package decides, past a root
+        // without it.
+        (
+            "^lonely",
+            jump(
+                "lonely: via import nested",
+                "node_modules/nested/index.d.ts:2",
+            ),
+        ),
+        (
+            "^onlyNested",
+            jump(
+                "onlyNested: by name, 1 match",
+                "node_modules/other/node_modules/lib/nested.d.ts:1",
+            ),
+        ),
+        (
+            "^alsoNear",
+            jump(
+                "alsoNear: via import lib/extra",
+                "node_modules/lib/extra.d.ts:2",
+            ),
         ),
         (
             "^parseX",
@@ -806,7 +845,10 @@ fn an_imported_package_is_the_copy_node_loads() {
         ),
         (
             "^Box.open",
-            jump("no definition for open", "packages/api/src/main.ts:25"),
+            jump(
+                "no definition for open",
+                &format!("{file}:{}", line("Box.open")),
+            ),
         ),
         (
             "^parse",
@@ -833,7 +875,7 @@ fn an_imported_package_is_the_copy_node_loads() {
 #[cfg(unix)]
 #[test]
 fn a_linked_package_is_the_version_it_links() {
-    let main = "import { pin } from \"pinned\";\nimport { shared, z } from \"@app/shared\";\nimport { reach } from \"far\";\n\npin(1);\nshared(1);\nreach(1);\nz.string();\n";
+    let main = "import { pin } from \"pinned\";\nimport { shared, z } from \"@app/shared\";\nimport { reach } from \"far\";\nimport { parse } from \"cookie\";\n\npin(1);\nshared(1);\nreach(1);\nz.string();\nparse(1);\n";
     let (dir, mut a) = project_app(
         "linked",
         &[
@@ -864,6 +906,16 @@ fn a_linked_package_is_the_version_it_links() {
         ("node_modules/other/node_modules/far/index.d.ts", "reach"),
         // What the workspace package hands on from a dependency.
         ("node_modules/zod/index.d.ts", "z"),
+        // `cookie` links a store directory of another name, which no file of the module is in;
+        // another package depends on a `cookie` of that name.
+        (
+            "node_modules/.pnpm/cookie-es@1.0.0/node_modules/cookie-es/index.d.ts",
+            "parse",
+        ),
+        (
+            "node_modules/.pnpm/cookie@0.7.0/node_modules/cookie/index.d.ts",
+            "parse",
+        ),
     ] {
         std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
         std::fs::write(
@@ -883,6 +935,10 @@ fn a_linked_package_is_the_version_it_links() {
             "node_modules/@app/shared",
         ),
         (&store.join("far"), "node_modules/far"),
+        (
+            Path::new(".pnpm/cookie-es@1.0.0/node_modules/cookie-es"),
+            "node_modules/cookie",
+        ),
     ] {
         std::os::unix::fs::symlink(to, dir.join(at)).unwrap();
     }
@@ -901,6 +957,13 @@ fn a_linked_package_is_the_version_it_links() {
         (
             "^z|.string",
             jump("z: by name, 1 match", "node_modules/zod/index.d.ts:1"),
+        ),
+        (
+            "^parse",
+            jump(
+                "parse: via import cookie",
+                "node_modules/.pnpm/cookie@0.7.0/node_modules/cookie/index.d.ts:1",
+            ),
         ),
         (
             "^reach",

@@ -247,54 +247,73 @@ const NODE_BUILTINS: &[&str] = &[
     "readline", "repl", "stream", "string_decoder", "sys", "timers", "tls", "trace_events", "tty",
     "url", "util", "v8", "vm", "wasi", "worker_threads", "zlib",
 ];
-/// The copy of the package a TypeScript `module` path is in that a file with [`node_modules`]
-/// `roots` loads, as TypeScript resolves it (#141): at the nearest root that has the package
-/// (`lib`, `@scope/pkg`) or its types (`@types/lib`, `@types/scope__pkg`), whichever of the two
-/// are there. A link is followed, so pnpm's `node_modules/lib` is the version of the store it
-/// points at, spelled under the root it lies in, as the files walked from there are; one that
-/// leads out of the roots (a pnpm store outside them) has no file there and is left out.
-/// Empty when no root has the package (an ambient `declare module`, and a `node:` module, which
-/// no package directory is called) and for a bare module of Node's own: `buffer` is not the npm
-/// polyfill of that name but `@types/node`'s `declare module`, which TypeScript takes over any
-/// `node_modules`. `None` when the copy is the source of the project at `root`, a workspace
-/// package linked into `node_modules`: no copy outside is it.
-pub fn package_copy(root: &Path, roots: &[PathBuf], module: &[String]) -> Option<Vec<PathBuf>> {
+/// The files among `files` of the copy of the package a TypeScript import of `module` loads
+/// from a file with [`node_modules`] `roots` (#141). Each root that has the package (`lib`,
+/// `@scope/pkg`) or its types (`@types/lib`, `@types/scope__pkg`) holds a copy, whichever of the
+/// two are there; the nearest whose files have the whole `module` is the one, as Node goes on to
+/// the next `node_modules` when `lib/extra` is not in the nearer one, else the nearest. A link
+/// is followed, so pnpm's `node_modules/lib` is the version of the store it points at, spelled
+/// under the root it lies in, as the files walked from there are; one that leads out of the roots
+/// (a pnpm store outside them) has no file there. Empty when no root has the package (an ambient
+/// `declare module`, and a `node:` module, which no package directory is called) and for a bare
+/// module of Node's own: `buffer` is not the npm polyfill of that name but `@types/node`'s
+/// `declare module`, which TypeScript takes over any `node_modules`. `None` when a copy on the way
+/// is the source of the project at `root`, a workspace package linked into `node_modules`: no
+/// copy outside is it.
+pub fn package_copy(
+    root: &Path,
+    roots: &[PathBuf],
+    files: &[PathBuf],
+    module: &[String],
+) -> Option<Vec<PathBuf>> {
     let name = match module {
         [scope, pkg, ..] if scope.starts_with('@') => format!("{scope}/{pkg}"),
         [pkg, ..] if !NODE_BUILTINS.contains(&pkg.as_str()) => pkg.clone(),
         _ => return Some(Vec::new()),
     };
     let types = format!("@types/{}", name.trim_start_matches('@').replace('/', "__"));
-    let Some(level) = roots
-        .iter()
-        .find(|r| r.join(&name).exists() || r.join(&types).exists())
-    else {
-        return Some(Vec::new());
-    };
-    let dirs: Vec<PathBuf> = [name, types]
-        .iter()
-        .filter_map(|d| level.join(d).canonicalize().ok())
-        .collect();
     // The project is a package too, its dependencies in a `node_modules` below it.
     let project = root.canonicalize().ok();
-    if dirs.iter().any(|d| {
-        project
-            .as_ref()
-            .is_some_and(|p| in_copy(d, std::slice::from_ref(p)))
-    }) {
-        return None;
-    }
     let real: Vec<(&PathBuf, PathBuf)> = roots
         .iter()
         .filter_map(|r| Some((r, r.canonicalize().ok()?)))
         .collect();
-    let copy = dirs.into_iter().filter_map(|d| {
-        real.iter()
-            .find_map(|(r, real)| Some(r.join(d.strip_prefix(real).ok()?)))
-    });
-    Some(copy.collect())
+    let mut nearest = None;
+    for level in roots {
+        let dirs: Vec<PathBuf> = [&name, &types]
+            .iter()
+            .filter_map(|d| level.join(d).canonicalize().ok())
+            .collect();
+        if dirs.iter().any(|d| {
+            project
+                .as_ref()
+                .is_some_and(|p| in_copy(d, std::slice::from_ref(p)))
+        }) {
+            return None;
+        }
+        let dirs: Vec<PathBuf> = dirs
+            .into_iter()
+            .filter_map(|d| {
+                real.iter()
+                    .find_map(|(r, real)| Some(r.join(d.strip_prefix(real).ok()?)))
+            })
+            .collect();
+        if dirs.is_empty() {
+            continue;
+        }
+        let copy: Vec<PathBuf> = files
+            .iter()
+            .filter(|p| in_copy(p, &dirs))
+            .cloned()
+            .collect();
+        if module_among(&copy, module, None).is_some_and(|(n, _)| n == module.len()) {
+            return Some(copy);
+        }
+        nearest.get_or_insert(copy);
+    }
+    Some(nearest.unwrap_or_default())
 }
-/// Whether `path` is a file of the `copy` [`package_copy`] gives, and not of a package it
+/// Whether `path` is a file of the package in the directories `copy`, and not of a package it
 /// depends on, in a `node_modules` of its own.
 pub fn in_copy(path: &Path, copy: &[PathBuf]) -> bool {
     copy.iter().any(|dir| {

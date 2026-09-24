@@ -59,11 +59,11 @@ impl App {
             .map(Vec::len);
         let floor = package.unwrap_or(floor);
         let all = self.external_files(kind);
-        // Of a package installed more than once, the copy Node loads (#141); a name only another
-        // copy declares is found by name below. With no copy among the files, all of them count.
+        // Of a package installed more than once, the files of the copy Node loads (#141); a name
+        // only another copy declares is found by name below.
         let copy = match (&bound_path, self.external.get(&kind)) {
             (Some(path), Some((roots, _))) if kind == Kind::TsJs => {
-                search::package_copy(&self.root, roots, path)
+                search::package_copy(&self.root, roots, &all, path)
             }
             _ => Some(Vec::new()),
         };
@@ -77,12 +77,6 @@ impl App {
         {
             *first = bare.to_owned();
         }
-        let copy: Vec<PathBuf> = all
-            .iter()
-            .filter(|p| search::in_copy(p, &copy))
-            .cloned()
-            .collect();
-        let near: &[PathBuf] = if copy.is_empty() { &all } else { &copy };
         let mut module = match chain.first() {
             // A C++ `std::` or `detail::` qualifier names a namespace, and no directory of the
             // system headers is called that, so narrowing by it would find nothing at all.
@@ -97,8 +91,12 @@ impl App {
         let named = module.clone();
         let mut files: Vec<PathBuf> = Vec::new();
         if let Some(m) = &mut module {
+            // The copy's files of the module, else every file's, as without a copy: pnpm's
+            // alias `cookie` links a store directory of another name, `cookie-es`.
+            let found = search::module_among(&copy, m, package)
+                .or_else(|| search::module_among(&all, m, package));
             // An import of something not installed: nothing outside says what it is.
-            let Some((n, found)) = search::module_among(near, m, package) else {
+            let Some((n, found)) = found else {
                 return Some(Vec::new());
             };
             m.truncate(n);

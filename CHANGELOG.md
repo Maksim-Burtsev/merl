@@ -38,8 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `d` on a TypeScript name imported from a package installed more than once lands in the copy
-  Node loads: the one in the nearest `node_modules` that has the package or its `@types`, with
-  pnpm's link followed to the version it points at. A workspace root's copy, a copy another
+  Node loads: the one in the nearest `node_modules` that has the package or its `@types`, and
+  the file an import such as `lib/extra` names, with pnpm's link followed to the version it
+  points at. A workspace root's copy, a copy another
   package depends on and another version in pnpm's store are no longer offered beside it, and a
   name only such a copy declares is found `by name`, no longer `via import`. A module of Node's
   own, such as `buffer`, is looked for as before, whatever npm polyfill of that name is

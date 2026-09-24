@@ -318,20 +318,22 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
     let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
     let dir = std::env::temp_dir().join(format!("merl-copy-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    for d in [
-        "real/node_modules/lib",
-        "real/node_modules/typed",
-        "real/node_modules/@scope/pkg",
-        "real/node_modules/@app",
-        "real/node_modules/.pnpm/pinned@1.0.0/node_modules/pinned",
-        "real/node_modules/.pnpm/pinned@2.0.0/node_modules/pinned",
-        "real/api/node_modules/lib",
-        "real/api/node_modules/@types/typed",
-        "real/api/node_modules/@types/scope__pkg",
-        "real/packages/shared",
+    for f in [
+        "real/node_modules/lib/index.d.ts",
+        "real/node_modules/lib/extra.d.ts",
+        "real/node_modules/typed/index.js",
+        "real/node_modules/@scope/pkg/index.d.ts",
+        "real/node_modules/.pnpm/pinned@1.0.0/node_modules/pinned/index.d.ts",
+        "real/node_modules/.pnpm/pinned@2.0.0/node_modules/pinned/index.d.ts",
+        "real/api/node_modules/lib/index.d.ts",
+        "real/api/node_modules/@types/typed/index.d.ts",
+        "real/api/node_modules/@types/scope__pkg/index.d.ts",
+        "real/packages/shared/index.ts",
     ] {
-        std::fs::create_dir_all(dir.join(d)).unwrap();
+        std::fs::create_dir_all(dir.join(f).parent().unwrap()).unwrap();
+        std::fs::write(dir.join(f), "").unwrap();
     }
+    std::fs::create_dir_all(dir.join("real/node_modules/@app")).unwrap();
     let link = |to: &str, at: &str| std::os::unix::fs::symlink(to, dir.join(at)).unwrap();
     link(
         ".pnpm/pinned@2.0.0/node_modules/pinned",
@@ -344,16 +346,35 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
     let root = dir.join("link");
     let (api, top) = (root.join("api/node_modules"), root.join("node_modules"));
     let roots = [api.clone(), top.clone()];
-    let copy = |module: &[&str]| package_copy(&root, &roots, &p(module));
-    assert_eq!(copy(&["lib", "sub"]), Some(vec![api.join("lib")]));
-    assert_eq!(copy(&["typed"]), Some(vec![api.join("@types/typed")]));
+    let files = external_files(Kind::TsJs, &roots);
+    let copy = |module: &[&str]| {
+        package_copy(&root, &roots, &files, &p(module)).map(|mut c| {
+            c.sort();
+            c
+        })
+    };
+    // The nearest copy, unless only a farther one has the whole path, which Node goes on to.
+    assert_eq!(
+        copy(&["lib", "sub"]),
+        Some(vec![api.join("lib/index.d.ts")])
+    );
+    assert_eq!(
+        copy(&["lib", "extra"]),
+        Some(vec![top.join("lib/extra.d.ts"), top.join("lib/index.d.ts")])
+    );
+    assert_eq!(
+        copy(&["typed"]),
+        Some(vec![api.join("@types/typed/index.d.ts")])
+    );
     assert_eq!(
         copy(&["@scope", "pkg"]),
-        Some(vec![api.join("@types/scope__pkg")])
+        Some(vec![api.join("@types/scope__pkg/index.d.ts")])
     );
     assert_eq!(
         copy(&["pinned"]),
-        Some(vec![top.join(".pnpm/pinned@2.0.0/node_modules/pinned")])
+        Some(vec![
+            top.join(".pnpm/pinned@2.0.0/node_modules/pinned/index.d.ts")
+        ])
     );
     assert_eq!(copy(&["fs"]), Some(vec![]));
     // A workspace package linked in is the project's own.
