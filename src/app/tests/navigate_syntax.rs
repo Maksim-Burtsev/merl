@@ -638,7 +638,7 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
 /// depends on. A name only another copy declares is found by name.
 #[test]
 fn an_imported_package_is_the_copy_node_loads() {
-    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { parseX } from \"multi/sub\";\nimport { Box } from \"boxed\";\nimport { extra, alsoNear } from \"lib/extra\";\nimport { lonely } from \"nested/gone\";\nimport { onlyNested } from \"lib/nested\";\nimport { useState } from \"react\";\nimport { shipped } from \"shipped\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nparseX(1);\nBox.open(1);\nalsoNear(1);\nlonely(1);\nonlyNested(1);\nuseState(1);\nshipped(1);\nextra(1);\n";
+    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { parseX } from \"multi/sub\";\nimport { Box } from \"boxed\";\nimport { extra, alsoNear } from \"lib/extra\";\nimport { lonely } from \"nested/gone\";\nimport { onlyNested } from \"lib/nested\";\nimport { useState } from \"react\";\nimport { shipped } from \"shipped\";\nimport { solo } from \"solo\";\nimport { both } from \"dual\";\nimport { deeper } from \"lib/nothere\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nparseX(1);\nBox.open(1);\nalsoNear(1);\nlonely(1);\nonlyNested(1);\nuseState(1);\nshipped(1);\nsolo(1);\nboth(1);\ndeeper(1);\nextra(1);\n";
     let file = "packages/api/src/main.ts";
     let line = |code: &str| main.lines().position(|l| l.starts_with(code)).unwrap() + 1;
     let (dir, mut a) = project_app("copies", &[(file, main)]);
@@ -649,7 +649,7 @@ fn an_imported_package_is_the_copy_node_loads() {
         ),
         (
             "node_modules/lib/index.d.ts",
-            &["pick", "onlyFar", "extra", "onlyNested"],
+            &["pick", "onlyFar", "extra", "onlyNested", "deeper"],
         ),
         // `lib/nested` is only in a copy another package depends on.
         (
@@ -658,8 +658,16 @@ fn an_imported_package_is_the_copy_node_loads() {
         ),
         // A module only the root's copy has, one of whose names the nearer copy declares.
         ("node_modules/lib/extra.d.ts", &["extra", "alsoNear"]),
-        // A namesake of `onlyFar` in a package no import names.
-        ("node_modules/unrelated/index.d.ts", &["onlyFar"]),
+        // A namesake of `onlyFar` and `deeper` in a package no import names.
+        ("node_modules/unrelated/index.d.ts", &["onlyFar", "deeper"]),
+        // A package installed only as another's dependency: no root has it.
+        ("node_modules/other/node_modules/solo/index.d.ts", &["solo"]),
+        // A package and its types at one level, and another copy further up.
+        (
+            "packages/api/node_modules/@types/dual/index.d.ts",
+            &["both"],
+        ),
+        ("node_modules/dual/index.d.ts", &["both"]),
         ("packages/api/node_modules/lib/sub.d.ts", &["part"]),
         ("node_modules/lib/sub.d.ts", &["part"]),
         // A copy another package depends on, and a package the copy itself depends on.
@@ -712,6 +720,14 @@ fn an_imported_package_is_the_copy_node_loads() {
         (
             "node_modules/react/index.js",
             "export function useState() {}\n",
+        ),
+        (
+            "packages/api/node_modules/dual/index.js",
+            "export function both() {}\n",
+        ),
+        (
+            "packages/api/node_modules/buffer/index.d.ts",
+            "export declare class Buffer {\n}\n",
         ),
         // A package that ships its own types takes none from further up.
         (
@@ -812,10 +828,15 @@ fn an_imported_package_is_the_copy_node_loads() {
         (
             "^Buffer",
             Shown::Picker(
-                "Buffer: via import buffer, 2 declarations".into(),
-                ["@types/node/buffer.d.ts:2", "buffer/index.d.ts:1"]
-                    .map(|at| ("Buffer".into(), "via import buffer".into(), at.into()))
-                    .to_vec(),
+                "Buffer: via import buffer, 3 declarations".into(),
+                // The nearer root's first.
+                [
+                    "packages/api/node_modules/buffer/index.d.ts:1",
+                    "@types/node/buffer.d.ts:2",
+                    "buffer/index.d.ts:1",
+                ]
+                .map(|at| ("Buffer".into(), "via import buffer".into(), at.into()))
+                .to_vec(),
             ),
         ),
         (
@@ -876,6 +897,30 @@ fn an_imported_package_is_the_copy_node_loads() {
                 "shipped: via import shipped",
                 "packages/api/node_modules/shipped/index.d.ts:1",
             ),
+        ),
+        (
+            "^solo",
+            jump(
+                "solo: via import solo",
+                "node_modules/other/node_modules/solo/index.d.ts:1",
+            ),
+        ),
+        (
+            "^both",
+            Shown::Picker(
+                "both: via import dual, 2 declarations".into(),
+                [
+                    "packages/api/node_modules/@types/dual/index.d.ts:1",
+                    "packages/api/node_modules/dual/index.js:1",
+                ]
+                .map(|at| ("both".into(), "via import dual".into(), at.into()))
+                .to_vec(),
+            ),
+        ),
+        // The other copies of `lib/nothere` are those of `lib`, as the module is shortened.
+        (
+            "^deeper",
+            jump("deeper: by name, 1 match", "node_modules/lib/index.d.ts:5"),
         ),
         (
             "^parseX",
