@@ -78,7 +78,7 @@ impl App {
             (Some(path), Some((roots, _))) if kind == Kind::TsJs && narrow => {
                 search::package_copy(&self.root, roots, &all, path)
             }
-            _ => Some(Vec::new()),
+            _ => Some(search::PackageCopy::default()),
         };
         // A workspace package linked in is the project's own: the search in the project, by
         // name, finds its source, where a published copy outside would be a stale one; the
@@ -104,9 +104,10 @@ impl App {
         let named = module.clone();
         let mut files: Vec<PathBuf> = Vec::new();
         if let Some(m) = module.as_mut().filter(|_| !alias) {
-            // The copy's files of the module, else every file's, as without a copy: pnpm's
-            // alias `cookie` links a store directory of another name, `cookie-es`.
-            let found = search::module_among(&copy, m, package)
+            // The copy's files of the module, else, for a copy of no walked files, every file's,
+            // as without a copy.
+            let found = copy
+                .module(m)
                 .or_else(|| search::module_among(&all, m, package));
             // An import of something not installed: nothing outside says what it is.
             let Some((n, found)) = found else {
@@ -149,7 +150,7 @@ impl App {
         // Past a copy, first where the module's other copies are, as the module's files among
         // all of them: no slower and no noisier than without the copy.
         if hits.is_empty() && imported {
-            if !copy.is_empty() {
+            if !copy.files.is_empty() {
                 let others = search::module_among(&all, &named.unwrap_or_default(), package);
                 let others = others.map(|(_, files)| files).unwrap_or_default();
                 hits = at_top(self, self.external_grep(kind, &others, pattern));

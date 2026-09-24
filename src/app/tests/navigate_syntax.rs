@@ -1018,8 +1018,8 @@ fn a_linked_package_is_the_version_it_links() {
         ("node_modules/zod/index.d.ts", "z"),
         ("node_modules/zod/schemas.d.ts", "string"),
         ("node_modules/helpers/index.d.ts", "helper"),
-        // `cookie` links a store directory of another name, which no file of the module is in;
-        // another package depends on a `cookie` of that name.
+        // `cookie` links a store directory of another name; another package depends on a
+        // `cookie` of that name.
         (
             "node_modules/.pnpm/cookie-es@1.0.0/node_modules/cookie-es/index.d.ts",
             "parse",
@@ -1091,11 +1091,12 @@ fn a_linked_package_is_the_version_it_links() {
                 "node_modules/helpers/index.d.ts:1",
             ),
         ),
+        // The copy is the package, whatever its store directory is called.
         (
             "^parse",
             jump(
                 "parse: via import cookie",
-                "node_modules/.pnpm/cookie@0.7.0/node_modules/cookie/index.d.ts:1",
+                "node_modules/.pnpm/cookie-es@1.0.0/node_modules/cookie-es/index.d.ts:1",
             ),
         ),
         (

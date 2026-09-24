@@ -247,8 +247,8 @@ const NODE_BUILTINS: &[&str] = &[
     "readline", "repl", "stream", "string_decoder", "sys", "timers", "tls", "trace_events", "tty",
     "url", "util", "v8", "vm", "wasi", "worker_threads", "zlib",
 ];
-/// The files among `files` of the copy of the package a TypeScript import of `module` loads
-/// from a file with [`node_modules`] `roots` (#141). Each root that has the package (`lib`,
+/// The copy of the package a TypeScript import of `module` loads from a file with
+/// [`node_modules`] `roots`, with its files among `files` (#141). Each root that has the package (`lib`,
 /// `@scope/pkg`) or its types (`@types/lib`, `@types/scope__pkg`) holds a copy: whichever of the
 /// two are there, and when that is a package of JavaScript alone, the nearest `@types` of it
 /// further up, which TypeScript reads for it. The nearest copy whose files have the whole
@@ -266,11 +266,11 @@ pub fn package_copy(
     roots: &[PathBuf],
     files: &[PathBuf],
     module: &[String],
-) -> Option<Vec<PathBuf>> {
-    let name = match module {
-        [scope, pkg, ..] if scope.starts_with('@') => format!("{scope}/{pkg}"),
-        [pkg, ..] if !NODE_BUILTINS.contains(&pkg.as_str()) => pkg.clone(),
-        _ => return Some(Vec::new()),
+) -> Option<PackageCopy> {
+    let (name, parts) = match module {
+        [scope, pkg, ..] if scope.starts_with('@') => (format!("{scope}/{pkg}"), 2),
+        [pkg, ..] if !NODE_BUILTINS.contains(&pkg.as_str()) => (pkg.clone(), 1),
+        _ => return Some(PackageCopy::default()),
     };
     let types = format!("@types/{}", name.trim_start_matches('@').replace('/', "__"));
     // The project is a package too, its dependencies in a `node_modules` below it.
@@ -283,8 +283,14 @@ pub fn package_copy(
         real.iter()
             .find_map(|(r, real)| Some(r.join(d.strip_prefix(real).ok()?)))
     };
-    let files_in = |dirs: &[PathBuf]| -> Vec<PathBuf> {
-        files.iter().filter(|p| in_copy(p, dirs)).cloned().collect()
+    let copy_in = |dirs: Vec<PathBuf>| PackageCopy {
+        files: files
+            .iter()
+            .filter(|p| in_copy(p, &dirs))
+            .cloned()
+            .collect(),
+        dirs,
+        parts,
     };
     let mut nearest = None;
     for (i, level) in roots.iter().enumerate() {
@@ -299,26 +305,78 @@ pub fn package_copy(
         }) {
             return None;
         }
-        let mut dirs: Vec<PathBuf> = dirs.iter().filter_map(|d| spelled(d)).collect();
+        let dirs: Vec<PathBuf> = dirs.iter().filter_map(|d| spelled(d)).collect();
         if dirs.is_empty() {
             continue;
         }
-        let mut copy = files_in(&dirs);
-        if !copy.iter().any(|f| declaration_file(f)) {
+        let mut copy = copy_in(dirs);
+        if !copy.files.iter().any(|f| declaration_file(f)) {
             let further = roots[i + 1..]
                 .iter()
                 .find_map(|r| spelled(&r.join(&types).canonicalize().ok()?));
             if let Some(further) = further {
+                let mut dirs = copy.dirs;
                 dirs.push(further);
-                copy = files_in(&dirs);
+                copy = copy_in(dirs);
             }
         }
-        if module_among(&copy, module, None).is_some_and(|(n, _)| n == module.len()) {
+        if copy.module(module).is_some_and(|(n, _)| n == module.len()) {
             return Some(copy);
         }
         nearest.get_or_insert(copy);
     }
     Some(nearest.unwrap_or_default())
+}
+/// A copy of an npm package [`package_copy`] finds: the directories it is in (the package's and
+/// its types'), its walked files there, and how many parts of a module path its name is.
+#[derive(Debug, Default, PartialEq)]
+pub struct PackageCopy {
+    pub dirs: Vec<PathBuf>,
+    pub files: Vec<PathBuf>,
+    parts: usize,
+}
+impl PackageCopy {
+    /// The files of the copy `module` names, with how many of its parts that is. The package's
+    /// own parts are the copy, whatever its directory is called (pnpm's alias `cookie` links a
+    /// store directory called `cookie-es`); the rest of the path is matched below the copy's
+    /// directories and shortened from its end as [`module_among`] shortens it, down to the whole
+    /// copy. `None` for a copy of no files.
+    pub fn module(&self, module: &[String]) -> Option<(usize, Vec<PathBuf>)> {
+        if self.files.is_empty() {
+            return None;
+        }
+        let below: Vec<Below> = self
+            .files
+            .iter()
+            .map(|file| Below {
+                path: self
+                    .dirs
+                    .iter()
+                    .find_map(|d| file.strip_prefix(d).ok())
+                    .unwrap_or(file),
+                file,
+            })
+            .collect();
+        let rest = module.get(self.parts..).unwrap_or_default();
+        Some(match module_among(&below, rest, None) {
+            Some((n, found)) => (
+                self.parts + n,
+                found.iter().map(|b| b.file.clone()).collect(),
+            ),
+            None => (self.parts, self.files.clone()),
+        })
+    }
+}
+/// A file of a copy, matched by its path below the copy's directory.
+#[derive(Clone)]
+struct Below<'a> {
+    path: &'a Path,
+    file: &'a PathBuf,
+}
+impl AsRef<Path> for Below<'_> {
+    fn as_ref(&self) -> &Path {
+        self.path
+    }
 }
 /// Whether `path` is a file of the package in the directories `copy`, and not of a package it
 /// depends on, in a `node_modules` of its own.

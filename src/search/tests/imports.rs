@@ -345,16 +345,18 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
     );
     link("../../packages/shared", "real/node_modules/@app/shared");
     // The project and its roots are spelled through a link, as a temporary directory is on
-    // macOS, and so is the copy.
-    link("real", "link");
-    let root = dir.join("link");
+    // macOS, and so is the copy; the directory above is called as a path in a package is.
+    std::fs::create_dir_all(dir.join("extra")).unwrap();
+    link("../real", "extra/link");
+    let root = dir.join("extra/link");
     let (api, top) = (root.join("api/node_modules"), root.join("node_modules"));
     let roots = [api.clone(), top.clone()];
     let files = external_files(Kind::TsJs, &roots);
     let copy = |module: &[&str]| {
-        package_copy(&root, &roots, &files, &p(module)).map(|mut c| {
-            c.sort();
-            c
+        package_copy(&root, &roots, &files, &p(module)).map(|c| {
+            let mut files = c.files;
+            files.sort();
+            files
         })
     };
     // The nearest copy, unless only a farther one has the whole path, which Node goes on to.

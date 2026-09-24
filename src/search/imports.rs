@@ -624,18 +624,18 @@ fn module_part(s: &str) -> String {
 /// of its parts that left: `from json import load` is `json/load`, then `json`. A Go import of
 /// `package` parts names one directory, so down to that length a file has to be in it
 /// ([`in_package`]). `None` when not even the first part matches.
-pub fn module_among(
-    files: &[PathBuf],
+pub fn module_among<P: AsRef<Path> + Clone>(
+    files: &[P],
     module: &[String],
     package: Option<usize>,
-) -> Option<(usize, Vec<PathBuf>)> {
+) -> Option<(usize, Vec<P>)> {
     (1..=module.len()).rev().find_map(|n| {
         let m = &module[..n];
-        let found: Vec<PathBuf> = files
+        let found: Vec<P> = files
             .iter()
             .filter(|p| match package {
-                Some(k) if n >= k => in_package(p, m),
-                _ => in_module(p, m),
+                Some(k) if n >= k => in_package(p.as_ref(), m),
+                _ => in_module(p.as_ref(), m),
             })
             .cloned()
             .collect();
