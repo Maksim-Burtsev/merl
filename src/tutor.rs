@@ -4,7 +4,7 @@
 //! opened like any other project. The lessons are tasks of [`POOL`], each training one action
 //! from a start of its own, so they run in any order. A lesson advances when its predicate over
 //! [`App`] becomes true — what the key did, not that a key was pressed — so there is no way to
-//! fake progress.
+//! fake progress. `merl --drill` asks the same pool without naming the keys: [`drill`].
 
 use std::path::{Path, PathBuf};
 
@@ -14,8 +14,10 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crate::app::{App, Focus};
 use crate::buffer::Buffer;
 
+pub mod drill;
 mod pool;
 
+pub use drill::Drill;
 pub use pool::POOL;
 
 /// One task: trains one action, starts from its own state, checks the effect.
@@ -24,10 +26,9 @@ pub struct Task {
     /// folded into its primary.
     pub key: &'static str,
     pub title: &'static str,
-    /// `--tutor`'s text: names the key.
+    /// `--tutor`'s text: names the key. The drill shows it too, for the redo after a miss.
     pub tutor: &'static str,
-    /// The drill's (#209): what to do, never the key, nor how many keys it takes.
-    #[allow(dead_code)]
+    /// The drill's: what to do, never the key, nor how many keys it takes.
     pub drill: &'static str,
     /// The file, 1-based line and word the cursor starts on (`""` is the line start); `None`
     /// starts with nothing open.
@@ -35,8 +36,7 @@ pub struct Task {
     /// Pressed silently after `start`, in [`press`] notation: the start is always a state real
     /// work reaches.
     pub keys: &'static str,
-    /// The shortest keys that do it, in [`press`] notation: the tests press it, the drill will
-    /// show it after a miss.
+    /// The shortest keys that do it, in [`press`] notation: the tests press it.
     #[allow(dead_code)]
     pub answer: &'static str,
     /// It is done: a predicate over the effect, never over the size of the terminal.
@@ -48,6 +48,8 @@ pub struct Tutor {
     pub step: usize,
     /// The unpacked sample project, removed when merl exits.
     pub dir: PathBuf,
+    /// `--drill`: the session, asked in place of the lessons.
+    pub drill: Option<Drill>,
 }
 
 /// The tutorial: the keys of the [`POOL`] tasks it walks, in order.
@@ -99,13 +101,18 @@ pub fn lesson(step: usize) -> Option<&'static Task> {
     POOL.iter().find(|t| t.key == *key)
 }
 
-/// Called after every key: advances at most one step, so a state that happens to satisfy two
-/// predicates cannot skip a lesson. The next lesson is set up at once: a learner who did what
-/// the last one asked sees nothing move, one who wandered off is put back.
-pub fn check(app: &mut App) {
-    let Some(step) = app.tutor.as_ref().map(|t| t.step) else {
+/// Called after every key, with the action it was routed to: advances at most one step, so a
+/// state that happens to satisfy two predicates cannot skip a lesson. The next lesson is set up
+/// at once: a learner who did what the last one asked sees nothing move, one who wandered off is
+/// put back. Under `--drill` the drill checks instead.
+pub fn check(app: &mut App, action: Option<&str>) {
+    let Some(tutor) = &app.tutor else {
         return;
     };
+    if tutor.drill.is_some() {
+        return drill::check(app, action);
+    }
+    let step = tutor.step;
     let Some(task) = lesson(step) else {
         return;
     };
@@ -127,8 +134,12 @@ pub fn check(app: &mut App) {
     };
 }
 
-/// Sets the current lesson up on a fresh App; past the last one nothing changes.
+/// Sets the current lesson, or the drill's first task, up on a fresh App; past the last lesson
+/// nothing changes.
 pub fn begin(app: &mut App) -> Result<()> {
+    if app.tutor.as_ref().is_some_and(|t| t.drill.is_some()) {
+        return drill::next(app);
+    }
     let Some(task) = app.tutor.as_ref().and_then(|t| lesson(t.step)) else {
         return Ok(());
     };
@@ -284,12 +295,12 @@ mod tests {
     ];
 
     /// The copy of the sample project a test works in, apart from the other tests' copies.
-    fn dir(name: &str) -> PathBuf {
+    pub(super) fn dir(name: &str) -> PathBuf {
         std::env::temp_dir().join(format!("merl-tutor-{}-{name}", std::process::id()))
     }
 
     /// A tutor over the copy `name`, its lessons over, so that only the test sets tasks up.
-    fn app(name: &str, (w, h): (usize, usize)) -> App {
+    pub(super) fn app(name: &str, (w, h): (usize, usize)) -> App {
         let dir = dir(name);
         unpack(&dir).unwrap();
         let (tree, files) = crate::tree::build(&dir, false);
@@ -299,6 +310,7 @@ mod tests {
         a.tutor = Some(Tutor {
             step: TUTOR.len(),
             dir,
+            drill: None,
         });
         a
     }

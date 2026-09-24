@@ -32,7 +32,7 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     let base = Style::new().bg(theme.bg).fg(theme.fg);
     frame.render_widget(Block::new().style(base), area);
 
-    // The lesson panel is 0 rows tall outside `--tutor`, so nothing else moves.
+    // The lesson panel is 0 rows tall outside `--tutor` and `--drill`, so nothing else moves.
     let lesson_h = if app.tutor.is_some() { 3 } else { 0 };
     let [main, lesson, status] = Layout::vertical([
         Constraint::Min(1),

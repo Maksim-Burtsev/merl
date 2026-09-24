@@ -57,6 +57,7 @@ merl                 # the current directory
 merl FILE:LINE[:COL] # what compilers, linters and grep print, pasted straight in
 merl --review        # the branch you are on, as a diff over the real files
 merl --tutor         # every key, hands on, in about ten minutes
+merl --drill [N]     # N tasks (20) that name what to do, not the key; the keys you skip come most
 merl --keys          # how often you press each key and miss it, the unused last
 ```
 

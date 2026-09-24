@@ -178,7 +178,7 @@ impl App {
             let query = old.query.to_string();
             self.search_jump(items.into_iter().nth(selected), &query);
             self.watch_jumped();
-            tutor::check(self);
+            tutor::check(self, None);
             return true;
         }
         let mut new = Picker::new(old.title.clone(), items, false);

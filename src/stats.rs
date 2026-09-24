@@ -115,7 +115,7 @@ pub fn today() -> i64 {
 }
 
 /// `YYYY-MM-DD` of a day since 1970-01-01: Howard Hinnant's `civil_from_days`.
-fn date(day: i64) -> String {
+pub fn date(day: i64) -> String {
     let z = day + 719_468;
     let (era, doe) = (z.div_euclid(146_097), z.rem_euclid(146_097));
     let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
@@ -209,6 +209,21 @@ pub fn report(path: &Path, today: i64) -> Result<String> {
     Ok(table(&load(path)?, today))
 }
 
+/// The days back the `30d` and `missed` columns count, and the drill's work factor with them.
+pub const WINDOW: i64 = 30;
+
+/// Each action's presses and misses in the last [`WINDOW`] days: the drill's work factor.
+pub fn month(path: &Path, today: i64) -> Result<HashMap<&'static str, (u64, u64)>> {
+    let mut month = HashMap::new();
+    for ((day, action), (n, missed)) in load(path)? {
+        if today - day < WINDOW {
+            let m: &mut (u64, u64) = month.entry(action).or_default();
+            (m.0, m.1) = (m.0 + n, m.1 + missed);
+        }
+    }
+    Ok(month)
+}
+
 /// An action with its presses in the last 30 days, its misses in them, its presses in all, the
 /// day of the last press, and what it does.
 type Tally = (&'static str, u64, u64, u64, Option<i64>, &'static str);
@@ -222,7 +237,7 @@ fn table(rows: &Rows, today: i64) -> String {
         .collect();
     for (&(day, action), &(n, missed)) in rows {
         if let Some(k) = keys.iter_mut().find(|k| k.0 == action) {
-            if today - day < 30 {
+            if today - day < WINDOW {
                 k.1 += n;
                 k.2 += missed;
             }

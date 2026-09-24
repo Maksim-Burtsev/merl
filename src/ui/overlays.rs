@@ -295,11 +295,12 @@ fn code_hl<'a>(
     Some((buf.hl.get(idx)?, off))
 }
 
-/// `--tutor`: the current lesson, three rows above the status bar.
+/// `--tutor`'s current lesson, or `--drill`'s task, three rows above the status bar.
 pub(super) fn draw_lesson(frame: &mut Frame, app: &App, theme: &Theme, area: Rect, base: Style) {
     let Some(tutor) = &app.tutor else { return };
-    let (title, text) = match crate::tutor::lesson(tutor.step) {
-        Some(t) => (
+    let (title, text) = match (&tutor.drill, crate::tutor::lesson(tutor.step)) {
+        (Some(drill), _) => drill.panel(),
+        (None, Some(t)) => (
             format!(
                 " Tutor {}/{} \u{00b7} {}",
                 tutor.step + 1,
@@ -308,7 +309,7 @@ pub(super) fn draw_lesson(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
             ),
             t.tutor,
         ),
-        None => (" Tutor \u{2713} done".to_string(), crate::tutor::DONE),
+        (None, None) => (" Tutor \u{2713} done".to_string(), crate::tutor::DONE),
     };
     // The title row is a bar, so it is padded to the full width.
     let pad = (area.width as usize).saturating_sub(wrap::width(&title));

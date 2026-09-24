@@ -13,14 +13,15 @@ impl App {
     /// [`App::key`], pressed at `at`.
     pub(crate) fn key_at(&mut self, key: KeyEvent, at: Instant) -> bool {
         let was = self.mode;
-        // Real work only: the tutorial's presses are its lessons', not the hand's.
+        // Real work only: the tutorial's and the drill's presses are their tasks', not the hand's.
         let work = self.tutor.is_none() && key.kind == KeyEventKind::Press;
         let had_picker = self.picker.is_some();
         if work {
             self.watch_before(key, at);
         }
         let quit = self.key_inner(key);
-        if let Some(action) = self.action.take()
+        let action = self.action.take();
+        if let Some(action) = action
             && self.tutor.is_none()
         {
             *self.pressed.entry(action).or_default() += 1;
@@ -33,7 +34,7 @@ impl App {
         }
         if !quit {
             self.quit_again = false;
-            tutor::check(self);
+            tutor::check(self, action);
             return false;
         }
         if self.flush() || std::mem::replace(&mut self.quit_again, true) {
