@@ -584,24 +584,29 @@ fn lexical(path: &Path) -> Option<PathBuf> {
 
 /// Whether `path` is (in) the module spelled by `parts`: every part is a directory or file
 /// stem on it, in order. A package directory carries a version (`regex-1.11.1`,
-/// `toml@v1.2.3`), a Go module escapes upper case (`!burnt!sushi`), a crate name spells
-/// `_` as `-` and the types of `@scope/pkg` are `@types/scope__pkg`: those are ignored.
+/// `toml@v1.2.3`), a Go module escapes upper case (`!burnt!sushi`) and a crate name spells
+/// `_` as `-`: those are ignored. An npm scope is spelled out, and the types of `@scope/pkg`
+/// are `@types/scope__pkg`.
 pub fn in_module(path: &Path, parts: &[String]) -> bool {
-    let mut want = parts.iter().map(|p| module_part(p)).peekable();
+    let mut i = 0;
     let mut types = false;
     for c in path.components() {
         let c = c.as_os_str().to_string_lossy();
-        // `@types` has stood for the scope already, as any `@` directory does.
-        let name = match c.split_once("__") {
-            Some((_, pkg)) if types => pkg,
-            _ => &c,
+        let scoped = |scope: &str, pkg: &str| {
+            types
+                && scope
+                    .strip_prefix('@')
+                    .is_some_and(|s| *c == format!("{s}__{pkg}"))
         };
-        if want.peek().is_some_and(|w| *w == module_part(name)) {
-            want.next();
-        }
+        i += match &parts[i..] {
+            [] => break,
+            [scope, pkg, ..] if scoped(scope, pkg) => 2,
+            [scope, ..] if scope.starts_with('@') => usize::from(*c == **scope),
+            [part, ..] => usize::from(module_part(part) == module_part(&c)),
+        };
         types = c == "@types";
     }
-    want.peek().is_none()
+    i == parts.len()
 }
 /// A directory or a part of a module path without what only one of the two carries.
 fn module_part(s: &str) -> String {

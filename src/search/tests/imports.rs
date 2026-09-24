@@ -197,6 +197,20 @@ fn in_module_follows_the_parts_through_versions_and_escapes() {
         "/node_modules/@types/scope__pkg/sub.d.ts",
         &["@scope", "pkg", "sub"]
     ));
+    // The types of a scoped package are not an unscoped namesake's, nor another scope's, and
+    // only `@types` spells a scope so.
+    assert!(!m(
+        "/node_modules/@types/babel__traverse/index.d.ts",
+        &["traverse"]
+    ));
+    assert!(!m(
+        "/node_modules/@types/other__pkg/index.d.ts",
+        &["@scope", "pkg"]
+    ));
+    assert!(!m(
+        "/node_modules/scope__pkg/index.d.ts",
+        &["@scope", "pkg"]
+    ));
 }
 
 #[test]
