@@ -3,9 +3,9 @@
 - `src/app/mod.rs` `KEYS` is the single source of truth for the key bindings: the `?` overlay, the
   README `## Keys` table (a test compares them) and the tutorial all derive from it.
 - `merl --tutor` (`src/tutor.rs`, sample project in `tutor/notes/`) walks `TUTOR`, a list of
-  tasks from `POOL` (`src/tutor/pool.rs`), which the drill (#209) shares: one task per action of
-  `KEYS`, each with a start of its own, a tutor text that names the key, a drill text that never
-  does, and the answer that does it. When you add, remove or rebind a key, or change what an
+  tasks from `POOL` (`src/tutor/pool.rs`), which `merl --drill` (`src/tutor/drill.rs`) shares:
+  one task per action of `KEYS`, each with a start of its own, a tutor text that names the key, a
+  drill text that never does, and the answer that does it. When you add, remove or rebind a key, or change what an
   overlay or jump does, update the affected task or add one. The test
   `every_key_is_taught_or_skipped_on_purpose` fails on a new `KEYS` action until a task trains it
   or it is listed in `NOT_TAUGHT`; `every_task_starts_undone_and_its_answer_does_it` fails when a

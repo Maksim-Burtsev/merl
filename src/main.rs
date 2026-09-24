@@ -34,7 +34,7 @@ use ratatui::crossterm::{execute, terminal};
 use crate::app::{App, Focus, Mode};
 use crate::buffer::Buffer;
 use crate::picker::PickItem;
-use crate::tutor::Tutor;
+use crate::tutor::{Drill, Tutor};
 
 /// Everything the event loop wakes up for.
 enum Msg {
@@ -71,6 +71,15 @@ struct Cli {
     /// Walk through every key on a bundled sample project (ignores the target)
     #[arg(long)]
     tutor: bool,
+    /// Train the keys you do not press: N tasks (default 20) on the sample project, no key named
+    #[arg(
+        long,
+        value_name = "N",
+        num_args = 0..=1,
+        default_missing_value = "20",
+        value_parser = clap::value_parser!(u16).range(1..)
+    )]
+    drill: Option<u16>,
     /// Print how often each key has been pressed and missed, the unused last, and exit
     #[arg(long)]
     keys: bool,
@@ -108,7 +117,7 @@ fn run() -> Result<()> {
     let name = cli.theme.clone().unwrap_or(config.theme);
     let theme = theme::load(&name)?;
 
-    let (mut root, shallow, mut file, line) = if cli.tutor {
+    let (mut root, shallow, mut file, line) = if cli.tutor || cli.drill.is_some() {
         (tutor::extract()?, false, None, None)
     } else {
         resolve(cli.target.as_deref())?
@@ -152,10 +161,22 @@ fn run() -> Result<()> {
     app.autosave = Duration::from_millis(config.autosave_delay_ms);
     app.theme = name;
     app.config = theme::config_path();
-    if cli.tutor {
+    if cli.tutor || cli.drill.is_some() {
         app.show_tree = false;
         app.focus = Focus::Code;
-        app.tutor = Some(Tutor { step: 0, dir });
+        let drill = match cli.drill {
+            Some(n) => {
+                let keys = stats::path();
+                let log = keys.as_ref().map(|k| k.with_file_name("drill.tsv"));
+                Some(Drill::new(n.into(), keys.as_deref(), log, stats::today())?)
+            }
+            None => None,
+        };
+        app.tutor = Some(Tutor {
+            step: 0,
+            dir,
+            drill,
+        });
         tutor::begin(&mut app)?;
     }
 
@@ -225,6 +246,10 @@ fn run() -> Result<()> {
     // Runs even when the loop returned an error: the sample project is ours to clean up.
     if let Some(t) = &app.tutor {
         let _ = std::fs::remove_dir_all(&t.dir);
+        // In the scrollback, next to `merl --keys`.
+        if let Some(d) = &t.drill {
+            print!("{}", d.summary());
+        }
     }
     // After `q` or a signal alike; a crash loses the session's presses, and only those.
     if let Some(path) = stats::path()
@@ -280,6 +305,10 @@ fn event_loop(
     let mut dirty = true;
     let mut typing: Option<bool> = None;
     loop {
+        // `--drill` ends with its last answer, a key's or a search's.
+        if (app.tutor.as_ref()).is_some_and(|t| t.drill.as_ref().is_some_and(Drill::over)) {
+            return Ok(());
+        }
         // nucleo matches in the background; poll it while its overlay is on screen.
         if let Some(p) = &mut app.picker {
             dirty |= p.tick();

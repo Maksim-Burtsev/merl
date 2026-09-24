@@ -128,6 +128,7 @@ fn a_press_under_the_tutor_writes_nothing() {
     a.tutor = Some(Tutor {
         step: 0,
         dir: PathBuf::from("/nonexistent"),
+        drill: None,
     });
     // Right held to the end of the line misses a key in real work.
     let keys = ["d", "]", "[", "v", "Ctrl+D", "Down", "Enter", "Esc"]

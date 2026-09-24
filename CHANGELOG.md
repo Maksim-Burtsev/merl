@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `merl --drill [N]` trains the keys you do not press: N tasks on the tutor's sample project, 20
+  by default, each saying what to do and never which key. A task counts when it is done with its
+  own key, an alias included; done another way, or with `?` opened, it is a miss, and the same
+  task comes again at once with the key named, then once more unnamed three tasks later. The
+  status bar shows each answer's time, `✓ 0.8 s`. The keys unused or missed in the last 30 days
+  of real work (`merl --keys`) and those missed or slow in the drill come most often, the keys
+  never drilled first; every answer goes to `~/.local/state/merl/drill.tsv` right away. On exit
+  merl prints the session's misses and slow answers. The drill counts nothing in `--keys`. (#209)
 - `merl --keys` has a `missed` column: how often in the last 30 days a key would have done what
   you did another way in half the presses, saving three or more. `s` or `D` typed for the word
   under the cursor was `d` on its declaration, `u` on a use; `o` to a file one to three stops

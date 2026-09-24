@@ -258,7 +258,7 @@ pub struct App {
     pub view_w: usize,
     pub view_h: usize,
     center: bool,
-    /// `--tutor` only: the running tutorial. `None` in a normal session.
+    /// `--tutor` and `--drill` only: the running tutorial or drill. `None` in a normal session.
     pub tutor: Option<Tutor>,
     /// First row of the `?` overlay, clamped by `ui`.
     pub help_top: usize,
