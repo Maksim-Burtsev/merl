@@ -36,11 +36,14 @@ impl Diff {
 /// The diff of `path` in the working tree against the index, or against `base` when given
 /// (review mode: ghosts and hunks are only kept then). `old` is the name the file had at the
 /// base when the branch renamed it: with both names in the pathspec git pairs them.
+/// `--inter-hunk-context=0` beats a user's `diff.interHunkContext`, which would join nearby
+/// edits into one hunk with the unchanged lines between them.
 pub fn diff(root: &Path, path: &Path, base: Option<&str>, old: Option<&Path>) -> Diff {
     let mut cmd = Command::new("git");
     cmd.arg("-C")
         .arg(root)
-        .args(["diff", "-U0", "-M", "--no-color", "--no-ext-diff"]);
+        .args(["diff", "-U0", "-M", "--no-color", "--no-ext-diff"])
+        .arg("--inter-hunk-context=0");
     if let Some(base) = base {
         cmd.arg(base);
     }
@@ -531,6 +534,36 @@ mod tests {
         let m = diff(&dir, &dir.join("f"), None, None).marks;
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(m, HashMap::from([(1, Mark::Changed), (3, Mark::Added)]));
+    }
+
+    /// A user's `diff.interHunkContext` joins nearby edits into one hunk with the unchanged
+    /// lines between them: each edit stays its own hunk.
+    #[test]
+    fn nearby_edits_stay_apart_under_inter_hunk_context() {
+        let dir = std::env::temp_dir().join(format!("merl-interhunk-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let git = |args: &[&str]| {
+            let out = Command::new("git")
+                .arg("-C")
+                .arg(&dir)
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .output();
+            assert!(out.unwrap().status.success(), "git {args:?}");
+        };
+        git(&["init", "-q"]);
+        git(&["config", "diff.interHunkContext", "3"]);
+        std::fs::write(dir.join("f"), "1\n2\n3\n4\n5\n6\n7\n8\n").unwrap();
+        git(&["add", "f"]);
+        git(&["commit", "-q", "-m", "base"]);
+        std::fs::write(dir.join("f"), "1\n2\nX\n4\n5\nY\n7\n8\n").unwrap();
+        let m = diff(&dir, &dir.join("f"), None, None).marks;
+        let d = diff(&dir, &dir.join("f"), Some("HEAD"), None);
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(m, HashMap::from([(2, Mark::Changed), (5, Mark::Changed)]));
+        assert_eq!(d.hunks, vec![2, 5]);
+        assert_eq!(d.ghosts[&5], vec!["6"]);
     }
 
     #[test]
