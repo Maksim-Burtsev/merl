@@ -253,7 +253,7 @@ const NODE_BUILTINS: &[&str] = &[
 /// of the two are there. The nearest is the one, unless it lacks the whole `module` and has no
 /// `exports` map in its `package.json`: Node then goes on to the next `node_modules`, as it does
 /// when `lib/extra` is not in the nearer one. A copy of JavaScript alone takes in the nearest
-/// `@types` of the package further up, which TypeScript reads for it. A link is followed, so
+/// declarations of the package further up, its own or its `@types`, which TypeScript reads. A link is followed, so
 /// pnpm's `node_modules/lib` is the version of the store it points at, spelled under the root it
 /// lies in, as the files walked from there are; one that leads out of the roots (`npm link`, a
 /// pnpm store outside them) is a copy of no file. A workspace package linked in is read from
@@ -333,10 +333,20 @@ pub fn package_copy(
     if linked {
         return None;
     }
-    if !copy.files.iter().any(|f| declaration_file(f)) {
-        let further = roots[i + 1..]
+    // TypeScript reads the nearest declarations further up: a package's own, else its `@types`.
+    let declares = |d: &PathBuf| {
+        files
             .iter()
-            .find_map(|r| spelled(&r.join(&types).canonicalize().ok()?));
+            .any(|f| declaration_file(f) && in_copy(f, std::slice::from_ref(d)))
+    };
+    let javascript = !copy.files.is_empty() && !copy.files.iter().any(|f| declaration_file(f));
+    if javascript {
+        let further = roots[i + 1..].iter().find_map(|r| {
+            [&name, &types]
+                .iter()
+                .filter_map(|d| spelled(&r.join(d).canonicalize().ok()?))
+                .find(declares)
+        });
         if let Some(further) = further {
             let mut dirs = copy.dirs;
             dirs.push(further);

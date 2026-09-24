@@ -638,7 +638,7 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
 /// depends on. A name only another copy declares is found by name.
 #[test]
 fn an_imported_package_is_the_copy_node_loads() {
-    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { parseX } from \"multi/sub\";\nimport { Box } from \"boxed\";\nimport { extra, alsoNear } from \"lib/extra\";\nimport { lonely } from \"nested/gone\";\nimport { onlyNested } from \"lib/nested\";\nimport { useState } from \"react\";\nimport { shipped } from \"shipped\";\nimport { solo } from \"solo\";\nimport { both } from \"dual\";\nimport { deeper } from \"lib/nothere\";\nimport dparse from \"dflt\";\nimport dlocal from \"./dflt\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nparseX(1);\nBox.open(1);\nalsoNear(1);\nlonely(1);\nonlyNested(1);\nuseState(1);\nshipped(1);\nsolo(1);\nboth(1);\ndeeper(1);\ndparse(1);\ndlocal(1);\nextra(1);\n";
+    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { DatabaseSync } from \"node:sqlite\";\nimport { parseX } from \"multi/sub\";\nimport { Box } from \"boxed\";\nimport { extra, alsoNear } from \"lib/extra\";\nimport { lonely } from \"nested/gone\";\nimport { onlyNested } from \"lib/nested\";\nimport { useState } from \"react\";\nimport { shipped } from \"shipped\";\nimport { jsfn } from \"jsonly\";\nimport { jsown } from \"jsowned\";\nimport { solo } from \"solo\";\nimport { both } from \"dual\";\nimport { deeper } from \"lib/nothere\";\nimport dparse from \"dflt\";\nimport dlocal from \"./dflt\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nDatabaseSync.name;\nparseX(1);\nBox.open(1);\nalsoNear(1);\nlonely(1);\nonlyNested(1);\nuseState(1);\nshipped(1);\njsfn(1);\njsown(1);\nsolo(1);\nboth(1);\ndeeper(1);\ndparse(1);\ndlocal(1);\nextra(1);\n";
     let file = "packages/api/src/main.ts";
     let line = |code: &str| main.lines().position(|l| l.starts_with(code)).unwrap() + 1;
     // What a default import binds is its own name for the default export, whatever the module
@@ -738,6 +738,28 @@ fn an_imported_package_is_the_copy_node_loads() {
         (
             "packages/api/node_modules/buffer/index.d.ts",
             "export declare class Buffer {\n}\n",
+        ),
+        // JavaScript alone beside the file, the package's own types further up.
+        (
+            "packages/api/node_modules/jsonly/index.js",
+            "export function jsfn() {}\n",
+        ),
+        (
+            "node_modules/jsonly/index.d.ts",
+            "export declare function jsfn(): void;\n",
+        ),
+        // Further up both a package with its own types and its `@types`: the package's own.
+        (
+            "packages/api/node_modules/jsowned/index.js",
+            "export function jsown() {}\n",
+        ),
+        (
+            "node_modules/jsowned/index.d.ts",
+            "export declare function jsown(): void;\n",
+        ),
+        (
+            "node_modules/@types/jsowned/index.d.ts",
+            "export declare function jsown(): void;\n",
         ),
         // A package that ships its own types takes none from further up.
         (
@@ -898,6 +920,30 @@ fn an_imported_package_is_the_copy_node_loads() {
                     "@types/react/index.d.ts:1",
                 ]
                 .map(|at| ("useState".into(), "via import react".into(), at.into()))
+                .to_vec(),
+            ),
+        ),
+        (
+            "^jsfn",
+            Shown::Picker(
+                "jsfn: via import jsonly, 2 declarations".into(),
+                [
+                    "packages/api/node_modules/jsonly/index.js:1",
+                    "jsonly/index.d.ts:1",
+                ]
+                .map(|at| ("jsfn".into(), "via import jsonly".into(), at.into()))
+                .to_vec(),
+            ),
+        ),
+        (
+            "^jsown",
+            Shown::Picker(
+                "jsown: via import jsowned, 2 declarations".into(),
+                [
+                    "packages/api/node_modules/jsowned/index.js:1",
+                    "jsowned/index.d.ts:1",
+                ]
+                .map(|at| ("jsown".into(), "via import jsowned".into(), at.into()))
                 .to_vec(),
             ),
         ),
