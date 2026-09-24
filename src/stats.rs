@@ -30,7 +30,7 @@ pub struct Action {
 /// Every action, in `KEYS` order.
 pub static ACTIONS: LazyLock<Vec<Action>> = LazyLock::new(|| {
     let mut actions = Vec::new();
-    for (keys, what) in KEYS {
+    for (keys, what, _) in KEYS {
         let mut sides = sides(keys);
         let alias = sides.pop_if(|s| ALIASES.contains(&s.as_str()));
         actions.extend(sides.into_iter().map(|name| Action {

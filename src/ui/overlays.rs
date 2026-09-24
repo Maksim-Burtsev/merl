@@ -21,25 +21,36 @@ use crate::wrap;
 use super::expand;
 use super::status::draw_prompt;
 
-/// `?`: the whole keymap, straight out of [`crate::app::KEYS`]. Up / Down scroll it when the
-/// terminal is too short for the whole list.
+/// `?`: the whole keymap, straight out of [`crate::app::KEYS`], each group under its name in
+/// the accent. Up / Down scroll it when the terminal is too short for the whole list.
 pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
     let keys = crate::app::KEYS;
-    let key_w = keys.iter().map(|(k, _)| k.len()).max().unwrap_or(0);
-    let w = keys
-        .iter()
-        .map(|(_, a)| key_w + 4 + a.len())
-        .max()
-        .unwrap_or(0) as u16;
+    let key_w = keys.iter().map(|(k, _, _)| k.len()).max().unwrap_or(0);
+    let bold = base.add_modifier(Modifier::BOLD);
+    let mut lines: Vec<Line> = Vec::new();
+    let mut group = "";
+    for (key, action, g) in keys {
+        if *g != group {
+            group = g;
+            lines.push(Line::styled(format!(" {group}"), bold.fg(theme.accent)));
+        }
+        lines.push(Line::from(vec![
+            Span::styled(format!("   {key:key_w$}  "), bold),
+            Span::styled(*action, base.fg(theme.ghost_fg)),
+        ]));
+    }
+    let w = lines.iter().map(Line::width).max().unwrap_or(0) as u16 + 1;
     let [area] = Layout::horizontal([Constraint::Length((w + 4).min(area.width))])
         .flex(Flex::Center)
         .areas(area);
-    let [area] = Layout::vertical([Constraint::Length((keys.len() as u16 + 2).min(area.height))])
-        .flex(Flex::Center)
-        .areas(area);
+    let [area] = Layout::vertical([Constraint::Length(
+        (lines.len() as u16 + 2).min(area.height),
+    )])
+    .flex(Flex::Center)
+    .areas(area);
 
     let inner = Block::bordered().inner(area);
-    let max_top = keys.len().saturating_sub(inner.height as usize);
+    let max_top = lines.len().saturating_sub(inner.height as usize);
     app.help_top = app.help_top.min(max_top);
     let title = if max_top > 0 {
         "merl — keys (Up / Down to scroll)"
@@ -49,18 +60,6 @@ pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     let block = Block::bordered().title(title).style(base);
     frame.render_widget(Clear, area);
     frame.render_widget(block, area);
-    let lines: Vec<Line> = keys
-        .iter()
-        .map(|(key, action)| {
-            Line::from(vec![
-                Span::styled(
-                    format!(" {key:key_w$}  "),
-                    base.add_modifier(Modifier::BOLD),
-                ),
-                Span::styled(*action, base.fg(theme.ghost_fg)),
-            ])
-        })
-        .collect();
     frame.render_widget(
         Paragraph::new(lines)
             .style(base)

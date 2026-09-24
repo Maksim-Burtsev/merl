@@ -119,24 +119,37 @@ The dozen you will use every day. `?` inside merl shows the rest.
 <details>
 <summary>Every key</summary>
 
+**Files and jumps**
+
 | Key | Action |
 |---|---|
 | o / Ctrl+E | Open a file (fuzzy) |
 | Ctrl+N | New file: type its path, Enter creates and edits it |
-| / / Ctrl+F | Find in the open file |
-| n / N | Next / previous match |
-| s | Search the project |
 | d / F12 | Go to definition of the word under the cursor, or its implementations |
 | D | Project symbols (fuzzy) |
 | u / Shift+F12 | Usages of the word under the cursor |
 | [ / ] | Back / forward in the jump history |
+| : / Ctrl+G | Go to line |
+
+**Search**
+
+| Key | Action |
+|---|---|
+| / / Ctrl+F | Find in the open file |
+| n / N | Next / previous match |
+| s | Search the project |
+
+**Review**
+
+| Key | Action |
+|---|---|
 | c / C | Review: next / previous hunk, on to the next file |
 | m | Review: mark the file as viewed, or take the mark off |
-| : / Ctrl+G | Go to line |
-| t | Show or hide the file tree |
-| T | Pick a theme (live preview) |
-| w | Wrap long lines, or cut them at the edge and scroll sideways |
-| Tab | Switch focus between tree and code |
+
+**Editing**
+
+| Key | Action |
+|---|---|
 | Enter | Edit at the cursor (Esc returns to navigation) |
 | Ctrl+S | Save now (edits are saved on their own after a pause) |
 | Ctrl+R | Reload from disk, dropping unsaved edits |
@@ -144,29 +157,53 @@ The dozen you will use every day. `?` inside merl shows the rest.
 | Ctrl+C | Copy the selection, or the line, to the clipboard |
 | Edit: Ctrl+X | Cut the selection, or the line |
 | Edit: Alt+Backspace / Alt+Delete | Delete the word before / after the cursor |
-| Arrows | Move the cursor; Up / Down go by screen row |
+
+**Selection**
+
+| Key | Action |
+|---|---|
+| v | Select the word, then the line, then the paragraph |
 | Shift+Up / Shift+Down | Extend the selection by a screen row |
 | Shift+Left / Shift+Right | Extend the selection by a char |
-| Alt+Left / Alt+Right | Move one word |
 | Alt+Shift+Left / Right | Extend the selection by a word |
 | Ctrl+Shift+Left / Right | Extend the selection to the start / end of the screen row, then of the line |
-| v | Select the word, then the line, then the paragraph |
-| Ctrl+D / Ctrl+U | Move half a screen down / up |
-| { / } | Previous / next paragraph (blank line) |
-| PgUp / PgDn | Move one screen |
+
+**Movement**
+
+| Key | Action |
+|---|---|
+| Arrows | Move the cursor; Up / Down go by screen row |
+| Alt+Left / Alt+Right | Move one word |
 | Home / End | Start / end of the screen row, then of the line |
 | Ctrl+Home / Ctrl+End | Start / end of the file |
-| Esc | Close an overlay, leave edit mode, or clear selection and find |
-| ? | This help |
-| q | Quit |
+| { / } | Previous / next paragraph (blank line) |
+| Ctrl+D / Ctrl+U | Move half a screen down / up |
+| PgUp / PgDn | Move one screen |
+
+**Panels**
+
+| Key | Action |
+|---|---|
+| t | Show or hide the file tree |
+| Tab | Switch focus between tree and code |
 | Tree: Up / Down | Move |
 | Tree: Enter | Open the file, or expand the directory |
 | Tree: Left / Right | Collapse / expand |
 | Picker: Up / Down | Move |
+| Picker: PgUp / PgDn | Move one page |
 | Picker: Enter | Accept |
 | Picker: Esc | Cancel |
-| Picker: PgUp / PgDn | Move one page |
+| ? | This help |
 | Help: Up / Down | Scroll |
+
+**General**
+
+| Key | Action |
+|---|---|
+| w | Wrap long lines, or cut them at the edge and scroll sideways |
+| T | Pick a theme (live preview) |
+| Esc | Close an overlay, leave edit mode, or clear selection and find |
+| q | Quit |
 
 </details>
 
