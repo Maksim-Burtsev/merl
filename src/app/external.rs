@@ -31,12 +31,13 @@ impl App {
             Kind::TsJs => bound_path.as_mut().and_then(Vec::pop),
             _ => None,
         };
-        // The word is what the import takes, or a name in the module a `* as ns` import names:
-        // what the module declares, under its own name or another.
+        // The word is a name the import takes by that name, or a name in the module a `* as ns`
+        // import names: what the module declares, under its own name or another. A default
+        // import's name is the importer's own.
         let whole = match taken.as_deref() {
             Some("*") => chain.len() == 1,
+            Some("default") | None => false,
             Some(_) => chain.is_empty(),
-            None => false,
         };
         let imported = bound_path.is_some();
         if bound_path

@@ -615,8 +615,10 @@ impl App {
                 .and_then(|text| search::qualified(kind, &text, h.line, name))
                 == within
         });
-        // `export { Hono as HonoBase }`: the module declares it under another name.
-        if hits.is_empty() && kind == Kind::TsJs && within.is_none() {
+        // `export { Hono as HonoBase }`: the module declares it under another name. A default
+        // import's name is the importer's own.
+        let named = path.last().is_some_and(|t| t != "default");
+        if hits.is_empty() && kind == Kind::TsJs && within.is_none() && named {
             hits = self.renamed_export(name, |p| {
                 self.grep(p, false, false, wanted).unwrap_or_default()
             });
