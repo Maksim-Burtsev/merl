@@ -54,9 +54,14 @@ impl App {
         // copy declares is found by name below. With no copy among the files, all of them count.
         let copy = match (&bound_path, self.external.get(&kind)) {
             (Some(path), Some((roots, _))) if kind == Kind::TsJs => {
-                search::package_copy(roots, path)
+                search::package_copy(&self.root, roots, path)
             }
-            _ => Vec::new(),
+            _ => Some(Vec::new()),
+        };
+        // A workspace package linked in is the project's own: the search in the project, by
+        // name, finds its source, where a published copy outside would be a stale one.
+        let Some(copy) = copy else {
+            return Vec::new();
         };
         let copy: Vec<PathBuf> = all
             .iter()

@@ -307,11 +307,13 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
         "real/node_modules/lib",
         "real/node_modules/typed",
         "real/node_modules/@scope/pkg",
+        "real/node_modules/@app",
         "real/node_modules/.pnpm/pinned@1.0.0/node_modules/pinned",
         "real/node_modules/.pnpm/pinned@2.0.0/node_modules/pinned",
         "real/api/node_modules/lib",
         "real/api/node_modules/@types/typed",
         "real/api/node_modules/@types/scope__pkg",
+        "real/packages/shared",
     ] {
         std::fs::create_dir_all(dir.join(d)).unwrap();
     }
@@ -320,28 +322,27 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
         ".pnpm/pinned@2.0.0/node_modules/pinned",
         "real/node_modules/pinned",
     );
-    // The roots are spelled through a link, as a temporary directory is on macOS, and so is
-    // the copy.
+    link("../../packages/shared", "real/node_modules/@app/shared");
+    // The project and its roots are spelled through a link, as a temporary directory is on
+    // macOS, and so is the copy.
     link("real", "link");
-    let (api, top) = (
-        dir.join("link/api/node_modules"),
-        dir.join("link/node_modules"),
-    );
+    let root = dir.join("link");
+    let (api, top) = (root.join("api/node_modules"), root.join("node_modules"));
     let roots = [api.clone(), top.clone()];
-    assert_eq!(package_copy(&roots, &p(&["lib", "sub"])), [api.join("lib")]);
+    let copy = |module: &[&str]| package_copy(&root, &roots, &p(module));
+    assert_eq!(copy(&["lib", "sub"]), Some(vec![api.join("lib")]));
+    assert_eq!(copy(&["typed"]), Some(vec![api.join("@types/typed")]));
     assert_eq!(
-        package_copy(&roots, &p(&["typed"])),
-        [api.join("@types/typed")]
+        copy(&["@scope", "pkg"]),
+        Some(vec![api.join("@types/scope__pkg")])
     );
     assert_eq!(
-        package_copy(&roots, &p(&["@scope", "pkg"])),
-        [api.join("@types/scope__pkg")]
+        copy(&["pinned"]),
+        Some(vec![top.join(".pnpm/pinned@2.0.0/node_modules/pinned")])
     );
-    assert_eq!(
-        package_copy(&roots, &p(&["pinned"])),
-        [top.join(".pnpm/pinned@2.0.0/node_modules/pinned")]
-    );
-    assert!(package_copy(&roots, &p(&["fs"])).is_empty());
+    assert_eq!(copy(&["fs"]), Some(vec![]));
+    // A workspace package linked in is the project's own.
+    assert_eq!(copy(&["@app", "shared"]), None);
     // A file of the copy, and one of a package it depends on.
     let copy = [top.join("lib")];
     assert!(in_copy(&top.join("lib/dist/index.d.ts"), &copy));

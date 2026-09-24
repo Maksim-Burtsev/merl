@@ -752,11 +752,12 @@ fn an_imported_package_is_the_copy_node_loads() {
 }
 
 /// #141, pnpm: `node_modules/lib` links the version of the store a file loads. A workspace
-/// package linked in has no file in the walk, and is looked for as before.
+/// package linked in is the project's own, found in its source by name, and not in a published
+/// copy another package depends on. A package linked out of the walk is looked for as before.
 #[cfg(unix)]
 #[test]
 fn a_linked_package_is_the_version_it_links() {
-    let main = "import { pin } from \"pinned\";\nimport { shared } from \"@app/shared\";\n\npin(1);\nshared(1);\n";
+    let main = "import { pin } from \"pinned\";\nimport { shared } from \"@app/shared\";\nimport { reach } from \"far\";\n\npin(1);\nshared(1);\nreach(1);\n";
     let (dir, mut a) = project_app(
         "linked",
         &[
@@ -764,20 +765,43 @@ fn a_linked_package_is_the_version_it_links() {
             ("packages/shared/index.ts", "export function shared() {}\n"),
         ],
     );
-    for version in ["1.0.0", "2.0.0"] {
-        let path = dir.join(format!(
-            "node_modules/.pnpm/pinned@{version}/node_modules/pinned/index.d.ts"
-        ));
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, "export declare function pin(): void;\n").unwrap();
+    let store = external_root(
+        "linked-store",
+        &[("far/index.d.ts", "export declare function reach(): void;\n")],
+    );
+    for (path, name) in [
+        (
+            "node_modules/.pnpm/pinned@1.0.0/node_modules/pinned/index.d.ts",
+            "pin",
+        ),
+        (
+            "node_modules/.pnpm/pinned@2.0.0/node_modules/pinned/index.d.ts",
+            "pin",
+        ),
+        (
+            "node_modules/other/node_modules/@app/shared/index.d.ts",
+            "shared",
+        ),
+        ("node_modules/other/node_modules/far/index.d.ts", "reach"),
+    ] {
+        std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
+        std::fs::write(
+            dir.join(path),
+            format!("export declare function {name}(): void;\n"),
+        )
+        .unwrap();
     }
     std::fs::create_dir_all(dir.join("node_modules/@app")).unwrap();
     for (to, at) in [
         (
-            ".pnpm/pinned@2.0.0/node_modules/pinned",
+            Path::new(".pnpm/pinned@2.0.0/node_modules/pinned"),
             "node_modules/pinned",
         ),
-        ("../../packages/shared", "node_modules/@app/shared"),
+        (
+            Path::new("../../packages/shared"),
+            "node_modules/@app/shared",
+        ),
+        (&store.join("far"), "node_modules/far"),
     ] {
         std::os::unix::fs::symlink(to, dir.join(at)).unwrap();
     }
@@ -793,11 +817,19 @@ fn a_linked_package_is_the_version_it_links() {
             "^shared",
             jump("shared: by name, 1 match", "packages/shared/index.ts:1"),
         ),
+        (
+            "^reach",
+            jump(
+                "reach: via import far",
+                "node_modules/other/node_modules/far/index.d.ts:1",
+            ),
+        ),
     ] {
         d_on(&mut a, "src/main.ts", code);
         assert_eq!(shown(&mut a), want, "{code}");
     }
     std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&store).unwrap();
 }
 
 /// #141 is npm's rule. Python puts a namespace package together from every root that has a
