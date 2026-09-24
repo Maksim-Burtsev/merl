@@ -229,13 +229,55 @@ pub(super) fn zig_roots(env: &str) -> Vec<PathBuf> {
 /// The `node_modules` a TypeScript file of the project `root` resolves an import in: the one of
 /// every directory from the file's up to `root`, nearest first, as Node walks them (#100). A
 /// workspace keeps a package's dependencies beside the package, and pnpm keeps a dependency's own
-/// under `.pnpm/<name>@<version>/node_modules`.
+/// under `.pnpm/<name>@<version>/node_modules`. A package installed in several is loaded from
+/// one: [`package_copy`].
 pub fn node_modules(root: &Path, file: &Path) -> Vec<PathBuf> {
     file.ancestors()
         .take_while(|dir| dir.starts_with(root))
         .map(|dir| dir.join("node_modules"))
         .filter(|dir| dir.is_dir())
         .collect()
+}
+/// The copy of the package a TypeScript `module` path is in that a file with [`node_modules`]
+/// `roots` loads, as TypeScript resolves it (#141): at the nearest root that has the package
+/// (`lib`, `@scope/pkg`) or its types (`@types/lib`, `@types/scope__pkg`), whichever of the two
+/// are there. A link is followed, so pnpm's `node_modules/lib` is the version of the store it
+/// points at, spelled under the root it lies in, as the files walked from there are; one that
+/// leads out of the roots (a workspace package linked in) has no file there and is left out.
+/// Empty when no root has the package: Node's own `fs`, an ambient `declare module`.
+pub fn package_copy(roots: &[PathBuf], module: &[String]) -> Vec<PathBuf> {
+    let name = match module {
+        [scope, pkg, ..] if scope.starts_with('@') => format!("{scope}/{pkg}"),
+        [pkg, ..] => pkg.clone(),
+        [] => return Vec::new(),
+    };
+    let types = format!("@types/{}", name.trim_start_matches('@').replace('/', "__"));
+    let Some(level) = roots
+        .iter()
+        .find(|r| r.join(&name).exists() || r.join(&types).exists())
+    else {
+        return Vec::new();
+    };
+    let real: Vec<(&PathBuf, PathBuf)> = roots
+        .iter()
+        .filter_map(|r| Some((r, r.canonicalize().ok()?)))
+        .collect();
+    [name, types]
+        .iter()
+        .filter_map(|d| {
+            let d = level.join(d).canonicalize().ok()?;
+            real.iter()
+                .find_map(|(r, real)| Some(r.join(d.strip_prefix(real).ok()?)))
+        })
+        .collect()
+}
+/// Whether `path` is a file of the `copy` [`package_copy`] gives, and not of a package it
+/// depends on, in a `node_modules` of its own.
+pub fn in_copy(path: &Path, copy: &[PathBuf]) -> bool {
+    copy.iter().any(|dir| {
+        path.strip_prefix(dir)
+            .is_ok_and(|rest| !rest.components().any(|c| c.as_os_str() == "node_modules"))
+    })
 }
 /// Every file of `kind` under `dirs`, as absolute paths. Nothing is ignored: `node_modules`
 /// and `site-packages` are gitignored by design and are exactly what is wanted here. What no Go

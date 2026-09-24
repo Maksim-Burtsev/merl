@@ -579,29 +579,18 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
         std::fs::write(dir.join(path), text).unwrap();
     }
     let top = || jump("pick: via import lib", "node_modules/lib/index.d.ts:2");
-    let both = || {
-        Shown::Picker(
-            "pick: via import lib, 2 declarations".into(),
-            vec![
-                (
-                    "pick".into(),
-                    "via import lib".into(),
-                    "packages/api/node_modules/lib/index.d.ts:2".into(),
-                ),
-                (
-                    "pick".into(),
-                    "via import lib".into(),
-                    "lib/index.d.ts:2".into(),
-                ),
-            ],
+    let api = || {
+        jump(
+            "pick: via import lib",
+            "packages/api/node_modules/lib/index.d.ts:2",
         )
     };
     // Back in `api` after `web`: each file has its own view, and no directory is walked twice.
     for (file, want) in [
-        ("packages/api/src/main.ts", both()),
+        ("packages/api/src/main.ts", api()),
         ("packages/web/src/main.ts", top()),
         ("main.ts", top()),
-        ("packages/api/src/main.ts", both()),
+        ("packages/api/src/main.ts", api()),
     ] {
         d_on(&mut a, file, "^pick");
         assert_eq!(shown(&mut a), want, "{file}");
@@ -642,6 +631,187 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
     );
     assert_eq!(files.len(), 3);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #141: a package installed more than once is the copy Node and TypeScript load, the one in
+/// the nearest `node_modules` that has it or its `@types`, and not a copy another package
+/// depends on. A name only another copy declares is found by name.
+#[test]
+fn an_imported_package_is_the_copy_node_loads() {
+    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\n";
+    let file = "packages/api/src/main.ts";
+    let (dir, mut a) = project_app("copies", &[(file, main)]);
+    for (path, names) in [
+        ("packages/api/node_modules/lib/index.d.ts", &["pick"][..]),
+        ("node_modules/lib/index.d.ts", &["pick", "onlyFar"]),
+        ("packages/api/node_modules/lib/sub.d.ts", &["part"]),
+        ("node_modules/lib/sub.d.ts", &["part"]),
+        // A copy another package depends on, and a package the copy itself depends on.
+        ("node_modules/nested/index.d.ts", &["nest"]),
+        (
+            "node_modules/other/node_modules/nested/index.d.ts",
+            &["nest"],
+        ),
+        ("node_modules/nested/node_modules/dep/index.d.ts", &["nest"]),
+        // Types with no package beside them, a scoped package's among them.
+        (
+            "packages/api/node_modules/@types/typed/index.d.ts",
+            &["typed"],
+        ),
+        ("node_modules/typed/index.d.ts", &["typed"]),
+        (
+            "packages/api/node_modules/@types/scope__pkg/index.d.ts",
+            &["scoped"],
+        ),
+        ("node_modules/@scope/pkg/index.d.ts", &["scoped"]),
+        // No package is called `fs`: it is Node's own, typed by `@types/node`.
+        ("node_modules/@types/node/fs.d.ts", &["readFile"]),
+    ] {
+        let text: String = names
+            .iter()
+            .map(|n| format!("export declare function {n}(): void;\n"))
+            .collect();
+        std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
+        std::fs::write(dir.join(path), text).unwrap();
+    }
+    for (code, want) in [
+        (
+            "^pick",
+            jump(
+                "pick: via import lib",
+                "packages/api/node_modules/lib/index.d.ts:1",
+            ),
+        ),
+        (
+            "^onlyFar",
+            jump("onlyFar: by name, 1 match", "node_modules/lib/index.d.ts:2"),
+        ),
+        (
+            "^part",
+            jump(
+                "part: via import lib/sub",
+                "packages/api/node_modules/lib/sub.d.ts:1",
+            ),
+        ),
+        (
+            "^nest",
+            jump(
+                "nest: via import nested",
+                "node_modules/nested/index.d.ts:1",
+            ),
+        ),
+        (
+            "^typed",
+            jump(
+                "typed: via import typed",
+                "packages/api/node_modules/@types/typed/index.d.ts:1",
+            ),
+        ),
+        (
+            "^scoped",
+            jump(
+                "scoped: via import @scope/pkg",
+                "packages/api/node_modules/@types/scope__pkg/index.d.ts:1",
+            ),
+        ),
+        (
+            "^readFile",
+            jump(
+                "readFile: via import fs",
+                "node_modules/@types/node/fs.d.ts:1",
+            ),
+        ),
+    ] {
+        d_on(&mut a, file, code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #141, pnpm: `node_modules/lib` links the version of the store a file loads. A workspace
+/// package linked in has no file in the walk, and is looked for as before.
+#[cfg(unix)]
+#[test]
+fn a_linked_package_is_the_version_it_links() {
+    let main = "import { pin } from \"pinned\";\nimport { shared } from \"@app/shared\";\n\npin(1);\nshared(1);\n";
+    let (dir, mut a) = project_app(
+        "linked",
+        &[
+            ("src/main.ts", main),
+            ("packages/shared/index.ts", "export function shared() {}\n"),
+        ],
+    );
+    for version in ["1.0.0", "2.0.0"] {
+        let path = dir.join(format!(
+            "node_modules/.pnpm/pinned@{version}/node_modules/pinned/index.d.ts"
+        ));
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, "export declare function pin(): void;\n").unwrap();
+    }
+    std::fs::create_dir_all(dir.join("node_modules/@app")).unwrap();
+    for (to, at) in [
+        (
+            ".pnpm/pinned@2.0.0/node_modules/pinned",
+            "node_modules/pinned",
+        ),
+        ("../../packages/shared", "node_modules/@app/shared"),
+    ] {
+        std::os::unix::fs::symlink(to, dir.join(at)).unwrap();
+    }
+    for (code, want) in [
+        (
+            "^pin",
+            jump(
+                "pin: via import pinned",
+                "node_modules/.pnpm/pinned@2.0.0/node_modules/pinned/index.d.ts:1",
+            ),
+        ),
+        (
+            "^shared",
+            jump("shared: by name, 1 match", "packages/shared/index.ts:1"),
+        ),
+    ] {
+        d_on(&mut a, "src/main.ts", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #141 is npm's rule. Python puts a namespace package together from every root that has a
+/// part of it, so `google.cloud` is found behind a `google` in the first root.
+#[test]
+fn a_python_namespace_package_spans_its_roots() {
+    let (dir, mut a) = project_app(
+        "namespace",
+        &[(
+            "m.py",
+            "from google.cloud import storage\n\nstorage.Client()\n",
+        )],
+    );
+    let first = external_root(
+        "ns-first",
+        &[("google/protobuf/message.py", "class Message:\n    pass\n")],
+    );
+    let second = external_root(
+        "ns-second",
+        &[(
+            "google/cloud/storage/__init__.py",
+            "class Client:\n    pass\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, &[first.clone(), second.clone()]);
+    d_on(&mut a, "m.py", "storage.Client");
+    let at = second.join("google/cloud/storage/__init__.py");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Client: via import google.cloud.storage",
+            &format!("{}:1", at.display())
+        )
+    );
+    for d in [dir, first, second] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
 }
 
 /// #100, TypeScript: `export { Trunk as TrunkBase }` is followed to the class the module

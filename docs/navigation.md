@@ -38,7 +38,8 @@ outside only when the project has no definition of it. Outside means the standar
 installed dependencies the toolchain on this machine knows about — `sys.path` of
 `.venv/bin/python` (or `python3`), `rustc --print sysroot` and the crates in `Cargo.lock`, `GOROOT`
 and the modules in `go.mod`, the `node_modules` of every directory from the open file up to the
-project root (a workspace keeps a package's dependencies beside it) — narrowed to the module the file's imports bind the
+project root (a workspace keeps a package's dependencies beside it; of a package installed more than
+once, only the copy Node loads: the nearest, a pnpm link followed to its version) — narrowed to the module the file's imports bind the
 word to: `np.array` behind `import numpy as np` looks in `numpy`, `load` behind
 `from json import load` in `json`, `Regex::new` behind `use regex::Regex` in the `regex` crate,
 `chromium.launch()` behind `import { chromium } from 'playwright'` in that package; a bare

@@ -11,7 +11,8 @@ impl App {
     /// qualifier no import binds is taken as the module path itself: `std::fs::read` spells one,
     /// while a `dotted` qualifier is a value whose name merely matches a module, found by name. A
     /// name nothing installed declares matches no file and the search stops. A bare word no
-    /// import binds (`Vec`, `open`) searches every file, by name.
+    /// import binds (`Vec`, `open`) searches every file, by name. Of a TypeScript package
+    /// installed more than once, only the copy Node loads is the import's.
     pub(super) fn external_definitions(
         &mut self,
         kind: Kind,
@@ -48,6 +49,21 @@ impl App {
             .filter(|_| kind == Kind::Go)
             .map(Vec::len);
         let floor = package.unwrap_or(floor);
+        let all = self.external_files(kind);
+        // Of a package installed more than once, the copy Node loads (#141); a name only another
+        // copy declares is found by name below. With no copy among the files, all of them count.
+        let copy = match (&bound_path, self.external.get(&kind)) {
+            (Some(path), Some((roots, _))) if kind == Kind::TsJs => {
+                search::package_copy(roots, path)
+            }
+            _ => Vec::new(),
+        };
+        let copy: Vec<PathBuf> = all
+            .iter()
+            .filter(|p| search::in_copy(p, &copy))
+            .cloned()
+            .collect();
+        let near: &[PathBuf] = if copy.is_empty() { &all } else { &copy };
         let mut module = match chain.first() {
             // A C++ `std::` or `detail::` qualifier names a namespace, and no directory of the
             // system headers is called that, so narrowing by it would find nothing at all.
@@ -59,14 +75,13 @@ impl App {
             }
             None => bound_path,
         };
-        let all = self.external_files(kind);
         let mut files: Vec<PathBuf> = Vec::new();
         while let Some(m) = &mut module {
             let within = |p: &PathBuf| match package {
                 Some(n) if m.len() >= n => search::in_package(p, m),
                 _ => search::in_module(p, m),
             };
-            files = all.iter().filter(|p| within(p)).cloned().collect();
+            files = near.iter().filter(|p| within(p)).cloned().collect();
             if !files.is_empty() {
                 break;
             }

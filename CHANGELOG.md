@@ -37,6 +37,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` on a TypeScript name imported from a package installed more than once lands in the copy
+  Node loads: the one in the nearest `node_modules` that has the package or its `@types`, with
+  pnpm's link followed to the version it points at. A workspace root's copy, a copy another
+  package depends on and another version in pnpm's store are no longer offered beside it, and a
+  name only such a copy declares is found `by name`, no longer `via import`. (#141)
 - `--tutor` sets every lesson up on its own: the sample project is unpacked anew, which drops
   what the last lesson edited, and the lesson opens on the file, line and word it is about. A
   lesson done the way it asks leads straight into the next; one that wandered off is put back.

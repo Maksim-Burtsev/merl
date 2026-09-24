@@ -193,6 +193,10 @@ fn in_module_follows_the_parts_through_versions_and_escapes() {
         "/node_modules/@scope/pkg/sub/index.d.ts",
         &["@scope", "pkg", "sub"]
     ));
+    assert!(m(
+        "/node_modules/@types/scope__pkg/sub.d.ts",
+        &["@scope", "pkg", "sub"]
+    ));
 }
 
 #[test]
@@ -290,6 +294,61 @@ fn node_modules_are_those_from_the_file_up_to_the_root() {
         node_modules(&root, &root.join("web/src")),
         [root.join("node_modules")]
     );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
+    let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    let dir = std::env::temp_dir().join(format!("merl-copy-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    for d in [
+        "real/node_modules/lib",
+        "real/node_modules/typed",
+        "real/node_modules/@scope/pkg",
+        "real/node_modules/.pnpm/pinned@1.0.0/node_modules/pinned",
+        "real/node_modules/.pnpm/pinned@2.0.0/node_modules/pinned",
+        "real/api/node_modules/lib",
+        "real/api/node_modules/@types/typed",
+        "real/api/node_modules/@types/scope__pkg",
+    ] {
+        std::fs::create_dir_all(dir.join(d)).unwrap();
+    }
+    let link = |to: &str, at: &str| std::os::unix::fs::symlink(to, dir.join(at)).unwrap();
+    link(
+        ".pnpm/pinned@2.0.0/node_modules/pinned",
+        "real/node_modules/pinned",
+    );
+    // The roots are spelled through a link, as a temporary directory is on macOS, and so is
+    // the copy.
+    link("real", "link");
+    let (api, top) = (
+        dir.join("link/api/node_modules"),
+        dir.join("link/node_modules"),
+    );
+    let roots = [api.clone(), top.clone()];
+    assert_eq!(package_copy(&roots, &p(&["lib", "sub"])), [api.join("lib")]);
+    assert_eq!(
+        package_copy(&roots, &p(&["typed"])),
+        [api.join("@types/typed")]
+    );
+    assert_eq!(
+        package_copy(&roots, &p(&["@scope", "pkg"])),
+        [api.join("@types/scope__pkg")]
+    );
+    assert_eq!(
+        package_copy(&roots, &p(&["pinned"])),
+        [top.join(".pnpm/pinned@2.0.0/node_modules/pinned")]
+    );
+    assert!(package_copy(&roots, &p(&["fs"])).is_empty());
+    // A file of the copy, and one of a package it depends on.
+    let copy = [top.join("lib")];
+    assert!(in_copy(&top.join("lib/dist/index.d.ts"), &copy));
+    assert!(!in_copy(
+        &top.join("lib/node_modules/dep/index.d.ts"),
+        &copy
+    ));
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
