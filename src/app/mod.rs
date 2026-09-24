@@ -25,6 +25,7 @@ mod external;
 mod find;
 mod keys;
 mod members;
+mod missed;
 mod open;
 mod picker;
 mod project_search;
@@ -306,6 +307,9 @@ pub struct App {
     /// Real work's presses by action, since merl started: `main` adds them to the key stats on
     /// exit. The tutorial counts nothing.
     pub pressed: HashMap<&'static str, u64>,
+    /// Real work's missed keys by action (#210), added to the key stats with the presses.
+    pub missed: HashMap<&'static str, u64>,
+    watch: missed::Watch,
 }
 
 /// A file's lines and format as it was left, and its undo and redo stacks.
@@ -428,6 +432,8 @@ impl App {
             quit_again: false,
             action: None,
             pressed: HashMap::new(),
+            missed: HashMap::new(),
+            watch: Default::default(),
         };
         // The file named on the command line is asked the same question as one opened later.
         lock_no_write(&mut buf);

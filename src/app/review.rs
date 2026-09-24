@@ -47,22 +47,15 @@ impl App {
             self.center = true;
             return;
         }
-        let at = self
-            .rel_current()
-            .and_then(|rel| r.files.iter().position(|f| f.path == rel));
         // `c` stopped on every hunk of this file and now leaves it: the file is viewed. The last
         // file of the review has nowhere to go, and the same press marks it.
-        let mut read = at.filter(|_| dir > 0).map(|i| r.files[i].path.clone());
-        let ahead: Vec<&git::ReviewFile> = match (at, dir > 0) {
-            (Some(i), true) => r.files[i + 1..].iter().collect(),
-            (Some(i), false) => r.files[..i].iter().rev().collect(),
-            (None, true) => r.files.iter().collect(),
-            (None, false) => r.files.iter().rev().collect(),
-        };
+        let mut read = self
+            .rel_current()
+            .filter(|rel| dir > 0 && r.file(rel).is_some());
         // Files with nothing to read (binary, a mode change, a pure rename, a submodule) are not
         // stops. Nor is one that does not open: the walk goes on, and the status says why.
         let (mut skipped, mut failed) = (0, None);
-        for f in ahead {
+        for f in self.ahead(&r, dir) {
             if !f.has_hunks() {
                 skipped += 1;
             } else if self.open_review_file(f, dir < 0) {
@@ -84,6 +77,20 @@ impl App {
             let end = if dir > 0 { "last" } else { "first" };
             format!("{end} hunk of the review")
         });
+    }
+
+    /// The files of the review `c` (`dir` 1) or `C` (-1) walks on to from the open one, nearest
+    /// first: from a file outside the review, all of them.
+    pub(super) fn ahead<'r>(&self, r: &'r git::Review, dir: isize) -> Vec<&'r git::ReviewFile> {
+        let at = self
+            .rel_current()
+            .and_then(|rel| r.files.iter().position(|f| f.path == rel));
+        match (at, dir > 0) {
+            (Some(i), true) => r.files[i + 1..].iter().collect(),
+            (Some(i), false) => r.files[..i].iter().rev().collect(),
+            (None, true) => r.files.iter().collect(),
+            (None, false) => r.files.iter().rev().collect(),
+        }
     }
 
     /// `m`: the open file, or the panel's row, is viewed; again, and it is not. A key for the

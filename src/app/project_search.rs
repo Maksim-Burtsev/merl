@@ -177,6 +177,7 @@ impl App {
             // Not through the new picker: nucleo has not seen its items yet.
             let query = old.query.to_string();
             self.search_jump(items.into_iter().nth(selected), &query);
+            self.watch_jumped();
             tutor::check(self);
             return true;
         }

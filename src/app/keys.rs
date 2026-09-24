@@ -7,13 +7,26 @@ impl App {
     /// saved is refused once, with the ways out in the status bar; quitting again right away
     /// leaves the edits behind.
     pub fn key(&mut self, key: KeyEvent) -> bool {
+        self.key_at(key, Instant::now())
+    }
+
+    /// [`App::key`], pressed at `at`.
+    pub(crate) fn key_at(&mut self, key: KeyEvent, at: Instant) -> bool {
         let was = self.mode;
-        let quit = self.key_inner(key);
         // Real work only: the tutorial's presses are its lessons', not the hand's.
+        let work = self.tutor.is_none() && key.kind == KeyEventKind::Press;
+        let had_picker = self.picker.is_some();
+        if work {
+            self.watch_before(key, at);
+        }
+        let quit = self.key_inner(key);
         if let Some(action) = self.action.take()
             && self.tutor.is_none()
         {
             *self.pressed.entry(action).or_default() += 1;
+        }
+        if work {
+            self.watch_after(key, was, had_picker);
         }
         if matches!(was, Mode::Edit | Mode::Normal) && self.mode != was {
             self.resume_edit = was == Mode::Edit && self.mode != Mode::Normal;
@@ -32,7 +45,7 @@ impl App {
 
     /// Routes the key, and names in `action` the `KEYS` action it was routed to, with an effect
     /// or without: `d` on a word with no definition counts, typing counts nothing.
-    fn key_inner(&mut self, key: KeyEvent) -> bool {
+    pub(super) fn key_inner(&mut self, key: KeyEvent) -> bool {
         if key.kind != KeyEventKind::Press {
             return false;
         }
@@ -294,6 +307,6 @@ impl App {
 
 /// The `KEYS` action `key` is where `scope` routes it: `Picker: `, `Tree: `, `Help: `, `Edit: `,
 /// or `""` for the key table itself.
-fn named(scope: &str, key: KeyEvent) -> Option<&'static str> {
+pub(super) fn named(scope: &str, key: KeyEvent) -> Option<&'static str> {
     crate::stats::action(&format!("{scope}{}", crate::stats::name(key)))
 }
