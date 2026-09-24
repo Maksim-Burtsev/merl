@@ -512,6 +512,33 @@ impl App {
         self.imported_at(kind, here, word, chain, path, 0)
     }
 
+    /// What a TypeScript module exports as `word` under another name, `export { Hono as HonoBase }`:
+    /// the top-level declarations of `Hono` in the module's files, which `grep` searches. What
+    /// it finds of the `export` line says only which files to read, so a cut in it cuts nothing
+    /// shown.
+    pub(super) fn renamed_export(&self, word: &str, grep: impl Fn(&str) -> Vec<Hit>) -> Vec<Hit> {
+        let cut = self.truncated.get();
+        let mut exports: Vec<PathBuf> = grep(&format!(r"\bas\s+{}\b", regex::escape(word)))
+            .into_iter()
+            .map(|h| h.path)
+            .collect();
+        self.truncated.set(cut);
+        exports.dedup();
+        let Some(local) = exports
+            .iter()
+            .find_map(|f| search::exported_as(&self.text_of(f)?, word))
+        else {
+            return Vec::new();
+        };
+        let pattern = search::def_patterns(Kind::TsJs, &local).join("|");
+        let mut hits = grep(&pattern);
+        hits.retain(|h| {
+            self.text_of(&h.path)
+                .is_some_and(|text| search::qualified(Kind::TsJs, &text, h.line, &local).is_none())
+        });
+        hits
+    }
+
     /// [`App::imported_definitions`], `depth` modules of the project that only hand the name on
     /// away from the file that asked.
     fn imported_at(
@@ -582,20 +609,9 @@ impl App {
         });
         // `export { Hono as HonoBase }`: the module declares it under another name.
         if hits.is_empty() && kind == Kind::TsJs && within.is_none() {
-            let local = files
-                .iter()
-                .find_map(|f| search::exported_as(&self.text_of(f)?, name));
-            if let Some(local) = local {
-                let pattern = search::def_patterns(kind, &local).join("|");
-                hits = self
-                    .grep(&pattern, false, false, wanted)
-                    .unwrap_or_default();
-                hits.retain(|h| {
-                    self.text_of(&h.path).is_some_and(|text| {
-                        search::qualified(kind, &text, h.line, &local).is_none()
-                    })
-                });
-            }
+            hits = self.renamed_export(name, |p| {
+                self.grep(p, false, false, wanted).unwrap_or_default()
+            });
         }
         if hits.is_empty() && kind == Kind::TsJs && path.last().is_some_and(|t| t == "default") {
             hits = self

@@ -24,9 +24,17 @@ impl App {
     ) -> Vec<Candidate> {
         let mut bound_path = bound(imports, chain.first().map_or(word, String::as_str));
         // What a TypeScript import takes (a name, `default`, `*`) is no part of a file's path.
-        if kind == Kind::TsJs {
-            bound_path.as_mut().map(Vec::pop);
-        }
+        let taken = match kind {
+            Kind::TsJs => bound_path.as_mut().and_then(Vec::pop),
+            _ => None,
+        };
+        // The word is what the import takes, or a name in the module a `* as ns` import names:
+        // what the module declares, under its own name or another.
+        let whole = match taken.as_deref() {
+            Some("*") => chain.len() == 1,
+            Some(_) => chain.is_empty(),
+            None => false,
+        };
         let imported = bound_path.is_some();
         if bound_path
             .as_ref()
@@ -118,7 +126,7 @@ impl App {
         // is not it, however alone it stands (the real one may be native code).
         let top_level =
             imported && chain.len() <= 1 && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go);
-        let at_top = |this: &Self, word: &str, mut hits: Vec<Hit>| {
+        let at_top = |this: &Self, mut hits: Vec<Hit>| {
             if top_level {
                 hits.retain(|h| {
                     this.text_of(&h.path)
@@ -127,19 +135,10 @@ impl App {
             }
             hits
         };
-        let mut hits = at_top(self, word, self.external_grep(kind, &files, pattern));
-        // The copy declares it under another name and exports it renamed: `export { parseCookie
-        // as parse }` is the import's own `parse`.
-        if hits.is_empty() {
-            let renamed = format!(r"\bas\s+{}\b", regex::escape(word));
-            let local = self
-                .external_grep(kind, &files, &renamed)
-                .iter()
-                .find_map(|h| search::exported_as(&self.text_of(&h.path)?, word));
-            if let Some(local) = local {
-                let pattern = search::def_patterns(kind, &local).join("|");
-                hits = at_top(self, &local, self.external_grep(kind, &copy, &pattern));
-            }
+        let mut hits = at_top(self, self.external_grep(kind, &files, pattern));
+        // `export { parseCookie as parse }` is the import's own `parse`, as in the project.
+        if hits.is_empty() && whole {
+            hits = self.renamed_export(word, |p| self.external_grep(kind, &files, p));
         }
         // An imported module that does not declare the name re-exports it (`std::sync::Arc`
         // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.
@@ -159,10 +158,10 @@ impl App {
                     })
                     .find(|files| !files.is_empty())
                     .unwrap_or_default();
-                hits = at_top(self, word, self.external_grep(kind, &others, pattern));
+                hits = at_top(self, self.external_grep(kind, &others, pattern));
             }
             if hits.is_empty() {
-                hits = at_top(self, word, self.external_grep(kind, &all, pattern));
+                hits = at_top(self, self.external_grep(kind, &all, pattern));
             }
             return by_name(hits);
         }
