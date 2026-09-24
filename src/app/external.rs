@@ -80,6 +80,7 @@ impl App {
             }
             None => bound_path,
         };
+        let named = module.clone();
         let mut files: Vec<PathBuf> = Vec::new();
         while let Some(m) = &mut module {
             let within = |p: &PathBuf| match package {
@@ -136,8 +137,28 @@ impl App {
         }
         // An imported module that does not declare the name re-exports it (`std::sync::Arc`
         // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.
+        // Past a copy, first where the module's other copies are, as the loop above finds them
+        // among all the files: no slower and no noisier than without the copy.
         if hits.is_empty() && imported {
-            return by_name(at_top(self, word, self.external_grep(kind, &all, pattern)));
+            if !copy.is_empty() {
+                let named = named.unwrap_or_default();
+                let others = (1..=named.len())
+                    .rev()
+                    .map(|n| -> Vec<PathBuf> {
+                        let m = &named[..n];
+                        all.iter()
+                            .filter(|p| search::in_module(p, m))
+                            .cloned()
+                            .collect()
+                    })
+                    .find(|files| !files.is_empty())
+                    .unwrap_or_default();
+                hits = at_top(self, word, self.external_grep(kind, &others, pattern));
+            }
+            if hits.is_empty() {
+                hits = at_top(self, word, self.external_grep(kind, &all, pattern));
+            }
+            return by_name(hits);
         }
         let sep = match kind {
             Kind::Python => ".",

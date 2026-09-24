@@ -638,12 +638,16 @@ fn a_workspace_package_sees_the_node_modules_above_it() {
 /// depends on. A name only another copy declares is found by name.
 #[test]
 fn an_imported_package_is_the_copy_node_loads() {
-    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\n";
+    let main = "import { pick, onlyFar } from \"lib\";\nimport { part } from \"lib/sub\";\nimport { nest } from \"nested\";\nimport { typed } from \"typed\";\nimport { scoped } from \"@scope/pkg\";\nimport { readFile } from \"fs\";\nimport { Buffer } from \"buffer\";\nimport { parse } from \"cookie\";\nimport { extra } from \"lib/extra\";\n\npick(1);\nonlyFar(1);\npart(1);\nnest(1);\ntyped(1);\nscoped(1);\nreadFile(1);\nBuffer.from(1);\nparse(1);\nextra(1);\n";
     let file = "packages/api/src/main.ts";
     let (dir, mut a) = project_app("copies", &[(file, main)]);
     for (path, names) in [
         ("packages/api/node_modules/lib/index.d.ts", &["pick"][..]),
-        ("node_modules/lib/index.d.ts", &["pick", "onlyFar"]),
+        ("node_modules/lib/index.d.ts", &["pick", "onlyFar", "extra"]),
+        // A module the copy loaded lacks, which another copy has.
+        ("node_modules/lib/extra.d.ts", &["extra"]),
+        // A namesake of `onlyFar` in a package no import names.
+        ("node_modules/unrelated/index.d.ts", &["onlyFar"]),
         ("packages/api/node_modules/lib/sub.d.ts", &["part"]),
         ("node_modules/lib/sub.d.ts", &["part"]),
         // A copy another package depends on, and a package the copy itself depends on.
@@ -756,6 +760,10 @@ fn an_imported_package_is_the_copy_node_loads() {
                     .map(|at| ("Buffer".into(), "via import buffer".into(), at.into()))
                     .to_vec(),
             ),
+        ),
+        (
+            "^extra",
+            jump("extra: by name, 1 match", "node_modules/lib/extra.d.ts:1"),
         ),
         (
             "^parse",

@@ -11,7 +11,7 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
         &[
             (
                 "main.go",
-                "package main\n\nimport (\n\t\"database/sql\"\n\t\"database/sql/pq\"\n\t\"errors\"\n\t\"github.com/foo/bar\"\n\t\"gopkg.in/yaml.v3\"\n)\n\nfunc main() {\n\t_ = yaml.Unmarshal(nil, nil)\n\tbar.Baz()\n\tsql.Open(\"\", \"\")\n\t_ = errors.New(\"\")\n\tpq.Open(\"\")\n}\n",
+                "package main\n\nimport (\n\t\"database/sql\"\n\t\"database/sql/pq\"\n\t\"errors\"\n\t\"github.com/foo/bar\"\n\t\"gopkg.in/yaml.v3\"\n\t\"example.com/kit\"\n)\n\nfunc main() {\n\t_ = yaml.Unmarshal(nil, nil)\n\tkit.Wire()\n\tbar.Baz()\n\tsql.Open(\"\", \"\")\n\t_ = errors.New(\"\")\n\tpq.Open(\"\")\n}\n",
             ),
             (
                 "main.rs",
@@ -43,6 +43,19 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
             (
                 "github.com/other/lib@v1.0.0/lib.go",
                 "package lib\n\nfunc Baz() {}\n",
+            ),
+            // `kit` does not declare `Wire`: a package inside it is another package.
+            (
+                "example.com/kit@v1.0.0/kit.go",
+                "package kit\n\nfunc Other() {}\n",
+            ),
+            (
+                "example.com/kit@v1.0.0/inner/inner.go",
+                "package inner\n\nfunc Wire() {}\n",
+            ),
+            (
+                "github.com/else/thing@v1.0.0/thing.go",
+                "package thing\n\nfunc Wire() {}\n",
             ),
             // A Go package is one directory: `database/sql` is not `database/sql/driver`,
             // and the standard library's `errors` is not a module's.
@@ -116,6 +129,18 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
             "main.go",
             "errors.New",
             jump("New: via import errors", &at("src/errors/errors.go:3")),
+        ),
+        // Nor is a package inside the imported one: a name it lacks is looked for everywhere.
+        (
+            "main.go",
+            "kit.Wire",
+            picker(
+                "Wire: by name, 2 declarations",
+                &[
+                    ("Wire", "example.com/kit@v1.0.0/inner/inner.go:3"),
+                    ("Wire", "github.com/else/thing@v1.0.0/thing.go:3"),
+                ],
+            ),
         ),
         // A package that is not installed: its parent directory is no proof.
         (
