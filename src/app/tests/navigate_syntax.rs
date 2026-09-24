@@ -1183,11 +1183,19 @@ fn an_alias_is_the_projects_own() {
         &[
             (
                 "tsconfig.json",
-                "{ \"compilerOptions\": { \"baseUrl\": \".\", \"paths\": { \"@/*\": [\"src/*\"], \"~/*\": [\"src/*\"] } } }\n",
+                "{ \"compilerOptions\": { \"baseUrl\": \".\", \"paths\": { \"@/*\": [\"src/*\"], \"~/*\": [\"src/*\"], \"@components/*\": [\"src/components/*\"] } } }\n",
             ),
             (
                 "src/lib/index.ts",
                 "export { clsx } from \"clsx\";\nexport { twMerge, twJoin } from \"tailwind-merge\";\n",
+            ),
+            (
+                "src/components/ui/index.ts",
+                "export { clsx } from \"clsx\";\n",
+            ),
+            (
+                "src/other.ts",
+                "import { clsx } from \"@components/ui\";\n\nclsx(2);\n",
             ),
             (
                 "src/main.ts",
@@ -1203,6 +1211,11 @@ fn an_alias_is_the_projects_own() {
         (
             "node_modules/tailwind-merge/index.d.ts",
             "export declare function twMerge(): void;\nexport declare function twJoin(): void;\n",
+        ),
+        // As every TypeScript project has.
+        (
+            "node_modules/@types/node/index.d.ts",
+            "declare module \"fs\" {}\n",
         ),
     ] {
         std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
@@ -1231,6 +1244,12 @@ fn an_alias_is_the_projects_own() {
         d_on(&mut a, "src/main.ts", code);
         assert_eq!(shown(&mut a), want, "{code}");
     }
+    // A named alias is no scope either: its barrel hands `clsx` on, found by name.
+    d_on(&mut a, "src/other.ts", "^clsx");
+    assert_eq!(
+        shown(&mut a),
+        jump("clsx: by name, 1 match", "node_modules/clsx/clsx.d.ts:1")
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     // No tsconfig says what `@/` is: the project's `Button`, and not `@mui`'s.
     let (dir, mut a) = project_app(
@@ -1441,6 +1460,78 @@ fn a_linked_copy_is_chosen_as_any_other() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&store).unwrap();
+}
+
+/// #141: a workspace package linked in, with no other copy of it installed, hands on what it
+/// re-exports: after the project, outside as master looks, by name.
+#[cfg(unix)]
+#[test]
+fn a_linked_package_alone_hands_its_names_on() {
+    let (dir, mut a) = project_app(
+        "linked-alone",
+        &[
+            (
+                "src/main.ts",
+                "import { z } from \"@app/shared\";\nimport * as sh from \"@app/shared\";\n\nz.string();\nsh.helper();\n",
+            ),
+            (
+                "packages/shared/index.ts",
+                "export { z } from \"zod\";\nexport { helper } from \"helpers\";\n",
+            ),
+        ],
+    );
+    for (path, text) in [
+        (
+            "node_modules/zod/index.d.ts",
+            "export declare const z: unknown;\n",
+        ),
+        (
+            "node_modules/zod/schemas.d.ts",
+            "export declare function string(): void;\n",
+        ),
+        (
+            "node_modules/helpers/index.d.ts",
+            "export declare function helper(): void;\n",
+        ),
+        // As every TypeScript project has.
+        (
+            "node_modules/@types/node/index.d.ts",
+            "declare module \"fs\" {}\n",
+        ),
+    ] {
+        std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
+        std::fs::write(dir.join(path), text).unwrap();
+    }
+    std::fs::create_dir_all(dir.join("node_modules/@app")).unwrap();
+    std::os::unix::fs::symlink(
+        "../../packages/shared",
+        dir.join("node_modules/@app/shared"),
+    )
+    .unwrap();
+    for (code, want) in [
+        (
+            "^z|.string",
+            jump("z: by name, 1 match", "node_modules/zod/index.d.ts:1"),
+        ),
+        (
+            "^z.string",
+            jump(
+                "string: by name, 1 match",
+                "node_modules/zod/schemas.d.ts:1",
+            ),
+        ),
+        (
+            "sh.helper",
+            jump(
+                "helper: by name, 1 match",
+                "node_modules/helpers/index.d.ts:1",
+            ),
+        ),
+    ] {
+        d_on(&mut a, "src/main.ts", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 /// #141 is npm's rule. Python puts a namespace package together from every root that has a

@@ -585,26 +585,28 @@ fn lexical(path: &Path) -> Option<PathBuf> {
 /// Whether `path` is (in) the module spelled by `parts`: every part is a directory or file
 /// stem on it, in order. A package directory carries a version (`regex-1.11.1`,
 /// `toml@v1.2.3`), a Go module escapes upper case (`!burnt!sushi`) and a crate name spells
-/// `_` as `-`: those are ignored. An npm scope is spelled out, and the types of `@scope/pkg`
-/// are `@types/scope__pkg`.
+/// `_` as `-`: those are ignored. The types of `@scope/pkg` are `@types/scope__pkg`, read so when
+/// the scope and the name are those.
 pub fn in_module(path: &Path, parts: &[String]) -> bool {
     let want: Vec<String> = parts.iter().map(|p| module_part(p)).collect();
+    let mut components = path
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy())
+        .peekable();
     let mut i = 0;
-    let mut types = false;
-    for c in path.components() {
-        let c = c.as_os_str().to_string_lossy();
-        // `@types/scope__pkg`: the scope's name, `__`, the package's.
-        let scoped = |scope: &str, pkg: &str| {
-            let rest = scope.strip_prefix('@').and_then(|s| c.strip_prefix(s));
-            types && rest.and_then(|r| r.strip_prefix("__")) == Some(pkg)
+    while let Some(c) = components.next() {
+        let scoped = |scope: &str, pkg: &str, next: &str| {
+            let rest = scope.strip_prefix('@').and_then(|s| next.strip_prefix(s));
+            c == "@types" && rest.and_then(|r| r.strip_prefix("__")) == Some(pkg)
         };
-        i += match &parts[i..] {
+        match &parts[i..] {
             [] => break,
-            [scope, pkg, ..] if scoped(scope, pkg) => 2,
-            [scope, ..] if scope.starts_with('@') => usize::from(*c == **scope),
-            _ => usize::from(want[i] == module_part(&c)),
-        };
-        types = c == "@types";
+            [scope, pkg, ..] if components.peek().is_some_and(|n| scoped(scope, pkg, n)) => {
+                components.next();
+                i += 2;
+            }
+            _ => i += usize::from(want[i] == module_part(&c)),
+        }
     }
     i == parts.len()
 }
