@@ -76,7 +76,7 @@ impl App {
         // only another copy declares is found by name below.
         let copy = match (&bound_path, self.external.get(&kind)) {
             (Some(path), Some((roots, _))) if kind == Kind::TsJs && narrow => {
-                search::package_copy(&self.root, roots, &all, path)
+                search::package_copy(&self.root, roots, &all, &self.files, path)
             }
             _ => Some(search::PackageCopy::default()),
         };

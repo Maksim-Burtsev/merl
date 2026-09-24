@@ -352,8 +352,9 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
     let (api, top) = (root.join("api/node_modules"), root.join("node_modules"));
     let roots = [api.clone(), top.clone()];
     let files = external_files(Kind::TsJs, &roots);
+    let own = [PathBuf::from("packages/shared/index.ts")];
     let copy = |module: &[&str]| {
-        package_copy(&root, &roots, &files, &p(module)).map(|c| {
+        package_copy(&root, &roots, &files, &own, &p(module)).map(|c| {
             let mut files = c.files;
             files.sort();
             files

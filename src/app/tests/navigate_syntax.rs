@@ -1247,6 +1247,112 @@ fn a_grep_for_where_to_read_cuts_nothing_shown() {
     std::fs::remove_dir_all(&root).unwrap();
 }
 
+/// #141: the copy is chosen first, a workspace package linked in as any other: Node goes on
+/// past a package that lacks the path and has no `exports` map, and stops at one whose files are
+/// out of the walk. Only a chosen copy of the project's own leaves the answer to the project.
+#[cfg(unix)]
+#[test]
+fn a_linked_copy_is_chosen_as_any_other() {
+    let main = "import { ex } from \"wlib/extra\";\nimport { Old } from \"@app/ui/old\";\nimport { thing } from \"both/missing\";\nimport { reachOut } from \"outl\";\n\nex(1);\nOld(1);\nthing(1);\nreachOut(1);\n";
+    let (dir, mut a) = project_app(
+        "chosen",
+        &[
+            ("packages/api/src/main.ts", main),
+            ("packages/wlib/index.ts", "export function ex() {}\n"),
+            ("packages/ui/old.ts", "export function Old() {}\n"),
+            ("packages/both/index.ts", "export function thing() {}\n"),
+        ],
+    );
+    let store = external_root(
+        "chosen-store",
+        &[(
+            "outl/index.d.ts",
+            "export declare function reachOut(): void;\n",
+        )],
+    );
+    for (path, text) in [
+        (
+            "node_modules/wlib/extra.d.ts",
+            "export declare function ex(): void;\n",
+        ),
+        (
+            "packages/api/node_modules/@app/ui/package.json",
+            "{ \"name\": \"@app/ui\", \"exports\": { \"./old\": \"./dist/legacy.js\" } }\n",
+        ),
+        (
+            "packages/api/node_modules/@app/ui/dist/legacy.d.ts",
+            "export declare function Old(): void;\n",
+        ),
+        (
+            "packages/api/node_modules/both/index.d.ts",
+            "export declare function thing(): void;\n",
+        ),
+        (
+            "node_modules/outl/index.d.ts",
+            "export declare function reachOut(): void;\n",
+        ),
+        (
+            "node_modules/x/node_modules/outl/index.d.ts",
+            "export declare function reachOut(): void;\n",
+        ),
+    ] {
+        std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
+        std::fs::write(dir.join(path), text).unwrap();
+    }
+    std::fs::create_dir_all(dir.join("node_modules/@app")).unwrap();
+    for (to, at) in [
+        (Path::new("../../wlib"), "packages/api/node_modules/wlib"),
+        (Path::new("../../packages/ui"), "node_modules/@app/ui"),
+        (Path::new("../packages/both"), "node_modules/both"),
+        (&store.join("outl"), "packages/api/node_modules/outl"),
+    ] {
+        std::os::unix::fs::symlink(to, dir.join(at)).unwrap();
+    }
+    let outl = |at: &str| ("reachOut".into(), "via import outl".into(), at.into());
+    for (code, want) in [
+        // The linked `wlib` lacks `extra`: on to the root's.
+        (
+            "^ex",
+            jump(
+                "ex: via import wlib/extra",
+                "node_modules/wlib/extra.d.ts:1",
+            ),
+        ),
+        // `exports` maps `./old`: the nearer copy, whatever `old` lies further up.
+        (
+            "^Old",
+            jump(
+                "Old: via import @app/ui",
+                "packages/api/node_modules/@app/ui/dist/legacy.d.ts:1",
+            ),
+        ),
+        // Neither has `missing`: the nearer, which is no project's own.
+        (
+            "^thing",
+            jump(
+                "thing: via import both",
+                "packages/api/node_modules/both/index.d.ts:1",
+            ),
+        ),
+        // A link out of the walk is the level, of no file: every copy, as without one.
+        (
+            "^reachOut",
+            Shown::Picker(
+                "reachOut: via import outl, 2 declarations".into(),
+                vec![
+                    outl("outl/index.d.ts:1"),
+                    outl("x/node_modules/outl/index.d.ts:1"),
+                ],
+            ),
+        ),
+    ] {
+        d_on(&mut a, "packages/api/src/main.ts", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&store).unwrap();
+}
+
 /// #141 is npm's rule. Python puts a namespace package together from every root that has a
 /// part of it, so `google.cloud` is found behind a `google` in the first root.
 #[test]
