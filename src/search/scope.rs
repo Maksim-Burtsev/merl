@@ -253,12 +253,14 @@ const NODE_BUILTINS: &[&str] = &[
 /// of the two are there. The nearest is the one, unless it lacks the whole `module` and has no
 /// `exports` map in its `package.json`: Node then goes on to the next `node_modules`, as it does
 /// when `lib/extra` is not in the nearer one. A copy of JavaScript alone takes in the nearest
-/// declarations of the package further up, its own or its `@types`, which TypeScript reads. A link is followed, so
+/// declaration files of the package further up, its own or its `@types`, which TypeScript reads;
+/// TypeScript source counts as declarations. A link is followed, so
 /// pnpm's `node_modules/lib` is the version of the store it points at, spelled under the root it
 /// lies in, as the files walked from there are; one that leads out of the roots (`npm link`, a
 /// pnpm store outside them) is a copy of no file. A copy whose `exports` map the path would come
 /// from, lacking it as a file, is no copy to narrow to. A workspace package linked in is read from
-/// `own`, the files of the project at `root`, and `None` when the copy chosen is one: no copy
+/// the TypeScript and JavaScript among `own`, the files of the project at `root`, and `None` when
+/// the copy chosen is one: no copy
 /// outside is it. Empty when no root has the package (an ambient `declare module`, and a `node:`
 /// module, which no package directory is called) and for a bare module of Node's own: `buffer`
 /// is not the npm polyfill of that name but `@types/node`'s `declare module`, which TypeScript
@@ -278,10 +280,6 @@ pub fn package_copy(
     let types = format!("@types/{}", name.trim_start_matches('@').replace('/', "__"));
     // The project is a package too, its dependencies in a `node_modules` below it.
     let project = root.canonicalize().ok();
-    let own: Vec<PathBuf> = project
-        .iter()
-        .flat_map(|p| own.iter().map(|f| p.join(f)))
-        .collect();
     let real: Vec<(&PathBuf, PathBuf)> = roots
         .iter()
         .filter_map(|r| Some((r, r.canonicalize().ok()?)))
@@ -312,7 +310,15 @@ pub fn package_copy(
             .as_ref()
             .is_some_and(|p| dirs.iter().any(|d| in_copy(d, std::slice::from_ref(p))));
         let copy = match linked {
-            true => copy_in(&own, dirs),
+            // The project's own TypeScript and JavaScript: a readme says no path is there.
+            true => {
+                let own: Vec<PathBuf> = project
+                    .iter()
+                    .flat_map(|p| own.iter().map(|f| p.join(f)))
+                    .filter(|f| kind_of(f) == Some(Kind::TsJs))
+                    .collect();
+                copy_in(&own, dirs)
+            }
             false => copy_in(files, dirs.iter().filter_map(|d| spelled(d)).collect()),
         };
         let whole = copy.module(module).is_some_and(|(n, _)| n == module.len());
@@ -336,24 +342,31 @@ pub fn package_copy(
     if linked {
         return None;
     }
-    // TypeScript reads the nearest declarations further up: a package's own, else its `@types`.
-    let declares = |d: &PathBuf| {
+    // What TypeScript reads: declarations, and TypeScript source a package may ship instead.
+    let typed = |f: &PathBuf| {
+        f.extension()
+            .is_some_and(|e| ["ts", "tsx", "mts", "cts"].iter().any(|t| e == *t))
+    };
+    let declarations = |d: &PathBuf| -> Vec<PathBuf> {
         files
             .iter()
-            .any(|f| declaration_file(f) && in_copy(f, std::slice::from_ref(d)))
+            .filter(|f| typed(f) && in_copy(f, std::slice::from_ref(d)))
+            .cloned()
+            .collect()
     };
-    let javascript = !copy.files.is_empty() && !copy.files.iter().any(|f| declaration_file(f));
-    if javascript {
+    // A copy of JavaScript alone borrows the nearest declarations further up, a package's own
+    // before its `@types`, as TypeScript reads them there; only those, not the JavaScript beside.
+    if !copy.files.is_empty() && !copy.files.iter().any(typed) {
         let further = roots[i + 1..].iter().find_map(|r| {
             [&name, &types]
                 .iter()
                 .filter_map(|d| spelled(&r.join(d).canonicalize().ok()?))
-                .find(declares)
+                .map(|d| (declarations(&d), d))
+                .find(|(found, _)| !found.is_empty())
         });
-        if let Some(further) = further {
-            let mut dirs = copy.dirs;
-            dirs.push(further);
-            copy = copy_in(files, dirs);
+        if let Some((found, dir)) = further {
+            copy.files.extend(found);
+            copy.dirs.push(dir);
         }
     }
     Some(copy)
