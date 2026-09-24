@@ -186,8 +186,8 @@ impl App {
                     .unwrap_or_else(|| {
                         // A workspace package linked in is the project's own: the search by
                         // name in the project comes first, the one outside after it (below).
-                        let found = self
-                            .external_definitions(kind, &word, &chain, dotted, &pattern, &imports);
+                        let found =
+                            self.external_definitions(kind, &word, &chain, dotted, &imports, true);
                         outside = found.is_some();
                         found.unwrap_or_default()
                     });
@@ -350,11 +350,10 @@ impl App {
                 Some("self" | "cls" | "this")
             )
         {
-            // What a workspace package of the project does not declare it hands on from a
-            // dependency: outside, by name, as for a word no import binds.
+            // After the project, outside as the import names the module, every installed copy
+            // of it: what a workspace package linked in hands on from a dependency is there.
             found = self
-                .external_definitions(kind, &word, &chain, dotted, &pattern, &imports)
-                .or_else(|| self.external_definitions(kind, &word, &chain, dotted, &pattern, &[]))
+                .external_definitions(kind, &word, &chain, dotted, &imports, false)
                 .unwrap_or_default();
         }
         self.show_definitions(kind, &word, &here, found, broke.as_deref());

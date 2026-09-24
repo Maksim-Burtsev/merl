@@ -961,14 +961,14 @@ fn an_imported_package_is_the_copy_node_loads() {
 #[cfg(unix)]
 #[test]
 fn a_linked_package_is_the_version_it_links() {
-    let main = "import { pin } from \"pinned\";\nimport { shared, z } from \"@app/shared\";\nimport { reach } from \"far\";\nimport { parse } from \"cookie\";\n\npin(1);\nshared(1);\nreach(1);\nz.string();\nparse(1);\n";
+    let main = "import { pin } from \"pinned\";\nimport { shared, z } from \"@app/shared\";\nimport { reach } from \"far\";\nimport { parse } from \"cookie\";\nimport * as sh from \"@app/shared\";\n\npin(1);\nshared(1);\nreach(1);\nz.string();\nparse(1);\nsh.helper();\n";
     let (dir, mut a) = project_app(
         "linked",
         &[
             ("src/main.ts", main),
             (
                 "packages/shared/index.ts",
-                "export function shared() {}\nexport { z } from \"zod\";\n",
+                "export function shared() {}\nexport { z } from \"zod\";\nexport { helper } from \"helpers\";\n",
             ),
         ],
     );
@@ -992,6 +992,8 @@ fn a_linked_package_is_the_version_it_links() {
         ("node_modules/other/node_modules/far/index.d.ts", "reach"),
         // What the workspace package hands on from a dependency.
         ("node_modules/zod/index.d.ts", "z"),
+        ("node_modules/zod/schemas.d.ts", "string"),
+        ("node_modules/helpers/index.d.ts", "helper"),
         // `cookie` links a store directory of another name, which no file of the module is in;
         // another package depends on a `cookie` of that name.
         (
@@ -1010,6 +1012,12 @@ fn a_linked_package_is_the_version_it_links() {
         )
         .unwrap();
     }
+    // A method of the name is no answer for what the import takes.
+    std::fs::write(
+        dir.join("node_modules/other/index.d.ts"),
+        "export declare class Other {\n    z(): void;\n}\n",
+    )
+    .unwrap();
     std::fs::create_dir_all(dir.join("node_modules/@app")).unwrap();
     for (to, at) in [
         (
@@ -1043,6 +1051,21 @@ fn a_linked_package_is_the_version_it_links() {
         (
             "^z|.string",
             jump("z: by name, 1 match", "node_modules/zod/index.d.ts:1"),
+        ),
+        // After the project, outside as the import names it: the chain and all.
+        (
+            "^z.string",
+            jump(
+                "string: by name, 1 match",
+                "node_modules/zod/schemas.d.ts:1",
+            ),
+        ),
+        (
+            "sh.helper",
+            jump(
+                "helper: by name, 1 match",
+                "node_modules/helpers/index.d.ts:1",
+            ),
         ),
         (
             "^parse",

@@ -12,17 +12,19 @@ impl App {
     /// while a `dotted` qualifier is a value whose name merely matches a module, found by name. A
     /// name nothing installed declares matches no file and the search stops. A bare word no
     /// import binds (`Vec`, `open`) searches every file, by name. Of a TypeScript package
-    /// installed more than once, only the copy Node loads is the import's; `None` when that copy
-    /// is a workspace package linked into the project, whose source is the project's.
+    /// installed more than once, only the copy Node loads is the import's when `narrow`; `None`
+    /// when that copy is a workspace package linked into the project, whose source is the
+    /// project's. Without `narrow` it is every copy, as the import names the module.
     pub(super) fn external_definitions(
         &mut self,
         kind: Kind,
         word: &str,
         chain: &[String],
         dotted: bool,
-        pattern: &str,
         imports: &[(String, Vec<String>)],
+        narrow: bool,
     ) -> Option<Vec<Candidate>> {
+        let pattern = &search::def_patterns(kind, word).join("|");
         let mut bound_path = bound(imports, chain.first().map_or(word, String::as_str));
         // What a TypeScript import takes (a name, `default`, `*`) is no part of a file's path.
         let taken = match kind {
@@ -62,7 +64,7 @@ impl App {
         // Of a package installed more than once, the files of the copy Node loads (#141); a name
         // only another copy declares is found by name below.
         let copy = match (&bound_path, self.external.get(&kind)) {
-            (Some(path), Some((roots, _))) if kind == Kind::TsJs => {
+            (Some(path), Some((roots, _))) if kind == Kind::TsJs && narrow => {
                 search::package_copy(&self.root, roots, &all, path)
             }
             _ => Some(Vec::new()),
