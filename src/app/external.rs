@@ -60,6 +60,16 @@ impl App {
             .filter(|_| kind == Kind::Go)
             .map(Vec::len);
         let floor = package.unwrap_or(floor);
+        // `@/lib`, `~/lib`, `#lib`: an alias of the project's own module, no package. The search
+        // in the project comes first; after it, by name, never narrowed into `@mui`.
+        let alias = kind == Kind::TsJs
+            && bound_path
+                .as_ref()
+                .and_then(|p| p.first())
+                .is_some_and(|f| f == "@" || f.starts_with(['~', '#']));
+        if alias && narrow {
+            return None;
+        }
         let all = self.external_files(kind);
         // Of a package installed more than once, the files of the copy Node loads (#141); a name
         // only another copy declares is found by name below.
@@ -92,7 +102,7 @@ impl App {
         };
         let named = module.clone();
         let mut files: Vec<PathBuf> = Vec::new();
-        if let Some(m) = &mut module {
+        if let Some(m) = module.as_mut().filter(|_| !alias) {
             // The copy's files of the module, else every file's, as without a copy: pnpm's
             // alias `cookie` links a store directory of another name, `cookie-es`.
             let found = search::module_among(&copy, m, package)

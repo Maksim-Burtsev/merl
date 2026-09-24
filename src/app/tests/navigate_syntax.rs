@@ -1089,6 +1089,87 @@ fn a_linked_package_is_the_version_it_links() {
     std::fs::remove_dir_all(&store).unwrap();
 }
 
+/// #141: `@/lib`, `~/lib` and `#lib` are aliases of the project's own modules, no npm scope or
+/// package: what the project does not declare is looked for outside by name, and an alias never
+/// narrows into a scoped package such as `@mui`.
+#[test]
+fn an_alias_is_the_projects_own() {
+    let (dir, mut a) = project_app(
+        "alias",
+        &[
+            (
+                "tsconfig.json",
+                "{ \"compilerOptions\": { \"baseUrl\": \".\", \"paths\": { \"@/*\": [\"src/*\"], \"~/*\": [\"src/*\"] } } }\n",
+            ),
+            (
+                "src/lib/index.ts",
+                "export { clsx } from \"clsx\";\nexport { twMerge, twJoin } from \"tailwind-merge\";\n",
+            ),
+            (
+                "src/main.ts",
+                "import { clsx } from \"@/lib\";\nimport { twMerge } from \"~/lib\";\nimport { twJoin } from \"#lib\";\n\nclsx(1);\ntwMerge(1);\ntwJoin(1);\n",
+            ),
+        ],
+    );
+    for (path, text) in [
+        (
+            "node_modules/clsx/clsx.d.ts",
+            "export declare function clsx(): void;\n",
+        ),
+        (
+            "node_modules/tailwind-merge/index.d.ts",
+            "export declare function twMerge(): void;\nexport declare function twJoin(): void;\n",
+        ),
+    ] {
+        std::fs::create_dir_all(dir.join(path).parent().unwrap()).unwrap();
+        std::fs::write(dir.join(path), text).unwrap();
+    }
+    for (code, want) in [
+        (
+            "^clsx",
+            jump("clsx: by name, 1 match", "node_modules/clsx/clsx.d.ts:1"),
+        ),
+        (
+            "^twMerge",
+            jump(
+                "twMerge: by name, 1 match",
+                "node_modules/tailwind-merge/index.d.ts:1",
+            ),
+        ),
+        (
+            "^twJoin",
+            jump(
+                "twJoin: by name, 1 match",
+                "node_modules/tailwind-merge/index.d.ts:2",
+            ),
+        ),
+    ] {
+        d_on(&mut a, "src/main.ts", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    // No tsconfig says what `@/` is: the project's `Button`, and not `@mui`'s.
+    let (dir, mut a) = project_app(
+        "alias-bare",
+        &[
+            ("src/components/Button.tsx", "export function Button() {}\n"),
+            (
+                "src/main.ts",
+                "import { Button } from \"@/components/Button\";\n\nButton();\n",
+            ),
+        ],
+    );
+    let mui = dir.join("node_modules/@mui/material/components/Button.d.ts");
+    std::fs::create_dir_all(mui.parent().unwrap()).unwrap();
+    std::fs::write(mui, "export declare function Button(): void;\n").unwrap();
+    d_on(&mut a, "src/main.ts", "^Button");
+    assert_eq!(
+        shown(&mut a),
+        jump("Button: by name, 1 match", "src/components/Button.tsx:1")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// #141: the grep for `as Widget` only says which files to read for a renamed export, so a cut
 /// in it cuts nothing shown, and a Python module, which has no such export, runs none.
 #[test]
