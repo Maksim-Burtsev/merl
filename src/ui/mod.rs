@@ -56,11 +56,14 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
         draw_lesson(frame, app, theme, lesson, base);
     }
     draw_status(frame, app, theme, status);
+    // Over `--tutor`'s and `--drill`'s panel an overlay would hide the task it is part of: a
+    // task can start with the help open. The panel and the status bar stay in sight.
+    let over = if app.tutor.is_some() { main } else { area };
     if app.picker.is_some() {
-        draw_picker(frame, app, theme, area, base);
+        draw_picker(frame, app, theme, over, base);
     }
     if app.mode == Mode::Help {
-        draw_help(frame, app, theme, area, base);
+        draw_help(frame, app, theme, over, base);
     }
     // ratatui/ratatui#2651 in ratatui-crossterm 0.1.2: the diff sends the second column of an
     // emoji with U+FE0F as a cell of its own, and the backend prints it right after the emoji

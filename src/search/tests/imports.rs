@@ -66,7 +66,8 @@ fn imports_bind_names_to_module_paths() {
         [
             // The last part is what the import takes: the default export, a name, or the
             // whole module.
-            ("fs".into(), p(&["fs", "default"])),
+            // `node:` stays: the module is Node's own, whatever is installed under its name.
+            ("fs".into(), p(&["node:fs", "default"])),
             ("join".into(), p(&["path", "join"])),
             ("res".into(), p(&["path", "resolve"])),
             ("React".into(), p(&["react", "*"])),
@@ -193,6 +194,28 @@ fn in_module_follows_the_parts_through_versions_and_escapes() {
         "/node_modules/@scope/pkg/sub/index.d.ts",
         &["@scope", "pkg", "sub"]
     ));
+    assert!(m(
+        "/node_modules/@types/scope__pkg/sub.d.ts",
+        &["@scope", "pkg", "sub"]
+    ));
+    // The types of a scoped package are not an unscoped namesake's, nor another scope's, and
+    // only `@types` spells a scope so.
+    assert!(!m(
+        "/node_modules/@types/babel__traverse/index.d.ts",
+        &["traverse"]
+    ));
+    assert!(!m(
+        "/node_modules/@types/other__pkg/index.d.ts",
+        &["@scope", "pkg"]
+    ));
+    assert!(!m(
+        "/node_modules/@types/scope__other/index.d.ts",
+        &["@scope", "pkg"]
+    ));
+    assert!(!m(
+        "/node_modules/scope__pkg/index.d.ts",
+        &["@scope", "pkg"]
+    ));
 }
 
 #[test]
@@ -290,6 +313,86 @@ fn node_modules_are_those_from_the_file_up_to_the_root() {
         node_modules(&root, &root.join("web/src")),
         [root.join("node_modules")]
     );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
+    let p = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    let dir = std::env::temp_dir().join(format!("merl-copy-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    for f in [
+        "real/node_modules/lib/index.d.ts",
+        "real/node_modules/lib/extra.d.ts",
+        "real/node_modules/typed/index.js",
+        "real/node_modules/@scope/pkg/index.d.ts",
+        "real/node_modules/.pnpm/pinned@1.0.0/node_modules/pinned/index.d.ts",
+        "real/node_modules/.pnpm/pinned@2.0.0/node_modules/pinned/index.d.ts",
+        "real/api/node_modules/lib/index.d.ts",
+        "real/api/node_modules/@types/typed/index.d.ts",
+        "real/api/node_modules/@types/scope__pkg/index.d.ts",
+        "real/packages/shared/index.ts",
+    ] {
+        std::fs::create_dir_all(dir.join(f).parent().unwrap()).unwrap();
+        std::fs::write(dir.join(f), "").unwrap();
+    }
+    std::fs::create_dir_all(dir.join("real/node_modules/@app")).unwrap();
+    let link = |to: &str, at: &str| std::os::unix::fs::symlink(to, dir.join(at)).unwrap();
+    link(
+        ".pnpm/pinned@2.0.0/node_modules/pinned",
+        "real/node_modules/pinned",
+    );
+    link("../../packages/shared", "real/node_modules/@app/shared");
+    // The project and its roots are spelled through a link, as a temporary directory is on
+    // macOS, and so is the copy; the directory above is called as a path in a package is.
+    std::fs::create_dir_all(dir.join("extra")).unwrap();
+    link("../real", "extra/link");
+    let root = dir.join("extra/link");
+    let (api, top) = (root.join("api/node_modules"), root.join("node_modules"));
+    let roots = [api.clone(), top.clone()];
+    let files = external_files(Kind::TsJs, &roots);
+    let own = [PathBuf::from("packages/shared/index.ts")];
+    let copy = |module: &[&str]| {
+        package_copy(&root, &roots, &files, &own, &p(module)).map(|c| {
+            let mut files = c.files;
+            files.sort();
+            files
+        })
+    };
+    // The nearest copy, unless only a farther one has the whole path, which Node goes on to.
+    assert_eq!(
+        copy(&["lib", "sub"]),
+        Some(vec![api.join("lib/index.d.ts")])
+    );
+    assert_eq!(
+        copy(&["lib", "extra"]),
+        Some(vec![top.join("lib/extra.d.ts"), top.join("lib/index.d.ts")])
+    );
+    assert_eq!(
+        copy(&["typed"]),
+        Some(vec![api.join("@types/typed/index.d.ts")])
+    );
+    assert_eq!(
+        copy(&["@scope", "pkg"]),
+        Some(vec![api.join("@types/scope__pkg/index.d.ts")])
+    );
+    assert_eq!(
+        copy(&["pinned"]),
+        Some(vec![
+            top.join(".pnpm/pinned@2.0.0/node_modules/pinned/index.d.ts")
+        ])
+    );
+    assert_eq!(copy(&["fs"]), Some(vec![]));
+    // A workspace package linked in is the project's own.
+    assert_eq!(copy(&["@app", "shared"]), None);
+    // A file of the copy, and one of a package it depends on.
+    let copy = [top.join("lib")];
+    assert!(in_copy(&top.join("lib/dist/index.d.ts"), &copy));
+    assert!(!in_copy(
+        &top.join("lib/node_modules/dep/index.d.ts"),
+        &copy
+    ));
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

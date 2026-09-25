@@ -432,3 +432,39 @@ fn review_panel_cuts_a_long_name_and_keeps_the_counts() {
     let r = rows(&terminal);
     assert!(r[1].contains("\u{2026} bin\u{2502}"), "{}", r[1]);
 }
+
+/// A task can start with the help or a picker open (`Esc`, `Help: Down`, `Picker: PgDn`): the
+/// overlay stops above the panel, so the task stays readable.
+#[test]
+fn overlays_leave_the_tutor_panel_in_sight() {
+    let files = ["src/app.rs", "src/wrap.rs"].map(PathBuf::from).to_vec();
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        files,
+        Buffer::empty(),
+        None,
+    );
+    app.tutor = Some(crate::tutor::Tutor {
+        step: 0,
+        dir: PathBuf::from("/demo"),
+        drill: None,
+    });
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+    let mut shows = |app: &mut App, overlay: &str| {
+        terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+        let text = rows(&terminal).join("\n");
+        assert!(text.contains(overlay), "{overlay}:\n{text}");
+        assert!(
+            text.contains("Tutor 1/"),
+            "{overlay} hides the panel:\n{text}"
+        );
+    };
+    app.mode = crate::app::Mode::Help;
+    shows(&mut app, "merl \u{2014} keys");
+    app.mode = crate::app::Mode::Normal;
+    app.open_files_picker();
+    app.picker.as_mut().unwrap().settle();
+    shows(&mut app, "Files (");
+}
