@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `d` on `Type::name` of a Rust type the project declares more than once lands in the type the
+  file's `use crate::…` or `use super::…` names: `Cache::new` behind `use crate::store::Cache;`
+  is the `new` of an `impl Cache` in `src/store.rs` or `src/store/mod.rs`, `via import`, where
+  it was a picker of every `new` in the project, `by name`. Only a `use` at the top of the file
+  counts, and a type of the name in the file itself, a name bound twice, a binary under
+  `src/bin/` or a module with no `impl` of the type stay `by name`. (#227)
+
 ## [0.7.0] - 2026-09-25
 
 ### Added
