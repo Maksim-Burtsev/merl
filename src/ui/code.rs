@@ -41,24 +41,50 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
 
     let nowrap = app.nowrap();
     let ghost = base.fg(theme.ghost_fg);
-    let ghost_row = |text: &str| {
+    // A ghost wraps exactly like a file line: its rows after the first start under its indent.
+    // Not wrapped, the one row is the columns from `left` on, as the text's are.
+    let ghost_wrap = |text: &str| -> Vec<(Range<usize>, usize)> {
+        if nowrap {
+            let (r, lead) = wrap::cut(text, app.left, app.left + app.view_w);
+            return vec![(r, lead)];
+        }
+        let indent = wrap::indent(text, app.view_w);
+        wrap::wrap_line(text, app.view_w)
+            .into_iter()
+            .enumerate()
+            .map(|(i, r)| (r, if i == 0 { 0 } else { indent }))
+            .collect()
+    };
+    let ghost_row = |text: &str, r: Range<usize>, lead: usize| {
         Line::from(vec![
             Span::styled(" ".repeat(gutter_w - 1), gutter_style),
             Span::styled("\u{258e}", gutter_style.fg(Color::Red)),
-            Span::styled(ghost_text(text, nowrap, app.left, app.view_w), ghost),
+            Span::styled(format!("{}{}", " ".repeat(lead), expand(&text[r])), ghost),
         ])
     };
     let mut lines: Vec<Line> = Vec::with_capacity(area.height as usize);
     let mut l = app.top_line;
     let mut skip = app.top_row;
-    while lines.len() < area.height as usize && l < app.buf.lines.len() {
+    while lines.len() < area.height as usize && l <= app.buf.lines.len() {
         // Review: the lines the branch deleted here, above the text, greyed and unnumbered.
-        for (i, text) in app.diff.ghosts.get(&l).into_iter().flatten().enumerate() {
-            if i >= skip && lines.len() < area.height as usize {
-                lines.push(ghost_row(text));
+        // `skip` counts rows: the top of the view can sit inside a wrapped ghost, as it can
+        // sit on the lines deleted at the end of the file, under the last line.
+        for text in app.diff.ghosts.get(&l).into_iter().flatten() {
+            let text = crate::buffer::shown_str(text);
+            for (r, lead) in ghost_wrap(text) {
+                if skip > 0 {
+                    skip -= 1;
+                    continue;
+                }
+                if lines.len() == area.height as usize {
+                    break;
+                }
+                lines.push(ghost_row(text, r, lead));
             }
         }
-        skip = skip.saturating_sub(app.diff.ghost_n(l));
+        if l == app.buf.lines.len() {
+            break;
+        }
         let clipped = app.buf.shown(l);
         let spans = app.buf.hl.get(l).map_or(&[][..], Vec::as_slice);
         // Find matches paint over the syntax colours, so they are merged into the span list.
@@ -148,15 +174,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         skip = 0;
         l += 1;
     }
-    // Lines deleted at the end of the file sit under the last line, and the view can scroll
-    // on into them: `skip` is still the top row then.
-    if l == app.buf.lines.len() {
-        for text in app.diff.ghosts.get(&l).into_iter().flatten().skip(skip) {
-            if lines.len() < area.height as usize {
-                lines.push(ghost_row(text));
-            }
-        }
-    }
     frame.render_widget(Paragraph::new(lines).style(base), area);
 
     let screen_row = rows_between(
@@ -170,16 +187,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         let x = area.x + (gutter_w + app.cursor_x().saturating_sub(app.left)) as u16;
         frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
     }
-}
-
-/// A deleted line of the review: clipped to the pane, or scrolled sideways with the text when the
-/// file is not wrapped.
-fn ghost_text(text: &str, nowrap: bool, left: usize, width: usize) -> String {
-    if !nowrap {
-        return expand(&crate::app::clip(text, width)).into_owned();
-    }
-    let (r, lead) = wrap::cut(text, left, left + width);
-    format!("{}{}", " ".repeat(lead), expand(&text[r]))
 }
 
 /// Cuts one wrapped row `r` of `text` into spans, taking colours from the line's highlighting

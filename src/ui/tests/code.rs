@@ -545,6 +545,160 @@ fn every_ghost_after_the_last_line_can_be_scrolled_to() {
 }
 
 #[test]
+fn a_ghost_longer_than_the_pane_wraps_and_the_text_follows() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\n"),
+        None,
+    );
+    app.show_tree = false;
+    app.diff
+        .ghosts
+        .insert(1, vec!["  one two three four".into()]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    // Gutter is two cells, so the text gets twelve: the ghost wraps there like a file line,
+    // its second row under its indent, and `b` comes after it.
+    let mut terminal = Terminal::new(TestBackend::new(14, 6)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(
+        rows(&terminal)[..4],
+        ["1 a", "\u{258e}  one two", "\u{258e}  three four", "2 b"]
+    );
+    // Greyed like any ghost, on both rows.
+    let buf = terminal.backend().buffer();
+    let t = |y: u16| (0..14).find(|x| buf[(*x, y)].symbol() == "t").unwrap();
+    assert_eq!(buf[(t(2), 2)].fg, theme.ghost_fg);
+}
+
+#[test]
+fn up_and_down_never_land_on_a_wrapped_ghost_row() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\nc\n"),
+        None,
+    );
+    app.show_tree = false;
+    // Twelve cells of text: the ghost is three rows.
+    app.diff
+        .ghosts
+        .insert(1, vec!["one two three four five".into()]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(14, 6)).unwrap();
+    let key = |c| KeyEvent::new(c, KeyModifiers::NONE);
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    // Down from `a` lands on `b`'s first text row, past the ghost's three.
+    app.key(key(KeyCode::Down));
+    assert_eq!((app.line, app.cursor_row()), (1, 3));
+    app.key(key(KeyCode::Down));
+    assert_eq!(app.line, 2);
+    // Up from `c` lands on `b`, not on a ghost row; up again on `a`.
+    app.key(key(KeyCode::Up));
+    assert_eq!((app.line, app.cursor_row()), (1, 3));
+    app.key(key(KeyCode::Up));
+    assert_eq!(app.line, 0);
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(terminal.get_cursor_position().unwrap().y, 0);
+}
+
+#[test]
+fn up_brings_scrolled_off_wrapped_ghosts_in_one_row_at_a_time() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\nc\n"),
+        None,
+    );
+    app.show_tree = false;
+    app.diff
+        .ghosts
+        .insert(1, vec!["one two three four five".into()]);
+    app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    // Two rows of code: `b` and above it only the ghost's last row.
+    let mut terminal = Terminal::new(TestBackend::new(14, 3)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!((app.top_line, app.top_row), (1, 2));
+    assert_eq!(rows(&terminal)[..2], ["\u{258e}five", "2 b"]);
+    // Up on that line scrolls the hidden ghost rows in one at a time.
+    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+    assert_eq!((app.line, app.top_line, app.top_row), (1, 1, 1));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(rows(&terminal)[..2], ["\u{258e}three four", "\u{258e}five"]);
+    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+    assert_eq!((app.line, app.top_line, app.top_row), (1, 1, 0));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(
+        rows(&terminal)[..2],
+        ["\u{258e}one two", "\u{258e}three four"]
+    );
+    // Then Up leaves for the line above.
+    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!((app.line, app.top_line, app.top_row), (0, 0, 0));
+}
+
+#[test]
+fn wrapped_ghosts_after_the_last_line_can_all_be_scrolled_to() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\n"),
+        None,
+    );
+    app.show_tree = false;
+    app.diff.ghosts.insert(
+        2,
+        vec!["one two three four five".into(), "six seven eight".into()],
+    );
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    // Three rows of code: a, b and five ghost rows (three of the first ghost, two of the
+    // second) are seven.
+    let mut terminal = Terminal::new(TestBackend::new(14, 4)).unwrap();
+    let key = |c| KeyEvent::new(c, KeyModifiers::NONE);
+    for top in [(0, 0), (1, 0), (2, 0), (2, 1), (2, 2), (2, 2)] {
+        app.key(key(KeyCode::Down));
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        assert_eq!((app.line, (app.top_line, app.top_row)), (1, top));
+    }
+    assert_eq!(
+        rows(&terminal)[..3],
+        ["\u{258e}five", "\u{258e}six seven", "\u{258e}eight"]
+    );
+    // Up leaves the last line, and the view comes back to the cursor.
+    app.key(key(KeyCode::Up));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!((app.line, app.top_line, app.top_row), (0, 0, 0));
+    assert_eq!(terminal.get_cursor_position().unwrap().y, 0);
+}
+
+#[test]
+fn a_long_ghost_stays_one_row_when_the_file_is_not_wrapped() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\n"),
+        None,
+    );
+    app.show_tree = false;
+    app.diff
+        .ghosts
+        .insert(1, vec!["one two three four five".into()]);
+    app.key(KeyEvent::new(KeyCode::Char('w'), KeyModifiers::NONE));
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(14, 4)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    // Cut at the pane's right edge like a text line, with `b` right under it.
+    assert_eq!(rows(&terminal)[..3], ["1 a", "\u{258e}one two thre", "2 b"]);
+}
+
+#[test]
 fn git_marks_sit_between_the_number_and_the_text() {
     let mut app = App::new(
         PathBuf::from("/tmp"),

@@ -33,12 +33,6 @@ pub struct Diff {
     pub pairs: HashMap<usize, (usize, usize)>,
 }
 
-impl Diff {
-    pub fn ghost_n(&self, line: usize) -> usize {
-        self.ghosts.get(&line).map_or(0, Vec::len)
-    }
-}
-
 /// The diff of `path` in the working tree against the index, or against `base` when given
 /// (review mode: ghosts and hunks are only kept then). `old` is the name the file had at the
 /// base when the branch renamed it: with both names in the pathspec git pairs them.
@@ -514,13 +508,13 @@ mod tests {
         assert_eq!(d.hunks, vec![0, 3, 8]);
         assert_eq!(d.ghosts[&0], vec!["x"]);
         assert_eq!(d.ghosts[&9], vec!["c", "d"]);
-        assert_eq!(d.ghost_n(3), 0);
+        assert_eq!(d.ghosts.get(&3), None);
         // A changed line is an added one under its ghost: no `Changed` in review.
         assert_eq!(d.marks[&0], Mark::Added);
         assert_eq!(d.marks.len(), 3, "{:?}", d.marks);
         // A deletion right after a changed last line is one stop, not two.
         let d = parse("@@ -5 +5 @@\n-a\n+b\n@@ -6,2 +5,0 @@\n-c\n-d\n", true);
-        assert_eq!((d.hunks.clone(), d.ghost_n(5)), (vec![4], 2));
+        assert_eq!((d.hunks.clone(), d.ghosts[&5].len()), (vec![4], 2));
     }
 
     #[test]
