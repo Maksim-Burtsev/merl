@@ -437,3 +437,78 @@ fn external_go_files_are_what_an_import_reaches() {
     assert!(!declaration_file(Path::new("x/index.mjs")));
     assert!(!declaration_file(Path::new("x/index.ts")));
 }
+
+/// #227. The file of the crate module a top-level `use crate::…` or `use super::…` takes a name
+/// from, at the paths a module's file sits at by default.
+#[test]
+fn rust_use_files_follow_the_crate_and_super_paths() {
+    let files: Vec<PathBuf> = [
+        "Cargo.toml",
+        "src/lib.rs",
+        "src/store.rs",
+        "src/net/mod.rs",
+        "src/net/store.rs",
+        "src/net/cache/mod.rs",
+        "src/bin/tool.rs",
+        "loose/src/store.rs",
+    ]
+    .iter()
+    .map(PathBuf::from)
+    .collect();
+    let find = |here: &str, text: &str| -> Vec<String> {
+        rust_use_files(&files, Path::new(here), text, "Cache")
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect()
+    };
+    let cases: [(&str, &str, &[&str]); 13] = [
+        ("src/lib.rs", "use crate::store::Cache;", &["src/store.rs"]),
+        (
+            "src/net/client.rs",
+            "use crate::net::cache::Cache;",
+            &["src/net/cache/mod.rs"],
+        ),
+        (
+            "src/net/client.rs",
+            "use super::store::Cache;",
+            &["src/net/store.rs"],
+        ),
+        (
+            "src/net/client.rs",
+            "use super::super::store::Cache;",
+            &["src/store.rs"],
+        ),
+        // `mod.rs` is its directory's module: its `super` is the one above.
+        (
+            "src/net/mod.rs",
+            "use super::store::Cache;",
+            &["src/store.rs"],
+        ),
+        (
+            "src/net/mod.rs",
+            "pub use crate::{store::{self, Cache}};",
+            &["src/store.rs"],
+        ),
+        ("src/store.rs", "use crate::Cache;", &["src/lib.rs"]),
+        // Above the crate root, in a binary's own crate, outside a `Cargo.toml`'s `src/`.
+        ("src/lib.rs", "use super::store::Cache;", &[]),
+        ("src/bin/tool.rs", "use crate::store::Cache;", &[]),
+        ("loose/src/lib.rs", "use crate::store::Cache;", &[]),
+        // Bound twice, under another name, or inside an inline `mod`, whose `super` is not the
+        // file's: `super::super` in `client.rs`'s tests is `net`, not the crate root.
+        (
+            "src/lib.rs",
+            "use crate::store::Cache;\nfn f() {\n    use crate::net::store::Cache;\n}",
+            &[],
+        ),
+        ("src/lib.rs", "use crate::store::Cache as Stored;", &[]),
+        (
+            "src/net/client.rs",
+            "mod tests {\n    use super::super::store::Cache;\n}",
+            &[],
+        ),
+    ];
+    for (here, text, want) in cases {
+        assert_eq!(find(here, text), want, "{here}: {text}");
+    }
+}

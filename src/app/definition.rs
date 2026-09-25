@@ -246,7 +246,11 @@ impl App {
         };
         // A type's name is no proof of which type (#129): in a `::` kind the project has to
         // declare it once, and a `use` of the file must not bind the path's first name to
-        // somewhere outside, whatever `io.rs` the project has beside `std::io`.
+        // somewhere outside, whatever `io.rs` the project has beside `std::io`. A Rust type the
+        // project declares more than once is proven by the file of the module a `use crate::…`
+        // takes it from (#227): an `impl` at the top of that file is for the type the path
+        // names, declared there or handed on, and nothing else is offered then.
+        let mut home: Option<Vec<PathBuf>> = None;
         let pathed = pathed
             && !chain.is_empty()
             && (sep == "." || {
@@ -270,30 +274,52 @@ impl App {
                         .strip_suffix(&format!("{path}{sep}"))
                         .is_some_and(|b| b.ends_with('\\'));
                 let owners = search::def_patterns(kind, owner).join("|");
-                let one = self.project_definitions(kind, &here, owner, &owners).len() == 1;
+                let declared = self.project_definitions(kind, &here, owner, &owners);
+                // A type of the same name in this file is the one its own scope sees.
+                if !outside
+                    && declared.len() > 1
+                    && kind == Kind::Rust
+                    && chain.len() == 1
+                    && !declared.iter().any(|h| h.path == here)
+                {
+                    let files = search::rust_use_files(&self.files, &here, &text, owner);
+                    home = (!files.is_empty()).then_some(files);
+                }
                 // A cut in this grep says nothing about the list shown in the end.
                 self.truncated.set(false);
-                !outside && one
+                !outside && (declared.len() == 1 || home.is_some())
             });
         if pathed && locals.is_empty() && !chain.is_empty() {
             let full = format!("{path}{sep}{word}");
             // `depot::Shed::open` has the modules of the project in front of `Shed::open`.
             let in_project = sep != "." && self.names_module(&chain[0]);
-            let named: Vec<Candidate> = self
-                .project_definitions(kind, &here, &word, &pattern)
+            // Only the files of the module a `use` names can hold the answer then.
+            let hits = match &home {
+                Some(files) => self
+                    .grep(&pattern, false, false, |p| files.iter().any(|f| f == p))
+                    .unwrap_or_default(),
+                None => self.project_definitions(kind, &here, &word, &pattern),
+            };
+            let named: Vec<Candidate> = hits
                 .into_iter()
                 .filter(|h| {
                     self.text_of(&h.path)
                         .and_then(|t| search::qualified(kind, &t, h.line, &word))
-                        .is_some_and(|q| {
-                            q == full
-                                || q.ends_with(&format!("{sep}{full}"))
-                                || (in_project && full.ends_with(&format!("{sep}{q}")))
+                        .is_some_and(|q| match &home {
+                            Some(files) => q == full && files.contains(&h.path),
+                            None => {
+                                q == full
+                                    || q.ends_with(&format!("{sep}{full}"))
+                                    || (in_project && full.ends_with(&format!("{sep}{q}")))
+                            }
                         })
                 })
                 .map(|hit| Candidate {
+                    reason: match home {
+                        Some(_) => Reason::Import(hit.path.display().to_string()),
+                        None => Reason::Path(path.clone()),
+                    },
                     hit,
-                    reason: Reason::Path(path.clone()),
                 })
                 .collect();
             if !named.is_empty() {
