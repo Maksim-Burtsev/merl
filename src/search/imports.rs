@@ -93,13 +93,14 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                 }
             }
         }
+        // Rust's in-crate `crate::` and `super::` paths are [`rust_use_files`]'s.
         Kind::Rust => {
-            static USE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r"(?ms)^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([^;]+);").unwrap()
-            });
-            for c in USE.captures_iter(text) {
-                use_tree(&c[1], &[], &mut out);
-            }
+            out.extend(
+                rust_uses(text)
+                    .into_iter()
+                    .filter(|(_, p, _)| !matches!(p[0].as_str(), "crate" | "super"))
+                    .map(|(name, path, _)| (name, path)),
+            );
         }
         Kind::Go => {
             static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -294,8 +295,86 @@ pub fn go_import_line(text: &str, name: &str) -> Option<usize> {
     let binds = |l: &str| imports(Kind::Go, l).iter().any(|(n, _)| n == name);
     text.lines().position(binds).map(|i| i + 1)
 }
-/// One `use` tree: `a::b::{c, d as e, f::*}` binds `c`, `e` and every name of `f`. A `crate`,
-/// `self` or `super` root is the project.
+/// What every `use` of the Rust file `text` binds, as [`imports`] reads it, with the in-crate
+/// `crate::` and `super::` paths kept, and whether the `use` starts in column zero: at the top
+/// of the file, not in a function or an inline `mod`.
+fn rust_uses(text: &str) -> Vec<(String, Vec<String>, bool)> {
+    static USE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?ms)^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([^;]+);").unwrap()
+    });
+    let mut out = Vec::new();
+    for c in USE.captures_iter(text) {
+        let at = c
+            .get(0)
+            .map_or(0, |m| m.end() - m.as_str().trim_start().len());
+        let top = at == 0 || text[..at].ends_with('\n');
+        let mut bound = Vec::new();
+        use_tree(&c[1], &[], &mut bound);
+        out.extend(bound.into_iter().map(|(name, path)| (name, path, top)));
+    }
+    out
+}
+/// The files of the crate module a `use crate::…` or `use super::…` of the Rust file `here`
+/// takes `name` from: `src/store.rs` or `src/store/mod.rs` for `use crate::store::Cache;`, the
+/// crate root's `lib.rs` and `main.rs` for `use crate::Cache;`. Empty when the file binds `name`
+/// otherwise, more than once or only inside a function or an inline `mod` (whose `super` is not
+/// the file's), or when `here` is not in the `src/` of a `Cargo.toml` (a binary
+/// under `src/bin/` is a crate of its own). Only the paths a module's file sits at by default
+/// are tried: an inline `mod` or a `#[path]` leaves the caller nothing to prove.
+pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) -> Vec<PathBuf> {
+    let mut bound = rust_uses(text).into_iter().filter(|(n, _, _)| n == name);
+    let (Some((_, path, true)), None) = (bound.next(), bound.next()) else {
+        return Vec::new();
+    };
+    let Some(src) = here.ancestors().skip(1).find(|d| {
+        d.file_name().is_some_and(|n| n == "src")
+            && files.contains(&d.parent().unwrap_or(Path::new("")).join("Cargo.toml"))
+    }) else {
+        return Vec::new();
+    };
+    let Ok(inside) = here.strip_prefix(src) else {
+        return Vec::new();
+    };
+    let mut module: Vec<String> = inside
+        .with_extension("")
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect();
+    if module.first().is_some_and(|m| m == "bin") {
+        return Vec::new();
+    }
+    if matches!(module.as_slice(), [m] if m == "lib" || m == "main")
+        || module.last().is_some_and(|m| m == "mod")
+    {
+        module.pop();
+    }
+    let Some((_, parts)) = path.split_last() else {
+        return Vec::new();
+    };
+    let parts = match parts.split_first() {
+        Some((root, rest)) if root == "crate" => {
+            module.clear();
+            rest
+        }
+        Some((root, _)) if root == "super" => {
+            let supers = parts.iter().take_while(|p| *p == "super").count();
+            if supers > module.len() {
+                return Vec::new();
+            }
+            module.truncate(module.len() - supers);
+            &parts[supers..]
+        }
+        _ => return Vec::new(),
+    };
+    module.extend(parts.iter().cloned());
+    let at = module.iter().fold(src.to_path_buf(), |p, m| p.join(m));
+    let wanted = match module.is_empty() {
+        true => vec![src.join("lib.rs"), src.join("main.rs")],
+        false => vec![at.with_extension("rs"), at.join("mod.rs")],
+    };
+    wanted.into_iter().filter(|f| files.contains(f)).collect()
+}
+/// One `use` tree: `a::b::{c, d as e, f::*}` binds `c`, `e` and every name of `f`.
 fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<(String, Vec<String>)>) {
     let tree = tree.trim();
     if tree.is_empty() {
@@ -336,12 +415,6 @@ fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<(String, Vec<String>)>)
             .filter(|p| !p.is_empty() && *p != "self" && *p != "*")
             .map(String::from),
     );
-    if matches!(
-        path.first().map(String::as_str),
-        None | Some("crate" | "super")
-    ) {
-        return;
-    }
     let Some(last) = path.last().cloned() else {
         return;
     };

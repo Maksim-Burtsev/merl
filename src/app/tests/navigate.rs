@@ -441,6 +441,168 @@ fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #227. A Rust type the project declares twice is proven by the file of the module a
+/// `use crate::…` or `use super::…` at the top of the file takes it from. A binary's crate, a
+/// second `use` of the name, a type of the name in the file itself, a module that only hands the type on and a module with
+/// no file of its own stay by name.
+#[test]
+fn a_use_of_the_crate_says_which_of_two_types_it_is() {
+    let cache = |name: &str| {
+        format!(
+            "pub struct Cache;\n\nimpl Cache {{\n    pub fn new() -> Self {{\n        Cache\n    }}\n}}\n// {name}\n"
+        )
+    };
+    let (store, cached) = (cache("store"), cache("net"));
+    let (dir, mut a) = project_app(
+        "use-crate",
+        &[
+            ("Cargo.toml", "[package]\nname = \"depot\"\n"),
+            (
+                "src/main.rs",
+                "mod app;\nmod net;\nmod store;\nmod shelf;\n\nuse crate::store::Cache;\n\nfn main() {\n    let _ = Cache::new();\n}\n",
+            ),
+            ("src/store.rs", &store),
+            ("src/net/mod.rs", "pub mod cache;\npub mod client;\n"),
+            ("src/net/cache.rs", &cached),
+            (
+                "src/net/client.rs",
+                "use super::cache::Cache;\n\nfn open() {\n    let _ = Cache::new();\n}\n",
+            ),
+            (
+                "src/app/mod.rs",
+                "use super::store::{self, Cache};\n\nfn open() {\n    let _ = Cache::new();\n}\n",
+            ),
+            (
+                "src/app/grouped.rs",
+                "use crate::{\n    net::cache::Cache,\n    store,\n};\n\nfn open() {\n    let _ = Cache::new();\n}\n",
+            ),
+            (
+                "src/bin/tool.rs",
+                "use crate::store::Cache;\n\nfn main() {\n    let _ = Cache::new();\n}\n",
+            ),
+            (
+                "src/twice.rs",
+                "use crate::store::Cache;\n\nfn open() {\n    let _ = Cache::new();\n}\n\nfn other() {\n    use crate::net::cache::Cache;\n}\n",
+            ),
+            (
+                "src/own.rs",
+                "use crate::store::Cache;\n\nmod inner {\n    pub struct Cache;\n}\n\nfn open() {\n    let _ = Cache::new();\n}\n",
+            ),
+            ("src/shelf.rs", "pub use crate::store::Cache;\n"),
+            (
+                "src/rack.rs",
+                "pub use crate::store::Cache;\n\n#[cfg(test)]\nmod tests {\n    struct Cache;\n\n    impl Cache {\n        fn new() -> Self {\n            Cache\n        }\n    }\n}\n",
+            ),
+            (
+                "src/counter.rs",
+                "pub use crate::store::Cache;\n\nimpl Cache {\n    pub fn fresh() -> Self {\n        Cache\n    }\n}\n",
+            ),
+            (
+                "src/till.rs",
+                "use crate::counter::Cache;\n\nfn open() {\n    let _ = Cache::fresh();\n}\n",
+            ),
+            (
+                "src/stall.rs",
+                "use crate::rack::Cache;\n\nfn open() {\n    let _ = Cache::new();\n}\n",
+            ),
+            (
+                "src/aisle.rs",
+                "use crate::shelf::Cache;\n\nfn open() {\n    let _ = Cache::new();\n}\n",
+            ),
+            (
+                "src/far.rs",
+                "use crate::depot::Cache;\n\nfn open() {\n    let _ = Cache::new();\n}\n",
+            ),
+        ],
+    );
+    a.external
+        .insert(Kind::Rust, (Vec::new(), Arc::new(Vec::new())));
+    let three = [
+        ("Cache::new", "src/net/cache.rs:4"),
+        ("tests::Cache::new", "src/rack.rs:8"),
+        ("Cache::new", "src/store.rs:4"),
+    ];
+    let cases = [
+        (
+            "src/main.rs",
+            "Cache::new",
+            jump(
+                "new \u{2192} Cache::new (via import src/store.rs)",
+                "src/store.rs:4",
+            ),
+        ),
+        (
+            "src/net/client.rs",
+            "Cache::new",
+            jump(
+                "new \u{2192} Cache::new (via import src/net/cache.rs)",
+                "src/net/cache.rs:4",
+            ),
+        ),
+        (
+            "src/app/mod.rs",
+            "Cache::new",
+            jump(
+                "new \u{2192} Cache::new (via import src/store.rs)",
+                "src/store.rs:4",
+            ),
+        ),
+        (
+            "src/app/grouped.rs",
+            "Cache::new",
+            jump(
+                "new \u{2192} Cache::new (via import src/net/cache.rs)",
+                "src/net/cache.rs:4",
+            ),
+        ),
+        (
+            "src/bin/tool.rs",
+            "Cache::new",
+            picker("new: by name, 3 declarations", &three),
+        ),
+        (
+            "src/twice.rs",
+            "Cache::new",
+            picker("new: by name, 3 declarations", &three),
+        ),
+        (
+            "src/own.rs",
+            "Cache::new",
+            picker("new: by name, 3 declarations", &three),
+        ),
+        (
+            "src/aisle.rs",
+            "Cache::new",
+            picker("new: by name, 3 declarations", &three),
+        ),
+        // A module that hands `Cache` on and implements it.
+        (
+            "src/till.rs",
+            "Cache::fresh",
+            jump(
+                "fresh \u{2192} Cache::fresh (via import src/counter.rs)",
+                "src/counter.rs:4",
+            ),
+        ),
+        // `rack.rs` hands `Cache` on and declares another one only in its tests.
+        (
+            "src/stall.rs",
+            "Cache::new",
+            picker("new: by name, 3 declarations", &three),
+        ),
+        (
+            "src/far.rs",
+            "Cache::new",
+            picker("new: by name, 3 declarations", &three),
+        ),
+    ];
+    for (file, code, want) in cases {
+        d_on(&mut a, file, code);
+        assert_eq!(shown(&mut a), want, "{file}: {code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// Found by the acceptance pass of #68: a Go method of the same name and as many parameters,
 /// of other types, was the one implementation `d` jumped to.
 #[test]
