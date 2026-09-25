@@ -335,11 +335,17 @@ fn help_scrolls_to_the_last_binding() {
     let mut terminal = Terminal::new(TestBackend::new(100, 12)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let text = rows(&terminal).join("\n");
-    let (last_key, _) = crate::app::KEYS.last().unwrap();
-    assert!(text.contains(last_key), "{text}");
-    assert!(text.contains("to scroll"), "{text}");
+    let (last_key, last_action, last_group) = crate::app::KEYS.last().unwrap();
     assert!(
-        !text.contains("Open a file (fuzzy)"),
+        text.lines()
+            .any(|l| l.contains(last_key) && l.contains(last_action)),
+        "{text}"
+    );
+    assert!(text.contains(last_group), "{text}");
+    assert!(text.contains("to scroll"), "{text}");
+    let (_, _, first_group) = crate::app::KEYS[0];
+    assert!(
+        !text.contains(first_group) && !text.contains("Open a file (fuzzy)"),
         "first rows scrolled away\n{text}"
     );
 }

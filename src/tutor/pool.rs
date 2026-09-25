@@ -1,4 +1,4 @@
-//! The task pool the tutor and the drill share: one task per action of `KEYS`, in its order.
+//! The task pool the tutor and the drill share: one task per action of `KEYS`.
 
 use super::{Task, at, edited, selected};
 use crate::app::{App, Focus, Mode, PickerKind};

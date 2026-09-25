@@ -42,9 +42,9 @@ pub(super) fn welcome_hints() -> Vec<(&'static str, &'static str)> {
     WELCOME_ACTIONS
         .iter()
         .map(|a| {
-            let (k, _) = crate::app::KEYS
+            let (k, _, _) = crate::app::KEYS
                 .iter()
-                .find(|(_, x)| x == a)
+                .find(|(_, x, _)| x == a)
                 .unwrap_or_else(|| panic!("welcome action {a:?} is not in KEYS"));
             (*k, *a)
         })

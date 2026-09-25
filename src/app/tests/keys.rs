@@ -128,31 +128,53 @@ fn help_opens_and_closes_and_esc_clears_the_find() {
     assert_eq!(a.message, "find cleared");
 }
 
-/// The README key table and `KEYS` are the same list.
+/// The README's every-key tables are `KEYS`, group by group in its order, and the table above
+/// them lists real bindings only.
 #[test]
 fn readme_documents_every_key() {
     let readme = include_str!("../../../README.md");
-    let section = readme
+    let mut every = String::from("<summary>Every key</summary>\n");
+    let mut group = "";
+    for (key, action, g) in KEYS {
+        if *g != group {
+            group = g;
+            every += &format!("\n**{g}**\n\n| Key | Action |\n|---|---|\n");
+        }
+        every += &format!("| {key} | {action} |\n");
+    }
+    every += "\n</details>\n";
+    assert!(
+        readme.contains(&every),
+        "README should list every key as\n{every}"
+    );
+    let top = readme
         .split("\n## Keys\n")
         .nth(1)
         .expect("README has a Keys section")
-        .split("\n## ")
+        .split("<details>")
         .next()
         .unwrap();
-    let rows: Vec<&str> = section
+    let rows = top
         .lines()
-        .filter(|l| l.starts_with('|'))
-        .filter_map(|l| l.split('|').nth(1))
-        .map(str::trim)
-        .filter(|c| !c.is_empty() && !c.starts_with('-') && *c != "Key")
-        .collect();
-    for (key, _) in KEYS {
-        assert!(rows.contains(key), "README is missing {key:?}");
-    }
-    for row in &rows {
+        .filter_map(|l| l.strip_prefix("| "))
+        .filter_map(|l| l.split(" | ").next())
+        .filter(|&c| c != "Key");
+    for row in rows {
         assert!(
-            KEYS.iter().any(|(k, _)| k == row),
+            KEYS.iter().any(|(k, _, _)| *k == row),
             "README documents {row:?}, which is not a binding"
         );
+    }
+}
+
+/// Each group of `KEYS` is one run of rows, so `?` and the README head it once.
+#[test]
+fn every_group_of_keys_is_one_run() {
+    let mut runs: Vec<&str> = Vec::new();
+    for (_, _, g) in KEYS {
+        if runs.last() != Some(g) {
+            assert!(!runs.contains(g), "{g} is split in two");
+            runs.push(g);
+        }
     }
 }

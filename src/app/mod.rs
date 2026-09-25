@@ -45,85 +45,152 @@ const MAX_LABEL_TEXT: usize = 120;
 /// Longest symbol name the symbol list pads to.
 const MAX_NAME_PAD: usize = 40;
 
-/// Every binding, in the order the `?` overlay and the README table list them. Single source of
-/// truth: a test checks that the README says exactly this.
-pub const KEYS: &[(&str, &str)] = &[
-    ("o / Ctrl+E", "Open a file (fuzzy)"),
+/// Every binding, grouped by what the keys do, in the order the `?` overlay and the README
+/// table list them: (keys, action, group). A group is one run of rows, headed by its name.
+/// Single source of truth: a test checks that the README says exactly this.
+pub const KEYS: &[(&str, &str, &str)] = &[
+    ("o / Ctrl+E", "Open a file (fuzzy)", "Files and jumps"),
     (
         "Ctrl+N",
         "New file: type its path, Enter creates and edits it",
+        "Files and jumps",
     ),
-    ("/ / Ctrl+F", "Find in the open file"),
-    ("n / N", "Next / previous match"),
-    ("s", "Search the project"),
     (
         "d / F12",
         "Go to definition of the word under the cursor, or its implementations",
+        "Files and jumps",
     ),
-    ("D", "Project symbols (fuzzy)"),
-    ("u / Shift+F12", "Usages of the word under the cursor"),
-    ("[ / ]", "Back / forward in the jump history"),
-    ("c / C", "Review: next / previous hunk, on to the next file"),
-    ("m", "Review: mark the file as viewed, or take the mark off"),
-    (": / Ctrl+G", "Go to line"),
-    ("t", "Show or hide the file tree"),
-    ("T", "Pick a theme (live preview)"),
+    ("D", "Project symbols (fuzzy)", "Files and jumps"),
     (
-        "w",
-        "Wrap long lines, or cut them at the edge and scroll sideways",
+        "u / Shift+F12",
+        "Usages of the word under the cursor",
+        "Files and jumps",
     ),
-    ("Tab", "Switch focus between tree and code"),
-    ("Enter", "Edit at the cursor (Esc returns to navigation)"),
+    (
+        "[ / ]",
+        "Back / forward in the jump history",
+        "Files and jumps",
+    ),
+    (": / Ctrl+G", "Go to line", "Files and jumps"),
+    ("/ / Ctrl+F", "Find in the open file", "Search"),
+    ("n / N", "Next / previous match", "Search"),
+    ("s", "Search the project", "Search"),
+    (
+        "c / C",
+        "Review: next / previous hunk, on to the next file",
+        "Review",
+    ),
+    (
+        "m",
+        "Review: mark the file as viewed, or take the mark off",
+        "Review",
+    ),
+    (
+        "Enter",
+        "Edit at the cursor (Esc returns to navigation)",
+        "Editing",
+    ),
     (
         "Ctrl+S",
         "Save now (edits are saved on their own after a pause)",
+        "Editing",
     ),
-    ("Ctrl+R", "Reload from disk, dropping unsaved edits"),
-    ("Ctrl+Z / Ctrl+Y", "Undo / redo"),
+    (
+        "Ctrl+R",
+        "Reload from disk, dropping unsaved edits",
+        "Editing",
+    ),
+    ("Ctrl+Z / Ctrl+Y", "Undo / redo", "Editing"),
     (
         "Ctrl+C",
         "Copy the selection, or the line, to the clipboard",
+        "Editing",
     ),
-    ("Edit: Ctrl+X", "Cut the selection, or the line"),
+    ("Edit: Ctrl+X", "Cut the selection, or the line", "Editing"),
     (
         "Edit: Alt+Backspace / Alt+Delete",
         "Delete the word before / after the cursor",
+        "Editing",
     ),
-    ("Arrows", "Move the cursor; Up / Down go by screen row"),
+    (
+        "v",
+        "Select the word, then the line, then the paragraph",
+        "Selection",
+    ),
     (
         "Shift+Up / Shift+Down",
         "Extend the selection by a screen row",
+        "Selection",
     ),
-    ("Shift+Left / Shift+Right", "Extend the selection by a char"),
-    ("Alt+Left / Alt+Right", "Move one word"),
-    ("Alt+Shift+Left / Right", "Extend the selection by a word"),
+    (
+        "Shift+Left / Shift+Right",
+        "Extend the selection by a char",
+        "Selection",
+    ),
+    (
+        "Alt+Shift+Left / Right",
+        "Extend the selection by a word",
+        "Selection",
+    ),
     (
         "Ctrl+Shift+Left / Right",
         "Extend the selection to the start / end of the screen row, then of the line",
+        "Selection",
     ),
-    ("v", "Select the word, then the line, then the paragraph"),
-    ("Ctrl+D / Ctrl+U", "Move half a screen down / up"),
-    ("{ / }", "Previous / next paragraph (blank line)"),
-    ("PgUp / PgDn", "Move one screen"),
+    (
+        "Arrows",
+        "Move the cursor; Up / Down go by screen row",
+        "Movement",
+    ),
+    ("Alt+Left / Alt+Right", "Move one word", "Movement"),
     (
         "Home / End",
         "Start / end of the screen row, then of the line",
+        "Movement",
     ),
-    ("Ctrl+Home / Ctrl+End", "Start / end of the file"),
+    (
+        "Ctrl+Home / Ctrl+End",
+        "Start / end of the file",
+        "Movement",
+    ),
+    (
+        "{ / }",
+        "Previous / next paragraph (blank line)",
+        "Movement",
+    ),
+    (
+        "Ctrl+D / Ctrl+U",
+        "Move half a screen down / up",
+        "Movement",
+    ),
+    ("PgUp / PgDn", "Move one screen", "Movement"),
+    ("t", "Show or hide the file tree", "Panels"),
+    ("Tab", "Switch focus between tree and code", "Panels"),
+    ("Tree: Up / Down", "Move", "Panels"),
+    (
+        "Tree: Enter",
+        "Open the file, or expand the directory",
+        "Panels",
+    ),
+    ("Tree: Left / Right", "Collapse / expand", "Panels"),
+    ("Picker: Up / Down", "Move", "Panels"),
+    ("Picker: PgUp / PgDn", "Move one page", "Panels"),
+    ("Picker: Enter", "Accept", "Panels"),
+    ("Picker: Esc", "Cancel", "Panels"),
+    ("?", "This help", "Panels"),
+    ("Help: Up / Down", "Scroll", "Panels"),
+    (
+        "w",
+        "Wrap long lines, or cut them at the edge and scroll sideways",
+        "General",
+    ),
+    ("T", "Pick a theme (live preview)", "General"),
     (
         "Esc",
         "Close an overlay, leave edit mode, or clear selection and find",
+        "General",
     ),
-    ("?", "This help"),
-    ("q", "Quit"),
-    ("Tree: Up / Down", "Move"),
-    ("Tree: Enter", "Open the file, or expand the directory"),
-    ("Tree: Left / Right", "Collapse / expand"),
-    ("Picker: Up / Down", "Move"),
-    ("Picker: Enter", "Accept"),
-    ("Picker: Esc", "Cancel"),
-    ("Picker: PgUp / PgDn", "Move one page"),
-    ("Help: Up / Down", "Scroll"),
+    ("q", "Quit", "General"),
 ];
 
 /// Which picker is open, and what its overlay is called.
