@@ -8,8 +8,6 @@ use std::ops::Range;
 
 /// The parts of `old` and `new` that differ, as byte ranges into each: sorted, disjoint,
 /// non-empty, consecutive changed tokens merged into one range.
-// The renderer paints these; nothing reads them yet.
-#[allow(dead_code)]
 pub fn changes(old: &str, new: &str) -> (Vec<Range<usize>>, Vec<Range<usize>>) {
     let (a, b) = (tokens(old), tokens(new));
     let (pre, suf) = common(old, new, &a, &b);
@@ -167,7 +165,6 @@ fn lcs(a: &[&str], b: &[&str]) -> (Vec<bool>, Vec<bool>) {
 }
 
 /// The byte ranges of the tokens that did not survive, consecutive ones merged.
-#[allow(dead_code)] // used by `changes`, which the renderer has not picked up yet
 fn changed(tokens: &[Range<usize>], kept: &[bool]) -> Vec<Range<usize>> {
     let mut out: Vec<Range<usize>> = Vec::new();
     for (t, kept) in tokens.iter().zip(kept) {

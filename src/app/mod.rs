@@ -356,6 +356,9 @@ pub struct App {
     /// every load, save and reload; between an edit and its autosave they lag by a second.
     /// In review mode: against the branch's base, with ghosts, taken on open (see `refresh_diff`).
     pub diff: git::Diff,
+    /// Review: the open file as it was at the merge base, keyed `merge_base:path`, for the ghosts'
+    /// syntax colours; highlighted lazily like `buf`. `None` when the file has no ghosts.
+    pub base: Option<(String, Buffer)>,
     pub want_diff: bool,
     /// `--review`: the branch under review. The tree pane then lists its files.
     pub review: Option<git::Review>,
@@ -491,6 +494,7 @@ impl App {
             resume_edit: false,
             clipboard: None,
             diff: git::Diff::default(),
+            base: None,
             want_diff: true,
             review: None,
             viewed: HashMap::new(),

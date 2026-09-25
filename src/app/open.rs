@@ -146,6 +146,22 @@ impl App {
             },
             _ => r.diff(&self.root, &path, file),
         };
+        // The ghosts take their syntax colours from the file at the base. This runs after every
+        // autosave, and the base does not change under an edit: the one loaded is kept.
+        self.base = match rel {
+            Some(rel) if !self.diff.ghosts.is_empty() => {
+                let from = file.and_then(|f| f.old.as_deref()).unwrap_or(rel);
+                let key = format!("{}:{}", r.merge_base, from.display());
+                match self.base.take() {
+                    Some((k, b)) if k == key => Some((k, b)),
+                    _ => r
+                        .base_bytes(&self.root, from)
+                        .ok()
+                        .map(|bytes| (key, Buffer::from_bytes(self.root.join(from), &bytes))),
+                }
+            }
+            _ => None,
+        };
         // Ghosts change how many rows a line has; the viewport must not point past them.
         self.clamp_top();
     }

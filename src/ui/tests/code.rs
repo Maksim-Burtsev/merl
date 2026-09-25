@@ -408,10 +408,11 @@ fn ghost_lines_draw_above_their_line_and_the_cursor_skips_them() {
         rows(&terminal)[..5],
         ["1 a", "\u{258e}old1", "\u{258e}old2", "2\u{258e}b", "3 c"]
     );
-    // Greyed by the theme's own readable grey, never by the terminal's `dim` (#144).
+    // On the deleted tint, never greyed by the terminal's `dim` (#144); with no base file to
+    // take syntax colours from, in the plain text colour.
     let buf = terminal.backend().buffer();
     let o = (0..8).find(|x| buf[(*x, 1)].symbol() == "o").unwrap();
-    assert_eq!(buf[(o, 1)].fg, theme.ghost_fg);
+    assert_eq!((buf[(o, 1)].fg, buf[(o, 1)].bg), (theme.fg, theme.del_bg));
     assert!(!buf[(o, 1)].modifier.contains(ratatui::style::Modifier::DIM));
     assert_eq!(terminal.get_cursor_position().unwrap().y, 4);
     // Up from `c` lands on `b`, not on a ghost; up again on `a`.
@@ -566,10 +567,11 @@ fn a_ghost_longer_than_the_pane_wraps_and_the_text_follows() {
         rows(&terminal)[..4],
         ["1 a", "\u{258e}  one two", "\u{258e}  three four", "2 b"]
     );
-    // Greyed like any ghost, on both rows.
+    // On the deleted tint on both rows, out to the right edge.
     let buf = terminal.backend().buffer();
     let t = |y: u16| (0..14).find(|x| buf[(*x, y)].symbol() == "t").unwrap();
-    assert_eq!(buf[(t(2), 2)].fg, theme.ghost_fg);
+    assert_eq!(buf[(t(2), 2)].bg, theme.del_bg);
+    assert_eq!(buf[(13, 1)].bg, theme.del_bg);
 }
 
 #[test]
@@ -736,4 +738,170 @@ fn gutter_width() {
     assert_eq!(super::digits(10), 2);
     assert_eq!(super::digits(999), 3);
     assert_eq!(super::digits(1000), 4);
+}
+
+/// A repository whose `main` has `f.py` and `gone.py`, and a `feature` branch checked out that
+/// deleted `gone.py` and changed one operator of `f.py` in the working tree: a real review.
+fn review_of_one_operator(tag: &str) -> (PathBuf, App) {
+    let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&dir)
+            .args(["-c", "user.email=t@t", "-c", "user.name=t"])
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    git(&["init", "-q", "-b", "main"]);
+    std::fs::write(dir.join("f.py"), "def f(a, b):\n    return a == b\n").unwrap();
+    std::fs::write(dir.join("gone.py"), "x = 1\n").unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "base"]);
+    git(&["switch", "-q", "-c", "feature"]);
+    git(&["rm", "-q", "gone.py"]);
+    git(&["commit", "-q", "-m", "gone"]);
+    std::fs::write(dir.join("f.py"), "def f(a, b):\n    return a >= b\n").unwrap();
+    let path = dir.join("f.py");
+    let mut app = App::new(
+        dir.clone(),
+        Tree::default(),
+        Vec::new(),
+        Buffer::load(&path).unwrap(),
+        None,
+    );
+    app.show_tree = false;
+    app.start_review(crate::git::Review::open(&dir, None, None).unwrap());
+    (dir, app)
+}
+
+/// Review paints the diff as GitHub does (#165): the deleted and the added row on their tints out
+/// to the right edge, the ghost in the base file's syntax colours, and the word that changed on a
+/// stronger tint in `word_fg`. A selection and a find match win over a changed word.
+#[test]
+fn review_paints_the_word_that_changed_on_both_rows() {
+    let (dir, mut app) = review_of_one_operator("words");
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(24, 5)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(
+        rows(&terminal)[..3],
+        [
+            "1 def f(a, b):",
+            "\u{258e}    return a == b",
+            "2\u{258e}    return a >= b"
+        ]
+    );
+    // The cursor is on the hunk: the added row is the cursor line.
+    assert_eq!(app.line, 1);
+    let cell = |t: &Terminal<TestBackend>, x: u16, y: u16| {
+        let c = &t.backend().buffer()[(x, y)];
+        (c.fg, c.bg)
+    };
+    let x_of = |t: &Terminal<TestBackend>, y: u16, s: &str| {
+        (0..24)
+            .find(|x| t.backend().buffer()[(*x, y)].symbol() == s)
+            .unwrap()
+    };
+    // `==` became `>=`: the first `=` is the old word, `>` the new one.
+    let (eq, gt, ret) = (
+        x_of(&terminal, 1, "="),
+        x_of(&terminal, 2, ">"),
+        x_of(&terminal, 2, "r"),
+    );
+    assert_eq!(cell(&terminal, eq, 1), (theme.word_fg, theme.del_word_bg));
+    assert_eq!(
+        cell(&terminal, gt, 2),
+        (theme.word_fg, theme.add_word_bg_hl)
+    );
+    assert_eq!(cell(&terminal, eq + 1, 1).1, theme.del_bg, "the kept `=`");
+    assert_eq!(cell(&terminal, 23, 1).1, theme.del_bg);
+    assert_eq!(cell(&terminal, 23, 2).1, theme.add_bg_hl);
+    // `return` is a keyword in both rows: the ghost is coloured from the base, like the text.
+    let keyword = cell(&terminal, ret, 2).0;
+    assert_ne!(keyword, theme.fg);
+    assert_eq!(cell(&terminal, ret, 1), (keyword, theme.del_bg));
+    assert_eq!(cell(&terminal, ret, 2).1, theme.add_bg_hl);
+    // Off the cursor line the added row takes the plain tints.
+    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(cell(&terminal, gt, 2), (theme.word_fg, theme.add_word_bg));
+    assert_eq!(cell(&terminal, 23, 2).1, theme.add_bg);
+    // Selected, the changed word shows the selection; a find match on it shows the match.
+    app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    app.col = app.buf.lines[1].find('>').unwrap();
+    app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(cell(&terminal, gt, 2).1, theme.selection);
+    app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+    app.find_re = Some(regex::Regex::new(">").unwrap());
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(cell(&terminal, gt, 2).1, theme.find_bg);
+    // A file the branch deleted is all deleted rows.
+    app.jump_to(&dir.join("gone.py"), 0);
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(rows(&terminal)[0], "1\u{2581}x = 1");
+    assert_eq!(cell(&terminal, 23, 0).1, theme.del_bg_hl);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Outside a review the gutter marks lines against the index, and nothing is tinted.
+#[test]
+fn outside_a_review_added_lines_are_not_tinted() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\n"),
+        None,
+    );
+    app.show_tree = false;
+    app.diff.marks.insert(1, Mark::Added);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(8, 3)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(rows(&terminal)[1], "2\u{258e}b");
+    assert_eq!(terminal.backend().buffer()[(2, 1)].bg, theme.bg);
+}
+
+/// The changed word of a wrapped ghost is painted on whichever row it lands, and with `w` it
+/// moves with the text when the view scrolls sideways.
+#[test]
+fn a_changed_word_is_painted_on_a_wrapped_or_scrolled_ghost() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nalpha beta gamma omega\n"),
+        None,
+    );
+    app.show_tree = false;
+    app.diff
+        .ghosts
+        .insert(1, vec!["alpha beta gamma delta".into()]);
+    app.diff.pairs.insert(1, (1, 0));
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    // Twelve cells of text: `delta` is on the ghost's second row.
+    let mut terminal = Terminal::new(TestBackend::new(14, 6)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(
+        rows(&terminal)[1..3],
+        ["\u{258e}alpha beta", "\u{258e}gamma delta"]
+    );
+    let buf = terminal.backend().buffer();
+    let d = (0..14).find(|x| buf[(*x, 2)].symbol() == "d").unwrap();
+    assert_eq!(buf[(d, 2)].bg, theme.del_word_bg);
+    assert_eq!(buf[(d - 2, 2)].bg, theme.del_bg, "`gamma` is kept");
+    // Not wrapped and scrolled to the end of the line, `delta` is painted where it now stands.
+    app.key(KeyEvent::new(KeyCode::Char('w'), KeyModifiers::NONE));
+    app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    app.key(KeyEvent::new(KeyCode::End, KeyModifiers::NONE));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let buf = terminal.backend().buffer();
+    let d = (0..14).find(|x| buf[(*x, 1)].symbol() == "d").unwrap();
+    assert_eq!(buf[(d, 1)].bg, theme.del_word_bg);
+    assert!(app.left > 0);
 }
