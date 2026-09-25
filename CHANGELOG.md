@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-25
+
 ### Added
 
 - `merl --drill [N]` trains the keys you do not press: N tasks on the tutor's sample project, 20
@@ -66,7 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   directories (`.env`, `config/local.yml`), dim and after the rest; `s`, `u` and `d` search what
   they searched before. (#157)
 - `c` / `C` outside a review do nothing and no longer say `not in review mode`. (#162)
-
+- `?` and the README key table list the keys under what they do: files and jumps, search,
+  review, editing, selection, movement, panels, general, instead of one flat list. (#188)
 - Opening another file no longer empties the undo history: each file keeps its own for the whole
   session, as a VS Code tab that stays open does. Fix a line, `d` to see what it calls, `[` back,
   and Ctrl+Z still takes the fix back; Ctrl+Y works the same. A file an agent wrote while you
@@ -89,7 +92,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   after a force-push too. Your own commits are never rewritten: when the branch has diverged, or
   local changes are in the way, the status bar says `diverged from origin/feat` or `behind
   origin/feat`, and `origin/feat not fetched` when the fetch failed. (#181)
-
+- A file named with `[ ]`, `*` or `?`, such as `app/[id].tsx`, shows its own changes in the
+  gutter and in review; git read the name as a pattern, so `app/d.tsx`'s marks, ghosts and
+  hunks showed up in it. (#221)
+- With `diff.interHunkContext` in the git config, two edits a few lines apart are two changes
+  again: the gutter no longer marks the unchanged lines between them, `c` stops on both, and
+  the second one's deleted line is shown. (#220)
+- A row that starts with `⚠️`, `✔️` or `➡️` is drawn in place after Ctrl+D and the other
+  scrolls, not a cell late. (#206)
+- `d` on a field rebound from itself, `this.submit = this.submit.bind(this)` or
+  `self.model = self.model.to(device)`, answers instead of aborting merl on a stack overflow
+  with the terminal left in raw mode. (#175)
+- Tab over a selection of several lines indents each of them, in one undo step, instead of
+  replacing them with one indent. (#176)
+- `d` on a name inside a call wrapped onto the next lines (`cast(`, `make(`, `new(`) no longer
+  aborts merl. (#178)
+- Under `--tutor` and `--drill` the `?` list and the pickers stop above the task panel, so the
+  task and its tick stay in sight. (#222)
 - `d` and `D` outside the project walk a Python directory once when `sys.path` lists it twice,
   apart (a `PYTHONPATH` entry, a `.pth` file): every hit there was offered twice. In a Rust
   project the cargo registry is listed once per `d`, not once per package of `Cargo.lock`. (#152)
@@ -842,7 +861,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scroll position, the jump history and the find pattern.
 - Help overlay on `?`, listing every binding; Esc in normal mode clears the find highlights.
 
-[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.7.0
 [0.6.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.6.0
 [0.5.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.5.0
 [0.4.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.4.0
