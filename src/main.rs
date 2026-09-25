@@ -3,6 +3,7 @@
 mod app;
 mod buffer;
 mod git;
+mod intraline;
 mod line_edit;
 mod live;
 mod picker;
