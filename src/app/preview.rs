@@ -172,20 +172,20 @@ impl App {
         let (row, top, last) = (p.row, p.top, p.doc.rows.len() - 1);
         let (h, half) = (self.view_h.max(1), (self.view_h / 2).max(1));
         let gap = |i: &usize| p.doc.rows[*i].kind == Kind::Gap;
-        // Where the key goes, how the view goes with it, and whether it reads on (a stop of the
-        // jump history follows it) or jumps (a far one adds a stop, as in the source).
-        let (to, scroll, reads) = match key.code {
-            KeyCode::Up if plain => (row.saturating_sub(1), 0, true),
-            KeyCode::Down if plain => ((row + 1).min(last), 0, true),
-            KeyCode::PageUp if plain => (row.saturating_sub(h), 0, true),
-            KeyCode::PageDown if plain => ((row + h).min(last), 0, true),
+        // Where the key goes, and how the view goes with it. The jump history follows the source
+        // line as in the source: the rows are in source order.
+        let (to, scroll) = match key.code {
+            KeyCode::Up if plain => (row.saturating_sub(1), 0),
+            KeyCode::Down if plain => ((row + 1).min(last), 0),
+            KeyCode::PageUp if plain => (row.saturating_sub(h), 0),
+            KeyCode::PageDown if plain => ((row + h).min(last), 0),
             // Half a screen, the view with the cursor, as in the source.
-            KeyCode::Char('u') if ctrl => (row.saturating_sub(half), -1, true),
-            KeyCode::Char('d') if ctrl => ((row + half).min(last), 1, true),
-            KeyCode::Home if ctrl => (0, 0, false),
-            KeyCode::End if ctrl => (last, 0, false),
-            KeyCode::Char('{') => ((0..row).rev().find(gap).unwrap_or(0), 0, false),
-            KeyCode::Char('}') => ((row + 1..=last).find(gap).unwrap_or(last), 0, false),
+            KeyCode::Char('u') if ctrl => (row.saturating_sub(half), -1),
+            KeyCode::Char('d') if ctrl => ((row + half).min(last), 1),
+            KeyCode::Home if ctrl => (0, 0),
+            KeyCode::End if ctrl => (last, 0),
+            KeyCode::Char('{') => ((0..row).rev().find(gap).unwrap_or(0), 0),
+            KeyCode::Char('}') => ((row + 1..=last).find(gap).unwrap_or(last), 0),
             KeyCode::Enter if plain => {
                 self.start_edit();
                 return true;
@@ -199,26 +199,20 @@ impl App {
             _ => top,
         };
         // A row drawn for no line of its own (a border, a rule, a blank row with no blank line
-        // under it, the footnotes' separator) stands after the content row above it: the cursor
-        // goes to the end of that row's last line, never onto the line drawn below.
-        let src = match p.doc.rows[to].lines.is_empty() {
-            false => p.doc.rows[to].src,
-            true => p.doc.rows[..to]
+        // under it) stands between the content above and below it: the cursor goes to the start
+        // of the content below, where Enter edits, or to the end of the file when there is none.
+        let rows = &p.doc.rows;
+        let src = match rows[to].span() {
+            Some(_) => rows[to].src,
+            None => rows[to..]
                 .iter()
-                .rev()
-                .find(|r| !r.lines.is_empty())
-                .map_or((0, 0), |r| (r.lines.end - 1, usize::MAX)),
+                .find_map(|r| r.span())
+                .map_or((usize::MAX, usize::MAX), |(b, _)| (b, 0)),
         };
         (self.line, self.col) = self.clamp_pos(src);
         let at = (self.line, self.col);
         if let Some(p) = &mut self.preview {
             (p.row, p.top, p.at) = (to, top, Some(at));
-        }
-        // Reading moves the current stop of the jump history, as paging does, and adds none: a
-        // row's source line can be far from the one above it, a footnote's is. A jump is judged
-        // by its source lines after the key, as in the source.
-        if reads && let (Some(pos), Some(cur)) = (self.pos(), self.history.get_mut(self.hist_idx)) {
-            *cur = pos;
         }
         self.preview_clamp();
         true
@@ -232,16 +226,21 @@ impl App {
         }
     }
 
-    /// The line the cursor stands after, for `c`, `C`, the status bar's hunk count and the
-    /// missed-keys watch, which compare hunks with it as the source view does with its line:
-    /// `None` on a row drawn for no line at the very top of the preview, which stands before
-    /// line 0, so a hunk there is still ahead.
-    pub(super) fn cursor_after(&self) -> Option<usize> {
-        let top = self
-            .preview
-            .as_ref()
-            .filter(|p| self.previewing() && p.at == Some((self.line, self.col)))
-            .is_some_and(|p| p.doc.rows[..=p.row].iter().all(|r| r.lines.is_empty()));
-        (!top).then_some(self.line)
+    /// The lines the cursor stands on, for `c`, `C`, the status bar's count and the missed-keys
+    /// watch: its line, or none on a row drawn for no line, which stands between the content
+    /// ending at line `a` above it and the content below: `a + 1..a + 1`, so `c` goes to the
+    /// first hunk after `a` and `C` to the last at or before it. With nothing above, `0..0`.
+    pub(super) fn cursor_at(&self) -> std::ops::Range<usize> {
+        let here = self.line..self.line + 1;
+        let pos = (self.line, self.col);
+        let Some(p) = self.preview.as_ref() else {
+            return here;
+        };
+        if !self.previewing() || p.at != Some(pos) || p.doc.rows[p.row].span().is_some() {
+            return here;
+        }
+        let a = p.doc.rows[..p.row].iter().rev().find_map(|r| r.span());
+        let n = a.map_or(0, |(_, a)| a + 1);
+        n..n
     }
 }

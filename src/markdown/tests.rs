@@ -274,8 +274,6 @@ fn rules_front_matter_html_and_footnotes() {
             "",
             "<div>raw</div>",
             "",
-            rule.as_str(),
-            "",
             "[1] The source",
             "    of it.",
         ]
@@ -436,13 +434,23 @@ fn prose_rows_go_back_to_where_their_text_is_written() {
 }
 
 #[test]
-fn footnotes_are_listed_in_the_order_they_are_numbered() {
-    let d = doc("B[^b] A[^a].\n\n[^a]: note a\n[^b]: note b", 40);
-    let t = texts(&d);
-    assert_eq!(t[0], "B[1] A[2].");
-    assert_eq!(t[t.len() - 2..], ["[1] note b", "[2] note a"]);
-    // A position on a definition finds its row at the end.
+fn footnotes_are_drawn_where_they_are_written() {
+    // Numbered as they are first met, drawn in place under their label, in source order.
+    let d = doc("B[^b] A[^a].\n\n[^a]: note a\n\n[^b]: note b\n\nAfter.", 40);
+    assert_eq!(
+        texts(&d),
+        [
+            "B[1] A[2].",
+            "",
+            "[2] note a",
+            "",
+            "[1] note b",
+            "",
+            "After."
+        ]
+    );
     assert_eq!(d.rows[d.row_at((2, 0))].text, "[2] note a");
+    assert_eq!(look_of(&d, "[2] "), Ink::Link.plain());
 }
 
 #[test]
@@ -456,23 +464,60 @@ fn an_info_string_names_its_language_by_its_first_word() {
 }
 
 #[test]
-fn lines_after_a_footnote_belong_to_the_rows_that_follow() {
-    // The footnote is drawn at the end and owns only its own line; the blank line and the
-    // reference definition after it go with the rows that follow, in place.
+fn lines_after_a_footnote_go_with_it() {
+    // The footnote is drawn where it is written, so the blank line and the reference definition
+    // after it go with it, as they would with any row above them.
     let d = doc(
         "Intro[^a].\n\n[^a]: Note.\n\n[r]: http://x\n\nNext para.\n",
         40,
     );
     let note = d.row_at((2, 0));
     assert_eq!(d.rows[note].text, "[1] Note.");
-    // The blank row before `Next para.` shows line 5, and takes 3 and 4 with it.
-    let gap = d.row_at((5, 0));
-    assert_eq!(
-        (d.rows[gap].text.as_str(), d.rows[gap + 1].text.as_str()),
-        ("", "Next para.")
-    );
-    assert_eq!((d.row_at((3, 0)), d.row_at((4, 0))), (gap, gap));
-    assert!(gap < note);
+    assert_eq!((d.row_at((3, 0)), d.row_at((4, 0))), (note, note));
+    assert!(d.row_at((6, 0)) > note);
+}
+
+/// Rows in source order: every row's lines start at or after those of the rows above it.
+fn in_source_order(d: &Doc) -> Result<(), String> {
+    let mut last = 0;
+    for (i, r) in d.rows.iter().enumerate() {
+        if let Some((first, _)) = r.span() {
+            if first < last {
+                return Err(format!(
+                    "row {i} {:?} starts at line {first}, after {last}",
+                    r.text
+                ));
+            }
+            last = first;
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn the_rows_are_in_source_order() {
+    let fixtures = [
+        "B[^b] A[^a].\n\n[^a]: note a\n\n[^b]: note b\n\nAfter.",
+        "Intro[^a].\n\n[^a]: Note.\n\n[r]: http://x\n\nNext para.\n",
+        "---\ntitle: x\n---\nA claim[^src].\n\n---\n\n<div>raw</div>\n\n[^src]: The source.",
+        "# Title\n\nSome words that\nwrap on.\n\n- item\n- next\n\n```\ncode\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |",
+        "> said\n> twice\n\n> [!WARNING]\n> Careful with this one",
+        "- first item wraps here\n  1. one\n  2. two\n- [x] done\n\n3. three",
+        "Title\n=====\nText [a].\n\n[a]: http://x\n\n```py\nx = 1\n```",
+        "[a]: http://x\n\n[b]: http://y\n",
+        "",
+        include_str!("../../tutor/notes/PLAN.md"),
+        include_str!("../../README.md"),
+        include_str!("../../CHANGELOG.md"),
+        include_str!("../../docs/markdown.md"),
+    ];
+    for (k, text) in fixtures.iter().enumerate() {
+        for width in [12, 40, 100] {
+            if let Err(e) = in_source_order(&doc(text, width)) {
+                panic!("fixture {k} at {width}: {e}");
+            }
+        }
+    }
 }
 
 #[test]

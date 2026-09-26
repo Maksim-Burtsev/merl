@@ -4,7 +4,9 @@ Agents write Markdown: plans, specs, reports, `AGENTS.md`, changelogs. `p` on a 
 `.markdown` file shows it rendered, in place, in the code pane; `p` again shows the source. The
 place is kept both ways: the preview opens on the block the source was showing, as far down the
 pane, and the source comes back with the cursor on the line the preview was showing. Enter in the
-preview goes to the source at that place and starts editing, as it does on the source.
+preview goes to the source at that place and starts editing, as it does on the source. The rows
+come in the order of the source, a footnote in its place too, so moving down the preview never
+moves up the source.
 
 A Markdown file opens as source, as any other file; `p` renders it until `p` again or until merl
 quits, the way `w` flips wrapping for one file. Another Markdown file opens as source. The status
@@ -24,7 +26,7 @@ bar says `[preview]` where it says `[code]`, and `p` on a file that is not Markd
 | `---` | a rule across the pane |
 | `[text](url)` | the text, underlined in the link colour; the URL is in the source |
 | `![alt](image.png)` | `▣` and the alt text |
-| footnotes | the reference as `[1]`, the notes at the end under a rule |
+| footnotes | the reference as `[1]`; the note where it is written, under its `[1]` |
 | YAML front matter, raw HTML | as written, dim |
 
 Images, heading sizes, Mermaid and math stay text: a terminal has no way to draw them.
@@ -47,4 +49,10 @@ to act on in the preview and does nothing; `p` or Enter take you to the source f
 In `--review` the preview keeps the diff in its gutter: the rows of lines the branch added have
 the green bar and tint, a line that replaced one the blue bar a changed line gets, and a red mark
 stands where the branch deleted lines. The deleted text itself is in the source. `c` / `C` walk
-the hunks in either, the preview's rows one hunk further when the next is on the row already.
+the hunks by the source line, as in the source, and the preview shows the row of the hunk's line:
+the next hunk on the same row is one `c` further, and the count in the status bar says which one
+the cursor is on. Lines no row shows (a deleted paragraph, reference definitions) go with the row
+above them. A row drawn for no line (a table's border, a heading's rule, a blank row with no blank
+line under it) stands between the blocks above and below it: `c` goes to the first hunk below,
+`C` to the last one at or above, and Enter edits at the start of the block below, or at the end of
+the file where there is none.

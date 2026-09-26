@@ -5,6 +5,10 @@
 //! theme's, looked up as a row is drawn ([`Palette`]), so `T` repaints without laying out again.
 //! Prose reflows with [`wrap`], which measures emoji and CJK as the screen does; a table wider
 //! than the pane narrows its widest columns and wraps inside their cells, so it stays whole.
+//!
+//! The rows come in source order: every row's lines start at or after those of the rows above
+//! it. A footnote definition is drawn where it is written, not gathered at the end, so moving
+//! down the rows never moves back up the source, and `c` walks down the screen.
 
 use std::collections::HashMap;
 use std::ops::Range;
@@ -111,6 +115,16 @@ pub struct Doc {
     pub code: Vec<Code>,
 }
 
+impl Row {
+    /// The first and the last source line the row stands for, shown or owned; `None` for a row
+    /// drawn for no line of its own (a border, a rule, a blank row with no blank line under it).
+    pub fn span(&self) -> Option<(usize, usize)> {
+        let owned = self.owns.iter().copied();
+        let lines = self.lines.clone().chain(owned);
+        Some((lines.clone().min()?, lines.max()?))
+    }
+}
+
 impl Doc {
     /// The row a source position is shown on: of the rows that show its line, the last that
     /// starts at or before its column (the first of those that start together), or the first of
@@ -169,26 +183,6 @@ pub fn layout(lines: &[String], width: usize) -> Doc {
         lay.event(ev, r);
     }
     lay.flush();
-    // Footnotes come last, as on GitHub, under a rule, in the order they are numbered.
-    if !lay.notes.is_empty() {
-        let mut notes = std::mem::take(&mut lay.notes);
-        notes.sort_by_key(|(n, _)| *n);
-        lay.note_rows = notes.iter().map(|(_, rows)| rows.len()).sum();
-        // The blank rows and the rule between are drawn for no line of their own.
-        let end = src.len();
-        let from = lay.rows.len();
-        lay.gap = true;
-        lay.block_start(end);
-        lay.rule(lay.after());
-        lay.gap = true;
-        lay.block_start(end);
-        for r in &mut lay.rows[from..] {
-            r.lines.end = r.lines.start;
-        }
-        lay.rows
-            .extend(notes.into_iter().flat_map(|(_, rows)| rows));
-    }
-    let body = lay.rows.len() - lay.note_rows;
     let mut rows = lay.rows;
     if rows.is_empty() {
         rows.push(Row {
@@ -200,29 +194,23 @@ pub fn layout(lines: &[String], width: usize) -> Doc {
             kind: Kind::Gap,
         });
     }
-    cover(&mut rows, lines.len(), body.max(1));
+    cover(&mut rows, lines.len());
     Doc {
         rows,
         code: lay.code,
     }
 }
 
-/// Gives every source line no row shows to a row of the body, `rows[..body]`, for its marks and
-/// for finding the row of a position: to the row that shows or owns the line above it, and after
-/// a footnote's lines (drawn at the end, owning only their own) or above every row, to the row
-/// that shows the next line. Lines past the last row go with the last row of the body.
-fn cover(rows: &mut [Row], n: usize, body: usize) {
-    // The first and the last row of the body that show each line, and whether a footnote does.
+/// Gives every source line no row shows to a row, for its marks and for finding the row of a
+/// position: to the row that shows or owns the line above it, and above every row to the row
+/// that shows the next line. With no row that shows a line, the first row takes them all.
+fn cover(rows: &mut [Row], n: usize) {
+    // The first and the last row that show each line.
     let (mut first, mut last) = (vec![None; n], vec![None; n]);
-    let mut note = vec![false; n];
     for (i, r) in rows.iter().enumerate() {
         for l in r.lines.clone().filter(|&l| l < n) {
-            if i >= body {
-                note[l] = true;
-            } else {
-                first[l].get_or_insert(i);
-                last[l] = Some(i);
-            }
+            first[l].get_or_insert(i);
+            last[l] = Some(i);
         }
     }
     let (mut above, mut pending) = (None, Vec::new());
@@ -230,19 +218,13 @@ fn cover(rows: &mut [Row], n: usize, body: usize) {
         if let Some(i) = first[l] {
             rows[i].owns.append(&mut pending);
             above = last[l];
-        } else if note[l] {
-            above = None;
         } else if let Some(i) = above {
             rows[i].owns.push(l);
         } else {
             pending.push(l);
         }
     }
-    if let Some(i) = (0..body).rev().find(|&i| !rows[i].lines.is_empty()) {
-        rows[i].owns.append(&mut pending);
-    } else {
-        rows[0].owns.append(&mut pending);
-    }
+    rows[0].owns.append(&mut pending);
 }
 
 /// A container the rows inside it are drawn in.
@@ -328,12 +310,6 @@ struct Lay<'a> {
     starts: Vec<usize>,
     width: usize,
     rows: Vec<Row>,
-    /// Footnote definitions by number, shown after everything else, and how many rows they make.
-    notes: Vec<(usize, Vec<Row>)>,
-    note_rows: usize,
-    in_note: bool,
-    /// `gap` of the text around a footnote definition, set aside while it is read.
-    note_gap: bool,
     code: Vec<Code>,
     stack: Vec<Frame>,
     /// A blank row goes before the next block.
@@ -511,12 +487,10 @@ impl Lay<'_> {
                 self.stack
                     .push(Frame::Item(Some((marker, Ink::Bullet.plain())), w));
             }
+            // A footnote is drawn where it is written, a block of its own under its label.
             Tag::FootnoteDefinition(label) => {
-                self.flush_implicit();
+                self.block_start(r.start);
                 let n = self.number(&label);
-                self.note_gap = std::mem::replace(&mut self.gap, false);
-                self.notes.push((n, Vec::new()));
-                self.in_note = true;
                 let marker = format!("[{n}] ");
                 let w = wrap::width(&marker);
                 self.stack
@@ -578,7 +552,7 @@ impl Lay<'_> {
                     _ => "",
                 };
                 if shown && !rule.is_empty() {
-                    let at = self.rows_mut().last().map_or((0, 0), |r| r.src);
+                    let at = self.rows.last().map_or((0, 0), |r| r.src);
                     let text = rule.repeat(self.avail());
                     let n = text.len();
                     self.push(text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
@@ -599,8 +573,7 @@ impl Lay<'_> {
             TagEnd::FootnoteDefinition => {
                 self.flush_implicit();
                 self.stack.pop();
-                self.in_note = false;
-                self.gap = self.note_gap;
+                self.gap = true;
             }
             TagEnd::CodeBlock => {
                 if let Some(block) = self.block.take() {
@@ -702,21 +675,10 @@ impl Lay<'_> {
         *self.numbers.entry(label.to_string()).or_insert(next)
     }
 
-    fn rows_mut(&mut self) -> &mut Vec<Row> {
-        match self.notes.last_mut() {
-            Some((_, rows)) if self.in_note => rows,
-            _ => &mut self.rows,
-        }
-    }
-
     /// Where a row that stands for no text of its own goes back to: the end of the line the row
     /// above it came from.
     fn after(&self) -> (usize, usize) {
-        let rows = match self.notes.last() {
-            Some((_, rows)) if self.in_note => rows,
-            _ => &self.rows,
-        };
-        (rows.last().map_or(0, |r| r.src.0), usize::MAX)
+        (self.rows.last().map_or(0, |r| r.src.0), usize::MAX)
     }
 
     /// What goes in front of a row: a bar per quote, the indent of each list item and, on the
@@ -797,7 +759,7 @@ impl Lay<'_> {
             (l, usize::MAX) => l..l,
             (l, _) => l..l + 1,
         };
-        self.rows_mut().push(Row {
+        self.rows.push(Row {
             text: full,
             looks: all,
             src,
@@ -812,7 +774,7 @@ impl Lay<'_> {
     /// block, when the source has one.
     fn block_start(&mut self, next: usize) {
         self.flush_implicit();
-        if std::mem::take(&mut self.gap) && !self.rows_mut().is_empty() {
+        if std::mem::take(&mut self.gap) && !self.rows.is_empty() {
             let l = self.pos(next).0;
             let above = self.after();
             match l.checked_sub(1) {
@@ -830,7 +792,7 @@ impl Lay<'_> {
 
     /// The row just added is drawn for no line of its own.
     fn shows_nothing(&mut self) {
-        if let Some(r) = self.rows_mut().last_mut() {
+        if let Some(r) = self.rows.last_mut() {
             r.lines.end = r.lines.start;
         }
     }
@@ -868,7 +830,7 @@ impl Lay<'_> {
                     .pos(inline.src_at(r.end.saturating_sub(1).max(r.start)))
                     .0;
                 self.push(text, looks, at, Kind::Text);
-                if let Some(row) = self.rows_mut().last_mut() {
+                if let Some(row) = self.rows.last_mut() {
                     row.lines.end = row.lines.end.max(last + 1);
                 }
             }
@@ -904,7 +866,7 @@ impl Lay<'_> {
             b.lines.push((String::new(), (b.span.start, 0), 0));
         }
         let block = self.code.len();
-        let first = self.rows_mut().len();
+        let first = self.rows.len();
         let room = self.avail().saturating_sub(2).max(1);
         let mut drawn = Vec::with_capacity(b.lines.len());
         for (k, (raw, (l, c), added)) in b.lines.iter().enumerate() {
@@ -926,7 +888,7 @@ impl Lay<'_> {
             }
             drawn.push(line);
         }
-        let rows = self.rows_mut();
+        let rows = &mut self.rows;
         if let Some(r) = rows.get_mut(first) {
             r.lines.start = r.lines.start.min(b.span.start);
         }

@@ -419,8 +419,8 @@ impl App {
             .review
             .as_ref()
             .filter(|_| {
-                let after = self.cursor_after();
-                !self.diff.hunks.iter().any(|&h| Some(h) > after)
+                let at = self.cursor_at();
+                !self.diff.hunks.iter().any(|&h| h >= at.end)
             })
             .and_then(|r| {
                 let back = self.hunk_left(r).map(|(rel, _)| rel);

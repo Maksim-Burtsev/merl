@@ -37,11 +37,11 @@ impl App {
         let Some(r) = self.review.clone() else {
             return;
         };
-        let after = self.cursor_after();
+        let at = self.cursor_at();
         let here = if dir > 0 {
-            self.diff.hunks.iter().find(|&&h| Some(h) > after)
+            self.diff.hunks.iter().find(|&&h| h >= at.end)
         } else {
-            self.diff.hunks.iter().rev().find(|&&h| Some(h) < after)
+            self.diff.hunks.iter().rev().find(|&&h| h < at.start)
         };
         if let Some(&h) = here {
             let path = self.buf.path.clone().unwrap();
@@ -215,13 +215,8 @@ impl App {
             .rel_current()
             .and_then(|rel| r.files.iter().position(|f| f.path == rel))
             .map_or("-".to_string(), |i| (i + 1).to_string());
-        let after = self.cursor_after();
-        let hunk = self
-            .diff
-            .hunks
-            .iter()
-            .filter(|&&h| Some(h) <= after)
-            .count();
+        let at = self.cursor_at();
+        let hunk = self.diff.hunks.iter().filter(|&&h| h < at.end).count();
         Some(format!(
             "hunk {hunk}/{}  file {file}/{}",
             self.diff.hunks.len(),
