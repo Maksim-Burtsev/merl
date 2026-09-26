@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Short forms of the launch flags: `-r` for `--review`, `-b` for `--base`, `-t` for `--theme`,
+  `-d` for `--drill` and `-k` for `--keys`. `merl -r=feature -b origin/dev` is
+  `merl --review=feature --base origin/dev`.
+
 ### Changed
 
 - `d` on `Type::name` of a Rust type the project declares more than once lands in the type the
