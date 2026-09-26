@@ -272,6 +272,27 @@ impl Review {
         }
     }
 
+    /// The hunks of the whole review, for the review stats: one `git diff` of the branch, as
+    /// [`diff`] takes it per file, and one for an untracked file with a line.
+    pub fn hunk_count(&self, root: &Path) -> usize {
+        let args = [
+            "diff",
+            "-U0",
+            "-M",
+            "--no-color",
+            "--no-ext-diff",
+            "--inter-hunk-context=0",
+            "--ignore-submodules",
+            &self.merge_base,
+        ];
+        let tracked =
+            git(root, &args).map_or(0, |d| d.lines().filter(|l| l.starts_with("@@ ")).count());
+        tracked
+            + (self.files.iter())
+                .filter(|f| f.untracked && f.added > 0)
+                .count()
+    }
+
     pub fn file(&self, rel: &Path) -> Option<&ReviewFile> {
         self.files.iter().find(|f| f.path == rel)
     }

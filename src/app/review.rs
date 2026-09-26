@@ -1,6 +1,7 @@
 //! Review mode: the marks on the buffer, the hunks `c` and `C` step through.
 
 use super::*;
+use crate::reviews::{Session, Spot};
 
 impl App {
     /// Enters review mode on a freshly built app: marks against the base, the cursor on the
@@ -29,6 +30,39 @@ impl App {
         if let Some(note) = note {
             self.message = note;
         }
+        let (here, on) = self.review_spot();
+        let hunk = self.diff.hunks.contains(&self.line);
+        self.session = Some(Session::new(Instant::now(), here, on, hunk));
+    }
+
+    /// The open file and the cursor's line, and whether the file is one of the review's.
+    fn review_spot(&self) -> (Spot, bool) {
+        let r = self.review.as_ref();
+        let on = (self.rel_current()).is_some_and(|rel| r.is_some_and(|r| r.file(&rel).is_some()));
+        ((self.buf.path.clone(), self.line), on)
+    }
+
+    /// Review stats (#242): a press at `at` done as `action`, or with no `at` a jump that came
+    /// after its press (`s` answering an Enter that did not wait).
+    pub(super) fn review_count(&mut self, at: Option<Instant>, action: Option<&str>) {
+        let (here, on) = self.review_spot();
+        let end = action == Some("c") && self.message == "last hunk of the review";
+        if let Some(s) = &mut self.session {
+            if let Some(at) = at {
+                s.pressed(at);
+            }
+            s.moved(here, on, action, end);
+        }
+    }
+
+    /// The session's line in the review stats: the repository, the branch and the columns
+    /// after the round. A session without a press is none.
+    pub fn review_row(&self) -> Option<(String, String, String)> {
+        let (s, r) = (self.session.as_ref()?, self.review.as_ref()?);
+        (s.presses > 0).then(|| {
+            let columns = s.columns(r, r.hunk_count(&self.root), self.viewed.len());
+            (self.root_name(), r.branch.clone(), columns)
+        })
     }
 
     /// `c` / `C`: the next / previous hunk, crossing into the next file of the review.

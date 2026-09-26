@@ -365,6 +365,8 @@ pub struct App {
     /// Review: the files marked as viewed, each with the hash of what was on disk then. A file
     /// that has changed since is not viewed any more (`drop_stale_viewed`). Kept for the session.
     pub viewed: HashMap<PathBuf, u64>,
+    /// `--review`: what the session did, written to the review stats on exit (#242).
+    pub session: Option<crate::reviews::Session>,
     /// The theme in use, by name. Set by `main`; the theme picker previews others over it.
     pub theme: String,
     /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
@@ -498,6 +500,7 @@ impl App {
             want_diff: true,
             review: None,
             viewed: HashMap::new(),
+            session: None,
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
             quit_again: false,

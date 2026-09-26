@@ -128,7 +128,7 @@ pub fn date(day: i64) -> String {
 }
 
 /// The day of a `YYYY-MM-DD`, `days_from_civil`; `None` for anything [`date`] would not write.
-fn day(s: &str) -> Option<i64> {
+pub fn day(s: &str) -> Option<i64> {
     let mut parts = s.splitn(3, '-').map(|p| p.parse::<i64>().ok());
     let (Some(Some(y)), Some(Some(m)), Some(Some(d))) = (parts.next(), parts.next(), parts.next())
     else {
@@ -164,11 +164,27 @@ fn parse(text: &str) -> Rows {
 }
 
 fn load(path: &Path) -> Result<Rows> {
+    Ok(parse(&read(path)?))
+}
+
+/// A stats file's text, empty before the first write.
+pub fn read(path: &Path) -> Result<String> {
     match std::fs::read_to_string(path) {
-        Ok(text) => Ok(parse(&text)),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Rows::new()),
+        Ok(text) => Ok(text),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
         Err(e) => Err(e).with_context(|| format!("{}", path.display())),
     }
+}
+
+/// Replaces a stats file whole through a rename, so a reader never sees half a file.
+pub fn write(path: &Path, text: &str) -> Result<()> {
+    let ctx = || format!("{}", path.display());
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).with_context(ctx)?;
+    }
+    let tmp = path.with_extension(format!("tsv.{}", std::process::id()));
+    std::fs::write(&tmp, text).with_context(ctx)?;
+    std::fs::rename(&tmp, path).with_context(ctx)
 }
 
 /// Adds a session's presses and misses to the file under `today`. The file is read again right
@@ -184,7 +200,6 @@ pub fn add(
     if pressed.is_empty() && missed.is_empty() {
         return Ok(());
     }
-    let ctx = || format!("{}", path.display());
     let mut rows = load(path)?;
     for (action, n) in pressed {
         rows.entry((today, action)).or_default().0 += n;
@@ -196,12 +211,7 @@ pub fn add(
     for ((day, action), (n, missed)) in &rows {
         _ = writeln!(text, "{}\t{action}\t{n}\t{missed}", date(*day));
     }
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).with_context(ctx)?;
-    }
-    let tmp = path.with_extension(format!("tsv.{}", std::process::id()));
-    std::fs::write(&tmp, text).with_context(ctx)?;
-    std::fs::rename(&tmp, path).with_context(ctx)
+    write(path, &text)
 }
 
 /// `merl --keys`.

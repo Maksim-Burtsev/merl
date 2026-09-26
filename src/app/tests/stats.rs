@@ -150,3 +150,73 @@ fn a_press_under_the_tutor_writes_nothing() {
     stats::add(&file, stats::today(), &a.pressed, &a.missed).unwrap();
     assert!(!file.exists());
 }
+
+/// Review stats (#242), one session: the time between presses on the review's files and
+/// elsewhere, five minutes at most per gap; `o` out of the review and `[` back, one excursion of
+/// one jump; the hunk the review opened on and the one `c` stopped on; the two files `c` marked
+/// viewed, and `c` reaching the last hunk.
+#[test]
+fn a_review_session_counts_its_presses() {
+    let (dir, mut a) = review_app("reviewstats");
+    assert_eq!(a.review_row(), None, "a session without a press is none");
+    let t0 = Instant::now();
+    let mut secs = 0;
+    let mut key = |a: &mut App, name: &str, after: u64| {
+        secs += after;
+        a.key_at(read(name), t0 + Duration::from_secs(secs))
+    };
+    key(&mut a, "c", 10);
+    assert_eq!(at(&a), (dir.join("tail"), 0));
+    key(&mut a, "o", 20);
+    for c in ["k", "e", "e", "p"] {
+        key(&mut a, c, 1);
+    }
+    a.picker.as_mut().unwrap().settle();
+    key(&mut a, "Enter", 1);
+    assert_eq!(at(&a), (dir.join("src/keep.rs"), 0));
+    key(&mut a, "Down", 4 * 3600);
+    key(&mut a, "[", 30);
+    assert_eq!(at(&a), (dir.join("tail"), 0));
+    key(&mut a, "c", 5);
+    assert_eq!(a.message, "last hunk of the review");
+    assert!(key(&mut a, "q", 2));
+    let (repo, branch, columns) = a.review_row().unwrap();
+    assert_eq!((repo, branch.as_str()), (a.root_name(), "feature"));
+    // files, hunks, added, deleted; seconds on the review and elsewhere; excursions, their
+    // jumps, `[`; hunks stopped on, files viewed, the last hunk reached.
+    assert_eq!(columns, "5\t6\t4\t7\t42\t330\t1\t1\t1\t2\t2\t1");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// An Enter in `s` that came before the hits: the jump out of the review lands after the key,
+/// and is an excursion all the same.
+#[test]
+fn a_search_that_answers_after_enter_is_an_excursion() {
+    let (dir, mut a) = review_app("reviewstats-s");
+    press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+    typed(&mut a, "k2");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert!(a.picker.is_some(), "nothing to jump to yet");
+    a.settle_search();
+    assert_eq!(at(&a), (dir.join("src/keep.rs"), 1));
+    let (_, _, columns) = a.review_row().unwrap();
+    let cols: Vec<&str> = columns.split('\t').collect();
+    assert_eq!((cols[6], cols[7]), ("1", "1"), "{columns}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// `--tutor` and `--drill` record no review: their presses count nothing, so there is no line.
+#[test]
+fn a_review_under_the_tutor_has_no_line() {
+    let (dir, mut a) = review_app("reviewstats-tutor");
+    a.tutor = Some(Tutor {
+        step: 0,
+        dir: PathBuf::from("/nonexistent"),
+        drill: None,
+    });
+    for key in ["c", "c", "[", "q"] {
+        a.key(read(key));
+    }
+    assert_eq!(a.review_row(), None);
+    let _ = std::fs::remove_dir_all(dir);
+}

@@ -21,6 +21,9 @@ impl App {
         }
         let quit = self.key_inner(key);
         let action = self.action.take();
+        if work {
+            self.review_count(Some(at), action);
+        }
         if let Some(action) = action
             && self.tutor.is_none()
         {

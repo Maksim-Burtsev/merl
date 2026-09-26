@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `merl --reviews` prints your review sessions of the last 30 days, newest first: the branch,
+  which round of it the session was, the files, hunks and lines under review, the active time
+  and how much of it was on the review's files, and the excursions, the jumps with `d`, `u`, `D`,
+  `s` or `o` from a file of the review out of it; then the median time of a first round and of a
+  later one. merl notes every `--review` session in `~/.local/state/merl/reviews.tsv` on exit,
+  next to `keys.tsv`, and shows nothing while you review. Only the time between presses counts,
+  a gap longer than five minutes as five, so a review left open over lunch is not an hour of
+  review; a session without a press is not noted, and sessions older than 30 days are dropped.
+  `--tutor` and `--drill` note nothing. (#242)
+
 ### Changed
 
 - `merl --review` paints the diff as GitHub does: the lines the branch deleted on a red tint,
