@@ -23,7 +23,7 @@ impl App {
         let quit = self.key_inner(key);
         let action = self.action.take();
         if let Some(from) = from {
-            self.review_count(Some(at), from, action);
+            self.review_count(Some(at), from, action, quit);
         }
         if let Some(action) = action
             && self.tutor.is_none()

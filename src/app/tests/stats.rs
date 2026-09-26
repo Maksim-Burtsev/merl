@@ -152,10 +152,10 @@ fn a_press_under_the_tutor_writes_nothing() {
 }
 
 /// Review stats (#242), one session: the time between presses on the review's files and
-/// elsewhere, five minutes at most per gap; the five hunks `c` can stop on, the deleted `gone`
-/// none; `o` out of the review and `[` back, one excursion of one jump; the hunk the review
-/// opened on and the one `c` stopped on; the two files `c` marked viewed, and `c` reaching the
-/// last hunk.
+/// elsewhere, five minutes at most per gap, the reading before `q` included; the six stops `c`
+/// can make, the top of the deleted `gone` one of them; `o` out of the review and `[` back, one
+/// excursion of one jump; the hunk the review opened on and the one `c` stopped on; the two
+/// files `c` marked viewed, and `c` reaching the last hunk.
 #[test]
 fn a_review_session_counts_its_presses() {
     let (dir, mut a) = review_app("reviewstats");
@@ -185,7 +185,17 @@ fn a_review_session_counts_its_presses() {
     assert_eq!((repo, branch.as_str()), (a.root_name(), "feature"));
     // files, hunks, added, deleted; seconds on the review and elsewhere; excursions, their
     // jumps, `[`; hunks stopped on, files viewed, the last hunk reached.
-    assert_eq!(columns, "5\t5\t4\t7\t42\t330\t1\t1\t1\t2\t2\t1");
+    assert_eq!(columns, "5\t6\t4\t7\t42\t330\t1\t1\t1\t2\t2\t1");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The key that quits is no press: a review opened, forgotten and closed with `q` hours later
+/// has no line, and takes no round.
+#[test]
+fn a_review_closed_with_q_alone_has_no_line() {
+    let (dir, mut a) = review_app("reviewstats-q");
+    assert!(a.key_at(read("q"), Instant::now() + Duration::from_secs(4 * 3600)));
+    assert_eq!(a.review_row(), None);
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -200,9 +210,8 @@ fn a_search_that_answers_after_enter_is_an_excursion() {
     assert!(a.picker.is_some(), "nothing to jump to yet");
     a.settle_search();
     assert_eq!(at(&a), (dir.join("src/keep.rs"), 1));
-    let (_, _, columns) = a.review_row().unwrap();
-    let cols: Vec<&str> = columns.split('\t').collect();
-    assert_eq!((cols[6], cols[7]), ("1", "1"), "{columns}");
+    let cols = columns(&mut a);
+    assert_eq!((cols[6], cols[7]), (1, 1), "{cols:?}");
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -223,14 +232,14 @@ fn a_review_under_the_tutor_has_no_line() {
 }
 
 /// The session's columns after the round, as `review_row` has them.
-fn columns(a: &App) -> Vec<usize> {
+fn columns(a: &mut App) -> Vec<usize> {
     let (_, _, columns) = a.review_row().expect("a line");
     columns.split('\t').map(|n| n.parse().unwrap()).collect()
 }
 
-/// A stop is a hunk, however it was reached: one only `C` got to counts as one `c` got to. It is
-/// the hunk, not the line: lines an agent writes above the cursor move it, and a `c` that stays
-/// put there is no new stop.
+/// A stop is a hunk, however the walk reached it: one only `C` got to counts as one `c` got to,
+/// and walking every hunk reads as many stops as hunks. It is the hunk, not the line: lines an
+/// agent writes above the cursor move it, and a `c` that stays put there is no new stop.
 #[test]
 fn a_stop_is_a_hunk_reached_by_c_or_c_back() {
     let (dir, mut a) = review_app("reviewstats-stops");
@@ -245,13 +254,14 @@ fn a_stop_is_a_hunk_reached_by_c_or_c_back() {
     }
     press(&mut a, KeyCode::Char('C'), KeyModifiers::SHIFT);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
-    assert_eq!(columns(&a)[9], 2);
-    // `c` on to the end of the review: `crlf.txt`, `new` again, `tail`.
+    assert_eq!(columns(&mut a)[9], 2);
+    // `c` on to the end of the review: the second hunk of `src/a.rs`, `crlf.txt`, the top of
+    // the deleted `gone`, `new` again, `tail`.
     for _ in 0..5 {
         press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     }
     assert_eq!(at(&a), (dir.join("tail"), 0));
-    assert_eq!(columns(&a)[9], 5);
+    assert_eq!(columns(&mut a)[9], 6);
     // An agent writes two lines at the top of `tail`: its hunk moves down under the cursor, and
     // `c` stays on it.
     std::fs::write(dir.join("tail"), "x\ny\nt1\n").unwrap();
@@ -262,23 +272,90 @@ fn a_stop_is_a_hunk_reached_by_c_or_c_back() {
         (at(&a), a.message.as_str()),
         ((dir.join("tail"), 2), "last hunk of the review")
     );
-    let cols = columns(&a);
-    assert_eq!((cols[9], cols[11]), (5, 1));
-    assert!(cols[9] <= cols[1], "{cols:?}");
+    let cols = columns(&mut a);
+    // Stops, hunks, the last hunk reached.
+    assert_eq!((cols[9], cols[1], cols[11]), (6, 6, 1));
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// The hunks are those `c` can stop on: an untracked file with lines is one, an empty one none.
+/// A file opened from the review panel lands on its first hunk, and that hunk is a stop as if
+/// `c` had gone there: a walk that starts from the panel reads every hunk too.
+#[test]
+fn a_hunk_the_panel_opens_on_is_a_stop() {
+    let (dir, mut a) = review_app("reviewstats-panel");
+    a.reveal(&dir.join("src/a.rs"));
+    a.focus = Focus::Tree;
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    for _ in 0..5 {
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    }
+    assert_eq!(at(&a), (dir.join("tail"), 0));
+    let cols = columns(&mut a);
+    assert_eq!((cols[9], cols[1]), (6, 6), "{cols:?}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Stops are numbered from 1, as the status bar numbers hunks: a hunk an agent adds after the
+/// review opened pushes the last one past what the file had then, and that stop does not count.
+#[test]
+fn a_stop_past_the_hunks_the_review_opened_with_does_not_count() {
+    let (dir, mut a) = review_app("reviewstats-numbered");
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    typed(&mut a, "a.rs");
+    a.picker.as_mut().unwrap().settle();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    // Two hunks when the review opened (lines 2 and 6), counted in the second after it did; the
+    // agent's edit comes after, and there are three now.
+    assert_eq!(columns(&mut a)[1], 6);
+    std::fs::write(dir.join("src/a.rs"), "a\nB\nc\nD\ne\nF\n").unwrap();
+    a.reload(false);
+    assert_eq!(a.diff.hunks, [1, 3, 5]);
+    for _ in 0..3 {
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    }
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
+    // `new`, where the review opened, and the first two hunks of `src/a.rs`.
+    assert_eq!(columns(&mut a)[9], 3);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The hunks are the stops `c` can make: an untracked file with lines is one, an empty one
+/// none.
 #[test]
 fn an_untracked_file_is_one_hunk_and_an_empty_one_none() {
     let (dir, mut a) = review_app("reviewstats-untracked");
-    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
-    assert_eq!(columns(&a)[..2], [5, 5]);
     std::fs::write(dir.join("fresh.txt"), "1\n2\n3\n").unwrap();
     std::fs::write(dir.join("empty.txt"), "").unwrap();
-    let fresh = a.review.as_ref().unwrap().refresh(&dir).unwrap();
-    a.review_refreshed(fresh);
-    assert_eq!(columns(&a)[..2], [7, 6]);
+    a.start_review(git::Review::open(&dir, None, None).unwrap());
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(columns(&mut a)[..2], [7, 7]);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// A submodule is listed but has no line to read: `c` walks past it, and it counts no hunk.
+#[test]
+fn a_submodule_counts_no_hunk() {
+    let (dir, mut a) = review_app("reviewstats-sub");
+    let git = |at: &Path, args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(at)
+            .args(["-c", "user.email=t@t", "-c", "user.name=t"])
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    let sub = dir.join("sub");
+    std::fs::create_dir(&sub).unwrap();
+    git(&sub, &["init", "-q"]);
+    git(&sub, &["commit", "-q", "--allow-empty", "-m", "sub"]);
+    git(&dir, &["add", "-A"]);
+    git(&dir, &["commit", "-q", "-m", "submodule"]);
+    a.start_review(git::Review::open(&dir, None, None).unwrap());
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(columns(&mut a)[..2], [6, 6]);
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -288,15 +365,19 @@ fn a_failed_diff_writes_no_line() {
     let (dir, mut a) = review_app("reviewstats-failed");
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert!(a.review_row().is_some());
-    a.review.as_mut().unwrap().merge_base = "0".repeat(40);
+    let mut broken = a.review.clone().unwrap();
+    broken.merge_base = "0".repeat(40);
+    a.start_review(broken);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(a.review_row(), None);
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// The session is filed under the branch the review opened on: a `git switch` during it does
-/// not move it. A detached HEAD is its short commit, so detached reviews do not share rounds.
+/// The session is filed under the branch the review opened on, with that review's size: a
+/// `git switch` during it moves neither. A detached HEAD is its short commit, so detached
+/// reviews do not share rounds.
 #[test]
-fn a_session_keeps_the_branch_it_opened_on() {
+fn a_session_keeps_the_review_it_opened_on() {
     let (dir, mut a) = review_app("reviewstats-branch");
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")
@@ -309,11 +390,14 @@ fn a_session_keeps_the_branch_it_opened_on() {
         String::from_utf8(out.stdout).unwrap().trim().to_string()
     };
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    // The stops are counted in the second after the review opens; the switch comes after.
+    assert_eq!(columns(&mut a)[..2], [5, 6]);
     git(&["switch", "-q", "main"]);
     let fresh = a.review.as_ref().unwrap().refresh(&dir).unwrap();
     a.review_refreshed(fresh);
     assert_eq!(a.review.as_ref().unwrap().branch, "main");
-    assert_eq!(a.review_row().unwrap().1, "feature");
+    let (_, branch, columns) = a.review_row().unwrap();
+    assert_eq!((branch.as_str(), &columns[..4]), ("feature", "5\t6\t"));
     git(&["switch", "-q", "--detach", "feature"]);
     a.start_review(git::Review::open(&dir, None, None).unwrap());
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);

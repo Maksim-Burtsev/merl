@@ -179,7 +179,7 @@ impl App {
             let from = self.review_spot();
             self.search_jump(items.into_iter().nth(selected), &query);
             self.watch_jumped();
-            self.review_count(None, from, Some("Picker: Enter"));
+            self.review_count(None, from, Some("Picker: Enter"), false);
             tutor::check(self, None);
             return true;
         }

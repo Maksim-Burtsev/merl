@@ -4,6 +4,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
@@ -30,21 +31,32 @@ pub fn path() -> Option<PathBuf> {
 /// The open file, the cursor's line in it, and whether the file is one of the review's.
 pub type Spot = (Option<PathBuf>, usize, bool);
 
-/// A hunk of the review, as the status bar's `hunk i/n` numbers it: the file relative to the
-/// root and the hunk's place in it, from 1. A reload that shifts the lines keeps the hunk.
+/// A stop of the review walk, as the status bar's `hunk i/n` numbers it: the file relative to
+/// the root and the hunk's place in it, from 1; the top of a deleted file is its one stop.
 pub type Stop = (PathBuf, usize);
+
+/// The stops `c` can make in each file of the review as it opened, counted on a thread started
+/// then, so that neither the first frame nor quitting waits for a `git diff` per file; `None`
+/// when one failed.
+pub type Counting = JoinHandle<Option<HashMap<PathBuf, usize>>>;
 
 /// What one review session did, counted on each press.
 pub struct Session {
-    /// The repository and the branch the session is of, taken when the review opened: a
-    /// `git switch` during it does not file it under another branch.
+    /// The repository and the branch the session is of, and the review's size, all taken when
+    /// it opened: a `git switch` during it does not file it under another branch, nor fill the
+    /// row with the other branch's review.
     pub repo: String,
     pub branch: String,
+    added: usize,
+    deleted: usize,
+    counting: Option<Counting>,
+    stops_in: Option<HashMap<PathBuf, usize>>,
     /// The last press, or the start of the review.
     last: Instant,
     /// Left the review by a jump and not back on one of its files yet.
     out: bool,
-    pub presses: u64,
+    /// The presses but the one that quits.
+    presses: u64,
     on_review: Duration,
     elsewhere: Duration,
     /// Jumps (`d`, `u`, `D`, a picker's Enter) from a file of the review to a file outside it,
@@ -58,11 +70,24 @@ pub struct Session {
 }
 
 impl Session {
-    /// The review of `branch` in `repo` opened at `at`, on the hunk `stop` when it opened on one.
-    pub fn new(at: Instant, repo: String, branch: String, stop: Option<Stop>) -> Self {
+    /// The review `review` of `branch` in `repo`, opened at `at` on the stop `stop` when it
+    /// opened on one.
+    pub fn new(
+        at: Instant,
+        repo: String,
+        branch: String,
+        review: &git::Review,
+        counting: Counting,
+        stop: Option<Stop>,
+    ) -> Self {
+        let lines = |f: fn(&git::ReviewFile) -> usize| review.files.iter().map(f).sum();
         Self {
             repo,
             branch,
+            added: lines(|f| f.added),
+            deleted: lines(|f| f.deleted),
+            counting: Some(counting),
+            stops_in: None,
             last: at,
             out: false,
             presses: 0,
@@ -77,19 +102,21 @@ impl Session {
     }
 
     /// A press at `at`, the cursor at `from` when it came: the time since the last one goes
-    /// there, [`IDLE`] at most.
-    pub fn pressed(&mut self, at: Instant, from: &Spot) {
+    /// there, [`IDLE`] at most. The key that quits (`quit`) is no press of its own, so a session
+    /// of `q` alone is none; the reading before it still counts.
+    pub fn pressed(&mut self, at: Instant, from: &Spot, quit: bool) {
         let gap = at.saturating_duration_since(self.last).min(IDLE);
         let total = match from.2 {
             true => &mut self.on_review,
             false => &mut self.elsewhere,
         };
         *total += gap;
-        (self.last, self.presses) = (at, self.presses + 1);
+        self.last = at;
+        self.presses += u64::from(!quit);
     }
 
-    /// `action` (a `KEYS` action) took the cursor from `from` to `to`; `stop`: `c` / `C` left it
-    /// on that hunk; `end`: it was `c` saying `last hunk of the review`.
+    /// `action` (a `KEYS` action) took the cursor from `from` to `to`; `stop`: the review walk
+    /// left it on that stop; `end`: it was `c` saying `last hunk of the review`.
     pub fn moved(
         &mut self,
         action: Option<&str>,
@@ -112,35 +139,36 @@ impl Session {
         self.last_hunk |= end;
     }
 
-    /// The session's columns from `files` on, as [`HEAD`] names them. `hunks` are those of each
-    /// file of the review as it is now; a stop on a hunk the file no longer has does not count,
-    /// so the hunks stopped on are never more than the hunks.
-    pub fn columns(
-        &self,
-        review: &git::Review,
-        hunks: &HashMap<PathBuf, usize>,
-        viewed: usize,
-    ) -> String {
-        let lines = |f: fn(&git::ReviewFile) -> usize| review.files.iter().map(f).sum::<usize>();
+    /// The session's columns from `files` on, as [`HEAD`] names them, for the review as it
+    /// opened: a stop on a hunk it did not have, or a file marked viewed that it did not list,
+    /// does not count, so neither is ever more than the hunks or the files. `None` for a
+    /// session without a press, or when counting the stops failed.
+    pub fn columns<'a>(&mut self, viewed: impl Iterator<Item = &'a PathBuf>) -> Option<String> {
+        if self.presses == 0 {
+            return None;
+        }
+        if let Some(counting) = self.counting.take() {
+            self.stops_in = counting.join().ok().flatten();
+        }
+        let stops_in = self.stops_in.as_ref()?;
         let stops = (self.stops.iter())
-            .filter(|(path, i)| hunks.get(path).is_some_and(|n| i <= n))
+            .filter(|(path, i)| stops_in.get(path).is_some_and(|n| i <= n))
             .count();
-        [
-            review.files.len(),
-            hunks.values().sum(),
-            lines(|f| f.added),
-            lines(|f| f.deleted),
+        let columns = [
+            stops_in.len(),
+            stops_in.values().sum(),
+            self.added,
+            self.deleted,
             self.on_review.as_secs() as usize,
             self.elsewhere.as_secs() as usize,
             self.excursions as usize,
             self.jumps as usize,
             self.back as usize,
             stops,
-            viewed,
+            viewed.filter(|path| stops_in.contains_key(*path)).count(),
             usize::from(self.last_hunk),
-        ]
-        .map(|n| n.to_string())
-        .join("\t")
+        ];
+        Some(columns.map(|n| n.to_string()).join("\t"))
     }
 }
 
@@ -292,8 +320,25 @@ mod tests {
         (Some(PathBuf::from(file)), line, on)
     }
 
+    /// A session over a review whose files have these stops.
+    fn session_over(at: Instant, stops_in: &[(&str, usize)]) -> Session {
+        let review = git::Review {
+            branch: "feat".into(),
+            base: "main".into(),
+            merge_base: String::new(),
+            files: Vec::new(),
+            note: None,
+        };
+        let stops_in: HashMap<PathBuf, usize> = stops_in
+            .iter()
+            .map(|&(f, n)| (PathBuf::from(f), n))
+            .collect();
+        let counting = std::thread::spawn(move || Some(stops_in));
+        Session::new(at, "merl".into(), "feat".into(), &review, counting, None)
+    }
+
     fn session(at: Instant) -> Session {
-        Session::new(at, "merl".into(), "feat".into(), None)
+        session_over(at, &[])
     }
 
     /// A gap up to five minutes counts in full, a longer one as five minutes, and it goes to
@@ -303,13 +348,28 @@ mod tests {
         let t0 = Instant::now();
         let (a, lib) = (spot("a.rs", 3, true), spot("lib.rs", 0, false));
         let mut s = session(t0);
-        s.pressed(t0 + Duration::from_secs(40), &a);
+        s.pressed(t0 + Duration::from_secs(40), &a, false);
         s.moved(Some("d"), &a, &lib, None, false);
-        s.pressed(t0 + Duration::from_secs(40 + 4 * 3600), &lib);
+        s.pressed(t0 + Duration::from_secs(40 + 4 * 3600), &lib, false);
         s.moved(Some("["), &lib, &a, None, false);
-        s.pressed(t0 + Duration::from_secs(40 + 4 * 3600 + 7), &a);
+        s.pressed(t0 + Duration::from_secs(40 + 4 * 3600 + 7), &a, false);
         assert_eq!((s.on_review.as_secs(), s.elsewhere.as_secs()), (47, 300));
         assert_eq!((s.presses, s.back), (3, 1));
+    }
+
+    /// The key that quits is no press: a session of `q` alone has no line, though the reading
+    /// before a `q` counts in one that has.
+    #[test]
+    fn the_key_that_quits_is_no_press() {
+        let t0 = Instant::now();
+        let a = spot("a.rs", 3, true);
+        let mut s = session(t0);
+        s.pressed(t0 + Duration::from_secs(20), &a, true);
+        assert_eq!(s.columns(std::iter::empty()), None);
+        s.pressed(t0 + Duration::from_secs(30), &a, false);
+        s.pressed(t0 + Duration::from_secs(45), &a, true);
+        let columns = s.columns(std::iter::empty()).unwrap();
+        assert_eq!(columns.split('\t').nth(4), Some("45"), "{columns}");
     }
 
     /// `d` out of the review, a usage picked and a `d` further on, `[ [ [` back: one excursion
@@ -339,36 +399,66 @@ mod tests {
         assert_eq!((s.excursions, s.jumps, s.back), (1, 3, 3));
     }
 
-    /// A stop on a hunk its file no longer has, or in a file that left the review, does not
-    /// count: the hunks stopped on are never more than the hunks.
+    /// A jump that lands back on a file of the review ends the excursion and is none of its
+    /// jumps.
     #[test]
-    fn stops_never_outnumber_hunks() {
+    fn a_jump_back_into_the_review_is_no_excursion_jump() {
         let mut s = session(Instant::now());
+        let (a, lib, b) = (
+            spot("a.rs", 1, true),
+            spot("lib.rs", 2, false),
+            spot("b.rs", 4, true),
+        );
+        s.moved(Some("d"), &a, &lib, None, false);
+        s.moved(Some("Picker: Enter"), &lib, &b, None, false);
+        assert_eq!((s.excursions, s.jumps, s.out), (1, 1, false));
+    }
+
+    /// A stop on a hunk the review did not have when it opened, or in a file it did not list,
+    /// does not count, nor does a file marked viewed that it did not list: neither is ever more
+    /// than the hunks or the files.
+    #[test]
+    fn stops_and_viewed_never_outnumber_the_review() {
+        let t0 = Instant::now();
+        let mut s = session_over(t0, &[("a.rs", 2), ("b.rs", 1)]);
         let (from, to) = (spot("x.rs", 0, true), spot("a.rs", 1, true));
         for (file, i) in [("a.rs", 1), ("a.rs", 3), ("gone.rs", 1)] {
             s.moved(Some("c"), &from, &to, Some((PathBuf::from(file), i)), false);
         }
-        let review = git::Review {
-            branch: "feat".into(),
-            base: "main".into(),
-            merge_base: String::new(),
-            files: Vec::new(),
-            note: None,
-        };
-        let hunks = HashMap::from([(PathBuf::from("a.rs"), 2)]);
-        let columns = s.columns(&review, &hunks, 0);
-        assert_eq!(columns.split('\t').nth(9), Some("1"), "{columns}");
+        s.pressed(t0, &to, false);
+        let viewed = [PathBuf::from("a.rs"), PathBuf::from("new.rs")];
+        let columns = s.columns(viewed.iter()).unwrap();
+        let cols: Vec<&str> = columns.split('\t').collect();
+        // files, hunks; stops, viewed.
+        assert_eq!(
+            (cols[0], cols[1], cols[9], cols[10]),
+            ("2", "3", "1", "1"),
+            "{columns}"
+        );
+    }
+
+    /// The median of an odd count is the middle one once sorted, of an even count the mean of
+    /// the middle two.
+    #[test]
+    fn the_median_sorts_first() {
+        assert_eq!(median(vec![900, 100, 500]), Some(500));
+        assert_eq!(median(vec![900, 100, 500, 300]), Some(400));
+        assert_eq!(median(Vec::new()), None);
     }
 
     /// The first session of a branch is round 1, the next one round 2; another branch, or the
-    /// same branch in another repository, counts its own. A session older than 30 days is
-    /// dropped on the next write and no longer counts.
+    /// same branch in another repository, counts its own. A session of the last 30 days, today
+    /// included, is kept; an older one is dropped on the next write and no longer counts.
     #[test]
     fn rounds_count_per_branch_and_old_sessions_go() {
         let file = scratch("rounds");
         let day = |d| stats::day(d).unwrap();
         let cols = "2\t1\t3\t1\t40\t0\t0\t0\t0\t1\t2\t1";
         add(&file, day("2026-08-01"), "merl", "feat/a", cols).unwrap();
+        // 31, 30 and 29 days before the last write below.
+        add(&file, day("2026-08-26"), "merl", "edge/31", cols).unwrap();
+        add(&file, day("2026-08-27"), "merl", "edge/30", cols).unwrap();
+        add(&file, day("2026-08-28"), "merl", "edge/29", cols).unwrap();
         add(&file, day("2026-09-20"), "merl", "feat/a", cols).unwrap();
         add(&file, day("2026-09-20"), "merl", "feat/b", cols).unwrap();
         add(&file, day("2026-09-21"), "other", "feat/a", cols).unwrap();
@@ -382,6 +472,7 @@ mod tests {
             std::fs::read_to_string(&file).unwrap(),
             format!(
                 "{HEAD}\n\
+                 2026-08-28\tmerl\tedge/29\t1\t{cols}\n\
                  2026-09-20\tmerl\tfeat/a\t1\t{cols}\n\
                  2026-09-20\tmerl\tfeat/b\t1\t{cols}\n\
                  2026-09-21\tother\tfeat/a\t1\t{cols}\n\

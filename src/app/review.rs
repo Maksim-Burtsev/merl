@@ -32,8 +32,17 @@ impl App {
         }
         if let Some(r) = &self.review {
             let (repo, branch) = (self.root_name(), r.branch_or_commit(&self.root));
+            let (opened, root) = (r.clone(), self.root.clone());
+            let counting = std::thread::spawn(move || count_stops(&opened, &root));
             let stop = self.review_stop();
-            self.session = Some(Session::new(Instant::now(), repo, branch, stop));
+            self.session = Some(Session::new(
+                Instant::now(),
+                repo,
+                branch,
+                r,
+                counting,
+                stop,
+            ));
         }
     }
 
@@ -44,52 +53,51 @@ impl App {
         (self.buf.path.clone(), self.line, on)
     }
 
-    /// The hunk the cursor stands on, as the status bar numbers it.
+    /// The stop the cursor stands on, numbered as [`stops_in`] counts them: the hunk as the
+    /// status bar's `hunk i/n` has it, or the top of a deleted file.
     fn review_stop(&self) -> Option<Stop> {
-        let i = self.diff.hunks.iter().position(|&h| h == self.line)?;
-        Some((self.rel_current()?, i + 1))
+        let rel = self.rel_current()?;
+        let f = self.review.as_ref()?.file(&rel)?;
+        let i = match f.status {
+            _ if !f.has_hunks() => return None,
+            'D' => (self.line == 0).then_some(0)?,
+            _ => self.diff.hunks.iter().position(|&h| h == self.line)?,
+        };
+        Some((rel, i + 1))
     }
 
     /// Review stats (#242): a press at `at` done as `action`, the cursor at `from` before it, or
     /// with no `at` a jump that came after its press (`s` answering an Enter that did not wait).
-    pub(super) fn review_count(&mut self, at: Option<Instant>, from: Spot, action: Option<&str>) {
+    /// `quit`: the press quits merl.
+    pub(super) fn review_count(
+        &mut self,
+        at: Option<Instant>,
+        from: Spot,
+        action: Option<&str>,
+        quit: bool,
+    ) {
         let to = self.review_spot();
-        // Judged against the cursor before this press: a reload that moved it since the last
-        // one does not make a `c` that stayed put a stop.
-        let stop = (from != to && matches!(action, Some("c" | "C"))).then(|| self.review_stop());
+        // A stop the review walk (`c`, `C`, the panel) put the cursor on, judged against the
+        // cursor before this press: a reload that moved it since the last one does not make a
+        // press that stayed put a stop.
+        let walked = from != to && matches!(action, Some("c" | "C" | "Tree: Enter"));
+        let stop = walked.then(|| self.review_stop()).flatten();
         let end = action == Some("c") && self.message == "last hunk of the review";
         if let Some(s) = &mut self.session {
             if let Some(at) = at {
-                s.pressed(at, &from);
+                s.pressed(at, &from, quit);
             }
-            s.moved(action, &from, &to, stop.flatten(), end);
+            s.moved(action, &from, &to, stop, end);
         }
     }
 
     /// The session's line in the review stats: the repository, the branch and the columns
-    /// after the round. A session without a press is none, and so is one whose hunks cannot be
-    /// counted: a wrong number in the stats is worse than a session missing from them.
-    pub fn review_row(&self) -> Option<(String, String, String)> {
-        let (s, r) = (self.session.as_ref()?, self.review.as_ref()?);
-        if s.presses == 0 {
-            return None;
-        }
-        // The hunks `c` stops on, read as `open_review_file` reads them (#260 names this
-        // `review_hunks`). A file with lines to read and no hunk is a `git diff` that failed.
-        // ponytail: a `git diff` per file on exit, a few ms each; run them in threads if quitting
-        // a review of hundreds of files gets slow.
-        let mut hunks = HashMap::new();
-        for f in &r.files {
-            let n = match f.status {
-                'D' => 0,
-                _ => (r.diff(&self.root, &self.root.join(&f.path), Some(f)).hunks).len(),
-            };
-            if n == 0 && f.has_hunks() && f.status != 'D' {
-                return None;
-            }
-            hunks.insert(f.path.clone(), n);
-        }
-        let columns = s.columns(r, &hunks, self.viewed.len());
+    /// after the round. None for a session without a press but the one that quits, nor for
+    /// one whose stops could not be counted: a wrong number in the stats is worse than a
+    /// session missing from them.
+    pub fn review_row(&mut self) -> Option<(String, String, String)> {
+        let s = self.session.as_mut()?;
+        let columns = s.columns(self.viewed.keys())?;
         Some((s.repo.clone(), s.branch.clone(), columns))
     }
 
@@ -268,5 +276,24 @@ impl App {
         }
         self.drop_stale_viewed();
         true
+    }
+}
+
+/// The stops `c` can make in each file of `r`, by path; `None` when a file failed to count.
+fn count_stops(r: &git::Review, root: &Path) -> Option<HashMap<PathBuf, usize>> {
+    (r.files.iter())
+        .map(|f| Some((f.path.clone(), stops_in(r, root, f)?)))
+        .collect()
+}
+
+/// The stops `c` makes in a file of the review, walking it as [`App::hunk`] does: one per hunk,
+/// the top of a deleted file, none in a file without a line to read (binary, a mode change, a
+/// pure rename, a submodule). `None` for a file with lines to read and no hunk: a `git diff`
+/// that failed.
+fn stops_in(r: &git::Review, root: &Path, f: &git::ReviewFile) -> Option<usize> {
+    match f.status {
+        _ if !f.has_hunks() => Some(0),
+        'D' => Some(1),
+        _ => Some(r.diff(root, &root.join(&f.path), Some(f)).hunks.len()).filter(|&n| n > 0),
     }
 }
