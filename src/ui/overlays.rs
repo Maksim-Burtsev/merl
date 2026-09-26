@@ -310,18 +310,40 @@ pub(super) fn draw_lesson(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         ),
         (None, None) => (" Tutor \u{2713} done".to_string(), crate::tutor::DONE),
     };
-    // The title row is a bar, so it is padded to the full width.
-    let pad = (area.width as usize).saturating_sub(wrap::width(&title));
+    frame.render_widget(lesson_panel(title, text, theme, base, area.width), area);
+}
+
+/// The lesson panel: `title` on a bar as wide as the panel, `text` wrapped below it.
+pub(super) fn lesson_panel<'a>(
+    title: String,
+    text: &'a str,
+    theme: &Theme,
+    base: Style,
+    width: u16,
+) -> Paragraph<'a> {
+    let pad = (width as usize).saturating_sub(wrap::width(&title));
     let head = Style::new()
         .bg(theme.status_bg)
         .fg(theme.status_fg)
         .add_modifier(Modifier::BOLD);
+    // A part of the text in backticks is a keycap: a key, or what to type (#251). Its padding
+    // and inner spaces are no-break spaces, which the wrap neither breaks at nor trims, so a cap
+    // stays whole on one row.
+    let cap = base
+        .bg(theme.line_hl)
+        .fg(theme.accent)
+        .add_modifier(Modifier::BOLD);
+    let mut body = vec![Span::styled(" ", base)];
+    for (i, part) in text.split('`').enumerate() {
+        body.push(if i % 2 == 0 {
+            Span::styled(part, base)
+        } else {
+            Span::styled(format!("\u{a0}{}\u{a0}", part.replace(' ', "\u{a0}")), cap)
+        });
+    }
     let lines = vec![
         Line::from(Span::styled(format!("{title}{}", " ".repeat(pad)), head)),
-        Line::from(Span::styled(format!(" {text}"), base)),
+        Line::from(body),
     ];
-    frame.render_widget(
-        Paragraph::new(lines).wrap(Wrap { trim: true }).style(base),
-        area,
-    );
+    Paragraph::new(lines).wrap(Wrap { trim: true }).style(base)
 }

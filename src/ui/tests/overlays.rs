@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use ratatui::style::Color;
+use ratatui::style::{Color, Modifier, Style};
 
 use crate::app::App;
 use crate::buffer::Buffer;
@@ -467,4 +467,98 @@ fn overlays_leave_the_tutor_panel_in_sight() {
     app.open_files_picker();
     app.picker.as_mut().unwrap().settle();
     shows(&mut app, "Files (");
+}
+
+/// The cell where `needle` starts, the first time it is on screen.
+fn cell_at<'a>(terminal: &'a Terminal<TestBackend>, needle: &str) -> &'a ratatui::buffer::Cell {
+    let buf = terminal.backend().buffer();
+    let n = needle.chars().count() as u16;
+    for y in 0..buf.area.height {
+        for x in 0..=buf.area.width.saturating_sub(n) {
+            let got: String = (0..n).map(|i| buf[(x + i, y)].symbol()).collect();
+            if got == needle {
+                return &buf[(x, y)];
+            }
+        }
+    }
+    panic!("{needle:?} is not on screen");
+}
+
+/// #251: a part of the lesson in backticks is a keycap, bold in the accent on the cursor line's
+/// colour with a space either side, and the backticks are not drawn.
+#[test]
+fn the_lesson_draws_what_it_quotes_as_keycaps() {
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::empty(),
+        None,
+    );
+    // The second lesson: ``Press `/` (or `Ctrl+F`), type `load_config`, `Enter`. …``
+    app.tutor = Some(crate::tutor::Tutor {
+        step: 1,
+        dir: PathBuf::from("/demo"),
+        drill: None,
+    });
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(100, 12)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let text = rows(&terminal).join("\n").replace('\u{a0}', " ");
+    assert!(
+        text.contains("Press  /  (or  Ctrl+F ), type  load_config ,  Enter . The search"),
+        "{text}"
+    );
+    assert!(!text.contains('`'), "{text}");
+    for cap in ["Ctrl+F", "load_config", "Enter"] {
+        let c = cell_at(&terminal, cap);
+        assert_eq!((c.fg, c.bg), (theme.accent, theme.line_hl), "{cap}");
+        assert!(c.modifier.contains(Modifier::BOLD), "{cap}");
+    }
+    let plain = cell_at(&terminal, "Press");
+    assert_eq!((plain.fg, plain.bg), (theme.fg, theme.bg));
+    assert!(!plain.modifier.contains(Modifier::BOLD));
+}
+
+/// #251: at 80 columns the wrap keeps every keycap of every text whole on one row, its padding
+/// with it: the coloured runs on screen are the quoted parts in order, and no row starts or ends
+/// in a coloured blank of its own.
+#[test]
+fn a_keycap_stays_whole_across_the_wrap_at_80_columns() {
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let base = Style::new().bg(theme.bg).fg(theme.fg);
+    let pool = crate::tutor::POOL.iter().flat_map(|t| [t.tutor, t.drill]);
+    // Tall enough for the longest text: a cap cut off below would fail as missing.
+    let mut terminal = Terminal::new(TestBackend::new(80, 8)).unwrap();
+    for text in pool.chain([crate::tutor::DONE]) {
+        terminal
+            .draw(|f| {
+                let panel =
+                    crate::ui::overlays::lesson_panel(String::new(), text, &theme, base, 80);
+                f.render_widget(panel, f.area());
+            })
+            .unwrap();
+        let buf = terminal.backend().buffer();
+        let mut caps: Vec<String> = Vec::new();
+        for y in 1..buf.area.height {
+            let mut run: Option<String> = None;
+            for x in 0..buf.area.width {
+                let cell = &buf[(x, y)];
+                if cell.bg == theme.line_hl {
+                    run.get_or_insert_default().push_str(cell.symbol());
+                } else if let Some(r) = run.take() {
+                    caps.push(r);
+                }
+            }
+            caps.extend(run);
+        }
+        let caps: Vec<String> = caps.iter().map(|c| c.replace('\u{a0}', " ")).collect();
+        let quoted: Vec<String> = text
+            .split('`')
+            .skip(1)
+            .step_by(2)
+            .map(|q| format!(" {q} "))
+            .collect();
+        assert_eq!(caps, quoted, "{text}");
+    }
 }

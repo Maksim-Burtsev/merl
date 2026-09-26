@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it was a picker of every `new` in the project, `by name`. Only a `use` at the top of the file
   counts, and a type of the name in the file itself, a name bound twice, a binary under
   `src/bin/` or a module with no `impl` of the type stay `by name`. (#227)
+- `merl --tutor` and `merl --drill` draw the keys a task names, and what it asks you to type, as
+  keycaps: bold, in the theme's accent on a tinted cell, where the panel used to print them in
+  backticks. Every key in a lesson is one now, `Enter`, `Esc` and `Ctrl+F` included, which were
+  plain words before, and a wrap never parts a keycap across two rows. (#251)
 
 ## [0.7.0] - 2026-09-25
 

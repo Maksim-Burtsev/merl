@@ -444,6 +444,36 @@ mod tests {
         }
     }
 
+    /// Every text the lesson panel shows.
+    fn texts() -> impl Iterator<Item = &'static str> {
+        POOL.iter().flat_map(|t| [t.tutor, t.drill]).chain([DONE])
+    }
+
+    /// The panel draws a part in backticks as a keycap (#251): an unpaired backtick would make
+    /// the rest of the sentence one.
+    #[test]
+    fn every_text_has_its_backticks_in_pairs() {
+        for text in texts() {
+            assert!(text.matches('`').count() % 2 == 0, "{text}");
+        }
+    }
+
+    /// A key a text names is in backticks, so a sentence never mixes keycaps and plain keys.
+    #[test]
+    fn every_key_a_text_names_is_quoted() {
+        let sides = crate::app::KEYS.iter().flat_map(|(k, _, _)| k.split(" / "));
+        let keys: Vec<&str> = sides
+            .chain(POOL.iter().map(|t| t.key))
+            .map(|k| k.rsplit(": ").next().unwrap())
+            .collect();
+        for text in texts() {
+            let bare = text.split('`').step_by(2).flat_map(str::split_whitespace);
+            for word in bare.map(|w| w.trim_matches(['.', ',', ';', ':', '(', ')'])) {
+                assert!(!keys.contains(&word), "{word} is not quoted in: {text}");
+            }
+        }
+    }
+
     #[test]
     fn the_sample_project_has_exactly_one_todo() {
         let todos: usize = FILES.iter().map(|(_, t)| t.matches("TODO").count()).sum();

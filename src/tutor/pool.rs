@@ -67,7 +67,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "o",
         title: "Open a file",
-        tutor: "Press `o` (or Ctrl+E), type `store`, and press Enter to open store.py.",
+        tutor: "Press `o` (or `Ctrl+E`), type `store`, and press `Enter` to open store.py.",
         drill: "Open store.py.",
         start: None,
         keys: "",
@@ -77,8 +77,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Ctrl+N",
         title: "New file",
-        tutor: "Ctrl+N makes a new file: type its path from the project root, `todo.txt`, and \
-                Enter creates it and starts editing it.",
+        tutor: "`Ctrl+N` makes a new file: type its path from the project root, `todo.txt`, and \
+                `Enter` creates it and starts editing it.",
         drill: "Make a new file, `todo.txt`, in the project root.",
         start: None,
         keys: "",
@@ -88,7 +88,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "/",
         title: "Find in the file",
-        tutor: "Press `/` (or Ctrl+F), type `load_config`, Enter. The search runs as you type.",
+        tutor: "Press `/` (or `Ctrl+F`), type `load_config`, `Enter`. The search runs as you type.",
         drill: "Find `load_config` in this file.",
         start: Some(("store.py", 1, "")),
         keys: "",
@@ -126,7 +126,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "s",
         title: "Search the project",
-        tutor: "`s` searches every file as you type. Type `TODO`, then Enter on the result.",
+        tutor: "`s` searches every file as you type. Type `TODO`, then `Enter` on the result.",
         drill: "Go to the TODO, wherever it is in the project.",
         start: Some(("cli.py", CLI_IMPORT_LINE, "load_config")),
         keys: "",
@@ -136,7 +136,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "d",
         title: "Go to definition",
-        tutor: "With the cursor on `load_config`, press `d` (or F12) to jump to its definition. \
+        tutor: "With the cursor on `load_config`, press `d` (or `F12`) to jump to its definition. \
                 The status line says how it was found: via the import at the top, in config.py. \
                 `d` reads Makefiles, Terraform, Dockerfiles and YAML too, and on a declaration \
                 it lists what implements it.",
@@ -150,7 +150,7 @@ pub const POOL: &[Task] = &[
         key: "D",
         title: "Project symbols",
         tutor: "`D` lists every class and function of the project. Type `NoteStore` and press \
-                Enter.",
+                `Enter`.",
         drill: "Go to the class NoteStore.",
         start: Some(("models.py", TODO_LINE, "TODO")),
         keys: "",
@@ -160,9 +160,9 @@ pub const POOL: &[Task] = &[
     Task {
         key: "u",
         title: "Usages",
-        tutor: "`u` (or Shift+F12) lists every use of the word under the cursor, the declaration \
-                first and the tests last. Press `u`, then pick the hit in cli.py with Down and \
-                Enter.",
+        tutor: "`u` (or `Shift+F12`) lists every use of the word under the cursor, the declaration \
+                first and the tests last. Press `u`, then pick the hit in cli.py with `Down` and \
+                `Enter`.",
         drill: "Go to where cli.py uses `load_config`.",
         start: Some(("config.py", LOAD_CONFIG_DEF, "load_config")),
         keys: "",
@@ -194,7 +194,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: ":",
         title: "Go to line",
-        tutor: "`:` (or Ctrl+G), then a number: type `42` and press Enter.",
+        tutor: "`:` (or `Ctrl+G`), then a number: type `42` and press `Enter`.",
         drill: "Go to line 42.",
         start: Some(("store.py", CLASS_LINE, "")),
         keys: "",
@@ -227,7 +227,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Tab",
         title: "Focus the tree",
-        tutor: "Tab switches the focus between the code and the tree. Press it once.",
+        tutor: "`Tab` switches the focus between the code and the tree. Press it once.",
         drill: "Move the focus into the file tree.",
         start: Some(("store.py", REMOVE_LINE, "")),
         keys: "t",
@@ -237,9 +237,9 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Enter",
         title: "Edit",
-        tutor: "Enter starts editing at the cursor and the cursor becomes a bar: type `# hi` and \
-                press Esc, the block is back. merl saves a second after you stop typing; Ctrl+S \
-                saves now, Ctrl+R reloads the file from disk.",
+        tutor: "`Enter` starts editing at the cursor and the cursor becomes a bar: type `# hi` and \
+                press `Esc`, the block is back. merl saves a second after you stop typing; \
+                `Ctrl+S` saves now, `Ctrl+R` reloads the file from disk.",
         drill: "Type `# hi` at the top of this file, then go back to moving around it.",
         start: Some((TEST_FILE, 1, "")),
         keys: "",
@@ -249,8 +249,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Ctrl+Z",
         title: "Undo",
-        tutor: "`# hi` was typed at the top. Ctrl+Z takes an edit back, Ctrl+Y brings it again. \
-                Press Ctrl+Z once: the file is as it was, and a second later so is the disk.",
+        tutor: "`# hi` was typed at the top. `Ctrl+Z` takes an edit back, `Ctrl+Y` brings it \
+                again. Press `Ctrl+Z`: the file is as it was, and a second later so is the disk.",
         drill: "Take back the `# hi` typed at the top.",
         start: Some((TEST_FILE, 1, "")),
         keys: "<Enter># hi<Esc>",
@@ -260,8 +260,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Ctrl+Y",
         title: "Redo",
-        tutor: "`# hi` was typed at the top and taken back. Ctrl+Y brings back what Ctrl+Z took: \
-                press it.",
+        tutor: "`# hi` was typed at the top and taken back. `Ctrl+Y` brings back what `Ctrl+Z` \
+                took: press it.",
         drill: "Bring back the `# hi` that was taken back.",
         start: Some((TEST_FILE, 1, "")),
         keys: "<Enter># hi<Esc><C-z>",
@@ -271,8 +271,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Ctrl+C",
         title: "Copy",
-        tutor: "Ctrl+C copies the selection to the clipboard or, with nothing selected, the whole \
-                line. Press it to copy this line.",
+        tutor: "`Ctrl+C` copies the selection to the clipboard or, with nothing selected, the \
+                whole line. Press it to copy this line.",
         drill: "Copy this whole line to the clipboard.",
         start: Some(("store.py", CALL_LINE, "load_config")),
         keys: "",
@@ -286,7 +286,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Edit: Ctrl+X",
         title: "Cut",
-        tutor: "While editing, Ctrl+X cuts the selection or, with nothing selected, the whole \
+        tutor: "While editing, `Ctrl+X` cuts the selection or, with nothing selected, the whole \
                 line. Press it to cut this line.",
         drill: "You are typing. Cut this whole line to the clipboard.",
         start: Some(("store.py", CALL_LINE, "")),
@@ -303,8 +303,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Edit: Alt+Backspace",
         title: "Delete a word",
-        tutor: "You are editing, right after `load_config`. Alt+Backspace (Option on a Mac) \
-                deletes the word before the cursor.",
+        tutor: "You are editing, right after `load_config`. `Alt+Backspace` (`Option` on a \
+                Mac) deletes the word before the cursor.",
         drill: "You are typing. Delete `load_config` before the cursor.",
         start: Some(("store.py", CALL_LINE, "load_config")),
         keys: "<A-Right><Enter>",
@@ -314,8 +314,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Edit: Alt+Delete",
         title: "Delete the next word",
-        tutor: "You are editing, right before `load_config`. Alt+Delete deletes the word after the \
-                cursor.",
+        tutor: "You are editing, right before `load_config`. `Alt+Delete` deletes the word after \
+                the cursor.",
         drill: "You are typing. Delete `load_config` after the cursor.",
         start: Some(("store.py", CALL_LINE, "load_config")),
         keys: "<Enter>",
@@ -325,8 +325,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Arrows",
         title: "Move",
-        tutor: "Arrows move the cursor; Up and Down go by screen row, so a wrapped line is walked \
-                a row at a time. Press Down.",
+        tutor: "`Arrows` move the cursor; `Up` and `Down` go by screen row, so a wrapped line is \
+                walked a row at a time. Press `Down`.",
         drill: "Move the cursor to the line below.",
         start: Some(("store.py", CALL_LINE, "load_config")),
         keys: "",
@@ -336,7 +336,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Shift+Up",
         title: "Select up",
-        tutor: "Shift+Up extends the selection by a screen row upwards. Press it to select up to \
+        tutor: "`Shift+Up` extends the selection by a screen row upwards. Press it to select up to \
                 the line above.",
         drill: "Select from the cursor up to the same place on the line above.",
         start: Some(("store.py", CALL_LINE, "load_config")),
@@ -347,7 +347,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Shift+Down",
         title: "Select down",
-        tutor: "Shift+Down extends the selection by a screen row downwards. Press it to select \
+        tutor: "`Shift+Down` extends the selection by a screen row downwards. Press it to select \
                 down to the line below.",
         drill: "Select from the cursor down to the same place on the line below.",
         start: Some(("store.py", CALL_LINE, "load_config")),
@@ -358,7 +358,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Shift+Left",
         title: "Select a character back",
-        tutor: "Shift+Left extends the selection by a character to the left. Press it to select \
+        tutor: "`Shift+Left` extends the selection by a character to the left. Press it to select \
                 the `g` before the cursor.",
         drill: "Select the `g` just before the cursor.",
         start: Some(("store.py", CALL_LINE, "()")),
@@ -369,8 +369,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Shift+Right",
         title: "Select a character",
-        tutor: "Shift+Right extends the selection by a character to the right. Press it to select \
-                the `(` under the cursor.",
+        tutor: "`Shift+Right` extends the selection by a character to the right. Press it to \
+                select the `(` under the cursor.",
         drill: "Select the `(` under the cursor.",
         start: Some(("store.py", CALL_LINE, "()")),
         keys: "",
@@ -380,7 +380,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Alt+Left",
         title: "Word left",
-        tutor: "Alt+Left (Option on a Mac) moves to the start of the word before the cursor. \
+        tutor: "`Alt+Left` (`Option` on a Mac) moves to the start of the word before the cursor. \
                 Press it to land on `or`.",
         drill: "Move the cursor back to the start of `or`.",
         start: Some(("store.py", CALL_LINE, "load_config")),
@@ -396,7 +396,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Alt+Right",
         title: "Word right",
-        tutor: "Alt+Right moves to the end of the word under the cursor, or of the next one. \
+        tutor: "`Alt+Right` moves to the end of the word under the cursor, or of the next one. \
                 Press it to land right after `load_config`.",
         drill: "Move the cursor to just after `load_config`.",
         start: Some(("store.py", CALL_LINE, "load_config")),
@@ -407,7 +407,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Alt+Shift+Left",
         title: "Select words back",
-        tutor: "Alt+Shift+Left extends the selection by a word to the left. Press it three times \
+        tutor: "`Alt+Shift+Left` extends the selection by a word to the left. Press it three times \
                 to select `config or load_config`.",
         drill: "Select `config or load_config`, back from the cursor.",
         start: Some(("store.py", CALL_LINE, "()")),
@@ -418,8 +418,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Alt+Shift+Right",
         title: "Select words",
-        tutor: "Alt+Shift+Right extends the selection by a word to the right. Press it three times \
-                to select `config or load_config`.",
+        tutor: "`Alt+Shift+Right` extends the selection by a word to the right. Press it three \
+                times to select `config or load_config`.",
         drill: "Select `config or load_config`, on from the cursor.",
         start: Some(("store.py", CALL_LINE, "config or")),
         keys: "",
@@ -429,8 +429,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Ctrl+Shift+Left",
         title: "Select to the line start",
-        tutor: "Ctrl+Shift+Left extends the selection to the start of the screen row, and pressed \
-                again to the start of the line. Press it once.",
+        tutor: "`Ctrl+Shift+Left` extends the selection to the start of the screen row, and \
+                pressed again to the start of the line. Press it once.",
         drill: "Select everything on this line before the cursor.",
         start: Some(("store.py", CALL_LINE, "load_config")),
         keys: "",
@@ -440,7 +440,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Ctrl+Shift+Right",
         title: "Select to the line end",
-        tutor: "Ctrl+Shift+Right extends the selection to the end of the screen row, and pressed \
+        tutor: "`Ctrl+Shift+Right` extends the selection to the end of the screen row, and pressed \
                 again to the end of the line. Press it once.",
         drill: "Select the rest of this line from the cursor on.",
         start: Some(("store.py", CALL_LINE, "load_config")),
@@ -462,8 +462,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Ctrl+D",
         title: "Half a screen down",
-        tutor: "Ctrl+D moves the cursor and the view half a screen down, so half of what you read \
-                stays in sight. Press it.",
+        tutor: "`Ctrl+D` moves the cursor and the view half a screen down, so half of what you \
+                read stays in sight. Press it.",
         drill: "Move half a screen down.",
         start: Some(("notes.json", 1, "")),
         keys: "",
@@ -473,7 +473,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Ctrl+U",
         title: "Half a screen up",
-        tutor: "Ctrl+U moves the cursor and the view half a screen up. Press it.",
+        tutor: "`Ctrl+U` moves the cursor and the view half a screen up. Press it.",
         drill: "Move half a screen up.",
         start: Some(("notes.json", NOTES_END, "")),
         keys: "",
@@ -505,7 +505,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "PgUp",
         title: "A screen up",
-        tutor: "PgUp moves the cursor a whole screen up. Press it.",
+        tutor: "`PgUp` moves the cursor a whole screen up. Press it.",
         drill: "Move a whole screen up.",
         start: Some(("notes.json", NOTES_END, "")),
         keys: "",
@@ -515,7 +515,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "PgDn",
         title: "A screen down",
-        tutor: "PgDn moves the cursor a whole screen down. Press it.",
+        tutor: "`PgDn` moves the cursor a whole screen down. Press it.",
         drill: "Move a whole screen down.",
         start: Some(("notes.json", 1, "")),
         keys: "",
@@ -525,8 +525,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Home",
         title: "Line start",
-        tutor: "Home goes to the start of the screen row and, pressed there, of the line. Press \
-                it.",
+        tutor: "`Home` goes to the start of the screen row and, pressed there, of the line. \
+                Press it.",
         drill: "Go to the start of this line.",
         start: Some(("store.py", CALL_LINE, "load_config")),
         keys: "",
@@ -536,7 +536,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "End",
         title: "Line end",
-        tutor: "End goes to the end of the screen row and, pressed there, of the line. Press it.",
+        tutor: "`End` goes to the end of the screen row and, pressed there, of the line. Press \
+                it.",
         drill: "Go to the end of this line.",
         start: Some(("store.py", CALL_LINE, "self")),
         keys: "",
@@ -546,7 +547,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Ctrl+Home",
         title: "File start",
-        tutor: "Ctrl+Home goes to the start of the file. Press it.",
+        tutor: "`Ctrl+Home` goes to the start of the file. Press it.",
         drill: "Go to the very start of the file.",
         start: Some(("store.py", 42, "")),
         keys: "",
@@ -556,7 +557,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Ctrl+End",
         title: "File end",
-        tutor: "Ctrl+End goes to the end of the file. Press it.",
+        tutor: "`Ctrl+End` goes to the end of the file. Press it.",
         drill: "Go to the very end of the file.",
         start: Some(("store.py", CLASS_LINE, "")),
         keys: "",
@@ -568,8 +569,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Esc",
         title: "Close it",
-        tutor: "`?` lists every key merl knows, and it is open now. Esc closes any overlay, and \
-                clears the selection and the find pattern. Press Esc.",
+        tutor: "`?` lists every key merl knows, and it is open now. `Esc` closes any overlay, \
+                and clears the selection and the find pattern. Press `Esc`.",
         drill: "Close the list of keys.",
         start: Some(("export.csv", 1, "")),
         keys: "?",
@@ -579,7 +580,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Tree: Up",
         title: "Up the tree",
-        tutor: "In the tree, Up moves the cursor a row up. Press it to reach the `tests` folder.",
+        tutor: "In the tree, `Up` moves the cursor a row up. Press it to reach the `tests` folder.",
         drill: "Move the tree's cursor up onto the `tests` folder.",
         start: Some(("cli.py", 1, "")),
         keys: "t<Tab>",
@@ -589,7 +590,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Tree: Down",
         title: "Down the tree",
-        tutor: "In the tree, Down moves the cursor a row down. Press it to reach config.py.",
+        tutor: "In the tree, `Down` moves the cursor a row down. Press it to reach config.py.",
         drill: "Move the tree's cursor down onto config.py.",
         start: Some(("cli.py", 1, "")),
         keys: "t<Tab>",
@@ -599,8 +600,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Tree: Enter",
         title: "Open from the tree",
-        tutor: "Up and Down move in the tree, Right unfolds a folder and Left folds it; Enter \
-                opens the file under the cursor. It is on test_store.py: press Enter.",
+        tutor: "`Up` and `Down` move in the tree, `Right` unfolds a folder and `Left` folds it; \
+                `Enter` opens the file under the cursor. It is on test_store.py: press `Enter`.",
         drill: "Open the file under the tree's cursor.",
         start: Some(("store.py", REMOVE_LINE, "")),
         keys: "t<Tab><Up><Up><Up><Up><Up><Up><Up><Right><Down>",
@@ -610,7 +611,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Tree: Left",
         title: "Fold a folder",
-        tutor: "In the tree, Left folds the folder under the cursor, or goes up to the folder a \
+        tutor: "In the tree, `Left` folds the folder under the cursor, or goes up to the folder a \
                 file is in. Press it to fold `tests`.",
         drill: "Fold the `tests` folder in the tree.",
         start: Some((TEST_FILE, 1, "")),
@@ -621,7 +622,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Tree: Right",
         title: "Unfold a folder",
-        tutor: "In the tree, Right unfolds the folder under the cursor. Press it to unfold \
+        tutor: "In the tree, `Right` unfolds the folder under the cursor. Press it to unfold \
                 `tests`.",
         drill: "Unfold the `tests` folder in the tree.",
         start: Some(("cli.py", 1, "")),
@@ -632,8 +633,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Picker: Up",
         title: "Up a list",
-        tutor: "In a list, Up moves the selection a row up. These are the usages of \
-                `load_config`: press Up to go back to its declaration.",
+        tutor: "In a list, `Up` moves the selection a row up. These are the usages of \
+                `load_config`: press `Up` to go back to its declaration.",
         drill: "Move the selection back up to the declaration.",
         start: Some(("config.py", LOAD_CONFIG_DEF, "load_config")),
         keys: "u<Down>",
@@ -643,8 +644,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Picker: Down",
         title: "Down a list",
-        tutor: "In a list, Down moves the selection a row down. These are the usages of \
-                `load_config`: press Down to reach the import in cli.py.",
+        tutor: "In a list, `Down` moves the selection a row down. These are the usages of \
+                `load_config`: press `Down` to reach the import in cli.py.",
         drill: "Select the import of `load_config` in cli.py.",
         start: Some(("config.py", LOAD_CONFIG_DEF, "load_config")),
         keys: "u",
@@ -660,8 +661,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Picker: Enter",
         title: "Accept",
-        tutor: "In a list, Enter opens the row that is selected: here the import of `load_config` \
-                in cli.py. Press Enter.",
+        tutor: "In a list, `Enter` opens the row that is selected: here the import of \
+                `load_config` in cli.py. Press `Enter`.",
         drill: "Open the use of `load_config` that is selected.",
         start: Some(("config.py", LOAD_CONFIG_DEF, "load_config")),
         keys: "u<Down>",
@@ -672,8 +673,8 @@ pub const POOL: &[Task] = &[
         key: "Picker: Esc",
         title: "Keep or put back",
         tutor: "`T` lists the themes and repaints merl in the one under the cursor as it moves: \
-                one is on show now. Enter keeps it and saves it to the config file; Esc closes a \
-                list without taking anything, and here puts the old theme back. Press Esc.",
+                one is on show now. `Enter` keeps it and saves it to the config file; `Esc` closes \
+                a list without taking anything, and here puts the old theme back. Press `Esc`.",
         drill: "Put the old theme back.",
         start: Some(("export.csv", 1, "")),
         keys: "T<Down>",
@@ -683,8 +684,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Picker: PgUp",
         title: "A page up a list",
-        tutor: "In a list, PgUp moves the selection a page up. These are the symbols of the \
-                project: press PgUp to get back to the top.",
+        tutor: "In a list, `PgUp` moves the selection a page up. These are the symbols of the \
+                project: press `PgUp` to get back to the top.",
         drill: "Move the selection a whole page up this list.",
         start: Some(("store.py", 1, "")),
         keys: "D<PgDn>",
@@ -694,8 +695,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Picker: PgDn",
         title: "A page down a list",
-        tutor: "In a list, PgDn moves the selection a page down. These are the symbols of the \
-                project: press PgDn.",
+        tutor: "In a list, `PgDn` moves the selection a page down. These are the symbols of the \
+                project: press `PgDn`.",
         drill: "Move the selection a whole page down this list.",
         start: Some(("store.py", 1, "")),
         keys: "D",
@@ -712,7 +713,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Help: Up",
         title: "Scroll the help up",
-        tutor: "`?` lists every key merl knows, and Up scrolls the list a row up. Press it.",
+        tutor: "`?` lists every key merl knows, and `Up` scrolls the list a row up. Press it.",
         drill: "Scroll the list of keys back up.",
         start: Some(("store.py", 1, "")),
         keys: "?<Down>",
@@ -722,7 +723,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Help: Down",
         title: "Scroll the help down",
-        tutor: "`?` lists every key merl knows, and Down scrolls the list a row down. Press it.",
+        tutor: "`?` lists every key merl knows, and `Down` scrolls the list a row down. Press it.",
         drill: "Scroll the list of keys down.",
         start: Some(("store.py", 1, "")),
         keys: "?",
