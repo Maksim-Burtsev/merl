@@ -145,6 +145,9 @@ impl App {
         };
         if self.viewed.remove(&rel).is_some() {
             self.message = "not viewed".into();
+            if self.viewed_branch.is_none() {
+                self.unticked.insert(rel);
+            }
             self.save_viewed();
         } else {
             self.message = "viewed".into();
@@ -156,6 +159,7 @@ impl App {
         if let Some(rel) = rel {
             let hash = self.disk_hash(&rel);
             self.changed.remove(&rel);
+            self.unticked.remove(&rel);
             self.viewed.insert(rel, hash);
             self.save_viewed();
         }
@@ -209,7 +213,7 @@ impl App {
     /// Keeps the marks under the branch the listing names, the one reading of HEAD: another
     /// branch checked out is another review, with the marks it left last time. A detached HEAD
     /// names none and keeps the branch it left. A review that had none until now keeps what it
-    /// marked, over the branch's own marks, and saves them.
+    /// marked and took off, over the branch's own marks, and saves them.
     fn follow_branch(&mut self) {
         let Some(r) = &self.review else { return };
         let Some(branch) = r.branch_name().map(str::to_string) else {
@@ -225,8 +229,10 @@ impl App {
         };
         let mut marks = read_viewed(&store, &branch, &base);
         let session = [&mut self.viewed, &mut self.changed, &mut self.unlisted].map(std::mem::take);
-        let kept = first && session.iter().any(|m| !m.is_empty());
+        let unticked = std::mem::take(&mut self.unticked);
+        let kept = first && (session.iter().any(|m| !m.is_empty()) || !unticked.is_empty());
         if first {
+            marks.retain(|p, _| !unticked.contains(p));
             marks.extend(session.into_iter().flatten());
         }
         self.viewed = marks;

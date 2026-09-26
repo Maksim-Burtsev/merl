@@ -277,6 +277,60 @@ fn a_viewed_mark_that_cannot_be_saved_says_so() {
         );
     }
     assert_eq!(std::fs::read(&store).unwrap(), b"\xff\n");
+    // The marks it could not save stay for the session: a new listing on the same branch does
+    // not read the store again.
+    std::fs::write(dir.join("zz.txt"), "z\n").unwrap();
+    let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+    a.review_refreshed(fresh);
+    let both = vec![PathBuf::from("new"), PathBuf::from("tail")];
+    assert_eq!(marks(&a).0, both);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// #240: a start that changes no mark leaves the store as it is, so a review opened and not
+/// marked does not start its 30 days again.
+#[test]
+fn a_start_leaves_the_viewed_store_as_it_is() {
+    let (dir, mut a) = review_app("viewedstart");
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    let store = dir.join(".git/merl/viewed");
+    let today = crate::stats::today();
+    let text = std::fs::read_to_string(&store).unwrap();
+    // As if written ten days ago.
+    let old = text.replace(&crate::stats::date(today), &crate::stats::date(today - 10));
+    std::fs::write(&store, &old).unwrap();
+    let a = review_start(&dir, None);
+    assert_eq!(marks(&a).0, [PathBuf::from("new")]);
+    assert_eq!(std::fs::read_to_string(&store).unwrap(), old);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// #240: in a review started detached, a tick `m` takes off wins over the branch's own mark of
+/// the file once the branch is checked out, and after the next start.
+#[test]
+fn a_tick_taken_off_while_detached_stays_off_on_the_branch() {
+    let (dir, mut a) = review_app("viewedoff");
+    let git = |args: &[&str]| {
+        let mut cmd = std::process::Command::new("git");
+        let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    let m = |a: &mut App| {
+        a.focus = Focus::Tree;
+        a.tree.reveal(Path::new("tail"));
+        press(a, KeyCode::Char('m'), KeyModifiers::NONE);
+    };
+    m(&mut a);
+    git(&["switch", "-q", "--detach"]);
+    let mut a = review_start(&dir, None);
+    m(&mut a);
+    m(&mut a);
+    assert_eq!(a.message, "not viewed");
+    git(&["switch", "-q", "feature"]);
+    let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+    a.review_refreshed(fresh);
+    assert_eq!(marks(&a), (vec![], vec![]));
+    assert_eq!(marks(&review_start(&dir, None)), (vec![], vec![]));
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -382,7 +436,8 @@ fn a_worktree_review_shares_the_viewed_marks() {
 }
 
 /// #240: a review whose marks nobody wrote for 30 days leaves the store the next time it is
-/// written. The store is replaced whole: a merl reading it meanwhile has the old one entire.
+/// written: one written 29 days ago stays, 30 and 31 go. The store is replaced whole: a merl
+/// reading it meanwhile has the old one entire.
 #[test]
 fn the_viewed_store_forgets_old_reviews_and_is_replaced_whole() {
     let (dir, mut a) = review_app("viewedstore");
@@ -392,15 +447,18 @@ fn the_viewed_store_forgets_old_reviews_and_is_replaced_whole() {
         let day = crate::stats::date(today - days);
         format!("{day}\t{branch}\tmain\t{:016x}\tx.rs\n", 7)
     };
-    let old = line(31, "stale") + &line(28, "recent");
+    let old = line(31, "stale") + &line(30, "edge") + &line(29, "recent");
     std::fs::create_dir_all(store.parent().unwrap()).unwrap();
     std::fs::write(&store, &old).unwrap();
     let reader = dir.join(".git/viewed-open-elsewhere");
     std::fs::hard_link(&store, &reader).unwrap();
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
     let text = std::fs::read_to_string(&store).unwrap();
-    assert!(!text.contains("\tstale\t"), "{text}");
-    assert!(text.contains(&line(28, "recent")), "{text}");
+    assert!(
+        !text.contains("\tstale\t") && !text.contains("\tedge\t"),
+        "{text}"
+    );
+    assert!(text.contains(&line(29, "recent")), "{text}");
     let mark = "\tfeature\tmain\t";
     assert!(text.contains(mark) && text.ends_with("\tnew\n"), "{text}");
     assert_eq!(std::fs::read_to_string(&reader).unwrap(), old);
