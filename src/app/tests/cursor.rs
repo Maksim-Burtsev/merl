@@ -216,9 +216,10 @@ fn a_jump_or_a_find_match_drops_the_selection() {
     let hit = Hit {
         path: a.buf.path.clone().unwrap(),
         line: 4,
+        col: 0,
         text: "jkl".into(),
     };
-    a.show_picker(PickerKind::Usages, App::hit_items(vec![hit], |_| 0));
+    a.show_picker(PickerKind::Usages, App::hit_items(vec![hit]));
     a.picker.as_mut().unwrap().settle();
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!((a.line, a.selection()), (3, None));

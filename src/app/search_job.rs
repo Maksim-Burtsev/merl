@@ -38,15 +38,9 @@ impl SearchJob {
         if self.symbols {
             return App::symbol_items(self.symbol_hits().0);
         }
-        let hits = self
-            .run(false, true)
-            .expect("an escaped literal always compiles");
-        // Where the grep's own match starts, found again as ripgrep finds a column.
-        let re = RegexBuilder::new(&self.pattern)
-            .case_insensitive(true)
-            .build()
-            .expect("an escaped literal always compiles");
-        App::hit_items(hits, |line| re.find(line).map_or(0, |m| m.start()))
+        // An escaped literal always compiles, but a pasted query can outgrow the matcher's size
+        // limit: it finds nothing then, rather than killing the thread the answer is awaited from.
+        App::hit_items(self.run(false, true).unwrap_or_default())
     }
 
     /// Every declaration the [`search::SYMBOLS`] rows read out of the project, as

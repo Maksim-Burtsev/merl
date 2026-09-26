@@ -18,8 +18,20 @@ impl App {
             return;
         }
         let tiers: Vec<Tier> = ranked.iter().map(|(t, _)| *t).collect();
-        let hits = ranked.into_iter().map(|(_, h)| h).collect();
-        let items = Self::hit_items(hits, |line| word_col(line, &word));
+        // The grep's column is the first match it calls a whole word, and to it `-` ends one: in a
+        // Makefile that is the start of `build-image-arm` for `build-image`. The row lands on the
+        // word as its file's language spells one, as `u` read it under the cursor.
+        let hits = ranked
+            .into_iter()
+            .map(|(_, h)| {
+                let extra = search::word_chars(search::kind_of(&h.path), false);
+                Hit {
+                    col: word_col(&h.text, &word, extra),
+                    ..h
+                }
+            })
+            .collect();
+        let items = Self::hit_items(hits);
         let declarations = tiers.iter().filter(|&&t| t == Tier::Declaration).count();
         let tests = tiers.iter().filter(|&&t| t == Tier::Tests).count();
         // A declaration row says so in the column `d` puts its reason in; with no declaration

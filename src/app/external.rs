@@ -325,7 +325,11 @@ impl App {
                 );
                 PickItem {
                     code_at: Some(head.len()),
-                    col: word_col(&c.hit.text, word),
+                    col: word_col(
+                        &c.hit.text,
+                        word,
+                        search::word_chars(search::kind_of(&c.hit.path), true),
+                    ),
                     label: head + &clip(c.hit.text.trim(), MAX_LABEL_TEXT),
                     path: c.hit.path,
                     line: c.hit.line,

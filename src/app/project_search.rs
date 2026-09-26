@@ -60,16 +60,16 @@ impl App {
         self.buf.path.as_deref().and_then(search::kind_of)
     }
 
-    /// `rel/path:line: text` rows for a result picker, each landing on the byte `col` finds in its
-    /// line. The text keeps its tabs, as `Buffer` does, so `ui` can line it up with the file's
-    /// highlighting; tabs are expanded when drawn.
-    pub(crate) fn hit_items(hits: Vec<Hit>, col: impl Fn(&str) -> usize) -> Vec<PickItem> {
+    /// `rel/path:line: text` rows for a result picker, each landing on its hit's column. The text
+    /// keeps its tabs, as `Buffer` does, so `ui` can line it up with the file's highlighting; tabs
+    /// are expanded when drawn.
+    pub(crate) fn hit_items(hits: Vec<Hit>) -> Vec<PickItem> {
         hits.into_iter()
             .map(|h| {
                 let label = format!("{}:{}: ", h.path.display(), h.line);
                 let code_at = Some(label.len());
                 PickItem {
-                    col: col(&h.text),
+                    col: h.col,
                     label: label + &clip(h.text.trim(), MAX_LABEL_TEXT),
                     path: h.path,
                     line: h.line,

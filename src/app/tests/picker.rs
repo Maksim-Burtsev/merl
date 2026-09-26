@@ -156,3 +156,143 @@ fn enter_on_a_search_row_lands_on_the_hit() {
     assert_eq!(landed(&a), ("app/service.py".into(), 3, 34));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// `[` and `]` come back to the word a row landed on, not to the start of its line: the column
+/// is set before the jump's stop is made.
+#[test]
+fn back_and_forward_return_to_the_word_a_row_landed_on() {
+    let (dir, mut a) = orders_app("pick-hist-col");
+    cursor_on(&mut a, "app/service.py", 3, "find_by_customer");
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    a.picker.as_mut().expect("the by name picker").settle();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+    assert_eq!(landed(&a), ("app/service.py".into(), 3, 17));
+    press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
+    assert_eq!(landed(&a), ("app/repos.py".into(), 2, 9));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A `D` row whose name is not a `name` of its pattern lands on it too: a Terraform block on
+/// its first label, a YAML anchor on its name after the `&`.
+#[test]
+fn enter_on_a_terraform_or_yaml_symbol_row_lands_on_its_name() {
+    let (dir, mut a) = project_app(
+        "pick-sym-infra",
+        &[
+            (
+                "main.tf",
+                "variable \"region\" {}\n\nresource \"aws_instance\" \"web\" {\n}\n",
+            ),
+            ("ci.yml", "defaults: &base\n  image: rust\n"),
+        ],
+    );
+    cursor_on(&mut a, "ci.yml", 2, "image");
+    for (query, place) in [
+        ("var.region", ("main.tf", 1, 11)),
+        ("aws_instance.web", ("main.tf", 3, 11)),
+        ("&base", ("ci.yml", 1, 12)),
+    ] {
+        press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+        typed(&mut a, query);
+        a.picker.as_mut().expect("the symbols").settle();
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(landed(&a), (place.0.into(), place.1, place.2), "{query}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A file cut shorter between the search and Enter: the row's column is past its line's end,
+/// and the cursor stops at the end rather than aborting merl.
+#[test]
+fn a_row_whose_line_got_shorter_lands_at_its_end() {
+    let (dir, mut a) = orders_app("pick-shorter");
+    cursor_on(&mut a, "app/service.py", 1, "checkout");
+    press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+    typed(&mut a, "find_by_customer(self");
+    a.settle_search();
+    std::fs::write(dir.join("app/repos.py"), "class OrderRepo:\n  я\n").unwrap();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(landed(&a), ("app/repos.py".into(), 2, "  я".len() + 1));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Letters of `alphabet` in an order that does not repeat itself, so a long run of them overlaps
+/// itself nowhere and the grep stays linear.
+fn noise(alphabet: &[char], n: usize) -> String {
+    let mut x: u32 = 1;
+    (0..n)
+        .map(|_| {
+            x = x.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+            alphabet[(x >> 16) as usize % alphabet.len()]
+        })
+        .collect()
+}
+
+/// A query the grep takes, however long, lands on its hit. It was compiled a second time for
+/// the column, under the `regex` crate's smaller size limit, and that compile aborted the search.
+#[test]
+fn a_huge_search_query_lands_on_its_hit() {
+    let cyrillic = noise(&('а'..='я').collect::<Vec<_>>(), 70_000);
+    let ascii = noise(&('a'..='z').collect::<Vec<_>>(), 200_000);
+    let (dir, mut a) = project_app(
+        "pick-s-huge",
+        &[(
+            "quote.py",
+            &format!("x = \"{cyrillic}\"\ny = \"{ascii}\"\n"),
+        )],
+    );
+    cursor_on(&mut a, "quote.py", 1, "x");
+    for (query, line) in [(&cyrillic, 1), (&ascii, 2)] {
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        // Pasted, as a person would: typing it would take one press per letter.
+        let (head, last) = query.split_at(query.len() - query.chars().last().unwrap().len_utf8());
+        a.picker.as_mut().unwrap().query = LineEdit::typed(head);
+        typed(&mut a, last);
+        a.settle_search();
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(landed(&a), ("quote.py".into(), line, 6));
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A query that ends in a space lands on its hit at the end of a line: the blanks the row's text
+/// is trimmed of are still the line's.
+#[test]
+fn a_search_query_ending_in_a_space_lands_on_the_hit() {
+    let (dir, mut a) = project_app("pick-s-space", &[("limits.py", "ROWS = 10 \n")]);
+    cursor_on(&mut a, "limits.py", 1, "ROWS");
+    press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+    typed(&mut a, "10 ");
+    a.settle_search();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(landed(&a), ("limits.py".into(), 1, 8));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// In a Makefile `-` is part of a word, as `u` reads the word under the cursor there: a row for
+/// `build-image` lands on that target, not on the start of `build-image-arm` before it.
+#[test]
+fn enter_on_a_usage_row_in_a_makefile_lands_on_the_whole_target() {
+    let (dir, mut a) = project_app(
+        "pick-u-make",
+        &[(
+            "Makefile",
+            "build-image-arm:\n\tdocker build --platform arm64 .\n\nbuild-image:\n\t\
+             docker build .\n\nrelease: build-image-arm build-image\n\techo done\n",
+        )],
+    );
+    cursor_on(&mut a, "Makefile", 4, "build-image");
+    press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
+    let picker = a.picker.as_mut().expect("the usages");
+    picker.settle();
+    for _ in 0..picker.counts().0 {
+        if picker.current().is_some_and(|it| it.line == 7) {
+            break;
+        }
+        picker.key(KeyCode::Down.into());
+    }
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(landed(&a), ("Makefile".into(), 7, 26));
+    std::fs::remove_dir_all(&dir).unwrap();
+}

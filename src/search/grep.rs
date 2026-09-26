@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+use grep_matcher::Matcher;
 use grep_regex::{RegexMatcher, RegexMatcherBuilder};
 use grep_searcher::{BinaryDetection, Searcher, SearcherBuilder, Sink, SinkMatch};
 
@@ -15,6 +16,9 @@ pub const MAX_HITS: usize = 5_000;
 pub struct Hit {
     pub path: PathBuf,
     pub line: usize,
+    /// The byte of the line where the pattern's match starts: where `s` lands on the row. 0 for a
+    /// line found some other way.
+    pub col: usize,
     pub text: String,
 }
 /// Greps `pattern` over `files` (paths relative to `root`).
@@ -75,6 +79,7 @@ fn collect(
         }
         let sink = Collect {
             path: rel,
+            matcher,
             hits: &mut hits,
             keep: &keep,
         };
@@ -89,6 +94,7 @@ fn collect(
 /// Collects one `Hit` per matching line `keep` takes, stopping the whole search at [`MAX_HITS`].
 struct Collect<'a> {
     path: &'a Path,
+    matcher: &'a RegexMatcher,
     hits: &'a mut Vec<Hit>,
     keep: &'a dyn Fn(&str) -> bool,
 }
@@ -96,12 +102,17 @@ impl Sink for Collect<'_> {
     type Error = std::io::Error;
 
     fn matched(&mut self, _searcher: &Searcher, m: &SinkMatch<'_>) -> std::io::Result<bool> {
-        let text = String::from_utf8_lossy(m.bytes()).trim_end().to_string();
-        if (self.keep)(&text) {
+        let line = String::from_utf8_lossy(m.bytes());
+        let text = line.trim_end();
+        if (self.keep)(text) {
+            // The matcher that found the line, run again over it as `Buffer` reads it (lossy, its
+            // trailing blanks kept), finds the column as ripgrep does, with nothing to compile.
+            let col = self.matcher.find(line.as_bytes()).ok().flatten();
             self.hits.push(Hit {
                 path: self.path.to_path_buf(),
                 line: m.line_number().unwrap_or(0) as usize,
-                text,
+                col: col.map_or(0, |m| m.start()),
+                text: text.to_string(),
             });
         }
         Ok(self.hits.len() < MAX_HITS)

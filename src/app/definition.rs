@@ -74,6 +74,7 @@ impl App {
                     hit: Hit {
                         path: here.clone(),
                         line,
+                        col: 0,
                         text: self.buf.lines[line - 1].clone(),
                     },
                     reason: Reason::Local,
@@ -100,6 +101,7 @@ impl App {
             let hit = Hit {
                 path: here.clone(),
                 line,
+                col: 0,
                 text: self.buf.lines[line - 1].clone(),
             };
             let reason = Reason::Import(path.join("/"));
@@ -480,7 +482,8 @@ impl App {
                 // second `d` there asks the next question about the same name: what
                 // implements the declaration it just landed on (#68, step 6). A row of the
                 // picker below lands there too.
-                self.jump_to_col(&path, one.hit.line, word_col(&one.hit.text, word));
+                let extra = search::word_chars(search::kind_of(&one.hit.path), true);
+                self.jump_to_col(&path, one.hit.line, word_col(&one.hit.text, word, extra));
                 // A refused jump (edits that cannot be saved) leaves its own reason, not a
                 // resolution nobody followed.
                 if self.buf.path.as_deref() == Some(path.as_path()) {
