@@ -14,8 +14,8 @@
 
 ## Working on an issue
 
-A brief can be as short as "Work on #N". It is done when the PR is open in the shape below, CI
-on it is green, and you report its link as ready to merge.
+A brief can be as short as "Work on #N". It is done when the PR, in the shape below, is merged
+with its issue closed, or waits under `needs-owner` (see `## Merging`).
 
 1. Read the issue with its comments, then check that nobody built it yet: the issue is open and
    `gh pr list --state all --search N` shows no PR for it. Parallel sessions work on this repo.
@@ -103,6 +103,12 @@ run under ~15 s.
 - The README's GIFs are made by `assets/tapes/record.py`, not cast.py; see its docstring.
 
 ## Merging
+
+- Bug fixes, precision work, refactors, tests and docs: merge your own PR and close its issue
+  without asking, once CI is green and Punchcard says "Ship it".
+- A change the user has to learn (a new or changed key, screen, animation or default): leave the
+  PR open with the before/after screencasts, add the `needs-owner` label and name it in your
+  status line. Never ask "can I merge?" in chat.
 
 `master` takes squash merges of PRs only, with the CI checks green on a branch up to date with
 master; nobody can push to it directly or bypass the checks.
