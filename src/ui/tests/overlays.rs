@@ -488,15 +488,15 @@ fn review_panel_colours_the_status_and_dims_the_counts() {
         ("A new.rs", Color::Green),
         ("M store.rs", Color::Blue),
         ("D gone.rs", Color::Red),
-        ("R moved.rs", theme.gutter_fg),
+        ("R moved.rs", theme.ghost_fg),
     ] {
         let c = cell(&terminal, needle);
         assert_eq!(c.fg, colour, "{needle}");
         assert!(c.modifier.contains(Modifier::BOLD), "{needle}");
     }
     assert_eq!(at(&terminal, "store.rs"), theme.fg);
-    assert_eq!(at(&terminal, "+7 \u{2212}1"), theme.gutter_fg);
-    assert_eq!(at(&terminal, "bin"), theme.gutter_fg);
+    assert_eq!(at(&terminal, "+7 \u{2212}1"), theme.ghost_fg);
+    assert_eq!(at(&terminal, "bin"), theme.ghost_fg);
     // #172: the tick column is untouched.
     app.viewed.insert("store.rs".into(), 0);
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
@@ -523,7 +523,7 @@ fn review_panel_shows_the_branch_totals_on_the_bottom_border() {
         "{bottom}"
     );
     let c = cell(&terminal, "3 files");
-    assert_eq!(c.fg, theme.gutter_fg);
+    assert_eq!(c.fg, theme.ghost_fg);
     assert!(!c.modifier.contains(Modifier::BOLD));
     assert!(cell(&terminal, "feature").modifier.contains(Modifier::BOLD));
 
@@ -580,13 +580,30 @@ fn review_panel_measures_a_non_ascii_name_in_columns() {
         let row: String = (0..=edge).map(|x| buf[(x, y)].symbol()).collect();
         assert!(row.ends_with(&format!("{counts}\u{2502}")), "{row}");
     }
-    assert_eq!(at(&terminal, "+1 \u{2212}0"), theme.gutter_fg);
+    assert_eq!(at(&terminal, "+1 \u{2212}0"), theme.ghost_fg);
     assert!(rows(&terminal)[1].contains("M файл.rs"));
     let long = &rows(&terminal)[2];
     assert!(
         long.contains('\u{2026}') && !long.contains("\u{540d}"),
         "{long}"
     );
+}
+
+/// #250: a file below the top level has its counts at the border too: the room for its name
+/// counts the indent.
+#[test]
+fn review_panel_puts_a_nested_file_counts_at_the_border() {
+    let mut app = review_app(&[("src/deep/store.rs", 'M', 7, 1), ("top.rs", 'A', 1, 0)]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(60, 8)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    let nested = r
+        .iter()
+        .find(|l| l.contains("M store.rs"))
+        .expect("store.rs row");
+    assert!(nested.contains("+7 \u{2212}1\u{2502}"), "{r:#?}");
+    assert!(nested.starts_with("\u{2502}      M store.rs"), "{r:#?}");
 }
 
 /// A task can start with the help or a picker open (`Esc`, `Help: Down`, `Picker: PgDn`): the

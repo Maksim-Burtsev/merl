@@ -90,7 +90,7 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         let totals = format!(" {n} file{s} \u{b7} +{added} \u{2212}{deleted} ");
         // Too wide for the border, the totals go whole: a number cut short reads as another.
         if wrap::width(&totals) <= area.width.saturating_sub(2) as usize {
-            block = block.title_bottom(Span::styled(totals, base.fg(theme.gutter_fg)));
+            block = block.title_bottom(Span::styled(totals, base.fg(theme.ghost_fg)));
         }
     }
     let inner = block.inner(area);
@@ -152,7 +152,7 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                         'A' => Color::Green,
                         'M' => Color::Blue,
                         'D' => Color::Red,
-                        _ => theme.gutter_fg,
+                        _ => theme.ghost_fg,
                     };
                     let counts = if f.binary {
                         "bin".to_string()
@@ -176,8 +176,9 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                             style.fg(letter).add_modifier(Modifier::BOLD),
                         ),
                         Span::styled(format!(" {name}{}", " ".repeat(gap)), style),
-                        // Dim: the name reads first, the numbers are there when looked for.
-                        Span::styled(counts, style.fg(theme.gutter_fg)),
+                        // Dim, in the readable grey (#146): the name reads first, the numbers
+                        // are there when looked for.
+                        Span::styled(counts, style.fg(theme.ghost_fg)),
                     ]);
                 }
                 None => {
