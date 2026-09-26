@@ -526,15 +526,19 @@ impl App {
         app
     }
 
-    /// Path shown in the status bar: relative to the project root when it is below it.
+    /// Path shown in the status bar: relative to the project root when it is below it, else to
+    /// the standard library or dependency root it came from, as the `d` picker shows it (#235).
     pub fn rel_path(&self) -> String {
         let Some(path) = &self.buf.path else {
             return format!("{}/", self.root_name());
         };
-        path.strip_prefix(&self.root)
-            .unwrap_or(path)
-            .display()
-            .to_string()
+        match (path.strip_prefix(&self.root), self.kind()) {
+            (Ok(rel), _) => rel,
+            (Err(_), Some(kind)) => self.rel_to_its_root(kind, path),
+            (Err(_), None) => path,
+        }
+        .display()
+        .to_string()
     }
 
     pub fn root_name(&self) -> String {

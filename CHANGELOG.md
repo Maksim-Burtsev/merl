@@ -23,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   counts, and a type of the name in the file itself, a name bound twice, a binary under
   `src/bin/` or a module with no `impl` of the type stay `by name`. (#227)
 
+### Fixed
+
+- The status bar names a file outside the project from the root it came from, as the `d` picker
+  does: `json/__init__.py` instead of the whole path to the interpreter. A path still too long
+  for the pane is cut from the left, `…/json/__init__.py`, so the column, `read-only` and the
+  reason `d` gave stay in sight; in a 120-column pane they fell off the edge. (#235)
+
 ## [0.7.0] - 2026-09-25
 
 ### Added

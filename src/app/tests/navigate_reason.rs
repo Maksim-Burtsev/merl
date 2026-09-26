@@ -1,5 +1,8 @@
 //! What `d` says about how it found the target, and the cut greps.
 
+use ratatui::Terminal;
+use ratatui::backend::TestBackend;
+
 use super::*;
 
 /// What `d` says about a lookup outside the project: the module an import or a path names,
@@ -208,6 +211,38 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
             vec![row("jsonx/a.py:1"), row("jsonx/b.py:1")],
         )
     );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// #235: the status line names a file `d` found outside the project from the root it came
+/// from, as the picker does, so the column, `read-only` and the reason fit beside it.
+#[test]
+fn a_jump_outside_names_the_file_from_its_root() {
+    let (dir, mut a) = project_app("status", &[("m.py", "import json\n\njson.dumps(1)\n")]);
+    let root = external_root(
+        "status",
+        &[(
+            "json/__init__.py",
+            "import sys\n\n\ndef dumps(obj):\n    pass\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&root));
+    d_on(&mut a, "m.py", "json.dumps");
+    assert_eq!(a.rel_path(), "json/__init__.py");
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    for width in [120, 80] {
+        let mut terminal = Terminal::new(TestBackend::new(width, 4)).unwrap();
+        terminal
+            .draw(|f| crate::ui::draw(f, &mut a, &theme))
+            .unwrap();
+        let buf = terminal.backend().buffer();
+        let status: String = (0..width).map(|x| buf[(x, 3)].symbol()).collect();
+        assert_eq!(
+            status.trim_end(),
+            "json/__init__.py  4:5  [code]  read-only  dumps: via import json"
+        );
+    }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }

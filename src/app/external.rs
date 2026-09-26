@@ -264,6 +264,25 @@ impl App {
         }
     }
 
+    /// `path` relative to the standard library or dependency root of `kind` it is under,
+    /// `json/__init__.py` rather than the whole path to the interpreter; any other path as it
+    /// is. A workspace package's own `node_modules` is named from the project root, so its
+    /// `lib/index.d.ts` reads apart from the one at the top.
+    pub(super) fn rel_to_its_root<'a>(&self, kind: Kind, path: &'a Path) -> &'a Path {
+        let roots = self
+            .external
+            .get(&kind)
+            .map(|(roots, _)| roots.as_slice())
+            .unwrap_or_default();
+        match kind {
+            Kind::TsJs => roots.last().into_iter().chain([&self.root]).collect(),
+            _ => roots.iter().collect::<Vec<_>>(),
+        }
+        .into_iter()
+        .find_map(|r| path.strip_prefix(r).ok())
+        .unwrap_or(path)
+    }
+
     /// Picker rows for `d`: the qualified name, the reason, then `path:line: code`, the columns
     /// padded so the names and reasons line up. An external hit is shown relative to the root it
     /// came from: `json/__init__.py:278:` rather than the whole path to the interpreter.
@@ -273,11 +292,6 @@ impl App {
         word: &str,
         found: Vec<Candidate>,
     ) -> Vec<PickItem> {
-        let roots = self
-            .external
-            .get(&kind)
-            .map(|(roots, _)| roots.as_slice())
-            .unwrap_or_default();
         let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
         let named: Vec<(String, String, Candidate)> = found
             .into_iter()
@@ -307,20 +321,11 @@ impl App {
         named
             .into_iter()
             .map(|(name, why, c)| {
-                // A workspace package's own `node_modules` is named from the project root, so
-                // its `lib/index.d.ts` reads apart from the one at the top.
-                let shown = match kind {
-                    Kind::TsJs => roots.last().into_iter().chain([&self.root]).collect(),
-                    _ => roots.iter().collect::<Vec<_>>(),
-                }
-                .into_iter()
-                .find_map(|r| c.hit.path.strip_prefix(r).ok())
-                .unwrap_or(&c.hit.path);
                 let head = format!(
                     "{name}{}  {why}{}  {}:{}: ",
                     pad(name_w, &name),
                     pad(why_w, &why),
-                    shown.display(),
+                    self.rel_to_its_root(kind, &c.hit.path).display(),
                     c.hit.line
                 );
                 PickItem {
