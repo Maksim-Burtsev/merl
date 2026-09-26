@@ -96,3 +96,15 @@ fn a_wide_path_is_cut_by_the_columns_it_takes() {
         "{line:?}"
     );
 }
+
+/// So is the rest of the line: a reason naming `データ` (six columns, three characters, nine
+/// bytes) leaves the path the room of its columns, neither more nor less. Each wide character's
+/// second cell reads as a space.
+#[test]
+fn the_rest_of_the_line_is_measured_in_columns_too() {
+    assert_eq!(
+        status(STDLIB, "\u{30c7}\u{30fc}\u{30bf}: via import json", 86),
+        "\u{2026}/lib/python3.13/json/__init__.py  185:5  [code]  read-only  \
+         \u{30c7} \u{30fc} \u{30bf} : via import json"
+    );
+}
