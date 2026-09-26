@@ -398,6 +398,16 @@ fn review_panel_counts_end_at_the_border() {
         "{}",
         r[1]
     );
+    // #240: one viewed before and changed since has `↻` in its place, a cell wide as well.
+    app.viewed.clear();
+    app.changed.insert("a.rs".into(), 0);
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    assert!(
+        r[1].starts_with("\u{2502}\u{21bb} M a.rs               +6 \u{2212}2\u{2502}"),
+        "{}",
+        r[1]
+    );
 }
 
 #[test]

@@ -363,8 +363,12 @@ pub struct App {
     /// `--review`: the branch under review. The tree pane then lists its files.
     pub review: Option<git::Review>,
     /// Review: the files marked as viewed, each with the hash of what was on disk then. A file
-    /// that has changed since is not viewed any more (`drop_stale_viewed`). Kept for the session.
+    /// that has changed since is not viewed any more (`drop_stale_viewed`). Kept in the
+    /// repository's git dir, per branch and base, from one start to the next (#240).
     pub viewed: HashMap<PathBuf, u64>,
+    /// Review: the files viewed before that changed since, `↻` in the panel until viewed
+    /// again; the hash is the one they were viewed at.
+    pub changed: HashMap<PathBuf, u64>,
     /// The theme in use, by name. Set by `main`; the theme picker previews others over it.
     pub theme: String,
     /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
@@ -498,6 +502,7 @@ impl App {
             want_diff: true,
             review: None,
             viewed: HashMap::new(),
+            changed: HashMap::new(),
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
             quit_again: false,

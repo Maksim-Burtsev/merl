@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it was a picker of every `new` in the project, `by name`. Only a `use` at the top of the file
   counts, and a type of the name in the file itself, a name bound twice, a binary under
   `src/bin/` or a module with no `impl` of the type stay `by name`. (#227)
+- `merl --review` keeps the files marked viewed from one start to the next, per branch and base,
+  in the repository's git directory, so a review in a worktree has them too. On the next start a
+  file changed since loses its tick, and a file viewed and then changed, on screen or between two
+  starts, shows `↻` in its place until you view it again. The marks of a review untouched for 30
+  days are forgotten. (#240)
 
 ## [0.7.0] - 2026-09-25
 

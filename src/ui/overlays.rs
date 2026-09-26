@@ -105,9 +105,11 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 (false, _) => "  ",
             };
             let mut text = format!("{}{marker}{}", "  ".repeat(n.depth), n.name());
-            // Review: a column of ticks for the viewed files, before every row.
+            // Review: a column of ticks for the viewed files, before every row; `↻` for one
+            // viewed before and changed since.
             let tick = match (&app.review, app.viewed.contains_key(&n.path)) {
                 (None, _) => "",
+                (Some(_), false) if app.changed.contains_key(&n.path) => "\u{21bb} ",
                 (Some(_), false) => "  ",
                 (Some(_), true) => "\u{2713} ",
             };

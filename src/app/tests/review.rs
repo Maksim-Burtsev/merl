@@ -83,9 +83,143 @@ fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
     let text = std::fs::read_to_string(dir.join("tail")).unwrap();
     std::fs::write(dir.join("tail"), text.to_uppercase()).unwrap();
     let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
-    assert!(a.review_refreshed(fresh), "the tick leaves the screen");
+    assert!(a.review_refreshed(fresh), "the tick turns into `↻`");
     assert!(!a.viewed.contains_key(Path::new("tail")));
+    assert!(
+        a.changed.contains_key(Path::new("tail")),
+        "#240: viewed before"
+    );
     assert!(a.viewed.contains_key(Path::new("src/a.rs")));
+    // Viewed again, the `↻` goes.
+    a.tree.reveal(Path::new("tail"));
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    assert!(a.viewed.contains_key(Path::new("tail")) && a.changed.is_empty());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The files viewed and those `↻`, sorted.
+fn marks(a: &App) -> (Vec<PathBuf>, Vec<PathBuf>) {
+    let sorted = |m: &HashMap<PathBuf, u64>| {
+        let mut v: Vec<_> = m.keys().cloned().collect();
+        v.sort();
+        v
+    };
+    (sorted(&a.viewed), sorted(&a.changed))
+}
+
+/// #240: the marks outlive the session, per branch and base. On the next start a file changed
+/// since is `↻`, which outlives the session too, and an unchanged one keeps its tick.
+#[test]
+fn viewed_marks_outlive_the_session_and_a_changed_file_says_so() {
+    let (dir, mut a) = review_app("viewedkept");
+    let git = |args: &[&str]| {
+        let mut cmd = std::process::Command::new("git");
+        let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    let paths = |p: &[&str]| p.iter().map(PathBuf::from).collect::<Vec<_>>();
+    a.focus = Focus::Tree;
+    for f in ["tail", "src/a.rs"] {
+        a.tree.reveal(Path::new(f));
+        press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    }
+    let a = review_start(&dir, None);
+    assert_eq!(marks(&a), (paths(&["src/a.rs", "tail"]), vec![]));
+    // The same branch against another base is another review.
+    git(&["branch", "dev", "main"]);
+    let a = review_start(&dir, Some("dev"));
+    assert_eq!(marks(&a), (vec![], vec![]));
+
+    // Between two starts the agent rewrites `tail` and commits.
+    std::fs::write(dir.join("tail"), "t1\nfixed\n").unwrap();
+    git(&["commit", "-qam", "fix"]);
+    let mut a = review_start(&dir, None);
+    assert_eq!(marks(&a), (paths(&["src/a.rs"]), paths(&["tail"])));
+    // A mark written for another file keeps the `↻` for the next start.
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    let mut a = review_start(&dir, None);
+    assert_eq!(marks(&a), (paths(&["new", "src/a.rs"]), paths(&["tail"])));
+    // Viewed again, `tail` is viewed at what it is now.
+    a.focus = Focus::Tree;
+    a.tree.reveal(Path::new("tail"));
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    let mut a = review_start(&dir, None);
+    let all = (paths(&["new", "src/a.rs", "tail"]), vec![]);
+    assert_eq!(marks(&a), all);
+    // Another branch checked out under a live review is another review, and back is this one.
+    let refresh = |a: &mut App| {
+        let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+        a.review_refreshed(fresh)
+    };
+    git(&["switch", "-qc", "other"]);
+    refresh(&mut a);
+    assert_eq!(marks(&a), (vec![], vec![]));
+    git(&["switch", "-q", "feature"]);
+    refresh(&mut a);
+    assert_eq!(marks(&a), all);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// #240: the store is in the repository's common git dir, so a worktree's review of the branch
+/// has the marks made in the main checkout, and the other way round.
+#[test]
+fn a_worktree_review_shares_the_viewed_marks() {
+    let (dir, mut a) = review_app("viewedwt");
+    let wt = PathBuf::from(format!("{}-wt", dir.display()));
+    let git = |args: &[&str]| {
+        let mut cmd = std::process::Command::new("git");
+        let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    git(&["switch", "-q", "main"]);
+    git(&["worktree", "add", "-q", wt.to_str().unwrap(), "feature"]);
+    let mut b = review_start(&wt, None);
+    assert_eq!(marks(&b).0, [PathBuf::from("new")]);
+    b.focus = Focus::Tree;
+    b.tree.reveal(Path::new("tail"));
+    press(&mut b, KeyCode::Char('m'), KeyModifiers::NONE);
+    let store = std::fs::read_to_string(dir.join(".git/merl/viewed")).unwrap();
+    assert!(store.contains("\ttail\n"), "{store}");
+    assert!(
+        !dir.join(".git/worktrees")
+            .join(wt.file_name().unwrap())
+            .join("merl")
+            .exists()
+    );
+    let _ = std::fs::remove_dir_all(wt);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// #240: a review whose marks nobody wrote for 30 days leaves the store the next time it is
+/// written. The store is replaced whole: a merl reading it meanwhile has the old one entire.
+#[test]
+fn the_viewed_store_forgets_old_reviews_and_is_replaced_whole() {
+    let (dir, mut a) = review_app("viewedstore");
+    let store = dir.join(".git/merl/viewed");
+    let today = crate::stats::today();
+    let line = |days, branch| {
+        let day = crate::stats::date(today - days);
+        format!("{day}\t{branch}\tmain\t{:016x}\tx.rs\n", 7)
+    };
+    let old = line(31, "stale") + &line(28, "recent");
+    std::fs::create_dir_all(store.parent().unwrap()).unwrap();
+    std::fs::write(&store, &old).unwrap();
+    let reader = dir.join(".git/viewed-open-elsewhere");
+    std::fs::hard_link(&store, &reader).unwrap();
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    let text = std::fs::read_to_string(&store).unwrap();
+    assert!(!text.contains("\tstale\t"), "{text}");
+    assert!(text.contains(&line(28, "recent")), "{text}");
+    assert!(
+        text.contains("\tfeature\tmain\t") && text.ends_with("\tnew\n"),
+        "{text}"
+    );
+    assert_eq!(std::fs::read_to_string(&reader).unwrap(), old);
+    let left: Vec<_> = std::fs::read_dir(store.parent().unwrap())
+        .unwrap()
+        .collect();
+    assert_eq!(left.len(), 1, "no temp file left behind");
     let _ = std::fs::remove_dir_all(dir);
 }
 

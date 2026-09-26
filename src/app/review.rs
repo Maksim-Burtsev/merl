@@ -8,6 +8,7 @@ impl App {
     pub fn start_review(&mut self, mut review: git::Review) {
         let note = review.note.take();
         self.review = Some(review);
+        self.load_viewed();
         self.refresh_diff();
         if let Some(path) = self.buf.path.clone() {
             self.reveal(&path);
@@ -104,41 +105,80 @@ impl App {
         else {
             return;
         };
-        self.message = if self.viewed.remove(&rel).is_some() {
-            "not viewed".into()
+        if self.viewed.remove(&rel).is_some() {
+            self.message = "not viewed".into();
+            self.save_viewed();
         } else {
+            self.message = "viewed".into();
             self.mark_viewed(Some(rel));
-            "viewed".into()
-        };
+        }
     }
 
     fn mark_viewed(&mut self, rel: Option<PathBuf>) {
         if let Some(rel) = rel {
             let hash = self.disk_hash(&rel);
+            self.changed.remove(&rel);
             self.viewed.insert(rel, hash);
+            self.save_viewed();
         }
     }
 
-    /// What is on disk at `rel`, hashed; a file the branch deleted hashes as nothing.
+    /// What is on disk at `rel`, hashed; a file the branch deleted hashes as 0. FNV-1a, not
+    /// `DefaultHasher`: the hashes are kept on disk, and std's may change with the compiler.
     fn disk_hash(&self, rel: &Path) -> u64 {
-        use std::hash::{DefaultHasher, Hash, Hasher};
-        let mut h = DefaultHasher::new();
-        std::fs::read(self.root.join(rel)).ok().hash(&mut h);
-        h.finish()
+        std::fs::read(self.root.join(rel)).map_or(0, |bytes| {
+            let fnv = |h: u64, &b: &u8| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3);
+            bytes.iter().fold(0xcbf2_9ce4_8422_2325, fnv)
+        })
     }
 
-    /// A viewed file that changed on disk, or left the review, is not viewed any more. Returns
-    /// whether a mark went.
-    // ponytail: reads every viewed file on each refresh; compare mtimes first if a review of
+    /// A viewed file that changed on disk is `↻` until it is viewed again, and viewed again if it
+    /// changes back; one that left the review is neither. Returns whether a mark moved.
+    // ponytail: reads every marked file on each refresh; compare mtimes first if a review of
     // thousands of viewed files ever makes the refresh slow.
     fn drop_stale_viewed(&mut self) -> bool {
-        let before = self.viewed.len();
-        let mut viewed = std::mem::take(&mut self.viewed);
-        viewed.retain(|p, h| {
-            self.review.as_ref().is_some_and(|r| r.file(p).is_some()) && self.disk_hash(p) == *h
-        });
-        self.viewed = viewed;
-        self.viewed.len() != before
+        let (mut viewed, mut changed) = (HashMap::new(), HashMap::new());
+        for (p, &h) in self.viewed.iter().chain(&self.changed) {
+            if self.review.as_ref().is_some_and(|r| r.file(p).is_some()) {
+                let to = if self.disk_hash(p) == h {
+                    &mut viewed
+                } else {
+                    &mut changed
+                };
+                to.insert(p.clone(), h);
+            }
+        }
+        let moved = viewed != self.viewed || changed != self.changed;
+        (self.viewed, self.changed) = (viewed, changed);
+        moved
+    }
+
+    /// Where the viewed marks of every review of the repository are kept: in its common git dir,
+    /// so a worktree's review shares them and a deleted clone takes them along.
+    fn viewed_store(&self) -> Option<PathBuf> {
+        git::dirs(&self.root).map(|(_, common)| common.join("merl/viewed"))
+    }
+
+    /// The marks this review (the branch against its base) left last time, sorted by what is on
+    /// disk now.
+    fn load_viewed(&mut self) {
+        let (Some(store), Some(r)) = (self.viewed_store(), &self.review) else {
+            return;
+        };
+        self.viewed = read_viewed(&store, &r.branch, &r.base);
+        self.changed.clear();
+        self.drop_stale_viewed();
+    }
+
+    /// Writes this review's marks, the changed ones too, so `↻` outlives the session as well.
+    fn save_viewed(&mut self) {
+        let (Some(store), Some(r)) = (self.viewed_store(), &self.review) else {
+            return;
+        };
+        let marks = self.viewed.iter().chain(&self.changed);
+        if let Err(e) = write_viewed(&store, &r.branch, &r.base, marks, crate::stats::today()) {
+            self.message = format!("viewed marks not saved: {e:#}");
+        }
     }
 
     /// Why `file 1` became `file 74`.
@@ -198,13 +238,73 @@ impl App {
             Some((f.status, f.old.clone(), f.untracked))
         };
         let stale = old.merge_base != fresh.merge_base || kind(old) != kind(&fresh);
+        // Another branch checked out is another review, with marks of its own.
+        let switched = old.branch != fresh.branch;
         let paths: Vec<PathBuf> = fresh.files.iter().map(|f| f.path.clone()).collect();
         self.review = Some(fresh);
         self.refresh_tree(crate::tree::from_files(&paths));
         if stale {
             self.refresh_diff();
         }
+        if switched {
+            self.load_viewed();
+        }
         self.drop_stale_viewed();
         true
     }
+}
+
+/// A review's marks untouched for this many days go the next time the store is written.
+const FORGET_DAYS: i64 = 30;
+
+/// The store is a line per mark: `YYYY-MM-DD<TAB>branch<TAB>base<TAB>hash<TAB>path`, the day
+/// being when its review was last written. The path comes last, so a tab in it reads back.
+fn read_viewed(store: &Path, branch: &str, base: &str) -> HashMap<PathBuf, u64> {
+    let text = std::fs::read_to_string(store).unwrap_or_default();
+    let mark = |line: &str| {
+        let [_, b, s, hash, path] = line.splitn(5, '\t').collect::<Vec<_>>()[..] else {
+            return None;
+        };
+        let hash = u64::from_str_radix(hash, 16).ok()?;
+        (b == branch && s == base).then(|| (PathBuf::from(path), hash))
+    };
+    text.lines().filter_map(mark).collect()
+}
+
+/// Replaces the review's lines in the store with `marks`, dated `today`, and drops the reviews
+/// untouched for [`FORGET_DAYS`]. The store is read again right before, so the marks another
+/// merl wrote for another review stay; a store that cannot be read is left as it is.
+fn write_viewed<'a>(
+    store: &Path,
+    branch: &str,
+    base: &str,
+    marks: impl Iterator<Item = (&'a PathBuf, &'a u64)>,
+    today: i64,
+) -> anyhow::Result<()> {
+    use std::fmt::Write as _;
+    let old = match std::fs::read_to_string(store) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        read => read?,
+    };
+    let mut text = String::new();
+    for line in old.lines() {
+        let mut cols = line.splitn(4, '\t');
+        let (Some(day), Some(b), Some(s)) =
+            (cols.next().map(crate::stats::day), cols.next(), cols.next())
+        else {
+            continue;
+        };
+        if day.is_some_and(|d| today - d < FORGET_DAYS) && (b, s) != (branch, base) {
+            text.push_str(line);
+            text.push('\n');
+        }
+    }
+    let day = crate::stats::date(today);
+    for (path, hash) in marks {
+        // A name that is not UTF-8, or holds a newline, would not read back as itself.
+        if let Some(path) = path.to_str().filter(|p| !p.contains('\n')) {
+            _ = writeln!(text, "{day}\t{branch}\t{base}\t{hash:016x}\t{path}");
+        }
+    }
+    crate::stats::replace(store, &text)
 }

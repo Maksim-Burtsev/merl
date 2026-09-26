@@ -128,7 +128,7 @@ pub fn date(day: i64) -> String {
 }
 
 /// The day of a `YYYY-MM-DD`, `days_from_civil`; `None` for anything [`date`] would not write.
-fn day(s: &str) -> Option<i64> {
+pub fn day(s: &str) -> Option<i64> {
     let mut parts = s.splitn(3, '-').map(|p| p.parse::<i64>().ok());
     let (Some(Some(y)), Some(Some(m)), Some(Some(d))) = (parts.next(), parts.next(), parts.next())
     else {
@@ -184,7 +184,6 @@ pub fn add(
     if pressed.is_empty() && missed.is_empty() {
         return Ok(());
     }
-    let ctx = || format!("{}", path.display());
     let mut rows = load(path)?;
     for (action, n) in pressed {
         rows.entry((today, action)).or_default().0 += n;
@@ -196,10 +195,18 @@ pub fn add(
     for ((day, action), (n, missed)) in &rows {
         _ = writeln!(text, "{}\t{action}\t{n}\t{missed}", date(*day));
     }
+    replace(path, &text)
+}
+
+/// Writes `text` to a file next to `path` and renames it over `path`: a merl reading it at the
+/// same time sees the old file or the new one, never half of one.
+pub fn replace(path: &Path, text: &str) -> Result<()> {
+    let ctx = || format!("{}", path.display());
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).with_context(ctx)?;
     }
-    let tmp = path.with_extension(format!("tsv.{}", std::process::id()));
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(format!(".{}", std::process::id()));
     std::fs::write(&tmp, text).with_context(ctx)?;
     std::fs::rename(&tmp, path).with_context(ctx)
 }
