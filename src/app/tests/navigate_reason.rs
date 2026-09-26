@@ -247,6 +247,77 @@ fn a_jump_outside_names_the_file_from_its_root() {
     std::fs::remove_dir_all(&root).unwrap();
 }
 
+/// A root that is one package, a crate Cargo unpacked or a module Go did, keeps its name on
+/// the status line and in the picker, so its `src/lib.rs` never reads like the project's own. A
+/// root of many packages is named from inside, as the standard library is.
+#[test]
+fn a_root_of_one_package_keeps_its_name() {
+    let (dir, mut a) = project_app(
+        "one-package",
+        &[
+            ("src/lib.rs", "pub fn run() {}\n"),
+            (
+                "main.go",
+                "package main\n\nimport \"example.com/kit\"\n\nfunc main() {\n\tkit.Wire()\n}\n",
+            ),
+        ],
+    );
+    let outside = external_root(
+        "one-package",
+        &[
+            ("registry/serde-1.0.200/src/lib.rs", "pub fn run() {}\n"),
+            ("go/src/fmt/print.go", "package fmt\n\nfunc Println() {}\n"),
+            (
+                "mod/example.com/kit@v1.0.0/kit.go",
+                "package kit\n\nfunc Other() {}\n",
+            ),
+            (
+                "mod/example.com/kit@v1.0.0/inner/inner.go",
+                "package inner\n\nfunc Wire() {}\n",
+            ),
+            (
+                "mod/github.com/else/thing@v1.0.0/thing.go",
+                "package thing\n\nfunc Wire() {}\n",
+            ),
+        ],
+    );
+    use_roots(
+        &mut a,
+        Kind::Rust,
+        &[outside.join("registry/serde-1.0.200")],
+    );
+    let modules = [
+        "go/src",
+        "mod/example.com/kit@v1.0.0",
+        "mod/github.com/else/thing@v1.0.0",
+    ];
+    use_roots(&mut a, Kind::Go, &modules.map(|m| outside.join(m)));
+    for (path, name) in [
+        (dir.join("src/lib.rs"), "src/lib.rs"),
+        (
+            outside.join("registry/serde-1.0.200/src/lib.rs"),
+            "serde-1.0.200/src/lib.rs",
+        ),
+        (outside.join("go/src/fmt/print.go"), "fmt/print.go"),
+    ] {
+        a.jump_to(&path, 1);
+        assert_eq!(a.rel_path(), name);
+    }
+    d_on(&mut a, "main.go", "kit.Wire");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "Wire: by name, 2 declarations",
+            &[
+                ("Wire", "kit@v1.0.0/inner/inner.go:3"),
+                ("Wire", "thing@v1.0.0/thing.go:3"),
+            ],
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&outside).unwrap();
+}
+
 /// `self.word` alone is the class's own member: a dependency's method of that name is not
 /// a candidate.
 #[test]

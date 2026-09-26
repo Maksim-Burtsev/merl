@@ -266,8 +266,9 @@ impl App {
 
     /// `path` relative to the standard library or dependency root of `kind` it is under,
     /// `json/__init__.py` rather than the whole path to the interpreter; any other path as it
-    /// is. A workspace package's own `node_modules` is named from the project root, so its
-    /// `lib/index.d.ts` reads apart from the one at the top.
+    /// is. A root that is one package keeps its name, `serde-1.0.200/src/lib.rs`, or its files
+    /// would read like the project's own. A workspace package's own `node_modules` is named from
+    /// the project root, so its `lib/index.d.ts` reads apart from the one at the top.
     pub(super) fn rel_to_its_root<'a>(&self, kind: Kind, path: &'a Path) -> &'a Path {
         let roots = self
             .external
@@ -279,7 +280,13 @@ impl App {
             _ => roots.iter().collect::<Vec<_>>(),
         }
         .into_iter()
-        .find_map(|r| path.strip_prefix(r).ok())
+        .find_map(|r| {
+            let rel = path.strip_prefix(r).ok()?;
+            Some(match r.parent() {
+                Some(up) if *r != self.root && one_package(r) => path.strip_prefix(up).ok()?,
+                _ => rel,
+            })
+        })
         .unwrap_or(path)
     }
 
@@ -346,4 +353,20 @@ impl App {
             None => "no rules for this file".into(),
         }
     }
+}
+
+/// A root named with a version is one package: Cargo gives each crate a directory of its own,
+/// `serde-1.0.200`, and Go each module, `gin@v1.9.1`. The other roots hold many packages and have
+/// no version in their name: a standard library (`python3.13`, `src`, `library`),
+/// `site-packages`, `node_modules`.
+fn one_package(root: &Path) -> bool {
+    let name = root.file_name().unwrap_or_default().to_string_lossy();
+    let versioned = |sep: &str| {
+        name.match_indices(sep).any(|(i, _)| {
+            let v = &name[i + sep.len()..];
+            let rest = v.trim_start_matches(|c: char| c.is_ascii_digit());
+            rest.len() < v.len() && rest.starts_with('.')
+        })
+    };
+    versioned("-") || versioned("@v")
 }

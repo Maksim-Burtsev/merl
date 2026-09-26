@@ -26,9 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - The status bar names a file outside the project from the root it came from, as the `d` picker
-  does: `json/__init__.py` instead of the whole path to the interpreter. A path still too long
-  for the pane is cut from the left, `…/json/__init__.py`, so the column, `read-only` and the
-  reason `d` gave stay in sight; in a 120-column pane they fell off the edge. (#235)
+  does: `json/__init__.py` instead of the whole path to the interpreter. A Rust crate or a Go
+  module keeps its own name there and in the picker, `serde-1.0.200/src/lib.rs`, so it never
+  reads like the project's `src/lib.rs`. A path still too long for the pane is cut from the left,
+  `…/json/__init__.py`, so the column, `read-only` and the reason `d` gave stay in sight; in a
+  120-column pane they fell off the edge. (#235)
 
 ## [0.7.0] - 2026-09-25
 
