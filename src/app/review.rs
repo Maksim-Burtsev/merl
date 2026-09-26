@@ -1,7 +1,7 @@
 //! Review mode: the marks on the buffer, the hunks `c` and `C` step through.
 
 use super::*;
-use crate::reviews::{Session, Spot};
+use crate::reviews::{Session, Spot, Stop};
 
 impl App {
     /// Enters review mode on a freshly built app: marks against the base, the cursor on the
@@ -30,39 +30,67 @@ impl App {
         if let Some(note) = note {
             self.message = note;
         }
-        let (here, on) = self.review_spot();
-        let hunk = self.diff.hunks.contains(&self.line);
-        self.session = Some(Session::new(Instant::now(), here, on, hunk));
+        if let Some(r) = &self.review {
+            let (repo, branch) = (self.root_name(), r.branch_or_commit(&self.root));
+            let stop = self.review_stop();
+            self.session = Some(Session::new(Instant::now(), repo, branch, stop));
+        }
     }
 
-    /// The open file and the cursor's line, and whether the file is one of the review's.
-    fn review_spot(&self) -> (Spot, bool) {
+    /// The open file, the cursor's line, and whether the file is one of the review's.
+    pub(super) fn review_spot(&self) -> Spot {
         let r = self.review.as_ref();
         let on = (self.rel_current()).is_some_and(|rel| r.is_some_and(|r| r.file(&rel).is_some()));
-        ((self.buf.path.clone(), self.line), on)
+        (self.buf.path.clone(), self.line, on)
     }
 
-    /// Review stats (#242): a press at `at` done as `action`, or with no `at` a jump that came
-    /// after its press (`s` answering an Enter that did not wait).
-    pub(super) fn review_count(&mut self, at: Option<Instant>, action: Option<&str>) {
-        let (here, on) = self.review_spot();
+    /// The hunk the cursor stands on, as the status bar numbers it.
+    fn review_stop(&self) -> Option<Stop> {
+        let i = self.diff.hunks.iter().position(|&h| h == self.line)?;
+        Some((self.rel_current()?, i + 1))
+    }
+
+    /// Review stats (#242): a press at `at` done as `action`, the cursor at `from` before it, or
+    /// with no `at` a jump that came after its press (`s` answering an Enter that did not wait).
+    pub(super) fn review_count(&mut self, at: Option<Instant>, from: Spot, action: Option<&str>) {
+        let to = self.review_spot();
+        // Judged against the cursor before this press: a reload that moved it since the last
+        // one does not make a `c` that stayed put a stop.
+        let stop = (from != to && matches!(action, Some("c" | "C"))).then(|| self.review_stop());
         let end = action == Some("c") && self.message == "last hunk of the review";
         if let Some(s) = &mut self.session {
             if let Some(at) = at {
-                s.pressed(at);
+                s.pressed(at, &from);
             }
-            s.moved(here, on, action, end);
+            s.moved(action, &from, &to, stop.flatten(), end);
         }
     }
 
     /// The session's line in the review stats: the repository, the branch and the columns
-    /// after the round. A session without a press is none.
+    /// after the round. A session without a press is none, and so is one whose hunks cannot be
+    /// counted: a wrong number in the stats is worse than a session missing from them.
     pub fn review_row(&self) -> Option<(String, String, String)> {
         let (s, r) = (self.session.as_ref()?, self.review.as_ref()?);
-        (s.presses > 0).then(|| {
-            let columns = s.columns(r, r.hunk_count(&self.root), self.viewed.len());
-            (self.root_name(), r.branch.clone(), columns)
-        })
+        if s.presses == 0 {
+            return None;
+        }
+        // The hunks `c` stops on, read as `open_review_file` reads them (#260 names this
+        // `review_hunks`). A file with lines to read and no hunk is a `git diff` that failed.
+        // ponytail: a `git diff` per file on exit, a few ms each; run them in threads if quitting
+        // a review of hundreds of files gets slow.
+        let mut hunks = HashMap::new();
+        for f in &r.files {
+            let n = match f.status {
+                'D' => 0,
+                _ => (r.diff(&self.root, &self.root.join(&f.path), Some(f)).hunks).len(),
+            };
+            if n == 0 && f.has_hunks() && f.status != 'D' {
+                return None;
+            }
+            hunks.insert(f.path.clone(), n);
+        }
+        let columns = s.columns(r, &hunks, self.viewed.len());
+        Some((s.repo.clone(), s.branch.clone(), columns))
     }
 
     /// `c` / `C`: the next / previous hunk, crossing into the next file of the review.

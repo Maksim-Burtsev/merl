@@ -19,10 +19,11 @@ impl App {
         if work {
             self.watch_before(key, at);
         }
+        let from = (work && self.session.is_some()).then(|| self.review_spot());
         let quit = self.key_inner(key);
         let action = self.action.take();
-        if work {
-            self.review_count(Some(at), action);
+        if let Some(from) = from {
+            self.review_count(Some(at), from, action);
         }
         if let Some(action) = action
             && self.tutor.is_none()

@@ -272,25 +272,13 @@ impl Review {
         }
     }
 
-    /// The hunks of the whole review, for the review stats: one `git diff` of the branch, as
-    /// [`diff`] takes it per file, and one for an untracked file with a line.
-    pub fn hunk_count(&self, root: &Path) -> usize {
-        let args = [
-            "diff",
-            "-U0",
-            "-M",
-            "--no-color",
-            "--no-ext-diff",
-            "--inter-hunk-context=0",
-            "--ignore-submodules",
-            &self.merge_base,
-        ];
-        let tracked =
-            git(root, &args).map_or(0, |d| d.lines().filter(|l| l.starts_with("@@ ")).count());
-        tracked
-            + (self.files.iter())
-                .filter(|f| f.untracked && f.added > 0)
-                .count()
+    /// The branch, or the short commit of a detached HEAD: the review stats count the rounds of
+    /// each, and every detached review is not one branch called `HEAD`.
+    pub fn branch_or_commit(&self, root: &Path) -> String {
+        match self.branch.as_str() {
+            "HEAD" => git(root, &["rev-parse", "--short", "HEAD"]).unwrap_or(self.branch.clone()),
+            branch => branch.to_string(),
+        }
     }
 
     pub fn file(&self, rel: &Path) -> Option<&ReviewFile> {

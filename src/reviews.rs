@@ -1,7 +1,7 @@
 //! Review stats (#242): a line per `--review` session in `~/.local/state/merl/reviews.tsv`, next
 //! to `keys.tsv`, which `merl --reviews` prints. Nothing on screen while you review.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -27,16 +27,21 @@ pub fn path() -> Option<PathBuf> {
     Some(stats::path()?.with_file_name("reviews.tsv"))
 }
 
-/// The open file and the cursor's line in it.
-pub type Spot = (Option<PathBuf>, usize);
+/// The open file, the cursor's line in it, and whether the file is one of the review's.
+pub type Spot = (Option<PathBuf>, usize, bool);
+
+/// A hunk of the review, as the status bar's `hunk i/n` numbers it: the file relative to the
+/// root and the hunk's place in it, from 1. A reload that shifts the lines keeps the hunk.
+pub type Stop = (PathBuf, usize);
 
 /// What one review session did, counted on each press.
 pub struct Session {
+    /// The repository and the branch the session is of, taken when the review opened: a
+    /// `git switch` during it does not file it under another branch.
+    pub repo: String,
+    pub branch: String,
     /// The last press, or the start of the review.
     last: Instant,
-    /// Where the cursor was then, and whether its file is one of the review's.
-    here: Spot,
-    on: bool,
     /// Left the review by a jump and not back on one of its files yet.
     out: bool,
     pub presses: u64,
@@ -48,18 +53,17 @@ pub struct Session {
     jumps: u64,
     /// `[` presses.
     back: u64,
-    stops: HashSet<Spot>,
+    stops: HashSet<Stop>,
     last_hunk: bool,
 }
 
 impl Session {
-    /// The review opened at `here`: one hunk stopped on already when `here` is a hunk.
-    pub fn new(at: Instant, here: Spot, on: bool, hunk: bool) -> Self {
+    /// The review of `branch` in `repo` opened at `at`, on the hunk `stop` when it opened on one.
+    pub fn new(at: Instant, repo: String, branch: String, stop: Option<Stop>) -> Self {
         Self {
+            repo,
+            branch,
             last: at,
-            stops: HashSet::from_iter(hunk.then(|| here.clone())),
-            here,
-            on,
             out: false,
             presses: 0,
             on_review: Duration::ZERO,
@@ -67,14 +71,16 @@ impl Session {
             excursions: 0,
             jumps: 0,
             back: 0,
+            stops: HashSet::from_iter(stop),
             last_hunk: false,
         }
     }
 
-    /// A press at `at`: the time since the last one goes where the cursor was, [`IDLE`] at most.
-    pub fn pressed(&mut self, at: Instant) {
+    /// A press at `at`, the cursor at `from` when it came: the time since the last one goes
+    /// there, [`IDLE`] at most.
+    pub fn pressed(&mut self, at: Instant, from: &Spot) {
         let gap = at.saturating_duration_since(self.last).min(IDLE);
-        let total = match self.on {
+        let total = match from.2 {
             true => &mut self.on_review,
             false => &mut self.elsewhere,
         };
@@ -82,43 +88,56 @@ impl Session {
         (self.last, self.presses) = (at, self.presses + 1);
     }
 
-    /// `action` (a `KEYS` action) left the cursor at `here`, on a file of the review or not;
-    /// `end`: it was `c` saying `last hunk of the review`.
-    pub fn moved(&mut self, here: Spot, on: bool, action: Option<&str>, end: bool) {
-        let moved = here != self.here;
-        let jump = moved && matches!(action, Some("d" | "u" | "D" | "Picker: Enter"));
-        if jump && self.on && !on {
+    /// `action` (a `KEYS` action) took the cursor from `from` to `to`; `stop`: `c` / `C` left it
+    /// on that hunk; `end`: it was `c` saying `last hunk of the review`.
+    pub fn moved(
+        &mut self,
+        action: Option<&str>,
+        from: &Spot,
+        to: &Spot,
+        stop: Option<Stop>,
+        end: bool,
+    ) {
+        let jump = from != to && matches!(action, Some("d" | "u" | "D" | "Picker: Enter"));
+        if jump && from.2 && !to.2 {
             self.excursions += 1;
             self.out = true;
         }
-        if jump && self.out && !on {
+        if jump && self.out && !to.2 {
             self.jumps += 1;
         }
-        self.out &= !on;
+        self.out &= !to.2;
         self.back += u64::from(action == Some("["));
-        if moved && matches!(action, Some("c" | "C")) {
-            self.stops.insert(here.clone());
-        }
+        self.stops.extend(stop);
         self.last_hunk |= end;
-        (self.here, self.on) = (here, on);
     }
 
-    /// The session's columns from `files` on, as [`HEAD`] names them.
-    pub fn columns(&self, review: &git::Review, hunks: usize, viewed: usize) -> String {
+    /// The session's columns from `files` on, as [`HEAD`] names them. `hunks` are those of each
+    /// file of the review as it is now; a stop on a hunk the file no longer has does not count,
+    /// so the hunks stopped on are never more than the hunks.
+    pub fn columns(
+        &self,
+        review: &git::Review,
+        hunks: &HashMap<PathBuf, usize>,
+        viewed: usize,
+    ) -> String {
         let lines = |f: fn(&git::ReviewFile) -> usize| review.files.iter().map(f).sum::<usize>();
+        let stops = (self.stops.iter())
+            .filter(|(path, i)| hunks.get(path).is_some_and(|n| i <= n))
+            .count();
         [
-            review.files.len() as u64,
-            hunks as u64,
-            lines(|f| f.added) as u64,
-            lines(|f| f.deleted) as u64,
-            self.on_review.as_secs(),
-            self.elsewhere.as_secs(),
-            self.excursions,
-            self.jumps,
-            self.back,
-            self.stops.len() as u64,
-            viewed as u64,
-            u64::from(self.last_hunk),
+            review.files.len(),
+            hunks.values().sum(),
+            lines(|f| f.added),
+            lines(|f| f.deleted),
+            self.on_review.as_secs() as usize,
+            self.elsewhere.as_secs() as usize,
+            self.excursions as usize,
+            self.jumps as usize,
+            self.back as usize,
+            stops,
+            viewed,
+            usize::from(self.last_hunk),
         ]
         .map(|n| n.to_string())
         .join("\t")
@@ -269,47 +288,76 @@ mod tests {
         dir.join("state/merl/reviews.tsv")
     }
 
+    fn spot(file: &str, line: usize, on: bool) -> Spot {
+        (Some(PathBuf::from(file)), line, on)
+    }
+
+    fn session(at: Instant) -> Session {
+        Session::new(at, "merl".into(), "feat".into(), None)
+    }
+
     /// A gap up to five minutes counts in full, a longer one as five minutes, and it goes to
     /// where the cursor stood during it.
     #[test]
     fn a_long_gap_counts_five_minutes() {
         let t0 = Instant::now();
-        let a = (Some(PathBuf::from("a.rs")), 3);
-        let mut s = Session::new(t0, a.clone(), true, true);
-        s.pressed(t0 + Duration::from_secs(40));
-        s.moved((None, 0), false, Some("o"), false);
-        s.pressed(t0 + Duration::from_secs(40 + 4 * 3600));
-        s.moved(a, true, Some("["), false);
-        s.pressed(t0 + Duration::from_secs(40 + 4 * 3600 + 7));
+        let (a, lib) = (spot("a.rs", 3, true), spot("lib.rs", 0, false));
+        let mut s = session(t0);
+        s.pressed(t0 + Duration::from_secs(40), &a);
+        s.moved(Some("d"), &a, &lib, None, false);
+        s.pressed(t0 + Duration::from_secs(40 + 4 * 3600), &lib);
+        s.moved(Some("["), &lib, &a, None, false);
+        s.pressed(t0 + Duration::from_secs(40 + 4 * 3600 + 7), &a);
         assert_eq!((s.on_review.as_secs(), s.elsewhere.as_secs()), (47, 300));
         assert_eq!((s.presses, s.back), (3, 1));
     }
 
     /// `d` out of the review, a usage picked and a `d` further on, `[ [ [` back: one excursion
-    /// of three jumps. A jump within the review, and one out that did not start from it, are
-    /// none.
+    /// of three jumps. A jump within the review, one that did not move, and one out that did not
+    /// start from the review are none.
     #[test]
     fn an_excursion_counts_once_with_its_jumps() {
-        let t0 = Instant::now();
-        let spot = |f: &str, l| (Some(PathBuf::from(f)), l);
-        let mut s = Session::new(t0, spot("a.rs", 1), true, true);
-        for (here, on, action) in [
-            (spot("a.rs", 9), true, "d"),
-            (spot("b.rs", 4), true, "Picker: Enter"),
-            (spot("lib.rs", 2), false, "d"),
-            (spot("lib.rs", 2), false, "u"),
-            (spot("util.rs", 7), false, "Picker: Enter"),
-            (spot("util.rs", 20), false, "d"),
-            (spot("util.rs", 7), false, "["),
-            (spot("lib.rs", 2), false, "["),
-            (spot("b.rs", 4), true, "["),
-            (spot("b.rs", 4), true, "]"),
-            (spot("lib.rs", 2), false, "]"),
-            (spot("other.rs", 1), false, "d"),
+        let mut s = session(Instant::now());
+        let mut from = spot("a.rs", 1, true);
+        for (to, action) in [
+            (spot("a.rs", 9, true), "d"),
+            (spot("b.rs", 4, true), "Picker: Enter"),
+            (spot("lib.rs", 2, false), "d"),
+            (spot("lib.rs", 2, false), "u"),
+            (spot("util.rs", 7, false), "Picker: Enter"),
+            (spot("util.rs", 20, false), "d"),
+            (spot("util.rs", 7, false), "["),
+            (spot("lib.rs", 2, false), "["),
+            (spot("b.rs", 4, true), "["),
+            (spot("b.rs", 4, true), "]"),
+            (spot("lib.rs", 2, false), "]"),
+            (spot("other.rs", 1, false), "d"),
         ] {
-            s.moved(here, on, Some(action), false);
+            s.moved(Some(action), &from, &to, None, false);
+            from = to;
         }
         assert_eq!((s.excursions, s.jumps, s.back), (1, 3, 3));
+    }
+
+    /// A stop on a hunk its file no longer has, or in a file that left the review, does not
+    /// count: the hunks stopped on are never more than the hunks.
+    #[test]
+    fn stops_never_outnumber_hunks() {
+        let mut s = session(Instant::now());
+        let (from, to) = (spot("x.rs", 0, true), spot("a.rs", 1, true));
+        for (file, i) in [("a.rs", 1), ("a.rs", 3), ("gone.rs", 1)] {
+            s.moved(Some("c"), &from, &to, Some((PathBuf::from(file), i)), false);
+        }
+        let review = git::Review {
+            branch: "feat".into(),
+            base: "main".into(),
+            merge_base: String::new(),
+            files: Vec::new(),
+            note: None,
+        };
+        let hunks = HashMap::from([(PathBuf::from("a.rs"), 2)]);
+        let columns = s.columns(&review, &hunks, 0);
+        assert_eq!(columns.split('\t').nth(9), Some("1"), "{columns}");
     }
 
     /// The first session of a branch is round 1, the next one round 2; another branch, or the

@@ -176,9 +176,10 @@ impl App {
         if std::mem::take(&mut self.search_enter) {
             // Not through the new picker: nucleo has not seen its items yet.
             let query = old.query.to_string();
+            let from = self.review_spot();
             self.search_jump(items.into_iter().nth(selected), &query);
             self.watch_jumped();
-            self.review_count(None, Some("Picker: Enter"));
+            self.review_count(None, from, Some("Picker: Enter"));
             tutor::check(self, None);
             return true;
         }
