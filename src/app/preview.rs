@@ -198,7 +198,17 @@ impl App {
             1 => top + moved,
             _ => top,
         };
-        let src = p.doc.rows[to].src;
+        // A row drawn for no line of its own (a border, a rule, a blank row with no blank line
+        // under it, the footnotes' separator) stands after the content row above it: the cursor
+        // goes to the end of that row's last line, never onto the line drawn below.
+        let src = match p.doc.rows[to].lines.is_empty() {
+            false => p.doc.rows[to].src,
+            true => p.doc.rows[..to]
+                .iter()
+                .rev()
+                .find(|r| !r.lines.is_empty())
+                .map_or((0, 0), |r| (r.lines.end - 1, usize::MAX)),
+        };
         (self.line, self.col) = self.clamp_pos(src);
         let at = (self.line, self.col);
         if let Some(p) = &mut self.preview {
@@ -220,5 +230,18 @@ impl App {
         if let Some(p) = &mut self.preview {
             p.at = None;
         }
+    }
+
+    /// The line the cursor stands after, for `c`, `C`, the status bar's hunk count and the
+    /// missed-keys watch, which compare hunks with it as the source view does with its line:
+    /// `None` on a row drawn for no line at the very top of the preview, which stands before
+    /// line 0, so a hunk there is still ahead.
+    pub(super) fn cursor_after(&self) -> Option<usize> {
+        let top = self
+            .preview
+            .as_ref()
+            .filter(|p| self.previewing() && p.at == Some((self.line, self.col)))
+            .is_some_and(|p| p.doc.rows[..=p.row].iter().all(|r| r.lines.is_empty()));
+        (!top).then_some(self.line)
     }
 }

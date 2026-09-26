@@ -174,12 +174,17 @@ pub fn layout(lines: &[String], width: usize) -> Doc {
         let mut notes = std::mem::take(&mut lay.notes);
         notes.sort_by_key(|(n, _)| *n);
         lay.note_rows = notes.iter().map(|(_, rows)| rows.len()).sum();
+        // The blank rows and the rule between are drawn for no line of their own.
         let end = src.len();
+        let from = lay.rows.len();
         lay.gap = true;
         lay.block_start(end);
         lay.rule(lay.after());
         lay.gap = true;
         lay.block_start(end);
+        for r in &mut lay.rows[from..] {
+            r.lines.end = r.lines.start;
+        }
         lay.rows
             .extend(notes.into_iter().flat_map(|(_, rows)| rows));
     }

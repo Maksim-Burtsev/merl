@@ -418,7 +418,10 @@ impl App {
         let next = self
             .review
             .as_ref()
-            .filter(|_| !self.diff.hunks.iter().any(|&h| h > self.line))
+            .filter(|_| {
+                let after = self.cursor_after();
+                !self.diff.hunks.iter().any(|&h| Some(h) > after)
+            })
             .and_then(|r| {
                 let back = self.hunk_left(r).map(|(rel, _)| rel);
                 back.or_else(|| {
