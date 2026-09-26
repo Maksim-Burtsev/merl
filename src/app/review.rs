@@ -31,7 +31,8 @@ impl App {
         }
     }
 
-    /// `c` / `C`: the next / previous hunk, crossing into the next file of the review.
+    /// `c` / `C`: the next / previous hunk, crossing into the next file of the review. From a
+    /// file outside it, back to the hunk they last stopped on (#239).
     pub(super) fn hunk(&mut self, dir: isize) {
         let Some(r) = self.review.clone() else {
             return;
@@ -44,6 +45,13 @@ impl App {
         if let Some(&h) = here {
             let path = self.buf.path.clone().unwrap();
             self.jump_to(&path, h + 1);
+            self.center = true;
+            self.remember_hunk();
+            return;
+        }
+        // An excursion (`d`, `u`, `s`) left the review: the way back is one key.
+        if let Some((rel, line)) = self.hunk_left(&r) {
+            self.jump_to(&self.root.join(rel), line + 1);
             self.center = true;
             return;
         }
@@ -59,6 +67,7 @@ impl App {
             if !f.has_hunks() {
                 skipped += 1;
             } else if self.open_review_file(f, dir < 0) {
+                self.remember_hunk();
                 self.mark_viewed(read.take());
                 match failed {
                     Some(why) => self.message = why,
@@ -91,6 +100,34 @@ impl App {
             (None, true) => r.files.iter().collect(),
             (None, false) => r.files.iter().rev().collect(),
         }
+    }
+
+    /// `c` / `C` stopped on the hunk under the cursor: its file and its place among the file's
+    /// hunks, for the way back from outside the review. A place, not a line: lines an agent
+    /// writes or deletes around it move the hunk, and only a hunk added or removed above it
+    /// changes its place.
+    fn remember_hunk(&mut self) {
+        let i = self.diff.hunks.iter().filter(|&&h| h < self.line).count();
+        self.last_hunk = self.rel_current().map(|rel| (rel, i));
+    }
+
+    /// Where `c` / `C` go back to while the open file is outside the review: the line of the
+    /// hunk they last stopped on, found by its place in its file while the walk still stops at
+    /// that file; its last hunk when fewer are left. A hunk added above lands one earlier, and
+    /// the next `c` reaches the one left; a hunk removed above lands on the next, past the one
+    /// left, which was read.
+    // ponytail: two hunks removed at or above the one left can pass an unread hunk, and a way
+    // back that fell to the file's last hunk keeps the larger index, not the one it landed on;
+    // recognise the hunk by its text if agents ever rewrite that much under a reader.
+    pub(super) fn hunk_left(&self, r: &git::Review) -> Option<(PathBuf, usize)> {
+        if self.rel_current().is_some_and(|rel| r.file(&rel).is_some()) {
+            return None;
+        }
+        let (rel, i) = self.last_hunk.clone()?;
+        let f = r.file(&rel).filter(|f| f.has_hunks())?;
+        let hunks = self.review_hunks(r, f);
+        let h = *hunks.get(i).or(hunks.last())?;
+        Some((rel, h))
     }
 
     /// `m`: the open file, or the panel's row, is viewed; again, and it is not. A key for the
@@ -154,14 +191,20 @@ impl App {
     pub(super) fn open_review_file(&mut self, f: &git::ReviewFile, last: bool) -> bool {
         let Some(r) = &self.review else { return false };
         let path = self.root.join(&f.path);
-        let hunks = match f.status {
-            'D' => Vec::new(),
-            _ => r.diff(&self.root, &path, Some(f)).hunks,
-        };
+        let hunks = self.review_hunks(r, f);
         let h = if last { hunks.last() } else { hunks.first() };
         self.jump_to(&path, h.map_or(1, |h| h + 1));
         self.center = true;
         self.buf.path.as_deref() == Some(&path)
+    }
+
+    /// The lines `c` stops on in a file of the review: where its hunks start, and the top of a
+    /// deleted one, which has none to step through.
+    fn review_hunks(&self, r: &git::Review, f: &git::ReviewFile) -> Vec<usize> {
+        match f.status {
+            'D' => vec![0],
+            _ => r.diff(&self.root, &self.root.join(&f.path), Some(f)).hunks,
+        }
     }
 
     /// `hunk 2/5 · file 1/3` for the status bar.

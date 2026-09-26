@@ -414,13 +414,18 @@ impl App {
                 self.history.get(i).map(|(p, ..)| (k, p.clone()))
             })
             .collect();
-        // `c` goes on to the next file once no hunk is left below.
+        // `c` goes on to the next file once no hunk is left below, or back to the hunk left.
         let next = self
             .review
             .as_ref()
             .filter(|_| !self.diff.hunks.iter().any(|&h| h > self.line))
-            .and_then(|r| self.ahead(r, 1).into_iter().find(|f| f.has_hunks()))
-            .map(|f| f.path.clone());
+            .and_then(|r| {
+                let back = self.hunk_left(r).map(|(rel, _)| rel);
+                back.or_else(|| {
+                    let f = self.ahead(r, 1).into_iter().find(|f| f.has_hunks());
+                    f.map(|f| f.path.clone())
+                })
+            });
         Some(Trip {
             kind,
             n: 1,
