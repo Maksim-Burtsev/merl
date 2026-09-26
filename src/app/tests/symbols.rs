@@ -122,7 +122,7 @@ fn symbols_past_the_cap_are_grepped_not_filtered() {
         "the query greps the project, it does not filter these rows"
     );
     assert!(
-        !a.search_done(of_the_search, App::hit_items(Vec::new())),
+        !a.search_done(of_the_search, App::hit_items(Vec::new(), |_| 0)),
         "the search's answer is not the symbol list"
     );
 

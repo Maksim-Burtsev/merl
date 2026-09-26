@@ -23,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   counts, and a type of the name in the file itself, a name bound twice, a binary under
   `src/bin/` or a module with no `impl` of the type stay `by name`. (#227)
 
+### Fixed
+
+- Enter on a row of `d`'s list, of `u`, `D` or `s` puts the cursor on the word the row is
+  about, as a jump with one match does: the declared name for `d` and `D`, the use for `u`, the
+  start of the hit for `s`. It went to the start of the line, so the next `d` or `u` asked
+  about `def` or the indent until the cursor was walked onto the name. (#236)
+
 ## [0.7.0] - 2026-09-25
 
 ### Added

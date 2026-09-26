@@ -247,7 +247,7 @@ fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
             .to_string(),
     }];
     assert!(hits[0].text.starts_with("//!"), "{:?}", hits[0].text);
-    app.show_picker(crate::app::PickerKind::Usages, App::hit_items(hits));
+    app.show_picker(crate::app::PickerKind::Usages, App::hit_items(hits, |_| 0));
     app.picker.as_mut().unwrap().settle();
 
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -282,7 +282,7 @@ fn hit_picker_rows_keep_their_colours_past_a_tab() {
         line: 1,
         text: "#define MAX\t10".into(),
     }];
-    app.show_picker(crate::app::PickerKind::Usages, App::hit_items(hits));
+    app.show_picker(crate::app::PickerKind::Usages, App::hit_items(hits, |_| 0));
     app.picker.as_mut().unwrap().settle();
 
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();

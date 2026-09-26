@@ -18,7 +18,8 @@ impl App {
             return;
         }
         let tiers: Vec<Tier> = ranked.iter().map(|(t, _)| *t).collect();
-        let items = Self::hit_items(ranked.into_iter().map(|(_, h)| h).collect());
+        let hits = ranked.into_iter().map(|(_, h)| h).collect();
+        let items = Self::hit_items(hits, |line| word_col(line, &word));
         let declarations = tiers.iter().filter(|&&t| t == Tier::Declaration).count();
         let tests = tiers.iter().filter(|&&t| t == Tier::Tests).count();
         // A declaration row says so in the column `d` puts its reason in; with no declaration
