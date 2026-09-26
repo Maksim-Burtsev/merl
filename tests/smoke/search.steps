@@ -1,0 +1,20 @@
+# search: s over the project. The hits follow the typing, the open file's first; the case is
+# ignored (#174), so `unitofwork` finds UnitOfWork; one hit is `1 hit` (#121). Enter opens the
+# hit, [ goes back.
+merl app/service.py
+wait class OrderService:
+key t s
+type Order
+wait Search (175 hits)
+type Repo
+wait Search (15 hits)
+key Escape s
+type unitofwork
+wait Search (3 hits)
+key Escape s
+type PAGE_SIZE", "50
+wait Search (1 hit)
+key Enter
+wait app/config.py  18:
+key [
+wait app/service.py  1:1

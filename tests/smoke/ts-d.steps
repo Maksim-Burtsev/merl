@@ -1,0 +1,39 @@
+# ts-d: the TypeScript web page, the third language d reads types in. The agent changes the
+# route file [id].tsx while it is open: the changed line gets its own gutter mark, not the marks
+# of files its name matches as a glob (#221). From it, d through an `@/` alias import, on a
+# method of a module-level `new OrderStore(…)`, and on this.repo typed by a field; in store.ts,
+# a class imported from `./repo`. d on this.close = this.close.bind(this) lands on the method
+# instead of overflowing the stack (#175).
+merl 'web/src/routes/orders/[id].tsx'
+wait export default function OrderPage
+key t
+run sed -i '' 's/Loading…/Loading order…/' 'web/src/routes/orders/[id].tsx'
+wait 17▎    return <p>Loading order…</p>;
+key /
+type OrderRepo }
+key Enter d
+wait OrderRepo: via import web/src/orders/repo.ts
+key [ /
+type load(
+key Enter d
+wait load → OrderStore.load (via store: OrderStore)
+key /
+type find(id
+key Enter d
+wait find → OrderRepo.find (via this.repo: OrderRepo)
+key o
+type store.ts
+key Enter
+wait web/src/orders/store.ts  1:1
+key /
+type OrderRepo;
+key Enter d
+wait OrderRepo: via import web/src/orders/repo.ts
+key o
+type Dialog
+key Enter
+wait web/src/components/Dialog.ts  1:1
+key /
+type close.bind
+key Enter d
+wait close → Dialog.close (via this: Dialog)

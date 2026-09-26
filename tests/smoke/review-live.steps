@@ -1,0 +1,16 @@
+# review-live: the agent keeps working while you review. It force-pushes the branch you reviewed
+# before, from a clone of its own: the next --review=agent/refund moves to what was pushed, the
+# new test counted in the panel (#181). Then, in the next split, it writes a new file into your
+# checkout: the panel lists it. c walks past refunds.py, which gets its tick, and the agent's
+# next write to it takes the tick off (#162).
+merl --review=agent/refund
+wait hunk 1/1  file 1/8
+run git clone -q ../origin.git ../agent -b agent/refund && cd ../agent && printf '\n\ndef test_only_a_paid_order():\n    with pytest.raises(RefundNotAllowed):\n        refund_amount(Order(id=2, customer_id=7, total=Decimal("9.99")), window_days=30, now=NOW)\n' >> tests/test_refunds.py && git commit -qa --amend --no-edit && git push -qf origin agent/refund
+merl --review=agent/refund
+wait A test_refunds.py +28 −0
+run printf 'from app.service import OrderService\n\n\ndef refund(service: OrderService, order_id: int) -> str:\n    return str(service.refund(order_id))\n' > app/refund_api.py
+wait A refund_api.py    +5 −0
+key c
+wait │✓   A refunds.py
+run printf '\n\n# Partial refunds: the payment team asks for them next quarter.\n' >> app/refunds.py
+wait │    A refunds.py      +21 −0

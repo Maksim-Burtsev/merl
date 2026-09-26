@@ -1,0 +1,52 @@
+# edit-live: editing a file an agent rewrites. The agent's write reloads the open file with the
+# cursor and the scroll kept, and Ctrl+Z takes the write back (#122). Typing not yet saved under
+# a write on disk: the status line says so; Ctrl+S keeps yours, and the next time Ctrl+R takes
+# the disk's. The agent deletes a file you have unsaved typing in: merl does not write it back,
+# even on Esc (#119); Ctrl+R drops the typing, and [ / ] walk the history past it (#118).
+merl app/service.py
+wait class OrderService:
+key t :
+type 30
+key Enter C-d
+wait app/service.py  36:1
+run sed -i '' 's/is {order.status.value}/cannot be cancelled: {order.status.value}/' app/service.py
+wait app/service.py  36:1  [code]  reloaded
+key C-z
+wait raise ValueError(f"order {order_id} is {order.status.value}")
+key C-s
+wait app/service.py  32:1  [code]
+key /
+type return order
+key Enter End Enter Enter
+type # paid orders go to the worker
+run sed -i '' 's/OrderNotFound(Exception)/OrderNotFound(LookupError)/' app/service.py
+wait changed on disk: Ctrl+S overwrites, Ctrl+R reloads
+key C-s
+wait app/service.py  37:39  [edit]
+run grep -q 'paid orders go to the worker' app/service.py && ! grep -q LookupError app/service.py
+type  soon
+run sed -i '' 's/OrderNotFound(Exception)/OrderNotFound(LookupError)/' app/service.py
+wait changed on disk: Ctrl+S overwrites, Ctrl+R reloads
+key C-r
+wait reloaded
+run grep -q LookupError app/service.py && ! grep -q 'worker soon' app/service.py
+key Escape o
+type uow
+key Enter
+wait app/uow.py  1:1
+key C-End Enter Enter
+type # unused since the service took over
+run git rm -q app/uow.py
+wait app/uow.py gone
+key Escape
+wait app/uow.py ●  21:45  [code]
+run test ! -e app/uow.py
+key C-r
+wait app/uow.py  21:45  [code]  app/uow.py gone
+key [
+wait app/uow.py  1:1  [code]
+key [
+wait app/service.py  37:39  [code]
+key ]
+wait app/service.py  37:39  [code]  app/uow.py gone
+run test ! -e app/uow.py

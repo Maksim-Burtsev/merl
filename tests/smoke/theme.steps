@@ -1,0 +1,19 @@
+# theme: T lists the themes and repaints the screen as the cursor moves over them; Esc puts the
+# old theme back. Typing filters the list, Enter keeps the theme, and merl started again opens in
+# it. The repaints are in the checkpoints' colours.
+merl app/models.py
+wait class OrderStatus(Enum):
+key t T
+wait tokyonight-night
+key Down Down Down
+wait Themes (
+key Escape
+wait app/models.py  1:1  [code]
+key T
+type rose-pine-moon
+wait > rose-pine-moon
+key Enter
+wait theme rose-pine-moon saved
+run grep -q rose-pine-moon "$HOME/.config/merl/config.toml"
+merl app/models.py
+wait class OrderStatus(Enum):

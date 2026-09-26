@@ -1,0 +1,60 @@
+# python-d: d through the Python half of the service, the status line saying how each jump was
+# proven. json.dumps into the standard library of the .venv's interpreter, read-only, found
+# without running it (#183), timed as the first d of the session into the standard library; a
+# method of an unannotated parameter lists every find_by_customer in a picker, Enter jumps; [ [
+# back and ] forward through the jumps (#2); a name bound by a cast( that ruff wrapped over two
+# lines answers `by name` instead of a panic (#178). Then through an import, self.repo read from
+# __init__, the two-link chain self.uow.orders.save, and a re-export in app/__init__.py (the
+# tests import OrderService from `app`).
+merl app/api.py
+wait def order_json(order) -> str:
+key t /
+type dumps
+key Enter
+time
+key d
+wait json/__init__.py
+key [
+wait app/api.py  9:17
+key /
+type find_by
+key Enter d
+wait find_by_customer: by name, 3 declarations (3/3)
+key Enter
+wait app/repos.py  14:
+key [
+wait app/api.py  23:19
+key [
+wait app/api.py  9:17
+key ]
+wait app/api.py  23:19
+key /
+type cancel(o
+key Enter d
+wait cancel: by name
+key Escape
+
+key o
+type service
+key Enter
+wait app/service.py  1:1
+key /
+type OrderRepo
+key Enter n d
+wait OrderRepo: via import app/repos.py
+key [
+wait app/service.py  12:30
+key /
+type save
+key Enter d
+wait save → OrderRepo.save (via self.repo: OrderRepo)
+key [ n d
+wait save → OrderRepo.save (via self.uow: UnitOfWork → orders: OrderRepo)
+key o
+type test_serv
+key Enter
+wait tests/test_service.py  1:1
+key /
+type OrderService(
+key Enter d
+wait OrderService: via import app/service.py

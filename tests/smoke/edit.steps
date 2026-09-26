@@ -1,0 +1,84 @@
+# edit: the few lines a person still types. Enter, a new value, Esc: saved, and the gutter marks
+# the line. That edit undone after a trip to another file and redone: each file keeps its own
+# history (#163). Alt+Backspace deletes the word before the cursor (#120). Shift+Down selects
+# two lines and Tab indents them (#3, #176), Ctrl+Z takes it back; Alt+Shift+Right grows a
+# selection by words (#4) and Ctrl+C puts it on the clipboard through OSC 52. Ctrl+F while
+# editing finds and stays in edit mode (#56). Ctrl+N makes a file. A secret typed into the
+# ignored .env is saved there and copied nowhere under HOME. The pane closed (SIGHUP) under
+# typing not yet saved: merl saves it and exits 0 (#80).
+merl app/config.py
+wait class Settings:
+key t /
+type 50
+key Enter Enter Delete Delete
+type 100
+wait app/config.py ●  10:25  [edit]
+key Escape
+wait 10▎    page_size: int = 100
+run grep -q 'page_size: int = 100' app/config.py
+key o
+type models.py
+key Enter
+wait app/models.py  1:1
+key /
+type CANCELLED =
+key Enter End Enter Enter
+type DISPUTED = "disputed"
+key Escape
+wait app/models.py  12:
+key o
+type config.py
+key Enter
+wait app/config.py  1:1
+key C-z
+wait page_size: int = 50
+key C-y
+wait page_size: int = 100
+# the default DSN points at compose's db service: localhost deleted by word, db typed
+key /
+type /orders")
+key Enter Enter M-BSpace
+type db
+key Escape
+wait "postgresql://orders@db/orders"
+key :
+type 17
+key Enter Enter S-Down S-Down Tab
+wait             api_token=os.environ["API_TOKEN"],
+key C-z Escape
+wait 17         api_token=
+key :
+type 17
+key Enter Enter M-S-Right M-S-Right C-c
+wait copied
+run $SMOKE_TMUX show-buffer | grep -q 'api_token='
+key C-f
+type refund_window
+key Enter
+wait app/config.py  11:5  [edit]
+key Escape C-n
+wait new: app/
+type money.py
+key Enter
+type from decimal import Decimal
+key Escape
+wait app/money.py  1:28  [code]
+run grep -q 'from decimal import Decimal' app/money.py
+key o
+type .env
+key Enter
+wait .env  1:1
+key C-End Enter Enter
+type STRIPE_KEY=sk_live_smoke_4242
+key Escape
+wait .env  3:30  [code]
+key o
+type README
+key Enter
+wait README.md  1:1
+key C-End Enter Enter
+type Runbook: docs/notes.md
+wait README.md ●
+run kill -HUP $($SMOKE_TMUX display -p -t 0 '#{pane_pid}')
+wait merl exited: 0
+run grep -q 'Runbook: docs/notes.md' README.md && grep -q sk_live_smoke_4242 .env && ! grep -rq sk_live_smoke "$HOME"

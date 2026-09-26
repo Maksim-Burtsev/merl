@@ -1,0 +1,26 @@
+# open: `merl` in a service repository, the first minute. The tree lists what .gitignore leaves
+# out, dim (.venv, .env); o opens a file by a few letters of its name; / finds whatever the case
+# (#5) and n moves on; : jumps to a line; t hides the tree; ? lists the keys; q gives the shell
+# back: merl's screen gone, exit status 0.
+merl
+# the welcome screen beside the tree
+wait Open a file (fuzzy)
+key o
+type uow
+key Enter
+wait app/uow.py  1:1  [code]
+# `db` found for DB, seven of them, and n to the second
+key /
+type DB
+wait 1/7
+key Enter n
+wait app/uow.py  8:14  [code]  2/7
+key :
+type 15
+key Enter
+wait app/uow.py  15:1
+# the tree hidden, the help over the code
+key t ?
+wait Go to definition of the word under the cursor
+key Escape q
+wait merl exited: 0
