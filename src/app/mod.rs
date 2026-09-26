@@ -372,13 +372,11 @@ pub struct App {
     /// Review: the marks of files the listing does not have now (a rebase stopped before their
     /// commit, a file reverted), kept unseen for when they come back.
     unlisted: HashMap<PathBuf, u64>,
-    /// Review: the branch the marks are kept under, the one the listing names. While HEAD is
-    /// detached (an agent's rebase stopped on a conflict), the last branch the review had;
-    /// `None` for a review that has had none yet, whose marks are in memory only until it does.
+    /// Review: the branch the marks are kept under, the one the listing names (during a rebase,
+    /// the branch being rebased). While HEAD is detached, the last branch the review had.
+    /// `None` for a review started detached, or whose store cannot be read: its marks are in
+    /// memory only, for the whole session.
     viewed_branch: Option<String>,
-    /// Review, while `viewed_branch` is `None`: the files `m` took the tick off, whose marks the
-    /// branch loses too when the review gets one.
-    unticked: HashSet<PathBuf>,
     /// Review: the hunk `c` / `C` last stopped on, as its relative path and its index among that
     /// file's hunks. From a file outside the review they go back to it (#239). Kept for the
     /// session.
@@ -519,7 +517,6 @@ impl App {
             changed: HashMap::new(),
             unlisted: HashMap::new(),
             viewed_branch: None,
-            unticked: HashSet::new(),
             last_hunk: None,
             theme: crate::theme::DEFAULT.to_string(),
             config: None,

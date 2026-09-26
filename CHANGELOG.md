@@ -26,8 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in the repository's git directory, so a review in a worktree has them too. On the next start a
   file changed since loses its tick, and a file viewed and then changed, on screen or between two
   starts, shows `↻` in its place until you view it again. A file that leaves the review for a
-  while, as during a rebase stopped on a conflict, has its mark back when it returns. The marks of
-  a review untouched for 30 days are forgotten. (#240)
+  while, as during a rebase stopped on a conflict, has its mark back when it returns. A review
+  started on a detached HEAD, outside a rebase, keeps its marks only while it runs. The marks of a
+  review untouched for 30 days are forgotten. (#240)
 
 ### Fixed
 

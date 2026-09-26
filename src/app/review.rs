@@ -1,5 +1,7 @@
 //! Review mode: the marks on the buffer, the hunks `c` and `C` step through.
 
+use anyhow::Context as _;
+
 use super::*;
 
 impl App {
@@ -7,8 +9,10 @@ impl App {
     /// first hunk of the open file (unless a line was asked for).
     pub fn start_review(&mut self, mut review: git::Review) {
         let note = review.note.take();
+        // Kept under the branch the review starts on, or rebases; one started detached is kept
+        // in memory for its whole life.
+        self.viewed_branch = review.branch_name().map(str::to_string);
         self.review = Some(review);
-        self.follow_branch();
         self.refresh_diff();
         if let Some(path) = self.buf.path.clone() {
             self.reveal(&path);
@@ -30,6 +34,8 @@ impl App {
         if let Some(note) = note {
             self.message = note;
         }
+        // And marks that cannot be read, more than both.
+        self.load_viewed();
     }
 
     /// `c` / `C`: the next / previous hunk, crossing into the next file of the review. From a
@@ -145,9 +151,6 @@ impl App {
         };
         if self.viewed.remove(&rel).is_some() {
             self.message = "not viewed".into();
-            if self.viewed_branch.is_none() {
-                self.unticked.insert(rel);
-            }
             self.save_viewed();
         } else {
             self.message = "viewed".into();
@@ -159,7 +162,6 @@ impl App {
         if let Some(rel) = rel {
             let hash = self.disk_hash(&rel);
             self.changed.remove(&rel);
-            self.unticked.remove(&rel);
             self.viewed.insert(rel, hash);
             self.save_viewed();
         }
@@ -210,36 +212,47 @@ impl App {
         git::dirs(&self.root).map(|(_, common)| common.join("merl/viewed"))
     }
 
+    /// The marks the review's branch left, sorted by what is on disk now; loading writes nothing.
+    /// A store that cannot be found or read gives none, and the review keeps its marks in memory
+    /// for the rest of the session instead of writing over it.
+    fn load_viewed(&mut self) {
+        let (Some(branch), Some(r)) = (&self.viewed_branch, &self.review) else {
+            return;
+        };
+        let read = (self.viewed_store())
+            .context("no git directory")
+            .and_then(|store| read_viewed(&store, branch, &r.base, crate::stats::today()));
+        for marks in [&mut self.viewed, &mut self.changed, &mut self.unlisted] {
+            marks.clear();
+        }
+        match read {
+            Ok(marks) => self.viewed = marks,
+            Err(e) => {
+                self.viewed_branch = None;
+                self.message = format!("viewed marks not read: {e:#}");
+            }
+        }
+        self.recheck_viewed();
+    }
+
     /// Keeps the marks under the branch the listing names, the one reading of HEAD: another
     /// branch checked out is another review, with the marks it left last time. A detached HEAD
-    /// names none and keeps the branch it left. A review that had none until now keeps what it
-    /// marked and took off, over the branch's own marks, and saves them.
-    fn follow_branch(&mut self) {
-        let Some(r) = &self.review else { return };
-        let Some(branch) = r.branch_name().map(str::to_string) else {
-            return;
+    /// names none and keeps the branch it left, and so does a refresh on which git cannot say
+    /// where the store is. A review with no branch to keep its marks under follows none. Returns
+    /// whether it took another branch's marks.
+    fn follow_branch(&mut self) -> bool {
+        let (Some(key), Some(r)) = (&self.viewed_branch, &self.review) else {
+            return false;
         };
-        if self.viewed_branch.as_ref() == Some(&branch) {
-            return;
-        }
-        let base = r.base.clone();
-        let first = self.viewed_branch.replace(branch.clone()).is_none();
-        let Some(store) = self.viewed_store() else {
-            return;
+        let Some(branch) = r.branch_name().filter(|b| b != key).map(str::to_string) else {
+            return false;
         };
-        let mut marks = read_viewed(&store, &branch, &base);
-        let session = [&mut self.viewed, &mut self.changed, &mut self.unlisted].map(std::mem::take);
-        let unticked = std::mem::take(&mut self.unticked);
-        let kept = first && (session.iter().any(|m| !m.is_empty()) || !unticked.is_empty());
-        if first {
-            marks.retain(|p, _| !unticked.contains(p));
-            marks.extend(session.into_iter().flatten());
+        if self.viewed_store().is_none() {
+            return false;
         }
-        self.viewed = marks;
-        self.recheck_viewed();
-        if kept {
-            self.save_viewed();
-        }
+        self.viewed_branch = Some(branch);
+        self.load_viewed();
+        true
     }
 
     /// Writes this review's marks, the `↻` and the unlisted ones too, so they outlive the
@@ -310,8 +323,9 @@ impl App {
             return false;
         };
         if *old == fresh {
-            // An edit can leave every count as it was.
-            return self.recheck_viewed();
+            // An edit can leave every count as it was; a key left behind on a refresh where git
+            // could not say where the store is catches up.
+            return self.follow_branch() | self.recheck_viewed();
         }
         let rel = self.rel_current();
         let kind = |r: &git::Review| {
@@ -331,22 +345,41 @@ impl App {
     }
 }
 
-/// A review's marks untouched for this many days go the next time the store is written.
+/// A review's marks untouched for this many days are not read, and go the next time the store
+/// is written.
 const FORGET_DAYS: i64 = 30;
+
+/// Is a line dated `day` (as the store writes it) younger than [`FORGET_DAYS`] on `today`?
+fn fresh(day: &str, today: i64) -> bool {
+    crate::stats::day(day).is_some_and(|d| today - d < FORGET_DAYS)
+}
+
+/// The store's text; no store yet is an empty one.
+fn read_store(store: &Path) -> anyhow::Result<String> {
+    match std::fs::read_to_string(store) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        read => read.with_context(|| format!("{}", store.display())),
+    }
+}
 
 /// The store is a line per mark: `YYYY-MM-DD<TAB>branch<TAB>base<TAB>hash<TAB>path`, the day
 /// being when its review was last written. The path comes last, so a tab in it reads back, and
 /// lines end at `\n` alone, so does a `\r` (macOS's `Icon\r`).
-fn read_viewed(store: &Path, branch: &str, base: &str) -> HashMap<PathBuf, u64> {
-    let text = std::fs::read_to_string(store).unwrap_or_default();
+fn read_viewed(
+    store: &Path,
+    branch: &str,
+    base: &str,
+    today: i64,
+) -> anyhow::Result<HashMap<PathBuf, u64>> {
+    let text = read_store(store)?;
     let mark = |line: &str| {
-        let [_, b, s, hash, path] = line.splitn(5, '\t').collect::<Vec<_>>()[..] else {
+        let [day, b, s, hash, path] = line.splitn(5, '\t').collect::<Vec<_>>()[..] else {
             return None;
         };
         let hash = u64::from_str_radix(hash, 16).ok()?;
-        (b == branch && s == base).then(|| (PathBuf::from(path), hash))
+        (fresh(day, today) && b == branch && s == base).then(|| (PathBuf::from(path), hash))
     };
-    text.split('\n').filter_map(mark).collect()
+    Ok(text.split('\n').filter_map(mark).collect())
 }
 
 /// Replaces the review's lines in the store with `marks`, dated `today`, and drops the reviews
@@ -360,19 +393,14 @@ fn write_viewed<'a>(
     today: i64,
 ) -> anyhow::Result<()> {
     use std::fmt::Write as _;
-    let old = match std::fs::read_to_string(store) {
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
-        read => read?,
-    };
+    let old = read_store(store)?;
     let mut text = String::new();
     for line in old.split('\n') {
         let mut cols = line.splitn(4, '\t');
-        let (Some(day), Some(b), Some(s)) =
-            (cols.next().map(crate::stats::day), cols.next(), cols.next())
-        else {
+        let (Some(day), Some(b), Some(s)) = (cols.next(), cols.next(), cols.next()) else {
             continue;
         };
-        if day.is_some_and(|d| today - d < FORGET_DAYS) && (b, s) != (branch, base) {
+        if fresh(day, today) && (b, s) != (branch, base) {
             text.push_str(line);
             text.push('\n');
         }
@@ -385,4 +413,32 @@ fn write_viewed<'a>(
         }
     }
     crate::stats::replace(store, &text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// #240: the 30 days, on a fixed day: a review written 29 days ago is read and kept by a
+    /// write, one written 30 or 31 days ago is neither.
+    #[test]
+    fn a_review_is_forgotten_on_its_thirtieth_day() {
+        let dir = std::env::temp_dir().join(format!("merl-viewededge-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let store = dir.join("viewed");
+        let today = 20_000;
+        let line = |days, branch: &str| {
+            let day = crate::stats::date(today - days);
+            format!("{day}\t{branch}\tmain\t{:016x}\t{branch}.rs\n", 7)
+        };
+        let old = line(29, "recent") + &line(30, "edge") + &line(31, "stale");
+        std::fs::write(&store, old).unwrap();
+        let read = |branch| read_viewed(&store, branch, "main", today).unwrap();
+        assert_eq!(read("recent").len(), 1);
+        assert!(read("edge").is_empty() && read("stale").is_empty());
+        write_viewed(&store, "feature", "main", std::iter::empty(), today).unwrap();
+        assert_eq!(std::fs::read_to_string(&store).unwrap(), line(29, "recent"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
 }
