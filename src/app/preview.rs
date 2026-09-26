@@ -54,6 +54,8 @@ impl App {
             .rows_between(top, (self.line, self.cursor_row()))
             .min(self.view_h.saturating_sub(1));
         self.previewed.insert(path);
+        // A selection the preview cannot draw would be what Ctrl+C copies.
+        self.anchor = None;
         // Back to the row the preview left, when the cursor has not moved since; else the row
         // of the cursor's line, where the cursor was on screen.
         if self.preview_sync()
@@ -150,7 +152,6 @@ impl App {
             KeyCode::Char('{') => ((0..row).rev().find(gap).unwrap_or(0), 0),
             KeyCode::Char('}') => ((row + 1..=last).find(gap).unwrap_or(last), 0),
             KeyCode::Enter => {
-                self.toggle_preview();
                 self.start_edit();
                 return true;
             }

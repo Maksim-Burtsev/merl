@@ -155,6 +155,13 @@ fn code_blocks_lose_their_fences_and_wrap_under_their_indent() {
     assert_eq!(d.code[0].lang, "rust");
     assert_eq!(d.code[0].lines[1], "    let x = compute(alpha, beta);");
     assert_eq!(d.code[1].lang, "");
+    // Back in the source, a row of a tab-indented line starts where its text is written.
+    let raw = "\tlet x = compute(alpha, beta);";
+    assert_eq!((d.rows[2].src, d.rows[3].src), ((2, 9), (2, 24)));
+    assert!(raw[9..].starts_with("compute") && raw[24..].starts_with("beta"));
+    assert_eq!(raw_col(&[], 5), 5);
+    assert_eq!(raw_col(&[3], 9), 6, "past a tab in the middle");
+    assert_eq!(raw_col(&[3], 5), 3, "inside the tab's spaces");
     // Each row knows the part of its line it shows, for the syntax colours.
     assert_eq!(
         d.rows[2].kind,

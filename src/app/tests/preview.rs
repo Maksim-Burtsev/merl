@@ -224,3 +224,158 @@ fn the_preview_of_a_review_keeps_its_marks() {
     assert_eq!(at_row(&a).2, "Doc");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A branch that changes `doc.md` from `base` to `branch`, under review with `doc.md` open.
+fn md_review(tag: &str, base: &str, branch: &str) -> (PathBuf, App) {
+    let dir = std::env::temp_dir().join(format!("merl-md-review-{}-{tag}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&dir)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "t@t"]);
+    git(&["config", "user.name", "t"]);
+    std::fs::write(dir.join("doc.md"), base).unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "base"]);
+    git(&["switch", "-q", "-c", "feature"]);
+    std::fs::write(dir.join("doc.md"), branch).unwrap();
+    git(&["commit", "-q", "-am", "work"]);
+    let review = git::Review::open(&dir, None, None).unwrap();
+    let (tree, files) = crate::tree::build(&dir, false);
+    let path = dir.join("doc.md");
+    let mut a = App::new(dir.clone(), tree, files, Buffer::load(&path).unwrap(), None);
+    a.start_review(review);
+    a.show_tree = false;
+    (dir, a)
+}
+
+/// The gutter's mark column of each preview row on a pane of 13 columns: a two-column gutter
+/// and eleven for the text, which reflows `aaa bbb` / `ccc ddd` / … three words a row.
+fn marks(a: &mut App) -> Vec<(String, String)> {
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(13, 5)).unwrap();
+    terminal.draw(|f| crate::ui::draw(f, a, &theme)).unwrap();
+    let buf = terminal.backend().buffer();
+    (0..3)
+        .map(|y| {
+            let text: String = (2..13).map(|x| buf[(x, y)].symbol()).collect();
+            (
+                buf[(1, y)].symbol().to_string(),
+                text.trim_end().to_string(),
+            )
+        })
+        .collect()
+}
+
+const PARA: &str = "aaa bbb\nccc ddd\neee fff\nggg hhh\n";
+
+/// The branch changed the second line of a paragraph: every row that shows part of it has the
+/// bar, the first row too, which starts on the line above; `C` lands on a marked row.
+#[test]
+fn a_row_is_marked_for_every_line_it_shows() {
+    let base = "aaa bbb\nxxx yyy\neee fff\nggg hhh\n";
+    let (dir, mut a) = md_review("partial", base, PARA);
+    key(&mut a, KeyCode::Char('p'));
+    let bar = "\u{258e}".to_string();
+    assert_eq!(
+        marks(&mut a),
+        [
+            (bar.clone(), "aaa bbb ccc".into()),
+            (bar.clone(), "ddd eee fff".into()),
+            (" ".into(), "ggg hhh".into()),
+        ]
+    );
+    key(&mut a, KeyCode::Char('}'));
+    press(&mut a, KeyCode::Char('C'), KeyModifiers::SHIFT);
+    marks(&mut a);
+    assert_eq!(at_row(&a).0, 0, "on the hunk's first row");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Lines deleted inside a paragraph are marked on the row that shows where they stood; lines
+/// deleted at the end of the file under the last row.
+#[test]
+fn deleted_lines_are_marked_where_they_stood() {
+    let base = "aaa bbb\nxxx\nccc ddd\neee fff\nggg hhh\n";
+    let (dir, mut a) = md_review("deleted", base, PARA);
+    key(&mut a, KeyCode::Char('p'));
+    let m: Vec<String> = marks(&mut a).into_iter().map(|(m, _)| m).collect();
+    assert_eq!(m, ["\u{2594}", " ", " "]);
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let base = format!("{PARA}zzz\n");
+    let (dir, mut a) = md_review("deleted-end", &base, PARA);
+    key(&mut a, KeyCode::Char('p'));
+    let m: Vec<String> = marks(&mut a).into_iter().map(|(m, _)| m).collect();
+    assert_eq!(m, [" ", " ", "\u{2581}"]);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Every way into edit mode leaves the preview: Ctrl+N on the file shown rendered edits its
+/// source, on screen.
+#[test]
+fn ctrl_n_on_a_previewed_file_edits_its_source() {
+    let (dir, mut a) = md_app("ctrl-n", PLAN);
+    key(&mut a, KeyCode::Char('p'));
+    press(&mut a, KeyCode::Char('n'), KeyModifiers::CONTROL);
+    for c in "PLAN.md".chars() {
+        key(&mut a, KeyCode::Char(c));
+    }
+    key(&mut a, KeyCode::Enter);
+    assert_eq!(a.mode, Mode::Edit);
+    assert!(!a.previewing(), "the text being typed is on screen");
+    key(&mut a, KeyCode::Char('p'));
+    assert_eq!(a.buf.lines[0], "p# Plan", "`p` types while editing");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A selection made before `p` goes: the preview cannot show it, and Ctrl+C copies the line of
+/// the cursor row, as with nothing selected.
+#[test]
+fn p_drops_the_selection_so_ctrl_c_copies_the_rows_line() {
+    let (dir, mut a) = md_app("copy", PLAN);
+    a.line = 6;
+    key(&mut a, KeyCode::Char('v'));
+    key(&mut a, KeyCode::Char('v'));
+    assert!(a.selection().is_some());
+    key(&mut a, KeyCode::Char('p'));
+    assert!(a.selection().is_none());
+    key(&mut a, KeyCode::Down);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(a.clipboard.as_deref(), Some("2. two\n"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A narrower pane lays the file out again: every row fits, and the cursor row stays on its
+/// place, as far down the pane.
+#[test]
+fn a_narrower_pane_lays_the_preview_out_again() {
+    let text = "# Plan\n\nA paragraph long enough to take two rows at forty columns wide.\n\n\
+                Then the one the cursor reads, also long enough to wrap.\n\nEnd.\n";
+    let (dir, mut a) = md_app("narrow", text);
+    key(&mut a, KeyCode::Char('p'));
+    for _ in 0..5 {
+        key(&mut a, KeyCode::Down);
+    }
+    let (row, top, text) = at_row(&a);
+    assert_eq!(
+        (row - top, text.as_str()),
+        (5, "Then the one the cursor reads, also long")
+    );
+    a.view_w = 20;
+    a.preview_sync();
+    a.preview_clamp();
+    let p = a.preview.as_ref().unwrap();
+    assert!(p.doc.rows.iter().all(|r| wrap::width(&r.text) <= 20));
+    assert_eq!(p.row - p.top, 5);
+    assert_eq!(p.doc.rows[p.row].text, "Then the one the");
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -198,6 +198,9 @@ pub struct Theme {
     /// The text of a changed word, which GitHub draws in the plain text colour: `fg`, pushed
     /// toward white on a dark theme or black on a light one until it reads on every word tint.
     pub word_fg: Color,
+    /// The background is lighter than the text: what picks GitHub's light colours over its dark
+    /// ones, for the review's diff and the Markdown preview's alerts.
+    pub light: bool,
     pub syntect: syntect::highlighting::Theme,
 }
 
@@ -323,6 +326,7 @@ fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         add_word_bg_hl: words[2],
         word_fg,
         accent: rgb(accent_color(&syntect).unwrap_or(fg)),
+        light,
         syntect,
     })
 }

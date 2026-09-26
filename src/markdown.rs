@@ -70,6 +70,9 @@ pub struct Row {
     /// Where the row starts in the source: 0-based line and byte column. A column past the end
     /// of the line (a rule under a heading, the blank row after a block) is the line's end.
     pub src: (usize, usize),
+    /// The source lines the row shows, which its git marks come from: a reflowed row can hold the
+    /// end of one line and the start of the next. Empty for a row that shows none.
+    pub lines: Range<usize>,
     pub kind: Kind,
 }
 
@@ -155,6 +158,7 @@ pub fn layout(lines: &[String], width: usize) -> Doc {
             text: String::new(),
             looks: Vec::new(),
             src: (0, 0),
+            lines: 0..0,
             kind: Kind::Gap,
         });
     }
@@ -205,7 +209,7 @@ impl Inline {
     }
 }
 
-/// A code block's lines, each with the source position it starts at.
+/// A code block's lines as written, each with the source position it starts at.
 type CodeLines = Vec<(String, (usize, usize))>;
 
 struct Table {
@@ -263,7 +267,7 @@ impl Lay<'_> {
                     // Inside a container every line is an event of its own; a block at the top
                     // is one event whose later lines start at column 0.
                     let col = if k == 0 { col } else { 0 };
-                    lines.push((l.replace('\t', crate::buffer::TAB), (line + k, col)));
+                    lines.push((l.to_string(), (line + k, col)));
                 }
             }
             Event::Text(t) => self.text(&t, self.look(), r),
@@ -663,10 +667,15 @@ impl Lay<'_> {
             full.truncate(full.trim_end().len());
             all.retain(|(_, r)| r.end <= full.len());
         }
+        let lines = match src {
+            (l, usize::MAX) => l..l,
+            (l, _) => l..l + 1,
+        };
         self.rows_mut().push(Row {
             text: full,
             looks: all,
             src,
+            lines,
             kind,
         });
     }
@@ -715,20 +724,28 @@ impl Lay<'_> {
                 }
                 let (text, looks) = cut(&inline.text, &inline.looks, r.clone());
                 let at = self.pos(inline.src_at(r.start));
+                let last = self
+                    .pos(inline.src_at(r.end.saturating_sub(1).max(r.start)))
+                    .0;
                 self.push(text, looks, at, Kind::Text);
+                if let Some(row) = self.rows_mut().last_mut() {
+                    row.lines.end = row.lines.end.max(last + 1);
+                }
             }
             from += seg.len() + 1;
         }
     }
 
     /// Rows for a line shown as it is written, wrapped.
-    fn lines(&mut self, line: &str, look: Look, (l, c): (usize, usize)) {
-        let line = line.replace('\t', crate::buffer::TAB);
+    fn lines(&mut self, raw: &str, look: Look, (l, c): (usize, usize)) {
+        let line = raw.replace('\t', crate::buffer::TAB);
+        let tabs = tabs(raw);
         let avail = self.avail();
         for r in wrap::wrap_line(&line, avail) {
             let text = line[r.clone()].to_string();
             let n = text.len();
-            self.push(text, vec![(look, 0..n)], (l, c + r.start), Kind::Text);
+            let at = (l, c.saturating_add(raw_col(&tabs, r.start)));
+            self.push(text, vec![(look, 0..n)], at, Kind::Text);
         }
     }
 
@@ -746,7 +763,11 @@ impl Lay<'_> {
         }
         let block = self.code.len();
         let room = self.avail().saturating_sub(2).max(1);
-        for (k, (line, (l, c))) in lines.iter().enumerate() {
+        let lines: Vec<(String, Vec<usize>, (usize, usize))> = lines
+            .iter()
+            .map(|(raw, at)| (raw.replace('\t', crate::buffer::TAB), tabs(raw), *at))
+            .collect();
+        for (k, (line, tabs, (l, c))) in lines.iter().enumerate() {
             let indent = wrap::indent(line, room);
             for (i, r) in wrap::wrap_line(line, room).into_iter().enumerate() {
                 let lead = if i == 0 { 1 } else { 1 + indent };
@@ -758,18 +779,12 @@ impl Lay<'_> {
                     from: r.start,
                     at: lead,
                 };
-                self.push(
-                    text,
-                    vec![(Ink::Code.plain(), 0..n)],
-                    (*l, c + r.start),
-                    kind,
-                );
+                let at = (*l, c.saturating_add(raw_col(tabs, r.start)));
+                self.push(text, vec![(Ink::Code.plain(), 0..n)], at, kind);
             }
         }
-        self.code.push(Code {
-            lang,
-            lines: lines.into_iter().map(|(l, _)| l).collect(),
-        });
+        let lines = lines.into_iter().map(|(l, ..)| l).collect();
+        self.code.push(Code { lang, lines });
     }
 
     /// A table in box drawing, each column aligned as its `:---:` says. Wider than the room it
@@ -906,6 +921,29 @@ fn fit(natural: &[usize], words: &[usize], room: usize) -> Vec<usize> {
     widths
 }
 
+/// The byte of a line that byte `i` of it with its tabs drawn as spaces came from, given where
+/// the tabs are in the line. A byte inside a tab's spaces came from the tab.
+fn raw_col(tabs: &[usize], i: usize) -> usize {
+    let extra = crate::buffer::TAB.len() - 1;
+    let mut shift = 0;
+    for &t in tabs {
+        let drawn = t + shift;
+        if drawn >= i {
+            break;
+        }
+        if i < drawn + crate::buffer::TAB.len() {
+            return t;
+        }
+        shift += extra;
+    }
+    i - shift
+}
+
+/// Where the tabs of `raw` are, for [`raw_col`]: found once per line, not once per row.
+fn tabs(raw: &str) -> Vec<usize> {
+    raw.match_indices('\t').map(|(t, _)| t).collect()
+}
+
 /// `text[r]` with the looks over it, moved to start at 0.
 fn cut(
     text: &str,
@@ -957,11 +995,7 @@ impl Palette {
             crate::theme::style(style).fg.unwrap_or(or)
         };
         // GitHub's alert colours, Primer's dark or light ones as the theme is.
-        let sum = |c: Color| match c {
-            Color::Rgb(r, g, b) => r as u32 + g as u32 + b as u32,
-            _ => 0,
-        };
-        let alerts = if sum(theme.bg) > sum(theme.fg) {
+        let alerts = if theme.light {
             [0x0969da, 0x1a7f37, 0x8250df, 0x9a6700, 0xd1242f]
         } else {
             [0x4493f8, 0x3fb950, 0xab7df8, 0xd29922, 0xf85149]

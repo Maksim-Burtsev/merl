@@ -229,16 +229,6 @@ impl Buffer {
             {
                 self.checkpoints.push(state.clone());
             }
-            // ponytail: syntect parses a line whole, and only its first `MAX_SHOWN_BYTES` are
-            // ever drawn. A minified bundle or a one-line JSON dump is megabytes on one line, so
-            // that parse costs seconds and runs again after every `clear_hl`. Past `shown`, the
-            // line is drawn plain, as VS Code stops tokenizing past `maxTokenizationLineLength`.
-            // The state is left as the line before it: the file below keeps its colours. Parsing
-            // the shown prefix alone would not, it could stop inside a string or a comment.
-            if Self::clips(&self.lines[self.hl.len()]) {
-                self.hl.push(Vec::new());
-                continue;
-            }
             let spans = line_spans(state, &self.lines[self.hl.len()], &highlighter);
             self.hl.push(spans);
         }
@@ -251,6 +241,15 @@ fn line_spans(
     raw: &str,
     highlighter: &Highlighter,
 ) -> Spans {
+    // ponytail: syntect parses a line whole, and only its first `MAX_SHOWN_BYTES` are ever
+    // drawn. A minified bundle or a one-line JSON dump is megabytes on one line, so that parse
+    // costs seconds and runs again after every `clear_hl`. Past `shown`, the line is drawn plain,
+    // as VS Code stops tokenizing past `maxTokenizationLineLength`. The state is left as the line
+    // before it: the lines below keep their colours. Parsing the shown prefix alone would not, it
+    // could stop inside a string or a comment.
+    if Buffer::clips(raw) {
+        return Vec::new();
+    }
     let line = format!("{raw}\n");
     let ops = state.0.parse_line(&line, syntaxes()).unwrap_or_default();
     let mut spans = Vec::new();
@@ -268,10 +267,18 @@ fn line_spans(
 }
 
 /// `lines` highlighted as the language `token` names, as a Markdown code block's info string
-/// does (`rust`, `py`, `sh`), with the syntaxes and theme of the files merl opens. `None` when
-/// no syntax goes by that name.
+/// does (`rust`, `py`, `dockerfile`): the grammar a file of that type gets and the source view's
+/// limits. `None` when no syntax goes by that name, or the block is past those limits.
 pub(crate) fn highlight_lines(token: &str, lines: &[String], theme: &Theme) -> Option<Vec<Spans>> {
-    let syntax = syntaxes().find_syntax_by_token(token)?;
+    let bytes: usize = lines.iter().map(String::len).sum();
+    if lines.len() > MAX_HL_LINES || bytes > MAX_HL_BYTES {
+        return None;
+    }
+    let set = syntaxes();
+    // As a file with that extension, then by the grammar's own name: `rs` and `rust` alike.
+    let found = by_name(&Path::new("block").with_extension(token))
+        .or_else(|| set.find_syntax_by_token(token))?;
+    let syntax = with_bash(found);
     let highlighter = Highlighter::new(&theme.syntect);
     let mut state = (
         ParseState::new(syntax),
@@ -313,19 +320,29 @@ fn floor_boundary(s: &str, max: usize) -> usize {
 /// Syntax by file name, then by the first line (shebangs, `<?xml`), then plain text.
 fn syntax_for(path: &Path, first_line: &str) -> &'static SyntaxReference {
     let set = syntaxes();
-    let found = known_name(path)
-        .and_then(|name| set.find_syntax_by_name(name))
-        .or_else(|| set.find_syntax_for_file(path).ok().flatten())
+    let found = by_name(path)
         .or_else(|| set.find_syntax_by_first_line(first_line))
         .unwrap_or_else(|| set.find_syntax_plain_text());
-    // bat's plain Dockerfile grammar leaves every instruction's arguments unscoped, so most of
-    // the file would be drawn in the default colour; the bash variant scopes them.
-    if found.name == "Dockerfile" {
-        return set
+    with_bash(found)
+}
+
+/// Syntax by file name or extension: ours for the files bat's set has no pattern for, then bat's.
+fn by_name(path: &Path) -> Option<&'static SyntaxReference> {
+    let set = syntaxes();
+    known_name(path)
+        .and_then(|name| set.find_syntax_by_name(name))
+        .or_else(|| set.find_syntax_for_file(path).ok().flatten())
+}
+
+/// bat's plain Dockerfile grammar leaves every instruction's arguments unscoped, so most of the
+/// file would be drawn in the default colour; the bash variant scopes them.
+fn with_bash(found: &'static SyntaxReference) -> &'static SyntaxReference {
+    match found.name.as_str() {
+        "Dockerfile" => syntaxes()
             .find_syntax_by_name("Dockerfile (with bash)")
-            .unwrap_or(found);
+            .unwrap_or(found),
+        _ => found,
     }
-    found
 }
 
 /// Infrastructure files bat's set has no name pattern for, mapped to the grammar that fits.
@@ -360,6 +377,42 @@ mod tests {
 
     fn load(bytes: &[u8]) -> Buffer {
         Buffer::from_bytes(PathBuf::from("x"), bytes)
+    }
+
+    /// A Markdown code block gets the grammar a file of its language gets: `dockerfile` the
+    /// bash-scoped Dockerfile grammar, whose spans match the file's own; an extension as a name.
+    #[test]
+    fn a_code_block_is_highlighted_as_a_file_of_its_language() {
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let text = "FROM alpine\nRUN echo \"hi\" && ls $HOME\n";
+        let mut file = Buffer::from_bytes(PathBuf::from("Dockerfile"), text.as_bytes());
+        file.highlight_to(1, &theme);
+        let lines: Vec<String> = text.lines().map(String::from).collect();
+        let block = highlight_lines("dockerfile", &lines, &theme).unwrap();
+        assert_eq!(block, file.hl);
+        assert!(
+            block[1].len() > 10,
+            "the shell after RUN is scoped: {:?}",
+            block[1]
+        );
+        let code = ["fn main() {}".to_string()];
+        assert_eq!(
+            highlight_lines("rs", &code, &theme),
+            highlight_lines("rust", &code, &theme)
+        );
+        assert!(highlight_lines("no-such-language", &code, &theme).is_none());
+    }
+
+    /// A line too long to be shown whole is drawn plain in a code block too, never parsed: a
+    /// one-line JSON dump of a megabyte would stall the frame.
+    #[test]
+    fn a_code_block_line_too_long_to_show_is_not_parsed() {
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let huge = format!("{{\"a\": \"{}\"}}", "x".repeat(1 << 20));
+        let lines = [huge, "{\"b\": 1}".to_string()];
+        let spans = highlight_lines("json", &lines, &theme).unwrap();
+        assert!(spans[0].is_empty());
+        assert!(!spans[1].is_empty(), "the lines below keep their colours");
     }
 
     #[test]

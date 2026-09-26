@@ -1,6 +1,7 @@
 //! The code pane showing a Markdown file rendered (#249): the rows `markdown` laid out, the
 //! cursor row, and the source's git marks beside the rows they came from.
 
+use std::collections::HashMap;
 use std::ops::Range;
 
 use ratatui::Frame;
@@ -12,11 +13,11 @@ use ratatui::widgets::Paragraph;
 use crate::app::App;
 use crate::buffer;
 use crate::git::Mark;
-use crate::markdown::{Kind, Palette};
+use crate::markdown::{Kind, Palette, Row};
 use crate::theme::Theme;
 use crate::wrap;
 
-use super::code::digits;
+use super::code::{digits, mark_span, review_tint};
 
 pub(super) fn draw_preview(
     frame: &mut Frame,
@@ -54,19 +55,17 @@ pub(super) fn draw_preview(
     let pal = Palette::new(theme);
     let review = app.review.is_some();
     let gutter = base.fg(theme.gutter_fg);
+    let ghosts = ghost_marks(&p.doc.rows, app.diff.ghosts.keys().copied());
     let mut lines: Vec<Line> = Vec::with_capacity(end - p.top);
     for i in p.top..end {
         let row = &p.doc.rows[i];
         let cursor = i == p.row;
-        let l = row.src.0;
-        let mark = app.diff.marks.get(&l);
-        // As in the source: a review tints the rows it added and those of a deleted file.
-        let tint = match (review, mark) {
-            (true, Some(Mark::Added)) => Some((theme.add_bg, theme.add_bg_hl)),
-            (true, Some(Mark::DeletedBelow)) => Some((theme.del_bg, theme.del_bg_hl)),
-            _ => None,
-        };
-        let bg = match (tint, cursor) {
+        // A row's mark is the one of any line it shows: a changed line may start mid-row.
+        let marks = || row.lines.clone().filter_map(|l| app.diff.marks.get(&l));
+        let mark = marks()
+            .find(|m| **m != Mark::DeletedBelow)
+            .or_else(|| marks().next());
+        let bg = match (review_tint(review, mark, theme), cursor) {
             (Some((_, c)), true) | (Some((c, _)), false) => Some(c),
             (None, true) => Some(theme.line_hl),
             (None, false) => None,
@@ -77,17 +76,9 @@ pub(super) fn draw_preview(
         } else {
             gutter
         };
-        // Lines a review deleted stand above the line after them in the source: here a mark on
-        // the first row of that line says they were there.
-        let first = i == 0 || p.doc.rows[i - 1].src.0 != l;
-        let mark = match mark {
-            Some(Mark::Added) => Span::styled("\u{258e}", g.fg(Color::Green)),
-            Some(Mark::Changed) => Span::styled("\u{258e}", g.fg(Color::Blue)),
-            Some(Mark::DeletedBelow) => Span::styled("\u{2581}", g.fg(Color::Red)),
-            None if first && app.diff.ghosts.contains_key(&l) => {
-                Span::styled("\u{2594}", g.fg(Color::Red))
-            }
-            None => Span::styled(" ", g),
+        let mark = match (mark, ghosts.get(&i)) {
+            (None, Some(glyph)) => Span::styled(*glyph, g.fg(Color::Red)),
+            (mark, _) => mark_span(mark, g),
         };
         let looks: Vec<(Style, Range<usize>)> = row
             .looks
@@ -131,6 +122,30 @@ pub(super) fn draw_preview(
         lines.push(Line::from(spans));
     }
     frame.render_widget(Paragraph::new(lines).style(base), area);
+}
+
+/// Where the lines a review deleted are marked, by row: `▔` on the first row that shows the line
+/// they stood above, or, when no row shows it (the end of the file, a blank line), `▁` on the row
+/// that ends nearest before it, as the source marks lines deleted below a line.
+fn ghost_marks(rows: &[Row], keys: impl Iterator<Item = usize>) -> HashMap<usize, &'static str> {
+    let mut out = HashMap::new();
+    for k in keys {
+        let above = rows.iter().position(|r| r.lines.contains(&k));
+        let before = |i: &usize| !rows[*i].lines.is_empty() && rows[*i].lines.end <= k;
+        let below = || {
+            (0..rows.len())
+                .filter(before)
+                .max_by_key(|&i| (rows[i].lines.end, std::cmp::Reverse(i)))
+        };
+        let at = match above {
+            Some(i) => Some((i, "\u{2594}")),
+            None => below().map(|i| (i, "\u{2581}")),
+        };
+        if let Some((i, glyph)) = at {
+            out.insert(i, glyph);
+        }
+    }
+    out
 }
 
 /// `text` in spans, each byte in `base` patched with the style every layer gives it, in order.
