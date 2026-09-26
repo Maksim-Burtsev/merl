@@ -905,3 +905,113 @@ fn a_changed_word_is_painted_on_a_wrapped_or_scrolled_ghost() {
     assert_eq!(buf[(d, 1)].bg, theme.del_word_bg);
     assert!(app.left > 0);
 }
+
+/// #248: inside a long function its first line stays pinned on top with a rule under it, and
+/// the code starts below them. The cursor walking down and back up is always on a row of its
+/// own line under the rule, so no line is ever behind the pinned ones; on the function's own
+/// line the pin goes.
+#[test]
+fn the_enclosing_function_stays_pinned_above_the_code() {
+    let mut text = String::from("fn long() {\n");
+    for i in 0..40 {
+        text += &format!("    let a{i} = {i};\n");
+    }
+    text += "}\n";
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/f.rs"), text.as_bytes()),
+        None,
+    );
+    app.show_tree = false;
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    // Eleven rows of code: one declaration pinned, and its rule.
+    let mut terminal = Terminal::new(TestBackend::new(30, 12)).unwrap();
+    let rule = "\u{2500}".repeat(30);
+    let mut press = |app: &mut App, code: KeyCode| {
+        app.key(KeyEvent::new(code, KeyModifiers::NONE));
+        terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+        let y = terminal.get_cursor_position().unwrap().y as usize;
+        (rows(&terminal), y)
+    };
+    let (screen, _) = press(&mut app, KeyCode::Null);
+    assert_eq!(screen[..2], ["1 fn long() {", "2     let a0 = 0;"]);
+    for code in [KeyCode::Down, KeyCode::Up] {
+        for _ in 0..20 {
+            let (screen, y) = press(&mut app, code);
+            let pinned = app.top_line > 0;
+            assert_eq!(screen[0] == "1 fn long() {" && screen[1] == rule, pinned);
+            assert!(
+                y >= if pinned { 2 } else { 0 },
+                "the cursor is under the rule"
+            );
+            assert!(screen[y].starts_with(&format!("{} ", app.line + 1)));
+        }
+        if code == KeyCode::Down {
+            // On the bottom row, the rows above it start right under the rule.
+            let (screen, y) = press(&mut app, KeyCode::Null);
+            assert_eq!((app.line, y), (20, 10));
+            assert_eq!(screen[2], "13     let a11 = 11;");
+        }
+    }
+    let (screen, _) = press(&mut app, KeyCode::Null);
+    assert_eq!(screen[..2], ["1 fn long() {", "2     let a0 = 0;"]);
+}
+
+/// #248: `c` puts the hunk under the pinned header, its deleted line with it, not behind it.
+#[test]
+fn a_hunk_inside_a_long_function_lands_below_the_pinned_header() {
+    let dir = std::env::temp_dir().join(format!("merl-pinned-hunk-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&dir)
+            .args(["-c", "user.email=t@t", "-c", "user.name=t"])
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    let body = |changed: &[usize]| {
+        let mut t = String::from("def long():\n");
+        for i in 0..30 {
+            let v = if changed.contains(&i) { i * 10 } else { i };
+            t += &format!("    a{i} = {v}\n");
+        }
+        t
+    };
+    git(&["init", "-q", "-b", "main"]);
+    std::fs::write(dir.join("f.py"), body(&[])).unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "base"]);
+    git(&["switch", "-q", "-c", "feature"]);
+    std::fs::write(dir.join("f.py"), body(&[2, 20])).unwrap();
+    let path = dir.join("f.py");
+    let mut app = App::new(
+        dir.clone(),
+        Tree::default(),
+        Vec::new(),
+        Buffer::load(&path).unwrap(),
+        None,
+    );
+    app.show_tree = false;
+    app.start_review(crate::git::Review::open(&dir, None, None).unwrap());
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(30, 12)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    app.key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let screen = rows(&terminal);
+    let y = terminal.get_cursor_position().unwrap().y as usize;
+    assert_eq!(app.line, 21);
+    assert_eq!(screen[..2], ["1 def long():", &"\u{2500}".repeat(30)]);
+    assert_eq!(
+        screen[y - 1..=y],
+        ["\u{258e}    a20 = 20", "22\u{258e}    a20 = 200"]
+    );
+    assert!(y > 2, "the deleted line is under the rule");
+    let _ = std::fs::remove_dir_all(dir);
+}

@@ -106,7 +106,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
 }
 /// The name `D` lists for `line` in a file of `kind`: the first [`SYMBOLS`] row such a file is
 /// read with that names something on it.
-pub fn declared_name(kind: Option<Kind>, line: &str) -> Option<String> {
+fn declared_name(kind: Option<Kind>, line: &str) -> Option<String> {
     static ROWS: std::sync::LazyLock<Vec<(Option<Kind>, Regex)>> = std::sync::LazyLock::new(|| {
         SYMBOLS
             .iter()
@@ -127,34 +127,35 @@ pub fn declared_name(kind: Option<Kind>, line: &str) -> Option<String> {
 /// are the lines above indented less, each less than the last, as VS Code's indentation model
 /// reads them, and of those only the ones [`declared_name`] names something on count. A `for`
 /// or an `if` is a scope too, so it moves the walk out, but pins nothing: the question the pins
-/// answer is which function this is. A blank line belongs to the code after it, so scrolling
-/// over the blank lines of a body keeps its header.
+/// answer is which function this is. A blank line or a comment belongs to the code after it, so
+/// scrolling over the blank lines of a body keeps its header.
 pub fn enclosing_declarations(kind: Option<Kind>, lines: &[String], line: usize) -> Vec<usize> {
     let indent = |s: &str| s.len() - s.trim_start().len();
+    // The tail of a header wrapped over several lines (`) -> Result<()> {`, `where`, a lone `{`,
+    // TypeScript's `> extends Base {`) belongs to what its first line opens, further up.
+    let tail = |t: &str| t.starts_with([')', ']', '>', '{']) || t == "where";
+    // Comments, attributes and C's `#ifdef` can stand at the left edge inside a body.
+    let aside = |t: &str| {
+        t.is_empty()
+            || ["#", "//", "/*", "*", "--"]
+                .iter()
+                .any(|c| t.starts_with(c))
+    };
     let Some(first) = lines
         .get(line..)
-        .and_then(|rest| rest.iter().find(|l| !l.trim().is_empty()))
+        .and_then(|rest| rest.iter().find(|l| !aside(l.trim_start())))
     else {
         return Vec::new();
     };
-    let mut depth = indent(first);
+    // On a tail, the header it ends is its scope: the line that opened it is indented as much.
+    let mut depth = indent(first) + usize::from(tail(first.trim_start()));
     let mut out = Vec::new();
     for (i, l) in lines[..line].iter().enumerate().rev() {
         if depth == 0 {
             break;
         }
         let t = l.trim_start();
-        // The tail of a header wrapped over several lines (`) -> Result<()> {`, `where`, a lone
-        // `{`, TypeScript's `> extends Base {`) opens what its first line names, further up.
-        // Comments, attributes and C's `#ifdef` at the left edge stand inside a body as well.
-        if t.is_empty()
-            || indent(l) >= depth
-            || t.starts_with([')', ']', '>', '{'])
-            || t == "where"
-            || ["#", "//", "/*", "*", "--"]
-                .iter()
-                .any(|c| t.starts_with(c))
-        {
+        if aside(t) || tail(t) || indent(l) >= depth {
             continue;
         }
         depth = indent(l);

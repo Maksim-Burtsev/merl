@@ -5,7 +5,7 @@ use std::ops::Range;
 
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use regex::Regex;
@@ -76,7 +76,7 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             .map(|(i, r)| (r, if i == 0 { 0 } else { indent }))
             .collect()
     };
-    let mut lines = pinned_rows(app, theme, base, gutter_w);
+    let mut lines = pinned_lines(app, theme, base, gutter_w);
     let pinned = lines.len();
     let mut l = app.top_line;
     let mut skip = app.top_row;
@@ -262,56 +262,30 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     }
 }
 
-/// The declarations enclosing the top of the view, pinned over the text with their line numbers
-/// (#248): the first row of each, cut at the edge, in its syntax colours.
-fn pinned_rows<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -> Vec<Line<'a>> {
-    let mut lines = Vec::new();
+/// The declarations enclosing the top of the view, pinned over the text (#248): the first row
+/// of each in its syntax colours, beside its line number, and a rule under them in the gutter's
+/// colour. The rule is what tells them from the lines above the code at a glance; a background
+/// of their own would be the cursor line's, and an underline runs through the letters.
+fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -> Vec<Line<'a>> {
     let pins = app.pinned(app.top_line);
-    let variant = super::sticky_variant();
-    let band = variant.starts_with("band");
-    let under = variant.ends_with("underline");
-    let edge = match std::env::var("MERL_EDGE").as_deref() {
-        Ok("ghost") => theme.ghost_fg,
-        Ok("accent") => theme.accent,
-        _ => theme.gutter_fg,
-    };
-    for (i, &p) in pins.iter().enumerate() {
-        let band_bg = match std::env::var("MERL_BAND").as_deref() {
-            Ok("dim") => theme.line_hl_dim,
-            Ok("dark") => match (theme.bg, theme.line_hl) {
-                (Color::Rgb(r, g, b), Color::Rgb(r2, g2, b2)) => {
-                    let away = |c: u8, h: u8| (2 * c as i16 - h as i16).clamp(0, 255) as u8;
-                    Color::Rgb(away(r, r2), away(g, g2), away(b, b2))
-                }
-                _ => theme.line_hl,
-            },
-            _ => theme.line_hl,
-        };
-        let mut st = if band { base.bg(band_bg) } else { base };
-        if under && i + 1 == pins.len() {
-            st = st.add_modifier(Modifier::UNDERLINED).underline_color(edge);
-        }
-        let text = app.buf.shown(p);
-        let r = match app.nowrap() {
-            true => wrap::cut(text, app.left, app.left + app.view_w).0,
-            false => app.rows(p).swap_remove(0),
-        };
-        let syntax = app.buf.hl.get(p).map_or(&[][..], Vec::as_slice);
-        let mut row = vec![Span::styled(
-            format!("{:>w$} ", p + 1, w = gutter_w - 1),
-            st.fg(theme.gutter_fg),
-        )];
-        row.extend(row_spans(text, syntax, &r, st));
-        let pad = app.view_w.saturating_sub(wrap::width(&text[r]));
-        row.push(Span::styled(" ".repeat(pad), st));
-        lines.push(Line::from(row));
-    }
-    if variant == "rule" && !pins.is_empty() {
-        let w = gutter_w + app.view_w;
-        lines.push(Line::from(Span::styled(
-            "\u{2500}".repeat(w),
-            base.fg(edge),
-        )));
+    let mut lines: Vec<Line> = pins
+        .iter()
+        .map(|&p| {
+            let text = app.buf.shown(p);
+            let (r, lead) = match app.nowrap() {
+                true => wrap::cut(text, app.left, app.left + app.view_w),
+                false => (app.rows(p).swap_remove(0), 0),
+            };
+            let syntax = app.buf.hl.get(p).map_or(&[][..], Vec::as_slice);
+            let num = format!("{:>w$}{}", p + 1, " ".repeat(1 + lead), w = gutter_w - 1);
+            let mut row = vec![Span::styled(num, base.fg(theme.gutter_fg))];
+            row.extend(row_spans(text, syntax, &r, base));
+            Line::from(row)
+        })
+        .collect();
+    if !lines.is_empty() {
+        let rule = "\u{2500}".repeat(gutter_w + app.view_w);
+        lines.push(Line::from(Span::styled(rule, base.fg(theme.gutter_fg))));
     }
     lines
 }

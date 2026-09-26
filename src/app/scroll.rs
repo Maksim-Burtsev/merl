@@ -2,8 +2,10 @@
 
 use super::*;
 
-/// Most declarations pinned over the code: the innermost ones when more enclose the view.
-const MAX_PINNED: usize = 3;
+/// Most declarations pinned over the code: the innermost ones when more enclose the view. Two
+/// covers a method in its `impl` or `class`; with the rule under them they take three rows of a
+/// pane of thirty.
+const MAX_PINNED: usize = 2;
 
 impl App {
     /// Scrolls the minimum amount that puts the cursor back on screen.
@@ -40,10 +42,7 @@ impl App {
     /// the innermost [`MAX_PINNED`] of them. A short pane keeps its rows for the code.
     pub fn pinned(&self, top: usize) -> Vec<usize> {
         let max = MAX_PINNED.min(self.view_h / 8);
-        if max == 0
-            || top >= self.buf.lines.len()
-            || matches!(crate::ui::sticky_variant(), "off" | "name")
-        {
+        if max == 0 || top >= self.buf.lines.len() {
             return Vec::new();
         }
         let mut pins = search::enclosing_declarations(self.kind(), &self.buf.lines, top);
@@ -51,12 +50,12 @@ impl App {
         pins
     }
 
-    /// Rows the pinned lines take off the top of the code pane with `top` first in the view.
-    pub fn pinned_rows(&self, top: usize) -> usize {
-        let n = self.pinned(top).len();
-        match crate::ui::sticky_variant() {
-            "rule" if n > 0 => n + 1,
-            _ => n,
+    /// Rows the pinned lines take off the top of the code pane with `top` first in the view:
+    /// one each, and the rule under them.
+    fn pinned_rows(&self, top: usize) -> usize {
+        match self.pinned(top).len() {
+            0 => 0,
+            n => n + 1,
         }
     }
 

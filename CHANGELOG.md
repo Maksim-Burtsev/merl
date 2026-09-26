@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Inside a long function whose first line has scrolled off, that line stays pinned on top of
+  the code with its line number and a rule under it, so the screen always says which function
+  this is: in a review, where `c` drops you in the middle of one, and everywhere else. A method
+  pins its `impl` or `class` too, two lines at most; a loop or an `if` pins nothing. The code
+  starts under the rule, so no line hides behind it. (#248)
+
 ### Changed
 
 - `merl --review` paints the diff as GitHub does: the lines the branch deleted on a red tint,
