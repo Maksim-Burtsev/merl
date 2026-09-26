@@ -185,6 +185,19 @@ pub struct Theme {
     /// Background of the Shift+Up/Down line selection.
     #[allow(dead_code)]
     pub selection: Color,
+    /// Review, GitHub's diff colours over this theme: the rows the branch deleted and added, the
+    /// words that changed on them, and those rows under the cursor (`_hl`, over `line_hl`). A
+    /// deleted file is all deleted rows, so they can be the cursor line too.
+    pub del_bg: Color,
+    pub del_bg_hl: Color,
+    pub del_word_bg: Color,
+    pub add_bg: Color,
+    pub add_bg_hl: Color,
+    pub add_word_bg: Color,
+    pub add_word_bg_hl: Color,
+    /// The text of a changed word, which GitHub draws in the plain text colour: `fg`, pushed
+    /// toward white on a dark theme or black on a light one until it reads on every word tint.
+    pub word_fg: Color,
     pub syntect: syntect::highlighting::Theme,
 }
 
@@ -238,11 +251,50 @@ fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         .map(|percent| blend(fg, bg, percent))
         .find(|&c| contrast(c, rgb(bg)) >= GHOST_CONTRAST)
         .unwrap_or_else(|| blend(fg, bg, GHOST_MAX));
-    // The selection is drawn over the cursor line (#62), so a theme whose own selection colour
-    // sits within a few points of it gets one blended further from the background instead.
+    // Review: GitHub's diff hues laid over this background at GitHub's own strength, so every
+    // theme has them without a key of its own. A dark theme takes Primer dark's (`#f85149` at 10 %
+    // for a row and 40 % for a word, `#2ea043` at 15 and 40); a light one the strengths that lay
+    // Primer light's pinks and mints over white.
+    let light = luminance(rgb(bg)) > luminance(rgb(fg));
+    let hue = |r, g, b| SynColor { r, g, b, a: 255 };
+    let ((del, del_row, del_word), (add, add_row, add_word)) = if light {
+        (
+            (hue(0xf8, 0x51, 0x49), 12, 28),
+            (hue(0x2f, 0xd4, 0x55), 17, 40),
+        )
+    } else {
+        (
+            (hue(0xf8, 0x51, 0x49), 10, 40),
+            (hue(0x2e, 0xa0, 0x43), 15, 40),
+        )
+    };
+    let (add_bg, add_bg_hl) = (blend(add, bg, add_row), blend(add, line_hl_syn, add_row));
+    let (del_bg, del_bg_hl) = (blend(del, bg, del_row), blend(del, line_hl_syn, del_row));
+    let words = [
+        blend(del, bg, del_word),
+        blend(add, bg, add_word),
+        blend(add, line_hl_syn, add_word),
+    ];
+    // A theme whose text is soft by design (solarized, e-ink) loses most of it on a 40 % tint.
+    let toward = if light {
+        SynColor::BLACK
+    } else {
+        SynColor::WHITE
+    };
+    let word_fg = (0..=100)
+        .step_by(10)
+        .map(|percent| blend(toward, fg, percent))
+        .find(|&c| words.iter().all(|&w| contrast(c, w) >= WORD_CONTRAST))
+        .unwrap_or(rgb(toward));
+    // The selection is drawn over the cursor line (#62) and, in a review, over added rows, so a
+    // theme whose own selection colour sits within a few points of one of them gets one blended
+    // further from the background instead.
     let mut selection = s.selection.map_or_else(|| blend(fg, bg, 25), over_bg);
     for percent in [35, 45, 55, 65] {
-        if apart(selection, line_hl) {
+        if [line_hl, add_bg, add_bg_hl]
+            .into_iter()
+            .all(|c| apart(selection, c))
+        {
             break;
         }
         selection = blend(fg, bg, percent);
@@ -262,6 +314,14 @@ fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         find_bg: s.find_highlight.map_or_else(|| blend(fg, bg, 35), over_bg),
         find_fg: s.find_highlight_foreground.map_or_else(|| rgb(bg), over_bg),
         selection,
+        del_bg,
+        del_bg_hl,
+        del_word_bg: words[0],
+        add_bg,
+        add_bg_hl,
+        add_word_bg: words[1],
+        add_word_bg_hl: words[2],
+        word_fg,
         accent: rgb(accent_color(&syntect).unwrap_or(fg)),
         syntect,
     })
@@ -323,21 +383,26 @@ fn blend(fg: SynColor, bg: SynColor, percent: u32) -> Color {
 const GHOST_CONTRAST: f64 = 4.0;
 const GHOST_MAX: u32 = 85;
 
+/// The contrast a changed word's text keeps on its tint: WCAG AA for body text.
+const WORD_CONTRAST: f64 = 4.5;
+
+/// WCAG relative luminance, 0.0 (black) to 1.0 (white).
+fn luminance(c: Color) -> f64 {
+    let Color::Rgb(r, g, b) = c else { return 0.0 };
+    let lin = |v: u8| {
+        let v = v as f64 / 255.0;
+        if v <= 0.03928 {
+            v / 12.92
+        } else {
+            ((v + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+}
+
 /// WCAG contrast ratio of two colours, 1.0 (the same) to 21.0 (black on white).
 fn contrast(a: Color, b: Color) -> f64 {
-    let lum = |c: Color| {
-        let Color::Rgb(r, g, b) = c else { return 0.0 };
-        let lin = |v: u8| {
-            let v = v as f64 / 255.0;
-            if v <= 0.03928 {
-                v / 12.92
-            } else {
-                ((v + 0.055) / 1.055).powf(2.4)
-            }
-        };
-        0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
-    };
-    let (a, b) = (lum(a), lum(b));
+    let (a, b) = (luminance(a), luminance(b));
     (a.max(b) + 0.05) / (a.min(b) + 0.05)
 }
 
@@ -676,6 +741,36 @@ mod tests {
                     Some(style.foreground),
                     t.syntect.settings.foreground,
                     "{name} leaves `{stack}` in the default colour"
+                );
+            }
+        }
+    }
+
+    /// Review's diff colours are derived, never set per theme, so this is what keeps them working
+    /// on every palette: the rows stand off what is under them, the changed words off their row,
+    /// the words' text reads on them, and a selection on an added row still shows.
+    #[test]
+    fn diff_colours_read_in_every_theme() {
+        for name in names() {
+            let t = load(name).unwrap();
+            for (row, word, under) in [
+                (t.del_bg, t.del_word_bg, t.bg),
+                (t.add_bg, t.add_word_bg, t.bg),
+                (t.add_bg_hl, t.add_word_bg_hl, t.line_hl),
+            ] {
+                assert!(apart(row, under), "{name}: row {row:?} on {under:?}");
+                assert!(apart(word, row), "{name}: word {word:?} on its row {row:?}");
+                let c = contrast(t.word_fg, word);
+                assert!(
+                    c >= WORD_CONTRAST,
+                    "{name}: changed text at {c:.2} on {word:?}"
+                );
+            }
+            for row in [t.add_bg, t.add_bg_hl] {
+                assert!(
+                    apart(t.selection, row),
+                    "{name}: selection {:?} on {row:?}",
+                    t.selection
                 );
             }
         }

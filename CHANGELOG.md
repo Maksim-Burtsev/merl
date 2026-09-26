@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `merl --review` paints the diff as GitHub does: the lines the branch deleted on a red tint,
+  in their syntax colours instead of grey, the lines it added on a green one, and on a changed
+  line the words that changed on a stronger tint, on the old line and on the new. A deleted line
+  wraps like the text instead of ending in `…`. Where a block deletes a different number of lines
+  than it adds, as when a comment goes in above the changed line, the lines still pair by what
+  they have in common; GitHub and GitLab paint nothing there. The colours come from each theme's
+  background, so every theme, a user's own included, has them. (#165)
 - `d` on `Type::name` of a Rust type the project declares more than once lands in the type the
   file's `use crate::…` or `use super::…` names: `Cache::new` behind `use crate::store::Cache;`
   is the `new` of an `impl Cache` in `src/store.rs` or `src/store/mod.rs`, `via import`, where

@@ -12,7 +12,7 @@ impl App {
         }
         // The top is on the cursor line's own ghosts: they are being read, the cursor waits
         // below the pane (`move_rows` scrolls them in one at a time).
-        if self.top_line == self.line && self.top_row < self.diff.ghost_n(self.line) {
+        if self.top_line == self.line && self.top_row < self.ghost_rows(self.line) {
             return;
         }
         let cur = (self.line, self.cursor_row());
@@ -23,7 +23,7 @@ impl App {
         }
         if cur < (self.top_line, self.top_row) {
             // Moving up shows the line's ghosts with it.
-            (self.top_line, self.top_row) = (self.line, cur.1 - self.diff.ghost_n(self.line));
+            (self.top_line, self.top_row) = (self.line, cur.1 - self.ghost_rows(self.line));
             return;
         }
         let top = self.back_rows(cur, self.view_h.saturating_sub(1));
@@ -58,7 +58,7 @@ impl App {
     /// the end of the file, or the last row of text when there is none, on the bottom row.
     pub(super) fn bottom_top(&self) -> (usize, usize) {
         let end = self.buf.lines.len();
-        let last = match self.diff.ghost_n(end) {
+        let last = match self.ghost_rows(end) {
             0 => (end - 1, self.row_count(end - 1) - 1),
             g => (end, g - 1),
         };
@@ -69,7 +69,7 @@ impl App {
     /// deleted at the end of the file, keyed `lines.len()`, which have ghost rows only.
     pub(super) fn clamp_top(&mut self) {
         let end = self.buf.lines.len();
-        if self.top_line != end || self.top_row >= self.diff.ghost_n(end) {
+        if self.top_line != end || self.top_row >= self.ghost_rows(end) {
             self.top_line = self.top_line.min(end - 1);
             self.top_row = self.top_row.min(self.row_count(self.top_line) - 1);
         }

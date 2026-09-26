@@ -14,7 +14,7 @@ impl App {
     fn apply_want_x(&mut self, row: usize) {
         let rows = self.rows(self.line);
         let row = row
-            .saturating_sub(self.diff.ghost_n(self.line))
+            .saturating_sub(self.ghost_rows(self.line))
             .min(rows.len() - 1);
         let r = rows[row].clone();
         let s = &self.buf.lines[self.line];
@@ -167,7 +167,7 @@ impl App {
         // time, so a deletion taller than the pane can still be read through.
         if n < 0
             && self.top_line == self.line
-            && (1..=self.diff.ghost_n(self.line)).contains(&self.top_row)
+            && (1..=self.ghost_rows(self.line)).contains(&self.top_row)
         {
             self.top_row -= 1;
             return;
@@ -196,12 +196,12 @@ impl App {
             self.forward_rows(cur, n as usize)
         };
         // Ghost rows are not for the cursor: going up onto one lands on the text above it.
-        if n < 0 && row < self.diff.ghost_n(line) {
+        if n < 0 && row < self.ghost_rows(line) {
             if line > 0 {
                 line -= 1;
                 row = self.row_count(line) - 1;
             } else {
-                row = self.diff.ghost_n(line);
+                row = self.ghost_rows(line);
             }
         }
         self.line = line;

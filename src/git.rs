@@ -25,12 +25,12 @@ pub struct Diff {
     pub marks: HashMap<usize, Mark>,
     pub ghosts: BTreeMap<usize, Vec<String>>,
     pub hunks: Vec<usize>,
-}
-
-impl Diff {
-    pub fn ghost_n(&self, line: usize) -> usize {
-        self.ghosts.get(&line).map_or(0, Vec::len)
-    }
+    /// Review: the 0-based base-file line of the first ghost at each key; the ghosts under one
+    /// key are consecutive base lines.
+    pub ghost_from: BTreeMap<usize, usize>,
+    /// Review: an added line (0-based line of the working file) → `(ghost key, index in that
+    /// key's ghosts)` of the deleted line it pairs with, from `intraline::pair` per hunk.
+    pub pairs: HashMap<usize, (usize, usize)>,
 }
 
 /// The diff of `path` in the working tree against the index, or against `base` when given
@@ -72,8 +72,8 @@ fn parse(diff: &str, review: bool) -> Diff {
         let Some((old, new)) = line[3..].split_once(" +") else {
             continue;
         };
-        let (Some(old_n), Some((new_start, new_n))) = (
-            count(old.trim_start_matches('-')),
+        let (Some((old_start, old_n)), Some((new_start, new_n))) = (
+            range(old.trim_start_matches('-')),
             range(new.split(' ').next().unwrap_or("")),
         ) else {
             continue;
@@ -82,15 +82,25 @@ fn parse(diff: &str, review: bool) -> Diff {
         let at = if new_n == 0 { new_start } else { new_start - 1 };
         if review {
             let mut deleted = Vec::new();
+            let mut added = Vec::new();
             while let Some(l) =
                 lines.next_if(|l| l.starts_with('-') || l.starts_with('+') || l.starts_with('\\'))
             {
                 if let Some(text) = l.strip_prefix('-') {
                     deleted.push(text.to_string());
+                } else if let Some(text) = l.strip_prefix('+') {
+                    added.push(text.to_string());
                 }
             }
             if !deleted.is_empty() {
-                out.ghosts.entry(at).or_default().extend(deleted);
+                let ghosts = out.ghosts.entry(at).or_default();
+                let offset = ghosts.len();
+                // `a` of `-a,b` is 1-based; a hunk with deleted lines never has `a == 0`.
+                out.ghost_from.entry(at).or_insert(old_start - 1);
+                for (i, j) in crate::intraline::pair(&deleted, &added) {
+                    out.pairs.insert(at + j, (at, offset + i));
+                }
+                ghosts.extend(deleted);
             }
             // A deletion at the end of the file is drawn under the last line; `c` stands on
             // that line for it.
@@ -127,10 +137,6 @@ fn range(s: &str) -> Option<(usize, usize)> {
         Some((a, b)) => Some((a.parse().ok()?, b.parse().ok()?)),
         None => Some((s.parse().ok()?, 1)),
     }
-}
-
-fn count(s: &str) -> Option<usize> {
-    range(s).map(|(_, n)| n)
 }
 
 // ---- review mode -----------------------------------------------------------
@@ -502,13 +508,29 @@ mod tests {
         assert_eq!(d.hunks, vec![0, 3, 8]);
         assert_eq!(d.ghosts[&0], vec!["x"]);
         assert_eq!(d.ghosts[&9], vec!["c", "d"]);
-        assert_eq!(d.ghost_n(3), 0);
+        assert_eq!(d.ghosts.get(&3), None);
         // A changed line is an added one under its ghost: no `Changed` in review.
         assert_eq!(d.marks[&0], Mark::Added);
         assert_eq!(d.marks.len(), 3, "{:?}", d.marks);
         // A deletion right after a changed last line is one stop, not two.
         let d = parse("@@ -5 +5 @@\n-a\n+b\n@@ -6,2 +5,0 @@\n-c\n-d\n", true);
-        assert_eq!((d.hunks.clone(), d.ghost_n(5)), (vec![4], 2));
+        assert_eq!((d.hunks.clone(), d.ghosts[&5].len()), (vec![4], 2));
+    }
+
+    #[test]
+    fn review_pairs_added_lines_with_the_ghosts_they_rewrite() {
+        let diff = "@@ -1,2 +1,2 @@\n-total = price * qty\n-log.debug(\"pricing %s\", item)\n\
+                    +total = price * qty * rate\n+log.debug(\"pricing %s\", item)\n\
+                    @@ -10 +10,2 @@\n-total = price * qty\n\
+                    +log.debug(\"pricing %s\", item)\n+total = price * qty * rate\n";
+        let d = parse(diff, true);
+        // The first ghost at each key is this 0-based base-file line.
+        assert_eq!(d.ghost_from, BTreeMap::from([(0, 0), (9, 9)]));
+        // A balanced hunk pairs in order; an unbalanced one by similarity.
+        assert_eq!(
+            d.pairs,
+            HashMap::from([(0, (0, 0)), (1, (0, 1)), (10, (9, 0))])
+        );
     }
 
     #[test]

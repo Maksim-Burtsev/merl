@@ -356,6 +356,9 @@ pub struct App {
     /// every load, save and reload; between an edit and its autosave they lag by a second.
     /// In review mode: against the branch's base, with ghosts, taken on open (see `refresh_diff`).
     pub diff: git::Diff,
+    /// Review: the open file as it was at the merge base, keyed `merge_base:path`, for the ghosts'
+    /// syntax colours; highlighted lazily like `buf`. `None` when the file has no ghosts.
+    pub base: Option<(String, Buffer)>,
     pub want_diff: bool,
     /// `--review`: the branch under review. The tree pane then lists its files.
     pub review: Option<git::Review>,
@@ -491,6 +494,7 @@ impl App {
             resume_edit: false,
             clipboard: None,
             diff: git::Diff::default(),
+            base: None,
             want_diff: true,
             review: None,
             viewed: HashMap::new(),
@@ -584,14 +588,30 @@ impl App {
         wrap::wrap_line(shown, self.view_w)
     }
 
-    /// Screen rows of line `l`: its ghosts (review mode, one row each, drawn above the text)
-    /// and then its wrapped rows. A `(line, row)` pair counts rows from the first ghost.
+    /// Screen rows of the ghosts at `l` (review mode: the lines the branch deleted there,
+    /// drawn above the text): one per ghost when the file is not wrapped, else each wraps
+    /// like a file line.
+    pub fn ghost_rows(&self, l: usize) -> usize {
+        let Some(ghosts) = self.diff.ghosts.get(&l) else {
+            return 0;
+        };
+        if self.nowrap() {
+            return ghosts.len();
+        }
+        ghosts
+            .iter()
+            .map(|g| wrap::wrap_line(buffer::shown_str(g), self.view_w).len())
+            .sum()
+    }
+
+    /// Screen rows of line `l`: its ghosts (review mode, drawn above the text) and then its
+    /// wrapped rows. A `(line, row)` pair counts rows from the first ghost.
     pub fn row_count(&self, l: usize) -> usize {
-        self.diff.ghost_n(l) + self.rows(l).len()
+        self.ghost_rows(l) + self.rows(l).len()
     }
 
     pub fn cursor_row(&self) -> usize {
-        self.diff.ghost_n(self.line) + wrap::col_to_row(&self.rows(self.line), self.col)
+        self.ghost_rows(self.line) + wrap::col_to_row(&self.rows(self.line), self.col)
     }
 
     /// Display column of the cursor on its wrapped row, counting the indent rows after the first
