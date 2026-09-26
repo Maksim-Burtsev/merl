@@ -2,12 +2,18 @@
 
 use super::*;
 
+/// Most declarations pinned over the code: the innermost ones when more enclose the view.
+const MAX_PINNED: usize = 3;
+
 impl App {
     /// Scrolls the minimum amount that puts the cursor back on screen.
     pub fn clamp_scroll(&mut self) {
         self.clamp_left();
+        let cur = (self.line, self.cursor_row());
         if std::mem::take(&mut self.center) {
             self.center_cursor();
+            // A pane short enough for the pinned lines to reach the middle.
+            (self.top_line, self.top_row) = self.fit_top((self.top_line, self.top_row), cur);
             return;
         }
         // The top is on the cursor line's own ghosts: they are being read, the cursor waits
@@ -15,7 +21,6 @@ impl App {
         if self.top_line == self.line && self.top_row < self.ghost_rows(self.line) {
             return;
         }
-        let cur = (self.line, self.cursor_row());
         // Scrolled on past the end of the text (`move_rows`), the cursor waits above the pane.
         if cur < (self.top_line, self.top_row) && self.at_text_end() {
             (self.top_line, self.top_row) = (self.top_line, self.top_row).min(self.bottom_top());
@@ -27,8 +32,46 @@ impl App {
             return;
         }
         let top = self.back_rows(cur, self.view_h.saturating_sub(1));
-        if (self.top_line, self.top_row) < top {
-            (self.top_line, self.top_row) = top;
+        (self.top_line, self.top_row) = self.fit_top((self.top_line, self.top_row).max(top), cur);
+    }
+
+    /// The declarations the code pane pins over the text with `top` as the first line of the
+    /// view (#248): those enclosing it whose own line has scrolled off above, outermost first,
+    /// the innermost [`MAX_PINNED`] of them. A short pane keeps its rows for the code.
+    pub fn pinned(&self, top: usize) -> Vec<usize> {
+        let max = MAX_PINNED.min(self.view_h / 8);
+        if max == 0
+            || top >= self.buf.lines.len()
+            || matches!(crate::ui::sticky_variant(), "off" | "name")
+        {
+            return Vec::new();
+        }
+        let mut pins = search::enclosing_declarations(self.kind(), &self.buf.lines, top);
+        pins.drain(..pins.len().saturating_sub(max));
+        pins
+    }
+
+    /// Rows the pinned lines take off the top of the code pane with `top` first in the view.
+    pub fn pinned_rows(&self, top: usize) -> usize {
+        let n = self.pinned(top).len();
+        match crate::ui::sticky_variant() {
+            "rule" if n > 0 => n + 1,
+            _ => n,
+        }
+    }
+
+    /// The first top at or below `from` that shows `bottom` on the pane, under the lines pinned
+    /// for that top: nothing ever stands behind them. Scrolling down can pin a line more, which
+    /// takes a row more, so the top moves on until the pins it gets leave `bottom` in sight.
+    fn fit_top(&self, from: (usize, usize), bottom: (usize, usize)) -> (usize, usize) {
+        let mut top = from;
+        loop {
+            let rows = self.view_h.saturating_sub(1 + self.pinned_rows(top.0));
+            let fit = self.back_rows(bottom, rows);
+            if fit <= top {
+                return top;
+            }
+            top = fit;
         }
     }
 
@@ -62,7 +105,7 @@ impl App {
             0 => (end - 1, self.row_count(end - 1) - 1),
             g => (end, g - 1),
         };
-        self.back_rows(last, self.view_h.saturating_sub(1))
+        self.fit_top(self.back_rows(last, self.view_h.saturating_sub(1)), last)
     }
 
     /// The top made valid for the text and ghosts as they are now. It may stay on the lines

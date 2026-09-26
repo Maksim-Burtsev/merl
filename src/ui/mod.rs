@@ -79,6 +79,14 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     }
 }
 
+/// Prototype switch for the renders of #248, not a setting: how the pinned lines stand apart
+/// from the code. `band`, `underline`, `band+underline`, `rule`, `name`, `off`.
+pub fn sticky_variant() -> &'static str {
+    static V: std::sync::LazyLock<String> =
+        std::sync::LazyLock::new(|| std::env::var("MERL_STICKY").unwrap_or_else(|_| "band".into()));
+    V.as_str()
+}
+
 /// Tabs drawn as [`crate::buffer::TAB`]; a tab-free piece is borrowed as it is.
 pub(super) fn expand(s: &str) -> std::borrow::Cow<'_, str> {
     if s.contains('\t') {

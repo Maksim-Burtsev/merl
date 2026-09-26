@@ -86,6 +86,24 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
             style,
         ),
     ];
+    // #248 prototype, the `name` variant: the declarations around the cursor, as a breadcrumb.
+    if super::sticky_variant() == "name" && app.buf.path.is_some() {
+        let kind = app.buf.path.as_deref().and_then(crate::search::kind_of);
+        let names: Vec<String> =
+            crate::search::enclosing_declarations(kind, &app.buf.lines, app.line)
+                .into_iter()
+                .filter_map(|l| crate::search::declared_name(kind, &app.buf.lines[l]))
+                .collect();
+        if !names.is_empty() {
+            spans.insert(
+                1,
+                Span::styled(
+                    format!(" \u{203a} {}", names.join(" \u{203a} ")),
+                    style.fg(theme.accent),
+                ),
+            );
+        }
+    }
     if app.conflict {
         spans.push(Span::styled(
             "  changed on disk: Ctrl+S overwrites, Ctrl+R reloads",

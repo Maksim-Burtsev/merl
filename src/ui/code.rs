@@ -5,7 +5,7 @@ use std::ops::Range;
 
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Style};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use regex::Regex;
@@ -76,7 +76,8 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             .map(|(i, r)| (r, if i == 0 { 0 } else { indent }))
             .collect()
     };
-    let mut lines: Vec<Line> = Vec::with_capacity(area.height as usize);
+    let mut lines = pinned_rows(app, theme, base, gutter_w);
+    let pinned = lines.len();
     let mut l = app.top_line;
     let mut skip = app.top_row;
     while lines.len() < area.height as usize && l <= app.buf.lines.len() {
@@ -251,13 +252,68 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         app,
         (app.top_line, app.top_row),
         (app.line, app.cursor_row()),
-    );
+    )
+    .map(|y| y + pinned);
     if let Some(y) = screen_row.filter(|y| *y < area.height as usize)
         && matches!(app.mode, Mode::Normal | Mode::Edit)
     {
         let x = area.x + (gutter_w + app.cursor_x().saturating_sub(app.left)) as u16;
         frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
     }
+}
+
+/// The declarations enclosing the top of the view, pinned over the text with their line numbers
+/// (#248): the first row of each, cut at the edge, in its syntax colours.
+fn pinned_rows<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -> Vec<Line<'a>> {
+    let mut lines = Vec::new();
+    let pins = app.pinned(app.top_line);
+    let variant = super::sticky_variant();
+    let band = variant.starts_with("band");
+    let under = variant.ends_with("underline");
+    let edge = match std::env::var("MERL_EDGE").as_deref() {
+        Ok("ghost") => theme.ghost_fg,
+        Ok("accent") => theme.accent,
+        _ => theme.gutter_fg,
+    };
+    for (i, &p) in pins.iter().enumerate() {
+        let band_bg = match std::env::var("MERL_BAND").as_deref() {
+            Ok("dim") => theme.line_hl_dim,
+            Ok("dark") => match (theme.bg, theme.line_hl) {
+                (Color::Rgb(r, g, b), Color::Rgb(r2, g2, b2)) => {
+                    let away = |c: u8, h: u8| (2 * c as i16 - h as i16).clamp(0, 255) as u8;
+                    Color::Rgb(away(r, r2), away(g, g2), away(b, b2))
+                }
+                _ => theme.line_hl,
+            },
+            _ => theme.line_hl,
+        };
+        let mut st = if band { base.bg(band_bg) } else { base };
+        if under && i + 1 == pins.len() {
+            st = st.add_modifier(Modifier::UNDERLINED).underline_color(edge);
+        }
+        let text = app.buf.shown(p);
+        let r = match app.nowrap() {
+            true => wrap::cut(text, app.left, app.left + app.view_w).0,
+            false => app.rows(p).swap_remove(0),
+        };
+        let syntax = app.buf.hl.get(p).map_or(&[][..], Vec::as_slice);
+        let mut row = vec![Span::styled(
+            format!("{:>w$} ", p + 1, w = gutter_w - 1),
+            st.fg(theme.gutter_fg),
+        )];
+        row.extend(row_spans(text, syntax, &r, st));
+        let pad = app.view_w.saturating_sub(wrap::width(&text[r]));
+        row.push(Span::styled(" ".repeat(pad), st));
+        lines.push(Line::from(row));
+    }
+    if variant == "rule" && !pins.is_empty() {
+        let w = gutter_w + app.view_w;
+        lines.push(Line::from(Span::styled(
+            "\u{2500}".repeat(w),
+            base.fg(edge),
+        )));
+    }
+    lines
 }
 
 /// Cuts one wrapped row `r` of `text` into spans, taking colours from the line's highlighting
