@@ -791,3 +791,93 @@ fn enter_on_rows_of_no_text_edits_where_they_are() {
     assert_eq!((a.mode, a.line, a.col), (Mode::Edit, 3, 0));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// `c` and `C` step past every line the cursor row stands for, the lines it owns too: a hunk on
+/// a reference definition, a second blank line or a setext underline traps neither.
+#[test]
+fn c_and_big_c_step_past_the_lines_a_row_owns() {
+    for (tag, base, branch, owner) in [
+        (
+            "own-ref",
+            "Text [a].\n\n[a]: http://x\n\nMid.\n\nEnd.\n",
+            "Text [a].\n\n[a]: http://y\n\nMid.\n\nEnd!\n",
+            "Text a.",
+        ),
+        (
+            "own-blank",
+            "Aaa.\n\n\nMid.\n\nEnd.\n",
+            "Aaa.\n \n\nMid.\n\nEnd!\n",
+            "Aaa.",
+        ),
+        (
+            "own-setext",
+            "Title\n=====\n\nMid.\n\nEnd.\n",
+            "Title\n-----\n\nMid.\n\nEnd!\n",
+            "Title",
+        ),
+    ] {
+        let (dir, mut a) = md_review(tag, base, branch);
+        key(&mut a, KeyCode::Char('p'));
+        // The first row already stands on the first hunk, the line it owns.
+        marks(&mut a);
+        assert_eq!(at_row(&a).2, owner, "{tag}");
+        let mut rows = Vec::new();
+        for code in ['c', 'C', 'c'] {
+            marks(&mut a);
+            let m = if code == 'C' {
+                KeyModifiers::SHIFT
+            } else {
+                KeyModifiers::NONE
+            };
+            press(&mut a, KeyCode::Char(code), m);
+            marks(&mut a);
+            rows.push(at_row(&a).2);
+        }
+        assert_eq!(rows, ["End!", owner, "End!"], "{tag}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+/// The status bar counts the hunks of the row the cursor is on, as `c` steps past them, and
+/// the missed-keys watch knows `c` leads to the next file from there: `o` to it is a missed `c`.
+#[test]
+fn the_hunk_count_and_the_watch_agree_with_c() {
+    let dir = std::env::temp_dir().join(format!("merl-md-review-{}-agree", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&dir)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "t@t"]);
+    git(&["config", "user.name", "t"]);
+    std::fs::write(dir.join("doc.md"), "a1\nb\nc1\n").unwrap();
+    std::fs::write(dir.join("other.md"), "x\n").unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "base"]);
+    git(&["switch", "-q", "-c", "feature"]);
+    std::fs::write(dir.join("doc.md"), "a2\nb\nc2\n").unwrap();
+    std::fs::write(dir.join("other.md"), "y\n").unwrap();
+    git(&["commit", "-q", "-am", "work"]);
+    let review = git::Review::open(&dir, None, None).unwrap();
+    let (tree, files) = crate::tree::build(&dir, false);
+    let path = dir.join("doc.md");
+    let mut a = App::new(dir.clone(), tree, files, Buffer::load(&path).unwrap(), None);
+    a.start_review(review);
+    a.show_tree = false;
+    key(&mut a, KeyCode::Char('p'));
+    marks(&mut a);
+    // One row shows both hunks of the file: the count says both, as `c` goes past both.
+    assert_eq!(at_row(&a).2, "a2 b c2");
+    assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/2");
+    crate::tutor::press(&mut a, "oother.md<Enter>");
+    assert_eq!(a.rel_path(), "other.md");
+    assert_eq!(a.missed.get("c"), Some(&1), "{:?}", a.missed);
+    let _ = std::fs::remove_dir_all(&dir);
+}

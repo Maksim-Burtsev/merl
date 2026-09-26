@@ -37,8 +37,8 @@ impl App {
         let Some(r) = self.review.clone() else {
             return;
         };
-        // In the preview, past the lines of the cursor row: `c` always moves.
-        let at = self.preview_lines().unwrap_or(self.line..self.line + 1);
+        // Past the lines the cursor stands on, all of its row's in the preview: `c` always moves.
+        let at = self.cursor_lines();
         let here = if dir > 0 {
             self.diff.hunks.iter().find(|&&h| h >= at.end)
         } else {
@@ -216,7 +216,8 @@ impl App {
             .rel_current()
             .and_then(|rel| r.files.iter().position(|f| f.path == rel))
             .map_or("-".to_string(), |i| (i + 1).to_string());
-        let hunk = self.diff.hunks.iter().filter(|&&h| h <= self.line).count();
+        let at = self.cursor_lines();
+        let hunk = self.diff.hunks.iter().filter(|&&h| h < at.end).count();
         Some(format!(
             "hunk {hunk}/{}  file {file}/{}",
             self.diff.hunks.len(),

@@ -213,19 +213,29 @@ impl App {
         true
     }
 
-    /// The source lines the cursor row shows, while the open file is shown rendered: what `c`
-    /// and `C` step past, so a hunk inside the row the cursor is on is no stop.
-    pub(super) fn preview_lines(&mut self) -> Option<std::ops::Range<usize>> {
-        if !self.previewing() {
-            return None;
-        }
-        self.preview_sync();
-        let p = self.preview.as_ref()?;
-        let r = &p.doc.rows[p.row];
-        Some(if r.lines.is_empty() {
-            self.line..self.line + 1
+    /// The source lines the cursor stands on: its own line, or in the preview every line its
+    /// row shows or owns, and none for a row drawn for no line (a border, a rule), which stands
+    /// before the line of its position or, past the line's end, after it. The one rule `c` and
+    /// `C` step past, the status bar counts hunks by and the missed-keys watch predicts `c` with.
+    pub(super) fn cursor_lines(&self) -> std::ops::Range<usize> {
+        let here = self.line..self.line + 1;
+        let Some(p) = self.preview.as_ref().filter(|_| self.previewing()) else {
+            return here;
+        };
+        let pos = (self.line, self.col);
+        let row = if p.at == pos {
+            p.row
         } else {
-            r.lines.clone()
-        })
+            p.doc.row_at(pos)
+        };
+        let r = &p.doc.rows[row];
+        let shown = match (r.lines.is_empty(), r.src) {
+            (false, _) => r.lines.clone(),
+            (true, (l, usize::MAX)) => l + 1..l + 1,
+            (true, (l, _)) => l..l,
+        };
+        r.owns
+            .iter()
+            .fold(shown, |s, &l| s.start.min(l)..s.end.max(l + 1))
     }
 }
