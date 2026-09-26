@@ -66,13 +66,14 @@ struct Cli {
     /// Directory, file, or FILE:LINE[:COL] to open (default: the current directory)
     target: Option<String>,
     /// Colour theme
-    #[arg(long, value_name = "NAME")]
+    #[arg(short, long, value_name = "NAME")]
     theme: Option<String>,
     /// Walk through every key on a bundled sample project (ignores the target)
     #[arg(long)]
     tutor: bool,
     /// Train the keys you do not press: N tasks (default 20) on the sample project, no key named
     #[arg(
+        short,
         long,
         value_name = "N",
         num_args = 0..=1,
@@ -81,11 +82,12 @@ struct Cli {
     )]
     drill: Option<u16>,
     /// Print how often each key has been pressed and missed, the unused last, and exit
-    #[arg(long)]
+    #[arg(short, long)]
     keys: bool,
     /// Review the checked-out branch (or `--review=BRANCH` to fetch it and check out what was
     /// pushed): its files in the panel, its diff over the code, c / C between hunks
     #[arg(
+        short,
         long,
         value_name = "BRANCH",
         num_args = 0..=1,
@@ -94,7 +96,7 @@ struct Cli {
     )]
     review: Option<String>,
     /// The branch the review is against (default: origin/HEAD, then origin/master, main, develop)
-    #[arg(long, value_name = "REF", requires = "review")]
+    #[arg(short, long, value_name = "REF", requires = "review")]
     base: Option<String>,
 }
 
@@ -600,6 +602,29 @@ mod tests {
             (Some("feature"), Some("origin/dev"))
         );
         assert!(super::Cli::try_parse_from(["merl", "--base", "x"]).is_err());
+    }
+
+    #[test]
+    fn short_flags_read_as_the_long_ones() {
+        use clap::Parser;
+        let cli = super::Cli::parse_from(["merl", "-r=feature", "-b", "origin/dev", "-t", "nord"]);
+        assert_eq!(
+            (
+                cli.review.as_deref(),
+                cli.base.as_deref(),
+                cli.theme.as_deref()
+            ),
+            (Some("feature"), Some("origin/dev"), Some("nord"))
+        );
+        let cli = super::Cli::parse_from(["merl", "-r", "src/main.rs"]);
+        assert_eq!(
+            (cli.review.as_deref(), cli.target.as_deref()),
+            (Some(""), Some("src/main.rs"))
+        );
+        assert_eq!(super::Cli::parse_from(["merl", "-d"]).drill, Some(20));
+        assert_eq!(super::Cli::parse_from(["merl", "-d", "5"]).drill, Some(5));
+        assert!(super::Cli::parse_from(["merl", "-k"]).keys);
+        assert!(super::Cli::try_parse_from(["merl", "-b", "x"]).is_err());
     }
 
     #[test]
