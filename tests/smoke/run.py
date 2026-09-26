@@ -6,11 +6,15 @@ release, and writes what differs to a report (.claude/skills/smoke-test/SKILL.md
     tests/smoke/run.py --only review,edit        these two, or all whose name holds a part given
     tests/smoke/run.py --old target/release/merl the new build against itself
     tests/smoke/run.py --gif demo.gif --only python-d    one scenario on the new build, as a GIF
+    tests/smoke/run.py --selftest                the runner's own failure paths, on fake binaries
 
 Without --new the checkout is built (`cargo build --release --locked`, its own target/); without
---old the last GitHub release's macOS binary is downloaded once into ~/.cache/merl-smoke/TAG/. A
-run rebuilds the fixture (setup.sh) in WORK, /tmp/merl-smoke by default, one run at a time: a
-short path that is the same on every run, so the two builds' screens can be compared.
+--old the last GitHub release's macOS binary is downloaded once into ~/.cache/merl-smoke/TAG/,
+checked against the release's sha256 and against `--version` before it is kept. A run rebuilds
+the fixture (setup.sh) in WORK, /tmp/merl-smoke by default: a short path that is the same on
+every run, so the two builds' screens can be compared. A lock on WORK refuses a second run while
+one plays. The report goes to WORK/out, or WORK/out-only for --only, so a rerun of one scenario
+leaves the full report in place; a directory --out names is deleted only if a run made it.
 
 Each scenario is played on the new build, then the old one, from a fresh copy of the fixture in a
 tmux pane of 120x32 with an empty HOME. A scenario is a steps file, one step per line, `#`
@@ -37,11 +41,11 @@ few verbs of its own:
                        (fetched once, 59 MB), instead of the fixture
 
 A scenario that is not about the tree hides it (`t`) after its first wait, so that a change to the
-tree shows in one checkpoint per scenario, not in all of them. A wait names what the last release
-and the build both draw: a change made on purpose shows as a difference in its checkpoint, where a
-wait on the new text would stop the old build there and leave the rest of the scenario unplayed.
+tree shows in one checkpoint per scenario, not in all of them. What a wait may name: AGENTS.md,
+`## Releases`, its last paragraph.
 """
-import argparse, difflib, json, os, platform, re, shlex, shutil, subprocess, sys, threading, time
+import argparse, difflib, fcntl, hashlib, json, os, platform, re, shlex, shutil, signal, subprocess, sys
+import tempfile, threading, time, traceback
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HERE = os.path.join(ROOT, "tests", "smoke")
@@ -53,6 +57,7 @@ from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 CACHE = os.path.expanduser("~/.cache/merl-smoke")
 PACE, POLL, TIMEOUT, SLEEP_CAP, SIZE = 0.01, 0.02, 10.0, 0.3, (120, 32)
 HOLD = 1.2  # --gif: seconds each checkpoint stays on screen
+MARK = ".merl-smoke-report"  # in every report directory a run made, and only there
 SGR = re.compile(r"\x1b\[[0-9;]*m")
 # What differs from run to run whatever the build: the tutor's sample project is unpacked into a
 # directory named after merl's pid. Masked to the same width, so the status line keeps its shape.
@@ -61,6 +66,15 @@ VOLATILE = re.compile(r"(?<=merl-tutor-)\d+")
 AGENT = {"GIT_CONFIG_GLOBAL": "/dev/null", "GIT_AUTHOR_NAME": "agent", "GIT_COMMITTER_NAME": "agent",
          "GIT_AUTHOR_EMAIL": "agent@example.com", "GIT_COMMITTER_EMAIL": "agent@example.com",
          "GIT_AUTHOR_DATE": "2026-09-03T10:00:00Z", "GIT_COMMITTER_DATE": "2026-09-03T10:00:00Z"}
+# Every verdict the table can show, printed under it.
+LEGEND = [("PASS", "every checkpoint the same on both builds"),
+          ("DIFF", "the new build played it through; the differences below each need a verdict"),
+          ("FAIL", "a wait timed out: the text never showed"),
+          ("CRASH", "merl died: a panic (101) or a signal, named"),
+          ("EXIT", "merl exited with another status, on its own or on q"),
+          ("HUNG", "merl did not quit on q"),
+          ("RUN", "a `run` step failed: wrong bytes on disk, or the agent's command"),
+          ("ERROR", "the runner failed, not merl: rerun, fix run.py if it comes back")]
 
 
 class Merl(cast.Pane):
@@ -77,6 +91,14 @@ class Merl(cast.Pane):
                   ";", "new-session", "-d", "-x", str(size[0]), "-y", str(size[1]), "-c", project,
                   self.command(args))
 
+    def tmux(self, *args):
+        """cast.Pane's, raising instead of exiting: a tmux failure is the scenario's ERROR."""
+        out = subprocess.run(["tmux", "-L", self.sock, "-f", "/dev/null", *args],
+                             capture_output=True, text=True)
+        if out.returncode:
+            raise RuntimeError("tmux %s: %s" % (args[0], out.stderr.strip()))
+        return out.stdout
+
     def command(self, args):
         # XDG_* would point merl and git at the user's own config; GOTOOLCHAIN=local keeps `go env`
         # off the network whatever go.mod asks for.
@@ -92,10 +114,14 @@ class Merl(cast.Pane):
         return self.tmux("capture-pane", "-p", "-t", "0")
 
     def dead(self):
-        """None while merl runs, else its exit status (128 + N for a signal)."""
+        """None while merl runs, else its exit status, 128 + N for signal N."""
         f = "#{pane_dead},#{pane_dead_status},#{pane_dead_signal}"
-        dead, status, signal = self.tmux("display", "-p", "-t", "0", f).strip().split(",")
-        return None if dead != "1" else 128 + int(signal) if signal else int(status or 0)
+        dead, status, sig = self.tmux("display", "-p", "-t", "0", f).strip().split(",")
+        if dead != "1":
+            return None
+        if sig:  # tmux 3.7 names it, `abrt`; older ones print the number
+            return 128 + (int(sig) if sig.isdigit() else getattr(signal, "SIG" + sig.upper(), 0))
+        return int(status or 0)
 
     def frame(self):
         capture, cursor = super().frame()
@@ -121,11 +147,20 @@ class Merl(cast.Pane):
                     time.sleep(POLL)
         return self.dead()
 
+    def close(self):  # cast.Pane's would delete HOME, which the next play copies afresh anyway
+        subprocess.run(["tmux", "-L", self.sock, "kill-server"], capture_output=True)
+
 
 def died(status):
+    """The verdict of a merl that is gone, or would not go."""
     if status is None:
         return "HUNG"
-    return "CRASH" if status == 101 or status > 128 else f"EXIT {status}"
+    if status >= 128:
+        try:
+            return f"CRASH {signal.Signals(status - 128).name}"
+        except ValueError:
+            return f"CRASH signal {status - 128}"
+    return f"CRASH {status}" if status == 101 else f"EXIT {status}"
 
 
 def load(path):
@@ -184,16 +219,18 @@ class Recorder:
 
 
 def play(binary, path, work, timed_only=False, rec=None):
-    """One run of a scenario on one binary."""
-    project, steps = load(path)
-    cwd = fresh(work, project)
+    """One run of a scenario on one binary. Whatever happens, the pane's tmux server is gone after
+    it; a play that does not end `ok` keeps merl's last screen in `last`."""
     home, err = os.path.join(work, "run", "home"), os.path.join(work, "run", "stderr")
-    open(err, "w").close()
-    r = {"checkpoints": [], "times": {}, "slow": [], "status": "ok"}
+    r = {"checkpoints": [], "times": {}, "slow": [], "status": "ok", "timed": False}
     size, pane, timed, t0 = list(SIZE), None, False, time.monotonic()
-    last_timed = max((i for i, s in enumerate(steps) if s[1] == "time"), default=-1)
-    last_key = t0
+    last_key, step, runner = t0, "", ""
     try:
+        project, steps = load(path)
+        cwd = fresh(work, project)
+        open(err, "w").close()
+        last_timed = max((i for i, s in enumerate(steps) if s[1] == "time"), default=-1)
+        r["timed"] = last_timed >= 0
         for i, (where, verb, pace, arg) in enumerate(steps):
             step = f"{where} `{verb} {arg}`"
             if rec and not rec.thread and pane and verb not in ("wait", "sleep", "caption"):
@@ -263,7 +300,6 @@ def play(binary, path, work, timed_only=False, rec=None):
                 if out.returncode:
                     said = (out.stdout + out.stderr).strip()[-300:]
                     r["status"] = f"RUN {out.returncode} at {step}: {said}"
-                    r["checkpoints"].append([f"{where} run {arg} (failed)", *pane.frame(), size])
                     break
                 last_key = time.monotonic()
             elif verb == "time":
@@ -272,22 +308,57 @@ def play(binary, path, work, timed_only=False, rec=None):
                 if rec:
                     rec.caption = arg
             elif verb != "show":
-                sys.exit(f"{where}: unknown step `{verb}`")
+                raise ValueError(f"unknown step `{verb}`")
+    except Exception as e:
+        r["status"] = f"ERROR at {step}: {e}"
+        runner = traceback.format_exc()
     finally:
         if rec:
             rec.end()
         if pane:
-            if (s := pane.quit()) != 0 and r["status"] == "ok":
-                r["status"] = f"{died(s)} on q"
+            try:
+                if (s := pane.quit()) != 0 and r["status"] == "ok":
+                    r["status"] = f"{died(s)} on q"
+                if r["status"] != "ok":
+                    r["last"] = ["the last screen", *pane.frame(), size]
+            except Exception:
+                runner += traceback.format_exc()
+                r["status"] = r["status"] if r["status"] != "ok" else "ERROR on q"
             pane.close()
     r["seconds"] = round(time.monotonic() - t0, 1)
-    r["stderr"] = open(err).read()[-2000:]
+    r["stderr"] = ((open(err).read() if os.path.exists(err) else "") + runner)[-2000:]
     return r
+
+
+def scenario(path, new, old, work):
+    """A scenario on both builds, and twice more on each for its timed steps: old/new, then
+    new/old, each up to its last timed wait. A rerun that does not end `ok` is the scenario's
+    status, with its stderr and last screen, unless the first play failed already."""
+    res = {s: play(b, path, work) for s, b in (("new", new), ("old", old))}
+    if res["new"]["timed"]:
+        for side in res:
+            res[side]["samples"] = {k: [v] for k, v in res[side]["times"].items()}
+        for n, order in enumerate((("old", "new"), ("new", "old")), 2):
+            for side in order:
+                again = play(new if side == "new" else old, path, work, timed_only=True)
+                for k, v in again["times"].items():
+                    res[side]["samples"].setdefault(k, []).append(v)
+                res[side]["stderr"] += again["stderr"]
+                if again["status"] != "ok" and res[side]["status"] == "ok":
+                    res[side]["status"] = f"{again['status']} (play {n} of 3, for the timed steps)"
+                    res[side]["last"] = again.get("last")
+    return res
+
+
+def hexed(v):
+    return "#%02x%02x%02x" % v if isinstance(v, tuple) else str(v)
 
 
 def boxes(old, new):
     """What differs, as boxes of cells joined across gaps of 3 columns and 1 row, each cut out of
-    both screens and diffed: a tree that gained a row is one `+` line, not twenty changed rows."""
+    both screens and diffed: a tree that gained a row is one `+` line, not twenty changed rows.
+    Each is (key, what, where): a difference is known by its key, the text of a text change and
+    the colours of a colour change (old → new), so two tints over the same text stay apart."""
     size = new[3]
     g = [cast.parse(c[1], *size) for c in (old, new)]
     todo = {(x, y) for y in range(size[1]) for x in range(size[0]) if g[0][y][x] != g[1][y][x]}
@@ -310,26 +381,39 @@ def boxes(old, new):
         rows |= set(range(y0, y1 + 1))
         where = f"rows {y0}-{y1}, cols {x0}-{x1}"
         if crop[0] == crop[1]:
-            out.append((f"colour: `{crop[1][0].strip()[:60]}`", where))
+            attrs = ("fg", "bg", "bold", "italic")
+            changed = sorted({f"{a} {hexed(g[0][y][x][k])}→{hexed(g[1][y][x][k])}" for x, y in box
+                              for k, a in enumerate(attrs, 1) if g[0][y][x][k] != g[1][y][x][k]})
+            key = "colour: " + ", ".join(changed)
+            shown = ", ".join(changed[:4]) + f", and {len(changed) - 4} more" * (len(changed) > 4)
+            out.append((key, f"colour: {shown}, over `{crop[1][0].strip()[:50]}`", where))
         else:
             d = [line for line in difflib.unified_diff(*crop, n=0, lineterm="")
                  if not line.startswith(("@@", "---", "+++"))]
             d = d[:12] + [f"… {len(d) - 12} more"] * (len(d) > 12)
-            out.append(("text:\n```diff\n" + "\n".join(d) + "\n```", where))
+            what = "text:\n```diff\n" + "\n".join(d) + "\n```"
+            out.append((what, what, where))
     if old[2] != new[2]:
-        out.append((f"cursor (x,y,shown) {old[2]} → {new[2]}", ""))
+        what = f"cursor (x,y,shown) {old[2]} → {new[2]}"
+        out.append((what, what, ""))
         rows |= {int(old[2].split(",")[1]), int(new[2].split(",")[1])}
     return out, sorted(r for r in rows if r < size[1])
 
 
-def png_pair(old, new, rows, png, fonts, cell):
-    """Old above new, a red mark beside each row that differs."""
+def fonts_cell(px):
+    fonts = [ImageFont.truetype(cast.FONT, px, index=i) for i in range(4)]
+    return fonts, (round(fonts[0].getlength("M")), sum(fonts[0].getmetrics()))
+
+
+def png_pair(pair, rows, png, fonts, cell):
+    """The screens of `pair`, (name, checkpoint) each, one above the other, a red mark beside each
+    row in `rows`."""
     band, gap = cell[1] + 8, 6
-    size = [max(a, b) for a, b in zip(old[3], new[3])]
+    size = [max(v) for v in zip(*(c[3] for _, c in pair))]
     h = size[1] * cell[1]
-    img = Image.new("RGB", (size[0] * cell[0] + gap, 2 * (h + band)), (50, 50, 70))
+    img = Image.new("RGB", (size[0] * cell[0] + gap, len(pair) * (h + band)), (50, 50, 70))
     draw = ImageDraw.Draw(img)
-    for i, (name, c) in enumerate((("old", old), ("new", new))):
+    for i, (name, c) in enumerate(pair):
         x, y, shown = (int(v) for v in c[2].split(","))
         top = i * (h + band) + band
         draw.text((gap + 4, top - band + 4), f"{name}  {c[0]}", font=fonts[1], fill=(255, 220, 120))
@@ -347,7 +431,7 @@ def unreleased(names):
     cited = {n: set(re.findall(r"#(\d+)", open(p).read())) for n, p in names.items()}
     out = []
     for entry in re.split(r"\n- ", "\n" + part)[1:]:
-        entry = " ".join(l.strip() for l in entry.splitlines() if not l.startswith("#")).strip()
+        entry = " ".join(line.strip() for line in entry.splitlines() if not line.startswith("#")).strip()
         issues = re.findall(r"#(\d+)", entry.rsplit("(", 1)[-1])
         out.append((entry[:90] + "…" * (len(entry) > 90), issues,
                     [n for n, c in cited.items() if c & set(issues)]))
@@ -355,9 +439,8 @@ def unreleased(names):
 
 
 def report(results, out, head, names):
-    fonts = [ImageFont.truetype(cast.FONT, 14, index=i) for i in range(4)]
-    cell = (round(fonts[0].getlength("M")), sum(fonts[0].getmetrics()))
-    rows, found, timing, slow = [], {}, [], []
+    fonts, cell = fonts_cell(14)
+    rows, found, timing, slow, failed_plays = [], {}, [], [], []
     for name, r in results.items():
         new, old = r["new"], r["old"]
         kinds = []
@@ -365,15 +448,15 @@ def report(results, out, head, names):
             if o[1:] == n[1:]:
                 kinds.append("same")
                 continue
-            failed = "(never shown)" in o[0] + n[0] or "(failed)" in o[0] + n[0]
+            failed = "(never shown)" in o[0] + n[0]
             colour = SGR.sub("", o[1]) == SGR.sub("", n[1]) and o[2:] == n[2:]
             kinds.append("failed" if failed else "colour" if colour else "text")
             what, diff_rows = boxes(o, n)
-            png_pair(o, n, diff_rows, os.path.join(out, name, f"{i:02d}.png"), fonts, cell)
+            png_pair([("old", o), ("new", n)], diff_rows, os.path.join(out, name, f"{i:02d}.png"), fonts, cell)
             # The same change at another spot of another screen is one entry.
-            for w, where in what * (not failed):
+            for key, shown, where in what * (not failed):
                 first = "; ".join(filter(None, (where, f"{name}/{i:02d}.png")))
-                found.setdefault(w, [first, {}])[1].setdefault(name, []).append(i)
+                found.setdefault(key, [shown, first, {}])[2].setdefault(name, []).append(i)
         kinds += ["missing"] * abs(len(new["checkpoints"]) - len(old["checkpoints"]))
         bad = len(kinds) - kinds.count("same")
         verdict = new["status"].split()[0] if new["status"] != "ok" else f"DIFF {bad}" if bad else "PASS"
@@ -382,9 +465,16 @@ def report(results, out, head, names):
         rows.append(f"| {name} | **{verdict}** | {new['status']} | {old['status']} | {counts} | "
                     f"{new['seconds']} / {old['seconds']} |")
         for side in ("new", "old"):
-            if r[side]["stderr"].strip():
-                said = f"{side} stderr:\n```\n{r[side]['stderr'].strip()}\n```"
-                found.setdefault(said, ["", {}])[1][name] = []
+            s = r[side]
+            if s["status"] == "ok" and not s["stderr"].strip():
+                continue
+            line = f"- {name}, {side}: {s['status']}"
+            if s.get("last"):
+                png_pair([(side, s["last"])], [], os.path.join(out, name, f"{side}-last.png"), fonts, cell)
+                line += f"; last screen {name}/{side}-last.png"
+            failed_plays.append(line)
+            if s["stderr"].strip():
+                failed_plays += ["  ```", *("  " + x for x in s["stderr"].strip().splitlines()), "  ```"]
         for label, samples in new.get("samples", {}).items():
             o = old.get("samples", {}).get(label, [])
             n_ms, o_ms = min(samples), min(o) if o else None
@@ -394,19 +484,20 @@ def report(results, out, head, names):
         for side in ("new", "old"):
             slow += [f"| {name} | {side} | `{label}` | {ms} |" for label, ms in r[side]["slow"]]
     detail = []
-    widest = sorted(found.items(), key=lambda f: -sum(map(len, f[1][1].values())))
-    for k, (w, (where, places)) in enumerate(widest, 1):
-        first, *body = w.split("\n")
-        at = "; ".join(f"{n} #{spans(sorted(set(i)))}" if i else n for n, i in places.items())
-        detail += [f"{k}. {first} in {at}" + (f" (first at {where})" if where else "")]
-        detail += ["   " + line for line in body]
+    widest = sorted(found.values(), key=lambda f: -sum(map(len, f[2].values())))
+    for k, (shown, where, places) in enumerate(widest, 1):
+        first, *body = shown.split("\n")
+        at = "; ".join(f"{n} #{spans(sorted(set(i)))}" for n, i in places.items())
+        detail += [f"{k}. {first} in {at} (first at {where})"] + ["   " + line for line in body]
     entries = [f"| {e} | {', '.join('#' + i for i in issues) or '—'} | {', '.join(s) or '—'} |"
                for e, issues, s in unreleased(names)]
     rep = [head, "", "| scenario | verdict | new | old | checkpoints | seconds new / old |",
            "|---|---|---|---|---|---|", *rows, "",
+           "; ".join(f"**{v}** {meaning}" for v, meaning in LEGEND) + ".", "",
            "## Differences (old → new), each once, with every checkpoint it shows in", "",
            "Each differing checkpoint is `SCENARIO/NN.png` next to this report, old above new.", "",
            *(detail or ["none"]), "",
+           "## Plays that did not end ok, and stderr", "", *(failed_plays or ["none"]), "",
            "## Timed steps (ms from the key to the text, the fastest of 3 on each build)", "",
            "The pane is polled about every 30 ms: a step under 50 ms reads as 5 one time, 40 the next.", "",
            "**slower**: over 2× and over 200 ms slower than the old build.", "",
@@ -429,29 +520,78 @@ def spans(nums):
     return ", ".join(out)
 
 
+def version(binary):
+    """What `binary --version` prints, or None when it does not run and say `merl`."""
+    try:
+        out = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return out.stdout.strip() if out.returncode == 0 and out.stdout.startswith("merl") else None
+
+
 def last_release(tag=None):
-    """The macOS binary of a release (the latest by default), downloaded once into CACHE."""
-    latest = ["gh", "release", "view", "--json", "tagName", "-q", ".tagName"]
-    tag = tag or subprocess.run(latest, cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
+    """The macOS binary of a release (the latest by default), from CACHE/TAG/merl. A copy that
+    does not answer `--version` is fetched again; a fetched one is kept only once its archive
+    matches the release's sha256 and what it unpacks to answers `--version`."""
+    gh = lambda *a: subprocess.run(["gh", *a], cwd=ROOT, capture_output=True, text=True)  # noqa: E731
+    if not tag:
+        out = gh("release", "view", "--json", "tagName", "-q", ".tagName")
+        tag = out.stdout.strip() or sys.exit(f"the last release: gh says {out.stderr.strip()}")
     binary = os.path.join(CACHE, tag, "merl")
-    if not os.path.exists(binary):
-        os.makedirs(os.path.dirname(binary), exist_ok=True)
-        arch = "aarch64" if platform.machine() == "arm64" else platform.machine()
-        subprocess.run(f"gh release download {tag} -p merl-{arch}-apple-darwin.tar.gz -O - | tar xz -C "
-                       + shlex.quote(os.path.dirname(binary)), shell=True, cwd=ROOT, check=True)
+    if version(binary):
+        return binary, tag
+    arch = "aarch64" if platform.machine() == "arm64" else platform.machine()
+    asset = f"merl-{arch}-apple-darwin"
+    os.makedirs(CACHE, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=CACHE) as tmp:
+        out = gh("release", "download", tag, "-p", f"{asset}.tar.gz", "-p", f"{asset}.sha256", "-D", tmp)
+        if out.returncode:
+            sys.exit(f"{tag}: gh release download failed: {out.stderr.strip()}")
+        sums = os.path.join(tmp, f"{asset}.sha256")  # a release before 0.7.0 may have none
+        want = open(sums).read().split()[0] if os.path.exists(sums) else None
+        got = hashlib.sha256(open(os.path.join(tmp, f"{asset}.tar.gz"), "rb").read()).hexdigest()
+        if want and got != want:
+            sys.exit(f"{tag}: {asset}.tar.gz has sha256 {got}, the release says {want}")
+        subprocess.run(["tar", "xzf", f"{asset}.tar.gz"], cwd=tmp, check=True)
+        if not version(os.path.join(tmp, "merl")):
+            sys.exit(f"{tag}: the merl in {asset}.tar.gz does not answer --version")
+        shutil.rmtree(os.path.dirname(binary), ignore_errors=True)
+        os.makedirs(os.path.dirname(binary))
+        os.replace(os.path.join(tmp, "merl"), binary)
     return binary, tag
 
 
-def version(binary):
-    return subprocess.run([binary, "--version"], capture_output=True, text=True).stdout.strip()
+def lock(work):
+    """Holds WORK for this run; a second run is refused, told which run holds it."""
+    os.makedirs(work, exist_ok=True)
+    f = open(os.path.join(work, "lock"), "a+")
+    try:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        f.seek(0)
+        sys.exit(f"{work} is in use by another smoke run: {f.read().strip() or 'unknown'}.\n"
+                 "Wait for it to end, or pass --work DIR.")
+    f.truncate(0)
+    f.write(f"pid {os.getpid()}, {' '.join(sys.argv)}, from {os.getcwd()}, since {time.ctime()}\n")
+    f.flush()
+    return f  # the lock lasts as long as the file stays open
+
+
+def report_dir(out):
+    """OUT emptied for a new report: made here, or a report directory a run made before."""
+    if os.path.isdir(out) and os.listdir(out):
+        if not os.path.exists(os.path.join(out, MARK)):
+            sys.exit(f"{out} holds files a smoke run did not write: pass another --out")
+        shutil.rmtree(out)
+    os.makedirs(out, exist_ok=True)
+    open(os.path.join(out, MARK), "w").close()
 
 
 def gif(binary, path, work, out):
     rec = Recorder()
     r = play(binary, path, work, rec=rec)
     print(r["status"])
-    fonts = [ImageFont.truetype(cast.FONT, 18, index=i) for i in range(4)]
-    cell = (round(fonts[0].getlength("M")), sum(fonts[0].getmetrics()))
+    fonts, cell = fonts_cell(18)
     line_h = cell[1] + 4
     merged = []  # identical frames in a row are one, held for as long as they lasted
     for k, (when, frame, size, band) in enumerate(rec.shots):
@@ -474,25 +614,94 @@ def gif(binary, path, work, out):
     cast.save_gif(images, durations, out)
 
 
+# --selftest: fake merls, bash scripts that print `ready` and act on the keys they read.
+FAKE = """#!/bin/bash
+echo ready
+while IFS= read -rsn1 c; do
+  case "$c" in
+    q) %(q)s ;;
+    a) kill -ABRT $$ ;;
+    e) exit 3 ;;
+    d) %(d)s echo done ;;
+  esac
+done
+"""
+# name: (steps, new merl's `d` and `q`, the old one's, the verdict, a text the report must hold)
+SELFTEST = {
+    "pass": ("merl\nwait ready\nkey d\nwait done\n", {}, {}, "PASS", ""),
+    "signal": ("merl\nwait ready\nkey a\nwait done\n", {}, {}, "CRASH", "CRASH SIGABRT at"),
+    "exit": ("merl\nwait ready\nkey e\nwait done\n", {}, {}, "EXIT", "EXIT 3 at"),
+    "fail": ("merl\nwait ready\nwait never\n", {}, {}, "FAIL", "FAIL at"),
+    "hung": ("merl\nwait ready\n", {"q": ":"}, {}, "HUNG", "HUNG on q"),
+    "run": ("merl\nwait ready\nrun test -e nowhere\n", {}, {}, "RUN", "RUN 1 at"),
+    # the first play passes, the two reruns for the timed step exit 101 at `d`
+    "rerun": ("merl\nwait ready\nkey d\ntime\nwait done\n",
+              {"d": '[ -e "$0.played" ] && exit 101; touch "$0.played";'}, {}, "CRASH",
+              "(play 2 of 3, for the timed steps)"),
+    "slower": ("merl\nwait ready\nkey d\ntime\nwait done\n", {"d": "sleep 0.5;"}, {}, "PASS", "**slower**"),
+}
+
+
+def selftest():
+    """Plays SELFTEST's scenarios on fake merls and checks each verdict: seconds, no fixture."""
+    global TIMEOUT
+    TIMEOUT = 2.0
+    tmp = tempfile.mkdtemp(prefix="smoke-selftest-")
+    work, out = os.path.join(tmp, "work"), os.path.join(tmp, "out")
+    for d in ("orders", "home"):
+        os.makedirs(os.path.join(work, "base", d))
+    names, results = {}, {}
+    for name, (steps, new, old, _, _) in SELFTEST.items():
+        names[name] = os.path.join(tmp, name + ".steps")
+        open(names[name], "w").write(steps)
+        bins = []
+        for side, acts in (("new", new), ("old", old)):
+            bins.append(os.path.join(tmp, f"{name}-{side}"))
+            open(bins[-1], "w").write(FAKE % {"q": "exit 0", "d": "", **acts})
+            os.chmod(bins[-1], 0o755)
+        results[name] = scenario(names[name], *bins, work)
+        print(f"{name:8} new {results[name]['new']['status']}", flush=True)
+    report_dir(out)
+    for name in results:
+        os.makedirs(os.path.join(out, name))
+    report(results, out, "# selftest", names)
+    text = open(os.path.join(out, "report.md")).read()
+    for name, (_, _, _, verdict, holds) in SELFTEST.items():
+        mine = [line for line in text.splitlines() if f"| {name} |" in line or line.startswith(f"- {name},")]
+        assert f"**{verdict}**" in mine[0], f"{name}: want {verdict}, the row is {mine[0]}"
+        assert holds in "\n".join(mine), f"{name}: the report never says {holds!r} of it"
+    assert os.path.exists(os.path.join(out, "signal", "new-last.png")), "no last screen of the crash"
+    left = subprocess.run(["tmux", "-L", f"smoke{os.getpid()}", "ls"], capture_output=True)
+    assert left.returncode, "a tmux server outlived its play"
+    shutil.rmtree(tmp)
+    print("selftest ok")
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--new", help="the build to check (default: this checkout, built)")
     p.add_argument("--old", help="the build to compare with, a binary or a tag (default: the last release)")
     p.add_argument("--work", default="/tmp/merl-smoke", help="the fixture and the copies merl runs in")
-    p.add_argument("--out", help="the report and its PNGs (default: WORK/out)")
+    p.add_argument("--out", help="the report and its PNGs (default: WORK/out, WORK/out-only for --only)")
     p.add_argument("--only", help="comma-separated scenario names, or parts of names")
     p.add_argument("--gif", help="record the one scenario --only names on the new build as this GIF")
     p.add_argument("--again", action="store_true", help="the report again from OUT/results.json, unplayed")
+    p.add_argument("--selftest", action="store_true", help="the runner's failure paths on fake merls")
     a = p.parse_args()
-    out = a.out or os.path.join(a.work, "out")
-    t0, load0 = time.monotonic(), os.getloadavg()[0]
+    if a.selftest:
+        return selftest()
+    out = a.out or os.path.join(a.work, "out-only" if a.only else "out")
     names = {f[:-6]: os.path.join(HERE, f) for f in sorted(os.listdir(HERE)) if f.endswith(".steps")}
-    only = a.only.split(",") if a.only else []  # a scenario's own name, else a part of names
-    picked = {n: f for n, f in names.items()
-              if not only or any(o == n or o not in names and o in n for o in only)}
     if a.again:
         results, head = json.load(open(os.path.join(out, "results.json")))
         return report(results, out, head, names)
+    t0, load0 = time.monotonic(), os.getloadavg()[0]
+    only = a.only.split(",") if a.only else []  # a scenario's own name, else a part of names
+    picked = {n: f for n, f in names.items()
+              if not only or any(o == n or o not in names and o in n for o in only)}
+    if not picked:
+        sys.exit(f"no scenario is named or holds {a.only}")
+    held = lock(a.work)  # noqa: F841
     if not a.new:
         subprocess.run(["cargo", "build", "--release", "--locked"], cwd=ROOT, check=True)
     new = a.new or os.path.join(ROOT, "target", "release", "merl")
@@ -500,32 +709,29 @@ def main():
     if any(load(f)[0] == "gitea" for f in picked.values()):
         subprocess.run([os.path.join(ROOT, "assets", "tapes", "setup.sh"), os.path.join(a.work, "demo")],
                        check=True, stdout=subprocess.DEVNULL)
+    if not version(new):
+        sys.exit(f"{new} does not answer --version")
     if a.gif:
         assert len(picked) == 1, f"--gif records one scenario, --only picked {list(picked) or 'none'}"
         return gif(new, *picked.values(), a.work, a.gif)
     old, tag = (a.old, None) if a.old and os.path.exists(a.old) else last_release(a.old)
-    shutil.rmtree(out, ignore_errors=True)
+    if not version(old):
+        sys.exit(f"{old} does not answer --version")
+    report_dir(out)
     results = {}
-    for name, path in picked.items():
-        os.makedirs(os.path.join(out, name))
-        results[name] = {s: play(b, path, a.work) for s, b in (("new", new), ("old", old))}
-        if any(s[1] == "time" for s in load(path)[1]):
-            for side in ("new", "old"):
-                results[name][side]["samples"] = {k: [v] for k, v in results[name][side]["times"].items()}
-            for order in (("old", "new"), ("new", "old")):  # alternating, so a slow minute hits both
-                for side in order:
-                    again = play(new if side == "new" else old, path, a.work, timed_only=True)
-                    for k, v in again["times"].items():
-                        results[name][side]["samples"].setdefault(k, []).append(v)
-        print(f"{name:12} new {results[name]['new']['status']} | old {results[name]['old']['status']}",
-              flush=True)
-    wall = time.monotonic() - t0
     describe = ["git", "describe", "--tags", "--always", "--dirty"]
     built = "" if a.new else ", " + subprocess.run(describe, cwd=ROOT, capture_output=True, text=True).stdout
-    head = (f"# merl smoke: new vs old\n\nnew `{os.path.relpath(new, ROOT)}` ({version(new)}{built.strip()})"
-            f" · old {tag or '`' + old + '`'} ({version(old)}) · {len(picked)} scenarios"
-            f" · wall {wall:.0f} s, the build included · load {load0:.1f} → {os.getloadavg()[0]:.1f}")
-    json.dump([results, head], open(os.path.join(out, "results.json"), "w"))
+    for name, path in picked.items():
+        os.makedirs(os.path.join(out, name))
+        results[name] = scenario(path, new, old, a.work)
+        print(f"{name:12} new {results[name]['new']['status']} | old {results[name]['old']['status']}",
+              flush=True)
+        wall = time.monotonic() - t0
+        head = (f"# merl smoke: new vs old\n\nnew `{os.path.relpath(new, ROOT)}` ({version(new)}{built.strip()})"
+                f" · old {tag or '`' + old + '`'} ({version(old)}) · {len(results)} of {len(picked)} scenarios"
+                f" · wall {wall:.0f} s, the build included · load {load0:.1f} → {os.getloadavg()[0]:.1f}")
+        # after every scenario, so a run cut short leaves what it played for --again
+        json.dump([results, head], open(os.path.join(out, "results.json"), "w"))
     report(results, out, head, names)
     print(os.path.join(out, "report.md"))
 
