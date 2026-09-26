@@ -31,17 +31,17 @@ impl App {
     }
 
     /// `name  path:line` rows for `D`, sorted by name, the names padded into a column.
-    pub(super) fn symbol_items(mut named: Vec<(String, Hit)>) -> Vec<PickItem> {
-        named.sort_by_cached_key(|(n, h)| (n.to_lowercase(), h.path.clone(), h.line));
+    pub(super) fn symbol_items(mut named: Vec<(String, usize, Hit)>) -> Vec<PickItem> {
+        named.sort_by_cached_key(|(n, _, h)| (n.to_lowercase(), h.path.clone(), h.line));
         let width = named
             .iter()
-            .map(|(n, _)| wrap::width(n))
+            .map(|(n, ..)| wrap::width(n))
             .max()
             .unwrap_or(0)
             .min(MAX_NAME_PAD);
         named
             .into_iter()
-            .map(|(name, h)| PickItem {
+            .map(|(name, col, h)| PickItem {
                 label: format!(
                     "{name}{}  {}:{}",
                     " ".repeat(width.saturating_sub(wrap::width(&name))),
@@ -50,6 +50,7 @@ impl App {
                 ),
                 path: h.path,
                 line: h.line,
+                col,
                 code_at: None,
             })
             .collect()

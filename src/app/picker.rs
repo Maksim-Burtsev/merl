@@ -12,6 +12,7 @@ impl App {
                 label: p.display().to_string(),
                 path: p.clone(),
                 line: 0,
+                col: 0,
                 code_at: None,
             })
             .collect();
@@ -40,6 +41,7 @@ impl App {
                 label: name.clone(),
                 path: PathBuf::from(name),
                 line: 0,
+                col: 0,
                 code_at: None,
             })
             .collect();
@@ -110,7 +112,7 @@ impl App {
             }
             Pick::Accept(item) => {
                 let path = self.root.join(&item.path);
-                self.jump_to(&path, item.line);
+                self.jump_to_col(&path, item.line, item.col);
             }
         }
         // Dropping the picker stops nucleo's workers.
