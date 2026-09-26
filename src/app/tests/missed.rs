@@ -264,7 +264,8 @@ fn o_too_far_too_short_or_from_edit_mode_counts_nothing() {
 }
 
 /// Review: a run of arrows that ends in the next / previous hunk misses `c` / `C`, and `o` to
-/// the next file of the review past the last hunk misses `c`.
+/// the next file of the review past the last hunk, or from outside the review to the file of
+/// the hunk `c` left, misses `c`.
 #[test]
 fn review_runs_into_a_hunk_or_o_to_the_next_file_miss_c() {
     let (dir, mut a) = review_app("missed-review");
@@ -279,6 +280,17 @@ fn review_runs_into_a_hunk_or_o_to_the_next_file_miss_c() {
     hold(&mut a, KeyCode::Up, NONE, 4, FAST);
     assert_eq!(a.line_str(), "B");
     assert_eq!(a.missed, missed(&[("c", 2), ("C", 1)]));
+    // #239: from a file outside the review, `c` goes back to the hunk it left, in crlf.txt.
+    press(&mut a, KeyCode::Char('c'), NONE);
+    press(&mut a, KeyCode::Char('c'), NONE);
+    assert_eq!(a.rel_path(), "crlf.txt");
+    a.jump_to(&dir.join("src/keep.rs"), 1);
+    open_by_name(&mut a, "src/a.rs");
+    assert_eq!(a.rel_path(), "src/a.rs");
+    assert_eq!(a.missed["c"], 2, "{:?}", a.missed);
+    a.jump_to(&dir.join("src/keep.rs"), 1);
+    open_by_name(&mut a, "crlf.txt");
+    assert_eq!(a.missed["c"], 3, "{:?}", a.missed);
     std::fs::remove_dir_all(dir).unwrap();
 }
 

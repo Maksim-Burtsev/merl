@@ -376,6 +376,10 @@ pub struct App {
     /// detached (an agent's rebase stopped on a conflict), the last branch the review had;
     /// `None` for a review that has had none yet, whose marks are in memory only until it does.
     viewed_branch: Option<String>,
+    /// Review: the hunk `c` / `C` last stopped on, as its relative path and its index among that
+    /// file's hunks. From a file outside the review they go back to it (#239). Kept for the
+    /// session.
+    last_hunk: Option<(PathBuf, usize)>,
     /// The theme in use, by name. Set by `main`; the theme picker previews others over it.
     pub theme: String,
     /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
@@ -512,6 +516,7 @@ impl App {
             changed: HashMap::new(),
             unlisted: HashMap::new(),
             viewed_branch: None,
+            last_hunk: None,
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
             quit_again: false,
