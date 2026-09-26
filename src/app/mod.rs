@@ -526,13 +526,19 @@ impl App {
         app
     }
 
-    /// Path shown in the status bar: relative to the project root when it is below it, else to
-    /// the standard library or dependency root it came from, as the `d` picker shows it (#235).
+    /// Path shown in the status bar: the open file's [`App::rel_path_of`].
     pub fn rel_path(&self) -> String {
-        let Some(path) = &self.buf.path else {
-            return format!("{}/", self.root_name());
-        };
-        match (path.strip_prefix(&self.root), self.kind()) {
+        match &self.buf.path {
+            Some(path) => self.rel_path_of(path),
+            None => format!("{}/", self.root_name()),
+        }
+    }
+
+    /// `path` as merl names it to the user: relative to the project root when it is below it,
+    /// else to the standard library or dependency root it came from, as the `d` picker shows it
+    /// (#235).
+    pub fn rel_path_of(&self, path: &Path) -> String {
+        match (path.strip_prefix(&self.root), search::kind_of(path)) {
             (Ok(rel), _) => rel,
             (Err(_), Some(kind)) => self.rel_to_its_root(kind, path),
             (Err(_), None) => path,
