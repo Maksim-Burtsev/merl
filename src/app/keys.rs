@@ -75,7 +75,11 @@ impl App {
             }
             key.modifiers.remove(KeyModifiers::ALT);
             let overlay = self.picker.is_some() || self.mode != Mode::Normal;
+            // The Esc is how the terminal spells Alt, not a key pressed: the review session
+            // does not see it, so Alt+q alone is a session of `q` alone.
+            let session = self.session.take();
             self.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+            self.session = session;
             return !overlay && self.key(key);
         }
         // In kitty mode `:`, `?` and `D` arrive with SHIFT set; legacy sends none.

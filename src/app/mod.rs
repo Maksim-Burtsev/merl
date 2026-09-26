@@ -371,6 +371,8 @@ pub struct App {
     last_hunk: Option<(PathBuf, usize)>,
     /// `--review`: what the session did, written to the review stats on exit (#242).
     pub session: Option<crate::reviews::Session>,
+    /// The sessions a `git switch` closed, each with the files marked viewed then.
+    closed: Vec<(crate::reviews::Session, Vec<PathBuf>)>,
     /// The theme in use, by name. Set by `main`; the theme picker previews others over it.
     pub theme: String,
     /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
@@ -506,6 +508,7 @@ impl App {
             viewed: HashMap::new(),
             last_hunk: None,
             session: None,
+            closed: Vec::new(),
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
             quit_again: false,

@@ -292,7 +292,43 @@ fn a_hunk_the_panel_opens_on_is_a_stop() {
     }
     assert_eq!(at(&a), (dir.join("tail"), 0));
     let cols = columns(&mut a);
-    assert_eq!((cols[9], cols[1]), (6, 6), "{cols:?}");
+    // Stops, hunks; the walk stopped short of `last hunk of the review`.
+    assert_eq!((cols[9], cols[1], cols[11]), (6, 6, 0), "{cols:?}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Only the review walk makes stops: arrows onto a hunk, `o` onto one, and a `c` that stays put
+/// on the last one make none.
+#[test]
+fn only_the_walk_makes_stops() {
+    let (dir, mut a) = review_app("reviewstats-walk");
+    let open = |a: &mut App, name: &str| {
+        press(a, KeyCode::Char('o'), KeyModifiers::NONE);
+        typed(a, name);
+        a.picker.as_mut().unwrap().settle();
+        press(a, KeyCode::Enter, KeyModifiers::NONE);
+    };
+    open(&mut a, "a.rs");
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    open(&mut a, "tail");
+    assert_eq!(at(&a), (dir.join("tail"), 0));
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(
+        (at(&a), a.message.as_str()),
+        ((dir.join("tail"), 0), "last hunk of the review")
+    );
+    // The hunk of `new`, where the review opened, and no other.
+    assert_eq!(columns(&mut a)[9], 1);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// On a terminal that spells Alt as a leading Esc, Alt+q alone is a session of `q` alone.
+#[test]
+fn alt_q_alone_has_no_line() {
+    let (dir, mut a) = review_app("reviewstats-altq");
+    assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::ALT));
+    assert_eq!(a.review_row(), None);
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -373,12 +409,48 @@ fn a_failed_diff_writes_no_line() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// The session is filed under the branch the review opened on, with that review's size: a
-/// `git switch` during it moves neither. A detached HEAD is its short commit, so detached
-/// reviews do not share rounds.
+/// A `git switch` during the review closes its session there and starts one for the branch now
+/// under review: two lines, each about one branch.
 #[test]
-fn a_session_keeps_the_review_it_opened_on() {
-    let (dir, mut a) = review_app("reviewstats-branch");
+fn a_switch_during_the_review_writes_a_line_per_branch() {
+    let (dir, mut a) = review_app("reviewstats-switch");
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&dir)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    // `c` from `new` to `tail`, which marks `new` viewed. The stops are counted in the second
+    // after the review opens; the switch comes after.
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(columns(&mut a)[..2], [5, 6]);
+    git(&["switch", "-q", "-c", "other", "main"]);
+    std::fs::write(dir.join("src/keep.rs"), "k1\nK2\nk3\n").unwrap();
+    git(&["commit", "-qam", "other"]);
+    let fresh = a.review.as_ref().unwrap().refresh(&dir).unwrap();
+    a.review_refreshed(fresh);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(at(&a), (dir.join("src/keep.rs"), 1));
+    let rows = a.review_rows();
+    // Branch; files, hunks, added, deleted; stops, viewed, the last hunk reached.
+    let line = |i: usize| {
+        let (_, branch, columns) = &rows[i];
+        let cols: Vec<&str> = columns.split('\t').collect();
+        format!("{branch} {} {}", cols[..4].join(" "), cols[9..].join(" "))
+    };
+    assert_eq!(rows.len(), 2, "{rows:?}");
+    assert_eq!(line(0), "feature 5 6 4 7 2 1 0");
+    assert_eq!(line(1), "other 1 1 1 1 1 0 0");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// A detached HEAD is filed under its short commit, so detached reviews do not share rounds.
+#[test]
+fn a_detached_head_is_filed_under_its_short_commit() {
+    let (dir, mut a) = review_app("reviewstats-detached");
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")
             .arg("-C")
@@ -389,15 +461,6 @@ fn a_session_keeps_the_review_it_opened_on() {
         assert!(out.status.success(), "git {args:?}");
         String::from_utf8(out.stdout).unwrap().trim().to_string()
     };
-    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
-    // The stops are counted in the second after the review opens; the switch comes after.
-    assert_eq!(columns(&mut a)[..2], [5, 6]);
-    git(&["switch", "-q", "main"]);
-    let fresh = a.review.as_ref().unwrap().refresh(&dir).unwrap();
-    a.review_refreshed(fresh);
-    assert_eq!(a.review.as_ref().unwrap().branch, "main");
-    let (_, branch, columns) = a.review_row().unwrap();
-    assert_eq!((branch.as_str(), &columns[..4]), ("feature", "5\t6\t"));
     git(&["switch", "-q", "--detach", "feature"]);
     a.start_review(git::Review::open(&dir, None, None).unwrap());
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);

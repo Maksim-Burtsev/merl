@@ -30,6 +30,12 @@ impl App {
         if let Some(note) = note {
             self.message = note;
         }
+        self.open_session();
+    }
+
+    /// Review stats (#242): a session of the review as it stands now starts here, its stops
+    /// counted on a thread.
+    fn open_session(&mut self) {
         if let Some(r) = &self.review {
             let (repo, branch) = (self.root_name(), r.branch_or_commit(&self.root));
             let (opened, root) = (r.clone(), self.root.clone());
@@ -56,6 +62,11 @@ impl App {
     /// The stop the cursor stands on, numbered as [`stops_in`] counts them: the hunk as the
     /// status bar's `hunk i/n` has it, or the top of a deleted file, its one line in
     /// [`review_hunks`].
+    // ponytail: a stop is a hunk by its index at the time of the stop, checked against the
+    // count taken when the review opened, so an agent's edits mid-review can credit a new hunk
+    // or drop an unreached one; and a file the walk cannot open (a symlink to a directory, a
+    // broken one) still counts its hunk. Identify a hunk by its text if the numbers need to
+    // hold under edits.
     fn review_stop(&self) -> Option<Stop> {
         let rel = self.rel_current()?;
         let f = self.review.as_ref()?.file(&rel)?;
@@ -100,6 +111,19 @@ impl App {
         let s = self.session.as_mut()?;
         let columns = s.columns(self.viewed.keys())?;
         Some((s.repo.clone(), s.branch.clone(), columns))
+    }
+
+    /// Every session's line, oldest first: those a `git switch` closed, then the one under way.
+    pub fn review_rows(&mut self) -> Vec<(String, String, String)> {
+        let closed = std::mem::take(&mut self.closed).into_iter();
+        let mut rows: Vec<_> = closed
+            .filter_map(|(mut s, viewed)| {
+                let columns = s.columns(viewed.iter())?;
+                Some((s.repo, s.branch, columns))
+            })
+            .collect();
+        rows.extend(self.review_row());
+        rows
     }
 
     /// `c` / `C`: the next / previous hunk, crossing into the next file of the review. From a
@@ -303,11 +327,18 @@ impl App {
             Some((f.status, f.old.clone(), f.untracked))
         };
         let stale = old.merge_base != fresh.merge_base || kind(old) != kind(&fresh);
+        let switched = old.branch != fresh.branch;
         let paths: Vec<PathBuf> = fresh.files.iter().map(|f| f.path.clone()).collect();
         self.review = Some(fresh);
         self.refresh_tree(crate::tree::from_files(&paths));
         if stale {
             self.refresh_diff();
+        }
+        // A `git switch`: the session so far is the old branch's, closed as it stands with the
+        // marks it had, and the new branch's starts here, so every line is about one branch.
+        if switched && let Some(s) = self.session.take() {
+            self.closed.push((s, self.viewed.keys().cloned().collect()));
+            self.open_session();
         }
         self.drop_stale_viewed();
         true

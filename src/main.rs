@@ -268,10 +268,12 @@ fn run() -> Result<()> {
     {
         eprintln!("merl: {e:#}");
     }
-    if let (Some(path), Some((repo, branch, columns))) = (reviews::path(), app.review_row())
-        && let Err(e) = reviews::add(&path, stats::today(), &repo, &branch, &columns)
-    {
-        eprintln!("merl: {e:#}");
+    if let Some(path) = reviews::path() {
+        for (repo, branch, columns) in app.review_rows() {
+            if let Err(e) = reviews::add(&path, stats::today(), &repo, &branch, &columns) {
+                eprintln!("merl: {e:#}");
+            }
+        }
     }
     result
 }

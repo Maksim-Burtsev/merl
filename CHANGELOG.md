@@ -16,7 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   later one. merl notes every `--review` session in `~/.local/state/merl/reviews.tsv` on exit,
   next to `keys.tsv`, and shows nothing while you review. Only the time between presses counts,
   a gap longer than five minutes as five, so a review left open over lunch is not an hour of
-  review; a session closed with `q` and nothing else is not noted, sessions older than 30 days
+  review; a session closed with `q` and nothing else is not noted, a `git switch` during a review
+  ends its session and starts one for the branch now checked out, sessions older than 30 days
   are dropped, and `--tutor` and `--drill` note nothing. (#242)
 
 ### Changed

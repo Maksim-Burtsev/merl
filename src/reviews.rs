@@ -437,6 +437,91 @@ mod tests {
         );
     }
 
+    /// A session's line goes into the file under the head's names, and `merl --reviews` reads
+    /// back what went in.
+    #[test]
+    fn a_line_round_trips_through_the_file() {
+        let file = scratch("roundtrip");
+        let t0 = Instant::now();
+        let row = |path: &str, added, deleted| git::ReviewFile {
+            path: PathBuf::from(path),
+            status: 'M',
+            old: None,
+            added,
+            deleted,
+            binary: false,
+            untracked: false,
+        };
+        let review = git::Review {
+            branch: "feat/x".into(),
+            base: "main".into(),
+            merge_base: String::new(),
+            files: vec![row("a.rs", 3, 1), row("b.rs", 2, 0)],
+            note: None,
+        };
+        let stops_in = HashMap::from([(PathBuf::from("a.rs"), 2), (PathBuf::from("b.rs"), 1)]);
+        let counting = std::thread::spawn(move || Some(stops_in));
+        let a1 = Some((PathBuf::from("a.rs"), 1));
+        let mut s = Session::new(t0, "merl".into(), "feat/x".into(), &review, counting, a1);
+        let (a, b) = (spot("a.rs", 1, true), spot("b.rs", 0, true));
+        let (lib, util) = (spot("lib.rs", 2, false), spot("util.rs", 5, false));
+        let at = |secs| t0 + Duration::from_secs(secs);
+        // 100 s on `a.rs`, `d` out; 30 s, `d` further; 20 s, `[` back; 10 s, `c` to the end.
+        s.pressed(at(100), &a, false);
+        s.moved(Some("d"), &a, &lib, None, false);
+        s.pressed(at(130), &lib, false);
+        s.moved(Some("d"), &lib, &util, None, false);
+        s.pressed(at(150), &util, false);
+        s.moved(Some("["), &util, &a, None, false);
+        s.pressed(at(160), &a, false);
+        s.moved(Some("c"), &a, &b, Some((PathBuf::from("b.rs"), 1)), true);
+        let columns = s.columns([PathBuf::from("a.rs")].iter()).unwrap();
+        let today = stats::day("2026-09-26").unwrap();
+        add(&file, today, "merl", "feat/x", &columns).unwrap();
+        let text = std::fs::read_to_string(&file).unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        let named: Vec<(&str, &str)> = HEAD.split('\t').zip(lines[1].split('\t')).collect();
+        assert_eq!(
+            named,
+            [
+                ("date", "2026-09-26"),
+                ("repo", "merl"),
+                ("branch", "feat/x"),
+                ("round", "1"),
+                ("files", "2"),
+                ("hunks", "3"),
+                ("added", "5"),
+                ("deleted", "1"),
+                ("on_review_s", "110"),
+                ("elsewhere_s", "50"),
+                ("excursions", "1"),
+                ("jumps", "2"),
+                ("back", "1"),
+                ("stops", "2"),
+                ("viewed", "1"),
+                ("last_hunk", "1"),
+            ]
+        );
+        assert_eq!(lines[1].split('\t').count(), HEAD.split('\t').count());
+        let out = report(&file, today).unwrap();
+        let cells: Vec<&str> = out.lines().nth(1).unwrap().split_whitespace().collect();
+        assert_eq!(
+            cells,
+            [
+                "2026-09-26",
+                "feat/x",
+                "1",
+                "2",
+                "3",
+                "6",
+                "2:40",
+                "1:50",
+                "1"
+            ]
+        );
+        let _ = std::fs::remove_dir_all(file.ancestors().nth(3).unwrap());
+    }
+
     /// The median of an odd count is the middle one once sorted, of an even count the mean of
     /// the middle two.
     #[test]
