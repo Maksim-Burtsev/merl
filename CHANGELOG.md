@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it was a picker of every `new` in the project, `by name`. Only a `use` at the top of the file
   counts, and a type of the name in the file itself, a name bound twice, a binary under
   `src/bin/` or a module with no `impl` of the type stay `by name`. (#227)
+- The file panel of `merl --review` paints the status letter bold in the gutter's colours, `A`
+  green, `M` blue, `D` red, a rename or a copy dim; the line counts and `bin` are dim, so the
+  name reads first; and the bottom border gives the size of the branch, `3 files · +13 −1`. A
+  long name of wide characters is cut to fit instead of pushing the counts off the panel. (#250)
 
 ## [0.7.0] - 2026-09-25
 
