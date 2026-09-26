@@ -127,14 +127,20 @@ master; nobody can push to it directly or bypass the checks.
 
 Only when the owner asks for one. In order:
 
-1. The changelog covers every PR since the last tag (`git log vX.Y.Z..origin/master`): check
+1. Smoke test: `.claude/skills/smoke-test/SKILL.md` (`/smoke-test` in Claude Code). No release
+   without its GO.
+2. The changelog covers every PR since the last tag (`git log vX.Y.Z..origin/master`): check
    each commit's issue and content, since PRs merge without an entry, and parallel merges leave a
    second `### Added` in `## [Unreleased]` to fold into the first. Dependabot, `docs:`,
    `refactor:` and tooling commits get no entry. Entries cite the issue.
-2. A release PR, `release: X.Y.Z`: `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD` with its
-   link, and the version goes into `Cargo.toml` and `Cargo.lock`.
-3. After the merge, an annotated tag `vX.Y.Z` (message `merl X.Y.Z`) on that commit, pushed;
+3. A release PR, `release: X.Y.Z`: `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD` with its
+   link, the version goes into `Cargo.toml` and `Cargo.lock`, and the smoke test's verdict table
+   into the body.
+4. After the merge, an annotated tag `vX.Y.Z` (message `merl X.Y.Z`) on that commit, pushed;
    `release.yml` builds the GitHub release and its binaries.
-4. The Homebrew tap: `release.yml` bumps it when the `TAP_TOKEN` secret is set; otherwise bump
+5. The Homebrew tap: `release.yml` bumps it when the `TAP_TOKEN` secret is set; otherwise bump
    `Formula/merl.rb` in `Maksim-Burtsev/homebrew-tap` by hand (the version and the three sha256
    of the `.sha256` assets), commit `merl X.Y.Z` and push.
+
+A PR that changes a text a scenario waits for (`grep -r 'TEXT' tests/smoke`) updates the scenario
+in the same PR.
