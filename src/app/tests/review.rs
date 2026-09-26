@@ -525,6 +525,10 @@ fn c_and_big_c_from_outside_the_review_go_back_to_the_hunk_left() {
     a.jump_to(&outside, 2);
     c(&mut a);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    // Back to `B` itself, not to `F` after it.
+    a.jump_to(&outside, 2);
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
     c(&mut a);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
     a.jump_to(&outside, 2);
@@ -554,38 +558,59 @@ fn c_and_big_c_from_outside_the_review_go_back_to_the_hunk_left() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #239: the hunk left follows its file while the review has it. An agent writing above it
-/// moves it down, and `c` finds it there; once no hunk is left from its line on, `C` goes to
-/// the file's last. A file that left the review, or is no stop of the walk any more, is not
-/// gone back to: `c` and `C` walk as they did before there was a hunk to go back to.
+/// #239: the hunk left is found again by its place among its file's hunks. Lines an agent
+/// writes or deletes around the hunks move them, not their order: written while the reader is
+/// still in the file, or deleted above while away, and no unread hunk is passed. When fewer
+/// hunks are left, the file's last; a deleted file's one stop is its top. A file that left the
+/// review, or that the walk no longer stops at, is not gone back to: `c` and `C` walk as they
+/// did before there was a hunk to go back to.
 #[test]
-fn the_hunk_left_follows_its_file_until_the_review_drops_it() {
+fn the_hunk_left_is_found_by_its_place_in_its_file() {
     let (dir, mut a) = review_app("reviewbackgone");
     let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
     let big_c = |a: &mut App| press(a, KeyCode::Char('C'), KeyModifiers::NONE);
     let outside = dir.join("src/keep.rs");
+    let refresh = |a: &mut App| {
+        let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+        a.review_refreshed(fresh);
+    };
     // The agent writes `name` while the reader is in src/keep.rs, and the review is listed again.
     let write = |a: &mut App, name: &str, text: &str| {
         a.jump_to(&outside, 2);
         std::fs::write(dir.join(name), text).unwrap();
-        let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
-        a.review_refreshed(fresh);
+        refresh(a);
     };
-    a.jump_to(&dir.join("src/a.rs"), 2);
+    let here = |a: &App| (at(a).0, a.line_str().to_string());
+    let src = dir.join("src/a.rs");
+    let on = |word: &str| (src.clone(), word.to_string());
+    // Written while the reader is on `F`, the third hunk: `B` grows by three lines, and `D`
+    // comes down past the line `F` was on. The reload carries the cursor, `c` finds `F`.
+    write(&mut a, "src/a.rs", "a\nB\nc\nD\ne\nF\n");
+    a.jump_to(&src, 4);
     c(&mut a);
-    assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
-    // Two lines above `F`, then two more: its hunk goes down to line 7, then 9, where `B` is
-    // on the line `F` was left on.
-    write(&mut a, "src/a.rs", "n1\nn2\na\nB\nc\nd\ne\nF\n");
+    assert_eq!((here(&a), a.line), (on("F"), 5));
+    std::fs::write(&src, "a\nB\nB2\nB3\nB4\nc\nD\ne\nF\n").unwrap();
+    assert!(a.reload(false));
+    assert_eq!((here(&a), a.line), (on("F"), 8));
+    a.jump_to(&outside, 2);
+    refresh(&mut a);
     c(&mut a);
-    assert_eq!(at(&a), (dir.join("src/a.rs"), 7));
-    write(&mut a, "src/a.rs", "n0\nn0\nn1\nn2\na\nB\nc\nd\ne\nF\n");
+    assert_eq!(here(&a), on("F"));
+    // Deleted above while away: `B` goes from line 6 up to 2 and `D`, unread, to 4, both past
+    // the line `B` was left on. `c` goes back to `B`, and the next one to `D`.
+    write(&mut a, "src/a.rs", "p1\np2\np3\np4\np5\na\nB\nc\nD\ne\nF\n");
+    a.jump_to(&src, 1);
     c(&mut a);
-    assert_eq!((at(&a), a.line_str()), ((dir.join("src/a.rs"), 9), "F"));
-    // `F` reverted: no hunk from its line on, and `C` goes to the file's last, on `B`.
-    write(&mut a, "src/a.rs", "n0\nn0\nn1\nn2\na\nB\nc\nd\ne\nf\n");
+    assert_eq!((here(&a), a.line), (on("B"), 6));
+    write(&mut a, "src/a.rs", "p1\na\nB\nc\nD\ne\nF\n");
+    c(&mut a);
+    assert_eq!((here(&a), a.line), (on("B"), 2));
+    c(&mut a);
+    assert_eq!(here(&a), on("D"));
+    // `D` and `F` reverted: two hunks left for the third, and `C` goes to the file's last.
+    write(&mut a, "src/a.rs", "p1\na\nB\nc\nd\ne\nf\n");
     big_c(&mut a);
-    assert_eq!((at(&a), a.line_str()), ((dir.join("src/a.rs"), 5), "B"));
+    assert_eq!(here(&a), on("B"));
     // `new` emptied: an added file with nothing in it is listed, but no stop, and neither is
     // its top, which only a deleted file's is.
     a.jump_to(&dir.join("gone"), 1);
@@ -595,15 +620,26 @@ fn the_hunk_left_follows_its_file_until_the_review_drops_it() {
     let r = a.review.as_ref().unwrap();
     assert!(r.file(Path::new("new")).is_some_and(|f| !f.has_hunks()));
     c(&mut a);
-    assert_eq!(at(&a), (dir.join("src/a.rs"), 0));
+    assert_eq!(at(&a), (src.clone(), 0));
     // crlf.txt as it was at the base: the review drops the file.
-    a.jump_to(&dir.join("src/a.rs"), 6);
+    a.jump_to(&src, 3);
     c(&mut a);
     assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
     write(&mut a, "crlf.txt", "one\r\ntwo\n");
     big_c(&mut a);
     assert_eq!(at(&a), (dir.join("tail"), 0));
     assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 4/4");
+    // A stop on `F`, line 5, then the agent deletes the file: back to its top.
+    write(&mut a, "src/a.rs", "a\nB\nc\nd\ne\nF\n");
+    a.jump_to(&src, 2);
+    c(&mut a);
+    assert_eq!(at(&a), (src.clone(), 5));
+    a.jump_to(&outside, 2);
+    std::fs::remove_file(&src).unwrap();
+    refresh(&mut a);
+    big_c(&mut a);
+    assert_eq!(at(&a), (src.clone(), 0));
+    assert_eq!(a.buf.readonly, Some("deleted in this branch"));
     let _ = std::fs::remove_dir_all(dir);
 }
 

@@ -46,14 +46,13 @@ impl App {
             let path = self.buf.path.clone().unwrap();
             self.jump_to(&path, h + 1);
             self.center = true;
-            self.last_hunk = self.rel_current().map(|rel| (rel, h));
+            self.remember_hunk();
             return;
         }
         // An excursion (`d`, `u`, `s`) left the review: the way back is one key.
         if let Some((rel, line)) = self.hunk_left(&r) {
-            self.jump_to(&self.root.join(&rel), line + 1);
+            self.jump_to(&self.root.join(rel), line + 1);
             self.center = true;
-            self.last_hunk = Some((rel, line));
             return;
         }
         // `c` stopped on every hunk of this file and now leaves it: the file is viewed. The last
@@ -68,7 +67,7 @@ impl App {
             if !f.has_hunks() {
                 skipped += 1;
             } else if self.open_review_file(f, dir < 0) {
-                self.last_hunk = Some((f.path.clone(), self.line));
+                self.remember_hunk();
                 self.mark_viewed(read.take());
                 match failed {
                     Some(why) => self.message = why,
@@ -103,18 +102,30 @@ impl App {
         }
     }
 
-    /// The hunk `c` / `C` last stopped on, while the open file is outside the review: while
-    /// its file is still a stop of the walk, the first of its hunks from that line on, or its
-    /// last. An agent writing above the hunk moves it down, and the file is not the open buffer
-    /// whose reload would carry the line; a place in the file left beats the review's first.
+    /// `c` / `C` stopped on the hunk under the cursor: its file and its place among the file's
+    /// hunks, for the way back from outside the review. A place, not a line: lines an agent
+    /// writes or deletes around it move the hunk, and only a hunk added or removed above it
+    /// changes its place.
+    fn remember_hunk(&mut self) {
+        let i = self.diff.hunks.iter().filter(|&&h| h < self.line).count();
+        self.last_hunk = self.rel_current().map(|rel| (rel, i));
+    }
+
+    /// Where `c` / `C` go back to while the open file is outside the review: the line of the
+    /// hunk they last stopped on, found by its place in its file while the walk still stops at
+    /// that file; its last hunk when fewer are left. A hunk added above lands one earlier, and
+    /// the next `c` reaches the one left; a hunk removed above lands on the next, past the one
+    /// left, which was read.
+    // ponytail: two or more hunks removed above while away pass unread hunks too; recognise
+    // the hunk by its text if agents ever revert that much under a reader.
     pub(super) fn hunk_left(&self, r: &git::Review) -> Option<(PathBuf, usize)> {
         if self.rel_current().is_some_and(|rel| r.file(&rel).is_some()) {
             return None;
         }
-        let (rel, line) = self.last_hunk.clone()?;
+        let (rel, i) = self.last_hunk.clone()?;
         let f = r.file(&rel).filter(|f| f.has_hunks())?;
         let hunks = self.review_hunks(r, f);
-        let h = *hunks.iter().find(|&&h| h >= line).or(hunks.last())?;
+        let h = *hunks.get(i).or(hunks.last())?;
         Some((rel, h))
     }
 
