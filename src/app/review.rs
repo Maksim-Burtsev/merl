@@ -31,7 +31,8 @@ impl App {
         }
     }
 
-    /// `c` / `C`: the next / previous hunk, crossing into the next file of the review.
+    /// `c` / `C`: the next / previous hunk, crossing into the next file of the review. From a
+    /// file outside it, back to the hunk they last stopped on (#239).
     pub(super) fn hunk(&mut self, dir: isize) {
         let Some(r) = self.review.clone() else {
             return;
@@ -44,6 +45,13 @@ impl App {
         if let Some(&h) = here {
             let path = self.buf.path.clone().unwrap();
             self.jump_to(&path, h + 1);
+            self.center = true;
+            self.last_hunk = self.rel_current().map(|rel| (rel, h));
+            return;
+        }
+        // An excursion (`d`, `u`, `s`) left the review: the way back is one key.
+        if let Some((rel, line)) = self.hunk_left(&r) {
+            self.jump_to(&self.root.join(rel), line + 1);
             self.center = true;
             return;
         }
@@ -59,6 +67,7 @@ impl App {
             if !f.has_hunks() {
                 skipped += 1;
             } else if self.open_review_file(f, dir < 0) {
+                self.last_hunk = Some((f.path.clone(), self.line));
                 self.mark_viewed(read.take());
                 match failed {
                     Some(why) => self.message = why,
@@ -91,6 +100,18 @@ impl App {
             (None, true) => r.files.iter().collect(),
             (None, false) => r.files.iter().rev().collect(),
         }
+    }
+
+    /// The hunk `c` / `C` last stopped on, while the open file is outside the review and the
+    /// review still has it: its file is listed and a hunk still starts on its line.
+    pub(super) fn hunk_left(&self, r: &git::Review) -> Option<(PathBuf, usize)> {
+        if self.rel_current().is_some_and(|rel| r.file(&rel).is_some()) {
+            return None;
+        }
+        let (rel, line) = self.last_hunk.clone()?;
+        let hunks = self.review_hunks(r, r.file(&rel)?);
+        // A deleted file has none to step through: its one stop is the top.
+        (hunks.contains(&line) || hunks.is_empty() && line == 0).then_some((rel, line))
     }
 
     /// `m`: the open file, or the panel's row, is viewed; again, and it is not. A key for the
@@ -154,14 +175,19 @@ impl App {
     pub(super) fn open_review_file(&mut self, f: &git::ReviewFile, last: bool) -> bool {
         let Some(r) = &self.review else { return false };
         let path = self.root.join(&f.path);
-        let hunks = match f.status {
-            'D' => Vec::new(),
-            _ => r.diff(&self.root, &path, Some(f)).hunks,
-        };
+        let hunks = self.review_hunks(r, f);
         let h = if last { hunks.last() } else { hunks.first() };
         self.jump_to(&path, h.map_or(1, |h| h + 1));
         self.center = true;
         self.buf.path.as_deref() == Some(&path)
+    }
+
+    /// The lines the hunks of a file of the review start on; none for a deleted one.
+    fn review_hunks(&self, r: &git::Review, f: &git::ReviewFile) -> Vec<usize> {
+        match f.status {
+            'D' => Vec::new(),
+            _ => r.diff(&self.root, &self.root.join(&f.path), Some(f)).hunks,
+        }
     }
 
     /// `hunk 2/5 · file 1/3` for the status bar.

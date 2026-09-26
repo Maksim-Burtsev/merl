@@ -509,3 +509,80 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
     std::fs::remove_file(&outside).unwrap();
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #239: `d` from a hunk into a file outside the review, then `c`: back on the hunk `c` last
+/// stopped on, and the next `c` goes on from there; `C` the same, backwards. Before the first
+/// `c`, and from another file of the review, the walk is what it always was.
+#[test]
+fn c_and_big_c_from_outside_the_review_go_back_to_the_hunk_left() {
+    let (dir, mut a) = review_app("reviewback");
+    let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
+    let big_c = |a: &mut App| press(a, KeyCode::Char('C'), KeyModifiers::NONE);
+    // Files in panel order: src/a.rs (M), crlf.txt (M), gone (D), new (A), tail (M);
+    // src/keep.rs is not one of them.
+    let outside = dir.join("src/keep.rs");
+    // Nothing to go back to yet: `c` starts from the first file.
+    a.jump_to(&outside, 2);
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
+    a.jump_to(&outside, 2);
+    big_c(&mut a);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 5), "`C` goes back too");
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+    assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 2/5");
+    a.jump_to(&outside, 2);
+    assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/5");
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("gone"), 0), "on from the hunk left");
+    // A deleted file is one stop at its top: `C` goes back there, then on backwards.
+    a.jump_to(&outside, 2);
+    big_c(&mut a);
+    assert_eq!(at(&a), (dir.join("gone"), 0));
+    big_c(&mut a);
+    assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+    big_c(&mut a);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
+    // An excursion into another file of the review walks on from the cursor there.
+    a.jump_to(&dir.join("tail"), 1);
+    big_c(&mut a);
+    assert_eq!(at(&a), (dir.join("new"), 0));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// #239: the live review dropped the hunk `c` last stopped on, or its whole file: from outside
+/// the review, `c` and `C` walk as they did before there was a hunk to go back to.
+#[test]
+fn a_hunk_the_review_dropped_is_not_gone_back_to() {
+    let (dir, mut a) = review_app("reviewbackgone");
+    let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
+    let big_c = |a: &mut App| press(a, KeyCode::Char('C'), KeyModifiers::NONE);
+    let refresh = |a: &mut App| {
+        let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+        a.review_refreshed(fresh);
+    };
+    let outside = dir.join("src/keep.rs");
+    // `F` goes back to `f`: src/a.rs keeps its hunk on `B`, the one on `F` is gone.
+    a.jump_to(&dir.join("src/a.rs"), 2);
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
+    a.jump_to(&outside, 2);
+    std::fs::write(dir.join("src/a.rs"), "a\nB\nc\nd\ne\nf\n").unwrap();
+    refresh(&mut a);
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    // crlf.txt as it was at the base: the review drops the file.
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+    a.jump_to(&outside, 2);
+    std::fs::write(dir.join("crlf.txt"), "one\r\ntwo\n").unwrap();
+    refresh(&mut a);
+    big_c(&mut a);
+    assert_eq!(at(&a), (dir.join("tail"), 0));
+    assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 4/4");
+    let _ = std::fs::remove_dir_all(dir);
+}

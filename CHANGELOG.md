@@ -23,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   counts, and a type of the name in the file itself, a name bound twice, a binary under
   `src/bin/` or a module with no `impl` of the type stay `by name`. (#227)
 
+### Fixed
+
+- In `merl --review`, `c` or `C` after a `d`, `u` or `s` into a file the branch did not touch goes
+  back to the hunk you left, and the next `c` goes on from there. It opened the first file of the
+  review (`C` the last), and the way back was one `[` per jump. A hunk the branch has lost since
+  is not gone back to. (#239)
+
 ## [0.7.0] - 2026-09-25
 
 ### Added
