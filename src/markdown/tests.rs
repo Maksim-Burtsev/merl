@@ -159,9 +159,13 @@ fn code_blocks_lose_their_fences_and_wrap_under_their_indent() {
     let raw = "\tlet x = compute(alpha, beta);";
     assert_eq!((d.rows[2].src, d.rows[3].src), ((2, 9), (2, 24)));
     assert!(raw[9..].starts_with("compute") && raw[24..].starts_with("beta"));
-    assert_eq!(raw_col(&[], 5), 5);
-    assert_eq!(raw_col(&[3], 9), 6, "past a tab in the middle");
-    assert_eq!(raw_col(&[3], 5), 3, "inside the tab's spaces");
+    // Rows met in order: each tab passed once, the second of two as the first.
+    let mut tabs = Tabs::new("ab\t\tcd");
+    assert_eq!(tabs.raw(1), 1);
+    assert_eq!(tabs.raw(3), 2, "inside the first tab's spaces");
+    assert_eq!(tabs.raw(7), 3, "inside the second's");
+    assert_eq!(tabs.raw(11), 5, "past both");
+    assert_eq!(Tabs::new("plain").raw(4), 4);
     // Each row knows the part of its line it shows, for the syntax colours.
     assert_eq!(
         d.rows[2].kind,
@@ -320,12 +324,16 @@ fn every_row_knows_where_it_starts_in_the_source() {
             ),
         ]
     );
-    // From the source back: the row of a position is the one that starts furthest into it.
+    // From the source back: the row that shows the position's line and column. Column 0 of a
+    // heading or a list item, on its marker, is the row of its text.
     assert_eq!(d.row_at((0, 0)), 0);
     assert_eq!(d.row_at((2, 5)), 2);
     assert_eq!(d.row_at((2, 14)), 3);
     assert_eq!(d.row_at((3, 0)), 3);
-    assert_eq!(d.row_at((6, 0)), 6);
+    assert_eq!(d.row_at((5, 0)), 6);
+    assert_eq!(d.row_at((6, 0)), 7);
+    // A code block's fences are its rows'.
+    assert_eq!(d.row_at((8, 0)), 9);
     assert_eq!(d.row_at((10, 3)), 9);
     assert_eq!(d.row_at((14, 4)), 14);
     // Every row whose position is its own is found again by it.
@@ -360,4 +368,81 @@ fn fit_takes_the_room_from_the_widest_columns() {
 fn a_run_of_spaces_wider_than_the_pane_leaves_no_blank_rows() {
     // A code span of spaces opens the paragraph: its rows of nothing but spaces go.
     assert_eq!(texts(&doc("`        ` word", 3)), ["wor", "d"]);
+}
+
+#[test]
+fn a_task_box_indents_its_item_by_its_own_width() {
+    // The box replaces `1. `, so the rows after the first go under the text, two columns in.
+    assert_eq!(
+        texts(&doc("1. [ ] alpha beta gamma", 10)),
+        ["\u{2610} alpha", "  beta", "  gamma"]
+    );
+}
+
+#[test]
+fn every_line_belongs_to_a_row() {
+    // A reference definition and the blank lines around it go with the paragraph above; a
+    // setext underline with its heading; the fences with their code.
+    let d = doc(
+        "Title\n=====\nText [a].\n\n[a]: http://x\n\n```py\nx = 1\n```",
+        20,
+    );
+    let owner = |l: usize| d.rows.iter().position(|r| r.lines.contains(&l)).unwrap();
+    let text = |l: usize| d.rows[owner(l)].text.trim_start().to_string();
+    assert_eq!(text(1), "\u{2501}".repeat(20));
+    assert_eq!(text(4), "Text a.");
+    assert_eq!(text(6), "x = 1");
+    assert_eq!(text(8), "x = 1");
+    for l in 0..9 {
+        assert_eq!(d.row_at((l, 0)), owner(l), "line {l}");
+    }
+}
+
+#[test]
+fn text_a_container_took_part_of_a_tab_from_stays_on_its_line() {
+    // pulldown-cmark hands the spaces left of a tab in front of the line as text of their own.
+    let d = doc("- a\n\n\t\tcode\n\t\tmore\n", 40);
+    assert_eq!(d.code[0].lines, ["  code", "  more"]);
+    assert_eq!(texts(&d), ["\u{2022} a", "", "     code", "     more"]);
+    // And before an HTML block they are no text that ends the blank row after it.
+    let d = doc("- a\n\n\t<div>x</div>\n\n\tpara\n", 40);
+    assert_eq!(
+        texts(&d),
+        ["\u{2022} a", "", "  <div>x</div>", "", "  para"]
+    );
+}
+
+#[test]
+fn prose_rows_go_back_to_where_their_text_is_written() {
+    // After a tab, and inside inline code, past its backtick.
+    let d = doc("aaaa\tbbbb cccc", 10);
+    assert_eq!(
+        (d.rows[1].text.as_str(), d.rows[1].src),
+        ("bbbb cccc", (0, 5))
+    );
+    let d = doc("see `aaaa bbbb cccc dddd` end", 10);
+    assert_eq!(
+        (d.rows[1].text.as_str(), d.rows[1].src),
+        ("bbbb cccc", (0, 10))
+    );
+}
+
+#[test]
+fn footnotes_are_listed_in_the_order_they_are_numbered() {
+    let d = doc("B[^b] A[^a].\n\n[^a]: note a\n[^b]: note b", 40);
+    let t = texts(&d);
+    assert_eq!(t[0], "B[1] A[2].");
+    assert_eq!(t[t.len() - 2..], ["[1] note b", "[2] note a"]);
+    // A position on a definition finds its row at the end.
+    assert_eq!(d.rows[d.row_at((2, 0))].text, "[2] note a");
+}
+
+#[test]
+fn an_info_string_names_its_language_by_its_first_word() {
+    let d = doc(
+        "```rust,ignore\nfn f() {}\n```\n\n```py title=x\npass\n```",
+        40,
+    );
+    let langs: Vec<&str> = d.code.iter().map(|c| c.lang.as_str()).collect();
+    assert_eq!(langs, ["rust", "py"]);
 }

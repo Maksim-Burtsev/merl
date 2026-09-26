@@ -16,8 +16,10 @@ pub struct Preview {
     /// The source position the preview last put the cursor at. A cursor found anywhere else was
     /// moved by something else (`:`, `[`, a reload), and the row follows it.
     at: (usize, usize),
-    /// The code blocks drawn so far, highlighted, by block, with the theme named first.
-    pub hl: (String, HashMap<usize, Vec<buffer::Spans>>),
+    /// The code blocks, highlighted as far as they have been on screen with the theme `theme`
+    /// names, as the source is highlighted: a block costs what is drawn of it.
+    pub code: Vec<Buffer>,
+    pub theme: String,
 }
 
 impl App {
@@ -86,7 +88,12 @@ impl App {
                 // Laid out anew, for a rewrite or another width: the row stays where it was on
                 // screen.
                 let off = slot.as_ref().map_or(0, |p| p.row.saturating_sub(p.top));
-                let doc = markdown::layout(&self.buf.lines, self.view_w);
+                let mut doc = markdown::layout(&self.buf.lines, self.view_w);
+                let code = doc
+                    .code
+                    .drain(..)
+                    .map(|c| Buffer::block(&c.lang, c.lines))
+                    .collect();
                 let row = doc.row_at(pos);
                 *slot = Some(Preview {
                     doc,
@@ -94,7 +101,8 @@ impl App {
                     row,
                     top: row.saturating_sub(off),
                     at: pos,
-                    hl: Default::default(),
+                    code,
+                    theme: String::new(),
                 });
             }
         }
@@ -123,11 +131,27 @@ impl App {
         p.top = p.top.min((last + 1).saturating_sub(h));
     }
 
-    /// The keys of the preview. Reading keys move the cursor row; Enter edits the source at it.
-    /// What acts on a word, a column or a selection has nothing to act on here and does nothing.
-    /// Returns `false` for every other key, which does what it does everywhere.
+    /// The keys of the preview, whichever pane has the focus. Reading keys move the cursor row;
+    /// Enter edits the source at it. What acts on a word, a column or a selection has nothing to
+    /// act on here and does nothing. Returns `false` for every other key, which does what it does
+    /// everywhere, and for the keys the tree takes when it has the focus.
     pub(super) fn preview_key(&mut self, key: KeyEvent) -> bool {
         if !self.previewing() {
+            return false;
+        }
+        let tree = matches!(
+            key.code,
+            KeyCode::Up
+                | KeyCode::Down
+                | KeyCode::Left
+                | KeyCode::Right
+                | KeyCode::PageUp
+                | KeyCode::PageDown
+                | KeyCode::Home
+                | KeyCode::End
+                | KeyCode::Enter
+        );
+        if tree && self.focus == Focus::Tree {
             return false;
         }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
@@ -177,6 +201,11 @@ impl App {
         let at = (self.line, self.col);
         if let Some(p) = &mut self.preview {
             (p.row, p.top, p.at) = (to, top, at);
+        }
+        // Reading moves the current stop of the jump history, as paging does, and adds none:
+        // a row's source line can be far from the one above it, a footnote's is.
+        if let (Some(pos), Some(cur)) = (self.pos(), self.history.get_mut(self.hist_idx)) {
+            *cur = pos;
         }
         self.preview_clamp();
         true

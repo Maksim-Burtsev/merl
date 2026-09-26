@@ -70,8 +70,9 @@ pub struct Row {
     /// Where the row starts in the source: 0-based line and byte column. A column past the end
     /// of the line (a rule under a heading, the blank row after a block) is the line's end.
     pub src: (usize, usize),
-    /// The source lines the row shows, which its git marks come from: a reflowed row can hold the
-    /// end of one line and the start of the next. Empty for a row that shows none.
+    /// The source lines the row stands for, which its git marks come from and a position is
+    /// found by: the lines it shows (a reflowed row can hold the end of one line and the start of
+    /// the next), and the lines no row shows next to them, such as a code block's fences.
     pub lines: Range<usize>,
     pub kind: Kind,
 }
@@ -107,16 +108,22 @@ pub struct Doc {
 }
 
 impl Doc {
-    /// The row a source position is shown on: the first of the rows that start furthest into
-    /// the source without passing it, or the first row when every row starts past it.
+    /// The row a source position is shown on: of the rows its line belongs to, the last that
+    /// starts at or before its column (the first of those that start together), or the first of
+    /// them when the column comes before the text, on a list item's or a heading's marker.
     pub fn row_at(&self, pos: (usize, usize)) -> usize {
-        let mut best = 0;
+        let mut first = None;
+        let mut best: Option<usize> = None;
         for (i, r) in self.rows.iter().enumerate() {
-            if r.src <= pos && (r.src > self.rows[best].src || self.rows[best].src > pos) {
-                best = i;
+            if !r.lines.contains(&pos.0) {
+                continue;
+            }
+            first.get_or_insert(i);
+            if r.src <= pos && best.is_none_or(|b| r.src > self.rows[b].src) {
+                best = Some(i);
             }
         }
-        best
+        best.or(first).unwrap_or(self.rows.len() - 1)
     }
 }
 
@@ -141,16 +148,18 @@ pub fn layout(lines: &[String], width: usize) -> Doc {
         lay.event(ev, r);
     }
     lay.flush();
-    // Footnotes come last, as on GitHub, under a rule.
+    // Footnotes come last, as on GitHub, under a rule, in the order they are numbered.
     if !lay.notes.is_empty() {
-        let notes = std::mem::take(&mut lay.notes);
+        let mut notes = std::mem::take(&mut lay.notes);
+        notes.sort_by_key(|(n, _)| *n);
         let end = src.len();
         lay.gap = true;
         lay.block_start(end);
         lay.rule(lay.after());
         lay.gap = true;
         lay.block_start(end);
-        lay.rows.extend(notes);
+        lay.rows
+            .extend(notes.into_iter().flat_map(|(_, rows)| rows));
     }
     let mut rows = lay.rows;
     if rows.is_empty() {
@@ -162,9 +171,44 @@ pub fn layout(lines: &[String], width: usize) -> Doc {
             kind: Kind::Gap,
         });
     }
+    cover(&mut rows, lines.len());
     Doc {
         rows,
         code: lay.code,
+    }
+}
+
+/// Gives every source line to a row, for its marks and for finding the row of a position: a line
+/// no row shows (a reference definition, a second blank line) goes with the row that ends above
+/// it, and one above every row with the first row.
+fn cover(rows: &mut [Row], n: usize) {
+    let mut covered = vec![false; n];
+    // A row that ends on each line.
+    let mut ends = vec![None; n];
+    for (i, r) in rows.iter().enumerate() {
+        for l in r.lines.clone().filter(|&l| l < n) {
+            covered[l] = true;
+            if l + 1 == r.lines.end {
+                ends[l] = Some(i);
+            }
+        }
+    }
+    let (mut above, mut top) = (None, None);
+    for l in 0..n {
+        match (covered[l], above) {
+            (true, _) => above = ends[l].or(above),
+            (false, Some(i)) => rows[i].lines.end = l + 1,
+            (false, None) => _ = top.get_or_insert(l),
+        }
+    }
+    if let Some(t) = top {
+        let first = (0..rows.len())
+            .filter(|&i| !rows[i].lines.is_empty())
+            .min_by_key(|&i| (rows[i].lines.start, i));
+        match first {
+            Some(i) => rows[i].lines.start = t,
+            None => rows[0].lines = 0..n,
+        }
     }
 }
 
@@ -189,11 +233,27 @@ struct Inline {
 }
 
 impl Inline {
-    fn push(&mut self, s: &str, look: Look, src: Range<usize>) {
+    /// Adds the text `s` of an event whose source is `raw`, starting at byte `at`. Text written
+    /// as it is (code between its backticks too) maps byte for byte, its tabs to themselves;
+    /// text the parser changed (an escape, an entity) maps to the event as a whole.
+    fn push(&mut self, s: &str, look: Look, raw: &str, at: usize) {
         let start = self.text.len();
-        self.text.push_str(&s.replace('\t', crate::buffer::TAB));
+        let literal = raw.find(s).map(|i| at + i);
+        let mut o = 0;
+        for (k, part) in s.split('\t').enumerate() {
+            if k > 0 {
+                let tab = literal.map_or(at..at + raw.len(), |b| b + o - 1..b + o);
+                self.map.push((self.text.len(), tab));
+                self.text.push_str(crate::buffer::TAB);
+            }
+            if !part.is_empty() {
+                let src = literal.map_or(at..at + raw.len(), |b| b + o..b + o + part.len());
+                self.map.push((self.text.len(), src));
+                self.text.push_str(part);
+            }
+            o += part.len() + 1;
+        }
         let end = self.text.len();
-        self.map.push((start, src));
         match self.looks.last_mut() {
             Some((l, r)) if *l == look && r.end == start => r.end = end,
             _ => self.looks.push((look, start..end)),
@@ -209,8 +269,17 @@ impl Inline {
     }
 }
 
-/// A code block's lines as written, each with the source position it starts at.
-type CodeLines = Vec<(String, (usize, usize))>;
+/// A code block being read.
+struct Block {
+    /// The first word of the info string.
+    lang: String,
+    /// Its lines as written, each with the source position it starts at.
+    lines: Vec<(String, (usize, usize))>,
+    /// The last line has not had its `\n` yet.
+    open: bool,
+    /// The source lines of the block, its fences included.
+    span: Range<usize>,
+}
 
 struct Table {
     aligns: Vec<Alignment>,
@@ -225,8 +294,8 @@ struct Lay<'a> {
     starts: Vec<usize>,
     width: usize,
     rows: Vec<Row>,
-    /// Footnote definitions, shown after everything else.
-    notes: Vec<Row>,
+    /// Footnote definitions by number, shown after everything else.
+    notes: Vec<(usize, Vec<Row>)>,
     in_note: bool,
     /// `gap` of the text around a footnote definition, set aside while it is read.
     note_gap: bool,
@@ -244,8 +313,7 @@ struct Lay<'a> {
     image: usize,
     heading: Option<HeadingLevel>,
     table: Option<Table>,
-    /// A code block being read: its info string and its lines.
-    block: Option<(String, CodeLines)>,
+    block: Option<Block>,
     /// Inside front matter, which is drawn from its source lines.
     meta: bool,
     /// Footnote labels, numbered as they are first met.
@@ -259,15 +327,22 @@ impl Lay<'_> {
             Event::End(tag) => self.end(tag),
             Event::Text(_) if self.meta => {}
             Event::Text(t) if self.block.is_some() => {
-                let (line, col) = self.pos(r.start);
-                let Some((_, lines)) = &mut self.block else {
-                    return;
-                };
-                for (k, l) in t.lines().enumerate() {
-                    // Inside a container every line is an event of its own; a block at the top
-                    // is one event whose later lines start at column 0.
-                    let col = if k == 0 { col } else { 0 };
-                    lines.push((l.to_string(), (line + k, col)));
+                // Code comes as text that ends its lines with `\n`: a block at the top in one
+                // event, one inside a container an event a line, and the spaces of a tab the
+                // container took part of as an event of their own in front of the line.
+                let mut off = 0;
+                for piece in t.split_inclusive('\n') {
+                    let at = self.pos((r.start + off).min(r.end));
+                    off += piece.len();
+                    let Some(b) = &mut self.block else {
+                        return;
+                    };
+                    let text = piece.strip_suffix('\n').unwrap_or(piece);
+                    match b.lines.last_mut() {
+                        Some((line, _)) if b.open => line.push_str(text),
+                        _ => b.lines.push((text.to_string(), at)),
+                    }
+                    b.open = !piece.ends_with('\n');
                 }
             }
             Event::Text(t) => self.text(&t, self.look(), r),
@@ -294,8 +369,8 @@ impl Lay<'_> {
                 };
                 self.text(&format!("[{n}]"), look, r);
             }
-            Event::SoftBreak => self.text(" ", self.look(), r.start..r.start),
-            Event::HardBreak => self.text("\n", self.look(), r.end..r.end),
+            Event::SoftBreak => self.text(" ", self.look(), r),
+            Event::HardBreak => self.text("\n", self.look(), r),
             Event::Rule => {
                 self.block_start(r.start);
                 self.rule(self.pos(r.start));
@@ -347,13 +422,22 @@ impl Lay<'_> {
             }
             Tag::CodeBlock(kind) => {
                 self.block_start(r.start);
+                // `rust,ignore` and `py title=x` name the language by their first word.
                 let lang = match kind {
-                    CodeBlockKind::Fenced(info) => {
-                        info.split_whitespace().next().unwrap_or("").into()
-                    }
+                    CodeBlockKind::Fenced(info) => info
+                        .split(|c: char| c == ',' || c.is_whitespace())
+                        .next()
+                        .unwrap_or("")
+                        .into(),
                     CodeBlockKind::Indented => String::new(),
                 };
-                self.block = Some((lang, Vec::new()));
+                let span = self.pos(r.start).0..self.pos(r.end.saturating_sub(1)).0 + 1;
+                self.block = Some(Block {
+                    lang,
+                    lines: Vec::new(),
+                    open: false,
+                    span,
+                });
             }
             Tag::HtmlBlock => self.block_start(r.start),
             Tag::List(first) => {
@@ -391,6 +475,7 @@ impl Lay<'_> {
                 self.flush_implicit();
                 let n = self.number(&label);
                 self.note_gap = std::mem::replace(&mut self.gap, false);
+                self.notes.push((n, Vec::new()));
                 self.in_note = true;
                 let marker = format!("[{n}] ");
                 let w = wrap::width(&marker);
@@ -444,7 +529,7 @@ impl Lay<'_> {
                 self.gap = true;
             }
             TagEnd::Heading(level) => {
-                self.flush();
+                let shown = self.flush();
                 self.heading = None;
                 // H1 and H2 are set apart by a rule, as GitHub underlines them.
                 let rule = match level {
@@ -452,7 +537,7 @@ impl Lay<'_> {
                     HeadingLevel::H2 => "\u{2500}",
                     _ => "",
                 };
-                if !rule.is_empty() {
+                if shown && !rule.is_empty() {
                     let at = self.rows_mut().last().map_or((0, 0), |r| r.src);
                     let text = rule.repeat(self.avail());
                     let n = text.len();
@@ -477,8 +562,8 @@ impl Lay<'_> {
                 self.gap = self.note_gap;
             }
             TagEnd::CodeBlock => {
-                if let Some((lang, lines)) = self.block.take() {
-                    self.code_block(lang, lines);
+                if let Some(block) = self.block.take() {
+                    self.code_block(block);
                 }
                 self.gap = true;
             }
@@ -550,12 +635,14 @@ impl Lay<'_> {
         Look { ink, mods }
     }
 
-    fn text(&mut self, s: &str, look: Look, src: Range<usize>) {
+    /// Text of the event at source bytes `r`.
+    fn text(&mut self, s: &str, look: Look, r: Range<usize>) {
+        let raw = &self.src[r.clone()];
         let inline = self.inline.get_or_insert_with(|| {
             self.implicit = true;
             Inline::default()
         });
-        inline.push(s, look, src);
+        inline.push(s, look, raw, r.start);
     }
 
     /// 0-based line and byte column of source byte `i`.
@@ -575,20 +662,18 @@ impl Lay<'_> {
     }
 
     fn rows_mut(&mut self) -> &mut Vec<Row> {
-        if self.in_note {
-            &mut self.notes
-        } else {
-            &mut self.rows
+        match self.notes.last_mut() {
+            Some((_, rows)) if self.in_note => rows,
+            _ => &mut self.rows,
         }
     }
 
     /// Where a row that stands for no text of its own goes back to: the end of the line the row
     /// above it came from.
     fn after(&self) -> (usize, usize) {
-        let rows = if self.in_note {
-            &self.notes
-        } else {
-            &self.rows
+        let rows = match self.notes.last() {
+            Some((_, rows)) if self.in_note => rows,
+            _ => &self.rows,
         };
         (rows.last().map_or(0, |r| r.src.0), usize::MAX)
     }
@@ -696,22 +781,23 @@ impl Lay<'_> {
         }
     }
 
+    /// A tight item's text that made rows is followed by what the item holds next, with no
+    /// blank row between; text of nothing but spaces makes no rows and changes nothing.
     fn flush_implicit(&mut self) {
-        if self.implicit {
-            self.flush();
+        if self.implicit && self.flush() {
             self.gap = false;
         }
     }
 
     /// Lays the text read so far out: wrapped to the room the containers leave, a hard break
-    /// starting a new row.
-    fn flush(&mut self) {
+    /// starting a new row. Returns whether it made any rows.
+    fn flush(&mut self) -> bool {
         self.implicit = false;
         let Some(inline) = self.inline.take() else {
-            return;
+            return false;
         };
         if inline.text.trim().is_empty() {
-            return;
+            return false;
         }
         let avail = self.avail();
         let mut from = 0;
@@ -734,17 +820,18 @@ impl Lay<'_> {
             }
             from += seg.len() + 1;
         }
+        true
     }
 
     /// Rows for a line shown as it is written, wrapped.
     fn lines(&mut self, raw: &str, look: Look, (l, c): (usize, usize)) {
         let line = raw.replace('\t', crate::buffer::TAB);
-        let tabs = tabs(raw);
+        let mut tabs = Tabs::new(raw);
         let avail = self.avail();
         for r in wrap::wrap_line(&line, avail) {
             let text = line[r.clone()].to_string();
             let n = text.len();
-            let at = (l, c.saturating_add(raw_col(&tabs, r.start)));
+            let at = (l, c.saturating_add(tabs.raw(r.start)));
             self.push(text, vec![(look, 0..n)], at, Kind::Text);
         }
     }
@@ -756,20 +843,20 @@ impl Lay<'_> {
     }
 
     /// A code block: every line on the tint, a column in from its edge, wrapped as the source
-    /// wraps it, with the rows after the first under its indent.
-    fn code_block(&mut self, lang: String, mut lines: CodeLines) {
-        if lines.is_empty() {
-            lines.push((String::new(), self.after()));
+    /// wraps it, with the rows after the first under its indent. Its rows stand for its fences.
+    fn code_block(&mut self, mut b: Block) {
+        if b.lines.is_empty() {
+            b.lines.push((String::new(), self.after()));
         }
         let block = self.code.len();
+        let first = self.rows_mut().len();
         let room = self.avail().saturating_sub(2).max(1);
-        let lines: Vec<(String, Vec<usize>, (usize, usize))> = lines
-            .iter()
-            .map(|(raw, at)| (raw.replace('\t', crate::buffer::TAB), tabs(raw), *at))
-            .collect();
-        for (k, (line, tabs, (l, c))) in lines.iter().enumerate() {
-            let indent = wrap::indent(line, room);
-            for (i, r) in wrap::wrap_line(line, room).into_iter().enumerate() {
+        let mut drawn = Vec::with_capacity(b.lines.len());
+        for (k, (raw, (l, c))) in b.lines.iter().enumerate() {
+            let line = raw.replace('\t', crate::buffer::TAB);
+            let mut tabs = Tabs::new(raw);
+            let indent = wrap::indent(&line, room);
+            for (i, r) in wrap::wrap_line(&line, room).into_iter().enumerate() {
                 let lead = if i == 0 { 1 } else { 1 + indent };
                 let text = format!("{}{}", " ".repeat(lead), &line[r.clone()]);
                 let n = text.len();
@@ -779,12 +866,22 @@ impl Lay<'_> {
                     from: r.start,
                     at: lead,
                 };
-                let at = (*l, c.saturating_add(raw_col(tabs, r.start)));
+                let at = (*l, c.saturating_add(tabs.raw(r.start)));
                 self.push(text, vec![(Ink::Code.plain(), 0..n)], at, kind);
             }
+            drawn.push(line);
         }
-        let lines = lines.into_iter().map(|(l, ..)| l).collect();
-        self.code.push(Code { lang, lines });
+        let rows = self.rows_mut();
+        if let Some(r) = rows.get_mut(first) {
+            r.lines.start = r.lines.start.min(b.span.start);
+        }
+        if let Some(r) = rows.last_mut() {
+            r.lines.end = r.lines.end.max(b.span.end);
+        }
+        self.code.push(Code {
+            lang: b.lang,
+            lines: drawn,
+        });
     }
 
     /// A table in box drawing, each column aligned as its `:---:` says. Wider than the room it
@@ -921,27 +1018,41 @@ fn fit(natural: &[usize], words: &[usize], room: usize) -> Vec<usize> {
     widths
 }
 
-/// The byte of a line that byte `i` of it with its tabs drawn as spaces came from, given where
-/// the tabs are in the line. A byte inside a tab's spaces came from the tab.
-fn raw_col(tabs: &[usize], i: usize) -> usize {
-    let extra = crate::buffer::TAB.len() - 1;
-    let mut shift = 0;
-    for &t in tabs {
-        let drawn = t + shift;
-        if drawn >= i {
-            break;
-        }
-        if i < drawn + crate::buffer::TAB.len() {
-            return t;
-        }
-        shift += extra;
-    }
-    i - shift
+/// Maps bytes of a line with its tabs drawn as spaces back to the line as written, for the rows
+/// of the line in order: each tab is passed once, however many rows the line wraps into.
+struct Tabs {
+    at: Vec<usize>,
+    next: usize,
+    shift: usize,
 }
 
-/// Where the tabs of `raw` are, for [`raw_col`]: found once per line, not once per row.
-fn tabs(raw: &str) -> Vec<usize> {
-    raw.match_indices('\t').map(|(t, _)| t).collect()
+impl Tabs {
+    fn new(raw: &str) -> Self {
+        let at = raw.match_indices('\t').map(|(t, _)| t).collect();
+        Self {
+            at,
+            next: 0,
+            shift: 0,
+        }
+    }
+
+    /// The byte of the line that byte `i` of it drawn came from; a byte inside a tab's spaces
+    /// came from the tab. `i` never goes back.
+    fn raw(&mut self, i: usize) -> usize {
+        let tab = crate::buffer::TAB.len();
+        while let Some(&t) = self.at.get(self.next) {
+            let drawn = t + self.shift;
+            if drawn >= i {
+                break;
+            }
+            if i < drawn + tab {
+                return t;
+            }
+            self.shift += tab - 1;
+            self.next += 1;
+        }
+        i - self.shift
+    }
 }
 
 /// `text[r]` with the looks over it, moved to start at 0.

@@ -37,10 +37,9 @@ fn code_blocks_take_the_theme_and_another_theme_repaints_them() {
         assert!(shown[4].contains("[preview]"), "{shown:?}");
         // The gutter is two columns and the code one more in from its tint.
         let fg = terminal.backend().buffer()[(3, 2)].fg;
-        let lines = ["fn main() {}".to_string()];
-        let want = crate::buffer::highlight_lines("rust", &lines, &theme).unwrap()[0][0]
-            .0
-            .fg;
+        let mut block = Buffer::block("rust", vec!["fn main() {}".to_string()]);
+        block.highlight_to(0, &theme);
+        let want = block.hl[0][0].0.fg;
         assert_eq!(Some(fg), want, "{name}");
         seen.push(fg);
     }
@@ -68,8 +67,9 @@ fn a_wrapped_code_line_keeps_its_colours() {
     let shown = rows(&terminal);
     assert_eq!(shown[..2], ["let answer = compute(1, 2)", "+ \"forty\";"]);
     // The string on the second row: past two columns of gutter, one of padding and `+ `.
-    let lines = [line.to_string()];
-    let spans = crate::buffer::highlight_lines("rust", &lines, &theme).unwrap();
+    let mut block = Buffer::block("rust", vec![line.to_string()]);
+    block.highlight_to(0, &theme);
+    let spans = &block.hl;
     let at = line.find('"').unwrap();
     let want = spans[0].iter().find(|(_, r)| r.contains(&at)).unwrap().0.fg;
     assert_eq!(Some(terminal.backend().buffer()[(5, 1)].fg), want);
@@ -101,4 +101,52 @@ fn a_megabyte_line_in_a_code_block_draws_at_once() {
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
         assert!(rows(&terminal)[2].starts_with("{\"a\": \"x yx y"), "{name}");
     }
+}
+
+/// Code blocks are highlighted as far as the screen reaches: a long block costs what is drawn.
+#[test]
+fn a_long_code_block_is_highlighted_as_far_as_it_is_drawn() {
+    let body = "let x = 1;\n".repeat(1000);
+    let text = format!("```rust\n{body}```\n");
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/long.md"), text.as_bytes()),
+        None,
+    );
+    app.show_tree = false;
+    app.key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE));
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(40, 10)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let hl = app.preview.as_ref().unwrap().code[0].hl.len();
+    assert!(
+        (9..100).contains(&hl),
+        "{hl} lines highlighted for a screen of 9"
+    );
+}
+
+/// The status bar leaves out `nowrap` in the preview, which always wraps.
+#[test]
+fn the_preview_status_says_no_nowrap() {
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/notes.md"), b"# Notes\n"),
+        None,
+    );
+    app.show_tree = false;
+    for c in ['w', 'p'] {
+        app.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+    }
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(60, 4)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let status = rows(&terminal)[3].clone();
+    assert!(
+        status.contains("[preview]") && !status.contains("nowrap"),
+        "{status}"
+    );
 }

@@ -11,7 +11,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 
 use crate::app::App;
-use crate::buffer;
+use crate::buffer::Buffer;
 use crate::git::Mark;
 use crate::markdown::{Kind, Palette, Row};
 use crate::theme::Theme;
@@ -38,16 +38,15 @@ pub(super) fn draw_preview(
         return;
     };
     let end = (p.top + area.height as usize).min(p.doc.rows.len());
-    // The code blocks on screen take their colours from the theme, each highlighted whole once.
-    if p.hl.0 != shown {
-        p.hl = (shown, Default::default());
+    // The code blocks on screen take their colours from the theme, highlighted as far as the
+    // screen reaches, as the source is; another theme starts them over.
+    if p.theme != shown {
+        p.theme = shown;
+        p.code.iter_mut().for_each(Buffer::clear_hl);
     }
     for r in &p.doc.rows[p.top..end] {
-        if let Kind::Code { block, .. } = r.kind {
-            p.hl.1.entry(block).or_insert_with(|| {
-                let c = &p.doc.code[block];
-                buffer::highlight_lines(&c.lang, &c.lines, theme).unwrap_or_default()
-            });
+        if let Kind::Code { block, line, .. } = r.kind {
+            p.code[block].highlight_to(line, theme);
         }
     }
 
@@ -94,9 +93,9 @@ pub(super) fn draw_preview(
                 at,
             } => {
                 let to = from + row.text.len() - at;
-                p.hl.1
-                    .get(&block)
-                    .and_then(|h| h.get(line))
+                p.code[block]
+                    .hl
+                    .get(line)
                     .into_iter()
                     .flatten()
                     .filter_map(|(st, r)| {
@@ -124,9 +123,9 @@ pub(super) fn draw_preview(
     frame.render_widget(Paragraph::new(lines).style(base), area);
 }
 
-/// Where the lines a review deleted are marked, by row: `▔` on the first row that shows the line
-/// they stood above, or, when no row shows it (the end of the file, a blank line), `▁` on the row
-/// that ends nearest before it, as the source marks lines deleted below a line.
+/// Where the lines a review deleted are marked, by row: `▔` on the first row of the line they
+/// stood above, or, past the last line, `▁` on the last row of the line they stood below, as the
+/// source marks lines deleted below a line.
 fn ghost_marks(rows: &[Row], keys: impl Iterator<Item = usize>) -> HashMap<usize, &'static str> {
     let mut out = HashMap::new();
     for k in keys {
@@ -135,7 +134,7 @@ fn ghost_marks(rows: &[Row], keys: impl Iterator<Item = usize>) -> HashMap<usize
         let below = || {
             (0..rows.len())
                 .filter(before)
-                .max_by_key(|&i| (rows[i].lines.end, std::cmp::Reverse(i)))
+                .max_by_key(|&i| (rows[i].lines.end, i))
         };
         let at = match above {
             Some(i) => Some((i, "\u{2594}")),

@@ -241,13 +241,18 @@ impl App {
         self.apply_want_x(0);
     }
 
-    /// Wrapped rows from `a` to `b` (either order).
+    /// Wrapped rows from `a` to `b` (either order), counted as far as the text goes: an end on
+    /// the lines deleted after the last one, a review's ghosts, stops the count there.
     pub(super) fn rows_between(&self, a: (usize, usize), b: (usize, usize)) -> usize {
         let (lo, hi) = if a <= b { (a, b) } else { (b, a) };
         let mut n = 0;
         let mut cur = lo;
         while cur < hi {
-            cur = self.forward_rows(cur, 1);
+            let next = self.forward_rows(cur, 1);
+            if next == cur {
+                break;
+            }
+            cur = next;
             n += 1;
         }
         n

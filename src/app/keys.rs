@@ -159,7 +159,7 @@ impl App {
             .or_else(|| named("", key));
         match key.code {
             // The preview reads with keys of its own, and leaves those that act on the text.
-            _ if self.focus == Focus::Code && self.preview_key(key) => {}
+            _ if self.preview_key(key) => {}
             KeyCode::Char('q') => return true,
             KeyCode::Char('?') => {
                 self.mode = Mode::Help;

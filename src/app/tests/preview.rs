@@ -379,3 +379,233 @@ fn a_narrower_pane_lays_the_preview_out_again() {
     assert_eq!(p.doc.rows[p.row].text, "Then the one the");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// `p` in a review scrolled down through the lines the branch deleted at the end of the file,
+/// the cursor left above the pane: it returns, the cursor row at the top.
+#[test]
+fn p_on_a_review_scrolled_past_its_last_line_returns() {
+    // A merl that hangs cannot be stopped from here: the App lives on a thread of its own.
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let base = format!("aaa\nbbb\nccc\n{}", "gone\n".repeat(60));
+        let (dir, mut a) = md_review("scrolled-past", &base, "aaa\nbbb\nccc\n");
+        (a.view_w, a.view_h) = (40, 7);
+        for _ in 0..70 {
+            key(&mut a, KeyCode::Down);
+        }
+        let scrolled = a.top_line == a.buf.lines.len();
+        key(&mut a, KeyCode::Char('p'));
+        let p = a.preview.as_ref().unwrap();
+        let _ = tx.send((scrolled, a.previewing(), p.row, p.top));
+        let _ = std::fs::remove_dir_all(&dir);
+    });
+    let (scrolled, previewing, row, top) = rx
+        .recv_timeout(Duration::from_secs(20))
+        .expect("`p` did not return");
+    assert!(scrolled, "the pane was on the deleted lines");
+    assert!(previewing);
+    assert_eq!(row, top, "the cursor row at the top");
+}
+
+/// The row a jump or `p` lands on is the line the keys act on, at column 0 of a list item or a
+/// heading too: Enter edits it, `C` stands on its mark.
+#[test]
+fn the_row_of_a_line_is_the_one_that_shows_it() {
+    let (dir, mut a) = md_app("row-of-line", PLAN);
+    a.line = 7;
+    key(&mut a, KeyCode::Char('p'));
+    assert_eq!(at_row(&a).2, "2. two");
+    for c in [':', '5'] {
+        key(&mut a, KeyCode::Char(c));
+    }
+    key(&mut a, KeyCode::Enter);
+    a.preview_sync();
+    assert_eq!(at_row(&a).2, "Steps");
+    for c in [':', '7'] {
+        key(&mut a, KeyCode::Char(c));
+    }
+    key(&mut a, KeyCode::Enter);
+    a.preview_sync();
+    assert_eq!(at_row(&a).2, "1. one");
+    key(&mut a, KeyCode::Enter);
+    assert_eq!((a.mode, a.line), (Mode::Edit, 6));
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let (dir, mut a) = md_review("row-of-item", "- a\n- b\n- c\n", "- a\n- B\n- c\n");
+    key(&mut a, KeyCode::Char('p'));
+    press(&mut a, KeyCode::End, KeyModifiers::CONTROL);
+    press(&mut a, KeyCode::Char('C'), KeyModifiers::SHIFT);
+    let m = marks(&mut a);
+    assert_eq!(at_row(&a).2, "\u{2022} B");
+    assert_eq!(m[1], ("\u{258e}".into(), "\u{2022} B".into()));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A change on a line no row shows marks the row it belongs to, never with the deletion mark:
+/// a reference definition, a fence's info string, a setext underline.
+#[test]
+fn a_change_no_row_shows_marks_the_row_it_belongs_to() {
+    let bar = "\u{258e}".to_string();
+    for (tag, base, branch, row) in [
+        (
+            "ref",
+            "Text [a].\n\n[a]: http://x\n",
+            "Text [a].\n\n[a]: http://y\n",
+            0,
+        ),
+        (
+            "fence",
+            "Go:\n\n```py\nx = 1\n```\n",
+            "Go:\n\n```python\nx = 1\n```\n",
+            2,
+        ),
+        (
+            "setext",
+            "Title\n=====\n\nText\n",
+            "Title\n-----\n\nText\n",
+            1,
+        ),
+    ] {
+        let (dir, mut a) = md_review(tag, base, branch);
+        key(&mut a, KeyCode::Char('p'));
+        let m = marks(&mut a);
+        assert_eq!(m[row].0, bar, "{tag}: {m:?}");
+        assert!(m.iter().all(|(g, _)| g != "\u{2581}"), "{tag}: {m:?}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+/// Lines deleted at the end of the file are marked under the last row of the last line.
+#[test]
+fn lines_deleted_at_the_end_are_marked_under_the_last_row() {
+    let (dir, mut a) = md_review("end-wrapped", "aaa bbb ccc ddd\nzzz\n", "aaa bbb ccc ddd\n");
+    key(&mut a, KeyCode::Char('p'));
+    let m: Vec<String> = marks(&mut a).into_iter().map(|(m, _)| m).collect();
+    assert_eq!(m[..2], [" ", "\u{2581}"]);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// With the tree focused, the tree keeps its keys, and what the preview refuses stays refused.
+#[test]
+fn from_the_tree_the_preview_still_refuses_what_it_refuses() {
+    let (dir, mut a) = md_app("tree-focus", PLAN);
+    key(&mut a, KeyCode::Char('p'));
+    key(&mut a, KeyCode::Tab);
+    assert_eq!(a.focus, Focus::Tree);
+    key(&mut a, KeyCode::Char('w'));
+    key(&mut a, KeyCode::Char('/'));
+    assert!(!a.nowrap() && a.mode == Mode::Normal);
+    // `}` reads on in the preview, Down moves the tree.
+    key(&mut a, KeyCode::Char('}'));
+    assert_eq!(at_row(&a).0, 3);
+    key(&mut a, KeyCode::Down);
+    assert_eq!(at_row(&a).0, 3);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Reading in the preview adds no stop to the jump history, down into the footnotes either.
+#[test]
+fn reading_the_preview_adds_no_history_stop() {
+    let mut text = String::from("Claim[^n].\n\n[^n]: The note.\n\n");
+    text += &"More text.\n\n".repeat(12);
+    let (dir, mut a) = md_app("history", &text);
+    key(&mut a, KeyCode::Char('p'));
+    let before = a.history.len();
+    press(&mut a, KeyCode::End, KeyModifiers::CONTROL);
+    for _ in 0..40 {
+        key(&mut a, KeyCode::Up);
+    }
+    for _ in 0..40 {
+        key(&mut a, KeyCode::Down);
+    }
+    assert_eq!(a.history.len(), before);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `p`, `p` returns to the very row the preview left, a rule under a heading too.
+#[test]
+fn p_twice_returns_to_the_row_it_left() {
+    let (dir, mut a) = md_app("exact", PLAN);
+    key(&mut a, KeyCode::Char('p'));
+    key(&mut a, KeyCode::Down);
+    assert_eq!(at_row(&a).0, 1, "the rule under `Plan`");
+    key(&mut a, KeyCode::Char('p'));
+    key(&mut a, KeyCode::Char('p'));
+    assert_eq!(at_row(&a).0, 1);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A jump to a line centres its row, as it centres the line in the source.
+#[test]
+fn a_jump_centres_its_row() {
+    let (dir, mut a) = md_app("centre", PLAN);
+    key(&mut a, KeyCode::Char('p'));
+    for c in [':', '8'] {
+        key(&mut a, KeyCode::Char(c));
+    }
+    key(&mut a, KeyCode::Enter);
+    a.preview_sync();
+    a.preview_clamp();
+    assert_eq!(at_row(&a), (7, 3, "2. two".into()));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The keys of a word or a column say nothing either: no message, no picker, no mode.
+#[test]
+fn keys_of_a_word_say_nothing_in_the_preview() {
+    let (dir, mut a) = md_app("silent", PLAN);
+    key(&mut a, KeyCode::Char('p'));
+    for (code, m) in [
+        (KeyCode::Char('d'), KeyModifiers::NONE),
+        (KeyCode::Char('n'), KeyModifiers::NONE),
+        (KeyCode::Char('N'), KeyModifiers::SHIFT),
+        (KeyCode::F(12), KeyModifiers::NONE),
+        (KeyCode::F(12), KeyModifiers::SHIFT),
+        (KeyCode::Char('f'), KeyModifiers::CONTROL),
+        (KeyCode::Up, KeyModifiers::SHIFT),
+        (KeyCode::Right, KeyModifiers::ALT),
+    ] {
+        press(&mut a, code, m);
+        assert_eq!(
+            (a.message.as_str(), a.mode, a.picker.is_some()),
+            ("", Mode::Normal, false),
+            "{code:?} {m:?}"
+        );
+    }
+    assert!(a.selection().is_none());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Back in the source, Up and Down aim at the column the preview's row put the cursor on.
+#[test]
+fn back_in_the_source_up_keeps_the_column() {
+    let (dir, mut a) = md_app("want-x", PLAN);
+    key(&mut a, KeyCode::Char('p'));
+    for _ in 0..7 {
+        key(&mut a, KeyCode::Down);
+    }
+    key(&mut a, KeyCode::Char('p'));
+    key(&mut a, KeyCode::Up);
+    assert_eq!((a.line, a.col), (6, 3));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A held arrow in the preview is no missed key: its rows are not the source's.
+#[test]
+fn a_held_arrow_in_the_preview_misses_nothing() {
+    let (dir, mut a) = md_app("missed", &"para\n\n".repeat(40));
+    key(&mut a, KeyCode::Char('p'));
+    let t0 = Instant::now();
+    for i in 0..20 {
+        a.key_at(
+            KeyEvent::new(KeyCode::Down, KeyModifiers::NONE),
+            t0 + Duration::from_millis(30 * i),
+        );
+    }
+    a.key_at(
+        KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE),
+        t0 + Duration::from_millis(2000),
+    );
+    assert!(a.missed.is_empty(), "{:?}", a.missed);
+    let _ = std::fs::remove_dir_all(&dir);
+}
