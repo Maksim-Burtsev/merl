@@ -554,35 +554,88 @@ fn c_and_big_c_from_outside_the_review_go_back_to_the_hunk_left() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #239: the live review dropped the hunk `c` last stopped on, or its whole file: from outside
-/// the review, `c` and `C` walk as they did before there was a hunk to go back to.
+/// #239: the hunk left follows its file while the review has it. An agent writing above it
+/// moves it down, and `c` finds it there; once no hunk is left from its line on, `C` goes to
+/// the file's last. A file that left the review, or is no stop of the walk any more, is not
+/// gone back to: `c` and `C` walk as they did before there was a hunk to go back to.
 #[test]
-fn a_hunk_the_review_dropped_is_not_gone_back_to() {
+fn the_hunk_left_follows_its_file_until_the_review_drops_it() {
     let (dir, mut a) = review_app("reviewbackgone");
     let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
     let big_c = |a: &mut App| press(a, KeyCode::Char('C'), KeyModifiers::NONE);
-    let refresh = |a: &mut App| {
+    let outside = dir.join("src/keep.rs");
+    // The agent writes `name` while the reader is in src/keep.rs, and the review is listed again.
+    let write = |a: &mut App, name: &str, text: &str| {
+        a.jump_to(&outside, 2);
+        std::fs::write(dir.join(name), text).unwrap();
         let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
         a.review_refreshed(fresh);
     };
-    let outside = dir.join("src/keep.rs");
-    // `F` goes back to `f`: src/a.rs keeps its hunk on `B`, the one on `F` is gone.
     a.jump_to(&dir.join("src/a.rs"), 2);
     c(&mut a);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
-    a.jump_to(&outside, 2);
-    std::fs::write(dir.join("src/a.rs"), "a\nB\nc\nd\ne\nf\n").unwrap();
-    refresh(&mut a);
+    // Two lines above `F`, then two more: its hunk goes down to line 7, then 9, where `B` is
+    // on the line `F` was left on.
+    write(&mut a, "src/a.rs", "n1\nn2\na\nB\nc\nd\ne\nF\n");
     c(&mut a);
-    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 7));
+    write(&mut a, "src/a.rs", "n0\nn0\nn1\nn2\na\nB\nc\nd\ne\nF\n");
+    c(&mut a);
+    assert_eq!((at(&a), a.line_str()), ((dir.join("src/a.rs"), 9), "F"));
+    // `F` reverted: no hunk from its line on, and `C` goes to the file's last, on `B`.
+    write(&mut a, "src/a.rs", "n0\nn0\nn1\nn2\na\nB\nc\nd\ne\nf\n");
+    big_c(&mut a);
+    assert_eq!((at(&a), a.line_str()), ((dir.join("src/a.rs"), 5), "B"));
+    // `new` emptied: an added file with nothing in it is listed, but no stop, and neither is
+    // its top, which only a deleted file's is.
+    a.jump_to(&dir.join("gone"), 1);
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("new"), 0));
+    write(&mut a, "new", "");
+    let r = a.review.as_ref().unwrap();
+    assert!(r.file(Path::new("new")).is_some_and(|f| !f.has_hunks()));
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 0));
     // crlf.txt as it was at the base: the review drops the file.
+    a.jump_to(&dir.join("src/a.rs"), 6);
     c(&mut a);
     assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
-    a.jump_to(&outside, 2);
-    std::fs::write(dir.join("crlf.txt"), "one\r\ntwo\n").unwrap();
-    refresh(&mut a);
+    write(&mut a, "crlf.txt", "one\r\ntwo\n");
     big_c(&mut a);
     assert_eq!(at(&a), (dir.join("tail"), 0));
     assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 4/4");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// #239: a file empty at the base, filled on the branch and then deleted by the agent is
+/// listed with nothing to read: the walk passes it, and so does the way back.
+#[test]
+fn a_deleted_file_with_nothing_to_read_is_not_gone_back_to() {
+    let (dir, mut a) = review_app("reviewbackempty");
+    let git = |args: &[&str]| {
+        let mut cmd = std::process::Command::new("git");
+        let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    git(&["switch", "-q", "main"]);
+    std::fs::write(dir.join("empty"), "").unwrap();
+    git(&["add", "empty"]);
+    git(&["commit", "-q", "-m", "empty"]);
+    git(&["switch", "-q", "feature"]);
+    git(&["merge", "-q", "main", "-m", "merge"]);
+    std::fs::write(dir.join("empty"), "e\n").unwrap();
+    git(&["commit", "-qam", "fill"]);
+    a.start_review(git::Review::open(&dir, None, None).unwrap());
+    a.jump_to(&dir.join("crlf.txt"), 2);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(at(&a), (dir.join("empty"), 0));
+    a.jump_to(&dir.join("src/keep.rs"), 2);
+    std::fs::remove_file(dir.join("empty")).unwrap();
+    let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+    a.review_refreshed(fresh);
+    let f = a.review.as_ref().unwrap().file(Path::new("empty")).unwrap();
+    assert!(f.status == 'D' && !f.has_hunks());
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
     let _ = std::fs::remove_dir_all(dir);
 }

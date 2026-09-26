@@ -51,8 +51,9 @@ impl App {
         }
         // An excursion (`d`, `u`, `s`) left the review: the way back is one key.
         if let Some((rel, line)) = self.hunk_left(&r) {
-            self.jump_to(&self.root.join(rel), line + 1);
+            self.jump_to(&self.root.join(&rel), line + 1);
             self.center = true;
+            self.last_hunk = Some((rel, line));
             return;
         }
         // `c` stopped on every hunk of this file and now leaves it: the file is viewed. The last
@@ -102,16 +103,19 @@ impl App {
         }
     }
 
-    /// The hunk `c` / `C` last stopped on, while the open file is outside the review and the
-    /// review still has it: its file is listed and a hunk still starts on its line.
+    /// The hunk `c` / `C` last stopped on, while the open file is outside the review: while
+    /// its file is still a stop of the walk, the first of its hunks from that line on, or its
+    /// last. An agent writing above the hunk moves it down, and the file is not the open buffer
+    /// whose reload would carry the line; a place in the file left beats the review's first.
     pub(super) fn hunk_left(&self, r: &git::Review) -> Option<(PathBuf, usize)> {
         if self.rel_current().is_some_and(|rel| r.file(&rel).is_some()) {
             return None;
         }
         let (rel, line) = self.last_hunk.clone()?;
-        let hunks = self.review_hunks(r, r.file(&rel)?);
-        // A deleted file has none to step through: its one stop is the top.
-        (hunks.contains(&line) || hunks.is_empty() && line == 0).then_some((rel, line))
+        let f = r.file(&rel).filter(|f| f.has_hunks())?;
+        let hunks = self.review_hunks(r, f);
+        let h = *hunks.iter().find(|&&h| h >= line).or(hunks.last())?;
+        Some((rel, h))
     }
 
     /// `m`: the open file, or the panel's row, is viewed; again, and it is not. A key for the
@@ -182,10 +186,11 @@ impl App {
         self.buf.path.as_deref() == Some(&path)
     }
 
-    /// The lines the hunks of a file of the review start on; none for a deleted one.
+    /// The lines `c` stops on in a file of the review: where its hunks start, and the top of a
+    /// deleted one, which has none to step through.
     fn review_hunks(&self, r: &git::Review, f: &git::ReviewFile) -> Vec<usize> {
         match f.status {
-            'D' => Vec::new(),
+            'D' => vec![0],
             _ => r.diff(&self.root, &self.root.join(&f.path), Some(f)).hunks,
         }
     }
