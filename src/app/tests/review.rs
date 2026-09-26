@@ -98,6 +98,15 @@ fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
         a.changed.contains_key(Path::new("tail")),
         "`↻` until viewed again"
     );
+    // Written back as it was viewed, it is viewed again; rewritten, `↻` again.
+    std::fs::write(dir.join("tail"), &text).unwrap();
+    let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+    assert!(a.review_refreshed(fresh));
+    assert!(a.viewed.contains_key(Path::new("tail")) && a.changed.is_empty());
+    std::fs::write(dir.join("tail"), text.to_uppercase()).unwrap();
+    let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+    assert!(a.review_refreshed(fresh));
+    assert!(a.changed.contains_key(Path::new("tail")));
     // Viewed again, the `↻` goes.
     a.tree.reveal(Path::new("tail"));
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
@@ -155,14 +164,18 @@ fn viewed_marks_outlive_the_session_and_a_changed_file_says_so() {
     let all = (paths(&["new", "src/a.rs", "tail"]), vec![]);
     assert_eq!(marks(&a), all);
     // Another branch checked out under a live review is another review, and back is this one.
+    // The listing is the one reading of HEAD: taken on `other`, it is `other`'s review, even
+    // with HEAD back on `feature` by the time it arrives, and the next listing brings `feature`.
     let refresh = |a: &mut App| {
         let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
         a.review_refreshed(fresh)
     };
     git(&["switch", "-qc", "other"]);
-    refresh(&mut a);
-    assert_eq!(marks(&a), (vec![], vec![]));
+    let listed = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
     git(&["switch", "-q", "feature"]);
+    a.review_refreshed(listed);
+    assert_eq!(a.review.as_ref().unwrap().branch, "other");
+    assert_eq!(marks(&a), (vec![], vec![]));
     refresh(&mut a);
     assert_eq!(marks(&a), all);
     // A tick taken off stays off.
@@ -176,7 +189,7 @@ fn viewed_marks_outlive_the_session_and_a_changed_file_says_so() {
 /// #240: the marks are a branch's, never `HEAD`'s. A tag named like the branch changes nothing;
 /// a live review keeps its ticks through a detached HEAD (an agent's rebase stopped on a
 /// conflict), and a mark made then is the branch's; a review started detached keeps its marks
-/// for the session only.
+/// in memory, and when it gets a branch they go over the branch's own, and are kept.
 #[test]
 fn viewed_marks_are_the_branch_s_through_a_detached_head_and_a_namesake_tag() {
     let (dir, mut a) = review_app("viewedhead");
@@ -191,29 +204,33 @@ fn viewed_marks_are_the_branch_s_through_a_detached_head_and_a_namesake_tag() {
     };
     let paths = |p: &[&str]| p.iter().map(PathBuf::from).collect::<Vec<_>>();
     a.focus = Focus::Tree;
-    a.tree.reveal(Path::new("tail"));
-    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    for f in ["tail", "src/a.rs"] {
+        a.tree.reveal(Path::new(f));
+        press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    }
     a.focus = Focus::Code;
 
-    // `feature` reads `heads/feature` once a tag has the name.
+    // `git rev-parse --abbrev-ref HEAD` reads `heads/feature` once a tag has the name.
     git(&["tag", "feature"]);
-    assert!(refresh(&mut a));
-    assert_eq!(marks(&a).0, paths(&["tail"]));
+    refresh(&mut a);
+    assert_eq!(a.review.as_ref().unwrap().branch, "feature");
+    assert_eq!(marks(&a).0, paths(&["src/a.rs", "tail"]));
     let mut a = review_start(&dir, None);
-    assert_eq!(marks(&a).0, paths(&["tail"]));
+    assert_eq!(marks(&a).0, paths(&["src/a.rs", "tail"]));
 
     git(&["switch", "-q", "--detach"]);
     assert!(refresh(&mut a));
     assert_eq!(
         marks(&a).0,
-        paths(&["tail"]),
+        paths(&["src/a.rs", "tail"]),
         "the ticks stay while detached"
     );
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
     git(&["switch", "-q", "feature"]);
     refresh(&mut a);
-    assert_eq!(marks(&a).0, paths(&["new", "tail"]));
-    assert_eq!(marks(&review_start(&dir, None)).0, paths(&["new", "tail"]));
+    let all = paths(&["new", "src/a.rs", "tail"]);
+    assert_eq!(marks(&a).0, all);
+    assert_eq!(marks(&review_start(&dir, None)).0, all);
 
     // Started detached, on a commit of no branch: nothing read, nothing written.
     let store = dir.join(".git/merl/viewed");
@@ -223,19 +240,33 @@ fn viewed_marks_are_the_branch_s_through_a_detached_head_and_a_namesake_tag() {
     git(&["commit", "-qam", "elsewhere"]);
     let mut a = review_start(&dir, None);
     assert_eq!(marks(&a), (vec![], vec![]));
+    a.focus = Focus::Tree;
+    a.tree.reveal(Path::new("src/a.rs"));
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
-    assert_eq!(marks(&a).0, paths(&["new"]), "for the session");
+    assert_eq!(marks(&a).0, paths(&["src/a.rs"]), "in memory");
     assert_eq!(std::fs::read_to_string(&store).unwrap(), kept);
+    // Its branch checked out: the session's `src/a.rs`, viewed as `elsewhere`, wins over the
+    // branch's own mark of it and is `↻` there; the branch's other marks come in under it.
+    git(&["switch", "-q", "feature"]);
+    refresh(&mut a);
+    let merged = (paths(&["new", "tail"]), paths(&["src/a.rs"]));
+    assert_eq!(marks(&a), merged);
+    assert_eq!(marks(&review_start(&dir, None)), merged, "and kept");
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// #240: a mark that cannot be saved says so, and the walk's word does not cover it.
+/// #240: a mark that cannot be saved says so, the walk's word does not cover it, and a store
+/// that cannot be read is left as it is.
 #[test]
 fn a_viewed_mark_that_cannot_be_saved_says_so() {
-    let (dir, mut a) = review_app("viewedunsaved");
-    // A directory where the store should be: it cannot be read, so it is not written.
-    std::fs::create_dir_all(dir.join(".git/merl/viewed")).unwrap();
-    // From `new`, the fourth file, `c` leaves it for `tail`, then leaves `tail`, the last one.
+    let png: &[u8] = b"\x89PNG\0\0";
+    let (dir, mut a) = review_app_with("viewedunsaved", &[("o.png", png)]);
+    // A store that is not UTF-8 cannot be read, so it is not written.
+    let store = dir.join(".git/merl/viewed");
+    std::fs::create_dir_all(store.parent().unwrap()).unwrap();
+    std::fs::write(&store, b"\xff\n").unwrap();
+    // From `new`, `c` skips `o.png` for `tail` (`skipped 1 file…`), then leaves `tail`, the
+    // last one (`last hunk…`).
     for _ in 0..2 {
         a.message.clear();
         press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
@@ -245,6 +276,77 @@ fn a_viewed_mark_that_cannot_be_saved_says_so() {
             a.message
         );
     }
+    assert_eq!(std::fs::read(&store).unwrap(), b"\xff\n");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// #240: an agent's rebase stopped on a conflict lists only what it has replayed. A file of a
+/// later commit keeps its tick, unseen, through a mark made meanwhile, and has it back when the
+/// rebase is done.
+#[test]
+fn a_stopped_rebase_keeps_the_ticks_of_files_not_replayed_yet() {
+    let (dir, _) = review_app("viewedrebase");
+    let git = |args: &[&str]| {
+        let mut cmd = std::process::Command::new("git");
+        cmd.arg("-C").arg(&dir).args(args).env("GIT_EDITOR", "true");
+        cmd.output().unwrap().status.success()
+    };
+    // `late` comes in a second commit; `main` moves under the first, which then conflicts.
+    std::fs::write(dir.join("late"), "l\n").unwrap();
+    assert!(git(&["add", "late"]) && git(&["commit", "-qm", "two"]));
+    assert!(git(&["switch", "-q", "main"]));
+    std::fs::write(dir.join("src/a.rs"), "conflict\n").unwrap();
+    assert!(git(&["commit", "-qam", "main moves"]) && git(&["switch", "-q", "feature"]));
+    let mut a = review_start(&dir, None);
+    let refresh = |a: &mut App| {
+        let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+        a.review_refreshed(fresh)
+    };
+    a.focus = Focus::Tree;
+    a.tree.reveal(Path::new("late"));
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+
+    assert!(!git(&["rebase", "main"]), "stops on the conflict");
+    refresh(&mut a);
+    assert!(a.review.as_ref().unwrap().file(Path::new("late")).is_none());
+    a.tree.reveal(Path::new("tail"));
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+
+    std::fs::write(dir.join("src/a.rs"), "a\nB\nc\nd\ne\nF\n").unwrap();
+    assert!(git(&["add", "src/a.rs"]) && git(&["rebase", "--continue"]));
+    refresh(&mut a);
+    let both = (vec![PathBuf::from("late"), PathBuf::from("tail")], vec![]);
+    assert_eq!(marks(&a), both);
+    assert_eq!(marks(&review_start(&dir, None)), both);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// #240: a write keeps the lines of the same branch against another base, and a name ending in
+/// `\r` (macOS's `Icon\r`) reads back as itself, from this review's lines and from those a
+/// write of another review carries over.
+#[test]
+fn the_viewed_store_keeps_other_bases_and_names_as_they_are() {
+    let (dir, mut a) = review_app_with("viewedbases", &[("cr\r", b"x\n")]);
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(&dir)
+        .args(["branch", "dev", "main"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let mark = |a: &mut App, f: &str| {
+        a.focus = Focus::Tree;
+        a.tree.reveal(Path::new(f));
+        press(a, KeyCode::Char('m'), KeyModifiers::NONE);
+    };
+    mark(&mut a, "cr\r");
+    mark(&mut a, "tail");
+    let mut dev = review_start(&dir, Some("dev"));
+    assert_eq!(marks(&dev), (vec![], vec![]));
+    mark(&mut dev, "new");
+    let paths = |p: &[&str]| p.iter().map(PathBuf::from).collect::<Vec<_>>();
+    assert_eq!(marks(&review_start(&dir, None)).0, paths(&["cr\r", "tail"]));
+    assert_eq!(marks(&review_start(&dir, Some("dev"))).0, paths(&["new"]));
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -299,7 +401,7 @@ fn the_viewed_store_forgets_old_reviews_and_is_replaced_whole() {
     let text = std::fs::read_to_string(&store).unwrap();
     assert!(!text.contains("\tstale\t"), "{text}");
     assert!(text.contains(&line(28, "recent")), "{text}");
-    let mark = "\trefs/heads/feature\tmain\t";
+    let mark = "\tfeature\tmain\t";
     assert!(text.contains(mark) && text.ends_with("\tnew\n"), "{text}");
     assert_eq!(std::fs::read_to_string(&reader).unwrap(), old);
     let left: Vec<_> = std::fs::read_dir(store.parent().unwrap())

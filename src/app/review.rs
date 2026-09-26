@@ -8,8 +8,7 @@ impl App {
     pub fn start_review(&mut self, mut review: git::Review) {
         let note = review.note.take();
         self.review = Some(review);
-        self.viewed_branch = git::head_branch(&self.root);
-        self.load_viewed();
+        self.follow_branch();
         self.refresh_diff();
         if let Some(path) = self.buf.path.clone() {
             self.reveal(&path);
@@ -134,24 +133,33 @@ impl App {
         })
     }
 
-    /// A viewed file that changed on disk is `↻` until it is viewed again, and viewed again if it
-    /// changes back; one that left the review is neither. Returns whether a mark moved.
-    // ponytail: reads every marked file on each refresh; compare mtimes first if a review of
-    // thousands of viewed files ever makes the refresh slow.
-    fn drop_stale_viewed(&mut self) -> bool {
-        let (mut viewed, mut changed) = (HashMap::new(), HashMap::new());
-        for (p, &h) in self.viewed.iter().chain(&self.changed) {
-            if self.review.as_ref().is_some_and(|r| r.file(p).is_some()) {
-                let to = if self.disk_hash(p) == h {
-                    &mut viewed
-                } else {
-                    &mut changed
-                };
-                to.insert(p.clone(), h);
-            }
+    /// Sorts every mark by the listing and the disk: a listed file whose hash matches is viewed,
+    /// one that changed since is `↻` until it is viewed again (or changes back), and a file the
+    /// listing does not have keeps its mark, unseen, for when it comes back. A mark leaves only
+    /// when `m` takes it off, or with its review after [`FORGET_DAYS`]. Returns whether a mark on
+    /// screen moved.
+    // ponytail: reads every listed marked file on each refresh; compare mtimes first if a review
+    // of thousands of viewed files ever makes the refresh slow.
+    fn recheck_viewed(&mut self) -> bool {
+        let (mut viewed, mut changed, mut unlisted) =
+            (HashMap::new(), HashMap::new(), HashMap::new());
+        let marks = self
+            .viewed
+            .iter()
+            .chain(&self.changed)
+            .chain(&self.unlisted);
+        for (p, &h) in marks {
+            let to = if !self.review.as_ref().is_some_and(|r| r.file(p).is_some()) {
+                &mut unlisted
+            } else if self.disk_hash(p) == h {
+                &mut viewed
+            } else {
+                &mut changed
+            };
+            to.insert(p.clone(), h);
         }
         let moved = viewed != self.viewed || changed != self.changed;
-        (self.viewed, self.changed) = (viewed, changed);
+        (self.viewed, self.changed, self.unlisted) = (viewed, changed, unlisted);
         moved
     }
 
@@ -161,27 +169,45 @@ impl App {
         git::dirs(&self.root).map(|(_, common)| common.join("merl/viewed"))
     }
 
-    /// The marks this review (the branch against its base) left last time, sorted by what is on
-    /// disk now.
-    fn load_viewed(&mut self) {
-        let (Some(store), Some(r), Some(branch)) =
-            (self.viewed_store(), &self.review, &self.viewed_branch)
-        else {
+    /// Keeps the marks under the branch the listing names, the one reading of HEAD: another
+    /// branch checked out is another review, with the marks it left last time. A detached HEAD
+    /// names none and keeps the branch it left. A review that had none until now keeps what it
+    /// marked, over the branch's own marks, and saves them.
+    fn follow_branch(&mut self) {
+        let Some(r) = &self.review else { return };
+        let Some(branch) = r.branch_name().map(str::to_string) else {
             return;
         };
-        self.viewed = read_viewed(&store, branch, &r.base);
-        self.changed.clear();
-        self.drop_stale_viewed();
+        if self.viewed_branch.as_ref() == Some(&branch) {
+            return;
+        }
+        let base = r.base.clone();
+        let first = self.viewed_branch.replace(branch.clone()).is_none();
+        let Some(store) = self.viewed_store() else {
+            return;
+        };
+        let mut marks = read_viewed(&store, &branch, &base);
+        let session = [&mut self.viewed, &mut self.changed, &mut self.unlisted].map(std::mem::take);
+        let kept = first && session.iter().any(|m| !m.is_empty());
+        if first {
+            marks.extend(session.into_iter().flatten());
+        }
+        self.viewed = marks;
+        self.recheck_viewed();
+        if kept {
+            self.save_viewed();
+        }
     }
 
-    /// Writes this review's marks, the changed ones too, so `↻` outlives the session as well.
+    /// Writes this review's marks, the `↻` and the unlisted ones too, so they outlive the
+    /// session as well.
     fn save_viewed(&mut self) {
         let (Some(store), Some(r), Some(branch)) =
             (self.viewed_store(), &self.review, &self.viewed_branch)
         else {
             return;
         };
-        let marks = self.viewed.iter().chain(&self.changed);
+        let marks = (self.viewed.iter().chain(&self.changed)).chain(&self.unlisted);
         if let Err(e) = write_viewed(&store, branch, &r.base, marks, crate::stats::today()) {
             self.message = format!("viewed marks not saved: {e:#}");
         }
@@ -236,7 +262,7 @@ impl App {
         };
         if *old == fresh {
             // An edit can leave every count as it was.
-            return self.drop_stale_viewed();
+            return self.recheck_viewed();
         }
         let rel = self.rel_current();
         let kind = |r: &git::Review| {
@@ -244,23 +270,14 @@ impl App {
             Some((f.status, f.old.clone(), f.untracked))
         };
         let stale = old.merge_base != fresh.merge_base || kind(old) != kind(&fresh);
-        // Another branch checked out is another review, with marks of its own. A detached HEAD
-        // keeps the branch it left, and a tag named like the branch (`heads/feature`) is none.
-        let switched = old.branch != fresh.branch;
         let paths: Vec<PathBuf> = fresh.files.iter().map(|f| f.path.clone()).collect();
         self.review = Some(fresh);
         self.refresh_tree(crate::tree::from_files(&paths));
         if stale {
             self.refresh_diff();
         }
-        if switched
-            && let Some(head) = git::head_branch(&self.root)
-            && self.viewed_branch.as_ref() != Some(&head)
-        {
-            self.viewed_branch = Some(head);
-            self.load_viewed();
-        }
-        self.drop_stale_viewed();
+        self.follow_branch();
+        self.recheck_viewed();
         true
     }
 }
@@ -269,7 +286,8 @@ impl App {
 const FORGET_DAYS: i64 = 30;
 
 /// The store is a line per mark: `YYYY-MM-DD<TAB>branch<TAB>base<TAB>hash<TAB>path`, the day
-/// being when its review was last written. The path comes last, so a tab in it reads back.
+/// being when its review was last written. The path comes last, so a tab in it reads back, and
+/// lines end at `\n` alone, so does a `\r` (macOS's `Icon\r`).
 fn read_viewed(store: &Path, branch: &str, base: &str) -> HashMap<PathBuf, u64> {
     let text = std::fs::read_to_string(store).unwrap_or_default();
     let mark = |line: &str| {
@@ -279,7 +297,7 @@ fn read_viewed(store: &Path, branch: &str, base: &str) -> HashMap<PathBuf, u64> 
         let hash = u64::from_str_radix(hash, 16).ok()?;
         (b == branch && s == base).then(|| (PathBuf::from(path), hash))
     };
-    text.lines().filter_map(mark).collect()
+    text.split('\n').filter_map(mark).collect()
 }
 
 /// Replaces the review's lines in the store with `marks`, dated `today`, and drops the reviews
@@ -298,7 +316,7 @@ fn write_viewed<'a>(
         read => read?,
     };
     let mut text = String::new();
-    for line in old.lines() {
+    for line in old.split('\n') {
         let mut cols = line.splitn(4, '\t');
         let (Some(day), Some(b), Some(s)) =
             (cols.next().map(crate::stats::day), cols.next(), cols.next())

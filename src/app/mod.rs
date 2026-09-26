@@ -362,16 +362,19 @@ pub struct App {
     pub want_diff: bool,
     /// `--review`: the branch under review. The tree pane then lists its files.
     pub review: Option<git::Review>,
-    /// Review: the files marked as viewed, each with the hash of what was on disk then. A file
-    /// that has changed since is not viewed any more (`drop_stale_viewed`). Kept in the
-    /// repository's git dir, per branch and base, from one start to the next (#240).
+    /// Review: the files of the listing marked as viewed, each with the hash of what was on disk
+    /// then. A file that has changed since is not viewed any more (`recheck_viewed`). Kept in
+    /// the repository's git dir, per branch and base, from one start to the next (#240).
     pub viewed: HashMap<PathBuf, u64>,
-    /// Review: the files viewed before that changed since, `↻` in the panel until viewed
-    /// again; the hash is the one they were viewed at.
+    /// Review: the files of the listing viewed before that changed since, `↻` in the panel
+    /// until viewed again; the hash is the one they were viewed at.
     pub changed: HashMap<PathBuf, u64>,
-    /// Review: the branch the marks are kept under. While HEAD is detached (an agent's rebase
-    /// stopped on a conflict), the last branch the review had; `None` for a review that never
-    /// had one, whose marks last as long as the session.
+    /// Review: the marks of files the listing does not have now (a rebase stopped before their
+    /// commit, a file reverted), kept unseen for when they come back.
+    unlisted: HashMap<PathBuf, u64>,
+    /// Review: the branch the marks are kept under, the one the listing names. While HEAD is
+    /// detached (an agent's rebase stopped on a conflict), the last branch the review had;
+    /// `None` for a review that has had none yet, whose marks are in memory only until it does.
     viewed_branch: Option<String>,
     /// The theme in use, by name. Set by `main`; the theme picker previews others over it.
     pub theme: String,
@@ -507,6 +510,7 @@ impl App {
             review: None,
             viewed: HashMap::new(),
             changed: HashMap::new(),
+            unlisted: HashMap::new(),
             viewed_branch: None,
             theme: crate::theme::DEFAULT.to_string(),
             config: None,

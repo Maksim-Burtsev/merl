@@ -208,7 +208,14 @@ impl Review {
 
     fn list(root: &Path, base: String) -> Result<Self> {
         let git = |args: &[&str]| git(root, args);
-        let branch = git(&["rev-parse", "--abbrev-ref", "HEAD"])?;
+        // The one reading of HEAD, which the viewed marks are kept by too: the branch's own name,
+        // which a tag of the same name does not shadow, or `HEAD` when detached (no branch may be
+        // named so).
+        let head = git(&["symbolic-ref", "-q", "HEAD"]).unwrap_or_default();
+        let branch = head
+            .strip_prefix("refs/heads/")
+            .unwrap_or("HEAD")
+            .to_string();
         let merge_base = git(&["merge-base", &base, "HEAD"])
             .with_context(|| format!("no merge base between {base} and HEAD"))?;
         // `-z`: NUL-separated and unquoted, so a non-ASCII name is the name on disk.
@@ -272,6 +279,11 @@ impl Review {
         }
     }
 
+    /// The branch under review; `None` on a detached HEAD, which `branch` shows as `HEAD`.
+    pub fn branch_name(&self) -> Option<&str> {
+        (self.branch != "HEAD").then_some(self.branch.as_str())
+    }
+
     pub fn file(&self, rel: &Path) -> Option<&ReviewFile> {
         self.files.iter().find(|f| f.path == rel)
     }
@@ -317,12 +329,6 @@ pub fn dirs(root: &Path) -> Option<(PathBuf, PathBuf)> {
     let out = git(root, &["rev-parse", "--git-dir", "--git-common-dir"]).ok()?;
     let mut dirs = out.lines().map(|d| root.join(d).canonicalize().ok());
     Some((dirs.next()??, dirs.next()??))
-}
-
-/// The branch HEAD is on, as its full ref (`refs/heads/feature`, which a tag of the same name
-/// does not shadow the way it does `feature`); `None` on a detached HEAD.
-pub fn head_branch(root: &Path) -> Option<String> {
-    git(root, &["symbolic-ref", "-q", "HEAD"]).ok()
 }
 
 /// The row of an untracked file: `A`, every line added. Binary is what git calls binary, a NUL
