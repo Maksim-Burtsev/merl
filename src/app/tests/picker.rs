@@ -270,6 +270,27 @@ fn a_search_query_ending_in_a_space_lands_on_the_hit() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// Moves the open picker to the row of `file` at `line`, from 1, and presses Enter on it.
+fn enter_on_row(a: &mut App, file: &str, line: usize) {
+    let picker = a.picker.as_mut().expect("a picker");
+    picker.settle();
+    for _ in 0..picker.counts().0 {
+        if picker
+            .current()
+            .is_some_and(|it| it.path.as_os_str() == file && it.line == line)
+        {
+            break;
+        }
+        picker.key(KeyCode::Down.into());
+    }
+    assert_eq!(
+        picker.current().map(|it| (it.path.clone(), it.line)),
+        Some((PathBuf::from(file), line)),
+        "no row {file}:{line}"
+    );
+    press(a, KeyCode::Enter, KeyModifiers::NONE);
+}
+
 /// In a Makefile `-` is part of a word, as `u` reads the word under the cursor there: a row for
 /// `build-image` lands on that target, not on the start of `build-image-arm` before it.
 #[test]
@@ -284,15 +305,62 @@ fn enter_on_a_usage_row_in_a_makefile_lands_on_the_whole_target() {
     );
     cursor_on(&mut a, "Makefile", 4, "build-image");
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
-    let picker = a.picker.as_mut().expect("the usages");
-    picker.settle();
-    for _ in 0..picker.counts().0 {
-        if picker.current().is_some_and(|it| it.line == 7) {
-            break;
-        }
-        picker.key(KeyCode::Down.into());
-    }
-    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    enter_on_row(&mut a, "Makefile", 7);
     assert_eq!(landed(&a), ("Makefile".into(), 7, 26));
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A `u` row in a file of another language lands on the word as `u` read it under the cursor,
+/// not as the row's own file would: `build-image` from a Makefile is whole in a shell script
+/// too, and `app` from Python is a word of its own in YAML's `my-app`.
+#[test]
+fn a_usage_row_in_a_file_of_another_language_lands_on_the_word() {
+    let (dir, mut a) = project_app(
+        "pick-u-kinds",
+        &[
+            (
+                "Makefile",
+                "build-image-arm:\n\ttrue\n\nbuild-image:\n\ttrue\n",
+            ),
+            ("release.sh", "make build-image-arm build-image\n"),
+            ("app.py", "app = object()\n"),
+            ("ci.yml", "build:\n  image: my-app:latest\n"),
+        ],
+    );
+    cursor_on(&mut a, "Makefile", 4, "build-image");
+    press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
+    enter_on_row(&mut a, "release.sh", 1);
+    assert_eq!(landed(&a), ("release.sh".into(), 1, 22));
+    cursor_on(&mut a, "app.py", 1, "app");
+    press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
+    enter_on_row(&mut a, "ci.yml", 2);
+    assert_eq!(landed(&a), ("ci.yml".into(), 2, 13));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// `d` reads a Makefile target with its `-`, and lands on it by the same rule: on `build-image`
+/// of `build-image-arm build-image:`, not on the start of the line, whether it jumps at once or
+/// from a row of its `by name` list.
+#[test]
+fn d_lands_on_a_makefile_target_after_a_longer_one() {
+    let rule = "build-image-arm build-image:\n\tdocker build .\n\n";
+    let (one, mut a) = project_app(
+        "d-make-one",
+        &[("Makefile", &format!("{rule}all: build-image\n"))],
+    );
+    cursor_on(&mut a, "Makefile", 4, "build-image");
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert!(a.picker.is_none(), "one match: {}", a.message);
+    assert_eq!(landed(&a), ("Makefile".into(), 1, 17));
+    std::fs::remove_dir_all(&one).unwrap();
+
+    let (two, mut a) = project_app(
+        "d-make-two",
+        &[("Makefile", &format!("{rule}all: build-image\n\n{rule}"))],
+    );
+    cursor_on(&mut a, "Makefile", 4, "build-image");
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    enter_on_row(&mut a, "Makefile", 6);
+    assert_eq!(landed(&a), ("Makefile".into(), 6, 17));
+    std::fs::remove_dir_all(&two).unwrap();
 }

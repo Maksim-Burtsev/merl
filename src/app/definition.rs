@@ -481,8 +481,8 @@ impl App {
                 // The cursor lands on the word rather than at the start of the line, so a
                 // second `d` there asks the next question about the same name: what
                 // implements the declaration it just landed on (#68, step 6). A row of the
-                // picker below lands there too.
-                let extra = search::word_chars(search::kind_of(&one.hit.path), true);
+                // picker below lands there too, the word read by the rules `d` read it with.
+                let extra = search::word_chars(Some(kind), true);
                 self.jump_to_col(&path, one.hit.line, word_col(&one.hit.text, word, extra));
                 // A refused jump (edits that cannot be saved) leaves its own reason, not a
                 // resolution nobody followed.
