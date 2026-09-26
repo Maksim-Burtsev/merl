@@ -520,21 +520,25 @@ fn the_lesson_draws_what_it_quotes_as_keycaps() {
     assert!(!plain.modifier.contains(Modifier::BOLD));
 }
 
-/// #251: at 80 columns the wrap keeps every keycap of every text whole on one row, its padding
-/// with it: the coloured runs on screen are the quoted parts in order, and no row starts or ends
-/// in a coloured blank of its own.
+/// #251: at every width from 40 to 140 columns the wrap keeps every keycap of every text whole
+/// on one row, its padding with it: the coloured runs on screen are the quoted parts in order, and
+/// no row starts or ends in a coloured blank of its own. The sweep puts a row's edge inside the
+/// caps with a space in them too, `# hi` and `config or load_config`, which no single width does.
 #[test]
-fn a_keycap_stays_whole_across_the_wrap_at_80_columns() {
+fn a_keycap_stays_whole_across_the_wrap() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let base = Style::new().bg(theme.bg).fg(theme.fg);
-    let pool = crate::tutor::POOL.iter().flat_map(|t| [t.tutor, t.drill]);
-    // Tall enough for the longest text: a cap cut off below would fail as missing.
-    let mut terminal = Terminal::new(TestBackend::new(80, 8)).unwrap();
-    for text in pool.chain([crate::tutor::DONE]) {
+    let texts: Vec<&str> = (crate::tutor::POOL.iter())
+        .flat_map(|t| [t.tutor, t.drill])
+        .chain([crate::tutor::DONE])
+        .collect();
+    for (width, text) in (40..=140).flat_map(|w| texts.iter().map(move |t| (w, *t))) {
+        // Tall enough for the longest text: a cap cut off below would fail as missing.
+        let mut terminal = Terminal::new(TestBackend::new(width, 16)).unwrap();
         terminal
             .draw(|f| {
                 let panel =
-                    crate::ui::overlays::lesson_panel(String::new(), text, &theme, base, 80);
+                    crate::ui::overlays::lesson_panel(String::new(), text, &theme, base, width);
                 f.render_widget(panel, f.area());
             })
             .unwrap();
@@ -559,6 +563,6 @@ fn a_keycap_stays_whole_across_the_wrap_at_80_columns() {
             .step_by(2)
             .map(|q| format!(" {q} "))
             .collect();
-        assert_eq!(caps, quoted, "{text}");
+        assert_eq!(caps, quoted, "{width} columns: {text}");
     }
 }
