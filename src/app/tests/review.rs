@@ -551,6 +551,10 @@ fn c_and_big_c_from_outside_the_review_go_back_to_the_hunk_left() {
     assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
     big_c(&mut a);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
+    // Walked back into src/a.rs onto its second hunk: the way back is the second hunk too.
+    a.jump_to(&outside, 2);
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
     // An excursion into another file of the review walks on from the cursor there.
     a.jump_to(&dir.join("tail"), 1);
     big_c(&mut a);

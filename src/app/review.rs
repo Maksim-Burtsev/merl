@@ -116,8 +116,9 @@ impl App {
     /// that file; its last hunk when fewer are left. A hunk added above lands one earlier, and
     /// the next `c` reaches the one left; a hunk removed above lands on the next, past the one
     /// left, which was read.
-    // ponytail: two or more hunks removed above while away pass unread hunks too; recognise
-    // the hunk by its text if agents ever revert that much under a reader.
+    // ponytail: two hunks removed at or above the one left can pass an unread hunk, and a way
+    // back that fell to the file's last hunk keeps the larger index, not the one it landed on;
+    // recognise the hunk by its text if agents ever rewrite that much under a reader.
     pub(super) fn hunk_left(&self, r: &git::Review) -> Option<(PathBuf, usize)> {
         if self.rel_current().is_some_and(|rel| r.file(&rel).is_some()) {
             return None;
