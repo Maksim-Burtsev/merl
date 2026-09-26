@@ -25,3 +25,11 @@
   master (its own worktree, its own `CARGO_TARGET_DIR`), once against the branch. Record outside
   the checkout (`cp -R tutor/notes /tmp/notes`), keep a run under ~15 s, and push the two GIFs to
   the orphan `media` branch under `prs/`. Internal refactoring, docs and tests need none.
+
+## Merging
+
+- Bug fixes, precision work, refactors, tests and docs: merge your own PR and close its issue
+  without asking, once CI is green and Punchcard says "Ship it".
+- A change the user has to learn (a new or changed key, screen, animation or default): leave the
+  PR open with the before/after screencasts, add the `needs-owner` label and name it in your
+  status line. Never ask "can I merge?" in chat.
