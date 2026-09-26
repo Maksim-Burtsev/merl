@@ -142,5 +142,8 @@ Only when the owner asks for one. In order:
    `Formula/merl.rb` in `Maksim-Burtsev/homebrew-tap` by hand (the version and the three sha256
    of the `.sha256` assets), commit `merl X.Y.Z` and push.
 
-A PR that changes a text a scenario waits for (`grep -r 'TEXT' tests/smoke`) updates the scenario
-in the same PR.
+A PR that changes a text a scenario waits for updates that scenario in the same PR; `grep -rn
+'TEXT' tests/smoke assets/*.steps` finds them all, the README's tapes that `scale` plays included.
+The wait moves to text both the change and the last release draw: the change then shows as a
+difference in its checkpoint, while a wait on the new text would stop the last release there and
+leave the rest of the scenario unplayed.
