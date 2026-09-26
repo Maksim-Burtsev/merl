@@ -50,8 +50,10 @@ master; their tables go into the commit message.
   col`, played on master and on the branch by a temporary `#[ignore]` test `zz_sweep` in
   `src/app/tests/`, the same file in both worktrees: one `App` per project, set `jump_to` and
   `col`, press `d`, write `shown()` and the milliseconds. `cargo test --release zz_sweep --
-  --ignored` plays ~900 cursors in ~40 s. Time in release only: a `grep` call costs ~35 ms in
-  debug, ~1 ms in release. Each row is same, better or WORSE. Never commit the harness.
+  --ignored` plays ~900 cursors in ~40 s. Time in release only (a `grep` call costs ~35 ms in
+  debug, ~1 ms in release), master and branch back to back, with `sysctl -n vm.loadavg` under ~8:
+  parallel sessions' builds push it to 30–90 and skew timings two- to threefold. Each row is
+  same, better or WORSE. Never commit the harness.
 - **Replay** over real projects, `git clone --depth 1` into your scratch folder, cursors picked
   by shape: fastapi, mealie (`uv sync`); gin, gitea; hono (`npm install --ignore-scripts`),
   typeorm, nest, immich (`pnpm install --ignore-scripts --filter 'immich...'`). TypeScript rows
