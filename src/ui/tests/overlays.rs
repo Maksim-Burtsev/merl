@@ -554,6 +554,27 @@ fn review_panel_drops_the_totals_that_do_not_fit() {
     assert!(bottom.starts_with("\u{2514}\u{2500}"), "{bottom}");
 }
 
+/// #250: totals exactly as wide as the border are shown whole; on a panel one column narrower
+/// they are left out whole, never cut at the corner.
+#[test]
+fn review_panel_keeps_totals_that_just_fit_and_drops_them_one_column_short() {
+    // ` 1 file · +1234567 −7654321 `: 28 columns, the border of the 30-column panel.
+    let mut app = review_app(&[("store.rs", 'M', 1_234_567, 7_654_321)]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(60, 8)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    let fits = "\u{2514} 1 file \u{b7} +1234567 \u{2212}7654321 \u{2518}";
+    assert!(r[r.len() - 2].starts_with(fits), "{r:#?}");
+
+    // A 30-column terminal leaves the panel 29 columns, its border 27.
+    let mut terminal = Terminal::new(TestBackend::new(30, 8)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    let empty = format!("\u{2514}{}\u{2518}", "\u{2500}".repeat(27));
+    assert!(r[r.len() - 2].starts_with(&empty), "{r:#?}");
+}
+
 /// #250: a name of wide or multi-byte chars puts the counts at the border, and a long one is
 /// cut by columns, never inside a char.
 #[test]
