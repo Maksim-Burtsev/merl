@@ -8,7 +8,8 @@ impl App {
     /// the rest of the project's code nearest first, then tests, mocks, fixtures, generated and
     /// vendored files. The title says how the list splits.
     pub(super) fn usages(&mut self) {
-        let Some(word) = self.word_under(search::word_chars(self.kind(), false)) else {
+        let extra = search::word_chars(self.kind(), false);
+        let Some(word) = self.word_under(extra) else {
             self.message = "no word under the cursor".into();
             return;
         };
@@ -18,7 +19,17 @@ impl App {
             return;
         }
         let tiers: Vec<Tier> = ranked.iter().map(|(t, _)| *t).collect();
-        let items = Self::hit_items(ranked.into_iter().map(|(_, h)| h).collect());
+        // The grep's column is the first match it calls a whole word, and to it `-` ends one: in a
+        // Makefile that is the start of `build-image-arm` for `build-image`. Every row lands on
+        // the word as `u` read it under the cursor, whatever the language of the row's file.
+        let hits = ranked
+            .into_iter()
+            .map(|(_, h)| Hit {
+                col: word_col(&h.text, &word, extra),
+                ..h
+            })
+            .collect();
+        let items = Self::hit_items(hits);
         let declarations = tiers.iter().filter(|&&t| t == Tier::Declaration).count();
         let tests = tiers.iter().filter(|&&t| t == Tier::Tests).count();
         // A declaration row says so in the column `d` puts its reason in; with no declaration

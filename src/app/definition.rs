@@ -74,6 +74,7 @@ impl App {
                     hit: Hit {
                         path: here.clone(),
                         line,
+                        col: 0,
                         text: self.buf.lines[line - 1].clone(),
                     },
                     reason: Reason::Local,
@@ -100,6 +101,7 @@ impl App {
             let hit = Hit {
                 path: here.clone(),
                 line,
+                col: 0,
                 text: self.buf.lines[line - 1].clone(),
             };
             let reason = Reason::Import(path.join("/"));
@@ -476,22 +478,15 @@ impl App {
                     .text_of(&one.hit.path)
                     .and_then(|text| search::qualified(kind, &text, one.hit.line, word));
                 let status = resolution(word, target.as_deref(), &found, broke, false);
-                self.jump_to(&path, one.hit.line);
+                // The cursor lands on the word rather than at the start of the line, so a
+                // second `d` there asks the next question about the same name: what
+                // implements the declaration it just landed on (#68, step 6). A row of the
+                // picker below lands there too, the word read by the rules `d` read it with.
+                let extra = search::word_chars(Some(kind), true);
+                self.jump_to_col(&path, one.hit.line, word_col(&one.hit.text, word, extra));
                 // A refused jump (edits that cannot be saved) leaves its own reason, not a
                 // resolution nobody followed.
                 if self.buf.path.as_deref() == Some(path.as_path()) {
-                    // The cursor lands on the word rather than at the start of the line, so a
-                    // second `d` there asks the next question about the same name: what
-                    // implements the declaration it just landed on (#68, step 6).
-                    let text = self.line_str().to_owned();
-                    let whole = |(i, _): &(usize, &str)| {
-                        !text[..*i].ends_with(is_word)
-                            && !text[i + word.len()..].starts_with(is_word)
-                    };
-                    if let Some((i, _)) = text.match_indices(word).find(whole) {
-                        self.col = i;
-                        self.sync_want_x();
-                    }
                     self.message = status;
                 }
             }

@@ -680,6 +680,18 @@ pub fn is_word(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
 
+/// The byte where `word` first stands whole in `line`, 0 when it does not: where a jump to a
+/// line that declares or uses it puts the cursor. `extra` are the characters the line's language
+/// counts as part of a word besides letters, digits and `_` ([`search::word_chars`]): the `-` of
+/// a Makefile target.
+pub(super) fn word_col(line: &str, word: &str, extra: &str) -> usize {
+    let part = |c: char| is_word(c) || extra.contains(c);
+    let whole = |(i, _): &(usize, &str)| {
+        !line[..*i].ends_with(part) && !line[i + word.len()..].starts_with(part)
+    };
+    line.match_indices(word).find(whole).map_or(0, |(i, _)| i)
+}
+
 /// The byte after the grapheme cluster at `i`: an emoji with its selector, skin tone or ZWJ
 /// parts is one step, as it is one cell on screen, and so is a letter with its accents.
 pub(crate) fn next_char(s: &str, i: usize) -> usize {
