@@ -51,6 +51,7 @@ impl App {
                     }
                     self.undo_break = true;
                     self.anchor = None;
+                    self.preview = None;
                     self.dirty = false;
                     self.conflict = false;
                     if self.mode == Mode::Edit {

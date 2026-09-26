@@ -56,6 +56,7 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     let pane = match (app.mode, app.focus) {
         (Mode::Edit, _) => "edit",
         (_, Focus::Tree) => "tree",
+        _ if app.previewing() => "preview",
         _ => "code",
     };
     let mut spans = vec![
@@ -81,7 +82,11 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
                     ""
                 },
                 if app.no_watch { "  no auto-reload" } else { "" },
-                if app.nowrap() { "  nowrap" } else { "" }
+                if app.nowrap() && !app.previewing() {
+                    "  nowrap"
+                } else {
+                    ""
+                }
             ),
             style,
         ),

@@ -216,7 +216,6 @@ impl Buffer {
         if self.hl.len() > last {
             return;
         }
-        let set = syntaxes();
         let highlighter = Highlighter::new(&theme.syntect);
         let state = self.state.get_or_insert_with(|| {
             (
@@ -240,23 +239,50 @@ impl Buffer {
                 self.hl.push(Vec::new());
                 continue;
             }
-            let raw = &self.lines[self.hl.len()];
-            let line = format!("{raw}\n");
-            let ops = state.0.parse_line(&line, set).unwrap_or_default();
-            let mut spans = Vec::new();
-            let mut at = 0usize;
-            for (style, text) in HighlightIterator::new(&mut state.1, &ops, &line, &highlighter) {
-                let start = at;
-                at += text.len();
-                // The trailing "\n" we added is not part of the line.
-                let end = at.min(raw.len());
-                if start < end {
-                    spans.push((crate::theme::style(style), start..end));
-                }
-            }
+            let spans = line_spans(state, &self.lines[self.hl.len()], &highlighter);
             self.hl.push(spans);
         }
     }
+}
+
+/// One line's spans, going on from the parser state the line above left.
+fn line_spans(
+    state: &mut (ParseState, HighlightState),
+    raw: &str,
+    highlighter: &Highlighter,
+) -> Spans {
+    let line = format!("{raw}\n");
+    let ops = state.0.parse_line(&line, syntaxes()).unwrap_or_default();
+    let mut spans = Vec::new();
+    let mut at = 0usize;
+    for (style, text) in HighlightIterator::new(&mut state.1, &ops, &line, highlighter) {
+        let start = at;
+        at += text.len();
+        // The trailing "\n" we added is not part of the line.
+        let end = at.min(raw.len());
+        if start < end {
+            spans.push((crate::theme::style(style), start..end));
+        }
+    }
+    spans
+}
+
+/// `lines` highlighted as the language `token` names, as a Markdown code block's info string
+/// does (`rust`, `py`, `sh`), with the syntaxes and theme of the files merl opens. `None` when
+/// no syntax goes by that name.
+pub(crate) fn highlight_lines(token: &str, lines: &[String], theme: &Theme) -> Option<Vec<Spans>> {
+    let syntax = syntaxes().find_syntax_by_token(token)?;
+    let highlighter = Highlighter::new(&theme.syntect);
+    let mut state = (
+        ParseState::new(syntax),
+        HighlightState::new(&highlighter, ScopeStack::new()),
+    );
+    Some(
+        lines
+            .iter()
+            .map(|l| line_spans(&mut state, l, &highlighter))
+            .collect(),
+    )
 }
 
 pub fn hash(bytes: &[u8]) -> u64 {

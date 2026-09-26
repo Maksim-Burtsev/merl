@@ -1,0 +1,356 @@
+//! Tests for [`crate::markdown`]: what each element renders as, the source position of every
+//! row, and widths.
+
+use super::*;
+
+fn doc(text: &str, width: usize) -> Doc {
+    let lines: Vec<String> = text.lines().map(String::from).collect();
+    layout(&lines, width)
+}
+
+fn texts(d: &Doc) -> Vec<&str> {
+    d.rows.iter().map(|r| r.text.as_str()).collect()
+}
+
+/// The look over the first `what` in the rows, and the row it is on.
+fn look_of(d: &Doc, what: &str) -> Look {
+    for r in &d.rows {
+        if let Some(i) = r.text.find(what) {
+            let (look, range) = r
+                .looks
+                .iter()
+                .find(|(_, range)| range.start <= i && i < range.end)
+                .unwrap_or_else(|| panic!("no look over {what:?} in {:?}", r.text));
+            assert!(
+                range.end >= i + what.len(),
+                "{what:?} is cut: {:?}",
+                r.looks
+            );
+            return *look;
+        }
+    }
+    panic!("{what:?} is not in {:?}", texts(d));
+}
+
+fn look(ink: Ink, mods: Modifier) -> Look {
+    Look { ink, mods }
+}
+
+#[test]
+fn headings_lose_their_marks_and_the_first_two_get_a_rule() {
+    let d = doc("# One\n## Two\n### Three\n#### Four\ntext", 10);
+    assert_eq!(
+        texts(&d),
+        [
+            "One",
+            "\u{2501}".repeat(10).as_str(),
+            "Two",
+            "\u{2500}".repeat(10).as_str(),
+            "Three",
+            "Four",
+            "text",
+        ]
+    );
+    for h in ["One", "Two", "Three", "Four"] {
+        assert_eq!(look_of(&d, h), look(Ink::Heading, Modifier::BOLD), "{h}");
+    }
+    assert_eq!(look_of(&d, "text"), Ink::Text.plain());
+}
+
+#[test]
+fn inline_styles_and_links_without_their_urls() {
+    let d = doc(
+        "**bold** *it* ~~gone~~ `code` [site](https://example.com) ![logo](a.png) <b>",
+        80,
+    );
+    assert_eq!(texts(&d), ["bold it gone code site \u{25a3} logo <b>"]);
+    assert_eq!(look_of(&d, "bold"), look(Ink::Text, Modifier::BOLD));
+    assert_eq!(look_of(&d, "it"), look(Ink::Text, Modifier::ITALIC));
+    assert_eq!(look_of(&d, "gone"), look(Ink::Text, Modifier::CROSSED_OUT));
+    assert_eq!(look_of(&d, "code"), Ink::Code.plain());
+    assert_eq!(look_of(&d, "site"), look(Ink::Link, Modifier::UNDERLINED));
+    assert_eq!(look_of(&d, "\u{25a3} logo"), Ink::Dim.plain());
+    assert_eq!(look_of(&d, "<b>"), Ink::Dim.plain());
+}
+
+#[test]
+fn lists_nest_and_wrap_under_their_text() {
+    let d = doc(
+        "- first item wraps here\n  1. one\n  2. two\n- [x] done\n- [ ] open\n\n3. three\n4. four",
+        14,
+    );
+    assert_eq!(
+        texts(&d),
+        [
+            "\u{2022} first item",
+            "  wraps here",
+            "  1. one",
+            "  2. two",
+            "\u{2611} done",
+            "\u{2610} open",
+            "",
+            "3. three",
+            "4. four",
+        ]
+    );
+    assert_eq!(look_of(&d, "\u{2022}"), Ink::Bullet.plain());
+    assert_eq!(look_of(&d, "3."), Ink::Bullet.plain());
+    // A second level of bullets.
+    assert_eq!(
+        texts(&doc("- a\n  - b", 10)),
+        ["\u{2022} a", "  \u{25e6} b"]
+    );
+}
+
+#[test]
+fn a_loose_list_keeps_its_items_apart() {
+    assert_eq!(
+        texts(&doc("- a\n\n- b\n- c", 10)),
+        ["\u{2022} a", "", "\u{2022} b", "", "\u{2022} c"]
+    );
+}
+
+#[test]
+fn quotes_and_alerts_have_a_bar() {
+    let d = doc(
+        "> said\n> twice\n\n> [!WARNING]\n> Careful with this one",
+        16,
+    );
+    assert_eq!(
+        texts(&d),
+        [
+            "\u{2502} said twice",
+            "",
+            "\u{2502} Warning",
+            "\u{2502} Careful with",
+            "\u{2502} this one",
+        ]
+    );
+    assert_eq!(look_of(&d, "said"), Ink::Quote.plain());
+    let warning = Ink::Alert(BlockQuoteKind::Warning);
+    assert_eq!(look_of(&d, "Warning"), look(warning, Modifier::BOLD));
+    // An alert's text is not greyed; its bar is in its colour.
+    assert_eq!(look_of(&d, "Careful"), Ink::Text.plain());
+    assert_eq!(d.rows[3].looks[0], (warning.plain(), 0..3));
+}
+
+#[test]
+fn code_blocks_lose_their_fences_and_wrap_under_their_indent() {
+    let d = doc(
+        "```rust\nfn main() {\n\tlet x = compute(alpha, beta);\n}\n```\n\n    indented",
+        24,
+    );
+    assert_eq!(
+        texts(&d),
+        [
+            " fn main() {",
+            "     let x = ",
+            "     compute(alpha, ",
+            "     beta);",
+            " }",
+            "",
+            " indented",
+        ]
+    );
+    assert_eq!(d.code[0].lang, "rust");
+    assert_eq!(d.code[0].lines[1], "    let x = compute(alpha, beta);");
+    assert_eq!(d.code[1].lang, "");
+    // Each row knows the part of its line it shows, for the syntax colours.
+    assert_eq!(
+        d.rows[2].kind,
+        Kind::Code {
+            block: 0,
+            line: 1,
+            from: 12,
+            at: 5,
+        }
+    );
+    assert!(
+        d.rows
+            .iter()
+            .filter(|r| matches!(r.kind, Kind::Code { .. }))
+            .all(|r| r.looks == [(Ink::Code.plain(), 0..r.text.len())])
+    );
+}
+
+#[test]
+fn tables_are_drawn_in_lines_and_aligned() {
+    let d = doc(
+        "| Left | Mid | Right |\n|:---|:---:|---:|\n| a | b | c |\n| longer | x | 1 |",
+        80,
+    );
+    assert_eq!(
+        texts(&d),
+        [
+            "\u{250c}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{252c}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{252c}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2510}",
+            "\u{2502} Left   \u{2502} Mid \u{2502} Right \u{2502}",
+            "\u{251c}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{253c}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{253c}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2524}",
+            "\u{2502} a      \u{2502}  b  \u{2502}     c \u{2502}",
+            "\u{2502} longer \u{2502}  x  \u{2502}     1 \u{2502}",
+            "\u{2514}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2534}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2534}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2518}",
+        ]
+    );
+    assert_eq!(look_of(&d, "Left"), look(Ink::Text, Modifier::BOLD));
+    assert_eq!(look_of(&d, "longer"), Ink::Text.plain());
+}
+
+/// Every row of a table as wide as the top border: the table is whole.
+fn whole(d: &Doc) -> usize {
+    let w = wrap::width(&d.rows[0].text);
+    for r in &d.rows {
+        assert_eq!(wrap::width(&r.text), w, "{:?}", texts(d));
+    }
+    w
+}
+
+#[test]
+fn a_table_wider_than_the_pane_narrows_its_widest_column_and_stays_whole() {
+    let src = "| Step | Owner | Risk |\n|---|---|---|\n| watcher | Kimi | low |\n\
+               | diff recompute | Claude | medium: the cursor must not jump |";
+    let d = doc(src, 44);
+    assert_eq!(whole(&d), 44);
+    assert_eq!(
+        texts(&d)[3..7],
+        [
+            "\u{2502} watcher        \u{2502} Kimi   \u{2502} low            \u{2502}",
+            "\u{2502} diff recompute \u{2502} Claude \u{2502} medium: the    \u{2502}",
+            "\u{2502}                \u{2502}        \u{2502} cursor must    \u{2502}",
+            "\u{2502}                \u{2502}        \u{2502} not jump       \u{2502}",
+        ]
+    );
+    // Narrower still, every column gives way, and the table is still one piece.
+    assert!(whole(&doc(src, 20)) <= 20);
+    // At its natural width it is as wide as it needs, no wider.
+    assert_eq!(whole(&doc(src, 200)), 62);
+}
+
+#[test]
+fn emoji_and_cjk_take_the_columns_they_are_drawn_in() {
+    // Prose wraps by display width: two-column clusters fill a row of eight in fours.
+    let d = doc("漢字漢字 👍🏽👍🏽 ⚠️⚠️ ok", 8);
+    assert_eq!(texts(&d), ["漢字漢字", "👍🏽👍🏽", "⚠️⚠️ ok"]);
+    for r in &d.rows {
+        assert!(wrap::width(&r.text) <= 8, "{:?}", r.text);
+    }
+    // In a table they line the borders up as ASCII does.
+    let d = doc("| a | b |\n|---|---|\n| 漢字 | x |\n| 👍🏽 ok | ⚠️ |", 40);
+    whole(&d);
+    let d = doc(
+        "| a | b |\n|---|---|\n| 漢字漢字漢字 | x |\n| 👍🏽 ok | ⚠️ |",
+        12,
+    );
+    whole(&d);
+}
+
+#[test]
+fn rules_front_matter_html_and_footnotes() {
+    let d = doc(
+        "---\ntitle: x\n---\nA claim[^src].\n\n---\n\n<div>raw</div>\n\n[^src]: The source \
+         of it.",
+        16,
+    );
+    let rule = "\u{2500}".repeat(16);
+    assert_eq!(
+        texts(&d),
+        [
+            "---",
+            "title: x",
+            "---",
+            "",
+            "A claim[1].",
+            "",
+            rule.as_str(),
+            "",
+            "<div>raw</div>",
+            "",
+            rule.as_str(),
+            "",
+            "[1] The source",
+            "    of it.",
+        ]
+    );
+    assert_eq!(look_of(&d, "title: x"), Ink::Dim.plain());
+    assert_eq!(look_of(&d, "<div>"), Ink::Dim.plain());
+    assert_eq!(look_of(&d, "[1]"), Ink::Link.plain());
+}
+
+#[test]
+fn every_row_knows_where_it_starts_in_the_source() {
+    let src = "# Title\n\nSome words that\nwrap on.\n\n- item\n- next\n\n```\ncode\n```\n\n\
+               | a | b |\n|---|---|\n| 1 | 2 |";
+    let d = doc(src, 10);
+    let at: Vec<(&str, (usize, usize))> = d.rows.iter().map(|r| (r.text.as_str(), r.src)).collect();
+    let m = usize::MAX;
+    assert_eq!(
+        at,
+        [
+            ("Title", (0, 2)),
+            // What a heading heads follows its rule without a blank row.
+            ("\u{2501}".repeat(10).as_str(), (0, 2)),
+            ("Some words", (2, 0)),
+            ("that wrap", (2, 11)),
+            ("on.", (3, 5)),
+            // A blank row stands for the blank line above the next block.
+            ("", (4, 0)),
+            ("\u{2022} item", (5, 2)),
+            ("\u{2022} next", (6, 2)),
+            ("", (7, 0)),
+            (" code", (9, 0)),
+            ("", (11, 0)),
+            (
+                "\u{250c}\u{2500}\u{2500}\u{2500}\u{252c}\u{2500}\u{2500}\u{2500}\u{2510}",
+                (12, 0)
+            ),
+            ("\u{2502} a \u{2502} b \u{2502}", (12, 0)),
+            (
+                "\u{251c}\u{2500}\u{2500}\u{2500}\u{253c}\u{2500}\u{2500}\u{2500}\u{2524}",
+                (13, 0)
+            ),
+            ("\u{2502} 1 \u{2502} 2 \u{2502}", (14, 0)),
+            (
+                "\u{2514}\u{2500}\u{2500}\u{2500}\u{2534}\u{2500}\u{2500}\u{2500}\u{2518}",
+                (14, m)
+            ),
+        ]
+    );
+    // From the source back: the row of a position is the one that starts furthest into it.
+    assert_eq!(d.row_at((0, 0)), 0);
+    assert_eq!(d.row_at((2, 5)), 2);
+    assert_eq!(d.row_at((2, 14)), 3);
+    assert_eq!(d.row_at((3, 0)), 3);
+    assert_eq!(d.row_at((6, 0)), 6);
+    assert_eq!(d.row_at((10, 3)), 9);
+    assert_eq!(d.row_at((14, 4)), 14);
+    // Every row whose position is its own is found again by it.
+    for (i, r) in d.rows.iter().enumerate() {
+        if d.rows[..i].iter().all(|o| o.src != r.src) && r.src.1 != m {
+            assert_eq!(d.row_at(r.src), i, "{:?}", r.text);
+        }
+    }
+}
+
+#[test]
+fn an_empty_file_is_one_blank_row() {
+    let d = doc("", 10);
+    assert_eq!(texts(&d), [""]);
+    assert_eq!(d.row_at((0, 0)), 0);
+}
+
+#[test]
+fn fit_takes_the_room_from_the_widest_columns() {
+    assert_eq!(fit(&[3, 4], &[3, 4], 10), [3, 4]);
+    assert_eq!(fit(&[3, 20, 10], &[3, 5, 5], 20), [3, 9, 8]);
+    // A long word keeps its column that wide while every column's word fits.
+    assert_eq!(fit(&[19, 43, 6, 64], &[19, 6, 6, 7], 54), [19, 15, 6, 14]);
+    // They do not all fit: the words break, the widest columns first.
+    assert_eq!(fit(&[19, 43, 6, 64], &[19, 6, 6, 7], 34), [10, 9, 6, 9]);
+    assert_eq!(fit(&[5, 5], &[5, 5], 3), [2, 1]);
+    // No room at all: a column each, and the table runs past the pane.
+    assert_eq!(fit(&[5, 5], &[5, 5], 0), [1, 1]);
+}
+
+#[test]
+fn a_run_of_spaces_wider_than_the_pane_leaves_no_blank_rows() {
+    // A code span of spaces opens the paragraph: its rows of nothing but spaces go.
+    assert_eq!(texts(&doc("`        ` word", 3)), ["wor", "d"]);
+}

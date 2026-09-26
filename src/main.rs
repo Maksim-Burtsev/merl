@@ -6,6 +6,7 @@ mod git;
 mod intraline;
 mod line_edit;
 mod live;
+mod markdown;
 mod picker;
 mod search;
 mod stats;

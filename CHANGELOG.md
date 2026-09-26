@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `p` shows a Markdown file rendered, in place of its source, and `p` again shows the source, at
+  the same place both ways; Enter in the preview edits the source where it stands. Headings,
+  emphasis, lists and task lists, quotes and GitHub alerts, tables in box drawing aligned as
+  their `:---:` says, code blocks in the theme's colours, rules and footnotes render; links show
+  their text, images their alt text. The preview is rendered from the open buffer, so a file an
+  agent rewrites renders again, and it reflows to the pane: a table wider than the pane narrows
+  its widest columns and wraps inside their cells instead of falling apart. Reading keys move a
+  cursor row; `/`, `v`, `d` and `u` have no word or column to act on there and do nothing. In
+  `--review` the preview keeps the diff's marks and tints. The tutor has a Markdown plan and a
+  lesson for it. (#249)
+
 ### Changed
 
 - `merl --review` paints the diff as GitHub does: the lines the branch deleted on a red tint,

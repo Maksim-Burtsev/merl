@@ -179,9 +179,12 @@ impl App {
             Mode::Picker(_) => {
                 self.picker.is_some() && matches!(code, KeyCode::Up | KeyCode::Down) && m.is_empty()
             }
+            // The preview's rows are not the source's: no run of it is judged against keys that
+            // move over the source.
             Mode::Normal | Mode::Edit => {
                 self.focus == Focus::Code
                     && self.buf.path.is_some()
+                    && !self.previewing()
                     && (arrow && (m.is_empty() || m == KeyModifiers::SHIFT)
                         || deleting
                         || paging && self.review.is_some() && self.mode == Mode::Normal)
@@ -423,7 +426,10 @@ impl App {
             n: 1,
             from: (self.buf.path.clone()?, self.line),
             here: self.rel_current(),
-            word: self.word_under(search::word_chars(self.kind(), false)),
+            // The preview has no word under the cursor for `d` or `u` to read.
+            word: (!self.previewing())
+                .then(|| self.word_under(search::word_chars(self.kind(), false)))
+                .flatten(),
             query: String::new(),
             stops,
             next,

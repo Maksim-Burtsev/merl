@@ -1,0 +1,1012 @@
+//! Markdown rendered for reading (#249): `p` shows a `.md` file as the rows laid out here.
+//!
+//! Every row carries the source position it starts at, so the preview and the source keep one
+//! place both ways. The layout depends on the text and the width only; the colours are the
+//! theme's, looked up as a row is drawn ([`Palette`]), so `T` repaints without laying out again.
+//! Prose reflows with [`wrap`], which measures emoji and CJK as the screen does; a table wider
+//! than the pane narrows its widest columns and wraps inside their cells, so it stays whole.
+
+use std::collections::HashMap;
+use std::ops::Range;
+use std::path::Path;
+
+use pulldown_cmark::{
+    Alignment, BlockQuoteKind, CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd,
+};
+use ratatui::style::{Color, Modifier, Style};
+use syntect::highlighting::Highlighter;
+use syntect::parsing::Scope;
+
+use crate::theme::Theme;
+use crate::wrap;
+
+/// Whether `path` is a Markdown file, which `p` shows rendered.
+pub fn is_markdown(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("md") || e.eq_ignore_ascii_case("markdown"))
+}
+
+/// What a piece of a row is drawn as: a colour of the theme and the modifiers over it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Look {
+    pub ink: Ink,
+    pub mods: Modifier,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Ink {
+    Text,
+    Heading,
+    /// Inline code and code blocks, on a tint.
+    Code,
+    Link,
+    /// A quote's text.
+    Quote,
+    /// What is shown as it is written: front matter, HTML, an image's alt text.
+    Dim,
+    /// Bullets, numbers and checkboxes.
+    Bullet,
+    /// Rules, table borders and the bar left of a quote.
+    Line,
+    /// A GitHub alert's bar and title.
+    Alert(BlockQuoteKind),
+}
+
+impl Ink {
+    fn plain(self) -> Look {
+        Look {
+            ink: self,
+            mods: Modifier::empty(),
+        }
+    }
+}
+
+/// One screen row of the preview.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Row {
+    pub text: String,
+    /// Looks over byte ranges of `text`, in order and disjoint.
+    pub looks: Vec<(Look, Range<usize>)>,
+    /// Where the row starts in the source: 0-based line and byte column. A column past the end
+    /// of the line (a rule under a heading, the blank row after a block) is the line's end.
+    pub src: (usize, usize),
+    pub kind: Kind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    Text,
+    /// The blank row between two blocks: where `{` and `}` stop.
+    Gap,
+    /// A row of a code block: which block of [`Doc::code`], which of its lines, where in that
+    /// line the row starts, and where in `text` it is drawn. The tint runs to the pane's edge.
+    Code {
+        block: usize,
+        line: usize,
+        from: usize,
+        at: usize,
+    },
+}
+
+/// A code block's info string and its lines, tabs drawn as spaces: highlighted as it is drawn.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Code {
+    pub lang: String,
+    pub lines: Vec<String>,
+}
+
+/// A Markdown file laid out for one width.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Doc {
+    /// Never empty: an empty file is one blank row.
+    pub rows: Vec<Row>,
+    pub code: Vec<Code>,
+}
+
+impl Doc {
+    /// The row a source position is shown on: the first of the rows that start furthest into
+    /// the source without passing it, or the first row when every row starts past it.
+    pub fn row_at(&self, pos: (usize, usize)) -> usize {
+        let mut best = 0;
+        for (i, r) in self.rows.iter().enumerate() {
+            if r.src <= pos && (r.src > self.rows[best].src || self.rows[best].src > pos) {
+                best = i;
+            }
+        }
+        best
+    }
+}
+
+/// `text` laid out in rows of `width` columns.
+pub fn layout(lines: &[String], width: usize) -> Doc {
+    let src = lines.join("\n");
+    let mut starts = vec![0];
+    starts.extend(src.match_indices('\n').map(|(i, _)| i + 1));
+    let mut lay = Lay {
+        src: &src,
+        starts,
+        width: width.max(1),
+        ..Default::default()
+    };
+    let opts = Options::ENABLE_TABLES
+        | Options::ENABLE_TASKLISTS
+        | Options::ENABLE_STRIKETHROUGH
+        | Options::ENABLE_FOOTNOTES
+        | Options::ENABLE_GFM
+        | Options::ENABLE_YAML_STYLE_METADATA_BLOCKS;
+    for (ev, r) in Parser::new_ext(&src, opts).into_offset_iter() {
+        lay.event(ev, r);
+    }
+    lay.flush();
+    // Footnotes come last, as on GitHub, under a rule.
+    if !lay.notes.is_empty() {
+        let notes = std::mem::take(&mut lay.notes);
+        let end = src.len();
+        lay.gap = true;
+        lay.block_start(end);
+        lay.rule(lay.after());
+        lay.gap = true;
+        lay.block_start(end);
+        lay.rows.extend(notes);
+    }
+    let mut rows = lay.rows;
+    if rows.is_empty() {
+        rows.push(Row {
+            text: String::new(),
+            looks: Vec::new(),
+            src: (0, 0),
+            kind: Kind::Gap,
+        });
+    }
+    Doc {
+        rows,
+        code: lay.code,
+    }
+}
+
+/// A container the rows inside it are drawn in.
+enum Frame {
+    Quote(Option<BlockQuoteKind>),
+    /// The next number of an ordered list, and whether its items are paragraphs apart.
+    List(Option<u64>, bool),
+    /// A list item or a footnote: the marker its first row still has to show, and how wide the
+    /// marker is, which the rows after the first are indented by.
+    Item(Option<(String, Look)>, usize),
+}
+
+/// A paragraph, heading or table cell being read: its text, the looks over it, and where each
+/// piece came from in the source.
+#[derive(Default)]
+struct Inline {
+    text: String,
+    looks: Vec<(Look, Range<usize>)>,
+    /// (byte in `text`, source bytes) of each piece.
+    map: Vec<(usize, Range<usize>)>,
+}
+
+impl Inline {
+    fn push(&mut self, s: &str, look: Look, src: Range<usize>) {
+        let start = self.text.len();
+        self.text.push_str(&s.replace('\t', crate::buffer::TAB));
+        let end = self.text.len();
+        self.map.push((start, src));
+        match self.looks.last_mut() {
+            Some((l, r)) if *l == look && r.end == start => r.end = end,
+            _ => self.looks.push((look, start..end)),
+        }
+    }
+
+    /// The source byte text byte `i` came from, as near as the piece holding it says.
+    fn src_at(&self, i: usize) -> usize {
+        let k = self.map.partition_point(|(t, _)| *t <= i).saturating_sub(1);
+        self.map
+            .get(k)
+            .map_or(0, |(t, r)| (r.start + (i - t)).min(r.end))
+    }
+}
+
+/// A code block's lines, each with the source position it starts at.
+type CodeLines = Vec<(String, (usize, usize))>;
+
+struct Table {
+    aligns: Vec<Alignment>,
+    /// The source line of each row, the header first, and its cells.
+    rows: Vec<(usize, Vec<Inline>)>,
+}
+
+#[derive(Default)]
+struct Lay<'a> {
+    src: &'a str,
+    /// The byte each source line starts at.
+    starts: Vec<usize>,
+    width: usize,
+    rows: Vec<Row>,
+    /// Footnote definitions, shown after everything else.
+    notes: Vec<Row>,
+    in_note: bool,
+    /// `gap` of the text around a footnote definition, set aside while it is read.
+    note_gap: bool,
+    code: Vec<Code>,
+    stack: Vec<Frame>,
+    /// A blank row goes before the next block.
+    gap: bool,
+    inline: Option<Inline>,
+    /// `inline` is a tight list item's text, which comes with no paragraph around it.
+    implicit: bool,
+    bold: usize,
+    italic: usize,
+    strike: usize,
+    link: usize,
+    image: usize,
+    heading: Option<HeadingLevel>,
+    table: Option<Table>,
+    /// A code block being read: its info string and its lines.
+    block: Option<(String, CodeLines)>,
+    /// Inside front matter, which is drawn from its source lines.
+    meta: bool,
+    /// Footnote labels, numbered as they are first met.
+    numbers: HashMap<String, usize>,
+}
+
+impl Lay<'_> {
+    fn event(&mut self, ev: Event, r: Range<usize>) {
+        match ev {
+            Event::Start(tag) => self.start(tag, r),
+            Event::End(tag) => self.end(tag),
+            Event::Text(_) if self.meta => {}
+            Event::Text(t) if self.block.is_some() => {
+                let (line, col) = self.pos(r.start);
+                let Some((_, lines)) = &mut self.block else {
+                    return;
+                };
+                for (k, l) in t.lines().enumerate() {
+                    // Inside a container every line is an event of its own; a block at the top
+                    // is one event whose later lines start at column 0.
+                    let col = if k == 0 { col } else { 0 };
+                    lines.push((l.replace('\t', crate::buffer::TAB), (line + k, col)));
+                }
+            }
+            Event::Text(t) => self.text(&t, self.look(), r),
+            Event::Code(t) => {
+                let look = Look {
+                    ink: Ink::Code,
+                    ..self.look()
+                };
+                self.text(&t, look, r);
+            }
+            Event::InlineMath(t) | Event::DisplayMath(t) => self.text(&t, self.look(), r),
+            Event::Html(t) => {
+                // A raw HTML block, a line an event: shown as it is written.
+                let at = self.pos(r.start);
+                let line = t.trim_end_matches(['\n', '\r']);
+                self.lines(line, Ink::Dim.plain(), at);
+            }
+            Event::InlineHtml(t) => self.text(&t, Ink::Dim.plain(), r),
+            Event::FootnoteReference(label) => {
+                let n = self.number(&label);
+                let look = Look {
+                    ink: Ink::Link,
+                    ..self.look()
+                };
+                self.text(&format!("[{n}]"), look, r);
+            }
+            Event::SoftBreak => self.text(" ", self.look(), r.start..r.start),
+            Event::HardBreak => self.text("\n", self.look(), r.end..r.end),
+            Event::Rule => {
+                self.block_start(r.start);
+                self.rule(self.pos(r.start));
+                self.gap = true;
+            }
+            Event::TaskListMarker(done) => {
+                if let Some(Frame::Item(marker, w)) = self.stack.last_mut() {
+                    let bullet = if done { "\u{2611} " } else { "\u{2610} " };
+                    *marker = Some((bullet.into(), Ink::Bullet.plain()));
+                    *w = 2;
+                }
+            }
+        }
+    }
+
+    fn start(&mut self, tag: Tag, r: Range<usize>) {
+        match tag {
+            Tag::Paragraph => {
+                self.block_start(r.start);
+                // A list whose items hold paragraphs is loose: blank rows between its items.
+                if let [.., Frame::List(_, loose), Frame::Item(..)] = &mut self.stack[..] {
+                    *loose = true;
+                }
+                self.inline = Some(Inline::default());
+            }
+            Tag::Heading { level, .. } => {
+                self.block_start(r.start);
+                self.heading = Some(level);
+                self.inline = Some(Inline::default());
+            }
+            Tag::BlockQuote(kind) => {
+                self.block_start(r.start);
+                self.stack.push(Frame::Quote(kind));
+                if let Some(kind) = kind {
+                    let title = match kind {
+                        BlockQuoteKind::Note => "Note",
+                        BlockQuoteKind::Tip => "Tip",
+                        BlockQuoteKind::Important => "Important",
+                        BlockQuoteKind::Warning => "Warning",
+                        BlockQuoteKind::Caution => "Caution",
+                    };
+                    let look = Look {
+                        ink: Ink::Alert(kind),
+                        mods: Modifier::BOLD,
+                    };
+                    let at = self.pos(r.start);
+                    self.push(title.into(), vec![(look, 0..title.len())], at, Kind::Text);
+                }
+            }
+            Tag::CodeBlock(kind) => {
+                self.block_start(r.start);
+                let lang = match kind {
+                    CodeBlockKind::Fenced(info) => {
+                        info.split_whitespace().next().unwrap_or("").into()
+                    }
+                    CodeBlockKind::Indented => String::new(),
+                };
+                self.block = Some((lang, Vec::new()));
+            }
+            Tag::HtmlBlock => self.block_start(r.start),
+            Tag::List(first) => {
+                self.block_start(r.start);
+                self.stack.push(Frame::List(first, false));
+            }
+            Tag::Item => {
+                self.flush_implicit();
+                // Items of a tight list follow each other; a loose list's are paragraphs apart.
+                let loose = matches!(self.stack.last(), Some(Frame::List(_, true)));
+                self.gap &= loose;
+                self.block_start(r.start);
+                let depth = self
+                    .stack
+                    .iter()
+                    .filter(|f| matches!(f, Frame::List(..)))
+                    .count();
+                let marker = match self.stack.last_mut() {
+                    Some(Frame::List(Some(n), _)) => {
+                        *n += 1;
+                        format!("{}. ", *n - 1)
+                    }
+                    _ => match depth {
+                        1 => "\u{2022} ",
+                        2 => "\u{25e6} ",
+                        _ => "\u{25aa} ",
+                    }
+                    .into(),
+                };
+                let w = wrap::width(&marker);
+                self.stack
+                    .push(Frame::Item(Some((marker, Ink::Bullet.plain())), w));
+            }
+            Tag::FootnoteDefinition(label) => {
+                self.flush_implicit();
+                let n = self.number(&label);
+                self.note_gap = std::mem::replace(&mut self.gap, false);
+                self.in_note = true;
+                let marker = format!("[{n}] ");
+                let w = wrap::width(&marker);
+                self.stack
+                    .push(Frame::Item(Some((marker, Ink::Link.plain())), w));
+            }
+            Tag::Table(aligns) => {
+                self.block_start(r.start);
+                self.table = Some(Table {
+                    aligns,
+                    rows: Vec::new(),
+                });
+            }
+            Tag::TableHead | Tag::TableRow => {
+                let line = self.pos(r.start).0;
+                if let Some(t) = &mut self.table {
+                    t.rows.push((line, Vec::new()));
+                }
+            }
+            Tag::TableCell => self.inline = Some(Inline::default()),
+            Tag::Emphasis => self.italic += 1,
+            Tag::Strong => self.bold += 1,
+            Tag::Strikethrough => self.strike += 1,
+            Tag::Link { .. } => self.link += 1,
+            Tag::Image { .. } => {
+                // The picture cannot be drawn: its alt text stands in, marked.
+                self.image += 1;
+                self.text("\u{25a3} ", self.look(), r.start..r.start);
+            }
+            Tag::MetadataBlock(_) => {
+                self.block_start(r.start);
+                self.meta = true;
+                let (first, last) = (self.pos(r.start).0, self.pos(r.end.saturating_sub(1)).0);
+                for l in first..=last {
+                    let text = self.line(l).to_string();
+                    self.lines(&text, Ink::Dim.plain(), (l, 0));
+                }
+            }
+            Tag::DefinitionList
+            | Tag::DefinitionListTitle
+            | Tag::DefinitionListDefinition
+            | Tag::Superscript
+            | Tag::Subscript => {}
+        }
+    }
+
+    fn end(&mut self, tag: TagEnd) {
+        match tag {
+            TagEnd::Paragraph => {
+                self.flush();
+                self.gap = true;
+            }
+            TagEnd::Heading(level) => {
+                self.flush();
+                self.heading = None;
+                // H1 and H2 are set apart by a rule, as GitHub underlines them.
+                let rule = match level {
+                    HeadingLevel::H1 => "\u{2501}",
+                    HeadingLevel::H2 => "\u{2500}",
+                    _ => "",
+                };
+                if !rule.is_empty() {
+                    let at = self.rows_mut().last().map_or((0, 0), |r| r.src);
+                    let text = rule.repeat(self.avail());
+                    let n = text.len();
+                    self.push(text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
+                }
+                // What a heading heads follows it without a blank row: the terminal has few.
+                self.gap = false;
+            }
+            TagEnd::BlockQuote(_) | TagEnd::List(_) => {
+                self.flush_implicit();
+                self.stack.pop();
+                self.gap = true;
+            }
+            TagEnd::Item => {
+                self.flush_implicit();
+                self.stack.pop();
+            }
+            TagEnd::FootnoteDefinition => {
+                self.flush_implicit();
+                self.stack.pop();
+                self.in_note = false;
+                self.gap = self.note_gap;
+            }
+            TagEnd::CodeBlock => {
+                if let Some((lang, lines)) = self.block.take() {
+                    self.code_block(lang, lines);
+                }
+                self.gap = true;
+            }
+            TagEnd::HtmlBlock => self.gap = true,
+            TagEnd::MetadataBlock(_) => {
+                self.meta = false;
+                self.gap = true;
+            }
+            TagEnd::Table => {
+                if let Some(t) = self.table.take() {
+                    self.table(t);
+                }
+                self.gap = true;
+            }
+            TagEnd::TableCell => {
+                let cell = self.inline.take().unwrap_or_default();
+                if let Some((_, cells)) = self.table.as_mut().and_then(|t| t.rows.last_mut()) {
+                    cells.push(cell);
+                }
+            }
+            TagEnd::Emphasis => self.italic = self.italic.saturating_sub(1),
+            TagEnd::Strong => self.bold = self.bold.saturating_sub(1),
+            TagEnd::Strikethrough => self.strike = self.strike.saturating_sub(1),
+            TagEnd::Link => self.link = self.link.saturating_sub(1),
+            TagEnd::Image => self.image = self.image.saturating_sub(1),
+            TagEnd::TableHead
+            | TagEnd::TableRow
+            | TagEnd::DefinitionList
+            | TagEnd::DefinitionListTitle
+            | TagEnd::DefinitionListDefinition
+            | TagEnd::Superscript
+            | TagEnd::Subscript => {}
+        }
+    }
+
+    /// The look text read now gets from the tags around it.
+    fn look(&self) -> Look {
+        let plain_quote = self
+            .stack
+            .iter()
+            .rev()
+            .find_map(|f| match f {
+                Frame::Quote(kind) => Some(kind.is_none()),
+                _ => None,
+            })
+            .unwrap_or(false);
+        let ink = if self.image > 0 {
+            Ink::Dim
+        } else if self.link > 0 {
+            Ink::Link
+        } else if self.heading.is_some() {
+            Ink::Heading
+        } else if plain_quote {
+            Ink::Quote
+        } else {
+            Ink::Text
+        };
+        let mut mods = Modifier::empty();
+        for (on, m) in [
+            (self.bold > 0 || self.heading.is_some(), Modifier::BOLD),
+            (self.italic > 0, Modifier::ITALIC),
+            (self.strike > 0, Modifier::CROSSED_OUT),
+            (self.link > 0 && self.image == 0, Modifier::UNDERLINED),
+        ] {
+            if on {
+                mods |= m;
+            }
+        }
+        Look { ink, mods }
+    }
+
+    fn text(&mut self, s: &str, look: Look, src: Range<usize>) {
+        let inline = self.inline.get_or_insert_with(|| {
+            self.implicit = true;
+            Inline::default()
+        });
+        inline.push(s, look, src);
+    }
+
+    /// 0-based line and byte column of source byte `i`.
+    fn pos(&self, i: usize) -> (usize, usize) {
+        let l = self.starts.partition_point(|&s| s <= i).saturating_sub(1);
+        (l, i - self.starts[l])
+    }
+
+    fn line(&self, l: usize) -> &str {
+        let end = self.starts.get(l + 1).map_or(self.src.len(), |&s| s - 1);
+        &self.src[self.starts[l]..end]
+    }
+
+    fn number(&mut self, label: &str) -> usize {
+        let next = self.numbers.len() + 1;
+        *self.numbers.entry(label.to_string()).or_insert(next)
+    }
+
+    fn rows_mut(&mut self) -> &mut Vec<Row> {
+        if self.in_note {
+            &mut self.notes
+        } else {
+            &mut self.rows
+        }
+    }
+
+    /// Where a row that stands for no text of its own goes back to: the end of the line the row
+    /// above it came from.
+    fn after(&self) -> (usize, usize) {
+        let rows = if self.in_note {
+            &self.notes
+        } else {
+            &self.rows
+        };
+        (rows.last().map_or(0, |r| r.src.0), usize::MAX)
+    }
+
+    /// What goes in front of a row: a bar per quote, the indent of each list item and, on the
+    /// first row of an item, its marker (taken by that row when `first`).
+    fn prefix(&mut self, first: bool) -> (String, Vec<(Look, Range<usize>)>) {
+        let mut s = String::new();
+        let mut looks = Vec::new();
+        for f in &mut self.stack {
+            let at = s.len();
+            match f {
+                Frame::Quote(kind) => {
+                    s.push_str("\u{2502} ");
+                    let ink = kind.map_or(Ink::Line, Ink::Alert);
+                    looks.push((ink.plain(), at..at + "\u{2502}".len()));
+                }
+                Frame::Item(marker, w) => match marker.take_if(|_| first) {
+                    Some((m, look)) => {
+                        s.push_str(&m);
+                        looks.push((look, at..s.len()));
+                    }
+                    None => s.push_str(&" ".repeat(*w)),
+                },
+                Frame::List(..) => {}
+            }
+        }
+        (s, looks)
+    }
+
+    /// Columns left for text inside the containers open now.
+    fn avail(&mut self) -> usize {
+        let w = self
+            .stack
+            .iter()
+            .map(|f| match f {
+                Frame::Quote(_) => 2,
+                Frame::Item(_, w) => *w,
+                Frame::List(..) => 0,
+            })
+            .sum::<usize>();
+        self.width.saturating_sub(w).max(1)
+    }
+
+    /// Adds a row: the containers' prefix, then `text` with `looks` over it.
+    fn push(
+        &mut self,
+        text: String,
+        looks: Vec<(Look, Range<usize>)>,
+        src: (usize, usize),
+        kind: Kind,
+    ) {
+        let (mut full, mut all) = self.prefix(kind != Kind::Gap);
+        let at = full.len();
+        full.push_str(&text);
+        all.extend(
+            looks
+                .into_iter()
+                .map(|(l, r)| (l, r.start + at..r.end + at)),
+        );
+        let kind = match kind {
+            Kind::Code {
+                block,
+                line,
+                from,
+                at: a,
+            } => Kind::Code {
+                block,
+                line,
+                from,
+                at: a + at,
+            },
+            k => k,
+        };
+        if kind == Kind::Gap {
+            full.truncate(full.trim_end().len());
+            all.retain(|(_, r)| r.end <= full.len());
+        }
+        self.rows_mut().push(Row {
+            text: full,
+            looks: all,
+            src,
+            kind,
+        });
+    }
+
+    /// Before the block starting at source byte `next`: the text of a tight item is over, and
+    /// the blank row a block before it asked for goes in. It stands for the blank line above the
+    /// block, when the source has one.
+    fn block_start(&mut self, next: usize) {
+        self.flush_implicit();
+        if std::mem::take(&mut self.gap) && !self.rows_mut().is_empty() {
+            let l = self.pos(next).0;
+            let above = self.after();
+            let at = match l.checked_sub(1) {
+                Some(b) if b > above.0 && self.line(b).trim().is_empty() => (b, 0),
+                _ => above,
+            };
+            self.push(String::new(), Vec::new(), at, Kind::Gap);
+        }
+    }
+
+    fn flush_implicit(&mut self) {
+        if self.implicit {
+            self.flush();
+            self.gap = false;
+        }
+    }
+
+    /// Lays the text read so far out: wrapped to the room the containers leave, a hard break
+    /// starting a new row.
+    fn flush(&mut self) {
+        self.implicit = false;
+        let Some(inline) = self.inline.take() else {
+            return;
+        };
+        if inline.text.trim().is_empty() {
+            return;
+        }
+        let avail = self.avail();
+        let mut from = 0;
+        for seg in inline.text.split('\n') {
+            for r in wrap::wrap_line(seg, avail) {
+                let r = from + r.start..from + r.start + seg[r].trim_end_matches(' ').len();
+                // A row of nothing but spaces, from a run wider than the pane, is no row.
+                if r.is_empty() && !seg.is_empty() {
+                    continue;
+                }
+                let (text, looks) = cut(&inline.text, &inline.looks, r.clone());
+                let at = self.pos(inline.src_at(r.start));
+                self.push(text, looks, at, Kind::Text);
+            }
+            from += seg.len() + 1;
+        }
+    }
+
+    /// Rows for a line shown as it is written, wrapped.
+    fn lines(&mut self, line: &str, look: Look, (l, c): (usize, usize)) {
+        let line = line.replace('\t', crate::buffer::TAB);
+        let avail = self.avail();
+        for r in wrap::wrap_line(&line, avail) {
+            let text = line[r.clone()].to_string();
+            let n = text.len();
+            self.push(text, vec![(look, 0..n)], (l, c + r.start), Kind::Text);
+        }
+    }
+
+    fn rule(&mut self, at: (usize, usize)) {
+        let text = "\u{2500}".repeat(self.avail());
+        let n = text.len();
+        self.push(text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
+    }
+
+    /// A code block: every line on the tint, a column in from its edge, wrapped as the source
+    /// wraps it, with the rows after the first under its indent.
+    fn code_block(&mut self, lang: String, mut lines: CodeLines) {
+        if lines.is_empty() {
+            lines.push((String::new(), self.after()));
+        }
+        let block = self.code.len();
+        let room = self.avail().saturating_sub(2).max(1);
+        for (k, (line, (l, c))) in lines.iter().enumerate() {
+            let indent = wrap::indent(line, room);
+            for (i, r) in wrap::wrap_line(line, room).into_iter().enumerate() {
+                let lead = if i == 0 { 1 } else { 1 + indent };
+                let text = format!("{}{}", " ".repeat(lead), &line[r.clone()]);
+                let n = text.len();
+                let kind = Kind::Code {
+                    block,
+                    line: k,
+                    from: r.start,
+                    at: lead,
+                };
+                self.push(
+                    text,
+                    vec![(Ink::Code.plain(), 0..n)],
+                    (*l, c + r.start),
+                    kind,
+                );
+            }
+        }
+        self.code.push(Code {
+            lang,
+            lines: lines.into_iter().map(|(l, _)| l).collect(),
+        });
+    }
+
+    /// A table in box drawing, each column aligned as its `:---:` says. Wider than the room it
+    /// has, the widest columns give up columns first and their cells wrap, so it stays whole.
+    fn table(&mut self, t: Table) {
+        let n = t
+            .rows
+            .iter()
+            .map(|(_, cells)| cells.len())
+            .max()
+            .unwrap_or(0)
+            .max(t.aligns.len());
+        if n == 0 {
+            return;
+        }
+        // Each column's widest cell, and its widest word: a path or a name reads best whole.
+        let (mut natural, mut words) = (vec![1; n], vec![1; n]);
+        for (_, cells) in &t.rows {
+            for (j, c) in cells.iter().enumerate() {
+                natural[j] = natural[j].max(wrap::width(&c.text));
+                let word = c.text.split(' ').map(wrap::width).max().unwrap_or(0);
+                words[j] = words[j].max(word);
+            }
+        }
+        // `│ a │ b │`: a border and a space each side of every cell.
+        let room = self.avail().saturating_sub(3 * n + 1);
+        let widths = fit(&natural, &words, room);
+        let border = |l: &str, m: &str, r: &str| {
+            let cols: Vec<String> = widths.iter().map(|w| "\u{2500}".repeat(w + 2)).collect();
+            format!("{l}{}{r}", cols.join(m))
+        };
+        let line = Ink::Line.plain();
+        let first = t.rows.first().map_or(0, |(l, _)| *l);
+        let top = border("\u{250c}", "\u{252c}", "\u{2510}");
+        let len = top.len();
+        self.push(top, vec![(line, 0..len)], (first, 0), Kind::Text);
+        let empty = Inline::default();
+        for (i, (l, cells)) in t.rows.iter().enumerate() {
+            // Every cell's rows: byte ranges of its text.
+            let wrapped: Vec<Vec<Range<usize>>> = (0..n)
+                .map(|j| {
+                    let c = cells.get(j).unwrap_or(&empty);
+                    wrap::wrap_line(&c.text, widths[j])
+                        .into_iter()
+                        .map(|r| r.start..r.start + c.text[r].trim_end_matches(' ').len())
+                        .collect()
+                })
+                .collect();
+            let height = wrapped.iter().map(Vec::len).max().unwrap_or(1);
+            for k in 0..height {
+                let mut text = String::new();
+                let mut looks = Vec::new();
+                for j in 0..n {
+                    let bar = if j == 0 { "\u{2502} " } else { " \u{2502} " };
+                    looks.push((
+                        line,
+                        text.len()..text.len() + "\u{2502}".len() + usize::from(j > 0),
+                    ));
+                    text.push_str(bar);
+                    let c = cells.get(j).unwrap_or(&empty);
+                    let r = wrapped[j].get(k).cloned().unwrap_or(0..0);
+                    let (piece, mut piece_looks) = cut(&c.text, &c.looks, r);
+                    if i == 0 {
+                        for (look, _) in &mut piece_looks {
+                            look.mods |= Modifier::BOLD;
+                        }
+                    }
+                    let pad = widths[j].saturating_sub(wrap::width(&piece));
+                    let before = match t.aligns.get(j) {
+                        Some(Alignment::Right) => pad,
+                        Some(Alignment::Center) => pad / 2,
+                        _ => 0,
+                    };
+                    text.push_str(&" ".repeat(before));
+                    let at = text.len();
+                    text.push_str(&piece);
+                    looks.extend(
+                        piece_looks
+                            .into_iter()
+                            .map(|(lk, r)| (lk, r.start + at..r.end + at)),
+                    );
+                    text.push_str(&" ".repeat(pad - before));
+                }
+                let at = text.len();
+                text.push_str(" \u{2502}");
+                looks.push((line, at + 1..text.len()));
+                self.push(text, looks, (*l, 0), Kind::Text);
+            }
+            if i == 0 {
+                let mid = border("\u{251c}", "\u{253c}", "\u{2524}");
+                let len = mid.len();
+                self.push(mid, vec![(line, 0..len)], (l + 1, 0), Kind::Text);
+            }
+        }
+        let bottom = border("\u{2514}", "\u{2534}", "\u{2518}");
+        let len = bottom.len();
+        let last = t.rows.last().map_or(0, |(l, _)| *l);
+        self.push(bottom, vec![(line, 0..len)], (last, usize::MAX), Kind::Text);
+    }
+}
+
+/// The columns of `natural` widths made to fit `room`: as they are when they fit. Else the
+/// widest give way: every column is cut down to one width, as wide as leaves them all within
+/// `room`, but none below its widest word while all the words fit, and what is left is handed back
+/// a column each. At one column each they may still not fit.
+fn fit(natural: &[usize], words: &[usize], room: usize) -> Vec<usize> {
+    if natural.iter().sum::<usize>() <= room {
+        return natural.to_vec();
+    }
+    let floor: Vec<usize> = match words.iter().sum::<usize>() <= room {
+        true => words.to_vec(),
+        false => vec![1; natural.len()],
+    };
+    let at = |c: usize| -> Vec<usize> {
+        natural
+            .iter()
+            .zip(&floor)
+            .map(|(&w, &f)| w.min(c).max(f.min(w)))
+            .collect()
+    };
+    let max = natural.iter().copied().max().unwrap_or(1);
+    let cap = (1..=max)
+        .rev()
+        .find(|&c| at(c).iter().sum::<usize>() <= room)
+        .unwrap_or(1);
+    let mut widths = at(cap);
+    let mut left = room.saturating_sub(widths.iter().sum());
+    for (w, &nat) in widths.iter_mut().zip(natural) {
+        if left > 0 && nat > *w {
+            *w += 1;
+            left -= 1;
+        }
+    }
+    widths
+}
+
+/// `text[r]` with the looks over it, moved to start at 0.
+fn cut(
+    text: &str,
+    looks: &[(Look, Range<usize>)],
+    r: Range<usize>,
+) -> (String, Vec<(Look, Range<usize>)>) {
+    let out = looks
+        .iter()
+        .filter(|(_, l)| l.end > r.start && l.start < r.end)
+        .map(|(look, l)| {
+            (
+                *look,
+                l.start.max(r.start) - r.start..l.end.min(r.end) - r.start,
+            )
+        })
+        .collect();
+    (text[r].to_string(), out)
+}
+
+/// The colours a [`Look`] is drawn in, from the theme: the ones it gives Markdown's own scopes
+/// where it gives them one, the editor's chrome otherwise.
+pub struct Palette {
+    text: Color,
+    heading: Color,
+    code: Color,
+    link: Color,
+    quote: Color,
+    bullet: Color,
+    line: Color,
+    /// Note, Tip, Important, Warning, Caution.
+    alerts: [Color; 5],
+    /// Behind code.
+    pub code_bg: Color,
+}
+
+impl Palette {
+    pub fn new(theme: &Theme) -> Self {
+        let h = Highlighter::new(&theme.syntect);
+        // The colour the theme paints `scopes` with in a Markdown file, when it is not the text's.
+        let scoped = |scopes: &str, or: Color| {
+            let stack: Vec<Scope> = scopes
+                .split(' ')
+                .filter_map(|s| Scope::new(s).ok())
+                .collect();
+            let style = h.style_for_stack(&stack);
+            if Some(style.foreground) == theme.syntect.settings.foreground {
+                return or;
+            }
+            crate::theme::style(style).fg.unwrap_or(or)
+        };
+        // GitHub's alert colours, Primer's dark or light ones as the theme is.
+        let sum = |c: Color| match c {
+            Color::Rgb(r, g, b) => r as u32 + g as u32 + b as u32,
+            _ => 0,
+        };
+        let alerts = if sum(theme.bg) > sum(theme.fg) {
+            [0x0969da, 0x1a7f37, 0x8250df, 0x9a6700, 0xd1242f]
+        } else {
+            [0x4493f8, 0x3fb950, 0xab7df8, 0xd29922, 0xf85149]
+        }
+        .map(Color::from_u32);
+        Self {
+            text: theme.fg,
+            heading: scoped(
+                "text.html.markdown markup.heading.1.markdown entity.name.section.markdown",
+                theme.accent,
+            ),
+            code: scoped("text.html.markdown markup.raw.inline.markdown", theme.fg),
+            link: scoped(
+                "text.html.markdown meta.link.inline.markdown string.other.link.title.markdown",
+                theme.accent,
+            ),
+            quote: theme.ghost_fg,
+            bullet: theme.accent,
+            line: theme.gutter_fg,
+            alerts,
+            code_bg: theme.line_hl_dim,
+        }
+    }
+
+    /// The style of `look`. Code is on its tint, unless the row it is on has a background of its
+    /// own (`row_bg`: the cursor's, a review's).
+    pub fn style(&self, look: Look, row_bg: bool) -> Style {
+        let fg = match look.ink {
+            Ink::Text => self.text,
+            Ink::Heading => self.heading,
+            Ink::Code => self.code,
+            Ink::Link => self.link,
+            Ink::Quote | Ink::Dim => self.quote,
+            Ink::Bullet => self.bullet,
+            Ink::Line => self.line,
+            Ink::Alert(kind) => self.alerts[kind as usize],
+        };
+        let style = Style::new().fg(fg).add_modifier(look.mods);
+        if look.ink == Ink::Code && !row_bg {
+            style.bg(self.code_bg)
+        } else {
+            style
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests;

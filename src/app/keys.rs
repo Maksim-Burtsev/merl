@@ -158,6 +158,8 @@ impl App {
             .flatten()
             .or_else(|| named("", key));
         match key.code {
+            // The preview reads with keys of its own, and leaves those that act on the text.
+            _ if self.focus == Focus::Code && self.preview_key(key) => {}
             KeyCode::Char('q') => return true,
             KeyCode::Char('?') => {
                 self.mode = Mode::Help;
@@ -210,6 +212,7 @@ impl App {
             }
             KeyCode::Char('T') => self.open_themes_picker(),
             KeyCode::Char('w') => self.toggle_wrap(),
+            KeyCode::Char('p') => self.toggle_preview(),
             KeyCode::Tab if self.show_tree => {
                 self.focus = match self.focus {
                     Focus::Tree => Focus::Code,
