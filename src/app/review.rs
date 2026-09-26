@@ -8,6 +8,7 @@ impl App {
     pub fn start_review(&mut self, mut review: git::Review) {
         let note = review.note.take();
         self.review = Some(review);
+        self.viewed_branch = git::head_branch(&self.root);
         self.load_viewed();
         self.refresh_diff();
         if let Some(path) = self.buf.path.clone() {
@@ -60,11 +61,12 @@ impl App {
             if !f.has_hunks() {
                 skipped += 1;
             } else if self.open_review_file(f, dir < 0) {
-                self.mark_viewed(read.take());
                 match failed {
                     Some(why) => self.message = why,
                     None => self.say_skipped(skipped),
                 }
+                // After the walk's word: a mark that could not be saved says so over it.
+                self.mark_viewed(read.take());
                 return;
             } else if self.dirty {
                 // Edits that could not be saved hold merl on this file, whatever is ahead.
@@ -73,11 +75,11 @@ impl App {
                 failed = Some(std::mem::take(&mut self.message));
             }
         }
-        self.mark_viewed(read.take());
         self.message = failed.unwrap_or_else(|| {
             let end = if dir > 0 { "last" } else { "first" };
             format!("{end} hunk of the review")
         });
+        self.mark_viewed(read.take());
     }
 
     /// The files of the review `c` (`dir` 1) or `C` (-1) walks on to from the open one, nearest
@@ -162,21 +164,25 @@ impl App {
     /// The marks this review (the branch against its base) left last time, sorted by what is on
     /// disk now.
     fn load_viewed(&mut self) {
-        let (Some(store), Some(r)) = (self.viewed_store(), &self.review) else {
+        let (Some(store), Some(r), Some(branch)) =
+            (self.viewed_store(), &self.review, &self.viewed_branch)
+        else {
             return;
         };
-        self.viewed = read_viewed(&store, &r.branch, &r.base);
+        self.viewed = read_viewed(&store, branch, &r.base);
         self.changed.clear();
         self.drop_stale_viewed();
     }
 
     /// Writes this review's marks, the changed ones too, so `↻` outlives the session as well.
     fn save_viewed(&mut self) {
-        let (Some(store), Some(r)) = (self.viewed_store(), &self.review) else {
+        let (Some(store), Some(r), Some(branch)) =
+            (self.viewed_store(), &self.review, &self.viewed_branch)
+        else {
             return;
         };
         let marks = self.viewed.iter().chain(&self.changed);
-        if let Err(e) = write_viewed(&store, &r.branch, &r.base, marks, crate::stats::today()) {
+        if let Err(e) = write_viewed(&store, branch, &r.base, marks, crate::stats::today()) {
             self.message = format!("viewed marks not saved: {e:#}");
         }
     }
@@ -238,7 +244,8 @@ impl App {
             Some((f.status, f.old.clone(), f.untracked))
         };
         let stale = old.merge_base != fresh.merge_base || kind(old) != kind(&fresh);
-        // Another branch checked out is another review, with marks of its own.
+        // Another branch checked out is another review, with marks of its own. A detached HEAD
+        // keeps the branch it left, and a tag named like the branch (`heads/feature`) is none.
         let switched = old.branch != fresh.branch;
         let paths: Vec<PathBuf> = fresh.files.iter().map(|f| f.path.clone()).collect();
         self.review = Some(fresh);
@@ -246,7 +253,11 @@ impl App {
         if stale {
             self.refresh_diff();
         }
-        if switched {
+        if switched
+            && let Some(head) = git::head_branch(&self.root)
+            && self.viewed_branch.as_ref() != Some(&head)
+        {
+            self.viewed_branch = Some(head);
             self.load_viewed();
         }
         self.drop_stale_viewed();

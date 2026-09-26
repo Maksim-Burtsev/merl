@@ -369,6 +369,10 @@ pub struct App {
     /// Review: the files viewed before that changed since, `↻` in the panel until viewed
     /// again; the hash is the one they were viewed at.
     pub changed: HashMap<PathBuf, u64>,
+    /// Review: the branch the marks are kept under. While HEAD is detached (an agent's rebase
+    /// stopped on a conflict), the last branch the review had; `None` for a review that never
+    /// had one, whose marks last as long as the session.
+    viewed_branch: Option<String>,
     /// The theme in use, by name. Set by `main`; the theme picker previews others over it.
     pub theme: String,
     /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
@@ -503,6 +507,7 @@ impl App {
             review: None,
             viewed: HashMap::new(),
             changed: HashMap::new(),
+            viewed_branch: None,
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
             quit_again: false,

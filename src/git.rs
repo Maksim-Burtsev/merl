@@ -319,6 +319,12 @@ pub fn dirs(root: &Path) -> Option<(PathBuf, PathBuf)> {
     Some((dirs.next()??, dirs.next()??))
 }
 
+/// The branch HEAD is on, as its full ref (`refs/heads/feature`, which a tag of the same name
+/// does not shadow the way it does `feature`); `None` on a detached HEAD.
+pub fn head_branch(root: &Path) -> Option<String> {
+    git(root, &["symbolic-ref", "-q", "HEAD"]).ok()
+}
+
 /// The row of an untracked file: `A`, every line added. Binary is what git calls binary, a NUL
 /// in the first 8000 bytes.
 ///
