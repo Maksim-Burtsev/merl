@@ -747,17 +747,30 @@ fn a_replaced_line_is_marked_changed() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// `c` always moves: a hunk inside the row the cursor is on is no stop, the next one is.
+/// `c` from a row that does not start on a hunk's line goes to the next hunk by the source's
+/// rule, on the source cursor: here the hunk is on the same row, which stays, and the next `c`
+/// goes on. The count follows each press.
 #[test]
-fn c_moves_past_a_hunk_on_the_cursor_row() {
+fn c_from_a_row_that_starts_on_no_hunk_goes_by_the_source() {
     let base = "aaa bbb\nxxx\neee fff\nyyy\n";
-    let (dir, mut a) = md_review("c-moves", base, PARA);
+    let (dir, mut a) = md_review("c-row", base, PARA);
     key(&mut a, KeyCode::Char('p'));
-    marks(&mut a);
-    assert_eq!(at_row(&a).2, "aaa bbb ccc");
-    key(&mut a, KeyCode::Char('c'));
-    marks(&mut a);
-    assert_eq!(at_row(&a).2, "ggg hhh");
+    press(&mut a, KeyCode::Home, KeyModifiers::CONTROL);
+    let mut walk = Vec::new();
+    for _ in 0..3 {
+        marks(&mut a);
+        walk.push((a.line, at_row(&a).2, a.review_status().unwrap()));
+        key(&mut a, KeyCode::Char('c'));
+    }
+    let hunk = |k: usize| format!("hunk {k}/2  file 1/1");
+    assert_eq!(
+        walk,
+        [
+            (0, "aaa bbb ccc".to_string(), hunk(0)),
+            (1, "aaa bbb ccc".to_string(), hunk(1)),
+            (3, "ggg hhh".to_string(), hunk(2)),
+        ]
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -792,8 +805,9 @@ fn enter_on_rows_of_no_text_edits_where_they_are() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// `c` and `C` step past every line the cursor row stands for, the lines it owns too: a hunk on
-/// a reference definition, a second blank line or a setext underline traps neither.
+/// A hunk on a line no row shows (a reference definition, a second blank line, a setext
+/// underline) traps neither `c` nor `C`: they go by the source cursor, which stays on the hunk's
+/// line, and the preview shows the row that owns it.
 #[test]
 fn c_and_big_c_step_past_the_lines_a_row_owns() {
     for (tag, base, branch, owner) in [
@@ -838,8 +852,9 @@ fn c_and_big_c_step_past_the_lines_a_row_owns() {
     }
 }
 
-/// The status bar counts the hunks of the row the cursor is on, as `c` steps past them, and
-/// the missed-keys watch knows `c` leads to the next file from there: `o` to it is a missed `c`.
+/// The status bar and the missed-keys watch read the source cursor, as `c` does: on a row that
+/// shows two hunks the count says which one the cursor is on, and from the last one `o` to the
+/// next file of the review is a missed `c`.
 #[test]
 fn the_hunk_count_and_the_watch_agree_with_c() {
     let dir = std::env::temp_dir().join(format!("merl-md-review-{}-agree", std::process::id()));
@@ -873,11 +888,138 @@ fn the_hunk_count_and_the_watch_agree_with_c() {
     a.show_tree = false;
     key(&mut a, KeyCode::Char('p'));
     marks(&mut a);
-    // One row shows both hunks of the file: the count says both, as `c` goes past both.
+    // One row shows both hunks of the file; the cursor is on the first, then `c` takes it on.
+    assert_eq!(at_row(&a).2, "a2 b c2");
+    assert_eq!(a.review_status().unwrap(), "hunk 1/2  file 1/2");
+    key(&mut a, KeyCode::Char('c'));
+    marks(&mut a);
     assert_eq!(at_row(&a).2, "a2 b c2");
     assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/2");
     crate::tutor::press(&mut a, "oother.md<Enter>");
     assert_eq!(a.rel_path(), "other.md");
     assert_eq!(a.missed.get("c"), Some(&1), "{:?}", a.missed);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `c` from a row drawn for no line of its own goes to the next hunk: a table's top border, the
+/// rule under a setext heading, the blank row before a list with no blank line above it, the
+/// blank row before the footnotes. Each stands where its position is in the source, and `c`
+/// goes on from there as in the source.
+#[test]
+fn c_from_a_row_drawn_for_no_line_goes_on() {
+    for (tag, base, branch, onto, to) in [
+        (
+            "no-line-table",
+            "Intro.\n\n| a |\n|---|\n| 1 |\n| 2 |\n",
+            "Intro!\n\n| a |\n|---|\n| 1 |\n| 3 |\n",
+            "\u{250c}",
+            "\u{2502} 3 \u{2502}",
+        ),
+        (
+            "no-line-setext",
+            "Title\n=====\n\nMid.\n",
+            "Tytle\n=====\n\nMid!\n",
+            "\u{2501}",
+            "Mid!",
+        ),
+        (
+            "no-line-list",
+            "Steps:\n- one\n- two\n",
+            "Steps!\n- one\n- two!\n",
+            "",
+            "\u{2022} two!",
+        ),
+        (
+            "no-line-notes",
+            "Top[^n].\n\n[^n]: Old.\n",
+            "Top[^n].\n\n[^n]: New.\n",
+            "",
+            "[1] New.",
+        ),
+    ] {
+        let (dir, mut a) = md_review(tag, base, branch);
+        key(&mut a, KeyCode::Char('p'));
+        press(&mut a, KeyCode::Home, KeyModifiers::CONTROL);
+        marks(&mut a);
+        // Down onto the row drawn for no line.
+        while !at_row(&a).2.starts_with(onto) || at_row(&a).2.is_empty() != onto.is_empty() {
+            key(&mut a, KeyCode::Down);
+            marks(&mut a);
+        }
+        key(&mut a, KeyCode::Char('c'));
+        marks(&mut a);
+        assert_eq!(at_row(&a).2, to, "{tag}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+/// With footnotes, and a blank line and reference definitions after them, `c` from the body
+/// lands on the footnote's hunk, drawn at the end, before it leaves the file.
+#[test]
+fn c_stops_on_a_footnotes_hunk() {
+    let base = "Body[^1].\n\n[^1]: Old note.\n\n[a]: http://a\n[b]: http://b\n";
+    let branch = "Body[^1]!\n\n[^1]: New note.\n\n[a]: http://a\n[b]: http://b\n";
+    let (dir, mut a) = md_review("note-hunk", base, branch);
+    key(&mut a, KeyCode::Char('p'));
+    press(&mut a, KeyCode::Home, KeyModifiers::CONTROL);
+    marks(&mut a);
+    key(&mut a, KeyCode::Char('c'));
+    let m = marks(&mut a);
+    assert_eq!((a.line, at_row(&a).2.as_str()), (2, "[1] New"), "{m:?}");
+    assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/1");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A walk with `c` through hunks of every kind: the cursor goes to each hunk's line in turn,
+/// the count says which one it is on, and the row shown is the one that shows or owns the line.
+#[test]
+fn the_count_follows_c_through_hunks_of_every_kind() {
+    let base = "# Plan\n\nText with a word.\nSecond line.\n\n- one\n- two\n\n| a |\n|---|\n| 1 |\n\n\
+                ```py\nx = 1\n```\n\nDropped.\n\nSee[^n] [r].\n\n[^n]: Note.\n\n[r]: http://x\n\nGone.\n";
+    let branch = "# Plan!\n\nText with a word.\nSecond changed.\n\n- one\n- two\n- three\n\n\
+                  | a |\n|---|\n| 2 |\n\n```py\nx = 2\n```\n\nSee[^n] [r].\n\n[^n]: New.\n\n\
+                  [r]: http://y\n";
+    let (dir, mut a) = md_review("walk", base, branch);
+    key(&mut a, KeyCode::Char('p'));
+    press(&mut a, KeyCode::Home, KeyModifiers::CONTROL);
+    marks(&mut a);
+    let hunks = a.diff.hunks.clone();
+    // A heading, a line inside a paragraph, a list item, a deleted paragraph, a table row, a
+    // code line, a footnote drawn at the end, and a reference with the lines deleted after it.
+    assert_eq!(hunks.len(), 8, "{hunks:?}");
+    for (k, &h) in hunks.iter().enumerate() {
+        if k > 0 || h > 0 {
+            key(&mut a, KeyCode::Char('c'));
+        }
+        marks(&mut a);
+        assert_eq!(a.line, h, "hunk {k}");
+        let want = format!("hunk {}/{}  file 1/1", k + 1, hunks.len());
+        assert_eq!(a.review_status().unwrap(), want);
+        let p = a.preview.as_ref().unwrap();
+        let r = &p.doc.rows[p.row];
+        assert!(
+            r.lines.contains(&h) || r.owns.contains(&h) || r.lines.start > h,
+            "hunk {k}"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A jump to a line shows the row of that line, found anew, not the row the cursor stood on
+/// because it shares the line's position: from a table's top border, `:` to its header's line.
+#[test]
+fn a_jump_shows_the_row_of_its_line() {
+    let (dir, mut a) = md_app("jump-row", "Intro.\n\n| a |\n|---|\n| 1 |\n");
+    key(&mut a, KeyCode::Char('p'));
+    while !at_row(&a).2.starts_with('\u{250c}') {
+        key(&mut a, KeyCode::Down);
+    }
+    assert_eq!((a.line, a.col), (2, 0));
+    for c in [':', '3'] {
+        key(&mut a, KeyCode::Char(c));
+    }
+    key(&mut a, KeyCode::Enter);
+    a.preview_sync();
+    assert_eq!(at_row(&a).2, "\u{2502} a \u{2502}");
     let _ = std::fs::remove_dir_all(&dir);
 }

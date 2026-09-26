@@ -112,9 +112,10 @@ pub struct Doc {
 }
 
 impl Doc {
-    /// The row a source position is shown on: of the rows its line belongs to, the last that
+    /// The row a source position is shown on: of the rows that show its line, the last that
     /// starts at or before its column (the first of those that start together), or the first of
-    /// them when the column comes before the text, on a list item's or a heading's marker.
+    /// them when the column comes before the text, on a list item's or a heading's marker; else
+    /// the row that owns the line, which every line has.
     pub fn row_at(&self, pos: (usize, usize)) -> usize {
         let mut first = None;
         let mut best: Option<usize> = None;

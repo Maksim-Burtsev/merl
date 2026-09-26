@@ -13,9 +13,10 @@ pub struct Preview {
     key: (u64, usize),
     pub row: usize,
     pub top: usize,
-    /// The source position the preview last put the cursor at. A cursor found anywhere else was
-    /// moved by something else (`:`, `[`, a reload), and the row follows it.
-    at: (usize, usize),
+    /// The source position the cursor row was found for, or put the cursor at. A cursor found
+    /// anywhere else was moved by something else (`:`, `[`, `c`, a reload), and the row follows
+    /// it; `None` after a jump, which always finds the row of the line it lands on anew.
+    at: Option<(usize, usize)>,
     /// The code blocks, highlighted as far as they have been on screen with the theme `theme`
     /// names, as the source is highlighted: a block costs what is drawn of it.
     pub code: Vec<Buffer>,
@@ -78,11 +79,11 @@ impl App {
         let pos = (self.line, self.col);
         match &mut self.preview {
             Some(p) if p.key == key => {
-                if p.at == pos {
+                if p.at == Some(pos) {
                     return false;
                 }
                 p.row = p.doc.row_at(pos);
-                p.at = pos;
+                p.at = Some(pos);
             }
             slot => {
                 // Laid out anew, for a rewrite or another width: the row stays where it was on
@@ -91,7 +92,7 @@ impl App {
                 let off = old.as_ref().map_or(0, |p| p.row.saturating_sub(p.top));
                 let mut doc = markdown::layout(&self.buf.lines, self.view_w);
                 let row = match &old {
-                    Some(p) if p.at == pos => doc.same_row(&p.doc, p.row, pos),
+                    Some(p) if p.at == Some(pos) => doc.same_row(&p.doc, p.row, pos),
                     _ => doc.row_at(pos),
                 };
                 // Code keeps its colours across another width: the text is the same.
@@ -110,7 +111,7 @@ impl App {
                     key,
                     row,
                     top: row.saturating_sub(off),
-                    at: pos,
+                    at: Some(pos),
                     code,
                     theme,
                 });
@@ -201,7 +202,7 @@ impl App {
         (self.line, self.col) = self.clamp_pos(src);
         let at = (self.line, self.col);
         if let Some(p) = &mut self.preview {
-            (p.row, p.top, p.at) = (to, top, at);
+            (p.row, p.top, p.at) = (to, top, Some(at));
         }
         // Reading moves the current stop of the jump history, as paging does, and adds none: a
         // row's source line can be far from the one above it, a footnote's is. A jump is judged
@@ -213,29 +214,11 @@ impl App {
         true
     }
 
-    /// The source lines the cursor stands on: its own line, or in the preview every line its
-    /// row shows or owns, and none for a row drawn for no line (a border, a rule), which stands
-    /// before the line of its position or, past the line's end, after it. The one rule `c` and
-    /// `C` step past, the status bar counts hunks by and the missed-keys watch predicts `c` with.
-    pub(super) fn cursor_lines(&self) -> std::ops::Range<usize> {
-        let here = self.line..self.line + 1;
-        let Some(p) = self.preview.as_ref().filter(|_| self.previewing()) else {
-            return here;
-        };
-        let pos = (self.line, self.col);
-        let row = if p.at == pos {
-            p.row
-        } else {
-            p.doc.row_at(pos)
-        };
-        let r = &p.doc.rows[row];
-        let shown = match (r.lines.is_empty(), r.src) {
-            (false, _) => r.lines.clone(),
-            (true, (l, usize::MAX)) => l + 1..l + 1,
-            (true, (l, _)) => l..l,
-        };
-        r.owns
-            .iter()
-            .fold(shown, |s, &l| s.start.min(l)..s.end.max(l + 1))
+    /// A jump moved the cursor to a line: the preview shows the row of that line, found anew,
+    /// never the row it stood on because the two share a position.
+    pub(super) fn preview_jumped(&mut self) {
+        if let Some(p) = &mut self.preview {
+            p.at = None;
+        }
     }
 }
