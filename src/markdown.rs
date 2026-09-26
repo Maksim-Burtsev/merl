@@ -70,10 +70,14 @@ pub struct Row {
     /// Where the row starts in the source: 0-based line and byte column. A column past the end
     /// of the line (a rule under a heading, the blank row after a block) is the line's end.
     pub src: (usize, usize),
-    /// The source lines the row stands for, which its git marks come from and a position is
-    /// found by: the lines it shows (a reflowed row can hold the end of one line and the start of
-    /// the next), and the lines no row shows next to them, such as a code block's fences.
+    /// The source lines the row shows, which its git marks come from and a position is found by:
+    /// a reflowed row can hold the end of one line and the start of the next, and a code block's
+    /// rows its fences. Empty for a row drawn for no line of its own (a table's border, the rule
+    /// under a heading).
     pub lines: Range<usize>,
+    /// Lines no row shows that go with this one, for the same: a reference definition, a second
+    /// blank line, a setext underline.
+    pub owns: Vec<usize>,
     pub kind: Kind,
 }
 
@@ -123,7 +127,23 @@ impl Doc {
                 best = Some(i);
             }
         }
-        best.or(first).unwrap_or(self.rows.len() - 1)
+        best.or(first)
+            .or_else(|| self.rows.iter().position(|r| r.owns.contains(&pos.0)))
+            .unwrap_or(self.rows.len() - 1)
+    }
+
+    /// The row a laid out anew doc shows `row` of this one on: the same row where rows share a
+    /// position (a table's border and header, a heading and its rule), else the row of `pos`.
+    pub fn same_row(&self, old: &Doc, row: usize, pos: (usize, usize)) -> usize {
+        let src = old.rows[row].src;
+        let rank = old.rows[..row].iter().filter(|r| r.src == src).count();
+        let same: Vec<usize> = (0..self.rows.len())
+            .filter(|&i| self.rows[i].src == src)
+            .collect();
+        match same.get(rank).or(same.last()) {
+            Some(&i) => i,
+            None => self.row_at(pos),
+        }
     }
 }
 
@@ -152,6 +172,7 @@ pub fn layout(lines: &[String], width: usize) -> Doc {
     if !lay.notes.is_empty() {
         let mut notes = std::mem::take(&mut lay.notes);
         notes.sort_by_key(|(n, _)| *n);
+        lay.note_rows = notes.iter().map(|(_, rows)| rows.len()).sum();
         let end = src.len();
         lay.gap = true;
         lay.block_start(end);
@@ -161,6 +182,7 @@ pub fn layout(lines: &[String], width: usize) -> Doc {
         lay.rows
             .extend(notes.into_iter().flat_map(|(_, rows)| rows));
     }
+    let body = lay.rows.len() - lay.note_rows;
     let mut rows = lay.rows;
     if rows.is_empty() {
         rows.push(Row {
@@ -168,47 +190,52 @@ pub fn layout(lines: &[String], width: usize) -> Doc {
             looks: Vec::new(),
             src: (0, 0),
             lines: 0..0,
+            owns: Vec::new(),
             kind: Kind::Gap,
         });
     }
-    cover(&mut rows, lines.len());
+    cover(&mut rows, lines.len(), body.max(1));
     Doc {
         rows,
         code: lay.code,
     }
 }
 
-/// Gives every source line to a row, for its marks and for finding the row of a position: a line
-/// no row shows (a reference definition, a second blank line) goes with the row that ends above
-/// it, and one above every row with the first row.
-fn cover(rows: &mut [Row], n: usize) {
-    let mut covered = vec![false; n];
-    // A row that ends on each line.
-    let mut ends = vec![None; n];
+/// Gives every source line no row shows to a row of the body, `rows[..body]`, for its marks and
+/// for finding the row of a position: to the row that shows or owns the line above it, and after
+/// a footnote's lines (drawn at the end, owning only their own) or above every row, to the row
+/// that shows the next line. Lines past the last row go with the last row of the body.
+fn cover(rows: &mut [Row], n: usize, body: usize) {
+    // The first and the last row of the body that show each line, and whether a footnote does.
+    let (mut first, mut last) = (vec![None; n], vec![None; n]);
+    let mut note = vec![false; n];
     for (i, r) in rows.iter().enumerate() {
         for l in r.lines.clone().filter(|&l| l < n) {
-            covered[l] = true;
-            if l + 1 == r.lines.end {
-                ends[l] = Some(i);
+            if i >= body {
+                note[l] = true;
+            } else {
+                first[l].get_or_insert(i);
+                last[l] = Some(i);
             }
         }
     }
-    let (mut above, mut top) = (None, None);
+    let (mut above, mut pending) = (None, Vec::new());
     for l in 0..n {
-        match (covered[l], above) {
-            (true, _) => above = ends[l].or(above),
-            (false, Some(i)) => rows[i].lines.end = l + 1,
-            (false, None) => _ = top.get_or_insert(l),
+        if let Some(i) = first[l] {
+            rows[i].owns.append(&mut pending);
+            above = last[l];
+        } else if note[l] {
+            above = None;
+        } else if let Some(i) = above {
+            rows[i].owns.push(l);
+        } else {
+            pending.push(l);
         }
     }
-    if let Some(t) = top {
-        let first = (0..rows.len())
-            .filter(|&i| !rows[i].lines.is_empty())
-            .min_by_key(|&i| (rows[i].lines.start, i));
-        match first {
-            Some(i) => rows[i].lines.start = t,
-            None => rows[0].lines = 0..n,
-        }
+    if let Some(i) = (0..body).rev().find(|&i| !rows[i].lines.is_empty()) {
+        rows[i].owns.append(&mut pending);
+    } else {
+        rows[0].owns.append(&mut pending);
     }
 }
 
@@ -273,8 +300,9 @@ impl Inline {
 struct Block {
     /// The first word of the info string.
     lang: String,
-    /// Its lines as written, each with the source position it starts at.
-    lines: Vec<(String, (usize, usize))>,
+    /// Its lines as written, each with the source position it starts at and how many bytes in
+    /// front of it the parser added, the spaces of a tab a container took part of.
+    lines: Vec<(String, (usize, usize), usize)>,
     /// The last line has not had its `\n` yet.
     open: bool,
     /// The source lines of the block, its fences included.
@@ -294,8 +322,9 @@ struct Lay<'a> {
     starts: Vec<usize>,
     width: usize,
     rows: Vec<Row>,
-    /// Footnote definitions by number, shown after everything else.
+    /// Footnote definitions by number, shown after everything else, and how many rows they make.
     notes: Vec<(usize, Vec<Row>)>,
+    note_rows: usize,
     in_note: bool,
     /// `gap` of the text around a footnote definition, set aside while it is read.
     note_gap: bool,
@@ -338,9 +367,14 @@ impl Lay<'_> {
                         return;
                     };
                     let text = piece.strip_suffix('\n').unwrap_or(piece);
+                    // Text with no source bytes is the parser's own.
+                    let added = if r.is_empty() { text.len() } else { 0 };
                     match b.lines.last_mut() {
-                        Some((line, _)) if b.open => line.push_str(text),
-                        _ => b.lines.push((text.to_string(), at)),
+                        Some((line, _, n)) if b.open => {
+                            *n += if line.len() == *n { added } else { 0 };
+                            line.push_str(text);
+                        }
+                        _ => b.lines.push((text.to_string(), at, added)),
                     }
                     b.open = !piece.ends_with('\n');
                 }
@@ -542,6 +576,7 @@ impl Lay<'_> {
                     let text = rule.repeat(self.avail());
                     let n = text.len();
                     self.push(text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
+                    self.shows_nothing();
                 }
                 // What a heading heads follows it without a blank row: the terminal has few.
                 self.gap = false;
@@ -761,6 +796,7 @@ impl Lay<'_> {
             looks: all,
             src,
             lines,
+            owns: Vec::new(),
             kind,
         });
     }
@@ -773,11 +809,23 @@ impl Lay<'_> {
         if std::mem::take(&mut self.gap) && !self.rows_mut().is_empty() {
             let l = self.pos(next).0;
             let above = self.after();
-            let at = match l.checked_sub(1) {
-                Some(b) if b > above.0 && self.line(b).trim().is_empty() => (b, 0),
-                _ => above,
-            };
-            self.push(String::new(), Vec::new(), at, Kind::Gap);
+            match l.checked_sub(1) {
+                Some(b) if b > above.0 && self.line(b).trim().is_empty() => {
+                    self.push(String::new(), Vec::new(), (b, 0), Kind::Gap);
+                }
+                // No blank line stands between the blocks: the blank row goes to the next one.
+                _ => {
+                    self.push(String::new(), Vec::new(), (l, 0), Kind::Gap);
+                    self.shows_nothing();
+                }
+            }
+        }
+    }
+
+    /// The row just added is drawn for no line of its own.
+    fn shows_nothing(&mut self) {
+        if let Some(r) = self.rows_mut().last_mut() {
+            r.lines.end = r.lines.start;
         }
     }
 
@@ -845,14 +893,15 @@ impl Lay<'_> {
     /// A code block: every line on the tint, a column in from its edge, wrapped as the source
     /// wraps it, with the rows after the first under its indent. Its rows stand for its fences.
     fn code_block(&mut self, mut b: Block) {
+        // An empty block's row goes back to its opening fence.
         if b.lines.is_empty() {
-            b.lines.push((String::new(), self.after()));
+            b.lines.push((String::new(), (b.span.start, 0), 0));
         }
         let block = self.code.len();
         let first = self.rows_mut().len();
         let room = self.avail().saturating_sub(2).max(1);
         let mut drawn = Vec::with_capacity(b.lines.len());
-        for (k, (raw, (l, c))) in b.lines.iter().enumerate() {
+        for (k, (raw, (l, c), added)) in b.lines.iter().enumerate() {
             let line = raw.replace('\t', crate::buffer::TAB);
             let mut tabs = Tabs::new(raw);
             let indent = wrap::indent(&line, room);
@@ -866,8 +915,8 @@ impl Lay<'_> {
                     from: r.start,
                     at: lead,
                 };
-                let at = (*l, c.saturating_add(tabs.raw(r.start)));
-                self.push(text, vec![(Ink::Code.plain(), 0..n)], at, kind);
+                let col = tabs.raw(r.start).saturating_sub(*added);
+                self.push(text, vec![(Ink::Code.plain(), 0..n)], (*l, c + col), kind);
             }
             drawn.push(line);
         }
@@ -918,6 +967,7 @@ impl Lay<'_> {
         let top = border("\u{250c}", "\u{252c}", "\u{2510}");
         let len = top.len();
         self.push(top, vec![(line, 0..len)], (first, 0), Kind::Text);
+        self.shows_nothing();
         let empty = Inline::default();
         for (i, (l, cells)) in t.rows.iter().enumerate() {
             // Every cell's rows: byte ranges of its text.

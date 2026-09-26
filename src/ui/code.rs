@@ -257,15 +257,16 @@ pub(super) fn mark_span(mark: Option<&Mark>, g: Style) -> Span<'static> {
     }
 }
 
-/// A review tints the rows the branch added, or those of a file it deleted: the tint off the
-/// cursor line and on it. The gutter marks against the index outside a review get no tint.
+/// A review tints the rows the branch added (the preview marks those that replaced lines
+/// changed), or those of a file it deleted: the tint off the cursor line and on it. The gutter
+/// marks against the index outside a review get no tint.
 pub(super) fn review_tint(
     review: bool,
     mark: Option<&Mark>,
     theme: &Theme,
 ) -> Option<(Color, Color)> {
     match (review, mark) {
-        (true, Some(Mark::Added)) => Some((theme.add_bg, theme.add_bg_hl)),
+        (true, Some(Mark::Added | Mark::Changed)) => Some((theme.add_bg, theme.add_bg_hl)),
         (true, Some(Mark::DeletedBelow)) => Some((theme.del_bg, theme.del_bg_hl)),
         _ => None,
     }

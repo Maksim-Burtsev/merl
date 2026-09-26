@@ -336,9 +336,9 @@ fn every_row_knows_where_it_starts_in_the_source() {
     assert_eq!(d.row_at((8, 0)), 9);
     assert_eq!(d.row_at((10, 3)), 9);
     assert_eq!(d.row_at((14, 4)), 14);
-    // Every row whose position is its own is found again by it.
+    // Every row that shows a line and whose position is its own is found again by it.
     for (i, r) in d.rows.iter().enumerate() {
-        if d.rows[..i].iter().all(|o| o.src != r.src) && r.src.1 != m {
+        if d.rows[..i].iter().all(|o| o.src != r.src) && !r.lines.is_empty() {
             assert_eq!(d.row_at(r.src), i, "{:?}", r.text);
         }
     }
@@ -381,20 +381,28 @@ fn a_task_box_indents_its_item_by_its_own_width() {
 
 #[test]
 fn every_line_belongs_to_a_row() {
-    // A reference definition and the blank lines around it go with the paragraph above; a
-    // setext underline with its heading; the fences with their code.
+    // A setext underline goes with its heading; a reference definition and the blank line
+    // above it with the paragraph above; the fences with their code, the blank line before
+    // them with the blank row.
     let d = doc(
         "Title\n=====\nText [a].\n\n[a]: http://x\n\n```py\nx = 1\n```",
         20,
     );
-    let owner = |l: usize| d.rows.iter().position(|r| r.lines.contains(&l)).unwrap();
-    let text = |l: usize| d.rows[owner(l)].text.trim_start().to_string();
-    assert_eq!(text(1), "\u{2501}".repeat(20));
-    assert_eq!(text(4), "Text a.");
-    assert_eq!(text(6), "x = 1");
-    assert_eq!(text(8), "x = 1");
+    let text = |l: usize| d.rows[d.row_at((l, 0))].text.trim_start().to_string();
+    let texts: Vec<String> = (0..9).map(text).collect();
+    assert_eq!(
+        texts,
+        [
+            "Title", "Title", "Text a.", "Text a.", "Text a.", "", "x = 1", "x = 1", "x = 1"
+        ]
+    );
+    // Each line has one row: marks are never counted twice.
     for l in 0..9 {
-        assert_eq!(d.row_at((l, 0)), owner(l), "line {l}");
+        let n = d
+            .rows
+            .iter()
+            .filter(|r| r.lines.contains(&l) || r.owns.contains(&l));
+        assert_eq!(n.count(), 1, "line {l}");
     }
 }
 
@@ -445,4 +453,51 @@ fn an_info_string_names_its_language_by_its_first_word() {
     );
     let langs: Vec<&str> = d.code.iter().map(|c| c.lang.as_str()).collect();
     assert_eq!(langs, ["rust", "py"]);
+}
+
+#[test]
+fn lines_after_a_footnote_belong_to_the_rows_that_follow() {
+    // The footnote is drawn at the end and owns only its own line; the blank line and the
+    // reference definition after it go with the rows that follow, in place.
+    let d = doc(
+        "Intro[^a].\n\n[^a]: Note.\n\n[r]: http://x\n\nNext para.\n",
+        40,
+    );
+    let note = d.row_at((2, 0));
+    assert_eq!(d.rows[note].text, "[1] Note.");
+    // The blank row before `Next para.` shows line 5, and takes 3 and 4 with it.
+    let gap = d.row_at((5, 0));
+    assert_eq!(
+        (d.rows[gap].text.as_str(), d.rows[gap + 1].text.as_str()),
+        ("", "Next para.")
+    );
+    assert_eq!((d.row_at((3, 0)), d.row_at((4, 0))), (gap, gap));
+    assert!(gap < note);
+}
+
+#[test]
+fn the_spaces_the_parser_adds_are_no_source_columns() {
+    // The row a wrapped line of such a block goes on at maps to where its text is written.
+    let d = doc("- a\n\n\t\tlet total = compute(alpha, beta);\n", 20);
+    let raw = "\t\tlet total = compute(alpha, beta);";
+    let row = d
+        .rows
+        .iter()
+        .find(|r| r.text.trim_start().starts_with("compute"))
+        .unwrap();
+    assert!(raw[row.src.1..].starts_with("compute"), "{:?}", row.src);
+}
+
+#[test]
+fn alerts_take_githubs_light_or_dark_colours_as_the_theme_is() {
+    let note = |name: &str| {
+        let theme = crate::theme::load(name).unwrap();
+        let look = Look {
+            ink: Ink::Alert(BlockQuoteKind::Note),
+            mods: Modifier::BOLD,
+        };
+        Palette::new(&theme).style(look, false).fg
+    };
+    assert_eq!(note("github-light"), Some(Color::from_u32(0x0969da)));
+    assert_eq!(note("tokyonight-moon"), Some(Color::from_u32(0x4493f8)));
 }

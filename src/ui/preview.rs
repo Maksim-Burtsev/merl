@@ -55,15 +55,28 @@ pub(super) fn draw_preview(
     let review = app.review.is_some();
     let gutter = base.fg(theme.gutter_fg);
     let ghosts = ghost_marks(&p.doc.rows, app.diff.ghosts.keys().copied());
+    // A review marks a line that replaced a deleted one as added, and shows the deleted one
+    // above it, paired for its changed words; the preview has no room for it, so it marks the
+    // new line changed, as the gutter marks a line changed against the index.
+    let replaced = &app.diff.pairs;
     let mut lines: Vec<Line> = Vec::with_capacity(end - p.top);
     for i in p.top..end {
         let row = &p.doc.rows[i];
         let cursor = i == p.row;
-        // A row's mark is the one of any line it shows: a changed line may start mid-row.
-        let marks = || row.lines.clone().filter_map(|l| app.diff.marks.get(&l));
-        let mark = marks()
-            .find(|m| **m != Mark::DeletedBelow)
-            .or_else(|| marks().next());
+        // A row's mark is the one of any line it shows or stands for: a changed line may start
+        // mid-row. Changed says more than added, and either more than deleted below.
+        let marks = row.lines.clone().chain(row.owns.iter().copied());
+        let mark = marks
+            .filter_map(|l| match app.diff.marks.get(&l) {
+                Some(Mark::Added) if replaced.contains_key(&l) => Some(Mark::Changed),
+                m => m.copied(),
+            })
+            .min_by_key(|m| match m {
+                Mark::Changed => 0,
+                Mark::Added => 1,
+                Mark::DeletedBelow => 2,
+            });
+        let mark = mark.as_ref();
         let bg = match (review_tint(review, mark, theme), cursor) {
             (Some((_, c)), true) | (Some((c, _)), false) => Some(c),
             (None, true) => Some(theme.line_hl),
@@ -129,7 +142,9 @@ pub(super) fn draw_preview(
 fn ghost_marks(rows: &[Row], keys: impl Iterator<Item = usize>) -> HashMap<usize, &'static str> {
     let mut out = HashMap::new();
     for k in keys {
-        let above = rows.iter().position(|r| r.lines.contains(&k));
+        let above = rows
+            .iter()
+            .position(|r| r.lines.contains(&k) || r.owns.contains(&k));
         let before = |i: &usize| !rows[*i].lines.is_empty() && rows[*i].lines.end <= k;
         let below = || {
             (0..rows.len())

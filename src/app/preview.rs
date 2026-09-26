@@ -86,15 +86,25 @@ impl App {
             }
             slot => {
                 // Laid out anew, for a rewrite or another width: the row stays where it was on
-                // screen.
-                let off = slot.as_ref().map_or(0, |p| p.row.saturating_sub(p.top));
+                // screen, the same row when the cursor has not moved.
+                let old = slot.take();
+                let off = old.as_ref().map_or(0, |p| p.row.saturating_sub(p.top));
                 let mut doc = markdown::layout(&self.buf.lines, self.view_w);
-                let code = doc
-                    .code
-                    .drain(..)
-                    .map(|c| Buffer::block(&c.lang, c.lines))
-                    .collect();
-                let row = doc.row_at(pos);
+                let row = match &old {
+                    Some(p) if p.at == pos => doc.same_row(&p.doc, p.row, pos),
+                    _ => doc.row_at(pos),
+                };
+                // Code keeps its colours across another width: the text is the same.
+                let (code, theme) = match old {
+                    Some(p) if p.key.0 == key.0 => (p.code, p.theme),
+                    _ => (
+                        doc.code
+                            .drain(..)
+                            .map(|c| Buffer::block(&c.lang, c.lines))
+                            .collect(),
+                        String::new(),
+                    ),
+                };
                 *slot = Some(Preview {
                     doc,
                     key,
@@ -102,7 +112,7 @@ impl App {
                     top: row.saturating_sub(off),
                     at: pos,
                     code,
-                    theme: String::new(),
+                    theme,
                 });
             }
         }
@@ -132,30 +142,28 @@ impl App {
     }
 
     /// The keys of the preview, whichever pane has the focus. Reading keys move the cursor row;
-    /// Enter edits the source at it. What acts on a word, a column or a selection has nothing to
-    /// act on here and does nothing. Returns `false` for every other key, which does what it does
-    /// everywhere, and for the keys the tree takes when it has the focus.
+    /// Enter edits the source at it. The keys that act on the file, a pane or merl do what they
+    /// do everywhere (`false`), and so do the tree's own when it has the focus. Every other key
+    /// acts on a word, a column or a selection, has nothing to act on here, and does nothing.
     pub(super) fn preview_key(&mut self, key: KeyEvent) -> bool {
         if !self.previewing() {
             return false;
         }
-        let tree = matches!(
-            key.code,
-            KeyCode::Up
-                | KeyCode::Down
-                | KeyCode::Left
-                | KeyCode::Right
-                | KeyCode::PageUp
-                | KeyCode::PageDown
-                | KeyCode::Home
-                | KeyCode::End
-                | KeyCode::Enter
-        );
-        if tree && self.focus == Focus::Tree {
-            return false;
-        }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let plain = key.modifiers.is_empty();
+        let tree = matches!(
+            key.code,
+            KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right | KeyCode::Enter
+        );
+        let elsewhere = match key.code {
+            KeyCode::Esc | KeyCode::Tab => true,
+            KeyCode::Char(c) if ctrl => matches!(c, 'g' | 'n' | 'e' | 's' | 'r' | 'z' | 'y'),
+            KeyCode::Char(c) => "q?:sDotT[]cCmp".contains(c),
+            _ => false,
+        };
+        if elsewhere || tree && self.focus == Focus::Tree {
+            return false;
+        }
         self.preview_sync();
         let Some(p) = &self.preview else {
             return false;
@@ -163,32 +171,25 @@ impl App {
         let (row, top, last) = (p.row, p.top, p.doc.rows.len() - 1);
         let (h, half) = (self.view_h.max(1), (self.view_h / 2).max(1));
         let gap = |i: &usize| p.doc.rows[*i].kind == Kind::Gap;
-        let (to, scroll) = match key.code {
-            KeyCode::Up if plain => (row.saturating_sub(1), 0),
-            KeyCode::Down if plain => ((row + 1).min(last), 0),
-            KeyCode::PageUp => (row.saturating_sub(h), 0),
-            KeyCode::PageDown => ((row + h).min(last), 0),
+        // Where the key goes, how the view goes with it, and whether it reads on (a stop of the
+        // jump history follows it) or jumps (a far one adds a stop, as in the source).
+        let (to, scroll, reads) = match key.code {
+            KeyCode::Up if plain => (row.saturating_sub(1), 0, true),
+            KeyCode::Down if plain => ((row + 1).min(last), 0, true),
+            KeyCode::PageUp if plain => (row.saturating_sub(h), 0, true),
+            KeyCode::PageDown if plain => ((row + h).min(last), 0, true),
             // Half a screen, the view with the cursor, as in the source.
-            KeyCode::Char('u') if ctrl => (row.saturating_sub(half), -1),
-            KeyCode::Char('d') if ctrl => ((row + half).min(last), 1),
-            KeyCode::Home if ctrl => (0, 0),
-            KeyCode::End if ctrl => (last, 0),
-            KeyCode::Char('{') => ((0..row).rev().find(gap).unwrap_or(0), 0),
-            KeyCode::Char('}') => ((row + 1..=last).find(gap).unwrap_or(last), 0),
-            KeyCode::Enter => {
+            KeyCode::Char('u') if ctrl => (row.saturating_sub(half), -1, true),
+            KeyCode::Char('d') if ctrl => ((row + half).min(last), 1, true),
+            KeyCode::Home if ctrl => (0, 0, false),
+            KeyCode::End if ctrl => (last, 0, false),
+            KeyCode::Char('{') => ((0..row).rev().find(gap).unwrap_or(0), 0, false),
+            KeyCode::Char('}') => ((row + 1..=last).find(gap).unwrap_or(last), 0, false),
+            KeyCode::Enter if plain => {
                 self.start_edit();
                 return true;
             }
-            KeyCode::Up
-            | KeyCode::Down
-            | KeyCode::Left
-            | KeyCode::Right
-            | KeyCode::Home
-            | KeyCode::End
-            | KeyCode::F(12) => return true,
-            KeyCode::Char('/' | 'n' | 'N' | 'v' | 'd' | 'u' | 'w') if !ctrl => return true,
-            KeyCode::Char('f') if ctrl => return true,
-            _ => return false,
+            _ => return true,
         };
         let moved = to.abs_diff(row);
         let top = match scroll {
@@ -202,12 +203,29 @@ impl App {
         if let Some(p) = &mut self.preview {
             (p.row, p.top, p.at) = (to, top, at);
         }
-        // Reading moves the current stop of the jump history, as paging does, and adds none:
-        // a row's source line can be far from the one above it, a footnote's is.
-        if let (Some(pos), Some(cur)) = (self.pos(), self.history.get_mut(self.hist_idx)) {
+        // Reading moves the current stop of the jump history, as paging does, and adds none: a
+        // row's source line can be far from the one above it, a footnote's is. A jump is judged
+        // by its source lines after the key, as in the source.
+        if reads && let (Some(pos), Some(cur)) = (self.pos(), self.history.get_mut(self.hist_idx)) {
             *cur = pos;
         }
         self.preview_clamp();
         true
+    }
+
+    /// The source lines the cursor row shows, while the open file is shown rendered: what `c`
+    /// and `C` step past, so a hunk inside the row the cursor is on is no stop.
+    pub(super) fn preview_lines(&mut self) -> Option<std::ops::Range<usize>> {
+        if !self.previewing() {
+            return None;
+        }
+        self.preview_sync();
+        let p = self.preview.as_ref()?;
+        let r = &p.doc.rows[p.row];
+        Some(if r.lines.is_empty() {
+            self.line..self.line + 1
+        } else {
+            r.lines.clone()
+        })
     }
 }

@@ -38,11 +38,13 @@ blocks included.
 
 The preview has a cursor row: Up / Down, PgUp / PgDn, Ctrl+D / Ctrl+U and Ctrl+Home / Ctrl+End
 move it, and `{` / `}` go to the blank row before the previous or next block. The status bar and
-the jump history follow the source line under it, so `[` and `]`, `:`, `o`, `s`, `D`, `t`, `T`,
-`?` and `q` work as everywhere, and Ctrl+C copies the source line. What acts on a word, a column
+the jump history follow the source line under it: reading adds no stop, Ctrl+Home, Ctrl+End and a
+far `{` / `}` add one as in the source. `[` and `]`, `:`, `o`, `s`, `D`, `t`, `T`, `?` and `q` work
+as everywhere, and Ctrl+C copies the source line. What acts on a word, a column
 or a selection (`/`, `n`, `v`, `d`, `u`, Home / End, Shift or Alt with an arrow, `w`) has nothing
 to act on in the preview and does nothing; `p` or Enter take you to the source for it.
 
-In `--review` the preview keeps the diff in its gutter, as the source does: the rows of added
-lines have the green bar and tint, and a red mark stands where the branch deleted lines. The
-deleted text itself is in the source, and `c` / `C` walk the hunks in either.
+In `--review` the preview keeps the diff in its gutter: the rows of lines the branch added have
+the green bar and tint, a line that replaced one the blue bar a changed line gets, and a red mark
+stands where the branch deleted lines. The deleted text itself is in the source. `c` / `C` walk
+the hunks in either, the preview's rows one hunk further when the next is on the row already.

@@ -194,7 +194,7 @@ impl Buffer {
     pub(crate) fn block(token: &str, mut lines: Vec<String>) -> Self {
         let bytes: usize = lines.iter().map(String::len).sum();
         let syntax = (lines.len() <= MAX_HL_LINES && bytes <= MAX_HL_BYTES)
-            .then(|| syntax_for_token(token))
+            .then(|| syntax_for_info(token))
             .flatten();
         if lines.is_empty() {
             lines.push(String::new());
@@ -314,13 +314,42 @@ fn syntax_for(path: &Path, first_line: &str) -> &'static SyntaxReference {
     with_bash(found)
 }
 
-/// Syntax by a code block's info string, looked up as an extension through our names and then as
-/// bat's extension or name: `rs` and `rust` alike. Never by a file: no path is opened.
-fn syntax_for_token(token: &str) -> Option<&'static SyntaxReference> {
+/// What Markdown code blocks call a language no grammar goes by, as GitHub reads them. Their own
+/// table: the names files are known by stay as they are.
+const BLOCK_NAMES: &[(&str, &str)] = &[
+    ("shell", "Bourne Again Shell (bash)"),
+    ("console", "Bourne Again Shell (bash)"),
+    ("objc", "Objective-C"),
+];
+
+/// Syntax by the first word of a code block's info string: a language (`rust`, `rs`,
+/// `dockerfile`), or a file it cites (`src/main.rs`, Cursor's `12:15:src/main.rs`) by the
+/// extension after its last `.`. Looked up by name alone: no word becomes a path.
+fn syntax_for_info(word: &str) -> Option<&'static SyntaxReference> {
     let set = syntaxes();
-    let found = known_name(&Path::new("block").with_extension(token))
-        .and_then(|name| set.find_syntax_by_name(name))
-        .or_else(|| set.find_syntax_by_token(token))?;
+    let mut word = word;
+    for _ in 0..2 {
+        match word.split_once(':') {
+            Some((n, rest)) if !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()) => {
+                word = rest;
+            }
+            _ => break,
+        }
+    }
+    let file = word.rsplit('/').next().unwrap_or(word);
+    let key = file.rsplit_once('.').map_or(file, |(_, ext)| ext);
+    if key.is_empty() {
+        return None;
+    }
+    // Ours first, then the names files are known by (`Containerfile`, `jsonc`), then bat's.
+    let found = BLOCK_NAMES
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case(key))
+        .map(|(_, grammar)| *grammar)
+        .or_else(|| known_file(file))
+        .or_else(|| known_file(&format!("block.{key}")))
+        .and_then(|grammar| set.find_syntax_by_name(grammar))
+        .or_else(|| set.find_syntax_by_token(key))?;
     Some(with_bash(found))
 }
 
@@ -345,7 +374,11 @@ fn with_bash(found: &'static SyntaxReference) -> &'static SyntaxReference {
 
 /// Infrastructure files bat's set has no name pattern for, mapped to the grammar that fits.
 fn known_name(path: &Path) -> Option<&'static str> {
-    let name = path.file_name()?.to_str()?;
+    known_file(path.file_name()?.to_str()?)
+}
+
+/// [`known_name`] by the file name alone.
+fn known_file(name: &str) -> Option<&'static str> {
     let ext = name.rsplit_once('.').map_or("", |(_, ext)| ext);
     Some(match (name, ext) {
         // `.dockerignore`, and BuildKit's per-Dockerfile `app.Dockerfile.dockerignore`.
@@ -358,9 +391,6 @@ fn known_name(path: &Path) -> Option<&'static str> {
         // bat's set knows Ruby by name for `Rakefile`, `Gemfile` and friends, but not for
         // Sorbet's type files or Danger's.
         (_, "rbi") | ("Dangerfile", _) => "Ruby",
-        // What Markdown code blocks call a shell and Objective-C, as GitHub reads them.
-        (_, "shell" | "console") => "Bourne Again Shell (bash)",
-        (_, "objc") => "Objective-C",
         // Sublime's set gives `.h` to Objective-C, which paints a C or a C++ header wrong. The
         // C++ grammar is the C one plus templates, classes and namespaces, so it reads both.
         (_, "h") => "C++",
@@ -399,6 +429,41 @@ mod tests {
         assert_eq!(name("shell"), Some("Bourne Again Shell (bash)"));
         assert_eq!(name("no-such-language"), None);
         assert_eq!(name(""), None);
+    }
+
+    /// An info string names its language, or cites a file by its extension: never a path, never
+    /// a panic, whatever the word holds.
+    #[test]
+    fn a_code_block_is_named_by_its_info_string() {
+        let name = |token: &str| Buffer::block(token, vec![]).syntax.map(|s| s.name.as_str());
+        assert_eq!(name("12:15:src/main.rs"), Some("Rust"));
+        assert_eq!(name("src/main.rs"), Some("Rust"));
+        assert_eq!(name("12:15:Dockerfile"), Some("Dockerfile (with bash)"));
+        assert_eq!(name("Containerfile"), Some("Dockerfile (with bash)"));
+        assert_eq!(name("console"), Some("Bourne Again Shell (bash)"));
+        assert_eq!(name("objc"), Some("Objective-C"));
+        for plain in ["", "日本語", "a/../b", "12:15:", ":::"] {
+            assert_eq!(name(plain), None, "{plain:?}");
+        }
+        // The names blocks use change nothing for files.
+        for file in ["x.shell", "x.console", "x.objc"] {
+            let b = Buffer::from_bytes(PathBuf::from(file), b"echo hi\n");
+            assert_eq!(
+                b.syntax.map(|s| s.name.as_str()),
+                Some("Plain Text"),
+                "{file}"
+            );
+        }
+    }
+
+    /// A block past the source view's limits is drawn plain, as a file past them is.
+    #[test]
+    fn a_code_block_past_the_limits_is_plain() {
+        let many = vec!["x".to_string(); MAX_HL_LINES + 1];
+        assert!(Buffer::block("rust", many).syntax.is_none());
+        let big = vec!["x".repeat(MAX_HL_BYTES + 1)];
+        assert!(Buffer::block("rust", big).syntax.is_none());
+        assert!(Buffer::block("rust", vec!["x".into()]).syntax.is_some());
     }
 
     /// A code block's grammar is found by its name alone: a file named after the block in the

@@ -37,10 +37,12 @@ impl App {
         let Some(r) = self.review.clone() else {
             return;
         };
+        // In the preview, past the lines of the cursor row: `c` always moves.
+        let at = self.preview_lines().unwrap_or(self.line..self.line + 1);
         let here = if dir > 0 {
-            self.diff.hunks.iter().find(|&&h| h > self.line)
+            self.diff.hunks.iter().find(|&&h| h >= at.end)
         } else {
-            self.diff.hunks.iter().rev().find(|&&h| h < self.line)
+            self.diff.hunks.iter().rev().find(|&&h| h < at.start)
         };
         if let Some(&h) = here {
             let path = self.buf.path.clone().unwrap();

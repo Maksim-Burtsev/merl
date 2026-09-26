@@ -463,7 +463,7 @@ fn a_change_no_row_shows_marks_the_row_it_belongs_to() {
             "setext",
             "Title\n=====\n\nText\n",
             "Title\n-----\n\nText\n",
-            1,
+            0,
         ),
     ] {
         let (dir, mut a) = md_review(tag, base, branch);
@@ -503,7 +503,9 @@ fn from_the_tree_the_preview_still_refuses_what_it_refuses() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// Reading in the preview adds no stop to the jump history, down into the footnotes either.
+/// Reading in the preview adds no stop to the jump history, down into the footnotes either,
+/// though their source lines are far from the text above them; Ctrl+End and Ctrl+Home add one
+/// as in the source, so `[` goes back.
 #[test]
 fn reading_the_preview_adds_no_history_stop() {
     let mut text = String::from("Claim[^n].\n\n[^n]: The note.\n\n");
@@ -511,14 +513,23 @@ fn reading_the_preview_adds_no_history_stop() {
     let (dir, mut a) = md_app("history", &text);
     key(&mut a, KeyCode::Char('p'));
     let before = a.history.len();
-    press(&mut a, KeyCode::End, KeyModifiers::CONTROL);
-    for _ in 0..40 {
-        key(&mut a, KeyCode::Up);
-    }
     for _ in 0..40 {
         key(&mut a, KeyCode::Down);
     }
+    assert_eq!(at_row(&a).2, "[1] The note.");
+    for _ in 0..40 {
+        key(&mut a, KeyCode::Up);
+    }
     assert_eq!(a.history.len(), before);
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let (dir, mut a) = md_app("history-jump", &"Text.\n\n".repeat(20));
+    key(&mut a, KeyCode::Char('p'));
+    press(&mut a, KeyCode::End, KeyModifiers::CONTROL);
+    assert_eq!(a.line, 38);
+    key(&mut a, KeyCode::Char('['));
+    a.preview_sync();
+    assert_eq!((a.line, at_row(&a).0), (0, 0), "back to the top");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -607,5 +618,176 @@ fn a_held_arrow_in_the_preview_misses_nothing() {
         t0 + Duration::from_millis(2000),
     );
     assert!(a.missed.is_empty(), "{:?}", a.missed);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Only the keys the preview names do anything in it: no other key, with or without Ctrl,
+/// selects, finds, flips the wrapping or changes the text behind it.
+#[test]
+fn only_the_keys_the_preview_names_act_in_it() {
+    let (dir, mut a) = md_app("allow", PLAN);
+    let codes = (' '..='~')
+        .map(KeyCode::Char)
+        .chain((1..=12).map(KeyCode::F))
+        .chain([
+            KeyCode::Backspace,
+            KeyCode::Delete,
+            KeyCode::Insert,
+            KeyCode::BackTab,
+        ]);
+    for code in codes {
+        for m in [KeyModifiers::NONE, KeyModifiers::CONTROL] {
+            // What leaves merl or the preview, and what says so, is not this test's.
+            if matches!(code, KeyCode::Char('q' | 'p')) && m.is_empty() {
+                continue;
+            }
+            (a.mode, a.picker) = (Mode::Normal, None);
+            a.previewed.insert(a.buf.path.clone().unwrap());
+            key(&mut a, KeyCode::Esc);
+            press(&mut a, code, m);
+            assert!(
+                a.selection().is_none() && !a.nowrap() && a.mode != Mode::Find,
+                "{code:?} {m:?}: {:?}",
+                a.mode
+            );
+            assert_eq!(a.buf.lines.join("\n") + "\n", PLAN, "{code:?} {m:?}");
+        }
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A narrower pane keeps the colours of the code on screen: the text is the same.
+#[test]
+fn another_width_keeps_the_code_highlighted() {
+    let (dir, mut a) = md_app("keep-hl", "```rust\nfn main() {}\n```\n");
+    key(&mut a, KeyCode::Char('p'));
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let draw = |a: &mut App, w: u16| {
+        let mut terminal = Terminal::new(TestBackend::new(w, 6)).unwrap();
+        terminal.draw(|f| crate::ui::draw(f, a, &theme)).unwrap();
+        a.preview.as_ref().unwrap().code[0].hl.clone()
+    };
+    a.show_tree = false;
+    let before = draw(&mut a, 40);
+    assert_eq!(before.len(), 1);
+    // Drawn at another width, the spans are the very ones kept, not highlighted again.
+    a.preview.as_mut().unwrap().code[0].hl[0].clear();
+    assert!(draw(&mut a, 30)[0].is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A new layout keeps the cursor on the row it was on, where rows share a position: a table's
+/// header and its top border, a heading and its rule, a bottom border.
+#[test]
+fn a_new_layout_keeps_the_row() {
+    let text = "# Plan\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nEnd.\n";
+    let (dir, mut a) = md_app("same-row", text);
+    key(&mut a, KeyCode::Char('p'));
+    let texts: Vec<String> = a
+        .preview
+        .as_ref()
+        .unwrap()
+        .doc
+        .rows
+        .iter()
+        .map(|r| r.text.clone())
+        .collect();
+    for (i, want) in texts.iter().enumerate().filter(|(_, t)| !t.is_empty()) {
+        let first = want.chars().next().unwrap();
+        a.view_w = 40;
+        a.preview_sync();
+        while at_row(&a).0 != i {
+            let code = if at_row(&a).0 < i {
+                KeyCode::Down
+            } else {
+                KeyCode::Up
+            };
+            key(&mut a, code);
+        }
+        a.view_w = 30;
+        a.preview_sync();
+        assert!(
+            at_row(&a).2.starts_with(first),
+            "{want:?} became {:?}",
+            at_row(&a).2
+        );
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// In a review, a line that replaced one is marked changed, blue, as the gutter marks a
+/// changed line; a line only added is green. Both are on the review's tint.
+#[test]
+fn a_replaced_line_is_marked_changed() {
+    let base = "aaa\n\nthe old line\n";
+    let (dir, mut a) = md_review("replaced", base, "aaa\n\nthe new line\n\nccc\n");
+    key(&mut a, KeyCode::Char('p'));
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(20, 6)).unwrap();
+    terminal
+        .draw(|f| crate::ui::draw(f, &mut a, &theme))
+        .unwrap();
+    let buf = terminal.backend().buffer();
+    let at = |y: u16| (buf[(1, y)].symbol().to_string(), buf[(1, y)].fg);
+    use ratatui::style::Color;
+    assert_eq!(
+        at(2),
+        ("\u{258e}".into(), Color::Blue),
+        "the new line replaced the old"
+    );
+    assert_eq!(at(4), ("\u{258e}".into(), Color::Green), "ccc was added");
+    // Both on the review's tint, the cursor's own on the one under the cursor.
+    for y in [2, 4] {
+        let bg = buf[(2, y)].bg;
+        assert!(
+            [theme.add_bg, theme.add_bg_hl].contains(&bg),
+            "row {y}: {bg:?}"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `c` always moves: a hunk inside the row the cursor is on is no stop, the next one is.
+#[test]
+fn c_moves_past_a_hunk_on_the_cursor_row() {
+    let base = "aaa bbb\nxxx\neee fff\nyyy\n";
+    let (dir, mut a) = md_review("c-moves", base, PARA);
+    key(&mut a, KeyCode::Char('p'));
+    marks(&mut a);
+    assert_eq!(at_row(&a).2, "aaa bbb ccc");
+    key(&mut a, KeyCode::Char('c'));
+    marks(&mut a);
+    assert_eq!(at_row(&a).2, "ggg hhh");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `p` on a code block that cites a file, as Cursor does, shows it coloured as that file.
+#[test]
+fn a_fence_that_cites_a_file_renders() {
+    let (dir, mut a) = md_app("cite", "```12:15:src/main.rs\nfn main() {}\n```\n");
+    key(&mut a, KeyCode::Char('p'));
+    assert!(a.previewing());
+    let p = a.preview.as_ref().unwrap();
+    assert_eq!(p.code[0].lines, ["fn main() {}"]);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Enter on the row of an empty code block, or on a blank row with no blank line under it,
+/// edits where the row is: the block's fence, the start of the block after it.
+#[test]
+fn enter_on_rows_of_no_text_edits_where_they_are() {
+    let (dir, mut a) = md_app("empty-block", "Para.\n\n```\n```\n\nEnd.\n");
+    key(&mut a, KeyCode::Char('p'));
+    key(&mut a, KeyCode::Down);
+    key(&mut a, KeyCode::Down);
+    key(&mut a, KeyCode::Enter);
+    assert_eq!((a.mode, a.line, a.col), (Mode::Edit, 2, 0));
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let (dir, mut a) = md_app("tight-gap", "```\ncode\n```\nText after.\n");
+    key(&mut a, KeyCode::Char('p'));
+    key(&mut a, KeyCode::Char('}'));
+    key(&mut a, KeyCode::Enter);
+    assert_eq!((a.mode, a.line, a.col), (Mode::Edit, 3, 0));
     let _ = std::fs::remove_dir_all(&dir);
 }
