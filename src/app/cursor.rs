@@ -76,11 +76,19 @@ impl App {
         Some(from..to)
     }
 
-    /// The selected text, lines joined with `\n`.
+    /// The selected text, lines joined with `\n`. The drawn end of a line cut at
+    /// [`Buffer::shown`] stands for its real end (#284): the cursor stops there, and what it
+    /// selects runs on to the end, as Ctrl+C with no selection copies it.
     pub(super) fn selected_text(&self) -> Option<String> {
         let (start, end) = self.selection()?;
         let lines: Vec<&str> = (start.0..=end.0)
-            .map(|l| &self.buf.lines[l][self.selected_bytes(l).unwrap()])
+            .map(|l| {
+                let line = &self.buf.lines[l];
+                let cut = self.buf.shown(l).len();
+                let end_of = |col: usize| if col == cut { line.len() } else { col };
+                let r = self.selected_bytes(l).unwrap();
+                &line[end_of(r.start)..end_of(r.end)]
+            })
             .collect();
         Some(lines.join("\n"))
     }

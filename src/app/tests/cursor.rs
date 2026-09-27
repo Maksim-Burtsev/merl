@@ -447,3 +447,38 @@ fn the_cursor_stays_on_the_drawn_part_of_a_cut_line() {
     assert_eq!(key(&mut a, KeyCode::Right, KeyModifiers::NONE), (1, end));
     assert_eq!(key(&mut a, KeyCode::Right, KeyModifiers::ALT), (1, end));
 }
+
+/// #284: a selection that ends where a cut line's drawn part ends copies the line to its real
+/// end, as Ctrl+C with no selection does: `v v` or Shift+Ctrl+Right, then Ctrl+C, never copies a
+/// line cut at 20 KB.
+#[test]
+fn a_selection_to_the_end_of_a_cut_line_copies_all_of_it() {
+    let line = format!("{}THE END", "ab ".repeat(10_000));
+    let (_, mut a) = temp_file("cut-copy", &format!("{line}\nnext"));
+    press(&mut a, KeyCode::Char('v'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('v'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(a.clipboard.take().as_deref(), Some(line.as_str()));
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Home, KeyModifiers::CONTROL);
+    let to_end = KeyModifiers::SHIFT | KeyModifiers::CONTROL;
+    press(&mut a, KeyCode::Right, to_end);
+    press(&mut a, KeyCode::Right, to_end);
+    assert!(a.selection().is_some());
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(a.clipboard.take().as_deref(), Some(line.as_str()));
+}
+
+/// #284: `merl file:1:25000` on a line cut at 20 KB opens on the drawn end.
+#[test]
+fn opening_at_a_column_past_the_cut_lands_on_the_drawn_end() {
+    let (path, a) = temp_file("cut-open", &format!("{}THE END\n", "ab ".repeat(10_000)));
+    let a = App::new(
+        a.root.clone(),
+        Tree::default(),
+        Vec::new(),
+        Buffer::load(&path).unwrap(),
+        Some((1, 25_000)),
+    );
+    assert_eq!((a.line, a.col), (0, a.buf.shown(0).len()));
+}
