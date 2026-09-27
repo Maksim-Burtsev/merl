@@ -17,9 +17,9 @@ one plays. The report goes to WORK/out, or WORK/out-only for --only, so a rerun 
 leaves the full report in place; a directory --out names is deleted only if a run made it.
 
 Each scenario is played on the new build, then the old one, from a fresh copy of the fixture in a
-tmux pane of 120x32 with an empty HOME. A scenario is a steps file, one step per line, `#`
-comments and blank lines skipped; the grammar of tools/cast.py and assets/tapes/record.py plus a
-few verbs of its own:
+tmux pane of 185x55, a laptop's full screen, with an empty HOME. A scenario is a steps file, one
+step per line, `#` comments and blank lines skipped; the grammar of tools/cast.py and
+assets/tapes/record.py plus a few verbs of its own:
 
     merl ARGS          start merl in the project; later in the file: quit it (it must exit 0)
                        and start it again, the same HOME kept
@@ -55,7 +55,7 @@ import cast  # noqa: E402
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
 CACHE = os.path.expanduser("~/.cache/merl-smoke")
-PACE, POLL, TIMEOUT, SLEEP_CAP, SIZE = 0.01, 0.02, 10.0, 0.3, (120, 32)
+PACE, POLL, TIMEOUT, SLEEP_CAP, SIZE = 0.01, 0.02, 10.0, 0.3, (185, 55)
 HOLD = 1.2  # --gif: seconds each checkpoint stays on screen
 MARK = ".merl-smoke-report"  # in every report directory a run made, and only there
 SGR = re.compile(r"\x1b\[[0-9;]*m")
