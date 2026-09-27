@@ -224,16 +224,23 @@ class Recorder:
 def play(binary, path, work, timed_only=False, rec=None):
     """One run of a scenario on one binary. Whatever happens, an interrupt included, the pane's tmux
     server is gone after it. A play that does not end `ok` keeps in `last` the screen as it was at
-    the failure: before any q, and for a merl that died, its last checkpoint."""
+    the failure: before any q, and for a merl that died, its last checkpoint since it started."""
     home, err = os.path.join(work, "run", "home"), os.path.join(work, "run", "stderr")
     r = {"checkpoints": [], "times": {}, "slow": [], "status": "ok", "timed": False}
     size, pane, timed, t0 = list(SIZE), None, False, time.monotonic()
-    # seen: the last checkpoint's frame. A dying merl restores the terminal first, so a frame taken
-    # at its death, or a poll just before, can already be the blank screen behind it.
+    # seen: the last checkpoint of the merl now running, its size included. A dying merl restores
+    # the terminal first, so a frame taken at its death, or a poll just before, can already be the
+    # blank screen behind it.
     last_key, step, runner, seen = t0, "", "", None
 
     def keep(label, frame):
         r.setdefault("last", [label, *frame, size])
+
+    def keep_dead():
+        if seen:
+            r.setdefault("last", [f"the last checkpoint before merl died: {seen[0]}", *seen[1:]])
+        else:
+            keep("the screen after merl died", pane.frame())
     try:
         project, steps = load(path)
         cwd = fresh(work, project)
@@ -244,6 +251,11 @@ def play(binary, path, work, timed_only=False, rec=None):
             step = f"{where} `{verb} {arg}`"
             if rec and not rec.thread and pane and verb not in ("wait", "sleep", "caption"):
                 rec.start(pane)
+            # a merl that died on a key no wait followed: reported as a wait would, not on the next step
+            if pane and verb in ("merl", "key", "type", "run") and (s := pane.dead()) is not None:
+                r["status"] = f"{died(s)} before {step}"
+                keep_dead()
+                break
             if verb == "merl":
                 if pane is None:
                     pane = Merl(binary, shlex.split(arg), home, cwd, size, err)
@@ -254,6 +266,7 @@ def play(binary, path, work, timed_only=False, rec=None):
                         keep("before the restart", before)
                         break
                     pane.restart(shlex.split(arg))
+                    seen = None
                 last_key = time.monotonic()
             elif verb == "size":
                 size = [int(v) for v in arg.split("x")]
@@ -279,14 +292,14 @@ def play(binary, path, work, timed_only=False, rec=None):
                     if s is None:
                         keep(f"{where} wait {arg}: the screen when it gave up", pane.frame())
                     else:
-                        keep("the last checkpoint before merl died", seen or pane.frame())
+                        keep_dead()
                     break
                 if timed:
                     r["times"][f"{where} wait {arg}"], timed = ms, False
                 elif ms > 1000:
                     r["slow"].append([f"{where} wait {arg}", ms])
                 r["checkpoints"].append([f"{where} wait {arg}", *pane.settled(), size])
-                seen = r["checkpoints"][-1][1:3]
+                seen = r["checkpoints"][-1]
                 if timed_only and i > last_timed:
                     break
                 if rec:
@@ -334,12 +347,15 @@ def play(binary, path, work, timed_only=False, rec=None):
                 keep("the screen when the runner failed", pane.frame())
             except Exception:
                 if seen:
-                    keep("the last checkpoint before the runner failed", seen)
+                    r.setdefault("last", [f"the last checkpoint before the runner failed: {seen[0]}", *seen[1:]])
     finally:
         if rec:
             rec.end()
         if pane:
             try:
+                if r["status"] == "ok" and (s := pane.dead()) is not None:
+                    r["status"] = f"{died(s)} after its last step"
+                    keep_dead()
                 before = pane.frame()
                 if (s := pane.quit()) != 0 and r["status"] == "ok":
                     r["status"] = f"{died(s)} on q"
@@ -648,6 +664,7 @@ def gif(binary, path, work, out):
 # --selftest: fake merls, bash scripts that print `ready` and act on the keys they read.
 FAKE = """#!/bin/bash
 trap 'printf "\\033[?1049l"' EXIT  # as merl does: its screen is gone once it has quit
+%(s)s
 printf '\\033[?1049h'; echo ready
 while IFS= read -rsn1 c; do
   case "$c" in
@@ -658,7 +675,7 @@ while IFS= read -rsn1 c; do
   esac
 done
 """
-# name: (steps, new merl's `d` and `q`, the old one's, the verdict, a text the report must hold)
+# name: (steps, new merl's start, `d` and `q`, the old one's, the verdict, a text the report must hold)
 SELFTEST = {
     "pass": ("merl\nwait ready\nkey d\nwait done\n", {}, {}, "PASS", ""),
     "signal": ("merl\nwait ready\nkey a\nwait done\n", {}, {}, "CRASH", "CRASH SIGABRT at"),
@@ -666,6 +683,12 @@ SELFTEST = {
     "fail": ("merl\nwait ready\nwait never\n", {}, {}, "FAIL", "FAIL at"),
     "hung": ("merl\nwait ready\n", {"q": ":"}, {}, "HUNG", "HUNG on q"),
     "run": ("merl\nwait ready\nrun test -e nowhere\n", {}, {}, "RUN", "RUN 1 at"),
+    # dead on a key no wait follows: the death, not the q after it, with the screen at its size
+    "end": ("merl\nwait ready\nsize 60x10\nkey e\n", {}, {}, "EXIT", "EXIT 3 after its last step"),
+    "restart": ("merl\nwait ready\nkey e\nmerl\nwait ready\n", {}, {}, "EXIT", "EXIT 3 before"),
+    # dead on its second start: not shown with the first merl's screen
+    "restarted": ("merl\nwait ready\nmerl\nwait ready\n",
+                  {"s": '[ -e "$0.started" ] && exit 101; touch "$0.started"'}, {}, "CRASH", "CRASH 101 at"),
     # the first play passes, the two reruns for the timed step exit 101 at `d`
     "rerun": ("merl\nwait ready\nkey d\ntime\nwait done\n",
               {"d": '[ -e "$0.played" ] && exit 101; touch "$0.played";'}, {}, "CRASH",
@@ -694,7 +717,7 @@ def selftest():
         bins = []
         for side, acts in (("new", new), ("old", old)):
             bins.append(os.path.join(tmp, f"{name}-{side}"))
-            open(bins[-1], "w").write(FAKE % {"q": "exit 0", "d": "", **acts})
+            open(bins[-1], "w").write(FAKE % {"q": "exit 0", "d": "", "s": "", **acts})
             os.chmod(bins[-1], 0o755)
         results[name] = scenario(names[name], *bins, work)
         print(f"{name:8} new {results[name]['new']['status']}", flush=True)
@@ -708,19 +731,41 @@ def selftest():
                 if f"| {name} |" in line or line.startswith(f"- {name},") or f" {name} #" in line]
         assert f"| **{verdict}" in mine[0], f"{name}: want {verdict}, the row is {mine[0]}"
         assert holds in "\n".join(mine), f"{name}: the report never says {holds!r} of it"
-        if verdict not in ("PASS", "DIFF"):  # the screen at the failure, not the blank one after q
-            last = SGR.sub("", results[name]["new"].get("last", ["", ""])[1])
+        if verdict not in ("PASS", "DIFF") and name != "restarted":  # the screen at the failure,
+            last = SGR.sub("", results[name]["new"].get("last", ["", ""])[1])  # not the blank one after q
             assert "ready" in last, f"{name}: the last screen is not merl's: {last.strip()[-80:]!r}"
-    # Ctrl-C while a play waits for a merl that will not quit: its tmux server goes all the same
-    child = subprocess.Popen([sys.executable, "-B", "-c", "import sys; sys.path.insert(0, sys.argv[1]); "
-                              "import run; run.play(sys.argv[2], sys.argv[3], sys.argv[4])",
-                              HERE, os.path.join(tmp, "hung-new"), names["hung"], work],
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    time.sleep(1.5)
-    child.send_signal(signal.SIGINT)
-    child.wait()
-    left = subprocess.run(["tmux", "-L", f"smoke{child.pid}", "ls"], capture_output=True)
-    assert left.returncode, "Ctrl-C left a play's tmux server behind"
+    assert results["end"]["new"]["last"][3] == list(SIZE), "the last checkpoint kept at another size"
+    last = results["restarted"]["new"]["last"][0]
+    assert last == "the screen after merl died", f"a merl dead on its restart shown by {last!r}"
+    label = load(os.path.join(HERE, "go-d.steps"))[1][0][0]
+    assert label.startswith("tests/smoke/go-d.steps:"), f"a step labelled {label!r}"
+    # Ctrl-C while a play waits for a merl that will not quit: its tmux server goes all the same.
+    # SIGTERM through main, with a relative --work: the same, and the lock given back.
+    hung = os.path.join(tmp, "hung-new")
+    for sig, code, want in (
+            (signal.SIGINT, f"run.play({hung!r}, {names['hung']!r}, {work!r})", None),
+            (signal.SIGTERM, f"sys.argv = ['run.py', '--work', 'work']; "
+                             f"run.played = lambda a, *_: run.play({hung!r}, {names['hung']!r}, a.work); run.main()",
+             128 + signal.SIGTERM)):
+        child = subprocess.Popen([sys.executable, "-B", "-c", f"import sys; sys.path.insert(0, {HERE!r}); "
+                                  f"import run; {code}"], cwd=tmp,
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        tmux, end = ["tmux", "-L", f"smoke{child.pid}"], time.monotonic() + 10
+        while "ready" not in subprocess.run([*tmux, "capture-pane", "-p", "-t", "0"],
+                                            capture_output=True, text=True).stdout:
+            assert time.monotonic() < end and child.poll() is None, f"{sig.name}: the fake never showed ready"
+            time.sleep(POLL)
+        socket = subprocess.run([*tmux, "display", "-p", "#{socket_path}"], capture_output=True, text=True)
+        child.send_signal(sig)
+        try:
+            status = child.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            child.kill()
+            raise AssertionError(f"{sig.name}: the run went on")
+        assert want is None or status == want, f"{sig.name}: exit {status}, want {want}"
+        assert subprocess.run([*tmux, "ls"], capture_output=True).returncode, f"{sig.name} left a tmux server"
+        assert not os.path.exists(socket.stdout.strip()), f"{sig.name} left the tmux socket file"
+    assert open(os.path.join(work, "lock")).read() == "", "SIGTERM left the lock held"
     assert os.path.exists(os.path.join(out, "signal", "new-last.png")), "no last screen of the crash"
     left = subprocess.run(["tmux", "-L", f"smoke{os.getpid()}", "ls"], capture_output=True)
     assert left.returncode, "a tmux server outlived its play"
@@ -757,8 +802,10 @@ def main():
     held = lock(a.work)
     # SIGTERM and SIGHUP end the run the way Ctrl-C does: through every `finally`, so each play's
     # tmux server and its merl go, and the lock is given back.
+    # A signal the run inherited as ignored (`nohup`) stays ignored.
     for sig in (signal.SIGTERM, signal.SIGHUP):
-        signal.signal(sig, lambda n, _: sys.exit(128 + n))
+        if signal.getsignal(sig) != signal.SIG_IGN:
+            signal.signal(sig, lambda n, _: sys.exit(128 + n))
     try:
         played(a, picked, names, out, t0, load0)
     finally:
