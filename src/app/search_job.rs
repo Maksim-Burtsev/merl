@@ -38,18 +38,18 @@ impl SearchJob {
         if self.symbols {
             return App::symbol_items(self.symbol_hits().0);
         }
-        App::hit_items(
-            self.run(false, true)
-                .expect("an escaped literal always compiles"),
-        )
+        // An escaped literal always compiles, but a pasted query can outgrow the matcher's size
+        // limit: it finds nothing then, rather than killing the thread the answer is awaited from.
+        App::hit_items(self.run(false, true).unwrap_or_default())
     }
 
     /// Every declaration the [`search::SYMBOLS`] rows read out of the project, as
-    /// `(listed name, hit)`, keeping the names `pattern` matches — all of them when it is empty,
-    /// which is the press of `D`. Each row is read only from the files it is written for; the
-    /// name decides before the [`search::MAX_HITS`] cut, so a query reaches past a cut list.
-    pub(super) fn symbol_hits(&self) -> (Vec<(String, Hit)>, bool) {
-        let mut named: Vec<(String, Hit)> = Vec::new();
+    /// `(listed name, the byte its line has it at, hit)`, keeping the names `pattern` matches —
+    /// all of them when it is empty, which is the press of `D`. Each row is read only from the
+    /// files it is written for; the name decides before the [`search::MAX_HITS`] cut, so a query
+    /// reaches past a cut list.
+    pub(super) fn symbol_hits(&self) -> (Vec<(String, usize, Hit)>, bool) {
+        let mut named: Vec<(String, usize, Hit)> = Vec::new();
         let mut cut = false;
         for (kind, pattern) in search::SYMBOLS {
             let re = Regex::new(pattern).expect("built-in symbol patterns are valid");
@@ -82,7 +82,7 @@ impl SearchJob {
             cut |= hits.len() >= search::MAX_HITS;
             named.extend(
                 hits.into_iter()
-                    .filter_map(|h| Some((search::symbol_name(&re, &h.text)?, h))),
+                    .filter_map(|h| search::symbol_at(&re, &h.text).map(|(col, n)| (n, col, h))),
             );
         }
         (named, cut)
