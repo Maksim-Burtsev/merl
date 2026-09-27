@@ -88,6 +88,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `merl --tutor` and `merl --drill` no longer save a theme picked with `T` and Enter to
   `~/.config/merl/config.toml`: the theme lasts the session. A learner who pressed Enter in the
   task on Esc lost their own theme. (#278)
+- Enter in the `T` picker on a theme of your own that does not load keeps the picker open with
+  the load error and saves nothing. It saved the name, and every start after exited on the broken
+  file. A configured theme that fails at start now names `config.toml` and the theme set there
+  beside the cause, so the way back is in the message. (#277)
 
 ## [0.7.0] - 2026-09-25
 
