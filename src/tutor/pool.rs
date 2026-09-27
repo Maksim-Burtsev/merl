@@ -225,6 +225,18 @@ pub const POOL: &[Task] = &[
         done: |a| at(a, "export.csv") && !a.nowrap(),
     },
     Task {
+        key: "p",
+        title: "Markdown, rendered",
+        tutor: "Agents write their plans in Markdown, like PLAN.md. `p` shows it rendered: headings, \
+                lists, the table drawn in lines, the code in colour. `p` again shows the source, at \
+                the same place, and `Enter` edits there. Press `p`.",
+        drill: "Read this plan rendered instead of as its source.",
+        start: Some(("PLAN.md", 1, "")),
+        keys: "",
+        answer: "p",
+        done: |a| at(a, "PLAN.md") && a.previewing(),
+    },
+    Task {
         key: "Tab",
         title: "Focus the tree",
         tutor: "Tab switches the focus between the code and the tree. Press it once.",
@@ -603,7 +615,7 @@ pub const POOL: &[Task] = &[
                 opens the file under the cursor. It is on test_store.py: press Enter.",
         drill: "Open the file under the tree's cursor.",
         start: Some(("store.py", REMOVE_LINE, "")),
-        keys: "t<Tab><Up><Up><Up><Up><Up><Up><Up><Right><Down>",
+        keys: "t<Tab><Up><Up><Up><Up><Up><Up><Up><Up><Right><Down>",
         answer: "<Enter>",
         done: |a| at(a, TEST_FILE),
     },

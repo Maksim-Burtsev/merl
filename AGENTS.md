@@ -49,6 +49,9 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
 6. Commits are in English and carry the reasoning. The repo squashes with the PR's commit
    messages, so a commit written with Claude keeps its `Co-Authored-By: Claude …` trailer.
 7. Record the screencast, open the PR, and check `gh pr diff --name-only` holds only your files.
+8. Once the whole task is in the PR, review it with Punchcard, once. Fix every finding on the
+   branch's own change in this PR; a finding outside it becomes an issue. Do not review again:
+   with the fixes pushed and CI green, go on as `## Merging` says. A docs-only PR needs no review.
 
 Everything on GitHub (issues, PR bodies, reviews, comments) is in English.
 
@@ -119,11 +122,14 @@ run under ~15 s.
 ## Merging
 
 - Bug fixes, precision work, refactors, tests and docs: merge your own PR and close its issue
-  without asking, once CI is green and Punchcard says "Ship it".
+  without asking, once CI is green and the findings of its one review are fixed.
 - A change the user has to learn (a new or changed key, screen, animation or default): leave the
   PR open with the before/after screencasts, add the `needs-owner` label and name it in your
   status line. Never ask "can I merge?" in chat.
-- The README and any other text in the owner's voice: open a draft PR and leave it to the owner.
+- The README and any other text in the owner's voice: open a draft PR with the `needs-owner`
+  label and leave it to the owner.
+- An issue holding a question only the owner can answer carries `needs-owner` too, until the
+  answer is written into it. `is:open label:needs-owner` is everything waiting for the owner.
 
 `master` takes squash merges of PRs only, with the CI checks green on a branch up to date with
 master; nobody can push to it directly or bypass the checks.
@@ -145,14 +151,31 @@ Only when the owner asks for one. In order:
    each commit's issue and content, since PRs merge without an entry, and parallel merges leave a
    second `### Added` in `## [Unreleased]` to fold into the first. Dependabot, `docs:`,
    `refactor:` and tooling commits get no entry. Entries cite the issue. The entries go in on the
-   release branch: its PR (step 3) carries them.
+   release branch: its PR (step 4) carries them.
 2. Smoke test: `.claude/skills/smoke-test/SKILL.md` (`/smoke-test` in Claude Code), from that
    branch, so the report reads the finished changelog. No release without its GO.
-3. A release PR, `release: X.Y.Z`: `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD` with its
-   link, the version goes into `Cargo.toml` and `Cargo.lock`, and the smoke test's verdict table
-   into the body.
-4. After the merge, an annotated tag `vX.Y.Z` (message `merl X.Y.Z`) on that commit, pushed;
+3. The release note, `docs/releases/X.Y.Z.md`: `release.yml` publishes it as the release, titled
+   `merl X.Y.Z`, and fails without it. It is a list, not the changelog section:
+   - `#### New` from `### Added`, `#### Better` from `### Changed`, `#### Fixed` from `### Fixed`;
+     a heading with nothing under it is left out.
+   - One line per changelog entry of the version, in the changelog's order: what you can do or
+     what changed, the key or flag in backticks, the issue in parentheses. Up to ~12 words; no
+     prose, no second sentence.
+   - Last line, with the anchor GitHub builds from the version's heading (`## [0.8.0] -
+     2026-09-27` is `#080---2026-09-27`); open the link to check it lands on the section:
+     `` [Full changelog](https://github.com/Maksim-Burtsev/merl/blob/master/CHANGELOG.md#080---2026-09-27) · `brew upgrade merl` ``
+   - No emoji, no intro paragraph, no contributor list. The model is the previous note in
+     `docs/releases/`, or for the first one the sample in #272.
+   - A GIF on top, above `#### New`, only when the release changes something visible that looks
+     good in motion: `tools/cast.py --size 160x50` on a real project with the tree open. Show it
+     to the owner and ask whether it goes in; without a yes the note has none. It goes to `media`
+     as `releases/X.Y.Z.gif` (a new name for every upload, as for PR screencasts) and into the
+     note as `![](https://raw.githubusercontent.com/Maksim-Burtsev/merl/media/releases/X.Y.Z.gif)`.
+4. A release PR, `release: X.Y.Z`: `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD` with its
+   link, the version goes into `Cargo.toml` and `Cargo.lock`, it adds `docs/releases/X.Y.Z.md`,
+   and its body holds the smoke test's verdict table.
+5. After the merge, an annotated tag `vX.Y.Z` (message `merl X.Y.Z`) on that commit, pushed;
    `release.yml` builds the GitHub release and its binaries.
-5. The Homebrew tap: `release.yml` bumps it when the `TAP_TOKEN` secret is set; otherwise bump
+6. The Homebrew tap: `release.yml` bumps it when the `TAP_TOKEN` secret is set; otherwise bump
    `Formula/merl.rb` in `Maksim-Burtsev/homebrew-tap` by hand (the version and the three sha256
    of the `.sha256` assets), commit `merl X.Y.Z` and push.

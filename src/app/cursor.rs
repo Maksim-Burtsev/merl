@@ -242,7 +242,7 @@ impl App {
     }
 
     /// Wrapped rows from `a` to `b` (either order).
-    fn rows_between(&self, a: (usize, usize), b: (usize, usize)) -> usize {
+    pub(super) fn rows_between(&self, a: (usize, usize), b: (usize, usize)) -> usize {
         let (lo, hi) = if a <= b { (a, b) } else { (b, a) };
         let mut n = 0;
         let mut cur = lo;

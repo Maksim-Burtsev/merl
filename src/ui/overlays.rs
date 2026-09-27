@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::{Modifier, Style};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
 use unicode_segmentation::UnicodeSegmentation;
@@ -74,11 +74,25 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         Some(r) => format!("{} \u{2190} {}", r.branch, r.base),
         None => app.root_name(),
     };
-    let block = Block::bordered()
-        .title(title)
+    let mut block = Block::bordered()
+        .title(Span::styled(title, accent.add_modifier(Modifier::BOLD)))
         .border_style(accent)
-        .title_style(accent.add_modifier(Modifier::BOLD))
         .style(base);
+    // Review: the size of the branch on the bottom border, as GitHub gives it above its file
+    // list. A binary file counts as a file and adds no lines.
+    if let Some(r) = app.review.as_ref().filter(|_| app.review_panel_colours) {
+        let (added, deleted) = r
+            .files
+            .iter()
+            .fold((0, 0), |(a, d), f| (a + f.added, d + f.deleted));
+        let n = r.files.len();
+        let s = crate::app::plural(n);
+        let totals = format!(" {n} file{s} \u{b7} +{added} \u{2212}{deleted} ");
+        // Too wide for the border, the totals go whole: a number cut short reads as another.
+        if wrap::width(&totals) <= area.width.saturating_sub(2) as usize {
+            block = block.title_bottom(Span::styled(totals, base.fg(theme.ghost_fg)));
+        }
+    }
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -99,40 +113,6 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         .take(height)
         .map(|&i| {
             let n = &app.tree.nodes[i];
-            let marker = match (n.is_dir, n.expanded) {
-                (true, true) => "\u{25be} ",
-                (true, false) => "\u{25b8} ",
-                (false, _) => "  ",
-            };
-            let mut text = format!("{}{marker}{}", "  ".repeat(n.depth), n.name());
-            // Review: a column of ticks for the viewed files, before every row.
-            let tick = match (&app.review, app.viewed.contains_key(&n.path)) {
-                (None, _) => "",
-                (Some(_), false) => "  ",
-                (Some(_), true) => "\u{2713} ",
-            };
-            let width = width.saturating_sub(wrap::width(tick));
-            // Review: `M name  +6 -2`, the status in place of the marker.
-            if let Some(f) = app.review.as_ref().and_then(|r| r.file(&n.path)) {
-                let counts = if f.binary {
-                    "bin".to_string()
-                } else {
-                    format!("+{} \u{2212}{}", f.added, f.deleted)
-                };
-                // The counts stay; a long name gives way, with the cut marked.
-                let lead = format!("{}{} ", "  ".repeat(n.depth), f.status);
-                let room = width.saturating_sub(wrap::width(&lead) + wrap::width(&counts) + 1);
-                let name = n.name();
-                let name = if wrap::width(&name) > room {
-                    crate::app::clip(&name, room.saturating_sub(1))
-                } else {
-                    name.to_string()
-                };
-                text = format!("{lead}{name}");
-                let gap = width.saturating_sub(wrap::width(&text) + wrap::width(&counts));
-                text.push_str(&" ".repeat(gap));
-                text.push_str(&counts);
-            }
             // Directories carry the accent: they are what the eye scans the tree by. What
             // `.gitignore` leaves out is dim, directory or not.
             let row = if n.ignored {
@@ -151,12 +131,75 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 // background fades: the file name must stay readable (issue #8).
                 row.bg(theme.line_hl_dim)
             };
-            let pad = width.saturating_sub(wrap::width(&text));
-            Line::from(vec![
+            // Review: a column of ticks for the viewed files, before every row.
+            let tick = match (&app.review, app.viewed.contains_key(&n.path)) {
+                (None, _) => "",
+                (Some(_), false) => "  ",
+                (Some(_), true) => "\u{2713} ",
+            };
+            let width = width.saturating_sub(wrap::width(tick));
+            let indent = "  ".repeat(n.depth);
+            let mut spans = vec![
                 Span::styled(tick, style.fg(theme.accent)),
-                Span::styled(text, style),
-                Span::styled(" ".repeat(pad), style),
-            ])
+                Span::styled(indent, style),
+            ];
+            match app.review.as_ref().and_then(|r| r.file(&n.path)) {
+                // Review: `M name  +6 −2`, the status in place of the marker.
+                Some(f) => {
+                    // The letter in the colours of the gutter marks, so a file reads like its
+                    // lines; a rename or a copy is dim, as GitHub draws it grey. With
+                    // `review_panel_colours = false`, letter and counts take the row's style.
+                    let (letter, dim) = match app.review_panel_colours {
+                        true => {
+                            let colour = match f.status {
+                                'A' => Color::Green,
+                                'M' => Color::Blue,
+                                'D' => Color::Red,
+                                _ => theme.ghost_fg,
+                            };
+                            (
+                                style.fg(colour).add_modifier(Modifier::BOLD),
+                                style.fg(theme.ghost_fg),
+                            )
+                        }
+                        false => (style, style),
+                    };
+                    let counts = if f.binary {
+                        "bin".to_string()
+                    } else {
+                        format!("+{} \u{2212}{}", f.added, f.deleted)
+                    };
+                    // The counts stay; a long name gives way, with the cut marked. Before the
+                    // name: the indent, the letter and a space.
+                    let used = 2 * n.depth + 2;
+                    let room = width.saturating_sub(used + wrap::width(&counts) + 1);
+                    let mut name = n.name();
+                    if wrap::width(&name) > room {
+                        let fits = wrap::cut(&name, 0, room.saturating_sub(1)).0;
+                        name = format!("{}\u{2026}", &name[fits]);
+                    }
+                    let gap =
+                        width.saturating_sub(used + wrap::width(&name) + wrap::width(&counts));
+                    spans.extend([
+                        Span::styled(f.status.to_string(), letter),
+                        Span::styled(format!(" {name}{}", " ".repeat(gap)), style),
+                        // Dim, in the readable grey (#146): the name reads first, the numbers
+                        // are there when looked for.
+                        Span::styled(counts, dim),
+                    ]);
+                }
+                None => {
+                    let marker = match (n.is_dir, n.expanded) {
+                        (true, true) => "\u{25be} ",
+                        (true, false) => "\u{25b8} ",
+                        (false, _) => "  ",
+                    };
+                    spans.push(Span::styled(format!("{marker}{}", n.name()), style));
+                }
+            }
+            let used: usize = spans[1..].iter().map(|s| wrap::width(&s.content)).sum();
+            spans.push(Span::styled(" ".repeat(width.saturating_sub(used)), style));
+            Line::from(spans)
         })
         .collect();
     frame.render_widget(Paragraph::new(rows).style(base), inner);

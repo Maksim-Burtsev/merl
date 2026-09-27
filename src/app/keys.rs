@@ -19,8 +19,12 @@ impl App {
         if work {
             self.watch_before(key, at);
         }
+        let from = (work && self.session.is_some()).then(|| self.review_spot());
         let quit = self.key_inner(key);
         let action = self.action.take();
+        if let Some(from) = from {
+            self.review_count(Some(at), from, action, quit);
+        }
         if let Some(action) = action
             && self.tutor.is_none()
         {
@@ -71,7 +75,11 @@ impl App {
             }
             key.modifiers.remove(KeyModifiers::ALT);
             let overlay = self.picker.is_some() || self.mode != Mode::Normal;
+            // The Esc is how the terminal spells Alt, not a key pressed: the review session
+            // does not see it, so Alt+q alone is a session of `q` alone.
+            let session = self.session.take();
             self.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+            self.session = session;
             return !overlay && self.key(key);
         }
         // In kitty mode `:`, `?` and `D` arrive with SHIFT set; legacy sends none.
@@ -90,7 +98,8 @@ impl App {
         if ctrl && key.code == KeyCode::Char('c') && self.mode != Mode::Edit {
             // Ctrl+C is copy everywhere and never quits; a prompt or picker has nothing to copy.
             self.action = named("", key);
-            if self.mode == Mode::Normal && self.picker.is_none() {
+            // A preview row that shows no line has none to copy.
+            if self.mode == Mode::Normal && self.picker.is_none() && !self.preview_blank() {
                 self.copy();
             }
             return false;
@@ -158,6 +167,8 @@ impl App {
             .flatten()
             .or_else(|| named("", key));
         match key.code {
+            // The preview reads with keys of its own, and leaves those that act on the text.
+            _ if self.preview_key(key) => {}
             KeyCode::Char('q') => return true,
             KeyCode::Char('?') => {
                 self.mode = Mode::Help;
@@ -210,6 +221,7 @@ impl App {
             }
             KeyCode::Char('T') => self.open_themes_picker(),
             KeyCode::Char('w') => self.toggle_wrap(),
+            KeyCode::Char('p') => self.toggle_preview(),
             KeyCode::Tab if self.show_tree => {
                 self.focus = match self.focus {
                     Focus::Tree => Focus::Code,

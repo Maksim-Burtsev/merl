@@ -28,6 +28,7 @@ mod members;
 mod missed;
 mod open;
 mod picker;
+mod preview;
 mod project_search;
 mod review;
 mod scroll;
@@ -37,6 +38,7 @@ mod tree;
 mod typed;
 mod usages;
 
+pub use preview::Preview;
 pub use search_job::SearchJob;
 use search_job::{SEARCH_PAUSE, Typed};
 
@@ -184,6 +186,11 @@ pub const KEYS: &[(&str, &str, &str)] = &[
         "Wrap long lines, or cut them at the edge and scroll sideways",
         "General",
     ),
+    (
+        "p",
+        "Show a Markdown file rendered, or its source again",
+        "General",
+    ),
     ("T", "Pick a theme (live preview)", "General"),
     (
         "Esc",
@@ -309,6 +316,10 @@ pub struct App {
     pub left: usize,
     /// Files `w` was pressed on: their wrapping is the opposite of what their kind gets.
     wrap_toggled: HashSet<PathBuf>,
+    /// Markdown files `p` shows rendered, until `p` again or merl quits.
+    previewed: HashSet<PathBuf>,
+    /// The open file rendered, while it is one of `previewed`: laid out by the first frame.
+    pub preview: Option<Preview>,
     pub mode: Mode,
     /// What has been typed into the `:` or `/` prompt.
     pub prompt: LineEdit,
@@ -339,6 +350,8 @@ pub struct App {
     /// When the last edit was made; autosave fires `autosave` after it.
     last_edit: Option<Instant>,
     pub autosave: Duration,
+    /// `review_panel_colours` of the config: off, the review panel draws as it did before #250.
+    pub review_panel_colours: bool,
     /// Linear per-file undo history, oldest first, and what undo took back.
     undo: Vec<Edit>,
     redo: Vec<Edit>,
@@ -369,6 +382,10 @@ pub struct App {
     /// file's hunks. From a file outside the review they go back to it (#239). Kept for the
     /// session.
     last_hunk: Option<(PathBuf, usize)>,
+    /// `--review`: what the session did, written to the review stats on exit (#242).
+    pub session: Option<crate::reviews::Session>,
+    /// The sessions a `git switch` closed, each with the files marked viewed then.
+    closed: Vec<(crate::reviews::Session, Vec<PathBuf>)>,
     /// The theme in use, by name. Set by `main`; the theme picker previews others over it.
     pub theme: String,
     /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
@@ -474,6 +491,8 @@ impl App {
             top_row: 0,
             left: 0,
             wrap_toggled: HashSet::new(),
+            previewed: HashSet::new(),
+            preview: None,
             mode: Mode::Normal,
             prompt: LineEdit::default(),
             find_re: None,
@@ -491,6 +510,7 @@ impl App {
             conflict: false,
             last_edit: None,
             autosave: Duration::from_secs(1),
+            review_panel_colours: true,
             undo: Vec::new(),
             redo: Vec::new(),
             undo_break: false,
@@ -503,6 +523,8 @@ impl App {
             review: None,
             viewed: HashMap::new(),
             last_hunk: None,
+            session: None,
+            closed: Vec::new(),
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
             quit_again: false,

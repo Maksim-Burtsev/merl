@@ -59,7 +59,12 @@ merl --review        # the branch you are on, as a diff over the real files
 merl --tutor         # every key, hands on, in about ten minutes
 merl --drill [N]     # N tasks (20) that name what to do, not the key; the keys you skip come most
 merl --keys          # how often you press each key and miss it, the unused last
+merl --reviews       # your reviews of the last 30 days: their size, their time, the jumps out
 ```
+
+The long flags have short forms: `-r` for `--review`, `-b` for `--base`, `-t` for `--theme`,
+`-d` for `--drill` and `-k` for `--keys`, so `merl -r feature -b origin/dev` reviews `feature`
+against `origin/dev`.
 
 ## Why
 
@@ -201,6 +206,7 @@ The dozen you will use every day. `?` inside merl shows the rest.
 | Key | Action |
 |---|---|
 | w | Wrap long lines, or cut them at the edge and scroll sideways |
+| p | Show a Markdown file rendered, or its source again |
 | T | Pick a theme (live preview) |
 | Esc | Close an overlay, leave edit mode, or clear selection and find |
 | q | Quit |
