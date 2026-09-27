@@ -79,7 +79,7 @@ those two things out of the box, with nothing to configure and nothing to switch
   agent keeps working, and a file you have walked through gets a tick that stays with the branch
   and goes when the file changes. [A review, step by step](docs/a-day-with-merl.md).
 
-  <img src="assets/review.gif" alt="merl --review on an agent's branch: c walks the hunks and on into the file where a function was rewritten, the deleted lines standing in grey above the new ones; Alt+Right hops word by word onto the new call, d goes into the helper the branch added and d again into the engine it queries, [ [ comes back to the hunk, and c walks the rest of the branch, down to the test the agent wrote" width="900">
+  <img src="assets/review.gif" alt="merl --review on an agent's branch of mealie, a Python app, its four changed files in the panel: c walks from the new setting into the webhook publisher, where red and green rows show the call swapped for one that retries, the changed words tinted stronger; Alt+Right hops along the line onto the new call, d opens the helper the branch added, [ comes back to the hunk, and c walks on through the helper and its test, each file it leaves getting a tick" width="900">
 
 - **Touch up a line.** Enter, type, Esc. It saves itself. Enough for a typo, a constant, or a
   secret you would rather not hand to an agent. [More on editing](docs/editing.md).
