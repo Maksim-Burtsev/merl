@@ -336,8 +336,9 @@ pub struct App {
     pub view_w: usize,
     pub view_h: usize,
     center: bool,
-    /// Where the cursor was left off the pane while the lines a branch deleted are scrolled
-    /// through (`move_rows`, `half_page`): `clamp_scroll` keeps the view while it is still there.
+    /// Where the cursor was left above the pane while the lines a branch deleted under its line
+    /// are scrolled through (`move_rows`, `half_page`): `clamp_scroll` keeps the view while it is
+    /// still there, and brings the view back to it once it has moved.
     wait: Option<(usize, usize)>,
     /// `--tutor` and `--drill` only: the running tutorial or drill. `None` in a normal session.
     pub tutor: Option<Tutor>,

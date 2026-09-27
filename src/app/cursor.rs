@@ -170,7 +170,6 @@ impl App {
             && (1..=self.ghost_rows(self.line)).contains(&self.top_row)
         {
             self.top_row -= 1;
-            self.wait = Some((self.line, self.col));
             return;
         }
         // Down on the last row of a line scrolls on through the lines deleted under it, the
@@ -214,6 +213,13 @@ impl App {
         }
         self.line = line;
         self.apply_want_x(row);
+        // Down onto the line under the ghosts being read brings it on the pane: `clamp_scroll`
+        // leaves a top on the cursor line's own ghosts where it is.
+        if n > 0
+            && let Some(fit) = self.waiting_below()
+        {
+            (self.top_line, self.top_row) = fit;
+        }
     }
 
     /// Ctrl+D / Ctrl+U: cursor and viewport both move half a screen, like vim and less,
@@ -254,7 +260,7 @@ impl App {
             (self.top_line, self.top_row) = new;
             return true;
         }
-        let rows = self.view_h.saturating_sub(self.pinned(new.0).len()).max(1);
+        let rows = self.code_rows(new).max(1);
         let y = match cur < top {
             true => 0,
             false => self.rows_between(top, cur).min(rows - 1),

@@ -1172,6 +1172,15 @@ fn down_reads_a_deletion_taller_than_the_pane_row_by_row() {
     // The last ghost was on the bottom row, and the cursor went on to `l5` under it.
     assert_eq!((a.line, (a.top_line, a.top_row)), (5, (5, 21)));
     assert_eq!(a.message, "");
+    // A key that moves nothing keeps the place in the deletion, however long the run of
+    // arrows before it was.
+    let mut a = deletion_above_l5(30);
+    for _ in 0..12 {
+        step(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    }
+    let reading = (a.line, (a.top_line, a.top_row));
+    assert_eq!(reading.0, 4);
+    assert_eq!(step(&mut a, KeyCode::Esc, KeyModifiers::NONE), reading);
     // PgDn reads it a page at a time.
     let mut a = deletion_above_l5(30);
     (a.line, a.top_line) = (4, 4);
@@ -1216,6 +1225,12 @@ fn half_pages_move_half_a_pane_through_a_deletion_taller_than_it() {
 #[test]
 fn up_under_a_deletion_taller_than_the_pane_is_one_row_per_press() {
     let mut a = deletion_above_l5(30);
+    // Up onto `l5` from under it shows the deletion from its first row, the cursor below the
+    // pane, and a draw with no key keeps it so.
+    (a.line, a.top_line) = (6, 6);
+    assert_eq!(step(&mut a, KeyCode::Up, KeyModifiers::NONE), (5, (5, 0)));
+    a.clamp_scroll();
+    assert_eq!((a.top_line, a.top_row), (5, 0));
     a.line = 6;
     (a.top_line, a.top_row) = (5, 22);
     for top in (0..=22).rev() {
@@ -1242,4 +1257,89 @@ fn a_deletion_that_fits_the_pane_is_crossed_in_one_move() {
     // Half of ten rows from `l2` is a ghost row: the cursor goes on to `l5`, the view by the
     // rows the cursor moved.
     assert_eq!(step(&mut a, KeyCode::Char('d'), ctrl), (5, (5, 2)));
+}
+
+/// #279: Ctrl+D and Ctrl+U put the cursor on the text line beside the deletion that is on the
+/// pane, whichever side of it that is.
+#[test]
+fn half_pages_keep_the_cursor_on_the_side_of_a_deletion_still_on_the_pane() {
+    let text: String = (0..60).map(|i| format!("l{i}\n")).collect();
+    let mut a = app(&text);
+    a.diff
+        .ghosts
+        .insert(12, (0..30).map(|i| format!("g{i}")).collect());
+    let ctrl = KeyModifiers::CONTROL;
+    // On the bottom row, `l9` lands on a ghost half a pane on: `l11` above it is on the pane.
+    a.line = 9;
+    assert_eq!(step(&mut a, KeyCode::Char('d'), ctrl), (11, (5, 0)));
+    // Three rows under the top, `l13` lands on a ghost half a pane back: `l12` under it is
+    // on the pane.
+    a.line = 13;
+    (a.top_line, a.top_row) = (12, 28);
+    assert_eq!(step(&mut a, KeyCode::Char('u'), ctrl), (12, (12, 23)));
+    assert_eq!(a.cursor_row(), 30);
+}
+
+/// #279: lines deleted at the top of the file have no line above them: Ctrl+U leaves the
+/// cursor on the first line, below the pane, and Ctrl+D goes on half a pane.
+#[test]
+fn half_pages_through_a_deletion_at_the_top_of_the_file() {
+    let text: String = (0..20).map(|i| format!("l{i}\n")).collect();
+    let mut a = app(&text);
+    a.diff
+        .ghosts
+        .insert(0, (0..30).map(|i| format!("g{i}")).collect());
+    a.clamp_scroll();
+    assert_eq!((a.line, (a.top_line, a.top_row)), (0, (0, 0)));
+    let ctrl = KeyModifiers::CONTROL;
+    for top in [(0, 5), (0, 10)] {
+        assert_eq!(step(&mut a, KeyCode::Char('d'), ctrl), (0, top));
+    }
+    assert_eq!(step(&mut a, KeyCode::Char('u'), ctrl), (0, (0, 5)));
+    assert_eq!(step(&mut a, KeyCode::Char('u'), ctrl), (0, (0, 0)));
+}
+
+/// #279: inside a function the pinned header takes a row: Down still shows every ghost row,
+/// and Ctrl+D moves half of the rows left for the code.
+#[test]
+fn a_tall_deletion_under_a_pinned_header() {
+    let text: String = std::iter::once("def f():\n".to_string())
+        .chain((1..40).map(|i| format!("    x{i} = {i}\n")))
+        .collect();
+    let mut a = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/merl-279-pinned.py"), text.as_bytes()),
+        None,
+    );
+    (a.view_w, a.view_h) = (20, 10);
+    a.diff
+        .ghosts
+        .insert(20, (0..30).map(|i| format!("    g{i} = 0")).collect());
+    a.line = 19;
+    (a.top_line, a.top_row) = (11, 0);
+    a.clamp_scroll();
+    assert_eq!(a.pinned(a.top_line).len(), 1);
+    let mut shown = std::collections::BTreeSet::new();
+    let mut top = (a.top_line, a.top_row);
+    while a.line == 19 {
+        for r in 0..a.code_rows(top) {
+            shown.insert(a.forward_rows(top, r));
+        }
+        let (_, next) = step(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        assert!(a.rows_between(top, next) <= 1, "{top:?} to {next:?}");
+        top = next;
+    }
+    assert!((0..30).all(|r| shown.contains(&(20, r))), "{shown:?}");
+    assert!(a.on_pane(top, (20, 30)), "the cursor is on the pane");
+    // Nine rows of code under the header: Ctrl+D moves four.
+    a.line = 19;
+    (a.top_line, a.top_row) = (11, 0);
+    a.clamp_scroll();
+    for _ in 0..4 {
+        let before = (a.top_line, a.top_row);
+        let (_, after) = step(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+        assert_eq!(a.rows_between(before, after), 4, "{before:?} to {after:?}");
+    }
 }

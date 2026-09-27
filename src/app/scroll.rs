@@ -11,19 +11,17 @@ impl App {
     pub fn clamp_scroll(&mut self) {
         self.clamp_left();
         let cur = (self.line, self.cursor_row());
-        if std::mem::take(&mut self.center) {
-            self.center_cursor();
-            return;
-        }
         if self.wait != Some((self.line, self.col)) {
             self.wait = None;
         }
+        if std::mem::take(&mut self.center) {
+            self.center_cursor();
+            self.wait = None;
+            return;
+        }
         // The top is on the cursor line's own ghosts: they are being read, the cursor waits
         // below the pane (`move_rows` scrolls them in one at a time).
-        if self.wait.is_some()
-            && self.top_line == self.line
-            && self.top_row < self.ghost_rows(self.line)
-        {
+        if self.top_line == self.line && self.top_row < self.ghost_rows(self.line) {
             return;
         }
         // Scrolled on through the lines deleted under the cursor line (`move_rows`), or past
@@ -64,7 +62,7 @@ impl App {
     /// Rows a page down (or up) moves: the rows of code the pane shows under the lines pinned
     /// now, fewer when the top a page away pins more, so no line is skipped between two pages.
     pub(super) fn page_rows(&self, down: bool) -> usize {
-        let rows = |top: (usize, usize)| self.view_h.saturating_sub(self.pinned(top.0).len());
+        let rows = |top| self.code_rows(top);
         let top = (self.top_line, self.top_row);
         let here = rows(top);
         let there = match down {
@@ -83,8 +81,7 @@ impl App {
     fn fit_top(&self, from: (usize, usize), bottom: (usize, usize)) -> (usize, usize) {
         let mut top = from.max(self.back_rows(bottom, self.view_h.saturating_sub(1)));
         for _ in 0..MAX_PINNED {
-            let rows = self.view_h.saturating_sub(1 + self.pinned(top.0).len());
-            if self.back_rows(bottom, rows) <= top {
+            if self.back_rows(bottom, self.code_rows(top).saturating_sub(1)) <= top {
                 break;
             }
             top = self.forward_rows(top, 1);
@@ -150,8 +147,13 @@ impl App {
 
     /// Whether `p` is on the pane with the view's top at `top`.
     pub(super) fn on_pane(&self, top: (usize, usize), p: (usize, usize)) -> bool {
-        let rows = self.view_h.saturating_sub(self.pinned(top.0).len()).max(1);
-        top <= p && self.rows_between(top, p) < rows
+        top <= p && self.rows_between(top, p) < self.code_rows(top).max(1)
+    }
+
+    /// The rows of code the pane shows with `top` as its first line: all but the lines pinned
+    /// over it.
+    pub(super) fn code_rows(&self, top: (usize, usize)) -> usize {
+        self.view_h.saturating_sub(self.pinned(top.0).len())
     }
 
     /// The top of the view scrolled down as far as it goes: the last line the branch deleted at

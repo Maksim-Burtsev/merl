@@ -100,6 +100,7 @@ struct Spot {
     top: (usize, usize),
     left: usize,
     center: bool,
+    wait: Option<(usize, usize)>,
     row: Option<usize>,
 }
 
@@ -504,6 +505,7 @@ impl App {
             top: (self.top_line, self.top_row),
             left: self.left,
             center: self.center,
+            wait: self.wait,
             row: self.picker.as_ref().map(|p| p.selected),
         }
     }
@@ -511,7 +513,7 @@ impl App {
     fn put(&mut self, s: &Spot) {
         (self.line, self.col, self.want_x, self.anchor) = (s.line, s.col, s.want_x, s.anchor);
         (self.top_line, self.top_row) = s.top;
-        (self.left, self.center) = (s.left, s.center);
+        (self.left, self.center, self.wait) = (s.left, s.center, s.wait);
         if let (Some(p), Some(row)) = (&mut self.picker, s.row) {
             p.selected = row;
         }
