@@ -18,10 +18,14 @@ jobs:
           cargo=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
           [ "$tag" = "$cargo" ] || { echo "tag v$tag but Cargo.toml says $cargo"; exit 1; }
           grep -q "^## \[$tag\]" CHANGELOG.md || { echo "CHANGELOG.md has no ## [$tag] section"; exit 1; }
-      - uses: taiki-e/create-gh-release-action@v1
-        with:
-          changelog: CHANGELOG.md
-          token: ${{ secrets.GITHUB_TOKEN }}
+          test -f "docs/releases/$tag.md" || { echo "docs/releases/$tag.md is missing"; exit 1; }
+      # The note is the short list the release PR adds, not the changelog section (#272).
+      - name: Create the release from docs/releases
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "merl $tag" --notes-file "docs/releases/$tag.md"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   upload-assets:
     needs: create-release
