@@ -78,14 +78,14 @@ two
         (true, Mode::Normal, 1)
     );
 
+    // No hit: the Enter is spent, the list stays open with its query (#288).
     press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
     typed(&mut a, "three");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     a.settle_search();
-    assert_eq!(
-        (a.picker.is_none(), &*a.message),
-        (true, "no results for three")
-    );
+    let query = a.picker.as_ref().map(|p| p.query.to_string());
+    assert_eq!((query.as_deref(), a.search_enter), (Some("three"), false));
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
 
     // Past the pause, with the grep running: the list on screen is still the older one.
     press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
@@ -99,8 +99,8 @@ two
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
-/// Enter once the hits are in: the same jump, and the same word for a query that found
-/// nothing, as an Enter that came before them. An empty query closes without a word.
+/// Enter once the hits are in: the same jump as an Enter that came before them. A query that
+/// found nothing, or no query, keeps the list open with its query (#288).
 #[test]
 fn enter_after_the_project_search_answered() {
     let (path, mut a) = temp_file("enter-late-s", "one\ntwo\n");
@@ -120,10 +120,12 @@ fn enter_after_the_project_search_answered() {
     typed(&mut a, "three");
     a.settle_search();
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    let query = a.picker.as_ref().map(|p| p.query.to_string());
     assert_eq!(
-        (a.picker.is_none(), &*a.message),
-        (true, "no results for three")
+        (query.as_deref(), a.mode),
+        (Some("three"), Mode::Picker(PickerKind::Search))
     );
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
 
     for keys in ["", "x\u{15}"] {
         a.message.clear();
@@ -136,10 +138,11 @@ fn enter_after_the_project_search_answered() {
         }
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
         assert_eq!(
-            (a.picker.is_none(), a.mode, &*a.message),
-            (true, Mode::Normal, ""),
+            (a.picker.is_some(), a.mode, &*a.message),
+            (true, Mode::Picker(PickerKind::Search), ""),
             "{keys:?}"
         );
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     }
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
