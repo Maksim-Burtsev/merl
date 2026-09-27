@@ -1,6 +1,6 @@
 # search: s over the project. The hits follow the typing, the open file's first; the case is
 # ignored (#174), so `unitofwork` finds UnitOfWork; one hit is `1 hit` (#121). Enter opens the
-# hit, [ goes back.
+# hit on the word searched for (#236), [ goes back.
 merl app/service.py
 wait class OrderService:
 key t s

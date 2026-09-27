@@ -57,8 +57,8 @@ Every difference, failure and slower step gets one verdict:
 - `regression`: anything else a user would see as worse, a FAIL, CRASH, EXIT, HUNG or RUN of
   the new build, a slower step no entry explains.
 
-Every Unreleased entry gets one too: `seen working in SCENARIO` when a scenario cites its issue
-and the wait that proves it passed on the new build, else `not checked`. `not checked` does not
+Every Unreleased entry gets one too: `seen working in SCENARIO` when a scenario cites its issue,
+passed on the new build and shows the change in a checkpoint, else `not checked`. `not checked` does not
 block; nobody tries entries by hand for now (#234, decision 4).
 
 **GO** needs zero regressions and zero crashes. A **NO-GO** means no release: file an issue per
