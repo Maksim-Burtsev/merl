@@ -19,9 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   review; a session closed with `q` and nothing else is not noted, a `git switch` during a review
   ends its session and starts one for the branch now checked out, sessions older than 30 days
   are dropped, and `--tutor` and `--drill` note nothing. (#242)
+- Short forms of the launch flags: `-r` for `--review`, `-b` for `--base`, `-t` for `--theme`,
+  `-d` for `--drill` and `-k` for `--keys`. `merl -r feature -b origin/dev` is
+  `merl --review feature --base origin/dev`.
 
 ### Changed
 
+- `merl --review feature` reviews `feature`: the branch goes after a space, as the base does after
+  `--base`, and `--review=feature` still works. A file after a bare `--review` is now read as the
+  branch: `merl --review` opens on the first hunk, and `o` opens any file.
 - `merl --review` paints the diff as GitHub does: the lines the branch deleted on a red tint,
   in their syntax colours instead of grey, the lines it added on a green one, and on a changed
   line the words that changed on a stronger tint, on the old line and on the new. A deleted line

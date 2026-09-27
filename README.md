@@ -62,6 +62,10 @@ merl --keys          # how often you press each key and miss it, the unused last
 merl --reviews       # your reviews of the last 30 days: their size, their time, the jumps out
 ```
 
+The long flags have short forms: `-r` for `--review`, `-b` for `--base`, `-t` for `--theme`,
+`-d` for `--drill` and `-k` for `--keys`, so `merl -r feature -b origin/dev` reviews `feature`
+against `origin/dev`.
+
 ## Why
 
 Agents write most of the code now. Your part is to understand it and to review it, and merl does
