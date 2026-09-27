@@ -404,6 +404,8 @@ pub struct App {
     pub theme: String,
     /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
     pub config: Option<PathBuf>,
+    /// Where the theme picker finds the user's own themes.
+    pub theme_dir: Option<PathBuf>,
     /// A quit was just refused over edits that could not be saved: quitting again right away
     /// leaves them behind.
     quit_again: bool,
@@ -544,6 +546,7 @@ impl App {
             closed: Vec::new(),
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
+            theme_dir: crate::theme::user_dir(),
             quit_again: false,
             action: None,
             pressed: HashMap::new(),
@@ -556,7 +559,7 @@ impl App {
         if let Some((n, c)) = at {
             app.goto_line(n);
             // 1-based in chars, as compilers count; past the end of the line is its end.
-            let s = app.line_str();
+            let s = app.buf.shown(app.line);
             app.col = s
                 .char_indices()
                 .nth(c.saturating_sub(1))
@@ -721,11 +724,17 @@ pub fn is_word(c: char) -> bool {
 /// counts as part of a word besides letters, digits and `_` ([`search::word_chars`]): the `-` of
 /// a Makefile target.
 pub(super) fn word_col(line: &str, word: &str, extra: &str) -> usize {
+    whole_at(line, word, extra).unwrap_or(0)
+}
+
+/// The byte where `word` first stands whole in `line` with `extra` counted as word characters,
+/// `None` when every occurrence runs into one: `db-main` in `db-main-2:` of a Makefile.
+pub(super) fn whole_at(line: &str, word: &str, extra: &str) -> Option<usize> {
     let part = |c: char| is_word(c) || extra.contains(c);
     let whole = |(i, _): &(usize, &str)| {
         !line[..*i].ends_with(part) && !line[i + word.len()..].starts_with(part)
     };
-    line.match_indices(word).find(whole).map_or(0, |(i, _)| i)
+    line.match_indices(word).find(whole).map(|(i, _)| i)
 }
 
 /// The byte after the grapheme cluster at `i`: an emoji with its selector, skin tone or ZWJ
