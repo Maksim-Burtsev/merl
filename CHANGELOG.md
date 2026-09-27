@@ -85,6 +85,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reads like the project's `src/lib.rs`. A path still too long for the pane is cut from the left,
   `…/json/__init__.py`, so the column, `read-only` and the reason `d` gave stay in sight; in a
   120-column pane they fell off the edge. (#235)
+- `d` in Python on a name an import binds to a module of the project opens that module:
+  `views` in `from shop import views`, in `import shop.views` or in `views.index`, `shop` in
+  `import shop`, and `from . import views` too, a package at its `__init__.py`. It said `no
+  definition for views`, or jumped to a function called `views` elsewhere. A comment inside a
+  bracketed import, `a,  # noqa: F401`, no longer hides the name after it, so `d` on that name
+  goes through the import instead of offering its namesakes. (#280)
 
 ## [0.7.0] - 2026-09-25
 
