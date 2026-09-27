@@ -84,7 +84,10 @@ two
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     a.settle_search();
     let query = a.picker.as_ref().map(|p| p.query.to_string());
-    assert_eq!((query.as_deref(), a.search_enter), (Some("three"), false));
+    assert_eq!(
+        (query.as_deref(), a.mode, &*a.message, a.search_enter),
+        (Some("three"), Mode::Picker(PickerKind::Search), "", false)
+    );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
 
     // Past the pause, with the grep running: the list on screen is still the older one.
@@ -122,8 +125,8 @@ fn enter_after_the_project_search_answered() {
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     let query = a.picker.as_ref().map(|p| p.query.to_string());
     assert_eq!(
-        (query.as_deref(), a.mode),
-        (Some("three"), Mode::Picker(PickerKind::Search))
+        (query.as_deref(), a.mode, &*a.message),
+        (Some("three"), Mode::Picker(PickerKind::Search), "")
     );
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
 
