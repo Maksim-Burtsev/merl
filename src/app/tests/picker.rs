@@ -336,10 +336,11 @@ fn enter_on_a_usage_row_in_a_makefile_lands_on_the_whole_target() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A `u` row in a file of another language lands on the word as `u` read it under the cursor,
-/// not as the row's own file would: `build-image` from a Makefile is whole in a shell script
-/// too. The row's own language still decides whether it is listed: YAML reads `my-app` as one
-/// name, so `app` from Python has no row there (#281).
+/// A `u` row in a file of another language lands on the word whole as `u` read it under the
+/// cursor and as the row's own file reads it: `build-image` from a Makefile in a shell script.
+/// The row's own language decides whether it is listed: YAML reads `my-app` as one name, so
+/// `app` from Python has no row for it, and a row listed for a whole `app` beside it lands on
+/// that one (#281).
 #[test]
 fn a_usage_row_in_a_file_of_another_language_lands_on_the_word() {
     let (dir, mut a) = project_app(
@@ -351,7 +352,10 @@ fn a_usage_row_in_a_file_of_another_language_lands_on_the_word() {
             ),
             ("release.sh", "make build-image-arm build-image\n"),
             ("app.py", "app = object()\n"),
-            ("ci.yml", "build:\n  image: my-app:latest\n"),
+            (
+                "ci.yml",
+                "build:\n  image: my-app:latest\n  name: my-app app\n",
+            ),
         ],
     );
     cursor_on(&mut a, "Makefile", 4, "build-image");
@@ -362,7 +366,10 @@ fn a_usage_row_in_a_file_of_another_language_lands_on_the_word() {
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
     let picker = a.picker.as_mut().expect("a picker");
     picker.settle();
-    assert_eq!(picker.counts().0, 1, "only app.py:1");
+    assert_eq!(picker.counts().0, 2, "app.py:1 and ci.yml:3");
+    // The row is listed for the whole `app`, and lands there, not inside `my-app`.
+    enter_on_row(&mut a, "ci.yml", 3);
+    assert_eq!(landed(&a), ("ci.yml".into(), 3, 16));
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

@@ -261,3 +261,17 @@ fn usages_of_a_hyphenated_name_leave_out_longer_names() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #281: a grep that stopped at its cap stays marked as cut after the filter drops the longer
+/// names, or the hits past the cap would look absent.
+#[test]
+fn a_cut_usages_list_says_so_after_the_filter() {
+    let make = format!("db-main:\n{}", "\tdb-main-2\n".repeat(search::MAX_HITS));
+    let (dir, mut a) = project_app("u-hyphen-cut", &[("Makefile", &make)]);
+    usages_at(&mut a, &dir, "Makefile", 1, "db-main");
+    let picker = a.picker.as_mut().expect("a picker");
+    picker.settle();
+    assert_eq!(picker.counts().0, 1);
+    assert!(picker.title.ends_with("(first 5000)"), "{}", picker.title);
+    std::fs::remove_dir_all(&dir).unwrap();
+}

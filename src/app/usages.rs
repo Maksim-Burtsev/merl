@@ -13,7 +13,7 @@ impl App {
             self.message = "no word under the cursor".into();
             return;
         };
-        let ranked = self.usage_hits(&word, self.rel_current().as_deref());
+        let (ranked, cut) = self.usage_hits(&word, self.rel_current().as_deref());
         if ranked.is_empty() {
             self.message = format!("no usages of {word}");
             return;
@@ -21,12 +21,17 @@ impl App {
         let tiers: Vec<Tier> = ranked.iter().map(|(t, _)| *t).collect();
         // The grep's column is the first match it calls a whole word, and to it `-` ends one: in a
         // Makefile that is the start of `build-image-arm` for `build-image`. Every row lands on
-        // the word as `u` read it under the cursor, whatever the language of the row's file.
+        // the word whole both as `u` read it under the cursor and as the row's own language reads
+        // it, the rule that listed the row (#281): `build-image` of a Makefile in a shell script,
+        // `app` of Python on `my-app app` in YAML.
         let hits = ranked
             .into_iter()
-            .map(|(_, h)| Hit {
-                col: word_col(&h.text, &word, extra),
-                ..h
+            .map(|(_, h)| {
+                let row = search::word_chars(search::kind_of(&h.path), false);
+                Hit {
+                    col: word_col(&h.text, &word, &format!("{extra}{row}")),
+                    ..h
+                }
             })
             .collect();
         let items = Self::hit_items(hits);
@@ -74,26 +79,27 @@ impl App {
             .map(|(n, what)| format!("{n} {what}"))
             .collect();
         let status = format!("Usages of {word}: {}", split.join(", "));
-        self.show_picker(PickerKind::Usages, items);
+        self.show_cut_picker(PickerKind::Usages, items, cut);
         if let Some(p) = &mut self.picker {
             p.title = p.title.replacen(PickerKind::Usages.title(), &status, 1);
         }
     }
 
     /// Every whole-word, case-sensitive hit of `word` in `u`'s order from the file `here`, each
-    /// with its tier.
-    pub(super) fn usage_hits(&self, word: &str, here: Option<&Path>) -> Vec<(Tier, Hit)> {
+    /// with its tier, and whether the grep stopped at its cap: the filter below can make a cut
+    /// list short, and it is still cut.
+    pub(super) fn usage_hits(&self, word: &str, here: Option<&Path>) -> (Vec<(Tier, Hit)>, bool) {
         // To grep `-` ends a word, so `db-main` also finds `db-main-2`: a hit goes when its own
         // file's language counts that `-` as part of a word and no occurrence in the line stands
         // whole (#281). In code `db-main-2` is a subtraction and stays.
         let hits = self
             .grep(&regex::escape(word), true, false, |_| true)
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|h| {
-                let extra = search::word_chars(search::kind_of(&h.path), false);
-                extra.is_empty() || whole_at(&h.text, word, extra).is_some()
-            });
+            .unwrap_or_default();
+        let cut = hits.len() >= search::MAX_HITS;
+        let hits = hits.into_iter().filter(|h| {
+            let extra = search::word_chars(search::kind_of(&h.path), false);
+            extra.is_empty() || whole_at(&h.text, word, extra).is_some()
+        });
         // What tells a declaration of the word from a use of it is `def_patterns`, and which
         // ones apply is the hit file's own kind: one regex per kind met, built once.
         let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
@@ -126,6 +132,7 @@ impl App {
             a.cmp(b)
                 .then_with(|| (&x.path, x.line).cmp(&(&y.path, y.line)))
         });
-        ranked.into_iter().map(|((tier, _), h)| (tier, h)).collect()
+        let ranked = ranked.into_iter().map(|((tier, _), h)| (tier, h)).collect();
+        (ranked, cut)
     }
 }

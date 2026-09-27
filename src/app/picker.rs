@@ -22,8 +22,15 @@ impl App {
     }
 
     pub(crate) fn show_picker(&mut self, kind: PickerKind, items: Vec<PickItem>) {
+        let cut = items.len() >= search::MAX_HITS;
+        self.show_cut_picker(kind, items, cut);
+    }
+
+    /// [`App::show_picker`] for rows that a filter may have made fewer than the grep's cap after
+    /// the grep stopped at it: `cut` says it did.
+    pub(crate) fn show_cut_picker(&mut self, kind: PickerKind, items: Vec<PickItem>, cut: bool) {
         // The grep stops at MAX_HITS in file order: say so, or a missing hit looks absent.
-        let title = if items.len() >= search::MAX_HITS {
+        let title = if cut {
             format!("{} (first {})", kind.title(), search::MAX_HITS)
         } else {
             kind.title().to_string()
