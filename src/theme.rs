@@ -124,13 +124,10 @@ pub fn user_dir() -> Option<PathBuf> {
     Some(dirs::home_dir()?.join(".config/merl/themes"))
 }
 
-/// Every theme that can be loaded: the built-ins in their order, then the user's files by name.
-/// A file named after a built-in replaces it, in its place, which is what [`load`] reads too.
-pub fn entries() -> Vec<String> {
-    entries_in(user_dir().as_deref())
-}
-
-fn entries_in(dir: Option<&Path>) -> Vec<String> {
+/// Every theme that can be loaded: the built-ins in their order, then the user's files in `dir`
+/// by name. A file named after a built-in replaces it, in its place, which is what [`load`] reads
+/// too.
+pub fn entries_in(dir: Option<&Path>) -> Vec<String> {
     let mut names: Vec<String> = names().map(str::to_string).collect();
     let mut user = user_names(dir);
     user.sort();
@@ -208,7 +205,21 @@ pub fn load(name: &str) -> Result<Theme> {
     load_from(user_dir().as_deref(), name)
 }
 
-fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
+/// The theme `config.toml` names, at start. One that does not load names the config too: that is
+/// where the way back is (#277). Never a silent fall back to the default, as in [`load_from`].
+pub fn load_configured(name: &str) -> Result<Theme> {
+    load_configured_from(user_dir().as_deref(), config_path().as_deref(), name)
+}
+
+fn load_configured_from(dir: Option<&Path>, config: Option<&Path>, name: &str) -> Result<Theme> {
+    let theme = load_from(dir, name);
+    match config {
+        Some(path) => theme.with_context(|| format!("theme \"{name}\" from {}", path.display())),
+        None => theme,
+    }
+}
+
+pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
     // A user file shadows the built-in of the same name; a broken one is an error, never a
     // silent fall back to the built-in it shadows.
     let (bytes, ctx) = match user_path(dir, name) {
@@ -590,6 +601,27 @@ mod tests {
         std::fs::write(dir.join("broken.tmTheme"), b"not a plist").unwrap();
         let e = load_from(Some(&dir), "broken").unwrap_err().to_string();
         assert!(e.contains("broken.tmTheme"), "{e}");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A configured theme that does not load at start names `config.toml` and the theme set
+    /// there, the way back, beside the cause (#277).
+    #[test]
+    fn a_broken_configured_theme_names_the_config() {
+        let dir = std::env::temp_dir().join(format!("merl-configured-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("zz-broken.tmTheme"), b"not a plist").unwrap();
+        let config = dir.join("config.toml");
+        std::fs::write(&config, "theme = \"zz-broken\"\n").unwrap();
+        let name = toml::from_str::<Config>(&std::fs::read_to_string(&config).unwrap())
+            .unwrap()
+            .theme;
+        let e = load_configured_from(Some(&dir), Some(&config), &name).unwrap_err();
+        let e = format!("{e:#}");
+        let head = format!("theme \"zz-broken\" from {}: ", config.display());
+        assert!(e.starts_with(&head), "{e}");
+        assert!(e.contains("zz-broken.tmTheme"), "the cause stays: {e}");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

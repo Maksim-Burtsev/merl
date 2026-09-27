@@ -52,6 +52,32 @@ fn enter_in_the_theme_picker_writes_the_config() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// Enter on a user theme that does not load saves nothing: the next start would exit on it
+/// (#277). The picker stays open with the load error in the status bar.
+#[test]
+fn enter_on_a_broken_theme_keeps_the_picker_and_saves_nothing() {
+    let dir = std::env::temp_dir().join(format!("merl-theme-broken-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("zz-broken.tmTheme"), "not a plist").unwrap();
+    let config = dir.join("config.toml");
+    std::fs::write(&config, "theme = \"dayfox\"\n").unwrap();
+    let mut a = app("x\n");
+    (a.theme, a.config, a.theme_dir) = ("dayfox".into(), Some(config.clone()), Some(dir.clone()));
+    press(&mut a, KeyCode::Char('T'), KeyModifiers::NONE);
+    typed(&mut a, "zz-broken");
+    a.picker.as_mut().unwrap().settle();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(
+        std::fs::read_to_string(&config).unwrap(),
+        "theme = \"dayfox\"\n"
+    );
+    assert_eq!(a.mode, Mode::Picker(PickerKind::Themes));
+    assert_eq!((a.picker.is_some(), a.theme.as_str()), (true, "dayfox"));
+    assert!(a.message.contains("zz-broken.tmTheme"), "{}", a.message);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// A repository class, a fake of it in the tests and a service that calls both of its methods:
 /// the project of #236's table, cut down.
 fn orders_app(tag: &str) -> (PathBuf, App) {
@@ -310,9 +336,11 @@ fn enter_on_a_usage_row_in_a_makefile_lands_on_the_whole_target() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A `u` row in a file of another language lands on the word as `u` read it under the cursor,
-/// not as the row's own file would: `build-image` from a Makefile is whole in a shell script
-/// too, and `app` from Python is a word of its own in YAML's `my-app`.
+/// A `u` row in a file of another language lands on the word whole as `u` read it under the
+/// cursor and as the row's own file reads it: `build-image` from a Makefile in a shell script.
+/// The row's own language decides whether it is listed: YAML reads `my-app` as one name, so
+/// `app` from Python has no row for it, and a row listed for a whole `app` beside it lands on
+/// that one (#281).
 #[test]
 fn a_usage_row_in_a_file_of_another_language_lands_on_the_word() {
     let (dir, mut a) = project_app(
@@ -324,7 +352,10 @@ fn a_usage_row_in_a_file_of_another_language_lands_on_the_word() {
             ),
             ("release.sh", "make build-image-arm build-image\n"),
             ("app.py", "app = object()\n"),
-            ("ci.yml", "build:\n  image: my-app:latest\n"),
+            (
+                "ci.yml",
+                "build:\n  image: my-app:latest\n  name: my-app app\n",
+            ),
         ],
     );
     cursor_on(&mut a, "Makefile", 4, "build-image");
@@ -333,8 +364,12 @@ fn a_usage_row_in_a_file_of_another_language_lands_on_the_word() {
     assert_eq!(landed(&a), ("release.sh".into(), 1, 22));
     cursor_on(&mut a, "app.py", 1, "app");
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
-    enter_on_row(&mut a, "ci.yml", 2);
-    assert_eq!(landed(&a), ("ci.yml".into(), 2, 13));
+    let picker = a.picker.as_mut().expect("a picker");
+    picker.settle();
+    assert_eq!(picker.counts().0, 2, "app.py:1 and ci.yml:3");
+    // The row is listed for the whole `app`, and lands there, not inside `my-app`.
+    enter_on_row(&mut a, "ci.yml", 3);
+    assert_eq!(landed(&a), ("ci.yml".into(), 3, 16));
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
