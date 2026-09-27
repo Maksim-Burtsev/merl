@@ -5,13 +5,12 @@ use super::*;
 impl App {
     /// An overlay closed and the open file stays: back to the mode it was opened from.
     pub(super) fn close_overlay(&mut self) {
-        self.mode = if std::mem::take(&mut self.resume_edit) {
+        self.mode = Mode::Normal;
+        if std::mem::take(&mut self.resume_edit) {
             // The cursor may have moved: what is typed next is a new undo step.
             self.undo_break = true;
-            Mode::Edit
-        } else {
-            Mode::Normal
-        };
+            self.edit_mode();
+        }
     }
 
     /// Starts an incremental search from the current cursor position. The selection is set aside

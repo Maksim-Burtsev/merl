@@ -51,6 +51,7 @@ impl App {
                     }
                     self.undo_break = true;
                     self.anchor = None;
+                    self.preview = None;
                     self.dirty = false;
                     self.conflict = false;
                     if self.mode == Mode::Edit {
@@ -298,6 +299,7 @@ impl App {
     /// word a picker row is about (#236). The stop is made there, so `[` and `]` come back to it.
     pub(super) fn jump_to_col(&mut self, path: &Path, line: usize, col: usize) {
         let before = (self.line, self.col);
+        self.preview_jumped();
         if self.open(path, line) {
             self.focus = Focus::Code;
             if col > 0 {

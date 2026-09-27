@@ -272,6 +272,15 @@ impl Review {
         }
     }
 
+    /// The branch, or the short commit of a detached HEAD: the review stats count the rounds of
+    /// each, and every detached review is not one branch called `HEAD`.
+    pub fn branch_or_commit(&self, root: &Path) -> String {
+        match self.branch.as_str() {
+            "HEAD" => git(root, &["rev-parse", "--short", "HEAD"]).unwrap_or(self.branch.clone()),
+            branch => branch.to_string(),
+        }
+    }
+
     pub fn file(&self, rel: &Path) -> Option<&ReviewFile> {
         self.files.iter().find(|f| f.path == rel)
     }
@@ -405,7 +414,7 @@ fn parse_numstat(out: &str) -> Vec<(PathBuf, Option<(usize, usize)>)> {
     rows
 }
 
-/// `--review=BRANCH` reads what the merge request shows: the branch and the base are fetched in
+/// `--review BRANCH` reads what the merge request shows: the branch and the base are fetched in
 /// one go, and the local branch is brought to what was pushed. The reviewer's own commits are
 /// never rewritten, and local changes are never lost; the answer is then what the status bar
 /// says instead (`diverged from origin/feat`).
@@ -780,7 +789,7 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// #181: `--review=feat` reads the branch and the base as `origin` has them.
+    /// #181: `--review feat` reads the branch and the base as `origin` has them.
     #[test]
     fn a_named_review_reads_what_was_pushed() {
         let dir = std::env::temp_dir().join(format!("merl-pushed-{}", std::process::id()));
