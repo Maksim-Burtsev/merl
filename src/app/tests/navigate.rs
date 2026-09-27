@@ -1028,3 +1028,56 @@ fn a_comment_in_a_bracketed_import_keeps_the_next_name() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A module that imports a name from itself and declares it keeps the proof master gave: the
+/// guard for `from . import views` in a package's `__init__.py` (#280) skips the module's own
+/// file only when it does not declare the name.
+#[test]
+fn a_module_importing_its_own_declaration_is_proven() {
+    let (dir, mut a) = project_app(
+        "self-import",
+        &[
+            (
+                "app.py",
+                "from app import create_app\n\n\ndef create_app():\n    pass\n",
+            ),
+            ("other.py", "def create_app():\n    pass\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, &[]);
+    d_on(&mut a, "app.py", "import create_app");
+    assert_eq!(
+        shown(&mut a),
+        jump("create_app: via import app.py", "app.py:4")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Two modules of the project an import may mean are a picker of both (#280), each row named
+/// after the word and not read off the module's first line: `def index(request):` there would
+/// make it `index.views`.
+#[test]
+fn two_modules_an_import_may_mean_are_a_picker_of_modules() {
+    let (dir, mut a) = project_app(
+        "project-module-picker",
+        &[
+            ("scripts/views.py", "def index(request):\n    pass\n"),
+            ("tools/views.py", "def index(request):\n    pass\n"),
+            ("main.py", "import views\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, &[]);
+    d_on(&mut a, "main.py", "import views");
+    let Shown::Picker(_, rows) = shown(&mut a) else {
+        panic!("a picker");
+    };
+    assert_eq!(
+        rows,
+        [
+            ("views", "module scripts/views.py", "scripts/views.py:1"),
+            ("views", "module tools/views.py", "tools/views.py:1"),
+        ]
+        .map(|(n, r, p)| (n.to_string(), r.to_string(), p.to_string()))
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

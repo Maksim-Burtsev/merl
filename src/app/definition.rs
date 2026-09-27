@@ -634,10 +634,23 @@ impl App {
                 let target = tail(path.to_vec());
                 let floor = path.len().saturating_sub(1).max(1);
                 // A module importing from itself (`from . import views` in a package's
-                // `__init__.py`) takes a module of the package: it declares no such name.
+                // `__init__.py`) takes a module of the package, unless it declares the name
+                // itself: then it is read as on master, where the import proves it.
+                let declares = |name: &String| {
+                    let pattern = search::def_patterns(kind, name).join("|");
+                    self.grep(&pattern, false, false, |p| p == here)
+                        .unwrap_or_default()
+                        .iter()
+                        .any(|h| {
+                            self.text_of(&h.path).is_some_and(|text| {
+                                search::qualified(kind, &text, h.line, name).is_none()
+                            })
+                        })
+                };
                 let found = (floor..target.len()).rev().find_map(|n| {
                     let files = module_files(&target[..n]);
-                    (!files.is_empty() && files != [here]).then(|| (files, target[n..].to_vec()))
+                    let own = files == [here] && !target[n..].first().is_some_and(declares);
+                    (!files.is_empty() && !own).then(|| (files, target[n..].to_vec()))
                 });
                 match found {
                     Some(found) => found,
