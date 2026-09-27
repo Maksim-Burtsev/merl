@@ -85,6 +85,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reads like the project's `src/lib.rs`. A path still too long for the pane is cut from the left,
   `…/json/__init__.py`, so the column, `read-only` and the reason `d` gave stay in sight; in a
   120-column pane they fell off the edge. (#235)
+- `merl --tutor` and `merl --drill` no longer save a theme picked with `T` and Enter to
+  `~/.config/merl/config.toml`: the theme lasts the session. A learner who pressed Enter in the
+  task on Esc lost their own theme. (#278)
 
 ## [0.7.0] - 2026-09-25
 
