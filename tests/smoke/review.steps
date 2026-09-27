@@ -52,3 +52,19 @@ key Enter d
 wait REFUNDED → OrderStatus.REFUNDED (via OrderStatus)
 key c
 wait :1  [code]  hunk
+# Last, a deletion taller than the pane is read going down (#279): the agent deletes most of
+# tests/test_service.py in your checkout, and on a pane of 20 rows Down from the line above it
+# scrolls its lines in one row per press, the cursor waiting on its line, where 0.7.0 jumped past
+# them; Ctrl+D goes on half a pane.
+caption a deletion taller than the pane: Down scrolls it in row by row, Ctrl+D half a pane (#279)
+run python3 -c "p = 'tests/test_service.py'; l = open(p).readlines(); open(p, 'w').writelines(l[:4] + l[45:])"
+size 185x20
+wait M test_service.py
+key o
+type test_service
+key Enter Down*3
+wait tests/test_service.py  4:1
+key Down*10
+wait class FakeUow:
+key C-d
+wait def make_service(*orders):

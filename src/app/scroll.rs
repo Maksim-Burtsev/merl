@@ -15,14 +15,24 @@ impl App {
             self.center_cursor();
             return;
         }
+        if self.wait != Some((self.line, self.col)) {
+            self.wait = None;
+        }
         // The top is on the cursor line's own ghosts: they are being read, the cursor waits
         // below the pane (`move_rows` scrolls them in one at a time).
-        if self.top_line == self.line && self.top_row < self.ghost_rows(self.line) {
+        if self.wait.is_some()
+            && self.top_line == self.line
+            && self.top_row < self.ghost_rows(self.line)
+        {
             return;
         }
-        // Scrolled on past the end of the text (`move_rows`), the cursor waits above the pane.
-        if cur < (self.top_line, self.top_row) && self.at_text_end() {
-            (self.top_line, self.top_row) = (self.top_line, self.top_row).min(self.bottom_top());
+        // Scrolled on through the lines deleted under the cursor line (`move_rows`), or past
+        // the end of the text, the cursor waits above the pane.
+        if cur < (self.top_line, self.top_row)
+            && (self.wait.is_some() || self.at_text_end())
+            && let Some(stop) = self.ghost_stop()
+        {
+            (self.top_line, self.top_row) = (self.top_line, self.top_row).min(stop);
             return;
         }
         if cur < (self.top_line, self.top_row) {
@@ -102,6 +112,46 @@ impl App {
     /// The cursor is on the last screen row of the text: Down has no row left to go to.
     pub(super) fn at_text_end(&self) -> bool {
         self.line + 1 == self.buf.lines.len() && self.cursor_row() + 1 == self.row_count(self.line)
+    }
+
+    /// On the last row of its line, the top Down scrolls to through the lines deleted under it
+    /// before the cursor moves on, the last of them on the bottom row: after the last line
+    /// always (#179), elsewhere when they are too tall to show with the line under them (#279).
+    pub(super) fn ghost_stop(&self) -> Option<(usize, usize)> {
+        if self.cursor_row() + 1 != self.row_count(self.line) {
+            return None;
+        }
+        let next = self.line + 1;
+        if next == self.buf.lines.len() {
+            return Some(self.bottom_top());
+        }
+        let g = self.ghost_rows(next);
+        self.ghosts_too_tall(next)
+            .then(|| self.fit_top((0, 0), (next, g - 1)))
+    }
+
+    /// The lines the branch deleted above line `l` do not fit on the pane with it: its first
+    /// row of text on the bottom row pushes the first of them off the top.
+    pub(super) fn ghosts_too_tall(&self, l: usize) -> bool {
+        let g = self.ghost_rows(l);
+        l < self.buf.lines.len() && g > 0 && self.fit_top((0, 0), (l, g)) > (l, 0)
+    }
+
+    /// With the top on the ghosts of the cursor line and the cursor below the pane, the top that
+    /// puts it on the bottom row.
+    pub(super) fn waiting_below(&self) -> Option<(usize, usize)> {
+        if self.top_line != self.line || self.top_row >= self.ghost_rows(self.line) {
+            return None;
+        }
+        let top = (self.top_line, self.top_row);
+        let fit = self.fit_top(top, (self.line, self.cursor_row()));
+        (fit > top).then_some(fit)
+    }
+
+    /// Whether `p` is on the pane with the view's top at `top`.
+    pub(super) fn on_pane(&self, top: (usize, usize), p: (usize, usize)) -> bool {
+        let rows = self.view_h.saturating_sub(self.pinned(top.0).len()).max(1);
+        top <= p && self.rows_between(top, p) < rows
     }
 
     /// The top of the view scrolled down as far as it goes: the last line the branch deleted at

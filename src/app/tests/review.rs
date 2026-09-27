@@ -1129,3 +1129,117 @@ fn a_deleted_file_with_nothing_to_read_is_not_gone_back_to() {
     assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Twenty lines, `l0` to `l19`, with `g` lines deleted above `l5`, on a pane of ten rows.
+fn deletion_above_l5(g: usize) -> App {
+    let text: String = (0..20).map(|i| format!("l{i}\n")).collect();
+    let mut a = app(&text);
+    a.diff
+        .ghosts
+        .insert(5, (0..g).map(|i| format!("g{i}")).collect());
+    a
+}
+
+/// A key, then the scroll the next draw makes; the cursor line and the top after it.
+fn step(a: &mut App, code: KeyCode, m: KeyModifiers) -> (usize, (usize, usize)) {
+    press(a, code, m);
+    a.clamp_scroll();
+    (a.line, (a.top_line, a.top_row))
+}
+
+/// #279: Down from the line above a deletion taller than the pane scrolls it in one row per
+/// press, the cursor staying on its line, until the last ghost is on the bottom row; the next
+/// Down moves the cursor under it. Every ghost row has been on the pane.
+#[test]
+fn down_reads_a_deletion_taller_than_the_pane_row_by_row() {
+    let mut a = deletion_above_l5(30);
+    let down = |a: &mut App| step(a, KeyCode::Down, KeyModifiers::NONE);
+    for _ in 0..4 {
+        down(&mut a);
+    }
+    assert_eq!((a.line, (a.top_line, a.top_row)), (4, (0, 0)));
+    let mut shown = std::collections::BTreeSet::new();
+    let mut top = (0, 0);
+    while a.line == 4 {
+        for r in 0..10 {
+            shown.insert(a.forward_rows(top, r));
+        }
+        let (_, next) = down(&mut a);
+        assert!(a.rows_between(top, next) <= 1, "{top:?} to {next:?}");
+        top = next;
+    }
+    assert!((0..30).all(|r| shown.contains(&(5, r))), "{shown:?}");
+    // The last ghost was on the bottom row, and the cursor went on to `l5` under it.
+    assert_eq!((a.line, (a.top_line, a.top_row)), (5, (5, 21)));
+    assert_eq!(a.message, "");
+    // PgDn reads it a page at a time.
+    let mut a = deletion_above_l5(30);
+    (a.line, a.top_line) = (4, 4);
+    assert_eq!(
+        step(&mut a, KeyCode::PageDown, KeyModifiers::NONE),
+        (4, (5, 9))
+    );
+}
+
+/// #279: over a deletion taller than the pane Ctrl+D and Ctrl+U move the view half a pane of
+/// rows, ghost rows counted. While the ghosts fill the pane the cursor waits under them for
+/// Ctrl+D and above them for Ctrl+U, and it stays on its line once the view comes to it.
+#[test]
+fn half_pages_move_half_a_pane_through_a_deletion_taller_than_it() {
+    let mut a = deletion_above_l5(30);
+    let ctrl = KeyModifiers::CONTROL;
+    for _ in 0..4 {
+        step(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    }
+    for top in [(5, 0), (5, 5), (5, 10), (5, 15), (5, 20)] {
+        assert_eq!(step(&mut a, KeyCode::Char('d'), ctrl), (5, top));
+    }
+    // `l5`, under the last ghost, is on the pane now: the cursor is on it, and the text goes
+    // on half a page at a time.
+    assert_eq!(step(&mut a, KeyCode::Char('d'), ctrl), (5, (5, 25)));
+    assert_eq!(a.cursor_row(), 30);
+    assert_eq!(step(&mut a, KeyCode::Char('d'), ctrl), (10, (5, 30)));
+    assert_eq!(step(&mut a, KeyCode::Char('u'), ctrl), (5, (5, 25)));
+    for top in [(5, 20), (5, 15), (5, 10), (5, 5), (5, 0)] {
+        assert_eq!(step(&mut a, KeyCode::Char('u'), ctrl), (4, top));
+    }
+    assert_eq!(step(&mut a, KeyCode::Char('u'), ctrl), (4, (0, 0)));
+    // Waiting under the ghosts after Ctrl+D, the cursor lets Down scroll on one row, and Up
+    // back, as it does after Up brought them in.
+    assert_eq!(step(&mut a, KeyCode::Char('d'), ctrl), (5, (5, 0)));
+    assert_eq!(step(&mut a, KeyCode::Down, KeyModifiers::NONE), (5, (5, 1)));
+    assert_eq!(step(&mut a, KeyCode::Up, KeyModifiers::NONE), (5, (5, 0)));
+}
+
+/// #279: Up is as it was: on the line under the deletion it brings the ghosts scrolled off
+/// above in one row per press, then leaves for the line above.
+#[test]
+fn up_under_a_deletion_taller_than_the_pane_is_one_row_per_press() {
+    let mut a = deletion_above_l5(30);
+    a.line = 6;
+    (a.top_line, a.top_row) = (5, 22);
+    for top in (0..=22).rev() {
+        assert_eq!(step(&mut a, KeyCode::Up, KeyModifiers::NONE), (5, (5, top)));
+    }
+    assert_eq!(step(&mut a, KeyCode::Up, KeyModifiers::NONE), (4, (4, 0)));
+}
+
+/// #279: a deletion that fits on the pane with the line under it is crossed as before, by one
+/// Down and one Ctrl+D.
+#[test]
+fn a_deletion_that_fits_the_pane_is_crossed_in_one_move() {
+    let mut a = deletion_above_l5(4);
+    a.view_h = 5;
+    for _ in 0..4 {
+        step(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    }
+    assert_eq!((a.line, (a.top_line, a.top_row)), (4, (0, 0)));
+    assert_eq!(step(&mut a, KeyCode::Down, KeyModifiers::NONE), (5, (5, 0)));
+    let mut a = deletion_above_l5(4);
+    step(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    step(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    let ctrl = KeyModifiers::CONTROL;
+    // Half of ten rows from `l2` is a ghost row: the cursor goes on to `l5`, the view by the
+    // rows the cursor moved.
+    assert_eq!(step(&mut a, KeyCode::Char('d'), ctrl), (5, (5, 2)));
+}

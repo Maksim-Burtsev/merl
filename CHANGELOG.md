@@ -85,6 +85,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reads like the project's `src/lib.rs`. A path still too long for the pane is cut from the left,
   `…/json/__init__.py`, so the column, `read-only` and the reason `d` gave stay in sight; in a
   120-column pane they fell off the edge. (#235)
+- In `merl --review`, a deletion taller than the pane is read going down. Down on the line above it
+  scrolls its lines in one row per press (PgDn a page), the cursor staying on its line, until the
+  last one is on the screen, and `Ctrl+D` and `Ctrl+U` move half a pane of its rows; the cursor
+  waits off the pane while the deleted lines fill it. Down jumped to the line under the deletion,
+  so all but its last screenful was never shown, `Ctrl+D` did the same, and `Ctrl+U` read it back
+  one row per press. A deletion that fits on the pane is crossed as before. (#279)
 
 ## [0.7.0] - 2026-09-25
 

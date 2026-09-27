@@ -170,15 +170,22 @@ impl App {
             && (1..=self.ghost_rows(self.line)).contains(&self.top_row)
         {
             self.top_row -= 1;
+            self.wait = Some((self.line, self.col));
             return;
         }
-        // Down on the last row of the text scrolls on through the lines deleted after it, the
-        // cursor staying where it is, until the last of them is on the bottom row.
-        if n > 0 && self.at_text_end() {
-            let (end, bottom) = (self.buf.lines.len(), self.bottom_top());
+        // Down on the last row of a line scrolls on through the lines deleted under it, the
+        // cursor staying where it is, until the last of them is on the bottom row: after the
+        // last line always, elsewhere when they are taller than the pane, so none is skipped.
+        // Waiting below the pane while its own ghosts are read, the cursor lets Down scroll
+        // them in until it is on the bottom row.
+        if n > 0
+            && let Some(stop) = self.waiting_below().or_else(|| self.ghost_stop())
+            && (self.at_text_end() || (self.top_line, self.top_row) < stop)
+        {
+            let end = self.buf.lines.len();
             for _ in 0..n {
                 let (l, r) = (self.top_line, self.top_row);
-                if (l, r) >= bottom {
+                if (l, r) >= stop {
                     break;
                 }
                 (self.top_line, self.top_row) = if l < end && r + 1 == self.row_count(l) {
@@ -187,6 +194,7 @@ impl App {
                     (l, r + 1)
                 };
             }
+            self.wait = Some((self.line, self.col));
             return;
         }
         let cur = (self.line, self.cursor_row());
@@ -212,6 +220,9 @@ impl App {
     /// so the cursor keeps its place on screen and half the context stays visible.
     pub(super) fn half_page(&mut self, dir: isize) {
         let half = (self.page_rows(dir > 0) / 2).max(1);
+        if !self.at_text_end() && self.half_page_over_ghosts(dir, half) {
+            return;
+        }
         let before = (self.line, self.cursor_row());
         self.move_rows(dir * half as isize);
         let moved = self.rows_between(before, (self.line, self.cursor_row()));
@@ -221,6 +232,62 @@ impl App {
         } else {
             self.forward_rows(top, moved)
         };
+    }
+
+    /// Ctrl+D / Ctrl+U into a deletion taller than the pane, or with the cursor waiting off the
+    /// pane while one is read: the view moves `half` rows, ghost rows counted, and the cursor goes
+    /// to the row at its place on the screen (the edge of the pane when it was off it) or, that
+    /// being a ghost row, to the text line beside the deletion that is on the pane. With neither
+    /// on it, the cursor waits off the pane past the deletion, below for Ctrl+D, above for
+    /// Ctrl+U. False anywhere else: moving the cursor half a page and the view with it skips
+    /// nothing there.
+    fn half_page_over_ghosts(&mut self, dir: isize, half: usize) -> bool {
+        let top = (self.top_line, self.top_row);
+        let cur = (self.line, self.cursor_row());
+        let new = match dir < 0 {
+            true => self.back_rows(top, half),
+            false => self.forward_rows(top, half),
+        };
+        let off = top.1 < self.ghost_rows(top.0) && !self.on_pane(top, cur);
+        // Waiting off the pane, the cursor stays on its line once the view comes to it.
+        if off && self.on_pane(new, cur) {
+            (self.top_line, self.top_row) = new;
+            return true;
+        }
+        let rows = self.view_h.saturating_sub(self.pinned(new.0).len()).max(1);
+        let y = match cur < top {
+            true => 0,
+            false => self.rows_between(top, cur).min(rows - 1),
+        };
+        let at = self.forward_rows(new, y);
+        let ghost = at.1 < self.ghost_rows(at.0);
+        if !off && !(ghost && self.ghosts_too_tall(at.0)) {
+            return false;
+        }
+        let (line, row) = if ghost {
+            let m = at.0;
+            let above = (m > 0).then(|| (m - 1, self.row_count(m - 1) - 1));
+            let below = (m < self.buf.lines.len()).then(|| (m, self.ghost_rows(m)));
+            let (ahead, behind) = if dir < 0 {
+                (above, below)
+            } else {
+                (below, above)
+            };
+            [ahead, behind]
+                .into_iter()
+                .flatten()
+                .find(|&p| self.on_pane(new, p))
+                .or(ahead)
+                .or(behind)
+                .unwrap_or(at)
+        } else {
+            at
+        };
+        self.line = line;
+        self.apply_want_x(row);
+        (self.top_line, self.top_row) = new;
+        self.wait = Some((self.line, self.col));
+        true
     }
 
     /// `{` / `}`: the previous / next blank line, like vim. A run of blank lines counts once, so
