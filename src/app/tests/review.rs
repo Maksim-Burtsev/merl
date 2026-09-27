@@ -28,7 +28,7 @@ fn review_walks_past_files_without_hunks() {
 }
 
 /// #162: `c` leaving a file forward marks it as viewed, the last file on the press that has
-/// nowhere to go; `C` marks nothing, `m` toggles, and a changed file loses its tick for `↻`.
+/// nowhere to go; `C` marks nothing, `m` toggles, and a changed file loses its tick.
 #[test]
 fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
     let (dir, mut a) = review_app("viewed");
@@ -68,7 +68,7 @@ fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
     assert!(!a.viewed.contains_key(Path::new("tail")));
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
     assert_eq!(a.message, "viewed");
-    // #240: FNV-1a of `t1\n`. The hashes are kept on disk: a new one turns every kept mark `↻`.
+    // #240: FNV-1a of `t1\n`. The hashes are kept on disk: a new one takes every kept tick off.
     assert_eq!(a.viewed[Path::new("tail")], 0x5634_7619_43bd_e994);
     // The panel's row, not the open file; a directory is not a file of the review.
     a.focus = Focus::Tree;
@@ -85,49 +85,50 @@ fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
     let text = std::fs::read_to_string(dir.join("tail")).unwrap();
     std::fs::write(dir.join("tail"), text.to_uppercase()).unwrap();
     let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
-    assert!(a.review_refreshed(fresh), "the tick turns into `↻`");
+    assert!(a.review_refreshed(fresh), "the tick goes");
     assert!(!a.viewed.contains_key(Path::new("tail")));
     assert!(
-        a.changed.contains_key(Path::new("tail")),
+        a.hidden.contains_key(Path::new("tail")),
         "#240: viewed before"
     );
     assert!(a.viewed.contains_key(Path::new("src/a.rs")));
     let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
     assert!(!a.review_refreshed(fresh), "nothing moved");
     assert!(
-        a.changed.contains_key(Path::new("tail")),
-        "`↻` until viewed again"
+        a.hidden.contains_key(Path::new("tail")),
+        "no tick until viewed again"
     );
-    // Written back as it was viewed, it is viewed again; rewritten, `↻` again.
+    // Written back as it was viewed, it is viewed again; rewritten, no tick again.
     std::fs::write(dir.join("tail"), &text).unwrap();
     let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
     assert!(a.review_refreshed(fresh));
-    assert!(a.viewed.contains_key(Path::new("tail")) && a.changed.is_empty());
+    assert!(a.viewed.contains_key(Path::new("tail")) && a.hidden.is_empty());
     std::fs::write(dir.join("tail"), text.to_uppercase()).unwrap();
     let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
     assert!(a.review_refreshed(fresh));
-    assert!(a.changed.contains_key(Path::new("tail")));
-    // Viewed again, the `↻` goes.
+    assert!(a.hidden.contains_key(Path::new("tail")));
+    // Viewed again, it has its tick.
     a.tree.reveal(Path::new("tail"));
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
-    assert!(a.viewed.contains_key(Path::new("tail")) && a.changed.is_empty());
+    assert!(a.viewed.contains_key(Path::new("tail")) && a.hidden.is_empty());
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// The files viewed and those `↻`, sorted.
+/// The files viewed and those with a hidden mark, sorted.
 fn marks(a: &App) -> (Vec<PathBuf>, Vec<PathBuf>) {
     let sorted = |m: &HashMap<PathBuf, u64>| {
         let mut v: Vec<_> = m.keys().cloned().collect();
         v.sort();
         v
     };
-    (sorted(&a.viewed), sorted(&a.changed))
+    (sorted(&a.viewed), sorted(&a.hidden))
 }
 
 /// #240: the marks outlive the session, per branch and base. On the next start a file changed
-/// since is `↻`, which outlives the session too, and an unchanged one keeps its tick.
+/// since has no tick, and does not get it back from a mark written for another file; an
+/// unchanged one keeps its tick.
 #[test]
-fn viewed_marks_outlive_the_session_and_a_changed_file_says_so() {
+fn viewed_marks_outlive_the_session_and_a_changed_file_loses_its_tick() {
     let (dir, mut a) = review_app("viewedkept");
     let git = |args: &[&str]| {
         let mut cmd = std::process::Command::new("git");
@@ -152,7 +153,7 @@ fn viewed_marks_outlive_the_session_and_a_changed_file_says_so() {
     git(&["commit", "-qam", "fix"]);
     let mut a = review_start(&dir, None);
     assert_eq!(marks(&a), (paths(&["src/a.rs"]), paths(&["tail"])));
-    // A mark written for another file keeps the `↻` for the next start.
+    // A mark written for another file does not bring back the tick at the next start.
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
     let mut a = review_start(&dir, None);
     assert_eq!(marks(&a), (paths(&["new", "src/a.rs"]), paths(&["tail"])));
@@ -425,8 +426,8 @@ fn a_stopped_rebase_keeps_the_ticks_of_files_not_replayed_yet() {
     press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
     let during = review_start(&dir, None);
     assert_eq!(during.review.as_ref().unwrap().branch, "feature");
-    assert_eq!(marks(&during), (vec![PathBuf::from("tail")], vec![]));
-    assert!(during.unlisted.contains_key(Path::new("late")));
+    let hidden = vec![PathBuf::from("late")];
+    assert_eq!(marks(&during), (vec![PathBuf::from("tail")], hidden));
 
     std::fs::write(dir.join("src/a.rs"), "a\nB\nc\nd\ne\nF\n").unwrap();
     assert!(git(&["add", "src/a.rs"]) && git(&["rebase", "--continue"]));

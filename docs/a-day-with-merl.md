@@ -11,9 +11,9 @@ checks out what was pushed, `--base origin/dev` compares against another base.
 
 **2. `c` walks the hunks**, through the file and on into the next one. `C` walks back. Images
 and other binaries are skipped, and merl says how many. A file `c` has walked to the end gets a
-tick in the panel; `m` puts it or takes it off by hand. When the agent changes a ticked file, the
-tick turns to `↻` until you view it again. The ticks stay with the branch: the next `merl
---review` of it opens with them.
+tick in the panel; `m` puts it or takes it off by hand, and it goes on its own when the agent
+changes the file, as on GitLab. The ticks stay with the branch: the next `merl --review` of it
+opens with them.
 
 <img src="../assets/day/2-hunks.gif" alt="c walks from hunk to hunk and into the next file" width="800">
 

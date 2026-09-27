@@ -52,12 +52,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   counts, and a type of the name in the file itself, a name bound twice, a binary under
   `src/bin/` or a module with no `impl` of the type stay `by name`. (#227)
 - `merl --review` keeps the files marked viewed from one start to the next, per branch and base,
-  in the repository's git directory, so a review in a worktree has them too. On the next start a
-  file changed since loses its tick, and a file viewed and then changed, on screen or between two
-  starts, shows `↻` in its place until you view it again. A file that leaves the review for a
-  while, as during a rebase stopped on a conflict, has its mark back when it returns. A review
-  started on a detached HEAD, outside a rebase, keeps its marks only while it runs. The marks of a
-  review untouched for 30 days are forgotten. (#240)
+  in the repository's git directory, so a review in a worktree has them too. A file changed since
+  it was viewed, on screen or between two starts, loses its tick, as on GitLab. A file that leaves
+  the review for a while, as during a rebase stopped on a conflict, has its mark back when it
+  returns. A review started on a detached HEAD, outside a rebase, keeps its marks only while it
+  runs. The marks of a review untouched for 30 days are forgotten. (#240)
 - The file panel of `merl --review` paints the status letter bold in the gutter's colours, `A`
   green, `M` blue, `D` red, a rename or a copy dim; the line counts and `bin` are dim, so the
   name reads first; and the bottom border gives the size of the branch, `3 files · +13 −1`. A

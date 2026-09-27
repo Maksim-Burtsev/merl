@@ -256,7 +256,7 @@ impl App {
     fn mark_viewed(&mut self, rel: Option<PathBuf>) {
         if let Some(rel) = rel {
             let hash = self.disk_hash(&rel);
-            self.changed.remove(&rel);
+            self.hidden.remove(&rel);
             self.viewed.insert(rel, hash);
             self.save_viewed();
         }
@@ -271,33 +271,26 @@ impl App {
         })
     }
 
-    /// Sorts every mark by the listing and the disk: a listed file whose hash matches is viewed,
-    /// one that changed since is `↻` until it is viewed again (or changes back), and a file the
-    /// listing does not have keeps its mark, unseen, for when it comes back. A mark leaves only
-    /// when `m` takes it off, or with its review after [`FORGET_DAYS`]. Returns whether a mark on
-    /// screen moved.
+    /// Sorts every mark by the listing and the disk: a listed file whose hash matches is viewed;
+    /// one that changed since loses its tick, as on GitLab, and one the listing does not have is
+    /// not shown either. Both keep their mark, hidden, for when the file comes back as it was
+    /// viewed. A mark leaves only when `m` takes it off, or with its review after
+    /// [`FORGET_DAYS`]. Returns whether a tick moved.
     // ponytail: reads every listed marked file on each refresh; compare mtimes first if a review
     // of thousands of viewed files ever makes the refresh slow.
     fn recheck_viewed(&mut self) -> bool {
-        let (mut viewed, mut changed, mut unlisted) =
-            (HashMap::new(), HashMap::new(), HashMap::new());
-        let marks = self
-            .viewed
-            .iter()
-            .chain(&self.changed)
-            .chain(&self.unlisted);
-        for (p, &h) in marks {
-            let to = if !self.review.as_ref().is_some_and(|r| r.file(p).is_some()) {
-                &mut unlisted
-            } else if self.disk_hash(p) == h {
+        let (mut viewed, mut hidden) = (HashMap::new(), HashMap::new());
+        for (p, &h) in self.viewed.iter().chain(&self.hidden) {
+            let listed = self.review.as_ref().is_some_and(|r| r.file(p).is_some());
+            let to = if listed && self.disk_hash(p) == h {
                 &mut viewed
             } else {
-                &mut changed
+                &mut hidden
             };
             to.insert(p.clone(), h);
         }
-        let moved = viewed != self.viewed || changed != self.changed;
-        (self.viewed, self.changed, self.unlisted) = (viewed, changed, unlisted);
+        let moved = viewed != self.viewed;
+        (self.viewed, self.hidden) = (viewed, hidden);
         moved
     }
 
@@ -317,9 +310,8 @@ impl App {
         let read = (self.viewed_store())
             .context("no git directory")
             .and_then(|store| read_viewed(&store, branch, &r.base, crate::stats::today()));
-        for marks in [&mut self.viewed, &mut self.changed, &mut self.unlisted] {
-            marks.clear();
-        }
+        self.viewed.clear();
+        self.hidden.clear();
         match read {
             Ok(marks) => self.viewed = marks,
             Err(e) => {
@@ -350,15 +342,14 @@ impl App {
         true
     }
 
-    /// Writes this review's marks, the `↻` and the unlisted ones too, so they outlive the
-    /// session as well.
+    /// Writes this review's marks, the hidden ones too, so they outlive the session as well.
     fn save_viewed(&mut self) {
         let (Some(store), Some(r), Some(branch)) =
             (self.viewed_store(), &self.review, &self.viewed_branch)
         else {
             return;
         };
-        let marks = (self.viewed.iter().chain(&self.changed)).chain(&self.unlisted);
+        let marks = self.viewed.iter().chain(&self.hidden);
         if let Err(e) = write_viewed(&store, branch, &r.base, marks, crate::stats::today()) {
             self.message = format!("viewed marks not saved: {e:#}");
         }

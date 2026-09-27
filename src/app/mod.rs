@@ -379,12 +379,10 @@ pub struct App {
     /// then. A file that has changed since is not viewed any more (`recheck_viewed`). Kept in
     /// the repository's git dir, per branch and base, from one start to the next (#240).
     pub viewed: HashMap<PathBuf, u64>,
-    /// Review: the files of the listing viewed before that changed since, `↻` in the panel
-    /// until viewed again; the hash is the one they were viewed at.
-    pub changed: HashMap<PathBuf, u64>,
-    /// Review: the marks of files the listing does not have now (a rebase stopped before their
-    /// commit, a file reverted), kept unseen for when they come back.
-    unlisted: HashMap<PathBuf, u64>,
+    /// Review: the marks without a tick, of files changed since they were viewed or that the
+    /// listing does not have now (a rebase stopped before their commit, a file reverted), kept
+    /// with the hash they were viewed at for when the file comes back as it was.
+    hidden: HashMap<PathBuf, u64>,
     /// Review: the branch the marks are kept under, the one the listing names (during a rebase,
     /// the branch being rebased). While HEAD is detached, the last branch the review had.
     /// `None` for a review started detached, or whose store cannot be read: its marks are in
@@ -534,8 +532,7 @@ impl App {
             want_diff: true,
             review: None,
             viewed: HashMap::new(),
-            changed: HashMap::new(),
-            unlisted: HashMap::new(),
+            hidden: HashMap::new(),
             viewed_branch: None,
             last_hunk: None,
             session: None,
