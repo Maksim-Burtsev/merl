@@ -151,7 +151,7 @@ impl App {
 
     /// One char past the cursor, so `n` cannot land on the match it is already sitting on.
     fn after_cursor(&self) -> (usize, usize) {
-        let s = self.line_str();
+        let s = self.buf.shown(self.line);
         if self.col < s.len() {
             (self.line, next_char(s, self.col))
         } else if self.line + 1 < self.buf.lines.len() {
@@ -162,8 +162,7 @@ impl App {
     }
 
     fn go_to_match(&mut self, line: usize, col: usize) {
-        self.line = line;
-        self.col = col;
+        (self.line, self.col) = self.clamp_pos((line, col));
         self.sync_want_x();
         self.center = true;
     }

@@ -127,8 +127,10 @@ fn run() -> Result<()> {
         return Ok(());
     }
     let config = theme::config()?;
-    let name = cli.theme.clone().unwrap_or(config.theme);
-    let theme = theme::load(&name)?;
+    let (theme, name) = match cli.theme.clone() {
+        Some(name) => (theme::load(&name)?, name),
+        None => (theme::load_configured(&config.theme)?, config.theme),
+    };
 
     let (mut root, shallow, mut file, line) = if cli.tutor || cli.drill.is_some() {
         (tutor::extract()?, false, None, None)
