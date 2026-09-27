@@ -134,6 +134,7 @@ impl App {
         (is == assigned).then(|| Hit {
             path: ty.path.clone(),
             line,
+            col: 0,
             text: text.lines().nth(line - 1).unwrap_or_default().to_owned(),
         })
     }
@@ -172,6 +173,7 @@ impl App {
                         text: text.lines().nth(line - 1).unwrap_or_default().to_owned(),
                         path: path.clone(),
                         line,
+                        col: 0,
                     });
                 }
             }
@@ -357,6 +359,7 @@ impl App {
                         text: text.lines().nth(at - 1).unwrap_or_default().to_owned(),
                         path: hit.path,
                         line: at,
+                        col: 0,
                     });
                 }
             }

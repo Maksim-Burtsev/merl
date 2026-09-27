@@ -291,9 +291,19 @@ impl App {
     /// from outside `key_inner`'s move rule, so a jump that lands elsewhere drops the selection
     /// here.
     pub fn jump_to(&mut self, path: &Path, line: usize) {
+        self.jump_to_col(path, line, 0);
+    }
+
+    /// [`App::jump_to`], the cursor on byte `col` of the line: on the name `d` found, on the
+    /// word a picker row is about (#236). The stop is made there, so `[` and `]` come back to it.
+    pub(super) fn jump_to_col(&mut self, path: &Path, line: usize, col: usize) {
         let before = (self.line, self.col);
         if self.open(path, line) {
             self.focus = Focus::Code;
+            if col > 0 {
+                (self.line, self.col) = self.clamp_pos((self.line, col));
+                self.sync_want_x();
+            }
         }
         self.drop_selection_if_moved(before);
         self.hist_note(true);
@@ -336,10 +346,7 @@ impl App {
         };
         match &gone[..] {
             [] => {}
-            [one] => {
-                let rel = one.strip_prefix(&self.root).unwrap_or(one);
-                self.message = format!("{} gone", rel.display());
-            }
+            [one] => self.message = format!("{} gone", self.rel_path_of(one)),
             _ => self.message = format!("{} files gone", gone.len()),
         }
         let Some((i, path, col)) = landed else { return };

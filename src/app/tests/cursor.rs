@@ -216,6 +216,7 @@ fn a_jump_or_a_find_match_drops_the_selection() {
     let hit = Hit {
         path: a.buf.path.clone().unwrap(),
         line: 4,
+        col: 0,
         text: "jkl".into(),
     };
     a.show_picker(PickerKind::Usages, App::hit_items(vec![hit]));

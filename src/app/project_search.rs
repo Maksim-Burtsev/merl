@@ -60,14 +60,16 @@ impl App {
         self.buf.path.as_deref().and_then(search::kind_of)
     }
 
-    /// `rel/path:line: text` rows for a result picker. The text keeps its tabs, as `Buffer`
-    /// does, so `ui` can line it up with the file's highlighting; tabs are expanded when drawn.
+    /// `rel/path:line: text` rows for a result picker, each landing on its hit's column. The text
+    /// keeps its tabs, as `Buffer` does, so `ui` can line it up with the file's highlighting; tabs
+    /// are expanded when drawn.
     pub(crate) fn hit_items(hits: Vec<Hit>) -> Vec<PickItem> {
         hits.into_iter()
             .map(|h| {
                 let label = format!("{}:{}: ", h.path.display(), h.line);
                 let code_at = Some(label.len());
                 PickItem {
+                    col: h.col,
                     label: label + &clip(h.text.trim(), MAX_LABEL_TEXT),
                     path: h.path,
                     line: h.line,
@@ -143,7 +145,7 @@ impl App {
         self.picker = None;
         self.mode = Mode::Normal;
         match item {
-            Some(item) => self.jump_to(&self.root.join(&item.path), item.line),
+            Some(item) => self.jump_to_col(&self.root.join(&item.path), item.line, item.col),
             None if query.is_empty() => {}
             None => self.message = format!("no results for {query}"),
         }
