@@ -11,7 +11,7 @@ impl App {
     /// Places the cursor on screen row `row` of `self.line`, on the cluster under the column
     /// `want_x`, or as far right as the row goes. A row other than the last ends on its last
     /// char: its end is where the next row starts.
-    fn apply_want_x(&mut self, row: usize) {
+    pub(super) fn apply_want_x(&mut self, row: usize) {
         let rows = self.rows(self.line);
         let row = row
             .saturating_sub(self.ghost_rows(self.line))

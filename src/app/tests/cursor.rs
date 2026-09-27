@@ -79,7 +79,7 @@ fn ctrl_c_copies_in_navigation_and_never_quits() {
     // Without a selection the line goes, and merl stays open.
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     assert!(!press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL));
-    assert_eq!(a.clipboard.take().as_deref(), Some("abc"));
+    assert_eq!(a.clipboard.take().as_deref(), Some("abc\n"));
     assert_eq!(a.message, "copied 1 line");
     // A prompt has nothing to copy, and Ctrl+C does not quit from it either.
     press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);

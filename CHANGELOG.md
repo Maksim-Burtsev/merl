@@ -85,6 +85,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reads like the project's `src/lib.rs`. A path still too long for the pane is cut from the left,
   `…/json/__init__.py`, so the column, `read-only` and the reason `d` gave stay in sight; in a
   120-column pane they fell off the edge. (#235)
+- Ctrl+X on the last line of a file takes the line with its break, as on any other line and as in
+  VS Code: the cursor goes up a line, at its column. It left an empty line behind. Ctrl+C and
+  Ctrl+X on the last line copy it with its line break, so it pastes as a whole line like every
+  other line's copy. A file of one line is still left with one empty line. (#282)
 
 ## [0.7.0] - 2026-09-25
 
