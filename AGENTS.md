@@ -109,7 +109,10 @@ run under ~15 s.
 - A change the user has to learn (a new or changed key, screen, animation or default): leave the
   PR open with the before/after screencasts, add the `needs-owner` label and name it in your
   status line. Never ask "can I merge?" in chat.
-- The README and any other text in the owner's voice: open a draft PR and leave it to the owner.
+- The README and any other text in the owner's voice: open a draft PR with the `needs-owner`
+  label and leave it to the owner.
+- An issue holding a question only the owner can answer carries `needs-owner` too, until the
+  answer is written into it. `is:open label:needs-owner` is everything waiting for the owner.
 
 `master` takes squash merges of PRs only, with the CI checks green on a branch up to date with
 master; nobody can push to it directly or bypass the checks.
