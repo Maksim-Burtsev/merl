@@ -268,6 +268,10 @@ fn a_root_of_one_package_keeps_its_name() {
             ("registry/serde-1.0.200/src/lib.rs", "pub fn run() {}\n"),
             ("go/src/fmt/print.go", "package fmt\n\nfunc Println() {}\n"),
             (
+                "mod/github.com/jackc/pgx/v5@v5.5.0/conn.go",
+                "package pgx\n\nfunc Connect() {}\n",
+            ),
+            (
                 "mod/example.com/kit@v1.0.0/kit.go",
                 "package kit\n\nfunc Other() {}\n",
             ),
@@ -290,6 +294,7 @@ fn a_root_of_one_package_keeps_its_name() {
         "go/src",
         "mod/example.com/kit@v1.0.0",
         "mod/github.com/else/thing@v1.0.0",
+        "mod/github.com/jackc/pgx/v5@v5.5.0",
     ];
     use_roots(&mut a, Kind::Go, &modules.map(|m| outside.join(m)));
     for (path, name) in [
@@ -299,6 +304,11 @@ fn a_root_of_one_package_keeps_its_name() {
             "serde-1.0.200/src/lib.rs",
         ),
         (outside.join("go/src/fmt/print.go"), "fmt/print.go"),
+        // A module path that ends in its major version is named by the element before it too.
+        (
+            outside.join("mod/github.com/jackc/pgx/v5@v5.5.0/conn.go"),
+            "pgx/v5@v5.5.0/conn.go",
+        ),
     ] {
         a.jump_to(&path, 1);
         assert_eq!(a.rel_path(), name);

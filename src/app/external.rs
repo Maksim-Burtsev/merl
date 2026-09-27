@@ -280,14 +280,12 @@ impl App {
             _ => roots.iter().collect::<Vec<_>>(),
         }
         .into_iter()
-        .find_map(|r| {
-            let rel = path.strip_prefix(r).ok()?;
-            Some(match r.parent() {
-                Some(up) if *r != self.root && one_package(r) => path.strip_prefix(up).ok()?,
-                _ => rel,
-            })
+        .find(|r| path.starts_with(r))
+        .map_or(path, |r| {
+            let keep = if *r == self.root { 0 } else { package_dirs(r) };
+            let from = r.ancestors().nth(keep).unwrap_or(r);
+            path.strip_prefix(from).unwrap_or(path)
         })
-        .unwrap_or(path)
     }
 
     /// Picker rows for `d`: the qualified name, the reason, then `path:line: code`, the columns
@@ -356,11 +354,13 @@ impl App {
     }
 }
 
-/// A root named with a version is one package: Cargo gives each crate a directory of its own,
-/// `serde-1.0.200`, and Go each module, `gin@v1.9.1`. The other roots hold many packages and have
-/// no version in their name: a standard library (`python3.13`, `src`, `library`),
-/// `site-packages`, `node_modules`.
-fn one_package(root: &Path) -> bool {
+/// How many directories at the end of `root` name its package. A root named with a version is
+/// one package, and its own name counts: Cargo gives each crate a directory of its own,
+/// `serde-1.0.200`, and Go each module, `gin@v1.9.1`. A Go module whose path ends in its major
+/// version, `github.com/jackc/pgx/v5`, is `v5@v5.5.0` on disk, so the directory before it counts
+/// too. The other roots hold many packages and have no version in their name: a standard library
+/// (`python3.13`, `src`, `library`), `site-packages`, `node_modules`.
+fn package_dirs(root: &Path) -> usize {
     let name = root.file_name().unwrap_or_default().to_string_lossy();
     let versioned = |sep: &str| {
         name.match_indices(sep).any(|(i, _)| {
@@ -369,5 +369,12 @@ fn one_package(root: &Path) -> bool {
             rest.len() < v.len() && rest.starts_with('.')
         })
     };
-    versioned("-") || versioned("@v")
+    if !versioned("-") && !versioned("@v") {
+        return 0;
+    }
+    let major = name
+        .strip_prefix('v')
+        .and_then(|v| v.split_once('@'))
+        .is_some_and(|(n, _)| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
+    1 + usize::from(major)
 }
