@@ -98,10 +98,22 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     if !app.message.is_empty() {
         spans.push(Span::styled(format!("  {}", app.message), style));
     }
-    frame.render_widget(Paragraph::new(Line::from(spans)).style(style), area);
     // With nothing to report, the right edge keeps `?` discoverable.
     const HINT: &str = "? help ";
-    if app.message.is_empty() && area.width as usize > HINT.len() {
+    let hint = app.message.is_empty() && area.width as usize > HINT.len();
+    // The path is what gives way to the rest of the line and to the hint (#235).
+    let rest = spans[1..]
+        .iter()
+        .map(|s| wrap::width(&s.content))
+        .sum::<usize>()
+        + if hint { HINT.len() + 2 } else { 0 };
+    spans[0].content = fit_path(
+        &spans[0].content,
+        (area.width as usize).saturating_sub(rest),
+    )
+    .into();
+    frame.render_widget(Paragraph::new(Line::from(spans)).style(style), area);
+    if hint {
         let hint = Rect {
             x: area.right() - HINT.len() as u16,
             width: HINT.len() as u16,
@@ -109,4 +121,21 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         };
         frame.render_widget(Paragraph::new(HINT).style(style), hint);
     }
+}
+
+/// `path` in `room` columns: cut from the left at a `/` when it is wider, `…/json/__init__.py`,
+/// but never into the file's name, however little room there is.
+fn fit_path(path: &str, room: usize) -> String {
+    if wrap::width(path) <= room {
+        return path.to_owned();
+    }
+    let mut tails = path
+        .trim_end_matches('/')
+        .match_indices('/')
+        .map(|(i, _)| format!("\u{2026}{}", &path[i..]));
+    let last = tails.next_back();
+    tails
+        .find(|t| wrap::width(t) <= room)
+        .or(last)
+        .unwrap_or_else(|| path.to_owned())
 }
