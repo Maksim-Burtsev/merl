@@ -191,4 +191,23 @@ class Store:
         pins(Kind::Python, py),
         [none, class, class, def, def, def, class, class]
     );
+    // A C++ access specifier at the left edge is a label inside the class, as `d` reads it.
+    let cpp = "\
+class Store {
+public:
+    int count() {
+        return 1;
+    }
+};
+";
+    let (class, method): (&[usize], &[usize]) = (&[0], &[0, 2]);
+    assert_eq!(
+        pins(Kind::C, cpp),
+        [none, class, class, method, class, none]
+    );
+    // A YAML anchor names a value, not a container: nothing is pinned.
+    assert_eq!(
+        pins(Kind::Yaml, "base: &base\n  a: 1\n  b: 2\n"),
+        [none, none, none]
+    );
 }

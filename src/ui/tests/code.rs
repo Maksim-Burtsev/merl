@@ -1019,3 +1019,141 @@ fn a_hunk_inside_a_long_function_lands_below_the_pinned_header() {
     assert!(y > 1, "the deleted line is under the band");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// An app on `text` as a Rust file, the tree hidden, and a `w`×`h` terminal to draw it on.
+fn pinned_app(text: &str, w: u16, h: u16) -> (App, Terminal<TestBackend>) {
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/f.rs"), text.as_bytes()),
+        None,
+    );
+    app.show_tree = false;
+    (app, Terminal::new(TestBackend::new(w, h)).unwrap())
+}
+
+/// Presses `code`, draws, and gives back the screen and the cursor's row on it.
+fn press(
+    app: &mut App,
+    terminal: &mut Terminal<TestBackend>,
+    code: KeyCode,
+) -> (Vec<String>, usize) {
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    app.key(KeyEvent::new(code, KeyModifiers::NONE));
+    terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+    (
+        rows(terminal),
+        terminal.get_cursor_position().unwrap().y as usize,
+    )
+}
+
+/// The number a screen row starts with, the line it shows.
+fn line_no(row: &str) -> usize {
+    row.split(' ').next().unwrap().parse().unwrap()
+}
+
+/// #248: under a pinned header a page is the rows of code, not the pane: paging down and back up
+/// through a long function shows every line of it, each page starting where the last one ended.
+#[test]
+fn a_page_under_a_pinned_header_skips_no_line() {
+    let mut text = String::from("fn long() {\n");
+    for i in 0..60 {
+        text += &format!("    let a{i} = {i};\n");
+    }
+    text += "}\n";
+    // Eleven rows of code under the status line, one pinned inside the function.
+    let (mut app, mut terminal) = pinned_app(&text, 30, 12);
+    let (mut screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
+    for (code, pages) in [(KeyCode::PageDown, 4), (KeyCode::PageUp, 4)] {
+        for _ in 0..pages {
+            let code_rows = |s: &[String]| {
+                let first = usize::from(s[0] == "1 fn long() {" && line_no(&s[1]) > 2);
+                (line_no(&s[first]), line_no(&s[10]))
+            };
+            let (top, bottom) = code_rows(&screen);
+            (screen, _) = press(&mut app, &mut terminal, code);
+            let (next_top, next_bottom) = code_rows(&screen);
+            match code {
+                KeyCode::PageDown => assert!(next_top <= bottom + 1, "{bottom} then {next_top}"),
+                _ => assert!(next_bottom + 1 >= top, "{top} then {next_bottom}"),
+            }
+        }
+    }
+    assert_eq!(app.top_line, 0);
+}
+
+/// #248: the top a jump scrolls to is the first that shows the cursor under its own pins, even
+/// where they fall as the top moves down: from the last line of one method (two pins) to its
+/// `}` (one). A jump from the top of the file to `b13` in the next method puts the top on that
+/// `}`, the cursor on the bottom row, not a row further with the cursor a row above it.
+#[test]
+fn a_jump_scrolls_to_the_first_top_that_fits_under_its_pins() {
+    let mut text = String::from("impl S {\n    fn m() {\n");
+    for i in 0..30 {
+        text += &format!("        let a{i} = {i};\n");
+    }
+    text += "    }\n    fn n() {\n";
+    for i in 0..30 {
+        text += &format!("        let b{i} = {i};\n");
+    }
+    text += "    }\n}\n";
+    // Seventeen rows of code: two pins at most.
+    let (mut app, mut terminal) = pinned_app(&text, 40, 18);
+    press(&mut app, &mut terminal, KeyCode::Null);
+    // 0-based 47 is `let b13`; the `}` of `m` is 32.
+    app.line = 47;
+    let (screen, y) = press(&mut app, &mut terminal, KeyCode::Null);
+    assert_eq!((app.top_line, y), (32, 16));
+    assert_eq!(screen[..2], ["1 impl S {", "33     }"]);
+}
+
+/// #248: a pane under 8 rows keeps them all for the code; from 16 up it pins two, the innermost:
+/// the `impl` and the `fn`, not the `mod` around them.
+#[test]
+fn a_short_pane_pins_nothing_and_a_tall_one_the_two_innermost() {
+    let mut text = String::from("mod m {\n    impl S {\n        fn f() {\n");
+    for i in 0..40 {
+        text += &format!("            let a{i} = {i};\n");
+    }
+    text += "        }\n    }\n}\n";
+    let (mut app, mut terminal) = pinned_app(&text, 40, 7);
+    for _ in 0..20 {
+        press(&mut app, &mut terminal, KeyCode::Down);
+    }
+    let (screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
+    assert!(app.top_line > 3);
+    assert_eq!(line_no(&screen[0]), app.top_line + 1, "code on the top row");
+    let (mut app, mut terminal) = pinned_app(&text, 40, 19);
+    for _ in 0..30 {
+        press(&mut app, &mut terminal, KeyCode::Down);
+    }
+    let (screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
+    assert_eq!(screen[..2], ["2     impl S {", "3         fn f() {"]);
+    assert_eq!(line_no(&screen[2]), app.top_line + 1);
+}
+
+/// #248: not wrapped and scrolled sideways, the pinned header is cut at the columns the code
+/// under it is, with `‹` and `›` where it goes on past the edges.
+#[test]
+fn an_unwrapped_pinned_header_is_cut_where_the_code_is() {
+    let mut text = String::from("fn long(first: usize, second: usize) {\n");
+    for i in 0..30 {
+        text += &format!("    let a{i} = first + second + {i};\n");
+    }
+    text += "}\n";
+    let (mut app, mut terminal) = pinned_app(&text, 24, 12);
+    press(&mut app, &mut terminal, KeyCode::Char('w'));
+    for _ in 0..20 {
+        press(&mut app, &mut terminal, KeyCode::Down);
+    }
+    let (screen, _) = press(&mut app, &mut terminal, KeyCode::End);
+    // One column at either edge is the marker's, as on every row of code.
+    let (left, w) = (app.left, app.view_w);
+    let header = "fn long(first: usize, second: usize) {";
+    assert!(left > 0 && header.len() > left + w);
+    assert_eq!(
+        screen[0],
+        format!("1 \u{2039}{}\u{203a}", &header[left + 1..left + w - 1])
+    );
+}
