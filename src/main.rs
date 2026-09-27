@@ -3,6 +3,7 @@
 mod app;
 mod buffer;
 mod git;
+mod intraline;
 mod line_edit;
 mod live;
 mod picker;
@@ -374,6 +375,9 @@ fn event_loop(
                 Ok(t) => {
                     theme = t;
                     app.buf.clear_hl();
+                    if let Some((_, base)) = &mut app.base {
+                        base.clear_hl();
+                    }
                 }
                 Err(e) => app.message = format!("{e:#}"),
             }

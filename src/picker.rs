@@ -17,6 +17,9 @@ pub struct PickItem {
     pub label: String,
     pub path: PathBuf,
     pub line: usize,
+    /// The byte of line `line` where the word the row is about starts: Enter puts the cursor
+    /// there. 0 for a row with no word.
+    pub col: usize,
     /// Byte offset in `label` where a copy of the file's line `line` (trimmed, maybe clipped)
     /// starts, so the row can be drawn with that line's syntax colours. `None`: no code text.
     pub code_at: Option<usize>,
@@ -214,6 +217,7 @@ mod tests {
                 code_at: None,
                 path: PathBuf::from(l),
                 line: 0,
+                col: 0,
             })
             .collect();
         let mut p = Picker::new("Files", items, true);

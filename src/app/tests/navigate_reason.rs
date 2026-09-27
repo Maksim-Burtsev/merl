@@ -1,5 +1,8 @@
 //! What `d` says about how it found the target, and the cut greps.
 
+use ratatui::Terminal;
+use ratatui::backend::TestBackend;
+
 use super::*;
 
 /// What `d` says about a lookup outside the project: the module an import or a path names,
@@ -210,6 +213,119 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// #235: the status line names a file `d` found outside the project from the root it came
+/// from, as the picker does, so the column, `read-only` and the reason fit beside it.
+#[test]
+fn a_jump_outside_names_the_file_from_its_root() {
+    let (dir, mut a) = project_app("status", &[("m.py", "import json\n\njson.dumps(1)\n")]);
+    let root = external_root(
+        "status",
+        &[(
+            "json/__init__.py",
+            "import sys\n\n\ndef dumps(obj):\n    pass\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&root));
+    d_on(&mut a, "m.py", "json.dumps");
+    assert_eq!(a.rel_path(), "json/__init__.py");
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    for width in [120, 80] {
+        let mut terminal = Terminal::new(TestBackend::new(width, 4)).unwrap();
+        terminal
+            .draw(|f| crate::ui::draw(f, &mut a, &theme))
+            .unwrap();
+        let buf = terminal.backend().buffer();
+        let status: String = (0..width).map(|x| buf[(x, 3)].symbol()).collect();
+        assert_eq!(
+            status.trim_end(),
+            "json/__init__.py  4:5  [code]  read-only  dumps: via import json"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// A root that is one package, a crate Cargo unpacked or a module Go did, keeps its name on
+/// the status line and in the picker, so its `src/lib.rs` never reads like the project's own. A
+/// root of many packages is named from inside, as the standard library is.
+#[test]
+fn a_root_of_one_package_keeps_its_name() {
+    let (dir, mut a) = project_app(
+        "one-package",
+        &[
+            ("src/lib.rs", "pub fn run() {}\n"),
+            (
+                "main.go",
+                "package main\n\nimport \"example.com/kit\"\n\nfunc main() {\n\tkit.Wire()\n}\n",
+            ),
+        ],
+    );
+    let outside = external_root(
+        "one-package",
+        &[
+            ("registry/serde-1.0.200/src/lib.rs", "pub fn run() {}\n"),
+            ("go/src/fmt/print.go", "package fmt\n\nfunc Println() {}\n"),
+            (
+                "mod/github.com/jackc/pgx/v5@v5.5.0/conn.go",
+                "package pgx\n\nfunc Connect() {}\n",
+            ),
+            (
+                "mod/example.com/kit@v1.0.0/kit.go",
+                "package kit\n\nfunc Other() {}\n",
+            ),
+            (
+                "mod/example.com/kit@v1.0.0/inner/inner.go",
+                "package inner\n\nfunc Wire() {}\n",
+            ),
+            (
+                "mod/github.com/else/thing@v1.0.0/thing.go",
+                "package thing\n\nfunc Wire() {}\n",
+            ),
+        ],
+    );
+    use_roots(
+        &mut a,
+        Kind::Rust,
+        &[outside.join("registry/serde-1.0.200")],
+    );
+    let modules = [
+        "go/src",
+        "mod/example.com/kit@v1.0.0",
+        "mod/github.com/else/thing@v1.0.0",
+        "mod/github.com/jackc/pgx/v5@v5.5.0",
+    ];
+    use_roots(&mut a, Kind::Go, &modules.map(|m| outside.join(m)));
+    for (path, name) in [
+        (dir.join("src/lib.rs"), "src/lib.rs"),
+        (
+            outside.join("registry/serde-1.0.200/src/lib.rs"),
+            "serde-1.0.200/src/lib.rs",
+        ),
+        (outside.join("go/src/fmt/print.go"), "fmt/print.go"),
+        // A module path that ends in its major version is named by the element before it too.
+        (
+            outside.join("mod/github.com/jackc/pgx/v5@v5.5.0/conn.go"),
+            "pgx/v5@v5.5.0/conn.go",
+        ),
+    ] {
+        a.jump_to(&path, 1);
+        assert_eq!(a.rel_path(), name);
+    }
+    d_on(&mut a, "main.go", "kit.Wire");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "Wire: by name, 2 declarations",
+            &[
+                ("Wire", "kit@v1.0.0/inner/inner.go:3"),
+                ("Wire", "thing@v1.0.0/thing.go:3"),
+            ],
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&outside).unwrap();
 }
 
 /// `self.word` alone is the class's own member: a dependency's method of that name is not
@@ -429,6 +545,7 @@ fn a_jump_says_how_the_target_was_found() {
             hit: Hit {
                 path: PathBuf::from("x"),
                 line: 1,
+                col: 0,
                 text: String::new(),
             },
             reason,

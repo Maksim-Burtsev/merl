@@ -190,8 +190,7 @@ impl Buffer {
 
     /// Line `l` as it is shown: the whole line, or its first [`MAX_SHOWN_BYTES`] bytes.
     pub fn shown(&self, l: usize) -> &str {
-        let s = &self.lines[l];
-        &s[..floor_boundary(s, MAX_SHOWN_BYTES)]
+        shown_str(&self.lines[l])
     }
 
     /// Whether `line` is longer than [`Buffer::shown`] draws, so part of it is off screen.
@@ -265,6 +264,12 @@ pub fn hash(bytes: &[u8]) -> u64 {
     let mut h = std::collections::hash_map::DefaultHasher::new();
     bytes.hash(&mut h);
     h.finish()
+}
+
+/// What [`Buffer::shown`] draws of a line, for a line that is not in a buffer (a review
+/// ghost): the whole line, or its first [`MAX_SHOWN_BYTES`] bytes on a char boundary.
+pub(crate) fn shown_str(s: &str) -> &str {
+    &s[..floor_boundary(s, MAX_SHOWN_BYTES)]
 }
 
 /// Largest byte index <= `max` that is a char boundary of `s`.

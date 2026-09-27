@@ -356,12 +356,19 @@ pub struct App {
     /// every load, save and reload; between an edit and its autosave they lag by a second.
     /// In review mode: against the branch's base, with ghosts, taken on open (see `refresh_diff`).
     pub diff: git::Diff,
+    /// Review: the open file as it was at the merge base, keyed `merge_base:path`, for the ghosts'
+    /// syntax colours; highlighted lazily like `buf`. `None` when the file has no ghosts.
+    pub base: Option<(String, Buffer)>,
     pub want_diff: bool,
     /// `--review`: the branch under review. The tree pane then lists its files.
     pub review: Option<git::Review>,
     /// Review: the files marked as viewed, each with the hash of what was on disk then. A file
     /// that has changed since is not viewed any more (`drop_stale_viewed`). Kept for the session.
     pub viewed: HashMap<PathBuf, u64>,
+    /// Review: the hunk `c` / `C` last stopped on, as its relative path and its index among that
+    /// file's hunks. From a file outside the review they go back to it (#239). Kept for the
+    /// session.
+    last_hunk: Option<(PathBuf, usize)>,
     /// The theme in use, by name. Set by `main`; the theme picker previews others over it.
     pub theme: String,
     /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
@@ -491,9 +498,11 @@ impl App {
             resume_edit: false,
             clipboard: None,
             diff: git::Diff::default(),
+            base: None,
             want_diff: true,
             review: None,
             viewed: HashMap::new(),
+            last_hunk: None,
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
             quit_again: false,
@@ -522,15 +531,25 @@ impl App {
         app
     }
 
-    /// Path shown in the status bar: relative to the project root when it is below it.
+    /// Path shown in the status bar: the open file's [`App::rel_path_of`].
     pub fn rel_path(&self) -> String {
-        let Some(path) = &self.buf.path else {
-            return format!("{}/", self.root_name());
-        };
-        path.strip_prefix(&self.root)
-            .unwrap_or(path)
-            .display()
-            .to_string()
+        match &self.buf.path {
+            Some(path) => self.rel_path_of(path),
+            None => format!("{}/", self.root_name()),
+        }
+    }
+
+    /// `path` as merl names it to the user: relative to the project root when it is below it,
+    /// else to the standard library or dependency root it came from, as the `d` picker shows it
+    /// (#235).
+    pub fn rel_path_of(&self, path: &Path) -> String {
+        match (path.strip_prefix(&self.root), search::kind_of(path)) {
+            (Ok(rel), _) => rel,
+            (Err(_), Some(kind)) => self.rel_to_its_root(kind, path),
+            (Err(_), None) => path,
+        }
+        .display()
+        .to_string()
     }
 
     pub fn root_name(&self) -> String {
@@ -584,14 +603,30 @@ impl App {
         wrap::wrap_line(shown, self.view_w)
     }
 
-    /// Screen rows of line `l`: its ghosts (review mode, one row each, drawn above the text)
-    /// and then its wrapped rows. A `(line, row)` pair counts rows from the first ghost.
+    /// Screen rows of the ghosts at `l` (review mode: the lines the branch deleted there,
+    /// drawn above the text): one per ghost when the file is not wrapped, else each wraps
+    /// like a file line.
+    pub fn ghost_rows(&self, l: usize) -> usize {
+        let Some(ghosts) = self.diff.ghosts.get(&l) else {
+            return 0;
+        };
+        if self.nowrap() {
+            return ghosts.len();
+        }
+        ghosts
+            .iter()
+            .map(|g| wrap::wrap_line(buffer::shown_str(g), self.view_w).len())
+            .sum()
+    }
+
+    /// Screen rows of line `l`: its ghosts (review mode, drawn above the text) and then its
+    /// wrapped rows. A `(line, row)` pair counts rows from the first ghost.
     pub fn row_count(&self, l: usize) -> usize {
-        self.diff.ghost_n(l) + self.rows(l).len()
+        self.ghost_rows(l) + self.rows(l).len()
     }
 
     pub fn cursor_row(&self) -> usize {
-        self.diff.ghost_n(self.line) + wrap::col_to_row(&self.rows(self.line), self.col)
+        self.ghost_rows(self.line) + wrap::col_to_row(&self.rows(self.line), self.col)
     }
 
     /// Display column of the cursor on its wrapped row, counting the indent rows after the first
@@ -640,6 +675,18 @@ pub(crate) fn clip(s: &str, max: usize) -> String {
 /// A word for the cursor: letters of any script, so a comment in Russian moves by word too.
 pub fn is_word(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
+}
+
+/// The byte where `word` first stands whole in `line`, 0 when it does not: where a jump to a
+/// line that declares or uses it puts the cursor. `extra` are the characters the line's language
+/// counts as part of a word besides letters, digits and `_` ([`search::word_chars`]): the `-` of
+/// a Makefile target.
+pub(super) fn word_col(line: &str, word: &str, extra: &str) -> usize {
+    let part = |c: char| is_word(c) || extra.contains(c);
+    let whole = |(i, _): &(usize, &str)| {
+        !line[..*i].ends_with(part) && !line[i + word.len()..].starts_with(part)
+    };
+    line.match_indices(word).find(whole).map_or(0, |(i, _)| i)
 }
 
 /// The byte after the grapheme cluster at `i`: an emoji with its selector, skin tone or ZWJ

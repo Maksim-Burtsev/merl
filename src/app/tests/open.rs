@@ -433,6 +433,37 @@ fn a_stop_whose_file_is_gone_is_dropped_and_walked_past() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// A gone file outside the project is named as the status line names it, whether `[` walks
+/// onto its stop or the open file goes.
+#[test]
+fn a_gone_file_outside_is_named_from_its_root() {
+    let (dir, mut a) = files_app("gone-outside");
+    let registry = external_root(
+        "gone-outside",
+        &[
+            ("serde-1.0.200/src/lib.rs", "x\n"),
+            ("serde-1.0.200/src/de.rs", "x\n"),
+        ],
+    );
+    let (lib, de) = (
+        registry.join("serde-1.0.200/src/lib.rs"),
+        registry.join("serde-1.0.200/src/de.rs"),
+    );
+    use_roots(&mut a, Kind::Rust, &[registry.join("serde-1.0.200")]);
+    a.jump_to(&dir.join("a.rs"), 1);
+    a.jump_to(&lib, 1);
+    a.jump_to(&dir.join("b.rs"), 1);
+    std::fs::remove_file(&lib).unwrap();
+    press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+    assert_eq!(a.message, "serde-1.0.200/src/lib.rs gone");
+    a.jump_to(&de, 1);
+    std::fs::remove_file(&de).unwrap();
+    a.reload(false);
+    assert_eq!(a.message, "serde-1.0.200/src/de.rs gone");
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&registry).unwrap();
+}
+
 /// b, a, b with `a` gone would leave `b` next to itself: a press that moves nothing.
 #[test]
 fn dropping_a_stop_does_not_leave_its_neighbours_as_twins() {
