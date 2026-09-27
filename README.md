@@ -62,9 +62,8 @@ merl --keys          # how often you press each key and miss it, the unused last
 ```
 
 The long flags have short forms: `-r` for `--review`, `-b` for `--base`, `-t` for `--theme`,
-`-d` for `--drill` and `-k` for `--keys`, so `merl -r=feature -b origin/dev` reviews `feature`
-against `origin/dev`. A branch to review still goes after `=`: `merl -r src/app.rs` reviews the
-branch you are on and opens that file.
+`-d` for `--drill` and `-k` for `--keys`, so `merl -r feature -b origin/dev` reviews `feature`
+against `origin/dev`.
 
 ## Why
 
