@@ -272,6 +272,15 @@ impl Review {
         }
     }
 
+    /// The branch, or the short commit of a detached HEAD: the review stats count the rounds of
+    /// each, and every detached review is not one branch called `HEAD`.
+    pub fn branch_or_commit(&self, root: &Path) -> String {
+        match self.branch.as_str() {
+            "HEAD" => git(root, &["rev-parse", "--short", "HEAD"]).unwrap_or(self.branch.clone()),
+            branch => branch.to_string(),
+        }
+    }
+
     pub fn file(&self, rel: &Path) -> Option<&ReviewFile> {
         self.files.iter().find(|f| f.path == rel)
     }

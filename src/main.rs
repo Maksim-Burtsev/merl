@@ -8,6 +8,7 @@ mod line_edit;
 mod live;
 mod markdown;
 mod picker;
+mod reviews;
 mod search;
 mod stats;
 mod theme;
@@ -86,6 +87,10 @@ struct Cli {
     /// Print how often each key has been pressed and missed, the unused last, and exit
     #[arg(short, long)]
     keys: bool,
+    /// Print your review sessions of the last 30 days, the time each took and its excursions,
+    /// and exit
+    #[arg(long)]
+    reviews: bool,
     /// Review the checked-out branch (or `--review BRANCH` to fetch it and check out what was
     /// pushed): its files in the panel, its diff over the code, c / C between hunks
     #[arg(
@@ -114,6 +119,11 @@ fn run() -> Result<()> {
         let path = stats::path().context("no home directory")?;
         // `merl --keys | head` closes the pipe early; that is no error.
         let _ = stdout().write_all(stats::report(&path, stats::today())?.as_bytes());
+        return Ok(());
+    }
+    if cli.reviews {
+        let path = reviews::path().context("no home directory")?;
+        let _ = stdout().write_all(reviews::report(&path, stats::today())?.as_bytes());
         return Ok(());
     }
     let config = theme::config()?;
@@ -259,6 +269,13 @@ fn run() -> Result<()> {
         && let Err(e) = stats::add(&path, stats::today(), &app.pressed, &app.missed)
     {
         eprintln!("merl: {e:#}");
+    }
+    if let Some(path) = reviews::path() {
+        for (repo, branch, columns) in app.review_rows() {
+            if let Err(e) = reviews::add(&path, stats::today(), &repo, &branch, &columns) {
+                eprintln!("merl: {e:#}");
+            }
+        }
     }
     result
 }
@@ -618,6 +635,8 @@ mod tests {
             (s("feature"), s("dev"), None)
         );
         assert!(super::Cli::try_parse_from(["merl", "--base", "x"]).is_err());
+        let cli = super::Cli::parse_from(["merl", "--reviews"]);
+        assert_eq!((cli.reviews, cli.review), (true, None));
     }
 
     #[test]
