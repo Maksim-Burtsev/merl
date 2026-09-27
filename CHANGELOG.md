@@ -100,6 +100,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `u` on a name with a hyphen in a Makefile, Terraform, a Dockerfile or YAML lists that name
   only: `db-main` no longer lists `db-main-2` or `db-main-replica`. In code, where `db-main-2` is
   a subtraction, the line is still listed. (#281)
+- Ctrl+X on the last line of a file takes the line with its break, as on any other line and as in
+  VS Code: the cursor goes up a line, at its column. It left an empty line behind. Ctrl+C and
+  Ctrl+X on the last line copy it with its line break, so it pastes as a whole line like every
+  other line's copy. A file of one line is still left with one empty line. (#282)
 
 ## [0.7.0] - 2026-09-25
 
