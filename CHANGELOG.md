@@ -85,6 +85,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reads like the project's `src/lib.rs`. A path still too long for the pane is cut from the left,
   `…/json/__init__.py`, so the column, `read-only` and the reason `d` gave stay in sight; in a
   120-column pane they fell off the edge. (#235)
+- `u` on a name with a hyphen in a Makefile, Terraform, a Dockerfile or YAML lists that name
+  only: `db-main` no longer lists `db-main-2` or `db-main-replica`. In code, where `db-main-2` is
+  a subtraction, the line is still listed. (#281)
 
 ## [0.7.0] - 2026-09-25
 

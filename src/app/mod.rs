@@ -716,11 +716,17 @@ pub fn is_word(c: char) -> bool {
 /// counts as part of a word besides letters, digits and `_` ([`search::word_chars`]): the `-` of
 /// a Makefile target.
 pub(super) fn word_col(line: &str, word: &str, extra: &str) -> usize {
+    whole_at(line, word, extra).unwrap_or(0)
+}
+
+/// The byte where `word` first stands whole in `line` with `extra` counted as word characters,
+/// `None` when every occurrence runs into one: `db-main` in `db-main-2:` of a Makefile.
+pub(super) fn whole_at(line: &str, word: &str, extra: &str) -> Option<usize> {
     let part = |c: char| is_word(c) || extra.contains(c);
     let whole = |(i, _): &(usize, &str)| {
         !line[..*i].ends_with(part) && !line[i + word.len()..].starts_with(part)
     };
-    line.match_indices(word).find(whole).map_or(0, |(i, _)| i)
+    line.match_indices(word).find(whole).map(|(i, _)| i)
 }
 
 /// The byte after the grapheme cluster at `i`: an emoji with its selector, skin tone or ZWJ

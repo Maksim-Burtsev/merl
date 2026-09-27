@@ -312,7 +312,8 @@ fn enter_on_a_usage_row_in_a_makefile_lands_on_the_whole_target() {
 
 /// A `u` row in a file of another language lands on the word as `u` read it under the cursor,
 /// not as the row's own file would: `build-image` from a Makefile is whole in a shell script
-/// too, and `app` from Python is a word of its own in YAML's `my-app`.
+/// too. The row's own language still decides whether it is listed: YAML reads `my-app` as one
+/// name, so `app` from Python has no row there (#281).
 #[test]
 fn a_usage_row_in_a_file_of_another_language_lands_on_the_word() {
     let (dir, mut a) = project_app(
@@ -333,8 +334,9 @@ fn a_usage_row_in_a_file_of_another_language_lands_on_the_word() {
     assert_eq!(landed(&a), ("release.sh".into(), 1, 22));
     cursor_on(&mut a, "app.py", 1, "app");
     press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
-    enter_on_row(&mut a, "ci.yml", 2);
-    assert_eq!(landed(&a), ("ci.yml".into(), 2, 13));
+    let picker = a.picker.as_mut().expect("a picker");
+    picker.settle();
+    assert_eq!(picker.counts().0, 1, "only app.py:1");
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

@@ -83,15 +83,22 @@ impl App {
     /// Every whole-word, case-sensitive hit of `word` in `u`'s order from the file `here`, each
     /// with its tier.
     pub(super) fn usage_hits(&self, word: &str, here: Option<&Path>) -> Vec<(Tier, Hit)> {
+        // To grep `-` ends a word, so `db-main` also finds `db-main-2`: a hit goes when its own
+        // file's language counts that `-` as part of a word and no occurrence in the line stands
+        // whole (#281). In code `db-main-2` is a subtraction and stays.
         let hits = self
             .grep(&regex::escape(word), true, false, |_| true)
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|h| {
+                let extra = search::word_chars(search::kind_of(&h.path), false);
+                extra.is_empty() || whole_at(&h.text, word, extra).is_some()
+            });
         // What tells a declaration of the word from a use of it is `def_patterns`, and which
         // ones apply is the hit file's own kind: one regex per kind met, built once.
         let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
         let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
         let mut ranked: Vec<_> = hits
-            .into_iter()
             .map(|h| {
                 let kind = search::kind_of(&h.path);
                 let re = rules.entry(kind).or_insert_with_key(|k| {
