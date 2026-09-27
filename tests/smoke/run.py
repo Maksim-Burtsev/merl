@@ -231,7 +231,8 @@ def play(binary, path, work, timed_only=False, rec=None):
     # seen: the last checkpoint of the merl now running, its size included. A dying merl restores
     # the terminal first, so a frame taken at its death, or a poll just before, can already be the
     # blank screen behind it.
-    last_key, step, runner, seen = t0, "", "", None
+    # gone: a wait saw merl exit (`wait merl exited: 0`), so its death is the scenario's, not a failure.
+    last_key, step, runner, seen, gone = t0, "", "", None, False
 
     def keep(label, frame):
         r.setdefault("last", [label, *frame, size])
@@ -252,7 +253,7 @@ def play(binary, path, work, timed_only=False, rec=None):
             if rec and not rec.thread and pane and verb not in ("wait", "sleep", "caption"):
                 rec.start(pane)
             # a merl that died on a key no wait followed: reported as a wait would, not on the next step
-            if pane and verb in ("merl", "key", "type", "run") and (s := pane.dead()) is not None:
+            if pane and not gone and verb in ("merl", "key", "type", "run") and (s := pane.dead()) is not None:
                 r["status"] = f"{died(s)} before {step}"
                 keep_dead()
                 break
@@ -266,7 +267,7 @@ def play(binary, path, work, timed_only=False, rec=None):
                         keep("before the restart", before)
                         break
                     pane.restart(shlex.split(arg))
-                    seen = None
+                    seen, gone = None, False
                 last_key = time.monotonic()
             elif verb == "size":
                 size = [int(v) for v in arg.split("x")]
@@ -299,7 +300,7 @@ def play(binary, path, work, timed_only=False, rec=None):
                 elif ms > 1000:
                     r["slow"].append([f"{where} wait {arg}", ms])
                 r["checkpoints"].append([f"{where} wait {arg}", *pane.settled(), size])
-                seen = r["checkpoints"][-1]
+                seen, gone = r["checkpoints"][-1], pane.dead() is not None
                 if timed_only and i > last_timed:
                     break
                 if rec:
@@ -353,7 +354,7 @@ def play(binary, path, work, timed_only=False, rec=None):
             rec.end()
         if pane:
             try:
-                if r["status"] == "ok" and (s := pane.dead()) is not None:
+                if r["status"] == "ok" and not gone and (s := pane.dead()) is not None:
                     r["status"] = f"{died(s)} after its last step"
                     keep_dead()
                 before = pane.frame()
@@ -686,6 +687,9 @@ SELFTEST = {
     # dead on a key no wait follows: the death, not the q after it, with the screen at its size
     "end": ("merl\nwait ready\nsize 60x10\nkey e\n", {}, {}, "EXIT", "EXIT 3 after its last step"),
     "restart": ("merl\nwait ready\nkey e\nmerl\nwait ready\n", {}, {}, "EXIT", "EXIT 3 before"),
+    # quit on purpose and waited for: a pass, with a step and a restart after it; another status fails
+    "quit": ("merl\nwait ready\nkey q\nwait merl exited: 0\nrun true\nmerl\nwait ready\n", {}, {}, "PASS", ""),
+    "quit-3": ("merl\nwait ready\nkey e\nwait merl exited: 0\n", {}, {}, "EXIT", "EXIT 3 at"),
     # dead on its second start: not shown with the first merl's screen
     "restarted": ("merl\nwait ready\nmerl\nwait ready\n",
                   {"s": '[ -e "$0.started" ] && exit 101; touch "$0.started"'}, {}, "CRASH", "CRASH 101 at"),
