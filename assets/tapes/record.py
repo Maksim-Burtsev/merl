@@ -52,7 +52,10 @@ def main():
     steps = [l.strip() for l in open(steps_path) if l.strip() and not l.lstrip().startswith("#")]
     assert steps[0].split()[0] == "merl", "the first step is `merl [ARGS]`"
     project = f"{DEMO}/gitea"
-    subprocess.run("git checkout -q -- . && git clean -fdq", shell=True, cwd=project, check=True)
+    # The take starts clean: the last take's files, and the viewed marks merl keeps from one
+    # start to the next (#240).
+    clean = 'git checkout -q -- . && git clean -fdq && rm -f "$(git rev-parse --git-common-dir)/merl/viewed"'
+    subprocess.run(clean, shell=True, cwd=project, check=True)
     cast = tempfile.mktemp(suffix=".cast")
     merl = shlex.join([f"{ROOT}/target/release/merl", *steps[0].split()[1:]])
     tmux("kill-server")

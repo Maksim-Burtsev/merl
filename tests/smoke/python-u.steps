@@ -1,0 +1,16 @@
+# python-u: u on a method. The picker lists the declarations first and the tests last, the
+# counts in its title, each row in the colours of the line it quotes (#7); Enter opens a row on
+# its word (#236). D finds a class of the project by a few letters of its name.
+merl app/repos.py
+wait class OrderRepo:
+key t /
+type save(
+key Enter u
+wait Usages of save: 2 declarations, 2 in code, 1 in tests (5/5)
+key Down*4 Enter
+wait tests/test_service.py  21:
+key D
+type unitof
+wait app/uow.py:4
+key Enter
+wait app/uow.py  4:

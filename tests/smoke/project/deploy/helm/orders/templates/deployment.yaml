@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "orders.fullname" . }}
+  labels:
+    {{- include "orders.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "orders.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "orders.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: api
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+          envFrom:
+            - secretRef:
+                name: {{ include "orders.fullname" . }}
+          env:
+            {{- range $name, $value := .Values.env }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

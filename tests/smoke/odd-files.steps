@@ -1,0 +1,36 @@
+# odd-files: the files that tripped merl before. Rows with emoji and Cyrillic keep every letter,
+# the cursor lands on the word after an emoji (#185), and after a scroll too (#206). A 1 MB JSON
+# on one line opens at once (#184), timed. A CSV that Excel wrote, with a BOM and CRLF: an edit
+# at 1:1 keeps the BOM (#177) and every line end stays CRLF. A PNG is not shown as text.
+# `merl FILE:LINE:COL`, as a traceback prints it, opens there (#161); `merl FILE` outside a
+# repository opens the file without walking its directory (#182).
+merl docs/notes.md
+wait # Release notes for the support team
+key t /
+type manager
+key Enter
+wait docs/notes.md  5:46
+key PageDown
+wait - ✔️ Cancelled orders show the reason the customer gave, under the total.
+key PageUp
+wait - ⚠️ A refund past the 30-day window needs a manager's approval: open the order, press Refund
+key o
+type orders.min
+key Enter
+time
+wait [{"id":1,"customer_id":1327,"total":"853.34"
+key o
+type refunds-2026
+key Enter
+wait 1 order_id;amount;reason
+key Enter Delete*6 Escape
+wait 1▎id;amount;reason
+run python3 -c "d = open('data/refunds-2026-08.csv', 'rb').read(); assert d.startswith(b'\xef\xbb\xbfid;amount;reason\r\n') and d.count(b'\n') == d.count(b'\r\n') == 3, d"
+key o
+type architecture
+key Enter
+wait binary file
+merl app/service.py:35:29
+wait app/service.py  35:29
+merl ../home/.zshrc
+wait alias gs="git status"

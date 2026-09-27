@@ -226,6 +226,22 @@ def run(pane, steps, fps, key_delay, tail):
     return merged
 
 
+def save_gif(images, durations, out):
+    """The frames as a looping GIF, each shown for its duration in milliseconds."""
+    # The palette comes from frames spread over the run: taken from the first one alone, a pane
+    # that has not painted yet collapses every later frame into its two colours.
+    strip = images[:: max(1, len(images) // 8)][:8]
+    sheet = Image.new("RGB", (strip[0].width, strip[0].height * len(strip)))
+    for i, im in enumerate(strip):
+        sheet.paste(im, (0, i * strip[0].height))
+    palette = sheet.quantize(colors=256)
+    flat = [im.quantize(palette=palette, dither=Image.Dither.NONE) for im in images]
+    flat[0].save(out, save_all=True, append_images=flat[1:], duration=durations, loop=0,
+                 optimize=True)
+    print("%s  %d frames  %.1fs  %.1f MB" % (out, len(flat), sum(durations) / 1000,
+                                             os.path.getsize(out) / 1e6))
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -270,22 +286,11 @@ def main():
         x, y, shown = (int(n) for n in cursor.split(","))
         images.append(render(parse(capture, cols, rows), (x, y) if shown else None, fonts, cell))
         durations.append(max(30, round(seconds * 1000)))
-    # The palette comes from frames spread over the run: taken from the first one alone, a pane
-    # that has not painted yet collapses every later frame into its two colours.
-    strip = images[:: max(1, len(images) // 8)][:8]
-    sheet = Image.new("RGB", (strip[0].width, strip[0].height * len(strip)))
-    for i, im in enumerate(strip):
-        sheet.paste(im, (0, i * strip[0].height))
-    palette = sheet.quantize(colors=256)
-    flat = [im.quantize(palette=palette, dither=Image.Dither.NONE) for im in images]
-    flat[0].save(args.out, save_all=True, append_images=flat[1:], duration=durations, loop=0,
-                 optimize=True)
-    print("%s  %d frames  %.1fs  %.1f MB" % (args.out, len(flat), sum(durations) / 1000,
-                                             os.path.getsize(args.out) / 1e6))
+    save_gif(images, durations, args.out)
     if args.selftest:
-        assert len(flat) >= 5, "%d frames: the typing never reached merl" % len(flat)
+        assert len(images) >= 5, "%d frames: the typing never reached merl" % len(images)
         written = Image.open(args.out)
-        assert written.n_frames == len(flat)
+        assert written.n_frames == len(images)
         written.seek(written.n_frames - 1)
         colours = len(written.convert("RGB").getcolors(1 << 20))
         assert colours > 16, "last frame has %d colours: the palette collapsed" % colours

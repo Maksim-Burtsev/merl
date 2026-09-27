@@ -375,9 +375,19 @@ pub struct App {
     pub want_diff: bool,
     /// `--review`: the branch under review. The tree pane then lists its files.
     pub review: Option<git::Review>,
-    /// Review: the files marked as viewed, each with the hash of what was on disk then. A file
-    /// that has changed since is not viewed any more (`drop_stale_viewed`). Kept for the session.
+    /// Review: the files of the listing marked as viewed, each with the hash of what was on disk
+    /// then. A file that has changed since is not viewed any more (`recheck_viewed`). Kept in
+    /// the repository's git dir, per branch and base, from one start to the next (#240).
     pub viewed: HashMap<PathBuf, u64>,
+    /// Review: the marks without a tick, of files changed since they were viewed or that the
+    /// listing does not have now (a rebase stopped before their commit, a file reverted), kept
+    /// with the hash they were viewed at for when the file comes back as it was.
+    hidden: HashMap<PathBuf, u64>,
+    /// Review: the branch the marks are kept under, the one the listing names (during a rebase,
+    /// the branch being rebased). While HEAD is detached, the last branch the review had.
+    /// `None` for a review started detached, or whose store cannot be read: its marks are in
+    /// memory only, for the whole session.
+    viewed_branch: Option<String>,
     /// Review: the hunk `c` / `C` last stopped on, as its relative path and its index among that
     /// file's hunks. From a file outside the review they go back to it (#239). Kept for the
     /// session.
@@ -522,6 +532,8 @@ impl App {
             want_diff: true,
             review: None,
             viewed: HashMap::new(),
+            hidden: HashMap::new(),
+            viewed_branch: None,
             last_hunk: None,
             session: None,
             closed: Vec::new(),

@@ -1,0 +1,8 @@
+# start: the other ways merl starts, each on an empty HOME. --tutor opens on its first lesson,
+# --drill 3 on its first task, and --keys prints the table of keys and exits 0.
+merl --tutor
+wait Tutor 1/
+merl --drill 3
+wait Drill 1/3
+merl --keys
+wait merl exited: 0

@@ -208,7 +208,14 @@ impl Review {
 
     fn list(root: &Path, base: String) -> Result<Self> {
         let git = |args: &[&str]| git(root, args);
-        let branch = git(&["rev-parse", "--abbrev-ref", "HEAD"])?;
+        // The one reading of HEAD, which the viewed marks are kept by too: the branch's own name,
+        // which a tag of the same name does not shadow; during a rebase, the branch being rebased,
+        // as git records it; otherwise `HEAD`, detached (no branch may be named so).
+        let head = git(&["symbolic-ref", "-q", "HEAD"]).or_else(|_| rebasing(&git, root));
+        let branch = (head.as_deref().ok())
+            .and_then(|h| h.strip_prefix("refs/heads/"))
+            .unwrap_or("HEAD")
+            .to_string();
         let merge_base = git(&["merge-base", &base, "HEAD"])
             .with_context(|| format!("no merge base between {base} and HEAD"))?;
         // `-z`: NUL-separated and unquoted, so a non-ASCII name is the name on disk.
@@ -272,6 +279,11 @@ impl Review {
         }
     }
 
+    /// The branch under review; `None` on a detached HEAD, which `branch` shows as `HEAD`.
+    pub fn branch_name(&self) -> Option<&str> {
+        (self.branch != "HEAD").then_some(self.branch.as_str())
+    }
+
     /// The branch, or the short commit of a detached HEAD: the review stats count the rounds of
     /// each, and every detached review is not one branch called `HEAD`.
     pub fn branch_or_commit(&self, root: &Path) -> String {
@@ -326,6 +338,23 @@ pub fn dirs(root: &Path) -> Option<(PathBuf, PathBuf)> {
     let out = git(root, &["rev-parse", "--git-dir", "--git-common-dir"]).ok()?;
     let mut dirs = out.lines().map(|d| root.join(d).canonicalize().ok());
     Some((dirs.next()??, dirs.next()??))
+}
+
+/// The branch a rebase (stopped on a conflict, say) is rebasing: `refs/heads/…`, from the
+/// `head-name` git keeps in the worktree's git dir.
+fn rebasing(git: &dyn Fn(&[&str]) -> Result<String>, root: &Path) -> Result<String> {
+    let merge = "rebase-merge/head-name";
+    let paths = git(&[
+        "rev-parse",
+        "--git-path",
+        merge,
+        "--git-path",
+        "rebase-apply/head-name",
+    ])?;
+    (paths.lines())
+        .find_map(|p| std::fs::read_to_string(root.join(p)).ok())
+        .map(|name| name.trim().to_string())
+        .context("no rebase in progress")
 }
 
 /// The row of an untracked file: `A`, every line added. Binary is what git calls binary, a NUL
