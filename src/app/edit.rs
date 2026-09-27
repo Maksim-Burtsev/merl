@@ -12,8 +12,16 @@ impl App {
             self.message = why;
             return;
         }
-        self.mode = Mode::Edit;
+        self.edit_mode();
         self.undo_break = true;
+    }
+
+    /// Into edit mode, the one way there: the text being typed is never under the preview.
+    pub(super) fn edit_mode(&mut self) {
+        if self.previewing() {
+            self.toggle_preview();
+        }
+        self.mode = Mode::Edit;
     }
 
     /// Why the text cannot change or be written, if it cannot: the buffer is not what would be

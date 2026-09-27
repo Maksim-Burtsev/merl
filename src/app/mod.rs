@@ -28,6 +28,7 @@ mod members;
 mod missed;
 mod open;
 mod picker;
+mod preview;
 mod project_search;
 mod review;
 mod scroll;
@@ -37,6 +38,7 @@ mod tree;
 mod typed;
 mod usages;
 
+pub use preview::Preview;
 pub use search_job::SearchJob;
 use search_job::{SEARCH_PAUSE, Typed};
 
@@ -184,6 +186,11 @@ pub const KEYS: &[(&str, &str, &str)] = &[
         "Wrap long lines, or cut them at the edge and scroll sideways",
         "General",
     ),
+    (
+        "p",
+        "Show a Markdown file rendered, or its source again",
+        "General",
+    ),
     ("T", "Pick a theme (live preview)", "General"),
     (
         "Esc",
@@ -309,6 +316,10 @@ pub struct App {
     pub left: usize,
     /// Files `w` was pressed on: their wrapping is the opposite of what their kind gets.
     wrap_toggled: HashSet<PathBuf>,
+    /// Markdown files `p` shows rendered, until `p` again or merl quits.
+    previewed: HashSet<PathBuf>,
+    /// The open file rendered, while it is one of `previewed`: laid out by the first frame.
+    pub preview: Option<Preview>,
     pub mode: Mode,
     /// What has been typed into the `:` or `/` prompt.
     pub prompt: LineEdit,
@@ -478,6 +489,8 @@ impl App {
             top_row: 0,
             left: 0,
             wrap_toggled: HashSet::new(),
+            previewed: HashSet::new(),
+            preview: None,
             mode: Mode::Normal,
             prompt: LineEdit::default(),
             find_re: None,

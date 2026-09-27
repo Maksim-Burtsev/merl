@@ -206,6 +206,7 @@ The dozen you will use every day. `?` inside merl shows the rest.
 | Key | Action |
 |---|---|
 | w | Wrap long lines, or cut them at the edge and scroll sideways |
+| p | Show a Markdown file rendered, or its source again |
 | T | Pick a theme (live preview) |
 | Esc | Close an overlay, leave edit mode, or clear selection and find |
 | q | Quit |

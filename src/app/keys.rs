@@ -98,7 +98,8 @@ impl App {
         if ctrl && key.code == KeyCode::Char('c') && self.mode != Mode::Edit {
             // Ctrl+C is copy everywhere and never quits; a prompt or picker has nothing to copy.
             self.action = named("", key);
-            if self.mode == Mode::Normal && self.picker.is_none() {
+            // A preview row that shows no line has none to copy.
+            if self.mode == Mode::Normal && self.picker.is_none() && !self.preview_blank() {
                 self.copy();
             }
             return false;
@@ -166,6 +167,8 @@ impl App {
             .flatten()
             .or_else(|| named("", key));
         match key.code {
+            // The preview reads with keys of its own, and leaves those that act on the text.
+            _ if self.preview_key(key) => {}
             KeyCode::Char('q') => return true,
             KeyCode::Char('?') => {
                 self.mode = Mode::Help;
@@ -218,6 +221,7 @@ impl App {
             }
             KeyCode::Char('T') => self.open_themes_picker(),
             KeyCode::Char('w') => self.toggle_wrap(),
+            KeyCode::Char('p') => self.toggle_preview(),
             KeyCode::Tab if self.show_tree => {
                 self.focus = match self.focus {
                     Focus::Tree => Focus::Code,

@@ -19,6 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   review; a session closed with `q` and nothing else is not noted, a `git switch` during a review
   ends its session and starts one for the branch now checked out, sessions older than 30 days
   are dropped, and `--tutor` and `--drill` note nothing. (#242)
+- `p` shows a Markdown file rendered, in place of its source, and `p` again shows the source, at
+  the same place both ways; Enter in the preview edits the source where it stands. Headings,
+  emphasis, lists and task lists, quotes and GitHub alerts, tables in box drawing aligned as
+  their `:---:` says, code blocks in the theme's colours, rules and footnotes render; links show
+  their text, images their alt text. The preview is rendered from the open buffer, so a file an
+  agent rewrites renders again, and it reflows to the pane: a table wider than the pane narrows
+  its widest columns and wraps inside their cells instead of falling apart. Reading keys move a
+  cursor row; `/`, `v`, `d` and `u` have no word or column to act on there and do nothing. In
+  `--review` the diff stays on the source: `p` on a file of the review says `in review`. The
+  tutor has a Markdown plan and a lesson for it. (#249)
 - Short forms of the launch flags: `-r` for `--review`, `-b` for `--base`, `-t` for `--theme`,
   `-d` for `--drill` and `-k` for `--keys`. `merl -r feature -b origin/dev` is
   `merl --review feature --base origin/dev`.
