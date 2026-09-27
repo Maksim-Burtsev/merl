@@ -1,5 +1,7 @@
 //! Review mode: the marks on the buffer, the hunks `c` and `C` step through.
 
+use anyhow::Context as _;
+
 use super::*;
 use crate::reviews::{Session, Spot, Stop};
 
@@ -8,6 +10,9 @@ impl App {
     /// first hunk of the open file (unless a line was asked for).
     pub fn start_review(&mut self, mut review: git::Review) {
         let note = review.note.take();
+        // Kept under the branch the review starts on, or rebases; one started detached is kept
+        // in memory for its whole life.
+        self.viewed_branch = review.branch_name().map(str::to_string);
         self.review = Some(review);
         self.refresh_diff();
         if let Some(path) = self.buf.path.clone() {
@@ -30,6 +35,8 @@ impl App {
         if let Some(note) = note {
             self.message = note;
         }
+        // And marks that cannot be read, more than both.
+        self.load_viewed();
         self.open_session();
     }
 
@@ -163,11 +170,12 @@ impl App {
                 skipped += 1;
             } else if self.open_review_file(f, dir < 0) {
                 self.remember_hunk();
-                self.mark_viewed(read.take());
                 match failed {
                     Some(why) => self.message = why,
                     None => self.say_skipped(skipped),
                 }
+                // After the walk's word: a mark that could not be saved says so over it.
+                self.mark_viewed(read.take());
                 return;
             } else if self.dirty {
                 // Edits that could not be saved hold merl on this file, whatever is ahead.
@@ -176,11 +184,11 @@ impl App {
                 failed = Some(std::mem::take(&mut self.message));
             }
         }
-        self.mark_viewed(read.take());
         self.message = failed.unwrap_or_else(|| {
             let end = if dir > 0 { "last" } else { "first" };
             format!("{end} hunk of the review")
         });
+        self.mark_viewed(read.take());
     }
 
     /// The files of the review `c` (`dir` 1) or `C` (-1) walks on to from the open one, nearest
@@ -236,41 +244,115 @@ impl App {
         else {
             return;
         };
-        self.message = if self.viewed.remove(&rel).is_some() {
-            "not viewed".into()
+        if self.viewed.remove(&rel).is_some() {
+            self.message = "not viewed".into();
+            self.save_viewed();
         } else {
+            self.message = "viewed".into();
             self.mark_viewed(Some(rel));
-            "viewed".into()
-        };
+        }
     }
 
     fn mark_viewed(&mut self, rel: Option<PathBuf>) {
         if let Some(rel) = rel {
             let hash = self.disk_hash(&rel);
+            self.hidden.remove(&rel);
             self.viewed.insert(rel, hash);
+            self.save_viewed();
         }
     }
 
-    /// What is on disk at `rel`, hashed; a file the branch deleted hashes as nothing.
+    /// What is on disk at `rel`, hashed; a file the branch deleted hashes as 0. FNV-1a, not
+    /// `DefaultHasher`: the hashes are kept on disk, and std's may change with the compiler.
     fn disk_hash(&self, rel: &Path) -> u64 {
-        use std::hash::{DefaultHasher, Hash, Hasher};
-        let mut h = DefaultHasher::new();
-        std::fs::read(self.root.join(rel)).ok().hash(&mut h);
-        h.finish()
+        std::fs::read(self.root.join(rel)).map_or(0, |bytes| {
+            let fnv = |h: u64, &b: &u8| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3);
+            bytes.iter().fold(0xcbf2_9ce4_8422_2325, fnv)
+        })
     }
 
-    /// A viewed file that changed on disk, or left the review, is not viewed any more. Returns
-    /// whether a mark went.
-    // ponytail: reads every viewed file on each refresh; compare mtimes first if a review of
-    // thousands of viewed files ever makes the refresh slow.
-    fn drop_stale_viewed(&mut self) -> bool {
-        let before = self.viewed.len();
-        let mut viewed = std::mem::take(&mut self.viewed);
-        viewed.retain(|p, h| {
-            self.review.as_ref().is_some_and(|r| r.file(p).is_some()) && self.disk_hash(p) == *h
-        });
-        self.viewed = viewed;
-        self.viewed.len() != before
+    /// Sorts every mark by the listing and the disk: a listed file whose hash matches is viewed;
+    /// one that changed since loses its tick, as on GitLab, and one the listing does not have is
+    /// not shown either. Both keep their mark, hidden, for when the file comes back as it was
+    /// viewed. A mark leaves only when `m` takes it off, or with its review after
+    /// [`FORGET_DAYS`]. Returns whether a tick moved.
+    // ponytail: reads every listed marked file on each refresh; compare mtimes first if a review
+    // of thousands of viewed files ever makes the refresh slow.
+    fn recheck_viewed(&mut self) -> bool {
+        let (mut viewed, mut hidden) = (HashMap::new(), HashMap::new());
+        for (p, &h) in self.viewed.iter().chain(&self.hidden) {
+            let listed = self.review.as_ref().is_some_and(|r| r.file(p).is_some());
+            let to = if listed && self.disk_hash(p) == h {
+                &mut viewed
+            } else {
+                &mut hidden
+            };
+            to.insert(p.clone(), h);
+        }
+        let moved = viewed != self.viewed;
+        (self.viewed, self.hidden) = (viewed, hidden);
+        moved
+    }
+
+    /// Where the viewed marks of every review of the repository are kept: in its common git dir,
+    /// so a worktree's review shares them and a deleted clone takes them along.
+    fn viewed_store(&self) -> Option<PathBuf> {
+        git::dirs(&self.root).map(|(_, common)| common.join("merl/viewed"))
+    }
+
+    /// The marks the review's branch left, sorted by what is on disk now; loading writes nothing.
+    /// A store that cannot be found or read gives none, and the review keeps its marks in memory
+    /// for the rest of the session instead of writing over it.
+    fn load_viewed(&mut self) {
+        let (Some(branch), Some(r)) = (&self.viewed_branch, &self.review) else {
+            return;
+        };
+        let read = (self.viewed_store())
+            .context("no git directory")
+            .and_then(|store| read_viewed(&store, branch, &r.base, crate::stats::today()));
+        self.viewed.clear();
+        self.hidden.clear();
+        match read {
+            Ok(marks) => self.viewed = marks,
+            Err(e) => {
+                self.viewed_branch = None;
+                self.message = format!("viewed marks not read: {e:#}");
+            }
+        }
+        self.recheck_viewed();
+    }
+
+    /// Keeps the marks under the branch the listing names, the one reading of HEAD: another
+    /// branch checked out is another review, with the marks it left last time. A detached HEAD
+    /// names none and keeps the branch it left, and so does a refresh on which git cannot say
+    /// where the store is. A review with no branch to keep its marks under follows none. Returns
+    /// whether it took another branch's marks.
+    fn follow_branch(&mut self) -> bool {
+        let (Some(key), Some(r)) = (&self.viewed_branch, &self.review) else {
+            return false;
+        };
+        let Some(branch) = r.branch_name().filter(|b| b != key).map(str::to_string) else {
+            return false;
+        };
+        if self.viewed_store().is_none() {
+            return false;
+        }
+        self.viewed_branch = Some(branch);
+        self.load_viewed();
+        true
+    }
+
+    /// Writes this review's marks, the hidden ones too, so they outlive the session as well.
+    fn save_viewed(&mut self) {
+        let (Some(store), Some(r), Some(branch)) =
+            (self.viewed_store(), &self.review, &self.viewed_branch)
+        else {
+            return;
+        };
+        let marks = self.viewed.iter().chain(&self.hidden);
+        if let Err(e) = write_viewed(&store, branch, &r.base, marks, crate::stats::today()) {
+            self.message = format!("viewed marks not saved: {e:#}");
+        }
     }
 
     /// Why `file 1` became `file 74`.
@@ -318,8 +400,9 @@ impl App {
             return false;
         };
         if *old == fresh {
-            // An edit can leave every count as it was.
-            return self.drop_stale_viewed();
+            // An edit can leave every count as it was; a key left behind on a refresh where git
+            // could not say where the store is catches up.
+            return self.follow_branch() | self.recheck_viewed();
         }
         let rel = self.rel_current();
         let kind = |r: &git::Review| {
@@ -351,7 +434,8 @@ impl App {
             self.closed.push((s, self.viewed.keys().cloned().collect()));
             self.open_session();
         }
-        self.drop_stale_viewed();
+        self.follow_branch();
+        self.recheck_viewed();
         true
     }
 }
@@ -379,5 +463,103 @@ fn review_hunks(root: &Path, r: &git::Review, f: &git::ReviewFile) -> Vec<usize>
     match f.status {
         'D' => vec![0],
         _ => r.diff(root, &root.join(&f.path), Some(f)).hunks,
+    }
+}
+
+/// A review's marks untouched for this many days are not read, and go the next time the store
+/// is written.
+const FORGET_DAYS: i64 = 30;
+
+/// Is a line dated `day` (as the store writes it) younger than [`FORGET_DAYS`] on `today`?
+fn fresh(day: &str, today: i64) -> bool {
+    crate::stats::day(day).is_some_and(|d| today - d < FORGET_DAYS)
+}
+
+/// The store's text; no store yet is an empty one.
+fn read_store(store: &Path) -> anyhow::Result<String> {
+    match std::fs::read_to_string(store) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        read => read.with_context(|| format!("{}", store.display())),
+    }
+}
+
+/// The store is a line per mark: `YYYY-MM-DD<TAB>branch<TAB>base<TAB>hash<TAB>path`, the day
+/// being when its review was last written. The path comes last, so a tab in it reads back, and
+/// lines end at `\n` alone, so does a `\r` (macOS's `Icon\r`).
+fn read_viewed(
+    store: &Path,
+    branch: &str,
+    base: &str,
+    today: i64,
+) -> anyhow::Result<HashMap<PathBuf, u64>> {
+    let text = read_store(store)?;
+    let mark = |line: &str| {
+        let [day, b, s, hash, path] = line.splitn(5, '\t').collect::<Vec<_>>()[..] else {
+            return None;
+        };
+        let hash = u64::from_str_radix(hash, 16).ok()?;
+        (fresh(day, today) && b == branch && s == base).then(|| (PathBuf::from(path), hash))
+    };
+    Ok(text.split('\n').filter_map(mark).collect())
+}
+
+/// Replaces the review's lines in the store with `marks`, dated `today`, and drops the reviews
+/// untouched for [`FORGET_DAYS`]. The store is read again right before, so the marks another
+/// merl wrote for another review stay; a store that cannot be read is left as it is.
+fn write_viewed<'a>(
+    store: &Path,
+    branch: &str,
+    base: &str,
+    marks: impl Iterator<Item = (&'a PathBuf, &'a u64)>,
+    today: i64,
+) -> anyhow::Result<()> {
+    use std::fmt::Write as _;
+    let old = read_store(store)?;
+    let mut text = String::new();
+    for line in old.split('\n') {
+        let mut cols = line.splitn(4, '\t');
+        let (Some(day), Some(b), Some(s)) = (cols.next(), cols.next(), cols.next()) else {
+            continue;
+        };
+        if fresh(day, today) && (b, s) != (branch, base) {
+            text.push_str(line);
+            text.push('\n');
+        }
+    }
+    let day = crate::stats::date(today);
+    for (path, hash) in marks {
+        // A name that is not UTF-8, or holds a newline, would not read back as itself.
+        if let Some(path) = path.to_str().filter(|p| !p.contains('\n')) {
+            _ = writeln!(text, "{day}\t{branch}\t{base}\t{hash:016x}\t{path}");
+        }
+    }
+    crate::stats::write(store, &text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// #240: the 30 days, on a fixed day: a review written 29 days ago is read and kept by a
+    /// write, one written 30 or 31 days ago is neither.
+    #[test]
+    fn a_review_is_forgotten_on_its_thirtieth_day() {
+        let dir = std::env::temp_dir().join(format!("merl-viewededge-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let store = dir.join("viewed");
+        let today = 20_000;
+        let line = |days, branch: &str| {
+            let day = crate::stats::date(today - days);
+            format!("{day}\t{branch}\tmain\t{:016x}\t{branch}.rs\n", 7)
+        };
+        let old = line(29, "recent") + &line(30, "edge") + &line(31, "stale");
+        std::fs::write(&store, old).unwrap();
+        let read = |branch| read_viewed(&store, branch, "main", today).unwrap();
+        assert_eq!(read("recent").len(), 1);
+        assert!(read("edge").is_empty() && read("stale").is_empty());
+        write_viewed(&store, "feature", "main", std::iter::empty(), today).unwrap();
+        assert_eq!(std::fs::read_to_string(&store).unwrap(), line(29, "recent"));
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

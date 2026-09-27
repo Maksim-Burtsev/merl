@@ -107,8 +107,14 @@ fn review_app_with(tag: &str, extra: &[(&str, &[u8])]) -> (PathBuf, App) {
     }
     git(&["add", "-A"]);
     git(&["commit", "-q", "-m", "work"]);
-    let review = git::Review::open(&dir, None, None).unwrap();
-    let (_, files) = crate::tree::build(&dir, false);
+    let a = review_start(&dir, None);
+    (dir, a)
+}
+/// A merl started again on the review of `dir` against `base` (default: the one it finds), on
+/// `new`.
+fn review_start(dir: &Path, base: Option<&str>) -> App {
+    let review = git::Review::open(dir, None, base).unwrap();
+    let (_, files) = crate::tree::build(dir, false);
     let tree = crate::tree::from_files(
         &review
             .files
@@ -118,14 +124,14 @@ fn review_app_with(tag: &str, extra: &[(&str, &[u8])]) -> (PathBuf, App) {
     );
     let first = dir.join("new");
     let mut a = App::new(
-        dir.clone(),
+        dir.to_path_buf(),
         tree,
         files,
         Buffer::load(&first).unwrap(),
         None,
     );
     a.start_review(review);
-    (dir, a)
+    a
 }
 fn at(a: &App) -> (PathBuf, usize) {
     (a.buf.path.clone().unwrap(), a.line)
