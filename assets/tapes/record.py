@@ -28,8 +28,10 @@ tools/cast.py plus `merl`, `show` and `spawn`:
     show               the GIF starts here: what came before is on screen in the first frame
     spawn CMD          run CMD in the project in the background (the agent in the next split)
 
-merl starts in the gitea checkout setup.sh made, on the branch it left; a `# project: mealie` line
-names another of its checkouts.
+merl starts in the gitea checkout setup.sh made, on the branch it left; a `project mealie` line
+names another of its checkouts, as in tests/smoke/run.py.
+
+    assets/tapes/record.py --selftest                  # checks the keycaps' timing, no recording
 """
 import json, os, shlex, subprocess, sys, tempfile, time
 from PIL import Image, ImageDraw, ImageFont
@@ -199,31 +201,15 @@ def render(cast, presses, gif, keys):
             starts.append(t)
             t += src.info["duration"] / 1000
         total = t
-        # A key shows with merl's answer to it: the change of the screen nearest the press, which
-        # the two clocks put a few tens of milliseconds either side of it.
-        snap = lambda t: min((s for s in starts if abs(s - t) <= 0.15), key=lambda s: abs(s - t), default=t)
-        states = [(snap(t) if o == 1 else t, c, o) for t, c, o in keycaps(presses)] if keys else []
-        # Browsers hold a frame shorter than 20 ms for 100 ms, and a GIF rounds every delay to 10 ms:
-        # the corner changes only 40 ms or more away from a change of the screen, as agg's frames do.
-        cuts = sorted({*starts, *(s[0] for s in states if 0 <= s[0] < total
-                                  and all(abs(s[0] - t) >= 0.04 or s[0] == t for t in starts))})
         bg = Image.new("RGB", (src.width + 2 * PAD, src.height + 2 * PAD), f"#{BG}")
-        listing, frames, last = [], 0, None
-        for n, cut in enumerate(cuts):
-            base = max(i for i, s in enumerate(starts) if s <= cut)
-            state = next((s for s in reversed(states) if s[0] <= cut), (0, [], 0.0))
-            dur = (cuts[n + 1] if n + 1 < len(cuts) else total) - cut
-            if (base, state[1:]) == last:
-                listing[-1][1] += dur
-                continue
-            last = (base, state[1:])
+        listing = []
+        for cut, dur, base, caps, opacity in timeline(starts, total, keycaps(presses) if keys else []):
             src.seek(base)
             frame = bg.copy()
             frame.paste(src.convert("RGB"), (PAD, PAD))
-            path = f"{tmp}/{frames:04d}.png"
-            draw_caps(frame, state[1], state[2]).save(path, compress_level=1)
-            listing.append([path, dur])
-            frames += 1
+            path = f"{tmp}/{len(listing):04d}.png"
+            draw_caps(frame, caps, opacity).save(path, compress_level=1)
+            listing.append((path, dur))
         with open(f"{tmp}/list.txt", "w") as f:
             for path, dur in listing:
                 f.write(f"file '{path}'\nduration {dur:.3f}\n")
@@ -233,18 +219,69 @@ def render(cast, presses, gif, keys):
                         "split[a][b];[a]palettegen=stats_mode=full[p];"
                         "[b][p]paletteuse=dither=none:diff_mode=rectangle",
                         "-fps_mode", "passthrough", gif], check=True)
+    return len(listing)
+
+
+def timeline(starts, total, states):
+    """The GIF's frames, [(time, duration, screen, caps, opacity)]: agg's screens (their start
+    times, `total` the end of the last) under the corner's states from keycaps()."""
+    near = lambda t, within: min((s for s in starts if abs(s - t) <= within), key=lambda s: abs(s - t),
+                                 default=t)
+    # A key shows with merl's answer to it: the change of the screen nearest the press, which the two
+    # clocks put a few tens of milliseconds either side of it. Browsers hold a frame shorter than
+    # 20 ms for 100 ms and a GIF counts in 10 ms, so the corner never changes within 40 ms of a change
+    # of the screen: a fade step that close moves onto it.
+    states = [(near(t, 0.15 if o == 1 else 0.04), c, o) for t, c, o in states]
+    cuts = sorted({*starts, *(t for t, _, _ in states if 0 <= t < total)})
+    # nor within 40 ms of the corner's next change: that one shows instead.
+    cuts = [c for i, c in enumerate(cuts) if c in starts or i + 1 == len(cuts) or cuts[i + 1] - c >= 0.04]
+    frames = []
+    for n, cut in enumerate(cuts):
+        base = max(i for i, s in enumerate(starts) if s <= cut)
+        # the newest state wins: a run that starts while the last one fades takes over at once
+        _, caps, opacity = next((st for st in reversed(states) if st[0] <= cut), (0, [], 0.0))
+        dur = (cuts[n + 1] if n + 1 < len(cuts) else total) - cut
+        if frames and frames[-1][2:] == (base, caps, opacity):
+            frames[-1] = (frames[-1][0], frames[-1][1] + dur, *frames[-1][2:])
+        else:
+            frames.append((cut, dur, base, caps, opacity))
     return frames
+
+
+def selftest():
+    """The corner's timing, on made-up screens: no tmux, no agg."""
+    shown = lambda frames, t: next(f for f in reversed(frames) if f[0] <= t + 1e-9)
+    # A press lands on merl's answer 30 ms later; the corner is empty HOLD + FADE after it, even
+    # when its last fade step falls just after the next change of the screen.
+    f = timeline([0, 1.03, 2.47, 5.0], 7, keycaps([(1.0, "c")]))
+    assert shown(f, 1.03)[3:] == ([("c", 1)], 1.0) and shown(f, 1.0)[3] == [], f
+    assert shown(f, 1.0 + HOLD + FADE)[3] == [] and all(d >= 0.04 - 1e-9 for _, d, *_ in f), f
+    # A press with no answer near it shows when it was pressed.
+    f = timeline([0, 5.0], 7, keycaps([(1.0, "Down")]))
+    assert shown(f, 1.0)[3] == [("↓", 1)], f
+    # Repeats count up on one cap; a run that starts while the last fades takes over at once.
+    f = timeline([0, 5.0], 7, keycaps([(1.0, "M-Right"), (1.3, "M-Right"), (2.6, "d")]))
+    assert shown(f, 1.3)[3] == [("⌥→", 2)] and shown(f, 2.6)[3:] == ([("d", 1)], 1.0), f
+    # No frame is shorter than 40 ms, a press 30 ms after a fade step included.
+    f = timeline([0, 5.0], 7, keycaps([(1.0, "c"), (2.35, "c")]))
+    assert all(d >= 0.04 - 1e-9 for _, d, *_ in f), f
+    # Without keys, the frames are agg's.
+    assert [t for t, *_ in timeline([0, 1, 2], 3, [])] == [0, 1, 2]
+    print("selftest ok")
 
 
 def main():
     args = sys.argv[1:]
+    if args == ["--selftest"]:
+        return selftest()
     keys = "--keys" in args
     steps_path = os.path.abspath(next(a for a in args if a != "--keys"))
     gif = steps_path.removesuffix(".steps") + ".gif"
     text = open(steps_path).read().splitlines()
     steps = [l.strip() for l in text if l.strip() and not l.lstrip().startswith("#")]
+    name = next((l.split()[1] for l in steps if l.split()[0] == "project"), "gitea")
+    steps = [l for l in steps if l.split()[0] != "project"]
     assert steps[0].split()[0] == "merl", "the first step is `merl [ARGS]`"
-    name = next((l.split(":", 1)[1].strip() for l in text if l.startswith("# project:")), "gitea")
     project = f"{DEMO}/{name}"
     # The take starts clean: the last take's files, and the viewed marks merl keeps from one
     # start to the next (#240).
@@ -257,4 +294,5 @@ def main():
     os.unlink(cast)
 
 
-main()
+if __name__ == "__main__":
+    main()

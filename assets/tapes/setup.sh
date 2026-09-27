@@ -11,6 +11,7 @@ commit=3296046b4ab1f8cf3efcc908df2b1918b16831b7
 mealie=2b3a16225314c734f9d4092e4a03ed4b6708cf7a
 
 mkdir -p "$dir/home"
+dir=$(cd "$dir" && pwd)  # absolute: the script moves between the checkouts
 if [ ! -d "$dir/gitea/.git" ]; then
     git init -q -b main "$dir/gitea"
     git -C "$dir/gitea" remote add origin https://github.com/go-gitea/gitea.git

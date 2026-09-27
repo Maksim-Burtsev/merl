@@ -1,5 +1,5 @@
 # The reviewing half: an agent's branch of four files, walked hunk by hunk, once into the code it calls.
-# project: mealie
+project mealie
 merl --review
 wait hunk 1/1
 sleep 0.5
