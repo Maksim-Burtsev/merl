@@ -134,3 +134,80 @@ fn extra_word_chars_join_names_but_do_not_start_them() {
     assert_eq!(word_chars(Some(Kind::Python), true), "");
     assert_eq!(word_chars(None, false), "");
 }
+
+/// #248: the declarations the code pane pins over the text, for every line of a file: those
+/// around it, outermost first. A loop moves the walk out without being pinned, a function
+/// declared earlier in the same body is not one the line stands in, and the tail of a wrapped
+/// signature, a blank line or a comment at the left edge keeps the header of the code around it.
+#[test]
+fn enclosing_declarations_are_the_headers_a_line_stands_in() {
+    let pins = |kind, text: &str| -> Vec<Vec<usize>> {
+        let lines: Vec<String> = text.lines().map(String::from).collect();
+        (0..lines.len())
+            .map(|l| enclosing_declarations(Some(kind), &lines, l))
+            .collect()
+    };
+    let rs = "\
+impl Search {
+    /// Greps.
+    pub fn grep_project(
+        root: &Path,
+    ) -> Result<Vec<Hit>> {
+        fn helper() {}
+        let mut hits = Vec::new();
+
+        for rel in files {
+// dbg!(rel);
+            hits.push(rel);
+        }
+    }
+}
+
+fn next() {
+    body();
+}
+";
+    let (none, imp, method, next): (&[usize], &[usize], &[usize], &[usize]) =
+        (&[], &[0], &[0, 2], &[15]);
+    assert_eq!(
+        pins(Kind::Rust, rs),
+        [
+            none, imp, imp, method, method, method, method, method, method, method, method, method,
+            imp, none, none, none, next, none
+        ]
+    );
+    let py = "\
+class Store:
+    @property
+    def items(self):
+        return [
+            1,
+        ]
+
+    count = 0
+";
+    let (class, def): (&[usize], &[usize]) = (&[0], &[0, 2]);
+    assert_eq!(
+        pins(Kind::Python, py),
+        [none, class, class, def, def, def, class, class]
+    );
+    // A C++ access specifier at the left edge is a label inside the class, as `d` reads it.
+    let cpp = "\
+class Store {
+public:
+    int count() {
+        return 1;
+    }
+};
+";
+    let (class, method): (&[usize], &[usize]) = (&[0], &[0, 2]);
+    assert_eq!(
+        pins(Kind::C, cpp),
+        [none, class, class, method, class, none]
+    );
+    // A YAML anchor names a value, not a container: nothing is pinned.
+    assert_eq!(
+        pins(Kind::Yaml, "base: &base\n  a: 1\n  b: 2\n"),
+        [none, none, none]
+    );
+}

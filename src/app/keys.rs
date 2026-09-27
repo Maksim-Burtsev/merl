@@ -263,8 +263,8 @@ impl App {
             KeyCode::Right if alt => self.word_right(),
             KeyCode::Left => self.left(),
             KeyCode::Right => self.right(),
-            KeyCode::PageUp => self.move_rows(-(self.view_h.max(1) as isize)),
-            KeyCode::PageDown => self.move_rows(self.view_h.max(1) as isize),
+            KeyCode::PageUp => self.move_rows(-(self.page_rows(false) as isize)),
+            KeyCode::PageDown => self.move_rows(self.page_rows(true) as isize),
             KeyCode::Home if ctrl => {
                 self.line = 0;
                 self.col = 0;

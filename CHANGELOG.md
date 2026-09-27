@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Short forms of the launch flags: `-r` for `--review`, `-b` for `--base`, `-t` for `--theme`,
   `-d` for `--drill` and `-k` for `--keys`. `merl -r feature -b origin/dev` is
   `merl --review feature --base origin/dev`.
+- Inside a long function whose first line has scrolled off, that line stays pinned on top of
+  the code with its line number, on a band of the cursor line's colour, so the screen always
+  says which function this is: in a review, where `c` drops you in the middle of one, and
+  everywhere else. A method pins its `impl` or `class` too, two lines at most; a loop or an `if`
+  pins nothing. The code starts under the band, so no line hides behind it. (#248)
 
 ### Changed
 

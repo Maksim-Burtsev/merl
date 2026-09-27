@@ -211,7 +211,7 @@ impl App {
     /// Ctrl+D / Ctrl+U: cursor and viewport both move half a screen, like vim and less,
     /// so the cursor keeps its place on screen and half the context stays visible.
     pub(super) fn half_page(&mut self, dir: isize) {
-        let half = (self.view_h / 2).max(1);
+        let half = (self.page_rows(dir > 0) / 2).max(1);
         let before = (self.line, self.cursor_row());
         self.move_rows(dir * half as isize);
         let moved = self.rows_between(before, (self.line, self.cursor_row()));
@@ -254,7 +254,11 @@ impl App {
     }
 
     /// Walks `n` wrapped rows forwards from `(line, row)`, stopping at the end of the file.
-    fn forward_rows(&self, (mut line, mut row): (usize, usize), n: usize) -> (usize, usize) {
+    pub(super) fn forward_rows(
+        &self,
+        (mut line, mut row): (usize, usize),
+        n: usize,
+    ) -> (usize, usize) {
         for _ in 0..n {
             if row + 1 < self.row_count(line) {
                 row += 1;

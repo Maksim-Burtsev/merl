@@ -13,7 +13,7 @@ use super::*;
 /// the top level. The enclosing declarations are the lines above indented less, named by the
 /// [`SYMBOLS`] rows a file of `kind` is read with; the walk stops at the first enclosing line
 /// they name nothing on (a `return {`, an `if`), so a declaration stays unqualified rather than
-/// wrongly qualified. A YAML anchor names a value, not a container: YAML is never qualified.
+/// wrongly qualified. YAML is never qualified (see [`nests`]).
 pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<String> {
     static RECEIVER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^func\s+\(\s*(?:\w+\s+)?\*?\s*([A-Za-z_]\w*)").unwrap()
@@ -26,18 +26,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").unwrap()
     });
-    static ROWS: std::sync::LazyLock<Vec<(Option<Kind>, Regex)>> = std::sync::LazyLock::new(|| {
-        SYMBOLS
-            .iter()
-            .map(|(k, p)| {
-                (
-                    *k,
-                    Regex::new(p).expect("built-in symbol patterns are valid"),
-                )
-            })
-            .collect()
-    });
-    if kind == Kind::Yaml {
+    if !nests(Some(kind)) {
         return None;
     }
     let sep = separator(kind);
@@ -80,25 +69,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         if depth == 0 {
             break;
         }
-        let t = l.trim_start();
-        // A lone `{` opens the body of a declaration wrapped over the lines above it, as
-        // prettier writes a long TypeScript class header; it names nothing itself. Neither does
-        // a C++ access specifier, which is a label inside the class, not a wall in front of it.
-        let access = kind == Kind::C && matches!(t, "public:" | "private:" | "protected:");
-        // `> extends Base<K> {` closes the type parameters of the header above it.
-        // Python's `):` closes a class header or a signature wrapped over several lines (#100):
-        // what it opens is named on the line the bracket opened on, further up.
-        let closer = kind == Kind::Python && t.starts_with([')', ']']);
-        if t.is_empty()
-            || t == "{"
-            || (kind == Kind::TsJs && t.starts_with('>'))
-            || access
-            || closer
-            || indent(l) >= depth
-            || ["#", "//", "/*", "*", "--"]
-                .iter()
-                .any(|c| t.starts_with(c))
-        {
+        if steps_over(Some(kind), l.trim_start()) || indent(l) >= depth {
             continue;
         }
         depth = indent(l);
@@ -106,13 +77,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             .captures(l)
             .filter(|_| kind == Kind::Rust)
             .map(|c| c[1].to_owned())
-            .or_else(|| {
-                ROWS.iter()
-                    .filter(|(k, _)| {
-                        *k == Some(kind) || (k.is_none() && shared_symbols(Some(kind)))
-                    })
-                    .find_map(|(_, re)| symbol_name(re, l))
-            });
+            .or_else(|| declared_name(Some(kind), l));
         match named {
             Some(n) => names.push(n),
             None => break,
@@ -120,6 +85,95 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     }
     names.reverse();
     (names.len() > 1).then(|| names.join(sep))
+}
+/// The name `D` lists for `line` in a file of `kind`: the first [`SYMBOLS`] row such a file is
+/// read with that names something on it.
+fn declared_name(kind: Option<Kind>, line: &str) -> Option<String> {
+    static ROWS: std::sync::LazyLock<Vec<(Option<Kind>, Regex)>> = std::sync::LazyLock::new(|| {
+        SYMBOLS
+            .iter()
+            .map(|(k, p)| {
+                (
+                    *k,
+                    Regex::new(p).expect("built-in symbol patterns are valid"),
+                )
+            })
+            .collect()
+    });
+    ROWS.iter()
+        .filter(|(k, _)| *k == kind || (k.is_none() && shared_symbols(kind)))
+        .find_map(|(_, re)| symbol_name(re, line))
+}
+/// Whether a file of `kind` names what it nests: a YAML anchor names a value, not a container,
+/// so YAML qualifies no name and pins no header.
+fn nests(kind: Option<Kind>) -> bool {
+    kind != Some(Kind::Yaml)
+}
+/// Whether the trimmed line `t` is blank, a comment, an attribute or C's `#ifdef`: lines that
+/// can stand at the left edge inside a body.
+fn aside(t: &str) -> bool {
+    t.is_empty()
+        || ["#", "//", "/*", "*", "--"]
+            .iter()
+            .any(|c| t.starts_with(c))
+}
+/// Whether a walk up the indentation from a line to the declarations around it steps over the
+/// trimmed line `t` of a file of `kind`: an [`aside`], or a line that names nothing itself but
+/// belongs to the header above it.
+fn steps_over(kind: Option<Kind>, t: &str) -> bool {
+    // A lone `{` opens the body of a declaration wrapped over the lines above it, as prettier
+    // writes a long TypeScript class header; it names nothing itself. Neither does a C++ access
+    // specifier, which is a label inside the class, not a wall in front of it.
+    let access = kind == Some(Kind::C) && matches!(t, "public:" | "private:" | "protected:");
+    // `> extends Base<K> {` closes the type parameters of the header above it.
+    // Python's `):` closes a class header or a signature wrapped over several lines (#100):
+    // what it opens is named on the line the bracket opened on, further up.
+    let closer = kind == Some(Kind::Python) && t.starts_with([')', ']']);
+    aside(t) || t == "{" || (kind == Some(Kind::TsJs) && t.starts_with('>')) || access || closer
+}
+/// The declarations 0-based `line` of `lines` stands inside, outermost first, for the code pane
+/// to pin over the text once their own lines scroll off (#248). merl has no parser: the scopes
+/// are the lines above indented less, each less than the last, as VS Code's indentation model
+/// reads them, and of those only the ones [`declared_name`] names something on count. A `for`
+/// or an `if` is a scope too, so it moves the walk out, but pins nothing: the question the pins
+/// answer is which function this is. A blank line or a comment belongs to the code after it, so
+/// scrolling over the blank lines of a body keeps its header.
+pub fn enclosing_declarations(kind: Option<Kind>, lines: &[String], line: usize) -> Vec<usize> {
+    if !nests(kind) {
+        return Vec::new();
+    }
+    let indent = |s: &str| s.len() - s.trim_start().len();
+    // The tail of a header wrapped over several lines in any language (`) -> Result<()> {`,
+    // `where`) belongs to what its first line opens, further up. `d`'s walk steps over fewer
+    // of them ([`steps_over`]): widening it changes what `d` answers.
+    let tail = |t: &str| t.starts_with([')', ']', '>', '{']) || t == "where";
+    // The code at the top is the first line the walk would not step over; a tail counts, as
+    // it keeps the header it ends.
+    let code = |l: &&String| {
+        let t = l.trim_start();
+        tail(t) || !steps_over(kind, t)
+    };
+    let Some(first) = lines.get(line..).and_then(|rest| rest.iter().find(code)) else {
+        return Vec::new();
+    };
+    // On a tail, the header it ends is its scope: the line that opened it is indented as much.
+    let mut depth = indent(first) + usize::from(tail(first.trim_start()));
+    let mut out = Vec::new();
+    for (i, l) in lines[..line].iter().enumerate().rev() {
+        if depth == 0 {
+            break;
+        }
+        let t = l.trim_start();
+        if steps_over(kind, t) || tail(t) || indent(l) >= depth {
+            continue;
+        }
+        depth = indent(l);
+        if declared_name(kind, l).is_some() {
+            out.push(i);
+        }
+    }
+    out.reverse();
+    out
 }
 /// Whether the trimmed line `t` can declare the field `name` of a class from inside one of its
 /// functions: it assigns `self.name` or `this.name`, or, in TypeScript, it is a parameter behind

@@ -76,7 +76,8 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             .map(|(i, r)| (r, if i == 0 { 0 } else { indent }))
             .collect()
     };
-    let mut lines: Vec<Line> = Vec::with_capacity(area.height as usize);
+    let mut lines = pinned_lines(app, theme, base, gutter_w);
+    let pinned = lines.len();
     let mut l = app.top_line;
     let mut skip = app.top_row;
     while lines.len() < area.height as usize && l <= app.buf.lines.len() {
@@ -171,16 +172,8 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             .map(|r| r.start..r.end.min(clipped.len()));
         let pad_selected = sel_lines.is_some_and(|(first, last)| first <= l && l < last);
         let indent = wrap::indent(clipped, app.view_w);
-        // Not wrapped, the one row is the columns from `left` on, less a column at either edge
-        // that has text beyond it: `‹` and `›` stand there, so a cut line never reads as whole.
-        let line_w = wrap::width(clipped);
-        let before = nowrap && app.left > 0 && line_w > 0;
-        let after = nowrap && line_w > app.left + app.view_w;
-        let (shown, cut_lead) = wrap::cut(
-            clipped,
-            app.left + usize::from(before),
-            (app.left + app.view_w).saturating_sub(usize::from(after)),
-        );
+        let (before, shown, cut_lead, after) = cut_unwrapped(app, clipped);
+        let (before, after) = (nowrap && before, nowrap && after);
         let rows = if nowrap { vec![shown] } else { app.rows(l) };
         for (i, r) in rows.into_iter().enumerate() {
             if i < skip {
@@ -251,13 +244,65 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         app,
         (app.top_line, app.top_row),
         (app.line, app.cursor_row()),
-    );
+    )
+    .map(|y| y + pinned);
     if let Some(y) = screen_row.filter(|y| *y < area.height as usize)
         && matches!(app.mode, Mode::Normal | Mode::Edit)
     {
         let x = area.x + (gutter_w + app.cursor_x().saturating_sub(app.left)) as u16;
         frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
     }
+}
+
+/// The declarations enclosing the top of the view, pinned over the text (#248): the first row
+/// of each in its syntax colours, beside its line number, on a band of the cursor line's colour
+/// across the pane. The band is what tells them from the code under them at a glance.
+fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -> Vec<Line<'a>> {
+    let band = base.bg(theme.line_hl);
+    app.pinned(app.top_line)
+        .iter()
+        .map(|&p| {
+            let text = app.buf.shown(p);
+            let (before, r, lead, after) = match app.nowrap() {
+                true => cut_unwrapped(app, text),
+                false => (false, app.rows(p).swap_remove(0), 0, false),
+            };
+            let syntax = app.buf.hl.get(p).map_or(&[][..], Vec::as_slice);
+            let g = band.fg(theme.gutter_fg);
+            let num = format!("{:>w$} ", p + 1, w = gutter_w - 1);
+            let mut row = vec![Span::styled(num, g)];
+            if before {
+                row.push(Span::styled("\u{2039}", g));
+            }
+            row.push(Span::styled(" ".repeat(lead), band));
+            let pad = app.view_w.saturating_sub(
+                lead + wrap::width(&text[r.clone()]) + usize::from(before) + usize::from(after),
+            );
+            row.extend(row_spans(text, syntax, &r, band));
+            // Pad so the band reaches the right edge of the pane.
+            row.push(Span::styled(" ".repeat(pad), band));
+            if after {
+                row.push(Span::styled("\u{203a}", g));
+            }
+            Line::from(row)
+        })
+        .collect()
+}
+
+/// The one row of `text` shown when lines are not wrapped: the columns from `left` on, less a
+/// column at either edge that has text beyond it, where `‹` and `›` stand, so a cut line never
+/// reads as whole. Whether `‹` stands, the bytes shown, the blank columns before them (a wide
+/// character cut at the edge) and whether `›` stands.
+fn cut_unwrapped(app: &App, text: &str) -> (bool, std::ops::Range<usize>, usize, bool) {
+    let w = wrap::width(text);
+    let before = app.left > 0 && w > 0;
+    let after = w > app.left + app.view_w;
+    let (r, lead) = wrap::cut(
+        text,
+        app.left + usize::from(before),
+        (app.left + app.view_w).saturating_sub(usize::from(after)),
+    );
+    (before, r, lead, after)
 }
 
 /// Cuts one wrapped row `r` of `text` into spans, taking colours from the line's highlighting
