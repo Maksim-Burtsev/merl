@@ -35,6 +35,9 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
 6. Commits are in English and carry the reasoning. The repo squashes with the PR's commit
    messages, so a commit written with Claude keeps its `Co-Authored-By: Claude …` trailer.
 7. Record the screencast, open the PR, and check `gh pr diff --name-only` holds only your files.
+8. Once the whole task is in the PR, review it with Punchcard, once. Fix every finding on the
+   branch's own change in this PR; a finding outside it becomes an issue. Do not review again:
+   with the fixes pushed and CI green, go on as `## Merging` says. A docs-only PR needs no review.
 
 Everything on GitHub (issues, PR bodies, reviews, comments) is in English.
 
@@ -105,11 +108,14 @@ run under ~15 s.
 ## Merging
 
 - Bug fixes, precision work, refactors, tests and docs: merge your own PR and close its issue
-  without asking, once CI is green and Punchcard says "Ship it".
+  without asking, once CI is green and the findings of its one review are fixed.
 - A change the user has to learn (a new or changed key, screen, animation or default): leave the
   PR open with the before/after screencasts, add the `needs-owner` label and name it in your
   status line. Never ask "can I merge?" in chat.
-- The README and any other text in the owner's voice: open a draft PR and leave it to the owner.
+- The README and any other text in the owner's voice: open a draft PR with the `needs-owner`
+  label and leave it to the owner.
+- An issue holding a question only the owner can answer carries `needs-owner` too, until the
+  answer is written into it. `is:open label:needs-owner` is everything waiting for the owner.
 
 `master` takes squash merges of PRs only, with the CI checks green on a branch up to date with
 master; nobody can push to it directly or bypass the checks.

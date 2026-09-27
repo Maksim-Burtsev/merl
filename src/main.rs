@@ -68,13 +68,14 @@ struct Cli {
     /// Directory, file, or FILE:LINE[:COL] to open (default: the current directory)
     target: Option<String>,
     /// Colour theme
-    #[arg(long, value_name = "NAME")]
+    #[arg(short, long, value_name = "NAME")]
     theme: Option<String>,
     /// Walk through every key on a bundled sample project (ignores the target)
     #[arg(long)]
     tutor: bool,
     /// Train the keys you do not press: N tasks (default 20) on the sample project, no key named
     #[arg(
+        short,
         long,
         value_name = "N",
         num_args = 0..=1,
@@ -83,20 +84,20 @@ struct Cli {
     )]
     drill: Option<u16>,
     /// Print how often each key has been pressed and missed, the unused last, and exit
-    #[arg(long)]
+    #[arg(short, long)]
     keys: bool,
-    /// Review the checked-out branch (or `--review=BRANCH` to fetch it and check out what was
+    /// Review the checked-out branch (or `--review BRANCH` to fetch it and check out what was
     /// pushed): its files in the panel, its diff over the code, c / C between hunks
     #[arg(
+        short,
         long,
         value_name = "BRANCH",
         num_args = 0..=1,
-        require_equals = true,
         default_missing_value = ""
     )]
     review: Option<String>,
     /// The branch the review is against (default: origin/HEAD, then origin/master, main, develop)
-    #[arg(long, value_name = "REF", requires = "review")]
+    #[arg(short, long, value_name = "REF", requires = "review")]
     base: Option<String>,
 }
 
@@ -592,19 +593,55 @@ mod tests {
     }
 
     #[test]
-    fn review_takes_its_branch_only_with_an_equals_sign() {
+    fn review_takes_the_word_after_it_as_its_branch() {
         use clap::Parser;
-        let cli = super::Cli::parse_from(["merl", "--review", "src/main.rs"]);
+        let review = |args: &[&str]| {
+            let cli = super::Cli::parse_from(args);
+            (cli.review, cli.base, cli.target)
+        };
+        let s = |s: &str| Some(s.to_string());
+        assert_eq!(review(&["merl", "--review"]), (s(""), None, None));
         assert_eq!(
-            (cli.review.as_deref(), cli.target.as_deref()),
-            (Some(""), Some("src/main.rs"))
+            review(&["merl", "--review", "feature"]),
+            (s("feature"), None, None)
         );
-        let cli = super::Cli::parse_from(["merl", "--review=feature", "--base", "origin/dev"]);
         assert_eq!(
-            (cli.review.as_deref(), cli.base.as_deref()),
-            (Some("feature"), Some("origin/dev"))
+            review(&["merl", "--review", "feature", "src/main.rs"]),
+            (s("feature"), None, s("src/main.rs"))
+        );
+        assert_eq!(
+            review(&["merl", "--review", "--base", "dev"]),
+            (s(""), s("dev"), None)
+        );
+        assert_eq!(
+            review(&["merl", "--review=feature", "--base=dev"]),
+            (s("feature"), s("dev"), None)
         );
         assert!(super::Cli::try_parse_from(["merl", "--base", "x"]).is_err());
+    }
+
+    #[test]
+    fn short_flags_read_as_the_long_ones() {
+        use clap::Parser;
+        let cli =
+            super::Cli::parse_from(["merl", "-r", "feature", "-b", "origin/dev", "-t", "nord"]);
+        assert_eq!(
+            (
+                cli.review.as_deref(),
+                cli.base.as_deref(),
+                cli.theme.as_deref()
+            ),
+            (Some("feature"), Some("origin/dev"), Some("nord"))
+        );
+        let cli = super::Cli::parse_from(["merl", "-r", "-b", "dev"]);
+        assert_eq!(
+            (cli.review.as_deref(), cli.base.as_deref()),
+            (Some(""), Some("dev"))
+        );
+        assert_eq!(super::Cli::parse_from(["merl", "-d"]).drill, Some(20));
+        assert_eq!(super::Cli::parse_from(["merl", "-d", "5"]).drill, Some(5));
+        assert!(super::Cli::parse_from(["merl", "-k"]).keys);
+        assert!(super::Cli::try_parse_from(["merl", "-b", "x"]).is_err());
     }
 
     #[test]
