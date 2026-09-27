@@ -17,8 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   agent rewrites renders again, and it reflows to the pane: a table wider than the pane narrows
   its widest columns and wraps inside their cells instead of falling apart. Reading keys move a
   cursor row; `/`, `v`, `d` and `u` have no word or column to act on there and do nothing. In
-  `--review` the preview keeps the diff's marks and tints. The tutor has a Markdown plan and a
-  lesson for it. (#249)
+  `--review` the diff stays on the source: `p` on a file of the review says `in review`. The
+  tutor has a Markdown plan and a lesson for it. (#249)
 
 ### Changed
 

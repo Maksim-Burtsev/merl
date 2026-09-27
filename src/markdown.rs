@@ -8,7 +8,7 @@
 //!
 //! The rows come in source order: every row's lines start at or after those of the rows above
 //! it. A footnote definition is drawn where it is written, not gathered at the end, so moving
-//! down the rows never moves back up the source, and `c` walks down the screen.
+//! down the rows never moves back up the source.
 
 use std::collections::HashMap;
 use std::ops::Range;
@@ -20,6 +20,7 @@ use pulldown_cmark::{
 use ratatui::style::{Color, Modifier, Style};
 use syntect::highlighting::Highlighter;
 use syntect::parsing::Scope;
+use unicase::UniCase;
 
 use crate::theme::Theme;
 use crate::wrap;
@@ -113,16 +114,6 @@ pub struct Doc {
     /// Never empty: an empty file is one blank row.
     pub rows: Vec<Row>,
     pub code: Vec<Code>,
-}
-
-impl Row {
-    /// The first and the last source line the row stands for, shown or owned; `None` for a row
-    /// drawn for no line of its own (a border, a rule, a blank row with no blank line under it).
-    pub fn span(&self) -> Option<(usize, usize)> {
-        let owned = self.owns.iter().copied();
-        let lines = self.lines.clone().chain(owned);
-        Some((lines.clone().min()?, lines.max()?))
-    }
 }
 
 impl Doc {
@@ -327,15 +318,16 @@ struct Lay<'a> {
     block: Option<Block>,
     /// Inside front matter, which is drawn from its source lines.
     meta: bool,
-    /// Footnote labels, numbered as they are first met.
-    numbers: HashMap<String, usize>,
+    /// Footnote labels, numbered as they are first met, and matched as the parser matches a
+    /// reference to its note: case folded.
+    numbers: HashMap<UniCase<String>, usize>,
 }
 
 impl Lay<'_> {
     fn event(&mut self, ev: Event, r: Range<usize>) {
         match ev {
             Event::Start(tag) => self.start(tag, r),
-            Event::End(tag) => self.end(tag),
+            Event::End(tag) => self.end(tag, r),
             Event::Text(_) if self.meta => {}
             Event::Text(t) if self.block.is_some() => {
                 // Code comes as text that ends its lines with `\n`: a block at the top in one
@@ -536,7 +528,7 @@ impl Lay<'_> {
         }
     }
 
-    fn end(&mut self, tag: TagEnd) {
+    fn end(&mut self, tag: TagEnd, r: Range<usize>) {
         match tag {
             TagEnd::Paragraph => {
                 self.flush();
@@ -572,6 +564,11 @@ impl Lay<'_> {
             }
             TagEnd::FootnoteDefinition => {
                 self.flush_implicit();
+                // An empty note still shows its label.
+                if let Some(Frame::Item(Some(_), _)) = self.stack.last() {
+                    let at = self.pos(r.start);
+                    self.push(String::new(), Vec::new(), at, Kind::Text);
+                }
                 self.stack.pop();
                 self.gap = true;
             }
@@ -672,7 +669,10 @@ impl Lay<'_> {
 
     fn number(&mut self, label: &str) -> usize {
         let next = self.numbers.len() + 1;
-        *self.numbers.entry(label.to_string()).or_insert(next)
+        *self
+            .numbers
+            .entry(UniCase::new(label.into()))
+            .or_insert(next)
     }
 
     /// Where a row that stands for no text of its own goes back to: the end of the line the row

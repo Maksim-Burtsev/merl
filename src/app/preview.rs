@@ -24,12 +24,18 @@ pub struct Preview {
 }
 
 impl App {
-    /// The open file is shown rendered.
+    /// The open file is shown rendered: never a file of `--review`, whose diff lives on the
+    /// source.
     pub fn previewing(&self) -> bool {
-        self.buf
-            .path
-            .as_ref()
-            .is_some_and(|p| self.previewed.contains(p))
+        let shown = |p: &PathBuf| self.previewed.contains(p);
+        self.buf.path.as_ref().is_some_and(shown) && !self.in_review()
+    }
+
+    /// The open file is one of the review's.
+    fn in_review(&self) -> bool {
+        let rel = self.rel_current();
+        let file = |r: &git::Review| rel.as_deref().and_then(|rel| r.file(rel)).is_some();
+        self.review.as_ref().is_some_and(file)
     }
 
     /// `p`: the open Markdown file rendered, or its source again. The cursor row stays as far
@@ -38,6 +44,10 @@ impl App {
         let Some(path) = self.buf.path.clone() else {
             return;
         };
+        if self.in_review() {
+            self.message = "in review".into();
+            return;
+        }
         if self.previewed.remove(&path) {
             let off = self
                 .preview
@@ -156,6 +166,11 @@ impl App {
             key.code,
             KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right | KeyCode::Enter
         );
+        // `c` / `C` walk the review on the source: the preview is left for them.
+        if self.review.is_some() && matches!(key.code, KeyCode::Char('c' | 'C')) {
+            self.toggle_preview();
+            return false;
+        }
         let elsewhere = match key.code {
             KeyCode::Esc | KeyCode::Tab => true,
             KeyCode::Char(c) if ctrl => matches!(c, 'g' | 'n' | 'e' | 's' | 'r' | 'z' | 'y'),
@@ -172,20 +187,21 @@ impl App {
         let (row, top, last) = (p.row, p.top, p.doc.rows.len() - 1);
         let (h, half) = (self.view_h.max(1), (self.view_h / 2).max(1));
         let gap = |i: &usize| p.doc.rows[*i].kind == Kind::Gap;
-        // Where the key goes, and how the view goes with it. The jump history follows the source
-        // line as in the source: the rows are in source order.
-        let (to, scroll) = match key.code {
-            KeyCode::Up if plain => (row.saturating_sub(1), 0),
-            KeyCode::Down if plain => ((row + 1).min(last), 0),
-            KeyCode::PageUp if plain => (row.saturating_sub(h), 0),
-            KeyCode::PageDown if plain => ((row + h).min(last), 0),
+        // Where the key goes, how the view goes with it, and whether it reads on by rows (the
+        // current stop of the jump history follows it, as paging does: one row can stand for
+        // many lines) or goes by the source's lines (a far one adds a stop, as in the source).
+        let (to, scroll, reads) = match key.code {
+            KeyCode::Up if plain => (row.saturating_sub(1), 0, true),
+            KeyCode::Down if plain => ((row + 1).min(last), 0, true),
+            KeyCode::PageUp if plain => (row.saturating_sub(h), 0, true),
+            KeyCode::PageDown if plain => ((row + h).min(last), 0, true),
             // Half a screen, the view with the cursor, as in the source.
-            KeyCode::Char('u') if ctrl => (row.saturating_sub(half), -1),
-            KeyCode::Char('d') if ctrl => ((row + half).min(last), 1),
-            KeyCode::Home if ctrl => (0, 0),
-            KeyCode::End if ctrl => (last, 0),
-            KeyCode::Char('{') => ((0..row).rev().find(gap).unwrap_or(0), 0),
-            KeyCode::Char('}') => ((row + 1..=last).find(gap).unwrap_or(last), 0),
+            KeyCode::Char('u') if ctrl => (row.saturating_sub(half), -1, true),
+            KeyCode::Char('d') if ctrl => ((row + half).min(last), 1, true),
+            KeyCode::Home if ctrl => (0, 0, false),
+            KeyCode::End if ctrl => (last, 0, false),
+            KeyCode::Char('{') => ((0..row).rev().find(gap).unwrap_or(0), 0, false),
+            KeyCode::Char('}') => ((row + 1..=last).find(gap).unwrap_or(last), 0, false),
             KeyCode::Enter if plain => {
                 self.start_edit();
                 return true;
@@ -198,24 +214,34 @@ impl App {
             1 => top + moved,
             _ => top,
         };
-        // A row drawn for no line of its own (a border, a rule, a blank row with no blank line
-        // under it) stands between the content above and below it: the cursor goes to the start
-        // of the content below, where Enter edits, or to the end of the file when there is none.
+        // A row that shows no line (a border, a rule, a blank row with no blank line under it)
+        // stands before the block below it: the cursor goes to the first line that block shows,
+        // where Enter edits, or to the end of the file when there is none.
         let rows = &p.doc.rows;
-        let src = match rows[to].span() {
-            Some(_) => rows[to].src,
-            None => rows[to..]
+        let src = match rows[to].lines.is_empty() {
+            false => rows[to].src,
+            true => rows[to..]
                 .iter()
-                .find_map(|r| r.span())
-                .map_or((usize::MAX, usize::MAX), |(b, _)| (b, 0)),
+                .find(|r| !r.lines.is_empty())
+                .map_or((usize::MAX, usize::MAX), |r| (r.lines.start, 0)),
         };
         (self.line, self.col) = self.clamp_pos(src);
         let at = (self.line, self.col);
         if let Some(p) = &mut self.preview {
             (p.row, p.top, p.at) = (to, top, Some(at));
         }
+        if reads && let (Some(pos), Some(cur)) = (self.pos(), self.history.get_mut(self.hist_idx)) {
+            *cur = pos;
+        }
         self.preview_clamp();
         true
+    }
+
+    /// The cursor row of the preview shows no line: Ctrl+C has nothing to copy.
+    pub(super) fn preview_blank(&self) -> bool {
+        let pos = Some((self.line, self.col));
+        let p = self.preview.as_ref().filter(|p| p.at == pos);
+        self.previewing() && p.is_some_and(|p| p.doc.rows[p.row].lines.is_empty())
     }
 
     /// A jump moved the cursor to a line: the preview shows the row of that line, found anew,
@@ -224,23 +250,5 @@ impl App {
         if let Some(p) = &mut self.preview {
             p.at = None;
         }
-    }
-
-    /// The lines the cursor stands on, for `c`, `C`, the status bar's count and the missed-keys
-    /// watch: its line, or none on a row drawn for no line, which stands between the content
-    /// ending at line `a` above it and the content below: `a + 1..a + 1`, so `c` goes to the
-    /// first hunk after `a` and `C` to the last at or before it. With nothing above, `0..0`.
-    pub(super) fn cursor_at(&self) -> std::ops::Range<usize> {
-        let here = self.line..self.line + 1;
-        let pos = (self.line, self.col);
-        let Some(p) = self.preview.as_ref() else {
-            return here;
-        };
-        if !self.previewing() || p.at != Some(pos) || p.doc.rows[p.row].span().is_some() {
-            return here;
-        }
-        let a = p.doc.rows[..p.row].iter().rev().find_map(|r| r.span());
-        let n = a.map_or(0, |(_, a)| a + 1);
-        n..n
     }
 }

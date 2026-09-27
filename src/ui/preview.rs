@@ -1,23 +1,21 @@
-//! The code pane showing a Markdown file rendered (#249): the rows `markdown` laid out, the
-//! cursor row, and the source's git marks beside the rows they came from.
+//! The code pane showing a Markdown file rendered (#249): the rows `markdown` laid out and the
+//! cursor row. The git marks stay on the source, where the diff is.
 
-use std::collections::HashMap;
 use std::ops::Range;
 
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Style};
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 
 use crate::app::App;
 use crate::buffer::Buffer;
-use crate::git::Mark;
-use crate::markdown::{Kind, Palette, Row};
+use crate::markdown::{Kind, Palette};
 use crate::theme::Theme;
 use crate::wrap;
 
-use super::code::{digits, mark_span, review_tint};
+use super::code::digits;
 
 pub(super) fn draw_preview(
     frame: &mut Frame,
@@ -52,46 +50,13 @@ pub(super) fn draw_preview(
 
     let p = app.preview.as_ref().unwrap();
     let pal = Palette::new(theme);
-    let review = app.review.is_some();
     let gutter = base.fg(theme.gutter_fg);
-    let ghosts = ghost_marks(&p.doc.rows, app.diff.ghosts.keys().copied());
-    // A review marks a line that replaced a deleted one as added, and shows the deleted one
-    // above it, paired for its changed words; the preview has no room for it, so it marks the
-    // new line changed, as the gutter marks a line changed against the index.
-    let replaced = &app.diff.pairs;
     let mut lines: Vec<Line> = Vec::with_capacity(end - p.top);
     for i in p.top..end {
         let row = &p.doc.rows[i];
-        let cursor = i == p.row;
-        // A row's mark is the one of any line it shows or stands for: a changed line may start
-        // mid-row. Changed says more than added, and either more than deleted below.
-        let marks = row.lines.clone().chain(row.owns.iter().copied());
-        let mark = marks
-            .filter_map(|l| match app.diff.marks.get(&l) {
-                Some(Mark::Added) if replaced.contains_key(&l) => Some(Mark::Changed),
-                m => m.copied(),
-            })
-            .min_by_key(|m| match m {
-                Mark::Changed => 0,
-                Mark::Added => 1,
-                Mark::DeletedBelow => 2,
-            });
-        let mark = mark.as_ref();
-        let bg = match (review_tint(review, mark, theme), cursor) {
-            (Some((_, c)), true) | (Some((c, _)), false) => Some(c),
-            (None, true) => Some(theme.line_hl),
-            (None, false) => None,
-        };
+        let bg = (i == p.row).then_some(theme.line_hl);
         let t = bg.map_or(base, |c| base.bg(c));
-        let g = if cursor {
-            gutter.bg(theme.line_hl)
-        } else {
-            gutter
-        };
-        let mark = match (mark, ghosts.get(&i)) {
-            (None, Some(glyph)) => Span::styled(*glyph, g.fg(Color::Red)),
-            (mark, _) => mark_span(mark, g),
-        };
+        let g = bg.map_or(gutter, |c| gutter.bg(c));
         let looks: Vec<(Style, Range<usize>)> = row
             .looks
             .iter()
@@ -119,9 +84,9 @@ pub(super) fn draw_preview(
             }
             _ => Vec::new(),
         };
-        let mut spans = vec![Span::styled(" ".repeat(gutter_w - 1), g), mark];
+        let mut spans = vec![Span::styled(" ".repeat(gutter_w), g)];
         spans.extend(layered(&row.text, &[&looks, &syntax], t));
-        // A code block's tint, the cursor row and a review's tint reach the right edge.
+        // A code block's tint and the cursor row reach the right edge.
         let fill = match (bg, row.kind) {
             (Some(_), _) => Some(t),
             (None, Kind::Code { .. }) => Some(base.bg(pal.code_bg)),
@@ -134,32 +99,6 @@ pub(super) fn draw_preview(
         lines.push(Line::from(spans));
     }
     frame.render_widget(Paragraph::new(lines).style(base), area);
-}
-
-/// Where the lines a review deleted are marked, by row: `▔` on the first row of the line they
-/// stood above, or, past the last line, `▁` on the last row of the line they stood below, as the
-/// source marks lines deleted below a line.
-fn ghost_marks(rows: &[Row], keys: impl Iterator<Item = usize>) -> HashMap<usize, &'static str> {
-    let mut out = HashMap::new();
-    for k in keys {
-        let above = rows
-            .iter()
-            .position(|r| r.lines.contains(&k) || r.owns.contains(&k));
-        let before = |i: &usize| !rows[*i].lines.is_empty() && rows[*i].lines.end <= k;
-        let below = || {
-            (0..rows.len())
-                .filter(before)
-                .max_by_key(|&i| (rows[i].lines.end, i))
-        };
-        let at = match above {
-            Some(i) => Some((i, "\u{2594}")),
-            None => below().map(|i| (i, "\u{2581}")),
-        };
-        if let Some((i, glyph)) = at {
-            out.insert(i, glyph);
-        }
-    }
-    out
 }
 
 /// `text` in spans, each byte in `base` patched with the style every layer gives it, in order.

@@ -90,7 +90,8 @@ impl App {
         if ctrl && key.code == KeyCode::Char('c') && self.mode != Mode::Edit {
             // Ctrl+C is copy everywhere and never quits; a prompt or picker has nothing to copy.
             self.action = named("", key);
-            if self.mode == Mode::Normal && self.picker.is_none() {
+            // A preview row that shows no line has none to copy.
+            if self.mode == Mode::Normal && self.picker.is_none() && !self.preview_blank() {
                 self.copy();
             }
             return false;

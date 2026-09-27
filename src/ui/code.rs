@@ -126,7 +126,13 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         let clipped = app.buf.shown(l);
         let cursor_line = l == app.line;
         let lit = cursor_line && text_hl;
-        let tint = review_tint(review, app.diff.marks.get(&l), theme);
+        // A review tints the rows the branch added, or those of a file it deleted; the gutter
+        // marks against the index outside a review get no tint.
+        let tint = match (review, app.diff.marks.get(&l)) {
+            (true, Some(Mark::Added)) => Some((theme.add_bg, theme.add_bg_hl)),
+            (true, Some(Mark::DeletedBelow)) => Some((theme.del_bg, theme.del_bg_hl)),
+            _ => None,
+        };
         let words = app
             .diff
             .pairs
@@ -188,7 +194,15 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             } else {
                 " ".repeat(gutter_w - 1)
             };
-            let mut row = vec![Span::styled(num, g), mark_span(app.diff.marks.get(&l), g)];
+            // The column between the number and the text carries the git mark, VS Code style:
+            // green added, blue changed, red where lines were deleted.
+            let mark = match app.diff.marks.get(&l) {
+                Some(Mark::Added) => Span::styled("\u{258e}", g.fg(Color::Green)),
+                Some(Mark::Changed) => Span::styled("\u{258e}", g.fg(Color::Blue)),
+                Some(Mark::DeletedBelow) => Span::styled("\u{2581}", g.fg(Color::Red)),
+                None => Span::styled(" ", g),
+            };
+            let mut row = vec![Span::styled(num, g), mark];
             if before {
                 row.push(Span::styled("\u{2039}", g));
             }
@@ -243,32 +257,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     {
         let x = area.x + (gutter_w + app.cursor_x().saturating_sub(app.left)) as u16;
         frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
-    }
-}
-
-/// The column between the number and the text carries the git mark, VS Code style: green added,
-/// blue changed, red where lines were deleted. `g` is the gutter's style on the row.
-pub(super) fn mark_span(mark: Option<&Mark>, g: Style) -> Span<'static> {
-    match mark {
-        Some(Mark::Added) => Span::styled("\u{258e}", g.fg(Color::Green)),
-        Some(Mark::Changed) => Span::styled("\u{258e}", g.fg(Color::Blue)),
-        Some(Mark::DeletedBelow) => Span::styled("\u{2581}", g.fg(Color::Red)),
-        None => Span::styled(" ", g),
-    }
-}
-
-/// A review tints the rows the branch added (the preview marks those that replaced lines
-/// changed), or those of a file it deleted: the tint off the cursor line and on it. The gutter
-/// marks against the index outside a review get no tint.
-pub(super) fn review_tint(
-    review: bool,
-    mark: Option<&Mark>,
-    theme: &Theme,
-) -> Option<(Color, Color)> {
-    match (review, mark) {
-        (true, Some(Mark::Added | Mark::Changed)) => Some((theme.add_bg, theme.add_bg_hl)),
-        (true, Some(Mark::DeletedBelow)) => Some((theme.del_bg, theme.del_bg_hl)),
-        _ => None,
     }
 }
 

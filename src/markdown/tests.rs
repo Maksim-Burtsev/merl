@@ -454,6 +454,21 @@ fn footnotes_are_drawn_where_they_are_written() {
 }
 
 #[test]
+fn a_footnote_is_numbered_as_its_reference_whatever_the_case() {
+    // The parser pairs `[^Note]` with `[^note]:`, folding case; so does the number.
+    let d = doc("Text[^Note].\n\n[^note]: body\n", 40);
+    assert_eq!(texts(&d), ["Text[1].", "", "[1] body"]);
+}
+
+#[test]
+fn an_empty_footnote_shows_its_label() {
+    let d = doc("Text[^1].\n\n[^1]:\n\nAfter.\n", 40);
+    let rows: Vec<&str> = d.rows.iter().map(|r| r.text.trim_end()).collect();
+    assert_eq!(rows, ["Text[1].", "", "[1]", "", "After."]);
+    assert_eq!(d.row_at((2, 0)), 2);
+}
+
+#[test]
 fn an_info_string_names_its_language_by_its_first_word() {
     let d = doc(
         "```rust,ignore\nfn f() {}\n```\n\n```py title=x\npass\n```",
@@ -481,15 +496,14 @@ fn lines_after_a_footnote_go_with_it() {
 fn in_source_order(d: &Doc) -> Result<(), String> {
     let mut last = 0;
     for (i, r) in d.rows.iter().enumerate() {
-        if let Some((first, _)) = r.span() {
-            if first < last {
-                return Err(format!(
-                    "row {i} {:?} starts at line {first}, after {last}",
-                    r.text
-                ));
-            }
-            last = first;
+        let first = r.lines.start;
+        if first < last {
+            return Err(format!(
+                "row {i} {:?} starts at line {first}, after {last}",
+                r.text
+            ));
         }
+        last = first;
     }
     Ok(())
 }

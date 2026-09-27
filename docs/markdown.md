@@ -26,7 +26,7 @@ bar says `[preview]` where it says `[code]`, and `p` on a file that is not Markd
 | `---` | a rule across the pane |
 | `[text](url)` | the text, underlined in the link colour; the URL is in the source |
 | `![alt](image.png)` | `▣` and the alt text |
-| footnotes | the reference as `[1]`; the note where it is written, under its `[1]` |
+| footnotes | the reference as `[1]`; the note where it is written, beside its `[1]` |
 | YAML front matter, raw HTML | as written, dim |
 
 Images, heading sizes, Mermaid and math stay text: a terminal has no way to draw them.
@@ -40,19 +40,16 @@ blocks included.
 
 The preview has a cursor row: Up / Down, PgUp / PgDn, Ctrl+D / Ctrl+U and Ctrl+Home / Ctrl+End
 move it, and `{` / `}` go to the blank row before the previous or next block. The status bar and
-the jump history follow the source line under it: reading adds no stop, Ctrl+Home, Ctrl+End and a
-far `{` / `}` add one as in the source. `[` and `]`, `:`, `o`, `s`, `D`, `t`, `T`, `?` and `q` work
-as everywhere, and Ctrl+C copies the source line. What acts on a word, a column
-or a selection (`/`, `n`, `v`, `d`, `u`, Home / End, Shift or Alt with an arrow, `w`) has nothing
-to act on in the preview and does nothing; `p` or Enter take you to the source for it.
+the jump history follow the source line under it. Reading by rows adds no stop, however many
+lines a row stands for; Ctrl+Home, Ctrl+End and a far `{` / `}` go by the source's lines and add
+one as in the source. A row that shows no line (a table's border, a heading's rule, a blank row
+with no blank line under it) stands before the block below: Enter there edits that block's first
+line. `[` and `]`, `:`, `o`, `s`, `D`, `t`, `T`, `?` and `q` work as everywhere, and Ctrl+C copies
+the source line, nothing on a row that shows none. What acts on a word, a column or a selection
+(`/`, `n`, `v`, `d`, `u`, Home / End, Shift or Alt with an arrow, `w`) has nothing to act on in the
+preview and does nothing; `p` or Enter take you to the source for it.
 
-In `--review` the preview keeps the diff in its gutter: the rows of lines the branch added have
-the green bar and tint, a line that replaced one the blue bar a changed line gets, and a red mark
-stands where the branch deleted lines. The deleted text itself is in the source. `c` / `C` walk
-the hunks by the source line, as in the source, and the preview shows the row of the hunk's line:
-the next hunk on the same row is one `c` further, and the count in the status bar says which one
-the cursor is on. Lines no row shows (a deleted paragraph, reference definitions) go with the row
-above them. A row drawn for no line (a table's border, a heading's rule, a blank row with no blank
-line under it) stands between the blocks above and below it: `c` goes to the first hunk below,
-`C` to the last one at or above, and Enter edits at the start of the block below, or at the end of
-the file where there is none.
+In `--review` the diff lives on the source: `p` on a file of the review does nothing and says
+`in review`, and a file shown rendered that the branch comes to change shows its source again.
+A file outside the review renders as anywhere; `c` / `C` there leave the preview and walk the
+review from the source.
