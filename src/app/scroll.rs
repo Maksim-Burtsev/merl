@@ -3,8 +3,7 @@
 use super::*;
 
 /// Most declarations pinned over the code: the innermost ones when more enclose the view. Two
-/// covers a method in its `impl` or `class`; with the rule under them they take three rows of a
-/// pane of thirty.
+/// covers a method in its `impl` or `class`, two rows of a pane of thirty.
 const MAX_PINNED: usize = 2;
 
 impl App {
@@ -50,22 +49,13 @@ impl App {
         pins
     }
 
-    /// Rows the pinned lines take off the top of the code pane with `top` first in the view:
-    /// one each, and the rule under them.
-    fn pinned_rows(&self, top: usize) -> usize {
-        match self.pinned(top).len() {
-            0 => 0,
-            n => n + 1,
-        }
-    }
-
     /// The first top at or below `from` that shows `bottom` on the pane, under the lines pinned
     /// for that top: nothing ever stands behind them. Scrolling down can pin a line more, which
     /// takes a row more, so the top moves on until the pins it gets leave `bottom` in sight.
     fn fit_top(&self, from: (usize, usize), bottom: (usize, usize)) -> (usize, usize) {
         let mut top = from;
         loop {
-            let rows = self.view_h.saturating_sub(1 + self.pinned_rows(top.0));
+            let rows = self.view_h.saturating_sub(1 + self.pinned(top.0).len());
             let fit = self.back_rows(bottom, rows);
             if fit <= top {
                 return top;

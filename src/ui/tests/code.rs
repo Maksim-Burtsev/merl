@@ -906,10 +906,10 @@ fn a_changed_word_is_painted_on_a_wrapped_or_scrolled_ghost() {
     assert!(app.left > 0);
 }
 
-/// #248: inside a long function its first line stays pinned on top with a rule under it, and
-/// the code starts below them. The cursor walking down and back up is always on a row of its
-/// own line under the rule, so no line is ever behind the pinned ones; on the function's own
-/// line the pin goes.
+/// #248: inside a long function its first line stays pinned on top on a band of the cursor
+/// line's colour, and the code starts below it. The cursor walking down and back up is always on
+/// a row of its own line under the band, so no line is ever behind the pinned ones; on the
+/// function's own line the pin goes.
 #[test]
 fn the_enclosing_function_stays_pinned_above_the_code() {
     let mut text = String::from("fn long() {\n");
@@ -926,36 +926,38 @@ fn the_enclosing_function_stays_pinned_above_the_code() {
     );
     app.show_tree = false;
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    // Eleven rows of code: one declaration pinned, and its rule.
+    // Eleven rows of code, the first of them the pinned declaration.
     let mut terminal = Terminal::new(TestBackend::new(30, 12)).unwrap();
-    let rule = "\u{2500}".repeat(30);
     let mut press = |app: &mut App, code: KeyCode| {
         app.key(KeyEvent::new(code, KeyModifiers::NONE));
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
         let y = terminal.get_cursor_position().unwrap().y as usize;
-        (rows(&terminal), y)
+        let band = (0..30).all(|x| terminal.backend().buffer()[(x, 0)].bg == theme.line_hl);
+        (rows(&terminal), y, band)
     };
-    let (screen, _) = press(&mut app, KeyCode::Null);
+    let (screen, _, _) = press(&mut app, KeyCode::Null);
     assert_eq!(screen[..2], ["1 fn long() {", "2     let a0 = 0;"]);
     for code in [KeyCode::Down, KeyCode::Up] {
         for _ in 0..20 {
-            let (screen, y) = press(&mut app, code);
+            let (screen, y, band) = press(&mut app, code);
             let pinned = app.top_line > 0;
-            assert_eq!(screen[0] == "1 fn long() {" && screen[1] == rule, pinned);
+            assert_eq!(screen[0], "1 fn long() {");
+            // Unpinned, the top row is lit only as the cursor line.
+            assert_eq!(band, pinned || app.line == 0);
             assert!(
-                y >= if pinned { 2 } else { 0 },
-                "the cursor is under the rule"
+                y >= if pinned { 1 } else { 0 },
+                "the cursor is under the band"
             );
             assert!(screen[y].starts_with(&format!("{} ", app.line + 1)));
         }
         if code == KeyCode::Down {
-            // On the bottom row, the rows above it start right under the rule.
-            let (screen, y) = press(&mut app, KeyCode::Null);
+            // On the bottom row, the rows above it start right under the band.
+            let (screen, y, _) = press(&mut app, KeyCode::Null);
             assert_eq!((app.line, y), (20, 10));
-            assert_eq!(screen[2], "13     let a11 = 11;");
+            assert_eq!(screen[1], "12     let a10 = 10;");
         }
     }
-    let (screen, _) = press(&mut app, KeyCode::Null);
+    let (screen, _, _) = press(&mut app, KeyCode::Null);
     assert_eq!(screen[..2], ["1 fn long() {", "2     let a0 = 0;"]);
 }
 
@@ -1007,11 +1009,13 @@ fn a_hunk_inside_a_long_function_lands_below_the_pinned_header() {
     let screen = rows(&terminal);
     let y = terminal.get_cursor_position().unwrap().y as usize;
     assert_eq!(app.line, 21);
-    assert_eq!(screen[..2], ["1 def long():", &"\u{2500}".repeat(30)]);
+    assert_eq!(screen[0], "1 def long():");
+    let buf = terminal.backend().buffer();
+    assert!((0..30).all(|x| buf[(x, 0)].bg == theme.line_hl));
     assert_eq!(
         screen[y - 1..=y],
         ["\u{258e}    a20 = 20", "22\u{258e}    a20 = 200"]
     );
-    assert!(y > 2, "the deleted line is under the rule");
+    assert!(y > 1, "the deleted line is under the band");
     let _ = std::fs::remove_dir_all(dir);
 }

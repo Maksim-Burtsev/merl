@@ -263,12 +263,11 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
 }
 
 /// The declarations enclosing the top of the view, pinned over the text (#248): the first row
-/// of each in its syntax colours, beside its line number, and a rule under them in the gutter's
-/// colour. The rule is what tells them from the lines above the code at a glance; a background
-/// of their own would be the cursor line's, and an underline runs through the letters.
+/// of each in its syntax colours, beside its line number, on a band of the cursor line's colour
+/// across the pane. The band is what tells them from the code under them at a glance.
 fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -> Vec<Line<'a>> {
-    let pins = app.pinned(app.top_line);
-    let mut lines: Vec<Line> = pins
+    let band = base.bg(theme.line_hl);
+    app.pinned(app.top_line)
         .iter()
         .map(|&p| {
             let text = app.buf.shown(p);
@@ -278,16 +277,16 @@ fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -
             };
             let syntax = app.buf.hl.get(p).map_or(&[][..], Vec::as_slice);
             let num = format!("{:>w$}{}", p + 1, " ".repeat(1 + lead), w = gutter_w - 1);
-            let mut row = vec![Span::styled(num, base.fg(theme.gutter_fg))];
-            row.extend(row_spans(text, syntax, &r, base));
+            let mut row = vec![Span::styled(num, band.fg(theme.gutter_fg))];
+            let pad = app
+                .view_w
+                .saturating_sub(lead + wrap::width(&text[r.clone()]));
+            row.extend(row_spans(text, syntax, &r, band));
+            // Pad so the band reaches the right edge of the pane.
+            row.push(Span::styled(" ".repeat(pad), band));
             Line::from(row)
         })
-        .collect();
-    if !lines.is_empty() {
-        let rule = "\u{2500}".repeat(gutter_w + app.view_w);
-        lines.push(Line::from(Span::styled(rule, base.fg(theme.gutter_fg))));
-    }
-    lines
+        .collect()
 }
 
 /// Cuts one wrapped row `r` of `text` into spans, taking colours from the line's highlighting
