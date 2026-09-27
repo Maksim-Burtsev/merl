@@ -80,7 +80,7 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         .style(base);
     // Review: the size of the branch on the bottom border, as GitHub gives it above its file
     // list. A binary file counts as a file and adds no lines.
-    if let Some(r) = &app.review {
+    if let Some(r) = app.review.as_ref().filter(|_| app.review_panel_colours) {
         let (added, deleted) = r
             .files
             .iter()
@@ -147,12 +147,22 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 // Review: `M name  +6 −2`, the status in place of the marker.
                 Some(f) => {
                     // The letter in the colours of the gutter marks, so a file reads like its
-                    // lines; a rename or a copy is dim, as GitHub draws it grey.
-                    let letter = match f.status {
-                        'A' => Color::Green,
-                        'M' => Color::Blue,
-                        'D' => Color::Red,
-                        _ => theme.ghost_fg,
+                    // lines; a rename or a copy is dim, as GitHub draws it grey. With
+                    // `review_panel_colours = false`, letter and counts take the row's style.
+                    let (letter, dim) = match app.review_panel_colours {
+                        true => {
+                            let colour = match f.status {
+                                'A' => Color::Green,
+                                'M' => Color::Blue,
+                                'D' => Color::Red,
+                                _ => theme.ghost_fg,
+                            };
+                            (
+                                style.fg(colour).add_modifier(Modifier::BOLD),
+                                style.fg(theme.ghost_fg),
+                            )
+                        }
+                        false => (style, style),
                     };
                     let counts = if f.binary {
                         "bin".to_string()
@@ -171,14 +181,11 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                     let gap =
                         width.saturating_sub(used + wrap::width(&name) + wrap::width(&counts));
                     spans.extend([
-                        Span::styled(
-                            f.status.to_string(),
-                            style.fg(letter).add_modifier(Modifier::BOLD),
-                        ),
+                        Span::styled(f.status.to_string(), letter),
                         Span::styled(format!(" {name}{}", " ".repeat(gap)), style),
                         // Dim, in the readable grey (#146): the name reads first, the numbers
                         // are there when looked for.
-                        Span::styled(counts, style.fg(theme.ghost_fg)),
+                        Span::styled(counts, dim),
                     ]);
                 }
                 None => {

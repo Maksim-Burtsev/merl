@@ -25,7 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The file panel of `merl --review` paints the status letter bold in the gutter's colours, `A`
   green, `M` blue, `D` red, a rename or a copy dim; the line counts and `bin` are dim, so the
   name reads first; and the bottom border gives the size of the branch, `3 files · +13 −1`. A
-  long name of wide characters is cut to fit instead of pushing the counts off the panel. (#250)
+  long name of wide characters is cut to fit instead of pushing the counts off the panel.
+  `review_panel_colours = false` in `~/.config/merl/config.toml` turns the colours, the dimming and
+  the totals off. (#250)
 
 ### Fixed
 

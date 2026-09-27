@@ -538,6 +538,25 @@ fn review_panel_shows_the_branch_totals_on_the_bottom_border() {
     );
 }
 
+/// #250: `review_panel_colours = false` draws the panel as before: the letter and the counts in
+/// the row's colours, no totals on the bottom border.
+#[test]
+fn review_panel_colours_off_draws_the_plain_panel() {
+    let mut app = review_app(&[("new.rs", 'A', 6, 0), ("store.rs", 'M', 7, 1)]);
+    app.review_panel_colours = false;
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(60, 8)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    for needle in ["A new.rs", "M store.rs"] {
+        let c = cell(&terminal, needle);
+        assert_eq!(c.fg, theme.fg, "{needle}");
+        assert!(!c.modifier.contains(Modifier::BOLD), "{needle}");
+    }
+    assert_eq!(at(&terminal, "+7 \u{2212}1"), theme.fg);
+    let r = rows(&terminal);
+    assert!(!r[r.len() - 2].contains("file"), "{r:#?}");
+}
+
 /// #250: on a border too narrow for them the totals go whole, never cut mid-number.
 #[test]
 fn review_panel_drops_the_totals_that_do_not_fit() {

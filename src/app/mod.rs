@@ -339,6 +339,8 @@ pub struct App {
     /// When the last edit was made; autosave fires `autosave` after it.
     last_edit: Option<Instant>,
     pub autosave: Duration,
+    /// `review_panel_colours` of the config: off, the review panel draws as it did before #250.
+    pub review_panel_colours: bool,
     /// Linear per-file undo history, oldest first, and what undo took back.
     undo: Vec<Edit>,
     redo: Vec<Edit>,
@@ -491,6 +493,7 @@ impl App {
             conflict: false,
             last_edit: None,
             autosave: Duration::from_secs(1),
+            review_panel_colours: true,
             undo: Vec::new(),
             redo: Vec::new(),
             undo_break: false,
