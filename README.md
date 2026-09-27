@@ -61,6 +61,10 @@ merl --drill [N]     # N tasks (20) that name what to do, not the key; the keys 
 merl --keys          # how often you press each key and miss it, the unused last
 ```
 
+The long flags have short forms: `-r` for `--review`, `-b` for `--base`, `-t` for `--theme`,
+`-d` for `--drill` and `-k` for `--keys`, so `merl -r feature -b origin/dev` reviews `feature`
+against `origin/dev`.
+
 ## Why
 
 Agents write most of the code now. Your part is to understand it and to review it, and merl does
