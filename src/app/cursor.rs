@@ -11,13 +11,13 @@ impl App {
     /// Places the cursor on screen row `row` of `self.line`, on the cluster under the column
     /// `want_x`, or as far right as the row goes. A row other than the last ends on its last
     /// char: its end is where the next row starts.
-    fn apply_want_x(&mut self, row: usize) {
+    pub(super) fn apply_want_x(&mut self, row: usize) {
         let rows = self.rows(self.line);
         let row = row
             .saturating_sub(self.ghost_rows(self.line))
             .min(rows.len() - 1);
         let r = rows[row].clone();
-        let s = &self.buf.lines[self.line];
+        let s = self.buf.shown(self.line);
         let mut col = if row + 1 < rows.len() {
             prev_char(s, r.end)
         } else {
@@ -38,11 +38,12 @@ impl App {
     }
 
     /// A stored `(line, col)` made valid for the buffer as it is now: the line clamped to the
-    /// file, the col to the line and back onto a char boundary. Every position that outlives a
-    /// reload — history stops, the find anchor, the selection anchor — is read through here.
+    /// file, the col to the part of the line on screen ([`Buffer::shown`]) and back onto a char
+    /// boundary. Every position that outlives a reload — history stops, the find anchor, the
+    /// selection anchor — and every jump to a column is read through here.
     pub(super) fn clamp_pos(&self, (line, col): (usize, usize)) -> (usize, usize) {
         let line = line.min(self.buf.lines.len() - 1);
-        let s = &self.buf.lines[line];
+        let s = self.buf.shown(line);
         let mut col = col.min(s.len());
         while !s.is_char_boundary(col) {
             col -= 1;
@@ -75,11 +76,19 @@ impl App {
         Some(from..to)
     }
 
-    /// The selected text, lines joined with `\n`.
+    /// The selected text, lines joined with `\n`. The drawn end of a line cut at
+    /// [`Buffer::shown`] stands for its real end (#284): the cursor stops there, and what it
+    /// selects runs on to the end, as Ctrl+C with no selection copies it.
     pub(super) fn selected_text(&self) -> Option<String> {
         let (start, end) = self.selection()?;
         let lines: Vec<&str> = (start.0..=end.0)
-            .map(|l| &self.buf.lines[l][self.selected_bytes(l).unwrap()])
+            .map(|l| {
+                let line = &self.buf.lines[l];
+                let cut = self.buf.shown(l).len();
+                let end_of = |col: usize| if col == cut { line.len() } else { col };
+                let r = self.selected_bytes(l).unwrap();
+                &line[end_of(r.start)..end_of(r.end)]
+            })
             .collect();
         Some(lines.join("\n"))
     }
@@ -105,7 +114,7 @@ impl App {
             bottom += 1;
         }
         // The run of word chars under the cursor or, at its end, just before it.
-        let s = self.line_str();
+        let s = self.buf.shown(l);
         let (mut from, mut to) = (self.col, self.col);
         while from > 0 && is_word(char_at(s, prev_char(s, from))) {
             from = prev_char(s, from);
@@ -116,8 +125,8 @@ impl App {
         let word = (from < to).then_some(from..to);
         let steps = [
             word.map(|r| ((l, r.start), (l, r.end))),
-            Some(((l, 0), (l, self.line_str().len()))),
-            Some(((top, 0), (bottom, self.buf.lines[bottom].len()))),
+            Some(((l, 0), (l, s.len()))),
+            Some(((top, 0), (bottom, self.buf.shown(bottom).len()))),
         ];
         let cur = self.selection().unwrap_or(((l, self.col), (l, self.col)));
         let wider = |&(from, to): &((usize, usize), (usize, usize))| {
@@ -148,10 +157,11 @@ impl App {
 
     /// End: the end of the screen row and, pressed there, of the line, as in VS Code. A row
     /// other than the last ends on its last char, since its end is where the next row starts.
+    /// A line cut at [`Buffer::shown`] ends where the cut is.
     pub(super) fn line_end(&mut self) {
         let rows = self.rows(self.line);
         let row = wrap::col_to_row(&rows, self.col);
-        let len = self.line_str().len();
+        let len = self.shown_len();
         let end = if row + 1 < rows.len() {
             prev_char(self.line_str(), rows[row].end)
         } else {
@@ -277,13 +287,13 @@ impl App {
             self.col = prev_char(self.line_str(), self.col);
         } else if self.line > 0 {
             self.line -= 1;
-            self.col = self.line_str().len();
+            self.col = self.shown_len();
         }
         self.sync_want_x();
     }
 
     pub(super) fn right(&mut self) {
-        if self.col < self.line_str().len() {
+        if self.col < self.shown_len() {
             self.col = next_char(self.line_str(), self.col);
         } else if self.line + 1 < self.buf.lines.len() {
             self.line += 1;
@@ -293,13 +303,13 @@ impl App {
     }
 
     pub(super) fn word_right(&mut self) {
-        if self.col >= self.line_str().len() {
+        if self.col >= self.shown_len() {
             if self.line + 1 < self.buf.lines.len() {
                 self.line += 1;
                 self.col = 0;
             }
         } else {
-            self.col = word_end(self.line_str(), self.col);
+            self.col = word_end(self.buf.shown(self.line), self.col);
         }
         self.sync_want_x();
     }
@@ -308,12 +318,18 @@ impl App {
         if self.col == 0 {
             if self.line > 0 {
                 self.line -= 1;
-                self.col = self.line_str().len();
+                self.col = self.shown_len();
             }
         } else {
             self.col = word_start(self.line_str(), self.col);
         }
         self.sync_want_x();
+    }
+
+    /// Where the cursor's line ends for the cursor: a line cut at [`Buffer::shown`] ends at the
+    /// cut, since the rest is on no screen.
+    pub(super) fn shown_len(&self) -> usize {
+        self.buf.shown(self.line).len()
     }
 
     /// Jumps to a 1-based line number, clamped to the file, and centers the view.

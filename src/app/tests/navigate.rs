@@ -890,3 +890,194 @@ fn a_module_or_a_class_in_front_of_the_word_is_not_a_value() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
+
+/// A name an import binds to a module of the project opens the module (#280): its file at line
+/// 1, a package's `__init__.py`, a package over a module of the same name beside it. A name
+/// the package's `__init__.py` binds itself keeps what it leads to, and a module outside the
+/// project is not the project's.
+#[test]
+fn a_name_bound_to_a_project_module_opens_the_module() {
+    let (dir, mut a) = project_app(
+        "project-modules",
+        &[
+            ("shop/__init__.py", ""),
+            ("shop/views.py", "def index(request):\n    return 1\n"),
+            ("shop/api/__init__.py", ""),
+            (
+                "shop/urls.py",
+                "from . import views\n\nurls = [views.index]\n",
+            ),
+            // A package beside a module of the same name is what Python imports.
+            ("shop/forms.py", "x = 1\n"),
+            ("shop/forms/__init__.py", "y = 2\n"),
+            // A package whose `__init__.py` imports its module itself.
+            ("cart/__init__.py", "from . import lines\n"),
+            ("cart/lines.py", "def total():\n    pass\n"),
+            // A package that declares the name keeps its declaration, and a name it binds some
+            // other way is left to the search by name.
+            ("desk/chairs.py", "z = 3\n"),
+            (
+                "desk/__init__.py",
+                "def chairs():\n    pass\n\n\nif True:\n    stools = 1\n",
+            ),
+            ("desk/stools.py", "w = 4\n"),
+            // A namesake elsewhere does not answer for the module.
+            ("other.py", "def views():\n    pass\n"),
+            (
+                "main.py",
+                "import shop\nimport shop.views\nfrom shop import views\nfrom shop import api\nfrom shop import forms\nfrom cart import lines\nfrom desk import chairs\nimport json\nfrom desk import stools\n\nviews.index\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, &[]);
+    let module = |word: &str, place: &str| {
+        let file = place.split(':').next().unwrap();
+        jump(&format!("{word}: module {file}"), place)
+    };
+    for (file, code, want) in [
+        (
+            "main.py",
+            "import shop.views",
+            module("views", "shop/views.py:1"),
+        ),
+        (
+            "main.py",
+            "from shop import views",
+            module("views", "shop/views.py:1"),
+        ),
+        (
+            "main.py",
+            "from shop import api",
+            module("api", "shop/api/__init__.py:1"),
+        ),
+        (
+            "main.py",
+            "^import shop",
+            module("shop", "shop/__init__.py:1"),
+        ),
+        (
+            "main.py",
+            "^views|.index",
+            module("views", "shop/views.py:1"),
+        ),
+        (
+            "main.py",
+            "views.index",
+            jump("index: via import shop/views.py", "shop/views.py:1"),
+        ),
+        (
+            "shop/urls.py",
+            "from . import views",
+            module("views", "shop/views.py:1"),
+        ),
+        (
+            "main.py",
+            "from shop import forms",
+            module("forms", "shop/forms/__init__.py:1"),
+        ),
+        (
+            "main.py",
+            "from cart import lines",
+            module("lines", "cart/lines.py:1"),
+        ),
+        (
+            "main.py",
+            "from desk import chairs",
+            jump("chairs: via import desk/__init__.py", "desk/__init__.py:1"),
+        ),
+        (
+            "main.py",
+            "import json",
+            jump("no definition for json", "main.py:8"),
+        ),
+        (
+            "main.py",
+            "from desk import stools",
+            jump("no definition for stools", "main.py:9"),
+        ),
+    ] {
+        d_on(&mut a, file, code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A comment inside a bracketed import drops no name after it (#280): `b` is proven through
+/// the import, whatever namesake another module declares.
+#[test]
+fn a_comment_in_a_bracketed_import_keeps_the_next_name() {
+    let (dir, mut a) = project_app(
+        "commented-import",
+        &[
+            (
+                "app/models.py",
+                "def a():\n    pass\n\n\ndef b():\n    pass\n",
+            ),
+            ("app/other.py", "def b():\n    pass\n"),
+            (
+                "app/main.py",
+                "from .models import (\n    a,  # noqa: F401 (kept)\n    b,\n)\n\nb()\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, &[]);
+    d_on(&mut a, "app/main.py", "^b|()");
+    assert_eq!(
+        shown(&mut a),
+        jump("b: via import app/models.py", "app/models.py:5")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A module that imports a name from itself and declares it keeps the proof master gave: the
+/// guard for `from . import views` in a package's `__init__.py` (#280) skips the module's own
+/// file only when it does not declare the name.
+#[test]
+fn a_module_importing_its_own_declaration_is_proven() {
+    let (dir, mut a) = project_app(
+        "self-import",
+        &[
+            (
+                "app.py",
+                "from app import create_app\n\n\ndef create_app():\n    pass\n",
+            ),
+            ("other.py", "def create_app():\n    pass\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, &[]);
+    d_on(&mut a, "app.py", "import create_app");
+    assert_eq!(
+        shown(&mut a),
+        jump("create_app: via import app.py", "app.py:4")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Two modules of the project an import may mean are a picker of both (#280), each row named
+/// after the word and not read off the module's first line: `def index(request):` there would
+/// make it `index.views`.
+#[test]
+fn two_modules_an_import_may_mean_are_a_picker_of_modules() {
+    let (dir, mut a) = project_app(
+        "project-module-picker",
+        &[
+            ("scripts/views.py", "def index(request):\n    pass\n"),
+            ("tools/views.py", "def index(request):\n    pass\n"),
+            ("main.py", "import views\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, &[]);
+    d_on(&mut a, "main.py", "import views");
+    let Shown::Picker(_, rows) = shown(&mut a) else {
+        panic!("a picker");
+    };
+    assert_eq!(
+        rows,
+        [
+            ("views", "module scripts/views.py", "scripts/views.py:1"),
+            ("views", "module tools/views.py", "tools/views.py:1"),
+        ]
+        .map(|(n, r, p)| (n.to_string(), r.to_string(), p.to_string()))
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

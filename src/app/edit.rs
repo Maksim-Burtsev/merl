@@ -36,8 +36,9 @@ impl App {
             .then(|| "line too long to edit".to_string())
     }
 
-    /// Ctrl+C: the selection goes to the clipboard, without one the whole line, as in VS Code.
-    /// Returns the copied range, which Ctrl+X then removes.
+    /// Ctrl+C: the selection goes to the clipboard, without one the whole line with its break,
+    /// as in VS Code. Returns the range Ctrl+X then removes: the last line goes with the break
+    /// before it, so no empty line is left behind (a file's only line is emptied).
     pub(super) fn copy(&mut self) -> ((usize, usize), (usize, usize)) {
         let (from, to, text) = match self.selection() {
             Some((from, to)) => (from, to, self.selected_text().unwrap()),
@@ -47,9 +48,12 @@ impl App {
                 format!("{}\n", self.line_str()),
             ),
             None => (
-                (self.line, 0),
+                match self.line {
+                    0 => (0, 0),
+                    l => (l - 1, self.buf.lines[l - 1].len()),
+                },
                 (self.line, self.line_str().len()),
-                self.line_str().to_string(),
+                format!("{}\n", self.line_str()),
             ),
         };
         // A piece of one line is just `copied`; anything that holds a whole line is counted.
@@ -71,9 +75,15 @@ impl App {
                 self.flush();
             }
             KeyCode::Char('c' | 'x') if ctrl => {
+                let last = self.selection().is_none() && self.line + 1 == self.buf.lines.len();
                 let (from, to) = self.copy();
-                if code == KeyCode::Char('x') {
-                    self.replace(from, to, "");
+                let want = self.want_x;
+                if code == KeyCode::Char('x') && self.replace(from, to, "") && last {
+                    // The last line cut: the cursor goes up onto the line above, aiming at the
+                    // column it had; redo lands there too.
+                    self.want_x = want;
+                    self.apply_want_x(0);
+                    self.undo.last_mut().unwrap().after = (self.line, self.col);
                 }
             }
             KeyCode::Char(c) if !ctrl => self.insert(&c.to_string()),

@@ -474,8 +474,10 @@ impl App {
             [] => self.message = resolution(word, None, &found, broke, truncated),
             [one] if !namesakes && !offer_only && !truncated => {
                 let path = self.root.join(&one.hit.path);
+                // A module's first line declares nothing of the word.
                 let target = self
                     .text_of(&one.hit.path)
+                    .filter(|_| !matches!(one.reason, Reason::Module(_)))
                     .and_then(|text| search::qualified(kind, &text, one.hit.line, word));
                 let status = resolution(word, target.as_deref(), &found, broke, false);
                 // The cursor lands on the word rather than at the start of the line, so a
@@ -539,7 +541,8 @@ impl App {
     /// (`UserRepo.create`), as [`search::qualified`] names it: `store.Open` is never a method
     /// `Open`. An alias finds the imported name. A default import finds a declaration of its local
     /// name, else the module's `export default`. An empty list is a module that does not declare
-    /// the word, a re-export: the search by name takes over.
+    /// the word, a re-export: the search by name takes over. A Python name that is itself a
+    /// module of the project, and that nothing on the way declares, is that module's file.
     pub(super) fn imported_definitions(
         &self,
         kind: Kind,
@@ -599,16 +602,60 @@ impl App {
             }
             names
         };
+        // The word itself names a module of the project (#280): `views` in `from shop import
+        // views`, `shop` in `import shop`. What Python imports: a package over a module of the
+        // same name beside it. Only when nothing the lookup below reads declares or hands on
+        // the name, so what a package's `__init__.py` binds keeps its say.
+        let whole_module = || {
+            let mut files = module_files(&tail(path.to_vec()));
+            if files.iter().any(|f| f.ends_with("__init__.py")) {
+                files.retain(|f| f.ends_with("__init__.py"));
+            }
+            let found: Vec<Candidate> = files
+                .into_iter()
+                .map(|path| Candidate {
+                    reason: Reason::Module(path.display().to_string()),
+                    hit: Hit {
+                        text: self.text_of(&path).map_or_else(String::new, |t| {
+                            t.lines().next().unwrap_or_default().to_owned()
+                        }),
+                        path,
+                        line: 1,
+                        col: 0,
+                    },
+                })
+                .collect();
+            (!found.is_empty()).then_some(found)
+        };
         let (files, inside) = match kind {
             // `from a import b` takes a module or a name from `a`: the longest module that exists,
             // never shorter than the one the import names.
             Kind::Python => {
                 let target = tail(path.to_vec());
                 let floor = path.len().saturating_sub(1).max(1);
-                (floor..target.len()).rev().find_map(|n| {
+                // A module importing from itself (`from . import views` in a package's
+                // `__init__.py`) takes a module of the package, unless it declares the name
+                // itself: then it is read as on master, where the import proves it.
+                let declares = |name: &String| {
+                    let pattern = search::def_patterns(kind, name).join("|");
+                    self.grep(&pattern, false, false, |p| p == here)
+                        .unwrap_or_default()
+                        .iter()
+                        .any(|h| {
+                            self.text_of(&h.path).is_some_and(|text| {
+                                search::qualified(kind, &text, h.line, name).is_none()
+                            })
+                        })
+                };
+                let found = (floor..target.len()).rev().find_map(|n| {
                     let files = module_files(&target[..n]);
-                    (!files.is_empty()).then(|| (files, target[n..].to_vec()))
-                })?
+                    let own = files == [here] && !target[n..].first().is_some_and(declares);
+                    (!files.is_empty() && !own).then(|| (files, target[n..].to_vec()))
+                });
+                match found {
+                    Some(found) => found,
+                    None => return whole_module(),
+                }
             }
             Kind::TsJs => {
                 let (taken, module) = path.split_last()?;
@@ -677,6 +724,21 @@ impl App {
             if !found.is_empty() {
                 return Some(found);
             }
+        }
+        // A module that binds the name in any way, an import that led nowhere included, is
+        // left to the search by name.
+        let unbound = |name: &String| {
+            files.iter().all(|f| {
+                self.text_of(f)
+                    .is_none_or(|t| search::bindings(kind, &t, 1, name).is_empty())
+            })
+        };
+        if hits.is_empty()
+            && kind == Kind::Python
+            && inside.first().is_some_and(unbound)
+            && let Some(found) = whole_module()
+        {
+            return Some(found);
         }
         let hits = self.host_built(kind, hits);
         // A file, or a Go package's directory.

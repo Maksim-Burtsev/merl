@@ -484,7 +484,7 @@ impl App {
             .as_ref()
             .filter(|w| w.to_lowercase() == trip.query.to_lowercase())?;
         let landed = self.rel_current()?;
-        let hits = self.usage_hits(word, trip.here.as_deref());
+        let (hits, _) = self.usage_hits(word, trip.here.as_deref());
         let row = hits
             .iter()
             .position(|(_, h)| h.path == landed && h.line == self.line + 1)?;
