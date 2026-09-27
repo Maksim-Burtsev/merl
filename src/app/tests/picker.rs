@@ -52,6 +52,32 @@ fn enter_in_the_theme_picker_writes_the_config() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// Enter on a user theme that does not load saves nothing: the next start would exit on it
+/// (#277). The picker stays open with the load error in the status bar.
+#[test]
+fn enter_on_a_broken_theme_keeps_the_picker_and_saves_nothing() {
+    let dir = std::env::temp_dir().join(format!("merl-theme-broken-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("zz-broken.tmTheme"), "not a plist").unwrap();
+    let config = dir.join("config.toml");
+    std::fs::write(&config, "theme = \"dayfox\"\n").unwrap();
+    let mut a = app("x\n");
+    (a.theme, a.config, a.theme_dir) = ("dayfox".into(), Some(config.clone()), Some(dir.clone()));
+    press(&mut a, KeyCode::Char('T'), KeyModifiers::NONE);
+    typed(&mut a, "zz-broken");
+    a.picker.as_mut().unwrap().settle();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(
+        std::fs::read_to_string(&config).unwrap(),
+        "theme = \"dayfox\"\n"
+    );
+    assert_eq!(a.mode, Mode::Picker(PickerKind::Themes));
+    assert_eq!((a.picker.is_some(), a.theme.as_str()), (true, "dayfox"));
+    assert!(a.message.contains("zz-broken.tmTheme"), "{}", a.message);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// A repository class, a fake of it in the tests and a service that calls both of its methods:
 /// the project of #236's table, cut down.
 fn orders_app(tag: &str) -> (PathBuf, App) {

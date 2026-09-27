@@ -34,7 +34,7 @@ impl App {
 
     /// `T`: every theme, the built-ins then the user's own, with the cursor on the one in use.
     pub(super) fn open_themes_picker(&mut self) {
-        let themes = crate::theme::entries();
+        let themes = crate::theme::entries_in(self.theme_dir.as_deref());
         let items = themes
             .iter()
             .map(|name| PickItem {
@@ -101,6 +101,12 @@ impl App {
                 return;
             }
             Pick::Accept(item) if self.mode == Mode::Picker(PickerKind::Themes) => {
+                // A theme that does not load is not saved: the next start would exit on it
+                // (#277). The picker stays open on the error, the one the preview shows.
+                if let Err(e) = crate::theme::load_from(self.theme_dir.as_deref(), &item.label) {
+                    self.message = format!("{e:#}");
+                    return;
+                }
                 self.theme = item.label;
                 self.message = match &self.config {
                     Some(path) => match crate::theme::save(path, &self.theme) {

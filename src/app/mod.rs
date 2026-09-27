@@ -400,6 +400,8 @@ pub struct App {
     pub theme: String,
     /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
     pub config: Option<PathBuf>,
+    /// Where the theme picker finds the user's own themes.
+    pub theme_dir: Option<PathBuf>,
     /// A quit was just refused over edits that could not be saved: quitting again right away
     /// leaves them behind.
     quit_again: bool,
@@ -539,6 +541,7 @@ impl App {
             closed: Vec::new(),
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
+            theme_dir: crate::theme::user_dir(),
             quit_again: false,
             action: None,
             pressed: HashMap::new(),
