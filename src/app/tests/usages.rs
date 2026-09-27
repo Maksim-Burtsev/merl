@@ -229,3 +229,35 @@ fn the_usages_mark_is_only_for_a_declaration_d_would_offer() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #281: to grep `-` ends a word, so `db-main` also found `db-main-2` and `db-main-replica`.
+/// Where `-` is part of a name (Make, YAML) those lines go; in Python, where `db-main-2` is a
+/// subtraction, the line stays.
+#[test]
+fn usages_of_a_hyphenated_name_leave_out_longer_names() {
+    let (dir, mut a) = project_app(
+        "u-hyphen",
+        &[
+            (
+                "Makefile",
+                "db-main:\n\techo main\n\ndb-main-2:\n\techo two\n\nall: db-main\n",
+            ),
+            (
+                "app.yaml",
+                "services:\n  db-main:\n    image: postgres\n  db-main-replica:\n    image: postgres\n",
+            ),
+            ("calc.py", "x = db-main-2\n"),
+        ],
+    );
+    usages_at(&mut a, &dir, "Makefile", 7, "db-main");
+    assert_eq!(
+        usage_rows(&mut a),
+        [
+            ("declaration".to_string(), "Makefile:1".to_string()),
+            ("declaration".into(), "app.yaml:2".into()),
+            (String::new(), "Makefile:7".into()),
+            (String::new(), "calc.py:1".into()),
+        ]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

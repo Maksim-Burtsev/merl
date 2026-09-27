@@ -97,6 +97,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `/` and a jump from `d`, `u` or `s` stop where it ends, and `Right` there goes on to the
   next line. They put the cursor at the real end of the line, past everything on screen, with a
   column in the status bar no drawn char had. (#284)
+- `u` on a name with a hyphen in a Makefile, Terraform, a Dockerfile or YAML lists that name
+  only: `db-main` no longer lists `db-main-2` or `db-main-replica`. In code, where `db-main-2` is
+  a subtraction, the line is still listed. (#281)
 
 ## [0.7.0] - 2026-09-25
 
