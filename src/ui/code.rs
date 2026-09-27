@@ -106,13 +106,10 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             let rows = ghost_wrap(raw);
             let last = rows.len() - 1;
             for (i, (r, lead)) in rows.into_iter().enumerate() {
-                // Not wrapped, a ghost has no `‹` or `›`: its `…` shows when its column does.
+                // Not wrapped, a ghost has no `‹` or `›`.
                 let ell = Buffer::clips(raw)
                     && i == last
-                    && !(nowrap
-                        && (r.is_empty()
-                            || r.end < text.len()
-                            || wrap::width(text) >= app.left + app.view_w));
+                    && (!nowrap || ellipsis_in_view(app, text, false, false));
                 if skip > 0 {
                     skip -= 1;
                     continue;
@@ -194,8 +191,8 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         let rows = if nowrap { vec![shown] } else { app.rows(l) };
         let last = rows.len() - 1;
         for (i, r) in rows.into_iter().enumerate() {
-            // Not wrapped, the `…` shows while the end of the text is on screen.
-            let ell = cut && i == last && !(nowrap && (after || r.is_empty()));
+            let ell =
+                cut && i == last && (!nowrap || ellipsis_in_view(app, clipped, before, after));
             if i < skip {
                 continue;
             }
@@ -294,7 +291,9 @@ fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -
                 false => (false, app.rows(p).swap_remove(0), 0, false),
             };
             // Only a first row is pinned: wrapped, the end of a cut line is never on it.
-            let ell = app.nowrap() && Buffer::clips(&app.buf.lines[p]) && !after && !r.is_empty();
+            let ell = app.nowrap()
+                && Buffer::clips(&app.buf.lines[p])
+                && ellipsis_in_view(app, text, before, after);
             let syntax = app.buf.hl.get(p).map_or(&[][..], Vec::as_slice);
             let g = band.fg(theme.gutter_fg);
             let num = format!("{:>w$} ", p + 1, w = gutter_w - 1);
@@ -339,6 +338,14 @@ fn cut_unwrapped(app: &App, raw: &str) -> (bool, std::ops::Range<usize>, usize, 
         (app.left + app.view_w).saturating_sub(usize::from(after)),
     );
     (before, r, lead, after)
+}
+
+/// Not wrapped: whether the column after `text`, where a cut line's `…` stands, is in view,
+/// between the columns `‹` and `›` take when they stand. Drawn right after the row's text and
+/// its lead, the `…` then lands on that column, even when no char of the line is in view.
+fn ellipsis_in_view(app: &App, text: &str, before: bool, after: bool) -> bool {
+    let end = wrap::width(text);
+    app.left + usize::from(before) <= end && end + usize::from(after) < app.left + app.view_w
 }
 
 /// Cuts one wrapped row `r` of `text` into spans, taking colours from the line's highlighting

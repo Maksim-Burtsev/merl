@@ -1174,19 +1174,36 @@ fn a_cut_line_ends_in_a_dim_ellipsis_when_wrapped() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let text = format!("{}\nsecond\n", "a".repeat(20_005));
     // Seven columns of text: 20,000 is 2,857 full rows and one `a`.
-    let (_, terminal) = cut_app(&text, 9, 4, 1);
+    let (mut app, mut terminal) = cut_app(&text, 9, 4, 1);
     assert_eq!(rows(&terminal)[..3], ["aaaaaaa", "a\u{2026}", "2 second"]);
     let buf = terminal.backend().buffer();
     assert_eq!(
         (buf[(3, 1)].fg, buf[(3, 1)].bg),
         (theme.gutter_fg, theme.bg)
     );
+    // Selected through the line's end, the `…` is on the selection, as the newline is.
+    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let buf = terminal.backend().buffer();
+    assert_eq!(
+        (buf[(3, 1)].symbol(), buf[(3, 1)].bg),
+        ("\u{2026}", theme.selection)
+    );
     // Ten columns: the last row is full, and the `…` stands alone under it.
     let (mut app, mut terminal) = cut_app(&text, 12, 4, 1);
     assert_eq!(rows(&terminal)[..3], ["aaaaaaaaaa", "\u{2026}", "2 second"]);
-    // That row is one of the line's: Up lands on it, the cursor on the `…`.
+    // That row is one of the line's: Up lands on it, and the end of the drawn part is the `…`.
     let (_, y) = press(&mut app, &mut terminal, KeyCode::Up);
     assert_eq!((app.line, y), (0, 1));
+    app.col = app.buf.shown(0).len();
+    press(&mut app, &mut terminal, KeyCode::Null);
+    assert_eq!(terminal.get_cursor_position().unwrap(), (2, 1).into());
+    // An indented line's rows after the first start under its text: a last row full at that
+    // indent puts the `…` on a row of its own, under the text too.
+    let text = format!("    {}\nsecond\n", "a".repeat(19_999));
+    let (_, terminal) = cut_app(&text, 10, 4, 1);
+    assert_eq!(rows(&terminal)[..3], ["aaaa", "\u{2026}", "2 second"]);
+    assert_eq!(terminal.backend().buffer()[(6, 1)].symbol(), "\u{2026}");
     // A line of exactly what is drawn is not cut and has no `…`.
     let (_, terminal) = cut_app(&"a".repeat(20_000), 9, 3, 0);
     assert!(!rows(&terminal).concat().contains('\u{2026}'));
@@ -1245,6 +1262,18 @@ fn a_cut_ghost_ends_in_a_dim_ellipsis() {
         screen[..2],
         ["\u{258e}aaaaaa\u{2026}", "2 \u{2039}bbbbb\u{2026}"]
     );
+    // A full last row puts the ghost's `…` on a row of its own too.
+    let (mut app, mut terminal) = pinned_app(&text, 12, 4);
+    app.diff.ghosts.insert(1, vec![long("a")]);
+    app.line = 1;
+    press(&mut app, &mut terminal, KeyCode::Null);
+    app.top_line = 1;
+    app.top_row = app.ghost_rows(1) - 2;
+    let (screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
+    assert_eq!(
+        screen[..3],
+        ["\u{258e}aaaaaaaaaa", "\u{258e}\u{2026}", "2 bbbbbbbbbb"]
+    );
 }
 
 /// #283: not wrapped, a pinned header cut at 20 KB ends in the `…` as its line does.
@@ -1261,4 +1290,38 @@ fn a_cut_pinned_header_ends_in_a_dim_ellipsis() {
     let (screen, y) = press(&mut app, &mut terminal, KeyCode::Null);
     assert_eq!(screen[0], "1 \u{2039}xxxxxxx\u{2026}");
     assert_eq!(screen[y], "22 \u{2039}bbbbbbb\u{2026}");
+}
+
+/// #283: not wrapped, the `…` stands on the column after the text whenever that column is in
+/// view, with no char of the line left in view too: `left` follows the cursor on a wider line.
+#[test]
+fn a_cut_line_scrolled_to_its_end_still_shows_its_ellipsis() {
+    let text = format!(
+        "{}\u{6f22}bbbbb\n{}{}\n",
+        "a".repeat(19_997),
+        "\t".repeat(5_000),
+        "x".repeat(100)
+    );
+    let (mut app, mut terminal) = cut_app(&text, 12, 4, 1);
+    app.diff.ghosts.insert(1, vec!["a".repeat(20_005)]);
+    press(&mut app, &mut terminal, KeyCode::Char('w'));
+    // Line 1 is 5,000 tabs, 20,000 columns, then `x`s: col 5,000 + n is column 20,000 + n.
+    let mut at = |left: usize, col: usize| {
+        (app.left, app.col) = (left, col);
+        let (screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
+        assert_eq!(app.left, left);
+        screen[..2].to_vec()
+    };
+    // The wide char at the end straddles `‹`: the `…` comes after its hidden half.
+    assert_eq!(
+        at(19_997, 5_002),
+        ["1 \u{2039} \u{2026}", "\u{258e}aaa\u{2026}"]
+    );
+    assert_eq!(
+        at(19_998, 5_003),
+        ["1 \u{2039}\u{2026}", "\u{258e}aa\u{2026}"]
+    );
+    // Past the end of line 0, `‹` alone; the ghost has no `‹`, so its `…` is in column 0.
+    assert_eq!(at(19_999, 5_004), ["1 \u{2039}", "\u{258e}a\u{2026}"]);
+    assert_eq!(at(20_000, 5_004), ["1 \u{2039}", "\u{258e}\u{2026}"]);
 }

@@ -146,7 +146,8 @@ pub fn indent(line: &str, width: usize) -> usize {
 
 /// What shows of `line` in display columns `from..to` when it is not wrapped: the byte range of
 /// the clusters that fit whole, and the blank columns before them where a tab or a wide cluster
-/// straddles `from`. Empty at the end of the line when it does not reach `from`.
+/// straddles `from`. Empty at the end of the line when it does not reach `from`; its blank
+/// columns are then those of a cluster straddling `from`, so the end of the line is at `lead`.
 pub fn cut(line: &str, from: usize, to: usize) -> (Range<usize>, usize) {
     let (mut start, mut lead) = (None, 0);
     let mut x = 0;
@@ -161,7 +162,13 @@ pub fn cut(line: &str, from: usize, to: usize) -> (Range<usize>, usize) {
         }
         x += w;
     }
-    (start.unwrap_or(line.len())..line.len(), lead)
+    match start {
+        Some(s) => (s..line.len(), lead),
+        None => (
+            line.len()..line.len(),
+            x.saturating_sub(from).min(to.saturating_sub(from)),
+        ),
+    }
 }
 
 /// Index of the row containing byte offset `col` (the last row for `col == line.len()`).
@@ -192,6 +199,10 @@ mod tests {
         // char that does not fit at the right edge is left out.
         assert_eq!(cut("\tab", 2, 8), (1..3, 2));
         assert_eq!(cut("a\u{4e2d}b", 0, 2), (0..1, 0));
+        // A tab or a wide char straddling the left edge at the end of the line: the line ends
+        // past its blank part, where a cut line's `…` goes.
+        assert_eq!(cut("a\t", 2, 8), (2..2, 3));
+        assert_eq!(cut("a\u{4e2d}", 2, 8), (4..4, 1));
     }
 
     #[test]
