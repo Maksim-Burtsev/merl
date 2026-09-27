@@ -217,10 +217,16 @@ fn shown(a: &mut App) -> Shown {
             press(a, KeyCode::Esc, KeyModifiers::NONE);
             Shown::Picker(a.message.clone(), rows)
         }
-        None => Shown::Jump(
-            a.message.clone(),
-            format!("{}:{}", a.rel_path(), a.line + 1),
-        ),
+        // Which root it landed in: the status line names a file outside the project from its
+        // own root, `json/__init__.py`, whichever root holds it.
+        None => {
+            let path = a.buf.path.as_deref().expect("a file");
+            let place = path.strip_prefix(&a.root).unwrap_or(path);
+            Shown::Jump(
+                a.message.clone(),
+                format!("{}:{}", place.display(), a.line + 1),
+            )
+        }
     }
 }
 fn jump(status: &str, place: &str) -> Shown {

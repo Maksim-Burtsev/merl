@@ -264,6 +264,30 @@ impl App {
         }
     }
 
+    /// `path` relative to the standard library or dependency root of `kind` it is under,
+    /// `json/__init__.py` rather than the whole path to the interpreter; any other path as it
+    /// is. A root that is one package keeps its name, `serde-1.0.200/src/lib.rs`, or its files
+    /// would read like the project's own. A workspace package's own `node_modules` is named from
+    /// the project root, so its `lib/index.d.ts` reads apart from the one at the top.
+    pub(super) fn rel_to_its_root<'a>(&self, kind: Kind, path: &'a Path) -> &'a Path {
+        let roots = self
+            .external
+            .get(&kind)
+            .map(|(roots, _)| roots.as_slice())
+            .unwrap_or_default();
+        match kind {
+            Kind::TsJs => roots.last().into_iter().chain([&self.root]).collect(),
+            _ => roots.iter().collect::<Vec<_>>(),
+        }
+        .into_iter()
+        .find(|r| path.starts_with(r))
+        .map_or(path, |r| {
+            let keep = if *r == self.root { 0 } else { package_dirs(r) };
+            let from = r.ancestors().nth(keep).unwrap_or(r);
+            path.strip_prefix(from).unwrap_or(path)
+        })
+    }
+
     /// Picker rows for `d`: the qualified name, the reason, then `path:line: code`, the columns
     /// padded so the names and reasons line up. An external hit is shown relative to the root it
     /// came from: `json/__init__.py:278:` rather than the whole path to the interpreter.
@@ -273,11 +297,6 @@ impl App {
         word: &str,
         found: Vec<Candidate>,
     ) -> Vec<PickItem> {
-        let roots = self
-            .external
-            .get(&kind)
-            .map(|(roots, _)| roots.as_slice())
-            .unwrap_or_default();
         let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
         let named: Vec<(String, String, Candidate)> = found
             .into_iter()
@@ -307,20 +326,11 @@ impl App {
         named
             .into_iter()
             .map(|(name, why, c)| {
-                // A workspace package's own `node_modules` is named from the project root, so
-                // its `lib/index.d.ts` reads apart from the one at the top.
-                let shown = match kind {
-                    Kind::TsJs => roots.last().into_iter().chain([&self.root]).collect(),
-                    _ => roots.iter().collect::<Vec<_>>(),
-                }
-                .into_iter()
-                .find_map(|r| c.hit.path.strip_prefix(r).ok())
-                .unwrap_or(&c.hit.path);
                 let head = format!(
                     "{name}{}  {why}{}  {}:{}: ",
                     pad(name_w, &name),
                     pad(why_w, &why),
-                    shown.display(),
+                    self.rel_to_its_root(kind, &c.hit.path).display(),
                     c.hit.line
                 );
                 PickItem {
@@ -342,4 +352,29 @@ impl App {
             None => "no rules for this file".into(),
         }
     }
+}
+
+/// How many directories at the end of `root` name its package. A root named with a version is
+/// one package, and its own name counts: Cargo gives each crate a directory of its own,
+/// `serde-1.0.200`, and Go each module, `gin@v1.9.1`. A Go module whose path ends in its major
+/// version, `github.com/jackc/pgx/v5`, is `v5@v5.5.0` on disk, so the directory before it counts
+/// too. The other roots hold many packages and have no version in their name: a standard library
+/// (`python3.13`, `src`, `library`), `site-packages`, `node_modules`.
+fn package_dirs(root: &Path) -> usize {
+    let name = root.file_name().unwrap_or_default().to_string_lossy();
+    let versioned = |sep: &str| {
+        name.match_indices(sep).any(|(i, _)| {
+            let v = &name[i + sep.len()..];
+            let rest = v.trim_start_matches(|c: char| c.is_ascii_digit());
+            rest.len() < v.len() && rest.starts_with('.')
+        })
+    };
+    if !versioned("-") && !versioned("@v") {
+        return 0;
+    }
+    let major = name
+        .strip_prefix('v')
+        .and_then(|v| v.split_once('@'))
+        .is_some_and(|(n, _)| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
+    1 + usize::from(major)
 }

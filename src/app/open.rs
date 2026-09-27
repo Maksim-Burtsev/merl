@@ -346,10 +346,7 @@ impl App {
         };
         match &gone[..] {
             [] => {}
-            [one] => {
-                let rel = one.strip_prefix(&self.root).unwrap_or(one);
-                self.message = format!("{} gone", rel.display());
-            }
+            [one] => self.message = format!("{} gone", self.rel_path_of(one)),
             _ => self.message = format!("{} files gone", gone.len()),
         }
         let Some((i, path, col)) = landed else { return };
