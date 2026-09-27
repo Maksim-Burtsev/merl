@@ -172,6 +172,7 @@ fn run() -> Result<()> {
         app.start_review(r);
     }
     app.autosave = Duration::from_millis(config.autosave_delay_ms);
+    app.review_panel_colours = config.review_panel_colours;
     app.theme = name;
     app.config = theme::config_path();
     if cli.tutor || cli.drill.is_some() {

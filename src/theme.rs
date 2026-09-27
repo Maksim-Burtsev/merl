@@ -437,10 +437,17 @@ pub struct Config {
     /// Edits are written this long after the last keystroke; VS Code's `files.autoSaveDelay`.
     #[serde(default = "default_autosave")]
     pub autosave_delay_ms: u64,
+    /// The review panel's coloured status letters, dim counts and branch totals (#250).
+    #[serde(default = "default_true")]
+    pub review_panel_colours: bool,
 }
 
 fn default_autosave() -> u64 {
     1000
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn default_theme() -> String {
@@ -452,6 +459,7 @@ impl Default for Config {
         Self {
             theme: default_theme(),
             autosave_delay_ms: default_autosave(),
+            review_panel_colours: true,
         }
     }
 }
@@ -666,6 +674,13 @@ mod tests {
             "rose-pine"
         );
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn review_panel_colours_is_on_unless_turned_off() {
+        let read = |text| toml::from_str::<Config>(text).unwrap().review_panel_colours;
+        assert!(read(""));
+        assert!(!read("review_panel_colours = false"));
     }
 
     #[test]
