@@ -3,6 +3,7 @@
 use anyhow::Context as _;
 
 use super::*;
+use crate::reviews::{Session, Spot, Stop};
 
 impl App {
     /// Enters review mode on a freshly built app: marks against the base, the cursor on the
@@ -36,6 +37,100 @@ impl App {
         }
         // And marks that cannot be read, more than both.
         self.load_viewed();
+        self.open_session();
+    }
+
+    /// Review stats (#242): a session of the review as it stands now starts here, its stops
+    /// counted on a thread.
+    fn open_session(&mut self) {
+        if let Some(r) = &self.review {
+            let (repo, branch) = (self.root_name(), r.branch_or_commit(&self.root));
+            let (opened, root) = (r.clone(), self.root.clone());
+            let counting = std::thread::spawn(move || count_stops(&opened, &root));
+            let stop = self.review_stop();
+            self.session = Some(Session::new(
+                Instant::now(),
+                repo,
+                branch,
+                r,
+                counting,
+                stop,
+            ));
+        }
+    }
+
+    /// The open file, the cursor's line, and whether the file is one of the review's.
+    pub(super) fn review_spot(&self) -> Spot {
+        let r = self.review.as_ref();
+        let on = (self.rel_current()).is_some_and(|rel| r.is_some_and(|r| r.file(&rel).is_some()));
+        (self.buf.path.clone(), self.line, on)
+    }
+
+    /// The stop the cursor stands on, numbered as [`stops_in`] counts them: the hunk as the
+    /// status bar's `hunk i/n` has it, or the top of a deleted file, its one line in
+    /// [`review_hunks`].
+    // ponytail: a stop is a hunk by its index at the time of the stop, checked against the
+    // count taken when the review opened, so an agent's edits mid-review can credit a new hunk
+    // or drop an unreached one; and a file the walk cannot open (a symlink to a directory, a
+    // broken one) still counts its hunk. Identify a hunk by its text if the numbers need to
+    // hold under edits.
+    fn review_stop(&self) -> Option<Stop> {
+        let rel = self.rel_current()?;
+        let f = self.review.as_ref()?.file(&rel)?;
+        let i = match f.status {
+            _ if !f.has_hunks() => return None,
+            'D' => (self.line == 0).then_some(0)?,
+            _ => self.diff.hunks.iter().position(|&h| h == self.line)?,
+        };
+        Some((rel, i + 1))
+    }
+
+    /// Review stats (#242): a press at `at` done as `action`, the cursor at `from` before it, or
+    /// with no `at` a jump that came after its press (`s` answering an Enter that did not wait).
+    /// `quit`: the press quits merl.
+    pub(super) fn review_count(
+        &mut self,
+        at: Option<Instant>,
+        from: Spot,
+        action: Option<&str>,
+        quit: bool,
+    ) {
+        let to = self.review_spot();
+        // A stop the review walk (`c`, `C`, the panel) put the cursor on, judged against the
+        // cursor before this press: a reload that moved it since the last one does not make a
+        // press that stayed put a stop.
+        let walked = from != to && matches!(action, Some("c" | "C" | "Tree: Enter"));
+        let stop = walked.then(|| self.review_stop()).flatten();
+        let end = action == Some("c") && self.message == "last hunk of the review";
+        if let Some(s) = &mut self.session {
+            if let Some(at) = at {
+                s.pressed(at, &from, quit);
+            }
+            s.moved(action, &from, &to, stop, end);
+        }
+    }
+
+    /// The session's line in the review stats: the repository, the branch and the columns
+    /// after the round. None for a session without a press but the one that quits, nor for
+    /// one whose stops could not be counted: a wrong number in the stats is worse than a
+    /// session missing from them.
+    pub fn review_row(&mut self) -> Option<(String, String, String)> {
+        let s = self.session.as_mut()?;
+        let columns = s.columns(self.viewed.keys())?;
+        Some((s.repo.clone(), s.branch.clone(), columns))
+    }
+
+    /// Every session's line, oldest first: those a `git switch` closed, then the one under way.
+    pub fn review_rows(&mut self) -> Vec<(String, String, String)> {
+        let closed = std::mem::take(&mut self.closed).into_iter();
+        let mut rows: Vec<_> = closed
+            .filter_map(|(mut s, viewed)| {
+                let columns = s.columns(viewed.iter())?;
+                Some((s.repo, s.branch, columns))
+            })
+            .collect();
+        rows.extend(self.review_row());
+        rows
     }
 
     /// `c` / `C`: the next / previous hunk, crossing into the next file of the review. From a
@@ -133,7 +228,7 @@ impl App {
         }
         let (rel, i) = self.last_hunk.clone()?;
         let f = r.file(&rel).filter(|f| f.has_hunks())?;
-        let hunks = self.review_hunks(r, f);
+        let hunks = review_hunks(&self.root, r, f);
         let h = *hunks.get(i).or(hunks.last())?;
         Some((rel, h))
     }
@@ -282,20 +377,11 @@ impl App {
     pub(super) fn open_review_file(&mut self, f: &git::ReviewFile, last: bool) -> bool {
         let Some(r) = &self.review else { return false };
         let path = self.root.join(&f.path);
-        let hunks = self.review_hunks(r, f);
+        let hunks = review_hunks(&self.root, r, f);
         let h = if last { hunks.last() } else { hunks.first() };
         self.jump_to(&path, h.map_or(1, |h| h + 1));
         self.center = true;
         self.buf.path.as_deref() == Some(&path)
-    }
-
-    /// The lines `c` stops on in a file of the review: where its hunks start, and the top of a
-    /// deleted one, which has none to step through.
-    fn review_hunks(&self, r: &git::Review, f: &git::ReviewFile) -> Vec<usize> {
-        match f.status {
-            'D' => vec![0],
-            _ => r.diff(&self.root, &self.root.join(&f.path), Some(f)).hunks,
-        }
     }
 
     /// `hunk 2/5 · file 1/3` for the status bar.
@@ -333,15 +419,59 @@ impl App {
             Some((f.status, f.old.clone(), f.untracked))
         };
         let stale = old.merge_base != fresh.merge_base || kind(old) != kind(&fresh);
+        let switched = old.branch != fresh.branch;
+        // A file the branch comes to change leaves the preview for good, as if `p` had been
+        // pressed: its diff lives on the source, and only `p` renders it again.
+        if self.previewing() && rel.as_deref().is_some_and(|rel| fresh.file(rel).is_some()) {
+            self.toggle_preview();
+        }
+        let root = self.root.clone();
+        let joined = |p: &PathBuf| {
+            p.strip_prefix(&root)
+                .is_ok_and(|rel| fresh.file(rel).is_some())
+        };
+        self.previewed.retain(|p| !joined(p));
         let paths: Vec<PathBuf> = fresh.files.iter().map(|f| f.path.clone()).collect();
         self.review = Some(fresh);
         self.refresh_tree(crate::tree::from_files(&paths));
         if stale {
             self.refresh_diff();
         }
+        // A `git switch`: the session so far is the old branch's, closed as it stands with the
+        // marks it had, and the new branch's starts here, so every line is about one branch.
+        if switched && let Some(s) = self.session.take() {
+            self.closed.push((s, self.viewed.keys().cloned().collect()));
+            self.open_session();
+        }
         self.follow_branch();
         self.recheck_viewed();
         true
+    }
+}
+
+/// The stops `c` can make in each file of `r`, by path; `None` when a file failed to count.
+fn count_stops(r: &git::Review, root: &Path) -> Option<HashMap<PathBuf, usize>> {
+    (r.files.iter())
+        .map(|f| Some((f.path.clone(), stops_in(r, root, f)?)))
+        .collect()
+}
+
+/// The stops `c` makes in a file of the review: those of [`review_hunks`] in a file the walk
+/// stops at, none in one it passes (binary, a mode change, a pure rename, a submodule). `None`
+/// for a file with lines to read and no hunk: a `git diff` that failed.
+fn stops_in(r: &git::Review, root: &Path, f: &git::ReviewFile) -> Option<usize> {
+    match f.has_hunks() {
+        true => Some(review_hunks(root, r, f).len()).filter(|&n| n > 0),
+        false => Some(0),
+    }
+}
+
+/// The lines `c` stops on in a file of the review: where its hunks start, and the top of a
+/// deleted one, which has none to step through.
+fn review_hunks(root: &Path, r: &git::Review, f: &git::ReviewFile) -> Vec<usize> {
+    match f.status {
+        'D' => vec![0],
+        _ => r.diff(root, &root.join(&f.path), Some(f)).hunks,
     }
 }
 
@@ -412,7 +542,7 @@ fn write_viewed<'a>(
             _ = writeln!(text, "{day}\t{branch}\t{base}\t{hash:016x}\t{path}");
         }
     }
-    crate::stats::replace(store, &text)
+    crate::stats::write(store, &text)
 }
 
 #[cfg(test)]

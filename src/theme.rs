@@ -198,6 +198,9 @@ pub struct Theme {
     /// The text of a changed word, which GitHub draws in the plain text colour: `fg`, pushed
     /// toward white on a dark theme or black on a light one until it reads on every word tint.
     pub word_fg: Color,
+    /// The background is lighter than the text: what picks GitHub's light colours over its dark
+    /// ones, for the review's diff and the Markdown preview's alerts.
+    pub light: bool,
     pub syntect: syntect::highlighting::Theme,
 }
 
@@ -323,6 +326,7 @@ fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         add_word_bg_hl: words[2],
         word_fg,
         accent: rgb(accent_color(&syntect).unwrap_or(fg)),
+        light,
         syntect,
     })
 }
@@ -433,10 +437,17 @@ pub struct Config {
     /// Edits are written this long after the last keystroke; VS Code's `files.autoSaveDelay`.
     #[serde(default = "default_autosave")]
     pub autosave_delay_ms: u64,
+    /// The review panel's coloured status letters, dim counts and branch totals (#250).
+    #[serde(default = "default_true")]
+    pub review_panel_colours: bool,
 }
 
 fn default_autosave() -> u64 {
     1000
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn default_theme() -> String {
@@ -448,6 +459,7 @@ impl Default for Config {
         Self {
             theme: default_theme(),
             autosave_delay_ms: default_autosave(),
+            review_panel_colours: true,
         }
     }
 }
@@ -662,6 +674,13 @@ mod tests {
             "rose-pine"
         );
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn review_panel_colours_is_on_unless_turned_off() {
+        let read = |text| toml::from_str::<Config>(text).unwrap().review_panel_colours;
+        assert!(read(""));
+        assert!(!read("review_panel_colours = false"));
     }
 
     #[test]

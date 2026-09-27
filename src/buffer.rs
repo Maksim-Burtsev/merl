@@ -188,6 +188,20 @@ impl Buffer {
         }
     }
 
+    /// A Markdown code block's lines, to be highlighted as the files merl opens are, as far as the
+    /// screen reaches: with the grammar a file of the language its info string names gets
+    /// (`rust`, `py`, `dockerfile`), and the same limits. Plain when no grammar goes by the name.
+    pub(crate) fn block(token: &str, mut lines: Vec<String>) -> Self {
+        let bytes: usize = lines.iter().map(String::len).sum();
+        let syntax = (lines.len() <= MAX_HL_LINES && bytes <= MAX_HL_BYTES)
+            .then(|| syntax_for_info(token))
+            .flatten();
+        if lines.is_empty() {
+            lines.push(String::new());
+        }
+        Self::new(None, lines, syntax)
+    }
+
     /// Line `l` as it is shown: the whole line, or its first [`MAX_SHOWN_BYTES`] bytes.
     pub fn shown(&self, l: usize) -> &str {
         shown_str(&self.lines[l])
@@ -216,7 +230,6 @@ impl Buffer {
         if self.hl.len() > last {
             return;
         }
-        let set = syntaxes();
         let highlighter = Highlighter::new(&theme.syntect);
         let state = self.state.get_or_insert_with(|| {
             (
@@ -230,33 +243,41 @@ impl Buffer {
             {
                 self.checkpoints.push(state.clone());
             }
-            // ponytail: syntect parses a line whole, and only its first `MAX_SHOWN_BYTES` are
-            // ever drawn. A minified bundle or a one-line JSON dump is megabytes on one line, so
-            // that parse costs seconds and runs again after every `clear_hl`. Past `shown`, the
-            // line is drawn plain, as VS Code stops tokenizing past `maxTokenizationLineLength`.
-            // The state is left as the line before it: the file below keeps its colours. Parsing
-            // the shown prefix alone would not, it could stop inside a string or a comment.
-            if Self::clips(&self.lines[self.hl.len()]) {
-                self.hl.push(Vec::new());
-                continue;
-            }
-            let raw = &self.lines[self.hl.len()];
-            let line = format!("{raw}\n");
-            let ops = state.0.parse_line(&line, set).unwrap_or_default();
-            let mut spans = Vec::new();
-            let mut at = 0usize;
-            for (style, text) in HighlightIterator::new(&mut state.1, &ops, &line, &highlighter) {
-                let start = at;
-                at += text.len();
-                // The trailing "\n" we added is not part of the line.
-                let end = at.min(raw.len());
-                if start < end {
-                    spans.push((crate::theme::style(style), start..end));
-                }
-            }
+            let spans = line_spans(state, &self.lines[self.hl.len()], &highlighter);
             self.hl.push(spans);
         }
     }
+}
+
+/// One line's spans, going on from the parser state the line above left.
+fn line_spans(
+    state: &mut (ParseState, HighlightState),
+    raw: &str,
+    highlighter: &Highlighter,
+) -> Spans {
+    // ponytail: syntect parses a line whole, and only its first `MAX_SHOWN_BYTES` are ever
+    // drawn. A minified bundle or a one-line JSON dump is megabytes on one line, so that parse
+    // costs seconds and runs again after every `clear_hl`. Past `shown`, the line is drawn plain,
+    // as VS Code stops tokenizing past `maxTokenizationLineLength`. The state is left as the line
+    // before it: the lines below keep their colours. Parsing the shown prefix alone would not, it
+    // could stop inside a string or a comment.
+    if Buffer::clips(raw) {
+        return Vec::new();
+    }
+    let line = format!("{raw}\n");
+    let ops = state.0.parse_line(&line, syntaxes()).unwrap_or_default();
+    let mut spans = Vec::new();
+    let mut at = 0usize;
+    for (style, text) in HighlightIterator::new(&mut state.1, &ops, &line, highlighter) {
+        let start = at;
+        at += text.len();
+        // The trailing "\n" we added is not part of the line.
+        let end = at.min(raw.len());
+        if start < end {
+            spans.push((crate::theme::style(style), start..end));
+        }
+    }
+    spans
 }
 
 pub fn hash(bytes: &[u8]) -> u64 {
@@ -287,24 +308,77 @@ fn floor_boundary(s: &str, max: usize) -> usize {
 /// Syntax by file name, then by the first line (shebangs, `<?xml`), then plain text.
 fn syntax_for(path: &Path, first_line: &str) -> &'static SyntaxReference {
     let set = syntaxes();
-    let found = known_name(path)
-        .and_then(|name| set.find_syntax_by_name(name))
-        .or_else(|| set.find_syntax_for_file(path).ok().flatten())
+    let found = by_name(path)
         .or_else(|| set.find_syntax_by_first_line(first_line))
         .unwrap_or_else(|| set.find_syntax_plain_text());
-    // bat's plain Dockerfile grammar leaves every instruction's arguments unscoped, so most of
-    // the file would be drawn in the default colour; the bash variant scopes them.
-    if found.name == "Dockerfile" {
-        return set
-            .find_syntax_by_name("Dockerfile (with bash)")
-            .unwrap_or(found);
+    with_bash(found)
+}
+
+/// What Markdown code blocks call a language no grammar goes by, as GitHub reads them. Their own
+/// table: the names files are known by stay as they are.
+const BLOCK_NAMES: &[(&str, &str)] = &[
+    ("shell", "Bourne Again Shell (bash)"),
+    ("console", "Bourne Again Shell (bash)"),
+    ("objc", "Objective-C"),
+];
+
+/// Syntax by the first word of a code block's info string: a language (`rust`, `rs`,
+/// `dockerfile`), or a file it cites (`src/main.rs`, Cursor's `12:15:src/main.rs`) by the
+/// extension after its last `.`. Looked up by name alone: no word becomes a path.
+fn syntax_for_info(word: &str) -> Option<&'static SyntaxReference> {
+    let set = syntaxes();
+    let mut word = word;
+    for _ in 0..2 {
+        match word.split_once(':') {
+            Some((n, rest)) if !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()) => {
+                word = rest;
+            }
+            _ => break,
+        }
     }
-    found
+    let file = word.rsplit('/').next().unwrap_or(word);
+    let key = file.rsplit_once('.').map_or(file, |(_, ext)| ext);
+    if key.is_empty() {
+        return None;
+    }
+    // Ours first, then the names files are known by (`Containerfile`, `jsonc`), then bat's.
+    let found = BLOCK_NAMES
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case(key))
+        .map(|(_, grammar)| *grammar)
+        .or_else(|| known_file(file))
+        .or_else(|| known_file(&format!("block.{key}")))
+        .and_then(|grammar| set.find_syntax_by_name(grammar))
+        .or_else(|| set.find_syntax_by_token(key))?;
+    Some(with_bash(found))
+}
+
+/// Syntax by file name or extension: ours for the files bat's set has no pattern for, then bat's.
+fn by_name(path: &Path) -> Option<&'static SyntaxReference> {
+    let set = syntaxes();
+    known_name(path)
+        .and_then(|name| set.find_syntax_by_name(name))
+        .or_else(|| set.find_syntax_for_file(path).ok().flatten())
+}
+
+/// bat's plain Dockerfile grammar leaves every instruction's arguments unscoped, so most of the
+/// file would be drawn in the default colour; the bash variant scopes them.
+fn with_bash(found: &'static SyntaxReference) -> &'static SyntaxReference {
+    match found.name.as_str() {
+        "Dockerfile" => syntaxes()
+            .find_syntax_by_name("Dockerfile (with bash)")
+            .unwrap_or(found),
+        _ => found,
+    }
 }
 
 /// Infrastructure files bat's set has no name pattern for, mapped to the grammar that fits.
 fn known_name(path: &Path) -> Option<&'static str> {
-    let name = path.file_name()?.to_str()?;
+    known_file(path.file_name()?.to_str()?)
+}
+
+/// [`known_name`] by the file name alone.
+fn known_file(name: &str) -> Option<&'static str> {
     let ext = name.rsplit_once('.').map_or("", |(_, ext)| ext);
     Some(match (name, ext) {
         // `.dockerignore`, and BuildKit's per-Dockerfile `app.Dockerfile.dockerignore`.
@@ -334,6 +408,98 @@ mod tests {
 
     fn load(bytes: &[u8]) -> Buffer {
         Buffer::from_bytes(PathBuf::from("x"), bytes)
+    }
+
+    /// A Markdown code block gets the grammar a file of its language gets: `dockerfile` the
+    /// bash-scoped Dockerfile grammar, whose spans match the file's own; an extension as a name.
+    #[test]
+    fn a_code_block_is_highlighted_as_a_file_of_its_language() {
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let text = "FROM alpine\nRUN echo \"hi\" && ls $HOME\n";
+        let mut file = Buffer::from_bytes(PathBuf::from("Dockerfile"), text.as_bytes());
+        file.highlight_to(1, &theme);
+        let lines: Vec<String> = text.lines().map(String::from).collect();
+        let mut block = Buffer::block("dockerfile", lines);
+        block.highlight_to(1, &theme);
+        assert_eq!(block.hl, file.hl);
+        assert!(block.hl[1].len() > 10, "the shell after RUN is scoped");
+        let name = |token: &str| Buffer::block(token, vec![]).syntax.map(|s| s.name.as_str());
+        assert_eq!(name("rs"), Some("Rust"));
+        assert_eq!(name("rust"), Some("Rust"));
+        assert_eq!(name("shell"), Some("Bourne Again Shell (bash)"));
+        assert_eq!(name("no-such-language"), None);
+        assert_eq!(name(""), None);
+    }
+
+    /// An info string names its language, or cites a file by its extension: never a path, never
+    /// a panic, whatever the word holds.
+    #[test]
+    fn a_code_block_is_named_by_its_info_string() {
+        let name = |token: &str| Buffer::block(token, vec![]).syntax.map(|s| s.name.as_str());
+        assert_eq!(name("12:15:src/main.rs"), Some("Rust"));
+        assert_eq!(name("src/main.rs"), Some("Rust"));
+        assert_eq!(name("12:15:Dockerfile"), Some("Dockerfile (with bash)"));
+        assert_eq!(name("Containerfile"), Some("Dockerfile (with bash)"));
+        assert_eq!(name("console"), Some("Bourne Again Shell (bash)"));
+        assert_eq!(name("objc"), Some("Objective-C"));
+        for plain in ["", "日本語", "a/../b", "12:15:", ":::"] {
+            assert_eq!(name(plain), None, "{plain:?}");
+        }
+        // The names blocks use change nothing for files.
+        for file in ["x.shell", "x.console", "x.objc"] {
+            let b = Buffer::from_bytes(PathBuf::from(file), b"echo hi\n");
+            assert_eq!(
+                b.syntax.map(|s| s.name.as_str()),
+                Some("Plain Text"),
+                "{file}"
+            );
+        }
+    }
+
+    /// A block past the source view's limits is drawn plain, as a file past them is.
+    #[test]
+    fn a_code_block_past_the_limits_is_plain() {
+        let many = vec!["x".to_string(); MAX_HL_LINES + 1];
+        assert!(Buffer::block("rust", many).syntax.is_none());
+        let big = vec!["x".repeat(MAX_HL_BYTES + 1)];
+        assert!(Buffer::block("rust", big).syntax.is_none());
+        assert!(Buffer::block("rust", vec!["x".into()]).syntax.is_some());
+    }
+
+    /// A code block's grammar is found by its name alone: a file named after the block in the
+    /// directory merl runs in is never read.
+    #[test]
+    fn a_code_block_grammar_is_never_read_from_a_file() {
+        let token = format!("zz{}", std::process::id());
+        let stray = PathBuf::from(format!("block.{token}"));
+        struct Gone(PathBuf);
+        impl Drop for Gone {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_file(&self.0);
+            }
+        }
+        std::fs::write(&stray, "#!/bin/bash\n").unwrap();
+        let _gone = Gone(stray);
+        assert!(
+            Buffer::block(&token, vec!["echo hi".into()])
+                .syntax
+                .is_none()
+        );
+    }
+
+    /// A line too long to be shown whole is drawn plain in a code block too, never parsed: a
+    /// one-line JSON dump of a megabyte would stall the frame.
+    #[test]
+    fn a_code_block_line_too_long_to_show_is_not_parsed() {
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let huge = format!("{{\"a\": \"{}\"}}", "x".repeat(1 << 20));
+        let mut block = Buffer::block("json", vec![huge, "{\"b\": 1}".to_string()]);
+        block.highlight_to(1, &theme);
+        assert!(block.hl[0].is_empty());
+        assert!(
+            !block.hl[1].is_empty(),
+            "the lines below keep their colours"
+        );
     }
 
     #[test]

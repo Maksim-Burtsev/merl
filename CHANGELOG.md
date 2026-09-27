@@ -7,8 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `merl --reviews` prints your review sessions of the last 30 days, newest first: the branch,
+  which round of it the session was, the files, hunks and lines under review, the active time
+  and how much of it was on the review's files, and the excursions, the jumps with `d`, `u`, `D`,
+  `s` or `o` from a file of the review out of it; then the median time of a first round and of a
+  later one. merl notes every `--review` session in `~/.local/state/merl/reviews.tsv` on exit,
+  next to `keys.tsv`, and shows nothing while you review. Only the time between presses counts,
+  a gap longer than five minutes as five, so a review left open over lunch is not an hour of
+  review; a session closed with `q` and nothing else is not noted, a `git switch` during a review
+  ends its session and starts one for the branch now checked out, sessions older than 30 days
+  are dropped, and `--tutor` and `--drill` note nothing. (#242)
+- `p` shows a Markdown file rendered, in place of its source, and `p` again shows the source, at
+  the same place both ways; Enter in the preview edits the source where it stands. Headings,
+  emphasis, lists and task lists, quotes and GitHub alerts, tables in box drawing aligned as
+  their `:---:` says, code blocks in the theme's colours, rules and footnotes render; links show
+  their text, images their alt text. The preview is rendered from the open buffer, so a file an
+  agent rewrites renders again, and it reflows to the pane: a table wider than the pane narrows
+  its widest columns and wraps inside their cells instead of falling apart. Reading keys move a
+  cursor row; `/`, `v`, `d` and `u` have no word or column to act on there and do nothing. In
+  `--review` the diff stays on the source: `p` on a file of the review says `in review`. The
+  tutor has a Markdown plan and a lesson for it. (#249)
+- Short forms of the launch flags: `-r` for `--review`, `-b` for `--base`, `-t` for `--theme`,
+  `-d` for `--drill` and `-k` for `--keys`. `merl -r feature -b origin/dev` is
+  `merl --review feature --base origin/dev`.
+
 ### Changed
 
+- `merl --review feature` reviews `feature`: the branch goes after a space, as the base does after
+  `--base`, and `--review=feature` still works. A file after a bare `--review` is now read as the
+  branch: `merl --review` opens on the first hunk, and `o` opens any file.
 - `merl --review` paints the diff as GitHub does: the lines the branch deleted on a red tint,
   in their syntax colours instead of grey, the lines it added on a green one, and on a changed
   line the words that changed on a stronger tint, on the old line and on the new. A deleted line
@@ -29,6 +58,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   while, as during a rebase stopped on a conflict, has its mark back when it returns. A review
   started on a detached HEAD, outside a rebase, keeps its marks only while it runs. The marks of a
   review untouched for 30 days are forgotten. (#240)
+- The file panel of `merl --review` paints the status letter bold in the gutter's colours, `A`
+  green, `M` blue, `D` red, a rename or a copy dim; the line counts and `bin` are dim, so the
+  name reads first; and the bottom border gives the size of the branch, `3 files · +13 −1`. A
+  long name of wide characters is cut to fit instead of pushing the counts off the panel.
+  `review_panel_colours = false` in `~/.config/merl/config.toml` turns the colours, the dimming and
+  the totals off. (#250)
 
 ### Fixed
 

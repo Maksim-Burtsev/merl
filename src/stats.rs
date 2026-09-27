@@ -164,11 +164,27 @@ fn parse(text: &str) -> Rows {
 }
 
 fn load(path: &Path) -> Result<Rows> {
+    Ok(parse(&read(path)?))
+}
+
+/// A stats file's text, empty before the first write.
+pub fn read(path: &Path) -> Result<String> {
     match std::fs::read_to_string(path) {
-        Ok(text) => Ok(parse(&text)),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Rows::new()),
+        Ok(text) => Ok(text),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
         Err(e) => Err(e).with_context(|| format!("{}", path.display())),
     }
+}
+
+/// Replaces a stats file whole through a rename, so a reader never sees half a file.
+pub fn write(path: &Path, text: &str) -> Result<()> {
+    let ctx = || format!("{}", path.display());
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).with_context(ctx)?;
+    }
+    let tmp = path.with_extension(format!("tsv.{}", std::process::id()));
+    std::fs::write(&tmp, text).with_context(ctx)?;
+    std::fs::rename(&tmp, path).with_context(ctx)
 }
 
 /// Adds a session's presses and misses to the file under `today`. The file is read again right
@@ -195,20 +211,7 @@ pub fn add(
     for ((day, action), (n, missed)) in &rows {
         _ = writeln!(text, "{}\t{action}\t{n}\t{missed}", date(*day));
     }
-    replace(path, &text)
-}
-
-/// Writes `text` to a file next to `path` and renames it over `path`: a merl reading it at the
-/// same time sees the old file or the new one, never half of one.
-pub fn replace(path: &Path, text: &str) -> Result<()> {
-    let ctx = || format!("{}", path.display());
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).with_context(ctx)?;
-    }
-    let mut tmp = path.as_os_str().to_owned();
-    tmp.push(format!(".{}", std::process::id()));
-    std::fs::write(&tmp, text).with_context(ctx)?;
-    std::fs::rename(&tmp, path).with_context(ctx)
+    write(path, &text)
 }
 
 /// `merl --keys`.
@@ -292,9 +295,9 @@ mod tests {
     /// Each side of a `KEYS` row is an action; the second side takes the first side's prefix
     /// and modifiers, and the five aliases fold into their primaries.
     #[test]
-    fn keys_split_into_66_actions() {
+    fn keys_split_into_67_actions() {
         let names: Vec<&str> = ACTIONS.iter().map(|a| a.name.as_str()).collect();
-        assert_eq!(names.len(), 66, "{names:?}");
+        assert_eq!(names.len(), 67, "{names:?}");
         assert_eq!(names.iter().collect::<HashSet<_>>().len(), names.len());
         for name in [
             "[",
@@ -390,7 +393,7 @@ mod tests {
                  then the paragraph",
             ]
         );
-        assert_eq!(lines.len(), 1 + 66);
+        assert_eq!(lines.len(), 1 + 67);
         assert!(lines[4..].iter().all(|l| l.contains("  never  ")), "{out}");
         assert_eq!(
             lines[4],

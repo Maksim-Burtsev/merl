@@ -4,8 +4,9 @@ use std::path::PathBuf;
 
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
+use ratatui::buffer::Cell;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use ratatui::style::Color;
+use ratatui::style::{Color, Modifier};
 
 use crate::app::App;
 use crate::buffer::Buffer;
@@ -16,14 +17,18 @@ use super::rows;
 
 /// The colour of the first cell of `needle`, the first time it is on screen.
 fn at(terminal: &Terminal<TestBackend>, needle: &str) -> Color {
+    cell(terminal, needle).fg
+}
+
+/// The first cell of `needle`, a char a cell, the first time it is on screen.
+fn cell(terminal: &Terminal<TestBackend>, needle: &str) -> Cell {
     let buf = terminal.backend().buffer();
+    let n = needle.chars().count() as u16;
     for y in 0..buf.area.height {
-        for x in 0..=buf.area.width.saturating_sub(needle.len() as u16) {
-            let got: String = (0..needle.len() as u16)
-                .map(|i| buf[(x + i, y)].symbol())
-                .collect();
+        for x in 0..=buf.area.width.saturating_sub(n) {
+            let got: String = (0..n).map(|i| buf[(x + i, y)].symbol()).collect();
             if got == needle {
-                return buf[(x, y)].fg;
+                return buf[(x, y)].clone();
             }
         }
     }
@@ -443,6 +448,214 @@ fn review_panel_cuts_a_long_name_and_keeps_the_counts() {
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let r = rows(&terminal);
     assert!(r[1].contains("\u{2026} bin\u{2502}"), "{}", r[1]);
+}
+
+/// A review of `files`, each `(path, status, added, deleted)`; `bin` for a binary file.
+fn review_app(files: &[(&str, char, usize, usize)]) -> App {
+    let dir = PathBuf::from("/tmp");
+    let paths: Vec<PathBuf> = files.iter().map(|f| f.0.into()).collect();
+    let mut app = App::new(
+        dir.clone(),
+        crate::tree::from_files(&paths),
+        Vec::new(),
+        Buffer::from_bytes(dir.join("a.rs"), b"x\n"),
+        None,
+    );
+    app.review = Some(crate::git::Review {
+        branch: "feature".into(),
+        base: "main".into(),
+        merge_base: String::new(),
+        files: files
+            .iter()
+            .map(|&(path, status, added, deleted)| crate::git::ReviewFile {
+                path: path.into(),
+                status,
+                old: matches!(status, 'R' | 'C').then(|| "was.rs".into()),
+                added,
+                deleted,
+                binary: path.ends_with(".png"),
+                untracked: false,
+            })
+            .collect(),
+        note: None,
+    });
+    app
+}
+
+/// #250: the status letter is bold, in the colours of the gutter marks; a rename is dim. The
+/// counts are dim, `bin` too, and the name keeps the text colour.
+#[test]
+fn review_panel_colours_the_status_and_dims_the_counts() {
+    let mut app = review_app(&[
+        ("new.rs", 'A', 6, 0),
+        ("store.rs", 'M', 7, 1),
+        ("gone.rs", 'D', 0, 9),
+        ("moved.rs", 'R', 0, 0),
+        ("logo.png", 'A', 0, 0),
+    ]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(60, 8)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    for (needle, colour) in [
+        ("A new.rs", Color::Green),
+        ("M store.rs", Color::Blue),
+        ("D gone.rs", Color::Red),
+        ("R moved.rs", theme.ghost_fg),
+    ] {
+        let c = cell(&terminal, needle);
+        assert_eq!(c.fg, colour, "{needle}");
+        assert!(c.modifier.contains(Modifier::BOLD), "{needle}");
+    }
+    assert_eq!(at(&terminal, "store.rs"), theme.fg);
+    assert_eq!(at(&terminal, "+7 \u{2212}1"), theme.ghost_fg);
+    assert_eq!(at(&terminal, "bin"), theme.ghost_fg);
+    // #172: the tick column is untouched.
+    app.viewed.insert("store.rs".into(), 0);
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(at(&terminal, "\u{2713} M store.rs"), theme.accent);
+    assert_eq!(cell(&terminal, "M store.rs").fg, Color::Blue);
+}
+
+/// #250: the branch totals sit dim on the bottom border, as `feature ← main` on the top one; a
+/// binary file counts as a file and adds no lines.
+#[test]
+fn review_panel_shows_the_branch_totals_on_the_bottom_border() {
+    let mut app = review_app(&[
+        ("new.rs", 'A', 6, 0),
+        ("store.rs", 'M', 7, 1),
+        ("logo.png", 'A', 0, 0),
+    ]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(60, 8)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    let bottom = &r[r.len() - 2];
+    assert!(
+        bottom.starts_with("\u{2514} 3 files \u{b7} +13 \u{2212}1 \u{2500}"),
+        "{bottom}"
+    );
+    let c = cell(&terminal, "3 files");
+    assert_eq!(c.fg, theme.ghost_fg);
+    assert!(!c.modifier.contains(Modifier::BOLD));
+    assert!(cell(&terminal, "feature").modifier.contains(Modifier::BOLD));
+
+    let mut one = review_app(&[("store.rs", 'M', 7, 1)]);
+    terminal.draw(|f| super::draw(f, &mut one, &theme)).unwrap();
+    assert!(
+        rows(&terminal)
+            .join("\n")
+            .contains(" 1 file \u{b7} +7 \u{2212}1 ")
+    );
+}
+
+/// #250: `review_panel_colours = false` draws the panel as before: the letter and the counts in
+/// the row's colours, no totals on the bottom border.
+#[test]
+fn review_panel_colours_off_draws_the_plain_panel() {
+    let mut app = review_app(&[("new.rs", 'A', 6, 0), ("store.rs", 'M', 7, 1)]);
+    app.review_panel_colours = false;
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(60, 8)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    for needle in ["A new.rs", "M store.rs"] {
+        let c = cell(&terminal, needle);
+        assert_eq!(c.fg, theme.fg, "{needle}");
+        assert!(!c.modifier.contains(Modifier::BOLD), "{needle}");
+    }
+    assert_eq!(at(&terminal, "+7 \u{2212}1"), theme.fg);
+    let r = rows(&terminal);
+    assert!(!r[r.len() - 2].contains("file"), "{r:#?}");
+}
+
+/// #250: on a border too narrow for them the totals go whole, never cut mid-number.
+#[test]
+fn review_panel_drops_the_totals_that_do_not_fit() {
+    let mut app = review_app(&[("store.rs", 'M', 123_456, 654_321)]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(60, 8)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    assert!(r[r.len() - 2].contains("+123456 \u{2212}654321"), "{r:?}");
+
+    let mut terminal = Terminal::new(TestBackend::new(24, 8)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    let bottom = &r[r.len() - 2];
+    assert!(!bottom.contains("file"), "{bottom}");
+    assert!(bottom.starts_with("\u{2514}\u{2500}"), "{bottom}");
+}
+
+/// #250: totals exactly as wide as the border are shown whole; on a panel one column narrower
+/// they are left out whole, never cut at the corner.
+#[test]
+fn review_panel_keeps_totals_that_just_fit_and_drops_them_one_column_short() {
+    // ` 1 file · +1234567 −7654321 `: 28 columns, the border of the 30-column panel.
+    let mut app = review_app(&[("store.rs", 'M', 1_234_567, 7_654_321)]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(60, 8)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    let fits = "\u{2514} 1 file \u{b7} +1234567 \u{2212}7654321 \u{2518}";
+    assert!(r[r.len() - 2].starts_with(fits), "{r:#?}");
+
+    // A 30-column terminal leaves the panel 29 columns, its border 27.
+    let mut terminal = Terminal::new(TestBackend::new(30, 8)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    let empty = format!("\u{2514}{}\u{2518}", "\u{2500}".repeat(27));
+    assert!(r[r.len() - 2].starts_with(&empty), "{r:#?}");
+}
+
+/// #250: a name of wide or multi-byte chars puts the counts at the border, and a long one is
+/// cut by columns, never inside a char.
+#[test]
+fn review_panel_measures_a_non_ascii_name_in_columns() {
+    let mut app = review_app(&[
+        ("файл.rs", 'M', 1, 0),
+        ("文件.rs", 'A', 2, 0),
+        ("很长很长很长很长很长很长的名字.rs", 'A', 3, 0),
+    ]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(40, 6)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let buf = terminal.backend().buffer();
+    // Every row ends where the header's border does: the counts, then `│`.
+    let edge = (0..buf.area.width)
+        .find(|&x| buf[(x, 0)].symbol() == "\u{2510}")
+        .unwrap();
+    // By name: `файл.rs`, the long one, `文件.rs`.
+    for (y, counts) in [
+        (1, "+1 \u{2212}0"),
+        (2, "+3 \u{2212}0"),
+        (3, "+2 \u{2212}0"),
+    ] {
+        let row: String = (0..=edge).map(|x| buf[(x, y)].symbol()).collect();
+        assert!(row.ends_with(&format!("{counts}\u{2502}")), "{row}");
+    }
+    assert_eq!(at(&terminal, "+1 \u{2212}0"), theme.ghost_fg);
+    assert!(rows(&terminal)[1].contains("M файл.rs"));
+    let long = &rows(&terminal)[2];
+    assert!(
+        long.contains('\u{2026}') && !long.contains("\u{540d}"),
+        "{long}"
+    );
+}
+
+/// #250: a file below the top level has its counts at the border too: the room for its name
+/// counts the indent.
+#[test]
+fn review_panel_puts_a_nested_file_counts_at_the_border() {
+    let mut app = review_app(&[("src/deep/store.rs", 'M', 7, 1), ("top.rs", 'A', 1, 0)]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(60, 8)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    let nested = r
+        .iter()
+        .find(|l| l.contains("M store.rs"))
+        .expect("store.rs row");
+    assert!(nested.contains("+7 \u{2212}1\u{2502}"), "{r:#?}");
+    assert!(nested.starts_with("\u{2502}      M store.rs"), "{r:#?}");
 }
 
 /// A task can start with the help or a picker open (`Esc`, `Help: Down`, `Picker: PgDn`): the
