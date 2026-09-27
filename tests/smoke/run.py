@@ -41,8 +41,8 @@ few verbs of its own:
                        (fetched once, 59 MB), instead of the fixture
 
 A scenario that is not about the tree hides it (`t`) after its first wait, so that a change to the
-tree shows in one checkpoint per scenario, not in all of them. What a wait may name: AGENTS.md,
-`## Releases`, its last paragraph.
+tree shows in one checkpoint per scenario, not in all of them. What a wait may name, and where a new
+feature's steps go: AGENTS.md, its bullets on tests/smoke.
 """
 import argparse, difflib, fcntl, hashlib, json, os, platform, re, shlex, shutil, signal, subprocess, sys
 import tempfile, threading, time, traceback

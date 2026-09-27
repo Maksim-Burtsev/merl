@@ -11,6 +11,19 @@
   or it is listed in `NOT_TAUGHT`; `every_task_starts_undone_and_its_answer_does_it` fails when a
   task's start already does it or its answer does not, from cold or with the whole pool run
   before it on one App.
+- `tests/smoke/*.steps` are the scenarios the release smoke test plays in tmux on the build and on
+  the last release (`.claude/skills/smoke-test/SKILL.md`). A PR that adds or changes a feature a
+  user can see (an `### Added` or `### Changed` entry) plays it in a scenario in the same PR, its
+  comment citing `(#N)`: the release then reads the entry `seen working` instead of `not checked`,
+  and every later release guards it. Append to the scenario closest to the feature, or add a file;
+  the last release stops at the first wait for what it lacks, so the new steps go at the end.
+  Keep the whole run under ~3 min (`wall` in the report's header) and check the scenario with
+  `tests/smoke/run.py --only NAME`: PASS or DIFF on the new build.
+- A PR that changes a text a scenario waits for updates that scenario in the same PR; `grep -rn
+  'TEXT' tests/smoke assets/*.steps` finds them all, the README's tapes that `scale` plays
+  included. The wait moves to text both the change and the last release draw: the change then
+  shows as a difference in its checkpoint, while a wait on the new text would stop the last
+  release there and leave the rest of the scenario unplayed.
 
 ## Working on an issue
 
@@ -31,7 +44,8 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
    runs share a scratchpad and overwrite each other's `before.gif`.
 5. Before a push, run what `.github/workflows/ci.yml` runs. A change a user can see adds its
    entry under `## [Unreleased]` in `CHANGELOG.md`, citing the issue as `(#N)`; docs, refactors,
-   tests and tooling get none.
+   tests and tooling get none. An added or changed feature also plays in a smoke scenario (the
+   `tests/smoke` bullets above).
 6. Commits are in English and carry the reasoning. The repo squashes with the PR's commit
    messages, so a commit written with Claude keeps its `Co-Authored-By: Claude …` trailer.
 7. Record the screencast, open the PR, and check `gh pr diff --name-only` holds only your files.
@@ -127,12 +141,13 @@ master; nobody can push to it directly or bypass the checks.
 
 Only when the owner asks for one. In order:
 
-1. Smoke test: `.claude/skills/smoke-test/SKILL.md` (`/smoke-test` in Claude Code). No release
-   without its GO.
-2. The changelog covers every PR since the last tag (`git log vX.Y.Z..origin/master`): check
+1. The changelog covers every PR since the last tag (`git log vX.Y.Z..origin/master`): check
    each commit's issue and content, since PRs merge without an entry, and parallel merges leave a
    second `### Added` in `## [Unreleased]` to fold into the first. Dependabot, `docs:`,
-   `refactor:` and tooling commits get no entry. Entries cite the issue.
+   `refactor:` and tooling commits get no entry. Entries cite the issue. The entries go in on the
+   release branch: its PR (step 3) carries them.
+2. Smoke test: `.claude/skills/smoke-test/SKILL.md` (`/smoke-test` in Claude Code), from that
+   branch, so the report reads the finished changelog. No release without its GO.
 3. A release PR, `release: X.Y.Z`: `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD` with its
    link, the version goes into `Cargo.toml` and `Cargo.lock`, and the smoke test's verdict table
    into the body.
@@ -141,9 +156,3 @@ Only when the owner asks for one. In order:
 5. The Homebrew tap: `release.yml` bumps it when the `TAP_TOKEN` secret is set; otherwise bump
    `Formula/merl.rb` in `Maksim-Burtsev/homebrew-tap` by hand (the version and the three sha256
    of the `.sha256` assets), commit `merl X.Y.Z` and push.
-
-A PR that changes a text a scenario waits for updates that scenario in the same PR; `grep -rn
-'TEXT' tests/smoke assets/*.steps` finds them all, the README's tapes that `scale` plays included.
-The wait moves to text both the change and the last release draw: the change then shows as a
-difference in its checkpoint, while a wait on the new text would stop the last release there and
-leave the rest of the scenario unplayed.

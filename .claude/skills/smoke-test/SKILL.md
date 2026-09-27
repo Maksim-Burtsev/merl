@@ -1,6 +1,6 @@
 ---
 name: smoke-test
-description: The release gate of merl, step 1 of AGENTS.md `## Releases`. Use first whenever a merl release is asked for or prepared (a version bump, a tag, a `release: X.Y.Z` PR), and to check a build against the last release. Plays the tests/smoke scenarios in tmux on both, compares their screens and timings, and ends in a GO / NO-GO verdict table for the release PR.
+description: The release gate of merl, step 2 of AGENTS.md `## Releases`, after the changelog. Use whenever a merl release is asked for or prepared (a version bump, a tag, a `release: X.Y.Z` PR), and to check a build against the last release. Plays the tests/smoke scenarios in tmux on both, compares their screens and timings, and ends in a GO / NO-GO verdict table for the release PR.
 ---
 
 # Smoke test before a release
@@ -10,7 +10,7 @@ the changelog promises work. A release goes out only on a GO.
 
 ## 1. Run
 
-From a worktree of the release commit (`origin/master`), with its own `target/`:
+From a worktree of the release branch, the changelog finished (step 1), with its own `target/`:
 
 ```sh
 sysctl -n vm.loadavg          # timings mean something under ~8: write it down with them
