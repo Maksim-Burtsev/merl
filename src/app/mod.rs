@@ -551,7 +551,7 @@ impl App {
         if let Some((n, c)) = at {
             app.goto_line(n);
             // 1-based in chars, as compilers count; past the end of the line is its end.
-            let s = app.line_str();
+            let s = app.buf.shown(app.line);
             app.col = s
                 .char_indices()
                 .nth(c.saturating_sub(1))

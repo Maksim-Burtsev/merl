@@ -272,7 +272,7 @@ impl App {
             }
             KeyCode::End if ctrl => {
                 self.line = self.buf.lines.len() - 1;
-                self.col = self.line_str().len();
+                self.col = self.shown_len();
                 self.sync_want_x();
             }
             KeyCode::Home => self.line_start(),

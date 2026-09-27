@@ -85,6 +85,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reads like the project's `src/lib.rs`. A path still too long for the pane is cut from the left,
   `…/json/__init__.py`, so the column, `read-only` and the reason `d` gave stay in sight; in a
   120-column pane they fell off the edge. (#235)
+- In a line longer than merl draws (it shows the first 20 KB of a minified bundle or a one-line
+  JSON dump), the cursor stays on the drawn part: `End`, `Ctrl+End`, the arrows, the word moves,
+  `/` and a jump from `d`, `u` or `s` stop where it ends, and `Right` there goes on to the
+  next line. They put the cursor at the real end of the line, past everything on screen, with a
+  column in the status bar no drawn char had. (#284)
 
 ## [0.7.0] - 2026-09-25
 
