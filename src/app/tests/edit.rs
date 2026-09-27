@@ -246,14 +246,63 @@ fn typing_replaces_the_selection_and_the_clipboard_keys_copy_or_cut() {
     assert_eq!(a.buf.lines, vec!["def", "ghi"]);
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
-    assert_eq!(a.clipboard.take().as_deref(), Some("ghi"));
-    assert_eq!(a.buf.lines, vec!["def", ""]);
+    assert_eq!(a.clipboard.take().as_deref(), Some("ghi\n"));
+    assert_eq!(
+        a.buf.lines,
+        vec!["def"],
+        "the last line goes with its break"
+    );
+    assert_eq!((a.line, a.col), (0, 0));
     // Pasted text is inserted only while editing, with CRLF normalised.
-    a.paste("p\r\nq");
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    a.paste("\r\np\r\nq");
     assert_eq!(a.buf.lines, vec!["def", "p", "q"]);
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     a.paste("nope");
     assert_eq!(a.buf.lines, vec!["def", "p", "q"]);
+}
+
+#[test]
+fn the_last_line_is_copied_and_cut_whole_and_a_lone_line_is_emptied() {
+    let mut a = app("abc\ndefgh\ngh\n");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(
+        a.clipboard.take().as_deref(),
+        Some("gh\n"),
+        "with its break"
+    );
+    assert_eq!(a.message, "copied 1 line");
+    press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
+    assert_eq!(a.clipboard.take().as_deref(), Some("gh\n"));
+    assert_eq!(
+        a.buf.lines,
+        vec!["abc", "defgh"],
+        "no empty line left behind"
+    );
+    assert_eq!((a.line, a.col), (1, 2), "up a line, at the column it had");
+    press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+    assert_eq!(a.buf.lines, vec!["abc", "defgh", "gh"], "one step");
+    assert_eq!((a.line, a.col), (2, 2), "undo puts the cursor where it was");
+    press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
+    assert_eq!(a.buf.lines, vec!["abc", "defgh"]);
+    assert_eq!((a.line, a.col), (1, 2), "redo lands where the cut did");
+    // A file of one line keeps one line, emptied.
+    let mut a = app("xyz\n");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
+    assert_eq!(a.clipboard.take().as_deref(), Some("xyz\n"));
+    assert_eq!(a.buf.lines, vec![""]);
+    assert_eq!((a.line, a.col), (0, 0));
+    press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+    assert_eq!(
+        (a.buf.lines.clone(), a.line, a.col),
+        (vec!["xyz".to_string()], 0, 3)
+    );
 }
 
 #[test]
