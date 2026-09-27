@@ -44,7 +44,8 @@ The run is done when the report's table has a row for every scenario.
   the text diff misses what only colour or position shows.
 - **Timed steps**: a step marked **slower** (over 2× and over 200 ms slower) is a regression
   unless an Unreleased entry says why. Samples far apart mean load: rerun under ~8.
-- **Plays that did not end ok**, each with merl's last screen as a PNG and its stderr.
+- **Plays that did not end ok**, each with its stderr and a PNG of the screen at the failure (for
+  a merl that died, its last checkpoint).
 - **Unreleased entries**, with the scenarios whose comments cite their issues.
 
 ## 3. Give the verdict

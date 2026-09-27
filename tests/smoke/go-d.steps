@@ -3,7 +3,8 @@
 # method called on an interface lands on the interface, and a second d lists what implements it;
 # a name bound by a make( that gofmt left wrapped over three lines answers instead of a panic
 # (#178); a field read on a line with a `→` before it; fmt.Errorf into GOROOT, read-only, with
-# no toolchain fetched on the way (#183). Tabs are drawn four wide, as gofmt means them.
+# no toolchain fetched on the way (#183), named `fmt/errors.go` on the status line (#235). Tabs
+# are drawn four wide, as gofmt means them.
 merl worker/main.go
 wait func main() {
 key t /

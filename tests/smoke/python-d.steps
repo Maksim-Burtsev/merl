@@ -1,11 +1,12 @@
 # python-d: d through the Python half of the service, the status line saying how each jump was
 # proven. json.dumps into the standard library of the .venv's interpreter, read-only, found
-# without running it (#183), timed as the first d of the session into the standard library; a
-# method of an unannotated parameter lists every find_by_customer in a picker, Enter jumps onto
-# the name (#236); [ [ back and ] forward through the jumps (#2); a name bound by a cast( that
-# ruff wrapped over two lines answers `by name` instead of a panic (#178). Then through an
-# import, self.repo read from __init__, the two-link chain self.uow.orders.save, and a re-export
-# in app/__init__.py (the tests import OrderService from `app`).
+# without running it (#183), named from its library's root on the status line (#235), timed as
+# the first d of the session into the standard library; a method of an unannotated parameter
+# lists every find_by_customer in a picker, Enter jumps onto the name (#236); [ [ back and ]
+# forward through the jumps (#2); a name bound by a cast( that ruff wrapped over two lines
+# answers `by name` instead of a panic (#178). Then through an import, self.repo read from
+# __init__, the two-link chain self.uow.orders.save, and a re-export in app/__init__.py (the
+# tests import OrderService from `app`).
 merl app/api.py
 wait def order_json(order) -> str:
 key t /
