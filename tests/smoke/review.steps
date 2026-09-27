@@ -1,0 +1,54 @@
+# review: the branch an agent pushed, read as its merge request shows it. --review=agent/refund
+# fetches it from the local origin and opens on the first hunk; the panel marks each file M, A or
+# D with its +n −m. c / C walk the hunks across files: the imports three lines apart are two hunks
+# though the fixture sets diff.interHunkContext (#220), the redrawn PNG is skipped (#77), the
+# deleted script opens read-only. The lines the branch deleted at the end of repos.py scroll into
+# view down to the last one (#179), painted as deletions (#144, #165). d from a changed line into
+# the function the branch added, [ back to the hunk; m puts the tick on the open file and takes
+# it off (#162). Last, c after a d into a file the branch did not touch goes back into the review,
+# to the hunk left once #239 lands (0.7.0 opens the first file).
+caption review · merl --review=agent/refund fetches the agent's branch and opens on its first hunk
+merl --review=agent/refund
+wait hunk 1/1  file 1/8
+caption c: the next hunk, across files; the panel marks each file M, A or D with its +n −m
+key c
+wait app/repos.py  31:1  [code]  hunk 1/1  file 2/8
+caption the lines the branch deleted at the end of repos.py scroll into view, down to the last (#179)
+key PageDown
+wait self.orders.clear()
+caption two imports three lines apart are two hunks, though git's interHunkContext would merge them (#220)
+key c
+wait hunk 1/4  file 3/8
+key c
+wait hunk 2/4  file 3/8
+key c c
+wait hunk 4/4  file 3/8
+caption d from a changed line into the function the branch added, [ back to the hunk
+key /
+type refund_amount(o
+key Enter d
+wait refund_amount: via import app/refunds.py
+key [
+wait app/service.py  44:18  [code]  hunk 4/4  file 3/8
+caption m puts the tick on the open file and takes it off (#162)
+key m
+wait file 3/8  viewed
+key m
+wait file 3/8  not viewed
+caption on through the chart; the redrawn PNG is skipped (#77), the deleted script opens read-only
+key c
+wait hunk 1/1  file 4/8
+key c
+wait read-only  hunk 0/0  file 6/8  skipped 1 file without hunks
+caption C walks back
+key C
+wait hunk 1/1  file 4/8
+key C
+wait hunk 4/4  file 3/8
+caption d into a file the branch did not touch, then c: back to the hunk left (#239)
+key /
+type REFUNDED
+key Enter d
+wait REFUNDED → OrderStatus.REFUNDED (via OrderStatus)
+key c
+wait :1  [code]  hunk

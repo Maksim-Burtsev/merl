@@ -1,0 +1,50 @@
+# config: the files beside the code. A Helm template with its {{ }} highlighted; s replicaCount
+# finds the template's use and both keys in values.yaml, the open file's hit first; u from
+# values.yaml; d on the alias *defaults lands on its &defaults anchor; d on a compose service
+# under depends_on, a CI job under needs, a Makefile target and a Dockerfile stage lands on the
+# service, the job, the target and the stage.
+merl deploy/helm/orders/templates/deployment.yaml
+wait replicas: {{ .Values.replicaCount }}
+key t s
+type replicaCount
+wait Search (3 hits)
+key Down Enter
+wait deploy/helm/orders/values.yaml  1:1
+key u
+wait Usages of replicaCount: 3 in code (3/3)
+key Escape /
+type defaults
+key Enter n d
+wait defaults: by name, 1 match
+key o
+type compose
+key Enter
+wait docker-compose.yml  1:1
+key /
+type db]
+key Enter d
+wait docker-compose.yml  15:3  [code]  db: by name, 1 match
+key o
+type ci.yml
+key Enter
+wait .github/workflows/ci.yml  1:1
+key /
+type needs: test
+key Enter End d
+wait .github/workflows/ci.yml  8:3  [code]  test: by name, 1 match
+key o
+type Makefile
+key Enter
+wait Makefile  1:1
+key /
+type lint test
+key Enter d
+wait Makefile  12:1  [code]  lint: by name, 1 match
+key o
+type Dockerfile
+key Enter
+wait Dockerfile  1:1
+key /
+type build /wheels
+key Enter d
+wait Dockerfile  1:26  [code]  build: by name, 1 match

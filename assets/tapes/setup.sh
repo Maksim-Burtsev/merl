@@ -2,9 +2,10 @@
 # Prepares what the tapes record: a checkout of gitea at a pinned commit in /tmp/merl-demo/gitea,
 # on a branch that plays the agent's work (agent-branch.patch), and an empty HOME so that merl
 # runs with its defaults. Run once, then: assets/tapes/record.py assets/demo.steps, ...
+# tests/smoke/run.py passes a DIR of its own, so a smoke run and a recording never share a checkout.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
-dir=/tmp/merl-demo
+dir=${1:-/tmp/merl-demo}
 commit=3296046b4ab1f8cf3efcc908df2b1918b16831b7
 
 mkdir -p "$dir/home"

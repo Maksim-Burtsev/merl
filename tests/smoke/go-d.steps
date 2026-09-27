@@ -1,0 +1,37 @@
+# go-d: d through the Go worker, which has a go.mod of its own. An import path under the module
+# go.mod names is that package's directory; q := queue.New() is typed by New's return type; a
+# method called on an interface lands on the interface, and a second d lists what implements it;
+# a name bound by a make( that gofmt left wrapped over three lines answers instead of a panic
+# (#178); a field read on a line with a `→` before it; fmt.Errorf into GOROOT, read-only, with
+# no toolchain fetched on the way (#183), named `fmt/errors.go` on the status line (#235). Tabs
+# are drawn four wide, as gofmt means them.
+merl worker/main.go
+wait func main() {
+key t /
+type New(
+key Enter d
+wait New: via import worker/internal/queue/
+key [ /
+type Push
+key Enter d
+wait Push → memQueue.Push (via queue.New() *memQueue)
+key [ /
+type Pop
+key Enter d
+wait Pop → Queue.Pop (via q: Queue)
+key d
+wait Pop: implementations of Queue.Pop, 2 declarations (2/2)
+key Escape [
+wait worker/main.go  33:22
+key /
+type jobs, job
+key Enter d
+wait jobs → drain.jobs (local)
+key [ /
+type Kind)
+key Enter d
+wait Kind → Job.Kind (via job: Job)
+key [ /
+type Errorf
+key Enter d
+wait Errorf: via import fmt

@@ -1,0 +1,30 @@
+# scale: gitea, 5,500 files, at the README's 132x41. First the timed steps: merl starting in the
+# repository, d, u and s there, each the fastest of three runs. Then the README's own demo.steps
+# and review.steps play to the end, so a change that breaks a README recording shows here
+# before the next recording does.
+project gitea
+size 132x41
+merl
+time
+wait Open a file
+key o
+type user block
+key Down Enter
+wait services/user/block.go
+key /
+type IsOw
+key Enter
+time
+key d
+wait via org_model
+key [
+wait services/user/block.go
+time
+key u
+wait Usages of
+key Escape s
+type QueueSettings{}
+time
+wait queue.go:49
+include assets/demo.steps
+include assets/review.steps
