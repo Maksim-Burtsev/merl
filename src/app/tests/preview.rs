@@ -196,7 +196,7 @@ fn the_preview_belongs_to_the_file_p_was_pressed_on() {
 }
 
 /// A branch that changes `doc.md` from `base` to `branch` and leaves `notes.md` as it was, under
-/// review with `doc.md` open.
+/// review with `doc.md` open. `notes.md` is `NOTES` and sixty more lines.
 fn md_review(tag: &str, base: &str, branch: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-md-review-{}-{tag}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -214,7 +214,11 @@ fn md_review(tag: &str, base: &str, branch: &str) -> (PathBuf, App) {
     git(&["config", "user.email", "t@t"]);
     git(&["config", "user.name", "t"]);
     std::fs::write(dir.join("doc.md"), base).unwrap();
-    std::fs::write(dir.join("notes.md"), "# Notes\n\nKept.\n").unwrap();
+    std::fs::write(
+        dir.join("notes.md"),
+        format!("{NOTES}{}", "more\n".repeat(60)),
+    )
+    .unwrap();
     git(&["add", "."]);
     git(&["commit", "-q", "-m", "base"]);
     git(&["switch", "-q", "-c", "feature"]);
@@ -680,18 +684,81 @@ fn p_on_a_file_of_the_review_says_in_review() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A file shown rendered that an agent changes joins the review: it shows its source, with the
-/// diff.
+const NOTES: &str = "# Notes\n\nKept.\n";
+
+/// A file shown rendered that an agent changes joins the review: its preview is off for good, as
+/// if `p` had been pressed, the source at the place the preview showed. When the file leaves the
+/// review again it stays source, in edit mode or not, until `p`; so does a rendered file that was
+/// not open when it joined.
 #[test]
-fn a_file_that_joins_the_review_shows_its_source() {
+fn a_file_that_joins_the_review_leaves_the_preview_for_good() {
     let (dir, mut a) = md_review("joins", "# Doc\n\nOld.\n", "# Doc\n\nNew.\n");
+    let kept = std::fs::read_to_string(dir.join("notes.md")).unwrap();
+    let refresh = |a: &mut App| a.review_refreshed(git::Review::open(&dir, None, None).unwrap());
+    (a.view_w, a.view_h) = (40, 7);
     crate::tutor::press(&mut a, "onotes.md<Enter>");
     key(&mut a, KeyCode::Char('p'));
-    assert!(a.previewing());
-    std::fs::write(dir.join("notes.md"), "# Notes\n\nChanged.\n").unwrap();
-    a.review_refreshed(git::Review::open(&dir, None, None).unwrap());
-    assert!(!a.previewing());
+    for _ in 0..6 {
+        key(&mut a, KeyCode::Down);
+    }
+    assert!(a.previewing() && a.line > 7, "{}", a.line);
+    std::fs::write(dir.join("notes.md"), format!("# Changed\n{kept}")).unwrap();
+    refresh(&mut a);
+    assert!(!a.previewing(), "joined: source");
+    assert!(
+        (a.top_line..a.top_line + 7).contains(&a.line),
+        "the cursor on screen"
+    );
+    key(&mut a, KeyCode::Enter);
+    std::fs::write(dir.join("notes.md"), &kept).unwrap();
+    refresh(&mut a);
+    assert_eq!(
+        (a.mode, a.previewing()),
+        (Mode::Edit, false),
+        "left, editing: source"
+    );
+    key(&mut a, KeyCode::Esc);
+    key(&mut a, KeyCode::Char('p'));
+    assert!(a.previewing(), "`p` renders it again");
+
+    crate::tutor::press(&mut a, "odoc.md<Enter>");
+    std::fs::write(dir.join("notes.md"), format!("# Changed\n{kept}")).unwrap();
+    refresh(&mut a);
+    std::fs::write(dir.join("notes.md"), &kept).unwrap();
+    refresh(&mut a);
+    crate::tutor::press(&mut a, "onotes.md<Enter>");
+    assert!(!a.previewing(), "joined while not open: source");
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `p` on a file outside the review list whose diff has lines deleted after its last one, the
+/// pane scrolled onto them, returns on the row of the cursor's line: the list lags the file (it
+/// waits out a debounce, or auto-reload is off and Ctrl+R took the file).
+#[test]
+fn p_past_the_last_line_of_a_file_the_list_lags_returns() {
+    // A merl that hangs cannot be stopped from here: the App lives on a thread of its own.
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let (dir, mut a) = md_review("lags", "# Doc\n\nOld.\n", "# Doc\n\nNew.\n");
+        (a.view_w, a.view_h) = (40, 7);
+        crate::tutor::press(&mut a, "onotes.md<Enter>");
+        std::fs::write(dir.join("notes.md"), NOTES).unwrap();
+        a.reload(true);
+        for _ in 0..70 {
+            key(&mut a, KeyCode::Down);
+        }
+        let scrolled = a.top_line == a.buf.lines.len();
+        key(&mut a, KeyCode::Char('p'));
+        let row = a.preview.as_ref().map(|p| p.doc.rows[p.row].text.clone());
+        let _ = tx.send((scrolled, a.previewing(), row));
+        let _ = std::fs::remove_dir_all(&dir);
+    });
+    let (scrolled, previewing, row) = rx
+        .recv_timeout(Duration::from_secs(20))
+        .expect("`p` did not return");
+    assert!(scrolled, "the pane was on the deleted lines");
+    assert!(previewing);
+    assert_eq!(row.as_deref(), Some("Kept."));
 }
 
 /// `c` in the preview of a file outside the review leaves the preview and walks on from the

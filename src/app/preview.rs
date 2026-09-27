@@ -24,14 +24,16 @@ pub struct Preview {
 }
 
 impl App {
-    /// The open file is shown rendered: never a file of `--review`, whose diff lives on the
-    /// source.
+    /// The open file is shown rendered.
     pub fn previewing(&self) -> bool {
-        let shown = |p: &PathBuf| self.previewed.contains(p);
-        self.buf.path.as_ref().is_some_and(shown) && !self.in_review()
+        self.buf
+            .path
+            .as_ref()
+            .is_some_and(|p| self.previewed.contains(p))
     }
 
-    /// The open file is one of the review's.
+    /// The open file is one of the review's, whose diff lives on the source: `p` never renders
+    /// it, and one the branch comes to change leaves the preview (`review_refreshed`).
     fn in_review(&self) -> bool {
         let rel = self.rel_current();
         let file = |r: &git::Review| rel.as_deref().and_then(|rel| r.file(rel)).is_some();
@@ -62,10 +64,18 @@ impl App {
             self.message = "not Markdown".into();
             return;
         }
-        let top = (self.top_line, self.top_row);
-        let off = self
-            .rows_between(top, (self.line, self.cursor_row()))
-            .min(self.view_h.saturating_sub(1));
+        // A cursor above the pane (the pane scrolled onto the lines deleted after the last one,
+        // where no row of text reaches) goes to the top.
+        let (top, cur) = (
+            (self.top_line, self.top_row),
+            (self.line, self.cursor_row()),
+        );
+        let off = match cur < top {
+            true => 0,
+            false => self
+                .rows_between(top, cur)
+                .min(self.view_h.saturating_sub(1)),
+        };
         self.previewed.insert(path);
         // A selection the preview cannot draw would be what Ctrl+C copies.
         self.anchor = None;
