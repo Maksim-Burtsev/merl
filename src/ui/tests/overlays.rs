@@ -239,6 +239,7 @@ fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
     let hits = vec![crate::search::Hit {
         path: PathBuf::from("src/wrap.rs"),
         line: 1,
+        col: 0,
         text: std::fs::read_to_string(app.root.join("src/wrap.rs"))
             .unwrap()
             .lines()
@@ -280,6 +281,7 @@ fn hit_picker_rows_keep_their_colours_past_a_tab() {
     let hits = vec![crate::search::Hit {
         path: PathBuf::from("a.c"),
         line: 1,
+        col: 0,
         text: "#define MAX\t10".into(),
     }];
     app.show_picker(crate::app::PickerKind::Usages, App::hit_items(hits));
