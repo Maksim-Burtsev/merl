@@ -73,6 +73,7 @@ pub const TUTOR: &[&str] = &[
     "Enter",
     "Ctrl+Z",
     "w",
+    "p",
     "Picker: Esc",
     "Esc",
 ];
@@ -80,6 +81,7 @@ pub const TUTOR: &[&str] = &[
 /// The sample project, as it sits in `tutor/notes/`.
 pub const FILES: &[(&str, &str)] = &[
     ("Makefile", include_str!("../tutor/notes/Makefile")),
+    ("PLAN.md", include_str!("../tutor/notes/PLAN.md")),
     ("cli.py", include_str!("../tutor/notes/cli.py")),
     ("config.py", include_str!("../tutor/notes/config.py")),
     ("export.csv", include_str!("../tutor/notes/export.csv")),

@@ -19,6 +19,7 @@ grep-searcher = "0.1"
 ignore = "0.4"
 notify = "8"
 nucleo = "0.5"
+pulldown-cmark = { version = "0.13", default-features = false }
 ratatui = "0.30"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
@@ -26,4 +27,5 @@ signal-hook = "0.4"
 syntect = "5.3"
 toml = "1.1"
 two-face = "0.5"
+unicase = "2.6"
 unicode-segmentation = "1"
