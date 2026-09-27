@@ -68,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   long name of wide characters is cut to fit instead of pushing the counts off the panel.
   `review_panel_colours = false` in `~/.config/merl/config.toml` turns the colours, the dimming and
   the totals off. (#250)
+- On a file the branch did not change, the status bar of `merl --review` says `not in review`
+  in place of `hunk 0/0  file -/8`. (#286)
 
 ### Fixed
 

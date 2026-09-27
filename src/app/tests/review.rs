@@ -639,7 +639,7 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
     );
     assert_eq!(at(&a), (dir.join("src/keep.rs"), 2));
     assert!(a.diff.marks.is_empty());
-    assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/9");
+    assert_eq!(a.review_status().unwrap(), "not in review");
 
     // The agent commits: the rows are the same ones, tracked now. Then the base moves up to
     // the branch's first commit, and only the second one is left to review; `new`, open
@@ -668,11 +668,11 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
     );
     assert_eq!(at(&a), (dir.join("new"), 0));
     assert!(a.diff.marks.is_empty());
-    assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/4");
+    assert_eq!(a.review_status().unwrap(), "not in review");
     // The base caught up with the branch: an empty panel, and keys that find no row.
     git(&["branch", "-f", "main", "HEAD"]);
     assert!(refresh(&mut a));
-    assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/0");
+    assert_eq!(a.review_status().unwrap(), "not in review");
     a.focus = Focus::Tree;
     for key in [KeyCode::Down, KeyCode::Enter, KeyCode::Char('c')] {
         press(&mut a, key, KeyModifiers::NONE);
@@ -988,7 +988,7 @@ fn c_and_big_c_from_outside_the_review_go_back_to_the_hunk_left() {
     assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
     assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 2/5");
     a.jump_to(&outside, 2);
-    assert_eq!(a.review_status().unwrap(), "hunk 0/0  file -/5");
+    assert_eq!(a.review_status().unwrap(), "not in review");
     c(&mut a);
     assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
     c(&mut a);
