@@ -535,6 +535,7 @@ fn a_jump_says_how_the_target_was_found() {
             hit: Hit {
                 path: PathBuf::from("x"),
                 line: 1,
+                col: 0,
                 text: String::new(),
             },
             reason,

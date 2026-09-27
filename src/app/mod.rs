@@ -365,6 +365,10 @@ pub struct App {
     /// Review: the files marked as viewed, each with the hash of what was on disk then. A file
     /// that has changed since is not viewed any more (`drop_stale_viewed`). Kept for the session.
     pub viewed: HashMap<PathBuf, u64>,
+    /// Review: the hunk `c` / `C` last stopped on, as its relative path and its index among that
+    /// file's hunks. From a file outside the review they go back to it (#239). Kept for the
+    /// session.
+    last_hunk: Option<(PathBuf, usize)>,
     /// The theme in use, by name. Set by `main`; the theme picker previews others over it.
     pub theme: String,
     /// Where Enter in the theme picker saves the choice. Set by `main`; `None` saves nothing.
@@ -498,6 +502,7 @@ impl App {
             want_diff: true,
             review: None,
             viewed: HashMap::new(),
+            last_hunk: None,
             theme: crate::theme::DEFAULT.to_string(),
             config: None,
             quit_again: false,
@@ -670,6 +675,18 @@ pub(crate) fn clip(s: &str, max: usize) -> String {
 /// A word for the cursor: letters of any script, so a comment in Russian moves by word too.
 pub fn is_word(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
+}
+
+/// The byte where `word` first stands whole in `line`, 0 when it does not: where a jump to a
+/// line that declares or uses it puts the cursor. `extra` are the characters the line's language
+/// counts as part of a word besides letters, digits and `_` ([`search::word_chars`]): the `-` of
+/// a Makefile target.
+pub(super) fn word_col(line: &str, word: &str, extra: &str) -> usize {
+    let part = |c: char| is_word(c) || extra.contains(c);
+    let whole = |(i, _): &(usize, &str)| {
+        !line[..*i].ends_with(part) && !line[i + word.len()..].starts_with(part)
+    };
+    line.match_indices(word).find(whole).map_or(0, |(i, _)| i)
 }
 
 /// The byte after the grapheme cluster at `i`: an emoji with its selector, skin tone or ZWJ

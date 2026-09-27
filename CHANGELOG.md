@@ -25,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- In `merl --review`, `c` or `C` after a `d`, `u` or `s` into a file the branch did not touch goes
+  back to the hunk you left, and the next `c` goes on from there. It opened the first file of the
+  review (`C` the last), and the way back was one `[` per jump. The hunk is found again by its
+  place among its file's hunks, so an agent moving it meanwhile does not lose it. (#239)
+- Enter on a row of `d`'s list, of `u`, `D` or `s` puts the cursor on the word the row is
+  about, as a jump with one match does: the declared name for `d` and `D`, the use for `u`, the
+  start of the hit for `s`. It went to the start of the line, so the next `d` or `u` asked
+  about `def` or the indent until the cursor was walked onto the name. (#236)
 - The status bar names a file outside the project from the root it came from, as the `d` picker
   does: `json/__init__.py` instead of the whole path to the interpreter. A Rust crate or a Go
   module keeps its own name there and in the picker, `serde-1.0.200/src/lib.rs`, so it never
