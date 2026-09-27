@@ -1,0 +1,179 @@
+diff --git a/app/refunds.py b/app/refunds.py
+new file mode 100644
+index 0000000..cf04b58
+--- /dev/null
++++ b/app/refunds.py
+@@ -0,0 +1,18 @@
++from datetime import datetime, timedelta, timezone
++from decimal import Decimal
++
++from app.models import Order, OrderStatus
++
++
++class RefundNotAllowed(Exception):
++    pass
++
++
++def refund_amount(order: Order, window_days: int, now: datetime | None = None) -> Decimal:
++    """What to give back: the whole total inside the window, nothing after it."""
++    now = now or datetime.now(timezone.utc)
++    if order.status is not OrderStatus.PAID:
++        raise RefundNotAllowed(f"order {order.id} is {order.status.value}")
++    if now - order.created_at > timedelta(days=window_days):
++        raise RefundNotAllowed(f"order {order.id} is past the {window_days}-day window")
++    return order.total
+diff --git a/app/repos.py b/app/repos.py
+index 26662a4..befc5ce 100644
+--- a/app/repos.py
++++ b/app/repos.py
+@@ -29,31 +29,3 @@ class OrderRepo:
+ 
+     def delete(self, order_id: int) -> None:
+         self.db.execute("DELETE FROM orders WHERE id = %s", order_id)
+-
+-
+-class InMemoryOrderRepo:
+-    """Orders in a dict, for running the API without Postgres. Same methods as OrderRepo."""
+-
+-    def __init__(self):
+-        self.orders: dict[int, Order] = {}
+-
+-    def get(self, order_id: int) -> Order | None:
+-        return self.orders.get(order_id)
+-
+-    def find_by_customer(self, customer_id: int) -> list[Order]:
+-        return sorted(
+-            (o for o in self.orders.values() if o.customer_id == customer_id),
+-            key=lambda o: o.id,
+-        )
+-
+-    def find_by_status(self, status: OrderStatus) -> list[Order]:
+-        return [o for o in self.orders.values() if o.status is status]
+-
+-    def save(self, order: Order) -> None:
+-        self.orders[order.id] = order
+-
+-    def delete(self, order_id: int) -> None:
+-        self.orders.pop(order_id, None)
+-
+-    def clear(self) -> None:
+-        self.orders.clear()
+diff --git a/app/service.py b/app/service.py
+index 190f2a9..bcf67df 100644
+--- a/app/service.py
++++ b/app/service.py
+@@ -1,5 +1,8 @@
++from decimal import Decimal
++
+ from app.config import Settings
+ from app.models import Order, OrderStatus
++from app.refunds import refund_amount
+ from app.repos import OrderRepo
+ from app.uow import UnitOfWork
+ 
+@@ -23,7 +26,8 @@ class OrderService:
+     def mark_paid(self, order_id: int) -> Order:
+         order = self.get(order_id)
+         order.status = OrderStatus.PAID
+-        self.repo.save(order)
++        with self.uow:
++            self.uow.orders.save(order)
+         return order
+ 
+     def cancel(self, order_id: int) -> Order:
+@@ -34,3 +38,11 @@ class OrderService:
+         with self.uow:
+             self.uow.orders.save(order)
+         return order
++
++    def refund(self, order_id: int) -> Decimal:
++        order = self.get(order_id)
++        amount = refund_amount(order, self.settings.refund_window_days)
++        order.status = OrderStatus.REFUNDED
++        with self.uow:
++            self.uow.orders.save(order)
++        return amount
+diff --git a/deploy/helm/orders/values.yaml b/deploy/helm/orders/values.yaml
+index 2018f91..4db3cb1 100644
+--- a/deploy/helm/orders/values.yaml
++++ b/deploy/helm/orders/values.yaml
+@@ -22,3 +22,4 @@ service:
+ 
+ env:
+   PAGE_SIZE: "50"
++  REFUND_WINDOW_DAYS: "30"
+diff --git a/docs/architecture.png b/docs/architecture.png
+index 97037ba77ac39d9d68ef2d3677567c4e43307754..4850e65717e86cc192405687c53774f125a85ce6 100644
+GIT binary patch
+delta 96
+zcmXS^pP&-$=IP=XQgQ3;RYP6|1p(#*)0;V_Ea0=$aAfB?v3bIu0^jRu+fB<hvIqdd
+v1?3gJGrw(%-MgHX2?T!ee){GB1g=F4i5IIkcRmj*VgLe9S3j3^P6<r__-!Oi
+
+delta 85
+zcmb;~nV=G2?djqeQgQ3;RYO4r10Lp$2RN54(%$umqb2Rj0(<5Q&#Dqd1%Tj!(3R(P
+k>?|NKh3C^Z2Ov=7wafN?WToHyfdL3SUHx3vIVCg!0CJ@su>b%7
+
+diff --git a/scripts/refund_by_hand.py b/scripts/refund_by_hand.py
+deleted file mode 100644
+index ec7651e..0000000
+--- a/scripts/refund_by_hand.py
++++ /dev/null
+@@ -1,9 +0,0 @@
+-"""Refund an order by hand until the service can do it: python scripts/refund_by_hand.py ID"""
+-import sys
+-
+-from app.config import load
+-from app.models import OrderStatus
+-
+-ORDER_ID = int(sys.argv[1])
+-print(f"UPDATE orders SET status = '{OrderStatus.REFUNDED.value}' WHERE id = {ORDER_ID};")
+-print(f"-- then refund it in the payment provider's dashboard ({load().database_url})")
+diff --git a/tests/test_refunds.py b/tests/test_refunds.py
+new file mode 100644
+index 0000000..3bdaad3
+--- /dev/null
++++ b/tests/test_refunds.py
+@@ -0,0 +1,23 @@
++from datetime import datetime, timedelta, timezone
++from decimal import Decimal
++
++import pytest
++
++from app.models import Order, OrderStatus
++from app.refunds import RefundNotAllowed, refund_amount
++
++NOW = datetime(2026, 9, 1, tzinfo=timezone.utc)
++
++
++def paid(days_ago):
++    return Order(id=1, customer_id=7, total=Decimal("40.00"), status=OrderStatus.PAID,
++                 created_at=NOW - timedelta(days=days_ago))
++
++
++def test_whole_total_inside_the_window():
++    assert refund_amount(paid(3), window_days=30, now=NOW) == Decimal("40.00")
++
++
++def test_nothing_after_the_window():
++    with pytest.raises(RefundNotAllowed):
++        refund_amount(paid(31), window_days=30, now=NOW)
+diff --git a/worker/main.go b/worker/main.go
+index fe783d2..ca5c7d4 100644
+--- a/worker/main.go
++++ b/worker/main.go
+@@ -1,4 +1,4 @@
+-// Command worker drains the order jobs the API queues: shipping and syncs.
++// Command worker drains the order jobs the API queues: shipping, syncs and refunds.
+ package main
+ 
+ import (
+@@ -61,6 +61,9 @@ func handle(job queue.Job) error {
+ 	case "ship", "sync":
+ 		log.Printf("order %d → %s", job.OrderID, job.Kind)
+ 		return nil
++	case "refund":
++		log.Printf("order %d → refund sent to the payment provider", job.OrderID)
++		return nil
+ 	default:
+ 		return fmt.Errorf("unknown job kind %q", job.Kind)
+ 	}

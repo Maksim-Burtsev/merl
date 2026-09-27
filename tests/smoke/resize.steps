@@ -1,0 +1,16 @@
+# resize: the terminal resized under merl. At 80x24 the long lines of the notes wrap; at 160x48
+# they fit, the tree, the code and the status line in place and the cursor still on its line; t
+# hides the tree and the widest line fits on one row, t again brings the tree back beside it.
+size 80x24
+merl docs/notes.md
+wait # Release notes for the support team
+key :
+type 7
+key Enter
+wait docs/notes.md  7:1
+size 160x48
+wait 6 - Заказы старше года архивируются, их нельзя вернуть через API: пишите в поддержку платёжного провайдера.
+key t
+wait 5 - ⚠️ A refund past the 30-day window needs a manager's approval: open the order, press Refund and write the reason in the note, the payment team reads it.
+key t
+wait │     the payment team reads it.
