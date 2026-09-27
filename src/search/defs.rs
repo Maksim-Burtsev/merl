@@ -23,6 +23,9 @@ pub enum Reason {
     Implementation(String),
     /// A parameter or a variable of the scope the cursor is in.
     Local,
+    /// The file of the module of the project an import binds the word to: `views` in `from
+    /// shop import views`.
+    Module(String),
 }
 impl Reason {
     /// Whether the reason alone picks the declaration. `by name` only says the name matched, so
@@ -39,6 +42,7 @@ impl std::fmt::Display for Reason {
             Self::Path(module) | Self::Receiver(module) => write!(f, "via {module}"),
             Self::Implementation(member) => write!(f, "implementations of {member}"),
             Self::Local => write!(f, "local"),
+            Self::Module(file) => write!(f, "module {file}"),
         }
     }
 }

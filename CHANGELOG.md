@@ -104,6 +104,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   VS Code: the cursor goes up a line, at its column. It left an empty line behind. Ctrl+C and
   Ctrl+X on the last line copy it with its line break, so it pastes as a whole line like every
   other line's copy. A file of one line is still left with one empty line. (#282)
+- `d` in Python on a name an import binds to a module of the project opens that module:
+  `views` in `from shop import views`, in `import shop.views` or in `views.index`, `shop` in
+  `import shop`, and `from . import views` too, a package at its `__init__.py`. It said `no
+  definition for views`, or jumped to a function called `views` elsewhere. A comment inside a
+  bracketed import, `a,  # noqa: F401`, no longer hides the name after it, so `d` on that name
+  goes through the import instead of offering its namesakes. (#280)
 
 ## [0.7.0] - 2026-09-25
 
