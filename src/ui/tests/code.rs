@@ -1157,3 +1157,108 @@ fn an_unwrapped_pinned_header_is_cut_where_the_code_is() {
         format!("1 \u{2039}{}\u{203a}", &header[left + 1..left + w - 1])
     );
 }
+
+/// An app on `text`, the tree hidden, drawn on a `w`×`h` terminal with the cursor at the start
+/// of `line`.
+fn cut_app(text: &str, w: u16, h: u16, line: usize) -> (App, Terminal<TestBackend>) {
+    let (mut app, mut terminal) = pinned_app(text, w, h);
+    app.line = line;
+    press(&mut app, &mut terminal, KeyCode::Null);
+    (app, terminal)
+}
+
+/// #283: a line longer than merl draws ends in a dim `…` right after its last drawn char. When
+/// its last wrapped row is full, the `…` takes a row of its own rather than cover a char.
+#[test]
+fn a_cut_line_ends_in_a_dim_ellipsis_when_wrapped() {
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let text = format!("{}\nsecond\n", "a".repeat(20_005));
+    // Seven columns of text: 20,000 is 2,857 full rows and one `a`.
+    let (_, terminal) = cut_app(&text, 9, 4, 1);
+    assert_eq!(rows(&terminal)[..3], ["aaaaaaa", "a\u{2026}", "2 second"]);
+    let buf = terminal.backend().buffer();
+    assert_eq!(
+        (buf[(3, 1)].fg, buf[(3, 1)].bg),
+        (theme.gutter_fg, theme.bg)
+    );
+    // Ten columns: the last row is full, and the `…` stands alone under it.
+    let (mut app, mut terminal) = cut_app(&text, 12, 4, 1);
+    assert_eq!(rows(&terminal)[..3], ["aaaaaaaaaa", "\u{2026}", "2 second"]);
+    // That row is one of the line's: Up lands on it, the cursor on the `…`.
+    let (_, y) = press(&mut app, &mut terminal, KeyCode::Up);
+    assert_eq!((app.line, y), (0, 1));
+    // A line of exactly what is drawn is not cut and has no `…`.
+    let (_, terminal) = cut_app(&"a".repeat(20_000), 9, 3, 0);
+    assert!(!rows(&terminal).concat().contains('\u{2026}'));
+}
+
+/// #283: not wrapped, the `…` shows while the end of the cut line is on screen, and counts as a
+/// column of the line: where it would fall past the edge, `›` says the line goes on.
+#[test]
+fn a_cut_line_ends_in_a_dim_ellipsis_when_not_wrapped() {
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let text = format!("top\n{}\n", "b".repeat(20_005));
+    let (mut app, mut terminal) = cut_app(&text, 12, 3, 1);
+    press(&mut app, &mut terminal, KeyCode::Char('w'));
+    assert_eq!(rows(&terminal)[1], "2 bbbbbbbbb\u{203a}");
+    // The end of the drawn part in view: the `…` in the column after it, on the cursor line.
+    app.col = app.buf.shown(1).len();
+    let (screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
+    assert_eq!(screen[1], "2 \u{2039}bbbbbbbb\u{2026}");
+    let buf = terminal.backend().buffer();
+    assert_eq!(
+        (buf[(11, 1)].fg, buf[(11, 1)].bg),
+        (theme.gutter_fg, theme.line_hl)
+    );
+    // The text reaching the right edge exactly: no room for the `…`, so `›` stands there.
+    app.left = 19_990;
+    app.col = 19_995;
+    let (screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
+    assert_eq!(app.left, 19_990);
+    assert_eq!(screen[1], "2 \u{2039}bbbbbbbb\u{203a}");
+}
+
+/// #283: a deleted line in a review is cut as a text line is, and ends in the same `…`, wrapped
+/// or not.
+#[test]
+fn a_cut_ghost_ends_in_a_dim_ellipsis() {
+    let long = |c: &str| c.repeat(20_005);
+    let text = format!("top\n{}\n", long("b"));
+    let (mut app, mut terminal) = pinned_app(&text, 9, 4);
+    app.diff.ghosts.insert(1, vec![long("a")]);
+    // Wrapped, the last rows of the ghost are right above its line.
+    app.line = 1;
+    press(&mut app, &mut terminal, KeyCode::Null);
+    app.top_line = 1;
+    app.top_row = app.ghost_rows(1) - 2;
+    let (screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
+    assert_eq!(
+        screen[..3],
+        ["\u{258e}aaaaaaa", "\u{258e}a\u{2026}", "2 bbbbbbb"]
+    );
+    // Not wrapped and scrolled to the end, the ghost's end is on screen too.
+    press(&mut app, &mut terminal, KeyCode::Char('w'));
+    app.col = app.buf.shown(1).len();
+    app.top_row = 0;
+    let (screen, _) = press(&mut app, &mut terminal, KeyCode::Null);
+    assert_eq!(
+        screen[..2],
+        ["\u{258e}aaaaaa\u{2026}", "2 \u{2039}bbbbb\u{2026}"]
+    );
+}
+
+/// #283: not wrapped, a pinned header cut at 20 KB ends in the `…` as its line does.
+#[test]
+fn a_cut_pinned_header_ends_in_a_dim_ellipsis() {
+    let mut text = format!("fn long() {{ // {}\n", "x".repeat(20_005));
+    for _ in 0..20 {
+        text += "    let a = 1;\n";
+    }
+    text += &format!("    // {}\n}}\n", "b".repeat(20_005));
+    let (mut app, mut terminal) = cut_app(&text, 12, 10, 21);
+    press(&mut app, &mut terminal, KeyCode::Char('w'));
+    app.col = app.buf.shown(21).len();
+    let (screen, y) = press(&mut app, &mut terminal, KeyCode::Null);
+    assert_eq!(screen[0], "1 \u{2039}xxxxxxx\u{2026}");
+    assert_eq!(screen[y], "22 \u{2039}bbbbbbb\u{2026}");
+}

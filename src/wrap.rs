@@ -95,6 +95,27 @@ pub fn wrap_line(line: &str, width: usize) -> Vec<Range<usize>> {
     rows
 }
 
+/// The rows `line` is drawn in when wrapped: [`wrap_line`] over what
+/// [`crate::buffer::shown_str`] shows of it. A line cut there ends in a `…` right after its last
+/// char (#283); when its last row has no room left for it, the `…` gets a row of its own, an
+/// empty one at the end of the text, so it never covers a char.
+pub fn wrap_shown(line: &str, width: usize) -> Vec<Range<usize>> {
+    let shown = crate::buffer::shown_str(line);
+    let mut rows = wrap_line(shown, width);
+    if crate::buffer::Buffer::clips(line) {
+        let lead = if rows.len() > 1 {
+            indent(shown, width)
+        } else {
+            0
+        };
+        let last = rows[rows.len() - 1].clone();
+        if lead + self::width(&shown[last]) >= width.max(1) {
+            rows.push(shown.len()..shown.len());
+        }
+    }
+    rows
+}
+
 /// Punctuation a word longer than a row may break after.
 fn breaks_after(c: char) -> bool {
     matches!(c, '/' | '.' | ',' | ';' | ')' | ']' | '}')

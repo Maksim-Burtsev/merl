@@ -34,3 +34,11 @@ merl app/service.py:35:29
 wait app/service.py  35:29
 merl ../home/.zshrc
 wait alias gs="git status"
+# A line longer than merl draws, the JSON's, ends in a dim `…` after its last drawn char, wrapped
+# at Ctrl+End and not wrapped at End (#283).
+merl data/orders.min.json
+wait [{"id":1,"customer_id":1327,"total":"853.34"
+key C-End
+wait {"i…
+key w End
+wait 1 ‹

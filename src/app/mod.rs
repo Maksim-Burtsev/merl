@@ -630,11 +630,10 @@ impl App {
     /// Screen rows of file line `l` at the current viewport width, over the text `ui` draws:
     /// the wrapped rows, or the whole line as one row when the file is not wrapped.
     pub fn rows(&self, l: usize) -> Vec<std::ops::Range<usize>> {
-        let shown = self.buf.shown(l);
         if self.nowrap() {
-            return std::iter::once(0..shown.len()).collect();
+            return std::iter::once(0..self.buf.shown(l).len()).collect();
         }
-        wrap::wrap_line(shown, self.view_w)
+        wrap::wrap_shown(&self.buf.lines[l], self.view_w)
     }
 
     /// Screen rows of the ghosts at `l` (review mode: the lines the branch deleted there,
@@ -649,7 +648,7 @@ impl App {
         }
         ghosts
             .iter()
-            .map(|g| wrap::wrap_line(buffer::shown_str(g), self.view_w).len())
+            .map(|g| wrap::wrap_shown(g, self.view_w).len())
             .sum()
     }
 
