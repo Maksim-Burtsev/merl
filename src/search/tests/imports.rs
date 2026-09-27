@@ -23,6 +23,16 @@ fn imports_bind_names_to_module_paths() {
             ("Final".into(), p(&["typing", "Final"])),
         ]
     );
+    // A comment inside the brackets is no name, and a `)` in it does not close them (#280).
+    let py = "from .models import (\n    a,  # noqa: F401, (see #1)\n    b,\n)\nfrom x import c  # d, e\n";
+    assert_eq!(
+        imports(Kind::Python, py),
+        [
+            ("a".into(), p(&[".", "models", "a"])),
+            ("b".into(), p(&[".", "models", "b"])),
+            ("c".into(), p(&["x", "c"])),
+        ]
+    );
     let rs = "use std::fs;\nuse std::collections::{HashMap, hash_map::Entry};\nuse regex::Regex as Re;\nuse crate::buffer::Buffer;\npub(crate) use anyhow::{self, Context};\nuse std::{\n    io::Write,\n    path::Path,\n};\n";
     let got = imports(Kind::Rust, rs);
     assert_eq!(

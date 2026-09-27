@@ -55,7 +55,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         Kind::Python => {
             static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
                 Regex::new(
-                    r"(?m)^\s*(?:from\s+([\w.]+)\s+import\s+(\([^)]*\)|[^\n]+)|import\s+([^\n]+))",
+                    r"(?m)^\s*(?:from\s+([\w.]+)\s+import\s+(\((?:[^)#]|#[^\n]*)*\)|[^\n]+)|import\s+([^\n]+))",
                 )
                 .unwrap()
             });
@@ -67,8 +67,15 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                     if relative.len() < module.len() {
                         base.insert(0, ".".repeat(module.len() - relative.len()));
                     }
-                    for item in names
+                    // A comment is no name, whatever commas or brackets it holds (#280).
+                    let names: Vec<&str> = names
                         .as_str()
+                        .lines()
+                        .map(|l| l.split('#').next().unwrap_or_default())
+                        .collect();
+                    for item in names
+                        .join("\n")
+                        .trim()
                         .trim_matches(|c| c == '(' || c == ')')
                         .split(',')
                     {
