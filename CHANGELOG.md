@@ -92,6 +92,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the load error and saves nothing. It saved the name, and every start after exited on the broken
   file. A configured theme that fails at start now names `config.toml` and the theme set there
   beside the cause, so the way back is in the message. (#277)
+- In a line longer than merl draws (it shows the first 20 KB of a minified bundle or a one-line
+  JSON dump), the cursor stays on the drawn part: `End`, `Ctrl+End`, the arrows, the word moves,
+  `/` and a jump from `d`, `u` or `s` stop where it ends, and `Right` there goes on to the
+  next line. They put the cursor at the real end of the line, past everything on screen, with a
+  column in the status bar no drawn char had. (#284)
 
 ## [0.7.0] - 2026-09-25
 
