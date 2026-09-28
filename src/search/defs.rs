@@ -344,6 +344,36 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         ],
     }
 }
+/// GitLab CI's `stage: build` names an entry of the file's top-level `stages:` list, not a job
+/// named after its stage (#473): the 1-based lines listing `word`, in the flow form (`stages:
+/// [build, test]`) or the block form (`- build` under `stages:`), none when the file lists no
+/// such stage. `None` when `before`, the line in front of the word, is no `stage:` key.
+///
+/// ponytail: a flow list wrapped over several lines is not read.
+pub fn stage_entries(before: &str, text: &str, word: &str) -> Option<Vec<usize>> {
+    let key = regex::Regex::new(r#"^\s*stage:\s*["']?$"#).expect("a fixed pattern is valid");
+    if !key.is_match(before) {
+        return None;
+    }
+    let w = regex::escape(word);
+    let flow = regex::Regex::new(&format!(r#"^stages:\s*\[(.*,)?\s*["']?{w}["']?\s*[,\]]"#))
+        .expect("an escaped name keeps the pattern valid");
+    let entry = regex::Regex::new(&format!(r#"^\s*-\s*["']?{w}["']?\s*(#.*)?$"#))
+        .expect("an escaped name keeps the pattern valid");
+    let opens = regex::Regex::new(r"^stages:\s*(#.*)?$").expect("a fixed pattern is valid");
+    let mut found = Vec::new();
+    let mut in_block = false;
+    for (i, l) in text.lines().enumerate() {
+        // The block runs while its lines are indented, entries at the key's own column, blank or
+        // comments.
+        in_block &= l.trim().is_empty() || l.starts_with([' ', '\t', '-', '#']);
+        if in_block && entry.is_match(l) || flow.is_match(l) {
+            found.push(i + 1);
+        }
+        in_block |= opens.is_match(l);
+    }
+    Some(found)
+}
 /// [`member_patterns`] and, in Go, the method lines of an interface, which carry no receiver:
 /// every form in which a type declares a member called `word`.
 pub fn member_or_signature(kind: Kind, word: &str) -> Option<Vec<String>> {

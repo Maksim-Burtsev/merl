@@ -82,6 +82,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- In a GitLab CI file, `d` on the value of `stage:` lands on that stage in the file's `stages:`
+  list, flow or block form, and says `no definition` in a file without one. It jumped to the job
+  named after the stage, `build:` for `stage: build`, which is how most pipelines name them.
+  (#473)
 - In `merl --review`, `c` or `C` after a `d`, `u` or `s` into a file the branch did not touch goes
   back to the hunk you left, and the next `c` goes on from there. It opened the first file of the
   review (`C` the last), and the way back was one `[` per jump. The hunk is found again by its

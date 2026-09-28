@@ -1,0 +1,18 @@
+# The stages of #473 in the block form, beside jobs named after them.
+stages:
+  - lint
+  - "build"
+
+lint:
+  stage: lint
+  #      ^ d: ci/lint.yml:3
+  script:
+    - cargo clippy
+
+build:
+  stage: "build"
+  #       ^ d: ci/lint.yml:4
+  needs: [lint]
+  #       ^ d: ci/lint.yml:6
+  script:
+    - cargo build
