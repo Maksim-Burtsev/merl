@@ -251,7 +251,8 @@ hours: no neon, and light themes that look like paper.
 ## Config
 
 There is none to write. `T` remembers your theme in `~/.config/merl/config.toml`, and
-`autosave_delay_ms` (1000) lives there too.
+`autosave_delay_ms` (1000) lives there too. `review_panel_colours = false`, an experiment for now,
+turns off the review panel's colours, dimming and totals.
 
 ## Terminals
 
