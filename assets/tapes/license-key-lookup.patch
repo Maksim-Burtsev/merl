@@ -1,0 +1,221 @@
+diff --git a/polar/license_key/endpoints.py b/polar/license_key/endpoints.py
+index d991033..6ab4036 100644
+--- a/polar/license_key/endpoints.py
++++ b/polar/license_key/endpoints.py
+@@ -2,10 +2,7 @@ from fastapi import Depends, Query
+ from pydantic import UUID4
+ 
+ from polar.auth.permission import OrganizationPermission
+-from polar.authz.service import (
+-    assert_resource_permission,
+-    get_accessible_org_ids,
+-)
++from polar.authz.service import assert_resource_permission
+ from polar.benefit.schemas import BenefitID
+ from polar.exceptions import ResourceNotFound
+ from polar.kit.db.postgres import AsyncReadSession, AsyncSession
+@@ -19,7 +16,6 @@ from polar.postgres import get_db_read_session, get_db_session
+ from polar.routing import APIRouter
+ 
+ from . import auth
+-from .repository import LicenseKeyRepository
+ from .schemas import (
+     ActivationNotFoundResponse,
+     ActivationNotPermitted,
+@@ -95,6 +91,27 @@ async def list(
+     )
+ 
+ 
++@router.get(
++    "/lookup",
++    summary="Look Up License Key",
++    response_model=LicenseKeyWithActivations,
++    responses={
++        401: UnauthorizedResponse,
++        404: NotFoundResponse,
++    },
++)
++async def lookup(
++    auth_subject: auth.LicenseKeysRead,
++    organization_id: OrganizationID,
++    key: str = Query(description="The key as the customer received it."),
++    session: AsyncReadSession = Depends(get_db_read_session),
++) -> LicenseKey:
++    """Find a license key by the key a customer holds, e.g. one quoted in a support email."""
++    return await license_key_service.get_by_key_or_raise(
++        session, auth_subject, organization_id=organization_id, key=key
++    )
++
++
+ @router.get(
+     "/{id}",
+     summary="Get License Key",
+@@ -222,18 +239,13 @@ async def validate(
+     session: AsyncSession = Depends(get_db_session),
+ ) -> LicenseKey:
+     """Validate a license key."""
+-    repository = LicenseKeyRepository.from_session(session)
+-    org_ids = await get_accessible_org_ids(session, auth_subject)
+-    license_key = await repository.get_readable_by_key(
+-        validate.key,
+-        validate.organization_id,
+-        org_ids,
+-        options=repository.get_eager_options(),
++    license_key = await license_key_service.get_by_key_or_raise(
++        session,
++        auth_subject,
++        organization_id=validate.organization_id,
++        key=validate.key,
+     )
+ 
+-    if license_key is None:
+-        raise ResourceNotFound()
+-
+     return await license_key_service.validate(
+         session, license_key=license_key, validate=validate
+     )
+@@ -254,18 +266,13 @@ async def activate(
+     session: AsyncSession = Depends(get_db_session),
+ ) -> LicenseKeyActivation:
+     """Activate a license key instance."""
+-    repository = LicenseKeyRepository.from_session(session)
+-    org_ids = await get_accessible_org_ids(session, auth_subject)
+-    license_key = await repository.get_readable_by_key(
+-        activate.key,
+-        activate.organization_id,
+-        org_ids,
+-        options=repository.get_eager_options(),
++    license_key = await license_key_service.get_by_key_or_raise(
++        session,
++        auth_subject,
++        organization_id=activate.organization_id,
++        key=activate.key,
+     )
+ 
+-    if license_key is None:
+-        raise ResourceNotFound()
+-
+     return await license_key_service.activate(
+         session, license_key=license_key, activate=activate
+     )
+@@ -286,18 +293,13 @@ async def deactivate(
+     session: AsyncSession = Depends(get_db_session),
+ ) -> None:
+     """Deactivate a license key instance."""
+-    repository = LicenseKeyRepository.from_session(session)
+-    org_ids = await get_accessible_org_ids(session, auth_subject)
+-    license_key = await repository.get_readable_by_key(
+-        deactivate.key,
+-        deactivate.organization_id,
+-        org_ids,
+-        options=repository.get_eager_options(),
++    license_key = await license_key_service.get_by_key_or_raise(
++        session,
++        auth_subject,
++        organization_id=deactivate.organization_id,
++        key=deactivate.key,
+     )
+ 
+-    if license_key is None:
+-        raise ResourceNotFound()
+-
+     await license_key_service.deactivate(
+         session, license_key=license_key, deactivate=deactivate
+     )
+diff --git a/polar/license_key/service.py b/polar/license_key/service.py
+index c1b102e..3d73677 100644
+--- a/polar/license_key/service.py
++++ b/polar/license_key/service.py
+@@ -115,6 +115,24 @@ class LicenseKeyService:
+         )
+         return await repository.get_one_or_none(statement)
+ 
++    async def get_by_key_or_raise(
++        self,
++        session: AsyncReadSession,
++        auth_subject: AuthSubject[User | Organization],
++        *,
++        organization_id: UUID,
++        key: str,
++    ) -> LicenseKey:
++        repository = LicenseKeyRepository.from_session(session)
++        org_ids = await get_accessible_org_ids(session, auth_subject)
++
++        license_key = await repository.get_readable_by_key(
++            key, organization_id, org_ids, options=repository.get_eager_options()
++        )
++        if license_key is None:
++            raise ResourceNotFound()
++        return license_key
++
+     async def get_or_raise_by_key(
+         self,
+         session: AsyncSession,
+diff --git a/tests/license_key/test_endpoints.py b/tests/license_key/test_endpoints.py
+index 5627881..8831ba8 100644
+--- a/tests/license_key/test_endpoints.py
++++ b/tests/license_key/test_endpoints.py
+@@ -797,6 +797,63 @@ class TestGetLicenseKey:
+         assert response.status_code == 404
+ 
+ 
++@pytest.mark.asyncio
++class TestLookupLicenseKey:
++    async def test_anonymous(self, client: AsyncClient) -> None:
++        response = await client.get("/v1/license-keys/lookup")
++
++        assert response.status_code == 401
++
++    @pytest.mark.auth
++    async def test_user_cannot_look_up_other_organization_license_key(
++        self,
++        client: AsyncClient,
++        user_organization: UserOrganization,
++        license_key_organization_second: LicenseKey,
++    ) -> None:
++        lk = license_key_organization_second
++        response = await client.get(
++            "/v1/license-keys/lookup",
++            params={"organization_id": str(lk.organization_id), "key": lk.key},
++        )
++
++        assert response.status_code == 404
++
++    @pytest.mark.auth
++    async def test_look_up(
++        self,
++        session: AsyncSession,
++        redis: Redis,
++        client: AsyncClient,
++        save_fixture: SaveFixture,
++        user_organization: UserOrganization,
++        organization: Organization,
++        product: Product,
++        customer: Customer,
++    ) -> None:
++        _, granted = await TestLicenseKey.create_benefit_and_grant(
++            session,
++            redis,
++            save_fixture,
++            customer=customer,
++            organization=organization,
++            product=product,
++            properties=BenefitLicenseKeysCreateProperties(prefix="testing"),
++        )
++        lk = await LicenseKeyRepository.from_session(session).get_by_id(
++            UUID(granted["license_key_id"])
++        )
++        assert lk is not None
++
++        response = await client.get(
++            "/v1/license-keys/lookup",
++            params={"organization_id": str(organization.id), "key": lk.key},
++        )
++
++        assert response.status_code == 200
++        assert response.json()["id"] == str(lk.id)
++
++
+ @pytest.mark.asyncio
+ class TestUpdateLicenseKey:
+     async def test_anonymous(self, client: AsyncClient) -> None:
