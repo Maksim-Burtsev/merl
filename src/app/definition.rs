@@ -42,6 +42,11 @@ impl App {
             return;
         };
         let text = self.buf.lines.join("\n");
+        // An Elixir `alias` names the module a qualifier stands for (#459).
+        let chain = match kind {
+            Kind::Elixir => search::elixir_unalias(&text, chain),
+            _ => chain,
+        };
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
         self.truncated.set(false);
@@ -114,7 +119,11 @@ impl App {
             .then(|| search::member_patterns(kind, &word))
             .flatten()
             .map(|m| m.join("|"));
-        let patterns = search::def_patterns(kind, &word);
+        let mut patterns = search::def_patterns(kind, &word);
+        // An Elixir call is never a module attribute: `Shop.currency()` is no `@currency` (#459).
+        if kind == Kind::Elixir && dotted {
+            patterns.retain(|p| !p.starts_with(r"^\s*@"));
+        }
         if patterns.is_empty() {
             self.message = self.no_rules();
             return;

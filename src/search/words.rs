@@ -26,6 +26,11 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").unwrap()
     });
+    // An Elixir module is named as written, `Shop.Pricing`, and one nested in it adds its own
+    // name: a call spells the module out that way (#459).
+    static EX_MODULE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*def(?:module|protocol)\s+([A-Z](?:[\w.]*\w)?)").unwrap()
+    });
     if !nests(Some(kind)) {
         return None;
     }
@@ -77,6 +82,12 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             .captures(l)
             .filter(|_| kind == Kind::Rust)
             .map(|c| c[1].to_owned())
+            .or_else(|| {
+                EX_MODULE
+                    .captures(l)
+                    .filter(|_| kind == Kind::Elixir)
+                    .map(|c| c[1].to_owned())
+            })
             .or_else(|| declared_name(Some(kind), l));
         match named {
             Some(n) => names.push(n),
@@ -85,6 +96,41 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     }
     names.reverse();
     (names.len() > 1).then(|| names.join(sep))
+}
+/// `chain`, the names in front of an Elixir word, with the first read through an `alias` of
+/// `text` (#459): `W` behind `alias Shop.Warehouse, as: W` is `Shop.Warehouse`, and `Courier`
+/// behind `alias Shop.Warehouse.Courier` or `alias Shop.Warehouse.{Courier, Depot}` is
+/// `Shop.Warehouse.Courier`. Any `alias` of the file counts, wherever it is written.
+/// ponytail: a `{…}` group wrapped over several lines is not read.
+pub fn elixir_unalias(text: &str, mut chain: Vec<String>) -> Vec<String> {
+    static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*alias\s+([A-Z](?:[\w.]*\w)?)(?:\.\{([^}]*)\}|\s*,\s*as:\s*([A-Z]\w*))?")
+            .unwrap()
+    });
+    let Some(first) = chain.first().cloned() else {
+        return chain;
+    };
+    let last = |s: &str| s.rsplit('.').next() == Some(first.as_str());
+    let full = text
+        .lines()
+        .filter_map(|l| ALIAS.captures(l))
+        .find_map(|c| {
+            let module = &c[1];
+            match (c.get(2), c.get(3)) {
+                (Some(group), _) => group
+                    .as_str()
+                    .split(',')
+                    .map(str::trim)
+                    .find(|n| last(n))
+                    .map(|n| format!("{module}.{n}")),
+                (None, Some(named)) => (named.as_str() == first).then(|| module.to_owned()),
+                (None, None) => last(module).then(|| module.to_owned()),
+            }
+        });
+    if let Some(full) = full {
+        chain.splice(..1, full.split('.').map(str::to_owned));
+    }
+    chain
 }
 /// The name `D` lists for `line` in a file of `kind`: the first [`SYMBOLS`] row such a file is
 /// read with that names something on it.
@@ -367,7 +413,17 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
         Some(i) => i,
         None => range.start,
     };
-    Some((start..range.end, &line[start..range.end]))
+    // In Elixir a trailing `?` or `!` is part of the name (#459): `ship!` is no `ship`. The `!`
+    // of a `!=` is the operator's.
+    let rest = &line[range.end..];
+    let end = match kind == Some(Kind::Elixir)
+        && rest.starts_with(['?', '!'])
+        && !rest[1..].starts_with('=')
+    {
+        true => range.end + 1,
+        false => range.end,
+    };
+    Some((start..end, &line[start..end]))
 }
 /// The run of `[A-Za-z0-9_]` and `extra` characters at byte offset `col`, or the one that ends
 /// there when the cursor sits right after a word. `extra` characters do not start or end a word.
