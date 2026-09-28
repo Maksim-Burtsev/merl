@@ -8,5 +8,5 @@ pub fn main() void {
     std.debug.print("{d} {}\n", .{ cap, basket.overweight(cap) });
     //                                  ^ d: src/main.zig:2
     //                                         ^ d: src/basket.zig:36
-    //                                                    ^ d: picker src/main.zig:6, src/basket.zig:37, src/warehouse.zig:20; want src/main.zig:6 (#469)
+    //                                                    ^ d: src/main.zig:6
 }

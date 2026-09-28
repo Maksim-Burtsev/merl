@@ -14,7 +14,7 @@ pub const Basket = struct {
 
     pub fn gross(self: Basket) u32 {
         return pricing.discount(self.tariff.rate());
-        //     ^ d: picker src/basket.zig:2, src/main.zig:3, src/warehouse.zig:1; want src/basket.zig:2 (#469)
+        //     ^ d: src/basket.zig:2
         //             ^ d: src/pricing.zig:43
         //                                  ^ d: picker src/pricing.zig:12, src/pricing.zig:27
     }
@@ -38,7 +38,7 @@ pub fn overweight(grams: u32) bool {
     //          ^ d: src/basket.zig:6
     return wh.weigh(grams) > cap;
     //        ^ d: src/warehouse.zig:15
-    //                       ^ d: picker src/basket.zig:37, src/main.zig:6, src/warehouse.zig:20; want src/basket.zig:37 (#469)
+    //                       ^ d: src/basket.zig:37
 }
 
 pub fn hidden(grams: u32) u32 {

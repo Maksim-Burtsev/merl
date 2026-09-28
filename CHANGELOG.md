@@ -191,6 +191,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wins over a table of its name: `d` on the table in the CTE's own body, or anywhere else in the
   project, goes to the `CREATE TABLE`, and after the `AS (…)` to the CTE, instead of a picker of
   both. (#472)
+- In Zig, `d` on a local or a parameter lands on it, `(local)`: a `const` or `var` inside a
+  function is no longer offered anywhere outside that function, and a declaration without `pub`
+  no longer from another file, so `cap` in one function stopped offering, or jumping to, the
+  `cap` of another. (#469)
 
 ## [0.7.0] - 2026-09-25
 
