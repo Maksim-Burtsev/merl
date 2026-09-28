@@ -1,6 +1,8 @@
 //! The line patterns `d` looks a declaration up with, per kind and per word, and the
 //! reason a candidate is offered under.
 
+use regex::Regex;
+
 use super::*;
 
 /// How `d` found a declaration. Every step that narrows the search adds a variant here; the
@@ -326,9 +328,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             vec![
                 // The name, not a schema: `shop.tariffs` declares `tariffs`, so no `.` may follow (#471).
                 format!(r#"{create}(?:{SQL_NAME}\.)?(?:"{w}"|`{w}`|{w}\b)(?:[^.]|$)"#),
-                // A common table expression: opening the `WITH`, or continuing it after the
-                // comma that follows the previous one's closing `)`.
-                format!(r"(?i)^\s*(?:\)\s*)?(?:WITH\s+(?:RECURSIVE\s+)?|,\s*)?{w}\s+AS\s*\("),
+                sql_cte(word),
             ]
         }
         // A target, alone or among others before the colon (`build test: deps`), or a variable.
@@ -492,6 +492,61 @@ pub fn directly_inside(text: &str, line: usize, opener: &str) -> bool {
         .rev()
         .find(|l| !l.trim().is_empty() && indent(l) < indent(target))
         .is_some_and(|l| l.trim_start().starts_with(opener))
+}
+/// A common table expression named `word`: opening the `WITH`, or continuing it after the
+/// comma that follows the previous one's closing `)`. The match ends on the `(` of its body.
+pub fn sql_cte(word: &str) -> String {
+    let w = regex::escape(word);
+    format!(r"(?i)^\s*(?:\)\s*)?(?:WITH\s+(?:RECURSIVE\s+)?|,\s*)?{w}\s+AS\s*\(")
+}
+/// Whether byte `col` of 1-based `line` of `text` sees the common table expression `word` that
+/// 1-based `cte` opens (#472). A CTE lives in its own statement: after its `AS (…)` up to the
+/// `;` that ends it, and inside its own body too under `WITH RECURSIVE`. A bracket or a `;` in
+/// a comment or a `'string'` counts for nothing.
+pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize) -> bool {
+    let start = |l: usize| -> usize { text.split_inclusive('\n').take(l - 1).map(str::len).sum() };
+    let head = Regex::new(&sql_cte(word)).expect("an escaped name keeps the pattern valid");
+    let Some(m) = text.lines().nth(cte - 1).and_then(|l| head.find(l)) else {
+        return false;
+    };
+    let (open, at, b) = (start(cte) + m.end() - 1, start(line) + col, text.as_bytes());
+    // The statement's first byte, the depth inside the body, and the body's closing `)`.
+    let (mut first, mut depth, mut close, mut i) = (0, None::<usize>, None, 0);
+    while i < b.len() {
+        let skip = match &b[i..] {
+            [b'-', b'-', ..] => "\n",
+            [b'/', b'*', ..] => "*/",
+            [b'\'', ..] => "'",
+            [b'(', ..] if i >= open => {
+                depth = Some(depth.map_or(1, |d| d + 1));
+                ""
+            }
+            [b')', ..] if close.is_none() => {
+                depth = depth.map(|d| d - 1);
+                if depth == Some(0) {
+                    close = Some(i);
+                }
+                ""
+            }
+            [b';', ..] if i < open => {
+                first = i + 1;
+                ""
+            }
+            [b';', ..] => break,
+            _ => "",
+        };
+        i += match skip {
+            "" => 1,
+            s => text[i + 1..].find(s).map_or(b.len(), |n| n + 1 + s.len()),
+        };
+    }
+    let recursive = Regex::new(r"(?i)\bWITH\s+RECURSIVE\b").expect("a valid pattern");
+    let from = if recursive.is_match(&text[first..open]) {
+        open
+    } else {
+        close.unwrap_or(i)
+    };
+    at > from && at <= i
 }
 /// A grep for the line that names one of `names` as a base: `class X(Base)` in Python,
 /// `class X extends Base`, `class X implements Base` and `interface I extends Base` in

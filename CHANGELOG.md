@@ -183,6 +183,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the function around the cursor lands on that local, and a local of another function is no
   longer offered: it opened a picker of every function's local and the function of that name,
   and jumped to another function's local when it was the only match. (#470)
+- In SQL, a common table expression is a declaration only inside its own statement, where it
+  wins over a table of its name: `d` on the table in the CTE's own body, or anywhere else in the
+  project, goes to the `CREATE TABLE`, and after the `AS (…)` to the CTE, instead of a picker of
+  both. (#472)
 
 ## [0.7.0] - 2026-09-25
 

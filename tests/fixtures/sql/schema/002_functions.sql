@@ -8,7 +8,7 @@ $$ LANGUAGE sql;
 
 CREATE PROCEDURE restock(n integer) LANGUAGE sql AS $$
   INSERT INTO couriers (name) VALUES ('post')
-  --          ^ d: picker queries/report.sql:18, schema/001_tables.sql:23; want schema/001_tables.sql:23 (#472)
+  --          ^ d: schema/001_tables.sql:23
 $$;
 
 CREATE FUNCTION touch_basket() RETURNS trigger LANGUAGE plpgsql AS $$

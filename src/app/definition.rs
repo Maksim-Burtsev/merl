@@ -722,6 +722,27 @@ impl App {
                     .is_ok_and(|text| search::directly_inside(&text, h.line, block))
             });
         }
+        // A common table expression is a declaration only inside its own statement, where it
+        // hides a table of its name (#472). On a declaration's own line nothing changes.
+        if kind == Kind::Sql
+            && !hits
+                .iter()
+                .any(|h| h.path == here && h.line == self.line + 1)
+        {
+            let cte = Regex::new(&search::sql_cte(word)).expect("an escaped name keeps it valid");
+            let text = self.text_of(here).unwrap_or_default();
+            let sees = |h: &Hit| {
+                h.path == here && search::sql_cte_sees(&text, h.line, word, self.line + 1, self.col)
+            };
+            let seen = hits.iter().any(sees);
+            hits.retain(|h| {
+                if cte.is_match(&h.text) {
+                    sees(h)
+                } else {
+                    !seen
+                }
+            });
+        }
         hits
     }
 
