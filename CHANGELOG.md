@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   says which function this is: in a review, where `c` drops you in the middle of one, and
   everywhere else. A method pins its `impl` or `class` too, two lines at most; a loop or an `if`
   pins nothing. The code starts under the band, so no line hides behind it. (#248)
+- A line longer than merl draws (20 KB: a minified bundle, a one-line JSON dump) ends in a dim
+  `…` right after its last drawn character, wrapped or not, so a cut line never reads as whole.
+  (#283)
 
 ### Changed
 
