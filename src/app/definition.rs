@@ -331,6 +331,74 @@ impl App {
             // A cut in a grep whose result is dropped says nothing about the list below.
             self.truncated.set(false);
         }
+        // A C# `Offer.Cut` whose qualifier is an `enum` of the project is a member its body
+        // lists (#466). A bare `Cut` has no rule: in C# only a `using static` brings it in.
+        // The enum's namespace has to be one this file sees, or a namesake the SDK brings in
+        // (MAUI's `PermissionStatus`) would pass for the project's.
+        if kind == Kind::CSharp && pathed && locals.is_empty() {
+            let owner = &chain[chain.len() - 1];
+            let owners = search::def_patterns(kind, owner).join("|");
+            let members: Vec<(Candidate, String)> = self
+                .project_definitions(kind, &here, owner, &owners)
+                .into_iter()
+                .filter_map(|h| {
+                    let text = self.text_of(&h.path)?;
+                    let (line, col) = search::enum_member(kind, &text, h.line, &word)?;
+                    let hit = Hit {
+                        text: text.lines().nth(line - 1)?.to_owned(),
+                        path: h.path,
+                        line,
+                        col,
+                    };
+                    let reason = Reason::Path(path.clone());
+                    Some((Candidate { hit, reason }, search::cs_namespace(&text, line)))
+                })
+                .collect();
+            let prefix = chain[..chain.len() - 1].join(".");
+            let inside = search::cs_namespace(&text, self.line + 1);
+            let mut opened = search::cs_usings(&text);
+            if !members.is_empty() {
+                // `global using` in any file of the `.csproj` this file is in, `<Using Include>` in
+                // that `.csproj`: a solution's other projects open their own.
+                let csproj = |d: &Path| {
+                    self.files.iter().any(|f| {
+                        f.parent() == Some(d) && f.extension().is_some_and(|e| e == "csproj")
+                    })
+                };
+                let project = here
+                    .ancestors()
+                    .skip(1)
+                    .find(|d| csproj(d))
+                    .unwrap_or(Path::new(""));
+                let global = r#"^\u{feff}?\s*global\s+using\s+[\w.]+\s*;|<Using\s+Include=""#;
+                let files = |p: &Path| {
+                    p.starts_with(project)
+                        && p.extension().is_some_and(|e| e == "cs" || e == "csproj")
+                };
+                for h in self.grep(global, false, false, files).unwrap_or_default() {
+                    opened.extend(search::cs_usings(&h.text));
+                }
+            }
+            let sees = |ns: &String| match prefix.as_str() {
+                "" => {
+                    ns.is_empty()
+                        || inside == *ns
+                        || inside.starts_with(&format!("{ns}."))
+                        || opened.contains(ns)
+                }
+                p => ns == p || ns.ends_with(&format!(".{p}")),
+            };
+            let named: Vec<Candidate> = members
+                .into_iter()
+                .filter(|(_, ns)| sees(ns))
+                .map(|(c, _)| c)
+                .collect();
+            if !named.is_empty() {
+                self.show_definitions(kind, &word, &here, named, None);
+                return;
+            }
+            self.truncated.set(false);
+        }
         // A parameter or a local in front of the word is a value for certain: it has members,
         // and a function or a variable at the top of a module is not one of them.
         let hits = members
