@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   says which function this is: in a review, where `c` drops you in the middle of one, and
   everywhere else. A method pins its `impl` or `class` too, two lines at most; a loop or an `if`
   pins nothing. The code starts under the band, so no line hides behind it. (#248)
+- A line longer than merl draws (20 KB: a minified bundle, a one-line JSON dump) ends in a dim
+  `…` right after its last drawn character, wrapped or not, so a cut line never reads as whole.
+  (#283)
 
 ### Changed
 
@@ -68,6 +71,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   long name of wide characters is cut to fit instead of pushing the counts off the panel.
   `review_panel_colours = false` in `~/.config/merl/config.toml` turns the colours, the dimming and
   the totals off. (#250)
+- On a file the branch did not change, the status bar of `merl --review` drops `hunk 0/0  file
+  -/8` and reads as it does outside a review. (#286)
+- Enter in a list whose query matches nothing does nothing, as in VS Code's quick open: `o`,
+  `D`, `T`, `s` and the lists of `d` and `u` stay open with the query, so Backspace fixes a typo
+  instead of the query being lost. Esc still closes the list. `s` no longer closes on such an
+  Enter with `no results for …`. (#288)
 - With no file open, on the start screen and at the tutor's first lesson, the status bar no longer
   shows a cursor position: `demo/  [tree]` instead of `demo/  1:1  [tree]`. (#285)
 

@@ -399,3 +399,23 @@ fn d_lands_on_a_makefile_target_after_a_longer_one() {
     assert_eq!(landed(&a), ("Makefile".into(), 6, 17));
     std::fs::remove_dir_all(&two).unwrap();
 }
+
+/// Enter in a list with nothing matched does nothing: the list and its query stay, and Esc
+/// still closes it (#288).
+#[test]
+fn enter_with_nothing_matched_keeps_the_list_and_its_query() {
+    let mut a = app("x\n");
+    for (key, kind) in [('o', PickerKind::Files), ('T', PickerKind::Themes)] {
+        press(&mut a, KeyCode::Char(key), KeyModifiers::NONE);
+        typed(&mut a, "qqqqzz");
+        a.picker.as_mut().unwrap().settle();
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        let query = a.picker.as_ref().map(|p| p.query.to_string());
+        assert_eq!(
+            (a.mode, query.as_deref()),
+            (Mode::Picker(kind), Some("qqqqzz"))
+        );
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!((a.mode, a.picker.is_none()), (Mode::Normal, true));
+    }
+}
