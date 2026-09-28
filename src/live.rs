@@ -103,7 +103,8 @@ impl Project {
 
     /// Does this event change the file list? The kind does not say: FSEvents calls a write to
     /// a file created seconds ago a create. The disk does: the event counts when its path is
-    /// listed and gone, or there and not listed. An event below a directory the walk did not
+    /// listed and gone, or there, a row the walk would list, and not listed: a FIFO something
+    /// writes to is never a row, so it costs no walk. An event below a directory the walk did not
     /// list is inside `.git` or an ignored `target/` or `node_modules/` and never counts, so a
     /// build running next to merl costs no walk, unless the tree has that directory open. An
     /// ignored file in a listed directory (`.env`, `*.pyc` beside the source) is a row too: a
@@ -122,7 +123,7 @@ impl Project {
                 rel.as_os_str().is_empty() // the root itself
                     || matches!(name, Some(".gitignore" | ".ignore"))
                     || (self.listed.contains(rel) || self.read.contains(rel))
-                        != p.symlink_metadata().is_ok()
+                        != crate::tree::listable(p, p.symlink_metadata().ok().map(|m| m.file_type()))
             })
     }
 
@@ -401,6 +402,23 @@ mod tests {
         // inotify overflowed: no path, something was missed.
         let ev = notify::Event::new(EventKind::Other).set_flag(Flag::Rescan);
         assert!(p.concerns(&ev) && p.touched(&ev));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #405: the walk leaves a FIFO out, and the watcher asks the walk's question: a FIFO that
+    /// something writes to changes no list, so it costs no walk.
+    #[cfg(unix)]
+    #[test]
+    fn a_write_to_a_fifo_asks_for_no_walk() {
+        let (dir, _) = project("fifo");
+        let mkfifo = std::process::Command::new("mkfifo")
+            .arg(dir.join("src/pipe"))
+            .status();
+        assert!(mkfifo.unwrap().success());
+        let (tree, _) = tree::build(&dir, false);
+        let p = Project::new(&dir, false, &tree);
+        let write = EventKind::Modify(ModifyKind::Data(DataChange::Any));
+        assert!(!p.concerns(&notify::Event::new(write).add_path(dir.join("src/pipe"))));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

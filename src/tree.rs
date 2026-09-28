@@ -105,7 +105,7 @@ fn is_store(name: &OsStr) -> bool {
 /// Is it a row: a directory, a regular file, a link to one, or a link that leads nowhere, a row
 /// as `ls` shows it, which fails to open at once. A FIFO, a socket or a device is not code, and
 /// opening one blocks until something writes to it (#405). `kind` is the entry's own type.
-fn listable(path: &Path, kind: Option<FileType>) -> bool {
+pub fn listable(path: &Path, kind: Option<FileType>) -> bool {
     let plain = |t: FileType| t.is_dir() || t.is_file();
     kind.is_some_and(plain)
         || match std::fs::metadata(path) {
