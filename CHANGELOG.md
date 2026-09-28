@@ -82,6 +82,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A find match keeps the text's own colours on its tint, as in VS Code. In a theme that tints
+  matches without naming their text colour (github-light, vscode-light and -dark, koda, pencil
+  and eight more) the matched letters were drawn in the background colour, 1.1:1 to 2:1 on the
+  tint, and could not be read. (#480)
 - In `merl --review`, `c` or `C` after a `d`, `u` or `s` into a file the branch did not touch goes
   back to the hunk you left, and the next `c` goes on from there. It opened the first file of the
   review (`C` the last), and the way back was one `[` per jump. The hunk is found again by its

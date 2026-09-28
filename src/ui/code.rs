@@ -5,7 +5,7 @@ use std::ops::Range;
 
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Style};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use regex::Regex;
@@ -39,7 +39,10 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     }
 
     let gutter_style = base.fg(theme.gutter_fg);
-    let find_style = Style::new().bg(theme.find_bg).fg(theme.find_fg);
+    let find_style = theme
+        .find_fg
+        .map_or(Style::new(), |fg| Style::new().fg(fg))
+        .bg(theme.find_bg);
     let hl = base.bg(theme.line_hl);
     let hl_gutter = gutter_style.bg(theme.line_hl);
     let sel = base.bg(theme.selection);
@@ -61,7 +64,13 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     // tint, the words that changed on a stronger one in `word_fg`. The tints come from the theme.
     let review = app.review.is_some();
     let ghost = base.bg(theme.del_bg);
-    let word = |bg| Style::new().bg(bg).fg(theme.word_fg);
+    // A changed word is drawn in `word_fg` alone: the syntax's bold and italic do not show through.
+    let word = |bg| {
+        Style::new()
+            .bg(bg)
+            .fg(theme.word_fg)
+            .remove_modifier(Modifier::BOLD | Modifier::ITALIC | Modifier::UNDERLINED)
+    };
     // The added line each ghost was replaced by, for the ghost's side of the changed words.
     let partner: HashMap<(usize, usize), usize> =
         app.diff.pairs.iter().map(|(&l, &g)| (g, l)).collect();
@@ -387,28 +396,42 @@ fn matches(re: &Regex, text: &str) -> Vec<Range<usize>> {
 }
 
 /// Overlays `finds` (sorted, disjoint: find matches, or the words a review says changed) on the
-/// syntax spans of one line: the syntax spans are cut around them, and they are added in
-/// `style`. The result stays sorted and disjoint, which is all [`row_spans`] needs.
+/// syntax spans of one line: the text under them keeps its syntax style with `style` laid over
+/// it, so a style without a foreground keeps the syntax colours, as a VS Code find match does
+/// (#480). The result stays sorted and disjoint, which is all [`row_spans`] needs.
 pub(super) fn with_find(
     hl: &[(Style, Range<usize>)],
     finds: &[Range<usize>],
     style: Style,
 ) -> Vec<(Style, Range<usize>)> {
-    let mut out: Vec<(Style, Range<usize>)> = Vec::with_capacity(hl.len() + finds.len() * 2);
+    // The gaps the highlighter left are spans of their own, so a match over one is cut there too.
+    let mut filled = Vec::with_capacity(hl.len() * 2 + 1);
+    let mut pos = 0;
     for (st, r) in hl {
+        if pos < r.start {
+            filled.push((Style::new(), pos..r.start));
+        }
+        filled.push((*st, r.clone()));
+        pos = r.end;
+    }
+    if let Some(f) = finds.last().filter(|f| f.end > pos) {
+        filled.push((Style::new(), pos..f.end));
+    }
+    let mut out = Vec::with_capacity(filled.len() + finds.len() * 2);
+    for (st, r) in filled {
         let mut pos = r.start;
         for f in finds.iter().filter(|f| f.end > r.start && f.start < r.end) {
-            if pos < f.start {
-                out.push((*st, pos..f.start));
+            let (start, end) = (f.start.max(r.start), f.end.min(r.end));
+            if pos < start {
+                out.push((st, pos..start));
             }
-            pos = pos.max(f.end.min(r.end));
+            out.push((st.patch(style), start..end));
+            pos = end;
         }
         if pos < r.end {
-            out.push((*st, pos..r.end));
+            out.push((st, pos..r.end));
         }
     }
-    out.extend(finds.iter().map(|f| (style, f.clone())));
-    out.sort_by_key(|(_, r)| r.start);
     out
 }
 
