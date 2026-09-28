@@ -45,9 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The gutter's bars and review's `A` / `M` / `D` take their colours from merl's theme instead of
   the terminal's palette, so a light theme in a dark terminal no longer draws them faint or odd:
-  45 themes bring the git colours of their Neovim original (an `M` there is amber where the
-  original's is, as in github, gruvbox, nord or dracula), the others GitHub's, and none falls
-  under 3:1 on its background. A theme of your own sets them with `markup.inserted`,
+  37 themes bring their own git colours, 36 of them their Neovim original's (an `M` there is
+  amber where the original's is, as in github, gruvbox, nord or dracula), the others GitHub's,
+  and none falls under 3:1 on its background. A theme of your own sets them with `markup.inserted`,
   `markup.changed` and `markup.deleted`. (#450)
 - `merl --review feature` reviews `feature`: the branch goes after a space, as the base does after
   `--base`, and `--review=feature` still works. A file after a bare `--review` is now read as the
