@@ -177,6 +177,11 @@ fn lines_inside_a_literal_or_a_block_comment_are_told() {
     assert_eq!(inside(Kind::Go, go), [2, 3, 6, 7]);
     let ts = "const q = `\n  find(id: string): User;\n  ${x}`;\nclass A {\n  find(id: string): User {}\n}\n";
     assert_eq!(inside(Kind::TsJs, ts), [2, 3]);
+    // A template writes a backtick as `\``, where a Go raw string, which has no escapes, ends
+    // (#325).
+    let ts = "const q = `\\`\nfunction ghost() {}\n`;\nfunction real() {}\n";
+    assert_eq!(inside(Kind::TsJs, ts), [2, 3]);
+    assert!(inside(Kind::Go, "const q = `\\`\nfunc real() {}\n").is_empty());
     // A migration embeds SQL, and a raw or a verbatim string is where it puts it. `""` is how
     // a verbatim string writes a quote, so it does not close one.
     let cs = "var q = \"\"\"\n    WHERE EXISTS(SELECT 1 FROM t)\n    \"\"\";\nvar v = @\"\n    SELECT MIN(\"\"rowid\"\") FROM t\n    \";\npublic int Real() => 1;\n";
