@@ -79,6 +79,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Enter with `no results for …`. (#288)
 - With no file open, on the start screen and at the tutor's first lesson, the status bar no longer
   shows a cursor position: `demo/  [tree]` instead of `demo/  1:1  [tree]`. (#285)
+- A binary file (an image, a `.pyc`, a build artefact) opens on an empty pane with one centred,
+  dimmed line, `binary file, not shown`, and no line number or cursor, instead of the text
+  `binary file` as if it were the file's line 1. The status bar still says `read-only`. (#287)
 
 ### Fixed
 

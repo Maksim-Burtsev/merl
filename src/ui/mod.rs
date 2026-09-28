@@ -17,7 +17,7 @@ mod preview;
 mod status;
 mod welcome;
 
-use code::draw_code;
+use code::{draw_binary, draw_code};
 use overlays::{draw_help, draw_lesson, draw_picker, draw_tree};
 use preview::draw_preview;
 use status::draw_status;
@@ -51,6 +51,8 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     }
     if app.previewing() {
         draw_preview(frame, app, theme, code, base);
+    } else if app.buf.binary() {
+        draw_binary(frame, theme, code, base);
     } else if app.buf.path.is_some() {
         draw_code(frame, app, theme, code, base);
     } else {
