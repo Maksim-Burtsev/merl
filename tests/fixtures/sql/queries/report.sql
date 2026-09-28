@@ -16,11 +16,12 @@ FROM heavy h JOIN cheap c ON c.id = h.coupon_id;
 --                ^ d: queries/report.sql:6
 
 WITH couriers AS (
+--   ^ d: picker schema/001_tables.sql:23
   SELECT id, name FROM couriers WHERE channel = 'post'
-  --                   ^ d: picker queries/report.sql:18, schema/001_tables.sql:23; want schema/001_tables.sql:23 (#472)
+  --                   ^ d: schema/001_tables.sql:23
 )
 SELECT name FROM couriers;
---               ^ d: picker queries/report.sql:18, schema/001_tables.sql:23; want queries/report.sql:18 (#472)
+--               ^ d: queries/report.sql:18
 
 SELECT t.rate, g.total FROM shop.tariffs t JOIN gross g ON g.id = t.id;
 --                          ^ d: schema/001_tables.sql:3
@@ -60,3 +61,11 @@ SELECT * FROM public.receipts, "shop"."daily_rates";
 --                   ^ d: schema/002_functions.sql:31
 --                               ^ d: schema/001_tables.sql:3
 --                                      ^ d: schema/002_functions.sql:32
+
+WITH RECURSIVE parcels AS (
+  SELECT 1 AS n UNION ALL SELECT n + 1 FROM parcels WHERE n < 3
+  --                                        ^ d: queries/report.sql:65
+)
+SELECT n FROM parcels, couriers;
+--            ^ d: queries/report.sql:65
+--                     ^ d: schema/001_tables.sql:23

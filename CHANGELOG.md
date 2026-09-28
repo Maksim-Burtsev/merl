@@ -145,6 +145,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tariffs`, and no longer counts as a declaration of `shop`. `d` on `public` in `public.orders`
   jumped to `CREATE TABLE public.orders`, and on a schema created once offered every object in it.
   (#471)
+- In SQL, a common table expression is a declaration only inside its own statement, where it
+  wins over a table of its name: `d` on the table in the CTE's own body, or anywhere else in the
+  project, goes to the `CREATE TABLE`, and after the `AS (…)` to the CTE, instead of a picker of
+  both. (#472)
 
 ## [0.7.0] - 2026-09-25
 
