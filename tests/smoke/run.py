@@ -38,7 +38,8 @@ assets/tapes/record.py plus a few verbs of its own:
     show               skipped (record.py's)
     include FILE       the steps of FILE, relative to the repository
     project gitea      header: run in the README's gitea checkout, made by assets/tapes/setup.sh
-                       (fetched once, 59 MB), instead of the fixture
+                       (fetched once, 59 MB), instead of the fixture; `project polar` in its
+                       polar checkout (an 80 MB fetch). assets/tapes/record.py reads the same line
 
 A scenario that is not about the tree hides it (`t`) after its first wait, so that a change to the
 tree shows in one checkpoint per scenario, not in all of them. What a wait may name, and where a new
@@ -55,6 +56,7 @@ import cast  # noqa: E402
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
 CACHE = os.path.expanduser("~/.cache/merl-smoke")
+DEMOS = ("gitea", "polar")  # the checkouts assets/tapes/setup.sh makes
 PACE, POLL, TIMEOUT, SLEEP_CAP, SIZE = 0.01, 0.02, 10.0, 0.3, (185, 55)
 HOLD = 1.2  # --gif: seconds each checkpoint stays on screen
 MARK = ".merl-smoke-report"  # in every report directory a run made, and only there
@@ -192,10 +194,13 @@ def fresh(work, project):
     run = os.path.join(work, "run")
     shutil.rmtree(run, ignore_errors=True)
     shutil.copytree(os.path.join(work, "base"), run, symlinks=True)
-    if project == "gitea":
-        gitea = os.path.join(work, "demo", "gitea")
-        subprocess.run("git checkout -q -- . && git clean -fdq", shell=True, cwd=gitea, check=True)
-        return gitea
+    if project in DEMOS:
+        demo = os.path.join(work, "demo", project)
+        # and without the viewed marks merl keeps in the checkout's git dir (#240): the other
+        # build's play would leave its ticks for this one
+        subprocess.run('git checkout -q -- . && git clean -fdq && rm -f "$(git rev-parse --git-common-dir)/merl/viewed"',
+                       shell=True, cwd=demo, check=True)
+        return demo
     return os.path.join(run, "orders")
 
 
@@ -822,7 +827,7 @@ def played(a, picked, names, out, t0, load0):
         subprocess.run(["cargo", "build", "--release", "--locked"], cwd=ROOT, check=True)
     new = a.new or os.path.join(ROOT, "target", "release", "merl")
     subprocess.run([os.path.join(HERE, "setup.sh"), os.path.join(a.work, "base")], check=True)
-    if any(load(f)[0] == "gitea" for f in picked.values()):
+    if any(load(f)[0] in DEMOS for f in picked.values()):
         subprocess.run([os.path.join(ROOT, "assets", "tapes", "setup.sh"), os.path.join(a.work, "demo")],
                        check=True, stdout=subprocess.DEVNULL)
     if not version(new):
