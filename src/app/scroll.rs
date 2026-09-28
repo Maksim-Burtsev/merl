@@ -9,6 +9,8 @@ const MAX_PINNED: usize = 2;
 impl App {
     /// Scrolls the minimum amount that puts the cursor back on screen.
     pub fn clamp_scroll(&mut self) {
+        // A wider or narrower pane wraps the top line into other rows (#412).
+        self.clamp_top();
         self.clamp_left();
         let cur = (self.line, self.cursor_row());
         if std::mem::take(&mut self.center) {

@@ -251,7 +251,6 @@ impl App {
         self.undo_break = true;
         self.refresh_diff();
         (self.line, self.col) = self.clamp_pos((self.line, self.col));
-        self.clamp_top();
         self.sync_want_x();
         self.clamp_scroll();
         self.message = "reloaded".into();
