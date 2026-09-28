@@ -543,6 +543,10 @@ fn resolve(target: Option<&str>) -> Result<(PathBuf, bool, Option<PathBuf>, Opti
     if !path.exists() {
         anyhow::bail!("{}: no such file or directory", path.display());
     }
+    // A FIFO, a socket or a device: reading one can wait forever (#405).
+    if !path.is_file() {
+        anyhow::bail!("{}: not a regular file", path.display());
+    }
     let path = path
         .canonicalize()
         .with_context(|| format!("{}", path.display()))?;
@@ -710,6 +714,20 @@ mod tests {
         // In a repository, the repository.
         std::fs::create_dir(dir.join(".git")).unwrap();
         assert_eq!(walk(&dir.join("deep/c.txt")).1.len(), 4);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #405: `merl pipe` read the FIFO before the first frame and waited for a writer forever.
+    #[test]
+    #[cfg(unix)]
+    fn a_fifo_is_refused_before_it_is_read() {
+        let dir = std::env::temp_dir().join(format!("merl-fifo-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let pipe = dir.join("pipe");
+        let mkfifo = std::process::Command::new("mkfifo").arg(&pipe).status();
+        assert!(mkfifo.unwrap().success());
+        let err = super::resolve(pipe.to_str()).unwrap_err().to_string();
+        assert_eq!(err, format!("{}: not a regular file", pipe.display()));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

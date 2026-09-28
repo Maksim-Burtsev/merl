@@ -74,6 +74,46 @@ fn usages_put_the_declaration_first_and_the_tests_last() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #405: a FIFO in the project is not read. `u`, `D` and `s` opened it and waited for a writer
+/// forever, `u` and `D` on the UI thread. Here they run on a thread of their own, so a wait
+/// fails the test instead of hanging it.
+#[test]
+#[cfg(unix)]
+fn a_fifo_in_the_project_stalls_no_search() {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let code = "def hello():\n    return 1\n\nhello()\n";
+        let (dir, mut a) = project_app("u-fifo", &[("a.py", code)]);
+        let mkfifo = std::process::Command::new("mkfifo")
+            .arg(dir.join("pipe"))
+            .status();
+        assert!(mkfifo.unwrap().success());
+        let (tree, files) = crate::tree::build(&dir, false);
+        a.project_walked(tree, files);
+        usages_at(&mut a, &dir, "a.py", 1, "hello");
+        let _ = tx.send(format!("u: {}", a.picker.as_ref().unwrap().title));
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+        a.picker.as_mut().unwrap().settle();
+        let _ = tx.send(format!("D: {}", a.picker.as_ref().unwrap().counts().1));
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+        typed(&mut a, "hello");
+        a.settle_search();
+        let _ = tx.send(format!("s: {}", a.picker.as_ref().unwrap().counts().1));
+        std::fs::remove_dir_all(&dir).unwrap();
+    });
+    for want in [
+        "u: Usages of hello: 1 declaration, 1 in code",
+        "D: 1",
+        "s: 2",
+    ] {
+        // `D` in a debug build takes seconds on a loaded machine; the wait on a FIFO is forever.
+        let got = rx.recv_timeout(std::time::Duration::from_secs(60));
+        assert_eq!(got.as_deref(), Ok(want));
+    }
+}
+
 /// The title says how the list splits, and a part with no hits is left out rather than
 /// printed as a zero.
 #[test]
