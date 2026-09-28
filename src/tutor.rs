@@ -139,6 +139,9 @@ pub fn check(app: &mut App, action: Option<&str>) {
 /// Sets the current lesson, or the drill's first task, up on a fresh App; past the last lesson
 /// nothing changes.
 pub fn begin(app: &mut App) -> Result<()> {
+    // A theme picked in the tutor or the drill lasts the session and never overwrites the
+    // learner's config (#278).
+    app.config = None;
     if app.tutor.as_ref().is_some_and(|t| t.drill.is_some()) {
         return drill::next(app);
     }
@@ -404,6 +407,19 @@ mod tests {
         }
         assert!(lesson(TUTOR.len()).is_none());
         std::fs::remove_dir_all(dir("tutor")).unwrap();
+    }
+
+    /// Enter in the theme picker applies the theme and leaves the config file alone (#278).
+    #[test]
+    fn the_tutor_never_saves_the_theme() {
+        let mut a = app("config", (80, 24));
+        let config = dir("config").join("config.toml");
+        a.config = Some(config.clone());
+        begin(&mut a).unwrap();
+        press(&mut a, "T<Down><Enter>");
+        assert!(a.picker.is_none(), "{}", state(&a));
+        assert!(!config.exists());
+        std::fs::remove_dir_all(dir("config")).unwrap();
     }
 
     #[test]

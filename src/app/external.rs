@@ -306,6 +306,7 @@ impl App {
                     .or_insert_with(|| self.text_of(&c.hit.path));
                 let name = text
                     .as_deref()
+                    .filter(|_| !matches!(c.reason, Reason::Module(_)))
                     .and_then(|text| search::qualified(kind, text, c.hit.line, word))
                     .unwrap_or_else(|| word.to_owned());
                 (name, c.reason.to_string(), c)

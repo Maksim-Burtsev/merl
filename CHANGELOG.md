@@ -68,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   long name of wide characters is cut to fit instead of pushing the counts off the panel.
   `review_panel_colours = false` in `~/.config/merl/config.toml` turns the colours, the dimming and
   the totals off. (#250)
+- With no file open, on the start screen and at the tutor's first lesson, the status bar no longer
+  shows a cursor position: `demo/  [tree]` instead of `demo/  1:1  [tree]`. (#285)
 
 ### Fixed
 
@@ -85,6 +87,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reads like the project's `src/lib.rs`. A path still too long for the pane is cut from the left,
   `…/json/__init__.py`, so the column, `read-only` and the reason `d` gave stay in sight; in a
   120-column pane they fell off the edge. (#235)
+- `merl --tutor` and `merl --drill` no longer save a theme picked with `T` and Enter to
+  `~/.config/merl/config.toml`: the theme lasts the session. A learner who pressed Enter in the
+  task on Esc lost their own theme. (#278)
+- Enter in the `T` picker on a theme of your own that does not load keeps the picker open with
+  the load error and saves nothing. It saved the name, and every start after exited on the broken
+  file. A configured theme that fails at start now names `config.toml` and the theme set there
+  beside the cause, so the way back is in the message. (#277)
+- In a line longer than merl draws (it shows the first 20 KB of a minified bundle or a one-line
+  JSON dump), the cursor stays on the drawn part: `End`, `Ctrl+End`, the arrows, the word moves,
+  `/` and a jump from `d`, `u` or `s` stop where it ends, and `Right` there goes on to the
+  next line. They put the cursor at the real end of the line, past everything on screen, with a
+  column in the status bar no drawn char had. (#284)
+- `u` on a name with a hyphen in a Makefile, Terraform, a Dockerfile or YAML lists that name
+  only: `db-main` no longer lists `db-main-2` or `db-main-replica`. In code, where `db-main-2` is
+  a subtraction, the line is still listed. (#281)
+- Ctrl+X on the last line of a file takes the line with its break, as on any other line and as in
+  VS Code: the cursor goes up a line, at its column. It left an empty line behind. Ctrl+C and
+  Ctrl+X on the last line copy it with its line break, so it pastes as a whole line like every
+  other line's copy. A file of one line is still left with one empty line. (#282)
+- `d` in Python on a name an import binds to a module of the project opens that module:
+  `views` in `from shop import views`, in `import shop.views` or in `views.index`, `shop` in
+  `import shop`, and `from . import views` too, a package at its `__init__.py`. It said `no
+  definition for views`, or jumped to a function called `views` elsewhere. A comment inside a
+  bracketed import, `a,  # noqa: F401`, no longer hides the name after it, so `d` on that name
+  goes through the import instead of offering its namesakes. (#280)
 
 ## [0.7.0] - 2026-09-25
 

@@ -79,7 +79,7 @@ fn ctrl_c_copies_in_navigation_and_never_quits() {
     // Without a selection the line goes, and merl stays open.
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     assert!(!press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL));
-    assert_eq!(a.clipboard.take().as_deref(), Some("abc"));
+    assert_eq!(a.clipboard.take().as_deref(), Some("abc\n"));
     assert_eq!(a.message, "copied 1 line");
     // A prompt has nothing to copy, and Ctrl+C does not quit from it either.
     press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
@@ -397,4 +397,88 @@ fn an_emoji_is_one_step_and_two_columns() {
     assert_eq!((a.col, a.cursor_x()), (11, 2));
     press(&mut a, KeyCode::Right, KeyModifiers::NONE);
     assert_eq!((a.col, a.cursor_x()), (19, 4));
+}
+
+/// #284: a line longer than merl draws holds the cursor to the part on screen, whatever moves it
+/// there, and Right / Alt+Right from the last drawn char go on to the next line.
+#[test]
+fn the_cursor_stays_on_the_drawn_part_of_a_cut_line() {
+    let text = format!("{}THE END\nTHE END", "ab ".repeat(10_000));
+    let (path, mut a) = temp_file("cut-line", &text);
+    let end = a.buf.shown(0).len();
+    assert!(end < a.buf.lines[0].len());
+    let key = |a: &mut App, code, m| {
+        press(a, code, m);
+        (a.line, a.col)
+    };
+    // Wrapped: End goes to the row's end, then to the drawn end.
+    key(&mut a, KeyCode::End, KeyModifiers::NONE);
+    assert_eq!(key(&mut a, KeyCode::End, KeyModifiers::NONE), (0, end));
+    assert_eq!(key(&mut a, KeyCode::Right, KeyModifiers::NONE), (1, 0));
+    assert_eq!(key(&mut a, KeyCode::Left, KeyModifiers::NONE), (0, end));
+    assert_eq!(key(&mut a, KeyCode::Right, KeyModifiers::ALT), (1, 0));
+    assert_eq!(key(&mut a, KeyCode::Left, KeyModifiers::ALT), (0, end));
+    // Up onto the last drawn row, aiming past its end.
+    key(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    a.want_x = 100;
+    assert_eq!(key(&mut a, KeyCode::Up, KeyModifiers::NONE), (0, end));
+    // Not wrapped.
+    press(&mut a, KeyCode::Char('w'), KeyModifiers::NONE);
+    key(&mut a, KeyCode::Home, KeyModifiers::NONE);
+    assert_eq!(key(&mut a, KeyCode::End, KeyModifiers::NONE), (0, end));
+    // The selection's line step ends there too.
+    press(&mut a, KeyCode::Char('v'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('v'), KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (0, end));
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    // A jump and a find to a column past the drawn end land on it; `n` goes on to the next line.
+    a.jump_to_col(&path, 1, 25_000);
+    assert_eq!((a.line, a.col), (0, end));
+    press(&mut a, KeyCode::Home, KeyModifiers::CONTROL);
+    find(&mut a, "THE END");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (0, end));
+    assert_eq!(key(&mut a, KeyCode::Char('n'), KeyModifiers::NONE), (1, 0));
+    // Ctrl+End on a file that ends in the cut line.
+    let (_, mut a) = temp_file("cut-line-last", &format!("top\n{}", "ab ".repeat(10_000)));
+    let end = a.buf.shown(1).len();
+    assert_eq!(key(&mut a, KeyCode::End, KeyModifiers::CONTROL), (1, end));
+    assert_eq!(key(&mut a, KeyCode::Right, KeyModifiers::NONE), (1, end));
+    assert_eq!(key(&mut a, KeyCode::Right, KeyModifiers::ALT), (1, end));
+}
+
+/// #284: a selection that ends where a cut line's drawn part ends copies the line to its real
+/// end, as Ctrl+C with no selection does: `v v` or Shift+Ctrl+Right, then Ctrl+C, never copies a
+/// line cut at 20 KB.
+#[test]
+fn a_selection_to_the_end_of_a_cut_line_copies_all_of_it() {
+    let line = format!("{}THE END", "ab ".repeat(10_000));
+    let (_, mut a) = temp_file("cut-copy", &format!("{line}\nnext"));
+    press(&mut a, KeyCode::Char('v'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('v'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(a.clipboard.take().as_deref(), Some(line.as_str()));
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Home, KeyModifiers::CONTROL);
+    let to_end = KeyModifiers::SHIFT | KeyModifiers::CONTROL;
+    press(&mut a, KeyCode::Right, to_end);
+    press(&mut a, KeyCode::Right, to_end);
+    assert!(a.selection().is_some());
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(a.clipboard.take().as_deref(), Some(line.as_str()));
+}
+
+/// #284: `merl file:1:25000` on a line cut at 20 KB opens on the drawn end.
+#[test]
+fn opening_at_a_column_past_the_cut_lands_on_the_drawn_end() {
+    let (path, a) = temp_file("cut-open", &format!("{}THE END\n", "ab ".repeat(10_000)));
+    let a = App::new(
+        a.root.clone(),
+        Tree::default(),
+        Vec::new(),
+        Buffer::load(&path).unwrap(),
+        Some((1, 25_000)),
+    );
+    assert_eq!((a.line, a.col), (0, a.buf.shown(0).len()));
 }
