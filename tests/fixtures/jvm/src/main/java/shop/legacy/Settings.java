@@ -7,3 +7,13 @@ public class Settings {
         return "legacy";
     }
 }
+
+enum TimeUnit {
+    MILLISECONDS,
+    SECONDS;
+
+    static TimeUnit slow() {
+        return TimeUnit.SECONDS;
+        //              ^ d: src/main/java/shop/legacy/Settings.java:13
+    }
+}
