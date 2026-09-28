@@ -140,15 +140,12 @@ impl App {
     }
 
     /// Enter in the `s` picker, on the hits of the query on screen, whether they were in before
-    /// the key or came after it: the jump to `item`, or a word that the query found nothing.
-    pub(super) fn search_jump(&mut self, item: Option<PickItem>, query: &str) {
+    /// the key or came after it: the jump to `item`. With no hit there is no jump, and the list
+    /// stays open with its query, as every list does (#288).
+    pub(super) fn search_jump(&mut self, item: PickItem) {
         self.picker = None;
         self.mode = Mode::Normal;
-        match item {
-            Some(item) => self.jump_to_col(&self.root.join(&item.path), item.line, item.col),
-            None if query.is_empty() => {}
-            None => self.message = format!("no results for {query}"),
-        }
+        self.jump_to_col(&self.root.join(&item.path), item.line, item.col);
     }
 
     /// The rows of grep number `seq`. An answer to anything but the query on screen is dropped.
@@ -175,11 +172,11 @@ impl App {
                     .position(|it| (&it.path, it.line) == (&cur.path, cur.line))
             })
             .unwrap_or(0);
-        if std::mem::take(&mut self.search_enter) {
+        // An Enter that waited for an answer with no hit is spent: the list shows the answer.
+        if std::mem::take(&mut self.search_enter) && !items.is_empty() {
             // Not through the new picker: nucleo has not seen its items yet.
-            let query = old.query.to_string();
             let from = self.review_spot();
-            self.search_jump(items.into_iter().nth(selected), &query);
+            self.search_jump(items.into_iter().nth(selected).expect("selected is a row"));
             self.watch_jumped();
             self.review_count(None, from, Some("Picker: Enter"), false);
             tutor::check(self, None);

@@ -11,7 +11,7 @@ use ratatui::widgets::Paragraph;
 use regex::Regex;
 
 use crate::app::{App, Mode};
-use crate::buffer::shown_str;
+use crate::buffer::{Buffer, shown_str};
 use crate::git::Mark;
 use crate::intraline;
 use crate::theme::Theme;
@@ -43,6 +43,9 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     let hl = base.bg(theme.line_hl);
     let hl_gutter = gutter_style.bg(theme.line_hl);
     let sel = base.bg(theme.selection);
+    // A line longer than merl draws ends in a dim `…` after its last drawn char (#283), in the
+    // colour of `‹` and `›`, on the row's own background.
+    let ellipsis = |bg: Style| Span::styled("\u{2026}", bg.fg(theme.gutter_fg));
     // Selected lines above the selection's last line are selected through their newline, so
     // their background runs to the right edge like VS Code's.
     let sel_lines = app.selection().map(|(start, end)| (start.0, end.0));
@@ -64,13 +67,14 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         app.diff.pairs.iter().map(|(&l, &g)| (g, l)).collect();
     // A ghost wraps exactly like a file line: its rows after the first start under its indent.
     // Not wrapped, the one row is the columns from `left` on, as the text's are.
-    let ghost_wrap = |text: &str| -> Vec<(Range<usize>, usize)> {
+    let ghost_wrap = |raw: &str| -> Vec<(Range<usize>, usize)> {
+        let text = shown_str(raw);
         if nowrap {
             let (r, lead) = wrap::cut(text, app.left, app.left + app.view_w);
             return vec![(r, lead)];
         }
         let indent = wrap::indent(text, app.view_w);
-        wrap::wrap_line(text, app.view_w)
+        wrap::wrap_shown(raw, app.view_w)
             .into_iter()
             .enumerate()
             .map(|(i, r)| (r, if i == 0 { 0 } else { indent }))
@@ -99,7 +103,13 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 .map(|&n| intraline::changes(text, app.buf.shown(n)).0)
                 .unwrap_or_default();
             let spans = with_find(syntax, &words, word(theme.del_word_bg));
-            for (r, lead) in ghost_wrap(text) {
+            let rows = ghost_wrap(raw);
+            let last = rows.len() - 1;
+            for (i, (r, lead)) in rows.into_iter().enumerate() {
+                // Not wrapped, a ghost has no `‹` or `›`.
+                let ell = Buffer::clips(raw)
+                    && i == last
+                    && (!nowrap || ellipsis_in_view(app, text, false, false));
                 if skip > 0 {
                     skip -= 1;
                     continue;
@@ -110,13 +120,16 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 // The tint runs to the right edge, as a row's does on GitHub.
                 let pad = app
                     .view_w
-                    .saturating_sub(lead + wrap::width(&text[r.clone()]));
+                    .saturating_sub(lead + wrap::width(&text[r.clone()]) + usize::from(ell));
                 let mut row = vec![
                     Span::styled(" ".repeat(gutter_w - 1), gutter_style),
                     Span::styled("\u{258e}", gutter_style.fg(Color::Red)),
                     Span::styled(" ".repeat(lead), ghost),
                 ];
                 row.extend(row_spans(text, &spans, &r, ghost));
+                if ell {
+                    row.push(ellipsis(ghost));
+                }
                 row.push(Span::styled(" ".repeat(pad), ghost));
                 lines.push(Line::from(row));
             }
@@ -125,6 +138,7 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             break;
         }
         let clipped = app.buf.shown(l);
+        let cut = Buffer::clips(&app.buf.lines[l]);
         let cursor_line = l == app.line;
         let lit = cursor_line && text_hl;
         // A review tints the rows the branch added, or those of a file it deleted; the gutter
@@ -172,10 +186,13 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             .map(|r| r.start..r.end.min(clipped.len()));
         let pad_selected = sel_lines.is_some_and(|(first, last)| first <= l && l < last);
         let indent = wrap::indent(clipped, app.view_w);
-        let (before, shown, cut_lead, after) = cut_unwrapped(app, clipped);
+        let (before, shown, cut_lead, after) = cut_unwrapped(app, &app.buf.lines[l]);
         let (before, after) = (nowrap && before, nowrap && after);
         let rows = if nowrap { vec![shown] } else { app.rows(l) };
+        let last = rows.len() - 1;
         for (i, r) in rows.into_iter().enumerate() {
+            let ell =
+                cut && i == last && (!nowrap || ellipsis_in_view(app, clipped, before, after));
             if i < skip {
                 continue;
             }
@@ -209,7 +226,10 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 row.push(Span::styled(" ".repeat(lead), t));
             }
             let pad = app.view_w.saturating_sub(
-                lead + wrap::width(&clipped[r.clone()]) + usize::from(before) + usize::from(after),
+                lead + wrap::width(&clipped[r.clone()])
+                    + usize::from(before)
+                    + usize::from(after)
+                    + usize::from(ell),
             );
             // The selected part of the row keeps its syntax colours on the selection background.
             let (lo, hi) = match &selected {
@@ -225,10 +245,13 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                     row.extend(row_spans(clipped, spans, &piece, style));
                 }
             }
+            let pad_style = if pad_selected { sel } else { t };
+            if ell {
+                row.push(ellipsis(pad_style));
+            }
             if cursor_line || pad_selected || after || tint.is_some() {
                 // Pad so the line background reaches the right edge of the pane.
-                let style = if pad_selected { sel } else { t };
-                row.push(Span::styled(" ".repeat(pad), style));
+                row.push(Span::styled(" ".repeat(pad), pad_style));
             }
             if after {
                 row.push(Span::styled("\u{203a}", g));
@@ -264,9 +287,13 @@ fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -
         .map(|&p| {
             let text = app.buf.shown(p);
             let (before, r, lead, after) = match app.nowrap() {
-                true => cut_unwrapped(app, text),
+                true => cut_unwrapped(app, &app.buf.lines[p]),
                 false => (false, app.rows(p).swap_remove(0), 0, false),
             };
+            // Only a first row is pinned: wrapped, the end of a cut line is never on it.
+            let ell = app.nowrap()
+                && Buffer::clips(&app.buf.lines[p])
+                && ellipsis_in_view(app, text, before, after);
             let syntax = app.buf.hl.get(p).map_or(&[][..], Vec::as_slice);
             let g = band.fg(theme.gutter_fg);
             let num = format!("{:>w$} ", p + 1, w = gutter_w - 1);
@@ -276,9 +303,15 @@ fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -
             }
             row.push(Span::styled(" ".repeat(lead), band));
             let pad = app.view_w.saturating_sub(
-                lead + wrap::width(&text[r.clone()]) + usize::from(before) + usize::from(after),
+                lead + wrap::width(&text[r.clone()])
+                    + usize::from(before)
+                    + usize::from(after)
+                    + usize::from(ell),
             );
             row.extend(row_spans(text, syntax, &r, band));
+            if ell {
+                row.push(Span::styled("\u{2026}", g));
+            }
             // Pad so the band reaches the right edge of the pane.
             row.push(Span::styled(" ".repeat(pad), band));
             if after {
@@ -292,9 +325,11 @@ fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -
 /// The one row of `text` shown when lines are not wrapped: the columns from `left` on, less a
 /// column at either edge that has text beyond it, where `‹` and `›` stand, so a cut line never
 /// reads as whole. Whether `‹` stands, the bytes shown, the blank columns before them (a wide
-/// character cut at the edge) and whether `›` stands.
-fn cut_unwrapped(app: &App, text: &str) -> (bool, std::ops::Range<usize>, usize, bool) {
-    let w = wrap::width(text);
+/// character cut at the edge) and whether `›` stands. `raw` is the whole line: one cut at
+/// [`Buffer::shown`] takes a column more, for its `…`.
+fn cut_unwrapped(app: &App, raw: &str) -> (bool, std::ops::Range<usize>, usize, bool) {
+    let text = shown_str(raw);
+    let w = wrap::width(text) + usize::from(Buffer::clips(raw));
     let before = app.left > 0 && w > 0;
     let after = w > app.left + app.view_w;
     let (r, lead) = wrap::cut(
@@ -303,6 +338,14 @@ fn cut_unwrapped(app: &App, text: &str) -> (bool, std::ops::Range<usize>, usize,
         (app.left + app.view_w).saturating_sub(usize::from(after)),
     );
     (before, r, lead, after)
+}
+
+/// Not wrapped: whether the column after `text`, where a cut line's `…` stands, is in view,
+/// between the columns `‹` and `›` take when they stand. Drawn right after the row's text and
+/// its lead, the `…` then lands on that column, even when no char of the line is in view.
+fn ellipsis_in_view(app: &App, text: &str, before: bool, after: bool) -> bool {
+    let end = wrap::width(text);
+    app.left + usize::from(before) <= end && end + usize::from(after) < app.left + app.view_w
 }
 
 /// Cuts one wrapped row `r` of `text` into spans, taking colours from the line's highlighting
