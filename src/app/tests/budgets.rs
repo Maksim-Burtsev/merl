@@ -62,10 +62,15 @@ const D_NEXT: u64 = 3_000;
 /// `--review` of the branch with [`CHANGED`] files, to the first frame [310 ms].
 const REVIEW: u64 = 1_000;
 
+/// The index in [`D_CURSORS`] of the press that finds nothing on purpose.
+const D_FINDS_NOTHING: usize = 1;
+
 /// `d` cursors in paperless-ngx (`file`, 1-based line, byte column), from the #308 bench's
 /// slowest Python presses and three quick ones.
 const D_CURSORS: &[(&str, usize, usize)] = &[
     ("src/documents/tests/test_workflows.py", 3068, 12),
+    // The one `d` here that finds nothing, today (`returned_account1`): it times the search that
+    // ends in a miss. Every other press must jump or open a picker, or it timed nothing.
     ("src/paperless_mail/tests/test_api.py", 176, 8),
     (
         "src/documents/tests/search/test_migration_fulltext_query_field_prefixes.py",
@@ -244,14 +249,24 @@ fn d_presses(project: &Path) -> (Vec<f64>, Vec<f64>) {
         let (tree, files) = crate::tree::build(project, false);
         let mut a = App::new(project.to_path_buf(), tree, files, Buffer::empty(), None);
         let mut ms = Vec::new();
-        for (file, line, col) in D_CURSORS {
+        for (i, (file, line, col)) in D_CURSORS.iter().enumerate() {
             a.picker = None;
             a.mode = Mode::Normal;
             a.jump_to(&project.join(file), *line);
             a.col = *col;
+            let before = (a.buf.path.clone(), a.line);
             let t = Instant::now();
             press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
             ms.push(t.elapsed().as_secs_f64() * 1000.0);
+            // A fast "no definition" (dependencies not installed, a cursor off its word) is no
+            // measure of `d`.
+            assert!(
+                i == D_FINDS_NOTHING
+                    || a.picker.is_some()
+                    || (a.buf.path.clone(), a.line) != before,
+                "d found nothing at {file}:{line}:{col}: {}",
+                a.message
+            );
         }
         first.push(ms[0]);
         next.push(ms[1..].iter().copied().fold(0.0, f64::max));

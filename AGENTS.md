@@ -76,7 +76,7 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
    origin or carry commits origin never got. Read code, reviews included, from your worktree.
 3. Build into the worktree's own `target/`. Worktrees sharing a `CARGO_TARGET_DIR` hand you a
    stale `merl` test binary, one built from another tree; after sharing one, `cargo clean -p
-   merl` before trusting a result. A build of master (for a screencast or a sweep) gets a
+   merl` before trusting a result. A build of master (for a screencast) gets a
    worktree and a target of its own too.
 4. Keep scratch files (fixtures, GIFs, harnesses) in a folder named after the issue: parallel
    runs share a scratchpad and overwrite each other's `before.gif`.
@@ -98,16 +98,15 @@ Everything on GitHub (issues, PR bodies, reviews, comments) is in English.
 A wrong jump is worse than a picker or "don't know", and no lookup may get worse than on master.
 Only the path the change narrows gets new rules: every other lookup, and every other language,
 matches exactly as master does. Rules that start answering a new question tend to leak into the
-fallback paths, so a `d` PR is ready to merge only after the bench shows no language worse
-than master.
+fallback paths, so a `d` PR is ready to merge only after the bench shows no cursor worse than
+master.
 
-- **The bench**, `tools/d-bench/run [--lang go,rust]` (`tools/d-bench/README.md`): ~2,700
+- **The bench**, `tools/d-bench/run [--lang go,rust]` (`tools/d-bench/README.md`): 2,870
   recorded cursors in 13 real projects pinned to a commit, one per language, merl's answer scored
   against a language server's (a judgement read from the code for Java, Kotlin, C# and Ruby) and
   diffed against `baseline.tsv`, master's. It prints per language the direct hits, pickers with
   the answer, wrong jumps, misses and p50 / p90 ms, lists every cursor that got worse (a new
-  wrong jump first), and exits 1 when a language has more wrong jumps or fewer direct hits than
-  master. Run the languages the change touches, all of them when a shared path moves; the table
+  wrong jump first), and exits 1 when there is any. Run the languages the change touches, all of them when a shared path moves; the table
   goes into the commit message. A PR that changes the table commits the new baseline with it
   (`--update-baseline`), so the next PR compares against what master will be.
 - It times in release; the times mean something only with `sysctl -n vm.loadavg` under ~8:

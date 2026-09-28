@@ -13,12 +13,13 @@ tools/d-bench/run --update-baseline  # a PR that changes the table commits the n
 ```
 
 The runner clones each project into the cache (`--cache`, `$D_BENCH_CACHE`, default
-`~/.cache/merl-d-bench`) at its pinned commit and runs its install command once; a clone already
-at that commit is only read. It then plays every cursor through the `#[ignore]` test
+`~/.cache/merl-d-bench`) at its pinned commit and runs its install command until it succeeds
+once (marked in the clone's `.git`); a clone already at that commit and installed is only read. It then plays every cursor through the `#[ignore]` test
 `src/app/tests/d_bench.rs` in release (one `App` per project: jump to the line, set the column,
-press `d`), prints the table, and diffs every cursor against `baseline.tsv`: the languages whose
-direct hits fell or whose wrong jumps rose (exit 1), then each cursor that got worse, new wrong
-jumps first. `last-score.tsv` in the cache has every cursor's verdict, status line, merl's
+converted from code points to merl's bytes, press `d`), prints the table, and diffs every cursor
+against `baseline.tsv`: each cursor that got worse, new wrong jumps first, and exit 1 when there
+is any (a fixed cursor does not pay for a broken one). `--selftest` checks the scoring and this
+gate on made-up rows; CI runs it. `last-score.tsv` in the cache has every cursor's verdict, status line, merl's
 targets and the answer; `--merl <cache>/last-merl.tsv` scores the last run again without
 replaying it.
 
@@ -29,7 +30,7 @@ Times mean something only with `sysctl -n vm.loadavg` under ~8; the baseline not
 | file | what |
 |---|---|
 | `projects.tsv` | name, language, git URL, pinned commit, install command (`uv sync`, `npm install --ignore-scripts`, `go mod download`, `cargo fetch`, `-`) |
-| `cursors/LANG.tsv` | `id project file line col shape word`: identifiers outside comments and strings, 1-based line, 0-based column; `shape` is `member` (after `.`, `?.`, `->`), `path` (after `::`), `call`, `type` (capitalised) or `name` |
+| `cursors/LANG.tsv` | `id project file line col shape word`: identifiers outside comments and strings, 1-based line, 0-based column in code points; `shape` is `member` (after `.`, `?.`, `->`), `path` (after `::`), `call`, `type` (capitalised) or `name` |
 | `answers/LANG.tsv` | `id targets skip note`: the definition as `path:line`, project-relative, `~/` or absolute outside the project (a dependency or the toolchain's standard library); `skip` holds the reason a debatable answer is not scored |
 | `baseline.tsv`, `baseline.md` | master's verdict per cursor, and its table |
 | `run` | the runner |

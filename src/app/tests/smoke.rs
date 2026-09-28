@@ -47,12 +47,17 @@ fn starts(path: &Path, out: &mut Vec<Vec<String>>) {
     }
 }
 
-/// The ids of the arguments the scenarios start merl with, read by clap as merl reads them.
+/// The ids of the arguments the scenarios CI plays start merl with, read by clap as merl reads
+/// them. CI's scenarios are the ones with screens checked in: `RELEASE_ONLY` in `run.py` has
+/// none, and `--golden` fails on a screens folder with no scenario.
 fn played_flags() -> BTreeSet<String> {
     let mut lines = Vec::new();
     for f in std::fs::read_dir(root().join("tests/smoke")).unwrap() {
         let path = f.unwrap().path();
-        if path.extension().is_some_and(|e| e == "steps") {
+        let played = path
+            .file_stem()
+            .is_some_and(|name| root().join("tests/smoke/screens").join(name).is_dir());
+        if path.extension().is_some_and(|e| e == "steps") && played {
             starts(&path, &mut lines);
         }
     }

@@ -220,6 +220,28 @@ impl App {
     /// the machine the tests run on.
     #[cfg(test)]
     pub(crate) fn no_external(&mut self) {
+        // Every kind: a new one fails to compile here until it is in the list below too.
+        let every = |kind: Kind| match kind {
+            Kind::Python
+            | Kind::Go
+            | Kind::Rust
+            | Kind::TsJs
+            | Kind::Jvm
+            | Kind::Ruby
+            | Kind::C
+            | Kind::CSharp
+            | Kind::Swift
+            | Kind::Php
+            | Kind::Lua
+            | Kind::Elixir
+            | Kind::Zig
+            | Kind::Shell
+            | Kind::Sql
+            | Kind::Make
+            | Kind::Terraform
+            | Kind::Docker
+            | Kind::Yaml => kind,
+        };
         for kind in [
             Kind::Python,
             Kind::Go,
@@ -240,7 +262,9 @@ impl App {
             Kind::Terraform,
             Kind::Docker,
             Kind::Yaml,
-        ] {
+        ]
+        .map(every)
+        {
             self.external
                 .insert(kind, (Vec::new(), Arc::new(Vec::new())));
         }

@@ -39,14 +39,15 @@ struct Case {
     status: Option<String>,
 }
 
-/// `(caret column, text after "d:")` of an annotation line.
+/// `(caret column, text after the caret)` of an annotation line: a line comment that is only a
+/// caret and what follows it. The text should start with `d:`; a typo there fails its case
+/// rather than dropping it unseen.
 fn annotation(line: &str) -> Option<(usize, &str)> {
     let caret = line.find('^')?;
     if !MARKERS.contains(&line[..caret].trim()) {
         return None;
     }
-    let rest = line[caret + 1..].trim_start().strip_prefix("d:")?;
-    Some((caret, rest.trim()))
+    Some((caret, line[caret + 1..].trim()))
 }
 
 /// The text of a `status:` line.
@@ -135,8 +136,11 @@ fn cases() -> Vec<Case> {
                     at: i + 1,
                     line,
                     col,
-                    want: parse_want(want),
-                    raw: want.to_owned(),
+                    want: match want.strip_prefix("d:") {
+                        Some(w) => parse_want(w.trim()),
+                        None => Err(format!("no `d:` after the caret: `{want}`")),
+                    },
+                    raw: want.strip_prefix("d:").unwrap_or(want).trim().to_owned(),
                     status: lines
                         .get(i + 1)
                         .and_then(|n| status_line(n))
@@ -244,8 +248,9 @@ fn check(case: &Case) -> Option<String> {
 
 #[test]
 fn the_annotation_grammar() {
-    assert_eq!(annotation("    //   ^ d: a.go:3"), Some((9, "a.go:3")));
-    assert_eq!(annotation("\t# ^ d: none"), Some((3, "none")));
+    assert_eq!(annotation("    //   ^ d: a.go:3"), Some((9, "d: a.go:3")));
+    assert_eq!(annotation("\t# ^ d: none"), Some((3, "d: none")));
+    assert_eq!(annotation("# ^ D: none"), Some((2, "D: none")));
     assert_eq!(annotation("x = 1  # ^ d: none"), None);
     assert_eq!(annotation("-- a ^ d: none"), None);
     assert!(matches!(parse_want("none"), Ok(Want::None)));

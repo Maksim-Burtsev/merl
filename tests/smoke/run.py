@@ -1019,6 +1019,11 @@ def played(a, picked, names, out, t0, load0):
     if a.all_shots:
         return shots(new, picked, a.work, out)
     if a.golden:
+        # A screens folder with no scenario CI plays would still count as played in
+        # src/app/tests/smoke.rs: a renamed or deleted scenario takes its screens with it.
+        orphans = sorted(set(os.listdir(SCREENS)) - set(names) | set(os.listdir(SCREENS)) & set(RELEASE_ONLY))
+        if orphans:
+            sys.exit(f"tests/smoke/screens holds {', '.join(orphans)}, no scenario --golden plays: delete it")
         return golden(new, picked, a.work, a.update) or sys.exit(1)
     old, tag = (a.old, None) if a.old and os.path.exists(a.old) else last_release(a.old)
     if not version(old):

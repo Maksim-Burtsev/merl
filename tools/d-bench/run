@@ -3,14 +3,16 @@
 against the recorded one, print a table per language and diff it against the baseline.
 
   tools/d-bench/run [--lang L[,L]] [--project P] [--cache DIR] [--merl FILE] [--update-baseline]
+  tools/d-bench/run --selftest     the scoring and the gate on made-up rows, no clone (CI runs it)
 
 --cache            where the projects are cloned (default $D_BENCH_CACHE or ~/.cache/merl-d-bench).
-                   A clone already at its pinned commit is only read, never touched.
+                   A clone already at its pinned commit and installed is only read, never touched.
 --merl FILE        score a previous run's output (`last-merl.tsv` in the cache) instead of
                    running merl again.
 --update-baseline  write this run's rows into baseline.tsv and its table into baseline.md.
 
-Exits 1 when a language has more wrong jumps or fewer direct hits than the baseline.
+Exits 1 when any cursor scores worse than in the baseline (ok < pick-hit < miss < WRONG): a gain
+elsewhere does not pay for it.
 """
 import argparse, datetime, os, re, subprocess, sys
 from collections import Counter, defaultdict
@@ -31,21 +33,27 @@ def sh(cmd, cwd):
 
 
 def ensure(cache, name, url, commit, install):
-    """Clones the project at its pinned commit and installs its dependencies, once."""
+    """Clones the project at its pinned commit and installs its dependencies, once. The install
+    is marked done inside `.git` only when it succeeded, so a failed one runs again next time."""
     d = os.path.join(cache, name)
+    installed = os.path.join(d, ".git", "merl-bench-installed")
+    head = ""
     if os.path.isdir(os.path.join(d, ".git")):
         head = subprocess.run(["git", "-C", d, "rev-parse", "HEAD"], capture_output=True,
                               text=True).stdout.strip()
-        if head == commit:
-            return d
-        print(f"{name}: at {head[:7]}, moving to the pinned {commit[:7]}", file=sys.stderr)
+        if head != commit:
+            print(f"{name}: at {head[:7]}, moving to the pinned {commit[:7]}", file=sys.stderr)
     else:
         print(f"{name}: cloning {url} at {commit[:7]}", file=sys.stderr)
         os.makedirs(d, exist_ok=True)
         sh(f"git init -q && git remote add origin {url}", d)
-    sh(f"git fetch -q --depth 1 origin {commit} && git checkout -q --detach {commit}", d)
-    if install != "-":
+    if head != commit:
+        if os.path.exists(installed):
+            os.remove(installed)
+        sh(f"git fetch -q --depth 1 origin {commit} && git checkout -q --detach {commit}", d)
+    if install != "-" and not os.path.exists(installed):
         sh(install, d)
+        open(installed, "w").close()
     return d
 
 
@@ -78,7 +86,9 @@ def verdict(cur, ans, got, root):
     external = not all(p.startswith(root + "/") for p, _ in want)
 
     def hit(g):
-        return any(g[0] == p and abs(g[1] - ln) <= 1 or external and modkey(g[0]) == modkey(p)
+        # The recorded file itself is checked by line; only another copy of a dependency's file
+        # (another venv, another module cache) is matched by its path alone.
+        return any(abs(g[1] - ln) <= 1 if g[0] == p else external and modkey(g[0]) == modkey(p)
                    for p, ln in want)
 
     outcome, found = got
@@ -87,6 +97,19 @@ def verdict(cur, ans, got, root):
     if outcome == "picker":
         return "pick-hit" if any(hit(g) for g in found) else "pick-miss"
     return "none"
+
+
+def byte_col(line, col):
+    """The cursors' columns count code points, as record.py and the language servers read them;
+    merl's column is a byte offset."""
+    return len(line[:col].encode())
+
+
+def worse_rows(base, now):
+    """(rank lost, is a new wrong jump, id) of every cursor that scores worse than its baseline
+    row. base and now: id -> row with the verdict at [1]."""
+    return [(RANK[now[i][1]] - RANK[b[1]], now[i][1] == "WRONG", i) for i, b in base.items()
+            if i in now and b[1] in RANK and now[i][1] in RANK and RANK[now[i][1]] > RANK[b[1]]]
 
 
 def pct(n, tot):
@@ -116,6 +139,31 @@ def table(rows, projects):
     return out
 
 
+def selftest():
+    """The scoring and the gate on made-up rows: the cases a `d` PR's verdict rests on."""
+    root = "/p"
+    dep = "/home/u/.venv/lib/requests/api.py"
+    cur = ["x0001", "proj", "a.py", "3", "4"]
+    ans = lambda target: ["x0001", target, ""]
+    jump = lambda path, line: ("jump", targets(f"{path}:{line}", root))
+    assert verdict(cur, ans("b.py:10"), jump("/p/b.py", 11), root) == "ok"
+    assert verdict(cur, ans("b.py:10"), jump("/p/b.py", 40), root) == "WRONG"
+    # A dependency: another copy of the file matches by path, the same file needs the line.
+    assert verdict(cur, ans(f"{dep}:50"), jump("/other/venv/lib/requests/api.py", 7), root) == "ok"
+    assert verdict(cur, ans(f"{dep}:50"), jump(dep, 50), root) == "ok"
+    assert verdict(cur, ans(f"{dep}:50"), jump(dep, 90), root) == "WRONG"
+    assert verdict(cur, ans("b.py:10"), ("picker", targets("c.py:1;b.py:10", root)), root) == "pick-hit"
+    assert byte_col('label = _("Ärger") + format_label(x)', 21) == 22
+    # A new wrong jump is not paid for by a fixed one, nor a lost picker answer by anything.
+    base = {"go1": ["go1", "ok"], "go2": ["go2", "WRONG"], "go3": ["go3", "pick-hit"]}
+    swap = {"go1": ["go1", "WRONG"], "go2": ["go2", "ok"], "go3": ["go3", "pick-hit"]}
+    assert [w[2] for w in worse_rows(base, swap)] == ["go1"]
+    lost = {"go1": ["go1", "ok"], "go2": ["go2", "WRONG"], "go3": ["go3", "none"]}
+    assert [w[2] for w in worse_rows(base, lost)] == ["go3"]
+    assert worse_rows(base, base) == []
+    print("selftest ok")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--lang")
@@ -124,7 +172,10 @@ def main():
                                                       os.path.expanduser("~/.cache/merl-d-bench")))
     ap.add_argument("--merl")
     ap.add_argument("--update-baseline", action="store_true")
+    ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
+    if a.selftest:
+        return selftest()
 
     projects = tsv(os.path.join(HERE, "projects.tsv"))
     pick = [p for p in projects if (not a.lang or p[1] in a.lang.split(","))
@@ -143,9 +194,14 @@ def main():
     load_before = os.popen("sysctl -n vm.loadavg 2>/dev/null").read().strip()
     if not a.merl:
         bench_in = os.path.join(cache, "last-cursors.tsv")
+        lines = {}
         with open(bench_in, "w") as f:
             for _, c in cursors:
-                f.write("\t".join([c[0], roots[c[1]], *c[2:5]]) + "\n")
+                path = os.path.join(roots[c[1]], c[2])
+                if path not in lines:
+                    lines[path] = open(path, encoding="utf-8", errors="replace").read().split("\n")
+                col = byte_col(lines[path][int(c[3]) - 1], int(c[4]))
+                f.write("\t".join([c[0], roots[c[1]], c[2], c[3], str(col)]) + "\n")
         print(f"load {load_before}; {len(cursors)} cursors", file=sys.stderr)
         subprocess.run(["cargo", "test", "--release", "--bin", "merl", "d_bench", "--", "--ignored", "--quiet"],
                        cwd=REPO, check=True, env={**os.environ, "BENCH_IN": bench_in, "BENCH_OUT": merl_out})
@@ -172,8 +228,7 @@ def main():
     base_path = os.path.join(HERE, "baseline.tsv")
     base = {r[0]: r for r in tsv(base_path)} if os.path.exists(base_path) else {}
     now = {d[0]: d for d in detail}
-    worse = [(RANK[now[i][1]] - RANK[b[1]], now[i][1] == "WRONG", i) for i, b in base.items()
-             if i in now and b[1] in RANK and now[i][1] in RANK and RANK[now[i][1]] > RANK[b[1]]]
+    worse = worse_rows(base, now)
     better = sum(1 for i, b in base.items() if i in now and b[1] in RANK and now[i][1] in RANK
                  and RANK[now[i][1]] < RANK[b[1]])
     fail = False
@@ -183,7 +238,7 @@ def main():
             ids = [r[1] for r in rows if r[0] == lang and r[1] in base]
             cnt = lambda src, k: sum(1 for i in ids if src[i][1] == k)
             ok, wr = (cnt(base, "ok"), cnt(now, "ok")), (cnt(base, "WRONG"), cnt(now, "WRONG"))
-            flag = wr[1] > wr[0] or ok[1] < ok[0]
+            flag = any(i in ids for _, _, i in worse)
             fail |= flag
             print(f"  {lang:7} direct hit {ok[0]}->{ok[1]}  wrong jump {wr[0]}->{wr[1]}"
                   + ("  WORSE" if flag else ""))
