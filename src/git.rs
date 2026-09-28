@@ -229,8 +229,12 @@ impl Review {
             "-z",
             &merge_base,
         ];
+        // A symlink counts one line too, where it points: to a directory, no text either (#404).
+        let dir_link = |p: &Path| p.is_symlink() && p.is_dir();
         for (path, counts) in parse_numstat(&git(&numstat)?) {
-            if let Some(f) = files.iter_mut().find(|f| f.path == path) {
+            if let Some(f) = files.iter_mut().find(|f| f.path == path)
+                && !dir_link(&root.join(&path))
+            {
                 f.binary = counts.is_none();
                 (f.added, f.deleted) = counts.unwrap_or((0, 0));
             }

@@ -71,9 +71,8 @@ impl App {
     /// [`review_hunks`].
     // ponytail: a stop is a hunk by its index at the time of the stop, checked against the
     // count taken when the review opened, so an agent's edits mid-review can credit a new hunk
-    // or drop an unreached one; and a file the walk cannot open (a symlink to a directory, a
-    // broken one) still counts its hunk. Identify a hunk by its text if the numbers need to
-    // hold under edits.
+    // or drop an unreached one; and a file the walk cannot open (a broken symlink) still counts
+    // its hunk. Identify a hunk by its text if the numbers need to hold under edits.
     fn review_stop(&self) -> Option<Stop> {
         let rel = self.rel_current()?;
         let f = self.review.as_ref()?.file(&rel)?;

@@ -12,7 +12,8 @@ pub struct Node {
     pub depth: usize,
     pub is_dir: bool,
     pub expanded: bool,
-    /// Left out by `.gitignore` and the other ignore files: a dim row. The walk does not go into
+    /// Left out by `.gitignore` and the other ignore files, or a link to a directory, which the
+    /// walk does not follow either: a dim row. The walk does not go into
     /// an ignored directory; it is read from disk one level at a time, when it is expanded.
     pub ignored: bool,
 }
@@ -48,11 +49,13 @@ pub struct Tree {
 pub fn build(root: &Path, shallow: bool) -> (Tree, Vec<PathBuf>) {
     // Dotfiles are walked: `.github/`, `.env` and `.dockerignore` are part of a project.
     // `.gitignore` still prunes caches; a version-control store is never content.
+    // A link to a directory is not followed (#404): the level it is in lists it, a directory
+    // read when it is expanded, so a link to `..` or `/` loops nothing and pulls nothing in.
     let walked: Vec<(PathBuf, bool)> = WalkBuilder::new(root)
         .hidden(false)
         .require_git(false)
         .max_depth(shallow.then_some(1))
-        .filter_entry(|e| !is_store(e.file_name()))
+        .filter_entry(|e| !is_store(e.file_name()) && !(e.path_is_symlink() && e.path().is_dir()))
         .build()
         .filter_map(Result::ok)
         .filter_map(|e| {
@@ -97,7 +100,8 @@ fn is_store(name: &OsStr) -> bool {
     matches!(name.to_str(), Some(".git" | ".hg" | ".svn"))
 }
 
-/// The entries of `dir` (relative to `root`) and whether each is a directory, unsorted.
+/// The entries of `dir` (relative to `root`) and whether each is a directory, unsorted. A link
+/// to a directory is one.
 fn read_level(root: &Path, dir: &Path) -> Vec<(PathBuf, bool)> {
     let Ok(read) = std::fs::read_dir(root.join(dir)) else {
         return Vec::new();
@@ -105,7 +109,9 @@ fn read_level(root: &Path, dir: &Path) -> Vec<(PathBuf, bool)> {
     read.flatten()
         .filter(|e| !is_store(&e.file_name()))
         .map(|e| {
-            let is_dir = e.file_type().is_ok_and(|t| t.is_dir());
+            let is_dir = e
+                .file_type()
+                .is_ok_and(|t| t.is_dir() || t.is_symlink() && e.path().is_dir());
             (dir.join(e.file_name()), is_dir)
         })
         .collect()
@@ -705,6 +711,41 @@ mod tests {
                 "node_modules/pkg/new.js",
             ]
         );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #404: a symlink to a directory is a directory, read from disk when it is expanded, as an
+    /// ignored one is. The walk does not follow it, so a link to `..` loops nothing and what it
+    /// leads to is not in the list.
+    #[cfg(unix)]
+    #[test]
+    fn a_link_to_a_directory_is_a_directory_the_walk_does_not_follow() {
+        let dir = project("dirlink", &["docs/a.md", "z.py"]);
+        std::os::unix::fs::symlink("docs", dir.join("alink")).unwrap();
+        std::os::unix::fs::symlink("..", dir.join("docs/up")).unwrap();
+        let (mut t, files) = build(&dir, false);
+        assert_eq!(files, [PathBuf::from("docs/a.md"), "z.py".into()]);
+        assert_eq!(rows(&t), ["alink", "docs", "z.py"]);
+        t.reveal(Path::new("alink"));
+        t.toggle();
+        assert_eq!(
+            rows(&t),
+            ["alink", "alink/up", "alink/a.md", "docs", "z.py"]
+        );
+        // The link back up is a directory too, read one level when it is opened, not before.
+        t.down();
+        t.toggle();
+        assert_eq!(
+            rows(&t)[..5],
+            [
+                "alink",
+                "alink/up",
+                "alink/up/alink",
+                "alink/up/docs",
+                "alink/up/z.py"
+            ]
+        );
+        assert!(t.dirs() == HashSet::from([PathBuf::from("docs")]));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
