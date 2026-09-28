@@ -47,10 +47,11 @@ assets/tapes/record.py plus a few verbs of its own:
 
 --golden plays each scenario once, on the new build only, and compares each checkpoint with
 tests/smoke/screens/SCENARIO/NN.txt: the wait's text, then the screen as text, trailing blanks cut,
-then the cursor. Colours are left out. It prints a diff per screen that differs and exits 1 on
-any difference or failure. --update writes the screens of the scenarios it played instead (only
-those that played through); commit them with the change, so the PR's diff shows every screen it
-changes. RELEASE_ONLY names the scenarios CI does not play, and SCREEN_SKIPPED the checkpoints
+then the cursor. Colours are left out. Beside them, keys.txt: the actions of `KEYS` merl counted a
+press of in the play (keys.tsv in its HOME), which src/app/tests/smoke.rs reads (#310). It prints a
+diff per screen that differs and exits 1 on any difference or failure. --update writes the screens
+of the scenarios it played instead (only those that played through); commit them with the change,
+so the PR's diff shows every screen it changes. RELEASE_ONLY names the scenarios CI does not play, and SCREEN_SKIPPED the checkpoints
 whose screen depends on the machine (their wait is still checked).
 
 --all-shots plays each scenario on the new build alone, once in merl's default theme and once in
@@ -98,6 +99,8 @@ SCREEN_SKIPPED = {
     ("python-d", "json/__init__.py"): "the standard library of the machine's Python",
     ("python-d", "cancel: by name"): "the cancel methods of the machine's Python standard library",
     ("go-d", "Errorf: via import fmt"): "the standard library of the machine's Go",
+    ("review", "30 days: 2 sessions"): "merl --reviews prints today's date and the time each session took",
+    ("review", "merl exited: 0"): "merl --reviews prints today's date and the time each session took",
 }
 # Every verdict the table can show, printed under it.
 LEGEND = [("PASS", "every checkpoint the same on both builds"),
@@ -413,8 +416,18 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None):
             finally:
                 pane.close()  # a KeyboardInterrupt in quit() still gets here
     r["seconds"] = round(time.monotonic() - t0, 1)
+    r["keys"] = pressed(home)
     r["stderr"] = ((open(err).read() if os.path.exists(err) else "") + runner)[-2000:]
     return r
+
+
+def pressed(home):
+    """The `KEYS` actions merl counted a press of (#207) in `home`, every start of the play: the keys
+    the scenario played, as merl routed them, `Tree: Enter` and `Picker: Enter` apart. The q and
+    Esc the runner quits with are among them."""
+    path = os.path.join(home, ".local", "state", "merl", "keys.tsv")
+    rows = [line.rstrip("\n").split("\t") for line in open(path)] if os.path.exists(path) else []
+    return sorted({r[1] for r in rows if len(r) > 2 and r[2] != "0"})
 
 
 def scenario(path, new, old, work):
@@ -632,6 +645,8 @@ def golden(new, picked, work, update, screens=SCREENS):
     for name, path in picked.items():
         r = play(new, path, work)
         got = {f"{i:02d}.txt": screen(name, c) for i, c in enumerate(r["checkpoints"], 1)}
+        if r["keys"]:  # what src/app/tests/smoke.rs counts as played
+            got["keys.txt"] = "".join(k + "\n" for k in r["keys"])
         where = os.path.join(screens, name)
         if r["status"] != "ok":
             good = False

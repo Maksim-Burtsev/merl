@@ -1,0 +1,42 @@
+# move: the cursor by word, row, paragraph, half screen and file, and the selection grown by
+# char, row, word and line from it (#310). The status bar says where the cursor is after each.
+merl app/service.py
+wait class OrderService:
+key t M-Right M-Right
+wait app/service.py  1:9  [code]
+key M-Left
+wait app/service.py  1:6  [code]
+key End
+wait app/service.py  1:32  [code]
+key Home
+wait app/service.py  1:1  [code]
+key } }
+wait app/service.py  9:1  [code]
+key {
+wait app/service.py  6:1  [code]
+key C-d
+wait app/service.py  32:1  [code]
+key C-u
+wait app/service.py  6:1  [code]
+key C-End
+wait app/service.py  36:21  [code]
+key C-Home
+wait app/service.py  1:1  [code]
+key :
+type 13
+key Enter M-Right
+wait app/service.py  13:13  [code]
+key v
+wait app/service.py  13:13  [code]
+key v
+wait app/service.py  13:25  [code]
+key Escape S-Left S-Left S-Right
+wait app/service.py  13:24  [code]
+key S-Up
+wait app/service.py  12:24  [code]
+key Escape M-S-Left
+wait app/service.py  12:18  [code]
+key Escape C-S-Left
+wait app/service.py  12:1  [code]
+key C-S-Right
+wait app/service.py  12:78  [code]

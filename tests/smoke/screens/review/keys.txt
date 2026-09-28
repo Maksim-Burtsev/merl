@@ -1,0 +1,9 @@
+/
+C
+Esc
+PgDn
+[
+c
+d
+m
+q
