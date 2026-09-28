@@ -15,34 +15,51 @@ pub(super) fn comment(kind: Kind, t: &str) -> bool {
 /// The 1-based lines of `text` that start inside a literal or a comment running over several
 /// lines: a Python or Elixir triple-quoted string (a docstring or an `@moduledoc` with an example
 /// in it), which Swift and C# write with `"` alone, a Go raw string, a TypeScript template, a Lua
-/// `[[ ]]` or `[==[ ]==]` long string or block comment, a C# verbatim `@"…"`, a PHP heredoc, a
-/// `/* */` block. A line there that reads like a declaration declares nothing — the SQL a
-/// migration embeds in one is the common case. Strings of one line end with their line, whatever
-/// they hold.
+/// `[[ ]]` or `[==[ ]==]` long string or block comment, a C# verbatim `@"…"`, a PHP heredoc, the
+/// shell's heredoc (a Dockerfile's and Terraform's too) and its quotes, a `/* */` block. A line
+/// there that reads like a declaration declares nothing — the SQL a migration embeds in one is
+/// the common case. Other strings end with their line, whatever they hold.
 ///
 /// Each kind says which forms it has rather than inheriting another language's: Zig has none at
 /// all — a `\\` string ends with its line — and reading it with the backtick and `/* */` of the C
 /// family would take the ``` ``` ``` fences of the markdown a `\\` block holds for a literal and
-/// hide the rest of the file behind them.
+/// hide the rest of the file behind them, as the `/*` of a glob (`rm -rf build/*`) or a lone
+/// backtick in a comment would in a shell script, a Makefile or a CI workflow (#436).
 ///
 /// ponytail: Elixir's `~S"""` sigil is read from its `"""`, and its one-line `~s(…)` forms not at
 /// all.
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
-    // What this kind writes: the comment that runs to the end of a line, the triple quote of a
-    // heredoc, Lua's long bracket, and the backtick template with the `/* */` block of the C
-    // family. Elixir writes its heredocs and its comments exactly as Python does; Swift and C#
-    // write the same `"""` block with the C family's comments around it.
-    let (heredoc, long_bracket, template, line_comment): (bool, bool, bool, &[u8]) = match kind {
-        Kind::Python | Kind::Elixir => (true, false, false, b"#"),
-        Kind::Lua => (false, true, false, b"--"),
-        Kind::Zig => (false, false, false, b"//"),
-        Kind::Swift | Kind::CSharp => (true, false, true, b"//"),
-        _ => (false, false, true, b"//"),
-    };
-    // The two forms one language each has: C#'s verbatim string, which closes on a `"` that no
+    // What this kind writes: the triple quote of a heredoc, Lua's long bracket, the backtick
+    // template and the `/* */` block of the C family, and the comments that run to the end of a
+    // line. Elixir writes its heredocs and its comments exactly as Python does; Swift and C#
+    // write the same `"""` block with the C family's comments around it. SQL and Terraform have
+    // the `/* */` block but no template.
+    let (heredoc, long_bracket, template, block_comment, line_comments): (_, _, _, _, &[&str]) =
+        match kind {
+            Kind::Python | Kind::Elixir => (true, false, false, false, &["#"]),
+            Kind::Lua => (false, true, false, false, &["--"]),
+            Kind::Zig => (false, false, false, false, &["//"]),
+            Kind::Swift | Kind::CSharp => (true, false, true, true, &["//"]),
+            // A YAML block scalar (`filters: |`) hides nothing: the keys dorny/paths-filter reads
+            // out of one are what `steps.changes.outputs.backend` names.
+            Kind::Shell | Kind::Make | Kind::Docker | Kind::Yaml => {
+                (false, false, false, false, &["#"])
+            }
+            Kind::Sql => (false, false, false, true, &["--"]),
+            Kind::Terraform => (false, false, false, true, &["#", "//"]),
+            _ => (false, false, true, true, &["//"]),
+        };
+    // The forms one language each has: C#'s verbatim string, which closes on a `"` that no
     // second `"` follows, since `""` is how it writes a quote, and PHP's `<<<ID`, which closes on
-    // the line that repeats its label.
+    // the line that repeats its label, as the shell's `<<ID` does in a script, a Dockerfile's
+    // `RUN` and Terraform.
     let (verbatim_strings, labelled) = (kind == Kind::CSharp, kind == Kind::Php);
+    let shell_heredoc = matches!(kind, Kind::Shell | Kind::Docker | Kind::Terraform);
+    // The shell's quotes run over lines, where a `\` outside them escapes a quote, and nothing
+    // escapes in `'…'` but in `$'…'`. There, as in a Dockerfile, a `#` opens a comment only where
+    // a word starts: `$#` and `${f##*/}` are no comments.
+    let shell = kind == Kind::Shell;
+    let word_comment = matches!(kind, Kind::Shell | Kind::Docker);
     let b = text.as_bytes();
     let mut out = vec![false];
     // The multi-line literal the scan is in, by its closing bytes, and, for a long bracket, the
@@ -50,7 +67,7 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     // `label` holds the word its last line repeats, and `verbatim` marks a `@"…"`.
     let (mut block, mut level, mut quote, mut i): (Option<&[u8]>, usize, Option<u8>, usize) =
         (None, 0, None, 0);
-    let (mut verbatim, mut label) = (false, Vec::new());
+    let (mut verbatim, mut label, mut raw) = (false, Vec::new(), false);
     // A long bracket opening at `at` — `[[` or `[==[`, behind `--` or not: how many `=` it
     // carries, and how far past `at` its second `[` sits. A `[` that opens nothing, as the one in
     // the `\[[A-Za-z]\+\]` of a Vim regex, is no opener, so the `[=[` around it has to be read.
@@ -69,7 +86,9 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     while i < b.len() {
         let c = b[i];
         if c == b'\n' {
-            quote = None;
+            if !shell {
+                quote = None;
+            }
             // A heredoc ends on the line that repeats its label, as `ID;`, `ID,` or `ID)`.
             if !label.is_empty() {
                 let rest = &b[i + 1..];
@@ -86,10 +105,12 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
                     block = None;
                 }
             }
-            out.push(block.is_some());
+            out.push(block.is_some() || quote.is_some());
         } else if let Some(end) = block {
             // A long bracket closes on `]`, the `=` its opener carried, and `]`; a verbatim
-            // string on a `"` that no second `"` follows; a heredoc only on its label, above.
+            // string on a `"` that no second `"` follows; a heredoc only on its label, above. A
+            // Go raw string has no escapes, so its backtick closes it whatever stands before
+            // (#325); a template's `\`` is a backtick inside it.
             let doubled = verbatim && c == b'"' && b.get(i + 1) == Some(&b'"');
             let closes = if long_bracket {
                 c == b']'
@@ -104,7 +125,7 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
                 label.is_empty()
                     && !doubled
                     && b[i..].starts_with(end)
-                    && (end.len() > 1 || b[i - 1] != b'\\')
+                    && (end.len() > 1 || kind == Kind::Go || b[i - 1] != b'\\')
             };
             if closes {
                 block = None;
@@ -119,7 +140,7 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             }
         } else if let Some(q) = quote {
             // A backslash escapes the next byte, but the end of a line is still one.
-            if c == b'\\' && b.get(i + 1) != Some(&b'\n') {
+            if c == b'\\' && !raw && b.get(i + 1) != Some(&b'\n') {
                 i += 1;
             } else if c == q {
                 quote = None;
@@ -147,6 +168,26 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
                 block = Some(b"");
                 label = word;
             }
+        } else if shell_heredoc && b[i..].starts_with(b"<<") {
+            // `<<EOF`, `<<-EOF` or `<< 'EOF'`, read past both `<`, so that the shell's `<<<`, a
+            // string of one line, labels nothing. A `<<` inside `$((…))` is a shift.
+            let line = b[..i]
+                .iter()
+                .rposition(|&c| c == b'\n')
+                .map_or(0, |n| n + 1);
+            let word: Vec<u8> = b[i + 2..]
+                .iter()
+                .skip_while(|c| b"-'\"\\ \t".contains(c))
+                .take_while(|c| c.is_ascii_alphanumeric() || **c == b'_')
+                .copied()
+                .collect();
+            if word.first().is_some_and(|c| !c.is_ascii_digit())
+                && !b[line..i].windows(2).any(|w| w == b"((")
+            {
+                block = Some(b"");
+                label = word;
+            }
+            i += 1;
         } else if let Some((eq, skip)) = long_bracket.then(|| opens(i)).flatten() {
             block = Some(b"]]");
             level = eq;
@@ -157,12 +198,19 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             if i == 0 || b[i - 1] != b'/' {
                 block = Some(b"`");
             }
-        } else if template && b[i..].starts_with(b"/*") {
+        } else if block_comment && b[i..].starts_with(b"/*") {
             block = Some(b"*/");
+            i += 1;
+        } else if shell && c == b'\\' && b.get(i + 1) != Some(&b'\n') {
             i += 1;
         } else if c == b'"' || c == b'\'' {
             quote = Some(c);
-        } else if b[i..].starts_with(line_comment) {
+            raw = shell && c == b'\'' && (i == 0 || b[i - 1] != b'$');
+        } else if line_comments
+            .iter()
+            .any(|m| b[i..].starts_with(m.as_bytes()))
+            && !(word_comment && i > 0 && !b" \t\n;&|()<>".contains(&b[i - 1]))
+        {
             while i + 1 < b.len() && b[i + 1] != b'\n' {
                 i += 1;
             }

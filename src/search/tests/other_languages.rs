@@ -735,3 +735,122 @@ fn docker_and_yaml_def_patterns() {
     assert_eq!(defs(&dir, &yaml, Kind::Yaml, "image"), Vec::<usize>::new());
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// Where `d`'s patterns match each of `words` in a file `name` holding `text`: `(found,
+/// hidden)`, the lines outside a literal, which `d` finds, and those inside one, which declare
+/// nothing.
+fn literal_split(
+    kind: Kind,
+    name: &str,
+    text: &str,
+    words: &[&str],
+) -> Vec<(Vec<usize>, Vec<usize>)> {
+    let (dir, files) = scratch(name, &[(name, text)]);
+    let lit = literal_lines(kind, text);
+    let out = words
+        .iter()
+        .map(|w| {
+            defs(&dir, &files, kind, w)
+                .into_iter()
+                .partition(|n| !lit[n - 1])
+        })
+        .collect();
+    std::fs::remove_dir_all(&dir).unwrap();
+    out
+}
+
+/// #436. None of these kinds has the C family's `/* */` or backtick template, so a glob's `/*`
+/// or a lone backtick opens nothing, and the declarations below it are found. What each does
+/// write over several lines still hides the declarations it holds.
+#[test]
+fn a_glob_or_a_lone_backtick_opens_nothing_in_the_kinds_without_them() {
+    let found = |n: usize| (vec![n], vec![]);
+    let hidden = |n: usize| (vec![], vec![n]);
+    // A `#` opens a comment only where a word starts, `\'` quotes nothing, `$'…'` escapes a
+    // quote, `<<<` is a string of one line and `$((1 << bits))` a shift. `'…'` escapes nothing.
+    let sh = "#!/bin/sh\n# quotes the `name with one backtick, and don't\nbuild() {\n  echo it\\'s \"${f##*/}\" $# $'it\\'s' $((1 << bits))\n  cat <<< 'x'\n}\nfor f in src/*; do rm -rf build/*; done\ndeploy() {\n  build\n}\nmsg=${#f}\"a string\nghost() {\n\"\ncat <<EOF\nphantom() {\nEOF\ncat <<-'TXT'\n\tspectre() {\n\tTXT\necho 'C:\\' 'no $escape\nwraith() {\n'\nlast() {\n  deploy\n}\n";
+    assert_eq!(
+        literal_split(
+            Kind::Shell,
+            "run.sh",
+            sh,
+            &[
+                "build", "deploy", "ghost", "phantom", "spectre", "wraith", "last"
+            ]
+        ),
+        [
+            found(3),
+            found(8),
+            hidden(12),
+            hidden(15),
+            hidden(18),
+            hidden(21),
+            found(23)
+        ]
+    );
+    // A Makefile has nothing that runs over lines.
+    let make = "# the `dist target\nclean:\n\trm -rf build/*\ndist: clean\n";
+    assert_eq!(
+        literal_split(Kind::Make, "Makefile", make, &["clean", "dist"]),
+        [found(2), found(4)]
+    );
+    let docker = "# syntax=docker/dockerfile:1\n# the `deps stage\nFROM node:20 AS deps\nCOPY dist/* ./\nFROM deps AS build\nRUN <<EOF\nFROM scratch AS ghost\nEOF\nCOPY <<-\"CONF\" /etc/app.conf\n\tFROM scratch AS phantom\n\tCONF\nFROM build AS final\n";
+    assert_eq!(
+        literal_split(
+            Kind::Docker,
+            "Dockerfile",
+            docker,
+            &["deps", "build", "ghost", "phantom", "final"]
+        ),
+        [found(3), found(5), hidden(7), hidden(10), found(12)]
+    );
+    // Nor has YAML: the keys of a block scalar are declarations too, as the ones dorny/paths-filter
+    // reads out of `filters: |` for `steps.changes.outputs.x`.
+    let yaml = "# quotes the `defaults with one backtick\ndefaults: &defaults\n  runs-on: ubuntu-latest\non:\n  push:\n    paths: [src/*.ts]\njobs:\n  test:\n    <<: *defaults\n    steps:\n      - run: |\n          ghost:\n\n          echo &phantom\n      - name: >-  # folded\n          &spectre\nlint:\n  - run: |\n    other:\n";
+    assert_eq!(
+        literal_split(
+            Kind::Yaml,
+            "ci.yml",
+            yaml,
+            &[
+                "defaults", "test", "ghost", "phantom", "spectre", "lint", "other"
+            ]
+        ),
+        [
+            found(2),
+            found(8),
+            found(12),
+            found(14),
+            found(16),
+            found(17),
+            found(19)
+        ]
+    );
+    let sql = "-- the `orders table, and don't\nCREATE TABLE orders (id int);\n-- load every file under data/*\nCREATE TABLE items (id int);\n/*\nCREATE TABLE ghost (id int);\n*/\nSELECT '/*', 'it''s' FROM orders; -- */ closes nothing\nCREATE TABLE after (id int);\n";
+    assert_eq!(
+        literal_split(
+            Kind::Sql,
+            "schema.sql",
+            sql,
+            &["orders", "items", "ghost", "after"]
+        ),
+        [found(2), found(4), hidden(6), found(9)]
+    );
+    let tf = "# the `region variable\nvariable \"region\" {}\n# uploads files/* as they are\nvariable \"bucket\" {}\n// and keeps logs/* for a week\nvariable \"retention\" {}\nlocals {\n  policy = <<-EOF\nvariable \"ghost\" {}\n  EOF\n}\n/*\nvariable \"phantom\" {}\n*/\nvariable \"after\" {}\n";
+    assert_eq!(
+        literal_split(
+            Kind::Terraform,
+            "main.tf",
+            tf,
+            &["region", "bucket", "retention", "ghost", "phantom", "after"]
+        ),
+        [
+            found(2),
+            found(4),
+            found(6),
+            hidden(9),
+            hidden(13),
+            found(15)
+        ]
+    );
+}
