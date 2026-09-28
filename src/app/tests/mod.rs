@@ -159,9 +159,7 @@ fn fixture_app(name: &str) -> App {
     let mut a = App::new(dir, tree, files, Buffer::empty(), None);
     // The fixtures are read as a plain build reads them, whatever `GOFLAGS` the tests run under.
     a.go_build = search::GoBuild::host();
-    for kind in [Kind::Python, Kind::TsJs, Kind::Go] {
-        a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
-    }
+    a.no_external();
     a
 }
 /// Presses `d` on the last word of the first line of `file` that contains `code`, or starts

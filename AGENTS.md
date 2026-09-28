@@ -24,6 +24,11 @@
   included. The wait moves to text both the change and the last release draw: the change then
   shows as a difference in its checkpoint, while a wait on the new text would stop the last
   release there and leave the rest of the scenario unplayed.
+- `tests/snapshots/*.txt` are whole screens, text and colours, of every overlay, picker and panel
+  at 80×24, 120×33 and 185×55 in a dark and a light theme (`src/ui/tests/snapshots.rs`). A PR
+  that changes what a screen draws updates them in the same PR: `MERL_UPDATE_SNAPSHOTS=1 cargo
+  test snapshots`, then read `git diff tests/snapshots` as the change seen on screen. A new
+  screen, overlay or panel adds its state to `STATES`.
 
 ## Issues
 
