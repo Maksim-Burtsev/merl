@@ -18,8 +18,10 @@ mod ui;
 mod wrap;
 
 use std::collections::HashSet;
+use std::ffi::OsStr;
 use std::io::{Write, stdout};
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
@@ -325,6 +327,26 @@ fn event_loop(
         r.watch(w);
     }
 
+    // Inside tmux a thread hands it each copied text too, in order: a slow or missing tmux
+    // holds no key, and a failed call changes nothing on screen.
+    let tmux = tmux_copy(std::env::var_os("TMUX").as_deref()).map(|mut calls| {
+        let (tx, texts) = mpsc::channel::<String>();
+        std::thread::spawn(move || {
+            for text in texts {
+                for call in &mut calls {
+                    let Ok(mut child) = call.spawn() else { break };
+                    if let Some(mut stdin) = child.stdin.take() {
+                        let _ = stdin.write_all(text.as_bytes());
+                    }
+                    if child.wait().is_ok_and(|s| s.success()) {
+                        break;
+                    }
+                }
+            }
+        });
+        tx
+    });
+
     let mut dirty = true;
     let mut typing: Option<bool> = None;
     loop {
@@ -424,6 +446,9 @@ fn event_loop(
                     let mut out = stdout();
                     let _ = write!(out, "\x1b]52;c;{}\x07", base64(text.as_bytes()));
                     let _ = out.flush();
+                    if let Some(tmux) = &tmux {
+                        let _ = tmux.send(text);
+                    }
                 }
                 dirty = true;
             }
@@ -593,6 +618,23 @@ fn base64(bytes: &[u8]) -> String {
     out
 }
 
+/// Inside tmux (`$TMUX` set), the calls that hand it copied text on stdin, the first that works
+/// kept: tmux's default `set-clipboard external` drops the OSC 52 merl writes (#395). With `-w`
+/// (tmux 3.2) tmux keeps a paste buffer and sets the outer terminal's clipboard itself; an older
+/// tmux refuses `-w`, and the plain call at least fills a buffer, for prefix `]`.
+fn tmux_copy(tmux: Option<&OsStr>) -> Option<[Command; 2]> {
+    tmux.filter(|t| !t.is_empty())?;
+    Some([&["-w", "-"][..], &["-"]].map(|args| {
+        let mut cmd = Command::new("tmux");
+        // Its usage, or an error, must not draw over merl's screen.
+        (cmd.arg("load-buffer").args(args))
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        cmd
+    }))
+}
+
 fn git_toplevel(dir: &Path) -> Option<PathBuf> {
     dir.ancestors()
         .find(|d| d.join(".git").exists())
@@ -610,6 +652,20 @@ mod tests {
         assert_eq!(super::base64(b"fo"), "Zm8=");
         assert_eq!(super::base64(b"foo"), "Zm9v");
         assert_eq!(super::base64("hi\nтам".as_bytes()), "aGkK0YLQsNC8");
+    }
+
+    #[test]
+    fn inside_tmux_a_copy_goes_to_load_buffer_on_stdin() {
+        use std::ffi::OsStr;
+        assert!(super::tmux_copy(None).is_none());
+        assert!(super::tmux_copy(Some(OsStr::new(""))).is_none());
+        let calls = super::tmux_copy(Some(OsStr::new("/tmp/tmux-501/default,4242,0"))).unwrap();
+        let calls = calls.map(|c| {
+            let args: Vec<_> = c.get_args().map(|a| a.to_str().unwrap()).collect();
+            format!("{} {}", c.get_program().display(), args.join(" "))
+        });
+        // tmux 3.2 and newer first; an older one refuses `-w` and gets the text without it.
+        assert_eq!(calls, ["tmux load-buffer -w -", "tmux load-buffer -"]);
     }
 
     #[test]
