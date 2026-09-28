@@ -375,17 +375,17 @@ impl App {
         self.buf.path.as_deref() == Some(&path)
     }
 
-    /// `hunk 2/5 · file 1/3` for the status bar.
+    /// `hunk 2/5  file 1/3` for the status bar; nothing on a file the branch did not change,
+    /// which then reads as it does outside a review (#286).
     pub fn review_status(&self) -> Option<String> {
         let r = self.review.as_ref()?;
-        let file = self
-            .rel_current()
-            .and_then(|rel| r.files.iter().position(|f| f.path == rel))
-            .map_or("-".to_string(), |i| (i + 1).to_string());
+        let rel = self.rel_current()?;
+        let file = r.files.iter().position(|f| f.path == rel)?;
         let hunk = self.diff.hunks.iter().filter(|&&h| h <= self.line).count();
         Some(format!(
-            "hunk {hunk}/{}  file {file}/{}",
+            "hunk {hunk}/{}  file {}/{}",
             self.diff.hunks.len(),
+            file + 1,
             r.files.len()
         ))
     }
