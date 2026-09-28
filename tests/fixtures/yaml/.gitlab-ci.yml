@@ -37,7 +37,7 @@ deploy:
 
 notify:
   needs: [cleanup]
-  #       ^ d: .gitlab-ci.yml:42
+  #       ^ d: .gitlab-ci.yml:44
   script:
     - ./notify.sh
 
