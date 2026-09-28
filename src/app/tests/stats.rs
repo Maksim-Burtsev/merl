@@ -311,8 +311,10 @@ fn only_the_walk_makes_stops() {
     open(&mut a, "a.rs");
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    // `tail`'s hunk is the lines deleted under its only line (#439): Down goes onto it.
     open(&mut a, "tail");
-    assert_eq!(at(&a), (dir.join("tail"), 0));
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    assert_eq!((at(&a), a.line_str()), ((dir.join("tail"), 0), "t2"));
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(
         (at(&a), a.message.as_str()),
@@ -346,7 +348,8 @@ fn a_stop_past_the_hunks_the_review_opened_with_does_not_count() {
     assert_eq!(columns(&mut a)[1], 6);
     std::fs::write(dir.join("src/a.rs"), "a\nB\nc\nD\ne\nF\n").unwrap();
     a.reload(false);
-    assert_eq!(a.diff.hunks, [1, 3, 5]);
+    use TextLine::Deleted;
+    assert_eq!(a.diff.hunks, [Deleted(1, 0), Deleted(3, 0), Deleted(5, 0)]);
     for _ in 0..3 {
         press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     }

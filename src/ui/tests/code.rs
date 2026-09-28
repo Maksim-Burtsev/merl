@@ -10,7 +10,7 @@ use ratatui::style::Color;
 
 use crate::app::App;
 use crate::buffer::Buffer;
-use crate::git::Mark;
+use crate::git::{Mark, TextLine};
 use crate::tree::Tree;
 
 use super::rows;
@@ -201,7 +201,7 @@ z
     ] {
         app.key(KeyEvent::new(code, m));
     }
-    assert_eq!(app.selection(), Some(((0, 16), (1, 0))));
+    assert_eq!(app.file_selection(), Some(((0, 16), (1, 0))));
     assert_eq!(
         paint(&mut app),
         ["----------", "----------", "--########", ".........."]
@@ -385,8 +385,10 @@ fn wrapped_rows_and_the_cursor_on_them_start_under_the_text() {
     assert_eq!((cursor.x, cursor.y), (6, 1));
 }
 
+/// The lines a review deleted are drawn above the line that replaced them, and the cursor walks
+/// them as it walks the file's own (#439).
 #[test]
-fn ghost_lines_draw_above_their_line_and_the_cursor_skips_them() {
+fn ghost_lines_draw_above_their_line_and_the_cursor_walks_them() {
     let mut app = App::new(
         PathBuf::from("/tmp"),
         Tree::default(),
@@ -399,8 +401,6 @@ fn ghost_lines_draw_above_their_line_and_the_cursor_skips_them() {
         .ghosts
         .insert(1, vec!["old1".into(), "old2".into()]);
     app.diff.marks.insert(1, Mark::Added);
-    app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
-    app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(8, 6)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
@@ -414,30 +414,37 @@ fn ghost_lines_draw_above_their_line_and_the_cursor_skips_them() {
     let o = (0..8).find(|x| buf[(*x, 1)].symbol() == "o").unwrap();
     assert_eq!((buf[(o, 1)].fg, buf[(o, 1)].bg), (theme.fg, theme.del_bg));
     assert!(!buf[(o, 1)].modifier.contains(ratatui::style::Modifier::DIM));
-    assert_eq!(terminal.get_cursor_position().unwrap().y, 4);
-    // Up from `c` lands on `b`, not on a ghost; up again on `a`.
-    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
-    assert_eq!(app.line, 1);
-    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
-    assert_eq!(app.line, 0);
-    // Two rows for `b` and what is above it: the last ghost, not the first.
-    app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
-    let mut terminal = Terminal::new(TestBackend::new(8, 3)).unwrap();
+    // Down steps onto each deleted line, then onto `b`; Up comes back the same way.
+    let key = |app: &mut App, c| app.key(KeyEvent::new(c, KeyModifiers::NONE));
+    for (c, at, y) in [
+        (KeyCode::Down, TextLine::Deleted(1, 0), 1),
+        (KeyCode::Down, TextLine::Deleted(1, 1), 2),
+        (KeyCode::Down, TextLine::File(1), 3),
+        (KeyCode::Up, TextLine::Deleted(1, 1), 2),
+        (KeyCode::Up, TextLine::Deleted(1, 0), 1),
+        (KeyCode::Up, TextLine::File(0), 0),
+    ] {
+        key(&mut app, c);
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        assert_eq!(
+            (app.at(), terminal.get_cursor_position().unwrap().y),
+            (at, y)
+        );
+    }
+    // The cursor's deleted line is the cursor line, on the deleted tint: gutter and row.
+    key(&mut app, KeyCode::Down);
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(rows(&terminal)[..2], ["\u{258e}old2", "2\u{258e}b"]);
-    // Up on that line scrolls the hidden ghost in instead of leaving the line.
-    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
-    assert_eq!((app.line, app.top_line, app.top_row), (1, 1, 0));
-    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(rows(&terminal)[..2], ["\u{258e}old1", "\u{258e}old2"]);
-    // Then Up leaves for the line above, which comes on screen with row 0.
-    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
-    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!((app.line, app.top_line, app.top_row), (0, 0, 0));
+    let buf = terminal.backend().buffer();
+    assert_eq!(
+        (buf[(0, 1)].bg, buf[(7, 1)].bg),
+        (theme.line_hl, theme.del_bg_hl)
+    );
+    assert_eq!(buf[(7, 2)].bg, theme.del_bg);
 }
 
+/// Up in a pane too short for the ghosts scrolls them in one row at a time, the cursor on each.
 #[test]
-fn scrolling_up_onto_a_ghosted_line_shows_its_ghosts_first() {
+fn up_scrolls_onto_the_ghosts_one_row_at_a_time() {
     let mut app = App::new(
         PathBuf::from("/tmp"),
         Tree::default(),
@@ -447,22 +454,29 @@ fn scrolling_up_onto_a_ghosted_line_shows_its_ghosts_first() {
     );
     app.show_tree = false;
     app.diff.ghosts.insert(1, vec!["old".into()]);
-    for _ in 0..3 {
+    for _ in 0..4 {
         app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
     }
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(8, 3)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!((app.top_line, app.top_row), (2, 0));
-    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
-    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
-    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(rows(&terminal)[..2], ["\u{258e}old", "2 b"]);
-    assert_eq!(terminal.get_cursor_position().unwrap().y, 1);
+    for (top, shown) in [
+        ((2, 0), ["3 c", "4 d"]),
+        ((1, 1), ["2 b", "3 c"]),
+        ((1, 0), ["\u{258e}old", "2 b"]),
+        ((0, 0), ["1 a", "\u{258e}old"]),
+    ] {
+        app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        assert_eq!((app.top_line, app.top_row), top);
+        assert_eq!(rows(&terminal)[..2], shown);
+        assert_eq!(terminal.get_cursor_position().unwrap().y, 0);
+    }
 }
 
 #[test]
-fn down_onto_a_ghosted_wrapped_line_lands_on_its_first_text_row() {
+fn down_walks_the_ghosts_then_lands_on_the_first_text_row() {
     let mut app = App::new(
         PathBuf::from("/tmp"),
         Tree::default(),
@@ -478,9 +492,157 @@ fn down_onto_a_ghosted_wrapped_line_lands_on_its_first_text_row() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(14, 8)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
-    assert_eq!((app.line, app.col), (1, 0));
-    assert_eq!(app.cursor_row(), 2);
+    for row in 0..3 {
+        app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        assert_eq!(app.cursor_at(), (1, row));
+    }
+    assert_eq!((app.at(), app.col), (TextLine::File(1), 0));
+}
+
+/// Down, PgDn and Ctrl+D go on from the last line onto the lines deleted after it, down to the
+/// last of them, which Ctrl+End lands on (#179).
+#[test]
+fn every_ghost_after_the_last_line_can_be_walked_to() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\n"),
+        None,
+    );
+    app.show_tree = false;
+    app.diff
+        .ghosts
+        .insert(2, (1..=10).map(|i| format!("g{i}")).collect());
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    // Four rows of code: a, b and ten ghosts are twelve.
+    let mut terminal = Terminal::new(TestBackend::new(8, 5)).unwrap();
+    let key = |c| KeyEvent::new(c, KeyModifiers::NONE);
+    let ctrl = |c| KeyEvent::new(c, KeyModifiers::CONTROL);
+    for (k, at) in [
+        (key(KeyCode::Down), TextLine::File(1)),
+        (key(KeyCode::Down), TextLine::Deleted(2, 0)),
+        (key(KeyCode::PageDown), TextLine::Deleted(2, 4)),
+        (ctrl(KeyCode::Char('d')), TextLine::Deleted(2, 6)),
+        (key(KeyCode::Down), TextLine::Deleted(2, 7)),
+        (ctrl(KeyCode::Home), TextLine::File(0)),
+        (ctrl(KeyCode::End), TextLine::Deleted(2, 9)),
+        (key(KeyCode::Down), TextLine::Deleted(2, 9)),
+        (key(KeyCode::Char('w')), TextLine::Deleted(2, 9)),
+    ] {
+        app.key(k);
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        assert_eq!(app.at(), at, "{k:?}");
+    }
+    assert_eq!(
+        rows(&terminal)[..4],
+        ["\u{258e}g7", "\u{258e}g8", "\u{258e}g9", "\u{258e}g10"]
+    );
+    assert_eq!(terminal.get_cursor_position().unwrap().y, 3);
+    // The status bar reads the deleted line's own number, and Up takes the cursor off it.
+    app.key(key(KeyCode::Up));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(app.at(), TextLine::Deleted(2, 8));
+    assert_eq!(terminal.get_cursor_position().unwrap().y, 2);
+}
+
+/// Up and Down walk a ghost that wraps row by row, as they walk a wrapped line of the file.
+#[test]
+fn up_and_down_walk_a_wrapped_ghost_row_by_row() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\nc\n"),
+        None,
+    );
+    app.show_tree = false;
+    // Twelve cells of text: the ghost is three rows.
+    app.diff
+        .ghosts
+        .insert(1, vec!["one two three four five".into()]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(14, 6)).unwrap();
+    let key = |c| KeyEvent::new(c, KeyModifiers::NONE);
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    for (c, at, y) in [
+        (KeyCode::Down, (TextLine::Deleted(1, 0), 0), 1),
+        (KeyCode::Down, (TextLine::Deleted(1, 0), 8), 2),
+        (KeyCode::Down, (TextLine::Deleted(1, 0), 19), 3),
+        (KeyCode::Down, (TextLine::File(1), 0), 4),
+        (KeyCode::Up, (TextLine::Deleted(1, 0), 19), 3),
+    ] {
+        app.key(key(c));
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        let cursor = terminal.get_cursor_position().unwrap().y;
+        assert_eq!(((app.at(), app.col), cursor), (at, y), "{c:?}");
+    }
+}
+
+/// Up in a pane shorter than a wrapped ghost scrolls its rows in one at a time, the cursor on
+/// each.
+#[test]
+fn up_scrolls_a_wrapped_ghost_in_one_row_at_a_time() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\nc\n"),
+        None,
+    );
+    app.show_tree = false;
+    app.diff
+        .ghosts
+        .insert(1, vec!["one two three four five".into()]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    // Two rows of code.
+    let mut terminal = Terminal::new(TestBackend::new(14, 3)).unwrap();
+    for _ in 0..4 {
+        app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    }
+    assert_eq!(rows(&terminal)[..2], ["\u{258e}five", "2 b"]);
+    for shown in [
+        ["\u{258e}five", "2 b"],
+        ["\u{258e}three four", "\u{258e}five"],
+        ["\u{258e}one two", "\u{258e}three four"],
+        ["1 a", "\u{258e}one two"],
+    ] {
+        app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        assert_eq!(rows(&terminal)[..2], shown);
+        assert_eq!(terminal.get_cursor_position().unwrap().y, 0);
+    }
+}
+
+#[test]
+fn wrapped_ghosts_after_the_last_line_can_all_be_walked_to() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\n"),
+        None,
+    );
+    app.show_tree = false;
+    app.diff.ghosts.insert(
+        2,
+        vec!["one two three four five".into(), "six seven eight".into()],
+    );
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    // Three rows of code: a, b and five ghost rows (three of the first ghost, two of the
+    // second) are seven.
+    let mut terminal = Terminal::new(TestBackend::new(14, 4)).unwrap();
+    for _ in 0..8 {
+        app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    }
+    assert_eq!((app.at(), app.cursor_row()), (TextLine::Deleted(2, 1), 4));
+    assert_eq!(
+        rows(&terminal)[..3],
+        ["\u{258e}five", "\u{258e}six seven", "\u{258e}eight"]
+    );
+    assert_eq!(terminal.get_cursor_position().unwrap().y, 2);
 }
 
 #[test]
@@ -498,51 +660,6 @@ fn ghosts_after_the_last_line_are_drawn_under_it() {
     let mut terminal = Terminal::new(TestBackend::new(8, 4)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(rows(&terminal)[..3], ["1 a", "2 b", "\u{258e}gone"]);
-}
-
-/// Down, PgDn and Ctrl+D on the last line scroll in the lines deleted after it, until the last
-/// one is on the bottom row; the cursor stays on the text, and Up brings it back on screen (#179).
-#[test]
-fn every_ghost_after_the_last_line_can_be_scrolled_to() {
-    let mut app = App::new(
-        PathBuf::from("/tmp"),
-        Tree::default(),
-        Vec::new(),
-        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\n"),
-        None,
-    );
-    app.show_tree = false;
-    app.diff
-        .ghosts
-        .insert(2, (1..=10).map(|i| format!("g{i}")).collect());
-    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    // Four rows of code: a, b and ten ghosts are twelve.
-    let mut terminal = Terminal::new(TestBackend::new(8, 5)).unwrap();
-    let key = |c| KeyEvent::new(c, KeyModifiers::NONE);
-    let ctrl = |c| KeyEvent::new(c, KeyModifiers::CONTROL);
-    for (k, top) in [
-        (key(KeyCode::Down), (0, 0)),
-        (key(KeyCode::Down), (1, 0)),
-        (key(KeyCode::PageDown), (2, 3)),
-        (ctrl(KeyCode::Char('d')), (2, 5)),
-        (key(KeyCode::Down), (2, 6)),
-        (key(KeyCode::Down), (2, 6)),
-        (ctrl(KeyCode::End), (2, 6)),
-        (key(KeyCode::Char('w')), (2, 6)),
-    ] {
-        app.key(k);
-        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-        assert_eq!((app.line, (app.top_line, app.top_row)), (1, top), "{k:?}");
-    }
-    assert_eq!(
-        rows(&terminal)[..4],
-        ["\u{258e}g7", "\u{258e}g8", "\u{258e}g9", "\u{258e}g10"]
-    );
-    // Up leaves the last line, and the view comes back to the cursor.
-    app.key(key(KeyCode::Up));
-    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!((app.line, app.top_line, app.top_row), (0, 0, 0));
-    assert_eq!(terminal.get_cursor_position().unwrap().y, 0);
 }
 
 #[test]
@@ -572,111 +689,6 @@ fn a_ghost_longer_than_the_pane_wraps_and_the_text_follows() {
     let t = |y: u16| (0..14).find(|x| buf[(*x, y)].symbol() == "t").unwrap();
     assert_eq!(buf[(t(2), 2)].bg, theme.del_bg);
     assert_eq!(buf[(13, 1)].bg, theme.del_bg);
-}
-
-#[test]
-fn up_and_down_never_land_on_a_wrapped_ghost_row() {
-    let mut app = App::new(
-        PathBuf::from("/tmp"),
-        Tree::default(),
-        Vec::new(),
-        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\nc\n"),
-        None,
-    );
-    app.show_tree = false;
-    // Twelve cells of text: the ghost is three rows.
-    app.diff
-        .ghosts
-        .insert(1, vec!["one two three four five".into()]);
-    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    let mut terminal = Terminal::new(TestBackend::new(14, 6)).unwrap();
-    let key = |c| KeyEvent::new(c, KeyModifiers::NONE);
-    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    // Down from `a` lands on `b`'s first text row, past the ghost's three.
-    app.key(key(KeyCode::Down));
-    assert_eq!((app.line, app.cursor_row()), (1, 3));
-    app.key(key(KeyCode::Down));
-    assert_eq!(app.line, 2);
-    // Up from `c` lands on `b`, not on a ghost row; up again on `a`.
-    app.key(key(KeyCode::Up));
-    assert_eq!((app.line, app.cursor_row()), (1, 3));
-    app.key(key(KeyCode::Up));
-    assert_eq!(app.line, 0);
-    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(terminal.get_cursor_position().unwrap().y, 0);
-}
-
-#[test]
-fn up_brings_scrolled_off_wrapped_ghosts_in_one_row_at_a_time() {
-    let mut app = App::new(
-        PathBuf::from("/tmp"),
-        Tree::default(),
-        Vec::new(),
-        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\nc\n"),
-        None,
-    );
-    app.show_tree = false;
-    app.diff
-        .ghosts
-        .insert(1, vec!["one two three four five".into()]);
-    app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
-    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    // Two rows of code: `b` and above it only the ghost's last row.
-    let mut terminal = Terminal::new(TestBackend::new(14, 3)).unwrap();
-    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!((app.top_line, app.top_row), (1, 2));
-    assert_eq!(rows(&terminal)[..2], ["\u{258e}five", "2 b"]);
-    // Up on that line scrolls the hidden ghost rows in one at a time.
-    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
-    assert_eq!((app.line, app.top_line, app.top_row), (1, 1, 1));
-    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(rows(&terminal)[..2], ["\u{258e}three four", "\u{258e}five"]);
-    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
-    assert_eq!((app.line, app.top_line, app.top_row), (1, 1, 0));
-    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(
-        rows(&terminal)[..2],
-        ["\u{258e}one two", "\u{258e}three four"]
-    );
-    // Then Up leaves for the line above.
-    app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
-    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!((app.line, app.top_line, app.top_row), (0, 0, 0));
-}
-
-#[test]
-fn wrapped_ghosts_after_the_last_line_can_all_be_scrolled_to() {
-    let mut app = App::new(
-        PathBuf::from("/tmp"),
-        Tree::default(),
-        Vec::new(),
-        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\n"),
-        None,
-    );
-    app.show_tree = false;
-    app.diff.ghosts.insert(
-        2,
-        vec!["one two three four five".into(), "six seven eight".into()],
-    );
-    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    // Three rows of code: a, b and five ghost rows (three of the first ghost, two of the
-    // second) are seven.
-    let mut terminal = Terminal::new(TestBackend::new(14, 4)).unwrap();
-    let key = |c| KeyEvent::new(c, KeyModifiers::NONE);
-    for top in [(0, 0), (1, 0), (2, 0), (2, 1), (2, 2), (2, 2)] {
-        app.key(key(KeyCode::Down));
-        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-        assert_eq!((app.line, (app.top_line, app.top_row)), (1, top));
-    }
-    assert_eq!(
-        rows(&terminal)[..3],
-        ["\u{258e}five", "\u{258e}six seven", "\u{258e}eight"]
-    );
-    // Up leaves the last line, and the view comes back to the cursor.
-    app.key(key(KeyCode::Up));
-    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!((app.line, app.top_line, app.top_row), (0, 0, 0));
-    assert_eq!(terminal.get_cursor_position().unwrap().y, 0);
 }
 
 #[test]
@@ -795,12 +807,18 @@ fn review_paints_the_word_that_changed_on_both_rows() {
             "2\u{258e}    return a >= b"
         ]
     );
-    // The cursor is on the hunk: the added row is the cursor line.
-    assert_eq!(app.line, 1);
     let cell = |t: &Terminal<TestBackend>, x: u16, y: u16| {
         let c = &t.backend().buffer()[(x, y)];
         (c.fg, c.bg)
     };
+    // The cursor is on the hunk, which starts with the deleted row (#439): that row is the
+    // cursor line. Down, and the added row is.
+    assert_eq!(app.at(), TextLine::Deleted(1, 0));
+    assert_eq!(cell(&terminal, 23, 1).1, theme.del_bg_hl);
+    assert_eq!(cell(&terminal, 23, 2).1, theme.add_bg);
+    app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(app.at(), TextLine::File(1));
     let x_of = |t: &Terminal<TestBackend>, y: u16, s: &str| {
         (0..24)
             .find(|x| t.backend().buffer()[(*x, y)].symbol() == s)
@@ -1012,11 +1030,12 @@ fn a_hunk_inside_a_long_function_lands_below_the_pinned_header() {
     assert_eq!(screen[0], "1 def long():");
     let buf = terminal.backend().buffer();
     assert!((0..30).all(|x| buf[(x, 0)].bg == theme.line_hl));
+    // On the deleted line the hunk starts with (#439), under the band.
     assert_eq!(
-        screen[y - 1..=y],
+        screen[y..=y + 1],
         ["\u{258e}    a20 = 20", "22\u{258e}    a20 = 200"]
     );
-    assert!(y > 1, "the deleted line is under the band");
+    assert!(y > 0, "the deleted line is under the band");
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -1324,4 +1343,58 @@ fn a_cut_line_scrolled_to_its_end_still_shows_its_ellipsis() {
     // Past the end of line 0, `‹` alone; the ghost has no `‹`, so its `…` is in column 0.
     assert_eq!(at(19_999, 5_004), ["1 \u{2039}", "\u{258e}a\u{2026}"]);
     assert_eq!(at(20_000, 5_004), ["1 \u{2039}", "\u{258e}\u{2026}"]);
+}
+
+/// A deletion taller than the pane is read line by line: Down draws every one of its lines
+/// (#279), and PgDn, PgUp, Ctrl+D and Ctrl+U move a page or half of one over it (#296). On
+/// one, the status bar reads its number in the file at the base, negative.
+#[test]
+fn a_deletion_taller_than_the_pane_is_walked_and_paged() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\nc\n"),
+        None,
+    );
+    app.show_tree = false;
+    app.diff
+        .ghosts
+        .insert(1, (1..=30).map(|i| format!("d{i}")).collect());
+    app.diff.ghost_from.insert(1, 1);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    // Seven rows of code.
+    let mut terminal = Terminal::new(TestBackend::new(40, 8)).unwrap();
+    let key = |c| KeyEvent::new(c, KeyModifiers::NONE);
+    let ctrl = |c| KeyEvent::new(c, KeyModifiers::CONTROL);
+    let mut seen = std::collections::HashSet::new();
+    for _ in 0..31 {
+        app.key(key(KeyCode::Down));
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        seen.extend(rows(&terminal));
+    }
+    assert_eq!(app.at(), TextLine::File(1));
+    let unseen: Vec<_> = (1..=30)
+        .map(|i| format!("\u{258e}d{i}"))
+        .filter(|r| !seen.iter().any(|row| row.trim_end() == r))
+        .collect();
+    assert!(unseen.is_empty(), "never drawn: {unseen:?}");
+    for (k, at) in [
+        (ctrl(KeyCode::Home), TextLine::File(0)),
+        (key(KeyCode::PageDown), TextLine::Deleted(1, 6)),
+        (key(KeyCode::PageDown), TextLine::Deleted(1, 13)),
+        (key(KeyCode::PageUp), TextLine::Deleted(1, 6)),
+        (ctrl(KeyCode::Char('d')), TextLine::Deleted(1, 9)),
+        (ctrl(KeyCode::Char('u')), TextLine::Deleted(1, 6)),
+    ] {
+        app.key(k);
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        assert_eq!(app.at(), at, "{k:?}");
+    }
+    // d7 is line 8 of the file at the base: the deletion starts at its line 2.
+    assert!(
+        rows(&terminal)[7].contains("-8:1"),
+        "{:?}",
+        rows(&terminal)[7]
+    );
 }

@@ -43,6 +43,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- In `merl --review` the lines the branch deleted are lines of the text, as they are on a GitLab
+  or GitHub diff page: the cursor stands on them, and every move, Up, Down, the pages, `{` and
+  `}`, Home and End, the words, goes through them as through the file's own lines, so a deletion
+  taller than the pane is read line by line and the lines deleted at the end of a file are
+  reached with Down. Shift+moves and `v` select them, Ctrl+C copies them as they were, and `/`
+  finds text in them. `c` and `C` stand on the first line of a change, its first deleted line
+  when it starts with a deletion. On a deleted line the status bar reads its number in the file
+  the branch started from, negative: `-9:5`. Nothing edits a deleted line: typing on one, or on
+  a selection that holds one, says `deleted`, and `d` and `u` there say the same for now.
+  `:12` and the gutter still count the branch's lines. (#439)
 - `merl --review feature` reviews `feature`: the branch goes after a space, as the base does after
   `--base`, and `--review=feature` still works. A file after a bare `--review` is now read as the
   branch: `merl --review` opens on the first hunk, and `o` opens any file.

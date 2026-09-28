@@ -20,7 +20,7 @@ impl App {
         self.mode = Mode::Find;
         let last = self.find_re.as_ref().map_or("", |_| &self.find_query);
         self.prompt = LineEdit::selected(last);
-        self.find_anchor = (self.line, self.col);
+        self.find_anchor = (self.at(), self.col);
         self.find_sel = self.anchor.take();
         if let Some(re) = &self.find_re {
             self.message = self.match_count(re);
@@ -34,14 +34,16 @@ impl App {
             KeyCode::Enter => {
                 self.close_overlay();
                 self.anchor = self.find_sel.take();
-                self.drop_selection_if_moved(self.clamp_pos(self.find_anchor));
+                self.drop_selection_if_moved(self.clamp_place(self.find_anchor));
                 self.hist_note(true);
             }
             // Esc puts back both the cursor and the selection.
             KeyCode::Esc => {
                 self.close_overlay();
                 self.message.clear();
-                (self.line, self.col) = self.clamp_pos(self.find_anchor);
+                let (t, col) = self.clamp_place(self.find_anchor);
+                self.set_at(t);
+                self.col = col;
                 self.anchor = self.find_sel.take();
                 self.sync_want_x();
             }
@@ -62,21 +64,20 @@ impl App {
             // and put the cursor back where the search started.
             self.find_re = None;
             self.message.clear();
-            let (l, c) = self.clamp_pos(self.find_anchor);
-            self.go_to_match(l, c);
+            let at = self.clamp_place(self.find_anchor);
+            self.go_to_match(at);
             return;
         }
         let re = RegexBuilder::new(&regex::escape(&self.prompt))
             .case_insensitive(true)
             .build()
             .expect("an escaped literal always compiles");
-        let (l, c) = self.find_anchor;
         let hit = self
-            .match_at_or_after(&re, l, c)
-            .or_else(|| self.match_at_or_after(&re, 0, 0));
+            .match_at_or_after(&re, self.clamp_place(self.find_anchor))
+            .or_else(|| self.match_at_or_after(&re, (self.first_line(), 0)));
         match hit {
-            Some((l, c)) => {
-                self.go_to_match(l, c);
+            Some(at) => {
+                self.go_to_match(at);
                 self.message = self.match_count(&re);
             }
             None => self.message = "no match".into(),
@@ -85,13 +86,20 @@ impl App {
         self.find_query = self.prompt.to_string();
     }
 
+    /// Every line of the text in order, from `from` on: the file's and, in a review, the ones
+    /// the branch deleted, which `/` searches as it searches the file's (#439).
+    fn lines_from(&self, from: TextLine) -> impl Iterator<Item = (TextLine, &str)> {
+        std::iter::successors(Some(from), |&t| self.next_line(t)).map(|t| (t, self.text(t)))
+    }
+
     /// `3/17`: which match the cursor is on, out of how many in the file; `no match` for none.
     fn match_count(&self, re: &Regex) -> String {
         let (mut at, mut total) = (0, 0);
-        for (l, text) in self.buf.lines.iter().enumerate() {
+        let here = (self.at(), self.col);
+        for (t, text) in self.lines_from(self.first_line()) {
             for m in re.find_iter(text) {
                 total += 1;
-                if (l, m.start()) <= (self.line, self.col) {
+                if (t, m.start()) <= here {
                     at = total;
                 }
             }
@@ -108,18 +116,16 @@ impl App {
             self.message = "no pattern".into();
             return;
         };
-        let last = self.buf.lines.len() - 1;
         let found = if forward {
-            let (l, c) = self.after_cursor();
-            self.match_at_or_after(&re, l, c)
-                .or_else(|| self.match_at_or_after(&re, 0, 0))
+            self.match_at_or_after(&re, self.after_cursor())
+                .or_else(|| self.match_at_or_after(&re, (self.first_line(), 0)))
         } else {
-            self.match_before(&re, self.line, self.col)
-                .or_else(|| self.match_before(&re, last, usize::MAX))
+            self.match_before(&re, (self.at(), self.col))
+                .or_else(|| self.match_before(&re, (self.last_line(), usize::MAX)))
         };
         match found {
-            Some((l, c)) => {
-                self.go_to_match(l, c);
+            Some(at) => {
+                self.go_to_match(at);
                 self.message = self.match_count(&re);
             }
             None => self.message = "no match".into(),
@@ -127,42 +133,50 @@ impl App {
     }
 
     /// First match starting at or after `(line, col)`, searching down the file.
-    fn match_at_or_after(&self, re: &Regex, line: usize, col: usize) -> Option<(usize, usize)> {
-        for (l, text) in self.buf.lines.iter().enumerate().skip(line) {
-            let from = if l == line { col.min(text.len()) } else { 0 };
+    fn match_at_or_after(
+        &self,
+        re: &Regex,
+        (line, col): (TextLine, usize),
+    ) -> Option<(TextLine, usize)> {
+        for (t, text) in self.lines_from(line) {
+            let from = if t == line { col.min(text.len()) } else { 0 };
             if let Some(m) = re.find_at(text, from) {
-                return Some((l, m.start()));
+                return Some((t, m.start()));
             }
         }
         None
     }
 
     /// Last match starting strictly before `(line, col)`, searching up the file.
-    fn match_before(&self, re: &Regex, line: usize, col: usize) -> Option<(usize, usize)> {
-        for l in (0..=line.min(self.buf.lines.len() - 1)).rev() {
-            let text = &self.buf.lines[l];
-            let limit = if l == line { col } else { usize::MAX };
+    fn match_before(
+        &self,
+        re: &Regex,
+        (line, col): (TextLine, usize),
+    ) -> Option<(TextLine, usize)> {
+        for t in std::iter::successors(Some(line), |&t| self.prev_line(t)) {
+            let limit = if t == line { col } else { usize::MAX };
+            let text = self.text(t);
             if let Some(m) = re.find_iter(text).take_while(|m| m.start() < limit).last() {
-                return Some((l, m.start()));
+                return Some((t, m.start()));
             }
         }
         None
     }
 
     /// One char past the cursor, so `n` cannot land on the match it is already sitting on.
-    fn after_cursor(&self) -> (usize, usize) {
-        let s = self.buf.shown(self.line);
-        if self.col < s.len() {
-            (self.line, next_char(s, self.col))
-        } else if self.line + 1 < self.buf.lines.len() {
-            (self.line + 1, 0)
-        } else {
-            (self.line, s.len())
+    fn after_cursor(&self) -> (TextLine, usize) {
+        let s = shown_str(self.line_str());
+        match self.next_line(self.at()) {
+            _ if self.col < s.len() => (self.at(), next_char(s, self.col)),
+            Some(t) => (t, 0),
+            None => (self.at(), s.len()),
         }
     }
 
-    fn go_to_match(&mut self, line: usize, col: usize) {
-        (self.line, self.col) = self.clamp_pos((line, col));
+    fn go_to_match(&mut self, at: (TextLine, usize)) {
+        let (t, col) = self.clamp_place(at);
+        self.set_at(t);
+        self.col = col;
         self.sync_want_x();
         self.center = true;
     }

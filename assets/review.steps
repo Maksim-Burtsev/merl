@@ -16,9 +16,9 @@ key c
 wait hunk 1/10
 sleep 2.6
 
-# the rewritten function, its deleted lines above it: Alt+Right hops word by word onto the new
-# call, d goes into the helper
-key Down
+# the rewritten function: c stands on its deleted lines (#439), Down walks them onto the new call,
+# Alt+Right hops word by word onto it, d goes into the helper
+key@0.12 Down*8
 sleep 0.4
 key@0.2 M-Right*4
 sleep 0.7

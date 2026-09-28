@@ -10,24 +10,13 @@ impl App {
     /// Scrolls the minimum amount that puts the cursor back on screen.
     pub fn clamp_scroll(&mut self) {
         self.clamp_left();
-        let cur = (self.line, self.cursor_row());
+        let cur = self.cursor_at();
         if std::mem::take(&mut self.center) {
             self.center_cursor();
             return;
         }
-        // The top is on the cursor line's own ghosts: they are being read, the cursor waits
-        // below the pane (`move_rows` scrolls them in one at a time).
-        if self.top_line == self.line && self.top_row < self.ghost_rows(self.line) {
-            return;
-        }
-        // Scrolled on past the end of the text (`move_rows`), the cursor waits above the pane.
-        if cur < (self.top_line, self.top_row) && self.at_text_end() {
-            (self.top_line, self.top_row) = (self.top_line, self.top_row).min(self.bottom_top());
-            return;
-        }
         if cur < (self.top_line, self.top_row) {
-            // Moving up shows the line's ghosts with it.
-            (self.top_line, self.top_row) = (self.line, cur.1 - self.ghost_rows(self.line));
+            (self.top_line, self.top_row) = cur;
             return;
         }
         (self.top_line, self.top_row) = self.fit_top((self.top_line, self.top_row), cur);
@@ -94,25 +83,9 @@ impl App {
         if x < self.left + off {
             self.left = x.saturating_sub(off);
         } else if x + off >= self.left + self.view_w {
-            let end = (wrap::width(self.buf.shown(self.line)) + 1).saturating_sub(self.view_w);
+            let end = (wrap::width(shown_str(self.line_str())) + 1).saturating_sub(self.view_w);
             self.left = (x + off + 1 - self.view_w).min(end);
         }
-    }
-
-    /// The cursor is on the last screen row of the text: Down has no row left to go to.
-    pub(super) fn at_text_end(&self) -> bool {
-        self.line + 1 == self.buf.lines.len() && self.cursor_row() + 1 == self.row_count(self.line)
-    }
-
-    /// The top of the view scrolled down as far as it goes: the last line the branch deleted at
-    /// the end of the file, or the last row of text when there is none, on the bottom row.
-    pub(super) fn bottom_top(&self) -> (usize, usize) {
-        let end = self.buf.lines.len();
-        let last = match self.ghost_rows(end) {
-            0 => (end - 1, self.row_count(end - 1) - 1),
-            g => (end, g - 1),
-        };
-        self.fit_top((0, 0), last)
     }
 
     /// The top made valid for the text and ghosts as they are now. It may stay on the lines
@@ -128,7 +101,7 @@ impl App {
     /// Puts the cursor in the middle of the rows of code, under the lines pinned for the top
     /// that centres it.
     fn center_cursor(&mut self) {
-        let cur = (self.line, self.cursor_row());
+        let cur = self.cursor_at();
         let pins = self.pinned(self.back_rows(cur, self.view_h / 2).0).len();
         (self.top_line, self.top_row) = self.back_rows(cur, (self.view_h - pins) / 2);
     }
