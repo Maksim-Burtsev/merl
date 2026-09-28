@@ -106,6 +106,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `alias Shop.Pricing.{Tariff, Coupon}`) and a module written out in full, a `defprotocol`
   included, lead to that module's function instead of a picker of every namesake, and a call
   such as `Shop.currency()` no longer offers the module attribute `@currency`. (#459)
+- An edit key with nothing to take does nothing: Alt+Delete at the end of the file, Alt+Backspace
+  at its start, Ctrl+X on an empty only line, an empty paste. Each was an undo step that changed
+  nothing, so the next Ctrl+Z seemed to do nothing, and it cleared what Ctrl+Y would redo. (#455)
 - In `merl --review`, `c` or `C` after a `d`, `u` or `s` into a file the branch did not touch goes
   back to the hunk you left, and the next `c` goes on from there. It opened the first file of the
   review (`C` the last), and the way back was one `[` per jump. The hunk is found again by its
