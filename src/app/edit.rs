@@ -178,6 +178,8 @@ impl App {
             self.anchor = anchor.map(moved);
             (self.line, self.col) = moved(cursor);
             self.sync_want_x();
+            // Redo lands where the Tab left the cursor, not at the end of the last line (#456).
+            self.undo.last_mut().unwrap().after = (self.line, self.col);
         }
     }
 

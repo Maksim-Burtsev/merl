@@ -21,10 +21,6 @@ use super::*;
 
 type Pos = (usize, usize);
 
-/// Today redo of a Tab over several lines lands at the end of the last indented line; want
-/// `false`, redo landing where the Tab left the cursor (#456).
-const TAB_REDO_AT_LINE_END: bool = true;
-
 /// xorshift64: enough randomness for key sequences, and no crate.
 struct Rng(u64);
 
@@ -521,10 +517,8 @@ impl Model {
         self.anchor = anchor.map(moved);
         self.cur = moved(cur);
         self.sync_x();
-        // Redo lands where the Tab left the cursor.
-        if !TAB_REDO_AT_LINE_END {
-            self.undo.last_mut().unwrap().after = self.cur;
-        }
+        // Redo lands where the Tab left the cursor (#456).
+        self.undo.last_mut().unwrap().after = self.cur;
     }
 
     fn undo(&mut self, back: bool) {

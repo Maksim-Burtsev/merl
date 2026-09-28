@@ -123,6 +123,11 @@ fn tab_over_a_selection_of_several_lines_indents_them() {
     assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
     assert_eq!(a.buf.lines, ["a = 1", "b = 2", "c = 3"]);
+    // Redo lands where the Tab left the cursor, at the start of `c`, not after `    b = 2`
+    // (#456).
+    press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
+    assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
+    assert_eq!((a.line, a.col), (2, 0));
 }
 
 #[test]
