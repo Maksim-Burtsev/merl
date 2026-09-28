@@ -93,21 +93,23 @@ Everything on GitHub (issues, PR bodies, reviews, comments) is in English.
 A wrong jump is worse than a picker or "don't know", and no lookup may get worse than on master.
 Only the path the change narrows gets new rules: every other lookup, and every other language,
 matches exactly as master does. Rules that start answering a new question tend to leak into the
-fallback paths, so a `d` PR is ready to merge only after both passes below show no row worse than
-master; their tables go into the commit message.
+fallback paths, so a `d` PR is ready to merge only after the bench shows no language worse
+than master.
 
-- **Sweep.** Every scenario the tests and the reviews raised, as a TSV of `tag root file line
-  col`, played on master and on the branch by a temporary `#[ignore]` test `zz_sweep` in
-  `src/app/tests/`, the same file in both worktrees: one `App` per project, set `jump_to` and
-  `col`, press `d`, write `shown()` and the milliseconds. `cargo test --release zz_sweep --
-  --ignored` plays ~900 cursors in ~40 s. Time in release only (a `grep` call costs ~35 ms in
-  debug, ~1 ms in release), master and branch back to back, with `sysctl -n vm.loadavg` under ~8:
-  parallel sessions' builds push it to 30–90 and skew timings two- to threefold. Each row is
-  same, better or WORSE. Never commit the harness.
-- **Replay** over real projects, `git clone --depth 1` into your scratch folder, cursors picked
-  by shape: fastapi, mealie (`uv sync`); gin, gitea; hono (`npm install --ignore-scripts`),
-  typeorm, nest, immich (`pnpm install --ignore-scripts --filter 'immich...'`). TypeScript rows
-  are checked against TypeScript's own `getDefinitionAtPosition`.
+- **The bench**, `tools/d-bench/run [--lang go,rust]` (`tools/d-bench/README.md`): ~2,700
+  recorded cursors in 13 real projects pinned to a commit, one per language, merl's answer scored
+  against a language server's (a judgement read from the code for Java, Kotlin, C# and Ruby) and
+  diffed against `baseline.tsv`, master's. It prints per language the direct hits, pickers with
+  the answer, wrong jumps, misses and p50 / p90 ms, lists every cursor that got worse (a new
+  wrong jump first), and exits 1 when a language has more wrong jumps or fewer direct hits than
+  master. Run the languages the change touches, all of them when a shared path moves; the table
+  goes into the commit message. A PR that changes the table commits the new baseline with it
+  (`--update-baseline`), so the next PR compares against what master will be.
+- It times in release; the times mean something only with `sysctl -n vm.loadavg` under ~8:
+  parallel sessions' builds push it to 30–90 and skew timings two- to threefold.
+- The answers are recorded once, never in CI and never in merl (`record.py`); a cursor whose
+  recorded answer is debatable is marked `skip` with the reason in `answers/LANG.tsv`, not argued
+  with in the code.
 
 The expected answers of `d` are written in the fixtures, under the line they probe
 (`tests/fixtures/README.md`, #307). A fixed case flips its annotation from `today; want … (#N)`
