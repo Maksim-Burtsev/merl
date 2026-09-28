@@ -66,10 +66,14 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         ),
         Span::styled(
             format!(
-                "{}  {}:{}  [{pane}]{}{}{}{}",
+                "{}  {}[{pane}]{}{}{}{}",
                 if app.dirty { " \u{25cf}" } else { "" },
-                app.line + 1,
-                app.display_col(),
+                // With no file open there is no cursor to place (#285).
+                if app.buf.path.is_some() {
+                    format!("{}:{}  ", app.line + 1, app.display_col())
+                } else {
+                    String::new()
+                },
                 if app.mode == Mode::Edit {
                     if app.buf.tabs { "  Tab" } else { "  Spaces: 4" }
                 } else {

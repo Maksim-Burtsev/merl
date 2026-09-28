@@ -6,3 +6,7 @@ merl --drill 3
 wait Drill 1/3
 merl --keys
 wait merl exited: 0
+# plain `merl` with no file to open: the start screen, its status bar with no cursor position,
+# only the project and the pane (#285)
+merl
+wait Open a file (fuzzy)
