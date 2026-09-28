@@ -89,6 +89,7 @@ RELEASE_ONLY = {
 # that the text shows, not the screen.
 SCREEN_SKIPPED = {
     ("python-d", "json/__init__.py"): "the standard library of the machine's Python",
+    ("python-d", "cancel: by name"): "the cancel methods of the machine's Python standard library",
     ("go-d", "Errorf: via import fmt"): "the standard library of the machine's Go",
 }
 # Every verdict the table can show, printed under it.
