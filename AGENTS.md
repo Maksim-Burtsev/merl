@@ -24,6 +24,11 @@
   included. The wait moves to text both the change and the last release draw: the change then
   shows as a difference in its checkpoint, while a wait on the new text would stop the last
   release there and leave the rest of the scenario unplayed.
+- `src/app/tests/edit_fuzz.rs` plays random edit sessions on `App` and on a plain model of the
+  edit keys, comparing text, cursor, selection, clipboard and the file on disk after every key.
+  A change to what an edit key does changes the model in the same PR; before pushing a change to
+  `src/app/edit.rs`, run `MERL_FUZZ_SESSIONS=5000 cargo test --release edit_fuzz` (a failure
+  prints its seed and the shortest key sequence that still fails).
 
 ## Issues
 
