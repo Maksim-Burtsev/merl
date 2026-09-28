@@ -12,7 +12,12 @@ impl App {
             KeyCode::Enter => match self.tree.selected() {
                 Some(n) if n.is_dir => self.tree.toggle(),
                 Some(n) => {
+                    // A file behind a link that stays in the project opens by its own path, as
+                    // Ctrl+N and the command line open it: one file, one name (#404).
                     let path = self.root.join(&n.path);
+                    let path = self
+                        .in_project(&path)
+                        .map_or(path, |rel| self.root.join(rel));
                     // The review panel opens a file on its first hunk; the tree where it was.
                     match self.review.as_ref().and_then(|r| r.file(&n.path)).cloned() {
                         Some(f) if self.buf.path.as_deref() != Some(&*path) => {
@@ -80,11 +85,16 @@ impl App {
                 }
             }
         }
-        let path = self.root.join(&rel);
         if typed.ends_with('/') || rel.as_os_str().is_empty() {
             self.message = "no file name".into();
             return;
         }
+        // A link on the way may lead out of the project too (#404); one that stays in is followed.
+        let Some(rel) = self.in_project(&self.root.join(&rel)) else {
+            self.message = "outside the project".into();
+            return;
+        };
+        let path = self.root.join(&rel);
         if path.is_dir() {
             self.message = format!("{} is a directory", rel.display());
             return;

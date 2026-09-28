@@ -8,13 +8,25 @@ fn a_paste_types_into_prompts_and_pickers_but_not_navigation() {
     a.paste("so");
     assert_eq!((a.mode, a.picker.is_none()), (Mode::Normal, true));
     press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+    let seq = a.search_seq;
     a.paste("parse_it\r\nsecond line");
     assert_eq!(a.mode, Mode::Picker(PickerKind::Search));
     assert_eq!(&*a.picker.as_ref().unwrap().query, "parse_it");
+    // In one go: one search for the paste, not one per char (#267).
+    assert_eq!(a.search_seq, seq + 1);
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
     a.paste("app.rs");
     assert_eq!(&*a.picker.as_ref().unwrap().query, "app.rs");
+    // `:` takes the digits only, as typed; Ctrl+N takes the path.
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char(':'), KeyModifiers::NONE);
+    a.paste("4a2");
+    assert_eq!(&*a.prompt, "42");
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('n'), KeyModifiers::CONTROL);
+    a.paste("src/new.rs\nmore");
+    assert_eq!(&*a.prompt, "src/new.rs");
 }
 
 #[test]

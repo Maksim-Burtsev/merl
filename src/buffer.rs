@@ -83,6 +83,12 @@ impl Buffer {
     }
 
     pub fn load(path: &Path) -> Result<Self> {
+        // A FIFO, a socket or a device: reading one can wait forever, whichever way it was
+        // reached (#405). A directory fails the read on its own.
+        let meta = std::fs::metadata(path).with_context(|| format!("{}", path.display()))?;
+        if !meta.is_file() && !meta.is_dir() {
+            anyhow::bail!("{}: not a regular file", path.display());
+        }
         let bytes = std::fs::read(path).with_context(|| format!("{}", path.display()))?;
         Ok(Self::from_bytes(path.to_path_buf(), &bytes))
     }

@@ -2,10 +2,11 @@
 name = "merl"
 version = "0.7.0"
 edition = "2024"
+rust-version = "1.88"
 description = "The one editor you need when agents write the code: read a project, review a branch, fix a line"
 license = "MIT"
 repository = "https://github.com/Maksim-Burtsev/merl"
-keywords = ["tui", "terminal", "viewer", "code", "navigator"]
+keywords = ["tui", "terminal", "editor", "code", "review"]
 categories = ["command-line-utilities", "text-editors"]
 exclude = ["/assets"]
 

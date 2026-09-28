@@ -210,19 +210,31 @@ impl App {
         }
     }
 
-    /// Text the terminal pasted (Cmd+V): inserted while editing, typed into a prompt or a picker
-    /// query (its first line), ignored in navigation, where every letter is a command.
+    /// Text the terminal pasted (Cmd+V): inserted while editing; in a prompt or a picker query,
+    /// its first line goes in as if typed, in one go, so the query is searched once rather than
+    /// once per char (#267); ignored in navigation, where every letter is a command.
     pub fn paste(&mut self, text: &str) {
         let text = text.replace("\r\n", "\n").replace('\r', "\n");
+        let line = text.lines().next().unwrap_or_default();
         if self.mode == Mode::Edit && self.on_deleted() {
             self.message = "deleted".into();
         } else if self.mode == Mode::Edit {
             self.insert(&text);
-        } else if self.picker.is_some() || matches!(self.mode, Mode::Goto | Mode::Find | Mode::New)
-        {
-            for c in text.lines().next().unwrap_or_default().chars() {
-                self.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+        } else if let Some(picker) = &mut self.picker {
+            if let Pick::Typed = picker.paste(line) {
+                self.search_typed();
             }
+        } else if self.mode == Mode::Goto {
+            // `:` computes nothing per key: its chars go in as typed, by the prompt's own rule.
+            for c in line.chars() {
+                self.goto_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+            }
+        } else if self.mode == Mode::Find {
+            if self.prompt.insert(line) {
+                self.refresh_find();
+            }
+        } else if self.mode == Mode::New {
+            self.prompt.insert(line);
         }
     }
 

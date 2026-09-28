@@ -15,6 +15,8 @@ pub struct LineEdit {
     cur: usize,
     /// Where the selection started; it runs from here to the cursor.
     anchor: Option<usize>,
+    /// The most chars the line holds, if it has a limit.
+    cap: Option<usize>,
 }
 
 impl Deref for LineEdit {
@@ -31,6 +33,7 @@ impl LineEdit {
             text: text.into(),
             cur: text.len(),
             anchor: Some(0),
+            cap: None,
         }
     }
 
@@ -39,6 +42,15 @@ impl LineEdit {
         Self {
             anchor: None,
             ..Self::selected(text)
+        }
+    }
+
+    /// The same line, holding at most `chars` chars: typing past them does nothing, a paste is
+    /// cut to what fits.
+    pub fn capped(self, chars: usize) -> Self {
+        Self {
+            cap: Some(chars),
+            ..self
         }
     }
 
@@ -75,16 +87,7 @@ impl LineEdit {
                 let range = self.selection().unwrap_or(self.word_left()..self.cur);
                 return self.cut(range);
             }
-            KeyCode::Char(c) if !ctrl => {
-                if let Some(range) = self.selection() {
-                    self.cut(range);
-                }
-                // A selection stretched and shrunk back to nothing leaves its anchor behind.
-                self.anchor = None;
-                self.text.insert(self.cur, c);
-                self.cur += c.len_utf8();
-                return true;
-            }
+            KeyCode::Char(c) if !ctrl => return self.insert(c.encode_utf8(&mut [0; 4])),
             KeyCode::Backspace => {
                 let range = self.selection().unwrap_or(self.left()..self.cur);
                 return self.cut(range);
@@ -111,6 +114,24 @@ impl LineEdit {
             _ => {}
         }
         false
+    }
+
+    /// Puts `text` in place of the selection, or at the cursor, as far as the cap lets it. True
+    /// when the text changed; empty `text` changes nothing, not even the selection.
+    pub fn insert(&mut self, text: &str) -> bool {
+        if text.is_empty() {
+            return false;
+        }
+        let cut = self.selection().map(|range| self.cut(range)).is_some();
+        // A selection stretched and shrunk back to nothing leaves its anchor behind.
+        self.anchor = None;
+        let room = self.cap.map_or(usize::MAX, |cap| {
+            cap.saturating_sub(self.text.chars().count())
+        });
+        let fits = text.char_indices().nth(room).map_or(text.len(), |(i, _)| i);
+        self.text.insert_str(self.cur, &text[..fits]);
+        self.cur += fits;
+        cut || fits > 0
     }
 
     fn go(&mut self, to: usize, extend: bool) {
