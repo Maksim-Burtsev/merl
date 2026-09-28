@@ -193,9 +193,10 @@ impl App {
                 self.search_typed();
             }
         } else if self.mode == Mode::Goto {
-            // Only digits are typed here.
-            self.prompt
-                .insert(&line.replace(|c: char| !c.is_ascii_digit(), ""));
+            // `:` computes nothing per key: its chars go in as typed, by the prompt's own rule.
+            for c in line.chars() {
+                self.goto_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+            }
         } else if self.mode == Mode::Find {
             if self.prompt.insert(line) {
                 self.refresh_find();
