@@ -197,7 +197,8 @@ fn ctrl_n_on_a_fifo_does_not_read_it() {
 }
 
 /// #404: a symlink to a directory expands in the tree, and its files open; one that resolves
-/// outside the project opens read-only, as a file `d` reaches out there does.
+/// outside the project opens read-only, as a file `d` reaches out there does. A file behind a
+/// link that stays inside opens by its own path: under the link's, `s` and `u` counted it twice.
 #[cfg(unix)]
 #[test]
 fn the_files_behind_a_link_to_a_directory_open_from_the_tree() {
@@ -211,7 +212,7 @@ fn the_files_behind_a_link_to_a_directory_open_from_the_tree() {
     let (tree, files) = crate::tree::build(&dir, false);
     let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
     for (link, file, readonly) in [
-        ("inside", "inside/a.py", None),
+        ("inside", "src/a.py", None),
         ("out", "out/far.txt", Some("outside the project")),
     ] {
         a.focus = Focus::Tree;
