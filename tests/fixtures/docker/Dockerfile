@@ -30,12 +30,12 @@ COPY --from=warehouse /src/target/release/warehouse /usr/bin/
 COPY --from=courier /courier /usr/bin/
 #           ^ d: none
 COPY --from=runtime /etc/os-release /
-#           ^ d: picker Dockerfile:22, Dockerfile:25; want Dockerfile:25 (#436)
+#           ^ d: Dockerfile:25
 ENV RUST_VERSION=${RUST_VERSION}
 #                  ^ d: none
 
 FROM runtime AS release
-#    ^ d: picker Dockerfile:22, Dockerfile:25; want Dockerfile:25 (#436)
+#    ^ d: Dockerfile:25
 COPY --from=build-env /src/README.md /
 #           ^ d: Dockerfile:6
 

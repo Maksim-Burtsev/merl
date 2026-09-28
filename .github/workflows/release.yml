@@ -35,10 +35,17 @@ jobs:
         include:
           - target: aarch64-apple-darwin
             os: macos-latest
-          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          # Linked against glibc 2.17, Rust's minimum: a native build on ubuntu-latest needs the
+          # runner's glibc (2.39), and the cross build of aarch64 needs 2.18 (#394). The asset
+          # name drops `.2.17`.
+          - target: x86_64-unknown-linux-gnu.2.17
             os: ubuntu-latest
-          - target: aarch64-unknown-linux-gnu
+            build-tool: cargo-zigbuild
+          - target: aarch64-unknown-linux-gnu.2.17
             os: ubuntu-latest
+            build-tool: cargo-zigbuild
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -46,14 +53,32 @@ jobs:
         with:
           bin: merl
           target: ${{ matrix.target }}
+          build-tool: ${{ matrix.build-tool }}
           tar: unix
           checksum: sha256
           token: ${{ secrets.GITHUB_TOKEN }}
 
-  # Bumps Formula/merl.rb in the Homebrew tap: version, urls and the three sha256s. Needs the
+  # A Linux asset that needs a glibc above 2.17 fails the release before the tap moves to it (#394).
+  check-glibc:
+    needs: upload-assets
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --pattern 'merl-*-linux-gnu.tar.gz'
+          for asset in merl-*-linux-gnu.tar.gz; do
+            tar xzf "$asset" merl
+            max=$(readelf --version-info merl | grep -o 'GLIBC_[0-9.]*' | sort -V | tail -1)
+            echo "$asset needs $max"
+            [ "$(printf '%s\n' GLIBC_2.17 "$max" | sort -V | tail -1)" = GLIBC_2.17 ] || { echo "$asset needs $max, above GLIBC_2.17"; exit 1; }
+            rm merl
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Bumps Formula/merl.rb in the Homebrew tap: version, urls and the sha256 of each asset. Needs the
   # TAP_TOKEN secret, a token with contents:write on Maksim-Burtsev/homebrew-tap; skipped without it.
   bump-tap:
-    needs: upload-assets
+    needs: check-glibc
     runs-on: ubuntu-latest
     env:
       TAP_TOKEN: ${{ secrets.TAP_TOKEN }}

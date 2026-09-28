@@ -44,8 +44,8 @@ DROP TRIGGER basket_touched ON basket_lines;
 REINDEX INDEX couriers_name_idx;
 --            ^ d: schema/001_tables.sql:35
 SELECT * FROM archived_baskets UNION ALL SELECT * FROM legacy_parcels;
---            ^ d: none; want queries/archive.sql:2 (#436)
---                                                     ^ d: none; want queries/legacy.sql:2 (#436)
+--            ^ d: queries/archive.sql:2
+--                                                     ^ d: queries/legacy.sql:2
 SELECT * FROM parcel_log, parcels;
 --            ^ d: schema/003_log.mysql:1
 --                        ^ d: none

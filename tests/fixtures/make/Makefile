@@ -44,7 +44,7 @@ dispatch:: describe
 #          ^ d: picker mk/pricing.mk:12, mk/warehouse.mk:6
 
 tidy: purge archive
-#     ^ d: none; want mk/clean.mk:4 (#436)
-#           ^ d: none; want mk/archive.mk:2 (#436)
+#     ^ d: mk/clean.mk:4
+#           ^ d: mk/archive.mk:2
 
 include mk/clean.mk mk/archive.mk

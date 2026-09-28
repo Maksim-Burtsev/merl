@@ -765,3 +765,144 @@ fn docker_and_yaml_def_patterns() {
     assert_eq!(defs(&dir, &yaml, Kind::Yaml, "image"), Vec::<usize>::new());
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// Where `d`'s patterns match each of `words` in a file `name` holding `text`: `(found,
+/// hidden)`, the lines outside a literal, which `d` finds, and those inside one, which declare
+/// nothing.
+fn literal_split(
+    kind: Kind,
+    name: &str,
+    text: &str,
+    words: &[&str],
+) -> Vec<(Vec<usize>, Vec<usize>)> {
+    let (dir, files) = scratch(name, &[(name, text)]);
+    let lit = literal_lines(kind, text);
+    let out = words
+        .iter()
+        .map(|w| {
+            defs(&dir, &files, kind, w)
+                .into_iter()
+                .partition(|n| !lit[n - 1])
+        })
+        .collect();
+    std::fs::remove_dir_all(&dir).unwrap();
+    out
+}
+
+/// #436. None of these kinds has the C family's `/* */` or backtick template, so a glob's `/*`
+/// or a lone backtick opens nothing, and the declarations below it are found. What each does
+/// write over several lines still hides the declarations it holds.
+#[test]
+fn a_glob_or_a_lone_backtick_opens_nothing_in_the_kinds_without_them() {
+    let found = |n: usize| (vec![n], vec![]);
+    let hidden = |n: usize| (vec![], vec![n]);
+    // A `#` opens a comment only where a word starts, `<<<` is a string of one line and
+    // `$((1 << bits))` a shift. A quote ends with its line: the scan cannot follow the `"…"`
+    // inside `"$( … )"`, and what `eval '…'` holds the shell declares. A heredoc's label may
+    // follow a space, a quote or a `\`, and one that starts with a digit is a shift's operand.
+    let sh = "#!/bin/sh\n# quotes the `name with one backtick, and don't\nbuild() {\n  echo \"${f##*/}\" $# $((1 << bits))\n  cat <<< 'x'\n}\nfor f in src/*; do rm -rf build/*; done\ndeploy() {\n  build\n}\necho \"$(printf \"%s isn't set\" \"$x\")\"\nspill() {\n}\ncat <<EOF\nphantom() {\nEOF\ncat <<-'TXT'\n\tspectre() {\n\tTXT\neval '\nproxy() {\n'\nn=$# && cat << 'END'\nwraith() {\nEND\necho hi # not cat <<EOF\nkept() {\n}\nx=$((\n  1 << 4\n))\ncat <<\\DOC\nghost() {\nDOC\nlast() {\n  deploy\n}\n";
+    assert_eq!(
+        literal_split(
+            Kind::Shell,
+            "run.sh",
+            sh,
+            &[
+                "build", "deploy", "spill", "phantom", "spectre", "proxy", "wraith", "kept",
+                "ghost", "last"
+            ]
+        ),
+        [
+            found(3),
+            found(8),
+            found(12),
+            hidden(15),
+            hidden(18),
+            found(21),
+            hidden(24),
+            found(27),
+            hidden(33),
+            found(35)
+        ]
+    );
+    // A Makefile has nothing that runs over lines.
+    let make = "# the `dist target\nclean:\n\trm -rf build/*\ndist: clean\n";
+    assert_eq!(
+        literal_split(Kind::Make, "Makefile", make, &["clean", "dist"]),
+        [found(2), found(4)]
+    );
+    let docker = "# syntax=docker/dockerfile:1\n# the `deps stage\nFROM node:20 AS deps\nCOPY dist/* ./\nFROM deps AS build\nRUN <<EOF\nFROM scratch AS ghost\nEOF\nCOPY <<-\"CONF\" /etc/app.conf\n\tFROM scratch AS phantom\n\tCONF\nRUN v=${TAG#v} && cat <<EOF > /x\nFROM scratch AS wraith\nEOF\nFROM build AS final\n";
+    assert_eq!(
+        literal_split(
+            Kind::Docker,
+            "Dockerfile",
+            docker,
+            &["deps", "build", "ghost", "phantom", "wraith", "final"]
+        ),
+        [
+            found(3),
+            found(5),
+            hidden(7),
+            hidden(10),
+            hidden(13),
+            found(15)
+        ]
+    );
+    // Nor has YAML: the keys of a block scalar are declarations too, as the ones dorny/paths-filter
+    // reads out of `filters: |` for `steps.changes.outputs.x`.
+    let yaml = "# quotes the `defaults with one backtick\ndefaults: &defaults\n  runs-on: ubuntu-latest\non:\n  push:\n    paths: [src/*.ts]\njobs:\n  test:\n    <<: *defaults\n    steps:\n      - run: |\n          ghost:\n\n          echo &phantom\n      - name: >-  # folded\n          &spectre\nlint:\n  - run: |\n    other:\nnote: a lone ` outside a comment\ntail:\n";
+    assert_eq!(
+        literal_split(
+            Kind::Yaml,
+            "ci.yml",
+            yaml,
+            &[
+                "defaults", "test", "ghost", "phantom", "spectre", "lint", "other", "tail"
+            ]
+        ),
+        [
+            found(2),
+            found(8),
+            found(12),
+            found(14),
+            found(16),
+            found(17),
+            found(19),
+            found(21)
+        ]
+    );
+    // Snowflake's `//` comment and a MySQL name in backticks hide their `/*` as on master.
+    let sql = "-- the `orders table, and don't\nCREATE TABLE orders (id int);\n-- load every file under data/*\nCREATE TABLE items (id int);\n/*\nCREATE TABLE ghost (id int);\n*/\nSELECT '/*', 'it''s' FROM orders; -- */ closes nothing\nCREATE TABLE after (id int);\n// load every file under @stage/data/*\nCREATE TABLE staged (id int);\nSELECT `a/*b` FROM t;\nCREATE TABLE last (id int);\n";
+    assert_eq!(
+        literal_split(
+            Kind::Sql,
+            "schema.sql",
+            sql,
+            &["orders", "items", "ghost", "after", "staged", "last"]
+        ),
+        [
+            found(2),
+            found(4),
+            hidden(6),
+            found(9),
+            found(11),
+            found(13)
+        ]
+    );
+    let tf = "# the `region variable\nvariable \"region\" {}\n# uploads files/* as they are\nvariable \"bucket\" {}\n// and keeps logs/* for a week\nvariable \"retention\" {}\nlocals {\n  policy = <<-EOF\nvariable \"ghost\" {}\n  EOF\n}\n/*\nvariable \"phantom\" {}\n*/\nvariable \"after\" {}\n";
+    assert_eq!(
+        literal_split(
+            Kind::Terraform,
+            "main.tf",
+            tf,
+            &["region", "bucket", "retention", "ghost", "phantom", "after"]
+        ),
+        [
+            found(2),
+            found(4),
+            found(6),
+            hidden(9),
+            hidden(13),
+            found(15)
+        ]
+    );
+}
