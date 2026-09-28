@@ -23,7 +23,7 @@ SELECT name FROM couriers;
 --               ^ d: picker queries/report.sql:18, schema/001_tables.sql:23; want queries/report.sql:18 (#472)
 
 SELECT t.rate, g.total FROM shop.tariffs t JOIN gross g ON g.id = t.id;
---                          ^ d: picker schema/001_tables.sql:3, schema/001_tables.sql:9, schema/001_tables.sql:11; want schema/001_tables.sql:3 (#471)
+--                          ^ d: schema/001_tables.sql:3
 --                               ^ d: schema/001_tables.sql:11
 --                                              ^ d: schema/002_functions.sql:24
 
@@ -55,3 +55,8 @@ ALTER DATABASE depot SET timezone = 'UTC';
 --             ^ d: schema/001_tables.sql:6
 SELECT * FROM coupon_rates;
 --            ^ d: schema/002_functions.sql:27
+SELECT * FROM public.receipts, "shop"."daily_rates";
+--            ^ d: none
+--                   ^ d: schema/002_functions.sql:31
+--                               ^ d: schema/001_tables.sql:3
+--                                      ^ d: schema/002_functions.sql:32

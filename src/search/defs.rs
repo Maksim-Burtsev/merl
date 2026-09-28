@@ -322,7 +322,8 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         Kind::Sql => {
             let create = sql_create!();
             vec![
-                format!(r#"{create}(?:{SQL_NAME}\.)?(?:"{w}"|`{w}`|{w}\b)"#),
+                // The name, not a schema: `shop.tariffs` declares `tariffs`, so no `.` may follow (#471).
+                format!(r#"{create}(?:{SQL_NAME}\.)?(?:"{w}"|`{w}`|{w}\b)(?:[^.]|$)"#),
                 // A common table expression: opening the `WITH`, or continuing it after the
                 // comma that follows the previous one's closing `)`.
                 format!(r"(?i)^\s*(?:\)\s*)?(?:WITH\s+(?:RECURSIVE\s+)?|,\s*)?{w}\s+AS\s*\("),
