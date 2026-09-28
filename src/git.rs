@@ -384,6 +384,10 @@ fn untracked(root: &Path, path: &Path) -> ReviewFile {
 /// a newline is a line. A binary file is not read past the 8000 bytes that say so.
 fn count_lines(path: &Path) -> std::io::Result<(bool, usize)> {
     use std::io::Read;
+    // An untracked link to a FIFO would hold the open until something writes to it (#405).
+    if !std::fs::metadata(path)?.is_file() {
+        return Err(std::io::Error::other("not a regular file"));
+    }
     let mut file = std::fs::File::open(path)?;
     let mut piece = vec![0; 1 << 16];
     let (mut lines, mut last, mut first) = (0, b'\n', true);
@@ -819,6 +823,46 @@ mod tests {
         assert!(r.files.iter().all(|f| f.status == 'A' && f.untracked));
         let d = r.diff(&dir, &dir.join("empty.py"), r.file(Path::new("empty.py")));
         assert_eq!(d, Diff::default());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #405: git lists an untracked link to a FIFO, and counting its lines opened the FIFO and
+    /// waited for a writer forever, before the first frame. On a thread of its own here, so a
+    /// wait fails the test instead of hanging it.
+    #[cfg(unix)]
+    #[test]
+    fn an_untracked_link_to_a_fifo_is_a_row_that_is_not_read() {
+        let dir = std::env::temp_dir().join(format!("merl-fifo-link-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let git = |args: &[&str]| {
+            let out = Command::new("git").arg("-C").arg(&dir).args(args).output();
+            assert!(out.unwrap().status.success(), "git {args:?}");
+        };
+        git(&["init", "-q", "-b", "main"]);
+        git(&["config", "user.email", "t@t"]);
+        git(&["config", "user.name", "t"]);
+        std::fs::write(dir.join("a.py"), "x = 1\n").unwrap();
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "base"]);
+        git(&["switch", "-q", "-c", "feature"]);
+        let mkfifo = Command::new("mkfifo").arg(dir.join("pipe")).status();
+        assert!(mkfifo.unwrap().success());
+        std::os::unix::fs::symlink("pipe", dir.join("pipe.link")).unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let at = dir.clone();
+        std::thread::spawn(move || {
+            let r = Review::open(&at, None, None).unwrap();
+            let _ = tx.send(
+                r.files
+                    .iter()
+                    .map(|f| (f.path.clone(), f.has_hunks()))
+                    .collect(),
+            );
+        });
+        let rows: Vec<(PathBuf, bool)> =
+            rx.recv_timeout(std::time::Duration::from_secs(60)).unwrap();
+        assert_eq!(rows, [(PathBuf::from("pipe.link"), false)]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

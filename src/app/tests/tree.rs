@@ -171,6 +171,31 @@ fn ctrl_n_resolves_the_links_on_the_path() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #405: Ctrl+N on the name of a FIFO that is there opens it as it opens any file that is
+/// there, and reading one waited for a writer forever, on the UI thread. Here it runs on a thread
+/// of its own, so a wait fails the test instead of hanging it.
+#[cfg(unix)]
+#[test]
+fn ctrl_n_on_a_fifo_does_not_read_it() {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let (dir, mut a) = new_file_project("fifo");
+        let mkfifo = std::process::Command::new("mkfifo")
+            .arg(dir.join("pipe"))
+            .status();
+        assert!(mkfifo.unwrap().success());
+        ctrl_n(&mut a);
+        press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+        typed(&mut a, "pipe");
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        let _ = tx.send((a.message.clone(), a.buf.path.clone()));
+        std::fs::remove_dir_all(&dir).unwrap();
+    });
+    let (message, open) = rx.recv_timeout(std::time::Duration::from_secs(60)).unwrap();
+    assert!(message.ends_with("/pipe: not a regular file"), "{message}");
+    assert!(open.is_some_and(|p| p.ends_with("src/a.py")));
+}
+
 /// #404: a symlink to a directory expands in the tree, and its files open; one that resolves
 /// outside the project opens read-only, as a file `d` reaches out there does.
 #[cfg(unix)]
