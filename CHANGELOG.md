@@ -73,6 +73,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the totals off. (#250)
 - On a file the branch did not change, the status bar of `merl --review` drops `hunk 0/0  file
   -/8` and reads as it does outside a review. (#286)
+- `c` in `merl --review` stops once in a generated file, on its first hunk, and the next `c` goes
+  on to the next file instead of through every hunk of a `package-lock.json`; `C` comes back to
+  that one stop, and the status bar counts the file as one hunk. The panel row, Enter, the marks
+  and the keys inside the file stay as they are. Generated means certain: a lock file by its exact
+  name (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `uv.lock`,
+  `Cargo.lock`, `go.sum`, `Gemfile.lock` and others), a path `.gitattributes` marks
+  `linguist-generated` or `gitlab-generated`, as GitHub and GitLab read them, or Go's `// Code
+  generated … DO NOT EDIT.` or `@generated` in the first five lines. (#243)
 - Enter in a list whose query matches nothing does nothing, as in VS Code's quick open: `o`,
   `D`, `T`, `s` and the lists of `d` and `u` stay open with the query, so Backspace fixes a typo
   instead of the query being lost. Esc still closes the list. `s` no longer closes on such an

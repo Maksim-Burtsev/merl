@@ -79,7 +79,7 @@ impl App {
         let i = match f.status {
             _ if !f.has_hunks() => return None,
             'D' => (self.line == 0).then_some(0)?,
-            _ => self.diff.hunks.iter().position(|&h| h == self.line)?,
+            _ => self.walk_hunks().iter().position(|&h| h == self.line)?,
         };
         Some((rel, i + 1))
     }
@@ -132,6 +132,20 @@ impl App {
         rows
     }
 
+    /// The hunks of the open file `c` and `C` stop on: all of them, or in a generated file the
+    /// first alone, so the next `c` goes on to the next file (#243). The marks keep them all.
+    pub(super) fn walk_hunks(&self) -> &[usize] {
+        let hunks = &self.diff.hunks;
+        let generated = (self.review.as_ref())
+            .zip(self.rel_current())
+            .and_then(|(r, rel)| r.file(&rel).map(|f| f.generated));
+        &hunks[..if generated == Some(true) {
+            hunks.len().min(1)
+        } else {
+            hunks.len()
+        }]
+    }
+
     /// `c` / `C`: the next / previous hunk, crossing into the next file of the review. From a
     /// file outside it, back to the hunk they last stopped on (#239).
     pub(super) fn hunk(&mut self, dir: isize) {
@@ -139,9 +153,9 @@ impl App {
             return;
         };
         let here = if dir > 0 {
-            self.diff.hunks.iter().find(|&&h| h > self.line)
+            self.walk_hunks().iter().find(|&&h| h > self.line)
         } else {
-            self.diff.hunks.iter().rev().find(|&&h| h < self.line)
+            self.walk_hunks().iter().rev().find(|&&h| h < self.line)
         };
         if let Some(&h) = here {
             let path = self.buf.path.clone().unwrap();
@@ -209,7 +223,7 @@ impl App {
     /// writes or deletes around it move the hunk, and only a hunk added or removed above it
     /// changes its place.
     fn remember_hunk(&mut self) {
-        let i = self.diff.hunks.iter().filter(|&&h| h < self.line).count();
+        let i = self.walk_hunks().iter().filter(|&&h| h < self.line).count();
         self.last_hunk = self.rel_current().map(|rel| (rel, i));
     }
 
@@ -380,10 +394,14 @@ impl App {
         let r = self.review.as_ref()?;
         let rel = self.rel_current()?;
         let file = r.files.iter().position(|f| f.path == rel)?;
-        let hunk = self.diff.hunks.iter().filter(|&&h| h <= self.line).count();
+        let hunk = self
+            .walk_hunks()
+            .iter()
+            .filter(|&&h| h <= self.line)
+            .count();
         Some(format!(
             "hunk {hunk}/{}  file {}/{}",
-            self.diff.hunks.len(),
+            self.walk_hunks().len(),
             file + 1,
             r.files.len()
         ))
@@ -456,13 +474,17 @@ fn stops_in(r: &git::Review, root: &Path, f: &git::ReviewFile) -> Option<usize> 
     }
 }
 
-/// The lines `c` stops on in a file of the review: where its hunks start, and the top of a
-/// deleted one, which has none to step through.
+/// The lines `c` stops on in a file of the review: where its hunks start, the first alone in a
+/// generated one (#243), and the top of a deleted one, which has none to step through.
 fn review_hunks(root: &Path, r: &git::Review, f: &git::ReviewFile) -> Vec<usize> {
-    match f.status {
+    let mut hunks = match f.status {
         'D' => vec![0],
         _ => r.diff(root, &root.join(&f.path), Some(f)).hunks,
+    };
+    if f.generated {
+        hunks.truncate(1);
     }
+    hunks
 }
 
 /// A review's marks untouched for this many days are not read, and go the next time the store

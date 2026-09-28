@@ -1192,3 +1192,61 @@ fn a_deleted_file_with_nothing_to_read_is_not_gone_back_to() {
     assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// #243: `c` stops once in a generated file, on its first hunk, then goes to the next file;
+/// `C` comes back to that one stop, and the status bar counts it as one hunk.
+#[test]
+fn c_stops_once_in_a_generated_file() {
+    let (dir, mut a) = review_app("reviewgenerated");
+    let git = |args: &[&str]| {
+        let mut cmd = std::process::Command::new("git");
+        let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    let lines = |up: &[usize]| {
+        (0..9)
+            .map(|i| match up.contains(&i) {
+                true => format!("L{i}\n"),
+                false => format!("l{i}\n"),
+            })
+            .collect::<String>()
+    };
+    git(&["switch", "-q", "main"]);
+    std::fs::write(dir.join("yarn.lock"), lines(&[])).unwrap();
+    git(&["add", "yarn.lock"]);
+    git(&["commit", "-q", "-m", "lock"]);
+    git(&["switch", "-q", "feature"]);
+    git(&["merge", "-q", "main", "-m", "merge"]);
+    std::fs::write(dir.join("yarn.lock"), lines(&[1, 4, 7])).unwrap();
+    std::fs::write(dir.join("z.rs"), "z\n").unwrap();
+    git(&["add", "-A"]);
+    git(&["commit", "-qm", "bump"]);
+    a.start_review(git::Review::open(&dir, None, None).unwrap());
+    let lock = dir.join("yarn.lock");
+    let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
+    let big_c = |a: &mut App| press(a, KeyCode::Char('C'), KeyModifiers::NONE);
+    let down = |a: &mut App| {
+        for _ in 0..5 {
+            press(a, KeyCode::Down, KeyModifiers::NONE);
+        }
+    };
+    a.jump_to(&lock, 1);
+    c(&mut a);
+    assert_eq!(at(&a), (lock.clone(), 1));
+    assert_eq!(a.diff.hunks, [1, 4, 7], "every hunk keeps its marks");
+    assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 6/7");
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("z.rs"), 0));
+    assert!(a.viewed.contains_key(Path::new("yarn.lock")));
+    big_c(&mut a);
+    assert_eq!(at(&a), (lock.clone(), 1), "`C` lands on the one stop");
+    // Arrows move inside it as in any file; `C` goes back to the stop, `c` on to the next file.
+    down(&mut a);
+    assert_eq!(at(&a), (lock.clone(), 6));
+    big_c(&mut a);
+    assert_eq!(at(&a), (lock.clone(), 1));
+    down(&mut a);
+    c(&mut a);
+    assert_eq!(at(&a), (dir.join("z.rs"), 0));
+    let _ = std::fs::remove_dir_all(dir);
+}

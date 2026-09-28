@@ -252,7 +252,7 @@ impl App {
         if self.review.is_none() || run.mode != Mode::Normal || !plain {
             return None;
         }
-        let hunks = &self.diff.hunks;
+        let hunks = self.walk_hunks();
         let (from, to) = (run.from.line, self.line);
         let (&start, key) = match to.cmp(&from) {
             std::cmp::Ordering::Greater => (hunks.iter().find(|&&h| h > from)?, "c"),
@@ -418,7 +418,7 @@ impl App {
         let next = self
             .review
             .as_ref()
-            .filter(|_| !self.diff.hunks.iter().any(|&h| h > self.line))
+            .filter(|_| !self.walk_hunks().iter().any(|&h| h > self.line))
             .and_then(|r| {
                 let back = self.hunk_left(r).map(|(rel, _)| rel);
                 back.or_else(|| {
