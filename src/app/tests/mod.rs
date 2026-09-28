@@ -6,6 +6,7 @@ use super::*;
 
 mod cursor;
 mod edit;
+mod edit_fuzz;
 mod find;
 mod keys;
 mod missed;
