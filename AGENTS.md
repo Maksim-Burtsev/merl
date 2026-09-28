@@ -225,7 +225,8 @@ Only when the owner asks for one, and with nothing open under `release-blocker`.
      note as `![](https://raw.githubusercontent.com/Maksim-Burtsev/merl/media/releases/X.Y.Z.gif)`.
 4. A release PR, `release: X.Y.Z`: `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD` with its
    link, the version goes into `Cargo.toml` and `Cargo.lock`, it adds `docs/releases/X.Y.Z.md`,
-   and its body holds the smoke test's verdict table.
+   it carries the `tests/budgets.tsv` the smoke test's time budgets wrote, and its body holds the
+   smoke test's verdict table.
 5. After the merge, an annotated tag `vX.Y.Z` (message `merl X.Y.Z`) on that commit, pushed;
    `release.yml` builds the GitHub release and its binaries.
 6. The Homebrew tap: `release.yml` bumps it when the `TAP_TOKEN` secret is set; otherwise bump

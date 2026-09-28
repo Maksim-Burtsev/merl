@@ -5,6 +5,7 @@ use super::open::carried;
 use super::*;
 
 mod annotated;
+mod budgets;
 mod cursor;
 mod d_bench;
 mod edit;
