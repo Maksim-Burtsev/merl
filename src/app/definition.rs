@@ -47,6 +47,25 @@ impl App {
             Kind::Elixir => search::elixir_unalias(&text, chain),
             _ => chain,
         };
+        if kind == Kind::Yaml
+            && let Some(lines) =
+                search::stage_entries(&self.line_str()[..range.start], &text, &word)
+        {
+            let found = lines
+                .into_iter()
+                .map(|line| Candidate {
+                    hit: Hit {
+                        path: here.clone(),
+                        line,
+                        col: 0,
+                        text: self.buf.lines[line - 1].clone(),
+                    },
+                    reason: Reason::ByName,
+                })
+                .collect();
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
         self.truncated.set(false);

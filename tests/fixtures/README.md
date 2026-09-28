@@ -197,7 +197,8 @@ a `local` named like a function. `sql/` has a CTE named like a table, a schema-q
 quoted name, and a `$$` function body. `make/` declares a target in two `.mk` files and a
 double-colon rule twice. `terraform/` has a module whose `var.region` is its own, a local named
 like an attribute of a `tags` map, and a heredoc. `docker/` and `yaml/` are searched file by file,
-so each file probes the stages or jobs of its own and one of another file. Each of these kinds
+so each file probes the stages or jobs of its own and one of another file; `yaml/ci/` lists its
+GitLab stages in the block form beside jobs named after them, or not at all (#473). Each of these kinds
 also has a file that opens with a glob or a lone backtick above a declaration, and a heredoc or a
 block scalar holding a declaration-shaped line: today's answers there are the known misses of
 #436, and the globs inside quotes (`"parcels/*"`, `["src/**/*.rs"]`) guard what already works.
