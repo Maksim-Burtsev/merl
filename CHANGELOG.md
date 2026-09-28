@@ -97,6 +97,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   where it jumped to a function of the same name in another module. A `local` inside another
   function, or behind a dot, is no longer offered, and a table key is not read as the local of
   its name. (#461)
+- `d` in Elixir reads a name with its trailing `?` or `!`: on `ship!` it finds `def ship!` and
+  not `def ship`, and on `Jason.encode!` no longer jumps to the project's own `def encode`. A
+  qualifier behind an `alias` (`W` of `alias Shop.Warehouse, as: W`, `Tariff` of
+  `alias Shop.Pricing.{Tariff, Coupon}`) and a module written out in full, a `defprotocol`
+  included, lead to that module's function instead of a picker of every namesake, and a call
+  such as `Shop.currency()` no longer offers the module attribute `@currency`. (#459)
 - In `merl --review`, `c` or `C` after a `d`, `u` or `s` into a file the branch did not touch goes
   back to the hunk you left, and the next `c` goes on from there. It opened the first file of the
   review (`C` the last), and the way back was one `[` per jump. The hunk is found again by its

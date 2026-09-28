@@ -269,10 +269,11 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         // which is which, the way a C++ overload set is offered.
         Kind::Elixir => {
             let mut patterns = vec![
-                // Every `def` form. A name can end in `?` or `!`, and a clause is written
-                // `def name(x) do`, `def name do` or `def name, do: x`.
+                // Every `def` form. A clause is written `def name(x) do`, `def name do` or
+                // `def name, do: x`. A trailing `?` or `!` is part of the word (#459), so
+                // `ship` never finds `def ship!`.
                 format!(
-                    r"^\s*def(?:p|macro|macrop|guard|guardp|delegate)?\s+{w}[!?]?\s*(?:\(|,|do\b|$)"
+                    r"^\s*def(?:p|macro|macrop|guard|guardp|delegate)?\s+{w}\s*(?:\(|,|do\b|$)"
                 ),
                 // A module or a protocol, under the namespace it is written with. The word has
                 // to be the last part: `defmodule MyApp.Repo` declares `MyApp.Repo` and nothing
