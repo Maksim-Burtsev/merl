@@ -2,6 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
+use std::fs::FileType;
 use std::path::{Path, PathBuf};
 
 use ignore::WalkBuilder;
@@ -55,6 +56,7 @@ pub fn build(root: &Path, shallow: bool) -> (Tree, Vec<PathBuf>) {
         .filter_entry(|e| !is_store(e.file_name()))
         .build()
         .filter_map(Result::ok)
+        .filter(|e| is_file_or_dir(e.path(), e.file_type()))
         .filter_map(|e| {
             let rel = e.path().strip_prefix(root).ok()?.to_path_buf();
             let is_dir = e.file_type().is_some_and(|t| t.is_dir());
@@ -97,6 +99,13 @@ fn is_store(name: &OsStr) -> bool {
     matches!(name.to_str(), Some(".git" | ".hg" | ".svn"))
 }
 
+/// A directory, a regular file or a link to one. A FIFO, a socket or a device is not code, and
+/// opening one blocks until something writes to it (#405).
+fn is_file_or_dir(path: &Path, kind: Option<FileType>) -> bool {
+    let plain = |t: FileType| t.is_dir() || t.is_file();
+    kind.is_some_and(plain) || std::fs::metadata(path).is_ok_and(|m| plain(m.file_type()))
+}
+
 /// The entries of `dir` (relative to `root`) and whether each is a directory, unsorted.
 fn read_level(root: &Path, dir: &Path) -> Vec<(PathBuf, bool)> {
     let Ok(read) = std::fs::read_dir(root.join(dir)) else {
@@ -104,6 +113,7 @@ fn read_level(root: &Path, dir: &Path) -> Vec<(PathBuf, bool)> {
     };
     read.flatten()
         .filter(|e| !is_store(&e.file_name()))
+        .filter(|e| is_file_or_dir(&e.path(), e.file_type().ok()))
         .map(|e| {
             let is_dir = e.file_type().is_ok_and(|t| t.is_dir());
             (dir.join(e.file_name()), is_dir)
@@ -560,6 +570,52 @@ mod tests {
             t.down();
         }
         assert_eq!(t.selected().unwrap().name(), "Zed.toml");
+    }
+
+    /// #405: opening a FIFO blocks until something writes to it, so a FIFO is not a row and not
+    /// in the list the searches read, neither from the walk nor from an ignored level; a link
+    /// to a regular file is, and a link to a FIFO is not.
+    #[test]
+    #[cfg(unix)]
+    fn a_fifo_is_neither_a_row_nor_in_the_list() {
+        let dir = project("fifo", &["a.py", "src/b.py", "build/out.txt"]);
+        std::fs::write(dir.join(".gitignore"), "build/\n*.sock\n").unwrap();
+        for f in ["pipe", "src/pipe", "srv.sock", "build/b.sock"] {
+            let mkfifo = std::process::Command::new("mkfifo")
+                .arg(dir.join(f))
+                .status();
+            assert!(mkfifo.unwrap().success(), "{f}");
+        }
+        std::os::unix::fs::symlink("a.py", dir.join("link.py")).unwrap();
+        std::os::unix::fs::symlink("pipe", dir.join("link.pipe")).unwrap();
+        let (mut t, files) = build(&dir, false);
+        assert_eq!(
+            files,
+            [
+                PathBuf::from("src/b.py"),
+                ".gitignore".into(),
+                "a.py".into(),
+                "link.py".into()
+            ]
+        );
+        assert!(t.ignored_files().is_empty());
+        t.reveal(Path::new("build"));
+        t.expand();
+        t.reveal(Path::new("src"));
+        t.expand();
+        assert_eq!(
+            rows(&t),
+            [
+                "build",
+                "build/out.txt",
+                "src",
+                "src/b.py",
+                ".gitignore",
+                "a.py",
+                "link.py"
+            ]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
