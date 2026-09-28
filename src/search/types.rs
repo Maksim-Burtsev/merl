@@ -457,3 +457,87 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
     let element = element.trim();
     (!element.is_empty()).then(|| element.to_owned())
 }
+/// The constants of the Java or Kotlin `enum` declared on 1-based `decl` of `text`, each with
+/// its 1-based line: the names at the start of the body, up to its first `;` or its end (#457).
+/// A constant's arguments, its body and the annotations and comments in front of it are
+/// skipped; a string inside them is not read.
+pub fn enum_constants(text: &str, decl: usize) -> Vec<(String, usize)> {
+    let mut out = Vec::new();
+    let mut chars = text.chars().peekable();
+    let mut line = 1;
+    // Past the lines above the declaration.
+    while line < decl {
+        match chars.next() {
+            Some('\n') => line += 1,
+            Some(_) => {}
+            None => return out,
+        }
+    }
+    // `None` before the body's `{`: the name, a Kotlin constructor, `implements …`, with
+    // `parens` open in front of it.
+    let mut depth: Option<usize> = None;
+    let mut parens = 0usize;
+    let mut expect = false;
+    let mut annotation = false;
+    while let Some(c) = chars.next() {
+        match c {
+            '\n' => line += 1,
+            '/' if chars.peek() == Some(&'/') => while chars.next_if(|&c| c != '\n').is_some() {},
+            '/' if chars.peek() == Some(&'*') => {
+                chars.next();
+                let mut prev = ' ';
+                for c in chars.by_ref() {
+                    line += usize::from(c == '\n');
+                    if prev == '*' && c == '/' {
+                        break;
+                    }
+                    prev = c;
+                }
+            }
+            '"' | '\'' => {
+                let mut escaped = false;
+                for d in chars.by_ref() {
+                    line += usize::from(d == '\n');
+                    if d == c && !escaped {
+                        break;
+                    }
+                    escaped = d == '\\' && !escaped;
+                }
+            }
+            '{' if depth.is_none() && parens == 0 => {
+                depth = Some(0);
+                expect = true;
+            }
+            '(' | '{' | '[' => match depth.as_mut() {
+                Some(d) => *d += 1,
+                None => parens += 1,
+            },
+            ')' | '}' | ']' => match depth {
+                Some(0) => break,
+                Some(d) => depth = Some(d - 1),
+                None => parens = parens.saturating_sub(1),
+            },
+            ';' if depth == Some(0) => break,
+            ',' if depth == Some(0) => expect = true,
+            '@' if depth == Some(0) => annotation = true,
+            c if depth == Some(0) && (c.is_alphabetic() || c == '_') => {
+                let mut name = c.to_string();
+                // An annotation's name may be qualified, `@java.lang.Deprecated`.
+                let dot = annotation;
+                while let Some(c) =
+                    chars.next_if(|&c| c.is_alphanumeric() || c == '_' || (dot && c == '.'))
+                {
+                    name.push(c);
+                }
+                if annotation {
+                    annotation = false;
+                } else if expect {
+                    out.push((name, line));
+                    expect = false;
+                }
+            }
+            _ => {}
+        }
+    }
+    out
+}

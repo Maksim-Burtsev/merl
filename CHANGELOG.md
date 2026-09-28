@@ -79,6 +79,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Enter with `no results for …`. (#288)
 - With no file open, on the start screen and at the tutor's first lesson, the status bar no longer
   shows a cursor position: `demo/  [tree]` instead of `demo/  1:1  [tree]`. (#285)
+- `d` in Java and Kotlin on an enum constant, `Offer.CUT`, lands on the constant in the body of
+  the enum, `CUT → Offer.CUT (via Offer)`, instead of `no definition for CUT`, when the project
+  declares one type of that name and it is an `enum`. (#457)
 
 ### Fixed
 

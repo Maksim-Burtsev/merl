@@ -328,6 +328,15 @@ impl App {
                 self.show_definitions(kind, &word, &here, named, None);
                 return;
             }
+            // Java's and Kotlin's `Offer.CUT`: a constant of the enum the project declares once
+            // (#457).
+            if let (Kind::Jvm, [owner]) = (kind, chain.as_slice()) {
+                let found = self.enum_constant(kind, &here, owner, &word);
+                if !found.is_empty() {
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
+            }
             // A cut in a grep whose result is dropped says nothing about the list below.
             self.truncated.set(false);
         }
@@ -395,6 +404,51 @@ impl App {
             }
         }
         self.show_definitions(kind, &word, &here, found, broke.as_deref());
+    }
+
+    /// `word` as a constant of the Java or Kotlin enum `owner`, when the project declares one type
+    /// of that name and it is an `enum` (#457). An import of `owner` in this file has to name the
+    /// package the enum is declared in: `import java.util.concurrent.TimeUnit` is not the
+    /// project's `TimeUnit`.
+    fn enum_constant(&self, kind: Kind, here: &Path, owner: &str, word: &str) -> Vec<Candidate> {
+        let owners = search::def_patterns(kind, owner).join("|");
+        let declared = self.project_definitions(kind, here, owner, &owners);
+        self.truncated.set(false);
+        let [decl] = declared.as_slice() else {
+            return Vec::new();
+        };
+        let o = regex::escape(owner);
+        let is_enum = Regex::new(&format!(r"\benum\s+(?:class\s+)?{o}\b"))
+            .is_ok_and(|re| re.is_match(&decl.text));
+        let Some(text) = self.text_of(&decl.path).filter(|_| is_enum) else {
+            return Vec::new();
+        };
+        let package = |t: &str| {
+            let re = Regex::new(r"^\s*package\s+([\w.]+)").expect("a fixed pattern");
+            t.lines()
+                .find_map(|l| re.captures(l).map(|c| c[1].to_owned()))
+                .unwrap_or_default()
+        };
+        let import = Regex::new(&format!(r"^\s*import\s+([\w.]+)\.{o}\s*;?\s*$"))
+            .expect("an escaped name keeps the pattern valid");
+        let imported = self.buf.lines.iter().find_map(|l| import.captures(l));
+        if imported.is_some_and(|c| c[1] != package(&text)) {
+            return Vec::new();
+        }
+        let lines: Vec<&str> = text.lines().collect();
+        search::enum_constants(&text, decl.line)
+            .into_iter()
+            .filter(|(name, _)| name == word)
+            .map(|(_, line)| Candidate {
+                hit: Hit {
+                    path: decl.path.clone(),
+                    line,
+                    col: 0,
+                    text: lines.get(line - 1).copied().unwrap_or_default().to_owned(),
+                },
+                reason: Reason::Path(owner.to_owned()),
+            })
+            .collect()
     }
 
     /// Whether `first` starts a path inside the project: `crate`, `self`, `super`, or a file or a
