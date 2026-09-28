@@ -21,9 +21,6 @@ use super::*;
 
 type Pos = (usize, usize);
 
-/// Today an edit with nothing to take (Alt+Delete at the end of the file, an empty paste) is an
-/// undo step that changes nothing, and clears the redo; want `false` (#455).
-const EMPTY_EDIT_IS_A_STEP: bool = true;
 /// Today redo of a Tab over several lines lands at the end of the last indented line; want
 /// `false`, redo landing where the Tab left the cursor (#456).
 const TAB_REDO_AT_LINE_END: bool = true;
@@ -439,7 +436,8 @@ impl Model {
     /// The one way the text changes: `from..to` becomes `text`, the cursor after it. Typing
     /// that carries on where the last step ended, on one line, extends that step.
     fn replace(&mut self, from: Pos, to: Pos, text: &str) -> bool {
-        if !EMPTY_EDIT_IS_A_STEP && from == to && text.is_empty() {
+        // Nothing to take and nothing to put: no step, the redo kept (#455).
+        if from == to && text.is_empty() {
             return false;
         }
         let before = self.cur;
