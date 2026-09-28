@@ -29,6 +29,11 @@
   A change to what an edit key does changes the model in the same PR; before pushing a change to
   `src/app/edit.rs`, run `MERL_FUZZ_SESSIONS=5000 cargo test --release edit_fuzz` (a failure
   prints its seed and the shortest key sequence that still fails).
+- `tests/snapshots/*.txt` are whole screens, text and colours, of every overlay, picker and panel
+  at 80×24, 120×33 and 185×55 in a dark and a light theme (`src/ui/tests/snapshots.rs`). A PR
+  that changes what a screen draws updates them in the same PR: `MERL_UPDATE_SNAPSHOTS=1 cargo
+  test snapshots`, then read `git diff tests/snapshots` as the change seen on screen. A new
+  screen, overlay or panel adds its state to `STATES`.
 
 ## Issues
 

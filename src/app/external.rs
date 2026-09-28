@@ -216,6 +216,36 @@ impl App {
         hits
     }
 
+    /// Test helper: nothing is installed outside the project, so a lookup reads no library of
+    /// the machine the tests run on.
+    #[cfg(test)]
+    pub(crate) fn no_external(&mut self) {
+        for kind in [
+            Kind::Python,
+            Kind::Go,
+            Kind::Rust,
+            Kind::TsJs,
+            Kind::Jvm,
+            Kind::Ruby,
+            Kind::C,
+            Kind::CSharp,
+            Kind::Swift,
+            Kind::Php,
+            Kind::Lua,
+            Kind::Elixir,
+            Kind::Zig,
+            Kind::Shell,
+            Kind::Sql,
+            Kind::Make,
+            Kind::Terraform,
+            Kind::Docker,
+            Kind::Yaml,
+        ] {
+            self.external
+                .insert(kind, (Vec::new(), Arc::new(Vec::new())));
+        }
+    }
+
     /// The files of `kind` outside the project, walked once per kind.
     ///
     /// ponytail: lives for the session, unlike the project walk. A `pip install` mid-session

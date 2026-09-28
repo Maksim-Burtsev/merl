@@ -1,0 +1,448 @@
+merl snapshot: preview
+
+==== 80x24 tokyonight-moon text, cursor hidden
+┌notes───────────────────────┐   Plan: find notes by tag
+│▸ tests                     │   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+│  cli.py                    │   notes find reads only the text of a note. Tags
+│  config.py                 │   are stored, but nothing searches them. Goal:
+│  export.csv                │   notes find --tag work lists the notes tagged
+│  Makefile                  │   work, and words after it narrow the list
+│  models.py                 │   further.
+│  notes.json                │
+│  PLAN.md                   │   Steps
+│  store.py                  │   ───────────────────────────────────────────────
+│                            │   1. NoteStore.find takes the tags to match
+│                            │   2. cli.py passes --tag to find, not only to add
+│                            │      ◦ several --tag flags narrow the list
+│                            │      ◦ no --tag keeps today's search
+│                            │   3. Tests for both
+│                            │
+│                            │   Status
+│                            │   ───────────────────────────────────────────────
+│                            │   ☑ design agreed
+│                            │   ☐ implementation
+│                            │   ☐ tests
+│                            │
+└────────────────────────────┘   ┌────────┬─────────────────────┬──────────────┐
+PLAN.md  1:1  [preview]                                                  ? help
+
+==== 80x24 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffhhhhhhhhhhggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffhhhhhhhhhhhhhhhhhhhhhgggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffhhhhggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggg
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiafffbbbbbgggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffaaahhhhhhhhhhhhhhgggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaahhhhhhgggggggghhhhhgggghhhhgggggggggggggghhh
+aggggggggggggggggggggggggggggafffgggaagggggggghhhhhggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggaaggghhhhhgggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaagggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffbbbbbbggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggg
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaffffffffffffffffffffffffffffffffffffffffffffffffff
+dddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #32374f bg #1b1d2c
+d fg #82aaff bg #1b1d2c BOLD
+e fg #c8d3f5 bg #1b1d2c
+f fg #32374f bg #222436
+g fg #c8d3f5 bg #222436
+h fg #9aa5ce bg #1e2031
+i fg #c8d3f5 bg #1e2031
+
+==== 80x24 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffhhhhhhhhhhggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffhhhhhhhhhhhhhhhhhhhhhgggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffhhhhggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggg
+ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffiiiiigggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffaaahhhhhhhhhhhhhhgggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaahhhhhhgggggggghhhhhgggghhhhgggggggggggggghhh
+aggggggggggggggggggggggggggggafffgggaagggggggghhhhhggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggaaggghhhhhgggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaagggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffiiiiiiggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggg
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaffffffffffffffffffffffffffffffffffffffffffffffffff
+jjjjjjjeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #e7eaf0
+d fg #0550ae bg #e7eaf0 BOLD
+e fg #1f2328 bg #e7eaf0
+f fg #6e7781 bg #ffffff
+g fg #1f2328 bg #ffffff
+h fg #1f2328 bg #f3f4f7
+i fg #0550ae bg #ffffff BOLD
+j fg #6639ba bg #e7eaf0 BOLD
+
+==== 120x33 tokyonight-moon text, cursor hidden
+┌notes───────────────────────┐   Plan: find notes by tag
+│▸ tests                     │   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+│  cli.py                    │   notes find reads only the text of a note. Tags are stored, but nothing searches them.
+│  config.py                 │   Goal: notes find --tag work lists the notes tagged work, and words after it narrow the
+│  export.csv                │   list further.
+│  Makefile                  │
+│  models.py                 │   Steps
+│  notes.json                │   ───────────────────────────────────────────────────────────────────────────────────────
+│  PLAN.md                   │   1. NoteStore.find takes the tags to match
+│  store.py                  │   2. cli.py passes --tag to find, not only to add
+│                            │      ◦ several --tag flags narrow the list
+│                            │      ◦ no --tag keeps today's search
+│                            │   3. Tests for both
+│                            │
+│                            │   Status
+│                            │   ───────────────────────────────────────────────────────────────────────────────────────
+│                            │   ☑ design agreed
+│                            │   ☐ implementation
+│                            │   ☐ tests
+│                            │
+│                            │   ┌────────┬─────────────────────┬──────────────────────────────────────────────┐
+│                            │   │ Step   │ File                │ Risk                                         │
+│                            │   ├────────┼─────────────────────┼──────────────────────────────────────────────┤
+│                            │   │ filter │ store.py            │ low                                          │
+│                            │   │ flag   │ cli.py              │ medium: --tag already tags a new note in add │
+│                            │   │ tests  │ tests/test_store.py │ low                                          │
+│                            │   └────────┴─────────────────────┴──────────────────────────────────────────────┘
+│                            │
+│                            │   │ Note
+│                            │   │ Tags match as typed: Work and work are two tags, as they are today.
+│                            │
+└────────────────────────────┘    def find(self, needle: str, tags: list[str] | None = None) -> list[Note]:
+PLAN.md  1:1  [preview]                                                                                          ? help
+
+==== 120x33 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffhhhhhhhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggggghhhhhhhhhhhhhhhhhhhhhgggggggggggggggggggggggghhhhgggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffbbbbbgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiafffaaahhhhhhhhhhhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaahhhhhhgggggggghhhhhgggghhhhgggggggggggggghhhgggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggaagggggggghhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggaaggghhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaagggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffbbbbbbggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffgggggggg
+aggggggggggggggggggggggggggggaffffgjjjjggffgjjjjgggggggggggggggffgjjjjgggggggggggggggggggggggggggggggggggggggggfgggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffgggggggg
+aggggggggggggggggggggggggggggaffffgggggggffggggggggggggggggggggffggggggggggggggggggggggggggggggggggggggggggggggfgggggggg
+aggggggggggggggggggggggggggggaffffgggggggffggggggggggggggggggggffggggggggghhhhhgggggggggggggggggggggggggggghhhgfgggggggg
+aggggggggggggggggggggggggggggaffffgggggggffggggggggggggggggggggffggggggggggggggggggggggggggggggggggggggggggggggfgggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffgggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffkgllllggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffkgggggggggggggggggggggghhhhggggghhhhggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffhmmminnnnoppppqippppppqirrrqippppqirrrrorrroiqissssiqissssoiqqirrrroiiiiooiiiiiiiiiiiii
+dddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #32374f bg #1b1d2c
+d fg #82aaff bg #1b1d2c BOLD
+e fg #c8d3f5 bg #1b1d2c
+f fg #32374f bg #222436
+g fg #c8d3f5 bg #222436
+h fg #9aa5ce bg #1e2031
+i fg #c8d3f5 bg #1e2031
+j fg #c8d3f5 bg #222436 BOLD
+k fg #4493f8 bg #222436
+l fg #4493f8 bg #222436 BOLD
+m fg #c099ff bg #1e2031
+n fg #82aaff bg #1e2031
+o fg #9abdf5 bg #1e2031
+p fg #ffc777 bg #1e2031
+q fg #89ddff bg #1e2031
+r fg #0db9d7 bg #1e2031
+s fg #ff966c bg #1e2031
+
+==== 120x33 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffhhhhhhhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggggghhhhhhhhhhhhhhhhhhhhhgggggggggggggggggggggggghhhhgggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffiiiiigggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaaahhhhhhhhhhhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaahhhhhhgggggggghhhhhgggghhhhgggggggggggggghhhgggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggaagggggggghhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggaaggghhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaagggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffiiiiiiggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffgggggggg
+aggggggggggggggggggggggggggggaffffgjjjjggffgjjjjgggggggggggggggffgjjjjgggggggggggggggggggggggggggggggggggggggggfgggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffgggggggg
+aggggggggggggggggggggggggggggaffffgggggggffggggggggggggggggggggffggggggggggggggggggggggggggggggggggggggggggggggfgggggggg
+aggggggggggggggggggggggggggggaffffgggggggffggggggggggggggggggggffggggggggghhhhhgggggggggggggggggggggggggggghhhgfgggggggg
+aggggggggggggggggggggggggggggaffffgggggggffggggggggggggggggggggffggggggggggggggggggggggggggggggggggggggggggggggfgggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffgggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffkgllllggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffkgggggggggggggggggggggghhhhggggghhhhggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffhmmmhnnnnhhhhhhhhhhhhhhhooohhhhhhhhoooohooohhmhpppphmhpppphhhhhoooohhhhhhhhhhhhhhhhhhhh
+qqqqqqqeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #e7eaf0
+d fg #0550ae bg #e7eaf0 BOLD
+e fg #1f2328 bg #e7eaf0
+f fg #6e7781 bg #ffffff
+g fg #1f2328 bg #ffffff
+h fg #1f2328 bg #f3f4f7
+i fg #0550ae bg #ffffff BOLD
+j fg #1f2328 bg #ffffff BOLD
+k fg #0969da bg #ffffff
+l fg #0969da bg #ffffff BOLD
+m fg #cf222e bg #f3f4f7
+n fg #6639ba bg #f3f4f7
+o fg #953800 bg #f3f4f7
+p fg #0550ae bg #f3f4f7
+q fg #6639ba bg #e7eaf0 BOLD
+
+==== 185x55 tokyonight-moon text, cursor hidden
+┌notes───────────────────────┐   Plan: find notes by tag
+│▸ tests                     │   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+│  cli.py                    │   notes find reads only the text of a note. Tags are stored, but nothing searches them. Goal: notes find --tag work lists the notes tagged work, and words
+│  config.py                 │   after it narrow the list further.
+│  export.csv                │
+│  Makefile                  │   Steps
+│  models.py                 │   ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+│  notes.json                │   1. NoteStore.find takes the tags to match
+│  PLAN.md                   │   2. cli.py passes --tag to find, not only to add
+│  store.py                  │      ◦ several --tag flags narrow the list
+│                            │      ◦ no --tag keeps today's search
+│                            │   3. Tests for both
+│                            │
+│                            │   Status
+│                            │   ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+│                            │   ☑ design agreed
+│                            │   ☐ implementation
+│                            │   ☐ tests
+│                            │
+│                            │   ┌────────┬─────────────────────┬──────────────────────────────────────────────┐
+│                            │   │ Step   │ File                │ Risk                                         │
+│                            │   ├────────┼─────────────────────┼──────────────────────────────────────────────┤
+│                            │   │ filter │ store.py            │ low                                          │
+│                            │   │ flag   │ cli.py              │ medium: --tag already tags a new note in add │
+│                            │   │ tests  │ tests/test_store.py │ low                                          │
+│                            │   └────────┴─────────────────────┴──────────────────────────────────────────────┘
+│                            │
+│                            │   │ Note
+│                            │   │ Tags match as typed: Work and work are two tags, as they are today.
+│                            │
+│                            │    def find(self, needle: str, tags: list[str] | None = None) -> list[Note]:
+│                            │        wanted = set(tags or [])
+│                            │        lowered = needle.lower()
+│                            │        return [
+│                            │            note
+│                            │            for note in self.notes
+│                            │            if lowered in note.text.lower() and wanted <= set(note.tags)
+│                            │        ]
+│                            │
+│                            │   ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+│                            │
+│                            │   Done when make test is green.
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+PLAN.md  1:1  [preview]                                                                                                                                                           ? help
+
+==== 185x55 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffhhhhhhhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhgggggggggggggggggggggggghhhhggggggggggg
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffbbbbbggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffaaahhhhhhhhhhhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aiiiiiiiiiiiiiiiiiiiiiiiiiiiiafffaaahhhhhhgggggggghhhhhgggghhhhgggggggggggggghhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggaagggggggghhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggaaggghhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffbbbbbbgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffaagggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaagggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaagggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffgjjjjggffgjjjjgggggggggggggggffgjjjjgggggggggggggggggggggggggggggggggggggggggfggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffgggggggffggggggggggggggggggggffggggggggggggggggggggggggggggggggggggggggggggggfggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffgggggggffggggggggggggggggggggffggggggggghhhhhgggggggggggggggggggggggggggghhhgfggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffgggggggffggggggggggggggggggggffggggggggggggggggggggggggggggggggggggggggggggggfggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffkgllllgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffkgggggggggggggggggggggghhhhggggghhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffhmmminnnnoppppqippppppqirrrqippppqirrrrorrroiqissssiqissssoiqqirrrroiiiiooiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+aggggggggggggggggggggggggggggafffhiiiiiiiiiiiqirrronnnnnmmnoooiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+aggggggggggggggggggggggggggggafffhiiiiiiiiiiiiqinnnnnnqnnnnnooiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+aggggggggggggggggggggggggggggafffhiiiittttttioiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+aggggggggggggggggggggggggggggafffhiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+aggggggggggggggggggggggggggggafffhiiiiiiiimmmiiiiiimmiuuuuqiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+aggggggggggggggggggggggggggggafffhiiiiiiiimmiiiiiiiiimminnnnqnnnnqnnnnnooimmmiiiiiiiimmirrronnnnqnnnnoiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+aggggggggggggggggggggggggggggafffhiiiioiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggggggggghhhhhhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+dddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #32374f bg #1b1d2c
+d fg #82aaff bg #1b1d2c BOLD
+e fg #c8d3f5 bg #1b1d2c
+f fg #32374f bg #222436
+g fg #c8d3f5 bg #222436
+h fg #9aa5ce bg #1e2031
+i fg #c8d3f5 bg #1e2031
+j fg #c8d3f5 bg #222436 BOLD
+k fg #4493f8 bg #222436
+l fg #4493f8 bg #222436 BOLD
+m fg #c099ff bg #1e2031
+n fg #82aaff bg #1e2031
+o fg #9abdf5 bg #1e2031
+p fg #ffc777 bg #1e2031
+q fg #89ddff bg #1e2031
+r fg #0db9d7 bg #1e2031
+s fg #ff966c bg #1e2031
+t fg #c099ff bg #1e2031 ITALIC
+u fg #ff757f bg #1e2031
+
+==== 185x55 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffhhhhhhhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhgggggggggggggggggggggggghhhhggggggggggg
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffiiiiiggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffaaahhhhhhhhhhhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffaaahhhhhhgggggggghhhhhgggghhhhgggggggggggggghhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggaagggggggghhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggaaggghhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaaaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffiiiiiigggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffaagggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaagggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffaagggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffgjjjjggffgjjjjgggggggggggggggffgjjjjgggggggggggggggggggggggggggggggggggggggggfggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffgggggggffggggggggggggggggggggffggggggggggggggggggggggggggggggggggggggggggggggfggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffgggggggffggggggggggggggggggggffggggggggghhhhhgggggggggggggggggggggggggggghhhgfggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffgggggggffggggggggggggggggggggffggggggggggggggggggggggggggggggggggggggggggggggfggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffkgllllgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffkgggggggggggggggggggggghhhhggggghhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffhmmmhnnnnhhhhhhhhhhhhhhhooohhhhhhhhoooohooohhmhpppphmhpppphhhhhoooohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+aggggggggggggggggggggggggggggafffhhhhhhhhhhhhmhooohhhhhhmmhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+aggggggggggggggggggggggggggggafffhhhhhhhhhhhhhmhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+aggggggggggggggggggggggggggggafffhhhhhmmmmmmhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+aggggggggggggggggggggggggggggafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+aggggggggggggggggggggggggggggafffhhhhhhhhhmmmhhhhhhmmhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+aggggggggggggggggggggggggggggafffhhhhhhhhhmmhhhhhhhhhmmhhhhhhhhhhhhhhhhhhhmmmhhhhhhhhmmhooohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+aggggggggggggggggggggggggggggafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+aggggggggggggggggggggggggggggafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggafffgggggggggghhhhhhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aggggggggggggggggggggggggggggaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+qqqqqqqeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #e7eaf0
+d fg #0550ae bg #e7eaf0 BOLD
+e fg #1f2328 bg #e7eaf0
+f fg #6e7781 bg #ffffff
+g fg #1f2328 bg #ffffff
+h fg #1f2328 bg #f3f4f7
+i fg #0550ae bg #ffffff BOLD
+j fg #1f2328 bg #ffffff BOLD
+k fg #0969da bg #ffffff
+l fg #0969da bg #ffffff BOLD
+m fg #cf222e bg #f3f4f7
+n fg #6639ba bg #f3f4f7
+o fg #953800 bg #f3f4f7
+p fg #0550ae bg #f3f4f7
+q fg #6639ba bg #e7eaf0 BOLD
