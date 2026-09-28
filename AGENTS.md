@@ -25,6 +25,24 @@
   shows as a difference in its checkpoint, while a wait on the new text would stop the last
   release there and leave the rest of the scenario unplayed.
 
+## Issues
+
+The `1.0` milestone holds what 1.0 needs, and its description gives the order. Every open issue
+carries three labels:
+
+- What it is: `bug` or `enhancement`, plus `tests`, `language-support` or `readme` when it is one
+  of those.
+- How ready it is: `agent-ok`, `needs-owner`, `to-think` or `backlog` (`## Merging` says what each
+  means).
+- How soon: `P1` is the 1.0 checklist and goes first, `P2` is wanted for 1.0, `P3` is for when
+  time allows.
+
+A large piece of work is an `epic`: a parent issue whose sub-issues are the work. The next issue
+to take is the top of `is:open label:agent-ok label:P1 -label:epic`, the tests epic's first:
+language work finishes against the fixtures and the bench those issues build. An issue you file
+gets its three labels, the milestone if 1.0 needs it (never a `to-think` one), and its epic as
+the parent when one fits (`gh issue edit EPIC --add-sub-issue N`).
+
 ## Working on an issue
 
 A brief can be as short as "Work on #N". It is done when the PR, in the shape below, is merged
