@@ -132,6 +132,80 @@ fn ctrl_n_never_overwrites_and_never_leaves_the_project() {
     assert_eq!(a.message, "");
 }
 
+/// #404: the directories on the typed path that exist are resolved, links included. A link out
+/// of the project is refused as a `..` out of it is, and nothing is created; a link that stays
+/// inside is followed.
+#[cfg(unix)]
+#[test]
+fn ctrl_n_resolves_the_links_on_the_path() {
+    let (dir, mut a) = new_file_project("links");
+    let outside = dir.with_extension("outside");
+    let _ = std::fs::remove_dir_all(&outside);
+    std::fs::create_dir_all(&outside).unwrap();
+    std::os::unix::fs::symlink(&outside, dir.join("out")).unwrap();
+    std::os::unix::fs::symlink("src", dir.join("inside")).unwrap();
+    let new = |a: &mut App, path: &str| {
+        ctrl_n(a);
+        press(a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+        typed(a, path);
+        press(a, KeyCode::Enter, KeyModifiers::NONE);
+    };
+    for path in [
+        "out/created.txt",
+        "out/deep/created.txt",
+        "src/../out/x.txt",
+    ] {
+        new(&mut a, path);
+        assert_eq!(a.message, "outside the project", "{path}");
+    }
+    assert_eq!(std::fs::read_dir(&outside).unwrap().count(), 0);
+    new(&mut a, "inside/b.py");
+    let made = dir.join("src/b.py");
+    assert!(made.is_file());
+    assert_eq!((a.buf.path.as_deref(), a.mode), (Some(&*made), Mode::Edit));
+    assert_eq!(
+        a.tree.selected().map(|n| &*n.path),
+        Some(Path::new("src/b.py"))
+    );
+    std::fs::remove_dir_all(&outside).unwrap();
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #404: a symlink to a directory expands in the tree, and its files open; one that resolves
+/// outside the project opens read-only, as a file `d` reaches out there does.
+#[cfg(unix)]
+#[test]
+fn the_files_behind_a_link_to_a_directory_open_from_the_tree() {
+    let (dir, _) = new_file_project("dirlink");
+    let outside = dir.with_extension("outside");
+    let _ = std::fs::remove_dir_all(&outside);
+    std::fs::create_dir_all(&outside).unwrap();
+    std::fs::write(outside.join("far.txt"), "far\n").unwrap();
+    std::os::unix::fs::symlink(&outside, dir.join("out")).unwrap();
+    std::os::unix::fs::symlink("src", dir.join("inside")).unwrap();
+    let (tree, files) = crate::tree::build(&dir, false);
+    let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+    for (link, file, readonly) in [
+        ("inside", "inside/a.py", None),
+        ("out", "out/far.txt", Some("outside the project")),
+    ] {
+        a.focus = Focus::Tree;
+        a.tree.reveal(Path::new(link));
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(
+            a.buf.path.as_deref(),
+            Some(&*dir.join(file)),
+            "{}",
+            a.message
+        );
+        assert_eq!(a.buf.readonly, readonly, "{file}");
+    }
+    std::fs::remove_dir_all(&outside).unwrap();
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 #[test]
 fn ctrl_n_over_an_overlay_does_nothing() {
     let (_, mut a) = new_file_project("overlay");

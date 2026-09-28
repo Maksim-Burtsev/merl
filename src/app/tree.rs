@@ -80,11 +80,16 @@ impl App {
                 }
             }
         }
-        let path = self.root.join(&rel);
         if typed.ends_with('/') || rel.as_os_str().is_empty() {
             self.message = "no file name".into();
             return;
         }
+        // A link on the way may lead out of the project too (#404); one that stays in is followed.
+        let Some(rel) = self.in_project(&self.root.join(&rel)) else {
+            self.message = "outside the project".into();
+            return;
+        };
+        let path = self.root.join(&rel);
         if path.is_dir() {
             self.message = format!("{} is a directory", rel.display());
             return;
