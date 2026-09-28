@@ -768,15 +768,17 @@ fn a_glob_or_a_lone_backtick_opens_nothing_in_the_kinds_without_them() {
     let hidden = |n: usize| (vec![], vec![n]);
     // A `#` opens a comment only where a word starts, `<<<` is a string of one line and
     // `$((1 << bits))` a shift. A quote ends with its line: the scan cannot follow the `"…"`
-    // inside `"$( … )"`, and what `eval '…'` holds the shell declares.
-    let sh = "#!/bin/sh\n# quotes the `name with one backtick, and don't\nbuild() {\n  echo \"${f##*/}\" $# $((1 << bits))\n  cat <<< 'x'\n}\nfor f in src/*; do rm -rf build/*; done\ndeploy() {\n  build\n}\necho \"$(printf \"%s isn't set\" \"$x\")\"\nspill() {\n}\ncat <<EOF\nphantom() {\nEOF\ncat <<-'TXT'\n\tspectre() {\n\tTXT\neval '\nproxy() {\n'\nlast() {\n  deploy\n}\n";
+    // inside `"$( … )"`, and what `eval '…'` holds the shell declares. A heredoc's label may
+    // follow a space, a quote or a `\`, and one that starts with a digit is a shift's operand.
+    let sh = "#!/bin/sh\n# quotes the `name with one backtick, and don't\nbuild() {\n  echo \"${f##*/}\" $# $((1 << bits))\n  cat <<< 'x'\n}\nfor f in src/*; do rm -rf build/*; done\ndeploy() {\n  build\n}\necho \"$(printf \"%s isn't set\" \"$x\")\"\nspill() {\n}\ncat <<EOF\nphantom() {\nEOF\ncat <<-'TXT'\n\tspectre() {\n\tTXT\neval '\nproxy() {\n'\nn=$# && cat << 'END'\nwraith() {\nEND\necho hi # not cat <<EOF\nkept() {\n}\nx=$((\n  1 << 4\n))\ncat <<\\DOC\nghost() {\nDOC\nlast() {\n  deploy\n}\n";
     assert_eq!(
         literal_split(
             Kind::Shell,
             "run.sh",
             sh,
             &[
-                "build", "deploy", "spill", "phantom", "spectre", "proxy", "last"
+                "build", "deploy", "spill", "phantom", "spectre", "proxy", "wraith", "kept",
+                "ghost", "last"
             ]
         ),
         [
@@ -786,7 +788,10 @@ fn a_glob_or_a_lone_backtick_opens_nothing_in_the_kinds_without_them() {
             hidden(15),
             hidden(18),
             found(21),
-            found(23)
+            hidden(24),
+            found(27),
+            hidden(33),
+            found(35)
         ]
     );
     // A Makefile has nothing that runs over lines.
@@ -795,26 +800,33 @@ fn a_glob_or_a_lone_backtick_opens_nothing_in_the_kinds_without_them() {
         literal_split(Kind::Make, "Makefile", make, &["clean", "dist"]),
         [found(2), found(4)]
     );
-    let docker = "# syntax=docker/dockerfile:1\n# the `deps stage\nFROM node:20 AS deps\nCOPY dist/* ./\nFROM deps AS build\nRUN <<EOF\nFROM scratch AS ghost\nEOF\nCOPY <<-\"CONF\" /etc/app.conf\n\tFROM scratch AS phantom\n\tCONF\nFROM build AS final\n";
+    let docker = "# syntax=docker/dockerfile:1\n# the `deps stage\nFROM node:20 AS deps\nCOPY dist/* ./\nFROM deps AS build\nRUN <<EOF\nFROM scratch AS ghost\nEOF\nCOPY <<-\"CONF\" /etc/app.conf\n\tFROM scratch AS phantom\n\tCONF\nRUN v=${TAG#v} && cat <<EOF > /x\nFROM scratch AS wraith\nEOF\nFROM build AS final\n";
     assert_eq!(
         literal_split(
             Kind::Docker,
             "Dockerfile",
             docker,
-            &["deps", "build", "ghost", "phantom", "final"]
+            &["deps", "build", "ghost", "phantom", "wraith", "final"]
         ),
-        [found(3), found(5), hidden(7), hidden(10), found(12)]
+        [
+            found(3),
+            found(5),
+            hidden(7),
+            hidden(10),
+            hidden(13),
+            found(15)
+        ]
     );
     // Nor has YAML: the keys of a block scalar are declarations too, as the ones dorny/paths-filter
     // reads out of `filters: |` for `steps.changes.outputs.x`.
-    let yaml = "# quotes the `defaults with one backtick\ndefaults: &defaults\n  runs-on: ubuntu-latest\non:\n  push:\n    paths: [src/*.ts]\njobs:\n  test:\n    <<: *defaults\n    steps:\n      - run: |\n          ghost:\n\n          echo &phantom\n      - name: >-  # folded\n          &spectre\nlint:\n  - run: |\n    other:\n";
+    let yaml = "# quotes the `defaults with one backtick\ndefaults: &defaults\n  runs-on: ubuntu-latest\non:\n  push:\n    paths: [src/*.ts]\njobs:\n  test:\n    <<: *defaults\n    steps:\n      - run: |\n          ghost:\n\n          echo &phantom\n      - name: >-  # folded\n          &spectre\nlint:\n  - run: |\n    other:\nnote: a lone ` outside a comment\ntail:\n";
     assert_eq!(
         literal_split(
             Kind::Yaml,
             "ci.yml",
             yaml,
             &[
-                "defaults", "test", "ghost", "phantom", "spectre", "lint", "other"
+                "defaults", "test", "ghost", "phantom", "spectre", "lint", "other", "tail"
             ]
         ),
         [
@@ -824,7 +836,8 @@ fn a_glob_or_a_lone_backtick_opens_nothing_in_the_kinds_without_them() {
             found(14),
             found(16),
             found(17),
-            found(19)
+            found(19),
+            found(21)
         ]
     );
     // Snowflake's `//` comment and a MySQL name in backticks hide their `/*` as on master.
