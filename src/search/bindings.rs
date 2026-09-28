@@ -1049,3 +1049,155 @@ pub fn package_bindings(text: &str, name: &str) -> Vec<Binding> {
     }
     out
 }
+
+// ---- PHP's `$variable` (#464) ------------------------------------------------------------
+/// The 1-based lines that bind PHP's `$name` where 1-based `line` of `text` reads it (#464). A
+/// variable belongs to its function or closure, which sees nothing of the scope around it but
+/// what its `use (…)` list names: its parameters (a promoted one included) and that list, and,
+/// above the cursor, a plain `=`, a `foreach` target, a `catch`, a `global` or `static`, a
+/// destructuring. A compound `.=`, `+=` or `??=` reads the variable first and binds nothing.
+/// Outside any function, the lines at the top of the file count. `None` in a class body, where
+/// `$name` declares a property.
+pub fn php_variable(text: &str, line: usize, name: &str) -> Option<Vec<usize>> {
+    let raw: Vec<&str> = text.lines().collect();
+    let at = line.checked_sub(1).filter(|&i| i < raw.len())?;
+    let literal = literal_lines(Kind::Php, text);
+    // Strings and comments blanked out: a `$name` there binds nothing, and a brace there opens
+    // nothing.
+    let lines: Vec<String> = raw.iter().map(|l| php_code(l)).collect();
+    let n = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let var = rule(format!(r"(?:^|[^\w$:>])\${n}\b"));
+    // A function or an arrow function in the statement the cursor's line ends, whose parameters
+    // or `use` list name the variable: the cursor stands on that declaration, in a header written
+    // over several lines, or in a one-line body. A promoted constructor parameter under the cursor
+    // is a property's declaration, whose namesakes the search by name offers (#104).
+    let mut top = at;
+    while top > 0 && at - top < 50 && !literal[top - 1] && {
+        let t = lines[top - 1].trim();
+        !t.is_empty() && !t.ends_with([';', '{', '}'])
+    } {
+        top -= 1;
+    }
+    let statement = lines[top..=at].join("\n");
+    let head = Regex::new(r"(?:^|[^\w$:>])(?:function|fn)\b([^{]*?)(?:\{|=>|$)").unwrap();
+    if let Some(at_var) = head
+        .captures_iter(&statement)
+        .filter_map(|c| var.find(&c[1]).map(|m| c.get(1).unwrap().start() + m.end()))
+        .last()
+    {
+        let bound = top + statement[..at_var].matches('\n').count();
+        let promoted = rule(format!(
+            r"(?:(?:public|private|protected|readonly)\s+)+(?:\??[\w\\|]+\s+)?\${n}\b"
+        ));
+        return (bound != at || !promoted.is_match(&lines[at])).then(|| vec![bound + 1]);
+    }
+    let binds = [
+        format!(r"(?:^|[^\w$:>])\${n}\s*=(?:[^=>]|$)"),
+        format!(r"\bforeach\s*\(.*\bas\b.*\${n}\b"),
+        format!(r"\bcatch\s*\([^)]*\${n}\b"),
+        format!(r"^\s*(?:global|static)\s+[^;(]*\${n}\b"),
+        format!(r"(?:^|[^\w$])(?:list\s*\(|\[)[^;=]*\${n}\b[^;=]*[\])]\s*=(?:[^=>]|$)"),
+    ]
+    .map(rule);
+    let scope = php_scope(&lines, &literal, at);
+    let mut out = Vec::new();
+    let from = match scope {
+        PhpScope::Class => return None,
+        PhpScope::Top => 0,
+        // The parameters and the `use` list, read from the last `function` of the header on.
+        PhpScope::Function(start, open, brace) => {
+            let mut seen = false;
+            for (i, l) in lines.iter().enumerate().take(open + 1).skip(start) {
+                let l = if i == open { &l[..brace] } else { &l[..] };
+                let l = match FUNCTION.find_iter(l).last() {
+                    Some(m) => {
+                        seen = true;
+                        &l[m.end()..]
+                    }
+                    None => l,
+                };
+                if seen && var.is_match(l) {
+                    out.push(i + 1);
+                }
+            }
+            open + 1
+        }
+    };
+    out.extend(
+        (from..=at)
+            .filter(|&i| !literal[i] && binds.iter().any(|b| b.is_match(&lines[i])))
+            .filter(|&i| i == at || php_scope(&lines, &literal, i) == scope)
+            .map(|i| i + 1),
+    );
+    Some(out)
+}
+static FUNCTION: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"(?:^|[^\w$:>])function\b").unwrap());
+/// Where a line of PHP stands: at the top of the file (or in a `namespace { }`), in a class body,
+/// or in the function whose header starts on the first 0-based line and opens its body on the
+/// second, at the byte the third names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PhpScope {
+    Top,
+    Class,
+    Function(usize, usize, usize),
+}
+/// The scope 0-based line `at` of `lines` (code only, [`php_code`]) stands in: the innermost
+/// brace above it left open whose header is a function, a class or a namespace. An `if`, a loop,
+/// a `match` is no scope in PHP.
+fn php_scope(lines: &[String], literal: &[bool], at: usize) -> PhpScope {
+    static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$:>])(?:class|interface|trait|enum)\b").unwrap()
+    });
+    let mut depth = 0usize;
+    for i in (0..at).rev().filter(|&i| !literal[i]) {
+        for (pos, c) in lines[i]
+            .bytes()
+            .enumerate()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+        {
+            match c {
+                b'}' => depth += 1,
+                b'{' if depth > 0 => depth -= 1,
+                b'{' => {
+                    // The header: this line up to the brace, and the lines above it up to the
+                    // end of the statement before.
+                    let own = &lines[i][..pos];
+                    let cut = own.rfind([';', '{', '}']);
+                    let mut start = i;
+                    let mut header = own[cut.map_or(0, |c| c + 1)..].to_owned();
+                    while cut.is_none() && start > 0 && i - start < 50 {
+                        let t = lines[start - 1].trim();
+                        if literal[start - 1] || t.is_empty() || t.ends_with([';', '{', '}']) {
+                            break;
+                        }
+                        start -= 1;
+                        header = format!("{t}\n{header}");
+                    }
+                    if FUNCTION.is_match(&header) {
+                        return PhpScope::Function(start, i, pos);
+                    }
+                    if CLASS.is_match(&header) {
+                        return PhpScope::Class;
+                    }
+                    if header.trim_start().starts_with("namespace") {
+                        return PhpScope::Top;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    PhpScope::Top
+}
+/// A line of PHP with its strings and its comment blanked out, byte for byte.
+fn php_code(l: &str) -> String {
+    let mut out = vec![b' '; l.len()];
+    for (i, c) in code(Kind::Php, l).take_while(|&(_, c)| c != 0) {
+        out[i] = c;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}

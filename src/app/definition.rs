@@ -45,6 +45,30 @@ impl App {
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
         self.truncated.set(false);
+        // A PHP `$name` is a variable of its own function, never a function, a method or another
+        // function's local (#464). `self::$x` is a static property, and `$this` the object.
+        let sigil = &self.line_str()[..range.start];
+        if kind == Kind::Php
+            && sigil.ends_with('$')
+            && !sigil.ends_with("::$")
+            && word != "this"
+            && let Some(lines) = search::php_variable(&text, self.line + 1, &word)
+        {
+            let found = lines
+                .into_iter()
+                .map(|line| Candidate {
+                    hit: Hit {
+                        path: here.clone(),
+                        line,
+                        col: 0,
+                        text: self.buf.lines[line - 1].clone(),
+                    },
+                    reason: Reason::Local,
+                })
+                .collect();
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // Inside a docstring's example the imports written there count too.
         let in_literal = search::literal_lines(kind, &text).get(self.line) == Some(&true);
         let mut imports = match in_literal {
