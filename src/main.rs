@@ -326,19 +326,11 @@ fn event_loop(
 
     // Inside tmux a thread hands it each copied text too, in order: a slow or missing tmux
     // holds no key, and a failed call changes nothing on screen.
-    let tmux = tmux_copy(std::env::var_os("TMUX").as_deref()).map(|mut calls| {
+    let tmux = tmux_copy(std::env::var_os("TMUX").as_deref()).map(|(mut taken, mut calls)| {
         let (tx, texts) = mpsc::channel::<String>();
         std::thread::spawn(move || {
             for text in texts {
-                for call in &mut calls {
-                    let Ok(mut child) = call.spawn() else { break };
-                    if let Some(mut stdin) = child.stdin.take() {
-                        let _ = stdin.write_all(text.as_bytes());
-                    }
-                    if child.wait().is_ok_and(|s| s.success()) {
-                        break;
-                    }
-                }
+                hand_to_tmux(&mut taken, &mut calls, &text);
             }
         });
         tx
@@ -619,21 +611,48 @@ fn base64(bytes: &[u8]) -> String {
     out
 }
 
-/// Inside tmux (`$TMUX` set), the calls that hand it copied text on stdin, the first that works
-/// kept: tmux's default `set-clipboard external` drops the OSC 52 merl writes (#395). With `-w`
-/// (tmux 3.2) tmux keeps a paste buffer and sets the outer terminal's clipboard itself; an older
-/// tmux refuses `-w`, and the plain call at least fills a buffer, for prefix `]`.
-fn tmux_copy(tmux: Option<&OsStr>) -> Option<[Command; 2]> {
+/// Inside tmux (`$TMUX` set): the question whether tmux takes the OSC 52 merl writes itself,
+/// and the calls that hand it copied text on stdin when it does not: tmux's default
+/// `set-clipboard external` drops the OSC 52 (#395). With `-w` (tmux 3.2) tmux keeps a paste
+/// buffer and sets the outer terminal's clipboard itself; an older tmux refuses `-w`, and the
+/// plain call at least fills a buffer, for prefix `]`.
+fn tmux_copy(tmux: Option<&OsStr>) -> Option<(Command, [Command; 2])> {
     tmux.filter(|t| !t.is_empty())?;
-    Some([&["-w", "-"][..], &["-"]].map(|args| {
+    // Its usage, or an error, must not draw over merl's screen.
+    let tmux = |args: &[&str], stdin: Stdio, stdout: Stdio| {
         let mut cmd = Command::new("tmux");
-        // Its usage, or an error, must not draw over merl's screen.
-        (cmd.arg("load-buffer").args(args))
-            .stdin(Stdio::piped())
-            .stdout(Stdio::null())
+        cmd.args(args)
+            .stdin(stdin)
+            .stdout(stdout)
             .stderr(Stdio::null());
         cmd
-    }))
+    };
+    let taken = tmux(
+        &["show-options", "-sv", "set-clipboard"],
+        Stdio::null(),
+        Stdio::piped(),
+    );
+    let calls = [&["load-buffer", "-w", "-"][..], &["load-buffer", "-"]]
+        .map(|args| tmux(args, Stdio::piped(), Stdio::null()));
+    Some((taken, calls))
+}
+
+/// Hands `text` to tmux through the first of `calls` that works, unless `taken` answers `on`:
+/// then tmux made a buffer of merl's OSC 52 already, and a second one would repeat it. Asked on
+/// every copy, as the option can change while merl runs.
+fn hand_to_tmux(taken: &mut Command, calls: &mut [Command], text: &str) {
+    if taken.output().is_ok_and(|o| o.stdout.trim_ascii() == b"on") {
+        return;
+    }
+    for call in calls {
+        let Ok(mut child) = call.spawn() else { break };
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(text.as_bytes());
+        }
+        if child.wait().is_ok_and(|s| s.success()) {
+            break;
+        }
+    }
 }
 
 fn git_toplevel(dir: &Path) -> Option<PathBuf> {
@@ -660,13 +679,40 @@ mod tests {
         use std::ffi::OsStr;
         assert!(super::tmux_copy(None).is_none());
         assert!(super::tmux_copy(Some(OsStr::new(""))).is_none());
-        let calls = super::tmux_copy(Some(OsStr::new("/tmp/tmux-501/default,4242,0"))).unwrap();
-        let calls = calls.map(|c| {
+        let (taken, calls) =
+            super::tmux_copy(Some(OsStr::new("/tmp/tmux-501/default,4242,0"))).unwrap();
+        let line = |c: &std::process::Command| {
             let args: Vec<_> = c.get_args().map(|a| a.to_str().unwrap()).collect();
             format!("{} {}", c.get_program().display(), args.join(" "))
-        });
+        };
+        assert_eq!(line(&taken), "tmux show-options -sv set-clipboard");
         // tmux 3.2 and newer first; an older one refuses `-w` and gets the text without it.
-        assert_eq!(calls, ["tmux load-buffer -w -", "tmux load-buffer -"]);
+        assert_eq!(
+            calls.each_ref().map(line),
+            ["tmux load-buffer -w -", "tmux load-buffer -"]
+        );
+    }
+
+    /// #395: the text goes to the first call that works, and to none when tmux answers that it
+    /// took the OSC 52 itself (`set-clipboard on`), which already made a buffer of it.
+    #[cfg(unix)]
+    #[test]
+    fn a_copy_goes_to_the_first_call_that_works_unless_tmux_took_the_osc_52() {
+        use std::process::{Command, Stdio};
+        let got = std::env::temp_dir().join(format!("merl-tmux-copy-{}", std::process::id()));
+        let _ = std::fs::remove_file(&got);
+        let sh = |script: &str| {
+            let mut cmd = Command::new("sh");
+            cmd.args(["-c", script]).stdin(Stdio::piped());
+            cmd
+        };
+        // An older tmux refuses the first call; the second gets the text on stdin.
+        let mut calls = [sh("exit 1"), sh(&format!("cat > '{}'", got.display()))];
+        super::hand_to_tmux(&mut sh("echo external"), &mut calls, "one");
+        assert_eq!(std::fs::read_to_string(&got).unwrap(), "one");
+        std::fs::remove_file(&got).unwrap();
+        super::hand_to_tmux(&mut sh("echo on"), &mut calls, "two");
+        assert!(!got.exists());
     }
 
     #[test]
