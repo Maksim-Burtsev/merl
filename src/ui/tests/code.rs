@@ -210,21 +210,41 @@ z
 
 #[test]
 fn find_spans_cut_the_syntax_spans_they_cover() {
-    use ratatui::style::{Color, Style};
+    use ratatui::style::{Color, Modifier, Style};
 
-    let syntax = Style::new().fg(Color::Blue);
+    let syntax = Style::new().fg(Color::Blue).add_modifier(Modifier::ITALIC);
     let find = Style::new().bg(Color::Yellow);
+    let lit = syntax.bg(Color::Yellow);
     // "abcdefgh": one syntax span over 0..4, matches at 2..3 (inside it) and 5..6 (in the
-    // gap the highlighter left behind).
+    // gap the highlighter left behind). The match keeps the syntax colour and style under its
+    // tint (#480); in the gap there is none to keep.
     let out = super::with_find(&[(syntax, 0..4)], &[2..3, 5..6], find);
     assert_eq!(
         out,
-        [(syntax, 0..2), (find, 2..3), (syntax, 3..4), (find, 5..6),]
+        [
+            (syntax, 0..2),
+            (lit, 2..3),
+            (syntax, 3..4),
+            (Style::new(), 4..5),
+            (find, 5..6),
+        ]
     );
-    // Matches covering a whole span replace it.
+    // A match across a span's end is cut there, each part over its own text.
     assert_eq!(
         super::with_find(&[(syntax, 0..4)], &[0..2, 2..6], find),
-        [(find, 0..2), (find, 2..6)]
+        [(lit, 0..2), (lit, 2..4), (find, 4..6)]
+    );
+    // A theme's own match foreground wins over the syntax colour.
+    let named = find.fg(Color::Black);
+    assert_eq!(
+        super::with_find(&[(syntax, 0..4)], &[1..2, 5..6], named),
+        [
+            (syntax, 0..1),
+            (syntax.patch(named), 1..2),
+            (syntax, 2..4),
+            (Style::new(), 4..5),
+            (named, 5..6)
+        ]
     );
     assert_eq!(
         super::with_find(&[(syntax, 0..4)], &[], find),
