@@ -174,7 +174,7 @@ target below it: add cases at the end of a file, or in a new file.
 The Python, TypeScript and Go projects above keep their lines, since the `navigate_*.rs` tests
 pin them, so their annotated cases are a package of their own inside them: `python/shop/`,
 `typescript/shop/`, `go/shop/` and `go/cart/`. Every other kind has a directory of its own
-(`rust/`, `jvm/`). Each is one small shop (a `Tariff` and a `Coupon` sharing `rate` and
+(`rust/`, `jvm/`, `ruby/`, `c/`, `csharp/`, `swift/`, `php/`, `lua/`, `elixir/`). Each is one small shop (a `Tariff` and a `Coupon` sharing `rate` and
 `describe`, a `Courier`, `discount`, `weigh`, a basket that uses them) holding:
 
 - two types sharing a method name, an import inside the project (aliased, of a module, of a
@@ -188,6 +188,9 @@ pin them, so their annotated cases are a package of their own inside them: `pyth
 The shop's names (`Tariff`, `Coupon`, `Courier`, `Basket`, `gross`, `weigh`, …) appear nowhere
 else in a fixture: a namesake would change what the `navigate_*.rs` tests find by name (a `total`
 method did).
+
+`elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
+`deps/jason` added with `git add -f`: a dependency the project walk does not reach (#437).
 
 ### Adding a kind
 
