@@ -199,7 +199,7 @@ def main():
             f.writelines("\t".join(r[:4]) + "\n" for _, r in merged)
         all_rows = [(next(p[1] for p in projects if r[0].startswith(p[1]) and r[0][len(p[1]):].isdigit()),
                      r[0], r[1], float(r[3])) for _, r in merged]
-        head = subprocess.run(["git", "-C", REPO, "log", "-1", "--format=%h %s"], capture_output=True,
+        head = subprocess.run(["git", "-C", REPO, "log", "-1", "--format=%h"], capture_output=True,
                               text=True).stdout.strip()
         load_after = os.popen("sysctl -n vm.loadavg 2>/dev/null").read().strip()
         with open(os.path.join(HERE, "baseline.md"), "w") as f:

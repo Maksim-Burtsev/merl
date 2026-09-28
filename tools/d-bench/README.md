@@ -6,8 +6,8 @@ scores on them (`baseline.md`). A `d` change runs it and shows no language worse
 (`AGENTS.md`, `## Changing d`).
 
 ```sh
-tools/d-bench/run                    # every language, ~N min on a warm cache
-tools/d-bench/run --lang go,rust     # the languages a change touches, ~N s
+tools/d-bench/run                    # every language: 5.4 min on a warm cache (2026-09-28)
+tools/d-bench/run --lang go,rust     # one language: 40 s for Go
 tools/d-bench/run --project caddy
 tools/d-bench/run --update-baseline  # a PR that changes the table commits the new baseline
 ```
