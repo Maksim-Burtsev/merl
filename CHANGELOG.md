@@ -59,6 +59,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it was a picker of every `new` in the project, `by name`. Only a `use` at the top of the file
   counts, and a type of the name in the file itself, a name bound twice, a binary under
   `src/bin/` or a module with no `impl` of the type stay `by name`. (#227)
+- `d` in C# on `Offer.Cut`, where `Offer` is an `enum` the project declares, lands on `Cut` in
+  the enum's body, `via Offer`, where it found nothing: one member per line or several on one,
+  with a value or an attribute. The enum has to be in a namespace the file sees, by its own
+  namespace, a `using`, a `global using` of its project or the path written out
+  (`Shop.Pricing.Offer.Cut`); a bare `Cut` still has no rule. (#466)
 - `merl --review` keeps the files marked viewed from one start to the next, per branch and base,
   in the repository's git directory, so a review in a worktree has them too. A file changed since
   it was viewed, on screen or between two starts, loses its tick, as on GitLab. A file that leaves

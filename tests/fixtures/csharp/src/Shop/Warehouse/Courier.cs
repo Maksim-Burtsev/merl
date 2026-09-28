@@ -44,3 +44,10 @@ public class Animation
 {
     public int Delay { get; set; }
 }
+
+public class Shelf
+{
+    // No `using Shop.Pricing;` here: the project's `global using` opens it.
+    public object Level() => Tier.Gold;
+    //                            ^ d: src/Shop/Pricing/Pricing.cs:65
+}
