@@ -191,3 +191,45 @@ fn esc_restores_the_anchor() {
     assert_eq!(a.mode, Mode::Normal);
     assert_eq!((a.line, a.col), (2, 1));
 }
+
+/// The query holds at most 1,000 chars (#267): typing past them does nothing, a paste is cut to
+/// what fits. The worst case, 1,000 Cyrillic letters, compiles ignoring case: uncapped, some
+/// 60,000 went past the `regex` crate's size limit and aborted merl.
+#[test]
+fn the_query_is_capped_so_it_always_compiles() {
+    let mut a = app("яяя\n");
+    press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+    a.paste(&"Я".repeat(70_000));
+    assert_eq!(
+        (a.prompt.chars().count(), a.message.as_str()),
+        (1_000, "no match")
+    );
+    assert!(
+        a.find_re
+            .as_ref()
+            .is_some_and(|re| re.is_match(&"я".repeat(1_000)))
+    );
+    typed(&mut a, "я");
+    assert_eq!(a.prompt.chars().count(), 1_000);
+    // Reopened, the query is selected: a paste replaces it, as much of it as fits.
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+    a.paste(&"я".repeat(1_001));
+    assert_eq!(
+        (a.prompt.chars().count(), a.message.as_str()),
+        (1_000, "no match")
+    );
+    // A paste whose first line is empty types nothing, and leaves the query as it was.
+    press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+    a.paste("яя\r\nmore");
+    assert_eq!((&*a.prompt, a.message.as_str()), ("яя", "1/1"));
+    press(&mut a, KeyCode::Home, KeyModifiers::SHIFT);
+    a.paste("\nyy");
+    assert_eq!((&*a.prompt, a.prompt.selection()), ("яя", Some(0..4)));
+    // Greek iota, with four case forms, compiles to a bigger regex still.
+    a.paste(&"ι".repeat(1_001));
+    assert_eq!(
+        (a.prompt.chars().count(), a.message.as_str()),
+        (1_000, "no match")
+    );
+}

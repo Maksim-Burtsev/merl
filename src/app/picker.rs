@@ -87,20 +87,7 @@ impl App {
         }
         match picker.key(key) {
             Pick::Stay => return,
-            Pick::Typed => {
-                // `s` has nothing to show without a query. `D` has the list it opened on, so an
-                // emptied query asks for that list again rather than for nothing.
-                let empty =
-                    picker.query.is_empty() && self.mode == Mode::Picker(PickerKind::Search);
-                self.search_seq += 1;
-                (self.search_sent, self.search_enter) = (None, false);
-                self.search_due = Some(Instant::now() + SEARCH_PAUSE);
-                if empty {
-                    self.search_due = None;
-                    self.search_done(self.search_seq, Vec::new());
-                }
-                return;
-            }
+            Pick::Typed => return self.search_typed(),
             Pick::Cancel => {
                 self.picker = None;
                 self.close_overlay();
@@ -130,5 +117,20 @@ impl App {
         // Dropping the picker stops nucleo's workers.
         self.picker = None;
         self.mode = Mode::Normal;
+    }
+
+    /// The query of a live picker changed: its search goes out once typing pauses.
+    pub(super) fn search_typed(&mut self) {
+        // `s` has nothing to show without a query. `D` has the list it opened on, so an
+        // emptied query asks for that list again rather than for nothing.
+        let empty = self.picker.as_ref().is_some_and(|p| p.query.is_empty())
+            && self.mode == Mode::Picker(PickerKind::Search);
+        self.search_seq += 1;
+        (self.search_sent, self.search_enter) = (None, false);
+        self.search_due = Some(Instant::now() + SEARCH_PAUSE);
+        if empty {
+            self.search_due = None;
+            self.search_done(self.search_seq, Vec::new());
+        }
     }
 }
