@@ -290,7 +290,7 @@ impl App {
         false
     }
 
-    fn goto_key(&mut self, key: KeyEvent) {
+    pub(super) fn goto_key(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Enter => {
                 match self.prompt.parse::<usize>() {

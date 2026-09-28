@@ -27,3 +27,9 @@ jobs:
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test --locked
       - run: cargo build --release --locked
+      # The oldest Rust `Cargo.toml` allows builds merl too (#320), in a check the merge waits for.
+      - if: matrix.os == 'ubuntu-latest'
+        run: |
+          msrv=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
+          rustup toolchain install "$msrv" --profile minimal
+          cargo "+$msrv" build --locked

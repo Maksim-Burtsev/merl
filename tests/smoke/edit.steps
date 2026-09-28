@@ -5,7 +5,8 @@
 # selection by words (#4) and Ctrl+C puts it on the clipboard through OSC 52. Ctrl+F while
 # editing finds and stays in edit mode (#56). Ctrl+N makes a file. A secret typed into the
 # ignored .env is saved there and copied nowhere under HOME. The pane closed (SIGHUP) under
-# typing not yet saved: merl saves it and exits 0 (#80).
+# typing not yet saved: merl saves it and exits 0 (#80). Under tmux's default `set-clipboard
+# external`, which drops OSC 52, Ctrl+C still puts the line in a tmux buffer (#395).
 merl app/config.py
 wait class Settings:
 key t /
@@ -82,3 +83,9 @@ wait README.md ●
 run kill -HUP $($SMOKE_TMUX display -p -t 0 '#{pane_pid}')
 wait merl exited: 0
 run grep -q 'Runbook: docs/notes.md' README.md && grep -q sk_live_smoke_4242 .env && ! grep -rq sk_live_smoke "$HOME"
+merl app/money.py
+wait app/money.py  1:1
+run $SMOKE_TMUX set -s set-clipboard external
+key C-c
+wait copied 1 line
+run $SMOKE_TMUX show-buffer | grep -q 'from decimal import Decimal'

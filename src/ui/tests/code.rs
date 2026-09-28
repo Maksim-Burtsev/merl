@@ -1325,3 +1325,36 @@ fn a_cut_line_scrolled_to_its_end_still_shows_its_ellipsis() {
     assert_eq!(at(19_999, 5_004), ["1 \u{2039}", "\u{258e}a\u{2026}"]);
     assert_eq!(at(20_000, 5_004), ["1 \u{2039}", "\u{258e}\u{2026}"]);
 }
+
+/// #412: scrolled into a line that wraps, `t` widens the pane and the line takes fewer rows. The
+/// top inside it is made valid for the new wrap first, so the cursor is drawn on the line the
+/// status bar names, and a letter typed there lands on the line it is drawn on.
+#[test]
+fn a_wider_pane_draws_the_cursor_on_its_own_line() {
+    let words: Vec<String> = (0..60).map(|i| format!("word{i:03}")).collect();
+    let mut text = format!("LONG {}\n", words.join(" "));
+    for i in 2..40 {
+        text += &format!("line {i}\n");
+    }
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/a.txt"), text.as_bytes()),
+        None,
+    );
+    // Next to the tree the first line wraps into eight rows; the view scrolls into them.
+    let mut terminal = Terminal::new(TestBackend::new(100, 12)).unwrap();
+    for _ in 0..17 {
+        press(&mut app, &mut terminal, KeyCode::Down);
+    }
+    assert_eq!((app.line, app.top_line, app.top_row), (10, 0, 7));
+    let (screen, y) = press(&mut app, &mut terminal, KeyCode::Char('t'));
+    assert_eq!(screen[y], "11 line 11");
+    for code in [KeyCode::Enter, KeyCode::Char('X'), KeyCode::Esc] {
+        press(&mut app, &mut terminal, code);
+    }
+    let (screen, y) = press(&mut app, &mut terminal, KeyCode::Null);
+    assert_eq!(screen[y], "11 Xline 11");
+    assert_eq!(app.buf.lines[10], "Xline 11");
+}

@@ -867,6 +867,69 @@ fn review_walks_past_a_submodule_and_a_file_that_does_not_open() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// #404: git counts a symlink as one line, where it points, and a link to a directory has no
+/// text to read: the review opens on the first file with a hunk, and `c` and `C` pass the link
+/// as they pass a submodule, whether it comes first, in the middle or last.
+#[cfg(unix)]
+#[test]
+fn review_walks_past_a_link_to_a_directory_wherever_it_is() {
+    for (link, to) in [("a/link", "../src"), ("m_link", "src"), ("z_link", "src")] {
+        let (dir, _) = review_app(&format!("dirlink-{}", link.replace('/', "-")));
+        std::fs::create_dir_all(dir.join(link).parent().unwrap()).unwrap();
+        std::os::unix::fs::symlink(to, dir.join(link)).unwrap();
+        for args in [&["add", "-A"][..], &["commit", "-q", "-m", "link"]] {
+            let mut git = std::process::Command::new("git");
+            assert!(
+                git.arg("-C")
+                    .arg(&dir)
+                    .args(args)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+        let r = git::Review::open(&dir, None, None).unwrap();
+        assert!(!r.file(Path::new(link)).unwrap().has_hunks(), "{link}");
+        // The file `main` opens.
+        let first = r.first_file(&dir).unwrap();
+        assert_eq!(first, dir.join("src/a.rs"), "{link}");
+        let (_, files) = crate::tree::build(&dir, false);
+        let panel: Vec<_> = r.files.iter().map(|f| f.path.clone()).collect();
+        let buf = Buffer::load(&first).unwrap();
+        let mut a = App::new(
+            dir.clone(),
+            crate::tree::from_files(&panel),
+            files,
+            buf,
+            None,
+        );
+        a.start_review(r);
+        // Every stop, forward and back: never the link, and no error on the way.
+        let mut walk = |key: char, end: &str| {
+            let mut stops = vec![a.rel_current().unwrap()];
+            loop {
+                press(&mut a, KeyCode::Char(key), KeyModifiers::NONE);
+                assert!(!a.message.contains("error"), "{link}: {}", a.message);
+                if a.message == end {
+                    return stops;
+                }
+                let rel = a.rel_current().unwrap();
+                if stops.last() != Some(&rel) {
+                    stops.push(rel);
+                }
+            }
+        };
+        let forward = ["src/a.rs", "crlf.txt", "gone", "new", "tail"].map(PathBuf::from);
+        assert_eq!(walk('c', "last hunk of the review"), forward, "{link}");
+        let back = walk('C', "first hunk of the review");
+        assert_eq!(
+            back.iter().rev().collect::<Vec<_>>(),
+            forward.iter().collect::<Vec<_>>()
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
 #[test]
 fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
     let (dir, mut a) = review_app("reviewapp");

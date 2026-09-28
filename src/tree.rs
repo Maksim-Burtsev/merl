@@ -2,6 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
+use std::fs::FileType;
 use std::path::{Path, PathBuf};
 
 use ignore::WalkBuilder;
@@ -12,7 +13,8 @@ pub struct Node {
     pub depth: usize,
     pub is_dir: bool,
     pub expanded: bool,
-    /// Left out by `.gitignore` and the other ignore files: a dim row. The walk does not go into
+    /// Left out by `.gitignore` and the other ignore files, or a link to a directory, which the
+    /// walk does not follow either: a dim row. The walk does not go into
     /// an ignored directory; it is read from disk one level at a time, when it is expanded.
     pub ignored: bool,
 }
@@ -48,13 +50,16 @@ pub struct Tree {
 pub fn build(root: &Path, shallow: bool) -> (Tree, Vec<PathBuf>) {
     // Dotfiles are walked: `.github/`, `.env` and `.dockerignore` are part of a project.
     // `.gitignore` still prunes caches; a version-control store is never content.
+    // A link to a directory is not followed (#404): the level it is in lists it, a directory
+    // read when it is expanded, so a link to `..` or `/` loops nothing and pulls nothing in.
     let walked: Vec<(PathBuf, bool)> = WalkBuilder::new(root)
         .hidden(false)
         .require_git(false)
         .max_depth(shallow.then_some(1))
-        .filter_entry(|e| !is_store(e.file_name()))
+        .filter_entry(|e| !is_store(e.file_name()) && !(e.path_is_symlink() && e.path().is_dir()))
         .build()
         .filter_map(Result::ok)
+        .filter(|e| listable(e.path(), e.file_type()))
         .filter_map(|e| {
             let rel = e.path().strip_prefix(root).ok()?.to_path_buf();
             let is_dir = e.file_type().is_some_and(|t| t.is_dir());
@@ -97,15 +102,31 @@ fn is_store(name: &OsStr) -> bool {
     matches!(name.to_str(), Some(".git" | ".hg" | ".svn"))
 }
 
-/// The entries of `dir` (relative to `root`) and whether each is a directory, unsorted.
+/// Is it a row: a directory, a regular file, a link to one, or a link that leads nowhere, a row
+/// as `ls` shows it, which fails to open at once. A FIFO, a socket or a device is not code, and
+/// opening one blocks until something writes to it (#405). `kind` is the entry's own type.
+pub fn listable(path: &Path, kind: Option<FileType>) -> bool {
+    let plain = |t: FileType| t.is_dir() || t.is_file();
+    kind.is_some_and(plain)
+        || match std::fs::metadata(path) {
+            Ok(m) => plain(m.file_type()),
+            Err(_) => kind.is_some_and(|t| t.is_symlink()),
+        }
+}
+
+/// The entries of `dir` (relative to `root`) and whether each is a directory, unsorted. A link
+/// to a directory is one.
 fn read_level(root: &Path, dir: &Path) -> Vec<(PathBuf, bool)> {
     let Ok(read) = std::fs::read_dir(root.join(dir)) else {
         return Vec::new();
     };
     read.flatten()
         .filter(|e| !is_store(&e.file_name()))
+        .filter(|e| listable(&e.path(), e.file_type().ok()))
         .map(|e| {
-            let is_dir = e.file_type().is_ok_and(|t| t.is_dir());
+            let is_dir = e
+                .file_type()
+                .is_ok_and(|t| t.is_dir() || t.is_symlink() && e.path().is_dir());
             (dir.join(e.file_name()), is_dir)
         })
         .collect()
@@ -562,6 +583,56 @@ mod tests {
         assert_eq!(t.selected().unwrap().name(), "Zed.toml");
     }
 
+    /// #405: opening a FIFO blocks until something writes to it, so a FIFO is not a row and not
+    /// in the list the searches read, neither from the walk nor from an ignored level; a link
+    /// to a regular file is, a link to a FIFO is not, and a link that leads nowhere still is.
+    #[test]
+    #[cfg(unix)]
+    fn a_fifo_is_neither_a_row_nor_in_the_list() {
+        let dir = project("fifo", &["a.py", "src/b.py", "build/out.txt"]);
+        std::fs::write(dir.join(".gitignore"), "build/\n*.sock\n").unwrap();
+        for f in ["pipe", "src/pipe", "srv.sock", "build/b.sock"] {
+            let mkfifo = std::process::Command::new("mkfifo")
+                .arg(dir.join(f))
+                .status();
+            assert!(mkfifo.unwrap().success(), "{f}");
+        }
+        std::os::unix::fs::symlink("a.py", dir.join("link.py")).unwrap();
+        std::os::unix::fs::symlink("pipe", dir.join("link.pipe")).unwrap();
+        // A link that leads nowhere stays a row, as it was before FIFOs were left out.
+        std::os::unix::fs::symlink("missing.py", dir.join("gone.py")).unwrap();
+        let (mut t, files) = build(&dir, false);
+        assert_eq!(
+            files,
+            [
+                PathBuf::from("src/b.py"),
+                ".gitignore".into(),
+                "a.py".into(),
+                "gone.py".into(),
+                "link.py".into()
+            ]
+        );
+        assert!(t.ignored_files().is_empty());
+        t.reveal(Path::new("build"));
+        t.expand();
+        t.reveal(Path::new("src"));
+        t.expand();
+        assert_eq!(
+            rows(&t),
+            [
+                "build",
+                "build/out.txt",
+                "src",
+                "src/b.py",
+                ".gitignore",
+                "a.py",
+                "gone.py",
+                "link.py"
+            ]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn dotfiles_are_walked_but_git_and_ignored_files_are_not() {
         let dir = std::env::temp_dir().join(format!("merl-tree-{}-dot", std::process::id()));
@@ -705,6 +776,41 @@ mod tests {
                 "node_modules/pkg/new.js",
             ]
         );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #404: a symlink to a directory is a directory, read from disk when it is expanded, as an
+    /// ignored one is. The walk does not follow it, so a link to `..` loops nothing and what it
+    /// leads to is not in the list.
+    #[cfg(unix)]
+    #[test]
+    fn a_link_to_a_directory_is_a_directory_the_walk_does_not_follow() {
+        let dir = project("dirlink", &["docs/a.md", "z.py"]);
+        std::os::unix::fs::symlink("docs", dir.join("alink")).unwrap();
+        std::os::unix::fs::symlink("..", dir.join("docs/up")).unwrap();
+        let (mut t, files) = build(&dir, false);
+        assert_eq!(files, [PathBuf::from("docs/a.md"), "z.py".into()]);
+        assert_eq!(rows(&t), ["alink", "docs", "z.py"]);
+        t.reveal(Path::new("alink"));
+        t.toggle();
+        assert_eq!(
+            rows(&t),
+            ["alink", "alink/up", "alink/a.md", "docs", "z.py"]
+        );
+        // The link back up is a directory too, read one level when it is opened, not before.
+        t.down();
+        t.toggle();
+        assert_eq!(
+            rows(&t)[..5],
+            [
+                "alink",
+                "alink/up",
+                "alink/up/alink",
+                "alink/up/docs",
+                "alink/up/z.py"
+            ]
+        );
+        assert!(t.dirs() == HashSet::from([PathBuf::from("docs")]));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

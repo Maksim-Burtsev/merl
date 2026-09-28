@@ -102,11 +102,24 @@ impl App {
                     .values()
                     .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)))
                 // Another package's `node_modules`, walked from a file opened before.
-                || !listed && self.node_modules.keys().any(|r| path.starts_with(r));
+                || !listed && self.node_modules.keys().any(|r| path.starts_with(r))
+                // Below a link to a directory that leads out of the project (#404).
+                || !listed && self.in_project(path).is_none();
         if external {
             buf.readonly.get_or_insert("outside the project");
         }
         lock_no_write(buf);
+    }
+
+    /// `path`, below the root, as a path from the root once the directories on it that exist are
+    /// resolved, links included; `None` when they lead out of the project (#404).
+    pub(super) fn in_project(&self, path: &Path) -> Option<PathBuf> {
+        let dir = path.parent()?;
+        let (real, rest) = (dir.ancestors())
+            .find_map(|a| Some((a.canonicalize().ok()?, dir.strip_prefix(a).ok()?)))?;
+        let resolved = real.join(rest).join(path.file_name()?);
+        let rel = resolved.strip_prefix(self.root.canonicalize().ok()?).ok()?;
+        Some(rel.to_path_buf())
     }
 
     /// The file from disk; in review mode a file the branch deleted comes from the base,
@@ -251,7 +264,6 @@ impl App {
         self.undo_break = true;
         self.refresh_diff();
         (self.line, self.col) = self.clamp_pos((self.line, self.col));
-        self.clamp_top();
         self.sync_want_x();
         self.clamp_scroll();
         self.message = "reloaded".into();

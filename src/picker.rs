@@ -196,13 +196,29 @@ impl Picker {
             _ => {
                 let old = self.query.to_string();
                 if self.query.key(key) {
-                    if self.live {
-                        return Pick::Typed;
-                    }
-                    self.requery(self.query.starts_with(&old));
+                    return self.edited(&old);
                 }
             }
         }
+        Pick::Stay
+    }
+
+    /// Text pasted into the query, taken in one go.
+    pub fn paste(&mut self, text: &str) -> Pick {
+        let old = self.query.to_string();
+        match self.query.insert(text) {
+            true => self.edited(&old),
+            false => Pick::Stay,
+        }
+    }
+
+    /// The query changed from `old`: a live picker's owner searches again, any other picker
+    /// filters itself.
+    fn edited(&mut self, old: &str) -> Pick {
+        if self.live {
+            return Pick::Typed;
+        }
+        self.requery(self.query.starts_with(old));
         Pick::Stay
     }
 }

@@ -2,6 +2,12 @@
 
 use super::*;
 
+/// The most chars a `/` query holds (#267): nobody searches a file for a longer literal. Ignoring
+/// case, 1,000 Cyrillic letters compile to about 200 KiB, Greek iotas (four case forms, the worst
+/// found) to 330 KiB: far below the `regex` crate's 10 MiB limit, which some 60,000 Cyrillic
+/// letters went past.
+const FIND_CAP: usize = 1_000;
+
 impl App {
     /// An overlay closed and the open file stays: back to the mode it was opened from.
     pub(super) fn close_overlay(&mut self) {
@@ -19,7 +25,7 @@ impl App {
     pub(super) fn start_find(&mut self) {
         self.mode = Mode::Find;
         let last = self.find_re.as_ref().map_or("", |_| &self.find_query);
-        self.prompt = LineEdit::selected(last);
+        self.prompt = LineEdit::selected(last).capped(FIND_CAP);
         self.find_anchor = (self.line, self.col);
         self.find_sel = self.anchor.take();
         if let Some(re) = &self.find_re {
@@ -56,7 +62,7 @@ impl App {
     /// Recompiles the query and moves to the first match at or after the anchor.
     /// The query is literal text and ignores case: `migrator(` hits `Migrator()`, `sameCancel`
     /// hits `SameCancel`.
-    fn refresh_find(&mut self) {
+    pub(super) fn refresh_find(&mut self) {
         if self.prompt.is_empty() {
             // Nothing to match: drop the previous pattern so its highlights go with it,
             // and put the cursor back where the search started.
@@ -69,7 +75,7 @@ impl App {
         let re = RegexBuilder::new(&regex::escape(&self.prompt))
             .case_insensitive(true)
             .build()
-            .expect("an escaped literal always compiles");
+            .expect("a literal of at most FIND_CAP chars compiles");
         let (l, c) = self.find_anchor;
         let hit = self
             .match_at_or_after(&re, l, c)

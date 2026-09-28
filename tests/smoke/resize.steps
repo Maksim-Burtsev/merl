@@ -14,3 +14,12 @@ key t
 wait 5 - ⚠️ A refund past the 30-day window needs a manager's approval: open the order, press Refund and write the reason in the note, the payment team reads it.
 key t
 wait │     the payment team reads it.
+# #412: scrolled beside the tree into the second row of a wrapped line, t widens the pane and that
+# line fits on one row: the cursor stays on line 16, and a letter typed there lands on it.
+size 160x13
+key Down*9
+wait docs/notes.md  16:1
+key t Enter
+type X
+key Escape
+wait 16▎X- A cancelled order keeps its total.
