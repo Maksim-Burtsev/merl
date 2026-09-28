@@ -121,6 +121,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   definition for views`, or jumped to a function called `views` elsewhere. A comment inside a
   bracketed import, `a,  # noqa: F401`, no longer hides the name after it, so `d` on that name
   goes through the import instead of offering its namesakes. (#280)
+- A long paste into `/` no longer freezes merl and then aborts it: the query holds up to 1,000
+  characters, and a paste goes into a prompt or a list's query in one go, searched once. It went
+  in one key at a time, compiling the query again at every character, and a query past the regex
+  size limit aborted merl with the terminal left in raw mode. (#267)
+- Scrolled into a line that wraps, `t`, the tree shown again or a resized terminal leave the
+  cursor on its own line. It was drawn one row below the line the status bar names, and a letter
+  typed after Enter landed on the line above the highlighted one. (#412)
+- A named pipe (FIFO), a socket or a device in the project is not in the tree and not searched,
+  so `u` and `D` no longer freeze merl and `s` no longer stalls on one, and `merl PIPE` exits
+  with `not a regular file` instead of hanging before its first frame. (#405)
+- A symbolic link to a directory is a directory in the tree, read from disk when you expand it,
+  like an ignored one; its files open, read-only when they lie outside the project. The walk does
+  not follow it, so the searches read what they did and a link to `..` pulls nothing in. It was
+  a file row that said `Is a directory`. `merl --review` opens on the first file with a hunk, and
+  `c` and `C` pass the link as they pass a submodule; a link first in the branch made merl exit.
+  Ctrl+N refuses a path a link leads out of the project with `outside the project`; it created
+  the file out there. (#404)
+- Inside tmux with its default settings, Ctrl+C and Ctrl+X copy: the text goes to a tmux paste
+  buffer and, on tmux 3.2 and newer, to the terminal's clipboard. tmux's default `set-clipboard
+  external` dropped the copy, and the status said `copied` while nothing was copied. (#395)
 
 ## [0.7.0] - 2026-09-25
 
