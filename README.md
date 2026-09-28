@@ -79,7 +79,7 @@ those two things out of the box, with nothing to configure and nothing to switch
   agent keeps working, and a file you have walked through gets a tick that stays with the branch
   and goes when the file changes. [A review, step by step](docs/a-day-with-merl.md).
 
-  <img src="assets/review.gif" alt="merl --review on an agent's branch of polar, a FastAPI app, its three changed files in the panel: the new endpoint in green, d on the service method it calls opens the service, d again the repository, d a third time the LicenseKey model; c comes back to the endpoint's hunk in one key and walks on through the service and the test, each file it leaves getting a tick" width="900">
+  <img src="assets/review.gif" alt="merl --review on an agent's branch of polar, a FastAPI app, its four changed files in the panel: c walks the hunks, red and green rows with the changed words tinted stronger; from the new endpoint d goes to the service method it calls, d again to the repository, find and d to the LicenseKey model; one c comes back to the endpoint, c walks the same refactor through three endpoints, u lists who calls the new service method, and c goes on into the tests, each file it leaves getting a tick" width="900">
 
 - **Touch up a line.** Enter, type, Esc. It saves itself. Enough for a typo, a constant, or a
   secret you would rather not hand to an agent. [More on editing](docs/editing.md).
