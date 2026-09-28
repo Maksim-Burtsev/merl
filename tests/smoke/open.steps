@@ -24,3 +24,14 @@ key t ?
 wait Go to definition of the word under the cursor
 key Escape q
 wait merl exited: 0
+# Enter in a list with nothing matched keeps the list and its query: Backspace fixes the typo
+# and Enter opens the file (#288).
+merl
+wait Open a file (fuzzy)
+key t o
+type modelx
+wait Files (0/
+key Enter BSpace
+wait Files (5/
+key Enter
+wait app/models.py  1:1

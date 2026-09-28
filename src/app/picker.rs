@@ -80,9 +80,8 @@ impl App {
                 self.search_enter = true;
                 // No point in waiting out the pause.
                 self.search_due = self.search_due.map(|_| Instant::now());
-            } else {
-                let (item, query) = (picker.current().cloned(), picker.query.to_string());
-                self.search_jump(item, &query);
+            } else if let Some(item) = picker.current().cloned() {
+                self.search_jump(item);
             }
             return;
         }

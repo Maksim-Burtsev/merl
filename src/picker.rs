@@ -157,10 +157,12 @@ impl Picker {
             .map(|item| item.data)
     }
 
+    /// Enter with nothing matched does nothing, as in VS Code's quick open: the list and the
+    /// query stay, so a typo costs a Backspace, not the query (#288). Only Esc closes.
     fn accept(&self) -> Pick {
         match self.current() {
             Some(item) => Pick::Accept(item.clone()),
-            None => Pick::Cancel,
+            None => Pick::Stay,
         }
     }
 
@@ -283,6 +285,19 @@ mod tests {
             _ => panic!("enter must accept"),
         }
         assert!(matches!(p.key(KeyCode::Esc.into()), Pick::Cancel));
+    }
+
+    /// A query that matches nothing: Enter keeps the list and the query (#288).
+    #[test]
+    fn enter_with_nothing_matched_stays() {
+        let mut p = picker(&["store.py", "cli.py"]);
+        for c in "storx".chars() {
+            p.key(KeyCode::Char(c).into());
+        }
+        p.settle();
+        assert_eq!(p.counts().0, 0);
+        assert!(matches!(p.key(KeyCode::Enter.into()), Pick::Stay));
+        assert_eq!(p.query.to_string(), "storx");
     }
 
     #[test]

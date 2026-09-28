@@ -71,6 +71,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   long name of wide characters is cut to fit instead of pushing the counts off the panel.
   `review_panel_colours = false` in `~/.config/merl/config.toml` turns the colours, the dimming and
   the totals off. (#250)
+- Enter in a list whose query matches nothing does nothing, as in VS Code's quick open: `o`,
+  `D`, `T`, `s` and the lists of `d` and `u` stay open with the query, so Backspace fixes a typo
+  instead of the query being lost. Esc still closes the list. `s` no longer closes on such an
+  Enter with `no results for …`. (#288)
 - With no file open, on the start screen and at the tutor's first lesson, the status bar no longer
   shows a cursor position: `demo/  [tree]` instead of `demo/  1:1  [tree]`. (#285)
 

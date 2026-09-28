@@ -152,6 +152,18 @@ fn symbols_past_the_cap_are_grepped_not_filtered() {
     let p = a.picker.as_mut().unwrap();
     assert_eq!(p.counts(), (2, 2));
 
+    // A name no declaration has: Enter keeps the list and the query, as under the cap (#288).
+    press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+    typed(&mut a, "qqqqzz");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    a.settle_search();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    let query = a.picker.as_ref().map(|p| p.query.to_string());
+    assert_eq!(
+        (a.mode, query.as_deref()),
+        (Mode::Picker(PickerKind::Symbols), Some("qqqqzz"))
+    );
+
     press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
     a.settle_search();
     let p = a.picker.as_ref().unwrap();
