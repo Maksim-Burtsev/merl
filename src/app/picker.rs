@@ -4,10 +4,25 @@ use super::*;
 
 impl App {
     pub fn open_files_picker(&mut self) {
-        let items = self
+        // Review: the review's files first, in the panel's order, then the rest as usual (#246).
+        let order: HashMap<&PathBuf, usize> = match &self.review {
+            Some(r) if self.review_open_files_first => r
+                .files
+                .iter()
+                .enumerate()
+                .map(|(i, f)| (&f.path, i))
+                .collect(),
+            _ => HashMap::new(),
+        };
+        let (mut review, rest): (Vec<_>, Vec<_>) = self
             .files
             .iter()
             .chain(&self.ignored)
+            .partition(|p| order.contains_key(p));
+        review.sort_by_key(|p| order[p]);
+        let items = review
+            .into_iter()
+            .chain(rest)
             .map(|p| PickItem {
                 label: p.display().to_string(),
                 path: p.clone(),

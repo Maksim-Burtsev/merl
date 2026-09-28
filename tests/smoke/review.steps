@@ -7,7 +7,8 @@
 # the function the branch added, [ back to the hunk; m puts the tick on the open file and takes
 # it off (#162). Last, c after a d into a file the branch did not touch goes back into the review,
 # to the hunk left once #239 lands (0.7.0 opens the first file). On such a file the status bar has no
-# counters, as outside a review (#286).
+# counters, as outside a review (#286). o lists the review's files first, each with its panel
+# letter, and u marks the uses on lines the branch changed with the gutter's bar (#246).
 caption review · merl --review=agent/refund fetches the agent's branch and opens on its first hunk
 merl --review=agent/refund
 wait hunk 1/1  file 1/8
@@ -60,3 +61,14 @@ key Enter d
 wait [code]  REFUNDED → OrderStatus.REFUNDED (via OrderStatus)
 key c
 wait :1  [code]  hunk
+caption o lists the review's files first, with their panel letter (#246)
+key o
+wait Files (
+type app/service.py
+key Enter
+caption u marks the uses on lines the branch changed with the gutter's bar (#246)
+key /
+type OrderStatus.REFUNDED
+key Enter u
+wait Usages of OrderStatus
+key Escape
