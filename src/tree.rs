@@ -59,7 +59,7 @@ pub fn build(root: &Path, shallow: bool) -> (Tree, Vec<PathBuf>) {
         .filter_entry(|e| !is_store(e.file_name()) && !(e.path_is_symlink() && e.path().is_dir()))
         .build()
         .filter_map(Result::ok)
-        .filter(|e| is_file_or_dir(e.path(), e.file_type()))
+        .filter(|e| listable(e.path(), e.file_type()))
         .filter_map(|e| {
             let rel = e.path().strip_prefix(root).ok()?.to_path_buf();
             let is_dir = e.file_type().is_some_and(|t| t.is_dir());
@@ -102,11 +102,16 @@ fn is_store(name: &OsStr) -> bool {
     matches!(name.to_str(), Some(".git" | ".hg" | ".svn"))
 }
 
-/// A directory, a regular file or a link to one. A FIFO, a socket or a device is not code, and
-/// opening one blocks until something writes to it (#405).
-fn is_file_or_dir(path: &Path, kind: Option<FileType>) -> bool {
+/// Is it a row: a directory, a regular file, a link to one, or a link that leads nowhere, a row
+/// as `ls` shows it, which fails to open at once. A FIFO, a socket or a device is not code, and
+/// opening one blocks until something writes to it (#405). `kind` is the entry's own type.
+fn listable(path: &Path, kind: Option<FileType>) -> bool {
     let plain = |t: FileType| t.is_dir() || t.is_file();
-    kind.is_some_and(plain) || std::fs::metadata(path).is_ok_and(|m| plain(m.file_type()))
+    kind.is_some_and(plain)
+        || match std::fs::metadata(path) {
+            Ok(m) => plain(m.file_type()),
+            Err(_) => kind.is_some_and(|t| t.is_symlink()),
+        }
 }
 
 /// The entries of `dir` (relative to `root`) and whether each is a directory, unsorted. A link
@@ -117,7 +122,7 @@ fn read_level(root: &Path, dir: &Path) -> Vec<(PathBuf, bool)> {
     };
     read.flatten()
         .filter(|e| !is_store(&e.file_name()))
-        .filter(|e| is_file_or_dir(&e.path(), e.file_type().ok()))
+        .filter(|e| listable(&e.path(), e.file_type().ok()))
         .map(|e| {
             let is_dir = e
                 .file_type()
@@ -580,7 +585,7 @@ mod tests {
 
     /// #405: opening a FIFO blocks until something writes to it, so a FIFO is not a row and not
     /// in the list the searches read, neither from the walk nor from an ignored level; a link
-    /// to a regular file is, and a link to a FIFO is not.
+    /// to a regular file is, a link to a FIFO is not, and a link that leads nowhere still is.
     #[test]
     #[cfg(unix)]
     fn a_fifo_is_neither_a_row_nor_in_the_list() {
@@ -594,6 +599,8 @@ mod tests {
         }
         std::os::unix::fs::symlink("a.py", dir.join("link.py")).unwrap();
         std::os::unix::fs::symlink("pipe", dir.join("link.pipe")).unwrap();
+        // A link that leads nowhere stays a row, as it was before FIFOs were left out.
+        std::os::unix::fs::symlink("missing.py", dir.join("gone.py")).unwrap();
         let (mut t, files) = build(&dir, false);
         assert_eq!(
             files,
@@ -601,6 +608,7 @@ mod tests {
                 PathBuf::from("src/b.py"),
                 ".gitignore".into(),
                 "a.py".into(),
+                "gone.py".into(),
                 "link.py".into()
             ]
         );
@@ -618,6 +626,7 @@ mod tests {
                 "src/b.py",
                 ".gitignore",
                 "a.py",
+                "gone.py",
                 "link.py"
             ]
         );
