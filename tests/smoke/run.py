@@ -38,8 +38,8 @@ assets/tapes/record.py plus a few verbs of its own:
     show               skipped (record.py's)
     include FILE       the steps of FILE, relative to the repository
     project gitea      header: run in the README's gitea checkout, made by assets/tapes/setup.sh
-                       (fetched once, 59 MB), instead of the fixture; `project mealie` in its
-                       mealie checkout (20 MB). assets/tapes/record.py reads the same line
+                       (fetched once, 59 MB), instead of the fixture; `project polar` in its
+                       polar checkout (an 80 MB fetch). assets/tapes/record.py reads the same line
 
 A scenario that is not about the tree hides it (`t`) after its first wait, so that a change to the
 tree shows in one checkpoint per scenario, not in all of them. What a wait may name, and where a new
@@ -56,7 +56,7 @@ import cast  # noqa: E402
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
 CACHE = os.path.expanduser("~/.cache/merl-smoke")
-DEMOS = ("gitea", "mealie")  # the checkouts assets/tapes/setup.sh makes
+DEMOS = ("gitea", "polar")  # the checkouts assets/tapes/setup.sh makes
 PACE, POLL, TIMEOUT, SLEEP_CAP, SIZE = 0.01, 0.02, 10.0, 0.3, (185, 55)
 HOLD = 1.2  # --gif: seconds each checkpoint stays on screen
 MARK = ".merl-smoke-report"  # in every report directory a run made, and only there

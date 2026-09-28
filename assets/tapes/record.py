@@ -28,7 +28,7 @@ tools/cast.py plus `merl`, `show` and `spawn`:
     show               the GIF starts here: what came before is on screen in the first frame
     spawn CMD          run CMD in the project in the background (the agent in the next split)
 
-merl starts in the gitea checkout setup.sh made, on the branch it left; a `project mealie` line
+merl starts in the gitea checkout setup.sh made, on the branch it left; a `project polar` line
 names another of its checkouts, as in tests/smoke/run.py.
 
     assets/tapes/record.py --selftest                  # checks the keycaps' timing, no recording

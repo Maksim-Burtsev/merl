@@ -1,0 +1,139 @@
+diff --git a/polar/license_key/endpoints.py b/polar/license_key/endpoints.py
+index d991033..43ad053 100644
+--- a/polar/license_key/endpoints.py
++++ b/polar/license_key/endpoints.py
+@@ -95,6 +95,32 @@ async def list(
+     )
+ 
+ 
++@router.get(
++    "/lookup",
++    summary="Look Up License Key",
++    response_model=LicenseKeyWithActivations,
++    tags=[APITag.mcp, APITag.cli],
++    responses={
++        401: UnauthorizedResponse,
++        404: NotFoundResponse,
++    },
++)
++async def lookup(
++    auth_subject: auth.LicenseKeysRead,
++    organization_id: OrganizationID,
++    key: str = Query(description="The key as the customer received it."),
++    session: AsyncReadSession = Depends(get_db_read_session),
++) -> LicenseKey:
++    """Find a license key by the key a customer holds, e.g. one quoted in a support email."""
++    lk = await license_key_service.get_by_key(
++        session, auth_subject, organization_id=organization_id, key=key
++    )
++    if not lk:
++        raise ResourceNotFound()
++
++    return lk
++
++
+ @router.get(
+     "/{id}",
+     summary="Get License Key",
+diff --git a/polar/license_key/service.py b/polar/license_key/service.py
+index c1b102e..8b14834 100644
+--- a/polar/license_key/service.py
++++ b/polar/license_key/service.py
+@@ -115,6 +115,22 @@ class LicenseKeyService:
+         )
+         return await repository.get_one_or_none(statement)
+ 
++    async def get_by_key(
++        self,
++        session: AsyncReadSession,
++        auth_subject: AuthSubject[User | Organization],
++        *,
++        organization_id: UUID,
++        key: str,
++    ) -> LicenseKey | None:
++        repository = LicenseKeyRepository.from_session(session)
++        org_ids = await get_accessible_org_ids(
++            session, auth_subject, permission=OrganizationPermission.products_read
++        )
++        return await repository.get_readable_by_key(
++            key, organization_id, org_ids, options=repository.get_eager_options()
++        )
++
+     async def get_or_raise_by_key(
+         self,
+         session: AsyncSession,
+diff --git a/tests/license_key/test_endpoints.py b/tests/license_key/test_endpoints.py
+index 5627881..7f043f3 100644
+--- a/tests/license_key/test_endpoints.py
++++ b/tests/license_key/test_endpoints.py
+@@ -797,6 +797,70 @@ class TestGetLicenseKey:
+         assert response.status_code == 404
+ 
+ 
++@pytest.mark.asyncio
++class TestLookupLicenseKey:
++    async def test_anonymous(self, client: AsyncClient) -> None:
++        response = await client.get(
++            "/v1/license-keys/lookup",
++            params={"organization_id": str(uuid.uuid4()), "key": "TESTING-KEY"},
++        )
++
++        assert response.status_code == 401
++
++    @pytest.mark.auth
++    async def test_user_cannot_look_up_other_organization_license_key(
++        self,
++        client: AsyncClient,
++        user_organization: UserOrganization,
++        license_key_organization_second: LicenseKey,
++    ) -> None:
++        response = await client.get(
++            "/v1/license-keys/lookup",
++            params={
++                "organization_id": str(license_key_organization_second.organization_id),
++                "key": license_key_organization_second.key,
++            },
++        )
++
++        assert response.status_code == 404
++
++    @pytest.mark.auth(
++        AuthSubjectFixture(subject="user"),
++        AuthSubjectFixture(subject="organization"),
++    )
++    async def test_look_up(
++        self,
++        session: AsyncSession,
++        redis: Redis,
++        client: AsyncClient,
++        save_fixture: SaveFixture,
++        user_organization: UserOrganization,
++        organization: Organization,
++        product: Product,
++        customer: Customer,
++    ) -> None:
++        benefit, granted = await TestLicenseKey.create_benefit_and_grant(
++            session,
++            redis,
++            save_fixture,
++            customer=customer,
++            organization=organization,
++            product=product,
++            properties=BenefitLicenseKeysCreateProperties(prefix="testing"),
++        )
++        repository = LicenseKeyRepository.from_session(session)
++        lk = await repository.get_by_id(UUID(granted["license_key_id"]))
++        assert lk is not None
++
++        response = await client.get(
++            "/v1/license-keys/lookup",
++            params={"organization_id": str(organization.id), "key": lk.key},
++        )
++
++        assert response.status_code == 200
++        assert response.json()["id"] == str(lk.id)
++
++
+ @pytest.mark.asyncio
+ class TestUpdateLicenseKey:
+     async def test_anonymous(self, client: AsyncClient) -> None:

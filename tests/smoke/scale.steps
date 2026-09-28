@@ -1,7 +1,7 @@
 # scale: gitea, 5,500 files, at the README's 132x41. First the timed steps: merl starting in the
 # repository, d, u and s there, each the fastest of three runs. Then the README's own demo.steps
 # plays to the end, so a change that breaks a README recording shows here before the next
-# recording does; its review.steps plays in mealie, in readme-review.
+# recording does; its review.steps plays in polar, in readme-review.
 project gitea
 size 132x41
 merl
