@@ -168,6 +168,10 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
 ///   receiver). Only what a header binds for the block under it hides: another function on its
 ///   lines, or on the cursor's own line, binds without hiding. `this` is the class around it, unless a
 ///   `function` or an object literal comes first, and `super` reads as `this` does.
+/// - Lua (#461): a `local` belongs to its block, so the nearest one above the cursor counts, in
+///   the blocks around it told by indentation, and so do the parameters of a `function` and the
+///   variables of a `for` that open one of those blocks. The top of the file is left to the
+///   search by name: a module's `local` is what its `require` and its tables are read through.
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -176,8 +180,65 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
     match kind {
         Kind::Python => python_bindings(&lines, at, name),
         Kind::TsJs | Kind::Go => block_bindings(kind, &lines, at, name),
+        Kind::Lua => lua_bindings(&lines, at, name),
         _ => Vec::new(),
     }
+}
+fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^local\s+(?:function\s+(\w+)|([\w\s,<>]+?)\s*(?:=|$))").unwrap()
+    });
+    static PARAMS: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\bfunction\b[^(]*\(([^)]*)\)").unwrap());
+    static FOR: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^for\s+([\w\s,]+?)\s*(?:\bin\b|=)").unwrap());
+    // `local a <const>, b = …` names `a` and `b`.
+    let lists = |list: &str| {
+        list.split(',')
+            .any(|n| n.split('<').next().is_some_and(|n| n.trim() == name))
+    };
+    let literal = literal_lines(Kind::Lua, &lines.join("\n"));
+    let found = |line: usize| {
+        vec![Binding {
+            line,
+            value: Value::Unknown,
+        }]
+    };
+    let mut depth = indent(lines[at]);
+    for i in (0..at).rev() {
+        let code = uncommented(Kind::Lua, lines[i]);
+        let t = code.trim();
+        let ind = indent(lines[i]);
+        if depth == 0 {
+            break;
+        }
+        if t.is_empty() || literal[i] || ind > depth {
+            continue;
+        }
+        if ind == depth {
+            // A statement of the block the cursor is in: a `local` declares for the lines below.
+            if let Some(c) = LOCAL.captures(t)
+                && (c.get(1).is_some_and(|f| f.as_str() == name)
+                    || c.get(2).is_some_and(|l| lists(l.as_str())))
+            {
+                return found(i + 1);
+            }
+            continue;
+        }
+        // The header of a block the cursor is in: its parameters, its loop variables, and the
+        // name of a `local function`, which its own body can call.
+        depth = ind;
+        let own = LOCAL
+            .captures(t)
+            .and_then(|c| c.get(1))
+            .is_some_and(|f| f.as_str() == name);
+        let params = PARAMS.captures_iter(t).any(|c| lists(&c[1]));
+        let vars = FOR.captures(t).is_some_and(|c| lists(&c[1]));
+        if own || params || vars {
+            return found(i + 1);
+        }
+    }
+    Vec::new()
 }
 /// Whether the word at `range` of 1-based `line` names a keyword argument of a Python call:
 /// `recipe_yield=…` behind a `(` or a `,`, or at the start of a line that continues a call. It
@@ -193,6 +254,21 @@ pub fn keyword_argument(text: &str, line: usize, range: &Range<usize>) -> bool {
         && !after.starts_with("==")
         && (before.ends_with(['(', ','])
             || (before.is_empty() && continued(Kind::Python, &lines, line - 1)))
+}
+/// Whether the word at `range` of 1-based `line` of a Lua file is the key of a table
+/// constructor: `name = …` behind a `{` or a `,`, or at the start of a line inside one. It names a
+/// field, and no variable of that spelling (#461).
+pub fn table_key(text: &str, line: usize, range: &Range<usize>) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(l) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return false;
+    };
+    let after = l[range.end..].trim_start();
+    let before = l[..range.start].trim_end();
+    after.starts_with('=')
+        && !after.starts_with("==")
+        && (before.ends_with(['{', ','])
+            || (before.is_empty() && continued(Kind::Lua, &lines, line - 1)))
 }
 /// Whether line `i` continues the statement above it: that line ends in an open bracket, a comma
 /// or a backslash.
