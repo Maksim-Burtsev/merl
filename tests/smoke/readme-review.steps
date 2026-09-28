@@ -1,0 +1,5 @@
+# readme-review: the README's review.gif, played to the end in polar at the README's 132x41, so
+# a change that breaks the recording shows here before the next recording does.
+project polar
+size 132x41
+include assets/review.steps

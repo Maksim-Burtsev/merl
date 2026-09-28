@@ -11,7 +11,7 @@ sleep 1
 show
 spawn "$ROOT/assets/tapes/agent.sh" 2.5
 sleep 2.5
-wait block_note_test
+wait block_note
 sleep 2.5
 key@0.18 c*10
 wait file 5/6

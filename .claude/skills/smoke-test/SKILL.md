@@ -19,8 +19,8 @@ tests/smoke/run.py            # ~2-3 min: build, fetch the last release, play, r
 
 `run.py` builds the checkout (`cargo build --release --locked`), downloads the last GitHub
 release's binary once into `~/.cache/merl-smoke/`, rebuilds the fixture (`tests/smoke/setup.sh`)
-and gitea (`assets/tapes/setup.sh`, fetched once) under `/tmp/merl-smoke`, plays every
-`tests/smoke/*.steps` on the new build, then on the old one, and writes
+and the README's gitea and polar (`assets/tapes/setup.sh`, fetched once) under
+`/tmp/merl-smoke`, plays every `tests/smoke/*.steps` on the new build, then on the old one, and writes
 `/tmp/merl-smoke/out/report.md` with a PNG per differing checkpoint beside it (old above new).
 Needs macOS, tmux, Go and Python 3 (`d` goes into their standard libraries), Pillow, and
 `gh` logged in. `--help` has the scenario grammar. One run at a time: a second one is refused
