@@ -4,9 +4,8 @@
     cargo build --release
     assets/tapes/setup.sh                              # once: the checkouts in /tmp/merl-demo
     assets/tapes/record.py assets/demo.steps           # writes assets/demo.gif
-    assets/tapes/record.py --keys assets/review.steps  # writes assets/review.gif and, from the
-                                                       # same take, review-keys.gif: each key drawn
-                                                       # as it is pressed
+    assets/tapes/record.py --keys assets/review.steps  # writes assets/review.gif, the key just
+                                                       # pressed drawn in its corner
 
 merl runs under `asciinema rec` inside a detached tmux pane, the keys arrive through
 `tmux send-keys` at a human pace, and `agg` turns the recording into frames: nothing is drawn by
@@ -50,12 +49,14 @@ BG = "222436"
 THEME = f"{BG},c8d3f5," + ",".join(["1b1d2b", "ff757f", "c3e88d", "ffc777", "82aaff", "c099ff",
                                     "86e1fc", "828bb8"] * 2)
 
-# --keys: a keycap in the bottom right corner for every key pressed, the way macOS keystroke
-# visualisers draw them. Keys pressed less than HOLD apart share the row, a repeat counts up on its
-# cap, and HOLD after the last one the row fades out over FADE.
-HOLD, FADE, FADE_STEPS = 1.2, 0.3, 5
+# --keys: the key just pressed, drawn in the bottom right corner the way macOS keystroke
+# visualisers draw it. It shows with merl's answer to the press, stays until the next key replaces
+# it, and HOLD after the last one fades out over FADE: no flash, no count, no row of past keys,
+# which would read as a chord.
+HOLD, FADE, FADE_STEPS = 1.5, 0.25, 4
 CAPS = {"M-Right": "⌥→", "M-Left": "⌥←", "Right": "→", "Left": "←", "Down": "↓", "Up": "↑",
-        "Enter": "↵", "Escape": "esc", "Tab": "⇥", "BSpace": "⌫"}
+        "Enter": "Enter", "Escape": "Esc", "Tab": "Tab", "BSpace": "⌫", "C-d": "Ctrl+D",
+        "C-u": "Ctrl+U"}
 SANS = "/System/Library/Fonts/SFNS.ttf"
 
 
@@ -131,59 +132,24 @@ def take(steps, project):
     return cast, [(t - lag - shown, name) for t, name in presses if t - lag >= shown]
 
 
-def keycaps(presses):
-    """What the corner shows from each moment on: [(time, caps, opacity)], caps a list of
-    (label, count)."""
-    runs = []
-    for t, name in presses:
-        if runs and t - runs[-1][-1][0] < HOLD:
-            runs[-1].append((t, name))
-        else:
-            runs.append([(t, name)])
-    states = []
-    for run in runs:
-        # A run that starts while the last one fades takes over at once.
-        states = [st for st in states if st[0] < run[0][0]]
-        caps = []
-        for t, name in run:
-            label = CAPS.get(name, name)
-            if caps and caps[-1][0] == label:
-                caps[-1] = (label, caps[-1][1] + 1)
-            else:
-                caps.append((label, 1))
-            states.append((t, caps[-3:], 1.0))
-        last = run[-1][0] + HOLD
-        for i in range(1, FADE_STEPS + 1):
-            states.append((last + FADE * (i - 1) / FADE_STEPS, caps[-3:], 1 - i / (FADE_STEPS + 1)))
-        states.append((last + FADE, [], 0.0))
-    return states
-
-
-def draw_caps(frame, caps, opacity):
-    if not caps:
+def draw_caps(frame, key, opacity):
+    if not key:
         return frame
     s = FONT / 18  # the sizes below are in the pixels of the 18 px window
-    big, small = ImageFont.truetype(SANS, round(28 * s)), ImageFont.truetype(SANS, round(17 * s))
-    big.set_variation_by_name("Semibold")
-    small.set_variation_by_name("Medium")
+    font = ImageFont.truetype(SANS, round(44 * s))
+    font.set_variation_by_name("Semibold")
+    label = CAPS.get(key, key)
     layer = Image.new("RGBA", frame.size)
     d = ImageDraw.Draw(layer)
-    h, gap, r = round(54 * s), round(10 * s), round(12 * s)
-    # Each cap: its label, and after it the repeat count, smaller.
-    texts = [(label, f"×{count}" if count > 1 else "") for label, count in caps]
-    sizes = [(d.textlength(t, font=big), d.textlength(c, font=small) + 5 * s if c else 0) for t, c in texts]
-    widths = [max(h, round(tw + cw + 32 * s)) for tw, cw in sizes]
+    h = round(88 * s)
+    w = max(h, round(d.textlength(label, font=font) + h * 0.55))
     # Bottom right, over the code and clear of the status line.
-    x = frame.width - PAD - round(22 * s) - sum(widths) - gap * (len(caps) - 1)
-    y = frame.height - PAD - round(FONT * LINE) - round(20 * s) - h
+    x = frame.width - PAD - round(20 * s) - w
+    y = frame.height - PAD - round(FONT * LINE) - round(14 * s) - h
     a = lambda v: round(v * opacity)
-    for (label, count), (tw, cw), w in zip(texts, sizes, widths):
-        d.rounded_rectangle((x, y, x + w, y + h), r, fill=(56, 62, 94, a(242)),
-                            outline=(130, 139, 184, a(150)), width=max(1, round(s)))
-        tx = x + (w - tw - cw) / 2
-        d.text((tx, y + h / 2), label, font=big, fill=(230, 235, 255, a(255)), anchor="lm")
-        d.text((tx + tw + 5 * s, y + h / 2 + 2 * s), count, font=small, fill=(170, 178, 220, a(255)), anchor="lm")
-        x += w + gap
+    d.rounded_rectangle((x, y, x + w, y + h), round(h * 0.2), fill=(47, 51, 77, a(250)),
+                        outline=(130, 139, 184, a(160)), width=max(2, round(1.2 * s)))
+    d.text((x + w / 2, y + h / 2), label, font=font, fill=(230, 235, 255, a(255)), anchor="mm")
     return Image.alpha_composite(frame.convert("RGBA"), layer).convert("RGB")
 
 
@@ -203,12 +169,12 @@ def render(cast, presses, gif, keys):
         total = t
         bg = Image.new("RGB", (src.width + 2 * PAD, src.height + 2 * PAD), f"#{BG}")
         listing = []
-        for cut, dur, base, caps, opacity in timeline(starts, total, keycaps(presses) if keys else []):
+        for cut, dur, base, key, opacity in timeline(starts, total, presses if keys else []):
             src.seek(base)
             frame = bg.copy()
             frame.paste(src.convert("RGB"), (PAD, PAD))
             path = f"{tmp}/{len(listing):04d}.png"
-            draw_caps(frame, caps, opacity).save(path, compress_level=1)
+            draw_caps(frame, key, opacity).save(path, compress_level=1)
             listing.append((path, dur))
         with open(f"{tmp}/list.txt", "w") as f:
             for path, dur in listing:
@@ -222,48 +188,58 @@ def render(cast, presses, gif, keys):
     return len(listing)
 
 
-def timeline(starts, total, states):
-    """The GIF's frames, [(time, duration, screen, caps, opacity)]: agg's screens (their start
-    times, `total` the end of the last) under the corner's states from keycaps()."""
-    near = lambda t, within: min((s for s in starts if abs(s - t) <= within), key=lambda s: abs(s - t),
-                                 default=t)
-    # A key shows with merl's answer to it: the change of the screen nearest the press, which the two
-    # clocks put a few tens of milliseconds either side of it. Browsers hold a frame shorter than
-    # 20 ms for 100 ms and a GIF counts in 10 ms, so the corner never changes within 40 ms of a change
-    # of the screen: a fade step that close moves onto it.
-    states = [(near(t, 0.15 if o == 1 else 0.04), c, o) for t, c, o in states]
+def timeline(starts, total, presses):
+    """The GIF's frames, [(time, duration, screen, key, opacity)]: agg's screens (their start
+    times, `total` the end of the last) under the corner's key, None when it is empty."""
+    # A key shows with merl's answer to it, the first change of the screen after the press: a `d`
+    # that searches the project answers half a second later, and its key waits for it. The two
+    # clocks put the answer a few tens of milliseconds either side of the press.
+    shown = []
+    for i, (t, name) in enumerate(presses):
+        nxt = presses[i + 1][0] if i + 1 < len(presses) else t + 1.0
+        at = next((s for s in starts if t - 0.06 <= s < min(nxt - 0.06, t + 1.0)), t)
+        shown.append((max(at, shown[-1][0] + 0.04) if shown else at, name))
+    states = []
+    for i, (at, name) in enumerate(shown):
+        nxt = shown[i + 1][0] if i + 1 < len(shown) else float("inf")
+        states.append((at, name, 1.0))
+        for k in range(1, FADE_STEPS + 1):
+            if at + HOLD + FADE * (k - 1) / FADE_STEPS < nxt:
+                states.append((at + HOLD + FADE * (k - 1) / FADE_STEPS, name, 1 - k / (FADE_STEPS + 1)))
+        if at + HOLD + FADE < nxt:
+            states.append((at + HOLD + FADE, None, 0.0))
     cuts = sorted({*starts, *(t for t, _, _ in states if 0 <= t < total)})
-    # nor within 40 ms of the corner's next change: that one shows instead.
+    # Browsers hold a frame shorter than 20 ms for 100 ms and a GIF counts in 10 ms: a fade step
+    # within 40 ms of the next change gives way to it.
     cuts = [c for i, c in enumerate(cuts) if c in starts or i + 1 == len(cuts) or cuts[i + 1] - c >= 0.04]
     frames = []
     for n, cut in enumerate(cuts):
         base = max(i for i, s in enumerate(starts) if s <= cut)
-        # the newest state wins: a run that starts while the last one fades takes over at once
-        _, caps, opacity = next((st for st in reversed(states) if st[0] <= cut), (0, [], 0.0))
+        _, key, opacity = next((st for st in reversed(states) if st[0] <= cut + 1e-9), (0, None, 0.0))
         dur = (cuts[n + 1] if n + 1 < len(cuts) else total) - cut
-        if frames and frames[-1][2:] == (base, caps, opacity):
+        if frames and frames[-1][2:] == (base, key, opacity):
             frames[-1] = (frames[-1][0], frames[-1][1] + dur, *frames[-1][2:])
         else:
-            frames.append((cut, dur, base, caps, opacity))
+            frames.append((cut, dur, base, key, opacity))
     return frames
 
 
 def selftest():
     """The corner's timing, on made-up screens: no tmux, no agg."""
     shown = lambda frames, t: next(f for f in reversed(frames) if f[0] <= t + 1e-9)
-    # A press lands on merl's answer 30 ms later; the corner is empty HOLD + FADE after it, even
-    # when its last fade step falls just after the next change of the screen.
-    f = timeline([0, 1.03, 2.47, 5.0], 7, keycaps([(1.0, "c")]))
-    assert shown(f, 1.03)[3:] == ([("c", 1)], 1.0) and shown(f, 1.0)[3] == [], f
-    assert shown(f, 1.0 + HOLD + FADE)[3] == [] and all(d >= 0.04 - 1e-9 for _, d, *_ in f), f
-    # A press with no answer near it shows when it was pressed.
-    f = timeline([0, 5.0], 7, keycaps([(1.0, "Down")]))
-    assert shown(f, 1.0)[3] == [("↓", 1)], f
-    # Repeats count up on one cap; a run that starts while the last fades takes over at once.
-    f = timeline([0, 5.0], 7, keycaps([(1.0, "M-Right"), (1.3, "M-Right"), (2.6, "d")]))
-    assert shown(f, 1.3)[3] == [("⌥→", 2)] and shown(f, 2.6)[3:] == ([("d", 1)], 1.0), f
-    # No frame is shorter than 40 ms, a press 30 ms after a fade step included.
-    f = timeline([0, 5.0], 7, keycaps([(1.0, "c"), (2.35, "c")]))
+    # A press lands on merl's answer 30 ms later; the corner is empty HOLD + FADE after it.
+    f = timeline([0, 1.03, 5.0], 7, [(1.0, "c")])
+    assert shown(f, 1.0)[3] is None and shown(f, 1.03)[3:] == ("c", 1.0), f
+    assert shown(f, 1.03 + HOLD + FADE)[3] is None, f
+    # A d answered half a second later shows then, not before.
+    f = timeline([0, 1.5, 5.0], 7, [(1.0, "d")])
+    assert shown(f, 1.3)[3] is None and shown(f, 1.5)[3] == "d", f
+    # The next key replaces the last at once, at full strength; a press with no answer shows
+    # when it was pressed.
+    f = timeline([0, 1.02, 1.22, 5.0], 7, [(1.0, "M-Right"), (1.2, "M-Right"), (1.4, "d")])
+    assert shown(f, 1.22)[3:] == ("M-Right", 1.0) and shown(f, 1.4)[3:] == ("d", 1.0), f
+    # No frame is shorter than 40 ms.
+    f = timeline([0, 2.8, 5.0], 7, [(1.0, "c"), (2.77, "c")])
     assert all(d >= 0.04 - 1e-9 for _, d, *_ in f), f
     # Without keys, the frames are agg's.
     assert [t for t, *_ in timeline([0, 1, 2], 3, [])] == [0, 1, 2]
@@ -288,9 +264,8 @@ def main():
     clean = 'git checkout -q -- . && git clean -fdq && rm -f "$(git rev-parse --git-common-dir)/merl/viewed"'
     subprocess.run(clean, shell=True, cwd=project, check=True)
     cast, presses = take(steps, project)
-    for out, drawn in [(gif, False)] + [(gif.removesuffix(".gif") + "-keys.gif", True)] * keys:
-        frames = render(cast, presses, out, drawn)
-        print(out, f"{os.path.getsize(out) / 1e6:.2f} MB, {frames} frames")
+    frames = render(cast, presses, gif, keys)
+    print(gif, f"{os.path.getsize(gif) / 1e6:.2f} MB, {frames} frames")
     os.unlink(cast)
 
 
