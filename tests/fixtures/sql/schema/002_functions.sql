@@ -26,3 +26,8 @@ CREATE MATERIALIZED VIEW gross AS
 
 CREATE VIEW coupon_rates AS
   SELECT id, rate FROM coupons;
+
+-- A schema-qualified name declares the name, never the schema (#471).
+CREATE TABLE public.receipts (id integer);
+CREATE VIEW "shop"."daily_rates" AS
+  SELECT id, rate FROM coupons;

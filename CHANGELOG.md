@@ -162,6 +162,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inside tmux with its default settings, Ctrl+C and Ctrl+X copy: the text goes to a tmux paste
   buffer and, on tmux 3.2 and newer, to the terminal's clipboard. tmux's default `set-clipboard
   external` dropped the copy, and the status said `copied` while nothing was copied. (#395)
+- In SQL, `d` on a schema goes to its `CREATE SCHEMA`: `CREATE TABLE shop.tariffs` declares
+  `tariffs`, and no longer counts as a declaration of `shop`. `d` on `public` in `public.orders`
+  jumped to `CREATE TABLE public.orders`, and on a schema created once offered every object in it.
+  (#471)
 
 ## [0.7.0] - 2026-09-25
 
