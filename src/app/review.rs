@@ -375,16 +375,12 @@ impl App {
         self.buf.path.as_deref() == Some(&path)
     }
 
-    /// `hunk 2/5  file 1/3` for the status bar, or `not in review` on a file the branch
-    /// did not change (#286).
+    /// `hunk 2/5  file 1/3` for the status bar; nothing on a file the branch did not change,
+    /// which then reads as it does outside a review (#286).
     pub fn review_status(&self) -> Option<String> {
         let r = self.review.as_ref()?;
-        let Some(file) = self
-            .rel_current()
-            .and_then(|rel| r.files.iter().position(|f| f.path == rel))
-        else {
-            return Some("not in review".to_string());
-        };
+        let rel = self.rel_current()?;
+        let file = r.files.iter().position(|f| f.path == rel)?;
         let hunk = self.diff.hunks.iter().filter(|&&h| h <= self.line).count();
         Some(format!(
             "hunk {hunk}/{}  file {}/{}",

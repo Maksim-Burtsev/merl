@@ -6,8 +6,8 @@
 # view down to the last one (#179), painted as deletions (#144, #165). d from a changed line into
 # the function the branch added, [ back to the hunk; m puts the tick on the open file and takes
 # it off (#162). Last, c after a d into a file the branch did not touch goes back into the review,
-# to the hunk left once #239 lands (0.7.0 opens the first file). On such a file the status bar says
-# `not in review` in place of the counters (#286).
+# to the hunk left once #239 lands (0.7.0 opens the first file). On such a file the status bar has no
+# counters, as outside a review (#286).
 caption review · merl --review=agent/refund fetches the agent's branch and opens on its first hunk
 merl --review=agent/refund
 wait hunk 1/1  file 1/8
@@ -53,10 +53,10 @@ key Enter d
 wait REFUNDED → OrderStatus.REFUNDED (via OrderStatus)
 key c
 wait :1  [code]  hunk
-caption on a file the branch did not touch the status bar says not in review (#286)
+caption on a file the branch did not touch the status bar shows no review counters (#286)
 key /
 type REFUNDED
 key Enter d
-wait not in review
+wait [code]  REFUNDED → OrderStatus.REFUNDED (via OrderStatus)
 key c
 wait :1  [code]  hunk
