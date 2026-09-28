@@ -6,7 +6,9 @@ description: The release gate of merl, step 2 of AGENTS.md `## Releases`, after 
 # Smoke test before a release
 
 The run answers two questions: did anything get worse than in the last release, and does what
-the changelog promises work. A release goes out only on a GO.
+the changelog promises work. A release goes out only on a GO. Its per-PR half runs in CI:
+`run.py --golden` plays the scenarios on the PR's build alone against the screens checked in
+under `tests/smoke/screens/`, as text, without timings or the last release.
 
 ## 1. Run
 

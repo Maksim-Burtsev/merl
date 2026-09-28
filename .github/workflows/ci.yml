@@ -27,6 +27,19 @@ jobs:
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test --locked
       - run: cargo build --release --locked
+      # The smoke scenarios in tmux on this build, every checkpoint against the screen checked in
+      # under tests/smoke/screens (#309): a changed screen fails here with its diff.
+      - name: smoke screens
+        env:
+          LANG: C.UTF-8
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            sudo apt-get install -y -qq tmux python3-pil
+          else
+            brew install tmux
+            python3 -m pip install -q --break-system-packages pillow
+          fi
+          tests/smoke/run.py --golden --new target/release/merl
       # The oldest Rust `Cargo.toml` allows builds merl too (#320), in a check the merge waits for.
       - if: matrix.os == 'ubuntu-latest'
         run: |
