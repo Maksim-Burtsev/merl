@@ -526,6 +526,23 @@ impl App {
             })
             .unwrap_or_default();
         self.note_cut(&hits);
+        // A Shell `local` belongs to its function: no candidate from any other (#470).
+        if kind == Kind::Shell {
+            let lines: Vec<&str> = self.buf.lines.iter().map(String::as_str).collect();
+            let mine = search::shell_function_at(&lines, self.line);
+            hits.retain(|h| {
+                let Some(text) = self.text_of(&h.path) else {
+                    return true;
+                };
+                let lines: Vec<&str> = text.lines().collect();
+                let at = h.line - 1;
+                match lines.get(at).and_then(|l| search::shell_local_of(l)) {
+                    Some(_) => search::shell_function_at(&lines, at)
+                        .is_none_or(|f| h.path == here && Some(f) == mine),
+                    None => true,
+                }
+            });
+        }
         if let Some(block) = search::def_block(kind, word) {
             hits.retain(|h| {
                 std::fs::read_to_string(self.root.join(&h.path))
