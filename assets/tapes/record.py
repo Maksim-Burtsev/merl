@@ -3,18 +3,25 @@
 
     cargo build --release
     assets/tapes/setup.sh                              # once: the checkouts in /tmp/merl-demo
-    assets/tapes/record.py assets/demo.steps           # writes assets/demo.gif
+    assets/tapes/record.py assets/demo.steps           # writes assets/demo.gif and demo-page.gif
     assets/tapes/record.py --keys assets/review.steps  # writes assets/review.gif, the key just
                                                        # pressed drawn in its corner
 
 merl runs under `asciinema rec` inside a detached tmux pane, the keys arrive through
 `tmux send-keys` at a human pace, and `agg` turns the recording into frames: nothing is drawn by
 hand and nothing is sped up. agg draws them at twice the pixels of the window they were sized for
-(a 36 px font in a window laid out for 18), so the GIF stays sharp on a retina screen, at the
-README's width and opened full size alike. Each frame then gets a margin of the background colour,
-and ffmpeg writes the GIF with one palette for the whole take and no dithering: text keeps clean
-edges, and a frame stores only the rectangle that changed. Needs tmux, asciinema, agg, ffmpeg and
-Pillow (`brew install asciinema agg ffmpeg`, `pip install pillow`).
+(a 36 px font in a window laid out for 18), so the GIF stays sharp opened full size on a retina
+screen. Each frame then gets a margin of the background colour, and ffmpeg writes the GIF with one
+palette for the whole take and no dithering: text keeps clean edges, and a frame stores only the
+rectangle that changed. Needs tmux, asciinema, agg, ffmpeg and Pillow (`brew install asciinema agg
+ffmpeg`, `pip install pillow`).
+
+A page embeds NAME-page.gif, the same take PAGE px wide, and links it to NAME.gif. To a reader who
+asked for reduced motion GitHub shows a GIF paused: a still it draws on a canvas as wide as the
+image on the page, one pixel per point, and a canvas that shrinks a frame more than twice skips
+pixels: from the full 3038 px the tree's border and strokes of the letters went missing. PAGE is
+twice the 838 px GitHub lays the README out at, so the still keeps every line, and playing, the GIF
+is one pixel per pixel on a retina screen.
 
 A steps file is one verb per line (`#` comments and blank lines are skipped), the same verbs as
 tools/cast.py plus `merl`, `show` and `spawn`:
@@ -40,6 +47,10 @@ DEMO = "/tmp/merl-demo"
 COLS, ROWS = 132, 41          # a 16:10 laptop window at an 18 px font
 FONT, LINE = 36, 1.25         # agg's font size in px, twice the 18 the window is laid out for
 PAD = 28                      # px of background around the screen, so no text touches the edge
+PAGE = 1676                   # px wide, the copy a page embeds: twice the README's 838
+# One palette for the whole take and no dithering; a frame stores only the rectangle that changed.
+PALETTE = ("split[a][b];[a]palettegen=stats_mode=full[p];"
+           "[b][p]paletteuse=dither=none:diff_mode=rectangle")
 FPS = 25                      # merl draws a screen at once: a higher cap only makes 10 ms frames
 TYPE, PACE = 0.12, 0.35       # seconds between typed characters, and between named keys
 SOCK = "merl-readme"
@@ -181,11 +192,18 @@ def render(cast, presses, gif, keys):
                 f.write(f"file '{path}'\nduration {dur:.3f}\n")
             f.write(f"file '{listing[-1][0]}'\n")  # the concat demuxer drops the last duration
         subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i",
-                        f"{tmp}/list.txt", "-filter_complex",
-                        "split[a][b];[a]palettegen=stats_mode=full[p];"
-                        "[b][p]paletteuse=dither=none:diff_mode=rectangle",
+                        f"{tmp}/list.txt", "-filter_complex", PALETTE,
                         "-fps_mode", "passthrough", gif], check=True)
     return len(listing)
+
+
+def page(gif):
+    """Writes NAME-page.gif beside NAME.gif: the same frames and timing, PAGE px wide."""
+    out = gif.removesuffix(".gif") + "-page.gif"
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", gif, "-filter_complex",
+                    f"scale={PAGE}:-1:flags=lanczos,{PALETTE}", "-fps_mode", "passthrough", out],
+                   check=True)
+    return out
 
 
 def timeline(starts, total, presses):
@@ -265,7 +283,8 @@ def main():
     subprocess.run(clean, shell=True, cwd=project, check=True)
     cast, presses = take(steps, project)
     frames = render(cast, presses, gif, keys)
-    print(gif, f"{os.path.getsize(gif) / 1e6:.2f} MB, {frames} frames")
+    for out in gif, page(gif):
+        print(out, f"{os.path.getsize(out) / 1e6:.2f} MB, {frames} frames")
     os.unlink(cast)
 
 

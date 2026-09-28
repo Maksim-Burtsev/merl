@@ -25,7 +25,7 @@ and now and then type a secret into a `.env`. No setup, no config, no modes. It 
 terminal does, SSH and tmux included.
 
 <p align="center">
-  <img src="assets/demo.gif" alt="merl on a checkout of gitea: open a file by a few letters of its name, find in the file, go to definition with the status line saying how it was proven, back, usages with the declarations first and the test last, then project search with the hits following the typing" width="900">
+  <a href="assets/demo.gif"><img src="assets/demo-page.gif" alt="merl on a checkout of gitea: open a file by a few letters of its name, find in the file, go to definition with the status line saying how it was proven, back, usages with the declarations first and the test last, then project search with the hits following the typing" width="900"></a>
 </p>
 
 <p align="center"><sub>A checkout of <a href="https://github.com/go-gitea/gitea">gitea</a>, 5,500 files. Nothing was indexed or configured first.</sub></p>
@@ -79,7 +79,7 @@ those two things out of the box, with nothing to configure and nothing to switch
   agent keeps working, and a file you have walked through gets a tick that stays with the branch
   and goes when the file changes. [A review, step by step](docs/a-day-with-merl.md).
 
-  <img src="assets/review.gif" alt="merl --review on an agent's branch of polar, a FastAPI app, its three changed files in the panel, each key drawn in the corner as it is pressed: c walks the hunks, red and green rows with the changed words tinted stronger; on validate's new call Alt+Right lands on the method and d opens the service, d again the repository, / and d the LicenseKey model; one c comes back to validate and walks on through activate and deactivate, u lists who calls the new service method, c opens the tests and Ctrl+D reads them through, and the last c says the review is done, every file ticked" width="900">
+  <a href="assets/review.gif"><img src="assets/review-page.gif" alt="merl --review on an agent's branch of polar, a FastAPI app, its three changed files in the panel, each key drawn in the corner as it is pressed: c walks the hunks, red and green rows with the changed words tinted stronger; on validate's new call Alt+Right lands on the method and d opens the service, d again the repository, / and d the LicenseKey model; one c comes back to validate and walks on through activate and deactivate, u lists who calls the new service method, c opens the tests and Ctrl+D reads them through, and the last c says the review is done, every file ticked" width="900"></a>
 
 - **Touch up a line.** Enter, type, Esc. It saves itself. Enough for a typo, a constant, or a
   secret you would rather not hand to an agent. [More on editing](docs/editing.md).
