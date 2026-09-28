@@ -4,6 +4,7 @@ use super::definition::resolution;
 use super::open::carried;
 use super::*;
 
+mod annotated;
 mod cursor;
 mod edit;
 mod edit_fuzz;
@@ -150,8 +151,8 @@ fn project_app(tag: &str, files: &[(&str, &str)]) -> (PathBuf, App) {
     let app = App::new(dir.clone(), tree, files, Buffer::empty(), None);
     (dir, app)
 }
-/// One of the #68 projects in `tests/fixtures`, with nothing outside it, so the standard
-/// library of the machine running the tests has no say in what `d` offers.
+/// One of the projects in `tests/fixtures` (#68, #307), with nothing outside it for any kind,
+/// so the standard library of the machine running the tests has no say in what `d` offers.
 fn fixture_app(name: &str) -> App {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures")
@@ -160,7 +161,27 @@ fn fixture_app(name: &str) -> App {
     let mut a = App::new(dir, tree, files, Buffer::empty(), None);
     // The fixtures are read as a plain build reads them, whatever `GOFLAGS` the tests run under.
     a.go_build = search::GoBuild::host();
-    for kind in [Kind::Python, Kind::TsJs, Kind::Go] {
+    for kind in [
+        Kind::Python,
+        Kind::Go,
+        Kind::Rust,
+        Kind::TsJs,
+        Kind::Jvm,
+        Kind::Ruby,
+        Kind::C,
+        Kind::CSharp,
+        Kind::Swift,
+        Kind::Php,
+        Kind::Lua,
+        Kind::Elixir,
+        Kind::Zig,
+        Kind::Shell,
+        Kind::Sql,
+        Kind::Make,
+        Kind::Terraform,
+        Kind::Docker,
+        Kind::Yaml,
+    ] {
         a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
     }
     a
