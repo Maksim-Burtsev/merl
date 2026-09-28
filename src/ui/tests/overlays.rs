@@ -323,7 +323,7 @@ const SNAPSHOT: [&str; 12] = [
     "│     │                                              │",
     "│     └──────────────────────────────────────────────┘",
     "└────────────────────────────┘",
-    "demo/  1:1  [tree]                                   ? help",
+    "demo/  [tree]                                        ? help",
 ];
 
 /// `?` on a terminal shorter than the key list scrolls instead of clipping.

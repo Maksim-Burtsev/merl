@@ -71,6 +71,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   long name of wide characters is cut to fit instead of pushing the counts off the panel.
   `review_panel_colours = false` in `~/.config/merl/config.toml` turns the colours, the dimming and
   the totals off. (#250)
+- With no file open, on the start screen and at the tutor's first lesson, the status bar no longer
+  shows a cursor position: `demo/  [tree]` instead of `demo/  1:1  [tree]`. (#285)
 
 ### Fixed
 
