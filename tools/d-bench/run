@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+"""The `d` bench: press `d` on recorded cursors in pinned real projects, score merl's answer
+against the recorded one, print a table per language and diff it against the baseline.
+
+  tools/d-bench/run [--lang L[,L]] [--project P] [--cache DIR] [--merl FILE] [--update-baseline]
+
+--cache            where the projects are cloned (default $D_BENCH_CACHE or ~/.cache/merl-d-bench).
+                   A clone already at its pinned commit is only read, never touched.
+--merl FILE        score a previous run's output (`last-merl.tsv` in the cache) instead of
+                   running merl again.
+--update-baseline  write this run's rows into baseline.tsv and its table into baseline.md.
+
+Exits 1 when a language has more wrong jumps or fewer direct hits than the baseline.
+"""
+import argparse, datetime, os, re, subprocess, sys
+from collections import Counter, defaultdict
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(os.path.dirname(HERE))
+RANK = {"ok": 0, "pick-hit": 1, "pick-miss": 2, "none": 2, "WRONG": 3}
+SCORED = list(RANK)
+
+
+def tsv(path):
+    return [l.rstrip("\n").split("\t") for l in open(path) if l.strip() and not l.startswith("#")]
+
+
+def sh(cmd, cwd):
+    print(f"  $ {cmd}", file=sys.stderr)
+    subprocess.run(cmd, cwd=cwd, shell=True, check=True)
+
+
+def ensure(cache, name, url, commit, install):
+    """Clones the project at its pinned commit and installs its dependencies, once."""
+    d = os.path.join(cache, name)
+    if os.path.isdir(os.path.join(d, ".git")):
+        head = subprocess.run(["git", "-C", d, "rev-parse", "HEAD"], capture_output=True,
+                              text=True).stdout.strip()
+        if head == commit:
+            return d
+        print(f"{name}: at {head[:7]}, moving to the pinned {commit[:7]}", file=sys.stderr)
+    else:
+        print(f"{name}: cloning {url} at {commit[:7]}", file=sys.stderr)
+        os.makedirs(d, exist_ok=True)
+        sh(f"git init -q && git remote add origin {url}", d)
+    sh(f"git fetch -q --depth 1 origin {commit} && git checkout -q --detach {commit}", d)
+    if install != "-":
+        sh(install, d)
+    return d
+
+
+def modkey(p):
+    """A dependency's file by its last two components: a copy elsewhere still counts."""
+    base = re.sub(r"(\.d)?\.[A-Za-z]+$", "", p)
+    return "/".join(base.split("/")[-2:])
+
+
+def targets(s, root):
+    out = []
+    for t in filter(None, s.split(";")):
+        p, _, ln = t.rpartition(":")
+        p = os.path.expanduser(p)
+        out.append((os.path.realpath(os.path.join(root, p)), int(ln)))
+    return out
+
+
+def verdict(cur, ans, got, root):
+    """ok / pick-hit / WRONG / pick-miss / none, or the reason the row is not scored."""
+    rel, line = cur[2], int(cur[3])
+    want = targets(ans[1], root) if ans else []
+    here = os.path.realpath(os.path.join(root, rel))
+    if ans and ans[2]:
+        return "skip"
+    if not want:
+        return "no-answer"
+    if any(p == here and ln == line for p, ln in want):
+        return "on-decl"
+    external = not all(p.startswith(root + "/") for p, _ in want)
+
+    def hit(g):
+        return any(g[0] == p and abs(g[1] - ln) <= 1 or external and modkey(g[0]) == modkey(p)
+                   for p, ln in want)
+
+    outcome, found = got
+    if outcome == "jump":
+        return "ok" if hit(found[0]) else "WRONG"
+    if outcome == "picker":
+        return "pick-hit" if any(hit(g) for g in found) else "pick-miss"
+    return "none"
+
+
+def pct(n, tot):
+    return f"{n} ({100 * n / tot:.0f}%)" if tot else "0"
+
+
+def quantile(ms, q):
+    ms = sorted(ms)
+    return ms[min(len(ms) - 1, int(len(ms) * q))] if ms else 0.0
+
+
+def table(rows, projects):
+    """rows: (lang, id, verdict, ms) -> the per-language table as Markdown lines."""
+    by = defaultdict(list)
+    for r in rows:
+        by[r[0]].append(r)
+    out = ["| language (project) | scored | direct hit | picker with the answer | wrong jump "
+           "| miss | not scored | p50 ms | p90 ms |", "|---|---|---|---|---|---|---|---|---|"]
+    for lang in sorted(by, key=lambda l: [p[1] for p in projects].index(l)):
+        c = Counter(r[2] for r in by[lang])
+        n = sum(c[k] for k in SCORED)
+        ms = [r[3] for r in by[lang]]
+        name = next(p[0] for p in projects if p[1] == lang)
+        out.append(f"| {lang} ({name}) | {n} | {pct(c['ok'], n)} | {pct(c['pick-hit'], n)} | "
+                   f"{pct(c['WRONG'], n)} | {pct(c['pick-miss'] + c['none'], n)} | "
+                   f"{len(ms) - n} | {quantile(ms, .5):.1f} | {quantile(ms, .9):.1f} |")
+    return out
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    ap.add_argument("--lang")
+    ap.add_argument("--project")
+    ap.add_argument("--cache", default=os.environ.get("D_BENCH_CACHE",
+                                                      os.path.expanduser("~/.cache/merl-d-bench")))
+    ap.add_argument("--merl")
+    ap.add_argument("--update-baseline", action="store_true")
+    a = ap.parse_args()
+
+    projects = tsv(os.path.join(HERE, "projects.tsv"))
+    pick = [p for p in projects if (not a.lang or p[1] in a.lang.split(","))
+            and (not a.project or p[0] == a.project)]
+    if not pick:
+        sys.exit("no project matches")
+    cache = os.path.realpath(os.path.expanduser(a.cache))
+    os.makedirs(cache, exist_ok=True)
+    roots, cursors, answers = {}, [], {}
+    for name, lang, url, commit, install in pick:
+        roots[name] = os.path.realpath(ensure(cache, name, url, commit, install))
+        cursors += [(lang, c) for c in tsv(os.path.join(HERE, "cursors", f"{lang}.tsv")) if c[1] == name]
+        answers.update({r[0]: r + [""] * (4 - len(r)) for r in tsv(os.path.join(HERE, "answers", f"{lang}.tsv"))})
+
+    merl_out = a.merl or os.path.join(cache, "last-merl.tsv")
+    load_before = os.popen("sysctl -n vm.loadavg 2>/dev/null").read().strip()
+    if not a.merl:
+        bench_in = os.path.join(cache, "last-cursors.tsv")
+        with open(bench_in, "w") as f:
+            for _, c in cursors:
+                f.write("\t".join([c[0], roots[c[1]], *c[2:5]]) + "\n")
+        print(f"load {load_before}; {len(cursors)} cursors", file=sys.stderr)
+        subprocess.run(["cargo", "test", "--release", "--bin", "merl", "d_bench", "--", "--ignored", "--quiet"],
+                       cwd=REPO, check=True, env={**os.environ, "BENCH_IN": bench_in, "BENCH_OUT": merl_out})
+    merl = {r[0]: r + [""] * (5 - len(r)) for r in tsv(merl_out)}
+
+    rows, detail = [], []
+    for lang, c in cursors:
+        if c[0] not in merl:
+            continue
+        m = merl[c[0]]
+        got = (m[1], targets(m[4], roots[c[1]]))
+        v = verdict(c, answers.get(c[0]), got, roots[c[1]])
+        rows.append((lang, c[0], v, float(m[2])))
+        rel = lambda p: os.path.relpath(p, roots[c[1]]) if p.startswith(roots[c[1]] + "/") else p
+        shown = ";".join(f"{rel(p)}:{l}" for p, l in got[1][:3])
+        detail.append([c[0], v, m[1], m[2], f"{c[2]}:{c[3]}:{c[4]}", c[6], m[3], shown,
+                       answers.get(c[0], ["", ""])[1]])
+    with open(os.path.join(cache, "last-score.tsv"), "w") as f:
+        f.write("# id\tverdict\toutcome\tms\tcursor\tword\tstatus\tmerl (first 3)\tanswer\n")
+        f.writelines("\t".join(d) + "\n" for d in detail)
+    tab = table(rows, projects)
+    print("\n".join(tab))
+
+    base_path = os.path.join(HERE, "baseline.tsv")
+    base = {r[0]: r for r in tsv(base_path)} if os.path.exists(base_path) else {}
+    now = {d[0]: d for d in detail}
+    worse = [(RANK[now[i][1]] - RANK[b[1]], now[i][1] == "WRONG", i) for i, b in base.items()
+             if i in now and b[1] in RANK and now[i][1] in RANK and RANK[now[i][1]] > RANK[b[1]]]
+    better = sum(1 for i, b in base.items() if i in now and b[1] in RANK and now[i][1] in RANK
+                 and RANK[now[i][1]] < RANK[b[1]])
+    fail = False
+    if base:
+        print(f"\nagainst the baseline: {len(worse)} worse, {better} better")
+        for lang in dict.fromkeys(r[0] for r in rows):
+            ids = [r[1] for r in rows if r[0] == lang and r[1] in base]
+            cnt = lambda src, k: sum(1 for i in ids if src[i][1] == k)
+            ok, wr = (cnt(base, "ok"), cnt(now, "ok")), (cnt(base, "WRONG"), cnt(now, "WRONG"))
+            flag = wr[1] > wr[0] or ok[1] < ok[0]
+            fail |= flag
+            print(f"  {lang:7} direct hit {ok[0]}->{ok[1]}  wrong jump {wr[0]}->{wr[1]}"
+                  + ("  WORSE" if flag else ""))
+        for _, _, i in sorted(worse, key=lambda w: (not w[1], -w[0], w[2])):
+            b, n = base[i], now[i]
+            print(f"  {i} {n[4]} {n[5]}: {b[1]} -> {n[1]}  ({n[2]} {n[7] or n[6]})")
+
+    if a.update_baseline:
+        keep = {i: r for i, r in base.items() if i not in now}
+        merged = sorted({**keep, **{i: d[:4] for i, d in now.items()}}.items())
+        with open(base_path, "w") as f:
+            f.write("# id\tverdict\toutcome\tms (tools/d-bench/run --update-baseline)\n")
+            f.writelines("\t".join(r[:4]) + "\n" for _, r in merged)
+        all_rows = [(next(p[1] for p in projects if r[0].startswith(p[1]) and r[0][len(p[1]):].isdigit()),
+                     r[0], r[1], float(r[3])) for _, r in merged]
+        head = subprocess.run(["git", "-C", REPO, "log", "-1", "--format=%h %s"], capture_output=True,
+                              text=True).stdout.strip()
+        load_after = os.popen("sysctl -n vm.loadavg 2>/dev/null").read().strip()
+        with open(os.path.join(HERE, "baseline.md"), "w") as f:
+            f.write(f"# `d` bench baseline\n\nmerl at `{head}`, {datetime.date.today()}, release build, "
+                    f"`vm.loadavg` {load_before} before the run, {load_after} after.\n\n" + "\n".join(table(all_rows, projects)) + "\n")
+    sys.exit(1 if fail else 0)
+
+
+if __name__ == "__main__":
+    main()
