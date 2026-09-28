@@ -709,6 +709,18 @@ mod tests {
         assert!(!got.exists());
     }
 
+    /// #320: the README names the oldest Rust that builds merl, the one Cargo.toml sets and CI
+    /// builds with.
+    #[test]
+    fn the_readme_names_the_rust_version_cargo_toml_sets() {
+        let wanted = format!(
+            "Or build it (Rust {} or newer):",
+            env!("CARGO_PKG_RUST_VERSION")
+        );
+        let readme = include_str!("../README.md");
+        assert!(readme.contains(&wanted), "README.md should say {wanted:?}");
+    }
+
     #[test]
     fn review_takes_the_word_after_it_as_its_branch() {
         use clap::Parser;
