@@ -27,8 +27,8 @@ DEMO = "/tmp/merl-demo"
 COLS, ROWS = 132, 41          # a 16:10 laptop window at the font below
 TYPE, PACE = 0.12, 0.35       # seconds between typed characters, and between named keys
 SOCK = "merl-readme"
-# tokyonight-moon's background and foreground, then the 16 ANSI colours; merl itself only emits
-# 24-bit colour, so the 16 never show.
+# tokyonight-moon's background and foreground, then the 16 ANSI colours: the gutter marks and the
+# review panel's letters are basic colours, so the terminal picks their shade.
 THEME = "222436,c8d3f5," + ",".join(["1b1d2b", "ff757f", "c3e88d", "ffc777", "82aaff", "c099ff",
                                      "86e1fc", "828bb8"] * 2)
 

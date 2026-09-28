@@ -699,8 +699,8 @@ SELFTEST = {
               "(play 2 of 3, for the timed steps)"),
     "slower": ("merl\nwait ready\nkey d\ntime\nwait done\n", {"d": "sleep 0.5;"}, {}, "PASS", "**slower**"),
     # the builds draw `done` in different colours: two tints over one text are two differences
-    "diff-red": ("merl\nwait ready\nkey d\nwait done\n", {"d": "printf '\\033[31m';"}, {}, "DIFF", "#cd0000"),
-    "diff-blue": ("merl\nwait ready\nkey d\nwait done\n", {"d": "printf '\\033[34m';"}, {}, "DIFF", "#0000ee"),
+    "diff-red": ("merl\nwait ready\nkey d\nwait done\n", {"d": "printf '\\033[31m';"}, {}, "DIFF", "#ff757f"),
+    "diff-blue": ("merl\nwait ready\nkey d\nwait done\n", {"d": "printf '\\033[34m';"}, {}, "DIFF", "#82aaff"),
     # tmux gone under a play: the runner's ERROR, and the run goes on
     "error": ("merl\nwait ready\nrun $SMOKE_TMUX kill-server\nwait ready\n", {}, {}, "ERROR", "tmux capture-pane"),
 }

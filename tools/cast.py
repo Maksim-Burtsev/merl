@@ -30,7 +30,15 @@ import argparse, os, re, shlex, shutil, subprocess, sys, tempfile, threading, ti
 from PIL import Image, ImageDraw, ImageFont
 
 FONT = "/System/Library/Fonts/Menlo.ttc"  # index 0 regular, 1 bold, 2 italic, 3 bold-italic
-DEFAULT_FG, DEFAULT_BG = (0xcc, 0xcc, 0xcc), (0x10, 0x10, 0x10)
+# The terminal's own colours, as the owner's Ghostty draws them with its TokyoNight Moon theme:
+# the default foreground and background, then the 16 ANSI colours. merl paints its theme in
+# 24-bit colour, but the gutter marks and the review panel's letters are basic colours whose
+# shade the terminal picks; xterm's blue, (0, 0, 238), is nearly black on a dark theme.
+DEFAULT_FG, DEFAULT_BG = (0xc8, 0xd3, 0xf5), (0x22, 0x24, 0x36)
+ANSI = [tuple(bytes.fromhex(h)) for h in ("1b1d2b ff757f c3e88d ffc777 82aaff c099ff 86e1fc 828bb8 "
+                                          "444a73 ff757f c3e88d ffc777 82aaff c099ff 86e1fc c8d3f5"
+                                          ).split()]
+GHOSTTY_THEMES = "/Applications/Ghostty.app/Contents/Resources/ghostty/themes"
 SELFTEST_STEPS = ["wait store.py", "key s", "sleep 0.4", "type config", "sleep 1.2"]
 # Menlo's box glyphs leave gaps at a cell this tall, so they are drawn as lines through the centre.
 SEGMENTS = {"│": "ud", "┃": "ud", "─": "lr", "━": "lr", "┌": "dr", "┐": "dl", "└": "ur", "┘": "ul",
@@ -39,11 +47,24 @@ SEGMENTS = {"│": "ud", "┃": "ud", "─": "lr", "━": "lr", "┌": "dr", "�
 SGR = re.compile(r"\x1b\[([0-9;]*)m")
 
 
+def use_ghostty(theme):
+    """The terminal's colours from a Ghostty theme, a name such as `TokyoNight Day` or a path."""
+    global DEFAULT_FG, DEFAULT_BG
+    path = theme if os.sep in theme else os.path.join(GHOSTTY_THEMES, theme)
+    for line in open(path):
+        key, _, value = (s.strip() for s in line.partition("="))
+        if key == "palette":
+            n, _, value = value.partition("=")
+            ANSI[int(n)] = tuple(bytes.fromhex(value.strip().lstrip("#")))
+        elif key == "foreground":
+            DEFAULT_FG = tuple(bytes.fromhex(value.lstrip("#")))
+        elif key == "background":
+            DEFAULT_BG = tuple(bytes.fromhex(value.lstrip("#")))
+
+
 def xterm(n):
     if n < 16:
-        return [(0, 0, 0), (205, 0, 0), (0, 205, 0), (205, 205, 0), (0, 0, 238), (205, 0, 205),
-                (0, 205, 205), (229, 229, 229), (127, 127, 127), (255, 0, 0), (0, 255, 0),
-                (255, 255, 0), (92, 92, 255), (255, 0, 255), (0, 255, 255), (255, 255, 255)][n]
+        return ANSI[n]
     if n < 232:
         s, n = (0, 95, 135, 175, 215, 255), n - 16
         return (s[n // 36], s[(n // 6) % 6], s[n % 6])
@@ -254,11 +275,15 @@ def main():
     p.add_argument("--fps", type=float, default=10)
     p.add_argument("--key-delay", type=float, default=0.12, help="pause after each keystroke")
     p.add_argument("--tail", type=float, default=1.2, help="seconds held on the last frame")
+    p.add_argument("--ghostty", metavar="THEME",
+                   help="the terminal's colours from this Ghostty theme (default: TokyoNight Moon)")
     p.add_argument("--selftest", action="store_true", help="record tutor/notes and check the GIF")
     p.add_argument("merl_args", nargs=argparse.REMAINDER, help="after --, arguments for merl")
     args = p.parse_args()
 
     merl_args = args.merl_args[1:] if args.merl_args[:1] == ["--"] else args.merl_args
+    if args.ghostty:
+        use_ghostty(args.ghostty)
     if args.selftest:
         repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         sample = os.path.join(tempfile.mkdtemp(prefix="cast-notes-"), "notes")
@@ -297,6 +322,10 @@ def main():
         red = (255, 0, 0)
         bar = render([[("\u258e", red, DEFAULT_BG, False, False)]] * 2, None, fonts, cell)
         assert all(bar.getpixel((0, y)) == red for y in range(bar.height)), "the ▎ bar has gaps"
+        # A second line goes on in the first one's background; `\e[34m` is the terminal's blue.
+        g = parse("\x1b[48;2;1;2;3mx\ny\n\x1b[34mM", 1, 3)
+        assert g[1][0][2] == (1, 2, 3), "the second line lost the background it carries on"
+        assert g[2][0][1] == ANSI[4] == (0x82, 0xaa, 0xff), "the blue is not the terminal's"
         print("selftest ok")
 
 
