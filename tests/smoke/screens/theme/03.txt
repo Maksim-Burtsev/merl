@@ -1,0 +1,57 @@
+wait Themes (
+ 1 from dataclasses import dataclass, field
+ 2 from datetime import datetime, timezone
+ 3 from decimal import Decimal
+ 4 from enum import Enum
+ 5
+ 6
+ 7 class OrderStatus(Enum):
+ 8     PENDING = "pending"
+ 9     PAID = "paid"
+10     SHIPPED = "shipped"
+11     CANCELLED = "cancelled"
+12     REFUNDED = "┌Themes (94/94)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+13                 │>                                                                                                                                                 │
+14                 │tokyonight-moon                                                                                                                                   │
+15 @dataclass      │tokyonight-night                                                                                                                                  │
+16 class Order:    │tokyonight-storm                                                                                                                                  │
+17     id: int     │kanagawa-wave                                                                                                                                     │
+18     customer_id:│kanagawa-dragon                                                                                                                                   │
+19     total: Decim│rose-pine                                                                                                                                         │
+20     status: Orde│rose-pine-moon                                                                                                                                    │
+21     created_at: │everforest-dark                                                                                                                                   │
+22                 │gruvbox-material-dark                                                                                                                             │
+23     def can_canc│gruvbox-dark                                                                                                                                      │
+24         return s│catppuccin-mocha                                                                                                                                  │
+                   │catppuccin-macchiato                                                                                                                              │
+                   │catppuccin-frappe                                                                                                                                 │
+                   │flexoki-dark                                                                                                                                      │
+                   │melange-dark                                                                                                                                      │
+                   │nightfox                                                                                                                                          │
+                   │nordfox                                                                                                                                           │
+                   │nord                                                                                                                                              │
+                   │onedark                                                                                                                                           │
+                   │github-dark                                                                                                                                       │
+                   │vscode-dark                                                                                                                                       │
+                   │dracula                                                                                                                                           │
+                   │solarized-dark                                                                                                                                    │
+                   │oxocarbon-dark                                                                                                                                    │
+                   │sonokai                                                                                                                                           │
+                   │material-dark                                                                                                                                     │
+                   │shokunin-dark                                                                                                                                     │
+                   │adwaita                                                                                                                                           │
+                   │alabaster                                                                                                                                         │
+                   │ayu                                                                                                                                               │
+                   └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+app/models.py  1:1  [code]                                                                                                                                                        ? help
+cursor (x,y,shown) 22,12,1

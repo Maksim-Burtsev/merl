@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""The smoke test before a release: plays every scenario in tmux on the new build and on the last
-release, and writes what differs to a report (.claude/skills/smoke-test/SKILL.md reads it).
+"""The smoke test: before a release, plays every scenario in tmux on the new build and on the last
+release, and writes what differs to a report (.claude/skills/smoke-test/SKILL.md reads it); on
+every PR (--golden, in CI), plays them on the new build alone against the screens checked in.
 
     tests/smoke/run.py                           build this checkout, fetch the last release, play all
+    tests/smoke/run.py --golden                  every checkpoint's screen against tests/smoke/screens/
+    tests/smoke/run.py --update --only edit      rewrite edit's screens after a change made on purpose
     tests/smoke/run.py --only review,edit        these two, or all whose name holds a part given
     tests/smoke/run.py --old target/release/merl the new build against itself
     tests/smoke/run.py --gif demo.gif --only python-d    one scenario on the new build, as a GIF
@@ -41,11 +44,19 @@ assets/tapes/record.py plus a few verbs of its own:
                        (fetched once, 59 MB), instead of the fixture; `project polar` in its
                        polar checkout (an 80 MB fetch). assets/tapes/record.py reads the same line
 
+--golden plays each scenario once, on the new build only, and compares each checkpoint with
+tests/smoke/screens/SCENARIO/NN.txt: the wait's text, then the screen as text, trailing blanks cut,
+then the cursor. Colours are left out. It prints a diff per screen that differs and exits 1 on
+any difference or failure. --update writes the screens of the scenarios it played instead (only
+those that played through); commit them with the change, so the PR's diff shows every screen it
+changes. RELEASE_ONLY names the scenarios CI does not play, and SCREEN_SKIPPED the checkpoints
+whose screen depends on the machine (their wait is still checked).
+
 A scenario that is not about the tree hides it (`t`) after its first wait, so that a change to the
 tree shows in one checkpoint per scenario, not in all of them. What a wait may name, and where a new
 feature's steps go: AGENTS.md, its bullets on tests/smoke.
 """
-import argparse, difflib, fcntl, hashlib, json, os, platform, re, shlex, shutil, signal, subprocess, sys
+import argparse, contextlib, difflib, fcntl, hashlib, io, json, os, platform, re, shlex, shutil, signal, subprocess, sys
 import tempfile, threading, time, traceback
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -68,6 +79,19 @@ VOLATILE = re.compile(r"(?<=merl-tutor-)\d+")
 AGENT = {"GIT_CONFIG_GLOBAL": "/dev/null", "GIT_AUTHOR_NAME": "agent", "GIT_COMMITTER_NAME": "agent",
          "GIT_AUTHOR_EMAIL": "agent@example.com", "GIT_COMMITTER_EMAIL": "agent@example.com",
          "GIT_AUTHOR_DATE": "2026-09-03T10:00:00Z", "GIT_COMMITTER_DATE": "2026-09-03T10:00:00Z"}
+SCREENS = os.path.join(HERE, "screens")  # --golden's checked-in screens, SCENARIO/NN.txt
+# The scenarios --golden (CI) does not play, and why; the release gate plays them.
+RELEASE_ONLY = {
+    "scale": "gitea's checkout, a 59 MB fetch, and its timed steps mean nothing on a shared runner",
+    "readme-review": "polar's checkout, an 80 MB fetch; the README's own recording plays it too",
+}
+# Checkpoints whose screen depends on the machine, by scenario and wait text: --golden checks
+# that the text shows, not the screen.
+SCREEN_SKIPPED = {
+    ("python-d", "json/__init__.py"): "the standard library of the machine's Python",
+    ("python-d", "cancel: by name"): "the cancel methods of the machine's Python standard library",
+    ("go-d", "Errorf: via import fmt"): "the standard library of the machine's Go",
+}
 # Every verdict the table can show, printed under it.
 LEGEND = [("PASS", "every checkpoint the same on both builds"),
           ("DIFF", "the new build played it through; the differences below each need a verdict"),
@@ -568,6 +592,62 @@ def spans(nums):
     return ", ".join(out)
 
 
+ESC = re.compile(r"\x1b(\[[0-9;:?]*[A-Za-z]|\][^\x07\x1b]*(\x07|\x1b\\))")  # SGR, and any other CSI or OSC
+
+
+def screen(name, checkpoint):
+    """A checkpoint as --golden keeps it: the wait's text, the screen without colours, the cursor."""
+    label, capture, cursor = checkpoint[:3]
+    wait = label.split(" wait ", 1)[-1]
+    head = [f"wait {wait}"]
+    if why := SCREEN_SKIPPED.get((name, wait)):
+        return "\n".join(head + [f"(screen not compared: {why})"]) + "\n"
+    rows = [line.rstrip() for line in ESC.sub("", capture).split("\n")]
+    while rows and not rows[-1]:
+        rows.pop()
+    return "\n".join(head + rows + [f"cursor (x,y,shown) {cursor}"]) + "\n"
+
+
+def golden(new, picked, work, update, screens=SCREENS):
+    """--golden and --update: each scenario played once on `new`, its checkpoints compared with the
+    screens checked in, or written over them. True when every one played through and matched."""
+    good = True
+    for name, path in picked.items():
+        r = play(new, path, work)
+        got = {f"{i:02d}.txt": screen(name, c) for i, c in enumerate(r["checkpoints"], 1)}
+        where = os.path.join(screens, name)
+        if r["status"] != "ok":
+            good = False
+            print(f"{name:14} {r['status']}", flush=True)
+            if r.get("last"):
+                print(f"  {r['last'][0]}:\n" + screen(name, r["last"]))
+            if r["stderr"].strip():
+                print(r["stderr"].strip())
+            continue
+        if update:
+            shutil.rmtree(where, ignore_errors=True)
+            os.makedirs(where)
+            for f, text in got.items():
+                open(os.path.join(where, f), "w").write(text)
+            print(f"{name:14} {len(got)} screens written, {r['seconds']} s", flush=True)
+            continue
+        have = sorted(os.listdir(where)) if os.path.isdir(where) else []
+        diff = []
+        for f in sorted(set(have) | set(got)):
+            want = open(os.path.join(where, f)).read() if f in have else ""
+            if want != got.get(f, ""):
+                rel = os.path.relpath(os.path.join(where, f), ROOT)
+                diff += difflib.unified_diff(want.splitlines(), got.get(f, "").splitlines(),
+                                             f"{rel} (checked in)", f"{rel} (this build)", lineterm="")
+        good &= not diff
+        print(f"{name:14} {'DIFF' if diff else 'ok'}, {len(got)} screens, {r['seconds']} s", flush=True)
+        print("\n".join(diff) + "\n" * bool(diff), flush=True)
+    if not good and not update:
+        print("A screen changed on purpose: tests/smoke/run.py --update --only NAME, and commit "
+              "tests/smoke/screens/ with the change.")
+    return good
+
+
 def version(binary):
     """What `binary --version` prints, or None when it does not run and say `merl`."""
     try:
@@ -748,6 +828,17 @@ def selftest():
     assert results["end"]["new"]["last"][3] == list(SIZE), "the last checkpoint kept at another size"
     last = results["restarted"]["new"]["last"][0]
     assert last == "the screen after merl died", f"a merl dead on its restart shown by {last!r}"
+    # --golden: --update's screens match the build that wrote them, and one that only colours
+    # `done` otherwise; a build that draws another text differs, and one that fails fails.
+    screens, one, fake = os.path.join(tmp, "screens"), {"pass": names["pass"]}, lambda n: os.path.join(tmp, n)
+    for binary, d in (("other", "echo other;"), ("gone", "exit 3;")):
+        open(fake(binary), "w").write(FAKE % {"q": "exit 0", "d": d, "s": ""})
+        os.chmod(fake(binary), 0o755)
+    with contextlib.redirect_stdout(io.StringIO()) as said:
+        assert golden(fake("pass-new"), one, work, True, screens), "--update failed"
+        for binary, want in (("pass-new", True), ("diff-red-new", True), ("other", False), ("gone", False)):
+            assert golden(fake(binary), one, work, False, screens) == want, f"--golden on {binary}: not {want}"
+    assert "+other" in said.getvalue() and "EXIT 3 at" in said.getvalue(), said.getvalue()
     label = load(os.path.join(HERE, "go-d.steps"))[1][0][0]
     assert label.startswith("tests/smoke/go-d.steps:"), f"a step labelled {label!r}"
     # Ctrl-C while a play waits for a merl that will not quit: its tmux server goes all the same.
@@ -792,9 +883,13 @@ def main():
     p.add_argument("--out", help="the report and its PNGs (default: WORK/out, WORK/out-only for --only)")
     p.add_argument("--only", help="comma-separated scenario names, or parts of names")
     p.add_argument("--gif", help="record the one scenario --only names on the new build as this GIF")
+    p.add_argument("--golden", action="store_true",
+                   help="the new build alone, every checkpoint against tests/smoke/screens/ (CI)")
+    p.add_argument("--update", action="store_true", help="--golden, writing the screens instead of comparing")
     p.add_argument("--again", action="store_true", help="the report again from OUT/results.json, unplayed")
     p.add_argument("--selftest", action="store_true", help="the runner's failure paths on fake merls")
     a = p.parse_args()
+    a.golden |= a.update
     if a.selftest:
         return selftest()
     # absolute once: HOME and stderr go into a command that runs in the project, not here
@@ -807,7 +902,8 @@ def main():
     t0, load0 = time.monotonic(), os.getloadavg()[0]
     only = a.only.split(",") if a.only else []  # a scenario's own name, else a part of names
     picked = {n: f for n, f in names.items()
-              if not only or any(o == n or o not in names and o in n for o in only)}
+              if (not only or any(o == n or o not in names and o in n for o in only))
+              and not (a.golden and n in RELEASE_ONLY)}
     if not picked:
         sys.exit(f"no scenario is named or holds {a.only}")
     held = lock(a.work)
@@ -837,6 +933,8 @@ def played(a, picked, names, out, t0, load0):
     if a.gif:
         assert len(picked) == 1, f"--gif records one scenario, --only picked {list(picked) or 'none'}"
         return gif(new, *picked.values(), a.work, a.gif)
+    if a.golden:
+        return golden(new, picked, a.work, a.update) or sys.exit(1)
     old, tag = (a.old, None) if a.old and os.path.exists(a.old) else last_release(a.old)
     if not version(old):
         sys.exit(f"{old} does not answer --version")

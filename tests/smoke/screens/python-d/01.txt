@@ -1,0 +1,57 @@
+wait def order_json(order) -> str:
+┌orders──────────────────────┐ 1 import json
+│▸ .github                   │ 2 from http import HTTPStatus
+│▸ .venv                     │ 3 from typing import cast
+│▾ app                       │ 4
+│    __init__.py             │ 5 from app.service import OrderNotFound, OrderService
+│    api.py                  │ 6
+│    config.py               │ 7
+│    models.py               │ 8 def order_json(order) -> str:
+│    repos.py                │ 9     return json.dumps(
+│    service.py              │10         {"id": order.id, "status": order.status.value, "total": str(order.total)},
+│    uow.py                  │11         sort_keys=True,
+│▸ data                      │12     )
+│▸ deploy                    │13
+│▸ docs                      │14
+│▸ scripts                   │15 def get_order(service: OrderService, order_id: int) -> tuple[int, str]:
+│▸ tests                     │16     try:
+│▸ web                       │17         return HTTPStatus.OK, order_json(service.get(order_id))
+│▸ worker                    │18     except OrderNotFound:
+│  .env                      │19         return HTTPStatus.NOT_FOUND, json.dumps({"error": "not found"})
+│  .gitignore                │20
+│  docker-compose.yml        │21
+│  Dockerfile                │22 def list_orders(repo, customer_id: int) -> tuple[int, str]:
+│  Makefile                  │23     orders = repo.find_by_customer(customer_id)
+│  pyproject.toml            │24     return HTTPStatus.OK, json.dumps([order.id for order in orders])
+│  README.md                 │25
+│                            │26
+│                            │27 def cancel_order(container, order_id: int) -> tuple[int, str]:
+│                            │28     service = cast(
+│                            │29         OrderService, container.get("orders")
+│                            │30     )
+│                            │31     return HTTPStatus.OK, order_json(service.cancel(order_id))
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/api.py  1:1  [code]                                                                                                                                                           ? help
+cursor (x,y,shown) 33,0,1

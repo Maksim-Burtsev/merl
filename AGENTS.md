@@ -19,6 +19,11 @@
   the last release stops at the first wait for what it lacks, so the new steps go at the end.
   Keep the whole run under ~3 min (`wall` in the report's header) and check the scenario with
   `tests/smoke/run.py --only NAME`: PASS or DIFF on the new build.
+- CI plays the scenarios on every PR (`tests/smoke/run.py --golden`, all but `RELEASE_ONLY` in
+  `run.py`) and fails on any checkpoint whose screen, as text, differs from its file under
+  `tests/smoke/screens/SCENARIO/`. A visible change, or new steps in a scenario, updates those
+  files in the same PR: `tests/smoke/run.py --update --only NAME`, then commit them, so the PR's
+  diff shows every screen it changes. Check each rewritten screen shows what the change meant.
 - A PR that changes a text a scenario waits for updates that scenario in the same PR; `grep -rn
   'TEXT' tests/smoke assets/*.steps` finds them all, the README's tapes that `scale` plays
   included. The wait moves to text both the change and the last release draw: the change then

@@ -27,6 +27,28 @@ jobs:
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test --locked
       - run: cargo build --release --locked
+      # The smoke scenarios in tmux on this build, every checkpoint against the screen checked in
+      # under tests/smoke/screens (#309): a changed screen fails here with its diff. Go for the `d`
+      # into its standard library. Homebrew's tmux on both: Ubuntu's 3.4 draws an emoji with a
+      # variation selector one column wide, where Homebrew's and the owner's terminal draw two.
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          cache: false
+      - name: smoke screens
+        env:
+          LANG: C.UTF-8
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            sudo apt-get install -y -qq python3-pil
+            /home/linuxbrew/.linuxbrew/bin/brew install -q tmux
+            export PATH="/home/linuxbrew/.linuxbrew/opt/tmux/bin:$PATH"
+          else
+            python3 -m pip install -q --break-system-packages pillow
+            brew install -q tmux
+          fi
+          tmux -V
+          tests/smoke/run.py --golden --new target/release/merl
       # The oldest Rust `Cargo.toml` allows builds merl too (#320), in a check the merge waits for.
       - if: matrix.os == 'ubuntu-latest'
         run: |

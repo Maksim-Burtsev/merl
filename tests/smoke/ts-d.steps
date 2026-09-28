@@ -7,7 +7,7 @@
 merl 'web/src/routes/orders/[id].tsx'
 wait export default function OrderPage
 key t
-run sed -i '' 's/Loading…/Loading order…/' 'web/src/routes/orders/[id].tsx'
+run perl -pi -e 's/Loading…/Loading order…/' 'web/src/routes/orders/[id].tsx'
 wait 17▎    return <p>Loading order…</p>;
 key /
 type OrderRepo }

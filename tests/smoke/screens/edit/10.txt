@@ -1,0 +1,57 @@
+wait             api_token=os.environ["API_TOKEN"],
+ 1 """Settings, read from the environment once at startup."""
+ 2 import os
+ 3 from dataclasses import dataclass
+ 4
+ 5
+ 6 @dataclass(frozen=True)
+ 7 class Settings:
+ 8     database_url: str
+ 9     api_token: str
+10▎    page_size: int = 100
+11     refund_window_days: int = 30
+12
+13
+14 def load() -> Settings:
+15     return Settings(
+16▎        database_url=os.environ.get("DATABASE_URL", "postgresql://orders@db/orders"),
+17             api_token=os.environ["API_TOKEN"],
+18             page_size=int(os.environ.get("PAGE_SIZE", "50")),
+19     )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+app/config.py ●  19:1  [edit]  Spaces: 4                                                                                                                                          ? help
+cursor (x,y,shown) 3,18,1

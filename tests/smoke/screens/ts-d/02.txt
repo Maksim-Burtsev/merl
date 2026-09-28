@@ -1,0 +1,57 @@
+wait 17▎    return <p>Loading order…</p>;
+ 1 import { useEffect, useState } from "react";
+ 2 import { ApiClient } from "@/api/client";
+ 3 import { OrderRepo } from "@/orders/repo";
+ 4 import { OrderStore } from "@/orders/store";
+ 5 import type { Order } from "@/orders/types";
+ 6
+ 7 const store = new OrderStore(new OrderRepo(new ApiClient("/api")));
+ 8
+ 9 export default function OrderPage({ id }: { id: number }) {
+10   const [order, setOrder] = useState<Order | null>(null);
+11
+12   useEffect(() => {
+13     store.load(id).then(setOrder);
+14   }, [id]);
+15
+16   if (!order) {
+17▎    return <p>Loading order…</p>;
+18   }
+19   return (
+20     <section>
+21       <h1>Order {order.id}</h1>
+22       <p>
+23         {order.status}, {order.total}
+24       </p>
+25       <button onClick={() => store.cancel(order.id).then(setOrder)}>Cancel</button>
+26     </section>
+27   );
+28 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/src/routes/orders/[id].tsx  1:1  [code]  reloaded
+cursor (x,y,shown) 3,0,1
