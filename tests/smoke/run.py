@@ -9,6 +9,7 @@ every PR (--golden, in CI), plays them on the new build alone against the screen
     tests/smoke/run.py --only review,edit        these two, or all whose name holds a part given
     tests/smoke/run.py --old target/release/merl the new build against itself
     tests/smoke/run.py --gif demo.gif --only python-d    one scenario on the new build, as a GIF
+    tests/smoke/run.py --all-shots               every checkpoint of the new build, a PNG each, in two themes
     tests/smoke/run.py --selftest                the runner's own failure paths, on fake binaries
 
 Without --new the checkout is built (`cargo build --release --locked`, its own target/); without
@@ -51,6 +52,12 @@ any difference or failure. --update writes the screens of the scenarios it playe
 those that played through); commit them with the change, so the PR's diff shows every screen it
 changes. RELEASE_ONLY names the scenarios CI does not play, and SCREEN_SKIPPED the checkpoints
 whose screen depends on the machine (their wait is still checked).
+
+--all-shots plays each scenario on the new build alone, once in merl's default theme and once in
+a light one (THEMES), and draws every checkpoint to OUT/THEME/SCENARIO/NN.png, OUT being
+WORK/shots (WORK/shots-only for --only); OUT/shots.md lists them. It compares nothing: the skill's
+agent looks at every PNG against its checklist. Text that did not change never reaches a diff, and
+contrast, colour and alignment are only seen in a picture (#312).
 
 A scenario that is not about the tree hides it (`t`) after its first wait, so that a change to the
 tree shows in one checkpoint per scenario, not in all of them. What a wait may name, and where a new
@@ -101,6 +108,12 @@ LEGEND = [("PASS", "every checkpoint the same on both builds"),
           ("HUNG", "merl did not quit on q"),
           ("RUN", "a `run` step failed: wrong bytes on disk, or the agent's command"),
           ("ERROR", "the runner failed, not merl: rerun, fix run.py if it comes back")]
+# --all-shots: (merl's theme, written into HOME's config.toml; the Ghostty theme whose basic
+# colours the PNG draws). A light theme is read on a light terminal; None is merl's default theme
+# on the owner's dark terminal. github-light is the light theme the text snapshots use too.
+THEMES = ((None, None), ("github-light", "GitHub Light Default"))
+# The scenarios --all-shots plays in the default theme only, and why.
+DEFAULT_ONLY = {"theme": "its first wait is a theme the picker lists around the default one"}
 
 
 class Merl(cast.Pane):
@@ -250,10 +263,11 @@ class Recorder:
             self.thread.join()
 
 
-def play(binary, path, work, timed_only=False, rec=None):
-    """One run of a scenario on one binary. Whatever happens, an interrupt included, the pane's tmux
-    server is gone after it. A play that does not end `ok` keeps in `last` the screen as it was at
-    the failure: before any q, and for a merl that died, its last checkpoint since it started."""
+def play(binary, path, work, timed_only=False, rec=None, theme=None):
+    """One run of a scenario on one binary, in `theme` when one is named. Whatever happens, an
+    interrupt included, the pane's tmux server is gone after it. A play that does not end `ok` keeps
+    in `last` the screen as it was at the failure: before any q, and for a merl that died, its last
+    checkpoint since it started."""
     home, err = os.path.join(work, "run", "home"), os.path.join(work, "run", "stderr")
     r = {"checkpoints": [], "times": {}, "slow": [], "status": "ok", "timed": False}
     size, pane, timed, t0 = list(SIZE), None, False, time.monotonic()
@@ -275,6 +289,9 @@ def play(binary, path, work, timed_only=False, rec=None):
         project, steps = load(path)
         cwd = fresh(work, project)
         open(err, "w").close()
+        if theme:
+            os.makedirs(os.path.join(home, ".config", "merl"))
+            open(os.path.join(home, ".config", "merl", "config.toml"), "w").write(f'theme = "{theme}"\n')
         last_timed = max((i for i, s in enumerate(steps) if s[1] == "time"), default=-1)
         r["timed"] = last_timed >= 0
         for i, (where, verb, pace, arg) in enumerate(steps):
@@ -648,6 +665,46 @@ def golden(new, picked, work, update, screens=SCREENS):
     return good
 
 
+def shots(new, picked, work, out):
+    """--all-shots: each scenario played on `new` once per theme of THEMES, every checkpoint drawn
+    to OUT/THEME/SCENARIO/NN.png, and for a play that did not end ok its screen at the failure,
+    last.png. OUT/shots.md lists them, with each play's status. The plays, by theme and scenario."""
+    report_dir(out)
+    fonts, cell = fonts_cell(14)
+    lines, results, t0 = ["# merl smoke: every checkpoint", "", f"`{new}` ({version(new)})", "",
+                          "| PNG | checkpoint |", "|---|---|"], {}, time.monotonic()
+    failed, dark = [], (cast.DEFAULT_FG, cast.DEFAULT_BG, cast.ANSI[:])
+    for theme, terminal in THEMES:
+        cast.DEFAULT_FG, cast.DEFAULT_BG, cast.ANSI[:] = dark
+        if terminal and os.path.exists(os.path.join(cast.GHOSTTY_THEMES, terminal)):
+            cast.use_ghostty(terminal)
+        label = theme or "default"
+        for name, path in picked.items():
+            if theme and name in DEFAULT_ONLY:
+                failed.append(f"- {label}/{name}: not played, {DEFAULT_ONLY[name]}")
+                continue
+            r = results.setdefault(label, {})[name] = play(new, path, work, theme=theme)
+            where = os.path.join(out, label, name)
+            os.makedirs(where)
+            for i, c in enumerate(r["checkpoints"], 1):
+                png_pair([(label, c)], [], os.path.join(where, f"{i:02d}.png"), fonts, cell)
+                lines.append(f"| {label}/{name}/{i:02d}.png | `{c[0]}` |")
+            if r["status"] != "ok":
+                failed.append(f"- {label}/{name}: {r['status']}")
+                if r.get("last"):
+                    png_pair([(label, r["last"])], [], os.path.join(where, "last.png"), fonts, cell)
+                    failed[-1] += f"; {r['last'][0]}: {label}/{name}/last.png"
+            print(f"{label:13} {name:14} {r['status']}, {len(r['checkpoints'])} shots, {r['seconds']} s",
+                  flush=True)
+    count = sum(len(r["checkpoints"]) for t in results.values() for r in t.values())
+    lines[4:4] = [f"{count} PNGs, {time.monotonic() - t0:.0f} s. Plays that did not end ok, or were not played:",
+                  "", *(failed or ["none"]), ""]
+    cast.DEFAULT_FG, cast.DEFAULT_BG, cast.ANSI[:] = dark
+    open(os.path.join(out, "shots.md"), "w").write("\n".join(lines) + "\n")
+    print(os.path.join(out, "shots.md"))
+    return results
+
+
 def version(binary):
     """What `binary --version` prints, or None when it does not run and say `merl`."""
     try:
@@ -839,6 +896,15 @@ def selftest():
         for binary, want in (("pass-new", True), ("diff-red-new", True), ("other", False), ("gone", False)):
             assert golden(fake(binary), one, work, False, screens) == want, f"--golden on {binary}: not {want}"
     assert "+other" in said.getvalue() and "EXIT 3 at" in said.getvalue(), said.getvalue()
+    # --all-shots: a PNG per checkpoint in each theme, the light one written into HOME's config
+    open(fake("themed"), "w").write(FAKE % {"q": "exit 0", "s": "",
+                                             "d": 'grep -qs github-light "$HOME/.config/merl/config.toml" && echo light;'})
+    os.chmod(fake("themed"), 0o755)
+    with contextlib.redirect_stdout(io.StringIO()):
+        shot = shots(fake("themed"), one, work, os.path.join(tmp, "shots"))
+    for theme, light in (("default", False), ("github-light", True)):
+        assert ("light" in shot[theme]["pass"]["checkpoints"][-1][1]) == light, f"{theme}: the wrong theme"
+        assert os.path.exists(os.path.join(tmp, "shots", theme, "pass", "02.png")), f"{theme}: no PNG"
     label = load(os.path.join(HERE, "go-d.steps"))[1][0][0]
     assert label.startswith("tests/smoke/go-d.steps:"), f"a step labelled {label!r}"
     # Ctrl-C while a play waits for a merl that will not quit: its tmux server goes all the same.
@@ -886,6 +952,8 @@ def main():
     p.add_argument("--golden", action="store_true",
                    help="the new build alone, every checkpoint against tests/smoke/screens/ (CI)")
     p.add_argument("--update", action="store_true", help="--golden, writing the screens instead of comparing")
+    p.add_argument("--all-shots", action="store_true",
+                   help="every checkpoint of the new build as a PNG, in the default and a light theme")
     p.add_argument("--again", action="store_true", help="the report again from OUT/results.json, unplayed")
     p.add_argument("--selftest", action="store_true", help="the runner's failure paths on fake merls")
     a = p.parse_args()
@@ -894,7 +962,7 @@ def main():
         return selftest()
     # absolute once: HOME and stderr go into a command that runs in the project, not here
     a.work = os.path.abspath(a.work)
-    out = os.path.abspath(a.out or os.path.join(a.work, "out-only" if a.only else "out"))
+    out = os.path.abspath(a.out or os.path.join(a.work, ("shots" if a.all_shots else "out") + "-only" * bool(a.only)))
     names = {f[:-6]: os.path.join(HERE, f) for f in sorted(os.listdir(HERE)) if f.endswith(".steps")}
     if a.again:
         results, head = json.load(open(os.path.join(out, "results.json")))
@@ -933,6 +1001,8 @@ def played(a, picked, names, out, t0, load0):
     if a.gif:
         assert len(picked) == 1, f"--gif records one scenario, --only picked {list(picked) or 'none'}"
         return gif(new, *picked.values(), a.work, a.gif)
+    if a.all_shots:
+        return shots(new, picked, a.work, out)
     if a.golden:
         return golden(new, picked, a.work, a.update) or sys.exit(1)
     old, tag = (a.old, None) if a.old and os.path.exists(a.old) else last_release(a.old)
