@@ -9,12 +9,11 @@
 
 merl runs under `asciinema rec` inside a detached tmux pane, the keys arrive through
 `tmux send-keys` at a human pace, and `agg` turns the recording into frames: nothing is drawn by
-hand and nothing is sped up. agg draws them at twice the pixels of the window they were sized for
-(a 36 px font in a window laid out for 18), so the GIF stays sharp on a retina screen, at the
-README's width and opened full size alike. Each frame then gets a margin of the background colour,
-and ffmpeg writes the GIF with one palette for the whole take and no dithering: text keeps clean
-edges, and a frame stores only the rectangle that changed. Needs tmux, asciinema, agg, ffmpeg and
-Pillow (`brew install asciinema agg ffmpeg`, `pip install pillow`).
+hand and nothing is sped up. agg draws them at the 18 px font the window is laid out for, the
+size the README's GIFs have had since #134: #299 drew them at twice the pixels, sharper, and the
+owner took this look back. ffmpeg writes the GIF with one palette for the whole take and no
+dithering: text keeps clean edges, and a frame stores only the rectangle that changed. Needs tmux,
+asciinema, agg, ffmpeg and Pillow (`brew install asciinema agg ffmpeg`, `pip install pillow`).
 
 A steps file is one verb per line (`#` comments and blank lines are skipped), the same verbs as
 tools/cast.py plus `merl`, `show` and `spawn`:
@@ -41,15 +40,13 @@ sys.dont_write_bytecode = True  # no __pycache__ left in tools/
 import cast  # noqa: E402
 DEMO = "/tmp/merl-demo"
 COLS, ROWS = 132, 41          # a 16:10 laptop window at an 18 px font
-FONT, LINE = 36, 1.25         # agg's font size in px, twice the 18 the window is laid out for
-PAD = 28                      # px of background around the screen, so no text touches the edge
+FONT, LINE = 18, 1.25         # agg's font size in px, the one the window is laid out for
 FPS = 25                      # merl draws a screen at once: a higher cap only makes 10 ms frames
 TYPE, PACE = 0.12, 0.35       # seconds between typed characters, and between named keys
 SOCK = "merl-readme"
 # The owner's terminal, as tools/cast.py has it: the background, the foreground, then the 16 ANSI
 # colours, the ones the gutter marks and the review panel's letters are drawn in.
 THEME = ",".join("%02x%02x%02x" % c for c in (cast.DEFAULT_BG, cast.DEFAULT_FG, *cast.ANSI))
-BG = THEME[:6]
 
 # --keys: the key just pressed, drawn in the bottom right corner the way macOS keystroke
 # visualisers draw it. It shows with merl's answer to the press, stays until the next key replaces
@@ -146,8 +143,8 @@ def draw_caps(frame, key, opacity):
     h = round(88 * s)
     w = max(h, round(d.textlength(label, font=font) + h * 0.55))
     # Bottom right, over the code and clear of the status line.
-    x = frame.width - PAD - round(20 * s) - w
-    y = frame.height - PAD - round(FONT * LINE) - round(14 * s) - h
+    x = frame.width - round(20 * s) - w
+    y = frame.height - round(FONT * LINE) - round(14 * s) - h
     a = lambda v: round(v * opacity)
     d.rounded_rectangle((x, y, x + w, y + h), round(h * 0.2), fill=(47, 51, 77, a(250)),
                         outline=(130, 139, 184, a(160)), width=max(2, round(1.2 * s)))
@@ -169,12 +166,10 @@ def render(cast, presses, gif, keys):
             starts.append(t)
             t += src.info["duration"] / 1000
         total = t
-        bg = Image.new("RGB", (src.width + 2 * PAD, src.height + 2 * PAD), f"#{BG}")
         listing = []
         for cut, dur, base, key, opacity in timeline(starts, total, presses if keys else []):
             src.seek(base)
-            frame = bg.copy()
-            frame.paste(src.convert("RGB"), (PAD, PAD))
+            frame = src.convert("RGB")
             path = f"{tmp}/{len(listing):04d}.png"
             draw_caps(frame, key, opacity).save(path, compress_level=1)
             listing.append((path, dur))
