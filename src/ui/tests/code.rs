@@ -6,8 +6,6 @@ use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use ratatui::style::Color;
-
 use crate::app::App;
 use crate::buffer::Buffer;
 use crate::git::Mark;
@@ -726,9 +724,9 @@ fn git_marks_sit_between_the_number_and_the_text() {
     assert_eq!(head(2), "3\u{2581}c");
     assert_eq!(head(3), "4 d");
     let buf = terminal.backend().buffer();
-    assert_eq!(buf[(1, 0)].fg, Color::Green);
-    assert_eq!(buf[(1, 1)].fg, Color::Blue);
-    assert_eq!(buf[(1, 2)].fg, Color::Red);
+    assert_eq!(buf[(1, 0)].fg, theme.added);
+    assert_eq!(buf[(1, 1)].fg, theme.changed);
+    assert_eq!(buf[(1, 2)].fg, theme.deleted);
 }
 
 #[test]

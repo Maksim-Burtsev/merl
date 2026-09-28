@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
 use unicode_segmentation::UnicodeSegmentation;
@@ -152,9 +152,9 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                     let (letter, dim) = match app.review_panel_colours {
                         true => {
                             let colour = match f.status {
-                                'A' => Color::Green,
-                                'M' => Color::Blue,
-                                'D' => Color::Red,
+                                'A' => theme.added,
+                                'M' => theme.changed,
+                                'D' => theme.deleted,
                                 _ => theme.ghost_fg,
                             };
                             (

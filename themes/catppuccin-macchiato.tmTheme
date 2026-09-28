@@ -282,6 +282,39 @@
 				<string>#F5BDE6</string>
 			</dict>
 		</dict>
+		<dict>
+			<key>name</key>
+			<string>diffAdded</string>
+			<key>scope</key>
+			<string>markup.inserted</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#A6DA95</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>diffChanged</string>
+			<key>scope</key>
+			<string>markup.changed</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#8AADF4</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>diffRemoved</string>
+			<key>scope</key>
+			<string>markup.deleted</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#ED8796</string>
+			</dict>
+		</dict>
 	</array>
 </dict>
 </plist>

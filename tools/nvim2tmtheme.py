@@ -46,6 +46,12 @@ SCOPES = [
     ("punctuation", ["@punctuation", "@punctuation.delimiter", "Delimiter"]),
     ("markup.heading", ["@markup.heading", "Title"]),
     ("invalid", ["DiagnosticError", "@error", "Error"]),
+    # The theme's git colours, which merl paints its gutter marks and review's A / M / D with
+    # (#450): the gitsigns groups first, the signs nearly every theme colours, then Vim's diff
+    # syntax groups.
+    ("markup.inserted", ["GitSignsAdd", "diffAdded"]),
+    ("markup.changed", ["GitSignsChange", "diffChanged"]),
+    ("markup.deleted", ["GitSignsDelete", "diffRemoved"]),
 ]
 
 # The names infrastructure grammars emit (#16), which no code group reaches. Here a group painted

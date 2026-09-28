@@ -195,6 +195,15 @@ pub struct Theme {
     /// The text of a changed word, which GitHub draws in the plain text colour: `fg`, pushed
     /// toward white on a dark theme or black on a light one until it reads on every word tint.
     pub word_fg: Color,
+    /// What git marks: the gutter's bars and review's `A` / `M` / `D`, for lines and files added,
+    /// changed and deleted. The theme's own `markup.inserted` / `markup.changed` /
+    /// `markup.deleted` when it colours them, as VS Code takes its theme's git colours (the
+    /// ports carry their Neovim original's gitsigns colours there); else GitHub's Primer colours
+    /// for the theme's lightness, the family the diff rows are tinted with. Never the terminal's
+    /// palette, which knows nothing of this theme (#450).
+    pub added: Color,
+    pub changed: Color,
+    pub deleted: Color,
     /// The background is lighter than the text: what picks GitHub's light colours over its dark
     /// ones, for the review's diff and the Markdown preview's alerts.
     pub light: bool,
@@ -300,6 +309,43 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         .map(|percent| blend(toward, fg, percent))
         .find(|&c| words.iter().all(|&w| contrast(c, w) >= WORD_CONTRAST))
         .unwrap_or(rgb(toward));
+    // A mark is a thin bar or one letter: pushed toward white or black, it keeps its hue and
+    // reaches MARK_CONTRAST on the background and on the cursor line it can also sit on.
+    let highlighter = Highlighter::new(&syntect);
+    let mark = |scope: &str, dark: SynColor, lit: SynColor| {
+        let own = highlighter
+            .style_for_stack(&[Scope::new(scope).expect("a valid scope")])
+            .foreground;
+        let colour = match (Some(own) != s.foreground, light) {
+            (true, _) => own,
+            (false, true) => lit,
+            (false, false) => dark,
+        };
+        (0..=100)
+            .step_by(10)
+            .map(|percent| blend(toward, colour, percent))
+            .find(|&c| {
+                [rgb(bg), line_hl]
+                    .iter()
+                    .all(|&u| contrast(c, u) >= MARK_CONTRAST)
+            })
+            .unwrap_or(rgb(toward))
+    };
+    let added = mark(
+        "markup.inserted",
+        hue(0x3f, 0xb9, 0x50),
+        hue(0x1a, 0x7f, 0x37),
+    );
+    let changed = mark(
+        "markup.changed",
+        hue(0x44, 0x93, 0xf8),
+        hue(0x09, 0x69, 0xda),
+    );
+    let deleted = mark(
+        "markup.deleted",
+        hue(0xf8, 0x51, 0x49),
+        hue(0xd1, 0x24, 0x2f),
+    );
     // The selection is drawn over the cursor line (#62) and, in a review, over added rows, so a
     // theme whose own selection colour sits within a few points of one of them gets one blended
     // further from the background instead.
@@ -336,6 +382,9 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         add_word_bg: words[1],
         add_word_bg_hl: words[2],
         word_fg,
+        added,
+        changed,
+        deleted,
         accent: rgb(accent_color(&syntect).unwrap_or(fg)),
         light,
         syntect,
@@ -400,6 +449,10 @@ const GHOST_MAX: u32 = 85;
 
 /// The contrast a changed word's text keeps on its tint: WCAG AA for body text.
 const WORD_CONTRAST: f64 = 4.5;
+
+/// The contrast a git mark keeps on the background and the cursor line: WCAG's minimum for a
+/// graphical mark, which a bar or a bold letter is.
+const MARK_CONTRAST: f64 = 3.0;
 
 /// WCAG relative luminance, 0.0 (black) to 1.0 (white).
 fn luminance(c: Color) -> f64 {
@@ -795,6 +848,71 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// #450: the git marks read on every theme's background and cursor line, as three colours of
+    /// merl's own, never the terminal's palette.
+    #[test]
+    fn marks_read_in_every_theme() {
+        for name in names() {
+            let t = load(name).unwrap();
+            let marks = [t.added, t.changed, t.deleted];
+            for m in marks {
+                assert!(matches!(m, Color::Rgb(..)), "{name}: {m:?}");
+                for under in [t.bg, t.line_hl] {
+                    let c = contrast(m, under);
+                    assert!(
+                        c >= MARK_CONTRAST,
+                        "{name}: mark {m:?} at {c:.2} on {under:?}"
+                    );
+                }
+            }
+            let distinct: HashSet<_> = marks.iter().map(|c| format!("{c:?}")).collect();
+            assert_eq!(distinct.len(), 3, "{name}: {marks:?}");
+        }
+    }
+
+    /// #450: a theme that colours the diff scopes keeps its colours, as tokyonight-moon's own
+    /// file does and dracula's port does with its gitsigns colours; one that colours none gets
+    /// GitHub's Primer colours for its lightness.
+    #[test]
+    fn marks_come_from_the_theme_else_from_primer() {
+        let marks = |name| {
+            let t = load(name).unwrap();
+            [t.added, t.changed, t.deleted]
+        };
+        assert_eq!(
+            marks("tokyonight-moon"),
+            [
+                Color::Rgb(0xb8, 0xdb, 0x87),
+                Color::Rgb(0x7c, 0xa1, 0xf2),
+                Color::Rgb(0xe2, 0x6a, 0x75)
+            ]
+        );
+        assert_eq!(
+            marks("dracula"),
+            [
+                Color::Rgb(0x50, 0xfa, 0x7b),
+                Color::Rgb(0xff, 0xb8, 0x6c),
+                Color::Rgb(0xff, 0x55, 0x55)
+            ]
+        );
+        assert_eq!(
+            marks("ayu"),
+            [
+                Color::Rgb(0x3f, 0xb9, 0x50),
+                Color::Rgb(0x44, 0x93, 0xf8),
+                Color::Rgb(0xf8, 0x51, 0x49)
+            ]
+        );
+        assert_eq!(
+            marks("ayu-light"),
+            [
+                Color::Rgb(0x1a, 0x7f, 0x37),
+                Color::Rgb(0x09, 0x69, 0xda),
+                Color::Rgb(0xd1, 0x24, 0x2f)
+            ]
+        );
     }
 
     /// Review's diff colours are derived, never set per theme, so this is what keeps them working

@@ -472,7 +472,8 @@ fn review_app(files: &[(&str, char, usize, usize)]) -> App {
     app
 }
 
-/// #250: the status letter is bold, in the colours of the gutter marks; a rename is dim. The
+/// #250: the status letter is bold, in the colours of the gutter marks (the theme's, #450); a
+/// rename is dim. The
 /// counts are dim, `bin` too, and the name keeps the text colour.
 #[test]
 fn review_panel_colours_the_status_and_dims_the_counts() {
@@ -487,9 +488,9 @@ fn review_panel_colours_the_status_and_dims_the_counts() {
     let mut terminal = Terminal::new(TestBackend::new(60, 8)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     for (needle, colour) in [
-        ("A new.rs", Color::Green),
-        ("M store.rs", Color::Blue),
-        ("D gone.rs", Color::Red),
+        ("A new.rs", theme.added),
+        ("M store.rs", theme.changed),
+        ("D gone.rs", theme.deleted),
         ("R moved.rs", theme.ghost_fg),
     ] {
         let c = cell(&terminal, needle);
@@ -503,7 +504,7 @@ fn review_panel_colours_the_status_and_dims_the_counts() {
     app.viewed.insert("store.rs".into(), 0);
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(at(&terminal, "\u{2713} M store.rs"), theme.accent);
-    assert_eq!(cell(&terminal, "M store.rs").fg, Color::Blue);
+    assert_eq!(cell(&terminal, "M store.rs").fg, theme.changed);
 }
 
 /// #250: the branch totals sit dim on the bottom border, as `feature ← main` on the top one; a

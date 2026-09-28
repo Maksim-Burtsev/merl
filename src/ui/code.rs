@@ -5,7 +5,7 @@ use std::ops::Range;
 
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Style};
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use regex::Regex;
@@ -123,7 +123,7 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                     .saturating_sub(lead + wrap::width(&text[r.clone()]) + usize::from(ell));
                 let mut row = vec![
                     Span::styled(" ".repeat(gutter_w - 1), gutter_style),
-                    Span::styled("\u{258e}", gutter_style.fg(Color::Red)),
+                    Span::styled("\u{258e}", gutter_style.fg(theme.deleted)),
                     Span::styled(" ".repeat(lead), ghost),
                 ];
                 row.extend(row_spans(text, &spans, &r, ghost));
@@ -205,11 +205,11 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 " ".repeat(gutter_w - 1)
             };
             // The column between the number and the text carries the git mark, VS Code style:
-            // green added, blue changed, red where lines were deleted.
+            // added, changed, and where lines were deleted, in the theme's git colours.
             let mark = match app.diff.marks.get(&l) {
-                Some(Mark::Added) => Span::styled("\u{258e}", g.fg(Color::Green)),
-                Some(Mark::Changed) => Span::styled("\u{258e}", g.fg(Color::Blue)),
-                Some(Mark::DeletedBelow) => Span::styled("\u{2581}", g.fg(Color::Red)),
+                Some(Mark::Added) => Span::styled("\u{258e}", g.fg(theme.added)),
+                Some(Mark::Changed) => Span::styled("\u{258e}", g.fg(theme.changed)),
+                Some(Mark::DeletedBelow) => Span::styled("\u{2581}", g.fg(theme.deleted)),
                 None => Span::styled(" ", g),
             };
             let mut row = vec![Span::styled(num, g), mark];

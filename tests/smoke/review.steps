@@ -7,7 +7,8 @@
 # the function the branch added, [ back to the hunk; m puts the tick on the open file and takes
 # it off (#162). Last, c after a d into a file the branch did not touch goes back into the review,
 # to the hunk left once #239 lands (0.7.0 opens the first file). On such a file the status bar has no
-# counters, as outside a review (#286).
+# counters, as outside a review (#286). Back in the review the panel's letters and the gutter's
+# bars are in the theme's git colours, not the terminal's (#450).
 caption review · merl --review=agent/refund fetches the agent's branch and opens on its first hunk
 merl --review=agent/refund
 wait hunk 1/1  file 1/8
