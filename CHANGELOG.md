@@ -141,6 +141,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inside tmux with its default settings, Ctrl+C and Ctrl+X copy: the text goes to a tmux paste
   buffer and, on tmux 3.2 and newer, to the terminal's clipboard. tmux's default `set-clipboard
   external` dropped the copy, and the status said `copied` while nothing was copied. (#395)
+- In Zig, `d` on a local or a parameter lands on it, `(local)`: a `const` or `var` inside a
+  function is no longer offered anywhere outside that function, and a declaration without `pub`
+  no longer from another file, so `cap` in one function stopped offering, or jumping to, the
+  `cap` of another. (#469)
 
 ## [0.7.0] - 2026-09-25
 

@@ -168,6 +168,7 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
 ///   receiver). Only what a header binds for the block under it hides: another function on its
 ///   lines, or on the cursor's own line, binds without hiding. `this` is the class around it, unless a
 ///   `function` or an object literal comes first, and `super` reads as `this` does.
+/// - Zig: [`zig_bindings`], inside a function only (#469).
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -176,8 +177,65 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
     match kind {
         Kind::Python => python_bindings(&lines, at, name),
         Kind::TsJs | Kind::Go => block_bindings(kind, &lines, at, name),
+        Kind::Zig => zig_bindings(&lines, at, name),
         _ => Vec::new(),
     }
+}
+/// Zig's locals (#469): a parameter of the `fn` (or the `test`) the cursor is in, and a `const` or
+/// `var` above the cursor in a block around it, told by indentation, which `zig fmt` keeps. Zig
+/// allows no shadowing, so every one found counts. Nothing at a container level (the file, a
+/// `struct`) is a local: a cursor in no function gets none, and the search by name decides.
+fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    let n = regex::escape(name);
+    let decl = Regex::new(&format!(r"^(?:comptime\s+)?(?:const|var)\s+{n}\b"))
+        .expect("an escaped name keeps the pattern valid");
+    let param = Regex::new(&format!(r"(?:^|[(,])\s*(?:comptime\s+|noalias\s+)?{n}\s*:"))
+        .expect("an escaped name keeps the pattern valid");
+    static BODY: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\bfn\b|^(?:pub\s+)?test\b").unwrap());
+    let literal = literal_lines(Kind::Zig, &lines.join("\n"));
+    let code = |i: usize| uncommented(Kind::Zig, lines[i]).trim().to_owned();
+    let mut depth = indent(lines[at]);
+    let mut out = Vec::new();
+    let mut i = at;
+    while i > 0 {
+        i -= 1;
+        let t = code(i);
+        if t.is_empty() || literal[i] || indent(lines[i]) > depth {
+            continue;
+        }
+        if indent(lines[i]) == depth {
+            if decl.is_match(&t) {
+                out.push(Binding {
+                    line: i + 1,
+                    value: Value::Unknown,
+                });
+            }
+            continue;
+        }
+        // A header opens the block the walk is in; `) u32 {` closes one wrapped over the
+        // lines above it, from the line back at its indent.
+        let end = i;
+        depth = indent(lines[i]);
+        if t.starts_with(')') {
+            while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > depth) {
+                i -= 1;
+            }
+            i = i.saturating_sub(1);
+        }
+        if BODY.is_match(&code(i)) {
+            for j in i..=end {
+                if param.is_match(&code(j)) {
+                    out.push(Binding {
+                        line: j + 1,
+                        value: Value::Unknown,
+                    });
+                }
+            }
+            return out;
+        }
+    }
+    Vec::new()
 }
 /// Whether the word at `range` of 1-based `line` names a keyword argument of a Python call:
 /// `recipe_yield=…` behind a `(` or a `,`, or at the start of a line that continues a call. It

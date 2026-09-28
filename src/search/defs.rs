@@ -490,6 +490,29 @@ pub fn directly_inside(text: &str, line: usize, opener: &str) -> bool {
         .find(|l| !l.trim().is_empty() && indent(l) < indent(target))
         .is_some_and(|l| l.trim_start().starts_with(opener))
 }
+/// Whether the Zig declaration on 1-based `line` of `text` can be what a name elsewhere names
+/// (#469): it sits directly in a container — the file, a `struct`, an `enum`, a `union`, an
+/// `opaque` — and not in a function, a test or a block, whose locals it would be; and from
+/// another file (`same_file` false) it is `pub`, since each file is a struct only whose `pub`
+/// members leave it. An `export` is a symbol of the whole program, the one thing its name can
+/// mean anywhere, and stays.
+pub fn zig_visible(text: &str, line: usize, same_file: bool) -> bool {
+    static CONTAINER: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"\b(?:struct|enum|union|opaque)\s*(?:\([^)]*\))?\s*\{\s*(?://.*)?$")
+            .unwrap()
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return false;
+    };
+    let in_container = lines[..line - 1]
+        .iter()
+        .rev()
+        .find(|l| !l.trim().is_empty() && indent(l) < indent(target))
+        .is_none_or(|l| CONTAINER.is_match(l));
+    let open = target.trim_start();
+    in_container && (same_file || open.starts_with("pub ") || open.starts_with("export "))
+}
 /// A grep for the line that names one of `names` as a base: `class X(Base)` in Python,
 /// `class X extends Base`, `class X implements Base` and `interface I extends Base` in
 /// TypeScript, where the clause may also stand on a line of its own under a wrapped header —

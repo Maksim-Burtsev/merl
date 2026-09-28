@@ -394,6 +394,16 @@ impl App {
                 }
             }
         }
+        // A Zig local is no candidate outside its function, nor a declaration without `pub`
+        // outside its file (#469); the one under the cursor stays, its own answer.
+        if kind == Kind::Zig {
+            found.retain(|c| {
+                (c.hit.path == here && c.hit.line == self.line + 1)
+                    || self
+                        .text_of(&c.hit.path)
+                        .is_some_and(|t| search::zig_visible(&t, c.hit.line, c.hit.path == here))
+            });
+        }
         self.show_definitions(kind, &word, &here, found, broke.as_deref());
     }
 
