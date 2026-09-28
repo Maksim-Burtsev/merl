@@ -1,0 +1,16 @@
+FROM golang:1.23 AS courier
+WORKDIR /src
+COPY cmd/* ./
+RUN go build -o /courier ./...
+
+FROM courier AS courier-test
+#    ^ d: Dockerfile.courier:1
+RUN go test ./...
+
+FROM scratch AS parcel
+COPY --from=courier /courier /
+#           ^ d: Dockerfile.courier:1
+COPY --from=courier-test /src/report.txt /
+#           ^ d: none; want Dockerfile.courier:6 (#436)
+COPY --from=build-env /src /src
+#           ^ d: none
