@@ -31,7 +31,7 @@ git -c user.name=agent -c user.email=agent@example.com commit -qam "user: unstar
 echo "ready: $dir/gitea on $(git branch --show-current)"
 
 # The README's review: polar's backend, a FastAPI app, opened on its own as its developers do
-# (server/ is the repository), and an agent's branch of four files.
+# (server/ is the repository), and an agent's branch of three files.
 if [ ! -d "$dir/polar/.git" ]; then
     src=$(mktemp -d)
     git init -q "$src"

@@ -152,20 +152,17 @@ index c1b102e..3d73677 100644
          self,
          session: AsyncSession,
 diff --git a/tests/license_key/test_endpoints.py b/tests/license_key/test_endpoints.py
-index 5627881..7f043f3 100644
+index 5627881..8831ba8 100644
 --- a/tests/license_key/test_endpoints.py
 +++ b/tests/license_key/test_endpoints.py
-@@ -797,6 +797,70 @@ class TestGetLicenseKey:
+@@ -797,6 +797,63 @@ class TestGetLicenseKey:
          assert response.status_code == 404
  
  
 +@pytest.mark.asyncio
 +class TestLookupLicenseKey:
 +    async def test_anonymous(self, client: AsyncClient) -> None:
-+        response = await client.get(
-+            "/v1/license-keys/lookup",
-+            params={"organization_id": str(uuid.uuid4()), "key": "TESTING-KEY"},
-+        )
++        response = await client.get("/v1/license-keys/lookup")
 +
 +        assert response.status_code == 401
 +
@@ -176,20 +173,15 @@ index 5627881..7f043f3 100644
 +        user_organization: UserOrganization,
 +        license_key_organization_second: LicenseKey,
 +    ) -> None:
++        lk = license_key_organization_second
 +        response = await client.get(
 +            "/v1/license-keys/lookup",
-+            params={
-+                "organization_id": str(license_key_organization_second.organization_id),
-+                "key": license_key_organization_second.key,
-+            },
++            params={"organization_id": str(lk.organization_id), "key": lk.key},
 +        )
 +
 +        assert response.status_code == 404
 +
-+    @pytest.mark.auth(
-+        AuthSubjectFixture(subject="user"),
-+        AuthSubjectFixture(subject="organization"),
-+    )
++    @pytest.mark.auth
 +    async def test_look_up(
 +        self,
 +        session: AsyncSession,
@@ -201,7 +193,7 @@ index 5627881..7f043f3 100644
 +        product: Product,
 +        customer: Customer,
 +    ) -> None:
-+        benefit, granted = await TestLicenseKey.create_benefit_and_grant(
++        _, granted = await TestLicenseKey.create_benefit_and_grant(
 +            session,
 +            redis,
 +            save_fixture,
@@ -210,8 +202,9 @@ index 5627881..7f043f3 100644
 +            product=product,
 +            properties=BenefitLicenseKeysCreateProperties(prefix="testing"),
 +        )
-+        repository = LicenseKeyRepository.from_session(session)
-+        lk = await repository.get_by_id(UUID(granted["license_key_id"]))
++        lk = await LicenseKeyRepository.from_session(session).get_by_id(
++            UUID(granted["license_key_id"])
++        )
 +        assert lk is not None
 +
 +        response = await client.get(
@@ -226,83 +219,3 @@ index 5627881..7f043f3 100644
  @pytest.mark.asyncio
  class TestUpdateLicenseKey:
      async def test_anonymous(self, client: AsyncClient) -> None:
-diff --git a/tests/license_key/test_service.py b/tests/license_key/test_service.py
-index 578baf4..d84b400 100644
---- a/tests/license_key/test_service.py
-+++ b/tests/license_key/test_service.py
-@@ -7,6 +7,7 @@ import pytest
- from pytest_mock import MockerFixture
- from sqlalchemy import delete, func, select
- 
-+from polar.auth.models import AuthSubject
- from polar.benefit.grant.repository import BenefitGrantRepository
- from polar.benefit.strategies.license_keys.properties import (
-     BenefitGrantLicenseKeysProperties,
-@@ -15,7 +16,7 @@ from polar.benefit.strategies.license_keys.schemas import (
-     BenefitLicenseKeysCreateProperties,
- )
- from polar.config import settings
--from polar.exceptions import BadRequest, NotPermitted
-+from polar.exceptions import BadRequest, NotPermitted, ResourceNotFound
- from polar.kit.db.postgres import (
-     AsyncSessionMaker,
-     create_async_engine,
-@@ -38,11 +39,13 @@ from polar.models import (
-     Organization,
-     Product,
-     User,
-+    UserOrganization,
- )
- from polar.models.license_key import LicenseKeyStatus
- from polar.models.webhook_endpoint import WebhookEventType
- from polar.postgres import AsyncSession
- from polar.redis import Redis
-+from tests.fixtures.auth import AuthSubjectFixture
- from tests.fixtures.database import SaveFixture, get_database_url, save_fixture_factory
- from tests.fixtures.license_key import TestLicenseKey
- from tests.fixtures.random_objects import (
-@@ -487,3 +490,44 @@ class TestRotate:
-             ),
-         ):
-             await license_key_service.rotate(session, license_key=license_key)
-+
-+
-+@pytest.mark.asyncio
-+class TestGetByKeyOrRaise:
-+    @pytest.mark.auth(
-+        AuthSubjectFixture(subject="user"),
-+        AuthSubjectFixture(subject="organization"),
-+    )
-+    async def test_found(
-+        self,
-+        session: AsyncSession,
-+        redis: Redis,
-+        save_fixture: SaveFixture,
-+        user_organization: UserOrganization,
-+        organization: Organization,
-+        product: Product,
-+        customer: Customer,
-+        auth_subject: AuthSubject[User | Organization],
-+    ) -> None:
-+        license_key, _ = await _license_key_and_grant(
-+            session, redis, save_fixture, customer, organization, product
-+        )
-+
-+        found = await license_key_service.get_by_key_or_raise(
-+            session, auth_subject, organization_id=organization.id, key=license_key.key
-+        )
-+
-+        assert found.id == license_key.id
-+
-+    @pytest.mark.auth
-+    async def test_unknown_key_raises_not_found(
-+        self,
-+        session: AsyncSession,
-+        organization: Organization,
-+        user_organization: UserOrganization,
-+        auth_subject: AuthSubject[User],
-+    ) -> None:
-+        with pytest.raises(ResourceNotFound):
-+            await license_key_service.get_by_key_or_raise(
-+                session, auth_subject, organization_id=organization.id, key="NOT-A-KEY"
-+            )

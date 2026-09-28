@@ -1,6 +1,7 @@
-# The reviewing half: an agent's branch of polar, four files. c walks the hunks; from the refactored
-# validate, d goes down through the service and the repository to the model, and one c brings the
-# review back; u checks who calls the new method. Every move goes one way, onto what it reads next.
+# The reviewing half: an agent's branch of polar, three files. c walks the hunks; from the
+# refactored validate, d goes down through the service and the repository to the model, and one c
+# brings the review back; u checks who calls the new method; the tests are read whole. Every move
+# goes one way, onto what it reads next.
 project polar
 merl --review
 wait hunk 1/9
@@ -70,7 +71,7 @@ sleep 0.5
 
 # the new service method: u, who calls it now
 key c
-wait file 2/4
+wait file 2/3
 sleep 0.7
 key@0.18 M-Right*3
 sleep 0.3
@@ -80,7 +81,15 @@ sleep 2.4
 key Escape
 sleep 0.3
 
-# and its tests
+# the tests, read whole: Ctrl+D brings the class to the top, Ctrl+D again shows its last test;
+# c on the last hunk says the review is done and ticks the last file
 key c
-wait file 3/4
-sleep 2.6
+wait file 3/3
+sleep 1.0
+key C-d
+sleep 2.4
+key C-d
+sleep 2.8
+key c
+wait last hunk of the review
+sleep 2.4
