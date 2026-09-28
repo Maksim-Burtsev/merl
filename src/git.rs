@@ -355,6 +355,24 @@ pub fn dirs(root: &Path) -> Option<(PathBuf, PathBuf)> {
     Some((dirs.next()??, dirs.next()??))
 }
 
+/// The other worktree of this repository that has `branch` checked out, an agent's say (#396):
+/// `-r BRANCH` reviews it there, since git will not check the branch out twice. A worktree git
+/// calls `prunable` (its directory is gone) is not one.
+pub fn worktree_of(root: &Path, branch: &str) -> Option<PathBuf> {
+    let out = git(root, &["worktree", "list", "--porcelain"]).ok()?;
+    let here = root.canonicalize().ok()?;
+    let head = format!("branch refs/heads/{branch}");
+    out.split("\n\n")
+        .filter(|w| w.lines().any(|l| l == head) && !w.lines().any(|l| l.starts_with("prunable")))
+        .filter_map(|w| {
+            w.lines()
+                .next()?
+                .strip_prefix("worktree ")
+                .map(PathBuf::from)
+        })
+        .find(|p| p.canonicalize().is_ok_and(|p| p != here))
+}
+
 /// The branch a rebase (stopped on a conflict, say) is rebasing: `refs/heads/…`, from the
 /// `head-name` git keeps in the worktree's git dir.
 fn rebasing(git: &dyn Fn(&[&str]) -> Result<String>, root: &Path) -> Result<String> {
@@ -785,6 +803,71 @@ mod tests {
         assert!(
             Review::open(&dir, Some("feature"), None).is_err(),
             "dirty switch"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #396: `-r BRANCH` for a branch an agent's worktree has checked out reviews it there.
+    #[test]
+    fn a_branch_checked_out_in_another_worktree_is_reviewed_there() {
+        let tmp = std::env::temp_dir().canonicalize().unwrap();
+        let dir = tmp.join(format!("merl-other-wt-{}", std::process::id()));
+        let wt = dir.with_extension("agent");
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&wt);
+        std::fs::create_dir_all(&dir).unwrap();
+        let git = |at: &Path, args: &[&str]| {
+            let out = Command::new("git").arg("-C").arg(at).args(args).output();
+            String::from_utf8(out.unwrap().stdout).unwrap()
+        };
+        git(&dir, &["init", "-q", "-b", "main"]);
+        git(&dir, &["config", "user.email", "t@t"]);
+        git(&dir, &["config", "user.name", "t"]);
+        std::fs::write(dir.join("a.py"), "x = 1\n").unwrap();
+        git(&dir, &["add", "."]);
+        git(&dir, &["commit", "-q", "-m", "init"]);
+        git(
+            &dir,
+            &[
+                "worktree",
+                "add",
+                "-q",
+                "-b",
+                "agent/task",
+                wt.to_str().unwrap(),
+            ],
+        );
+        std::fs::write(wt.join("a.py"), "x = 2\n").unwrap();
+        git(&wt, &["commit", "-q", "-am", "agent work"]);
+        // Not committed yet: the agent is still at it.
+        std::fs::write(wt.join("new.py"), "y = 3\n").unwrap();
+
+        assert_eq!(worktree_of(&dir, "agent/task"), Some(wt.clone()));
+        // The branch of this very worktree, or of none, is today's `-r BRANCH`.
+        assert_eq!(worktree_of(&dir, "main"), None);
+        assert_eq!(worktree_of(&dir, "nowhere"), None);
+        let r = Review::open(&wt, None, None).unwrap();
+        assert_eq!((r.branch.as_str(), r.base.as_str()), ("agent/task", "main"));
+        let rows: Vec<_> = r
+            .files
+            .iter()
+            .map(|f| (f.status, f.path.to_str().unwrap()))
+            .collect();
+        assert_eq!(rows, vec![('M', "a.py"), ('A', "new.py")]);
+        // Nothing switched on either side.
+        let head = |at: &Path| git(at, &["symbolic-ref", "--short", "HEAD"]);
+        assert_eq!(
+            (head(&dir), head(&wt)),
+            ("main\n".into(), "agent/task\n".into())
+        );
+
+        // A worktree whose directory is gone is `prunable`: the error stays git's.
+        std::fs::remove_dir_all(&wt).unwrap();
+        assert_eq!(worktree_of(&dir, "agent/task"), None);
+        let e = Review::open(&dir, Some("agent/task"), None).unwrap_err();
+        assert!(
+            format!("{e:#}").contains("switching to agent/task"),
+            "{e:#}"
         );
         std::fs::remove_dir_all(&dir).unwrap();
     }

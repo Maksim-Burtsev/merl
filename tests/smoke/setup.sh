@@ -7,6 +7,8 @@
 #   DIR/origin.git  its bare `origin`, which also holds `agent/refund`, the branch an agent pushed
 #                   from a clone of its own (agent-refund.patch). orders never fetched it, as a
 #                   reviewer's clone would not have: `merl --review=agent/refund` fetches it.
+#   DIR/agent-wt    a worktree of orders on `agent/page-size`, an agent's at work: one commit and a
+#                   file not committed yet. `merl -r agent/page-size` reviews it there (#396).
 #   DIR/home        the HOME merl runs with: empty but for a .zshrc to open outside a repository.
 #
 # No network. Fixed names and dates, so the commits and their hashes are the same on every run,
@@ -62,3 +64,11 @@ git switch -q main
 git branch -q -D agent/refund
 git update-ref -d refs/remotes/origin/agent/refund
 git reflog expire --expire=now --all
+
+# The agent that works in a worktree of its own (#396). Relative paths, so the copy run.py plays
+# in points at its own worktree, not at this fixture's.
+git worktree add -q --relative-paths -b agent/page-size ../agent-wt
+sed -i.bak 's/page_size: int = 50/page_size: int = 100/' ../agent-wt/app/config.py
+rm ../agent-wt/app/config.py.bak
+GIT_AUTHOR_NAME=agent git -C ../agent-wt commit -qam "config: a page of 100 orders"
+printf '# Paging\n\nA page holds 100 orders unless PAGE_SIZE says otherwise.\n' > ../agent-wt/docs/paging.md

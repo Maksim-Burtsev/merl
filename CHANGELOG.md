@@ -43,6 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `merl -r BRANCH` reviews a branch another worktree has checked out, an agent's say, in that
+  worktree, as `merl -r` started there would: nothing is fetched, switched or reset there, and its
+  work not committed yet is part of the review. Before, merl exited with git's `already used by
+  worktree` (#396).
 - `merl --review feature` reviews `feature`: the branch goes after a space, as the base does after
   `--base`, and `--review=feature` still works. A file after a bare `--review` is now read as the
   branch: `merl --review` opens on the first hunk, and `o` opens any file.
