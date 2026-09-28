@@ -23,3 +23,15 @@ EOT;
 $note = <<<'EOT'
 function settle(): int
 EOT;
+
+$toll = WEIGHT_LIMIT;
+
+function levy(int $toll): int
+{
+    return $toll + 1;
+    //      ^ d: src/Pricing/functions.php:29
+}
+
+echo $toll . $banner;
+//    ^ d: src/Pricing/functions.php:27
+//            ^ d: src/Pricing/functions.php:18
