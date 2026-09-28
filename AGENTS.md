@@ -234,5 +234,7 @@ Only when the owner asks for one, and with nothing open under `release-blocker`.
 5. After the merge, an annotated tag `vX.Y.Z` (message `merl X.Y.Z`) on that commit, pushed;
    `release.yml` builds the GitHub release and its binaries.
 6. The Homebrew tap: `release.yml` bumps it when the `TAP_TOKEN` secret is set; otherwise bump
-   `Formula/merl.rb` in `Maksim-Burtsev/homebrew-tap` by hand (the version and the three sha256
-   of the `.sha256` assets), commit `merl X.Y.Z` and push.
+   `Formula/merl.rb` in `Maksim-Burtsev/homebrew-tap` by hand (the version and the four sha256
+   of the `.sha256` assets), commit `merl X.Y.Z` and push. The first release that ships
+   `merl-x86_64-apple-darwin.tar.gz` adds an `on_intel` block under `on_macos`, with that
+   asset's url and sha256; `bump-tap` fails on an asset the formula has no block for.
