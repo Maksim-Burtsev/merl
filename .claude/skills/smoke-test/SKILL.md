@@ -33,6 +33,20 @@ fake merls go through every verdict in about 20 seconds, and it ends `selftest o
 
 The run is done when the report's table has a row for every scenario.
 
+Then the time budgets (#314), on the same quiet machine, ~30 s (the first run also generates a
+30,000-file repository into the temp directory, ~35 s more):
+
+```sh
+MERL_BUDGETS_SAVE=1 cargo test --release time_budgets -- --ignored --nocapture
+```
+
+The `d` rows press `d` in paperless-ngx from the `d` bench's cache (`tools/d-bench/run --project
+paperless-ngx` fills it, #308; `MERL_BUDGET_D_PROJECT` points elsewhere); without it they are
+skipped with a note. The test prints startup, `o`, `s`, `D`, `d` and `--review` in milliseconds
+beside the last release's (`last`, from `tests/budgets.tsv`) and each budget, fails on a median
+over its budget, and with `MERL_BUDGETS_SAVE=1` writes this run's medians to `tests/budgets.tsv`
+for the release PR to commit, so the next release compares against them.
+
 ## 2. Read the report
 
 - **The table**, its legend under it: PASS needs nothing; DIFF has differences to judge. FAIL (a
@@ -49,6 +63,8 @@ The run is done when the report's table has a row for every scenario.
 - **Plays that did not end ok**, each with its stderr and a PNG of the screen at the failure (for
   a merl that died, its last checkpoint).
 - **Unreleased entries**, with the scenarios whose comments cite their issues.
+- **Time budgets**: a row `OVER` its budget, or at twice its `last` and over 200 ms more, is a
+  regression unless an Unreleased entry says why. A load over ~8 stretches every row: rerun.
 
 ## 3. Look at every checkpoint
 
@@ -81,7 +97,7 @@ else file a `bug` per AGENTS.md `## Issues`, its PNG uploaded to `media` as
 
 ## 4. Give the verdict
 
-Every difference, failure and slower step gets one verdict:
+Every difference, failure, slower step and budget row over gets one verdict:
 
 - `intended (#N)`: an Unreleased entry describes this change; cite its issue.
 - `changelog gap`: a visible change the changelog does not mention, wanted all the same. The
@@ -112,6 +128,7 @@ Smoke test: merl 0.8.0 (abc1234) against v0.7.0, 16 scenarios, wall 150 s, load 
 | scenario `edit` | PASS | |
 | timed steps | none slower | `d` on gitea 48 ms / 51 ms |
 | every checkpoint, two themes | 2 findings, not regressions | 212 PNGs; #460, #461 filed |
+| time budgets | all within | `s` done 550 ms / 460 ms (budget 2,000), review 260 ms / 310 ms |
 | #165 review paints the diff as GitHub does | seen working in `review` | |
 | #227 `d` on `Type::name` in Rust | not checked | no scenario reads Rust |
 
