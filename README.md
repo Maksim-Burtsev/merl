@@ -121,6 +121,12 @@ The dozen you will use every day. `?` inside merl shows the rest.
 | ? | This help |
 | q | Quit |
 
+The keys never change, so what you learn stays learned. `merl --tutor` walks you through them
+once. After that merl counts the keys you press in real work, and notes when another key would
+have got there in half the presses. `merl --keys` shows the ones you skip and the ones you miss,
+and `merl --drill` asks for those most: its tasks say what to do and never name the key. The
+counts stay on your machine.
+
 <details>
 <summary>Every key</summary>
 
