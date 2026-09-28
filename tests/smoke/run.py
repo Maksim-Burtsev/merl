@@ -406,7 +406,9 @@ def boxes(old, new):
     Each is (key, what, where): a difference is known by its key, the text of a text change and
     the colours of a colour change (old → new), so two tints over the same text stay apart."""
     size = new[3]
-    g = [cast.parse(c[1], *size) for c in (old, new)]
+    # In xterm's colours, where no two SGR colours and no theme colour look alike; the checkpoint
+    # images are drawn in the owner's terminal's.
+    g = [cast.parse(c[1], *size, cast.XTERM) for c in (old, new)]
     todo = {(x, y) for y in range(size[1]) for x in range(size[0]) if g[0][y][x] != g[1][y][x]}
     out, rows = [], set()
     while todo:
