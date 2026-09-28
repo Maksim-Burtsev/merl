@@ -766,25 +766,26 @@ fn literal_split(
 fn a_glob_or_a_lone_backtick_opens_nothing_in_the_kinds_without_them() {
     let found = |n: usize| (vec![n], vec![]);
     let hidden = |n: usize| (vec![], vec![n]);
-    // A `#` opens a comment only where a word starts, `\'` quotes nothing, `$'…'` escapes a
-    // quote, `<<<` is a string of one line and `$((1 << bits))` a shift. `'…'` escapes nothing.
-    let sh = "#!/bin/sh\n# quotes the `name with one backtick, and don't\nbuild() {\n  echo it\\'s \"${f##*/}\" $# $'it\\'s' $((1 << bits))\n  cat <<< 'x'\n}\nfor f in src/*; do rm -rf build/*; done\ndeploy() {\n  build\n}\nmsg=${#f}\"a string\nghost() {\n\"\ncat <<EOF\nphantom() {\nEOF\ncat <<-'TXT'\n\tspectre() {\n\tTXT\necho 'C:\\' 'no $escape\nwraith() {\n'\nlast() {\n  deploy\n}\n";
+    // A `#` opens a comment only where a word starts, `<<<` is a string of one line and
+    // `$((1 << bits))` a shift. A quote ends with its line: the scan cannot follow the `"…"`
+    // inside `"$( … )"`, and what `eval '…'` holds the shell declares.
+    let sh = "#!/bin/sh\n# quotes the `name with one backtick, and don't\nbuild() {\n  echo \"${f##*/}\" $# $((1 << bits))\n  cat <<< 'x'\n}\nfor f in src/*; do rm -rf build/*; done\ndeploy() {\n  build\n}\necho \"$(printf \"%s isn't set\" \"$x\")\"\nspill() {\n}\ncat <<EOF\nphantom() {\nEOF\ncat <<-'TXT'\n\tspectre() {\n\tTXT\neval '\nproxy() {\n'\nlast() {\n  deploy\n}\n";
     assert_eq!(
         literal_split(
             Kind::Shell,
             "run.sh",
             sh,
             &[
-                "build", "deploy", "ghost", "phantom", "spectre", "wraith", "last"
+                "build", "deploy", "spill", "phantom", "spectre", "proxy", "last"
             ]
         ),
         [
             found(3),
             found(8),
-            hidden(12),
+            found(12),
             hidden(15),
             hidden(18),
-            hidden(21),
+            found(21),
             found(23)
         ]
     );

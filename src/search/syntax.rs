@@ -16,7 +16,7 @@ pub(super) fn comment(kind: Kind, t: &str) -> bool {
 /// lines: a Python or Elixir triple-quoted string (a docstring or an `@moduledoc` with an example
 /// in it), which Swift and C# write with `"` alone, a Go raw string, a TypeScript template, a Lua
 /// `[[ ]]` or `[==[ ]==]` long string or block comment, a C# verbatim `@"…"`, a PHP heredoc, the
-/// shell's heredoc (a Dockerfile's and Terraform's too) and its quotes, a `/* */` block. A line
+/// shell's heredoc (a Dockerfile's and Terraform's too), a `/* */` block. A line
 /// there that reads like a declaration declares nothing — the SQL a migration embeds in one is
 /// the common case. Other strings end with their line, whatever they hold.
 ///
@@ -55,10 +55,11 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     // `RUN` and Terraform.
     let (verbatim_strings, labelled) = (kind == Kind::CSharp, kind == Kind::Php);
     let shell_heredoc = matches!(kind, Kind::Shell | Kind::Docker | Kind::Terraform);
-    // The shell's quotes run over lines, where a `\` outside them escapes a quote, and nothing
-    // escapes in `'…'` but in `$'…'`. There, as in a Dockerfile, a `#` opens a comment only where
-    // a word starts: `$#` and `${f##*/}` are no comments.
-    let shell = kind == Kind::Shell;
+    // In a shell script, as in a Dockerfile, a `#` opens a comment only where a word starts: `$#`
+    // and `${f##*/}` are no comments. A shell quote ends with its line, as every other kind's
+    // does: the scan cannot follow a `"…"` inside `"$( … )"`, so a quote it carried over lines
+    // would hide the rest of the file behind one misread, and what `eval '…'` holds the shell
+    // does declare.
     let word_comment = matches!(kind, Kind::Shell | Kind::Docker);
     let b = text.as_bytes();
     let mut out = vec![false];
@@ -67,7 +68,7 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     // `label` holds the word its last line repeats, and `verbatim` marks a `@"…"`.
     let (mut block, mut level, mut quote, mut i): (Option<&[u8]>, usize, Option<u8>, usize) =
         (None, 0, None, 0);
-    let (mut verbatim, mut label, mut raw) = (false, Vec::new(), false);
+    let (mut verbatim, mut label) = (false, Vec::new());
     // A long bracket opening at `at` — `[[` or `[==[`, behind `--` or not: how many `=` it
     // carries, and how far past `at` its second `[` sits. A `[` that opens nothing, as the one in
     // the `\[[A-Za-z]\+\]` of a Vim regex, is no opener, so the `[=[` around it has to be read.
@@ -86,9 +87,7 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     while i < b.len() {
         let c = b[i];
         if c == b'\n' {
-            if !shell {
-                quote = None;
-            }
+            quote = None;
             // A heredoc ends on the line that repeats its label, as `ID;`, `ID,` or `ID)`.
             if !label.is_empty() {
                 let rest = &b[i + 1..];
@@ -105,7 +104,7 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
                     block = None;
                 }
             }
-            out.push(block.is_some() || quote.is_some());
+            out.push(block.is_some());
         } else if let Some(end) = block {
             // A long bracket closes on `]`, the `=` its opener carried, and `]`; a verbatim
             // string on a `"` that no second `"` follows; a heredoc only on its label, above. A
@@ -140,7 +139,7 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             }
         } else if let Some(q) = quote {
             // A backslash escapes the next byte, but the end of a line is still one.
-            if c == b'\\' && !raw && b.get(i + 1) != Some(&b'\n') {
+            if c == b'\\' && b.get(i + 1) != Some(&b'\n') {
                 i += 1;
             } else if c == q {
                 quote = None;
@@ -201,11 +200,8 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
         } else if block_comment && b[i..].starts_with(b"/*") {
             block = Some(b"*/");
             i += 1;
-        } else if shell && c == b'\\' && b.get(i + 1) != Some(&b'\n') {
-            i += 1;
         } else if c == b'"' || c == b'\'' {
             quote = Some(c);
-            raw = shell && c == b'\'' && (i == 0 || b[i - 1] != b'$');
         } else if line_comments
             .iter()
             .any(|m| b[i..].starts_with(m.as_bytes()))
