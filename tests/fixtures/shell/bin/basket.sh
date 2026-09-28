@@ -50,7 +50,7 @@ label() {
 
 dispatch() {
   courier_dispatch "$COURIER_NAME"
-  # ^ d: picker lib/banner.sh:6, lib/warehouse.bash:8; want lib/warehouse.bash:8 (#436)
+  # ^ d: lib/warehouse.bash:8
   #                    ^ d: lib/warehouse.bash:2
   banner
   # ^ d: lib/banner.sh:4
@@ -58,9 +58,9 @@ dispatch() {
 
 tidy() {
   purge
-  # ^ d: none; want bin/clean.sh:6 (#436)
+  # ^ d: bin/clean.sh:6
   archive
-  # ^ d: none; want bin/archive.sh:4 (#436)
+  # ^ d: bin/archive.sh:4
   gross_all
   # ^ d: lib/pricing.sh:12
 }

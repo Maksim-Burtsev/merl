@@ -3,4 +3,4 @@ region      = "eu-west-1"
 tariff_rate = 3
 # ^ d: variables.tf:2
 coupon_rate = 4
-# ^ d: picker main.tf:50, variables.tf:7; want variables.tf:7 (#436)
+# ^ d: variables.tf:7
