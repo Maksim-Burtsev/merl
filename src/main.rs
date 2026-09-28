@@ -141,13 +141,7 @@ fn run() -> Result<()> {
             let branch = Some(branch.as_str()).filter(|b| !b.is_empty());
             let r = git::Review::open(&root, branch, cli.base.as_deref())?;
             if file.is_none() {
-                // The first file with something to read; a branch of binaries opens on one, and
-                // one of submodules and links to directories on none (#404).
-                let on_disk = || r.files.iter().filter(|f| f.status != 'D');
-                file = on_disk()
-                    .find(|f| f.has_hunks())
-                    .map(|f| root.join(&f.path))
-                    .or_else(|| on_disk().map(|f| root.join(&f.path)).find(|p| p.is_file()));
+                file = r.first_file(&root);
             }
             Some(r)
         }

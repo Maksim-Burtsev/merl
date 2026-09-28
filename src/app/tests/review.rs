@@ -891,12 +891,11 @@ fn review_walks_past_a_link_to_a_directory_wherever_it_is() {
         let r = git::Review::open(&dir, None, None).unwrap();
         assert!(!r.file(Path::new(link)).unwrap().has_hunks(), "{link}");
         // The file `main` opens.
-        let on_disk = r.files.iter().filter(|f| f.status != 'D');
-        let first = on_disk.clone().find(|f| f.has_hunks()).unwrap();
-        assert_eq!(first.path, Path::new("src/a.rs"), "{link}");
+        let first = r.first_file(&dir).unwrap();
+        assert_eq!(first, dir.join("src/a.rs"), "{link}");
         let (_, files) = crate::tree::build(&dir, false);
         let panel: Vec<_> = r.files.iter().map(|f| f.path.clone()).collect();
-        let buf = Buffer::load(&dir.join(&first.path)).unwrap();
+        let buf = Buffer::load(&first).unwrap();
         let mut a = App::new(
             dir.clone(),
             crate::tree::from_files(&panel),

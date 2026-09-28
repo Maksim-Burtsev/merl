@@ -200,6 +200,17 @@ impl Review {
         Ok(Self { note, ..r })
     }
 
+    /// The file the review opens on when none is named: the first with something to read; a
+    /// branch of binaries opens on one, and one of submodules and links to directories on none
+    /// (#404). A file the branch deleted is not on disk to open.
+    pub fn first_file(&self, root: &Path) -> Option<PathBuf> {
+        let on_disk = || self.files.iter().filter(|f| f.status != 'D');
+        on_disk()
+            .find(|f| f.has_hunks())
+            .map(|f| root.join(&f.path))
+            .or_else(|| on_disk().map(|f| root.join(&f.path)).find(|p| p.is_file()))
+    }
+
     /// The same review as the branch and the working tree are now: after a commit, an edit, a
     /// new file. Nothing is fetched or switched, and an empty list is an answer.
     pub fn refresh(&self, root: &Path) -> Result<Self> {
@@ -863,6 +874,38 @@ mod tests {
         let rows: Vec<(PathBuf, bool)> =
             rx.recv_timeout(std::time::Duration::from_secs(60)).unwrap();
         assert_eq!(rows, [(PathBuf::from("pipe.link"), false)]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #404: the review opens on the first file with something to read; a branch of nothing
+    /// but a link to a directory opens on no file, where `Buffer::load` on the link ended the
+    /// start, and a branch of binaries opens on one.
+    #[cfg(unix)]
+    #[test]
+    fn a_review_opens_on_a_file_with_text_a_binary_or_none() {
+        let dir = std::env::temp_dir().join(format!("merl-first-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("docs")).unwrap();
+        let git = |args: &[&str]| {
+            let out = Command::new("git").arg("-C").arg(&dir).args(args).output();
+            assert!(out.unwrap().status.success(), "git {args:?}");
+        };
+        git(&["init", "-q", "-b", "main"]);
+        git(&["config", "user.email", "t@t"]);
+        git(&["config", "user.name", "t"]);
+        std::fs::write(dir.join("docs/a.md"), "hello\n").unwrap();
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "base"]);
+        git(&["switch", "-q", "-c", "feature"]);
+        std::os::unix::fs::symlink("docs", dir.join("alink")).unwrap();
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "link"]);
+        let first = |dir: &Path| Review::open(dir, None, None).unwrap().first_file(dir);
+        assert_eq!(first(&dir), None);
+        std::fs::write(dir.join("logo.png"), b"\x89PNG\0\n").unwrap();
+        assert_eq!(first(&dir), Some(dir.join("logo.png")));
+        std::fs::write(dir.join("z.py"), "x = 1\n").unwrap();
+        assert_eq!(first(&dir), Some(dir.join("z.py")));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
