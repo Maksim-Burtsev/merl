@@ -54,12 +54,15 @@ impl App {
         // A parameter or a local of the same name hides the import where the cursor is: `json`
         // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
         let first = chain.first().map_or(word.as_str(), String::as_str);
-        // `super` is no local, whatever the member lookup reads it as.
+        // A key of a Lua table constructor names a field, whatever local shares its name.
+        let key = kind == Kind::Lua && search::table_key(&text, self.line + 1, &range);
+        // `super` is no local, whatever the member lookup reads it as; Lua has no `super`.
         let locals: Vec<usize> = search::bindings(kind, &text, self.line + 1, first)
             .iter()
             .map(|b| b.line)
             .filter(|&n| {
-                (dotted || word != "super") && !names_itself(&self.buf.lines[n - 1], first)
+                !key && (dotted || word != "super" || kind == Kind::Lua)
+                    && !names_itself(&self.buf.lines[n - 1], first)
             })
             .collect();
         if !locals.is_empty() {
@@ -346,6 +349,21 @@ impl App {
                     self.project_definitions(kind, &here, &word, &pattern)
                 }
             });
+        // A Lua `local` inside a block is seen by that block alone, where the bindings above
+        // found it already: anywhere else, and behind a dot, it is no candidate (#461). What is
+        // left was a namesake beside it on master, and is offered, never jumped to. The cursor's
+        // own line stays, standing on a declaration.
+        let mut hits = hits;
+        if kind == Kind::Lua {
+            let at = |h: &Hit| h.path == here && h.line == self.line + 1;
+            let all = hits.len();
+            hits.retain(|h| {
+                !h.text.starts_with([' ', '\t'])
+                    || !h.text.trim_start().starts_with("local ")
+                    || at(h)
+            });
+            self.offer_only |= hits.len() < all && hits.iter().any(|h| !at(h));
+        }
         found = hits
             .into_iter()
             .map(|hit| Candidate {
