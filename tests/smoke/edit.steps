@@ -89,3 +89,11 @@ run $SMOKE_TMUX set -s set-clipboard external
 key C-c
 wait copied 1 line
 run $SMOKE_TMUX show-buffer | grep -q 'from decimal import Decimal'
+# Alt+Delete deletes the word after the cursor, Ctrl+X cuts the line (#310).
+key Enter M-DC
+wait app/money.py ●
+key C-x
+wait copied 1 line
+key Escape
+wait app/money.py  1:1  [code]
+run ! grep -q Decimal app/money.py

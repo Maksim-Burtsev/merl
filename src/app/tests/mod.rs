@@ -25,6 +25,7 @@ mod picker;
 mod preview;
 mod project_search;
 mod review;
+mod smoke;
 mod stats;
 mod symbols;
 mod tree;

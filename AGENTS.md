@@ -24,6 +24,11 @@
   `tests/smoke/screens/SCENARIO/`. A visible change, or new steps in a scenario, updates those
   files in the same PR: `tests/smoke/run.py --update --only NAME`, then commit them, so the PR's
   diff shows every screen it changes. Check each rewritten screen shows what the change meant.
+- Beside the screens, `keys.txt` lists the `KEYS` actions merl counted a press of in the play.
+  `every_key_and_flag_is_smoked_or_skipped_on_purpose` (`src/app/tests/smoke.rs`) fails on an
+  action of `KEYS` or a flag of the command line that no scenario plays: a new key or flag gets
+  steps in a scenario and its `keys.txt` rewritten by `--update`, or a line in `NOT_SMOKED` with
+  why.
 - A PR that changes a text a scenario waits for updates that scenario in the same PR; `grep -rn
   'TEXT' tests/smoke assets/*.steps` finds them all, the README's tapes that `scale` plays
   included. The wait moves to text both the change and the last release draw: the change then
