@@ -94,6 +94,11 @@ master; their tables go into the commit message.
   typeorm, nest, immich (`pnpm install --ignore-scripts --filter 'immich...'`). TypeScript rows
   are checked against TypeScript's own `getDefinitionAtPosition`.
 
+The expected answers of `d` are written in the fixtures, under the line they probe
+(`tests/fixtures/README.md`, #307). A fixed case flips its annotation from `today; want … (#N)`
+to the wanted answer, or adds one when no annotation covers it; a miss found in a real project
+becomes an annotation with the issue that will fix it.
+
 An adversarial fixture per language (shadowed imports, namesake types, declaration-shaped lines
 in strings) finds what real projects do not. To prove a test can fail, revert one fix at a time
 and watch it go red.

@@ -130,3 +130,73 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.
+
+## Annotated cases (#307)
+
+Besides the `navigate_*.rs` tests above, every fixture carries cases whose answer is written in
+the fixture itself: a line comment under the probed line, with a caret under the word.
+
+```go
+return Order{Address: addr}
+//           ^ d: shop/order.go:12
+```
+
+One test, `d_answers_every_annotation_in_the_fixtures` (`src/app/tests/annotated.rs`), walks
+every directory of `tests/fixtures` as a project, finds every annotation, puts the cursor on the
+caret's column of the line above, presses `d` and compares. It reports every failure at once, as
+`fixture/file:line: want …, got …` with the status line, the answer written in the grammar below
+so it can be pasted. `cargo test annotation` runs it and the grammar's own test; it takes a
+couple of seconds.
+
+The grammar:
+
+- The comment marker is the kind's own: `//`, `#`, `--` or `;`. Nothing but whitespace stands
+  before it on the line, and nothing but spaces between it and the caret.
+- The caret's byte column is the column in the probed line, so an annotation is indented as its
+  line is (a tab under a tab in Go). The probed line is the nearest line above that is no
+  annotation or `status:` line, so several annotations stack under one line.
+- `d: FILE:LINE` is a jump there, `FILE` from the fixture's root.
+- `d: picker FILE:LINE, FILE:LINE` is a picker holding exactly these rows, in any order; `, …` at
+  the end means at least these.
+- `d: none` is nothing found (the status line starts with `no `); `d: !jump` is anything but a
+  jump.
+- `status: TEXT` on the line right under an annotation is optional: the status line contains TEXT.
+- A known miss records today's answer and the wanted one: `d: none; want shop/order.go:12 (#NNN)`.
+  Only the part before `; want` is checked, so the suite stays green; the wanted answer must
+  parse and name its issue. The fix of #NNN flips the annotation to the wanted answer in its own
+  PR.
+
+Line numbers count the annotation lines too, so a line added in the middle of a file moves every
+target below it: add cases at the end of a file, or in a new file.
+
+### Where the cases live
+
+The Python, TypeScript and Go projects above keep their lines, since the `navigate_*.rs` tests
+pin them, so their annotated cases are a package of their own inside them: `python/shop/`,
+`typescript/shop/`, `go/shop/` and `go/cart/`. Every other kind has a directory of its own
+(`rust/`, `jvm/`). Each is one small shop (a `Tariff` and a `Coupon` sharing `rate` and
+`describe`, a `Courier`, `discount`, `weigh`, a basket that uses them) holding:
+
+- two types sharing a method name, an import inside the project (aliased, of a module, of a
+  package that hands the name on), a parameter that shadows an import and a local that hides a
+  module-level name;
+- a declaration-shaped line in every multi-line literal the kind has: a docstring, a raw or
+  multi-line string, a template literal, a text block, a block comment;
+- every declaration form of the kind's row of `docs/navigation.md`, each probed once;
+- the known misses of #305's sub-issues for the language, as `; want … (#N)`.
+
+The shop's names (`Tariff`, `Coupon`, `Courier`, `Basket`, `gross`, `weigh`, …) appear nowhere
+else in a fixture: a namesake would change what the `navigate_*.rs` tests find by name (a `total`
+method did).
+
+### Adding a kind
+
+1. Make `tests/fixtures/<kind>/`, a small project laid out as the language lays one out (a
+   `Cargo.toml`, a `go.mod`, `src/main/java/…`), with the shop's shape above and at least 20
+   annotations.
+2. Write each answer as you know it should be. Run `cargo test annotation`; for a failure,
+   either the annotation is wrong (fix it) or `d` is: then write today's answer with
+   `; want <right answer> (#N)`, `#N` the sub-issue of #305 that covers it, or a new issue under
+   #305 when none does.
+3. No Rust code: the test finds the directory by itself, and `fixture_app` leaves every kind
+   without a standard library or dependencies, so nothing outside the fixture answers.
