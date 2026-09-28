@@ -172,6 +172,8 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
 ///   the blocks around it told by indentation, and so do the parameters of a `function` and the
 ///   variables of a `for` that open one of those blocks. The top of the file is left to the
 ///   search by name: a module's `local` is what its `require` and its tables are read through.
+/// - Shell: a `local` (a `declare` / `typeset` without `-g`) above the cursor in the function
+///   around it (#470).
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -181,6 +183,15 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Python => python_bindings(&lines, at, name),
         Kind::TsJs | Kind::Go => block_bindings(kind, &lines, at, name),
         Kind::Lua => lua_bindings(&lines, at, name),
+        Kind::Shell => shell_function_at(&lines, at).map_or_else(Vec::new, |f| {
+            (f + 1..=at)
+                .filter(|&i| shell_local_of(lines[i]).is_some_and(|names| names.contains(&name)))
+                .map(|i| Binding {
+                    line: i + 1,
+                    value: Value::Unknown,
+                })
+                .collect()
+        }),
         _ => Vec::new(),
     }
 }
@@ -239,6 +250,48 @@ fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         }
     }
     Vec::new()
+}
+/// The 0-based line of the header of the Shell function whose body holds 0-based line `at`:
+/// `name() {`, `function name {`, told by indentation, since the `}` that closes a function
+/// stands at its header's indent. A one-line function holds no line below it.
+pub fn shell_function_at(lines: &[&str], at: usize) -> Option<usize> {
+    static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:function\s+[^\s(){}]+|[\w.:-]+\s*\(\s*\))").unwrap()
+    });
+    static ONE_LINE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\{.*[;\s]\}\s*$").unwrap());
+    (0..at.min(lines.len())).rev().find(|&k| {
+        let l = lines[k];
+        HEADER.is_match(l)
+            && !ONE_LINE.is_match(l)
+            && !lines[k + 1..=at]
+                .iter()
+                .any(|b| b.trim_start().starts_with('}') && indent(b) == indent(l))
+    })
+}
+/// The names a Shell `local`, or a `declare` / `typeset` without `-g`, declares on `line`: local
+/// to the function it is written in. `None` for any other line.
+pub fn shell_local_of(line: &str) -> Option<Vec<&str>> {
+    static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:local|declare|typeset)((?:\s+-\w+)*)\s+(.*)").unwrap()
+    });
+    let c = LOCAL.captures(line)?;
+    if c[1].contains('g') {
+        return None;
+    }
+    let rest = c.get(2).map_or("", |m| m.as_str());
+    // Each word up to its `=` is a name, until one is not: the value of the one before it.
+    let names = rest
+        .split_whitespace()
+        .map(|w| w.split(['=', '+']).next().unwrap_or(""))
+        .take_while(|n| {
+            n.chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+                && n.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        })
+        .collect();
+    Some(names)
 }
 /// Whether the word at `range` of 1-based `line` names a keyword argument of a Python call:
 /// `recipe_yield=…` behind a `(` or a `,`, or at the start of a line that continues a call. It

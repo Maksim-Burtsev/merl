@@ -7,7 +7,7 @@ WEIGHT_LIMIT=30
 
 gross() {
   discount "$(tariff_rate)"
-  # ^ d: picker bin/basket.sh:35, lib/pricing.sh:22; want lib/pricing.sh:22 (#470)
+  # ^ d: lib/pricing.sh:22
   #           ^ d: lib/pricing.sh:14
 }
 
@@ -21,20 +21,20 @@ overweight() {
   local limit=$((WEIGHT_LIMIT + 20))
   #               ^ d: bin/basket.sh:6
   [ "$(weigh "$1")" -gt "$limit" ]
-  #    ^ d: picker bin/basket.sh:29, lib/warehouse.bash:4; want lib/warehouse.bash:4 (#470)
+  #    ^ d: lib/warehouse.bash:4
   #                        ^ d: bin/basket.sh:21
 }
 
 hidden() {
   local weigh=$1
   echo "$weigh"
-  #       ^ d: picker bin/basket.sh:29, lib/warehouse.bash:4; want bin/basket.sh:29 (#470)
+  #       ^ d: bin/basket.sh:29
 }
 
 restock() {
   local discount=$1
   echo $((discount + WEIGHT_LIMIT))
-  #        ^ d: picker bin/basket.sh:35, lib/pricing.sh:22; want bin/basket.sh:35 (#470)
+  #        ^ d: bin/basket.sh:35
 }
 
 label() {
@@ -63,4 +63,22 @@ tidy() {
   # ^ d: none; want bin/archive.sh:4 (#436)
   gross_all
   # ^ d: lib/pricing.sh:12
+}
+
+stock() {
+  declare -g STOCK_LEVEL=5
+  typeset -i shelf=$1
+  #           ^ d: bin/basket.sh:70
+  if [ "$shelf" -gt 0 ]; then
+    echo "$STOCK_LEVEL"
+    #       ^ d: bin/basket.sh:69
+  fi
+  echo "$shelf"
+  #       ^ d: bin/basket.sh:70
+}
+
+audit() {
+  echo "$STOCK_LEVEL $shelf"
+  #       ^ d: bin/basket.sh:69
+  #                   ^ d: none
 }

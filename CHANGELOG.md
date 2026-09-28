@@ -172,6 +172,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tariffs`, and no longer counts as a declaration of `shop`. `d` on `public` in `public.orders`
   jumped to `CREATE TABLE public.orders`, and on a schema created once offered every object in it.
   (#471)
+- In a shell script, `d` on a name a `local` (or a `declare` / `typeset` without `-g`) binds in
+  the function around the cursor lands on that local, and a local of another function is no
+  longer offered: it opened a picker of every function's local and the function of that name,
+  and jumped to another function's local when it was the only match. (#470)
 
 ## [0.7.0] - 2026-09-25
 
