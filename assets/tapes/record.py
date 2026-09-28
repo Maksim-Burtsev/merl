@@ -36,6 +36,9 @@ import json, os, shlex, subprocess, sys, tempfile, time
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+sys.dont_write_bytecode = True  # no __pycache__ left in tools/
+import cast  # noqa: E402
 DEMO = "/tmp/merl-demo"
 COLS, ROWS = 132, 41          # a 16:10 laptop window at an 18 px font
 FONT, LINE = 36, 1.25         # agg's font size in px, twice the 18 the window is laid out for
@@ -43,11 +46,10 @@ PAD = 28                      # px of background around the screen, so no text t
 FPS = 25                      # merl draws a screen at once: a higher cap only makes 10 ms frames
 TYPE, PACE = 0.12, 0.35       # seconds between typed characters, and between named keys
 SOCK = "merl-readme"
-BG = "222436"
-# tokyonight-moon's background and foreground, then the 16 ANSI colours; merl itself only emits
-# 24-bit colour, so the 16 never show.
-THEME = f"{BG},c8d3f5," + ",".join(["1b1d2b", "ff757f", "c3e88d", "ffc777", "82aaff", "c099ff",
-                                    "86e1fc", "828bb8"] * 2)
+# The owner's terminal, as tools/cast.py has it: the background, the foreground, then the 16 ANSI
+# colours, the ones the gutter marks and the review panel's letters are drawn in.
+THEME = ",".join("%02x%02x%02x" % c for c in (cast.DEFAULT_BG, cast.DEFAULT_FG, *cast.ANSI))
+BG = THEME[:6]
 
 # --keys: the key just pressed, drawn in the bottom right corner the way macOS keystroke
 # visualisers draw it. It shows with merl's answer to the press, stays until the next key replaces

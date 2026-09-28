@@ -39,6 +39,13 @@ ANSI = [tuple(bytes.fromhex(h)) for h in ("1b1d2b ff757f c3e88d ffc777 82aaff c0
                                           "444a73 ff757f c3e88d ffc777 82aaff c099ff 86e1fc c8d3f5"
                                           ).split()]
 GHOSTTY_THEMES = "/Applications/Ghostty.app/Contents/Resources/ghostty/themes"
+# xterm's colours, for telling cells apart rather than drawing them: its defaults and 16 colours
+# differ from each other and from merl's themes, where Moon's bright colours repeat the normal
+# ones and its defaults are merl's default theme's.
+XTERM = ((0xcc, 0xcc, 0xcc), (0x10, 0x10, 0x10),
+         [(0, 0, 0), (205, 0, 0), (0, 205, 0), (205, 205, 0), (0, 0, 238), (205, 0, 205),
+          (0, 205, 205), (229, 229, 229), (127, 127, 127), (255, 0, 0), (0, 255, 0),
+          (255, 255, 0), (92, 92, 255), (255, 0, 255), (0, 255, 255), (255, 255, 255)])
 SELFTEST_STEPS = ["wait store.py", "key s", "sleep 0.4", "type config", "sleep 1.2"]
 # Menlo's box glyphs leave gaps at a cell this tall, so they are drawn as lines through the centre.
 SEGMENTS = {"│": "ud", "┃": "ud", "─": "lr", "━": "lr", "┌": "dr", "┐": "dl", "└": "ur", "┘": "ul",
@@ -62,9 +69,9 @@ def use_ghostty(theme):
             DEFAULT_BG = tuple(bytes.fromhex(value.lstrip("#")))
 
 
-def xterm(n):
+def xterm(n, ansi):
     if n < 16:
-        return ANSI[n]
+        return ansi[n]
     if n < 232:
         s, n = (0, 95, 135, 175, 215, 255), n - 16
         return (s[n // 36], s[(n // 6) % 6], s[n % 6])
@@ -72,41 +79,44 @@ def xterm(n):
     return (v, v, v)
 
 
-def apply_sgr(params, st):
+def apply_sgr(params, st, palette):
     fg, bg, bold, italic, rev = st
+    default_fg, default_bg, ansi = palette
     codes = [int(p) for p in params.split(";") if p] or [0]
     i = 0
     while i < len(codes):
         c = codes[i]
-        if c == 0: fg, bg, bold, italic, rev = DEFAULT_FG, DEFAULT_BG, False, False, False
+        if c == 0: fg, bg, bold, italic, rev = default_fg, default_bg, False, False, False
         elif c == 1: bold = True
         elif c == 3: italic = True
         elif c == 7: rev = True
         elif c == 22: bold = False
         elif c == 23: italic = False
         elif c == 27: rev = False
-        elif c == 39: fg = DEFAULT_FG
-        elif c == 49: bg = DEFAULT_BG
-        elif 30 <= c <= 37: fg = xterm(c - 30)
-        elif 90 <= c <= 97: fg = xterm(c - 82)
-        elif 40 <= c <= 47: bg = xterm(c - 40)
-        elif 100 <= c <= 107: bg = xterm(c - 92)
+        elif c == 39: fg = default_fg
+        elif c == 49: bg = default_bg
+        elif 30 <= c <= 37: fg = xterm(c - 30, ansi)
+        elif 90 <= c <= 97: fg = xterm(c - 82, ansi)
+        elif 40 <= c <= 47: bg = xterm(c - 40, ansi)
+        elif 100 <= c <= 107: bg = xterm(c - 92, ansi)
         elif c in (38, 48):
             if codes[i + 1:i + 2] == [2]:
                 col, i = tuple(codes[i + 2:i + 5]), i + 4
             else:
-                col, i = xterm(codes[i + 2] if i + 2 < len(codes) else 0), i + 2
+                col, i = xterm(codes[i + 2] if i + 2 < len(codes) else 0, ansi), i + 2
             fg, bg = (col, bg) if c == 38 else (fg, col)
         i += 1
     return fg, bg, bold, italic, rev
 
 
-def parse(capture, cols, rows):
-    """A capture-pane -e dump into a grid of (char, fg, bg, bold, italic).
+def parse(capture, cols, rows, palette=None):
+    """A capture-pane -e dump into a grid of (char, fg, bg, bold, italic), in the terminal's
+    colours or in `palette`, a (foreground, background, 16 colours) such as XTERM.
 
     SGR state carries across lines: capture-pane only emits the changes, so a parser that resets
     per line paints whole rows in the wrong background."""
-    st = (DEFAULT_FG, DEFAULT_BG, False, False, False)
+    palette = palette or (DEFAULT_FG, DEFAULT_BG, ANSI)
+    st = (palette[0], palette[1], False, False, False)
     grid = []
     for raw in capture.split("\n")[:rows]:
         cells = []
@@ -115,12 +125,12 @@ def parse(capture, cols, rows):
             fg, bg, bold, italic, rev = st
             cells += [(ch, bg, fg, bold, italic) if rev else (ch, fg, bg, bold, italic)
                       for ch in raw[pos:m.start()]]
-            st, pos = apply_sgr(m.group(1), st), m.end()
+            st, pos = apply_sgr(m.group(1), st, palette), m.end()
         fg, bg, bold, italic, rev = st
         cells += [(ch, bg, fg, bold, italic) if rev else (ch, fg, bg, bold, italic)
                   for ch in raw[pos:]]
         grid.append((cells + [(" ", fg, bg, False, False)] * cols)[:cols])
-    blank = [(" ", DEFAULT_FG, DEFAULT_BG, False, False)] * cols
+    blank = [(" ", palette[0], palette[1], False, False)] * cols
     return (grid + [blank] * rows)[:rows]
 
 
@@ -282,6 +292,8 @@ def main():
     args = p.parse_args()
 
     merl_args = args.merl_args[1:] if args.merl_args[:1] == ["--"] else args.merl_args
+    if args.selftest and args.ghostty:
+        p.error("--selftest checks the default colours; drop --ghostty")
     if args.ghostty:
         use_ghostty(args.ghostty)
     if args.selftest:
@@ -322,10 +334,19 @@ def main():
         red = (255, 0, 0)
         bar = render([[("\u258e", red, DEFAULT_BG, False, False)]] * 2, None, fonts, cell)
         assert all(bar.getpixel((0, y)) == red for y in range(bar.height)), "the ▎ bar has gaps"
-        # A second line goes on in the first one's background; `\e[34m` is the terminal's blue.
+        # A second line goes on in the first one's background; the default text and `\e[34m` are
+        # TokyoNight Moon's, and a Ghostty theme replaces both.
         g = parse("\x1b[48;2;1;2;3mx\ny\n\x1b[34mM", 1, 3)
         assert g[1][0][2] == (1, 2, 3), "the second line lost the background it carries on"
-        assert g[2][0][1] == ANSI[4] == (0x82, 0xaa, 0xff), "the blue is not the terminal's"
+        assert g[0][0][1] == (0xc8, 0xd3, 0xf5), "the default text is not Moon's"
+        assert g[2][0][1] == (0x82, 0xaa, 0xff), "the blue is not Moon's"
+        theme = os.path.join(tempfile.mkdtemp(prefix="cast-theme-"), "day")
+        with open(theme, "w") as f:
+            f.write("background = #e1e2e7\nforeground = #3760bf\npalette = 4=#2e7de9\n")
+        use_ghostty(theme)
+        g = parse("x\n\x1b[34mM", 1, 2)
+        assert g[0][0][1:3] == ((0x37, 0x60, 0xbf), (0xe1, 0xe2, 0xe7)), "the theme's fg/bg not taken"
+        assert g[1][0][1] == (0x2e, 0x7d, 0xe9), "the theme's blue not taken"
         print("selftest ok")
 
 
