@@ -47,7 +47,7 @@ FPS = 25                      # merl draws a screen at once: a higher cap only m
 TYPE, PACE = 0.12, 0.35       # seconds between typed characters, and between named keys
 SOCK = "merl-readme"
 # The owner's terminal, as tools/cast.py has it: the background, the foreground, then the 16 ANSI
-# colours, the ones the gutter marks and the review panel's letters are drawn in.
+# colours, which only what the shell prints uses: merl paints in 24-bit colour.
 THEME = ",".join("%02x%02x%02x" % c for c in (cast.DEFAULT_BG, cast.DEFAULT_FG, *cast.ANSI))
 BG = THEME[:6]
 

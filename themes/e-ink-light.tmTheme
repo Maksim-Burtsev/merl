@@ -277,6 +277,39 @@
 				<string>#686868</string>
 			</dict>
 		</dict>
+		<dict>
+			<key>name</key>
+			<string>diffAdded</string>
+			<key>scope</key>
+			<string>markup.inserted.git_gutter</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#8DA101</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>diffChanged</string>
+			<key>scope</key>
+			<string>markup.changed.git_gutter</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#3A94C5</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>diffRemoved</string>
+			<key>scope</key>
+			<string>markup.deleted.git_gutter</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#F85552</string>
+			</dict>
+		</dict>
 	</array>
 </dict>
 </plist>

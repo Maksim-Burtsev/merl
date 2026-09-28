@@ -412,6 +412,11 @@ fn ghost_lines_draw_above_their_line_and_the_cursor_skips_them() {
     let o = (0..8).find(|x| buf[(*x, 1)].symbol() == "o").unwrap();
     assert_eq!((buf[(o, 1)].fg, buf[(o, 1)].bg), (theme.fg, theme.del_bg));
     assert!(!buf[(o, 1)].modifier.contains(ratatui::style::Modifier::DIM));
+    // A ghost's bar is the theme's deleted colour, as the gutter's `▁` is (#450).
+    let bar = (0..8)
+        .find(|x| buf[(*x, 1)].symbol() == "\u{258e}")
+        .unwrap();
+    assert_eq!(buf[(bar, 1)].fg, theme.deleted);
     assert_eq!(terminal.get_cursor_position().unwrap().y, 4);
     // Up from `c` lands on `b`, not on a ghost; up again on `a`.
     app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));

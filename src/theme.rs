@@ -196,10 +196,10 @@ pub struct Theme {
     /// toward white on a dark theme or black on a light one until it reads on every word tint.
     pub word_fg: Color,
     /// What git marks: the gutter's bars and review's `A` / `M` / `D`, for lines and files added,
-    /// changed and deleted. The theme's own `markup.inserted` / `markup.changed` /
-    /// `markup.deleted` when it colours them, as VS Code takes its theme's git colours (the
-    /// ports carry their Neovim original's gitsigns colours there); else GitHub's Primer colours
-    /// for the theme's lightness, the family the diff rows are tinted with. Never the terminal's
+    /// changed and deleted. The theme's own, as VS Code takes its theme's git colours: the
+    /// `markup.*.git_gutter` scopes, or a plain `markup.inserted` / `changed` / `deleted` (the
+    /// ports carry their Neovim original's git colours there); else GitHub's Primer colours for
+    /// the theme's lightness, the family the diff rows are tinted with. Never the terminal's
     /// palette, which knows nothing of this theme (#450).
     pub added: Color,
     pub changed: Color,
@@ -311,16 +311,36 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         .unwrap_or(rgb(toward));
     // A mark is a thin bar or one letter: pushed toward white or black, it keeps its hue and
     // reaches MARK_CONTRAST on the background and on the cursor line it can also sit on.
+    // The theme's own set counts only whole: three colours, none the plain text, all different.
+    // Else GitHub's, whole too, so a user theme with one broad `markup` rule or no foreground
+    // never draws A, M and D alike.
     let highlighter = Highlighter::new(&syntect);
-    let mark = |scope: &str, dark: SynColor, lit: SynColor| {
-        let own = highlighter
-            .style_for_stack(&[Scope::new(scope).expect("a valid scope")])
-            .foreground;
-        let colour = match (Some(own) != s.foreground, light) {
-            (true, _) => own,
-            (false, true) => lit,
-            (false, false) => dark,
-        };
+    let plain = highlighter.get_default().foreground;
+    let own: Vec<SynColor> = GIT_SCOPES
+        .iter()
+        .map(|scope| {
+            highlighter
+                .style_for_stack(&[Scope::new(scope).expect("a valid scope")])
+                .foreground
+        })
+        .collect();
+    let whole =
+        own.iter().all(|&c| c != plain) && own[0] != own[1] && own[1] != own[2] && own[0] != own[2];
+    let primer = if light {
+        [
+            hue(0x1a, 0x7f, 0x37),
+            hue(0x09, 0x69, 0xda),
+            hue(0xd1, 0x24, 0x2f),
+        ]
+    } else {
+        [
+            hue(0x3f, 0xb9, 0x50),
+            hue(0x44, 0x93, 0xf8),
+            hue(0xf8, 0x51, 0x49),
+        ]
+    };
+    let mark = |i: usize| {
+        let colour = if whole { own[i] } else { primer[i] };
         (0..=100)
             .step_by(10)
             .map(|percent| blend(toward, colour, percent))
@@ -331,21 +351,7 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
             })
             .unwrap_or(rgb(toward))
     };
-    let added = mark(
-        "markup.inserted",
-        hue(0x3f, 0xb9, 0x50),
-        hue(0x1a, 0x7f, 0x37),
-    );
-    let changed = mark(
-        "markup.changed",
-        hue(0x44, 0x93, 0xf8),
-        hue(0x09, 0x69, 0xda),
-    );
-    let deleted = mark(
-        "markup.deleted",
-        hue(0xf8, 0x51, 0x49),
-        hue(0xd1, 0x24, 0x2f),
-    );
+    let (added, changed, deleted) = (mark(0), mark(1), mark(2));
     // The selection is drawn over the cursor line (#62) and, in a review, over added rows, so a
     // theme whose own selection colour sits within a few points of one of them gets one blended
     // further from the background instead.
@@ -449,6 +455,14 @@ const GHOST_MAX: u32 = 85;
 
 /// The contrast a changed word's text keeps on its tint: WCAG AA for body text.
 const WORD_CONTRAST: f64 = 4.5;
+
+/// Where a theme keeps its git colours: GitGutter's scopes, which no grammar emits, so they colour
+/// no file's text. A theme's plain `markup.inserted` / `changed` / `deleted` match them too.
+const GIT_SCOPES: [&str; 3] = [
+    "markup.inserted.git_gutter",
+    "markup.changed.git_gutter",
+    "markup.deleted.git_gutter",
+];
 
 /// The contrast a git mark keeps on the background and the cursor line: WCAG's minimum for a
 /// graphical mark, which a bar or a bold letter is.
@@ -872,9 +886,56 @@ mod tests {
         }
     }
 
-    /// #450: a theme that colours the diff scopes keeps its colours, as tokyonight-moon's own
-    /// file does and dracula's port does with its gitsigns colours; one that colours none gets
-    /// GitHub's Primer colours for its lightness.
+    /// #450: a user theme whose own set is not three colours gets GitHub's whole set: one with no
+    /// global foreground (syntect's default black then comes back for every scope) and one whose
+    /// broad `markup` rule matches all three alike.
+    #[test]
+    fn a_user_theme_without_three_git_colours_gets_primer() {
+        let dir = std::env::temp_dir().join(format!("merl-git-colours-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let theme = |globals: &str, rule: &str| {
+            format!(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><plist version=\"1.0\"><dict>\
+                 <key>settings</key><array><dict><key>settings</key><dict>\
+                 <key>background</key><string>#1e1e1e</string>{globals}</dict></dict>{rule}\
+                 </array></dict></plist>"
+            )
+        };
+        let rule = |scope: &str, colour: &str| {
+            format!(
+                "<dict><key>scope</key><string>{scope}</string><key>settings</key><dict>\
+                 <key>foreground</key><string>{colour}</string></dict></dict>"
+            )
+        };
+        std::fs::write(
+            dir.join("nofg.tmTheme"),
+            theme("", &rule("comment", "#6a9955")),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("broad.tmTheme"),
+            theme(
+                "<key>foreground</key><string>#d4d4d4</string>",
+                &rule("markup", "#569cd6"),
+            ),
+        )
+        .unwrap();
+        let primer = [
+            Color::Rgb(0x3f, 0xb9, 0x50),
+            Color::Rgb(0x44, 0x93, 0xf8),
+            Color::Rgb(0xf8, 0x51, 0x49),
+        ];
+        for name in ["nofg", "broad"] {
+            let t = load_from(Some(&dir), name).unwrap();
+            assert_eq!([t.added, t.changed, t.deleted], primer, "{name}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #450: a theme that colours the git scopes keeps its colours, as tokyonight-moon's own
+    /// file does with plain `markup.*` and dracula's port with its gitsigns colours; one that
+    /// colours none gets GitHub's Primer colours for its lightness.
     #[test]
     fn marks_come_from_the_theme_else_from_primer() {
         let marks = |name| {

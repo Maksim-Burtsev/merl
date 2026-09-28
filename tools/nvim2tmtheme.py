@@ -2,6 +2,7 @@
 """Convert a Neovim highlight dump into a TextMate .tmTheme for syntect.
 
     python3 tools/nvim2tmtheme.py hl.json out.tmTheme "Theme Name"
+    python3 tools/nvim2tmtheme.py --selftest
 
 `hl.json` is `vim.api.nvim_get_hl(0, {})` as JSON, which `tools/port-theme.sh`
 writes: computed colours, so Lua themes, vimscript themes and variants all look
@@ -46,12 +47,21 @@ SCOPES = [
     ("punctuation", ["@punctuation", "@punctuation.delimiter", "Delimiter"]),
     ("markup.heading", ["@markup.heading", "Title"]),
     ("invalid", ["DiagnosticError", "@error", "Error"]),
-    # The theme's git colours, which merl paints its gutter marks and review's A / M / D with
-    # (#450): the gitsigns groups first, the signs nearly every theme colours, then Vim's diff
-    # syntax groups.
-    ("markup.inserted", ["GitSignsAdd", "diffAdded"]),
-    ("markup.changed", ["GitSignsChange", "diffChanged"]),
-    ("markup.deleted", ["GitSignsDelete", "diffRemoved"]),
+]
+
+# The theme's git colours, which merl paints its gutter marks and review's A / M / D with (#450),
+# under GitGutter's scopes: no grammar emits them, so no diff or commit message changes colour.
+# The gitsigns groups first, the signs nearly every theme colours, then Vim's diff syntax groups;
+# a family counts only when it colours all three, so a theme never ships half a set (ayu-vim's
+# diff groups colour a deletion yellow and leave a change out).
+GIT_SCOPES = (
+    "markup.inserted.git_gutter",
+    "markup.changed.git_gutter",
+    "markup.deleted.git_gutter",
+)
+GIT_FAMILIES = [
+    ("GitSignsAdd", "GitSignsChange", "GitSignsDelete"),
+    ("diffAdded", "diffChanged", "diffRemoved"),
 ]
 
 # The names infrastructure grammars emit (#16), which no code group reaches. Here a group painted
@@ -135,11 +145,40 @@ def convert(hl, name):
         if style:
             out["fontStyle"] = style
         settings.append({"name": group, "scope": scope, "settings": out})
+    settings += git_rules(hl)
 
     return {"name": name, "settings": settings}
 
 
+def git_rules(hl):
+    """The three git colours of the first family that colours all three, or none."""
+    for family in GIT_FAMILIES:
+        fgs = [colours(hl, g)["fg"] for g in family]
+        if None not in fgs:
+            return [
+                {"name": g, "scope": s, "settings": {"foreground": hex_colour(c)}}
+                for g, s, c in zip(family, GIT_SCOPES, fgs)
+            ]
+    return []
+
+
+def selftest():
+    """git_rules on the shapes the ports have: gitsigns, Vim's diff groups alone, and ayu-vim's two
+    diff groups with no diffChanged."""
+    signs = {"GitSignsAdd": {"fg": 1}, "GitSignsChange": {"fg": 2}, "GitSignsDelete": {"fg": 3},
+             "diffAdded": {"fg": 4}, "diffChanged": {"fg": 5}, "diffRemoved": {"fg": 6}}
+    assert [r["settings"]["foreground"] for r in git_rules(signs)] == ["#000001", "#000002", "#000003"]
+    assert [r["scope"] for r in git_rules(signs)] == list(GIT_SCOPES)
+    diff = {"diffAdded": {"link": "String"}, "String": {"fg": 4}, "diffChanged": {"fg": 5},
+            "diffRemoved": {"fg": 6}}
+    assert [r["name"] for r in git_rules(diff)] == ["diffAdded", "diffChanged", "diffRemoved"]
+    assert git_rules({"diffAdded": {"fg": 4}, "diffRemoved": {"fg": 6}}) == []
+    print("selftest ok")
+
+
 def main():
+    if sys.argv[1:] == ["--selftest"]:
+        return selftest()
     if len(sys.argv) != 4:
         sys.exit(__doc__)
     src, dst, name = sys.argv[1:]

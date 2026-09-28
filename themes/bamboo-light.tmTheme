@@ -290,6 +290,39 @@
 				<string>#DF5926</string>
 			</dict>
 		</dict>
+		<dict>
+			<key>name</key>
+			<string>GitSignsAdd</string>
+			<key>scope</key>
+			<string>markup.inserted.git_gutter</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#27850B</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>GitSignsChange</string>
+			<key>scope</key>
+			<string>markup.changed.git_gutter</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#1745D5</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>GitSignsDelete</string>
+			<key>scope</key>
+			<string>markup.deleted.git_gutter</string>
+			<key>settings</key>
+			<dict>
+				<key>foreground</key>
+				<string>#C72A3C</string>
+			</dict>
+		</dict>
 	</array>
 </dict>
 </plist>

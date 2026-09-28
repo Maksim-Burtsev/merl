@@ -292,7 +292,7 @@
 			<key>name</key>
 			<string>GitSignsAdd</string>
 			<key>scope</key>
-			<string>markup.inserted</string>
+			<string>markup.inserted.git_gutter</string>
 			<key>settings</key>
 			<dict>
 				<key>foreground</key>
@@ -303,7 +303,7 @@
 			<key>name</key>
 			<string>GitSignsChange</string>
 			<key>scope</key>
-			<string>markup.changed</string>
+			<string>markup.changed.git_gutter</string>
 			<key>settings</key>
 			<dict>
 				<key>foreground</key>
@@ -314,7 +314,7 @@
 			<key>name</key>
 			<string>GitSignsDelete</string>
 			<key>scope</key>
-			<string>markup.deleted</string>
+			<string>markup.deleted.git_gutter</string>
 			<key>settings</key>
 			<dict>
 				<key>foreground</key>

@@ -31,9 +31,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 FONT = "/System/Library/Fonts/Menlo.ttc"  # index 0 regular, 1 bold, 2 italic, 3 bold-italic
 # The terminal's own colours, as the owner's Ghostty draws them with its TokyoNight Moon theme:
-# the default foreground and background, then the 16 ANSI colours. merl paints its theme in
-# 24-bit colour, but the gutter marks and the review panel's letters are basic colours whose
-# shade the terminal picks; xterm's blue, (0, 0, 238), is nearly black on a dark theme.
+# the default foreground and background, then the 16 ANSI colours. merl paints in 24-bit colour
+# (its git marks too, since #450), so these show only in what a shell or another program prints;
+# xterm's blue, (0, 0, 238), would be nearly black there on a dark theme.
 DEFAULT_FG, DEFAULT_BG = (0xc8, 0xd3, 0xf5), (0x22, 0x24, 0x36)
 ANSI = [tuple(bytes.fromhex(h)) for h in ("1b1d2b ff757f c3e88d ffc777 82aaff c099ff 86e1fc 828bb8 "
                                           "444a73 ff757f c3e88d ffc777 82aaff c099ff 86e1fc c8d3f5"

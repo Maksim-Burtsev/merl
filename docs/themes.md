@@ -149,6 +149,13 @@ bat and Sublime Text use, or one made with [`tools/port-theme.sh`](../tools/port
 file is an error naming the path: at startup merl exits with code 1, and in `T` it says so and
 keeps the theme you had.
 
+The gutter's bars and review's `A` / `M` / `D` take the theme's git colours: the foregrounds of
+`markup.inserted.git_gutter`, `markup.changed.git_gutter` and `markup.deleted.git_gutter`
+(GitGutter's scopes, which colour no file's text), or of a plain `markup.inserted` /
+`markup.changed` / `markup.deleted`. A theme that does not give three different colours there
+gets GitHub's. Either way a colour under 3:1 on the background is made lighter or darker until it
+reaches it.
+
 ## What else is highlighted
 
 The infrastructure half of a repository is highlighted too: Dockerfiles and `Containerfile` (with
