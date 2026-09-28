@@ -1,0 +1,492 @@
+#!/usr/bin/env python3
+"""d-quality bench (throwaway): sample cursors, ask a language server, score merl's `d`.
+
+  bench.py sample LANG ROOT N OUT.tsv [--exclude dir,dir]   cursors: id root file line col shape word
+  bench.py oracle LANG ROOT CURSORS.tsv OUT.tsv            LSP answers: id targets(abs:line;...)
+  bench.py score CURSORS.tsv ORACLE.tsv MERL.tsv OUT.tsv   per-cursor verdicts + summary on stdout
+"""
+import json, os, random, re, select, subprocess, sys, time
+from collections import Counter, defaultdict
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+LSP = os.path.join(HERE, "lsp")
+
+C_KW = """auto break case char const continue default do double else enum extern float for goto if
+inline int long register restrict return short signed sizeof static struct switch typedef union
+unsigned void volatile while bool true false NULL nullptr class public private protected virtual
+override final template typename namespace using new delete this operator friend explicit mutable
+constexpr noexcept static_cast dynamic_cast reinterpret_cast const_cast try catch throw decltype
+static_assert include define ifdef ifndef endif elif pragma undef defined""".split()
+KW = {
+    "python": """False None True and as assert async await break class continue def del elif else
+except finally for from global if import in is lambda nonlocal not or pass raise return try while
+with yield self cls match case print len str int float bool list dict set tuple object type super
+isinstance range enumerate zip open any all min max sorted reversed getattr setattr hasattr
+Exception""".split(),
+    "ts": """break case catch class const continue debugger default delete do else enum export
+extends false finally for function if import in instanceof new null return super switch this throw
+true try typeof var void while with as implements interface let package private protected public
+static yield any boolean number string symbol type from of async await declare readonly keyof
+unknown never undefined abstract constructor get set is infer require module namespace console
+Promise Array Object String Number Boolean Error Map Set JSON Math Date RegExp""".split(),
+    "go": """break case chan const continue default defer else fallthrough for func go goto if
+import interface map package range return select struct switch type var nil true false iota int
+int8 int16 int32 int64 uint uint8 uint16 uint32 uint64 uintptr float32 float64 string bool byte
+rune error any len cap make new append copy delete panic recover close print println complex real
+imag min max clear""".split(),
+    "rust": """as break const continue crate else enum extern false fn for if impl in let loop
+match mod move mut pub ref return self Self static struct super trait true type unsafe use where
+while async await dyn Some None Ok Err Box Vec String Option Result i8 i16 i32 i64 i128 isize u8
+u16 u32 u64 u128 usize f32 f64 bool char str println format vec write writeln assert assert_eq
+panic unreachable todo""".split(),
+    "c": C_KW, "cpp": C_KW + "std string vector size_t uint64_t uint32_t int64_t int32_t uint8_t".split(),
+    "php": """abstract and array as break callable case catch class clone const continue declare
+default do echo else elseif empty enddeclare endfor endforeach endif endswitch endwhile extends
+final finally fn for foreach function global goto if implements include include_once instanceof
+insteadof interface isset list match namespace new or print private protected public readonly
+require require_once return static switch throw trait try unset use var while xor yield true false
+null self parent this string int float bool void mixed iterable object never""".split(),
+    "swift": """associatedtype class deinit enum extension fileprivate func import init inout
+internal let open operator private protocol public rethrows static struct subscript typealias var
+break case continue default defer do else fallthrough for guard if in repeat return switch where
+while as catch false is nil super self Self throw throws true try await async actor some any
+String Int Bool Double Float Array Dictionary Set Optional Void""".split(),
+    "java": """abstract assert boolean break byte case catch char class const continue default do
+double else enum extends final finally float for goto if implements import instanceof int
+interface long native new package private protected public return short static strictfp super
+switch synchronized this throw throws transient try void volatile while var record yield true
+false null String Object Integer Long Boolean List Map Set Override""".split(),
+    "kotlin": """as break class continue do else false for fun if in interface is null object
+package return super this throw true try typealias typeof val var when while by catch constructor
+delegate dynamic field file finally get import init param property receiver set setparam where
+actual abstract annotation companion const crossinline data enum expect external final infix
+inline inner internal lateinit noinline open operator out override private protected public
+reified sealed suspend tailrec vararg it String Int Long Boolean Unit Any List Map Set""".split(),
+    "csharp": """abstract as base bool break byte case catch char checked class const continue
+decimal default delegate do double else enum event explicit extern false finally fixed float for
+foreach goto if implicit in int interface internal is lock long namespace new null object operator
+out override params private protected public readonly ref return sbyte sealed short sizeof
+stackalloc static string struct switch this throw true try typeof uint ulong unchecked unsafe
+ushort using virtual void volatile while var async await get set init value record nameof where
+yield Task List String""".split(),
+    "ruby": """alias and begin break case class def defined do else elsif end ensure false for if
+in module next nil not or redo rescue retry return self super then true undef unless until when
+while yield require require_relative include extend attr_accessor attr_reader attr_writer private
+protected public puts raise new lambda proc""".split(),
+}
+KW["js"] = KW["ts"]
+DECL = set("""def class func fn function struct interface type let const var val fun enum trait impl
+mod namespace union typedef record object protocol extension typealias module macro_rules define
+package import use from""".split())
+SPEC = {
+    "python": dict(exts=(".py",), lc=("#",), bc=None, triple=True),
+    "ts": dict(exts=(".ts", ".tsx"), lc=("//",), bc=("/*", "*/"), tmpl="`"),
+    "js": dict(exts=(".js", ".mjs", ".cjs", ".jsx"), lc=("//",), bc=("/*", "*/"), tmpl="`"),
+    "go": dict(exts=(".go",), lc=("//",), bc=("/*", "*/"), tmpl="`"),
+    "rust": dict(exts=(".rs",), lc=("//",), bc=("/*", "*/"), rust=True),
+    "c": dict(exts=(".c", ".h"), lc=("//",), bc=("/*", "*/")),
+    "cpp": dict(exts=(".cc", ".cpp", ".h", ".hpp"), lc=("//",), bc=("/*", "*/")),
+    "php": dict(exts=(".php",), lc=("//", "#"), bc=("/*", "*/")),
+    "swift": dict(exts=(".swift",), lc=("//",), bc=("/*", "*/"), triple=True),
+    "java": dict(exts=(".java",), lc=("//",), bc=("/*", "*/"), triple=True),
+    "kotlin": dict(exts=(".kt", ".kts"), lc=("//",), bc=("/*", "*/"), triple=True),
+    "csharp": dict(exts=(".cs",), lc=("//",), bc=("/*", "*/"), triple=True),
+    "ruby": dict(exts=(".rb",), lc=("#",), bc=None),
+}
+SKIP_DIRS = {".git", "node_modules", "vendor", "third_party", "dist", "build", "target", ".venv",
+             "venv", "__pycache__", "migrations", "deps", "public", "static", "locale", "locales",
+             "generated", ".build", "Pods", "fixtures", "testdata"}
+
+
+def code_tokens(text, spec):
+    """(line1, col, word, before, after) for identifiers outside comments and strings."""
+    out = []
+    state = None  # None | 'block' | ('str', closer)
+    for n, line in enumerate(text.split("\n"), 1):
+        i, L = 0, len(line)
+        masked = list(line)
+        while i < L:
+            c = line[i]
+            if state == "block":
+                j = line.find(spec["bc"][1], i)
+                if j < 0:
+                    masked[i:] = " " * (L - i); i = L; break
+                masked[i:j + 2] = " " * (j + 2 - i); i = j + 2; state = None; continue
+            if isinstance(state, tuple):
+                closer = state[1]
+                j = i
+                while j < L:
+                    if line[j] == "\\": j += 2; continue
+                    if line.startswith(closer, j): break
+                    j += 1
+                if j >= L:
+                    masked[i:] = " " * (L - i); i = L; break
+                masked[i:j + len(closer)] = " " * (j + len(closer) - i); i = j + len(closer); state = None; continue
+            if any(line.startswith(lc, i) for lc in spec["lc"]):
+                masked[i:] = " " * (L - i); break
+            if spec.get("bc") and line.startswith(spec["bc"][0], i):
+                state = "block"; masked[i:i + 2] = "  "; i += 2; continue
+            if spec.get("triple") and (line.startswith('"""', i) or line.startswith("'''", i)):
+                state = ("str", line[i:i + 3]); masked[i:i + 3] = "   "; i += 3; continue
+            if spec.get("tmpl") and c == spec["tmpl"]:
+                state = ("str", c); masked[i] = " "; i += 1; continue
+            if c in "\"'":
+                if spec.get("rust") and c == "'" and not re.match(r"'(\\.|[^\\'])'", line[i:i + 4] if line[i + 1:i + 2] != "\\" else line[i:i + 5]):
+                    i += 1; continue  # a lifetime
+                j = i + 1
+                while j < L and line[j] != c:
+                    j += 2 if line[j] == "\\" else 1
+                masked[i:min(j + 1, L)] = " " * (min(j + 1, L) - i); i = j + 1; continue
+            i += 1
+        m = "".join(masked)
+        if not m.isascii():
+            continue
+        for t in re.finditer(r"[A-Za-z_][A-Za-z0-9_]*", m):
+            s, e = t.span()
+            if s > 0 and (m[s - 1].isdigit() or m[s - 1] in "$@#"):
+                continue
+            out.append((n, s, t.group(), m[:s], m[e:]))
+    return out
+
+
+def shape(before, after, lang):
+    b = before.rstrip()
+    if b.endswith("?.") or (b.endswith(".") and not b.endswith("..")) or b.endswith("->"):
+        return "member"
+    if b.endswith("::"):
+        return "path"
+    if after.lstrip().startswith("("):
+        return "call"
+    return None  # decided by the word
+
+
+def sample(lang, root, n, out, exclude=()):
+    spec = SPEC[lang]
+    kw = set(KW[lang])
+    buckets = defaultdict(list)
+    for d, dirs, files in os.walk(root):
+        dirs[:] = [x for x in dirs if x not in SKIP_DIRS and x not in exclude and not x.startswith(".")]
+        for f in files:
+            if not f.endswith(spec["exts"]) or f.endswith((".d.ts", ".min.js", "_pb2.py", ".pb.go")):
+                continue
+            p = os.path.join(d, f)
+            try:
+                text = open(p, encoding="utf-8").read()
+            except Exception:
+                continue
+            if len(text) > 400_000:
+                continue
+            rel = os.path.relpath(p, root)
+            for (ln, col, w, before, after) in code_tokens(text, spec):
+                if w in kw or len(w) < 2:
+                    continue
+                prev = re.findall(r"[A-Za-z_]+", before)
+                if prev and prev[-1] in DECL and not before.rstrip().endswith((".", "->", "::", "(", ",", "=", ":")):
+                    continue
+                sh = shape(before, after, lang) or ("type" if w[0].isupper() else "name")
+                buckets[sh].append((rel, ln, col, sh, w))
+    rnd = random.Random(20260928)
+    mix = {"member": 0.35, "call": 0.25, "type": 0.2, "name": 0.1, "path": 0.1}
+    chosen = []
+    for sh, frac in mix.items():
+        pool = buckets.get(sh, [])
+        chosen += rnd.sample(pool, min(len(pool), round(n * frac)))
+    rnd.shuffle(chosen)
+    with open(out, "w") as fh:
+        for i, (rel, ln, col, sh, w) in enumerate(chosen):
+            fh.write(f"{lang}{i:04d}\t{root}\t{rel}\t{ln}\t{col}\t{sh}\t{w}\n")
+    print({k: len(v) for k, v in buckets.items()}, "->", len(chosen), file=sys.stderr)
+
+
+# ---------------------------------------------------------------- LSP client
+
+class Lsp:
+    def __init__(self, cmd, root, init_options=None, settings=None, env=None):
+        self.p = subprocess.Popen(cmd, cwd=root, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                  stderr=open(os.path.join(HERE, "lsp-stderr.log"), "ab"),
+                                  env={**os.environ, **(env or {})})
+        self.id, self.buf, self.progress, self.settings = 0, b"", {}, settings or {}
+        self.last_progress = time.time()
+        self.opened = set()
+        root_uri = "file://" + root
+        caps = {"textDocument": {"definition": {"linkSupport": True},
+                                 "declaration": {"linkSupport": True},
+                                 "synchronization": {"didSave": True}},
+                "window": {"workDoneProgress": True},
+                "workspace": {"configuration": True, "workspaceFolders": True}}
+        r = self.request("initialize", {"processId": os.getpid(), "rootUri": root_uri, "rootPath": root,
+                                        "capabilities": caps, "initializationOptions": init_options or {},
+                                        "workspaceFolders": [{"uri": root_uri, "name": os.path.basename(root)}]},
+                         timeout=300)
+        self.notify("initialized", {})
+        if settings:
+            self.notify("workspace/didChangeConfiguration", {"settings": settings})
+
+    def send(self, msg):
+        body = json.dumps(msg).encode()
+        self.p.stdin.write(b"Content-Length: %d\r\n\r\n" % len(body) + body)
+        self.p.stdin.flush()
+
+    def notify(self, method, params):
+        self.send({"jsonrpc": "2.0", "method": method, "params": params})
+
+    def read(self, timeout):
+        end = time.time() + timeout
+        while True:
+            if b"\r\n\r\n" in self.buf:
+                head, rest = self.buf.split(b"\r\n\r\n", 1)
+                ln = int(re.search(rb"Content-Length: *(\d+)", head, re.I).group(1))
+                if len(rest) >= ln:
+                    self.buf = rest[ln:]
+                    return json.loads(rest[:ln])
+            left = end - time.time()
+            if left <= 0:
+                return None
+            r, _, _ = select.select([self.p.stdout], [], [], left)
+            if not r:
+                return None
+            chunk = os.read(self.p.stdout.fileno(), 1 << 20)
+            if not chunk:
+                raise RuntimeError("server exited")
+            self.buf += chunk
+
+    def handle(self, m):
+        meth = m.get("method")
+        if meth and "id" in m:  # a request from the server
+            res = None
+            if meth == "workspace/configuration":
+                res = [self.section(it.get("section")) for it in m["params"]["items"]]
+            elif meth == "workspace/workspaceFolders":
+                res = []
+            self.send({"jsonrpc": "2.0", "id": m["id"], "result": res})
+        elif meth == "$/progress":
+            tok, v = str(m["params"]["token"]), m["params"]["value"]
+            self.last_progress = time.time()
+            if v.get("kind") == "begin":
+                self.progress[tok] = v.get("title", "")
+            elif v.get("kind") == "end":
+                self.progress.pop(tok, None)
+
+    def section(self, name):
+        cur = self.settings
+        for part in (name or "").split("."):
+            if not part:
+                continue
+            cur = cur.get(part, {}) if isinstance(cur, dict) else {}
+        return cur if cur != {} else None
+
+    def request(self, method, params, timeout=60):
+        self.id += 1
+        rid = self.id
+        self.send({"jsonrpc": "2.0", "id": rid, "method": method, "params": params})
+        end = time.time() + timeout
+        while time.time() < end:
+            m = self.read(end - time.time())
+            if m is None:
+                break
+            if m.get("id") == rid and "method" not in m:
+                return m.get("result")
+            self.handle(m)
+        return "TIMEOUT"
+
+    def pump(self, secs):
+        end = time.time() + secs
+        while time.time() < end:
+            m = self.read(min(0.5, end - time.time()))
+            if m:
+                self.handle(m)
+
+    def settle(self, quiet=5, cap=900):
+        """Waits until no progress has run for `quiet` seconds (or `cap` passed)."""
+        start = time.time()
+        while time.time() - start < cap:
+            self.pump(1)
+            if not self.progress and time.time() - self.last_progress > quiet:
+                return
+        print("settle: cap reached with", self.progress, file=sys.stderr)
+
+    def open(self, path, lang_id):
+        if path in self.opened:
+            return
+        self.opened.add(path)
+        text = open(path, encoding="utf-8", errors="replace").read()
+        self.notify("textDocument/didOpen", {"textDocument": {"uri": "file://" + path, "languageId": lang_id,
+                                                               "version": 1, "text": text}})
+
+
+LANG_ID = {".py": "python", ".ts": "typescript", ".tsx": "typescriptreact", ".js": "javascript",
+           ".jsx": "javascriptreact", ".mjs": "javascript", ".cjs": "javascript", ".go": "go",
+           ".rs": "rust", ".c": "c", ".h": "cpp", ".cc": "cpp", ".cpp": "cpp", ".hpp": "cpp",
+           ".php": "php", ".swift": "swift"}
+
+
+def server(lang, root):
+    node = "node"
+    nm = os.path.join(LSP, "node_modules")
+    if lang == "python":
+        venv = os.path.join(root, ".venv", "bin", "python")
+        py = {"python": {"pythonPath": venv} if os.path.exists(venv) else {},
+              "python.analysis": {}}
+        py["python"]["analysis"] = {"autoSearchPaths": True, "diagnosticMode": "openFilesOnly",
+                                    "extraPaths": [os.path.join(root, "src")]}
+        return Lsp([node, os.path.join(nm, "pyright", "langserver.index.js"), "--stdio"], root, settings=py)
+    if lang in ("ts", "js"):
+        return Lsp([node, os.path.join(nm, "typescript-language-server", "lib", "cli.mjs"), "--stdio"], root,
+                   init_options={"tsserver": {"path": os.path.join(nm, "typescript", "lib", "tsserver.js")}})
+    if lang == "go":
+        return Lsp([os.path.join(LSP, "bin", "gopls")], root, env={"GOFLAGS": "-mod=mod"})
+    if lang == "rust":
+        return Lsp([os.path.join(LSP, "bin-ra")], root,
+                   init_options={"cachePriming": {"enable": True}, "checkOnSave": False,
+                                 "procMacro": {"enable": True}, "cargo": {"buildScripts": {"enable": True}}})
+    if lang in ("c", "cpp"):
+        return Lsp(["clangd", "--background-index", "-j=8", "--log=error"], root)
+    if lang == "php":
+        st = os.path.join(HERE, "intelephense-storage")
+        return Lsp([node, os.path.join(nm, "intelephense", "lib", "intelephense.js"), "--stdio"], root,
+                   init_options={"storagePath": st, "globalStoragePath": st})
+    if lang == "swift":
+        return Lsp(["xcrun", "sourcekit-lsp"], root)
+    raise SystemExit(f"no server for {lang}")
+
+
+def locs(res):
+    if res in (None, "TIMEOUT"):
+        return []
+    if isinstance(res, dict):
+        res = [res]
+    out = []
+    for r in res:
+        uri = r.get("targetUri") or r.get("uri")
+        rng = r.get("targetSelectionRange") or r.get("range")
+        if uri and uri.startswith("file://") and rng:
+            from urllib.parse import unquote
+            out.append((os.path.realpath(unquote(uri[7:])), rng["start"]["line"] + 1))
+    return out
+
+
+def oracle(lang, root, cursors, out, warm=0):
+    rows = [l.rstrip("\n").split("\t") for l in open(cursors)]
+    for attempt in range(6):
+        done = {l.split("\t", 1)[0] for l in open(out)} if os.path.exists(out) else set()
+        todo = [r for r in rows if r[0] not in done]
+        if not todo:
+            return
+        try:
+            oracle_run(lang, root, todo, out, warm)
+            return
+        except RuntimeError as e:
+            print("restart after", e, file=sys.stderr)
+
+
+def oracle_run(lang, root, rows, out, warm):
+    s = server(lang, root)
+    # Open a few files first so servers that index lazily start their work.
+    for r in rows[:5]:
+        p = os.path.join(root, r[2]); s.open(p, LANG_ID.get(os.path.splitext(p)[1], lang))
+    s.settle(quiet=8 if lang in ("rust", "c", "cpp", "swift", "php") else 3)
+    if warm:
+        s.pump(warm)
+    with open(out, "a") as fh:
+        for k, r in enumerate(rows):
+            cid, _, rel, line, col = r[:5]
+            p = os.path.join(root, rel)
+            s.open(p, LANG_ID.get(os.path.splitext(p)[1], lang))
+            pos = {"textDocument": {"uri": "file://" + p}, "position": {"line": int(line) - 1, "character": int(col)}}
+            got = locs(s.request("textDocument/definition", pos, timeout=60))
+            if lang in ("c", "cpp"):
+                got += locs(s.request("textDocument/declaration", pos, timeout=60))
+            tag = ""
+            if not got and lang in ("rust", "swift", "php"):
+                s.pump(2)
+                got = locs(s.request("textDocument/definition", pos, timeout=60)); tag = "retry"
+            fh.write(f"{cid}\t{';'.join(f'{a}:{b}' for a, b in dict.fromkeys(got))}\t{tag}\n")
+            fh.flush()
+            if k % 50 == 0:
+                print(k, len(rows), file=sys.stderr)
+    s.p.kill()
+
+
+# ---------------------------------------------------------------- scoring
+
+def parse_targets(s):
+    out = []
+    for t in filter(None, s.split(";")):
+        p, _, ln = t.rpartition(":")
+        out.append((os.path.realpath(p), int(ln)))
+    return out
+
+
+def modkey(p):
+    base = re.sub(r"(\.d)?\.(pyi|py|ts|tsx|js|mjs|cjs|go|rs|h|c|cc|hpp|cpp|php|swift)$", "", p)
+    return "/".join(base.split("/")[-2:])
+
+
+def score(cursors, oracle_tsv, merl_tsv, out):
+    cur = {r[0]: r for r in (l.rstrip("\n").split("\t") for l in open(cursors))}
+    orc = {r[0]: parse_targets(r[1]) for r in (l.rstrip("\n").split("\t") for l in open(oracle_tsv))}
+    mer = {}
+    for l in open(merl_tsv):
+        r = l.rstrip("\n").split("\t")
+        mer[r[0]] = (r[1], float(r[2]), r[3], parse_targets(r[4]) if len(r) > 4 else [])
+    stats = defaultdict(Counter)
+    lines = []
+    for cid, c in cur.items():
+        if cid not in orc or cid not in mer:
+            continue
+        root = os.path.realpath(c[1]); here = os.path.realpath(os.path.join(root, c[2]))
+        want = orc[cid]
+        outcome, ms, status, got = mer[cid]
+        sh = c[5]
+        if any(p == here and ln == int(c[3]) for p, ln in want):
+            verdict = "on-decl"
+        elif not want:
+            verdict = {"jump": "oracle-none/jump", "picker": "oracle-none/picker"}.get(outcome, "oracle-none/stay")
+        else:
+            inside = all(p.startswith(root + "/") for p, _ in want)
+            where = ("local" if all(p == here for p, _ in want) else "project") if inside else "external"
+            def hit(g):
+                for p, ln in want:
+                    if g[0] == p and abs(g[1] - ln) <= 1:
+                        return True
+                    if where == "external" and modkey(g[0]) == modkey(p):
+                        return True
+                return False
+            if outcome == "jump":
+                verdict = "ok" if hit(got[0]) else "WRONG"
+            elif outcome == "picker":
+                verdict = "pick-hit" if any(hit(g) for g in got) else "pick-miss"
+            else:
+                verdict = "none"
+            verdict = f"{verdict}"
+            stats[where][verdict] += 1
+            stats["all"][verdict] += 1
+            stats["shape:" + sh][verdict] += 1
+        lines.append("\t".join([cid, verdict, sh, c[6], f"{c[2]}:{c[3]}:{c[4]}", outcome, f"{ms:.1f}", status,
+                                ";".join(f"{os.path.relpath(p, root) if p.startswith(root) else p}:{l}" for p, l in got[:6]),
+                                ";".join(f"{os.path.relpath(p, root) if p.startswith(root) else p}:{l}" for p, l in want[:4])]))
+        stats["meta"][verdict if verdict.startswith(("on-decl", "oracle")) else "scored"] += 1
+    with open(out, "w") as fh:
+        fh.write("\n".join(lines) + "\n")
+    keys = ["ok", "pick-hit", "WRONG", "pick-miss", "none"]
+    for grp in sorted(stats):
+        st = stats[grp]
+        tot = sum(st[k] for k in keys)
+        if grp == "meta":
+            print("meta", dict(st)); continue
+        if not tot:
+            continue
+        print(f"{grp:14} n={tot:4} " + "  ".join(f"{k}={st[k]:3} ({100 * st[k] / tot:4.1f}%)" for k in keys))
+    ms = sorted(m[1] for m in mer.values())
+    print(f"ms p50={ms[len(ms) // 2]:.1f} p90={ms[int(len(ms) * .9)]:.1f} max={ms[-1]:.1f}")
+
+
+if __name__ == "__main__":
+    a = sys.argv[1:]
+    if a[0] == "sample":
+        ex = a[a.index("--exclude") + 1].split(",") if "--exclude" in a else ()
+        sample(a[1], os.path.realpath(a[2]), int(a[3]), a[4], ex)
+    elif a[0] == "oracle":
+        oracle(a[1], os.path.realpath(a[2]), a[3], a[4], warm=int(a[5]) if len(a) > 5 else 0)
+    elif a[0] == "score":
+        score(*a[1:5])

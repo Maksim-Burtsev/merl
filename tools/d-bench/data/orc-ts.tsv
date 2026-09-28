@@ -1,0 +1,300 @@
+ts0000	proj/outline/shared/editor/lib/markdown/serializer.ts:288	
+ts0001	proj/outline/app/components/FilterOptions.tsx:62	
+ts0002	proj/outline/app/hooks/useEditingFocus.ts:15	
+ts0003		
+ts0004	proj/outline/plugins/webhooks/server/tasks/DeliverWebhookTask.ts:78	
+ts0005		
+ts0006		
+ts0007	d-bench/lsp/node_modules/typescript/lib/lib.es5.d.ts:1169	
+ts0008	proj/outline/shared/utils/rfc6902/patch.ts:14;proj/outline/shared/utils/rfc6902/patch.ts:15	
+ts0009	proj/outline/server/routes/api/documents/documents.test.ts:1650	
+ts0010	proj/outline/server/scripts/reset-encrypted-data.ts:21	
+ts0011		
+ts0012	proj/outline/shared/types.ts:535	
+ts0013		
+ts0014	proj/outline/server/utils/ZipHelper.ts:16	
+ts0015	proj/outline/app/components/Sidebar/components/HistoryNavigation.tsx:47	
+ts0016	proj/outline/app/components/NudeButton.tsx:13	
+ts0017		
+ts0018	proj/outline/app/models/base/Model.ts:69	
+ts0019	d-bench/lsp/node_modules/typescript/lib/lib.es2016.array.include.d.ts:23	
+ts0020		
+ts0021		
+ts0022	proj/outline/plugins/webhooks/server/api/webhookSubscriptions.test.ts:349	
+ts0023	proj/outline/app/hooks/usePaginatedRequest.ts:10	
+ts0024	d-bench/lsp/node_modules/typescript/lib/lib.dom.d.ts:12929	
+ts0025	proj/outline/app/stores/RootStore.ts:40	
+ts0026		
+ts0027		
+ts0028		
+ts0029		
+ts0030		
+ts0031		
+ts0032		
+ts0033	proj/outline/server/queues/tasks/DocumentImportTask.ts:90;proj/outline/server/context.ts:15	
+ts0034	proj/outline/app/models/Revision.ts:16	
+ts0035		
+ts0036	proj/outline/app/components/primitives/Popover.tsx:60	
+ts0037	proj/outline/server/routes/api/documents/documents.test.ts:4884	
+ts0038		
+ts0039	proj/outline/server/queues/tasks/UploadIntegrationLogoTask.ts:46	
+ts0040		
+ts0041	proj/outline/app/hooks/useStores.ts:10	
+ts0042	proj/outline/app/scenes/Settings/components/DomainManagement.tsx:45	
+ts0043	proj/outline/shared/types.ts:236	
+ts0044	proj/outline/shared/components/Text.tsx:27	
+ts0045	proj/outline/server/storage/redis.ts:42	
+ts0046	proj/outline/shared/editor/lib/ChangesetHelper.ts:279	
+ts0047	proj/outline/app/models/Share.ts:33	
+ts0048		
+ts0049	proj/outline/shared/utils/urls.ts:37	
+ts0050	proj/outline/server/models/User.ts:136	
+ts0051	d-bench/lsp/node_modules/typescript/lib/lib.es2016.array.include.d.ts:23	
+ts0052		
+ts0053		
+ts0054	proj/outline/shared/editor/plugins/AnchorPlugin.ts:10;proj/outline/shared/editor/plugins/AnchorPlugin.ts:11	
+ts0055	proj/outline/shared/editor/components/DisabledEmbed.tsx:7	
+ts0056		
+ts0057		
+ts0058	proj/outline/server/test/factories.ts:125	
+ts0059	d-bench/lsp/node_modules/typescript/lib/lib.es5.d.ts:1327	
+ts0060	proj/outline/shared/types.ts:2	
+ts0061	proj/outline/server/test/TestServer.ts:196	
+ts0062	proj/outline/app/models/base/NavigableModel.ts:11	
+ts0063		
+ts0064		
+ts0065	proj/outline/server/test/factories.ts:389	
+ts0066	proj/outline/server/types.ts:92	
+ts0067		
+ts0068		
+ts0069		
+ts0070		
+ts0071		
+ts0072	proj/outline/app/components/LightboxState.ts:16	
+ts0073		
+ts0074		
+ts0075	proj/outline/server/models/Document.ts:309	
+ts0076	proj/outline/shared/types.ts:71	
+ts0077		
+ts0078	proj/outline/server/models/UserMembership.ts:79	
+ts0079		
+ts0080		
+ts0081	proj/outline/server/models/User.ts:136	
+ts0082		
+ts0083	proj/outline/server/tools/util.ts:63	
+ts0084		
+ts0085		
+ts0086		
+ts0087	proj/outline/server/test/factories.ts:211	
+ts0088	proj/outline/server/queues/tasks/DuplicateCollectionDocumentsTask.ts:15	
+ts0089		
+ts0090		
+ts0091	d-bench/lsp/node_modules/typescript/lib/lib.es5.d.ts:1628	
+ts0092	proj/outline/app/components/Table.tsx:626	
+ts0093		
+ts0094	proj/outline/app/components/WebsocketProvider.tsx:4	
+ts0095		
+ts0096		
+ts0097		
+ts0098		
+ts0099		
+ts0100		
+ts0101		
+ts0102	proj/outline/server/env.ts:877	
+ts0103		
+ts0104	proj/outline/shared/types.ts:17	
+ts0105	proj/outline/server/utils/passport.ts:5	
+ts0106	proj/outline/server/test/McpHelper.ts:118	
+ts0107	proj/outline/server/test/factories.ts:211	
+ts0108	proj/outline/shared/editor/lib/ExtensionManager.ts:1	
+ts0109		
+ts0110	proj/outline/app/components/Icons/ArrowIcon.tsx:1	
+ts0111		
+ts0112	proj/outline/server/presenters/oauthClient.ts:89	
+ts0113	proj/outline/server/presenters/membership.ts:15	
+ts0114	proj/outline/server/commands/documentCollaborativeUpdater.test.ts:12	
+ts0115	proj/outline/shared/types.ts:559	
+ts0116	proj/outline/shared/types.ts:239	
+ts0117		
+ts0118	proj/outline/server/models/Document.ts:366	
+ts0119		
+ts0120	proj/outline/app/components/IconPicker/utils.ts:8	
+ts0121	proj/outline/server/models/UserMembership.ts:71	
+ts0122		
+ts0123		
+ts0124		
+ts0125	proj/outline/server/test/factories.ts:211	
+ts0126	proj/outline/app/models/Share.ts:12	
+ts0127		
+ts0128		
+ts0129		
+ts0130	proj/outline/app/components/Input.tsx:354	
+ts0131	d-bench/lsp/node_modules/typescript/lib/lib.dom.d.ts:41543	
+ts0132	proj/outline/shared/types.ts:272	
+ts0133		
+ts0134	d-bench/lsp/node_modules/typescript/lib/lib.es5.d.ts:1161	
+ts0135	proj/outline/server/models/Share.ts:237	
+ts0136		
+ts0137		
+ts0138	proj/outline/shared/types.ts:26	
+ts0139		
+ts0140	d-bench/lsp/node_modules/typescript/lib/lib.es2016.array.include.d.ts:23	
+ts0141	proj/outline/app/models/ApiKey.ts:10	
+ts0142		
+ts0143	proj/outline/server/models/helpers/AttachmentHelper.ts:16	
+ts0144	proj/outline/app/components/IconPicker/components/GridTemplate.tsx:101	
+ts0145		
+ts0146	proj/outline/server/models/helpers/ProsemirrorHelper.tsx:140	
+ts0147	proj/outline/app/components/Table.tsx:107	
+ts0148		
+ts0149		
+ts0150		
+ts0151		
+ts0152	proj/outline/server/utils/requestFilteringAgent/index.ts:225	
+ts0153	proj/outline/server/models/GroupUser.ts:41	
+ts0154	proj/outline/shared/editor/nodes/CheckboxList.ts:5	
+ts0155	proj/outline/app/scenes/Settings/Groups.tsx:7	
+ts0156		
+ts0157	proj/outline/server/test/factories.ts:389	
+ts0158	proj/outline/app/components/InputSelect.tsx:222	
+ts0159	proj/outline/app/models/Share.ts:136	
+ts0160	proj/outline/app/hooks/useStores.ts:10	
+ts0161		
+ts0162		
+ts0163	proj/outline/app/scenes/Document/components/Comments/CommentThreadItem.tsx:112	
+ts0164	proj/outline/app/components/Guide.tsx:3	
+ts0165		
+ts0166		
+ts0167		
+ts0168		
+ts0169	proj/outline/server/types.ts:92	
+ts0170	proj/outline/app/components/Notice.tsx:42	
+ts0171	proj/outline/shared/editor/nodes/ToggleBlock.ts:9	
+ts0172	proj/outline/server/tools/documents.test.ts:660	
+ts0173	proj/outline/server/storage/files/BaseStorage.ts:346	
+ts0174	proj/outline/app/components/ModelSelection.ts:10;proj/outline/app/components/ModelSelection.ts:13	
+ts0175	proj/outline/app/components/LightboxState.ts:10	
+ts0176	proj/outline/plugins/slack/server/env.ts:44	
+ts0177		
+ts0178		
+ts0179		
+ts0180	proj/outline/app/editor/extensions/HoverPreviews.tsx:44	
+ts0181		
+ts0182	d-bench/lsp/node_modules/typescript/lib/lib.es5.d.ts:1468	
+ts0183		
+ts0184	proj/outline/server/queues/processors/BacklinksProcessor.ts:15	
+ts0185		
+ts0186	proj/outline/shared/types.ts:530	
+ts0187		
+ts0188	proj/outline/shared/utils/emoji.ts:116	
+ts0189	proj/outline/server/test/factories.ts:211	
+ts0190	proj/outline/shared/editor/extensions/HeadingPrefix.ts:163	
+ts0191		
+ts0192	proj/outline/shared/utils/error.ts:7	
+ts0193		
+ts0194		
+ts0195	proj/outline/server/models/helpers/Filters.test.ts:1	
+ts0196		
+ts0197		
+ts0198	proj/outline/server/emails/templates/GroupCommentMentionedEmail.tsx:36	
+ts0199		
+ts0200		
+ts0201		
+ts0202		
+ts0203		
+ts0204	d-bench/lsp/node_modules/typescript/lib/lib.es2015.reflect.d.ts:17	
+ts0205	proj/outline/app/stores/EmojiStore.ts:7	
+ts0206	proj/outline/server/models/FileOperation.test.ts:1	
+ts0207		
+ts0208	proj/outline/server/errors.ts:10	
+ts0209	proj/outline/server/middlewares/authentication.ts:52	
+ts0210	proj/outline/server/emails/templates/WelcomeEmail.tsx:25	
+ts0211		
+ts0212	proj/outline/shared/types.ts:126	
+ts0213		
+ts0214	proj/outline/server/routes/api/shares/schema.ts:127	
+ts0215	proj/outline/shared/types.ts:28	
+ts0216		
+ts0217	d-bench/lsp/node_modules/typescript/lib/lib.es5.d.ts:1611	
+ts0218	proj/outline/server/storage/redis.ts:42	
+ts0219		
+ts0220	proj/outline/shared/editor/plugins/UploadPlugin.ts:141	
+ts0221	proj/outline/app/models/base/Model.ts:69	
+ts0222	proj/outline/app/menus/AccountMenu.tsx:54	
+ts0223	proj/outline/server/test/factories.ts:545	
+ts0224	proj/outline/shared/utils/rfc6902/diff.ts:397	
+ts0225	proj/outline/server/routes/api/fileOperations/fileOperations.test.ts:262	
+ts0226		
+ts0227	proj/outline/server/models/Team.ts:82	
+ts0228	proj/outline/plugins/search-postgres/server/PostgresSearchProvider.ts:291	
+ts0229	proj/outline/app/editor/menus/tableCol.tsx:6	
+ts0230		
+ts0231		
+ts0232	proj/outline/shared/editor/queries/table.ts:7	
+ts0233	proj/outline/server/models/AccessRequest.ts:83	
+ts0234	proj/outline/shared/editor/lib/listInputRule.test.ts:57	
+ts0235		
+ts0236		
+ts0237		
+ts0238		
+ts0239	proj/outline/shared/editor/nodes/TableRow.ts:236	
+ts0240	proj/outline/server/queues/tasks/base/CronTask.ts:51	
+ts0241		
+ts0242	proj/outline/app/hooks/useKeyDown.ts:38	
+ts0243	proj/outline/app/scenes/Document/components/RevisionViewer.tsx:1	
+ts0244	proj/outline/shared/types.ts:126	
+ts0245	proj/outline/server/emails/templates/ShareDocumentUpdatedEmail.tsx:147	
+ts0246	proj/outline/app/hooks/useCurrentUser.ts:12	
+ts0247	proj/outline/app/actions/definitions/documents.tsx:574	
+ts0248		
+ts0249	proj/outline/server/models/Reaction.ts:55	
+ts0250		
+ts0251		
+ts0252	proj/outline/app/components/Breadcrumb.tsx:113	
+ts0253		
+ts0254	proj/outline/server/scripts/20220722000000-backfill-subscriptions.ts:23	
+ts0255	proj/outline/shared/types.ts:189;proj/outline/shared/types.ts:197	
+ts0256		
+ts0257		
+ts0258	proj/outline/shared/components/EmojiText.tsx:5	
+ts0259		
+ts0260	proj/outline/shared/editor/nodes/Image.tsx:6	
+ts0261	proj/outline/server/utils/ZipHelper.test.ts:10	
+ts0262	proj/outline/app/components/DocumentCard.tsx:6	
+ts0263	proj/outline/server/routes/api/shares/schema.ts:2	
+ts0264	proj/outline/shared/editor/lib/multiplayer.ts:77	
+ts0265		
+ts0266		
+ts0267	proj/outline/server/queues/tasks/base/BaseTask.ts:4	
+ts0268	proj/outline/app/editor/components/SuggestionsMenuItem.tsx:2	
+ts0269	proj/outline/server/routes/api/urls/urls.ts:282	
+ts0270	proj/outline/app/scenes/Login/components/AuthenticationProvider.tsx:80	
+ts0271	proj/outline/server/models/base/IdModel.ts:3	
+ts0272		
+ts0273		
+ts0274		
+ts0275	proj/outline/app/stores/base/StorePersistence.ts:96	
+ts0276	proj/outline/server/utils/LogoutTokenStore.test.ts:60	
+ts0277		
+ts0278		
+ts0279		
+ts0280		
+ts0281		
+ts0282		
+ts0283	proj/outline/shared/utils/time.ts:22	
+ts0284	proj/outline/app/editor/extensions/deburrWithMap.ts:22	
+ts0285	proj/outline/server/commands/documentDuplicator.ts:69	
+ts0286	proj/outline/server/utils/RateLimiter.ts:196	
+ts0287		
+ts0288	proj/outline/server/routes/api/documents/documents.test.ts:7423	
+ts0289		
+ts0290	proj/outline/app/scenes/DocumentDelete.tsx:53	
+ts0291	proj/outline/server/models/base/IdModel.ts:21	
+ts0292	proj/outline/server/utils/fetch.ts:268	
+ts0293	proj/outline/shared/editor/commands/table.ts:962	
+ts0294		
+ts0295		
+ts0296	proj/outline/app/scenes/Settings/components/StickyFilters.tsx:8	
+ts0297	d-bench/lsp/node_modules/typescript/lib/lib.es5.d.ts:918	
+ts0298	proj/outline/shared/utils/rfc6902/diff.ts:54	
+ts0299	proj/outline/app/components/Notifications/Notifications.tsx:5	

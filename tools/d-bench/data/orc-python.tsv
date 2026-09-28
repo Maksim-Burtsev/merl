@@ -1,0 +1,270 @@
+python0000	proj/paperless-ngx/src/paperless/parsers/utils.py:133	
+python0001	proj/paperless-ngx/src/documents/models.py:1207	
+python0002	proj/paperless-ngx/src/paperless_ai/base_model.py:222	
+python0003	proj/paperless-ngx/src/paperless/checks.py:201	
+python0004	proj/paperless-ngx/src/paperless_ai/embedding.py:23	
+python0005	proj/paperless-ngx/src/documents/tests/test_workflows.py:5703	
+python0006	proj/paperless-ngx/src/documents/search/_query.py:393	
+python0007	proj/paperless-ngx/src/documents/models.py:767	
+python0008	proj/paperless-ngx/.venv/lib/python3.11/site-packages/cryptography/fernet.py:32	
+python0009	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/typing.py:658	
+python0010		
+python0011	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857	
+python0012	proj/paperless-ngx/.venv/lib/python3.11/site-packages/rest_framework/status.py:34	
+python0013	proj/paperless-ngx/src/paperless/tests/test_api_auth.py:27	
+python0014	proj/paperless-ngx/src/paperless_ai/base_model.py:14	
+python0015		
+python0016	proj/paperless-ngx/src/documents/search/_errors.py:1	
+python0017	proj/paperless-ngx/src/paperless_mail/models.py:125	
+python0018	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/db/models/expressions.py:1574	
+python0019	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/typing.py:2754	
+python0020	proj/paperless-ngx/.venv/lib/python3.11/site-packages/llama_index/core/schema.py:289	
+python0021	proj/paperless-ngx/src/paperless_testing/factories.py:1	
+python0022	proj/paperless-ngx/src/documents/utils.py:1	
+python0023	proj/paperless-ngx/src/documents/tests/search/test_backend.py:1086;proj/paperless-ngx/src/documents/tests/search/test_backend.py:1091	
+python0024		
+python0025		
+python0026	proj/paperless-ngx/src/paperless_mail/models.py:8	
+python0027	proj/paperless-ngx/src/documents/management/commands/document_importer.py:176	
+python0028	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/core/management/__init__.py:1	
+python0029		
+python0030	proj/paperless-ngx/src/documents/search/_schema.py:107	
+python0031	proj/paperless-ngx/.venv/lib/python3.11/site-packages/rest_framework/serializers.py:1	
+python0032		
+python0033	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django_softdelete/models.py:49	
+python0034		
+python0035	proj/paperless-ngx/src/paperless/parsers/mail.py:778;proj/paperless-ngx/src/paperless/parsers/mail.py:810	
+python0036	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:834	
+python0037	proj/paperless-ngx/src/documents/search/_backend.py:1055	
+python0038	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/uuid.py:721	
+python0039	proj/paperless-ngx/src/paperless_ai/tests/test_vector_store.py:101	
+python0040	proj/paperless-ngx/src/documents/utils.py:95	
+python0041	proj/paperless-ngx/src/documents/plugins/base.py:125	
+python0042	proj/paperless-ngx/src/documents/models.py:1032	
+python0043	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/core/management/base.py:279;proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/core/management/base.py:455	
+python0044	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/logging/__init__.py:1479	
+python0045		
+python0046	proj/paperless-ngx/src/documents/tests/search/test_checksum_prefix_queries.py:40	
+python0047	proj/paperless-ngx/src/paperless/models.py:97	
+python0048	proj/paperless-ngx/src/documents/tests/search/test_widen_leaf.py:21	
+python0049	proj/paperless-ngx/src/documents/models.py:1150	
+python0050	proj/paperless-ngx/src/paperless_ai/vector_store.py:109	
+python0051		
+python0052	proj/paperless-ngx/src/documents/tasks.py:81	
+python0053	proj/paperless-ngx/src/documents/data_models.py:206	
+python0054	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/test/testcases.py:393	
+python0055	proj/paperless-ngx/src/documents/plugins/date_parsing/regex_parser.py:11	
+python0056	proj/paperless-ngx/.venv/lib/python3.11/site-packages/pytest_mock/plugin.py:80	
+python0057		
+python0058	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:892	
+python0059	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857	
+python0060	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/test/utils.py:468	
+python0061		
+python0062		
+python0063	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/case.py:868	
+python0064		
+python0065	proj/paperless-ngx/src/paperless/models.py:33	
+python0066	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/test/testcases.py:1366	
+python0067	proj/paperless-ngx/src/documents/models.py:1150	
+python0068	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/test/utils.py:721	
+python0069	proj/paperless-ngx/src/documents/sanity_checker.py:305	
+python0070	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/db/models/expressions.py:977	
+python0071		
+python0072	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/utils/text.py:1	
+python0073	proj/paperless-ngx/src/documents/tests/test_api_search.py:357	
+python0074	proj/paperless-ngx/src/documents/search/_backend.py:882	
+python0075	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/json/__init__.py:183	
+python0076	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/case.py:711	
+python0077	proj/paperless-ngx/src/documents/parsers.py:201	
+python0078	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/db/__init__.py:57	
+python0079	proj/paperless-ngx/src/documents/classifier.py:335	
+python0080	proj/paperless-ngx/.venv/lib/python3.11/site-packages/_pytest/logging.py:419	
+python0081	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/contrib/auth/models.py:486	
+python0082		
+python0083	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/core/management/__init__.py:83	
+python0084	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:1008	
+python0085	proj/paperless-ngx/src/documents/tests/test_api_documents.py:3328	
+python0086	proj/paperless-ngx/src/documents/models.py:103	
+python0087	proj/paperless-ngx/src/paperless_mail/models.py:13	
+python0088		
+python0089	proj/paperless-ngx/src/documents/tests/test_permission_filtering_security.py:232	
+python0090	proj/paperless-ngx/src/documents/bulk_edit.py:188	
+python0091	proj/paperless-ngx/src/paperless_ai/tests/test_vector_store.py:29	
+python0092	proj/paperless-ngx/src/documents/tests/management/test_management_sanity_checker.py:118	
+python0093	proj/paperless-ngx/src/documents/barcodes.py:132	
+python0094	proj/paperless-ngx/src/documents/models.py:1207	
+python0095	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/datetime.py:1665	
+python0096	proj/paperless-ngx/src/paperless_ai/indexing.py:365	
+python0097	proj/paperless-ngx/src/documents/bulk_edit.py:73	
+python0098		
+python0099	proj/paperless-ngx/.venv/lib/python3.11/site-packages/tantivy/__init__.py:1	
+python0100		
+python0101		
+python0102	proj/paperless-ngx/src/documents/models.py:97	
+python0103	proj/paperless-ngx/src/documents/tests/test_consumer.py:899	
+python0104	proj/paperless-ngx/src/documents/search/_backend.py:367	
+python0105		
+python0106	proj/paperless-ngx/src/documents/models.py:158	
+python0107		
+python0108	proj/paperless-ngx/src/paperless_mail/tests/factories.py:12	
+python0109	proj/paperless-ngx/src/documents/tests/test_tag_hierarchy.py:60	
+python0110	proj/paperless-ngx/src/paperless/parsers/registry.py:172	
+python0111	d-bench/lsp/node_modules/pyright/dist/typeshed-fallback/stdlib/builtins.pyi:575;d-bench/lsp/node_modules/pyright/dist/typeshed-fallback/stdlib/builtins.pyi:579	
+python0112	proj/paperless-ngx/.venv/lib/python3.11/site-packages/_pytest/mark/__init__.py:49	
+python0113	proj/paperless-ngx/src/documents/models.py:1480	
+python0114	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:1207	
+python0115	proj/paperless-ngx/.venv/lib/python3.11/site-packages/_pytest/fixtures.py:1458;proj/paperless-ngx/.venv/lib/python3.11/site-packages/_pytest/fixtures.py:1435;proj/paperless-ngx/.venv/lib/python3.11/site-packages/_pytest/fixtures.py:1447	
+python0116	proj/paperless-ngx/src/documents/models.py:1032	
+python0117	proj/paperless-ngx/src/documents/tests/test_api_tasks.py:28	
+python0118	proj/paperless-ngx/src/documents/models.py:158	
+python0119	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/case.py:868	
+python0120		
+python0121	proj/paperless-ngx/src/paperless_testing/permissions.py:21	
+python0122	proj/paperless-ngx/src/documents/search/_schema.py:303	
+python0123	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django_softdelete/models.py:49	
+python0124		
+python0125	proj/paperless-ngx/src/documents/models.py:805	
+python0126	proj/paperless-ngx/src/documents/search/_backend.py:1267	
+python0127	proj/paperless-ngx/src/paperless_ai/tests/test_vector_store.py:32	
+python0128	d-bench/lsp/node_modules/pyright/dist/typeshed-fallback/stdlib/builtins.pyi:2404	
+python0129	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/case.py:868	
+python0130	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857	
+python0131	proj/paperless-ngx/src/documents/search/_query.py:270	
+python0132	proj/paperless-ngx/src/documents/filters.py:193	
+python0133	d-bench/lsp/node_modules/pyright/dist/typeshed-fallback/stdlib/builtins.pyi:1971;d-bench/lsp/node_modules/pyright/dist/typeshed-fallback/stdlib/builtins.pyi:1973	
+python0134	proj/paperless-ngx/src/paperless_ai/tests/test_vector_store.py:32	
+python0135		
+python0136	proj/paperless-ngx/.venv/lib/python3.11/site-packages/_pytest/logging.py:570	
+python0137	d-bench/lsp/node_modules/pyright/dist/typeshed-fallback/stdlib/builtins.pyi:1834	
+python0138	proj/paperless-ngx/src/documents/models.py:767	
+python0139	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:1599	
+python0140		
+python0141	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/test/client.py:1141	
+python0142	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/db/models/base.py:665	
+python0143	proj/paperless-ngx/src/paperless_ai/vector_store.py:202	
+python0144	proj/paperless-ngx/src/paperless_testing/permissions.py:40	
+python0145	proj/paperless-ngx/src/documents/search/_errors.py:19	
+python0146	proj/paperless-ngx/src/documents/serialisers.py:2447	
+python0147	proj/paperless-ngx/src/documents/models.py:477	
+python0148	proj/paperless-ngx/src/paperless_ai/vector_store.py:36	
+python0149	proj/paperless-ngx/src/documents/tests/test_api_permissions.py:1132	
+python0150	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/json/__init__.py:183	
+python0151		
+python0152	proj/paperless-ngx/src/paperless_mail/tests/test_api.py:176	
+python0153	proj/paperless-ngx/src/documents/tests/test_management_consumer.py:1307	
+python0154	proj/paperless-ngx/src/documents/search/_schema.py:107	
+python0155	proj/paperless-ngx/src/paperless_mail/tests/factories.py:12	
+python0156	proj/paperless-ngx/src/documents/file_handling.py:156	
+python0157	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/db/models/fields/__init__.py:2062	
+python0158	proj/paperless-ngx/src/documents/models.py:158	
+python0159	d-bench/lsp/node_modules/pyright/dist/typeshed-fallback/stdlib/builtins.pyi:2458	
+python0160	proj/paperless-ngx/src/documents/models.py:1	
+python0161	proj/paperless-ngx/src/documents/tests/test_bulk_edit.py:1441	
+python0162	proj/paperless-ngx/src/paperless_testing/factories.py:62	
+python0163	proj/paperless-ngx/src/documents/permissions.py:1	
+python0164	proj/paperless-ngx/src/documents/models.py:158	
+python0165	proj/paperless-ngx/src/paperless_ai/migrations/__init__.py:32	
+python0166	proj/paperless-ngx/src/documents/versioning.py:140	
+python0167	proj/paperless-ngx/src/documents/models.py:97	
+python0168	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/case.py:1069	
+python0169		
+python0170	d-bench/lsp/node_modules/pyright/dist/typeshed-fallback/stdlib/_io.pyi:95	
+python0171	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/urls/conf.py:96	
+python0172		
+python0173	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:892	
+python0174	proj/paperless-ngx/src/documents/tests/test_management_retagger.py:29	
+python0175	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:2155	
+python0176	proj/paperless-ngx/src/documents/search/_schema.py:205	
+python0177	proj/paperless-ngx/src/documents/models.py:1678	
+python0178	proj/paperless-ngx/src/documents/serialisers.py:3216	
+python0179	proj/paperless-ngx/src/documents/tests/test_workflows.py:87	
+python0180	proj/paperless-ngx/src/documents/consumer.py:90	
+python0181	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/test/client.py:1309	
+python0182	proj/paperless-ngx/src/paperless_testing/factories.py:74	
+python0183	proj/paperless-ngx/src/documents/models.py:1991	
+python0184	proj/paperless-ngx/src/documents/consumer.py:125	
+python0185	proj/paperless-ngx/src/paperless_mail/tests/test_mail.py:160	
+python0186	proj/paperless-ngx/src/paperless/parsers/registry.py:151	
+python0187	proj/paperless-ngx/src/documents/models.py:158	
+python0188	proj/paperless-ngx/src/documents/models.py:158	
+python0189	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/datetime.py:1058	
+python0190	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/typing.py:2734	
+python0191	proj/paperless-ngx/src/documents/tests/test_barcodes.py:28	
+python0192	proj/paperless-ngx/src/documents/models.py:1207	
+python0193		
+python0194	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pickle.py:66	
+python0195	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857	
+python0196	proj/paperless-ngx/.venv/lib/python3.11/site-packages/_pytest/mark/__init__.py:49	
+python0197	proj/paperless-ngx/src/documents/search/_backend.py:77	
+python0198	proj/paperless-ngx/src/documents/models.py:1363	
+python0199	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/core/management/base.py:23	
+python0200	proj/paperless-ngx/.venv/lib/python3.11/site-packages/click/utils.py:246	
+python0201	proj/paperless-ngx/.venv/lib/python3.11/site-packages/_pytest/mark/structures.py:639	
+python0202	proj/paperless-ngx/.venv/lib/python3.11/site-packages/whoosh_compat/ast.py:88	
+python0203	proj/paperless-ngx/src/documents/data_models.py:165	
+python0204	proj/paperless-ngx/src/documents/file_handling.py:156	
+python0205	proj/paperless-ngx/src/documents/models.py:550	
+python0206	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/test/client.py:1274	
+python0207	proj/paperless-ngx/src/paperless_ai/exceptions.py:1	
+python0208	proj/paperless-ngx/src/documents/models.py:1207	
+python0209	proj/paperless-ngx/src/paperless_ai/indexing.py:300	
+python0210	proj/paperless-ngx/src/paperless_testing/permissions.py:40	
+python0211	proj/paperless-ngx/src/paperless/settings/parsers.py:61	
+python0212	proj/paperless-ngx/src/paperless/tests/parsers/test_tesseract_parser.py:820	
+python0213	proj/paperless-ngx/.venv/lib/python3.11/site-packages/_pytest/mark/__init__.py:49	
+python0214	proj/paperless-ngx/src/documents/models.py:158	
+python0215	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/case.py:344	
+python0216	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:1111	
+python0217	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/json/__init__.py:1	
+python0218	proj/paperless-ngx/src/documents/plugins/base.py:10	
+python0219	proj/paperless-ngx/src/documents/tests/test_permission_filtering_security.py:316	
+python0220		
+python0221		
+python0222	d-bench/lsp/node_modules/pyright/dist/typeshed-fallback/stdlib/_io.pyi:305	
+python0223		
+python0224	proj/paperless-ngx/src/documents/tests/search/_ast_helpers.py:23	
+python0225	proj/paperless-ngx/src/paperless/checks.py:266	
+python0226	proj/paperless-ngx/src/documents/tests/test_api_documents.py:1219	
+python0227		
+python0228	proj/paperless-ngx/src/documents/tests/test_file_handling.py:921	
+python0229		
+python0230	proj/paperless-ngx/.venv/lib/python3.11/site-packages/rest_framework/status.py:34	
+python0231	proj/paperless-ngx/src/documents/models.py:97	
+python0232	proj/paperless-ngx/src/documents/tests/test_barcodes.py:592	
+python0233	proj/paperless-ngx/src/paperless_ai/vector_store.py:1	
+python0234	proj/paperless-ngx/src/paperless_mail/models.py:316	
+python0235	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/test/testcases.py:393	
+python0236	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/utils/timezone.py:237	
+python0237	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/case.py:1279	
+python0238	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857	
+python0239	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857	
+python0240	proj/paperless-ngx/src/documents/models.py:1676	
+python0241	proj/paperless-ngx/src/paperless_testing/factories.py:62	
+python0242	proj/paperless-ngx/src/paperless_mail/models.py:87	
+python0243	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857	
+python0244	proj/paperless-ngx/src/documents/models.py:1363	
+python0245	proj/paperless-ngx/src/documents/models.py:103	
+python0246	proj/paperless-ngx/.venv/lib/python3.11/site-packages/_pytest/mark/structures.py:586	
+python0247	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/core/management/base.py:280;proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/core/management/base.py:457	
+python0248	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:557;~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:545	
+python0249	proj/paperless-ngx/src/documents/models.py:1698	
+python0250	proj/paperless-ngx/src/documents/tests/search/test_query_negation.py:30	
+python0251	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:2155	
+python0252	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857	
+python0253	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/test/__init__.py:1	
+python0254	proj/paperless-ngx/src/documents/sanity_checker.py:305	
+python0255	proj/paperless-ngx/.venv/lib/python3.11/site-packages/rest_framework/exceptions.py:143	
+python0256	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857	
+python0257	proj/paperless-ngx/.venv/lib/python3.11/site-packages/_pytest/fixtures.py:1458;proj/paperless-ngx/.venv/lib/python3.11/site-packages/_pytest/fixtures.py:1435;proj/paperless-ngx/.venv/lib/python3.11/site-packages/_pytest/fixtures.py:1447	
+python0258	proj/paperless-ngx/src/paperless_mail/tests/test_mail.py:2023	
+python0259	d-bench/lsp/node_modules/pyright/dist/typeshed-fallback/stdlib/builtins.pyi:2449	
+python0260	proj/paperless-ngx/src/paperless/settings/parsers.py:49;proj/paperless-ngx/src/paperless/settings/parsers.py:38;proj/paperless-ngx/src/paperless/settings/parsers.py:42;proj/paperless-ngx/src/paperless/settings/parsers.py:46	
+python0261	proj/paperless-ngx/src/documents/serialisers.py:262	
+python0262	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:1061	
+python0263	proj/paperless-ngx/src/documents/tests/search/test_acceptance.py:39	
+python0264	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:1207	
+python0265		
+python0266	proj/paperless-ngx/.venv/lib/python3.11/site-packages/django/contrib/__init__.py:1	
+python0267		
+python0268	proj/paperless-ngx/src/documents/models.py:755	
+python0269	proj/paperless-ngx/.venv/lib/python3.11/site-packages/celery/schedules.py:323	

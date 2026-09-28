@@ -1,0 +1,270 @@
+c0000	none	member	addr	src/connection.h:286:27	stay	612.9	no definition for addr		src/connection.h:59
+c0001	none	member	comp_rq	src/bio.c:349:34	stay	118.6	no definition for comp_rq		src/bio.c:116
+c0002	none	member	loading_loaded_bytes	src/rdb.c:4550:11	stay	113.5	no definition for loading_loaded_bytes		src/server.h:2202
+c0003	pick-hit	call	addReplyErrorObject	src/t_string.c:419:12	picker	31.9	addReplyErrorObject: by name, 2 declarations	src/networking.c:801;src/server.h:3402	src/networking.c:801;src/server.h:3402
+c0004	ok	type	LIST_HEAD	src/t_list.c:696:32	jump	31.1	LIST_HEAD: by name, 1 match	src/server.h:653	src/server.h:653
+c0005	ok	type	LONG_STR_SIZE	src/rdb.c:1760:13	jump	30.3	LONG_STR_SIZE: by name, 1 match	src/util.h:31	src/util.h:31
+c0006	on-decl	type	RedisModule_GetBlockedClientHandle	src/redismodule.h:1404:45	stay	105.8	no definition for RedisModule_GetBlockedClientHandle		src/redismodule.h:1404
+c0007	none	member	cgroups	src/defrag.c:1061:11	stay	115.2	no definition for cgroups		src/stream.h:44
+c0008	WRONG	member	buf	src/script_lua.c:952:39	jump	30.2	buf: by name, 1 match	deps/jemalloc/test/unit/prof_log.c:20	src/server.h:1196
+c0009	ok	type	C_OK	src/networking.c:4404:11	jump	32.0	C_OK: by name, 1 match	src/server.h:131	src/server.h:131
+c0010	ok	type	PROTO_INLINE_MAX_SIZE	src/networking.c:3459:45	jump	30.5	PROTO_INLINE_MAX_SIZE: by name, 1 match	src/server.h:209	src/server.h:209
+c0011	none	type	BLOCKED_POSTPONE	src/blocked.c:303:35	stay	113.2	no definition for BLOCKED_POSTPONE		src/server.h:526
+c0012	none	member	uc_mcontext	src/debug.c:1670:28	stay	114.6	no definition for uc_mcontext		/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/sys/_types/_ucontext.h:50
+c0013	ok	type	LUA_REGISTRYINDEX	src/eval.c:473:27	jump	29.3	LUA_REGISTRYINDEX: by name, 1 match	deps/lua/src/lua.h:36	deps/lua/src/lua.h:36
+c0014	none	member	score	src/defrag.c:413:28	stay	119.2	no definition for score		src/server.h:1831;src/server.h:3169;src/geo.h:12;src/t_zset.c:2359
+c0015	pick-miss	member	index	src/db.c:3247:29	picker	125.5	index: by name, 4 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_strings.h:76;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__chrono/weekday.h:122;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__chrono/year_month_weekday.h:58;/opt/homebrew/Cellar/xorgproto/2025.1/include/X11/Xos.h:67	src/server.h:2902
+c0016	pick-hit	call	raxStop	src/ebuckets.c:1137:8	picker	31.2	raxStop: by name, 2 declarations	src/rax.c:2364;src/rax.h:256	src/rax.c:2364;src/rax.h:256
+c0017	none	name	plink	src/db.c:778:48	stay	115.4	no definition for plink		src/db.c:777
+c0018	on-decl	name	di	src/pubsub.c:443:17	stay	115.8	no definition for di		src/pubsub.c:443
+c0019	pick-hit	call	assert	src/dict.c:987:4	picker	31.0	assert: by name, 5 declarations	deps/hiredis/async.c:52;deps/hiredis/test.c:104;deps/jemalloc/include/jemalloc/internal/assert.h:9;deps/jemalloc/src/malloc_io.c:24;src/redisassert.h:23	src/redisassert.h:23
+c0020	none	member	failover_start_time	src/sentinel.c:5170:27	stay	114.0	no definition for failover_start_time		src/sentinel.c:222
+c0021	ok	call	memcmp	src/sentinel.c:2606:37	jump	115.7	memcmp: by name, 1 match	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_string.h:75	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_string.h:75
+c0022	pick-hit	call	lpAppend	src/listpack.c:3094:13	picker	31.2	lpAppend: by name, 2 declarations	src/listpack.c:1401;src/listpack.h:47	src/listpack.c:1401
+c0023	ok	type	C_OK	src/debug.c:589:72	jump	32.3	C_OK: by name, 1 match	src/server.h:131	src/server.h:131
+c0024	none	member	memory_tracking_enabled	src/t_hash.c:5432:15	stay	111.6	no definition for memory_tracking_enabled		src/server.h:2345
+c0025	ok	type	OBJ_ZSET	src/defrag.c:1203:27	jump	32.0	OBJ_ZSET: by name, 1 match	src/server.h:903	src/server.h:903
+c0026	none	member	argv	src/sentinel.c:4408:25	stay	115.6	no definition for argv		src/server.h:1548
+c0027	pick-hit	call	estoreEmpty	src/db.c:1035:12	picker	30.5	estoreEmpty: by name, 2 declarations	src/estore.c:68;src/estore.h:58	src/estore.c:68;src/estore.h:58
+c0028	none	member	idmp_pid	src/t_stream.c:1178:18	stay	115.9	no definition for idmp_pid		src/t_stream.c:766
+c0029	none	name	vlen	src/t_array.c:1324:12	stay	116.8	no definition for vlen		src/t_array.c:1320
+c0030	none	member	total_count	src/redis-benchmark.c:890:64	stay	116.9	no definition for total_count		deps/hdr_histogram/hdr_histogram.h:33
+c0031	none	member	defrag_cb_2	src/defrag.c:1795:16	stay	114.4	no definition for defrag_cb_2		src/server.h:1065
+c0032	WRONG	name	group	src/t_stream.c:4391:46	jump	116.8	group: by name, 1 match	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/grp.h:53	src/t_stream.c:4324
+c0033	pick-hit	call	resizeAllIOThreadsEventLoops	src/config.c:2804:12	picker	29.9	resizeAllIOThreadsEventLoops: by name, 2 declarations	src/iothread.c:366;src/server.h:3498	src/iothread.c:366;src/server.h:3498
+c0034	none	member	argv	src/expire.c:688:23	stay	116.2	no definition for argv		src/server.h:1548
+c0035	none	member	argv	src/t_hash.c:4866:48	stay	117.2	no definition for argv		src/server.h:1548
+c0036	none	member	ms	src/t_stream.c:1496:25	stay	118.8	no definition for ms		src/stream.h:14
+c0037	none	name	ptr	src/zmalloc.c:538:27	stay	115.5	no definition for ptr		src/zmalloc.c:534
+c0038	ok	type	C_OK	src/replication.c:5456:73	jump	32.7	C_OK: by name, 1 match	src/server.h:131	src/server.h:131
+c0039	WRONG	call	lua_settable	src/script_lua.c:1522:4	jump	29.5	lua_settable: by name, 1 match	deps/lua/src/lapi.c:645	deps/lua/src/lua.h:190
+c0040	none	member	sum_acc	src/t_array.c:1370:21	stay	114.2	no definition for sum_acc		src/t_array.c:1277
+c0041	none	name	conn	src/cluster_legacy.c:3535:21	stay	120.2	no definition for conn		src/cluster_legacy.c:3530
+c0042	ok	type	REDISMODULE_ATTR	src/redismodule.h:1510:322	jump	31.5	REDISMODULE_ATTR: by name, 1 match	src/redismodule.h:1132	src/redismodule.h:1132
+c0043	pick-hit	call	streamEntryIsReferenced	src/t_stream.c:4202:20	picker	30.9	streamEntryIsReferenced: by name, 2 declarations	src/t_stream.c:44;src/t_stream.c:3312	src/t_stream.c:3312;src/t_stream.c:44
+c0044	WRONG	member	sz	src/t_list.c:302:33	jump	29.6	sz: by name, 1 match	deps/jemalloc/test/unit/retained.c:7	src/quicklist.h:133
+c0045	none	member	repl_backlog	src/replication.c:673:15	stay	115.5	no definition for repl_backlog		src/server.h:2478
+c0046	ok	type	SRI_MASTER	src/sentinel.c:1563:24	jump	31.7	SRI_MASTER: by name, 1 match	src/sentinel.c:44	src/sentinel.c:44
+c0047	none	member	encoding	src/t_hash.c:1435:11	stay	116.6	no definition for encoding		src/object.h:105
+c0048	none	member	repl_applied	src/networking.c:3635:15	stay	115.7	no definition for repl_applied		src/server.h:1610
+c0049	oracle-none/stay	type	ENABLE_GCRA	src/rdb.h:88:7	stay	115.5	no definition for ENABLE_GCRA		
+c0050	pick-hit	call	fileno	src/aof.c:2101:17	picker	116.3	fileno: by name, 3 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_stdio.h:324;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/tidy/platform.h:506;/opt/homebrew/Cellar/xorgproto/2025.1/include/X11/Xw32defs.h:31	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_stdio.h:324
+c0051	ok	type	HASH_LP_NO_TTL	src/t_hash.c:1695:24	jump	32.3	HASH_LP_NO_TTL: by name, 1 match	src/t_hash.c:1611	src/t_hash.c:1611
+c0052	none	member	lazyfree_lazy_eviction	src/evict.c:767:27	stay	111.9	no definition for lazyfree_lazy_eviction		src/server.h:2705
+c0053	pick-miss	member	end	src/cluster_asm.c:3606:75	picker	530.5	end: by name, 152 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__chrono/tzdb_list.h:60;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__cxx03/__iterator/access.h:28;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__cxx03/__iterator/access.h:43;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__cxx03/__iterator/access.h:48;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__filesystem/directory_iterator.h:128;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__filesystem/recursive_directory_iterator.h:139	src/cluster.h:177
+c0054	pick-hit	call	loadingIncrProgress	src/rdb.c:4555:5	picker	32.4	loadingIncrProgress: at a declaration, 1 other by name	src/server.h:3662	src/server.h:3662
+c0055	WRONG	name	node	src/quicklist.c:1802:47	jump	117.7	node: by name, 1 match	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/search.h:36	src/quicklist.c:1779
+c0056	pick-hit	call	sdscatprintf	src/sds.c:649:4	picker	30.4	sdscatprintf: at a declaration, 3 others by name	deps/hiredis/sdscompat.h:59;src/sds.h:279;src/sds.h:282	src/sds.h:279
+c0057	none	member	dictMetadataBytes	src/dict.c:216:10	stay	113.6	no definition for dictMetadataBytes		src/dict.h:110
+c0058	oracle-none/jump	type	REDIS_STATIC	src/quicklist.c:433:0	jump	31.1	REDIS_STATIC: by name, 1 match	src/quicklist.c:43	
+c0059	pick-miss	member	count	src/quicklist.c:1774:41	picker	118.5	count: by name, 14 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__algorithm/count.h:86;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__algorithm/pstl.h:133;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__algorithm/ranges_count.h:54;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__chrono/duration.h:223;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__cxx03/__algorithm/count.h:83;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__cxx03/__chrono/duration.h:184	src/quicklist.h:110
+c0060	pick-hit	call	memmove	src/rax.c:1306:4	picker	115.8	memmove: by name, 2 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/apr-1/apr_general.h:156;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/secure/_string.h:239	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/secure/_string.h:239
+c0061	none	member	ptr	src/t_list.c:332:21	stay	116.5	no definition for ptr		src/object.h:114
+c0062	none	member	master_reboot_down_after_period	src/sentinel.c:2141:20	stay	110.0	no definition for master_reboot_down_after_period		src/sentinel.c:178
+c0063	none	member	flags	src/acl.c:1762:101	stay	116.2	no definition for flags		src/server.h:2764
+c0064	none	member	ptr	src/sort.c:62:18	stay	117.7	no definition for ptr		src/object.h:114
+c0065	none	member	itemsExpired	src/ebuckets.c:2177:25	stay	115.3	no definition for itemsExpired		src/ebuckets.h:224
+c0066	oracle-none/stay	member	input	src/client_comp.c:516:43	stay	115.6	no definition for input		
+c0067	ok	type	NOTIFY_STRING	src/hyperloglog.c:1872:24	jump	31.4	NOTIFY_STRING: by name, 1 match	src/server.h:831	src/server.h:831
+c0068	ok	type	C_ERR	src/functions.c:332:14	jump	30.8	C_ERR: by name, 1 match	src/server.h:132	src/server.h:132
+c0069	ok	type	KEY_META_MAX_NUM_MODULES	src/keymeta.c:446:30	jump	28.0	KEY_META_MAX_NUM_MODULES: by name, 1 match	src/keymeta.h:56	src/keymeta.h:56
+c0070	ok	call	strlen	src/sds.c:550:27	jump	115.8	strlen: by name, 1 match	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_string.h:96	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_string.h:96
+c0071	none	name	key_len	src/rax.c:2354:44	stay	115.7	no definition for key_len		src/rax.c:2335
+c0072	none	member	ptr	src/networking.c:4629:31	stay	116.9	no definition for ptr		src/object.h:114
+c0073	none	type	ASM_SEND_BULK_AND_STREAM	src/cluster_asm.c:2388:68	stay	111.3	no definition for ASM_SEND_BULK_AND_STREAM		src/cluster_asm.c:164
+c0074	none	member	ptr	src/object.c:835:19	stay	115.8	no definition for ptr		src/object.h:114
+c0075	none	name	envsize	src/setproctitle.c:119:18	stay	115.0	no definition for envsize		src/setproctitle.c:110
+c0076	none	member	flags	src/networking.c:2531:17	stay	116.2	no definition for flags		src/server.h:1533
+c0077	WRONG	member	context	src/redis-benchmark.c:584:53	jump	33.8	context: by name, 1 match	src/redis-cli.c:201	src/redis-benchmark.c:111
+c0078	ok	call	serverPanic	src/t_list.c:223:8	jump	31.3	serverPanic: by name, 1 match	src/server.h:866	src/server.h:866
+c0079	ok	type	C_ERR	src/t_hash.c:3676:35	jump	32.8	C_ERR: by name, 1 match	src/server.h:132	src/server.h:132
+c0080	none	member	ptr	src/t_list.c:1248:62	stay	116.1	no definition for ptr		src/object.h:114
+c0081	ok	call	zuiClearIterator	src/t_zset.c:4603:8	jump	31.1	zuiClearIterator: by name, 1 match	src/t_zset.c:2407	src/t_zset.c:2407
+c0082	none	member	set_write_handler	src/unix.c:159:32	stay	112.8	no definition for set_write_handler		src/connection.h:78
+c0083	none	member	flags	src/cluster_asm.c:1310:11	stay	116.0	no definition for flags		src/server.h:1533
+c0084	none	type	BLOCKED_LIST_NONEMPTY	src/blocked.c:610:35	stay	114.2	no definition for BLOCKED_LIST_NONEMPTY		src/server.h:530
+c0085	none	member	cc	src/sentinel.c:2442:22	stay	122.1	no definition for cc		src/sentinel.c:139
+c0086	pick-hit	call	addReplyNull	src/cluster.c:1653:8	picker	32.8	addReplyNull: by name, 2 declarations	src/networking.c:1292;src/server.h:3386	src/networking.c:1292;src/server.h:3386
+c0087	pick-hit	call	pthread_equal	src/t_hash.c:823:11	picker	116.3	pthread_equal: by name, 2 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/pthread/pthread.h:352;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/pthread/pthread.h:352	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/pthread/pthread.h:352
+c0088	none	member	key_len	src/t_stream.c:1003:39	stay	115.7	no definition for key_len		src/rax.h:179
+c0089	none	member	embdValueSize	src/entry.c:275:30	stay	113.0	no definition for embdValueSize		src/entry.c:19
+c0090	pick-miss	type	INFINITY	src/fast_float_strtod.c:305:34	picker	30.7	INFINITY: by name, 2 declarations	modules/vector-sets/hnsw.c:103;deps/jemalloc/test/unit/math.c:13	/Library/Developer/CommandLineTools/usr/lib/clang/21/include/__float_infinity_nan.h:17
+c0091	none	name	expireTime	src/t_hash.c:1857:42	stay	115.3	no definition for expireTime		src/t_hash.c:1854
+c0092	none	member	ptr	src/lazyfree.c:151:24	stay	117.0	no definition for ptr		src/object.h:114
+c0093	pick-hit	call	decrRefCount	src/db.c:1603:4	picker	31.5	decrRefCount: by name, 2 declarations	src/object.c:652;src/object.h:147	src/object.c:652;src/object.h:147
+c0094	none	member	lpi	src/t_list.c:284:79	stay	115.8	no definition for lpi		src/server.h:3185
+c0095	ok	call	serverAssert	src/t_hash.c:341:4	jump	32.7	serverAssert: by name, 1 match	src/server.h:865	src/server.h:865
+c0096	ok	call	serverLog	src/replication.c:3454:12	jump	32.2	serverLog: by name, 1 match	src/server.h:4961	src/server.h:4961
+c0097	none	member	slowlog	src/slowlog.c:164:42	stay	114.4	no definition for slowlog		src/server.h:2244
+c0098	none	member	port	src/sentinel.c:4034:41	stay	117.0	no definition for port		src/sentinel.c:40
+c0099	none	member	by_id_chunks	src/t_hash.c:404:20	stay	123.1	no definition for by_id_chunks		src/server.h:4060
+c0100	ok	type	ANET_ERR	src/unix.c:65:18	jump	30.0	ANET_ERR: by name, 1 match	src/anet.h:17	src/anet.h:17
+c0101	none	member	defragAlloc	src/ebuckets.c:1731:34	stay	115.7	no definition for defragAlloc		src/ebuckets.h:246
+c0102	ok	type	AR_RDB_TAG_FLOAT	src/rdb.c:1090:33	jump	30.6	AR_RDB_TAG_FLOAT: by name, 1 match	src/sparsearray.h:109	src/sparsearray.h:109
+c0103	ok	call	serverLog	src/replication.c:3289:12	jump	32.2	serverLog: by name, 1 match	src/server.h:4961	src/server.h:4961
+c0104	none	member	pending_commands	src/sentinel.c:2364:53	stay	113.9	no definition for pending_commands		src/sentinel.c:138
+c0105	pick-hit	call	zzlGetScore	src/t_zset.c:3844:24	picker	33.1	zzlGetScore: by name, 2 declarations	src/t_zset.c:953;src/server.h:3836	src/t_zset.c:953;src/server.h:3836
+c0106	ok	call	ebGetMetaExpTime	src/ebuckets.c:937:25	jump	29.5	ebGetMetaExpTime: by name, 1 match	src/ebuckets.h:287	src/ebuckets.h:287
+c0107	WRONG	member	sz	src/quicklist.c:1169:54	jump	30.0	sz: by name, 1 match	deps/jemalloc/test/unit/retained.c:7	src/quicklist.h:51
+c0108	none	member	argc	src/t_stream.c:2800:27	stay	116.8	no definition for argc		src/server.h:1547
+c0109	pick-hit	type	USE_SETPROCTITLE	src/server.c:8091:7	picker	31.3	USE_SETPROCTITLE: by name, 2 declarations	src/config.h:206;src/config.h:214	src/config.h:214
+c0110	none	name	oldEntry	src/t_hash.c:2390:28	stay	116.9	no definition for oldEntry		src/t_hash.c:2369
+c0111	pick-hit	call	dictDelete	src/dict.c:2107:17	picker	31.0	dictDelete: by name, 4 declarations	src/dict.c:674;deps/hiredis/dict.c:194;deps/hiredis/dict.h:119;src/dict.h:262	src/dict.c:674
+c0112	pick-hit	call	mstrSumMetaLen	src/mstr.c:320:54	picker	28.8	mstrSumMetaLen: by name, 2 declarations	src/mstr.c:19;src/mstr.c:278	src/mstr.c:278;src/mstr.c:19
+c0113	WRONG	name	link	src/cluster_legacy.c:1221:18	jump	116.4	link: by name, 1 match	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/unistd.h:476	src/cluster_legacy.c:1220
+c0114	ok	name	updateOOMScoreAdj	src/config.c:3540:129	jump	30.7	updateOOMScoreAdj: by name, 1 match	src/config.c:2813	src/config.c:2813
+c0115	ok	type	OBJ_LIST	src/object.c:1339:19	jump	31.1	OBJ_LIST: by name, 1 match	src/server.h:901	src/server.h:901
+c0116	pick-hit	type	GetFieldRes	src/t_hash.c:2068:0	picker	32.2	GetFieldRes: by name, 2 declarations	src/t_hash.c:38;src/t_hash.c:45	src/t_hash.c:45
+c0117	none	member	zpopmin	src/t_zset.c:4368:81	stay	114.2	no definition for zpopmin		src/server.h:1804
+c0118	pick-hit	name	dictEntry	src/dict.c:61:4	picker	30.6	dictEntry: by name, 4 declarations	src/dict.c:49;deps/hiredis/dict.h:45;deps/hiredis/dict.h:49;src/dict.h:68	src/dict.h:68
+c0119	oracle-none/stay	member	len	src/adlist.h:37:28	stay	114.9	no definition for len		
+c0120	none	member	tail	src/adlist.c:380:17	stay	116.2	no definition for tail		src/adlist.h:29
+c0121	ok	call	serverAssert	src/defrag.c:1859:8	jump	31.6	serverAssert: by name, 1 match	src/server.h:865	src/server.h:865
+c0122	none	member	argv	src/pubsub.c:831:42	stay	114.4	no definition for argv		src/server.h:1548
+c0123	oracle-none/picker	member	value	src/server.c:5710:38	picker	569.0	value: by name, 133 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__chrono/leap_second.h:48;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__cxx03/__system_error/error_code.h:69;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__cxx03/__system_error/error_condition.h:76;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__expected/expected.h:831;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__expected/expected.h:839;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__expected/expected.h:847	
+c0124	none	member	cluster_slot_stats_enabled	src/server.c:537:32	stay	112.0	no definition for cluster_slot_stats_enabled		src/server.h:2696
+c0125	ok	type	AR_SUPER_BLOCK_SLOTS	src/sparsearray.c:1706:34	jump	30.5	AR_SUPER_BLOCK_SLOTS: by name, 1 match	src/sparsearray.h:79	src/sparsearray.h:79
+c0126	ok	type	CLUSTERMSG_TYPE_PUBLISH	src/cluster_legacy.c:3376:23	jump	30.3	CLUSTERMSG_TYPE_PUBLISH: by name, 1 match	src/cluster_legacy.h:99	src/cluster_legacy.h:99
+c0127	ok	type	SCRIPT_FLAG_ALLOW_OOM	src/script.c:303:95	jump	29.0	SCRIPT_FLAG_ALLOW_OOM: by name, 1 match	src/script.h:63	src/script.h:63
+c0128	pick-hit	call	createStringObject	src/object.c:386:16	picker	30.7	createStringObject: by name, 4 declarations	src/object.c:347;deps/hiredis/hiredis.c:60;deps/hiredis/hiredis.c:125;src/object.h:158	src/object.c:347;src/object.h:158
+c0129	pick-hit	call	dictGetVal	src/sentinel.c:4207:45	picker	32.2	dictGetVal: by name, 2 declarations	src/dict.c:1041;src/dict.h:312	src/dict.c:1041;src/dict.h:312
+c0130	none	name	iter	src/quicklist.c:1441:43	stay	117.2	no definition for iter		src/quicklist.c:1439
+c0131	pick-hit	type	RedisModuleSlotRangeArray	src/cluster_asm.c:2307:22	picker	29.6	RedisModuleSlotRangeArray: by name, 2 declarations	src/redismodule.h:897;src/redismodule.h:900	src/redismodule.h:900
+c0132	oracle-none/stay	member	input	src/client_comp.c:80:8	stay	115.3	no definition for input		
+c0133	none	name	act	src/debug.c:2672:23	stay	117.5	no definition for act		src/debug.c:2666
+c0134	on-decl	name	ctx	src/redismodule.h:1199:64	stay	117.2	no definition for ctx		src/redismodule.h:1199
+c0135	ok	type	REDISMODULE_EVENT_REPLICATION_ROLE_CHANGED	src/replication.c:3655:26	jump	27.7	REDISMODULE_EVENT_REPLICATION_ROLE_CHANGED: by name, 1 match	src/redismodule.h:523	src/redismodule.h:523
+c0136	none	name	task	src/cluster_asm.c:571:35	stay	115.4	no definition for task		src/cluster_asm.c:570
+c0137	ok	call	serverLog	src/config.c:1736:12	jump	32.1	serverLog: by name, 1 match	src/server.h:4961	src/server.h:4961
+c0138	none	member	num_slices	src/sparsearray.c:1669:32	stay	114.2	no definition for num_slices		src/sparsearray.h:153
+c0139	pick-hit	call	randomULong	src/dict.c:1340:24	picker	30.0	randomULong: by name, 2 declarations	src/dict.h:241;src/dict.h:243	src/dict.h:241
+c0140	pick-miss	member	type	src/dict.c:229:7	picker	396.3	type: by name, 403 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__charconv/traits.h:40;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__charconv/traits.h:63;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__charconv/traits.h:87;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__chrono/duration.h:56;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__chrono/duration.h:188;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__chrono/time_point.h:93	src/dict.h:163
+c0141	pick-hit	call	lpFindCb	src/listpack.h:66:15	picker	30.5	lpFindCb: at a declaration, 1 other by name	src/listpack.c:942	src/listpack.c:942
+c0142	pick-miss	call	snprintf	src/fast_float_strtod.c:803:12	picker	29.6	snprintf: by name, 2 declarations	deps/hdr_histogram/hdr_histogram.c:975;deps/hiredis/win32.h:24	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_stdio.h:439;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/secure/_stdio.h:119
+c0143	pick-miss	member	id	src/rdb.c:877:43	picker	117.1	id: by name, 4 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__cxx03/__thread/thread.h:153;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__thread/jthread.h:45;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__thread/thread.h:204;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/objc/objc.h:46	src/stream.h:21
+c0144	ok	type	HASH_TMPL_STACK_ENTRIES	src/t_hash.c:1374:37	jump	31.0	HASH_TMPL_STACK_ENTRIES: by name, 1 match	src/t_hash.c:318	src/t_hash.c:318
+c0145	none	member	ui	src/config.c:2179:44	stay	115.8	no definition for ui		src/config.c:234
+c0146	oracle-none/stay	type	DictNext	src/redismodule.h:1755:24	stay	116.6	no definition for DictNext		
+c0147	ok	call	sdsHdrSize	src/sds.c:308:13	jump	31.2	sdsHdrSize: by name, 1 match	src/sds.h:245	src/sds.h:245
+c0148	none	member	cluster_node_timeout	src/cluster_legacy.c:4225:54	stay	115.2	no definition for cluster_node_timeout		src/server.h:2662
+c0149	pick-hit	call	moduleLateDefrag	src/server.h:3324:4	picker	34.7	moduleLateDefrag: at a declaration, 1 other by name	src/module.c:15610	src/module.c:15610
+c0150	none	member	shutdown_on_sigterm	src/server.c:1656:56	stay	113.9	no definition for shutdown_on_sigterm		src/server.h:2464
+c0151	pick-hit	call	rdbLoadLen	src/rdb.c:2295:20	picker	32.4	rdbLoadLen: by name, 2 declarations	src/rdb.c:259;src/rdb.h:153	src/rdb.c:259;src/rdb.h:153
+c0152	on-decl	name	len	src/lazyfree.c:57:11	stay	116.0	no definition for len		src/lazyfree.c:57
+c0153	none	member	argc	src/cluster.c:554:26	stay	116.0	no definition for argc		src/server.h:1547
+c0154	none	member	simple_str_callback	src/call_reply.c:246:5	stay	114.9	no definition for simple_str_callback		src/resp_parser.h:31
+c0155	ok	type	LL_WARNING	src/server.c:2812:22	jump	33.6	LL_WARNING: by name, 1 match	src/server.h:665	src/server.h:665
+c0156	none	name	iter	src/quicklist.c:892:32	stay	115.2	no definition for iter		src/quicklist.c:889
+c0157	ok	call	exit	src/cli_common.c:322:8	jump	115.3	exit: by name, 1 match	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_stdlib.h:165	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_stdlib.h:165
+c0158	WRONG	call	strcasecmp	src/networking.c:4934:13	jump	31.1	strcasecmp: by name, 1 match	deps/hiredis/win32.h:12	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_strings.h:81
+c0159	none	member	lp_ele	src/t_stream.c:1435:20	stay	114.8	no definition for lp_ele		src/stream.h:80
+c0160	none	member	slots	src/sparsearray.c:1081:23	stay	114.4	no definition for slots		src/sparsearray.h:144
+c0161	ok	type	CLIENT_REPL_RDBONLY	src/replication.c:1372:34	jump	31.6	CLIENT_REPL_RDBONLY: by name, 1 match	src/server.h:459	src/server.h:459
+c0162	oracle-none/jump	call	verifyEntry	src/listpack.c:2572:8	jump	30.1	verifyEntry: by name, 1 match	src/listpack.c:2278	
+c0163	pick-hit	call	zsetLength	src/rdb.c:3772:24	picker	32.6	zsetLength: by name, 2 declarations	src/server.h:3841;src/t_zset.c:1377	src/t_zset.c:1377;src/server.h:3841
+c0164	WRONG	member	entry	src/quicklist.c:1559:41	jump	31.2	entry: by name, 1 match	utils/lru/lfu-simulation.c:10	src/quicklist.h:50
+c0165	pick-hit	call	assert	src/ziplist.c:1671:12	picker	31.0	assert: by name, 5 declarations	deps/hiredis/async.c:52;deps/hiredis/test.c:104;deps/jemalloc/include/jemalloc/internal/assert.h:9;deps/jemalloc/src/malloc_io.c:24;src/redisassert.h:23	src/redisassert.h:23
+c0166	none	member	blessed_keys	src/db.c:2639:9	stay	115.0	no definition for blessed_keys		src/server.h:1253
+c0167	none	name	ar	src/sparsearray.c:1128:8	stay	117.0	no definition for ar		src/sparsearray.c:1123
+c0168	pick-hit	call	dictGetStats	src/debug.c:1072:12	picker	30.9	dictGetStats: by name, 2 declarations	src/dict.c:1911;src/dict.h:288	src/dict.c:1911;src/dict.h:288
+c0169	none	name	meta	src/server.c:550:12	stay	117.8	no definition for meta		src/server.c:548
+c0170	none	member	idmp_head	src/t_stream.c:245:45	stay	118.6	no definition for idmp_head		src/stream.h:29
+c0171	none	member	rdb_channel_conn	src/cluster_asm.c:1185:10	stay	114.3	no definition for rdb_channel_conn		src/cluster_asm.c:78
+c0172	pick-hit	call	clusterSyncSlotsCommand	src/cluster_asm.h:48:5	picker	29.8	clusterSyncSlotsCommand: at a declaration, 1 other by name	src/cluster_asm.c:1900	src/cluster_asm.c:1900
+c0173	ok	call	_prepareClientToWrite	src/networking.c:640:8	jump	30.8	_prepareClientToWrite: by name, 1 match	src/networking.c:312	src/networking.c:312
+c0174	none	member	configfile	src/server.c:2595:15	stay	115.7	no definition for configfile		src/server.h:2082
+c0175	ok	type	SLAVE_REQ_NONE	src/rdb.c:5476:16	jump	32.4	SLAVE_REQ_NONE: by name, 1 match	src/server.h:632	src/server.h:632
+c0176	ok	call	chkCheckExistInHeap	src/chk.c:556:33	jump	28.6	chkCheckExistInHeap: by name, 1 match	src/chk.c:62	src/chk.c:62
+c0177	ok	type	MODIFIABLE_CONFIG	src/config.c:3461:70	jump	31.0	MODIFIABLE_CONFIG: by name, 1 match	src/server.h:4230	src/server.h:4230
+c0178	ok	type	CONFIG_MIN_HZ	src/config.c:680:27	jump	31.5	CONFIG_MIN_HZ: by name, 1 match	src/server.h:137	src/server.h:137
+c0179	none	name	config_changed	src/config.c:933:4	stay	115.8	no definition for config_changed		src/config.c:920
+c0180	none	member	clients_normal	src/object.c:1510:21	stay	114.5	no definition for clients_normal		src/server.h:1896
+c0181	oracle-none/jump	type	REDIS_TEST_VALGRIND	src/util.c:1864:18	jump	29.4	REDIS_TEST_VALGRIND: by name, 1 match	src/testhelp.h:24	
+c0182	ok	call	exit	src/aof.c:1029:8	jump	115.8	exit: by name, 1 match	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_stdlib.h:165	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_stdlib.h:165
+c0183	none	member	subcommands_dict	src/server.c:3677:48	stay	115.9	no definition for subcommands_dict		src/server.h:3151
+c0184	pick-hit	call	setDeferredArrayLen	src/db.c:1624:12	picker	32.0	setDeferredArrayLen: by name, 2 declarations	src/networking.c:1082;src/server.h:3374	src/networking.c:1082;src/server.h:3374
+c0185	none	member	limit	src/t_stream.c:1151:22	stay	116.7	no definition for limit		src/t_stream.c:778
+c0186	pick-hit	call	clusterNodeIsMyself	src/cluster_legacy.c:5963:4	picker	31.7	clusterNodeIsMyself: at a declaration, 1 other by name	src/cluster.h:126	src/cluster.h:126
+c0187	none	call	strcpy	src/fmacros.h:47:6	stay	29.3	strcpy: by name, 1 match		/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_string.h:92;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/secure/_string.h:249
+c0188	ok	type	CLUSTER_INTERNALSECRETLEN	src/cluster_legacy.h:346:25	jump	27.4	CLUSTER_INTERNALSECRETLEN: by name, 1 match	src/cluster_legacy.h:159	src/cluster_legacy.h:159
+c0189	none	member	flags	src/server.c:4285:41	stay	116.1	no definition for flags		src/server.h:3120
+c0190	ok	type	CLUSTER_CANT_FAILOVER_EXPIRED	src/cluster_legacy.c:4346:9	jump	29.0	CLUSTER_CANT_FAILOVER_EXPIRED: by name, 1 match	src/cluster_legacy.h:32	src/cluster_legacy.h:32
+c0191	ok	type	C_OK	src/t_stream.c:2812:74	jump	32.5	C_OK: by name, 1 match	src/server.h:131	src/server.h:131
+c0192	none	member	preds	src/t_array.c:1180:40	stay	114.6	no definition for preds		src/t_array.c:920
+c0193	on-decl	name	length	src/networking.c:1097:57	picker	171.3	length: by name, 67 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__cxx03/__string/char_traits.h:118;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__cxx03/__string/char_traits.h:210;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__cxx03/__string/char_traits.h:230;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__cxx03/__string/char_traits.h:267;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__cxx03/__string/char_traits.h:299;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__string/char_traits.h:114	src/networking.c:1097
+c0194	pick-hit	call	rdbLoadCheckModuleValue	src/rdb.h:170:6	picker	29.8	rdbLoadCheckModuleValue: at a declaration, 1 other by name	src/rdb.c:2293	src/rdb.c:2293
+c0195	ok	type	AOF_FAILED	src/aof.c:2184:42	jump	31.9	AOF_FAILED: by name, 1 match	src/server.h:388	src/server.h:388
+c0196	ok	type	C_OK	src/replication.c:4051:23	jump	32.5	C_OK: by name, 1 match	src/server.h:131	src/server.h:131
+c0197	pick-hit	type	CLUSTER_SLOTS	src/cluster_legacy.c:5800:20	picker	30.7	CLUSTER_SLOTS: by name, 2 declarations	src/cluster.h:23;src/redis-benchmark.c:48	src/cluster.h:23
+c0198	none	member	argv	src/networking.c:1908:11	stay	119.8	no definition for argv		src/server.h:1548
+c0199	pick-hit	call	lpSeek	src/listpack.c:2622:20	picker	36.2	lpSeek: by name, 2 declarations	src/listpack.c:1694;src/listpack.h:77	src/listpack.c:1694
+c0200	pick-hit	call	lpNext	src/listpack.c:2005:16	picker	31.6	lpNext: by name, 2 declarations	src/listpack.c:523;src/listpack.h:69	src/listpack.c:523;src/listpack.h:69
+c0201	none	type	GETF_OK	src/t_hash.c:5172:15	stay	129.5	no definition for GETF_OK		src/t_hash.c:40
+c0202	none	name	kvs	src/kvstore.c:429:50	stay	115.6	no definition for kvs		src/kvstore.c:418
+c0203	ok	type	ZIPLIST_END_SIZE	src/ziplist.c:1506:18	jump	30.9	ZIPLIST_END_SIZE: by name, 1 match	src/ziplist.c:246	src/ziplist.c:246
+c0204	ok	call	serverAssert	src/script_lua.c:1192:4	jump	31.7	serverAssert: by name, 1 match	src/server.h:865	src/server.h:865
+c0205	ok	type	ANET_ERR	src/anet.c:299:15	jump	29.5	ANET_ERR: by name, 1 match	src/anet.h:17	src/anet.h:17
+c0206	ok	call	memset	src/acl.c:1086:8	jump	115.1	memset: by name, 1 match	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/secure/_string.h:244	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/secure/_string.h:244
+c0207	pick-hit	call	assert	src/util.c:1807:4	picker	31.2	assert: by name, 5 declarations	deps/hiredis/async.c:52;deps/hiredis/test.c:104;deps/jemalloc/include/jemalloc/internal/assert.h:9;deps/jemalloc/src/malloc_io.c:24;src/redisassert.h:23	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/assert.h:71;src/redisassert.h:23
+c0208	pick-hit	call	assert	src/fwtree.c:183:8	picker	30.2	assert: by name, 5 declarations	deps/hiredis/async.c:52;deps/hiredis/test.c:104;deps/jemalloc/include/jemalloc/internal/assert.h:9;deps/jemalloc/src/malloc_io.c:24;src/redisassert.h:23	src/redisassert.h:23
+c0209	pick-miss	member	ip	src/cluster_legacy.c:488:18	picker	117.1	ip: by name, 2 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/bsm/audit_record.h:194;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/netinet/ip.h:81	src/cluster_legacy.h:324
+c0210	ok	call	serverAssert	src/t_list.c:749:8	jump	31.7	serverAssert: by name, 1 match	src/server.h:865	src/server.h:865
+c0211	none	member	forked	src/eval.c:926:12	stay	114.5	no definition for forked		src/eval.c:73
+c0212	ok	call	strerror	src/replication.c:4011:18	jump	116.6	strerror: by name, 1 match	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_string.h:95	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_string.h:95
+c0213	none	member	db	src/t_set.c:682:43	stay	116.8	no definition for db		src/server.h:1540
+c0214	ok	call	listLength	src/script_lua.c:949:14	jump	30.9	listLength: by name, 1 match	src/adlist.h:37	src/adlist.h:37
+c0215	none	member	argv	src/t_array.c:1397:27	stay	116.3	no definition for argv		src/server.h:1548
+c0216	ok	type	SUPERVISED_AUTODETECT	src/server.c:8164:16	jump	32.6	SUPERVISED_AUTODETECT: by name, 1 match	src/server.h:671	src/server.h:671
+c0217	none	member	bufpos	src/logreqres.c:252:114	stay	117.2	no definition for bufpos		src/server.h:1707
+c0218	WRONG	member	data	src/config.c:1935:16	jump	31.2	data: by name, 1 match	deps/tre/tests/retest.c:383	src/config.c:285
+c0219	pick-miss	member	ranges	src/cluster.c:1903:11	picker	160.2	ranges: by name, 169 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__algorithm/in_found_result.h:28;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__algorithm/in_fun_result.h:28;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__algorithm/in_in_out_result.h:28;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__algorithm/in_in_result.h:28;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__algorithm/in_out_out_result.h:28;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__algorithm/in_out_result.h:28	src/cluster.h:181
+c0220	ok	call	listLength	src/iothread.c:843:17	jump	30.1	listLength: by name, 1 match	src/adlist.h:37	src/adlist.h:37
+c0221	ok	type	SLAVE_REQ_SLOTS_SNAPSHOT	src/cluster_asm.c:2091:25	jump	30.8	SLAVE_REQ_SLOTS_SNAPSHOT: by name, 1 match	src/server.h:635	src/server.h:635
+c0222	pick-hit	call	decrRefCount	src/t_stream.c:1941:4	picker	31.2	decrRefCount: by name, 2 declarations	src/object.c:652;src/object.h:147	src/object.c:652;src/object.h:147
+c0223	WRONG	name	args	src/t_stream.c:1265:8	jump	119.1	args: by name, 1 match	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/apr-1/apr_hooks.h:119	src/t_stream.c:1080
+c0224	none	type	KEY_VALID	src/db.c:3023:15	stay	115.7	no definition for KEY_VALID		src/db.c:42
+c0225	ok	type	ALIAS_CONFIG	src/config.c:3711:22	jump	32.3	ALIAS_CONFIG: by name, 1 match	src/server.h:4239	src/server.h:4239
+c0226	none	member	splitpos	src/rax.c:691:18	stay	113.9	no definition for splitpos		src/rax.h:215
+c0227	WRONG	member	data	src/rax.c:1035:36	jump	30.6	data: by name, 1 match	deps/tre/tests/retest.c:383	src/rax.h:120
+c0228	on-decl	call	luaLoadLib	src/script_lua.c:1213:12	stay	29.7	luaLoadLib: by name, 1 match		src/script_lua.c:1213
+c0229	none	member	clients_pending_write_node	src/networking.c:244:21	stay	110.4	no definition for clients_pending_write_node		src/server.h:1696
+c0230	none	member	key_count	src/memory_prefetch.c:463:15	stay	114.5	no definition for key_count		src/memory_prefetch.c:327
+c0231	pick-miss	member	id	src/cluster.c:378:75	picker	120.6	id: by name, 4 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__cxx03/__thread/thread.h:153;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__thread/jthread.h:45;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__thread/thread.h:204;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/objc/objc.h:46	src/server.h:1263
+c0232	none	member	latency	src/latency.c:150:41	stay	115.6	no definition for latency		src/latency.h:23
+c0233	none	name	ns	src/sparsearray.c:362:4	stay	116.7	no definition for ns		src/sparsearray.c:358
+c0234	ok	type	C_OK	src/cluster_legacy.c:3031:54	jump	33.3	C_OK: by name, 1 match	src/server.h:131	src/server.h:131
+c0235	pick-hit	call	kvstoreIteratorReset	src/rdb.c:2013:4	picker	29.5	kvstoreIteratorReset: by name, 2 declarations	src/kvstore.c:598;src/kvstore.h:113	src/kvstore.c:598;src/kvstore.h:113
+c0236	none	name	srcid	src/db.c:2358:15	stay	117.5	no definition for srcid		src/db.c:2338
+c0237	pick-hit	call	raxTouch	src/rax.c:2501:15	picker	31.1	raxTouch: by name, 2 declarations	src/rax.c:2483;src/rax.h:261	src/rax.c:2483;src/rax.h:261
+c0238	pick-hit	type	RedisModuleServerInfoData	src/redismodule.h:1368:16	picker	31.6	RedisModuleServerInfoData: by name, 3 declarations	src/redismodule.h:1017;src/module.c:414;src/module.c:416	src/redismodule.h:1017
+c0239	ok	type	ZIPLIST_HEAD	src/ziplist.c:2461:55	jump	29.6	ZIPLIST_HEAD: by name, 1 match	src/ziplist.h:34	src/ziplist.h:34
+c0240	none	member	mem_size	src/t_hash.c:744:40	stay	123.1	no definition for mem_size		src/server.h:4036
+c0241	none	member	minstring	src/t_zset.c:796:28	stay	128.5	no definition for minstring		src/server.h:1818
+c0242	none	member	argv_len	src/networking.c:5949:25	stay	116.2	no definition for argv_len		src/server.h:2841
+c0243	on-decl	name	bit	src/bitops.c:392:56	stay	116.8	no definition for bit		src/bitops.c:392
+c0244	oracle-none/picker	type	HAVE_AVX2	src/bitops.c:926:7	picker	30.8	HAVE_AVX2: by name, 2 declarations	modules/vector-sets/hnsw.c:55;src/config.h:365	
+c0245	pick-hit	call	printf	src/redis-benchmark.c:859:8	picker	119.5	printf: by name, 4 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_printf.h:34;/opt/homebrew/Cellar/gettext/1.0/include/libintl.h:559;/opt/homebrew/Cellar/gettext/1.0/include/libintl.h:583;/opt/homebrew/Cellar/gettext/1.0/include/libintl.h:585	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_printf.h:34
+c0246	none	member	lua_client	src/eval.c:172:13	stay	117.7	no definition for lua_client		src/eval.c:61
+c0247	none	member	tls_port	src/cluster_legacy.c:3043:52	stay	116.5	no definition for tls_port		src/cluster_legacy.h:328
+c0248	pick-hit	call	setKey	src/t_set.c:1925:12	picker	32.5	setKey: by name, 2 declarations	src/db.c:765;src/server.h:4375	src/db.c:765;src/server.h:4375
+c0249	none	member	aof_state	src/object.c:1516:15	stay	115.1	no definition for aof_state		src/server.h:2353
+c0250	WRONG	member	data	src/rax.c:617:14	jump	30.8	data: by name, 1 match	deps/tre/tests/retest.c:383	src/rax.h:120
+c0251	ok	call	nodeIsSlave	src/cluster_legacy.c:5035:8	jump	30.7	nodeIsSlave: by name, 1 match	src/cluster_legacy.h:73	src/cluster_legacy.h:73
+c0252	ok	call	connSetReadHandler	src/cluster_legacy.c:3544:4	jump	32.5	connSetReadHandler: by name, 1 match	src/connection.h:233	src/connection.h:233
+c0253	pick-hit	call	sdslen	src/t_hash.c:2284:59	picker	31.2	sdslen: by name, 2 declarations	deps/hiredis/sdscompat.h:47;src/sds.h:98	src/sds.h:98
+c0254	pick-hit	type	CallReply	src/call_reply.h:36:33	picker	29.7	CallReply: by name, 2 declarations	src/call_reply.h:15;src/call_reply.c:22	src/call_reply.h:15
+c0255	none	type	KSPEC_BS_INDEX	src/server.c:5766:17	stay	114.7	no definition for KSPEC_BS_INDEX		src/server.h:2880
+c0256	ok	call	serverAssertWithInfo	src/object.c:1219:8	jump	30.8	serverAssertWithInfo: by name, 1 match	src/server.h:864	src/server.h:864
+c0257	ok	call	serverAssert	src/script.c:37:4	jump	31.2	serverAssert: by name, 1 match	src/server.h:865	src/server.h:865
+c0258	pick-miss	member	ranges	src/cluster.c:1981:19	picker	158.7	ranges: by name, 169 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__algorithm/in_found_result.h:28;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__algorithm/in_fun_result.h:28;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__algorithm/in_in_out_result.h:28;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__algorithm/in_in_result.h:28;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__algorithm/in_out_out_result.h:28;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__algorithm/in_out_result.h:28	src/cluster.h:181
+c0259	pick-miss	member	size	src/networking.c:5909:28	picker	208.6	size: by name, 35 declarations	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__cxx03/__random/seed_seq.h:50;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__flat_map/flat_map.h:456;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__flat_map/flat_multimap.h:432;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__flat_set/flat_multiset.h:354;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__flat_set/flat_set.h:390;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__iterator/size.h:28	src/server.h:1396
+c0260	none	name	dictExpireMeta	src/t_hash.c:2400:23	stay	115.9	no definition for dictExpireMeta		src/t_hash.c:2399
+c0261	none	member	db	src/t_hash.c:5583:26	stay	118.9	no definition for db		src/server.h:1540
+c0262	none	member	score	src/t_zset.c:403:14	stay	116.4	no definition for score		src/server.h:1831
+c0263	ok	call	qsort	src/chk.c:593:4	jump	115.6	qsort: by name, 1 match	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_stdlib.h:180	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/_stdlib.h:180
+c0264	pick-hit	call	rdbGenericLoadStringObject	src/rdb.c:3424:27	picker	30.4	rdbGenericLoadStringObject: by name, 2 declarations	src/rdb.c:599;src/rdb.h:175	src/rdb.c:599;src/rdb.h:175
+c0265	pick-hit	call	atomicGetIncr	src/redis-benchmark.c:565:8	picker	29.7	atomicGetIncr: by name, 3 declarations	src/atomicvar.h:101;src/atomicvar.h:134;src/atomicvar.h:163	src/atomicvar.h:101
+c0266	ok	type	RDB_CHECK_DOING_READ_EXPIRE	src/redis-check-rdb.c:243:29	jump	28.0	RDB_CHECK_DOING_READ_EXPIRE: by name, 1 match	src/redis-check-rdb.c:40	src/redis-check-rdb.c:40
+c0267	none	member	pending_clients	src/iothread.c:510:24	stay	115.6	no definition for pending_clients		src/server.h:1738
+c0268	none	member	nocase	src/t_array.c:1180:67	stay	115.5	no definition for nocase		src/t_array.c:924
+c0269	pick-hit	call	getLongFromObjectOrReply	src/object.c:1264:4	picker	29.1	getLongFromObjectOrReply: at a declaration, 1 other by name	src/object.h:187	src/object.h:187
