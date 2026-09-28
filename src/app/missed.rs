@@ -77,8 +77,8 @@ struct Run {
 struct Trip {
     kind: PickerKind,
     n: usize,
-    /// The file and 0-based line it was opened on, and the file relative to the root.
-    from: (PathBuf, usize),
+    /// The file and the line it was opened on, and the file relative to the root.
+    from: (PathBuf, TextLine),
     here: Option<PathBuf>,
     /// The word under the cursor there.
     word: Option<String>,
@@ -217,13 +217,13 @@ impl App {
     }
 
     fn judge_run(&mut self, run: Run) {
-        let from = (run.from.line, run.from.col);
+        let from = (run.from.at(), run.from.col);
         // The file changed under the run, or went: there is no same end to reach.
         let deleting = !run.text.is_empty();
         if run.mode != self.mode
             || run.path != self.buf.path
             || run.from.row.is_some() != self.picker.is_some()
-            || !deleting && (run.lines != self.buf.lines.len() || self.clamp_pos(from) != from)
+            || !deleting && (run.lines != self.buf.lines.len() || self.clamp_place(from) != from)
         {
             return;
         }
@@ -446,10 +446,11 @@ impl App {
         Some(Trip {
             kind,
             n: 1,
-            from: (self.buf.path.clone()?, self.line),
+            from: (self.buf.path.clone()?, self.at()),
             here: self.rel_current(),
-            // The preview has no word under the cursor for `d` or `u` to read.
-            word: (!self.previewing())
+            // The preview has no word under the cursor for `d` or `u` to read, nor a line the
+            // branch deleted, where they say `deleted` (#439).
+            word: (!self.previewing() && self.deleted.is_none())
                 .then(|| self.word_under(search::word_chars(self.kind(), false)))
                 .flatten(),
             query: String::new(),
@@ -463,7 +464,7 @@ impl App {
         let Some(path) = self.buf.path.clone() else {
             return;
         };
-        if budget == 0 || (&path, self.line) == (&trip.from.0, trip.from.1) {
+        if budget == 0 || (&path, self.at()) == (&trip.from.0, trip.from.1) {
             return;
         }
         let found = match trip.kind {

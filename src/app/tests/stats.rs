@@ -325,6 +325,23 @@ fn only_the_walk_makes_stops() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// #439: `c` from a file's last line onto the lines deleted after it is a stop, though the file
+/// line the cursor is drawn by stays the same.
+#[test]
+fn c_onto_the_lines_deleted_at_the_end_is_a_stop() {
+    let (dir, mut a) = review_app("reviewstats-deleted");
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    typed(&mut a, "tail");
+    a.picker.as_mut().unwrap().settle();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!((at(&a), a.line_str()), ((dir.join("tail"), 0), "t1"));
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!((at(&a), a.line_str()), ((dir.join("tail"), 0), "t2"));
+    // `new`, where the review opened, and the hunk of `tail`.
+    assert_eq!(columns(&mut a)[9], 2);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// On a terminal that spells Alt as a leading Esc, Alt+q alone is a session of `q` alone.
 #[test]
 fn alt_q_alone_has_no_line() {

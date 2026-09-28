@@ -63,7 +63,7 @@ impl App {
     pub(super) fn review_spot(&self) -> Spot {
         let r = self.review.as_ref();
         let on = (self.rel_current()).is_some_and(|rel| r.is_some_and(|r| r.file(&rel).is_some()));
-        (self.buf.path.clone(), self.line, on)
+        (self.buf.path.clone(), self.at(), on)
     }
 
     /// The stop the cursor stands on, numbered as [`stops_in`] counts them: the hunk as the

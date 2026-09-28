@@ -102,8 +102,10 @@ impl App {
     pub(super) fn on_deleted(&self) -> bool {
         match self.selection() {
             _ if self.deleted.is_some() => true,
+            // The deleted lines above file line `b`, and above every line between: none inside
+            // one line.
             Some(((TextLine::File(a), _), (TextLine::File(b), _))) => {
-                self.diff.ghosts.range(a + 1..=b).next().is_some()
+                a < b && self.diff.ghosts.range(a + 1..=b).next().is_some()
             }
             Some(_) => true,
             None => false,

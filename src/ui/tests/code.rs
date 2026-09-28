@@ -1398,3 +1398,89 @@ fn a_deletion_taller_than_the_pane_is_walked_and_paged() {
         rows(&terminal)[7]
     );
 }
+
+/// The lines deleted above the first line of a file: Ctrl+Home lands on the first of them, Up
+/// from the first line goes onto the last of them.
+#[test]
+fn a_deletion_above_the_first_line_is_the_top_of_the_text() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), b"a\nb\n"),
+        None,
+    );
+    app.show_tree = false;
+    app.diff.ghosts.insert(0, vec!["x".into(), "y".into()]);
+    let key = |app: &mut App, c, m| app.key(KeyEvent::new(c, m));
+    key(&mut app, KeyCode::End, KeyModifiers::CONTROL);
+    assert_eq!(app.at(), TextLine::File(1));
+    key(&mut app, KeyCode::Home, KeyModifiers::CONTROL);
+    assert_eq!(app.at(), TextLine::Deleted(0, 0));
+    key(&mut app, KeyCode::Down, KeyModifiers::NONE);
+    key(&mut app, KeyCode::Down, KeyModifiers::NONE);
+    assert_eq!(app.at(), TextLine::File(0));
+    key(&mut app, KeyCode::Up, KeyModifiers::NONE);
+    assert_eq!(app.at(), TextLine::Deleted(0, 1));
+}
+
+/// A move across a tall deletion is a far one for the jump history: `[` comes back to where it
+/// started, however few file lines it passed.
+#[test]
+fn a_move_across_a_tall_deletion_is_a_stop_of_its_own() {
+    let dir = std::env::temp_dir().join(format!("merl-439-hist-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("f.txt");
+    std::fs::write(&path, "a\n").unwrap();
+    let mut app = App::new(
+        dir.clone(),
+        Tree::default(),
+        Vec::new(),
+        Buffer::load(&path).unwrap(),
+        None,
+    );
+    app.show_tree = false;
+    app.diff
+        .ghosts
+        .insert(0, (1..=30).map(|i| format!("d{i}")).collect());
+    let key = |app: &mut App, c, m| app.key(KeyEvent::new(c, m));
+    key(&mut app, KeyCode::Home, KeyModifiers::CONTROL);
+    assert_eq!(app.at(), TextLine::Deleted(0, 0));
+    key(&mut app, KeyCode::End, KeyModifiers::CONTROL);
+    assert_eq!(app.at(), TextLine::File(0));
+    key(&mut app, KeyCode::Char('['), KeyModifiers::NONE);
+    assert_eq!(app.at(), TextLine::Deleted(0, 0));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// A pane that grows wider (a resize, `t`) under a top row of a wrapped line: the line has fewer
+/// rows now, the top is brought back onto them, and the cursor is drawn.
+#[test]
+fn a_wider_pane_under_a_wrapped_top_row_still_draws_the_cursor() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(
+            PathBuf::from("/tmp/f.txt"),
+            b"one two three four five six seven eight\nb\n",
+        ),
+        None,
+    );
+    app.show_tree = false;
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    // Twelve cells of text and three rows of code: the first line wraps into four rows.
+    let mut terminal = Terminal::new(TestBackend::new(14, 4)).unwrap();
+    for _ in 0..4 {
+        app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    }
+    assert_eq!(
+        (app.at(), app.top_line, app.top_row),
+        (TextLine::File(1), 0, 2)
+    );
+    let mut terminal = Terminal::new(TestBackend::new(60, 4)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!((app.top_line, app.top_row), (0, 0));
+    assert_eq!(terminal.get_cursor_position().unwrap().y, 1);
+}

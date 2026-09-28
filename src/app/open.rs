@@ -225,6 +225,8 @@ impl App {
         }
         let mut buf = Buffer::from_bytes(path.clone(), &bytes);
         self.lock_unwritable(&mut buf);
+        // A deleted line the cursor is on is found again by what it says (below).
+        let reading = self.deleted.map(|(_, i)| (self.line_str().to_string(), i));
         let old = std::mem::replace(&mut self.buf, buf);
         if self.review.is_some() {
             // The reader stays in the hunk they are in when an agent writes above it: every
@@ -263,12 +265,39 @@ impl App {
         }
         self.undo_break = true;
         self.refresh_diff();
+        if let Some(reading) = reading {
+            self.find_deleted_again(reading);
+        }
         self.clamp_cursor();
         self.clamp_top();
         self.sync_want_x();
         self.clamp_scroll();
         self.message = "reloaded".into();
         true
+    }
+
+    /// The cursor back on the deleted line `text`, the `i`th at its key before a reload: git keys
+    /// a deletion by where the lines around it went, which the carry of the file's lines cannot
+    /// know (lines appended under those deleted at the end key them above the first new one).
+    /// The copy nearest the carried key, then the index, wins; none, and `clamp_cursor` decides.
+    fn find_deleted_again(&mut self, (text, i): (String, usize)) {
+        let near = self.at().key();
+        let found = (self.diff.ghosts.iter())
+            .flat_map(|(&k, g)| g.iter().enumerate().map(move |(j, t)| (k, j, t)))
+            .filter(|&(_, _, t)| *t == text)
+            .min_by_key(|&(k, j, _)| (k.abs_diff(near), j.abs_diff(i)));
+        if let Some((k, j, _)) = found {
+            self.set_at(TextLine::Deleted(k, j));
+        }
+    }
+
+    /// Fewer than [`HIST_NEAR`] lines of the text apart, the deleted ones counted: a move across
+    /// a tall deletion is far however few file lines it passes.
+    fn near(&self, a: TextLine, b: TextLine) -> bool {
+        let (lo, hi) = (a.min(b), a.max(b));
+        std::iter::successors(Some(lo), |&t| self.next_line(t))
+            .take(HIST_NEAR)
+            .any(|t| t == hi)
     }
 
     pub(super) fn pos(&self) -> Option<(PathBuf, TextLine, usize)> {
@@ -288,7 +317,7 @@ impl App {
             if *cur == pos {
                 return;
             }
-            if !jump && cur.0 == pos.0 && cur.1.key().abs_diff(pos.1.key()) < HIST_NEAR {
+            if !jump && cur.0 == pos.0 && self.near(cur.1, pos.1) {
                 self.history[self.hist_idx] = pos;
                 return;
             }

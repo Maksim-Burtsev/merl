@@ -52,7 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   when it starts with a deletion. On a deleted line the status bar reads its number in the file
   the branch started from, negative: `-9:5`. Nothing edits a deleted line: typing on one, or on
   a selection that holds one, says `deleted`, and `d` and `u` there say the same for now.
-  `:12` and the gutter still count the branch's lines. (#439)
+  `:12` and the gutter still count the branch's lines. For the selection to show on the red
+  tint, eight themes take a selection colour a shade further from their background, in every
+  file: rose-pine, rose-pine-moon, melange-dark, bamboo, cendre, ayu-light, jellybeans-light and
+  neomodern-light. (#439)
 - `merl --review feature` reviews `feature`: the branch goes after a space, as the base does after
   `--base`, and `--review=feature` still works. A file after a bare `--review` is now read as the
   branch: `merl --review` opens on the first hunk, and `o` opens any file.
