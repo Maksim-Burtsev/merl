@@ -174,7 +174,8 @@ target below it: add cases at the end of a file, or in a new file.
 The Python, TypeScript and Go projects above keep their lines, since the `navigate_*.rs` tests
 pin them, so their annotated cases are a package of their own inside them: `python/shop/`,
 `typescript/shop/`, `go/shop/` and `go/cart/`. Every other kind has a directory of its own
-(`rust/`, `jvm/`, `ruby/`, `c/`, `csharp/`, `swift/`, `php/`, `lua/`, `elixir/`). Each is one small shop (a `Tariff` and a `Coupon` sharing `rate` and
+(`rust/`, `jvm/`, `ruby/`, `c/`, `csharp/`, `swift/`, `php/`, `lua/`, `elixir/`, `zig/`, `shell/`,
+`sql/`, `make/`, `terraform/`, `docker/`, `yaml/`). Each is one small shop (a `Tariff` and a `Coupon` sharing `rate` and
 `describe`, a `Courier`, `discount`, `weigh`, a basket that uses them) holding:
 
 - two types sharing a method name, an import inside the project (aliased, of a module, of a
@@ -188,6 +189,18 @@ pin them, so their annotated cases are a package of their own inside them: `pyth
 The shop's names (`Tariff`, `Coupon`, `Courier`, `Basket`, `gross`, `weigh`, …) appear nowhere
 else in a fixture: a namesake would change what the `navigate_*.rs` tests find by name (a `total`
 method did).
+
+The kinds with no types keep the shop's names and bend its shape to what they have. Zig forbids
+a name that shadows another, so `zig/` has two functions' locals of one name and imports of one
+name in three files instead. `shell/` declares `describe` in two files, as two plugins would, and
+a `local` named like a function. `sql/` has a CTE named like a table, a schema-qualified and a
+quoted name, and a `$$` function body. `make/` declares a target in two `.mk` files and a
+double-colon rule twice. `terraform/` has a module whose `var.region` is its own, a local named
+like an attribute of a `tags` map, and a heredoc. `docker/` and `yaml/` are searched file by file,
+so each file probes the stages or jobs of its own and one of another file. Each of these kinds
+also has a file that opens with a glob or a lone backtick above a declaration, and a heredoc or a
+block scalar holding a declaration-shaped line: today's answers there are the known misses of
+#436, and the globs inside quotes (`"parcels/*"`, `["src/**/*.rs"]`) guard what already works.
 
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason` added with `git add -f`: a dependency the project walk does not reach (#437).
