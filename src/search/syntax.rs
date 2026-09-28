@@ -33,7 +33,8 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     // template and the `/* */` block of the C family, and the comments that run to the end of a
     // line. Elixir writes its heredocs and its comments exactly as Python does; Swift and C#
     // write the same `"""` block with the C family's comments around it. SQL and Terraform have
-    // the `/* */` block but no template.
+    // the `/* */` block but no template; SQL keeps the `//` comment Snowflake writes, and its
+    // backtick quotes a MySQL name of one line, whose `/*` opens nothing.
     let (heredoc, long_bracket, template, block_comment, line_comments): (_, _, _, _, &[&str]) =
         match kind {
             Kind::Python | Kind::Elixir => (true, false, false, false, &["#"]),
@@ -45,7 +46,7 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             Kind::Shell | Kind::Make | Kind::Docker | Kind::Yaml => {
                 (false, false, false, false, &["#"])
             }
-            Kind::Sql => (false, false, false, true, &["--"]),
+            Kind::Sql => (false, false, false, true, &["--", "//"]),
             Kind::Terraform => (false, false, false, true, &["#", "//"]),
             _ => (false, false, true, true, &["//"]),
         };
@@ -200,7 +201,7 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
         } else if block_comment && b[i..].starts_with(b"/*") {
             block = Some(b"*/");
             i += 1;
-        } else if c == b'"' || c == b'\'' {
+        } else if c == b'"' || c == b'\'' || (kind == Kind::Sql && c == b'`') {
             quote = Some(c);
         } else if line_comments
             .iter()

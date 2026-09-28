@@ -827,15 +827,23 @@ fn a_glob_or_a_lone_backtick_opens_nothing_in_the_kinds_without_them() {
             found(19)
         ]
     );
-    let sql = "-- the `orders table, and don't\nCREATE TABLE orders (id int);\n-- load every file under data/*\nCREATE TABLE items (id int);\n/*\nCREATE TABLE ghost (id int);\n*/\nSELECT '/*', 'it''s' FROM orders; -- */ closes nothing\nCREATE TABLE after (id int);\n";
+    // Snowflake's `//` comment and a MySQL name in backticks hide their `/*` as on master.
+    let sql = "-- the `orders table, and don't\nCREATE TABLE orders (id int);\n-- load every file under data/*\nCREATE TABLE items (id int);\n/*\nCREATE TABLE ghost (id int);\n*/\nSELECT '/*', 'it''s' FROM orders; -- */ closes nothing\nCREATE TABLE after (id int);\n// load every file under @stage/data/*\nCREATE TABLE staged (id int);\nSELECT `a/*b` FROM t;\nCREATE TABLE last (id int);\n";
     assert_eq!(
         literal_split(
             Kind::Sql,
             "schema.sql",
             sql,
-            &["orders", "items", "ghost", "after"]
+            &["orders", "items", "ghost", "after", "staged", "last"]
         ),
-        [found(2), found(4), hidden(6), found(9)]
+        [
+            found(2),
+            found(4),
+            hidden(6),
+            found(9),
+            found(11),
+            found(13)
+        ]
     );
     let tf = "# the `region variable\nvariable \"region\" {}\n# uploads files/* as they are\nvariable \"bucket\" {}\n// and keeps logs/* for a week\nvariable \"retention\" {}\nlocals {\n  policy = <<-EOF\nvariable \"ghost\" {}\n  EOF\n}\n/*\nvariable \"phantom\" {}\n*/\nvariable \"after\" {}\n";
     assert_eq!(
