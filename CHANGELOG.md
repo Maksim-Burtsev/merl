@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The hidden characters a file can hold are on screen, in every file and in `--review`: the
+  bidirectional controls behind "Trojan Source" (U+202A–U+202E, U+2066–U+2069, U+200E, U+200F,
+  U+061C) and the zero-width U+200B, U+2060 and U+FEFF are drawn as their code, such as
+  `<202e>`, on an amber of their own that no diff uses. The cursor steps over one in a press and
+  Delete removes it; a ZWJ inside an emoji and a BOM at the start of a file stay as they are.
+  (#401)
 - `merl --reviews` prints your review sessions of the last 30 days, newest first: the branch,
   which round of it the session was, the files, hunks and lines under review, the active time
   and how much of it was on the review's files, and the excursions, the jumps with `d`, `u`, `D`,

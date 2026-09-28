@@ -17,7 +17,7 @@ use crate::intraline;
 use crate::theme::Theme;
 use crate::wrap;
 
-use super::expand;
+use super::tagged;
 
 pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
     let gutter_w = digits(app.buf.lines.len()) + 1;
@@ -40,6 +40,7 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
 
     let gutter_style = base.fg(theme.gutter_fg);
     let find_style = Style::new().bg(theme.find_bg).fg(theme.find_fg);
+    let tag = Style::new().bg(theme.tag_bg).fg(theme.tag_fg);
     let hl = base.bg(theme.line_hl);
     let hl_gutter = gutter_style.bg(theme.line_hl);
     let sel = base.bg(theme.selection);
@@ -126,7 +127,7 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                     Span::styled("\u{258e}", gutter_style.fg(Color::Red)),
                     Span::styled(" ".repeat(lead), ghost),
                 ];
-                row.extend(row_spans(text, &spans, &r, ghost));
+                row.extend(row_spans(text, &spans, &r, ghost, tag));
                 if ell {
                     row.push(ellipsis(ghost));
                 }
@@ -242,7 +243,7 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 (hi..r.end, t, &spans),
             ] {
                 if !piece.is_empty() {
-                    row.extend(row_spans(clipped, spans, &piece, style));
+                    row.extend(row_spans(clipped, spans, &piece, style, tag));
                 }
             }
             let pad_style = if pad_selected { sel } else { t };
@@ -282,6 +283,7 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
 /// across the pane. The band is what tells them from the code under them at a glance.
 fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -> Vec<Line<'a>> {
     let band = base.bg(theme.line_hl);
+    let tag = Style::new().bg(theme.tag_bg).fg(theme.tag_fg);
     app.pinned(app.top_line)
         .iter()
         .map(|&p| {
@@ -308,7 +310,7 @@ fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -
                     + usize::from(after)
                     + usize::from(ell),
             );
-            row.extend(row_spans(text, syntax, &r, band));
+            row.extend(row_spans(text, syntax, &r, band, tag));
             if ell {
                 row.push(Span::styled("\u{2026}", g));
             }
@@ -355,6 +357,7 @@ fn row_spans<'a>(
     hl: &[(Style, std::ops::Range<usize>)],
     r: &std::ops::Range<usize>,
     base: Style,
+    tag: Style,
 ) -> Vec<Span<'a>> {
     let mut out = Vec::new();
     let mut pos = r.start;
@@ -367,13 +370,13 @@ fn row_spans<'a>(
         }
         let (start, end) = (span.start.max(pos), span.end.min(r.end));
         if pos < start {
-            out.push(Span::styled(expand(&text[pos..start]), base));
+            tagged(&mut out, &text[pos..start], base, tag);
         }
-        out.push(Span::styled(expand(&text[start..end]), base.patch(*style)));
+        tagged(&mut out, &text[start..end], base.patch(*style), tag);
         pos = end;
     }
     if pos < r.end || out.is_empty() {
-        out.push(Span::styled(expand(&text[pos..r.end]), base));
+        tagged(&mut out, &text[pos..r.end], base, tag);
     }
     out
 }

@@ -38,6 +38,10 @@ PY
 # Excel's CSV export: a UTF-8 BOM and CRLF line ends.
 printf '\357\273\277order_id;amount;reason\r\n1042;40.00;damaged in transit\r\n1077;12.50;never arrived\r\n' \
     > data/refunds-2026-08.csv
+# An agent's script with the hidden chars of a "Trojan Source" attack (#401): RLO and isolates
+# that turn a comment into code on screen, and a zero-width space.
+printf 'def is_admin(user):\n    access_level = "user\342\200\256 \342\201\246// Check if admin\342\201\251 \342\201\246"\n    if access_level != "user\342\200\256 \342\201\246// Check if admin\342\201\251 \342\201\246":\n        return True\n    token = "abc\342\200\213def"\n    return False\n' \
+    > scripts/grant_admin.py
 printf 'API_TOKEN=changeme\nDATABASE_URL=postgresql://orders:orders@localhost/orders\n' > .env
 python3 -m venv --without-pip .venv
 

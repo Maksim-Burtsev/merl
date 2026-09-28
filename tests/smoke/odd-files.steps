@@ -42,3 +42,13 @@ key C-End
 wait {"i…
 key w End
 wait 1 ‹
+# A script an agent wrote with the hidden chars of a "Trojan Source" attack: each is drawn as its
+# code on a warning's amber, the cursor steps over one in a press, and Delete takes it out (#401).
+merl scripts/grant_admin.py:5:17
+wait def is_admin(user):
+wait access_level = "user<202e> <2066>// Check if admin<2069> <2066>"
+key Right
+wait scripts/grant_admin.py  5:23
+key Left Enter Delete Escape
+wait 5▎    token = "abcdef"
+run python3 -c "d = open('scripts/grant_admin.py').read(); assert 'token = \"abcdef\"' in d and '‮' in d, d"

@@ -1358,3 +1358,74 @@ fn a_wider_pane_draws_the_cursor_on_its_own_line() {
     assert_eq!(screen[y], "11 Xline 11");
     assert_eq!(app.buf.lines[10], "Xline 11");
 }
+
+/// Every hidden char on #401's list is drawn as its tag, on the tag's amber, and takes the
+/// columns of it; the ZWJ inside an emoji stays part of the emoji. A deleted line in a review
+/// shows its tags too.
+#[test]
+fn hidden_chars_are_drawn_as_their_tags() {
+    let all = [
+        '\u{202a}', '\u{202b}', '\u{202c}', '\u{202d}', '\u{202e}', '\u{2066}', '\u{2067}',
+        '\u{2068}', '\u{2069}', '\u{200e}', '\u{200f}', '\u{061c}', '\u{200b}', '\u{2060}',
+        '\u{feff}',
+    ];
+    let mut text: String = all.iter().map(|c| format!("x{c}\n")).collect();
+    text.push_str("\u{1f468}\u{200d}\u{1f4bb}!\n");
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), text.as_bytes()),
+        None,
+    );
+    app.show_tree = false;
+    app.diff.ghosts.insert(0, vec!["old\u{202e}".into()]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let h = all.len() as u16 + 3;
+    let mut terminal = Terminal::new(TestBackend::new(20, h)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    assert_eq!(r[0], "\u{258e}old<202e>");
+    let buf = terminal.backend().buffer();
+    for (i, c) in all.iter().enumerate() {
+        let y = i as u16 + 1;
+        assert_eq!(r[y as usize], format!("{} x<{:04x}>", i + 1, *c as u32));
+        for x in 4..10 {
+            assert_eq!(
+                (buf[(x, y)].fg, buf[(x, y)].bg),
+                (theme.tag_fg, theme.tag_bg)
+            );
+        }
+        assert_ne!(buf[(3, y)].bg, theme.tag_bg);
+    }
+    let y = all.len() + 1;
+    // The emoji keeps its two cells (the second is blank in the buffer), `!` after them.
+    assert_eq!(r[y], "16 \u{1f468}\u{200d}\u{1f4bb} !");
+    assert_eq!(buf[(5, y as u16)].symbol(), "!");
+}
+
+/// The cursor steps over a tag in one press and lands after all of its columns; Delete takes
+/// the hidden char out whole (#401).
+#[test]
+fn the_cursor_steps_over_a_tag_and_delete_removes_it() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.txt"), "a\u{202e}b\n".as_bytes()),
+        None,
+    );
+    app.show_tree = false;
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(20, 3)).unwrap();
+    let key = |app: &mut App, code| app.key(KeyEvent::new(code, KeyModifiers::NONE));
+    key(&mut app, KeyCode::Right);
+    key(&mut app, KeyCode::Right);
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    // Gutter 2, `a` 1, the tag 6: on the `b`.
+    assert_eq!(terminal.get_cursor_position().unwrap().x, 2 + 1 + 6);
+    key(&mut app, KeyCode::Left);
+    key(&mut app, KeyCode::Enter);
+    key(&mut app, KeyCode::Delete);
+    assert_eq!(app.buf.lines[0], "ab");
+}

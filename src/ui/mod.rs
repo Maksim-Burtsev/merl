@@ -6,10 +6,12 @@ use ratatui::Frame;
 use ratatui::buffer::{CellDiffOption, CellWidth};
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::Style;
+use ratatui::text::Span;
 use ratatui::widgets::Block;
 
 use crate::app::{App, Mode};
 use crate::theme::Theme;
+use crate::wrap;
 
 mod code;
 mod overlays;
@@ -83,11 +85,35 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     }
 }
 
-/// Tabs drawn as [`crate::buffer::TAB`]; a tab-free piece is borrowed as it is.
+/// Tabs drawn as [`crate::buffer::TAB`] and hidden chars as their [`wrap::tag`], as wide as
+/// [`wrap::width`] counts them; a piece with neither is borrowed as it is.
 pub(super) fn expand(s: &str) -> std::borrow::Cow<'_, str> {
-    if s.contains('\t') {
-        s.replace('\t', crate::buffer::TAB).into()
-    } else {
-        s.into()
+    if !s.contains(|c| c == '\t' || wrap::hidden(c)) {
+        return s.into();
+    }
+    let mut out = String::with_capacity(s.len() + 8);
+    for c in s.chars() {
+        match c {
+            '\t' => out.push_str(crate::buffer::TAB),
+            c if wrap::hidden(c) => out.push_str(&wrap::tag(c)),
+            c => out.push(c),
+        }
+    }
+    out.into()
+}
+
+/// `s` drawn in `style` onto `out`, each hidden char a span of its own in `tag` (#401), so it is
+/// on screen and plainly not text. An empty `s` still pushes its (empty) span.
+pub(super) fn tagged<'a>(out: &mut Vec<Span<'a>>, s: &'a str, style: Style, tag: Style) {
+    let mut pos = 0;
+    for (i, c) in s.char_indices().filter(|&(_, c)| wrap::hidden(c)) {
+        if pos < i {
+            out.push(Span::styled(expand(&s[pos..i]), style));
+        }
+        out.push(Span::styled(wrap::tag(c), tag));
+        pos = i + c.len_utf8();
+    }
+    if pos < s.len() || pos == 0 {
+        out.push(Span::styled(expand(&s[pos..]), style));
     }
 }

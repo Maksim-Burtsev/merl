@@ -7,15 +7,43 @@ use unicode_segmentation::UnicodeSegmentation;
 
 /// Display width of one grapheme cluster, as ratatui draws it: `⚠️`, `👍🏽` and `👨‍💻` are
 /// several chars and one two-column cell. Zero for a control char and for a combining mark with
-/// no char to attach to. A tab is drawn as [`crate::buffer::TAB`], so it is that wide.
+/// no char to attach to. A tab is drawn as [`crate::buffer::TAB`], so it is that wide, and a
+/// [`hidden`] char as its [`tag`].
 pub fn cluster_width(g: &str) -> usize {
     match g.chars().next() {
         Some('\t') => crate::buffer::TAB.len(),
+        Some(c) if hidden(c) => TAG_W,
         // A control char is a cluster of its own.
         Some(c) if c.is_control() => 0,
         _ => g.cell_width().into(),
     }
 }
+
+/// A char that changes how a line reads without being seen (#401): the bidirectional controls
+/// behind "Trojan Source" and the zero-width chars that stand alone. Each is a grapheme cluster
+/// of its own, so a ZWJ inside an emoji or a ZWNJ in Persian, which are not on the list, stay
+/// as they are. A BOM at the start of a file never reaches a line (#177); one further on does.
+pub fn hidden(c: char) -> bool {
+    matches!(
+        c,
+        '\u{202a}'..='\u{202e}'
+            | '\u{2066}'..='\u{2069}'
+            | '\u{200e}'
+            | '\u{200f}'
+            | '\u{061c}'
+            | '\u{200b}'
+            | '\u{2060}'
+            | '\u{feff}'
+    )
+}
+
+/// How a [`hidden`] char is drawn, as Vim does: its code, such as `<202e>`.
+pub fn tag(c: char) -> String {
+    format!("<{:04x}>", c as u32)
+}
+
+/// The width of every [`tag`]: all the [`hidden`] chars are four hex digits.
+const TAG_W: usize = 6;
 
 /// The grapheme clusters of `s` with their byte offsets. ASCII, most of any source file, is a
 /// cluster a byte: skipping the segmenter there keeps a long line as cheap as it was per char.
@@ -184,6 +212,26 @@ pub fn row_to_col(rows: &[Range<usize>], row: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every hidden char is as wide as its tag, and wraps and cuts as a whole (#401); a ZWJ in an
+    /// emoji and a ZWNJ in Persian stay what they were.
+    #[test]
+    fn a_hidden_char_is_as_wide_as_its_tag() {
+        let all = "\u{202a}\u{202b}\u{202c}\u{202d}\u{202e}\u{2066}\u{2067}\u{2068}\u{2069}\
+                   \u{200e}\u{200f}\u{061c}\u{200b}\u{2060}\u{feff}";
+        for c in all.chars() {
+            assert!(hidden(c), "{c:?}");
+            assert_eq!(width(&c.to_string()), tag(c).len(), "{c:?}");
+        }
+        assert_eq!(tag('\u{202e}'), "<202e>");
+        assert_eq!(tag('\u{061c}'), "<061c>");
+        assert_eq!(width("abc\u{200b}def"), 12);
+        assert_eq!(width("\u{1f468}\u{200d}\u{1f4bb}"), 2);
+        assert_eq!(width("\u{0645}\u{06cc}\u{200c}\u{062e}"), 3);
+        // A tag moves to the next row whole, as a wide char does.
+        assert_eq!(wrap_line("ab\u{202e}cd", 7), vec![0..2, 2..6, 6..7]);
+        assert_eq!(cut("ab\u{202e}cd", 0, 8), (0..5, 0));
+    }
 
     #[test]
     fn cut_keeps_the_chars_that_fit_whole() {
