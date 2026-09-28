@@ -202,15 +202,16 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(
                     r"{mods}(?:class|struct|enum|protocol|actor|extension|typealias|associatedtype)\s+`?{w}\b"
                 ),
-                // A function, past its generic parameters.
-                format!(r"{mods}func\s+`?{w}\s*[(<]"),
+                // A function, past its generic parameters. A name in backticks, as a keyword
+                // has to be written, is the name (#463).
+                format!(r"{mods}func\s+`?{w}`?\s*[(<]"),
                 format!(r"{mods}(?:let|var)\s+`?{w}\b"),
                 // An enum case, alone or among several on one line, with the associated values or
                 // the raw value it can carry. A `case .open:` or a `case let .open(x):` of a
                 // `switch` is a pattern, and a `case open:` there matches against a constant, so
                 // what follows the name must not be a `:`.
                 format!(
-                    r"^\s*(?:indirect\s+)?case\s+(?:\w+(?:\([^)]*\))?\s*,\s*)*{w}\s*(?:\(|=[^=]|,|$)"
+                    r"^\s*(?:indirect\s+)?case\s+(?:`?\w+`?(?:\([^)]*\))?\s*,\s*)*`?{w}`?\s*(?:\(|=[^=]|,|$)"
                 ),
             ];
             // `init` and `subscript` are keywords, so the word under the cursor is the keyword
