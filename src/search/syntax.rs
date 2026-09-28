@@ -89,7 +89,9 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             out.push(block.is_some());
         } else if let Some(end) = block {
             // A long bracket closes on `]`, the `=` its opener carried, and `]`; a verbatim
-            // string on a `"` that no second `"` follows; a heredoc only on its label, above.
+            // string on a `"` that no second `"` follows; a heredoc only on its label, above. A
+            // Go raw string has no escapes, so its backtick closes it whatever stands before
+            // (#325); a template's `\`` is a backtick inside it.
             let doubled = verbatim && c == b'"' && b.get(i + 1) == Some(&b'"');
             let closes = if long_bracket {
                 c == b']'
@@ -104,7 +106,7 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
                 label.is_empty()
                     && !doubled
                     && b[i..].starts_with(end)
-                    && (end.len() > 1 || b[i - 1] != b'\\')
+                    && (end.len() > 1 || kind == Kind::Go || b[i - 1] != b'\\')
             };
             if closes {
                 block = None;
