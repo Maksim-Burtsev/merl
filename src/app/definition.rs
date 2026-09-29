@@ -551,17 +551,18 @@ impl App {
                 });
             let text = self.buf.lines.join("\n");
             let command = search::make_recipe_command(&text, self.line + 1).filter(|_| shell);
-            let declares = |h: &Hit| {
-                std::fs::read_to_string(self.root.join(&h.path)).map_or(true, |text| {
-                    match search::make_recipe_command(&text, h.line) {
-                        None => true,
-                        at => h.path == here && at == command,
-                    }
-                })
+            let recipe = |h: &Hit| {
+                std::fs::read_to_string(self.root.join(&h.path))
+                    .ok()
+                    .and_then(|text| search::make_recipe_command(&text, h.line))
             };
-            hits.retain(declares);
+            hits.retain(|h| match recipe(h) {
+                None => true,
+                at => h.path == here && at == command,
+            });
             // `X += …` and `release: X := 1.0` set the variable only when nothing else does
-            // (#499), so a jump to a plain assignment never becomes a picker.
+            // (#499), so a jump to a plain assignment never becomes a picker. A recipe's `X+=1`
+            // declares nothing, not even for the shell: `/bin/sh` has no `+=`.
             if hits.is_empty() {
                 let fallback = search::make_fallback_patterns(word).join("|");
                 hits = self
@@ -570,7 +571,7 @@ impl App {
                     })
                     .unwrap_or_default();
                 self.note_cut(&hits);
-                hits.retain(declares);
+                hits.retain(|h| recipe(h).is_none());
             }
         }
         hits
