@@ -175,6 +175,7 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
 /// - Shell: a `local` (a `declare` / `typeset` without `-g`) above the cursor in the function
 ///   around it (#470).
 /// - Zig: [`zig_bindings`], inside a function only (#469).
+/// - Elixir: [`elixir_bindings`], inside a `def` only (#460).
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -194,8 +195,130 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
                 .collect()
         }),
         Kind::Zig => zig_bindings(&lines, at, name),
+        Kind::Elixir => elixir_bindings(&lines, at, name),
         _ => Vec::new(),
     }
+}
+/// Elixir's locals (#460): the nearest `pattern = value` above the cursor in a block around it,
+/// told by indentation as `mix format` keeps it, a clause head `pattern ->` or `fn x ->` that
+/// opens one of those blocks, and the parameters of the `def` around them, where the walk stops:
+/// a `def` sees nothing of the module around it. Nothing outside a `def` is a local.
+fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^def(?:p|macrop?|guardp?|module|impl|protocol)?\s+[\w.?!]+").unwrap()
+    });
+    let literal = literal_lines(Kind::Elixir, &lines.join("\n"));
+    let code = |i: usize| uncommented(Kind::Elixir, lines[i]).trim().to_owned();
+    let found = |line: usize| {
+        vec![Binding {
+            line,
+            value: Value::Unknown,
+        }]
+    };
+    let mut depth = indent(lines[at]);
+    let mut i = at;
+    while i > 0 {
+        i -= 1;
+        let t = code(i);
+        if t.is_empty() || literal[i] || indent(lines[i]) > depth {
+            continue;
+        }
+        if indent(lines[i]) == depth {
+            // A clause of its own binds for its own body alone.
+            let parts = split_top(Kind::Elixir, &t, b'=');
+            if parts.len() > 1
+                && !t.contains("->")
+                && !parts[1].starts_with('~')
+                && elixir_binds(parts[0], name)
+            {
+                return found(i + 1);
+            }
+            continue;
+        }
+        // A header opens the block the walk is in; `) do` closes parameters wrapped over the
+        // lines above it, from the line back at its indent.
+        depth = indent(lines[i]);
+        if t.starts_with(')') {
+            while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > depth) {
+                i -= 1;
+            }
+            i = i.saturating_sub(1);
+        }
+        let head = code(i);
+        if let Some(m) = HEAD.find(&head) {
+            // The parameters run to the `do` that opens the body.
+            let end = (i..at)
+                .find(|&j| code(j).ends_with(" do") || code(j).contains("do:"))
+                .unwrap_or(i);
+            return (i..=end)
+                .find(|&j| match j == i {
+                    true => elixir_binds(&head[m.end()..], name),
+                    false => elixir_binds(&code(j), name),
+                })
+                .map_or_else(Vec::new, |j| found(j + 1));
+        }
+        if let Some(h) = t.strip_suffix("->") {
+            let h = h.rsplit_once("fn ").map_or(h, |(_, p)| p);
+            if elixir_binds(h, name) {
+                return found(i + 1);
+            }
+        }
+    }
+    Vec::new()
+}
+/// Whether the Elixir pattern `p` (a parameter list, the left of a `=`, a clause head) binds
+/// `name`: the name as a word of its own, and not a key `name:`, an atom `:name`, an attribute,
+/// a pinned `^name`, a call, a guard's or a default's.
+fn elixir_binds(p: &str, name: &str) -> bool {
+    static DEFAULT: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\\\\[^,)]*").unwrap());
+    let p = p.split(" when ").next().unwrap_or(p);
+    let p = p.split(", do:").next().unwrap_or(p);
+    let p = DEFAULT.replace_all(p, "");
+    let word = |c: char| c.is_alphanumeric() || c == '_';
+    p.match_indices(name).any(|(i, _)| {
+        let before = p[..i].chars().next_back();
+        let after = p[i + name.len()..].trim_start();
+        !before.is_some_and(|c| word(c) || ".@:^&%".contains(c))
+            && !p[i + name.len()..].starts_with(|c: char| word(c) || c == '?' || c == '!')
+            && !(after.starts_with(':') && !after.starts_with("::"))
+            && !after.starts_with(['(', '.'])
+    })
+}
+/// The 1-based lines of the `def`s, attributes and other declarations matching `pattern` that
+/// the Elixir module around 1-based `line` holds itself: its body's own statements, not those of
+/// a module nested in it (#460). A bare call and an attribute are that module's first.
+pub fn elixir_module_lines(text: &str, line: usize, pattern: &Regex) -> Vec<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return Vec::new();
+    };
+    static MODULE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*def(?:module|impl|protocol)\s").unwrap());
+    let literal = literal_lines(Kind::Elixir, text);
+    let code = |i: usize| !literal[i] && !lines[i].trim().is_empty();
+    let mut depth = indent(lines[at]);
+    let header = (0..at).rev().find(|&i| {
+        if !code(i) || indent(lines[i]) >= depth {
+            return false;
+        }
+        depth = indent(lines[i]);
+        MODULE.is_match(lines[i])
+    });
+    let Some(h) = header else {
+        return Vec::new();
+    };
+    let body: Vec<usize> = (h + 1..lines.len())
+        .filter(|&i| code(i))
+        .take_while(|&i| indent(lines[i]) > indent(lines[h]))
+        .collect();
+    let Some(child) = body.first().map(|&i| indent(lines[i])) else {
+        return Vec::new();
+    };
+    body.into_iter()
+        .filter(|&i| indent(lines[i]) == child && pattern.is_match(lines[i]))
+        .map(|i| i + 1)
+        .collect()
 }
 fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

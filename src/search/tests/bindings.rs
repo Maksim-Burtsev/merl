@@ -318,3 +318,47 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
     assert_eq!(at(18, "repo"), [(17, ty("*UserRepository"))]);
     assert_eq!(at(21, "other"), [(20, Value::Unknown)]);
 }
+
+#[test]
+fn elixir_bindings_stop_at_their_def() {
+    let text = "\
+defmodule Shop do
+  def pay(total, fee \\\\ rate) when total > 0 do
+    {:ok, sum} = split(total)
+    case sum do
+      {:ok, part} ->
+        part + fee + sum + rate
+      other ->
+        other
+    end
+  end
+
+  def wrap(
+        first,
+        %{key: second}
+      ) do
+    first + second + key
+  end
+end
+";
+    let at = |line, name| {
+        bindings(Kind::Elixir, text, line, name)
+            .iter()
+            .map(|b| b.line)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(at(6, "total"), [2]);
+    assert_eq!(at(6, "fee"), [2]);
+    assert_eq!(at(6, "sum"), [3]);
+    assert_eq!(at(6, "part"), [5]);
+    // A default, a guard and a key bind nothing, nor does a sibling clause.
+    assert!(at(6, "rate").is_empty());
+    assert!(at(6, "other").is_empty());
+    assert_eq!(at(8, "other"), [7]);
+    // Parameters wrapped over several lines.
+    assert_eq!(at(16, "first"), [13]);
+    assert_eq!(at(16, "second"), [14]);
+    assert!(at(16, "key").is_empty());
+    // Nothing outside a `def` is a local.
+    assert!(at(12, "pay").is_empty());
+}

@@ -194,6 +194,20 @@ impl App {
         let key = kind == Kind::Lua
             && (search::table_key(&text, self.line + 1, &range)
                 || (before.ends_with(':') && !before.ends_with("::")));
+        // An Elixir name followed by `(` is a call, one behind `@` an attribute and behind `&` a
+        // capture, and the names an `@spec` promises are functions: each is its module's first
+        // (#460). Nor is a key `name:` or an atom `:name` a variable.
+        let after = &self.line_str()[range.end..];
+        let call = kind == Kind::Elixir
+            && !dotted
+            && (after.starts_with('(')
+                || before.ends_with(['@', '&'])
+                || before.trim_start().starts_with("@spec "));
+        let key = key
+            || call
+            || (kind == Kind::Elixir
+                && !dotted
+                && (before.ends_with(':') || (after.starts_with(':') && !after.starts_with("::"))));
         // `super` is no local, whatever the member lookup reads it as; Lua has no `super`. A name
         // of a destructuring or a parameter list wrapped over several lines is on a line of its
         // own (#393).
@@ -682,6 +696,27 @@ impl App {
                 .external_definitions(kind, &word, &chain, dotted, &imports, true)
                 .unwrap_or_default();
             if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
+        // An Elixir call or attribute is its own module's first (#460). On a declaration of the
+        // name, its namesakes are offered as before.
+        if call && let Ok(re) = Regex::new(&pattern) {
+            let lines = search::elixir_module_lines(&text, self.line + 1, &re);
+            if !lines.is_empty() && !lines.contains(&(self.line + 1)) {
+                let found = lines
+                    .into_iter()
+                    .map(|line| Candidate {
+                        hit: Hit {
+                            path: here.clone(),
+                            line,
+                            col: 0,
+                            text: self.buf.lines[line - 1].clone(),
+                        },
+                        reason: Reason::File,
+                    })
+                    .collect();
                 self.show_definitions(kind, &word, &here, found, None);
                 return;
             }
