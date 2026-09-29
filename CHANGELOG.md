@@ -157,6 +157,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A symbolic link to a file that lies outside the project opens read-only, `outside the
   project`, as a file behind a directory link out does. It opened editable, and a save wrote the
   file out there. A link to a file inside the project stays editable. (#448)
+- In `merl --review`, Enter on the panel row of a symbolic link to a directory opens nothing
+  and leaves the file shown and the status bar as they were. It put the raw OS error with the
+  whole path in the status bar, `…/alink: Is a directory (os error 21)`. (#449)
 - `d` in Go on the blank identifier `_` answers `no definition for _` at once. It jumped to an
   earlier `_`, as if it were a local of that name; every `_` is a fresh discard. (#476)
 
