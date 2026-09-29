@@ -883,6 +883,17 @@ impl App {
                 .iter()
                 .any(|c| c.hit.line != self.line + 1 || c.hit.path != here)
             && self.on_declared_name(kind, word);
+        // Off the name of the line's declaration (#317), a bare word whose lone namesake nothing
+        // proves and is declared as this line declares it, `let courier` of another function, is
+        // as likely another scope's copy as what the word means: offered, as before, never
+        // jumped to. Behind a `.` it is a member, which no local is.
+        let extra = search::word_chars(Some(kind), true);
+        let form = |t: &str| t[..word_col(t, word, extra)].trim().to_owned();
+        let copy = found.len() < all
+            && !namesakes
+            && search::definition_word(Some(kind), self.line_str(), self.col)
+                .is_some_and(|(r, _)| !self.line_str()[..r.start].ends_with('.'))
+            && matches!(found.as_slice(), [c] if !c.reason.proven() && form(&c.hit.text) == form(self.line_str()));
         // Tests, mocks, fixtures, generated and vendored copies of a declaration come last here
         // too (#81) — except in the file on screen, which is what the reader is reading. The sort
         // is stable and every candidate is a declaration, so the rest keep the order the search
@@ -892,7 +903,7 @@ impl App {
         found.truncate(search::MAX_HITS);
         match found.as_slice() {
             [] => self.message = resolution(word, None, &found, broke, truncated),
-            [one] if !namesakes && !offer_only && !truncated => {
+            [one] if !namesakes && !offer_only && !truncated && !copy => {
                 let path = self.root.join(&one.hit.path);
                 // A module's first line declares nothing of the word.
                 let target = self

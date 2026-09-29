@@ -171,7 +171,7 @@ func items() -> Int {
 
 func renamed(_ courier: Courier) -> Courier {
     let courier = Courier(name: courier.name)
-    //                          ^ d: Sources/Shop/Basket.swift:62; want Sources/Shop/Basket.swift:172 (#366)
+    //                          ^ d: picker Sources/Shop/Basket.swift:62; want Sources/Shop/Basket.swift:172 (#366)
     return courier
 }
 
