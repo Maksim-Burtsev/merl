@@ -2,7 +2,7 @@ class VerifyQuoteService
   def call(quote, request_id: nil)
     @request_id = request_id
     #^ d: app/verify_quote_service.rb:3
-    #             ^ d: none; want app/verify_quote_service.rb:2 (#365)
+    #             ^ d: app/verify_quote_service.rb:2
   end
 end
 

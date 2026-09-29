@@ -150,6 +150,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A binary file (an image, a `.pyc`, a build artefact) opens on an empty pane with one centred,
   dimmed line, `binary file, not shown`, and no line number or cursor, instead of the text
   `binary file` as if it were the file's line 1. The status bar still says `read-only`. (#287)
+- `d` in Ruby lands on a parameter, a block parameter or a local of the method you are in, as
+  `user → SessionsController.user (local)`. It offered every method's `user = …` in the project
+  or jumped to one. A call with no receiver, and `self.name`, lands on the method of the class it
+  is made in, then of the modules the class includes and of its superclasses, before a namesake
+  of another class: `track → SessionsController.track (via SessionsController)`. (#365)
 
 ### Fixed
 

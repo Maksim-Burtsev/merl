@@ -35,7 +35,7 @@ module Shop
 
     def restock(discount)
       discount + WEIGHT_LIMIT
-      # ^ d: lib/shop/pricing.rb:54; want lib/shop/basket.rb:36 (#365)
+      # ^ d: lib/shop/basket.rb:36
       #          ^ d: lib/shop/basket.rb:6
     end
 
@@ -50,7 +50,7 @@ module Shop
     def hidden(grams)
       weigh = Warehouse.weigh(grams)
       weigh + Warehouse::LIMIT
-      # ^ d: picker lib/shop/basket.rb:51, lib/shop/warehouse.rb:22; want lib/shop/basket.rb:51 (#365)
+      # ^ d: lib/shop/basket.rb:51
       #                  ^ d: lib/shop/warehouse.rb:3
     end
 
@@ -116,7 +116,7 @@ module Shop
     def each_coupon(coupons)
       coupons.each do |coupon|
         coupon.describe
-        # ^ d: lib/shop/basket.rb:9; want lib/shop/basket.rb:116 (#365)
+        # ^ d: lib/shop/basket.rb:117
       end
     end
 
