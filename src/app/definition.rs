@@ -16,8 +16,8 @@ impl App {
     /// member whose type is not known: every member declaration of the name, in the project and
     /// outside it, and every field of the name in the project, is a candidate. The status line
     /// says how the target was found, and a single candidate found only by name says so too. An
-    /// enum variant or a parameter has no declaration the rules know and gets "no definition":
-    /// `u` lists the uses.
+    /// enum variant outside Rust or a parameter has no declaration the rules know and gets "no
+    /// definition": `u` lists the uses.
     pub(super) fn goto_definition(&mut self) {
         let kind = self.kind();
         let Some((range, word)) = search::definition_word(kind, self.line_str(), self.col) else {
@@ -125,6 +125,13 @@ impl App {
             return;
         }
         let pattern = patterns.join("|");
+        // Rust's attributes, fields and variants, which the lines below cannot tell (#370).
+        if kind == Kind::Rust
+            && let Some(found) = self.rust_early(&here, &text, &word, range.clone(), dotted)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // On the declaration of a member of an interface, a protocol, an abstract or a base
         // class, `d` offers what implements it (#68, step 6).
         // A `#private` member is nobody's to override.
@@ -222,6 +229,14 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // A bare Rust variant behind a glob `use` of its enum (#370).
+        if kind == Kind::Rust && !dotted && chain.is_empty() && locals.is_empty() {
+            let found = self.rust_glob_variant(&here, &text, &word, &imports);
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
         // Python's `Cls.CONST`, an `Enum` member, a dataclass field (#100): the qualifier is a
         // class the file declares or imports, no value of the scope, and the word is what the
         // class body declares, or a class above it.
@@ -301,12 +316,21 @@ impl App {
             // `depot::Shed::open` has the modules of the project in front of `Shed::open`.
             let in_project = sep != "." && self.names_module(&chain[0]);
             // Only the files of the module a `use` names can hold the answer then.
-            let hits = match &home {
+            let mut hits = match &home {
                 Some(files) => self
                     .grep(&pattern, false, false, |p| files.iter().any(|f| f == p))
                     .unwrap_or_default(),
                 None => self.project_definitions(kind, &here, &word, &pattern),
             };
+            // `Mode::Auto`: an enum variant, which has no line pattern of its own (#370).
+            if kind == Kind::Rust {
+                let variants = self.rust_variants(&here, &word);
+                hits.extend(
+                    variants
+                        .into_iter()
+                        .filter(|v| home.as_ref().is_none_or(|files| files.contains(&v.path))),
+                );
+            }
             let named: Vec<Candidate> = hits
                 .into_iter()
                 .filter(|h| {

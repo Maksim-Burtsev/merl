@@ -86,8 +86,10 @@ qualifier, `db` in `db.Get`, lands on the import line of the open file, `db: via
 code.gitea.io/gitea/models/db`, unless a local or a top-level name of the package is called
 that, or the function mentions the name other than as a qualifier. A parameter has no
 declaration the rules know, nor has an enum variant unless its class declares it as a field (a
-Python `Enum` member, a TypeScript enum member with a value): `d` says so, and `u` lists every
-whole-word use of the identifier. On `x.field` the word is a member: in Python, TypeScript and Go
+Python `Enum` member, a TypeScript enum member with a value) or it is Rust's: `Mode::Auto` is the
+variant `Auto` of the `Mode` the project declares once, and a bare `Auto` is when a `use
+…::Mode::*;` of the function, else of the module, brings it in. Elsewhere `d` says so, and `u`
+lists every whole-word use of the identifier. On `x.field` the word is a member: in Python, TypeScript and Go
 the field of the type `x` is proven to have (below), else every method, property and field of
 that name, found by name.
 
@@ -300,7 +302,7 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | Python | `def` and `async def`, `class`, module-level assignment (annotated or not); behind a dot, a field: `name: T` or `name = …` in a class body, `self.name = …` in a method | every `.py` file |
 | Go | `func` with or without a receiver, `type`, `var`/`const`, `:=`; behind a dot, a struct field or an embedded struct | every `.go` file |
 | TypeScript / JavaScript | `function`, `class`, `interface`, `type`, `enum`, `namespace`, `const`/`let`/`var` (so arrow functions assigned to a name), class and object-literal methods, properties holding a function, a method signature with a return type and no body (`find(id: string): User;` in an interface, an abstract class, an overload or a `.d.ts`), behind `export`/`default`/`declare`/`async` and the member modifiers; behind a dot, a field: a member `name: T;` or `name = …`, a constructor parameter behind a modifier, `this.name = …`. Destructuring and parameters have no rule. | every `.ts`, `.tsx`, `.js`, `.jsx` and friend: they search each other |
-| Rust | `fn`, `struct`, `enum`, `union`, `trait`, `type`, `const`, `static`, `mod`, `macro_rules!`, `let`, behind any `pub(..)`/`async`/`unsafe`/`const`/`extern`/`default` prefix. `impl` blocks count as uses. | every `.rs` file |
+| Rust | `fn`, `struct`, `enum`, `union`, `trait`, `type`, `const`, `static`, `mod`, `macro_rules!`, `let`, behind any `pub(..)`/`async`/`unsafe`/`const`/`extern`/`default` prefix, and an enum variant for `Enum::Variant` or behind a glob `use`. `impl` blocks count as uses. Behind a dot with no `(` after the word, a field: `name: T` in a `struct`, a `union` or a variant `Name {`, the project's, else the `pub` ones outside it. In an attribute, a derive is a `pub macro W` or a `#[proc_macro_derive(W`, the attribute's name a `pub macro W` or a `pub fn W` under `#[proc_macro_attribute]`, and a `cfg` predicate or a compiler attribute (`allow`, `repr`, `inline`, …) nothing. | every `.rs` file |
 | Java | `class`, `interface`, `enum`, `record`, `@interface`; a method, an abstract or interface method and a field, told from a call by the return type before the name — a primitive, or a name with a capital in it, as Java writes its types; a constructor, behind at least one modifier, since a bare `Name(x) {` is a call. Annotations and modifiers may stand in front of any of them. | every `.java`, `.kt` and `.kts` file: they search each other |
 | Kotlin | `fun` (with the receiver of an extension function), `class`, `interface`, `object`, `enum class`, `typealias`, `val`/`var`, behind `private`/`open`/`data`/`sealed`/`suspend`/`override` and the rest | every `.java`, `.kt` and `.kts` file: they search each other |
 | Ruby | `def`, `def self.name`, `class`, `module`, an assignment (a constant, an `@ivar`, a local), `attr_accessor`/`attr_reader`/`attr_writer`, `alias`/`alias_method`. A trailing `?` or `!` is not part of the word, so `d` on `empty?` finds `def empty?`. Rails-style DSL (`scope`, `has_many`) has no rule. | every `.rb`, `.rake`, `.gemspec`, `.podspec`, `.rbi`, `.ru` file and `Rakefile`, `Gemfile`, `Vagrantfile` and friends |

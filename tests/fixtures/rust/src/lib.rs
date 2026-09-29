@@ -2,4 +2,5 @@
 
 pub mod basket;
 pub mod pricing;
+pub mod stock;
 pub mod warehouse;
