@@ -42,11 +42,19 @@ const REACH: usize = 80;
 /// Whether the word at `range` of 0-based `line` of `text` stands in a label position, and what
 /// it is a label of:
 /// - Python and Kotlin `f(name = …)`, Swift, C#, PHP and Ruby `f(name: …)`: behind the `(` or a
-///   `,` of a call, whose callee is no declaration (`def`, `func`, `init`, `case`…);
+///   `,` of a call, whose callee is no declaration (`def`, `func`, `init`, `case`…) and no control
+///   keyword (`for (…)`, `return (…)`); in a `java` file only an annotation's `@A(name = …)`, as
+///   Java has no named arguments and `for (i = 0; …)` assigns;
 /// - TypeScript and JavaScript: a key `name:` behind the `{` or a `,` of an object literal (not a
 ///   type's, a block's or a class body's `{`), and `name=` inside a JSX tag;
 /// - Ruby `{ name: … }`.
-pub fn label_at(kind: Kind, text: &str, line: usize, range: Range<usize>) -> Option<Label> {
+pub fn label_at(
+    kind: Kind,
+    java: bool,
+    text: &str,
+    line: usize,
+    range: Range<usize>,
+) -> Option<Label> {
     let lines: Vec<&str> = text.lines().collect();
     let l = *lines.get(line)?;
     let tight = &l[range.end..];
@@ -138,6 +146,11 @@ pub fn label_at(kind: Kind, text: &str, line: usize, range: Range<usize>) -> Opt
             if declares(before) {
                 return None;
             }
+            static ANNOTATION: std::sync::LazyLock<Regex> =
+                std::sync::LazyLock::new(|| Regex::new(r"@[\w.]+\s*$").unwrap());
+            if java && !ANNOTATION.is_match(before) {
+                return None;
+            }
             let col = callee(kind, lines[at], open)?;
             // `Type.init(…)` is a call of `Type`'s initializer; `self.init`, `super.init` and a
             // bare `.init` name no type the line spells.
@@ -190,6 +203,39 @@ fn callee(kind: Kind, line: &str, open: usize) -> Option<usize> {
             depth == 0
         })?;
         s = s[..lt.0].trim_end();
+    }
+    // `for (…)`, `return (…)`: a statement's brackets, or a tuple's, are no call.
+    const KEYWORDS: &[&str] = &[
+        "if",
+        "elif",
+        "for",
+        "foreach",
+        "while",
+        "until",
+        "unless",
+        "switch",
+        "when",
+        "match",
+        "catch",
+        "synchronized",
+        "using",
+        "lock",
+        "return",
+        "yield",
+        "throw",
+        "await",
+        "not",
+        "and",
+        "or",
+        "in",
+    ];
+    if let Some(w) = s
+        .rsplit(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+        .next()
+        && KEYWORDS.contains(&w)
+        && !s[..s.len() - w.len()].ends_with('.')
+    {
+        return None;
     }
     let last = s.chars().next_back()?;
     let named = last.is_alphanumeric() || last == '_' || last == '$';
@@ -539,7 +585,7 @@ mod tests {
             .expect("the probe is in the text");
         let start = l.find(probe).unwrap() + probe.find(|c: char| c.is_alphanumeric()).unwrap();
         let (range, _) = word_at(l, start, "").unwrap();
-        label_at(kind, text, line, range)
+        label_at(kind, false, text, line, range)
     }
 
     fn owner(kind: Kind, text: &str, probe: &str) -> Option<(String, Owner)> {
@@ -565,6 +611,15 @@ mod tests {
             Some(("followTopic".into(), Owner::Args))
         );
         assert_eq!(label(Kind::Jvm, kt, "Int = 1"), None);
+        // A control keyword's brackets, or a tuple's, are no call's.
+        let tuple = "return (count: n, total: t);\nvar p = f(count: n);\n";
+        assert_eq!(label(Kind::CSharp, tuple, "count: n,"), None);
+        assert!(label(Kind::CSharp, tuple, "count: n)").is_some());
+        // Java has no named arguments; only an annotation's brackets hold labels.
+        let java = "for (i = 0; i < n; i++) {}\n@Size(max = 3)\n";
+        assert!(label_at(Kind::Jvm, true, java, 0, 5..6).is_none());
+        assert!(label_at(Kind::Jvm, true, java, 1, 6..9).is_some());
+        assert!(label_at(Kind::Jvm, false, java, 1, 6..9).is_some());
         let swift = "let w = RefreshWindow.init(interval: 30, maximumAttempts: 1)\nlet v = RefreshWindow(interval: 30)\ninit(interval: Double) {}\nlet t = a ? b : c\nx = self.init(name: 1)\n";
         assert_eq!(
             owner(Kind::Swift, swift, "maximumAttempts"),
