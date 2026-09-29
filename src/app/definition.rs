@@ -2345,27 +2345,70 @@ impl App {
     }
 
     /// The lines that assign the Ruby instance or class variable `ivar` in the class around the
-    /// cursor, in `here` or in another file that reopens the class (#383). At the top of a file,
-    /// that file's own.
+    /// cursor, in `here` or in another file that reopens the class (#383), else in the modules it
+    /// `include`s and its superclasses, walked up as [`Self::ruby_self_methods`] walks them: a
+    /// controller's `@current_user` is set by its parent's before-action. When no class of that
+    /// chain assigns it and a parent is not the project's (`ActionController::Base`, a gem's
+    /// module), every assignment of the project counts, by name. At the top of a file, that
+    /// file's own.
     fn ruby_ivars(&self, here: &Path, text: &str, ivar: &str) -> Vec<Candidate> {
         let class = search::ruby_class_path(text, self.line + 1);
         let pattern = search::ruby_assignment(ivar);
-        self.project_definitions(Kind::Ruby, here, ivar, &pattern)
+        let assigned: Vec<(Hit, String)> = self
+            .project_definitions(Kind::Ruby, here, ivar, &pattern)
             .into_iter()
-            .filter(|h| {
-                (!class.is_empty() || h.path == here)
-                    && self
-                        .text_of(&h.path)
-                        .is_some_and(|t| search::ruby_class_path(&t, h.line) == class)
+            .filter(|h| !class.is_empty() || h.path == here)
+            .filter_map(|h| {
+                let c = search::ruby_class_path(&self.text_of(&h.path)?, h.line);
+                Some((h, c))
             })
-            .map(|hit| Candidate {
-                hit,
-                reason: match class.is_empty() {
-                    true => Reason::File,
-                    false => Reason::Receiver(class.clone()),
-                },
-            })
-            .collect()
+            .collect();
+        if class.is_empty() {
+            return assigned
+                .into_iter()
+                .filter(|(_, c)| c.is_empty())
+                .map(|(hit, _)| Candidate {
+                    hit,
+                    reason: Reason::File,
+                })
+                .collect();
+        }
+        let mut seen = HashSet::from([class.clone()]);
+        let mut queue = std::collections::VecDeque::from([class]);
+        let mut unread = false;
+        while let Some(c) = queue.pop_front() {
+            let found: Vec<Candidate> = assigned
+                .iter()
+                .filter(|(_, hc)| *hc == c)
+                .map(|(h, _)| Candidate {
+                    hit: h.clone(),
+                    reason: Reason::Receiver(c.clone()),
+                })
+                .collect();
+            if !found.is_empty() {
+                return found;
+            }
+            let (supers, includes, _) = self.ruby_parents(here, &c);
+            for name in includes.into_iter().chain(supers) {
+                let paths = self.ruby_resolve(here, &name);
+                unread |= paths.is_empty();
+                for path in paths {
+                    if seen.insert(path.clone()) {
+                        queue.push_back(path);
+                    }
+                }
+            }
+        }
+        match unread {
+            true => assigned
+                .into_iter()
+                .map(|(hit, _)| Candidate {
+                    hit,
+                    reason: Reason::ByName,
+                })
+                .collect(),
+            false => Vec::new(),
+        }
     }
 
     fn show_definitions(

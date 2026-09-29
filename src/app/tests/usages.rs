@@ -385,6 +385,34 @@ fn usages_of_a_ruby_suffixed_method_put_its_declaration_first() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #383: `u` on a Ruby `@total` lists every `total` as before, and marks its assignment
+/// `@total = 0` a declaration beside `def total`; on a bare `total` only the `def` declares.
+#[test]
+fn usages_of_a_ruby_ivar_mark_its_assignment() {
+    let (dir, mut a) = project_app(
+        "u-ruby-ivar",
+        &[(
+            "app/cart.rb",
+            "class Cart\n  def initialize\n    @total = 0\n  end\n\n  def total\n    @total\n  end\nend\n",
+        )],
+    );
+    usages_at(&mut a, &dir, "app/cart.rb", 7, "total");
+    let marked = |rows: Vec<(String, String)>| {
+        rows.into_iter()
+            .filter(|(m, _)| m == "declaration")
+            .map(|(_, at)| at)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        marked(usage_rows(&mut a)),
+        ["app/cart.rb:3", "app/cart.rb:6"]
+    );
+    a.picker = None;
+    usages_at(&mut a, &dir, "app/cart.rb", 6, "total");
+    assert_eq!(marked(usage_rows(&mut a)), ["app/cart.rb:6"]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// #459: `u` reads an Elixir name as `d` does, its `?` or `!` included, so the `def` of `ship!`
 /// is its declaration and comes first.
 #[test]
