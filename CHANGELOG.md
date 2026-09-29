@@ -55,6 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `merl -r BRANCH` reviews a branch another worktree has checked out, an agent's say, in that
+  worktree, as `merl -r` started there would: nothing is fetched, switched or reset there, and its
+  work not committed yet is part of the review. Before, merl exited with git's `already used by
+  worktree` (#396).
 - In `merl --review` the lines the branch deleted are lines of the text, as they are on a GitLab
   or GitHub diff page: the cursor stands on them, and every move, Up, Down, the pages, `{` and
   `}`, Home and End, the words, goes through them as through the file's own lines, so a deletion

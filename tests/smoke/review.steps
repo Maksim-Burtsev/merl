@@ -11,7 +11,9 @@
 # deleted and the status bar reads its old number, negative; / finds the deleted text, Ctrl+C
 # copies it, and an edit there is refused (#439). The panel's status letters are plain, in the
 # row's style (#450). o lists the review's files first, each with its panel letter, and u marks
-# the uses on lines the branch changed with the gutter's bar (#246).
+# the uses on lines the branch changed with the gutter's bar (#246). Then `merl -r agent/page-size`
+# from the main checkout: the branch an agent has checked out in a worktree of its own is reviewed
+# there, its file not committed yet included (#396).
 caption review · merl --review=agent/refund fetches the agent's branch and opens on its first hunk
 merl --review=agent/refund
 wait hunk 1/1  file 1/8
@@ -95,3 +97,9 @@ wait hunk 1/1  file 1/8
 merl --reviews
 wait 30 days: 2 sessions
 wait merl exited: 0
+caption merl -r agent/page-size: the branch an agent works on in a worktree of its own is reviewed there (#396)
+merl -r agent/page-size
+wait app/config.py  -10:1  [code]  hunk 1/1  file 1/2
+caption its file not committed yet is part of the review
+key c
+wait docs/paging.md
