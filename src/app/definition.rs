@@ -358,7 +358,11 @@ impl App {
                 }
             });
         // A C or C++ type is its body, not its forward declarations and constructors (#368).
-        // Behind `.` or `->` no type is meant.
+        // Behind `.` or `->` no type is meant. Then what the file on screen can see (#364): not
+        // another source file's statics and macros, not a `#define` that only stands in where
+        // nothing else declares the name, and one definition over its prototypes.
+        let mut fallbacks = Vec::new();
+        let mut aside = None;
         let hits = match kind == Kind::C && !dotted && !before.ends_with("->") {
             true => {
                 let (before, after) = (before.trim_end(), &self.line_str()[range.end..]);
@@ -370,7 +374,30 @@ impl App {
                 };
                 let construction = after.trim_start().starts_with(['(', '{']) || keyword("new");
                 let tag = ["struct", "union", "enum"].into_iter().any(keyword);
-                search::c_type_rows(&word, hits, |p| self.text_of(p), construction, tag)
+                let hits = search::c_type_rows(&word, hits, |p| self.text_of(p), construction, tag);
+                let on = hits
+                    .iter()
+                    .any(|h| h.path == here && h.line == self.line + 1);
+                let hits = search::c_file_local(&word, &here, &text, hits, |p| self.text_of(p), on);
+                let (fallback, hits): (Vec<Hit>, Vec<Hit>) = hits.into_iter().partition(|h| {
+                    self.text_of(&h.path)
+                        .is_some_and(|t| search::c_fallback(&t, h.line, &word))
+                });
+                // With nothing else in the project, the search outside runs first.
+                if hits.is_empty() {
+                    fallbacks = fallback;
+                }
+                // On a candidate the others are offered, the prototype included.
+                let parameter = search::c_parameter(&text, self.line + 1, &word);
+                match search::c_one_definition(&word, &hits, |p| self.text_of(p))
+                    .filter(|_| !on && !parameter)
+                {
+                    Some((at, note)) => {
+                        aside = Some(note);
+                        vec![hits[at].clone()]
+                    }
+                    None => hits,
+                }
             }
             false => hits,
         };
@@ -422,7 +449,20 @@ impl App {
                 }
             }
         }
+        if found.is_empty() {
+            found = fallbacks
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::ByName,
+                })
+                .collect();
+        }
         self.show_definitions(kind, &word, &here, found, broke.as_deref());
+        // The status of the one definition says what was set aside: `1 definition, 1 prototype`.
+        if let Some(note) = aside {
+            self.message = self.message.replacen("1 match", &note, 1);
+        }
     }
 
     /// Whether `first` starts a path inside the project: `crate`, `self`, `super`, or a file or a

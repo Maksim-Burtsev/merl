@@ -18,6 +18,6 @@ static int tally(void) { return 2; }
 int restocked(void)
 {
     return tally();
-    //     ^ d: picker include/shop/pricing.h:41, src/pricing.c:16, src/warehouse.c:16; want src/warehouse.c:16 (#364)
+    //     ^ d: src/warehouse.c:16
     // status: by name
 }

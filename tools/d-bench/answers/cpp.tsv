@@ -51,7 +51,7 @@ cpp0048	include/leveldb/status.h:24
 cpp0049	include/leveldb/iterator.h:53		
 cpp0050	db/write_batch_internal.h:17		
 cpp0051	db/db_impl.cc:1281		
-cpp0052	util/testutil.h:38		
+cpp0052	util/testutil.h:38	test files are outside compile_commands.json: the oracle stopped at the prototype in testutil.h, the definition is util/testutil.cc:22	
 cpp0053	include/leveldb/write_batch.h:33		
 cpp0054			
 cpp0055	include/leveldb/status.h:24		
@@ -140,7 +140,7 @@ cpp0137
 cpp0138	include/leveldb/status.h:37		
 cpp0139	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/__atomic/atomic.h:68		
 cpp0140	db/version_edit.h:24		
-cpp0141	db/version_set_test.cc:177		
+cpp0141	db/version_set_test.cc:177	test files are outside compile_commands.json: the oracle stopped at the test's own prototype, the definition is db/version_set.cc:1360	
 cpp0142	include/leveldb/status.h:24		
 cpp0143	db/c.cc:168		
 cpp0144	table/format.h:83		

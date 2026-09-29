@@ -89,7 +89,7 @@ c0086	src/networking.c:1292;src/server.h:3386
 c0087	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/pthread/pthread.h:352		
 c0088	src/rax.h:179		
 c0089	src/entry.c:19		
-c0090	/Library/Developer/CommandLineTools/usr/lib/clang/21/include/__float_infinity_nan.h:17		
+c0090	/Library/Developer/CommandLineTools/usr/lib/clang/21/include/__float_infinity_nan.h:17	two system definitions: the SDK's math.h:74, which the file includes, and clang's C23 redefinition in its resource headers, outside the roots merl reads	
 c0091	src/t_hash.c:1854		
 c0092	src/object.h:114		
 c0093	src/object.c:652;src/object.h:147		

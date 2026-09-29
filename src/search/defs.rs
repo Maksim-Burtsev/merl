@@ -440,6 +440,221 @@ fn in_class_body(text: &str, line: usize) -> bool {
         .find(|l| indent(l) < depth)
         .is_some_and(|l| CLASS.is_match(l))
 }
+/// Of the C and C++ candidates for `word` found by name, the ones the file `here` can see (#364).
+/// A source file (`.c`, `.cc`, `.cpp`, `.cxx`) is compiled alone, so what another one declares
+/// `static` at file scope, with `#define` or inside an unnamed `namespace {` is visible in no
+/// other file: those rows go, unless `here` `#include`s that file. A header's rows stay, as do
+/// types (an opaque struct's body lives in one source file). In `here` itself a file-scope
+/// `static` hides every other declaration of the name, so it is the answer — unless the cursor
+/// stands `on` a candidate, where the others are offered as namesakes.
+pub fn c_file_local(
+    word: &str,
+    here: &Path,
+    here_text: &str,
+    hits: Vec<Hit>,
+    text_of: impl Fn(&Path) -> Option<String>,
+    on: bool,
+) -> Vec<Hit> {
+    static INCLUDE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r#"^\s*#\s*include\s*"([^"]+)""#).unwrap());
+    static STATIC: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^(?:inline\s+)?static\b").unwrap());
+    static DEFINE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*#\s*define\b").unwrap());
+    let (w, macros) = (regex::escape(word), c_mods!(macros));
+    let ty = Regex::new(&format!(
+        r"\b(?:struct|class|union|enum)\s+{macros}{w}\b|^\s*typedef\b"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let local = |h: &Hit| STATIC.is_match(&h.text) && !ty.is_match(&h.text);
+    if !on && hits.iter().any(|h| h.path == here && local(h)) {
+        return hits
+            .into_iter()
+            .filter(|h| h.path == here && local(h))
+            .collect();
+    }
+    let included: Vec<&str> = here_text
+        .lines()
+        .filter_map(|l| INCLUDE.captures(l).and_then(|c| c.get(1)))
+        .map(|m| m.as_str())
+        .collect();
+    let source = |p: &Path| {
+        p.extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| matches!(e, "c" | "cc" | "cpp" | "cxx"))
+    };
+    hits.into_iter()
+        .filter(|h| {
+            if h.path == here || !source(&h.path) || included.iter().any(|i| h.path.ends_with(i)) {
+                return true;
+            }
+            if DEFINE.is_match(&h.text) {
+                return false;
+            }
+            ty.is_match(&h.text)
+                || !local(h) && !text_of(&h.path).is_some_and(|t| in_unnamed_namespace(&t, h.line))
+        })
+        .collect()
+}
+/// Whether 1-based `line` of a C++ `text` sits inside an unnamed `namespace {`, by the braces
+/// above it outside strings and comments.
+fn in_unnamed_namespace(text: &str, line: usize) -> bool {
+    static UNNAMED: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*namespace\s*(?:\{|$)").unwrap());
+    let literal = literal_lines(Kind::C, text);
+    let (mut open, mut unnamed) = (Vec::new(), false);
+    for (i, l) in text.lines().enumerate().take(line.saturating_sub(1)) {
+        if literal.get(i).copied().unwrap_or(false) {
+            continue;
+        }
+        unnamed |= UNNAMED.is_match(l);
+        for (_, c) in code(Kind::C, l) {
+            match c {
+                b'{' => {
+                    open.push(unnamed);
+                    unnamed = false;
+                }
+                b'}' => {
+                    open.pop();
+                }
+                _ => {}
+            }
+        }
+    }
+    open.contains(&true)
+}
+/// Whether the C line `line` of `text` defines `word` only where nothing else does: a
+/// `#define word` right under `#ifndef word` or `#if !defined(word)` (#364).
+pub fn c_fallback(text: &str, line: usize, word: &str) -> bool {
+    let w = regex::escape(word);
+    let re = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let define = re(format!(r"^\s*#\s*define\s+{w}\b"));
+    let guard = re(format!(
+        r"^\s*#\s*(?:ifndef\s+{w}\b|if\s+!\s*defined\s*\(?\s*{w}\b)"
+    ));
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
+        return false;
+    };
+    define.is_match(lines[k])
+        && lines[..k]
+            .iter()
+            .rev()
+            .find(|l| {
+                let t = l.trim();
+                !t.is_empty() && !t.starts_with("//") && !t.starts_with("/*") && !t.starts_with('*')
+            })
+            .is_some_and(|l| guard.is_match(l))
+}
+/// A C parameter as its type alone, to tell a prototype of a function from an overload:
+/// `const char *name = "x"` is `constchar*`. The name is the last word after another word, a `*`
+/// or a `&`, unless it is a word of a built-in type (`unsigned long`). A type written in a way
+/// this misreads only keeps a picker.
+fn c_param_type(p: &str) -> String {
+    static NAME: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"[\w*&\s]\b([A-Za-z_]\w*)\s*$").unwrap());
+    let mut p = p.split('=').next().unwrap_or(p).trim();
+    while let Some(open) = p.strip_suffix(']').and_then(|q| q.rfind('[')) {
+        p = p[..open].trim_end();
+    }
+    let builtin = [
+        "int", "char", "short", "long", "float", "double", "void", "signed", "unsigned", "bool",
+    ];
+    let p = match NAME.captures(p).and_then(|c| c.get(1)) {
+        Some(name) if !builtin.contains(&name.as_str()) => &p[..name.start()],
+        _ => p,
+    };
+    p.split_whitespace().collect()
+}
+/// When the C or C++ candidates for `word` are one function — its definition and its prototypes,
+/// all taking the same parameters — or one variable — its definition and its `extern`
+/// declarations — the index of the one definition, and what was set aside for the status line:
+/// `1 definition, 2 prototypes` (#364). `None` for anything else: overloads, two definitions
+/// (`#if` / `#else` variants), a macro, a type.
+pub fn c_one_definition(
+    word: &str,
+    hits: &[Hit],
+    text_of: impl Fn(&Path) -> Option<String>,
+) -> Option<(usize, String)> {
+    let w = regex::escape(word);
+    let re = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let call = re(format!(r"\b{w}\s*\("));
+    let global = re(format!(
+        r"^\w[^;(){{}}=<>]*[\s*&]{w}\s*(?:\[[^\]]*\])*\s*(?:=[^=]|;)"
+    ));
+    let macros = c_mods!(macros);
+    let other = re(format!(
+        r"^\s*#|\b(?:struct|class|union|enum|namespace)\s+{macros}{w}\b|^\s*(?:typedef|using)\b"
+    ));
+    if hits.len() < 2 || hits.iter().any(|h| other.is_match(&h.text)) {
+        return None;
+    }
+    // Per candidate: the parameters it takes (`None` for a variable), and whether it defines.
+    let mut shapes = Vec::new();
+    for h in hits {
+        shapes.push(match call.find(&h.text) {
+            Some(m) => {
+                let text = text_of(&h.path)?;
+                let s: String = text
+                    .lines()
+                    .skip(h.line - 1)
+                    .take(30)
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let open = m.end() - 1;
+                let close = close_of(Kind::C, &s, open)?;
+                let inner = &s[open + 1..close - 1];
+                let params: Vec<String> = match inner.trim() {
+                    "" | "void" => Vec::new(),
+                    _ => split_top(Kind::C, inner, b',')
+                        .into_iter()
+                        .map(c_param_type)
+                        .collect(),
+                };
+                let body = code(Kind::C, &s[close..])
+                    .find(|(_, c)| matches!(c, b'{' | b';'))
+                    .is_some_and(|(_, c)| c == b'{');
+                (Some(params), body)
+            }
+            None if global.is_match(&h.text) => (None, !h.text.starts_with("extern")),
+            None => return None,
+        });
+    }
+    if shapes.iter().any(|(p, _)| *p != shapes[0].0) {
+        return None;
+    }
+    let mut defs = shapes.iter().enumerate().filter(|(_, (_, body))| *body);
+    let (Some((at, _)), None) = (defs.next(), defs.next()) else {
+        return None;
+    };
+    let n = hits.len() - 1;
+    let what = match (shapes[0].0.is_some(), n) {
+        (true, 1) => "prototype",
+        (true, _) => "prototypes",
+        (false, 1) => "declaration",
+        (false, _) => "declarations",
+    };
+    Some((at, format!("1 definition, {n} {what}")))
+}
+/// Whether `word` is a parameter of the C function 1-based `line` of `text` stands in: named
+/// after the `(` of the nearest line above in column zero that opens no brace of its own, as
+/// a function's header does, the return type on the line above or not. The rules read no C
+/// parameter yet (#378), and one definition must not hide that a parameter was meant.
+pub fn c_parameter(text: &str, line: usize, word: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
+        return false;
+    };
+    lines[..=k]
+        .iter()
+        .rev()
+        .find(|l| {
+            l.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+                && !l.trim_end().ends_with(';')
+        })
+        .and_then(|l| l.split_once('('))
+        .is_some_and(|(_, params)| names(params, word))
+}
 /// [`member_patterns`] and, in Go, the method lines of an interface, which carry no receiver:
 /// every form in which a type declares a member called `word`.
 pub fn member_or_signature(kind: Kind, word: &str) -> Option<Vec<String>> {
