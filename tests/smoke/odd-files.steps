@@ -49,6 +49,8 @@ key Enter
 wait binary file, not shown
 # A script an agent wrote with the hidden chars of a "Trojan Source" attack: each is drawn as its
 # code on a warning's amber, the cursor steps over one in a press, and Delete takes it out (#401).
+# The script is written and committed here, not by setup.sh, so the other scenarios' file lists stay as they are.
+run printf 'def is_admin(user):\n    access_level = "user\342\200\256 \342\201\246// Check if admin\342\201\251 \342\201\246"\n    if access_level != "user\342\200\256 \342\201\246// Check if admin\342\201\251 \342\201\246":\n        return True\n    token = "abc\342\200\213def"\n    return False\n' > scripts/grant_admin.py && git add scripts/grant_admin.py && git commit -qm "scripts: grant_admin"
 merl scripts/grant_admin.py:5:17
 wait def is_admin(user):
 wait access_level = "user<202e> <2066>// Check if admin<2069> <2066>"
