@@ -280,6 +280,9 @@ pub struct App {
     /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
     /// keyword argument, which names a parameter no rule reads.
     offer_only: bool,
+    /// While `d` resolves the owner of a label (#316), where it collects the candidates it would
+    /// show: the callee of a named argument, the type of a literal.
+    probe: Option<Vec<Candidate>>,
     /// Set by a grep of this `d` that stopped at [`search::MAX_HITS`], whatever was filtered out
     /// of it afterwards: the candidates are a lower bound, so the count says `+` and a single
     /// one is offered, not jumped to.
@@ -498,6 +501,7 @@ impl App {
                 std::env::var("GOFLAGS").ok().as_deref(),
             ),
             offer_only: false,
+            probe: None,
             truncated: Default::default(),
             reading: Default::default(),
             focus,

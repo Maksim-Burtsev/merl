@@ -14,3 +14,9 @@ function load(grams) {
 }
 
 module.exports = { Courier, load };
+
+function flag(context, lastItem) {
+  context.report({ node: lastItem });
+  //               ^ d: none
+  //               status: node: key
+}

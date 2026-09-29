@@ -71,3 +71,15 @@ enum class Lane(val days: Int) {
 
 fun air(): Lane = Lane.AIR
 //                     ^ d: src/main/kotlin/shop/basket/Checkout.kt:65
+
+fun hire(): String = Courier(name = "post").name
+//                           ^ d: src/main/kotlin/shop/warehouse/Warehouse.kt:8
+
+fun heavy(): Int = weigh(
+    grams = 3,
+//  ^ d: picker src/main/kotlin/shop/warehouse/Warehouse.kt:5, src/main/kotlin/shop/warehouse/Warehouse.kt:12; want src/main/kotlin/shop/warehouse/Warehouse.kt:12 (#367)
+)
+
+fun loud(): Unit = println(message = "x")
+//                         ^ d: none
+//                         status: message: argument label

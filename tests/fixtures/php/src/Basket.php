@@ -115,7 +115,7 @@ final class Basket
     public function tariff(): int
     {
         $plan = new Plan(base: 3);
-        //               ^ d: src/Pricing/Tariff.php:15
+        //               ^ d: none; want src/Pricing/Tariff.php:15 (#351)
         return $plan->base;
         //            ^ d: src/Pricing/Tariff.php:15
     }
@@ -159,4 +159,11 @@ final class Basket
         //                               ^ d: none
         //                                        ^ d: src/Basket.php:130
     }
+}
+
+function labels(): array
+{
+    return array_map(callback: null, array: []);
+    //               ^ d: none
+    //               status: callback: argument label
 }

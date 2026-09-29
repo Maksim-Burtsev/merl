@@ -73,7 +73,7 @@ public class Basket
     //                                                          ^ d: src/Shop/Pricing/Pricing.cs:58
 
     public Courier Hire() => new Courier(name: "post");
-    //                                   ^ d: none; want src/Shop/Warehouse/Courier.cs:7 (#316)
+    //                                   ^ d: src/Shop/Warehouse/Courier.cs:7
 
     public ScopeView Scope() => new ScopeView { Checked = true };
     //                                          ^ d: picker src/Shop/Warehouse/Courier.cs:25, src/Shop/Warehouse/Courier.cs:30; want src/Shop/Warehouse/Courier.cs:25 (#352)
