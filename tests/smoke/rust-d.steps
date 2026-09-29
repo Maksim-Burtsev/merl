@@ -11,3 +11,12 @@ key [ /
 type cents(350
 key Enter d
 wait scripts/payouts/src/summary.rs  3:4
+# A Rust local lands on its `let`, `(local)`, and a parameter on the `fn` line (#353).
+key /
+type sum))
+key Enter d
+wait sum → report::sum (local)
+key /
+type amounts.iter
+key Enter d
+wait amounts → report::amounts (local)

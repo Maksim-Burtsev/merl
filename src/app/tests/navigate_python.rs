@@ -956,3 +956,350 @@ fn a_member_of_a_value_is_looked_for_outside_the_project_too() {
     );
     std::fs::remove_dir_all(&site).unwrap();
 }
+
+/// #333. A word in the module path of an import line opens that module, in the project or outside
+/// it, matched from the root it lies under: never a method of the name, never a namesake found
+/// by name. So does a name an import binds to a module outside, bare or as a qualifier, unless
+/// the package above binds it itself; and the name a plain `import x` binds is a module or
+/// nothing.
+#[test]
+fn a_module_name_in_or_bound_by_an_import_opens_the_module() {
+    let std = external_root(
+        "py-modules-std",
+        &[
+            ("json/__init__.py", "def dumps(obj):\n    pass\n"),
+            // The base interpreter's pip, which a module found by name used to land in.
+            (
+                "site-packages/pip/_internal/cli/cmdoptions.py",
+                "json = object()\n",
+            ),
+        ],
+    );
+    let site = external_root(
+        "py-modules-site",
+        &[
+            ("django/__init__.py", ""),
+            ("django/core/__init__.py", ""),
+            (
+                "django/core/management/__init__.py",
+                "class CommandError(Exception):\n    pass\n",
+            ),
+            ("rest_framework/__init__.py", ""),
+            (
+                "rest_framework/serializers.py",
+                "class ListField:\n    pass\n",
+            ),
+            (
+                "fsspec/github.py",
+                "class GithubFileSystem:\n    def repos(self):\n        pass\n",
+            ),
+            // A module of the name deeper in another package is not the one imported.
+            ("kombu/utils/yaml.py", "def load(s):\n    pass\n"),
+            // A package that binds the name itself keeps its say.
+            ("drf/__init__.py", "fields = None\n"),
+            ("drf/fields.py", "x = 1\n"),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "py-modules",
+        &[
+            ("app/__init__.py", ""),
+            ("app/repos.py", "class UserRepo:\n    pass\n"),
+            (
+                "app/modules.py",
+                "from app.repos import UserRepo\nfrom django.core.management import CommandError\nimport json\nfrom rest_framework import serializers\nimport yaml\nfrom drf import fields\n\n\ndef main():\n    json.dumps({})\n    serializers.ListField()\n    yaml.load(\"\")\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, &[std.clone(), site.clone()]);
+    let module = |word: &str, file: &str, root: &Path| {
+        let place = format!("{}:1", root.join(file).display());
+        jump(&format!("{word}: module {file}"), &place)
+    };
+    for (code, want) in [
+        (
+            "from app.repos",
+            module("repos", "app/repos.py", Path::new("")),
+        ),
+        (
+            "from app|.repos",
+            module("app", "app/__init__.py", Path::new("")),
+        ),
+        (
+            "from django.core.management",
+            module("management", "django/core/management/__init__.py", &site),
+        ),
+        (
+            "from django.core|.management",
+            module("core", "django/core/__init__.py", &site),
+        ),
+        ("^import json", module("json", "json/__init__.py", &std)),
+        ("json|.dumps", module("json", "json/__init__.py", &std)),
+        (
+            "import serializers",
+            module("serializers", "rest_framework/serializers.py", &site),
+        ),
+        (
+            "serializers|.ListField",
+            module("serializers", "rest_framework/serializers.py", &site),
+        ),
+        // Nothing of the name at the root: no module, and no search by name.
+        (
+            "^import yaml",
+            jump("no definition for yaml", "app/modules.py:5"),
+        ),
+        (
+            "^    yaml|.load",
+            jump("no definition for yaml", "app/modules.py:12"),
+        ),
+        // Unchanged: what the import takes, and a name the package above binds.
+        (
+            "import UserRepo",
+            jump("UserRepo: via import app/repos.py", "app/repos.py:1"),
+        ),
+        (
+            "json.dumps",
+            jump(
+                "dumps: via import json",
+                &format!("{}:1", std.join("json/__init__.py").display()),
+            ),
+        ),
+        (
+            "serializers.ListField",
+            jump(
+                "ListField: via import rest_framework.serializers",
+                &format!("{}:1", site.join("rest_framework/serializers.py").display()),
+            ),
+        ),
+        (
+            "import fields",
+            jump(
+                "fields: by name, 1 match",
+                &format!("{}:1", site.join("drf/__init__.py").display()),
+            ),
+        ),
+    ] {
+        d_on(&mut a, "app/modules.py", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    for d in [dir, std, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+/// #342. A member a project class lacks, when its ancestry goes outside the project, is looked
+/// for only in the project classes extending it; a name qualified by a class imported from
+/// outside is a member of that class, never a top-level namesake; one method outside is offered,
+/// not jumped to, while a field of the name is declared outside too.
+#[test]
+fn a_member_from_outside_never_lands_on_a_namesake() {
+    let std = external_root(
+        "py-outside-std",
+        &[(
+            "unittest/mock.py",
+            "class NonCallableMock:\n    return_value = property(lambda self: None)\n\n\nclass Mock(NonCallableMock):\n    pass\n",
+        )],
+    );
+    let site = external_root(
+        "py-outside-site",
+        &[
+            (
+                "django/test/__init__.py",
+                "from django.test.testcases import TestCase\n",
+            ),
+            (
+                "django/test/testcases.py",
+                "import unittest\n\n\nclass SimpleTestCase(unittest.TestCase):\n    client = None\n\n\nclass TestCase(SimpleTestCase):\n    pass\n",
+            ),
+            (
+                "django/contrib/auth/models.py",
+                "class AbstractUser:\n    objects = None\n\n\nclass User(AbstractUser):\n    pass\n",
+            ),
+            ("nltk/chomsky.py", "objects = \"text\"\n"),
+            (
+                "anyio/tasks.py",
+                "class TaskHandle:\n    def return_value(self):\n        pass\n\n    def captured_queries(self):\n        pass\n",
+            ),
+            ("six.py", "def with_metaclass(meta, *bases):\n    pass\n"),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "py-outside",
+        &[
+            (
+                "app/mailer.py",
+                "class Mailer:\n    def __init__(self, client):\n        self.client = client\n",
+            ),
+            (
+                "app/test_views.py",
+                "from django.test import TestCase\n\n\nclass TestViews(TestCase):\n    def test_get(self) -> None:\n        self.client.get(\"/\")\n",
+            ),
+            (
+                "app/users.py",
+                "from django.contrib.auth.models import User\n\n\ndef users():\n    return User.objects.all()\n",
+            ),
+            (
+                "app/mocks.py",
+                "from unittest import mock\n\n\ndef use(m: mock.Mock) -> None:\n    m.return_value = None\n    m.captured_queries()\n",
+            ),
+            // A subclass that sets the member stays a candidate.
+            (
+                "app/test_api.py",
+                "from django.test import TestCase\n\n\nclass ApiCase(TestCase):\n    def test_post(self) -> None:\n        self.client.post(\"/\")\n\n\nclass SignedCase(ApiCase):\n    def setUp(self) -> None:\n        self.client = None\n",
+            ),
+            // A base written as a call cannot be read: today's search by name.
+            (
+                "app/test_six.py",
+                "import six\nfrom django.test import TestCase\n\n\nclass SixCase(six.with_metaclass(type, TestCase)):\n    def test_put(self) -> None:\n        self.client.put(\"/\")\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, &[std.clone(), site.clone()]);
+    let outside = |root: &Path, file: &str| format!("{}", root.join(file).display());
+    for (file, code, want) in [
+        (
+            "app/test_views.py",
+            "self.client",
+            jump("no definition for client", "app/test_views.py:6"),
+        ),
+        (
+            "app/users.py",
+            "User.objects",
+            jump("no definition for objects", "app/users.py:5"),
+        ),
+        (
+            "app/mocks.py",
+            "m.return_value",
+            Shown::Picker(
+                "return_value: by name, 1+ declarations".into(),
+                vec![(
+                    "TaskHandle.return_value".into(),
+                    "by name".into(),
+                    "anyio/tasks.py:2".into(),
+                )],
+            ),
+        ),
+        (
+            "app/mocks.py",
+            "m.captured_queries",
+            jump(
+                "captured_queries \u{2192} TaskHandle.captured_queries (by name, 1 match)",
+                &format!("{}:5", outside(&site, "anyio/tasks.py")),
+            ),
+        ),
+        (
+            "app/test_api.py",
+            "self.client|.post",
+            jump(
+                "client \u{2192} SignedCase.client (by name, 1 match)",
+                "app/test_api.py:11",
+            ),
+        ),
+    ] {
+        d_on(&mut a, file, code);
+        assert_eq!(shown(&mut a), want, "{file}: {code}");
+    }
+    d_on(&mut a, "app/test_six.py", "self.client");
+    let Shown::Picker(_, rows) = shown(&mut a) else {
+        panic!("a picker");
+    };
+    assert!(rows.iter().any(|r| r.2 == "app/mailer.py:3"), "{rows:?}");
+    for d in [dir, std, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+/// #336. A builtin has no source: a bare `next` nothing in the file binds, and a member of a
+/// value proven to be a `str`, say so rather than jumping to a namesake outside. A bare name
+/// nothing binds that is no builtin is no method outside, and only a module the file
+/// `*`-imports can declare it there.
+#[test]
+fn a_builtin_says_it_has_no_source() {
+    let std = external_root(
+        "py-builtins-std",
+        &[
+            (
+                "ast.py",
+                "class NodeVisitor:\n    def next(self):\n        pass\n",
+            ),
+            (
+                "datetime.py",
+                "class date:\n    def replace(self, year=None):\n        pass\n",
+            ),
+            ("tools/__init__.py", "def helper():\n    pass\n"),
+            (
+                "other.py",
+                "class Thing:\n    def helper(self):\n        pass\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "py-builtins",
+        &[
+            (
+                "app/builtins_use.py",
+                "def render() -> str | None:\n    return None\n\n\ndef go(name: str) -> None:\n    s = render()\n    s.replace(\"a\", \"b\")\n    first = next(iter([1]))\n    name.upper()\n    helper()\n",
+            ),
+            (
+                "app/starred.py",
+                "from tools import *\n\n\ndef go() -> None:\n    helper()\n",
+            ),
+            // A project class called `str` is read as before.
+            (
+                "app/own_str.py",
+                "class str:\n    def replace(self):\n        pass\n\n\ndef go(s: str) -> None:\n    s.replace()\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&std));
+    let here = |file: &str, line: usize| format!("{file}:{line}");
+    for (file, code, want) in [
+        (
+            "app/builtins_use.py",
+            "s.replace",
+            jump(
+                "replace: builtin, no source (via render() -> str)",
+                &here("app/builtins_use.py", 7),
+            ),
+        ),
+        (
+            "app/builtins_use.py",
+            "next",
+            jump("next: builtin, no source", &here("app/builtins_use.py", 8)),
+        ),
+        (
+            "app/builtins_use.py",
+            "name.upper",
+            jump(
+                "upper: builtin, no source (via name: str)",
+                &here("app/builtins_use.py", 9),
+            ),
+        ),
+        (
+            "app/builtins_use.py",
+            "^    helper",
+            jump("no definition for helper", &here("app/builtins_use.py", 10)),
+        ),
+        (
+            "app/starred.py",
+            "^    helper",
+            jump(
+                "helper: via import tools",
+                &format!("{}:1", std.join("tools/__init__.py").display()),
+            ),
+        ),
+        (
+            "app/own_str.py",
+            "s.replace",
+            jump(
+                "replace \u{2192} str.replace (via s: str)",
+                &here("app/own_str.py", 2),
+            ),
+        ),
+    ] {
+        d_on(&mut a, file, code);
+        assert_eq!(shown(&mut a), want, "{file}: {code}");
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+    std::fs::remove_dir_all(std).unwrap();
+}

@@ -1,0 +1,57 @@
+wait sum → report::sum (local)
+ 1 //! One entry per payout, then the sum.
+ 2
+ 3 fn cents(amount: u64) -> String {
+ 4     format!("{} EUR", amount as f64 / 100.0)
+ 5 }
+ 6
+ 7 pub fn report(amounts: &[u64]) -> String {
+ 8     let sum: u64 = amounts.iter().sum();
+ 9     let mut out: Vec<String> = amounts.iter().map(|&a| crate::ledger::entry(a)).collect();
+10     out.push(cents(sum));
+11     out.join("\n")
+12 }
+13
+14 #[cfg(test)]
+15 mod tests {
+16     use super::*;
+17
+18     fn sample() -> Vec<u64> {
+19         vec![100, 250]
+20     }
+21
+22     #[test]
+23     fn sums() {
+24         assert!(report(&sample()).ends_with(&cents(350)));
+25     }
+26 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+scripts/payouts/src/summary.rs  8:9  [code]  sum → report::sum (local)
+cursor (x,y,shown) 11,7,1

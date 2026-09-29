@@ -9,6 +9,7 @@ wait def is_admin(user):
 │▾ scripts                   │
 │  ▸ payouts                 │
 │    grant_admin.py          │
+│    invoices.php            │
 │    refund_by_hand.py       │
 │▸ tests                     │
 │▸ web                       │
@@ -20,7 +21,6 @@ wait def is_admin(user):
 │  Makefile                  │
 │  pyproject.toml            │
 │  README.md                 │
-│                            │
 │                            │
 │                            │
 │                            │

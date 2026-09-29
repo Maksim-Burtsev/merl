@@ -480,6 +480,10 @@ fn php_symbol_names() {
             "    public const STATUS_OPEN = 'open';",
             Some("STATUS_OPEN"),
         ),
+        // A typed constant under its name, not its type (#344).
+        ("    private const int LIMIT = 500;", Some("LIMIT")),
+        ("    const ?string LABEL = null;", Some("LABEL")),
+        ("    public const A|B UNION = 1;", Some("UNION")),
         // A property is a field, an enum case is what a type holds, and a `define()` has no
         // keyword before the name: none of them is a symbol.
         ("    protected array $rows = [];", None),

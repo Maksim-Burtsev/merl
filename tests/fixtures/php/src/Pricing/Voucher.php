@@ -16,14 +16,14 @@ class Voucher extends Tariff implements Priced
     public function rate(): int
     {
         return parent::rate() + static::BONUS;
-        //             ^ d: picker src/Pricing/Voucher.php:16, src/Pricing/Coupon.php:15, src/Pricing/Priced.php:7, src/Pricing/Tariff.php:19; want src/Pricing/Tariff.php:19 (#356)
+        //             ^ d: src/Pricing/Tariff.php:19
         //                              ^ d: src/Pricing/Voucher.php:14
     }
 
     public function cap(?int $cap): int
     {
         $cap ??= discount(total: 5);
-        //                ^ d: picker src/Basket.php:91, src/Basket.php:92; want src/Pricing/functions.php:8 (#316)
+        //                ^ d: src/Pricing/functions.php:8
         return $cap;
         //      ^ d: src/Pricing/Voucher.php:23
     }

@@ -8,13 +8,13 @@ public class Startup
     public void Run(Dictionary<string, string> claims)
     {
         claims.Remove("sub");
-        //     ^ d: src/Shop/Warehouse/Courier.cs:40; want none (#355)
+        //     ^ d: none
     }
 
     public async Task Wait(Animation animation)
     {
         await Task.Delay(animation.Delay);
-        //         ^ d: src/Shop/Warehouse/Courier.cs:45; want none (#355)
+        //         ^ d: none
         //                         ^ d: src/Shop/Warehouse/Courier.cs:45
     }
 

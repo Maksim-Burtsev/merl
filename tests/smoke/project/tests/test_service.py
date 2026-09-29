@@ -48,3 +48,7 @@ def test_missing_order():
     service, _ = make_service()
     with pytest.raises(OrderNotFound):
         service.get(404)
+
+
+def test_first_of_many():
+    assert next(iter([3, 4])) == 3

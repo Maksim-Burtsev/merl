@@ -49,9 +49,9 @@ wait tests/test_service.py  1:1
 48     service, _ = make_service()
 49     with pytest.raises(OrderNotFound):
 50         service.get(404)
-
-
-
-
+51
+52
+53 def test_first_of_many():
+54     assert next(iter([3, 4])) == 3
 tests/test_service.py  1:1  [code]                                                                                                                                                ? help
 cursor (x,y,shown) 3,0,1

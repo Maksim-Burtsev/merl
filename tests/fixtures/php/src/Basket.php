@@ -29,7 +29,7 @@ final class Basket
     {
         return discount($this->tariff->rate());
         //     ^ d: src/Pricing/functions.php:8
-        //                     ^ d: picker src/Basket.php:20, src/Basket.php:115; want src/Basket.php:20 (#356)
+        //                     ^ d: src/Basket.php:20
         //                             ^ d: picker src/Pricing/Coupon.php:15, src/Pricing/Priced.php:7, src/Pricing/Tariff.php:19, src/Pricing/Voucher.php:16; want src/Pricing/Tariff.php:19 (#361)
     }
 
@@ -62,7 +62,7 @@ final class Basket
         //        ^ d: src/Warehouse/functions.php:5
         return count($rows) > count($this->rows);
         //            ^ d: src/Basket.php:60
-        //                                 ^ d: picker src/Basket.php:17, src/Basket.php:60; want src/Basket.php:17 (#348)
+        //                                 ^ d: src/Basket.php:17
     }
 
     public function dispatch(): string
@@ -107,15 +107,15 @@ final class Basket
     public function coupon(): string
     {
         return $this->coupon->code . $this->coupon->bonus() . $this->coupon->stamps;
-        //                    ^ d: none; want src/Pricing/Coupon.php:6 (#344)
-        //                                          ^ d: src/Basket.php:36; want src/Pricing/Coupon.php:7 (#344)
+        //                    ^ d: src/Pricing/Coupon.php:6
+        //                                          ^ d: picker src/Basket.php:36, src/Pricing/Coupon.php:7; want src/Pricing/Coupon.php:7 (#361)
         //                                                                   ^ d: src/Pricing/Stamps.php:7
     }
 
     public function tariff(): int
     {
         $plan = new Plan(base: 3);
-        //               ^ d: src/Pricing/Tariff.php:15
+        //               ^ d: none; want src/Pricing/Tariff.php:15 (#351)
         return $plan->base;
         //            ^ d: src/Pricing/Tariff.php:15
     }
@@ -171,4 +171,11 @@ final class Basket
         //              ^ d: src/Basket.php:163
         return $chime;
     }
+}
+
+function labels(): array
+{
+    return array_map(callback: null, array: []);
+    //               ^ d: none
+    //               status: callback: argument label
 }

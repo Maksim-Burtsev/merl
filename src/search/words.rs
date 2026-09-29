@@ -21,6 +21,15 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     static FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)").unwrap()
     });
+    static GO_TYPE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^type\s+([A-Za-z_]\w*)").unwrap());
+    // The line that opens a struct written in place: `range []struct {`, `x := struct {`.
+    static GO_ANONYMOUS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:\]|=|\(|,)\s*struct\s*\{\s*(?://.*)?$").unwrap()
+    });
+    static RUST_FN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^\s*(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*fn\s+([A-Za-z_]\w*)"#).unwrap()
+    });
     static PY_DEF: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)").unwrap());
     static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -50,6 +59,28 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     if let Some(c) = RECEIVER.captures(target).filter(|_| kind == Kind::Go) {
         return Some(format!("{}{sep}{name}", &c[1]));
     }
+    // A Kotlin extension is named by its receiver type (#362): `Topic.asExternalModel`.
+    if kind == Kind::Jvm
+        && let Some(receiver) = jvm_receiver(target, name)
+    {
+        return Some(format!("{receiver}{sep}{name}"));
+    }
+    // Any other name on a Java or Kotlin function's header is a parameter (#376), named as a
+    // local of the body is: `SortUtils.resolve.directionParams`.
+    if kind == Kind::Jvm
+        && let Some(f) = jvm_function(target).filter(|f| f != name)
+    {
+        let owner = qualified(kind, text, line, &f).unwrap_or(f);
+        return Some(format!("{owner}{sep}{name}"));
+    }
+    // A field of a Go struct whose body closes on its own line, `type Item struct{ Name string }`
+    // or `[]struct{ want int }{…}`, is its type's, or the struct's written in place (#330).
+    if kind == Kind::Go && go_one_line_field(target, name) {
+        let owner = GO_TYPE
+            .captures(target)
+            .map_or_else(|| "struct{\u{2026}}".to_owned(), |c| c[1].to_owned());
+        return (owner != name).then(|| format!("{owner}{sep}{name}"));
+    }
     // A field declared inside a method or in a constructor's parameters is the class's:
     // `Issue.repo`, not `Issue.__init__.repo`.
     if field_like(kind, target.trim_start(), name)
@@ -60,6 +91,28 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         && let Some(ty) = type_name(kind, lines[decl - 1])
     {
         let owner = qualified(kind, text, decl, &ty).unwrap_or(ty);
+        return Some(format!("{owner}{sep}{name}"));
+    }
+    // A tag of a PHP class's docblock declares a member of the class under it (#344).
+    if kind == Kind::Php
+        && let Some(class) = php_tag_class(&lines, line - 1)
+        && let Some(owner) = declared_name(Some(kind), lines[class])
+    {
+        let owner = qualified(kind, text, class + 1, &owner).unwrap_or(owner);
+        return Some(format!("{owner}{sep}{name}"));
+    }
+    // Any other name on a Rust `fn` line is a parameter (#353): `Builder::hyperlink::config`.
+    if kind == Kind::Rust
+        && let Some(c) = RUST_FN.captures(target).filter(|c| &c[1] != name)
+    {
+        let owner = qualified(kind, text, line, &c[1]).unwrap_or_else(|| c[1].to_owned());
+        return Some(format!("{owner}{sep}{name}"));
+    }
+    // A parameter on a C# method's line reads as a local of its body (#345).
+    if kind == Kind::CSharp
+        && let Some(m) = cs_parameter_of(target, name)
+    {
+        let owner = qualified(kind, text, line, &m).unwrap_or(m);
         return Some(format!("{owner}{sep}{name}"));
     }
     // Any other name on a Python `def` line is a parameter (#100): `Recipes.get_one.slug`, as a
@@ -89,7 +142,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     if cpp {
         names.extend(cpp_namespace(target, name));
     }
-    for l in lines[..line - 1].iter().rev() {
+    for (j, l) in lines[..line - 1].iter().enumerate().rev() {
         if depth == 0 {
             break;
         }
@@ -97,6 +150,12 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             continue;
         }
         depth = indent(l);
+        // `more = …` under `const fs = …,` is declared where that statement is (#328).
+        if kind == Kind::TsJs
+            && ts_declarators(&lines, j).is_some_and(|d| d.iter().any(|(at, _)| *at == line - 1))
+        {
+            return qualified(kind, text, j + 1, name);
+        }
         // `class << self` opens the class around it, which the walk goes on to name.
         if ruby && l.trim_start().starts_with("class << self") {
             continue;
@@ -112,6 +171,11 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
                     .map(|c| c[1].to_owned())
             })
             .or_else(|| declared_name(Some(kind), l));
+        // A field of a Go struct written in place is that struct's, wherever it stands (#330).
+        if named.is_none() && kind == Kind::Go && GO_ANONYMOUS.is_match(l) {
+            names.push("struct{\u{2026}}".to_owned());
+            break;
+        }
         match named {
             Some(n) => {
                 if cpp {
@@ -257,7 +321,7 @@ fn aside(t: &str) -> bool {
 /// Whether a walk up the indentation from a line to the declarations around it steps over the
 /// trimmed line `t` of a file of `kind`: an [`aside`], or a line that names nothing itself but
 /// belongs to the header above it.
-fn steps_over(kind: Option<Kind>, t: &str) -> bool {
+pub(super) fn steps_over(kind: Option<Kind>, t: &str) -> bool {
     // A lone `{` opens the body of a declaration wrapped over the lines above it, as prettier
     // writes a long TypeScript class header; it names nothing itself. Neither does a C++ access
     // specifier, which is a label inside the class, not a wall in front of it.
@@ -382,17 +446,25 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
     chain
 }
 /// The line a member access reads as when prettier has broken it in front of its dots (#100):
-/// `return this.db` over `  .selectFrom(` is `return this.db.selectFrom(`. Gives the lines joined,
+/// `return this.db` over `  .selectFrom(` is `return this.db.selectFrom(`, and a PHP chain
+/// broken in front of its arrows, `$query` over `    ->where(` (#348). Gives the lines joined,
 /// without their comments, and where the word that starts at byte `word_start` of line `at`
-/// stands in them; `None` for a line that does not start with a dot.
+/// stands in them; `None` for a line that does not start with a dot or an arrow.
 pub fn unbroken(
     kind: Kind,
     lines: &[String],
     at: usize,
     word_start: usize,
 ) -> Option<(String, usize)> {
-    let led = |l: &str| l.trim_start().starts_with('.') && !l.trim_start().starts_with("..");
-    if kind != Kind::TsJs || !led(&lines[at]) {
+    let led = |l: &str| {
+        let t = l.trim_start();
+        match kind {
+            Kind::TsJs => t.starts_with('.') && !t.starts_with(".."),
+            Kind::Php => t.starts_with("->") || t.starts_with("?->"),
+            _ => false,
+        }
+    };
+    if !led(&lines[at]) {
         return None;
     }
     let mut joined = lines[at].trim_start().to_owned();
@@ -417,12 +489,18 @@ pub fn unbroken(
     None
 }
 /// A TypeScript line with `a?.b` and `a!.b` in front of byte `start` written as the plain `a.b`
-/// they are for a member lookup (#100), and where `start` stands in it.
+/// they are for a member lookup (#100), and where `start` stands in it. A PHP line likewise with
+/// its `->` and `?->` as `.` (#348), and its own `.`, which concatenates, as a space: `$a.foo()`
+/// calls the function `foo`.
 pub fn plain_access(kind: Kind, line: &str, start: usize) -> (String, usize) {
-    if kind != Kind::TsJs {
-        return (line.to_owned(), start);
-    }
-    let before = line[..start].replace("?.", ".").replace("!.", ".");
+    let before = match kind {
+        Kind::TsJs => line[..start].replace("?.", ".").replace("!.", "."),
+        Kind::Php => line[..start]
+            .replace('.', " ")
+            .replace("?->", ".")
+            .replace("->", "."),
+        _ => return (line.to_owned(), start),
+    };
     (format!("{before}{}", &line[start..]), before.len())
 }
 /// The call a member access hangs off, where [`qualifier`] has no name to start from:

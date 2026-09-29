@@ -1,0 +1,57 @@
+wait worker → struct{…}.worker (via k: struct{…})
+23 // New returns a queue in memory, for local runs and tests.
+24 func New() *memQueue {
+25     return &memQueue{}
+26 }
+27
+28 func (q *memQueue) Push(job Job) {
+29     q.mu.Lock()
+30     defer q.mu.Unlock()
+31     q.jobs = append(q.jobs, job)
+32 }
+33
+34 func (q *memQueue) Pop() (Job, bool) {
+35     q.mu.Lock()
+36     defer q.mu.Unlock()
+37     if len(q.jobs) == 0 {
+38         return Job{}, false
+39     }
+40     job := q.jobs[0]
+41     q.jobs = q.jobs[1:]
+42     return job, true
+43 }
+44
+45 // Kinds lists the job kinds a worker runs.
+46 func Kinds() []string {
+47     var kinds []string
+48     for _, k := range []struct {
+49         name   string
+50         worker bool
+51     }{
+52         {name: "ship", worker: true},
+53         {name: "sync", worker: true},
+54         {name: "audit"},
+55     } {
+56         if k.worker {
+57             kinds = append(kinds, k.name)
+58         }
+59     }
+60     return kinds
+61 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+worker/internal/queue/queue.go  50:9  [code]  worker → struct{…}.worker (via k: struct{…})
+cursor (x,y,shown) 11,27,1

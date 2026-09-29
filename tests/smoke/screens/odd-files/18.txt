@@ -9,6 +9,7 @@ wait 5▎    token = "abcdef"
 │▾ scripts                   │
 │  ▸ payouts                 │
 │    grant_admin.py          │
+│    invoices.php            │
 │    refund_by_hand.py       │
 │▸ tests                     │
 │▸ web                       │
@@ -20,7 +21,6 @@ wait 5▎    token = "abcdef"
 │  Makefile                  │
 │  pyproject.toml            │
 │  README.md                 │
-│                            │
 │                            │
 │                            │
 │                            │

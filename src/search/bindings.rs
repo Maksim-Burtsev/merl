@@ -33,6 +33,9 @@ pub enum Value {
     /// A field of a chain of names, as a TypeScript destructuring hands it on: `this` and `repo`
     /// for `const { repo } = this`, `this.uow` and `users` for `const { users: u } = this.uow`.
     Field(Vec<String>, String),
+    /// A Go struct written in place, whose body opens on this 1-based line: the element of
+    /// `for _, tc := range []struct {…}{…}` (#330).
+    Struct(usize),
     /// A declaration whose type the rules cannot read: `for repo in`, a tuple, a parameter with
     /// no annotation.
     Unknown,
@@ -53,6 +56,9 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     });
     static NAME: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^[A-Za-z_$][\w$]*$").unwrap());
+    static GO_STRUCTS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^((?:\[[^\]]*\]|map\[[^\]]*\])+)\s*struct\s*\{").unwrap()
+    });
     static ASSERTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^[A-Za-z_][\w.]*\.\(\s*(\*?[A-Za-z_][\w.]*)\s*\)$").unwrap()
     });
@@ -139,6 +145,13 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     {
         return Value::New(c[2].to_owned());
     }
+    // A collection of a struct written in place, `[]struct{ want int }{…}` (#330): the element
+    // is read at the line that writes it.
+    if kind == Kind::Go
+        && let Some(c) = GO_STRUCTS.captures(e)
+    {
+        return Value::Type(format!("{}struct", &c[1]));
+    }
     // A slice, array or map literal writes its type in front of its `{`: `[]Repo{…}`.
     if kind == Kind::Go
         && (e.starts_with('[') || e.starts_with("map["))
@@ -175,6 +188,8 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
 /// - Shell: a `local` (a `declare` / `typeset` without `-g`) above the cursor in the function
 ///   around it (#470).
 /// - Zig: [`zig_bindings`], inside a function only (#469).
+/// - Ruby: [`ruby_bindings`], scopes by indentation (#365).
+/// - Rust: [`rust_bindings`], the nearest binding above the line in the blocks around it (#353).
 /// - Elixir: [`elixir_bindings`], inside a `def` only (#460).
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
@@ -183,7 +198,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
     };
     match kind {
         Kind::Python => python_bindings(&lines, at, name),
-        Kind::TsJs | Kind::Go => block_bindings(kind, &lines, at, name),
+        Kind::TsJs | Kind::Go | Kind::CSharp => block_bindings(kind, &lines, at, name),
         Kind::Lua => lua_bindings(&lines, at, name),
         Kind::Shell => shell_function_at(&lines, at).map_or_else(Vec::new, |f| {
             (f + 1..=at)
@@ -195,6 +210,11 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
                 .collect()
         }),
         Kind::Zig => zig_bindings(&lines, at, name),
+        Kind::C => c_bindings(text, line, name),
+        Kind::Jvm => jvm_bindings(&lines, at, name),
+        Kind::Swift => swift_bindings(&lines, at, name),
+        Kind::Ruby => ruby_bindings(&lines, at, name),
+        Kind::Rust => rust_bindings(&lines, at, name),
         Kind::Elixir => elixir_bindings(&lines, at, name),
         _ => Vec::new(),
     }
@@ -538,6 +558,338 @@ fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
                 }
             }
             return out;
+        }
+    }
+    Vec::new()
+}
+// ---- Swift's scopes (#371, #366) --------------------------------------------------------------
+/// A Swift line that opens a function's body, whose `let`s, `var`s and parameters are its own: a
+/// `func`, an `init`, a `subscript`, a `deinit`, an accessor, a computed property.
+static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(&format!(
+        r"{}(?:func\s|(?:init|subscript)\s*[?!(<]|deinit\b|(?:get|set|willSet|didSet|_read|_modify)\b|(?:var|let)\s+`?\w+`?\s*:[^=]*\{{\s*$)",
+        swift_mods!()
+    ))
+    .unwrap()
+});
+/// A Swift line that opens a type's body, whose `let`s and `var`s are members. Read after
+/// [`SWIFT_FUNC`], which takes `class func` and `class var x: T {`.
+static SWIFT_TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(&format!(
+        r"{}(?:class|struct|enum|protocol|actor|extension)\s+[`\w]",
+        swift_mods!()
+    ))
+    .unwrap()
+});
+/// A `let` or a `var` statement of Swift, and what follows the keyword.
+static SWIFT_DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(&format!(r"{}(?:let|var)\s+(.*)$", swift_mods!())).unwrap()
+});
+/// Whether 0-based line `i` of Swift `lines` is something the walk over the blocks reads: code,
+/// no comment, no `#if`, no line of a multi-line string.
+fn swift_code<S: AsRef<str>>(lines: &[S], literal: &[bool], i: usize) -> bool {
+    let t = lines[i].as_ref().trim();
+    !t.is_empty()
+        && !literal.get(i).copied().unwrap_or(false)
+        && !t.starts_with('#')
+        && !comment(Kind::Swift, t)
+}
+/// The first line of the header that 0-based line `i` of Swift `lines` ends: `) -> Int {` and a
+/// lone `{` close one wrapped over the lines above, from the line back at their indent, and a line
+/// under one ending in `,` goes on a condition or a parameter list.
+fn swift_header_start<S: AsRef<str>>(lines: &[S], literal: &[bool], mut i: usize) -> usize {
+    loop {
+        let ind = indent(lines[i].as_ref());
+        let wrapped = lines[i]
+            .as_ref()
+            .trim_start()
+            .starts_with([')', '{', ']', '>']);
+        let code = |j: usize| swift_code(lines, literal, j);
+        let Some(j) = (0..i)
+            .rev()
+            .find(|&j| code(j) && indent(lines[j].as_ref()) <= ind)
+        else {
+            return i;
+        };
+        let comma = (0..i).rev().find(|&j| code(j)) == Some(j)
+            && uncommented(Kind::Swift, lines[j].as_ref())
+                .trim_end()
+                .ends_with(',');
+        if !wrapped && !comma {
+            return i;
+        }
+        i = j;
+    }
+}
+/// Where 1-based `line` of a Swift file sits, told by indentation (#371): the 1-based line of the
+/// nearest `func`, `init`, `subscript`, `deinit` or accessor around it, or of a type's header when
+/// that comes first, or 0 at the top of the file; and whether a `let` or a `var` there is a local,
+/// which is when the block right around it is no type's body and not the file's top level.
+/// `literal` is [`literal_lines`] of the file.
+pub fn swift_scope<S: AsRef<str>>(lines: &[S], literal: &[bool], line: usize) -> (usize, bool) {
+    let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return (0, false);
+    };
+    let (mut depth, mut i, mut local) = (indent(target.as_ref()), line - 1, None);
+    while i > 0 && depth > 0 {
+        i -= 1;
+        if !swift_code(lines, literal, i) || indent(lines[i].as_ref()) >= depth {
+            continue;
+        }
+        depth = indent(lines[i].as_ref());
+        i = swift_header_start(lines, literal, i);
+        let t = uncommented(Kind::Swift, lines[i].as_ref());
+        let func = SWIFT_FUNC.is_match(&t);
+        let ty = !func && SWIFT_TYPE.is_match(&t);
+        let local = *local.get_or_insert(!ty);
+        if func || ty {
+            return (i + 1, local);
+        }
+    }
+    (0, local.unwrap_or(false))
+}
+/// Whether a Swift line is an `extension` (#371).
+pub fn swift_extension(line: &str) -> bool {
+    static EXTENSION: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(&format!(r"{}extension\s", swift_mods!())).unwrap());
+    EXTENSION.is_match(line)
+}
+/// The function whose local the `let` or `var` on 1-based `line` of a Swift file is, as
+/// [`swift_scope`] names it; `None` for a member, a global, or no `let` or `var` at all.
+pub fn swift_local<S: AsRef<str>>(lines: &[S], literal: &[bool], line: usize) -> Option<usize> {
+    let text = lines.get(line.checked_sub(1)?)?.as_ref();
+    let (scope, local) = swift_scope(lines, literal, line);
+    (local && SWIFT_DECL.is_match(&uncommented(Kind::Swift, text))).then_some(scope)
+}
+/// Whether a Swift pattern binds `name`: `x`, `(a, b)`, `.cut(n)`, `.x(label: a)`, `x as T`. A
+/// `let` or a `var` in front binds every name in it, as a `for` does (`bind_all`); otherwise only
+/// the names behind a `let` of their own do, as in `.x(let a, b)`. `None` for a pattern the rules
+/// cannot read that mentions `name`: a nested tuple or enum pattern.
+fn swift_pattern_binds(pattern: &str, bind_all: bool, name: &str) -> Option<bool> {
+    let p = pattern.trim();
+    let p = p.split(" where ").next().unwrap_or(p).trim();
+    let (p, bind_all) = match p.strip_prefix("let ").or_else(|| p.strip_prefix("var ")) {
+        Some(rest) => (rest.trim(), true),
+        None => (p, bind_all),
+    };
+    let p = p.split(" as ").next().unwrap_or(p).trim();
+    let bare = |n: &str| n.trim().trim_matches('`') == name;
+    let Some(open) = p.find('(') else {
+        return Some(bind_all && bare(p));
+    };
+    let inner = p[open + 1..].trim_end();
+    let inner = inner.strip_suffix(')').unwrap_or(inner);
+    if inner.contains(['(', '[']) {
+        return (!names(inner, name)).then_some(false);
+    }
+    Some(split_top(Kind::Swift, inner, b',').iter().any(|e| {
+        // `label: a`, `label: let a`
+        let e = e.rsplit(':').next().unwrap_or(e).trim();
+        match e.strip_prefix("let ").or_else(|| e.strip_prefix("var ")) {
+            Some(n) => bare(n),
+            None => bind_all && bare(e),
+        }
+    }))
+}
+/// Whether the clauses of an `if`, a `while` or a `guard` condition, `text` from the keyword on,
+/// bind `name`: `let x = …`, `var x: T = …`, `case let .x(a) = …`. The shorthand `let x` rebinds
+/// an outer `x` and binds nothing new.
+fn swift_condition_binds(text: &str, name: &str) -> Option<bool> {
+    static KEYWORD: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\b(?:if|while|guard)\s").unwrap());
+    let Some(m) = KEYWORD.find(text) else {
+        return Some(false);
+    };
+    let rest = text[m.end()..].trim_end().trim_end_matches('{');
+    let rest = match m.as_str().starts_with("guard") {
+        true => rest.rsplit_once(" else").map_or(rest, |(c, _)| c),
+        false => rest,
+    };
+    let mut bound = Some(false);
+    for clause in split_top(Kind::Swift, rest, b',') {
+        let c = clause.trim();
+        let (pattern, bind_all) = match c.strip_prefix("case ") {
+            Some(p) => (p, false),
+            None if c.starts_with("let ") || c.starts_with("var ") => (c, true),
+            None => continue,
+        };
+        let parts = split_top(Kind::Swift, pattern, b'=');
+        if parts.len() < 2 {
+            continue;
+        }
+        match swift_pattern_binds(split_top(Kind::Swift, parts[0], b':')[0], bind_all, name) {
+            Some(true) => return Some(true),
+            None => bound = None,
+            Some(false) => {}
+        }
+    }
+    bound
+}
+/// Whether a `let` or a `var` statement, `rest` past its keyword, binds `name`: `a = 1`, `b: T`,
+/// `a = 1, b = 2`, `(a, b) = t`.
+fn swift_decl_binds(rest: &str, name: &str) -> Option<bool> {
+    let mut bound = Some(false);
+    for part in split_top(Kind::Swift, rest, b',') {
+        let pattern = split_top(Kind::Swift, split_top(Kind::Swift, part, b'=')[0], b':')[0];
+        match swift_pattern_binds(pattern, true, name) {
+            Some(true) => return Some(true),
+            None => bound = None,
+            Some(false) => {}
+        }
+    }
+    bound
+}
+/// Swift's locals (#366), walked outward from the cursor over the blocks around it, told by
+/// indentation: a `let`, a `var` or a `guard` statement above the cursor in each block; what the
+/// block's header binds — an `if let`, a `while let`, a `for`, a `catch` (a bare one binds
+/// `error`), a closure's parameters, a `case` of a `switch`; and last the parameters of the
+/// enclosing `func`, `init` or `subscript`. The innermost wins. A type's body and the top of the
+/// file bind no local, and a pattern the rules cannot read that names the word stops the walk:
+/// the search by name decides then.
+fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    static CATCH: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^(?:\}\s*)?catch\b\s*(.*?)\s*\{$").unwrap());
+    static CONDITION: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^(?:\}\s*)?(?:else\s+)?(?:if|while)\s").unwrap());
+    static FOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^for\s+(?:try\s+)?(?:await\s+)?(?:case\s+)?(.+?)\s+in\s").unwrap()
+    });
+    static CLOSURE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"\{\s*(?:\[[^\]]*\]\s*)?(?:@\w+\s+)?(\([^()]*\)|[\w\s,]*?)\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin$",
+        )
+        .unwrap()
+    });
+    static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"{}(?:func|init|subscript|set)\b", swift_mods!())).unwrap()
+    });
+    let literal = literal_lines(Kind::Swift, &lines.join("\n"));
+    let code = |i: usize| uncommented(Kind::Swift, lines[i]).trim().to_owned();
+    let found = |line: usize| {
+        vec![Binding {
+            line,
+            value: Value::Unknown,
+        }]
+    };
+    // The 1-based line of `start..=end` that writes the name, or `start`'s.
+    let written = |start: usize, end: usize, re: &Regex| {
+        (start..=end)
+            .find(|&j| re.is_match(&code(j)))
+            .unwrap_or(start)
+            + 1
+    };
+    let n = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let (word, param) = (
+        rule(format!(r"(?:^|[^\w.]){n}\b")),
+        rule(format!(r"\b{n}\s*:")),
+    );
+    let mut depth = indent(lines[at]);
+    // The nearest binding among the statements of the block the walk is in: it counts once the
+    // block's header says the block is no type's body.
+    let mut pending = None;
+    let mut i = at;
+    while i > 0 && depth > 0 {
+        i -= 1;
+        if !swift_code(lines, &literal, i) || indent(lines[i]) > depth {
+            continue;
+        }
+        let t = code(i);
+        if indent(lines[i]) == depth {
+            if pending.is_some() {
+                continue;
+            }
+            let (binds, line) = if let Some(c) = SWIFT_DECL.captures(&t) {
+                (swift_decl_binds(&c[1], name), i + 1)
+            } else if t.starts_with("guard ") {
+                // A `guard` wrapped over lines goes on to its `else`.
+                let end = (i..at).find(|&j| code(j).contains("else")).unwrap_or(i);
+                let text: Vec<String> = (i..=end).map(code).collect();
+                (
+                    swift_condition_binds(&text.join(" "), name),
+                    written(i, end, &word),
+                )
+            } else {
+                (Some(false), 0)
+            };
+            match binds {
+                None => return Vec::new(),
+                Some(true) => pending = Some(line),
+                Some(false) => {}
+            }
+            continue;
+        }
+        // The header of a block around the cursor, over the lines it wraps.
+        depth = indent(lines[i]);
+        let end = i;
+        i = swift_header_start(lines, &literal, i);
+        let head = code(i);
+        let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
+        if SWIFT_FUNC.is_match(&head) {
+            if let Some(line) = pending {
+                return found(line);
+            }
+            // Parameters wrapped over the lines under the header's first go on to its `{`.
+            let end = (end..at).find(|&j| code(j).ends_with('{')).unwrap_or(end);
+            let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
+            let mods = PARAMS.find(&text).map_or(text.len(), |m| m.end());
+            let params = text[mods..].find('(').and_then(|open| {
+                let open = mods + open;
+                close_of(Kind::Swift, &text, open).map(|close| &text[open + 1..close - 1])
+            });
+            let bound = params.is_some_and(|p| {
+                split_top(Kind::Swift, p, b',').iter().any(|p| {
+                    let names = split_top(Kind::Swift, p, b':')[0];
+                    names
+                        .split_whitespace()
+                        .last()
+                        .is_some_and(|w| w.trim_matches('`') == name)
+                })
+            });
+            return match bound {
+                true => found(written(i, end, &param)),
+                false => Vec::new(),
+            };
+        }
+        if SWIFT_TYPE.is_match(&head) {
+            return Vec::new();
+        }
+        if let Some(line) = pending {
+            return found(line);
+        }
+        let binds = if let Some(c) = CATCH.captures(&head) {
+            match &c[1] {
+                "" => Some(name == "error"),
+                pattern => Some(rule(format!(r"\b(?:let|var)\s+{n}\b")).is_match(pattern)),
+            }
+        } else if let Some(pattern) = head.strip_prefix("case ") {
+            let pattern = pattern.strip_suffix(':').unwrap_or(pattern);
+            let mut bound = Some(false);
+            for p in split_top(Kind::Swift, pattern, b',') {
+                match swift_pattern_binds(p, false, name) {
+                    Some(true) => return found(i + 1),
+                    None => bound = None,
+                    Some(false) => {}
+                }
+            }
+            bound
+        } else if let Some(c) = FOR.captures(&text) {
+            swift_pattern_binds(&c[1], true, name)
+        } else if CONDITION.is_match(&head) {
+            swift_condition_binds(&text, name)
+        } else if let Some(c) = CLOSURE.captures(&code(end)) {
+            let params = c[1].trim().trim_start_matches('(').trim_end_matches(')');
+            Some(params.split(',').any(|p| {
+                let p = p.split(':').next().unwrap_or(p);
+                p.split_whitespace().last() == Some(name)
+            }))
+        } else {
+            Some(false)
+        };
+        match binds {
+            None => return Vec::new(),
+            Some(true) => return found(written(i, end, &word)),
+            Some(false) => {}
         }
     }
     Vec::new()
@@ -901,6 +1253,40 @@ fn python_params(lines: &[&str], d: usize, params: &str, name: &str, out: &mut V
         out.push(Binding { line: d + 1, value });
     }
 }
+/// Whether the body of the Python class that 1-based `line` sits in binds `name`: a `def`, a
+/// class or an assignment of the body's own, which a name read in that body sees before the
+/// module's and the builtins. `false` in a method, which does not see them, and outside a class.
+pub fn python_class_binds(text: &str, line: usize, name: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let mut depth = indent(lines[at]);
+    for i in (0..at).rev() {
+        let t = lines[i].trim_start();
+        if depth == 0 {
+            break;
+        }
+        if t.is_empty() || t.starts_with(['#', ')', ']']) || indent(lines[i]) >= depth {
+            continue;
+        }
+        depth = indent(lines[i]);
+        if t.starts_with("def ") || t.starts_with("async def ") {
+            return false;
+        }
+        if t.starts_with("class ") {
+            // The body runs down to the first code line back at the class's indent.
+            let end = (i + 1..lines.len())
+                .find(|&j| {
+                    let t = lines[j].trim_start();
+                    !t.is_empty() && !t.starts_with(['#', ')', ']']) && indent(lines[j]) <= depth
+                })
+                .unwrap_or(lines.len());
+            return !python_bindings(&lines[i + 1..end], at - i - 1, name).is_empty();
+        }
+    }
+    false
+}
 /// The 1-based line of the class the `def` on line `d` is a method of, unless it is a
 /// `@staticmethod`.
 fn python_class_of(lines: &[&str], d: usize) -> Option<usize> {
@@ -961,12 +1347,21 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
     let mut i = at;
     // Whether a declaration of the block the walk is in, or of its header, has been found.
     let mut scoped = false;
+    // A C# walk out of a member into its type's body: the lines there are fields, properties
+    // and other members, never statements that declare a local (#345).
+    let in_type = |i: usize| {
+        kind == Kind::CSharp
+            && cs_enclosing(lines, i).is_some_and(|e| cs_type_decl(lines[e]).is_some())
+    };
+    let mut members = in_type(at);
     // The types of the innermost Go `case` around the cursor, for the `switch v := x.(type)` it
     // may belong to (#100): gofmt writes the two at one indent, so the `switch` is met as a
     // statement right after its `case`.
     let mut arm: Option<Vec<String>> = None;
     // The first line of a statement already read whole, from the line that closes it.
     let mut read: Option<usize> = None;
+    // Where in `out` the Go statement of the block the walk is in that declares the name stands.
+    let mut statement: Option<usize> = None;
     let type_switch = Regex::new(&format!(
         r"^switch\s+(?:[^;{{]*;\s*)?{}\s*:=\s*[^;{{]+\.\(type\)\s*\{{$",
         regex::escape(name)
@@ -977,11 +1372,21 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         let code = uncommented(kind, lines[i]);
         let t = code.trim();
         let ind = indent(lines[i]);
-        if t.is_empty() || comment(kind, t) || ind > depth || literal[i] {
+        // A Go label, `scan:`, stands one level left of its statement, at column 0 in a function
+        // body: it opens no block (#330).
+        let label = kind == Kind::Go
+            && t.strip_suffix(':').is_some_and(|l| {
+                l != "default"
+                    && !l.is_empty()
+                    && l.chars().all(|c| c.is_alphanumeric() || c == '_')
+            });
+        // A C# preprocessor line (`#if`, `#region`) may stand at any indent.
+        let directive = kind == Kind::CSharp && t.starts_with('#');
+        if t.is_empty() || comment(kind, t) || ind > depth || literal[i] || label || directive {
             continue;
         }
         if ind == depth {
-            if !this {
+            if !this && !members {
                 let before = out.len();
                 // `} = deps;` closes a destructuring prettier wrapped (#131): its names are on
                 // the lines above, down from the `const {` that is back at this indent. Any
@@ -1003,7 +1408,24 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                         read = Some(j);
                     }
                     None if read == Some(i) => {}
-                    None => statement_bindings(kind, t, i + 1, name, &mut out),
+                    // `const fs = require("fs"),` over `more = …,` over `LIMIT = 10;` binds every
+                    // name it declares (#328).
+                    None => match ts_declarators(lines, i).filter(|_| kind == Kind::TsJs) {
+                        Some(each) => {
+                            for (at, d) in each {
+                                statement_bindings(kind, &d, at + 1, name, &mut out);
+                            }
+                        }
+                        None => statement_bindings(kind, t, i + 1, name, &mut out),
+                    },
+                }
+                // Go's `n, err := second()` reuses the `err` its block declared above (#330): of
+                // the statements of one block, the first to declare the name is its declaration.
+                if kind == Kind::Go && out.len() > before {
+                    if let Some(k) = statement.filter(|&k| k < before) {
+                        out.remove(k);
+                    }
+                    statement = Some(out.len() - 1);
                 }
                 // In `case *Repo:` the variable of a type switch is a `*Repo`; under several
                 // types or `default` it is whatever came in. A `switch` met with no `case` on
@@ -1037,12 +1459,28 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         let params = kind == Kind::TsJs
             && t.starts_with('>')
             && opener.is_some_and(|j| lines[j].trim_end().ends_with('<'));
-        let wrapped = params || (kind == Kind::TsJs && body);
+        // C# opens a block on a line of its own, under the header it belongs to.
+        let wrapped = params || (kind == Kind::TsJs && body) || (kind == Kind::CSharp && t == "{");
         if t.starts_with([')', '}', ']']) || wrapped {
             while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > ind) {
                 i -= 1;
             }
             i = i.saturating_sub(1);
+            // `}{` and `} {` close a struct written in the header and the literal of its
+            // elements: the header starts on the line back at their indent that opens the struct,
+            // `for _, tc := range []struct {` (#330).
+            while kind == Kind::Go && lines[i].trim_start().starts_with('}') {
+                let Some(j) = (0..i)
+                    .rev()
+                    .find(|&j| !lines[j].trim().is_empty() && indent(lines[j]) <= ind)
+                else {
+                    break;
+                };
+                if !uncommented(kind, lines[j]).trim_end().ends_with("struct {") {
+                    break;
+                }
+                i = j;
+            }
         }
         // Between an `if` and its `} else {` lies a block the cursor is not in: only the two
         // lines are the header, where a signature closed by `) {` or `}: Deps) {` is all of
@@ -1058,6 +1496,7 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         };
         let header = uncommented(kind, &header.join("\n"));
         depth = ind.min(indent(lines[i]));
+        statement = None;
         if !this {
             if kind == Kind::Go {
                 let types = header
@@ -1076,6 +1515,15 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
             // the cursor's own line may be: its parameters count, and hide nothing.
             if opener_bindings(kind, &header, i + 1, name, &mut out) || scoped {
                 break;
+            }
+            // Past a C# type's header the walk is out of its body; past a member's, in it.
+            if kind == Kind::CSharp {
+                if cs_type_decl(lines[i]).is_some()
+                    || lines[i].trim_start().starts_with("namespace ")
+                {
+                    break;
+                }
+                members |= in_type(i);
             }
         } else if let Some(value) = this_opener(&header, i + 1) {
             out.push(Binding { line: i + 1, value });
@@ -1127,7 +1575,7 @@ fn opener_bindings(
     static TS_FUNCTION: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"\bfunction\*?\s*[\w$]*\s*(?:<[^>]*>)?$").unwrap());
     static TS_METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*\*?#?([\w$]+)\s*(?:<[^>]*>)?$").unwrap()
+        Regex::new(r#"^(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*\*?(?:#?([\w$]+)|"[^"\n]*"|'[^'\n]*'|\[[^\]\n]*\])\s*(?:<[^>]*>)?$"#).unwrap()
     });
     static TS_BODY: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^(?::.*)?\{").unwrap());
@@ -1183,11 +1631,21 @@ fn opener_bindings(
                     continue;
                 };
                 let (before, after) = (header[..open].trim_end(), header[close..].trim_start());
+                // A quoted or computed name opens a method too, `"NewExpression:exit"(node) {`
+                // (#339), when it is all that stands before the `(`.
                 let method = TS_METHOD.captures(before).is_some_and(|c| {
-                    !matches!(
-                        &c[1],
-                        "if" | "for" | "while" | "switch" | "catch" | "with" | "return" | "super"
-                    ) && TS_BODY.is_match(after)
+                    !c.get(1).is_some_and(|m| {
+                        matches!(
+                            m.as_str(),
+                            "if" | "for"
+                                | "while"
+                                | "switch"
+                                | "catch"
+                                | "with"
+                                | "return"
+                                | "super"
+                        )
+                    }) && TS_BODY.is_match(after)
                 });
                 if TS_ARROW.is_match(after) || TS_FUNCTION.is_match(before) || method {
                     let count = out.len();
@@ -1200,16 +1658,38 @@ fn opener_bindings(
                 regex::escape(name)
             ))
             .expect("an escaped name keeps the pattern valid");
-            if let Some(c) = arrow.captures_iter(header).last() {
+            // `): Node => ({` returns a `Node`: the name is the arrow's return type (#331).
+            if let Some(c) = arrow
+                .captures_iter(header)
+                .last()
+                .filter(|c| !return_type(&header[..c.get(0).map_or(0, |m| m.start())]))
+            {
                 unknown(out);
                 own |= c.get(1).is_some();
             }
         }
+        Kind::CSharp => {
+            let (binds, hides) = cs_opener(header, name);
+            if binds {
+                unknown(out);
+            }
+            own = hides;
+        }
         Kind::Go => {
             let count = out.len();
+            let structs = Regex::new(&format!(
+                r"^for\s+[A-Za-z_]\w*\s*,\s*{n}\s*:=\s*range\s+(?:\[[^\]]*\]|map\[[^\]]*\])+\s*struct\s*\{{"
+            ))
+            .expect("an escaped name keeps the pattern valid");
             // The second variable of a `range` over a plain name is an element of a slice, an
-            // array or a map; the first is an index or a key.
-            if let Some(b) = element(format!(
+            // array or a map; the first is an index or a key. Over `[]struct {…}{…}` written in
+            // the header it is that struct, whose body opens on the header's line (#330).
+            if structs.is_match(header) {
+                out.push(Binding {
+                    line,
+                    value: Value::Struct(line),
+                });
+            } else if let Some(b) = element(format!(
                 r"^for\s+[A-Za-z_]\w*\s*,\s*{n}\s*:=\s*range\s+([A-Za-z_]\w*)\s*\{{"
             )) {
                 out.push(b);
@@ -1241,6 +1721,29 @@ fn opener_bindings(
         _ => {}
     }
     own
+}
+/// Whether what `before` ends in writes a return type: the nearest `:` in front, at its bracket
+/// depth, follows the `)` of a parameter list, `): A | B`. A `:` after a key, `onClick: e =>`,
+/// does not (#331).
+fn return_type(before: &str) -> bool {
+    let b = before.as_bytes();
+    let mut depth = 0i32;
+    for i in (0..b.len()).rev() {
+        match b[i] {
+            b')' | b']' | b'}' => depth += 1,
+            b'>' if i == 0 || b[i - 1] != b'=' => depth += 1,
+            b'(' | b'[' | b'{' | b'<' => {
+                depth -= 1;
+                if depth < 0 {
+                    return false;
+                }
+            }
+            b':' if depth == 0 => return before[..i].trim_end().ends_with(')'),
+            b',' | b';' | b'=' if depth == 0 => return false,
+            _ => {}
+        }
+    }
+    false
 }
 /// The binding of `name` among TypeScript parameters: its annotation, else its default value.
 fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
@@ -1335,6 +1838,9 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
     static TS_DESTRUCTURE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:export\s+)?(?:const|let|var)\s*[\[{](.*)[\]}]\s*(?::.*)?=").unwrap()
     });
+    // `{ helper: assist }` binds `assist`: the key names what is taken (#328).
+    static KEY: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"[\w$]+\s*:").unwrap());
     let n = regex::escape(name);
     let value = match kind {
         Kind::TsJs => {
@@ -1357,7 +1863,7 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
             } else if named.is_match(t)
                 || TS_DESTRUCTURE
                     .captures(t)
-                    .is_some_and(|c| names(&c[1], name))
+                    .is_some_and(|c| names(&KEY.replace_all(&c[1], ""), name))
             {
                 Value::Unknown
             } else {
@@ -1394,9 +1900,107 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
                 return;
             }
         }
+        Kind::CSharp if cs_statement(t, name) => Value::Unknown,
         _ => return,
     };
     out.push(Binding { line, value });
+}
+/// The declarators of the TypeScript `const`, `let` or `var` statement on 0-based line `k` of
+/// `lines` when it goes on over lines ending in `,` (#328): each with the 0-based line it starts
+/// on, written as a statement of its own (`const more = require("./m")`). The statement ends at
+/// its `;`, or at the end of a line that ends in no `,`; a comma inside brackets, a string or a
+/// template splits nothing. `None` for a statement of one line, or one that starts with no
+/// declaration keyword: `a = 1,` over `b = 2;` assigns.
+pub(super) fn ts_declarators(lines: &[&str], k: usize) -> Option<Vec<(usize, String)>> {
+    static KEYWORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:export\s+)?(?:declare\s+)?(?:const|let|var)\s+").unwrap()
+    });
+    let first = uncommented(Kind::TsJs, lines.get(k)?);
+    if !first.trim_end().ends_with(',') {
+        return None;
+    }
+    let keyword = KEYWORD.find(first.trim_start())?.as_str().to_owned();
+    // ponytail: two hundred lines of declarators.
+    let text = blank_comments(&lines[k..lines.len().min(k + 200)].join("\n"));
+    let ind = indent(lines[k]);
+    let (mut depth, mut end) = (0i32, text.len());
+    let mut starts = vec![0];
+    for (i, c) in code(Kind::TsJs, &text) {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            b',' if depth == 0 => starts.push(i + 1),
+            b';' if depth == 0 => {
+                end = i;
+                break;
+            }
+            // Its last line is the one before a line back at its indent.
+            b'\n' if depth == 0 => {
+                let next = text[i + 1..].lines().find(|l| !l.trim().is_empty());
+                if next.is_none_or(|l| indent(l) <= ind) {
+                    end = i;
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut out = Vec::new();
+    for (n, &from) in starts.iter().enumerate() {
+        let to = starts.get(n + 1).map_or(end, |&s| s - 1).min(end);
+        let Some(piece) = text.get(from..to) else {
+            continue;
+        };
+        let lead = piece.len() - piece.trim_start().len();
+        let line = k + text[..from + lead].matches('\n').count();
+        let piece = piece.split_whitespace().collect::<Vec<_>>().join(" ");
+        if piece.is_empty() {
+            continue;
+        }
+        out.push(match n {
+            0 => (line, piece),
+            _ => (line, format!("{keyword}{piece}")),
+        });
+    }
+    (out.len() > 1).then_some(out)
+}
+/// `s` with its TypeScript comments, `//` and `/* */`, blanked out and its lines kept.
+fn blank_comments(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = b.to_vec();
+    let (mut i, mut quote) = (0, None);
+    while i < b.len() {
+        match (quote, b[i]) {
+            (Some(q), c) => {
+                if c == b'\\' {
+                    i += 1;
+                } else if c == q {
+                    quote = None;
+                }
+            }
+            (None, c @ (b'"' | b'\'' | b'`')) => quote = Some(c),
+            (None, b'/') if b.get(i + 1) == Some(&b'/') => {
+                while i < b.len() && b[i] != b'\n' {
+                    out[i] = b' ';
+                    i += 1;
+                }
+                continue;
+            }
+            (None, b'/') if b.get(i + 1) == Some(&b'*') => {
+                let end = s[i + 2..].find("*/").map_or(b.len(), |e| i + 2 + e + 2);
+                for o in &mut out[i..end] {
+                    if *o != b'\n' {
+                        *o = b' ';
+                    }
+                }
+                i = end;
+                continue;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    String::from_utf8(out).unwrap_or_else(|_| s.to_owned())
 }
 /// The header of the TypeScript declaration on line `k` as one line, up to the `{` of its body,
 /// and the index of the line that `{` stands on. prettier wraps a long one (#100): the clauses on

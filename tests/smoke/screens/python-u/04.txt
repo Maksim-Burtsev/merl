@@ -10,7 +10,7 @@ wait app/uow.py:4
  9
 10 class FakeOrderRepo:
 11     def __init__(self, *orders):
-12         self.ord┌Symbols (1/95)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+12         self.ord┌Symbols (1/116)───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 13         self.sav│> unitof                                                                                                                                          │
 14                 │UnitOfWork                 app/uow.py:4                                                                                                           │
 15     def get(self│                                                                                                                                                  │
@@ -49,9 +49,9 @@ wait app/uow.py:4
 48     service, _ = make_service()
 49     with pytest.raises(OrderNotFound):
 50         service.get(404)
-
-
-
-
+51
+52
+53 def test_first_of_many():
+54     assert next(iter([3, 4])) == 3
 tests/test_service.py  21:9  [code]                                                                                                                                               ? help
 cursor (x,y,shown) 28,12,1

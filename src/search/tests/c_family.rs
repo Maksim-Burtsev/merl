@@ -400,6 +400,41 @@ fn csharp_scope_stays_in_the_project() {
     );
 }
 
+#[test]
+fn csharp_bindings_read_headers_not_calls_or_fields() {
+    let text = "\
+public class Cart
+{
+    Item item = new Item();
+
+    public void Fill(Item seed)
+    {
+        var order = new Order(seed)
+        {
+            Name = seed.Name,
+        };
+        order.Ship();
+        var (left, right) = Split(order);
+        Use(item, left);
+    }
+}
+";
+    let lines = |name: &str, line: usize| -> Vec<usize> {
+        bindings(Kind::CSharp, text, line, name)
+            .iter()
+            .map(|b| b.line)
+            .collect()
+    };
+    // The object initialiser's `new Order(seed)` over `{` is no signature: `seed` is Fill's.
+    assert_eq!(lines("seed", 9), [5]);
+    assert_eq!(lines("order", 11), [7]);
+    // A deconstruction binds nothing, and a field of the class is no local.
+    assert!(lines("left", 13).is_empty());
+    assert!(lines("item", 13).is_empty());
+    // On a member's own line the class body is not read as statements either.
+    assert!(lines("item", 3).is_empty());
+}
+
 const SWIFT: &str = r#"import Foundation
 
 public protocol RequestDelegate: AnyObject {
@@ -520,6 +555,45 @@ fn swift_def_patterns_find_declarations_behind_attributes_and_modifiers() {
     // that constant: a bare name there is a pattern, not a declaration.
     assert_eq!(d("opened"), [71]);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn swift_locals_are_a_functions_and_members_a_types() {
+    let text = r#"let global = 1
+final class Box {
+#if DEBUG
+    let debug = 1
+#endif
+    var size: Int {
+        let side = 2
+        return side
+    }
+    func open(
+        _ lid: Int
+    ) {
+        items.forEach { item in
+            var seen = item
+        }
+    }
+}
+protocol Boxed {
+    var lid: Int { get }
+}"#;
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Swift, text);
+    let local = |line| swift_local(&lines, &literal, line);
+    assert_eq!(local(1), None, "a global");
+    assert_eq!(local(4), None, "a member under an `#if`");
+    assert_eq!(local(7), Some(6), "a computed property's local");
+    assert_eq!(
+        local(14),
+        Some(10),
+        "a closure's, of the wrapped `func` around it"
+    );
+    assert_eq!(local(19), None, "a protocol's requirement");
+    assert_eq!(swift_scope(&lines, &literal, 13).0, 10);
+    assert!(swift_extension("public extension Box where T: Equatable {"));
+    assert!(!swift_extension("let extensionCount = 1"));
 }
 
 #[test]
@@ -701,6 +775,148 @@ fn php_def_patterns_tell_a_declaration_from_a_use() {
     );
     assert_eq!(d("value"), none);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Typed class constants, the tags of a class's docblock and namespace segments (#344).
+const PHP_TAGS: &str = r#"<?php
+
+namespace App\Models;
+
+/**
+ * @property string $title
+ * @property-read int $plays
+ * @property-write array $tags
+ * @method static SongBuilder whereTitle(string $title)
+ * @method int length()
+ */
+#[Table]
+class Song
+{
+    const int LIMIT = 500;
+    private const ?string LABEL = null;
+    public const A|B UNION = 1, SECOND = 2;
+    protected const \Foo\Bar QUALIFIED = 3;
+    const (A&B)|null DNF = 4;
+    const PLAIN = 5;
+
+    /**
+     * @param int $count
+     * @property int $inner
+     * @method void helper()
+     */
+    public function first(int $count): string
+    {
+    }
+}
+
+/*
+ * @property int $loose
+ */
+
+/**
+ * @property string $email
+ */
+#[Guarded([
+    'id',
+])]
+#[Table]
+final class User
+{
+}
+"#;
+
+#[test]
+fn php_typed_constants_and_class_docblock_tags_declare() {
+    let (dir, files) = scratch("php-tags", &[("Song.php", PHP_TAGS)]);
+    let d = |w| defs(&dir, &files, Kind::Php, w);
+    assert_eq!(d("LIMIT"), [15], "`const int`");
+    assert_eq!(d("LABEL"), [16], "a nullable type");
+    assert_eq!(d("UNION"), [17], "a union");
+    assert_eq!(
+        d("SECOND"),
+        Vec::<usize>::new(),
+        "the second name stays unread"
+    );
+    assert_eq!(d("QUALIFIED"), [18]);
+    assert_eq!(d("DNF"), [19], "a disjunctive normal form type");
+    assert_eq!(d("PLAIN"), [20], "untyped, as before");
+    assert_eq!(
+        d("title"),
+        [6],
+        "not the `$title` parameter of the `@method` tag"
+    );
+    assert_eq!(d("plays"), [7]);
+    assert_eq!(d("tags"), [8]);
+    assert_eq!(d("whereTitle"), [9], "behind `static` and a return type");
+    assert_eq!(d("length"), [10]);
+    assert_eq!(d("count"), Vec::<usize>::new(), "`@param` declares nothing");
+    // The pattern matches every tag; which docblock it stands in is [`php_tag_class`]'s.
+    let lines: Vec<&str> = PHP_TAGS.lines().collect();
+    for at in [5, 6, 7, 8, 9] {
+        assert_eq!(php_tag_class(&lines, at), Some(12), "line {}", at + 1);
+    }
+    for at in [23, 24, 33] {
+        assert_eq!(php_tag_class(&lines, at), None, "line {}", at + 1);
+    }
+    // Past an attribute wrapped over lines.
+    assert_eq!(php_tag_class(&lines, 36), Some(42));
+    assert_eq!(
+        qualified(Kind::Php, PHP_TAGS, 9, "whereTitle").as_deref(),
+        Some("Song::whereTitle")
+    );
+    assert_eq!(
+        qualified(Kind::Php, PHP_TAGS, 6, "title").as_deref(),
+        Some("Song::title")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn php_namespace_line_answers_only_the_namespace_written_up_to_the_word() {
+    let text = "<?php\nnamespace App\\Repos;\n";
+    // The patterns for the word of `line`, and which of `decls` they match.
+    let answers = |line: &str, word: &str| {
+        let start = line.find(word).unwrap();
+        let mut patterns = def_patterns(Kind::Php, word);
+        php_namespace_patterns(&mut patterns, text, line, start..start + word.len());
+        let re = regex::Regex::new(&patterns.join("|")).unwrap();
+        let decls = [
+            "namespace Illuminate\\Support;",
+            "namespace App\\Repos\\Support;",
+            "namespace App\\Services\\Auth\\Support;",
+            "class Support",
+        ];
+        let hit: Vec<&str> = decls.into_iter().filter(|d| re.is_match(d)).collect();
+        (patterns.len(), hit)
+    };
+    // A segment: only the namespace written up to it, absolute on a `use` line, and no class.
+    assert_eq!(
+        answers("use Illuminate\\Support\\Facades\\Route;", "Support"),
+        (1, vec!["namespace Illuminate\\Support;"])
+    );
+    // Relative to the file's own namespace elsewhere, unless it starts with `\`.
+    assert_eq!(
+        answers("    Support\\Str::of();", "Support").1,
+        ["namespace App\\Repos\\Support;"]
+    );
+    assert_eq!(
+        answers("    \\Illuminate\\Support\\Str::of();", "Support").1,
+        ["namespace Illuminate\\Support;"]
+    );
+    // The last part of a `use`, a type hint, a class before `::` or after `new`: no namespace.
+    for line in [
+        "use App\\Support;",
+        "    public function first(Support $s): string",
+        "        Support::of('x');",
+        "        new Support();",
+    ] {
+        assert_eq!(answers(line, "Support").1, ["class Support"], "{line}");
+    }
+    // On a `namespace` line's last part, the other files of the namespace are its namesakes.
+    assert_eq!(
+        answers("namespace App\\Repos\\Support;", "Support").1.len(),
+        4
+    );
 }
 
 #[test]

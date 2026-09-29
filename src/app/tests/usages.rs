@@ -385,6 +385,34 @@ fn usages_of_a_ruby_suffixed_method_put_its_declaration_first() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #383: `u` on a Ruby `@total` lists every `total` as before, and marks its assignment
+/// `@total = 0` a declaration beside `def total`; on a bare `total` only the `def` declares.
+#[test]
+fn usages_of_a_ruby_ivar_mark_its_assignment() {
+    let (dir, mut a) = project_app(
+        "u-ruby-ivar",
+        &[(
+            "app/cart.rb",
+            "class Cart\n  def initialize\n    @total = 0\n  end\n\n  def total\n    @total\n  end\nend\n",
+        )],
+    );
+    usages_at(&mut a, &dir, "app/cart.rb", 7, "total");
+    let marked = |rows: Vec<(String, String)>| {
+        rows.into_iter()
+            .filter(|(m, _)| m == "declaration")
+            .map(|(_, at)| at)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        marked(usage_rows(&mut a)),
+        ["app/cart.rb:3", "app/cart.rb:6"]
+    );
+    a.picker = None;
+    usages_at(&mut a, &dir, "app/cart.rb", 6, "total");
+    assert_eq!(marked(usage_rows(&mut a)), ["app/cart.rb:6"]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// #459: `u` reads an Elixir name as `d` does, its `?` or `!` included, so the `def` of `ship!`
 /// is its declaration and comes first.
 #[test]
@@ -459,5 +487,27 @@ fn makefile_usages_ask_the_rule_d_asks() {
     a.col = a.line_str().rfind("ARCH").unwrap();
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("Makefile"), 1));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #353 took the Rust `let` out of `def_patterns`, since `d` reads a local by scope; `u` still
+/// marks a `let` of the word as its declaration, as on master.
+#[test]
+fn usages_mark_a_rust_let_as_a_declaration() {
+    let (dir, mut a) = project_app(
+        "u-rust-let",
+        &[(
+            "src/lib.rs",
+            "fn f() -> u32 {\n    let mut total = 1;\n    total + 1\n}\n",
+        )],
+    );
+    usages_at(&mut a, &dir, "src/lib.rs", 3, "total");
+    assert_eq!(
+        usage_rows(&mut a),
+        [
+            ("declaration".to_string(), "src/lib.rs:2".to_string()),
+            (String::new(), "src/lib.rs:3".into()),
+        ]
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }

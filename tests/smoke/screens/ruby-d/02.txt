@@ -1,0 +1,57 @@
+wait class SessionsController
+┌orders──────────────────────┐ 1 class SessionsController
+│▸ .github                   │ 2   def on_success(user)
+│▸ .venv                     │ 3     track(user)
+│▾ app                       │ 4   end
+│  ▾ ruby                    │ 5
+│      sessions.rb           │ 6   def track(user)
+│    __init__.py             │ 7     user
+│    api.py                  │ 8   end
+│    config.py               │ 9 end
+│    models.py               │10
+│    repos.py                │11 class AdminController
+│    service.py              │12   def show
+│    uow.py                  │13     user = User.find(1)
+│▸ data                      │14     track(user)
+│▸ deploy                    │15   end
+│▸ docs                      │16
+│▸ scripts                   │17   def track(user)
+│▸ tests                     │18     nil
+│▸ web                       │19   end
+│▸ worker                    │20 end
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/ruby/sessions.rb  1:1  [code]                                                                                                                                                 ? help
+cursor (x,y,shown) 33,0,1

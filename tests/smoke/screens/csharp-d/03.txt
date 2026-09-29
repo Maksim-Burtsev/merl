@@ -1,0 +1,57 @@
+wait public static class Refunds
+┌orders──────────────────────┐ 1 namespace Orders.Billing;
+│▸ .github                   │ 2
+│▸ .venv                     │ 3 public static class Refunds
+│▸ app                       │ 4 {
+│▾ billing                   │ 5     public static void Register(IServiceCollection services, string callbackUrl)
+│    Refunds.cs              │ 6     {
+│▸ data                      │ 7         services.AddAuthentication(options =>
+│▸ deploy                    │ 8         {
+│▸ docs                      │ 9             options.RedirectUri = callbackUrl;
+│▸ scripts                   │10         });
+│▸ tests                     │11     }
+│▸ web                       │12 }
+│▸ worker                    │13
+│  .env                      │14 public class Audit
+│  .gitignore                │15 {
+│  docker-compose.yml        │16     public void Load()
+│  Dockerfile                │17     {
+│  Makefile                  │18         var options = new JsonSerializerOptions();
+│  pyproject.toml            │19     }
+│  README.md                 │20 }
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+billing/Refunds.cs  1:1  [code]                                                                                                                                                   ? help
+cursor (x,y,shown) 33,0,1

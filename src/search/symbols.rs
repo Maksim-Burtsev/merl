@@ -251,12 +251,12 @@ macro_rules! php_mods {
 pub(super) use php_mods;
 /// The PHP half of [`SYMBOLS`], first half: what the language declares with a keyword other than
 /// `function`, behind the modifiers a member carries. A namespace is listed under its last part,
-/// the one `d` finds it by. A property is a field, which no kind lists, and an `enum` case is what
-/// a type holds, as in every other kind; `define('X', …)` has no keyword before the name and is
-/// left out with them.
+/// the one `d` finds it by, and a typed constant under its name, not its type (#344). A property
+/// is a field, which no kind lists, and an `enum` case is what a type holds, as in every other
+/// kind; `define('X', …)` has no keyword before the name and is left out with them.
 const PHP_DECL_SYMBOL: &str = concat!(
     php_mods!(),
-    r"(?:(?:class|interface|trait|enum)\s+|const\s+|namespace\s+(?:[\w\\]+\\)?)",
+    r"(?:(?:class|interface|trait|enum)\s+|const\s+(?:[\w\\|&?()]+\s+)?|namespace\s+(?:[\w\\]+\\)?)",
     r"(?P<name>[A-Za-z_]\w*)"
 );
 /// The other half: a function or a method. A row of its own because a project holds far more of

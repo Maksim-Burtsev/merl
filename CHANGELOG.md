@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` in Go follows a table test: in `for _, tc := range []struct {…}{…}` and in a range over
+  `tests := []struct {…}{…}`, `tc.name` lands on the field of the struct written in place,
+  `name → struct{…}.name (via tc: struct{…})`, and so does the key `name:` of an element of
+  the table. It read the loop from its `}{` line, so `tc` was not bound and `tc.name` jumped to
+  a namesake elsewhere or offered every `name` of the project. (#330)
+- `d` in Go proves a receiver whose type the standard library or a `go.mod` module declares:
+  `wg.Add` on a `sync.WaitGroup`, `t.Errorf` through the `common` a `testing.T` embeds,
+  `ctx.Err()` on the `context.Context` interface, `r.URL.Path` through `*http.Request`, `srv`
+  from `httptest.NewServer(…)`, and a key of `sync.Pool{New: …}`, each read-only in GOROOT or
+  the module cache. It offered every method of the name in GOROOT and the module cache, often
+  hundreds and often without the field, and took a third of a second or more for it. (#334)
 - The hidden characters a file can hold are on screen, in every file and in `--review`: the
   bidirectional controls behind "Trojan Source" (U+202A–U+202E, U+2066–U+2069, U+200E, U+200F,
   U+061C) and the zero-width U+200B, U+2060 and U+FEFF are drawn as their code, such as
@@ -70,9 +81,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `import` opens that file; a type qualified by its package, `billing.v1.Money` or
   `google.protobuf.Timestamp`, lands in that package's files, and the well-known types `protoc`
   installs are reached, read-only. `D` lists the messages, enums, services and rpcs. (#418)
+- `d` in C and C++ on a parameter or a local lands on its declaration, `i → crc32::i (local)`,
+  and it hides every function, macro, global and system header of the name: `link` in
+  `link->node` jumped to POSIX `link()`, and a variable declared a few lines up said `no
+  definition`. The innermost block that declares the name wins, a block closed before the cursor
+  does not count, a `for (int i = …)` binds `i` in its loop, and a lambda reads on into the
+  function around it; `a && b == c`, `x & FLAG` and a declaration inside a string bind nothing.
+  In a C++ method a bare member, `return filename_;`, lands on its class's field. A value, a word
+  followed by `->` or `.`, is never a struct, a `typedef` or a `using` alias, so `group->pel`
+  no longer opens the system's `struct group`. (#378)
 
 ### Changed
 
+- `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
+  parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
+  said `no definition` or offered namesakes from other files: `directionParams →
+  SortUtils.resolve.directionParams (local)`. A name the method's class declares, a field or a
+  method, the members of its `companion object` and the properties of its primary constructor
+  included, answers `via` the class, `scheduler → Use.scheduler (via Use)`, and one the class it
+  extends declares, `via` that class, before the declarations of the name in the rest of the
+  project. Kotlin's `it` and the implicit receivers of `with` and `apply` are not read. (#376)
+- `d` in PHP on `$this->name`, `self::NAME`, `static::name()` and `parent::name()` reads the
+  class the cursor is in, the traits it uses and the classes it extends, and lands on the one
+  declaration, `open → BaseStorage::open (via $this: ImageStorage)`, where it offered every
+  declaration of the name in the project: a picker for most, and a jump to another enum's case
+  for `self::INVALID`. A parent from `vendor/` is read from its own file, and a member it does
+  not declare is `no definition` rather than a namesake of the project. (#356)
+- `d` in TypeScript and JavaScript reads fewer calls as declarations and finds more real ones.
+  A call that passes a callback, `it("works", async () => {`, or wraps after its `(` and closes
+  with `);` is no method, so `d` on it no longer says `at a declaration` over thousands of
+  namesakes, and `type NodeSpec,` in a wrapped import list is no type alias. An optional method
+  signature wrapped over lines, `onCodePathEnd?(` over `): void;`, and the fields of a class
+  whose header wraps at a type argument, `implements Base<{` over `}> {`, are found by name.
+  (#343)
+- `d` in TypeScript and JavaScript on a bare name that the file declares jumps there, `local`,
+  instead of opening a list of every namesake in the project: a `type Props`, a `function
+  report` inside a rule's `create`, a `class Config`. A declaration at the top of the file counts
+  wherever it stands, so a styled `const Container` at the bottom of a component is found from
+  above it. Several declarations of the name in one scope, such as an `interface` beside a
+  `namespace`, are a list of those alone. (#337)
 - `merl -r BRANCH` reviews a branch another worktree has checked out, an agent's say, in that
   worktree, as `merl -r` started there would: nothing is fetched, switched or reset there, and its
   work not committed yet is part of the review. Before, merl exited with git's `already used by
@@ -150,6 +197,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A binary file (an image, a `.pyc`, a build artefact) opens on an empty pane with one centred,
   dimmed line, `binary file, not shown`, and no line number or cursor, instead of the text
   `binary file` as if it were the file's line 1. The status bar still says `read-only`. (#287)
+- `d` in Python on a builtin says `next: builtin, no source` and stays put: a bare `next`, `map`
+  or `ValueError` that nothing in the file binds, and a member of a value proven to be a builtin
+  type, `replace: builtin, no source (via render() -> str)`. It opened a picker of every method
+  of the name in the dependencies, or jumped to the only one, after a grep of all of them. A bare
+  name nothing binds is no longer looked for among the methods outside either: only at the top
+  of a module the file imports with `*`. (#336)
+
+- `d` on a named argument lands on the parameter it names: `Basket(tariff=…)` on `__init__`'s
+  `tariff`, `RefreshWindow(interval: 30, maximumAttempts: 1)` on the `init`'s `maximumAttempts`,
+  `new self(name: …)` on the constructor's promoted `$name`, and a key of an object passed to a
+  function, `<Tag size={2}>` or `const x: Opts = { weight: 1 }` on the key the parameter or the
+  type declares. A callee with several declarations offers their parameters in a picker. (#316)
+- `d` in Swift on a parameter, a closure's parameter, a `let` or `var` of the function you are
+  in, or a name that `if let`, `guard let`, `while let`, `for`, `catch` or a `switch` case binds
+  lands on where it is bound, `(local)`, as in Python, TypeScript and Go; a bare `catch` lands on
+  its line for the implicit `error`. It searched the project by name: a picker of other types'
+  properties and other functions' locals, or with one namesake a wrong jump, as a loop's
+  `attempt` to a struct's property `attempt`. (#366)
+- `d` in Ruby lands on a parameter, a block parameter or a local of the method you are in, as
+  `user → SessionsController.user (local)`. It offered every method's `user = …` in the project
+  or jumped to one. A call with no receiver, and `self.name`, lands on the method of the class it
+  is made in, then of the modules the class includes and of its superclasses, before a namesake
+  of another class: `track → SessionsController.track (via SessionsController)`. (#365)
+- `d` in C# on a parameter, a lambda's parameter, a `foreach`, `for`, `catch` or `using`
+  variable, an `out var`, a pattern variable or a local lands on its binding in the method you
+  are in, `options → Refunds.Register.options (local)`, as in Python, TypeScript and Go. It
+  searched the project by name, so it jumped to another method's local of the same name, or
+  offered a picker of them, and a parameter had no definition. A primary constructor's
+  parameters bind across the type's body, and a lambda's parameter only inside its lambda. (#345)
+- `d` in Rust on a parameter or a local lands on what binds it in the block around the cursor,
+  `config → Printer::hyperlink::config (local)`, where it jumped to a function of the same name or
+  offered every file's `let` of it: a `let` and its patterns, an `if let`, a `while let`, a `match`
+  arm, a `for`, a closure's parameters and the function's, wrapped over lines too. The nearest
+  binding above the cursor wins, as Rust shadows: in `let x = x.trim();` the right-hand `x` is the
+  earlier one. Another function's `let` is no longer offered for a name. (#353)
 
 ### Fixed
 
@@ -183,6 +265,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   list, flow or block form, and says `no definition` in a file without one. It jumped to the job
   named after the stage, `build:` for `stage: build`, which is how most pipelines name them.
   (#473)
+- `d` in Java and Kotlin no longer lands on a local of another function or a `private`
+  declaration of another file: `Modifier.height` jumped to a `val height` inside some function
+  elsewhere, and `isBlank(s)` to a `private static` method of another class. A local answers
+  only below it in its own block, never behind a `.` or a `::`, and a `private` declaration only
+  in its own file; when one declaration is left that way, it is offered in the list rather than
+  jumped to, since it was still found by name only. (#357)
+- `d` in Java and Kotlin reads `Type::method` as `Type.method`: `Inner::getName` jumps to the
+  `getName` of `Inner`, and `this::show` or `this.show` to the `show` of the class around the
+  cursor, where they listed every method of that name in the project. A Kotlin extension is
+  named by its receiver, so `Topic::asExternalModel` jumps to `fun Topic.asExternalModel()`
+  among the extensions of other types, and `val Topic.testTag` declares `testTag`, no longer a
+  second `Topic`. (#362)
+- `d` in PHP reads `$x->name` and `$x?->name` as the member they are: a call finds the
+  methods of that name, anything else the properties, in the project and then in `vendor/`, the
+  `@method` and `@property` tags of a class's docblock included. It searched the bare word, so
+  `$join->where(…)` on a Laravel query landed on a local `$where = […]` of an unrelated class,
+  `$request->input(…)` on a property, and `vendor/` was never read. A chain broken before its
+  arrows reads as one line, and a `.`, which concatenates in PHP, is no member access. (#348)
+- `d` in PHP finds a typed class constant, `private const int LIMIT = 500;`, where it said
+  `no definition`, and the `@property`, `@property-read`, `@property-write` and `@method` tags
+  of a class's docblock, the way Laravel declares Eloquent columns: `$song->title` lands on the
+  tag, `title → Song::title`. A `namespace …\Support;` line no longer answers `Support` in
+  `use Illuminate\Support\Facades\Route;`, nor a class called like its last part: a segment
+  of a qualified name finds only the namespace written up to it. (#344)
+- `d` in Go finds a name declared inside a grouped `const (`, `var (` or `type (` block: an
+  iota enum, `time.Hour`, `http.StatusOK`, a type of a `type (` block. It said `no definition`,
+  or jumped to a namesake elsewhere. A field of a struct inside the block, and a `var (` block
+  inside a function, still declare nothing of the package. (#326)
+- `d` in Go on a key of a composite literal, `Address` in `Order{Address: addr}`, lands on the
+  field of the literal's type, `Address → Order.Address (via Order{…})`, also for an element
+  whose type is elided (`[]Item{{Name: "a"}}`) and a type of another package. It looked the key
+  up as a bare name and jumped to a namesake type, method or function. A map's keys stay values;
+  a literal whose type is not read (an anonymous struct, a type outside the project) offers what
+  the name finds and never jumps to one. (#327)
+- `d` in Go reads the locals and parameters above a label: gofmt writes `scan:` at the left
+  margin of a function, and the scope walk took it for the function's end, so a local used
+  below it gave a namesake from elsewhere or `no definition`. And on a name that
+  `n, err := second()` declares again in its block, `d` lands on the first declaration, which
+  the `:=` reuses, where it offered both lines. (#330)
+- `d` in Go looks a bare name up where Go does: a local, a name of the file's own package, of a
+  dot import, or a predeclared one (`len` lands in GOROOT's `builtin/builtin.go`). `pkg.X` is
+  looked for in `pkg`'s directory only, since Go has no re-exports. It searched every package
+  of the project, GOROOT and the module cache, so a name it missed jumped to a namesake of
+  another package, a method or another function's local; now that is `no definition`. A
+  `package x_test` file no longer sees the names of `package x`. (#332)
+- `d` in TypeScript and JavaScript no longer offers another file's function locals: a
+  `const`, `let`, `var`, `function` or `class` inside a function, a method or a block is out of
+  sight there, in the project and in the dependencies. `Object.values(o)` jumped to a `const
+  values` inside some other function, and `node.callee` to a `const callee` of another file. A
+  method named by a string or a computed key, `"NewExpression:exit"(node) {`, binds its
+  parameters, so `node` there is the parameter. (#339)
+- `d` in TypeScript and JavaScript follows a barrel to the declaration: `import { Group } from
+  "./models"`, where `models/index.ts` says `export { default as Group } from "./Group"` or `export
+  * from "./helpers"`, lands on the class in `Group.ts`, where it fell back to the search by name
+  and opened a list of every namesake, or jumped to the wrong one. A module that imports a
+  default and exports it again, `export default Text;`, is followed to the module that declares
+  it, where `d` stopped on that line. (#335)
+- `d` in TypeScript finds a class or an interface whose type parameters prettier wrapped,
+  `class User extends Model<` over its type arguments over `> {`: it was dropped as a wrapped
+  call, so `d` said `no definition` or jumped to the one namesake left, a client-side model for
+  the server's. The return type of an arrow, `): Node => ({`, is no longer read as its
+  parameter, which hid the import of `Node`. (#331)
+- `d` in JavaScript reads a `require` as an import. A name that `const { helper } =
+  require("./m")` or `const Segment = require("./seg")` binds leads into the required module,
+  where it stopped on the `require` line; `utils.helper` behind `const utils = require("./m")`
+  finds `helper` there, `Segment.make` the `make` of the class that `module.exports = Segment`
+  hands out, and `d` on `utils` itself lands on its `module.exports =` line. A `const` continued
+  over several lines binds every name it declares, where the names after the first were found
+  nowhere. `require("debug")("app")` returns something else and stays a local. (#328)
 - `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
   in the project, the standard library and the dependencies the cursor can reach, the traits'
   first, where it jumped to a lone project namesake: `v.unwrap()` on an `Option` landed on a
@@ -366,6 +517,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in a Makefile finds a variable set only by `CFLAGS += -Wall` or for one target,
   `release: VERSION := 1.0`, where it answered `no definition`. A plain `CFLAGS = -O2` stays
   the only answer where there is one. (#499)
+- `d` on a named argument, an object literal's key or a JSX attribute no longer lands on
+  whatever else is spelled so: `vm.followTopic(followedTopicId = "a")` in Kotlin jumped to another
+  file's local `followedTopicId`, `context.report({ node: lastItem })` to the enclosing function's
+  parameter `node`, `getMany(ids: …)` in PHP listed fifteen `$ids =` lines. What it names is looked
+  for in the callee or the literal's type only; when that is outside the project or not found, the
+  status line says `node: key` or `ids: argument label` and nothing opens. Python, TypeScript,
+  JavaScript, Kotlin, Swift, C#, PHP and Ruby. (#315)
+- `d` in C and C++ on `x->name` or `x.name` lands on the field `name` of a struct, union or
+  class, where it landed on a function, a `#define`, a global or a type of the same name, or
+  said `no definition`: in redis `n->data` jumped to a `#define data`, in leveldb `m->level` to
+  a method `level()`. Several fields of one name are a picker. A called `x->name(…)` is a method
+  or a function-pointer field, never a free function. When the project has no field of the name,
+  the system headers are searched for fields only, so `st.st_size` still finds `struct stat`. In
+  a C++ constructor's `: filename_(name)` the name lands on the class's own field. (#359)
+- `d` in Python on a module's name opens the module at its first line, `repos: module
+  app/repos.py`: a word in the path of an import line (`repos` in `from app.repos import
+  UserRepo`, `json` in `import json`), and a name an import binds to a module outside the
+  project (`serializers` behind `from rest_framework import serializers`, `json` in
+  `json.dumps`). It jumped to any method of the name in the dependencies, landed `json` in the
+  base interpreter's pip, or said `no definition`. (#333)
+- `d` in Python no longer jumps to a namesake that cannot be the answer. `self.client` in a
+  subclass of Django's `TestCase` offers only what project subclasses of the class set, and
+  says `no definition` without one, where it jumped to any project class's `client`.
+  `User.objects` with `User` imported from a dependency is a member of `User` there, never a
+  module-level `objects` of another package. The one method of a name found outside the project
+  is offered rather than jumped to when a field of that name is declared outside too:
+  `m.return_value` on a `mock.Mock` jumped to anyio's `TaskHandle.return_value`. (#342)
+- `d` in Swift on a type the project declares lands on its `class`, `struct` or `enum`, where it
+  listed every `extension` of it beside the type (a picker of 24 for Alamofire's `AFError`). A
+  type the project only extends, such as Foundation's `Data`, offers its extensions rather than
+  jumping into one as if it were the type. And a `let` or `var` inside a function is no longer a
+  candidate behind a `.` or in another function: `session.request` lands on the method, not in a
+  picker beside a test's `let request`. (#371)
+- `d` in Ruby no longer jumps to a local of another method. A local `name = …` is a candidate
+  only in its own method or block, and `@name = …` only for `@name`, in its own class, the class
+  reopened in another file included. Behind a dot, as in `x.name`, only a `def`, an `attr_*` or
+  an `alias` of the name answers: `uri.scheme` went to some other method's `scheme = …`, and
+  `@name = name` read as a declaration of the `name` on its right. (#383)
+- `d` in C# no longer lands on a project namesake of something the project does not declare.
+  `Task.Delay`, `HttpStatusCode.Created` and any member behind a type name the project declares
+  nowhere say `no definition`, where they jumped to a property or method of the same name; a
+  private member of another type, and a local or a local function of another method, are no
+  longer offered, so `claims.Remove(…)` stays off a private `Remove` of a test mock. (#355)
 - `d` in a Makefile finds a variable declared by `define NAME` … `endef`, behind `export` or
   `override`, and `D` lists it. (#468)
 - `d` in a Makefile with unsaved edits no longer drops an assignment the edits moved onto a

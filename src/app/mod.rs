@@ -18,6 +18,7 @@ use crate::tree::Tree;
 use crate::tutor::{self, Tutor};
 use crate::wrap;
 
+mod c;
 mod cursor;
 mod definition;
 mod edit;
@@ -28,6 +29,7 @@ mod links;
 mod members;
 mod missed;
 mod open;
+mod php;
 mod picker;
 mod preview;
 mod project_search;
@@ -280,6 +282,9 @@ pub struct App {
     /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
     /// keyword argument, which names a parameter no rule reads.
     offer_only: bool,
+    /// While `d` resolves the owner of a label (#316), where it collects the candidates it would
+    /// show: the callee of a named argument, the type of a literal.
+    probe: Option<Vec<Candidate>>,
     /// Set by a grep of this `d` that stopped at [`search::MAX_HITS`], whatever was filtered out
     /// of it afterwards: the candidates are a lower bound, so the count says `+` and a single
     /// one is offered, not jumped to.
@@ -498,6 +503,7 @@ impl App {
                 std::env::var("GOFLAGS").ok().as_deref(),
             ),
             offer_only: false,
+            probe: None,
             truncated: Default::default(),
             reading: Default::default(),
             focus,
@@ -900,7 +906,7 @@ pub(crate) fn prev_char(s: &str, i: usize) -> usize {
 /// Whether a line `search::bindings` gave for `name` is an import, or the declaration of a class,
 /// a function or a namespace of that name: what a value of the name would hide, and no value
 /// itself. `Outer.Inner` reads a declaration, not a member.
-fn names_itself(line: &str, name: &str) -> bool {
+fn names_itself(kind: Kind, line: &str, name: &str) -> bool {
     let t = line.trim_start();
     let t = t.strip_prefix("export ").unwrap_or(t);
     let t = t.strip_prefix("abstract ").unwrap_or(t);
@@ -921,7 +927,20 @@ fn names_itself(line: &str, name: &str) -> bool {
         rest.strip_prefix(name)
             .is_some_and(|after| !after.starts_with(is_word))
     });
-    declares || t.starts_with("import ") || t.starts_with("from ")
+    declares || import_line(kind, line)
+}
+
+/// Whether `line` is an import in a language whose imports start with a word: `from ` only in
+/// Python, where a Go local may well be named `from` (#521 review).
+fn import_line(kind: Kind, line: &str) -> bool {
+    let t = line.trim_start();
+    match kind {
+        Kind::Python => t.starts_with("import ") || t.starts_with("from "),
+        Kind::TsJs | Kind::Jvm | Kind::Go | Kind::Swift | Kind::Elixir | Kind::Proto => {
+            t.starts_with("import ")
+        }
+        _ => false,
+    }
 }
 
 #[cfg(test)]

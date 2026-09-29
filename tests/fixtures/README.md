@@ -46,8 +46,8 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   again, which must not make it `Issue`'s; Python's `Issue.summary` is a field over a method of
   `Base`. `tally` / `Serve` hold a local of a field's name (an annotated local, an object
   literal's key, a `var` block) that is no field. Python's `Encoder` extends a class outside the
-  project, so its `self.poster_id` is looked up by name and its nested `Options` is found as on
-  master; `Point` declares `offset` first in a tuple. TypeScript's `Issue` binds `close` in its
+  project, so its `self.poster_id` is no other class's namesake (#342) and its nested `Options` is
+  found as on master; `Point` declares `offset` first in a tuple. TypeScript's `Issue` binds `close` in its
   constructor, and `Issue.label` reads its fields inside `case …: {` blocks, which are no object
   literals, and inside the literal a `case …: return {` returns, which is one.
 
@@ -121,7 +121,7 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   package is `books` and `ledger` is a variable of `scopes`. `results` has a method with named
   results, a parameter and a local. After the review: `globals` also holds the locals the scope
   walk does not read (a header with a function-typed parameter, a receiver on one, a `var (`
-  block in a function, the lines above a label, a local handed on) and `globals_x_test.go`, the
+  block in a function, a local handed on; the lines above a label since #330) and `globals_x_test.go`, the
   external test package importing under a variable's name; `platform` a `Timer` whose method is
   per platform, a `Gauge` under `windows && !slow`, a `Gate` no CI host builds and a `Meter`
   under a tag of its own, the last two used from `platforms_gate.go` (`//go:build gated`);
@@ -158,8 +158,8 @@ The grammar:
 - `d: FILE:LINE` is a jump there, `FILE` from the fixture's root.
 - `d: picker FILE:LINE, FILE:LINE` is a picker holding exactly these rows, in any order; `, …` at
   the end means at least these.
-- `d: none` is nothing found (the status line starts with `no `); `d: !jump` is anything but a
-  jump.
+- `d: none` is nothing found (the status line starts with `no `, or names the label the word is:
+  `name: argument label`, `name: key`); `d: !jump` is anything but a jump.
 - `status: TEXT` on the line right under an annotation is optional: the status line contains TEXT.
 - A known miss records today's answer and the wanted one: `d: none; want shop/order.go:12 (#NNN)`.
   Only the part before `; want` is checked, so the suite stays green; the wanted answer must

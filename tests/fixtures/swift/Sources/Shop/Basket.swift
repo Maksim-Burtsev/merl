@@ -11,7 +11,7 @@ extension Tariff {
 
 public struct Basket {
     let tariff: Tariff
-    //          ^ d: picker Sources/Shop/Basket.swift:5, Sources/Shop/Pricing.swift:8; want Sources/Shop/Pricing.swift:8 (#371)
+    //          ^ d: Sources/Shop/Pricing.swift:8
     let coupon: Coupon?
     //          ^ d: Sources/Shop/Pricing.swift:21
     var owner = ""
@@ -47,21 +47,21 @@ func describeAny(_ t: Tariff, _ c: Coupon) -> String {
 
 func restock(weigh: Int) -> Int {
     weigh + weightLimit
-    // ^ d: Sources/Warehouse/Warehouse.swift:8; want Sources/Shop/Basket.swift:48 (#366)
-    //         ^ d: picker Sources/Shop/Basket.swift:3, Sources/Shop/Basket.swift:55; want Sources/Shop/Basket.swift:3 (#371)
+    // ^ d: Sources/Shop/Basket.swift:48
+    //         ^ d: Sources/Shop/Basket.swift:3
 }
 
 func overweight(_ grams: Int) -> Bool {
     let weightLimit = 50
     return weigh(grams) > weightLimit
     //     ^ d: Sources/Warehouse/Warehouse.swift:8
-    //                    ^ d: picker Sources/Shop/Basket.swift:3, Sources/Shop/Basket.swift:55; want Sources/Shop/Basket.swift:55 (#366)
+    //                    ^ d: Sources/Shop/Basket.swift:55
 }
 
 func dispatch() -> String {
     let courier = Courier(name: "post")
     //            ^ d: Sources/Warehouse/Warehouse.swift:1
-    //                    ^ d: Sources/Warehouse/Warehouse.swift:2; want Sources/Warehouse/Warehouse.swift:3 (#316)
+    //                    ^ d: Sources/Warehouse/Warehouse.swift:3
     return courier.name
     //             ^ d: Sources/Warehouse/Warehouse.swift:2
 }
@@ -115,21 +115,21 @@ func entries(_ l: Ledger) async -> Int {
 func handle(_ o: Offer?, items: [Int]) {
     if let o {
         print(o)
-        //    ^ d: none; want Sources/Shop/Basket.swift:115 (#366)
+        //    ^ d: Sources/Shop/Basket.swift:115
     }
     for item in items {
         print(item)
-        //    ^ d: none; want Sources/Shop/Basket.swift:120 (#366)
+        //    ^ d: Sources/Shop/Basket.swift:120
     }
     items.forEach { entry in
         print(entry)
-        //    ^ d: none; want Sources/Shop/Basket.swift:124 (#366)
+        //    ^ d: Sources/Shop/Basket.swift:124
     }
     do {
         try check()
     } catch {
         print(error)
-        //    ^ d: none
+        //    ^ d: Sources/Shop/Basket.swift:130
     }
 }
 
@@ -137,7 +137,7 @@ func check() throws {}
 
 func weighed(_ c: Courier) -> String {
     Courier(name: c.name).name
-    //      ^ d: Sources/Warehouse/Warehouse.swift:2; want Sources/Warehouse/Warehouse.swift:3 (#316)
+    //      ^ d: Sources/Warehouse/Warehouse.swift:3
 }
 
 let amount: Priced.Type? = nil
@@ -150,7 +150,7 @@ func cheapest<Item: Priced>(_ items: [Item]) -> Item? {
 }
 
 let label: String = "shop"
-//         ^ d: Sources/Warehouse/Warehouse.swift:18; want none (#371)
+//         ^ d: picker Sources/Warehouse/Warehouse.swift:18
 
 func sealed(_ p: Parcel) -> Parcel.Seal {
     //                             ^ d: Sources/Shop/Pricing.swift:82
@@ -171,7 +171,7 @@ func items() -> Int {
 
 func renamed(_ courier: Courier) -> Courier {
     let courier = Courier(name: courier.name)
-    //                          ^ d: picker Sources/Shop/Basket.swift:62; want Sources/Shop/Basket.swift:172 (#366)
+    //                          ^ d: Sources/Shop/Basket.swift:172
     return courier
 }
 
@@ -184,12 +184,29 @@ func mode() -> Int {
     //      ^ d: Sources/Shop/Pricing.swift:87
 }
 
+struct RefreshWindow {
+    let maximumAttempts: Int
+    init(interval: Double = 30, maximumAttempts: Int = 5) {
+        self.maximumAttempts = maximumAttempts
+    }
+}
+
+func window() -> Int {
+    let w = RefreshWindow.init(interval: 30, maximumAttempts: 1)
+    //                                       ^ d: Sources/Shop/Basket.swift:189
+    //                                       status: maximumAttempts: parameter of RefreshWindow
+    print(w, separator: "")
+    //       ^ d: none
+    //       status: separator: argument label
+    return w.maximumAttempts
+}
+
 struct Bell {
     func chime() -> Int { 1 }
 }
 
 func ringBell(_ bell: Bell) -> Int {
     let chime = bell.chime()
-    //               ^ d: Sources/Shop/Basket.swift:188
+    //               ^ d: Sources/Shop/Basket.swift:205
     return chime
 }

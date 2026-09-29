@@ -117,6 +117,8 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
         (None, 0, None, 0);
     let (mut verbatim, mut raw, mut label, mut exact) = (false, false, Vec::new(), None);
     let mut pending: Vec<(Vec<u8>, bool)> = Vec::new();
+    // The braces open in each TypeScript template substitution the scan is in, innermost last.
+    let mut holes: Vec<usize> = Vec::new();
     // Where the Rust string the scan is in opened, and whether `at` is inside one.
     let (mut string_from, mut inside) = (None, false);
     // A long bracket opening at `at` — `[[` or `[==[`, behind `--` or not: how many `=` it
@@ -168,7 +170,12 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                 }
             }
             out.push(block.is_some());
-        } else if let Some(end) = block.as_deref() {
+        } else if let Some(end) = block.as_deref()
+            && !(kind == Kind::TsJs
+                && end == b"`"
+                && b[i..].starts_with(b"${")
+                && b[i - 1] != b'\\')
+        {
             // A long bracket closes on `]`, the `=` its opener carried, and `]`; a verbatim
             // string on a `"` that no second `"` follows; a heredoc only on its label, above. A
             // Go raw string has no escapes, so its backtick closes it whatever stands before
@@ -210,6 +217,28 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                 i += if long_bracket { level + 1 } else { skip };
             } else if doubled {
                 i += 1;
+            }
+        } else if block.is_some() {
+            // A template's `${` opens code, up to the `}` that closes it: a template in there
+            // is one of its own, `${a ? `${b}/` : ""}`, and the rest of the outer one follows.
+            holes.push(0);
+            block = None;
+            i += 1;
+        } else if !holes.is_empty()
+            && quote.is_none()
+            && (c == b'{' || c == b'}')
+            && b[i - 1] != b'\\'
+        {
+            // A regex's `\{` is no brace (`${s.replace(/\{/g, "")}`). ponytail: the `{` of
+            // `/[{]/` still counts; skip regex literals in a hole if one shows up.
+            let depth = holes.last_mut().expect("not empty");
+            match (c, *depth) {
+                (b'{', _) => *depth += 1,
+                (_, 0) => {
+                    holes.pop();
+                    block = Some(b"`".into());
+                }
+                _ => *depth -= 1,
             }
         } else if let Some(q) = quote {
             // A backslash escapes the next byte, but the end of a line is still one.

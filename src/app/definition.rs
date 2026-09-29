@@ -96,8 +96,12 @@ impl App {
         };
         // Go's blank identifier names nothing: every `_` is a fresh discard (#476). Nor has a
         // GraphQL operation's `$variable` a rule: it is a parameter, and `$id` is no field `id`.
+        // A Java or Kotlin class literal, `Foo::class`, names no member `class` (#362).
         if (kind == Kind::Go && word == "_")
             || (kind == Kind::Graphql && self.line_str()[..range.start].ends_with('$'))
+            || (kind == Kind::Jvm
+                && word == "class"
+                && self.line_str()[..range.start].ends_with("::"))
         {
             self.message = resolution(&word, None, &[], None, false);
             return;
@@ -153,6 +157,22 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // A named argument, a literal's key or a JSX attribute names a parameter of the callee
+        // or a field of the literal's type, and nothing else spelled so (#315, #316).
+        if self.probe.is_none()
+            && let java = here.extension().is_some_and(|e| e == "java")
+            && let Some(label) = search::label_at(kind, java, &text, self.line, range.clone())
+        {
+            let found = label
+                .owner
+                .map(|(line, col, owner)| self.label_targets(kind, &here, &word, line, col, &owner))
+                .unwrap_or_default();
+            match found.is_empty() {
+                true => self.message = format!("{word}: {}", label.what),
+                false => self.show_definitions(kind, &word, &here, found, None),
+            }
+            return;
+        }
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
         self.truncated.set(false);
@@ -178,6 +198,73 @@ impl App {
                 })
                 .collect();
             self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
+        // A C or C++ member behind `->` or `.`, or in a constructor's initializer list (#359).
+        if kind == Kind::C
+            && let Some(found) = self.c_early(&here, &text, &word, range.clone())
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
+        // A word in the module path of an import line names that module and nothing else
+        // (#333): the project's, else the one outside, and never a namesake found by name.
+        if kind == Kind::Python
+            && let Some(module) = search::python_import_module(self.line_str(), range.start)
+        {
+            let found = self.python_module(&here, &module);
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
+        // A key of a Go composite literal is a field of the literal's type (#327). A literal whose
+        // type is not read offers what the name finds, and never jumps to one.
+        let go_key = match kind == Kind::Go && !dotted {
+            true => search::go_key(&text, self.line + 1, range.start, range.end),
+            false => search::GoKey::No,
+        };
+        let go_keyed = go_key != search::GoKey::No;
+        // A receiver's or a literal's type may be declared outside the project, and is read
+        // from the files walked there (#334).
+        if kind == Kind::Go && (dotted || matches!(go_key, search::GoKey::Of(_))) {
+            self.external_files(kind);
+        }
+        match go_key {
+            search::GoKey::Of(written) => match self.literal_field(kind, &here, &written, &word) {
+                Ok(Some(found)) => {
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
+                Ok(None) => {}
+                Err(()) => self.offer_only = true,
+            },
+            // A struct written in place: its body is on the lines above (#330).
+            search::GoKey::Struct(line) => {
+                let ty = typed::anonymous(&here, line);
+                let found = self
+                    .field_of(kind, &ty, &word, false)
+                    .into_iter()
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Receiver(ty.name.clone()),
+                    })
+                    .collect();
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+            search::GoKey::Unknown => self.offer_only = true,
+            search::GoKey::No | search::GoKey::Value => {}
+        }
+        // A Ruby `@name` or `@@name` is a variable of the class around the cursor, assigned in
+        // its methods (#383): a word of its own, never the bare `name`, and never another class's.
+        let lead = &self.line_str()[..range.start];
+        if kind == Kind::Ruby && lead.ends_with('@') {
+            let sigil = match lead.ends_with("@@") {
+                true => "@@",
+                false => "@",
+            };
+            let ivar = format!("{sigil}{word}");
+            let found = self.ruby_ivars(&here, &text, &ivar);
+            self.show_definitions(kind, &ivar, &here, found, None);
             return;
         }
         // Inside a docstring's example the imports written there count too.
@@ -211,24 +298,108 @@ impl App {
         // `super` is no local, whatever the member lookup reads it as; Lua has no `super`. A name
         // of a destructuring or a parameter list wrapped over several lines is on a line of its
         // own (#393).
-        let locals: Vec<usize> = search::bindings(kind, &text, self.line + 1, first)
-            .iter()
-            .map(|b| b.line)
-            .filter(|&n| {
-                !key && (dotted || word != "super" || kind == Kind::Lua)
-                    && !names_itself(&self.buf.lines[n - 1], first)
-            })
-            .map(|n| match kind {
-                Kind::TsJs => search::written_line(&self.buf.lines, n, first),
-                _ => n,
-            })
-            .collect();
+        // A Rust macro, a path and its segments are no local, nor a field a literal or a pattern
+        // names with `w:` (a format string's `{w:?}` is the local), save on the line that
+        // declares the local (#353). On the pattern of a
+        // `let` the word is that local itself.
+        let after = self.line_str()[range.end..].trim_start();
+        let rust_path = kind == Kind::Rust
+            && (before.ends_with("::")
+                || after.starts_with("::")
+                || (after.starts_with('!') && !after.starts_with("!=")));
+        let rust_field =
+            kind == Kind::Rust && after.starts_with(':') && !after.starts_with("::") && !captured;
+        let declared = kind == Kind::Rust
+            && chain.is_empty()
+            && search::rust_let_declares(self.line_str(), range.start, &word);
+        // A TypeScript bare word is a value a `class`, `function`, `type`, `interface` or `enum`
+        // of its scope declares as well as a `const` (#337); the first name of a chain is not.
+        let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
+        let required = match kind {
+            Kind::TsJs => search::ts_import_lines(&text, first),
+            _ => Vec::new(),
+        };
+        let locals_at = |text: &str, line: usize| -> Vec<usize> {
+            let binding: Vec<usize> = match declared {
+                true => vec![self.line + 1],
+                false => search::bindings(kind, text, line, first)
+                    .iter()
+                    .map(|b| b.line)
+                    .collect(),
+            };
+            binding
+                .into_iter()
+                .filter(|&n| {
+                    let l = &self.buf.lines[n - 1];
+                    !key && (dotted || word != "super" || kind == Kind::Lua)
+                        && !(import_line(kind, l) || (!bare && names_itself(kind, l, first)))
+                        && !rust_path
+                        && (!rust_field || n == self.line + 1)
+                })
+                .map(|n| match kind {
+                    Kind::TsJs => search::written_line(&self.buf.lines, n, first),
+                    Kind::CSharp => search::cs_written_line(&self.buf.lines, n, first),
+                    _ => n,
+                })
+                // `const { helper } = require("./m")` binds an import, as `import` does (#328).
+                .filter(|n| !required.contains(n))
+                .collect()
+        };
+        let mut locals = locals_at(&text, self.line + 1);
+        // No scope around the cursor binds it: the module's scope is the whole file, and its
+        // declarations below the cursor count too (#337). One on the cursor's line leaves the
+        // namesakes to the rules below, as on a declaration anywhere.
+        if bare && locals.is_empty() {
+            let module = locals_at(&format!("{text}\n0"), self.buf.lines.len() + 1);
+            if !module.contains(&(self.line + 1)) {
+                locals = module;
+            }
+        }
         if !locals.is_empty() {
             imports.retain(|(name, _)| name != first);
         }
+        // A Python builtin nothing in the file binds has no source to land on (#336): not the
+        // project's namesake in another module, which the bare name does not reach without an
+        // import, nor a method of a dependency. A `*` import may bind it, and so may the class
+        // body the cursor is in: `render = format` beside its `def format`.
+        let star = kind == Kind::Python && imports.iter().any(|(name, _)| name == "*");
+        let unbound = kind == Kind::Python
+            && !dotted
+            && chain.is_empty()
+            && search::bindings(kind, &text, self.line + 1, &word).is_empty()
+            && !search::python_class_binds(&text, self.line + 1, &word)
+            && !names_itself(kind, self.line_str(), &word)
+            && !self.offer_only;
+        if unbound && !star && search::PYTHON_BUILTINS.contains(&word.as_str()) {
+            self.offer_only = false;
+            self.message = format!("{word}: builtin, no source");
+            return;
+        }
         // The word itself is that parameter or local: its declarations in this scope are the
         // answer, and a function of the same name elsewhere is not.
-        if !dotted && !locals.is_empty() && locals != [self.line + 1] {
+        // In C a function on one line holds its parameter and its uses (#378). A Java or Kotlin
+        // name bound earlier on the cursor's own line, `fun f(x: Int) = x`, is bound there
+        // (#376); behind a `::` the word is a member, whatever the qualifier is. A C# use past its
+        // declaration on the same line, a lambda's parameter inside that lambda, is bound there
+        // too (#345). A Rust local the cursor's own line binds is one too: a closure `|w| w`, an
+        // arm, the parameter or the `let` itself (#353).
+        let on_itself = match kind {
+            Kind::C => search::c_bindings_at(&text, self.line + 1, first)
+                .iter()
+                .all(|&(l, c)| l == self.line + 1 && c == range.start),
+            _ => locals == [self.line + 1],
+        };
+        let same_line = kind == Kind::Jvm
+            && locals == [self.line + 1]
+            && whole_at(self.line_str(), &word, "").is_some_and(|at| at < range.start);
+        let own_line = kind == Kind::CSharp
+            && locals == [self.line + 1]
+            && search::cs_binds_here(self.line_str(), &word, range.start);
+        if !dotted
+            && !before.ends_with("::")
+            && !locals.is_empty()
+            && (!on_itself || same_line || own_line || kind == Kind::Rust)
+        {
             let found = locals
                 .iter()
                 .map(|&line| Candidate {
@@ -241,6 +412,38 @@ impl App {
                     reason: Reason::Local,
                 })
                 .collect();
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
+        // A bare name inside a C++ method is a field of its class first (#378).
+        if kind == Kind::C
+            && !dotted
+            && chain.is_empty()
+            && locals.is_empty()
+            && !before.ends_with("::")
+            && let Some(class) = search::c_method_class(&text, self.line + 1, &word)
+        {
+            let found = self.c_class_fields(&here, &word, &class, false);
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
+        // A bare Java or Kotlin name no local binds: a member of the classes around the cursor,
+        // innermost first, then of the class the innermost one extends (#376). Behind `new` it
+        // is a constructor, which a nested class's line is not.
+        let constructed = before
+            .trim_end()
+            .strip_suffix("new")
+            .is_some_and(|b| !b.ends_with(is_word));
+        if kind == Kind::Jvm
+            && !constructed
+            && chain.is_empty()
+            && !dotted
+            && !before.ends_with("::")
+            && locals.is_empty()
+            && let Some(found) = self.jvm_members(&here, &text, &word)
+        {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
@@ -284,21 +487,92 @@ impl App {
             return;
         }
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
-        let on_value = dotted && !own && chain.first().is_none_or(|f| bound(&imports, f).is_none());
-        let members = on_value
-            .then(|| search::member_patterns(kind, &word))
-            .flatten()
-            .map(|m| m.join("|"));
+        // Java and Kotlin's `Type::m` names a member of `Type` as `Type.m` does (#362). `super::m`
+        // stays the search by name, and a bare `::m` has no chain.
+        let referenced = kind == Kind::Jvm
+            && before.ends_with("::")
+            && chain.first().is_some_and(|f| f != "super");
+        // PHP reaches a member with `->` alone, whatever the chain starts with: `Offer::Cut->value`
+        // is a value's member too (#348). Behind `->` a call is a method, anything else a property.
+        let php_members = (kind == Kind::Php && dotted).then(|| {
+            let call = self.line_str()[range.end..].trim_start().starts_with('(');
+            search::php_member_patterns(&word, call).join("|")
+        });
+        let on_value = (dotted || referenced)
+            && !own
+            && (kind == Kind::Php || chain.first().is_none_or(|f| bound(&imports, f).is_none()));
+        let members = match &php_members {
+            Some(m) => on_value.then(|| m.clone()),
+            None => on_value
+                .then(|| search::member_patterns(kind, &word))
+                .flatten()
+                .map(|m| m.join("|")),
+        };
         let mut patterns = search::def_patterns(kind, &word);
+        // A Ruby local is seen from its own method or block alone, and a value has none: its
+        // assignments are this file's where the cursor sees them, below, never a search by name
+        // (#383). A constant is the project's.
+        let ruby_local =
+            kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_');
+        if kind == Kind::Ruby && (dotted || ruby_local) {
+            let assignment = search::ruby_assignment(&word);
+            patterns.retain(|p| *p != assignment);
+        }
+        // A Ruby call with no receiver that no local names, and `self.meth`, is a method of
+        // `self`: its class, the modules it mixes in, its superclasses, in that order, before any
+        // namesake by name (#365).
+        if ruby_local
+            && locals.is_empty()
+            && ((!dotted && chain.is_empty() && !before.ends_with("::")) || own)
+            && search::ruby_locals(&text, self.line + 1, &word).is_empty()
+        {
+            let found = self.ruby_self_methods(&here, &text, &word);
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+            // A cut in a grep whose result is dropped says nothing about the list below.
+            self.truncated.set(false);
+        }
         // An Elixir call is never a module attribute: `Shop.currency()` is no `@currency` (#459).
         if kind == Kind::Elixir && dotted {
             patterns.retain(|p| !p.starts_with(r"^\s*@"));
+        }
+        if kind == Kind::Php {
+            search::php_namespace_patterns(&mut patterns, &text, self.line_str(), range.clone());
         }
         if patterns.is_empty() {
             self.message = self.no_rules();
             return;
         }
         let pattern = patterns.join("|");
+        // PHP's `$this->`, `self::`, `static::` and `parent::` name the class around the cursor, a
+        // trait it uses or a class it extends (#356); `self::$name` is a static property.
+        if kind == Kind::Php {
+            let property = before.strip_suffix('$').filter(|b| b.ends_with("::"));
+            let b = property.unwrap_or(before);
+            let link = match search::qualifier(b, b.len()).as_slice() {
+                [l] if dotted && l == "this" => Some(l.clone()),
+                [l] if !dotted
+                    && b.ends_with("::")
+                    && matches!(l.as_str(), "self" | "static" | "parent") =>
+                {
+                    Some(l.clone())
+                }
+                _ => None,
+            };
+            let access = match self.line_str()[range.end..].trim_start().starts_with('(') {
+                true => search::PhpAccess::Call,
+                false if dotted || property.is_some() => search::PhpAccess::Property,
+                false => search::PhpAccess::Constant,
+            };
+            if let Some(link) = link
+                && let Some(found) = self.php_link(&here, &text, &link, &word, access)
+            {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
         // Rust's attributes, fields and variants, which the lines below cannot tell (#370).
         if kind == Kind::Rust
             && let Some(found) = self.rust_early(&here, &text, &word, range.clone(), dotted)
@@ -333,6 +607,24 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // A bare Go name is a local, a name of the file's package, of a dot import or a
+        // predeclared one, and nothing else (#332). A literal's key, a name an import binds and
+        // the declaration under the cursor keep their lookup.
+        let mut declaring = search::def_patterns(kind, &word);
+        declaring.extend(search::member_or_signature(kind, &word).unwrap_or_default());
+        let declares_here =
+            Regex::new(&declaring.join("|")).is_ok_and(|re| re.is_match(self.line_str()));
+        if kind == Kind::Go
+            && !dotted
+            && !go_keyed
+            && locals.is_empty()
+            && !declares_here
+            && bound(&imports, &word).is_none()
+        {
+            let found = self.go_bare(&here, &word, &imports);
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // A receiver whose type is proven narrows the member to that type (#68, steps 2 to 4).
         let mut broke = None;
         // A chain with no name to start from may hang off a call: `make_uow().users.word` (#100).
@@ -357,9 +649,25 @@ impl App {
                     self.show_definitions(kind, &word, &here, found, None);
                     return;
                 }
-                Ok(_) => {}
+                // What the class lacks can come from its bases outside the project, or from a
+                // project class extending it, which may set it on `self` (#342): only those
+                // subclasses' declarations of the name are candidates.
+                Ok(_) => {
+                    if let Some(ty) = self.inherited_outside(kind, &here, &chain, head.as_ref()) {
+                        let found = self.subclass_members(kind, &here, &word, &pattern, &ty);
+                        self.show_definitions(kind, &word, &here, found, None);
+                        return;
+                    }
+                }
                 // With one name in front of the word, `by name` already says where.
                 Err(at) => {
+                    // A value proven to be a builtin type: its members have no source (#336).
+                    if let Some(via) = self.builtin_receiver(kind, &here, &chain, head.as_ref()) {
+                        self.offer_only = false;
+                        self.truncated.set(false);
+                        self.message = format!("{word}: builtin, no source (via {via})");
+                        return;
+                    }
                     let names = head.as_ref().map_or(chain.len(), |(_, _, f)| f.len() + 1);
                     broke = (names > 1).then_some(at);
                 }
@@ -407,19 +715,43 @@ impl App {
         let mut outside = false;
         // The import names a module of the project's own: a workspace package linked in, an alias.
         let mut own_module = false;
+        // The import names a module of the project that was read.
+        let mut project_read = false;
         let mut found = match import {
             Some(path) => {
-                let mut found = self
-                    .imported_definitions(kind, &here, &word, &chain, &path)
-                    .unwrap_or_else(|| {
-                        // A workspace package linked in is the project's own: the search by
-                        // name in the project comes first, the one outside after it (below).
-                        let found =
-                            self.external_definitions(kind, &word, &chain, dotted, &imports, true);
-                        outside = found.is_some();
-                        own_module = found.is_none();
-                        found.unwrap_or_default()
-                    });
+                let project = self.imported_definitions(kind, &here, &word, &chain, &path);
+                project_read = project.is_some();
+                // The name itself, bare or as a qualifier, bound to a module outside (#333).
+                if project.is_none()
+                    && kind == Kind::Python
+                    && !dotted
+                    && chain.is_empty()
+                    && imports.iter().filter(|(name, _)| *name == word).count() == 1
+                    && let Some(found) = self.bound_module(&path)
+                {
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
+                // `User.objects` behind an import from outside, `User` a name in the module
+                // (#342): a member of `User` there, never a top-level `objects` anywhere.
+                if project.is_none()
+                    && kind == Kind::Python
+                    && dotted
+                    && chain.len() == 1
+                    && let Some(found) = self.outside_class_member(&word, &path)
+                {
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
+                let mut found = project.unwrap_or_else(|| {
+                    // A workspace package linked in is the project's own: the search by
+                    // name in the project comes first, the one outside after it (below).
+                    let found =
+                        self.external_definitions(kind, &word, &chain, dotted, &imports, true);
+                    outside = found.is_some();
+                    own_module = found.is_none();
+                    found.unwrap_or_default()
+                });
                 // `try: from a import pick` / `except ImportError: from b import pick` names
                 // two sources: both are offered, and which one ran is not for `d` to guess.
                 let others: Vec<Vec<String>> = imports
@@ -437,7 +769,17 @@ impl App {
             }
             None => Vec::new(),
         };
-        if !found.is_empty() {
+        // Go's `pkg.X` is declared in `pkg`'s directory or nowhere: Go has no re-exports (#332).
+        // Cgo's `C` has no directory. `pkg.Var.Method` goes through a value, and a package the
+        // lookup could not map while the project holds its directory (a `vendor/` copy) was not
+        // read: both keep the search by name.
+        let go_qualified = kind == Kind::Go
+            && chain.len() == 1
+            && bound(&imports, &chain[0]).is_some_and(|p| {
+                p != ["C"]
+                    && (project_read || !self.files.iter().any(|f| search::in_package(f, &p)))
+            });
+        if !found.is_empty() || go_qualified {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
@@ -468,6 +810,37 @@ impl App {
         };
         if kind == Kind::Python && locals.is_empty() && !chain.is_empty() && !nested(self) {
             let found = self.class_attribute(kind, &here, &chain, &word);
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
+        // `this.m` and `this::m` in Java and Kotlin: `m` of the class around the cursor, which
+        // this file declares (#362). Nothing of it declares `m`: the search by name, as before.
+        if kind == Kind::Jvm
+            && own
+            && (dotted || before.ends_with("::"))
+            && let Some(owner) = search::jvm_this_owner(&text, self.line + 1)
+        {
+            let full = format!("{owner}.{word}");
+            let re = Regex::new(&pattern).expect("an escaped name keeps the pattern valid");
+            let found: Vec<Candidate> = text
+                .lines()
+                .enumerate()
+                .filter(|&(i, l)| {
+                    re.is_match(l)
+                        && search::qualified(kind, &text, i + 1, &word).as_ref() == Some(&full)
+                })
+                .map(|(i, l)| Candidate {
+                    hit: Hit {
+                        path: here.clone(),
+                        line: i + 1,
+                        col: 0,
+                        text: l.to_owned(),
+                    },
+                    reason: Reason::Path("this".to_owned()),
+                })
+                .collect();
             if !found.is_empty() {
                 self.show_definitions(kind, &word, &here, found, None);
                 return;
@@ -823,17 +1196,32 @@ impl App {
             }
             self.truncated.set(false);
         }
+        // A C# `Task.Delay` whose first name the project declares nowhere, in no form, is a
+        // member of a type outside it (#355): NuGet ships assemblies, so nothing names what the
+        // project's namesakes are not. A lowercase first name is a value of an unknown type.
+        if kind == Kind::CSharp
+            && dotted
+            && locals.is_empty()
+            && let Some(first) = chain.first()
+            && first.starts_with(|c: char| c.is_ascii_uppercase())
+            && !self.cs_declares(&here, first)
+        {
+            self.show_definitions(kind, &word, &here, Vec::new(), None);
+            return;
+        }
         // A parameter or a local in front of the word is a value for certain: it has members,
         // and a function or a variable at the top of a module is not one of them.
+        // Nor is anything but a member one of PHP's, where `$x->` is always a value (#348).
         let hits = members
             .as_ref()
             .map(|m| self.members_by_name(kind, &here, &word, m))
-            .filter(|hits| !hits.is_empty() || !locals.is_empty())
+            .filter(|hits| !hits.is_empty() || !locals.is_empty() || kind == Kind::Php)
             .unwrap_or_else(|| {
                 if own {
                     // `self.word` whose class is not read to the end: the declarations of the name,
-                    // and the fields too (#104).
-                    self.members_by_name(kind, &here, &word, &pattern)
+                    // and the fields too (#104). PHP's `$this->word` is a member (#348).
+                    let pattern = php_members.as_ref().unwrap_or(&pattern);
+                    self.members_by_name(kind, &here, &word, pattern)
                 } else {
                     self.project_definitions(kind, &here, &word, &pattern)
                 }
@@ -843,6 +1231,43 @@ impl App {
         // left was a namesake beside it on master, and is offered, never jumped to. The cursor's
         // own line stays, standing on a declaration.
         let mut hits = hits;
+        if ruby_local && !dotted && chain.is_empty() {
+            hits.extend(
+                search::ruby_locals(&text, self.line + 1, &word)
+                    .into_iter()
+                    .map(|line| Hit {
+                        path: here.clone(),
+                        line,
+                        col: 0,
+                        text: self.buf.lines[line - 1].clone(),
+                    }),
+            );
+        }
+        // A C# private member is reachable from its own type alone, a part of it this file
+        // declares included, and a local from its own method alone, never behind a dot (#355).
+        if kind == Kind::CSharp {
+            let mine: Vec<String> = self
+                .buf
+                .lines
+                .iter()
+                .filter_map(|l| search::cs_type_decl(l).map(|(_, name)| name))
+                .collect();
+            hits.retain(|h| {
+                let place = self.text_of(&h.path).map_or(search::CsPlace::Top, |t| {
+                    search::cs_place(&t, h.line, &word)
+                });
+                match place {
+                    search::CsPlace::Member {
+                        owner,
+                        private: true,
+                    } => mine.contains(&owner),
+                    search::CsPlace::Local { from, to } => {
+                        !dotted && h.path == here && (from..=to).contains(&(self.line + 1))
+                    }
+                    _ => true,
+                }
+            });
+        }
         if kind == Kind::Lua {
             let at = |h: &Hit| h.path == here && h.line == self.line + 1;
             let all = hits.len();
@@ -853,6 +1278,43 @@ impl App {
             });
             self.offer_only |= hits.len() < all && hits.iter().any(|h| !at(h));
         }
+        // A Swift function's `let` or `var` is seen inside that function and the functions
+        // nested in it alone (#371): behind a `.` it is no member, and for a bare word anywhere
+        // else it is another function's local.
+        // The cursor's own line alone is offered rather than jumped to when others went: the
+        // word may be a use on the line of a declaration of its name (#317).
+        if kind == Kind::Swift {
+            let all = hits.len();
+            let lines: Vec<&str> = text.lines().collect();
+            let literal = search::literal_lines(kind, &text);
+            // The cursor's scope and the functions around it, innermost first; a header's scope
+            // lies above it, so the walk ends.
+            let mut scopes = vec![search::swift_scope(&lines, &literal, self.line + 1).0];
+            while let Some(&s @ 1..) = scopes.last() {
+                match search::swift_scope(&lines, &literal, s).0 {
+                    0 => break,
+                    up => scopes.push(up),
+                }
+            }
+            let mut files: HashMap<PathBuf, (Vec<String>, Vec<bool>)> = HashMap::new();
+            hits.retain(|h| {
+                let (lines, literal) = files.entry(h.path.clone()).or_insert_with(|| {
+                    let t = self.text_of(&h.path).unwrap_or_default();
+                    let literal = search::literal_lines(kind, &t);
+                    (t.lines().map(str::to_owned).collect(), literal)
+                });
+                match search::swift_local(lines, literal, h.line) {
+                    Some(at) => !dotted && h.path == here && scopes.contains(&at),
+                    None => true,
+                }
+            });
+            self.offer_only |= hits.len() < all
+                && matches!(hits.as_slice(), [h] if h.path == here && h.line == self.line + 1);
+        }
+        let hits = match kind {
+            Kind::Jvm => self.jvm_seen(&here, hits, dotted || before.ends_with("::")),
+            _ => hits,
+        };
         // A C or C++ type is its body, not its forward declarations and constructors (#368).
         // Behind `.` or `->` no type is meant. Then what the file on screen can see (#364): not
         // another source file's statics and macros, not a `#define` that only stands in where
@@ -869,6 +1331,15 @@ impl App {
                     })
                 };
                 let construction = after.trim_start().starts_with(['(', '{']) || keyword("new");
+                // A value is followed by `->` or `.`, and is never a type (#378).
+                let after = after.trim_start();
+                let value = locals.is_empty()
+                    && (after.starts_with("->")
+                        || (after.starts_with('.') && !after.starts_with("..")));
+                let hits: Vec<Hit> = hits
+                    .into_iter()
+                    .filter(|h| !value || !Self::c_type_line(&word, h))
+                    .collect();
                 let tag = ["struct", "union", "enum"].into_iter().any(keyword);
                 // What a raw string or a block comment holds declares nothing, and must not count
                 // as a second body or definition in the rules below (show_definitions drops it
@@ -918,6 +1389,25 @@ impl App {
                 reason: Reason::ByName,
             })
             .collect();
+        // A Swift `extension X` declares no `X` (#371). With the type in the project the
+        // extensions are no candidates; with only extensions, `X` is declared outside: in a
+        // dependency, else in Foundation or the standard library, which ship no source, and the
+        // extensions are offered then, never jumped to.
+        if kind == Kind::Swift && !found.is_empty() {
+            let extends = |c: &Candidate| search::swift_extension(&c.hit.text);
+            if found.iter().any(|c| !extends(c)) {
+                found.retain(|c| !extends(c));
+            } else {
+                let mut away = self
+                    .external_definitions(kind, &word, &chain, dotted, &imports, false)
+                    .unwrap_or_default();
+                away.retain(|c| !extends(c));
+                match away.is_empty() {
+                    true => self.offer_only = true,
+                    false => found = away,
+                }
+            }
+        }
         if let Some(members) = &members {
             // A value's type is unknown: its member may come from a dependency as well. Outside
             // the project TypeScript is read from its declaration files, as VS Code lands on
@@ -928,7 +1418,15 @@ impl App {
                 .filter(|p| kind != Kind::TsJs || search::declaration_file(p))
                 .cloned()
                 .collect();
-            let external = self.external_grep(kind, &files, members);
+            // One method outside is no proof while a field of the name is declared outside
+            // too, which is never listed (#342): the one method is offered, counted `1+`.
+            let (external, field) = match kind {
+                Kind::Python => self.external_methods(&files, members, &word),
+                _ => (self.external_grep(kind, &files, members), false),
+            };
+            if found.is_empty() && external.len() == 1 && field {
+                self.truncated.set(true);
+            }
             let seen: Vec<PathBuf> = found.iter().map(|c| self.root.join(&c.hit.path)).collect();
             found.extend(
                 external
@@ -948,9 +1446,22 @@ impl App {
         {
             // After the project, outside as the import names the module, every installed copy
             // of it: what a workspace package linked in hands on from a dependency is there.
-            found = self
-                .external_definitions(kind, &word, &chain, dotted, &imports, false)
-                .unwrap_or_default();
+            // A bare Python name nothing binds is no method, and outside the project only a
+            // module the file `*`-imports can bind it (#336).
+            found = match unbound && !search::PYTHON_BUILTINS.contains(&word.as_str()) {
+                true => self.star_imported(&word, &imports),
+                false => self
+                    .external_definitions(kind, &word, &chain, dotted, &imports, false)
+                    .unwrap_or_default(),
+            };
+            // `group->pel` opens no system `struct group` (#378).
+            let after = self.line_str()[range.end..].trim_start();
+            if kind == Kind::C
+                && locals.is_empty()
+                && (after.starts_with("->") || (after.starts_with('.') && !after.starts_with("..")))
+            {
+                found.retain(|c| !Self::c_type_line(&word, &c.hit));
+            }
             // The module the import loads is the project's, searched already: nothing outside is
             // proven to be what it hands on.
             if own_module {
@@ -986,6 +1497,534 @@ impl App {
         if let Some(note) = aside {
             self.message = self.message.replacen("1 match", &note, 1);
         }
+    }
+
+    /// Where the label `word` lands (#316): `d` resolves the name at 0-based `line` and byte
+    /// `col` as it would there, and each declaration of it in the project gives the parameter
+    /// or the field the label names. Several are overloads; none leaves the label unresolved.
+    fn label_targets(
+        &mut self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        line: usize,
+        col: usize,
+        owner: &search::Owner,
+    ) -> Vec<Candidate> {
+        let (line0, col0) = (self.line, self.col);
+        let message = std::mem::take(&mut self.message);
+        (self.line, self.col) = (line, col);
+        let name = self.definition_word(Some(kind)).map(|(_, w)| w);
+        let text = self.buf.lines.join("\n");
+        let owners = match name
+            .as_deref()
+            .and_then(|n| search::own_type(kind, &text, line, n))
+        {
+            // `new self(…)`: the class the cursor is in.
+            Some(decl) => vec![Candidate {
+                hit: Hit {
+                    path: here.to_path_buf(),
+                    line: decl,
+                    col: 0,
+                    text: self.buf.lines[decl - 1].clone(),
+                },
+                reason: Reason::File,
+            }],
+            None => {
+                self.probe = Some(Vec::new());
+                self.goto_definition();
+                self.probe.take().unwrap_or_default()
+            }
+        };
+        (self.line, self.col, self.message) = (line0, col0, message);
+        // A callee found only by name, or one of whose candidates lies outside the project, where
+        // nothing is read, may be another namesake's: its parameter is offered, never jumped to.
+        // A callee whose receiver's type the project does not declare, or one of whose candidates
+        // lies outside the project, where nothing is read, may be a library's namesake: its
+        // parameter is offered, never jumped to. A typed chain that broke says so for Python.
+        let offer = std::mem::take(&mut self.offer_only)
+            || owners.iter().any(|c| c.hit.path.is_absolute())
+            || (owners.iter().all(|c| !c.reason.proven())
+                && name
+                    .as_deref()
+                    .is_some_and(|n| self.receiver_outside(kind, here, line, col, n)));
+        self.truncated.set(false);
+        let Some(name) = name else {
+            return Vec::new();
+        };
+        let what = match owner {
+            search::Owner::Args => "parameter",
+            search::Owner::Object(_) | search::Owner::Typed => "field",
+        };
+        let mut out: Vec<Candidate> = Vec::new();
+        for c in owners {
+            // Outside the project nothing is read; the line under the cursor declares nothing
+            // it calls.
+            if c.hit.path.is_absolute() || (c.hit.path == here && c.hit.line == line0 + 1) {
+                continue;
+            }
+            let Some(text) = self.text_of(&c.hit.path) else {
+                continue;
+            };
+            let of = search::qualified(kind, &text, c.hit.line, &name).unwrap_or(name.clone());
+            let mut at: Vec<(PathBuf, usize, String)> =
+                search::label_lines(kind, &text, c.hit.line, &name, word, owner)
+                    .into_iter()
+                    .map(|l| (c.hit.path.clone(), l, of.clone()))
+                    .collect();
+            // `<Tag a={…}>` of `function Tag(p: Props)`: the key is `Props`'s, when the project
+            // declares one `Props`.
+            if at.is_empty()
+                && let search::Owner::Object(n) = owner
+                && let Some(ty) = search::object_type(kind, &text, c.hit.line, &name, *n)
+            {
+                let cut = self.truncated.get();
+                let pattern = search::def_patterns(kind, &ty).join("|");
+                let decls = self.project_definitions(kind, here, &ty, &pattern);
+                self.truncated.set(cut);
+                if let [d] = decls.as_slice()
+                    && let Some(t) = self.text_of(&d.path)
+                {
+                    at = search::label_lines(kind, &t, d.line, &ty, word, &search::Owner::Typed)
+                        .into_iter()
+                        .map(|l| (d.path.clone(), l, ty.clone()))
+                        .collect();
+                }
+            }
+            let by_name = match c.reason.proven() {
+                true => "",
+                false => ", found by name",
+            };
+            for (path, line, of) in at {
+                if out.iter().any(|o| o.hit.path == path && o.hit.line == line) {
+                    continue;
+                }
+                let text = self
+                    .text_of(&path)
+                    .and_then(|t| t.lines().nth(line - 1).map(str::to_owned))
+                    .unwrap_or_default();
+                out.push(Candidate {
+                    hit: Hit {
+                        path,
+                        line,
+                        col: 0,
+                        text,
+                    },
+                    reason: Reason::Label(format!("{what} of {of}{by_name}")),
+                });
+            }
+        }
+        self.offer_only = offer && !out.is_empty();
+        out
+    }
+
+    /// Whether the receiver of the call whose callee `name` ends at byte `col` of 0-based `line`
+    /// has a type written for it that the project does not declare: `client` of `client.get(`,
+    /// declared `client: HttpClient` or `HttpClient client` on a line above.
+    fn receiver_outside(
+        &self,
+        kind: Kind,
+        here: &Path,
+        line: usize,
+        col: usize,
+        name: &str,
+    ) -> bool {
+        let lines = &self.buf.lines;
+        let Some(head) = lines[line]
+            .get(..col + 1)
+            .and_then(|h| h.strip_suffix(name))
+            .and_then(|h| h.strip_suffix('.'))
+        else {
+            return false;
+        };
+        let recv = head
+            .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .next()
+            .unwrap_or_default();
+        let r = regex::escape(recv);
+        let Ok(re) = Regex::new(&format!(
+            r"\b{r}\s*:\s*([A-Z][\w.]*)|\b([A-Z][\w.]*)(?:<[^>]*>)?\s+{r}\b"
+        )) else {
+            return false;
+        };
+        let ty = lines[..=line].iter().rev().find_map(|l| {
+            let c = re.captures(l)?;
+            let t = c.get(1).or(c.get(2))?.as_str();
+            t.rsplit('.').next().map(str::to_owned)
+        });
+        let Some(ty) = ty.filter(|_| !recv.is_empty()) else {
+            return false;
+        };
+        let cut = self.truncated.get();
+        let pattern = search::def_patterns(kind, &ty).join("|");
+        let none = self
+            .project_definitions(kind, here, &ty, &pattern)
+            .is_empty();
+        self.truncated.set(cut);
+        none
+    }
+
+    /// The files of the Python module `module` in the project: a package over a module of the
+    /// same name beside it, as Python imports it (#280).
+    fn project_module(&self, here: &Path, module: &[String]) -> Vec<PathBuf> {
+        let mut files = search::module_files(Kind::Python, &self.root, &self.files, here, module);
+        if files.iter().any(|f| f.ends_with("__init__.py")) {
+            files.retain(|f| f.ends_with("__init__.py"));
+        }
+        files
+    }
+
+    /// The Python module `module` as a whole (#333): the project's, else, for an absolute path,
+    /// the one outside, named from its root as the picker names it.
+    fn python_module(&mut self, here: &Path, module: &[String]) -> Vec<Candidate> {
+        let files = self.project_module(here, module);
+        if !files.is_empty() || module[0].starts_with('.') {
+            return self.module_candidates(files);
+        }
+        let file = self.external_module(module);
+        file.map(|f| self.outside_module(f)).unwrap_or_default()
+    }
+
+    /// `word` qualified by a name an import binds to `path` outside the project, when the path
+    /// resolves to a module only without its last part, the name the import takes
+    /// (#342): the declarations of `Name.word` in that module, `Name` as the module calls it. An
+    /// empty list is a member the lookup does not find there, which no namesake elsewhere
+    /// answers for. `None` leaves it to the lookup by import: a relative import, a name that is a
+    /// module itself, a module not found.
+    fn outside_class_member(&mut self, word: &str, path: &[String]) -> Option<Vec<Candidate>> {
+        let (name, module) = path.split_last()?;
+        if module.is_empty() || path[0].starts_with('.') {
+            return None;
+        }
+        if self.external_module(path).is_some() {
+            return None;
+        }
+        let file = self.external_module(module)?;
+        let kind = Kind::Python;
+        let mut patterns = search::def_patterns(kind, word);
+        patterns.extend(search::field_patterns(kind, word).unwrap_or_default());
+        let within = Some(format!("{name}.{word}"));
+        let hits = self.external_grep(kind, std::slice::from_ref(&file), &patterns.join("|"));
+        let text = std::fs::read_to_string(&file).ok()?;
+        let reason = Reason::Import(module.join("."));
+        Some(
+            hits.into_iter()
+                .filter(|h| search::qualified(kind, &text, h.line, word) == within)
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect(),
+        )
+    }
+
+    /// The declarations of `word` by name (`pattern`, and the fields), in `ty` and the project
+    /// classes that extend it, four levels down (#342). `ty` itself counts for what the typed
+    /// walk does not read: a nested class, a `def` under an `if`.
+    fn subclass_members(
+        &mut self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        pattern: &str,
+        ty: &Typed,
+    ) -> Vec<Candidate> {
+        let mut owners = self.subtypes(kind, here, ty);
+        owners.push((ty.path.clone(), ty.line));
+        self.members_by_name(kind, here, word, pattern)
+            .into_iter()
+            .filter(|h| {
+                self.text_of(&h.path).is_some_and(|t| {
+                    let lines: Vec<&str> = t.lines().collect();
+                    search::enclosing_type(kind, &lines, h.line - 1)
+                        .is_some_and(|d| owners.contains(&(h.path.clone(), d)))
+                })
+            })
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            })
+            .collect()
+    }
+
+    /// The top-level declarations of `word` in the modules outside the project that the file's
+    /// `from m import *` lines name (#336).
+    fn star_imported(&mut self, word: &str, imports: &[(String, Vec<String>)]) -> Vec<Candidate> {
+        let kind = Kind::Python;
+        let pattern = search::def_patterns(kind, word).join("|");
+        let mut found = Vec::new();
+        for (_, path) in imports.iter().filter(|(name, _)| name == "*") {
+            let module = &path[..path.len() - 1];
+            if module.is_empty() || module[0].starts_with('.') {
+                continue;
+            }
+            let Some(file) = self.external_module(module) else {
+                continue;
+            };
+            let Ok(text) = std::fs::read_to_string(&file) else {
+                continue;
+            };
+            let hits = self.external_grep(kind, std::slice::from_ref(&file), &pattern);
+            found.extend(
+                hits.into_iter()
+                    .filter(|h| search::qualified(kind, &text, h.line, word).is_none())
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Import(module.join(".")),
+                    }),
+            );
+        }
+        found
+    }
+
+    /// The first line of `file`, a module outside the project, named from its root.
+    fn outside_module(&self, file: PathBuf) -> Vec<Candidate> {
+        let mut found = self.module_candidates(vec![file]);
+        for c in &mut found {
+            let shown = self.rel_to_its_root(Kind::Python, &c.hit.path);
+            c.reason = Reason::Module(shown.display().to_string());
+        }
+        found
+    }
+
+    /// What a Python name bound by an import to `path`, outside the project, is as a whole
+    /// (#333): the module, when the whole path is one and the package above does not bind the
+    /// name itself (that binding keeps its say, through the lookup by import). The name a plain
+    /// `import x` binds is a module or nothing, never a namesake found by name. `None` leaves the
+    /// name to the lookup by import.
+    fn bound_module(&mut self, path: &[String]) -> Option<Vec<Candidate>> {
+        if path[0].starts_with('.') {
+            return None;
+        }
+        let Some(file) = self.external_module(path) else {
+            return (path.len() == 1).then(Vec::new);
+        };
+        if let Some((name, above)) = path.split_last().filter(|(_, above)| !above.is_empty())
+            && let Some(package) = self.external_module(above)
+            && std::fs::read_to_string(&package)
+                .is_ok_and(|t| !search::bindings(Kind::Python, &t, 1, name).is_empty())
+        {
+            return None;
+        }
+        Some(self.outside_module(file))
+    }
+
+    /// Of the Java or Kotlin declarations `hits` found by name, what the cursor can see (#357): a
+    /// local only in its own block, below it, and never `behind` a `.` or a `::`; a `private`
+    /// declaration only in its own file. When that drops some and leaves one that is no local
+    /// in sight, it is still found by name only, and offered rather than jumped to.
+    fn jvm_seen(&mut self, here: &Path, hits: Vec<Hit>, behind: bool) -> Vec<Hit> {
+        let all = hits.len();
+        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
+        let mut seen_local = false;
+        let kept: Vec<Hit> = hits
+            .into_iter()
+            .filter(|h| {
+                if h.path != here && search::jvm_private(&h.text) {
+                    return false;
+                }
+                // A declaration in column 0 is top-level, never a local.
+                if !h.text.starts_with([' ', '\t']) {
+                    return true;
+                }
+                let text = texts
+                    .entry(h.path.clone())
+                    .or_insert_with(|| self.text_of(&h.path));
+                match text
+                    .as_deref()
+                    .and_then(|t| search::jvm_local_block(t, h.line))
+                {
+                    None => true,
+                    Some(end) => {
+                        let seen =
+                            !behind && h.path == here && (h.line..=end).contains(&(self.line + 1));
+                        seen_local |= seen;
+                        seen
+                    }
+                }
+            })
+            .collect();
+        self.offer_only |= kept.len() == 1 && kept.len() < all && !seen_local;
+        kept
+    }
+
+    /// What a bare `word` names among the members of the Java or Kotlin classes around the
+    /// cursor (#376): what the innermost class that declares it declares, `via` its name (an
+    /// anonymous class's members are `local`), else what the class the innermost one extends
+    /// declares, when the project declares that class once. `None` when neither does, or when the
+    /// cursor stands on the member itself, whose namesakes and implementations are asked for.
+    fn jvm_members(&self, here: &Path, text: &str, word: &str) -> Option<Vec<Candidate>> {
+        let lines: Vec<&str> = text.lines().collect();
+        let candidate = |path: &Path, lines: &[&str], line: usize, reason: Reason| Candidate {
+            hit: Hit {
+                path: path.to_path_buf(),
+                line,
+                col: 0,
+                text: lines[line - 1].to_owned(),
+            },
+            reason,
+        };
+        let types = search::jvm_enclosing_types(text, self.line + 1);
+        let mut found: Vec<Candidate> = Vec::new();
+        for &decl in &types {
+            let reason = match search::jvm_type_name(lines[decl - 1]) {
+                Some(name) => Reason::Path(name),
+                None => Reason::Local,
+            };
+            found = search::jvm_members_of(text, decl, word)
+                .into_iter()
+                .map(|line| candidate(here, &lines, line, reason.clone()))
+                .collect();
+            if !found.is_empty() {
+                break;
+            }
+        }
+        // One level up: the class the innermost named one extends, declared once.
+        let inner = types
+            .iter()
+            .find(|&&d| search::jvm_type_name(lines[d - 1]).is_some());
+        if found.is_empty()
+            && let Some(&decl) = inner
+        {
+            for base in search::jvm_bases(text, decl) {
+                let pattern = search::def_patterns(Kind::Jvm, &base).join("|");
+                let cut = self.truncated.get();
+                let declared: Vec<Hit> = self
+                    .project_definitions(Kind::Jvm, here, &base, &pattern)
+                    .into_iter()
+                    .filter(|h| search::jvm_type_name(&h.text).as_deref() == Some(base.as_str()))
+                    .collect();
+                self.truncated.set(cut);
+                let [hit] = declared.as_slice() else {
+                    continue;
+                };
+                let Some(t) = self.text_of(&hit.path) else {
+                    continue;
+                };
+                let base_lines: Vec<&str> = t.lines().collect();
+                found.extend(
+                    search::jvm_members_of(&t, hit.line, word)
+                        .into_iter()
+                        .map(|line| {
+                            candidate(&hit.path, &base_lines, line, Reason::Path(base.clone()))
+                        }),
+                );
+            }
+        }
+        let on_it = found
+            .iter()
+            .any(|c| c.hit.path == here && c.hit.line == self.line + 1);
+        (!found.is_empty() && !on_it).then_some(found)
+    }
+
+    /// The field `word` of the Go struct a literal `written{…}` builds, `file` the file writing it
+    /// (#327): only the struct's own fields, since Go takes no promoted field as a key. An empty
+    /// list is a struct without the field, `None` a type that is no struct (a named map or slice,
+    /// whose keys are values), `Err` a type the rules do not find or read.
+    fn literal_field(
+        &self,
+        kind: Kind,
+        file: &Path,
+        written: &str,
+        word: &str,
+    ) -> Result<Option<Vec<Candidate>>, ()> {
+        let Some(ty) = self.struct_decl(kind, file, written, 0)? else {
+            return Ok(None);
+        };
+        let label = format!(
+            "{}{{\u{2026}}}",
+            written.split('[').next().unwrap_or(written)
+        );
+        Ok(Some(
+            self.field_of(kind, &ty, word, false)
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(label.clone()),
+                })
+                .collect(),
+        ))
+    }
+
+    /// The Go struct the type written as `written` in `file` is: itself, or what a defined
+    /// `type X Y` is over, eight deep. `None` for a type that is no struct, `Err` for one the
+    /// rules do not find or read.
+    pub(super) fn struct_decl(
+        &self,
+        kind: Kind,
+        file: &Path,
+        written: &str,
+        depth: usize,
+    ) -> Result<Option<Typed>, ()> {
+        static DEFINED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^type\s+[A-Za-z_]\w*(?:\[[^\]]*\])?\s+([^/{]*)").unwrap()
+        });
+        let ty = self.type_decl(kind, file, written).ok_or(())?;
+        let text = self.text_of(&ty.path).ok_or(())?;
+        let line = text.lines().nth(ty.line - 1).ok_or(())?;
+        let over = DEFINED.captures(line).ok_or(())?[1].trim().to_owned();
+        if over.starts_with("struct") {
+            return Ok(Some(ty));
+        }
+        let named = search::type_path(kind, &over).is_some() && !over.starts_with('*');
+        match named && depth < 8 {
+            true => self.struct_decl(kind, &ty.path, &over, depth + 1),
+            false => Ok(None),
+        }
+    }
+
+    /// Where a bare Go name no scope of the file declares is declared (#332): at the top level
+    /// of the file's package, else in the package of a dot import, else in GOROOT's
+    /// `builtin/builtin.go`, the predeclared `len` and `error`.
+    fn go_bare(
+        &mut self,
+        here: &Path,
+        word: &str,
+        imports: &[(String, Vec<String>)],
+    ) -> Vec<Candidate> {
+        let kind = Kind::Go;
+        let by = |hits: Vec<Hit>, reason: Reason| -> Vec<Candidate> {
+            hits.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect()
+        };
+        let own = self.package_declarations(kind, here, word, None);
+        let own = self.host_built(kind, own);
+        if !own.is_empty() {
+            return by(own, Reason::ByName);
+        }
+        let dot = [".".to_owned()];
+        for (_, path) in imports.iter().filter(|(name, _)| name == ".") {
+            let found = match self.imported_definitions(kind, here, word, &dot, path) {
+                Some(found) => found,
+                None => {
+                    let only = [(".".to_owned(), path.clone())];
+                    self.external_definitions(kind, word, &dot, false, &only, true)
+                        .unwrap_or_default()
+                }
+            };
+            if !found.is_empty() {
+                return found;
+            }
+        }
+        self.external_files(kind);
+        let builtin: Vec<PathBuf> = self
+            .external
+            .get(&kind)
+            .and_then(|(roots, _)| roots.first())
+            .map(|goroot| goroot.join("builtin/builtin.go"))
+            .filter(|f| f.is_file())
+            .into_iter()
+            .collect();
+        let pattern = search::def_patterns(kind, word).join("|");
+        let hits = self.external_grep(kind, &builtin, &pattern);
+        by(
+            self.declaring(kind, word, hits),
+            Reason::Path("builtin".to_owned()),
+        )
     }
 
     /// Lua's `m.word`, `m.T.word`, `T.word` (#462): `m` bound by `local m = require("a.b")` reads
@@ -1119,6 +2158,27 @@ impl App {
             .collect()
     }
 
+    /// Whether the C# project declares `name` in any form (#355): a rule of `d` matches it, or a
+    /// `namespace` line has it as one of its parts.
+    fn cs_declares(&self, here: &Path, name: &str) -> bool {
+        let cut = self.truncated.get();
+        let n = regex::escape(name);
+        let pattern = search::def_patterns(Kind::CSharp, name).join("|");
+        let declared = !self
+            .project_definitions(Kind::CSharp, here, name, &pattern)
+            .is_empty()
+            || self
+                .grep(
+                    &format!(r"^\s*namespace\s+(?:[\w.]+\.)?{n}\b"),
+                    false,
+                    false,
+                    |p| search::in_def_scope(Kind::CSharp, here, p),
+                )
+                .is_ok_and(|hits| !hits.is_empty());
+        self.truncated.set(cut);
+        declared
+    }
+
     /// `word` as a constant of the Java or Kotlin enum `owner`, when the project declares one type
     /// of that name and it is an `enum` (#457), and this file sees it: it is in the enum's package,
     /// or imports the enum or its whole package (`.*`). `import java.util.concurrent.TimeUnit`, or
@@ -1184,6 +2244,184 @@ impl App {
 
     /// Jumps to the one candidate, or opens the picker over several, and says how they were found
     /// and at which name of the chain in front of the word the typed lookup `broke`, if it did.
+    /// The methods named `word` a Ruby `self` at the cursor answers to (#365): those its class
+    /// declares, in any file that opens it, then those of the modules it `include`s (or, when
+    /// `self` is the class, `extend`s), then its superclass's, walked up. When `self` is the
+    /// class, only the class's own methods count. Empty when none declares it, or at the top of a
+    /// file.
+    fn ruby_self_methods(&self, here: &Path, text: &str, word: &str) -> Vec<Candidate> {
+        let class = search::ruby_class_path(text, self.line + 1);
+        if class.is_empty() {
+            return Vec::new();
+        }
+        let on_class = search::ruby_self_is_class(text, self.line + 1);
+        let mut patterns = search::def_patterns(Kind::Ruby, word);
+        let assignment = search::ruby_assignment(word);
+        patterns.retain(|p| *p != assignment);
+        // Each declaration with its class, whether it is on the class, and whether it is a
+        // method of a module every side of which counts.
+        let owned: Vec<(Hit, String, bool, bool)> = self
+            .project_definitions(Kind::Ruby, here, word, &patterns.join("|"))
+            .into_iter()
+            .filter_map(|h| {
+                let t = self.text_of(&h.path)?;
+                let c = search::ruby_class_path(&t, h.line);
+                let on = search::ruby_on_class(&t, h.line);
+                let both = search::ruby_singleton(&t, h.line);
+                Some((h, c, on, both))
+            })
+            .collect();
+        let mut seen = HashSet::from([class.clone()]);
+        let mut queue = std::collections::VecDeque::from([(class, on_class)]);
+        while let Some((c, side)) = queue.pop_front() {
+            let found: Vec<Candidate> = owned
+                .iter()
+                .filter(|(_, hc, on, both)| *hc == c && if side { *both } else { !*on })
+                .map(|(h, ..)| Candidate {
+                    hit: h.clone(),
+                    reason: Reason::Receiver(c.clone()),
+                })
+                .collect();
+            if !found.is_empty() {
+                return found;
+            }
+            let (supers, includes, extends) = self.ruby_parents(here, &c);
+            let mixed = match side {
+                true => extends,
+                false => includes,
+            };
+            // A module's methods mixed in are its instance methods, whichever side takes them.
+            let next = mixed
+                .into_iter()
+                .map(|m| (m, false))
+                .chain(supers.into_iter().map(|s| (s, side)));
+            for (name, side) in next {
+                for path in self.ruby_resolve(here, &name) {
+                    if seen.insert(path.clone()) {
+                        queue.push_back((path, side));
+                    }
+                }
+            }
+        }
+        Vec::new()
+    }
+
+    /// The superclasses, `include`d and `extend`ed modules of the Ruby class or module `path`, as
+    /// written, over every file of the project that opens it.
+    fn ruby_parents(&self, here: &Path, path: &str) -> (Vec<String>, Vec<String>, Vec<String>) {
+        let mut out = (Vec::new(), Vec::new(), Vec::new());
+        for (h, t) in self.ruby_declarations(here, path) {
+            let (s, i, e) = search::ruby_class_parents(&t, h.line);
+            out.0.extend(s);
+            out.1.extend(i);
+            out.2.extend(e);
+        }
+        out
+    }
+
+    /// The lines of the project that open the Ruby class or module `path`, with their file's text.
+    fn ruby_declarations(&self, here: &Path, path: &str) -> Vec<(Hit, String)> {
+        let last = path.rsplit("::").next().unwrap_or(path);
+        let pattern = format!(
+            r"^\s*(?:class|module)\s+(?:[\w:]+::)?{}(?:[^\w:]|$)",
+            regex::escape(last)
+        );
+        self.project_definitions(Kind::Ruby, here, last, &pattern)
+            .into_iter()
+            .filter_map(|h| {
+                let t = self.text_of(&h.path)?;
+                (search::ruby_declared_path(&t, h.line).as_deref() == Some(path)).then_some((h, t))
+            })
+            .collect()
+    }
+
+    /// The paths of the classes and modules the project declares that the constant `name`, as
+    /// written, can name: `Tariff` is `Shop::Tariff` as well.
+    /// ponytail: Ruby's lexical lookup is not modelled; every such path counts.
+    fn ruby_resolve(&self, here: &Path, name: &str) -> Vec<String> {
+        let last = name.rsplit("::").next().unwrap_or(name);
+        let pattern = format!(
+            r"^\s*(?:class|module)\s+(?:[\w:]+::)?{}(?:[^\w:]|$)",
+            regex::escape(last)
+        );
+        let mut paths: Vec<String> = self
+            .project_definitions(Kind::Ruby, here, last, &pattern)
+            .into_iter()
+            .filter_map(|h| search::ruby_declared_path(&self.text_of(&h.path)?, h.line))
+            .filter(|p| p == name || p.ends_with(&format!("::{name}")))
+            .collect();
+        paths.sort();
+        paths.dedup();
+        paths
+    }
+
+    /// The lines that assign the Ruby instance or class variable `ivar` in the class around the
+    /// cursor, in `here` or in another file that reopens the class (#383), else in the modules it
+    /// `include`s and its superclasses, walked up as [`Self::ruby_self_methods`] walks them: a
+    /// controller's `@current_user` is set by its parent's before-action. When no class of that
+    /// chain assigns it and a parent is not the project's (`ActionController::Base`, a gem's
+    /// module), every assignment of the project counts, by name. At the top of a file, that
+    /// file's own.
+    fn ruby_ivars(&self, here: &Path, text: &str, ivar: &str) -> Vec<Candidate> {
+        let class = search::ruby_class_path(text, self.line + 1);
+        let pattern = search::ruby_assignment(ivar);
+        let assigned: Vec<(Hit, String)> = self
+            .project_definitions(Kind::Ruby, here, ivar, &pattern)
+            .into_iter()
+            .filter(|h| !class.is_empty() || h.path == here)
+            .filter_map(|h| {
+                let c = search::ruby_class_path(&self.text_of(&h.path)?, h.line);
+                Some((h, c))
+            })
+            .collect();
+        if class.is_empty() {
+            return assigned
+                .into_iter()
+                .filter(|(_, c)| c.is_empty())
+                .map(|(hit, _)| Candidate {
+                    hit,
+                    reason: Reason::File,
+                })
+                .collect();
+        }
+        let mut seen = HashSet::from([class.clone()]);
+        let mut queue = std::collections::VecDeque::from([class]);
+        let mut unread = false;
+        while let Some(c) = queue.pop_front() {
+            let found: Vec<Candidate> = assigned
+                .iter()
+                .filter(|(_, hc)| *hc == c)
+                .map(|(h, _)| Candidate {
+                    hit: h.clone(),
+                    reason: Reason::Receiver(c.clone()),
+                })
+                .collect();
+            if !found.is_empty() {
+                return found;
+            }
+            let (supers, includes, _) = self.ruby_parents(here, &c);
+            for name in includes.into_iter().chain(supers) {
+                let paths = self.ruby_resolve(here, &name);
+                unread |= paths.is_empty();
+                for path in paths {
+                    if seen.insert(path.clone()) {
+                        queue.push_back(path);
+                    }
+                }
+            }
+        }
+        match unread {
+            true => assigned
+                .into_iter()
+                .map(|(hit, _)| Candidate {
+                    hit,
+                    reason: Reason::ByName,
+                })
+                .collect(),
+            false => Vec::new(),
+        }
+    }
+
     fn show_definitions(
         &mut self,
         kind: Kind,
@@ -1198,6 +2436,16 @@ impl App {
         // A line inside a raw string, a docstring or a block comment declares nothing. Past a
         // few hundred candidates the picker is a list to filter, and reading every file is not
         // worth what it would drop.
+        // `it("works", async () => {` and `check(` over `line,` over `);` are calls shaped like
+        // a method's header (#343), however many: a test suite has thousands of `it(`.
+        if kind == Kind::TsJs {
+            let head = search::ts_method_head(word);
+            found.retain(|c| {
+                !search::ts_call_statement(&head, &c.hit.text, c.hit.line, || {
+                    self.text_of(&c.hit.path)
+                })
+            });
+        }
         if found.len() <= 500 {
             let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
             found.retain(|c| {
@@ -1206,12 +2454,24 @@ impl App {
                         .map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
                 });
                 // `register<` over its type arguments over `>(1);` is a call prettier wrapped.
+                // A type's header wrapped so declares the type: `class User extends Model<`,
+                // `export interface Context<` (#331).
                 let call = kind == Kind::TsJs
                     && c.hit.text.trim_end().ends_with('<')
+                    && !search::declares_type(kind, &c.hit.text)
+                    && !Regex::new(r"\b(?:extends|implements)\b")
+                        .is_ok_and(|re| re.is_match(&c.hit.text))
                     && self
                         .text_of(&c.hit.path)
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));
-                !call && !lines.get(c.hit.line - 1).copied().unwrap_or(false)
+                // A tag of a PHP class's docblock is a declaration inside a comment (#344).
+                let literal = lines.get(c.hit.line - 1).copied().unwrap_or(false)
+                    && !(kind == Kind::Php
+                        && self.text_of(&c.hit.path).is_some_and(|t| {
+                            search::php_tag_class(&t.lines().collect::<Vec<_>>(), c.hit.line - 1)
+                                .is_some()
+                        }));
+                !call && !literal
             });
         }
         // A Ruby superclass, right of the `<` of a `class` line, is a use of the name (#387): the
@@ -1269,14 +2529,20 @@ impl App {
         found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).0);
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
+        if let Some(probe) = &mut self.probe {
+            *probe = found;
+            self.offer_only = offer_only || broke.is_some();
+            return;
+        }
         match found.as_slice() {
             [] => self.message = resolution(word, None, &found, broke, truncated),
             [one] if !namesakes && !offer_only && !truncated && !copy => {
                 let path = self.root.join(&one.hit.path);
-                // A module's first line declares nothing of the word.
+                // A module's first line declares nothing of the word, and a label's reason names
+                // what declares the parameter or the field already.
                 let target = self
                     .text_of(&one.hit.path)
-                    .filter(|_| !matches!(one.reason, Reason::Module(_)))
+                    .filter(|_| !matches!(one.reason, Reason::Module(_) | Reason::Label(_)))
                     .and_then(|text| search::qualified(kind, &text, one.hit.line, word));
                 let status = resolution(word, target.as_deref(), &found, broke, false);
                 // The cursor lands on the word rather than at the start of the line, so a
@@ -1413,22 +2679,22 @@ impl App {
         word: &str,
         pattern: &str,
     ) -> Vec<Hit> {
-        let mut hits = self
-            .grep(pattern, false, false, |p| {
-                search::in_def_scope(kind, here, p)
-            })
-            .unwrap_or_default();
-        self.note_cut(&hits);
-        // One file holds thousands of GraphQL `id` fields, so each file is split once.
-        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
-        hits.retain(|h| {
-            search::declares_where(kind, word, h.line, &h.text, || {
-                lines.entry(h.path.clone()).or_insert_with(|| {
-                    self.text_of(&h.path)
-                        .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
-                })
-            })
-        });
+        let hits = self.project_grep(kind, here, pattern);
+        let mut hits = self.declaring(kind, word, hits);
+        // Another file's function locals are not in sight from here (#339).
+        if kind == Kind::TsJs {
+            let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
+            hits.retain(|h| {
+                h.path == here
+                    || !search::ts_nested_local(
+                        lines.entry(h.path.clone()).or_insert_with(|| {
+                            self.text_of(&h.path)
+                                .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
+                        }),
+                        h.line,
+                    )
+            });
+        }
         if kind == Kind::Make {
             let mut recipe = self.make_recipe_rule(Some(here), word);
             hits.retain(|h| recipe(h).unwrap_or(true));
@@ -1487,6 +2753,34 @@ impl App {
                 false => !known || !seen,
             });
         }
+        hits
+    }
+
+    /// `pattern` over the project files where a definition of a word in `here`, a file of
+    /// `kind`, can live, a cut noted.
+    pub(super) fn project_grep(&self, kind: Kind, here: &Path, pattern: &str) -> Vec<Hit> {
+        let hits = self
+            .grep(pattern, false, false, |p| {
+                search::in_def_scope(kind, here, p)
+            })
+            .unwrap_or_default();
+        self.note_cut(&hits);
+        hits
+    }
+
+    /// Of `hits` of the [`search::def_patterns`] of `word`, the lines that declare it where they
+    /// sit ([`search::declares_where`]).
+    pub(super) fn declaring(&self, kind: Kind, word: &str, mut hits: Vec<Hit>) -> Vec<Hit> {
+        // One file holds thousands of GraphQL `id` fields, so each file is split once.
+        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
+        hits.retain(|h| {
+            search::declares_where(kind, word, h.line, &h.text, || {
+                lines.entry(h.path.clone()).or_insert_with(|| {
+                    self.text_of(&h.path)
+                        .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
+                })
+            })
+        });
         hits
     }
 
@@ -1549,6 +2843,8 @@ impl App {
     ) -> Option<Vec<Candidate>> {
         let module_files =
             |module: &[String]| search::module_files(kind, &self.root, &self.files, here, module);
+        // What a CommonJS module bound whole hands out (#328), [`search::module_exports`].
+        let mut exports = None;
         // The names from the module down to the word: what the import takes, then the chain.
         let tail = |mut names: Vec<String>| {
             if let Some((_, after)) = chain.split_first() {
@@ -1562,11 +2858,7 @@ impl App {
         // same name beside it. Only when nothing the lookup below reads declares or hands on
         // the name, so what a package's `__init__.py` binds keeps its say.
         let whole_module = || {
-            let mut files = module_files(&tail(path.to_vec()));
-            if files.iter().any(|f| f.ends_with("__init__.py")) {
-                files.retain(|f| f.ends_with("__init__.py"));
-            }
-            let found = self.module_candidates(files);
+            let found = self.module_candidates(self.project_module(here, &tail(path.to_vec())));
             (!found.is_empty()).then_some(found)
         };
         let (files, inside) = match kind {
@@ -1605,8 +2897,41 @@ impl App {
                 if files.is_empty() {
                     return None;
                 }
+                // A CommonJS module bound whole, `const X = require("./x")` (#328): `X` is what
+                // its one `module.exports =` hands out, the name it assigns or the line itself,
+                // and `X.member` a member of the class that name declares there. Where it
+                // builds `module.exports` otherwise, only its top-level `X` counts.
+                if taken == "*" {
+                    exports = files.iter().find_map(|f| {
+                        Some((f.clone(), search::module_exports(&self.text_of(f)?)?))
+                    });
+                }
+                let class = |n: &String| {
+                    let pattern = search::def_patterns(kind, n).join("|");
+                    self.grep(&pattern, false, false, |p| files.iter().any(|f| f == p))
+                        .unwrap_or_default()
+                        .iter()
+                        .any(|h| {
+                            self.text_of(&h.path).is_some_and(|t| {
+                                search::qualified(kind, &t, h.line, n).is_none()
+                                    && search::declares_type(kind, &h.text)
+                            })
+                        })
+                };
                 let inside = match taken.as_str() {
-                    "*" => tail(Vec::new()),
+                    "*" => match (exports.as_ref().map(|(_, e)| e), chain.is_empty()) {
+                        (Some(Some((_, name))), true) => {
+                            vec![name.clone().unwrap_or_else(|| word.to_owned())]
+                        }
+                        (Some(None), true) => vec![word.to_owned()],
+                        (Some(Some((_, Some(name)))), false) if class(name) => {
+                            let mut names = vec![name.clone()];
+                            names.extend(chain[1..].iter().cloned());
+                            names.push(word.to_owned());
+                            names
+                        }
+                        _ => tail(Vec::new()),
+                    },
                     // What a default export is called is known only on its own line.
                     "default" if !chain.is_empty() => return Some(Vec::new()),
                     "default" => vec![word.to_owned()],
@@ -1626,9 +2951,10 @@ impl App {
         };
         let wanted = |p: &Path| files.iter().any(|f| f == p);
         let pattern = search::def_patterns(kind, name).join("|");
-        let mut hits = self
+        let hits = self
             .grep(&pattern, false, false, wanted)
             .unwrap_or_default();
+        let mut hits = self.declaring(kind, name, hits);
         let within = (inside.len() > 1).then(|| inside.join("."));
         hits.retain(|h| {
             self.text_of(&h.path)
@@ -1643,10 +2969,86 @@ impl App {
                 self.grep(p, false, false, wanted).unwrap_or_default()
             });
         }
+        // `const utils = require("./m")` over `module.exports = { helper };`: that line.
+        if hits.is_empty()
+            && chain.is_empty()
+            && let Some((file, Some((line, _)))) = &exports
+        {
+            let line = *line;
+            hits = vec![Hit {
+                text: self
+                    .text_of(file)
+                    .and_then(|t| t.lines().nth(line - 1).map(str::to_owned))
+                    .unwrap_or_default(),
+                path: file.clone(),
+                line,
+                col: 0,
+            }];
+        }
+        // One that builds its exports line by line hands out itself: its file, as a module.
+        if hits.is_empty()
+            && chain.is_empty()
+            && let Some((file, None)) = &exports
+        {
+            return Some(self.module_candidates(vec![file.clone()]));
+        }
         if hits.is_empty() && kind == Kind::TsJs && path.last().is_some_and(|t| t == "default") {
             hits = self
                 .grep(r"^export\s+default\b", false, false, wanted)
                 .unwrap_or_default();
+            // `import Text from "../shared/Text"; export default Text;` hands on what it imports
+            // (#335): that import is followed. `export default observer(Text)` is what it says.
+            if let [hit] = hits.as_slice()
+                && depth < 4
+                && let Some(name) = search::default_name(&hit.text)
+                && let Some(source) = self.text_of(&hit.path).and_then(|t| {
+                    let imports = search::imports(kind, &t);
+                    bound(&imports, &name)
+                })
+                && let Some(found) = self
+                    .imported_at(kind, &hit.path, &name, &[], &source, depth + 1)
+                    .filter(|f| !f.is_empty())
+            {
+                return Some(found);
+            }
+        }
+        // A barrel hands the name on (#335): `export { Name } from "./x"`, `export { default as
+        // Name }`, `export { x as Name }`, `export * from "./x"`, each source followed as an
+        // import of it. Several `export *` sources that declare it are a picker.
+        // ponytail: four modules deep, which also ends a cycle.
+        if hits.is_empty() && kind == Kind::TsJs && depth < 4 && !inside.is_empty() {
+            let (first, rest) = inside.split_first().expect("not empty");
+            let (chain, word) = match rest.split_last() {
+                Some((word, between)) => {
+                    let mut chain = vec![first.clone()];
+                    chain.extend(between.iter().cloned());
+                    (chain, word.clone())
+                }
+                None => (Vec::new(), first.clone()),
+            };
+            let mut found: Vec<Candidate> = Vec::new();
+            for f in &files {
+                let Some(text) = self.text_of(f) else {
+                    continue;
+                };
+                for (mut module, taken) in search::reexported(&text, first) {
+                    module.push(taken);
+                    let more = self
+                        .imported_at(kind, f, &word, &chain, &module, depth + 1)
+                        .unwrap_or_default();
+                    for c in more {
+                        if !found
+                            .iter()
+                            .any(|o| (&o.hit.path, o.hit.line) == (&c.hit.path, c.hit.line))
+                        {
+                            found.push(c);
+                        }
+                    }
+                }
+            }
+            if !found.is_empty() {
+                return Some(found);
+            }
         }
         // A Python module of the project that does not declare the name but imports it hands
         // it on (#100): `from .sessions import open_session` in a package's `__init__.py`.

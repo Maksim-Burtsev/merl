@@ -182,6 +182,12 @@ fn lines_inside_a_literal_or_a_block_comment_are_told() {
     let ts = "const q = `\\`\nfunction ghost() {}\n`;\nfunction real() {}\n";
     assert_eq!(inside(Kind::TsJs, ts), [2, 3]);
     assert!(inside(Kind::Go, "const q = `\\`\nfunc real() {}\n").is_empty());
+    // A template inside a template's `${…}` closes there, and so does the `${…}` (#328).
+    let ts = "const a = `${b ? `${c}/` : \"\"}${d}`;\nfunction real() {}\nconst e = `\n${`\nnested`}\n`;\nclass After {}\n";
+    assert_eq!(inside(Kind::TsJs, ts), [4, 5, 6]);
+    // A regex's `\{` or `\}` in a `${…}` is no brace of it: the file below stays code.
+    let ts = "const a = `${s.replace(/\\{/g, \"\")}`;\nfunction real() {}\nconst b = `${t.split(/\\}/)}`;\nclass After {}\n";
+    assert!(inside(Kind::TsJs, ts).is_empty());
     // A migration embeds SQL, and a raw or a verbatim string is where it puts it. `""` is how
     // a verbatim string writes a quote, so it does not close one.
     let cs = "var q = \"\"\"\n    WHERE EXISTS(SELECT 1 FROM t)\n    \"\"\";\nvar v = @\"\n    SELECT MIN(\"\"rowid\"\") FROM t\n    \";\npublic int Real() => 1;\n";
@@ -273,7 +279,7 @@ fn go_def_patterns_cover_receivers_types_and_short_vars() {
 }
 
 #[test]
-fn rust_def_patterns_cover_items_behind_prefixes_and_lets() {
+fn rust_def_patterns_cover_items_behind_prefixes() {
     let (dir, files) = project("rs");
     let rs = files[2..3].to_vec();
     for (word, line) in [
@@ -285,8 +291,8 @@ fn rust_def_patterns_cover_items_behind_prefixes_and_lets() {
     ] {
         assert_eq!(defs(&dir, &rs, Kind::Rust, word), [line], "{word}");
     }
-    // Both the `let mut` binding and the macro: the caller shows a picker.
-    assert_eq!(defs(&dir, &rs, Kind::Rust, "order"), [12, 17]);
+    // The macro, not the `let mut` binding: a local is its block's, never found by name (#353).
+    assert_eq!(defs(&dir, &rs, Kind::Rust, "order"), [17]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -520,28 +526,51 @@ fn ruby_def_patterns_find_methods_attributes_and_assignments() {
     assert_eq!(d("Billing"), [1]);
     assert_eq!(d("LIMIT"), [2], "a constant, indented in its module");
     assert_eq!(d("Invoice"), [4]);
-    // The accessor and the assignment behind the setter -- not `total == other.total`; the
-    // setter itself is `total=` (#387).
-    assert_eq!(d("total"), [5, 20]);
+    // The accessor -- not `total == other.total`; the setter itself is `total=` (#387). The
+    // `@total` it sets is a word of its own (#383).
+    assert_eq!(d("total"), [5]);
+    assert_eq!(d("@total"), [20]);
     assert_eq!(d("total="), [5, 19]);
     assert_eq!(d("customer"), [6], "second in the `attr_reader` list");
     // `id => 1,` is a hash pair, not an assignment.
-    assert_eq!(d("id"), [6, 11]);
-    assert_eq!(d("count"), [8], "a class variable");
+    assert_eq!(d("id"), [6]);
+    assert_eq!(d("@id"), [11]);
+    assert_eq!(d("@@count"), [8], "a class variable");
+    assert_eq!(d("count"), Vec::<usize>::new());
+    assert_eq!(d("@count"), Vec::<usize>::new());
     assert_eq!(d("initialize"), [10]);
     assert_eq!(d("parse"), [15], "`def self.parse`");
-    assert_eq!(
-        d("cache"),
-        [23, 24],
-        "the method and the `||=` it memoises with"
-    );
+    assert_eq!(d("cache"), [23]);
+    assert_eq!(d("@cache"), [24], "the `||=` it memoises with");
     // `?` is part of the name (#387), and `@rows.empty?` is a call.
     assert_eq!(d("empty?"), [27]);
     assert_eq!(d("empty"), Vec::<usize>::new());
-    assert_eq!(d("rows"), [12]);
+    assert_eq!(d("rows"), Vec::<usize>::new());
+    assert_eq!(d("@rows"), [12]);
     assert_eq!(d("blank?"), [41]);
     assert_eq!(d("blank"), Vec::<usize>::new());
     assert_eq!(d("name"), Vec::<usize>::new(), "`name =~ /x/` is a match");
     assert_eq!(d("new"), Vec::<usize>::new());
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Review of #521: a function that runs at load puts what it declares at the top of its script,
+/// in every wrapper's spelling; a function inside one of its functions stays a local (#339).
+#[test]
+fn an_iife_or_a_umd_factory_declares_at_the_top_of_its_script() {
+    let nested = |text: &str, line| ts_nested_local(&text.lines().collect::<Vec<_>>(), line);
+    for head in [
+        "(function () {",
+        ";(function (window) {",
+        "!function () {",
+        "(() => {",
+        "(async () => {",
+        "}(this, (function (exports) { 'use strict';",
+        "})(self, () => {",
+    ] {
+        let js = format!("{head}\n  function top() {{\n    const inner = 1;\n  }}\n");
+        assert!(!nested(&js, 2), "{head}");
+        assert!(nested(&js, 3), "{head}");
+    }
+    assert!(nested("function f() {\n  function g() {}\n}\n", 2));
 }

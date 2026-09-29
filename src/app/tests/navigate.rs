@@ -165,10 +165,11 @@ fn a_local_name_is_not_an_import_and_a_member_is_not_a_module_level_name() {
     // Behind the module's name as well: `fakelib.pick` is no method of a class in it.
     d_on(&mut a, "outside.py", "fakelib.pick");
     assert_eq!(a.message, "no definition for pick");
-    // A keyword argument names a parameter: the one variable spelled so is offered.
+    // A keyword argument names a parameter of a callee outside the project, and the variable
+    // spelled so is no answer (#315).
     d_on(&mut a, "outside.py", "    limit");
-    assert!(a.picker.is_some(), "{}", a.message);
-    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    assert!(a.picker.is_none(), "{}", a.message);
+    assert_eq!(a.message, "limit: argument label");
     // What the module does declare at its top is still found through the import.
     d_on(&mut a, "outside.py", "    make");
     assert_eq!(a.message, "make: via import fakelib.core");
@@ -1226,8 +1227,175 @@ fn markdown_links_outside_to_a_directory_and_to_a_spaced_name() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// Review of #515 (#317): off the declared name, a bare value (a shadowed parameter) or a
-/// recursive call is a namesake nothing here tells from the line's own: offered, as on master.
+/// #359. `x->word` in C names a field: the function, the macro and the type of the name are
+/// none. With no field of the name in the project, the files outside are searched for fields
+/// only, so a system struct's field is found and its namesakes there are not.
+#[test]
+fn a_c_member_the_project_lacks_is_a_field_outside() {
+    let (dir, mut a) = project_app(
+        "c-field-outside",
+        &[(
+            "size.c",
+            "#include <sys/stat.h>\n\nlong st_size(void) { return 0; }\n\nlong size_of(struct stat *st) { return st->st_size + st->st_mode; }\n",
+        )],
+    );
+    let root = external_root(
+        "c-field-outside",
+        &[(
+            "sys/stat.h",
+            "#define st_mode st_x\nstruct st_size { int n; };\nstruct stat {\n    long st_size;\n    int st_x;\n};\nint st_mode(void);\n",
+        )],
+    );
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
+    d_on(&mut a, "size.c", "st->st_size");
+    let stat = root.join("sys/stat.h");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "st_size \u{2192} stat::st_size (by name, 1 match)",
+            &format!("{}:4", stat.display())
+        )
+    );
+    d_on(&mut a, "size.c", "st->st_mode");
+    assert_eq!(a.message, "no definition for st_mode");
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// #378. A word followed by `->` or `.` is a value: a system `struct group` is no answer for
+/// `group->gr_name`, and a parameter of the name is.
+#[test]
+fn a_c_value_is_never_a_system_struct() {
+    let (dir, mut a) = project_app(
+        "c-value-type",
+        &[(
+            "who.c",
+            "#include <grp.h>\n\nconst char *who(void) { return group->gr_name; }\n\nconst char *mine(struct group *group)\n{\n    return group->gr_name;\n}\n",
+        )],
+    );
+    let root = external_root(
+        "c-value-type",
+        &[("grp.h", "struct group {\n    char *gr_name;\n};\n")],
+    );
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
+    d_on(&mut a, "who.c", "return group");
+    assert_eq!(a.message, "no definition for group");
+    d_on(&mut a, "who.c", "    return group");
+    assert_eq!(shown(&mut a), jump("group: local", "who.c:5"));
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// PHP's `$x->name` is a member access (#348): a method for a call, a property otherwise, in the
+/// project and in `vendor/` alike, and never a local, a function or a class of the name.
+#[test]
+fn php_arrow_reaches_members_only() {
+    let other = "<?php\n\nnamespace App\\Services;\n\nclass Other\n{\n    public function run(): void\n    {\n        $where = ['a' => 1];\n        $title = 'x';\n    }\n\n    public function on(string $event): void\n    {\n    }\n}\n";
+    let repo = "<?php\n\nnamespace App\\Services;\n\nclass Repo\n{\n    public function run($join, $song, $request): void\n    {\n        $join->where('a', 'b');\n        echo $song->title;\n        $join->on('a', 'b');\n        $request->input('prompt');\n    }\n}\n";
+    let record =
+        "<?php\n\nnamespace App\\Values;\n\nclass Record\n{\n    protected string $input;\n}\n";
+    let join = "<?php\n\nnamespace Illuminate\\Database\\Query;\n\nclass JoinClause\n{\n    public function on($first, $operator = null)\n    {\n    }\n\n    public function where($column, $operator = null)\n    {\n    }\n}\n";
+    let vendored = "vendor/laravel/framework/src/Illuminate/Database/Query/JoinClause.php";
+    let files = [
+        (".gitignore", "vendor/\n"),
+        ("app/Services/Other.php", other),
+        ("app/Services/Repo.php", repo),
+        ("app/Values/Record.php", record),
+        (vendored, join),
+    ];
+    for vendor in [false, true] {
+        let (dir, mut a) = project_app("php-arrow", &files);
+        if !vendor {
+            a.no_external();
+        }
+        let mut d = |code: &str| {
+            d_on(&mut a, "app/Services/Repo.php", code);
+            shown(&mut a)
+        };
+        let none = |w: &str, line: usize| {
+            jump(
+                &format!("no definition for {w}"),
+                &format!("app/Services/Repo.php:{line}"),
+            )
+        };
+        let on = ("Other::on", "app/Services/Other.php:13");
+        let vendor_on = (
+            "JoinClause::on",
+            "laravel/framework/src/Illuminate/Database/Query/JoinClause.php:7",
+        );
+        // Not the local `$where` of another class, with `vendor/` or without.
+        let (where_, on) = match vendor {
+            true => (
+                jump(
+                    "where \u{2192} JoinClause::where (by name, 1 match)",
+                    &format!("{vendored}:11"),
+                ),
+                picker("on: by name, 2 declarations", &[on, vendor_on]),
+            ),
+            false => (
+                none("where", 9),
+                jump("on \u{2192} Other::on (by name, 1 match)", on.1),
+            ),
+        };
+        assert_eq!(d("$join->where"), where_, "vendor: {vendor}");
+        // Not the local `$title`.
+        assert_eq!(d("$song->title"), none("title", 10), "vendor: {vendor}");
+        // The project's first.
+        assert_eq!(d("$join->on"), on, "vendor: {vendor}");
+        // A call wants a method: the property `$input` is none.
+        assert_eq!(d("$request->input"), none("input", 12), "vendor: {vendor}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
+/// A walk from `$this` that leaves the project reads the parent's file in `vendor/`, the one its
+/// import names, and never another class's namesake (#356).
+#[test]
+fn php_this_walks_into_vendor_and_no_further() {
+    let crate_ = "<?php\n\nnamespace App;\n\nuse Symfony\\Component\\Console\\Command\\Command;\n\nfinal class Crate extends Command\n{\n    public function pack(): void\n    {\n        $this->run();\n        $this->seal();\n        self::SUCCESS;\n    }\n}\n";
+    let rack = "<?php\n\nnamespace App;\n\nclass Rack\n{\n    public function run(): void\n    {\n    }\n\n    public function seal(): void\n    {\n    }\n}\n";
+    let command = "<?php\n\nnamespace Symfony\\Component\\Console\\Command;\n\nclass Command\n{\n    public const SUCCESS = 0;\n\n    public function run(): int\n    {\n    }\n}\n";
+    // Another `Command.php` in another namespace: the import names the one to read.
+    let other = "<?php\n\nnamespace Other;\n\nclass Command\n{\n    public function run(): int\n    {\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "php-this-vendor",
+        &[
+            (".gitignore", "vendor/\n"),
+            ("app/Crate.php", crate_),
+            ("app/Rack.php", rack),
+            ("vendor/symfony/console/Command/Command.php", command),
+            ("vendor/other/Command.php", other),
+        ],
+    );
+    let vendored = "symfony/console/Command/Command.php";
+    let mut d = |code: &str| {
+        d_on(&mut a, "app/Crate.php", code);
+        shown(&mut a)
+    };
+    assert_eq!(
+        d("$this->run"),
+        jump(
+            "run \u{2192} Command::run (via $this: Crate)",
+            &format!("vendor/{vendored}:9")
+        )
+    );
+    assert_eq!(
+        d("self::SUCCESS"),
+        jump(
+            "SUCCESS \u{2192} Command::SUCCESS (via self: Crate)",
+            &format!("vendor/{vendored}:7")
+        )
+    );
+    // Not `Rack::seal`.
+    assert_eq!(
+        d("$this->seal"),
+        jump("no definition for seal", "app/Crate.php:12")
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Review of #515 (#317): off the declared name, a recursive call is a namesake nothing here tells
+/// from the line's own: offered, as on master. A Rust value is the local it names (#353).
 #[test]
 fn off_the_declared_name_a_value_or_a_recursion_stays_a_picker() {
     let (dir, mut a) = project_app(
@@ -1241,16 +1409,14 @@ fn off_the_declared_name_a_value_or_a_recursion_stays_a_picker() {
                 "src/A.kt",
                 "fun fact(n: Int): Int = if (n < 2) 1 else n * fact(n - 1)\n",
             ),
-            ("src/B.kt", "private fun fact(n: Int): Int = n\n"),
+            ("src/B.kt", "fun fact(n: Int): Int = n\n"),
         ],
     );
+    // Since #353 Rust reads its locals: the right-hand `chime` is the parameter it shadows.
     d_on(&mut a, "src/a.rs", "let chime = chime");
     assert_eq!(
         shown(&mut a),
-        picker(
-            "chime: at a declaration, 1 other by name",
-            &[("chime", "src/a.rs:1")]
-        )
+        jump("chime \u{2192} rebate::chime (local)", "src/a.rs:2")
     );
     d_on(&mut a, "src/A.kt", "n * fact");
     assert_eq!(
