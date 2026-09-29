@@ -232,6 +232,36 @@ fn the_files_behind_a_link_to_a_directory_open_from_the_tree() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #448: a link to a file that resolves outside the project opens read-only, as a file behind a
+/// directory link out does, though the walk lists it. One to a file inside stays editable.
+#[cfg(unix)]
+#[test]
+fn a_link_to_a_file_outside_the_project_opens_read_only() {
+    let (dir, _) = new_file_project("filelink");
+    let outside = dir.with_extension("outside");
+    let _ = std::fs::remove_dir_all(&outside);
+    std::fs::create_dir_all(&outside).unwrap();
+    std::fs::write(outside.join("far.py"), "far = 1\n").unwrap();
+    std::os::unix::fs::symlink(outside.join("far.py"), dir.join("out.py")).unwrap();
+    std::os::unix::fs::symlink("src/a.py", dir.join("in.py")).unwrap();
+    let (tree, files) = crate::tree::build(&dir, false);
+    let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+    for (link, readonly) in [("in.py", None), ("out.py", Some("outside the project"))] {
+        a.focus = Focus::Tree;
+        a.tree.reveal(Path::new(link));
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(
+            a.buf.path.as_deref(),
+            Some(&*dir.join(link)),
+            "{}",
+            a.message
+        );
+        assert_eq!(a.buf.readonly, readonly, "{link}");
+    }
+    std::fs::remove_dir_all(&outside).unwrap();
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 #[test]
 fn ctrl_n_over_an_overlay_does_nothing() {
     let (_, mut a) = new_file_project("overlay");
