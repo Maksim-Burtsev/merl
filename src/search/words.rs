@@ -71,6 +71,12 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     if ruby {
         names.extend(ruby_namespace(target));
     }
+    // C++ writes it in front of an out-of-line body (#508): `struct Drawer::Scanner {` is
+    // `Scanner` inside `Drawer`, and `std::string Tariff::describe()` is `describe` of `Tariff`.
+    let cpp = kind == Kind::C;
+    if cpp {
+        names.extend(cpp_namespace(target, name));
+    }
     for l in lines[..line - 1].iter().rev() {
         if depth == 0 {
             break;
@@ -89,7 +95,14 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             .map(|c| c[1].to_owned())
             .or_else(|| declared_name(Some(kind), l));
         match named {
-            Some(n) => names.push(n),
+            Some(n) => {
+                if cpp {
+                    names.push(n.clone());
+                    names.extend(cpp_namespace(l, &n));
+                } else {
+                    names.push(n);
+                }
+            }
             None => break,
         }
         if ruby {
@@ -114,6 +127,26 @@ fn ruby_namespace(line: &str) -> Vec<String> {
         .split("::")
         .filter(|s| !s.is_empty())
         .map(str::to_owned)
+        .collect();
+    names.reverse();
+    names
+}
+/// The qualifier a C++ declaration line writes in front of the `name` it declares, innermost
+/// first: `Drawer`, `shop` for `int shop::Drawer::count() {`, `Box` for `T Box<T>::get()`. Only
+/// the first `name` on the line counts: the `run` a body calls, `Other::run()`, is not it.
+fn cpp_namespace(line: &str, name: &str) -> Vec<String> {
+    let spelled = Regex::new(&format!(
+        r"((?:\w+(?:<[^<>]*>)?::)*)\b{}\b",
+        regex::escape(name)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let Some(c) = spelled.captures(line) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = c[1]
+        .split("::")
+        .filter(|s| !s.is_empty())
+        .map(|s| s.split('<').next().unwrap_or(s).to_owned())
         .collect();
     names.reverse();
     names

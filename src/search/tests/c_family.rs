@@ -238,6 +238,11 @@ fn c_and_cpp_scope_roots_and_names() {
         Some("Ledger::total")
     );
     assert_eq!(qualified(Kind::C, CPP, 3, "billing"), None);
+    // An out-of-line body is its class's by the qualifier on its own line (#508).
+    assert_eq!(
+        qualified(Kind::C, CPP, 30, "append").as_deref(),
+        Some("Ledger::append")
+    );
 }
 
 #[test]
