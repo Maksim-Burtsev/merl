@@ -64,7 +64,7 @@ defmodule Shop.Basket do
   end
 
   def depot, do: W.depot("north") && Shop.Warehouse.Depot.open("south")
-  #                ^ d: picker lib/shop/warehouse.ex:11; want lib/shop/warehouse.ex:11 (#317)
+  #                ^ d: lib/shop/warehouse.ex:11
   #                                                   ^ d: lib/shop/warehouse.ex:17
   #                                                         ^ d: lib/shop/warehouse.ex:18
 

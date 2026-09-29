@@ -124,4 +124,16 @@ final class Basket
     {
         return (new Plan())->rate();
     }
+
+    public function chime(): int
+    {
+        return 1;
+    }
+
+    public function rung(): int
+    {
+        $chime = $this->chime();
+        //              ^ d: src/Basket.php:128
+        return $chime;
+    }
 }

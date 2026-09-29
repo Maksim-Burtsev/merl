@@ -901,7 +901,19 @@ impl App {
             // Alone, the declaration under the cursor is its own answer.
             && found
                 .iter()
-                .any(|c| c.hit.line != self.line + 1 || c.hit.path != here);
+                .any(|c| c.hit.line != self.line + 1 || c.hit.path != here)
+            && self.on_declared_name(kind, word);
+        // Off the name of the line's declaration (#317), a bare word whose lone namesake nothing
+        // proves and is declared as this line declares it, `let courier` of another function, is
+        // as likely another scope's copy as what the word means: offered, as before, never
+        // jumped to. Behind a `.` it is a member, which no local is.
+        let extra = search::word_chars(Some(kind), true);
+        let form = |t: &str| t[..word_col(t, word, extra)].trim().to_owned();
+        let copy = found.len() < all
+            && !namesakes
+            && search::definition_word(Some(kind), self.line_str(), self.col)
+                .is_some_and(|(r, _)| !self.line_str()[..r.start].ends_with('.'))
+            && matches!(found.as_slice(), [c] if !c.reason.proven() && form(&c.hit.text) == form(self.line_str()));
         // Tests, mocks, fixtures, generated and vendored copies of a declaration come last here
         // too (#81) — except in the file on screen, which is what the reader is reading. The sort
         // is stable and every candidate is a declaration, so the rest keep the order the search
@@ -911,7 +923,7 @@ impl App {
         found.truncate(search::MAX_HITS);
         match found.as_slice() {
             [] => self.message = resolution(word, None, &found, broke, truncated),
-            [one] if !namesakes && !offer_only && !truncated => {
+            [one] if !namesakes && !offer_only && !truncated && !copy => {
                 let path = self.root.join(&one.hit.path);
                 // A module's first line declares nothing of the word.
                 let target = self
@@ -947,6 +959,58 @@ impl App {
                 }
                 self.message = status;
             }
+        }
+    }
+
+    /// Whether the cursor stands on the name its line declares, not only on that line (#317):
+    /// `let request = session.request(url)` declares the first `request`, and the second is a
+    /// method looked up as on any other line. The declared one is the occurrence of `word` the
+    /// line no longer reads as a declaration without; a line no pattern reads (a parameter)
+    /// declares its first. A word the line does not spell as is (a Ruby setter) is on it.
+    fn on_declared_name(&self, kind: Kind, word: &str) -> bool {
+        let line = self.line_str();
+        let Some((r, _)) = search::definition_word(Some(kind), line, self.col) else {
+            return true;
+        };
+        let part = |c: char| is_word(c) || search::word_chars(Some(kind), true).contains(c);
+        let at: Vec<usize> = line
+            .match_indices(word)
+            .map(|(i, _)| i)
+            .filter(|&i| !line[..i].ends_with(part) && !line[i + word.len()..].starts_with(part))
+            .collect();
+        if !at.contains(&r.start) {
+            return true;
+        }
+        let mut patterns = search::def_patterns(kind, word);
+        patterns.extend(search::member_or_signature(kind, word).unwrap_or_default());
+        let re = Regex::new(&patterns.join("|"))
+            .ok()
+            .filter(|re| re.is_match(line));
+        // Another word of the same shape, capitals where it has them: a C# type still reads as one.
+        let other: String = word
+            .chars()
+            .map(|c| match c {
+                'q' => 'z',
+                'Q' => 'Z',
+                '0' => '1',
+                c if c.is_lowercase() => 'q',
+                c if c.is_uppercase() => 'Q',
+                c if c.is_numeric() => '0',
+                c => c,
+            })
+            .collect();
+        let declared: Vec<usize> = at
+            .iter()
+            .copied()
+            .filter(|&i| {
+                re.as_ref().is_some_and(|re| {
+                    !re.is_match(&format!("{}{other}{}", &line[..i], &line[i + word.len()..]))
+                })
+            })
+            .collect();
+        match declared.as_slice() {
+            [] => at[0] == r.start,
+            _ => declared.contains(&r.start),
         }
     }
 
