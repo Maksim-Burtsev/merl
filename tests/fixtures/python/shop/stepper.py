@@ -14,3 +14,11 @@ def peek(steps):
     next = steps[-1]
     return next
     #      ^ d: shop/stepper.py:14
+
+
+class Printer:
+    def format(self, x):
+        return str(x)
+
+    render = format
+    #        ^ d: shop/stepper.py:20

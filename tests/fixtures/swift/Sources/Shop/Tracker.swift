@@ -35,3 +35,12 @@ func stamped(_ t: Tracked) -> Int {
 let lastTracker: Tracker? = nil
 //               ^ d: Sources/Shop/Tracker.swift:2
 //                 status: Tracker: by name, 1 match
+
+func restock() -> Int {
+    let quota = 3
+    func refill() -> Int {
+        quota
+        // ^ d: Sources/Shop/Tracker.swift:40
+    }
+    return refill()
+}

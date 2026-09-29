@@ -122,7 +122,8 @@ impl App {
             extra.is_empty() || whole_at(&h.text, text, extra).is_some()
         });
         // What tells a declaration of the word from a use of it is `def_patterns`, and which
-        // ones apply is the hit file's own kind: one regex per kind met, built once.
+        // ones apply is the hit file's own kind: one regex per kind met, built once. A Rust `let`
+        // declares its local here too, though `d` reads it by scope and never by name (#353).
         let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
         let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
         let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
@@ -133,6 +134,10 @@ impl App {
                     let mut patterns = k.map(|k| search::def_patterns(k, word)).unwrap_or_default();
                     if let (Some(Kind::Ruby), Some(ivar)) = (k, ivar) {
                         patterns.push(search::ruby_assignment(ivar));
+                    }
+                    if *k == Some(Kind::Rust) {
+                        let w = regex::escape(word);
+                        patterns.push(format!(r"^\s*let\s+(?:mut\s+)?{w}\b"));
                     }
                     (!patterns.is_empty())
                         .then(|| Regex::new(&patterns.join("|")).ok())

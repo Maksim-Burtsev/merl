@@ -360,12 +360,14 @@ impl App {
         }
         // A Python builtin nothing in the file binds has no source to land on (#336): not the
         // project's namesake in another module, which the bare name does not reach without an
-        // import, nor a method of a dependency. A `*` import may bind it.
+        // import, nor a method of a dependency. A `*` import may bind it, and so may the class
+        // body the cursor is in: `render = format` beside its `def format`.
         let star = kind == Kind::Python && imports.iter().any(|(name, _)| name == "*");
         let unbound = kind == Kind::Python
             && !dotted
             && chain.is_empty()
             && search::bindings(kind, &text, self.line + 1, &word).is_empty()
+            && !search::python_class_binds(&text, self.line + 1, &word)
             && !names_itself(kind, self.line_str(), &word)
             && !self.offer_only;
         if unbound && !star && search::PYTHON_BUILTINS.contains(&word.as_str()) {
@@ -1276,15 +1278,24 @@ impl App {
             });
             self.offer_only |= hits.len() < all && hits.iter().any(|h| !at(h));
         }
-        // A Swift function's `let` or `var` is seen inside that function alone (#371): behind a
-        // `.` it is no member, and for a bare word anywhere else it is another function's local.
+        // A Swift function's `let` or `var` is seen inside that function and the functions
+        // nested in it alone (#371): behind a `.` it is no member, and for a bare word anywhere
+        // else it is another function's local.
         // The cursor's own line alone is offered rather than jumped to when others went: the
         // word may be a use on the line of a declaration of its name (#317).
         if kind == Kind::Swift {
             let all = hits.len();
             let lines: Vec<&str> = text.lines().collect();
-            let (scope, _) =
-                search::swift_scope(&lines, &search::literal_lines(kind, &text), self.line + 1);
+            let literal = search::literal_lines(kind, &text);
+            // The cursor's scope and the functions around it, innermost first; a header's scope
+            // lies above it, so the walk ends.
+            let mut scopes = vec![search::swift_scope(&lines, &literal, self.line + 1).0];
+            while let Some(&s @ 1..) = scopes.last() {
+                match search::swift_scope(&lines, &literal, s).0 {
+                    0 => break,
+                    up => scopes.push(up),
+                }
+            }
             let mut files: HashMap<PathBuf, (Vec<String>, Vec<bool>)> = HashMap::new();
             hits.retain(|h| {
                 let (lines, literal) = files.entry(h.path.clone()).or_insert_with(|| {
@@ -1293,7 +1304,7 @@ impl App {
                     (t.lines().map(str::to_owned).collect(), literal)
                 });
                 match search::swift_local(lines, literal, h.line) {
-                    Some(at) => !dotted && h.path == here && at == scope,
+                    Some(at) => !dotted && h.path == here && scopes.contains(&at),
                     None => true,
                 }
             });

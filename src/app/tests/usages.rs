@@ -489,3 +489,25 @@ fn makefile_usages_ask_the_rule_d_asks() {
     assert_eq!(at(&a), (dir.join("Makefile"), 1));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #353 took the Rust `let` out of `def_patterns`, since `d` reads a local by scope; `u` still
+/// marks a `let` of the word as its declaration, as on master.
+#[test]
+fn usages_mark_a_rust_let_as_a_declaration() {
+    let (dir, mut a) = project_app(
+        "u-rust-let",
+        &[(
+            "src/lib.rs",
+            "fn f() -> u32 {\n    let mut total = 1;\n    total + 1\n}\n",
+        )],
+    );
+    usages_at(&mut a, &dir, "src/lib.rs", 3, "total");
+    assert_eq!(
+        usage_rows(&mut a),
+        [
+            ("declaration".to_string(), "src/lib.rs:2".to_string()),
+            (String::new(), "src/lib.rs:3".into()),
+        ]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

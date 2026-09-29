@@ -1253,6 +1253,40 @@ fn python_params(lines: &[&str], d: usize, params: &str, name: &str, out: &mut V
         out.push(Binding { line: d + 1, value });
     }
 }
+/// Whether the body of the Python class that 1-based `line` sits in binds `name`: a `def`, a
+/// class or an assignment of the body's own, which a name read in that body sees before the
+/// module's and the builtins. `false` in a method, which does not see them, and outside a class.
+pub fn python_class_binds(text: &str, line: usize, name: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let mut depth = indent(lines[at]);
+    for i in (0..at).rev() {
+        let t = lines[i].trim_start();
+        if depth == 0 {
+            break;
+        }
+        if t.is_empty() || t.starts_with(['#', ')', ']']) || indent(lines[i]) >= depth {
+            continue;
+        }
+        depth = indent(lines[i]);
+        if t.starts_with("def ") || t.starts_with("async def ") {
+            return false;
+        }
+        if t.starts_with("class ") {
+            // The body runs down to the first code line back at the class's indent.
+            let end = (i + 1..lines.len())
+                .find(|&j| {
+                    let t = lines[j].trim_start();
+                    !t.is_empty() && !t.starts_with(['#', ')', ']']) && indent(lines[j]) <= depth
+                })
+                .unwrap_or(lines.len());
+            return !python_bindings(&lines[i + 1..end], at - i - 1, name).is_empty();
+        }
+    }
+    false
+}
 /// The 1-based line of the class the `def` on line `d` is a method of, unless it is a
 /// `@staticmethod`.
 fn python_class_of(lines: &[&str], d: usize) -> Option<usize> {
