@@ -279,7 +279,16 @@ impl App {
                     self.show_definitions(kind, &word, &here, found, None);
                     return;
                 }
-                Ok(_) => {}
+                // What the class lacks can come from its bases outside the project, or from a
+                // project class extending it, which may set it on `self` (#342): only those
+                // subclasses' declarations of the name are candidates.
+                Ok(_) => {
+                    if let Some(ty) = self.inherited_outside(kind, &here, &chain, head.as_ref()) {
+                        let found = self.subclass_members(kind, &here, &word, &pattern, &ty);
+                        self.show_definitions(kind, &word, &here, found, None);
+                        return;
+                    }
+                }
                 // With one name in front of the word, `by name` already says where.
                 Err(at) => {
                     let names = head.as_ref().map_or(chain.len(), |(_, _, f)| f.len() + 1);
@@ -339,6 +348,17 @@ impl App {
                     && chain.is_empty()
                     && imports.iter().filter(|(name, _)| *name == word).count() == 1
                     && let Some(found) = self.bound_module(&path)
+                {
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
+                // `User.objects` behind an import from outside, `User` a name in the module
+                // (#342): a member of `User` there, never a top-level `objects` anywhere.
+                if project.is_none()
+                    && kind == Kind::Python
+                    && dotted
+                    && chain.len() == 1
+                    && let Some(found) = self.outside_class_member(&word, &path)
                 {
                     self.show_definitions(kind, &word, &here, found, None);
                     return;
@@ -707,7 +727,15 @@ impl App {
                 .filter(|p| kind != Kind::TsJs || search::declaration_file(p))
                 .cloned()
                 .collect();
-            let external = self.external_grep(kind, &files, members);
+            // One method outside is no proof while a field of the name is declared outside
+            // too, which is never listed (#342): the one method is offered, counted `1+`.
+            let (external, field) = match kind {
+                Kind::Python => self.external_methods(&files, members, &word),
+                _ => (self.external_grep(kind, &files, members), false),
+            };
+            if found.is_empty() && external.len() == 1 && field {
+                self.truncated.set(true);
+            }
             let seen: Vec<PathBuf> = found.iter().map(|c| self.root.join(&c.hit.path)).collect();
             found.extend(
                 external
@@ -776,6 +804,68 @@ impl App {
         }
         let file = self.external_module(module);
         file.map(|f| self.outside_module(f)).unwrap_or_default()
+    }
+
+    /// `word` qualified by a name an import binds to `path` outside the project, when the path
+    /// resolves to a module only without its last part, the name the import takes
+    /// (#342): the declarations of `Name.word` in that module, `Name` as the module calls it. An
+    /// empty list is a member the lookup does not find there, which no namesake elsewhere
+    /// answers for. `None` leaves it to the lookup by import: a relative import, a name that is a
+    /// module itself, a module not found.
+    fn outside_class_member(&mut self, word: &str, path: &[String]) -> Option<Vec<Candidate>> {
+        let (name, module) = path.split_last()?;
+        if module.is_empty() || path[0].starts_with('.') {
+            return None;
+        }
+        if self.external_module(path).is_some() {
+            return None;
+        }
+        let file = self.external_module(module)?;
+        let kind = Kind::Python;
+        let mut patterns = search::def_patterns(kind, word);
+        patterns.extend(search::field_patterns(kind, word).unwrap_or_default());
+        let within = Some(format!("{name}.{word}"));
+        let hits = self.external_grep(kind, std::slice::from_ref(&file), &patterns.join("|"));
+        let text = std::fs::read_to_string(&file).ok()?;
+        let reason = Reason::Import(module.join("."));
+        Some(
+            hits.into_iter()
+                .filter(|h| search::qualified(kind, &text, h.line, word) == within)
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect(),
+        )
+    }
+
+    /// The declarations of `word` by name (`pattern`, and the fields), in `ty` and the project
+    /// classes that extend it, four levels down (#342). `ty` itself counts for what the typed
+    /// walk does not read: a nested class, a `def` under an `if`.
+    fn subclass_members(
+        &mut self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        pattern: &str,
+        ty: &Typed,
+    ) -> Vec<Candidate> {
+        let mut owners = self.subtypes(kind, here, ty);
+        owners.push((ty.path.clone(), ty.line));
+        self.members_by_name(kind, here, word, pattern)
+            .into_iter()
+            .filter(|h| {
+                self.text_of(&h.path).is_some_and(|t| {
+                    let lines: Vec<&str> = t.lines().collect();
+                    search::enclosing_type(kind, &lines, h.line - 1)
+                        .is_some_and(|d| owners.contains(&(h.path.clone(), d)))
+                })
+            })
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            })
+            .collect()
     }
 
     /// The first line of `file`, a module outside the project, named from its root.

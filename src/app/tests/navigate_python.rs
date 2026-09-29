@@ -1086,3 +1086,125 @@ fn a_module_name_in_or_bound_by_an_import_opens_the_module() {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
+
+/// #342. A member a project class lacks, when its ancestry goes outside the project, is looked
+/// for only in the project classes extending it; a name qualified by a class imported from
+/// outside is a member of that class, never a top-level namesake; one method outside is offered,
+/// not jumped to, while a field of the name is declared outside too.
+#[test]
+fn a_member_from_outside_never_lands_on_a_namesake() {
+    let std = external_root(
+        "py-outside-std",
+        &[(
+            "unittest/mock.py",
+            "class NonCallableMock:\n    return_value = property(lambda self: None)\n\n\nclass Mock(NonCallableMock):\n    pass\n",
+        )],
+    );
+    let site = external_root(
+        "py-outside-site",
+        &[
+            (
+                "django/test/__init__.py",
+                "from django.test.testcases import TestCase\n",
+            ),
+            (
+                "django/test/testcases.py",
+                "import unittest\n\n\nclass SimpleTestCase(unittest.TestCase):\n    client = None\n\n\nclass TestCase(SimpleTestCase):\n    pass\n",
+            ),
+            (
+                "django/contrib/auth/models.py",
+                "class AbstractUser:\n    objects = None\n\n\nclass User(AbstractUser):\n    pass\n",
+            ),
+            ("nltk/chomsky.py", "objects = \"text\"\n"),
+            (
+                "anyio/tasks.py",
+                "class TaskHandle:\n    def return_value(self):\n        pass\n\n    def captured_queries(self):\n        pass\n",
+            ),
+            ("six.py", "def with_metaclass(meta, *bases):\n    pass\n"),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "py-outside",
+        &[
+            (
+                "app/mailer.py",
+                "class Mailer:\n    def __init__(self, client):\n        self.client = client\n",
+            ),
+            (
+                "app/test_views.py",
+                "from django.test import TestCase\n\n\nclass TestViews(TestCase):\n    def test_get(self) -> None:\n        self.client.get(\"/\")\n",
+            ),
+            (
+                "app/users.py",
+                "from django.contrib.auth.models import User\n\n\ndef users():\n    return User.objects.all()\n",
+            ),
+            (
+                "app/mocks.py",
+                "from unittest import mock\n\n\ndef use(m: mock.Mock) -> None:\n    m.return_value = None\n    m.captured_queries()\n",
+            ),
+            // A subclass that sets the member stays a candidate.
+            (
+                "app/test_api.py",
+                "from django.test import TestCase\n\n\nclass ApiCase(TestCase):\n    def test_post(self) -> None:\n        self.client.post(\"/\")\n\n\nclass SignedCase(ApiCase):\n    def setUp(self) -> None:\n        self.client = None\n",
+            ),
+            // A base written as a call cannot be read: today's search by name.
+            (
+                "app/test_six.py",
+                "import six\nfrom django.test import TestCase\n\n\nclass SixCase(six.with_metaclass(type, TestCase)):\n    def test_put(self) -> None:\n        self.client.put(\"/\")\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, &[std.clone(), site.clone()]);
+    let outside = |root: &Path, file: &str| format!("{}", root.join(file).display());
+    for (file, code, want) in [
+        (
+            "app/test_views.py",
+            "self.client",
+            jump("no definition for client", "app/test_views.py:6"),
+        ),
+        (
+            "app/users.py",
+            "User.objects",
+            jump("no definition for objects", "app/users.py:5"),
+        ),
+        (
+            "app/mocks.py",
+            "m.return_value",
+            Shown::Picker(
+                "return_value: by name, 1+ declarations".into(),
+                vec![(
+                    "TaskHandle.return_value".into(),
+                    "by name".into(),
+                    "anyio/tasks.py:2".into(),
+                )],
+            ),
+        ),
+        (
+            "app/mocks.py",
+            "m.captured_queries",
+            jump(
+                "captured_queries \u{2192} TaskHandle.captured_queries (by name, 1 match)",
+                &format!("{}:5", outside(&site, "anyio/tasks.py")),
+            ),
+        ),
+        (
+            "app/test_api.py",
+            "self.client|.post",
+            jump(
+                "client \u{2192} SignedCase.client (by name, 1 match)",
+                "app/test_api.py:11",
+            ),
+        ),
+    ] {
+        d_on(&mut a, file, code);
+        assert_eq!(shown(&mut a), want, "{file}: {code}");
+    }
+    d_on(&mut a, "app/test_six.py", "self.client");
+    let Shown::Picker(_, rows) = shown(&mut a) else {
+        panic!("a picker");
+    };
+    assert!(rows.iter().any(|r| r.2 == "app/mailer.py:3"), "{rows:?}");
+    for d in [dir, std, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}

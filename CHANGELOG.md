@@ -318,6 +318,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   project (`serializers` behind `from rest_framework import serializers`, `json` in
   `json.dumps`). It jumped to any method of the name in the dependencies, landed `json` in the
   base interpreter's pip, or said `no definition`. (#333)
+- `d` in Python no longer jumps to a namesake that cannot be the answer. `self.client` in a
+  subclass of Django's `TestCase` offers only what project subclasses of the class set, and
+  says `no definition` without one, where it jumped to any project class's `client`.
+  `User.objects` with `User` imported from a dependency is a member of `User` there, never a
+  module-level `objects` of another package. The one method of a name found outside the project
+  is offered rather than jumped to when a field of that name is declared outside too:
+  `m.return_value` on a `mock.Mock` jumped to anyio's `TaskHandle.return_value`. (#342)
 
 ## [0.7.0] - 2026-09-25
 

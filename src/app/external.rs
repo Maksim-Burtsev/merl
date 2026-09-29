@@ -300,6 +300,60 @@ impl App {
         hits
     }
 
+    /// The methods `members` matches in the Python `files` outside, and whether a field `word`
+    /// is declared there too (#342): a class-body `word = …` or `word: T`, a `self.word = …` in a
+    /// method, read as [`search::field_rows`] reads the project's. One pass over the files for
+    /// both. Fields outside are never listed, there are too many: a few hundred candidate lines
+    /// are enough to tell whether one declares a field.
+    pub(super) fn external_methods(
+        &self,
+        files: &[PathBuf],
+        members: &str,
+        word: &str,
+    ) -> (Vec<Hit>, bool) {
+        let Some(fields) = search::field_patterns(Kind::Python, word) else {
+            return (self.external_grep(Kind::Python, files, members), false);
+        };
+        let method = Regex::new(members).expect("built-in patterns compile");
+        let pattern = format!("{members}|{}", fields.join("|"));
+        let kept = std::cell::Cell::new(0);
+        // ponytail: the first 500 field-shaped lines; a field past them goes unseen.
+        let hits = search::grep_filtered(&self.root, files, &pattern, None, None, |l| {
+            method.is_match(l) || {
+                kept.set(kept.get() + 1);
+                kept.get() <= 500
+            }
+        })
+        .unwrap_or_default();
+        let (mut methods, candidates): (Vec<Hit>, Vec<Hit>) =
+            hits.into_iter().partition(|h| method.is_match(&h.text));
+        self.note_cut(&methods);
+        let roots = self
+            .external
+            .get(&Kind::Python)
+            .map(|(roots, _)| roots.as_slice())
+            .unwrap_or_default();
+        methods.sort_by_cached_key(|h| {
+            (
+                roots.iter().position(|r| h.path.starts_with(r)),
+                h.path.clone(),
+                h.line,
+            )
+        });
+        let mut by_file: Vec<(PathBuf, Vec<usize>)> = Vec::new();
+        for h in candidates {
+            match by_file.last_mut() {
+                Some((path, lines)) if *path == h.path => lines.push(h.line),
+                _ => by_file.push((h.path, vec![h.line])),
+            }
+        }
+        let field = by_file.into_iter().any(|(path, lines)| {
+            std::fs::read_to_string(&path)
+                .is_ok_and(|t| !search::field_rows(Kind::Python, &t, &lines, word).is_empty())
+        });
+        (methods, field)
+    }
+
     /// Test helper: nothing is installed outside the project, so a lookup reads no library of
     /// the machine the tests run on.
     #[cfg(test)]

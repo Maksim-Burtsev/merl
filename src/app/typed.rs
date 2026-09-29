@@ -39,21 +39,7 @@ impl App {
                 })
                 .collect());
         }
-        let (ty, links) = match head {
-            // The chain hangs off a call: `make_uow().users.word`.
-            Some((call, value, fields)) => {
-                let value = value.clone();
-                // A cast is its own link, as written: `via (repo as UserRepository)`.
-                let cast = matches!(value, search::Value::Type(_) | search::Value::Cast(..))
-                    .then(|| call.clone());
-                let (ty, link) = self
-                    .binding_type(kind, here, &text, &search::Binding { line, value }, 1)
-                    .ok_or_else(|| call.clone())?;
-                let start = (ty, link.or(cast));
-                self.follow(kind, start, call, false, fields)?
-            }
-            None => self.chain_type(kind, here, &text, line, chain, 1)?,
-        };
+        let (ty, links) = self.receiver(kind, here, chain, head)?;
         let declared = self.hierarchy(kind, &ty, 0, &mut |t| {
             let members = self.members_of(kind, t, word);
             if members.is_empty() {
@@ -84,6 +70,85 @@ impl App {
                 reason: Reason::Receiver(label.clone()),
             })
             .collect())
+    }
+
+    /// The type of the receiver `chain`, or of the call `head` it hangs off, with the links that
+    /// prove it; `Err` names the first name that is not proven.
+    fn receiver(
+        &self,
+        kind: Kind,
+        here: &Path,
+        chain: &[String],
+        head: Option<&(String, search::Value, Vec<String>)>,
+    ) -> Result<(Typed, Vec<String>), String> {
+        let text = self.buf.lines.join("\n");
+        let line = self.line + 1;
+        match head {
+            // The chain hangs off a call: `make_uow().users.word`.
+            Some((call, value, fields)) => {
+                let value = value.clone();
+                // A cast is its own link, as written: `via (repo as UserRepository)`.
+                let cast = matches!(value, search::Value::Type(_) | search::Value::Cast(..))
+                    .then(|| call.clone());
+                let (ty, link) = self
+                    .binding_type(kind, here, &text, &search::Binding { line, value }, 1)
+                    .ok_or_else(|| call.clone())?;
+                let start = (ty, link.or(cast));
+                self.follow(kind, start, call, false, fields)
+            }
+            None => self.chain_type(kind, here, &text, line, chain, 1),
+        }
+    }
+
+    /// The project class a Python receiver is proven to be when what it lacks can only come from
+    /// outside the project (#342): every base up its ancestry is a project class read or a name
+    /// imported from outside, and at least one is the latter. `None` when no base is outside, or
+    /// when one cannot be read at all: a call (`six.with_metaclass(…)`), a name nothing binds, a
+    /// `*` import.
+    pub(super) fn inherited_outside(
+        &self,
+        kind: Kind,
+        here: &Path,
+        chain: &[String],
+        head: Option<&(String, search::Value, Vec<String>)>,
+    ) -> Option<Typed> {
+        if kind != Kind::Python || chain.first().is_some_and(|f| f == "super") {
+            return None;
+        }
+        let (ty, _) = self.receiver(kind, here, chain, head).ok()?;
+        self.ancestry_outside(&ty, 0)?.then_some(ty)
+    }
+
+    /// Whether a base of `ty`, or of a project class above it, is imported from outside the
+    /// project; `None` when a base cannot be read.
+    fn ancestry_outside(&self, ty: &Typed, depth: usize) -> Option<bool> {
+        let kind = Kind::Python;
+        // ponytail: eight levels up, which also ends a cycle.
+        let text = self.text_of(&ty.path).filter(|_| depth < 8)?;
+        let imports = search::imports(kind, &text);
+        let mut outside = false;
+        for base in search::bases(kind, &text, ty.line) {
+            let parts = search::type_path(kind, &base)?;
+            let (name, chain) = parts.split_last()?;
+            // What `above` reads as declaring nothing worth a jump.
+            if matches!(name.as_str(), "object" | "Generic" | "Protocol" | "ABC") {
+                continue;
+            }
+            if let Some(base) = self.type_decl(kind, &ty.path, &base) {
+                outside |= self.ancestry_outside(&base, depth + 1)?;
+                continue;
+            }
+            let path = bound(&imports, &parts[0])?;
+            if path[0].starts_with('.')
+                || self
+                    .imported_definitions(kind, &ty.path, name, chain, &path)
+                    .is_some()
+            {
+                return None;
+            }
+            outside = true;
+        }
+        Some(outside)
     }
 
     /// `word` as the class `chain` names declares it for the class itself: a method, else a line

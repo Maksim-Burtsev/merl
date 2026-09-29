@@ -320,12 +320,22 @@ fields and embedded structs. A local, the key of a dict or an object literal and
 block are no field, and a name several types declare, such as `id`, is a picker rather than a
 jump. The field lines are searched apart from the methods, and when they fill the search the count
 says `+` and a single candidate is offered rather than jumped to. Fields outside the project are
-not collected: there a field name is every `name: string;` of every `.d.ts`. A project with no
+not collected: there a field name is every `name: string;` of every `.d.ts`. In Python they are
+looked for all the same, in the same pass as the methods: when the project has no candidate and
+one method outside is all there is, a field of the name outside makes that method one candidate
+of `1+`, offered and not jumped to (`m.return_value` on a `mock.Mock` is a field of
+`unittest/mock.py`, not a method of some other package). A project with no
 such method or field has the word at its top level instead — `x` was a class or a
 namespace — and the usual declarations answer. One candidate jumps; several open the picker, the
 project's first. A bare `self.word` or `this.word` whose class, or a class it extends, cannot be
 read gets the project's declarations of that name, fields included, and nothing outside the
-project. Ruby's core and gems are not read, so there a member on a value, `logger.info` or
+project. In Python, when the class is read and does not declare the word, but its ancestry goes
+outside the project — Django's `TestCase` behind `self.client` — the answer lies there or in a
+project class extending it that sets the word on `self`: only those subclasses' declarations are
+offered, and none is `no definition`, never another project class's `client`. A base that cannot
+be read (a call such as `six.with_metaclass(…)`, a name nothing binds, a `*` import) leaves the
+search by name as it was. Likewise `User.objects` with `User` imported from a module outside is a
+member of `User` in that module, never a top-level `objects` there or anywhere else. Ruby's core and gems are not read, so there a member on a value, `logger.info` or
 `x&.each`, is never jumped to: the one method of that name the project declares is offered in a
 picker of one row, `info: by name, 1 match`. `Const.meth`, `self.meth` and a bare call still jump.
 
