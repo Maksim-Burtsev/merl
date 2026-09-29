@@ -331,10 +331,8 @@ impl App {
                 .into_iter()
                 .filter(|&n| {
                     let l = &self.buf.lines[n - 1];
-                    let t = l.trim_start();
-                    let imports = t.starts_with("import ") || t.starts_with("from ");
                     !key && (dotted || word != "super" || kind == Kind::Lua)
-                        && !(imports || (!bare && names_itself(l, first)))
+                        && !(import_line(kind, l) || (!bare && names_itself(kind, l, first)))
                         && !rust_path
                         && (!rust_field || n == self.line + 1)
                 })
@@ -368,7 +366,7 @@ impl App {
             && !dotted
             && chain.is_empty()
             && search::bindings(kind, &text, self.line + 1, &word).is_empty()
-            && !names_itself(self.line_str(), &word)
+            && !names_itself(kind, self.line_str(), &word)
             && !self.offer_only;
         if unbound && !star && search::PYTHON_BUILTINS.contains(&word.as_str()) {
             self.offer_only = false;
@@ -715,9 +713,12 @@ impl App {
         let mut outside = false;
         // The import names a module of the project's own: a workspace package linked in, an alias.
         let mut own_module = false;
+        // The import names a module of the project that was read.
+        let mut project_read = false;
         let mut found = match import {
             Some(path) => {
                 let project = self.imported_definitions(kind, &here, &word, &chain, &path);
+                project_read = project.is_some();
                 // The name itself, bare or as a qualifier, bound to a module outside (#333).
                 if project.is_none()
                     && kind == Kind::Python
@@ -767,10 +768,15 @@ impl App {
             None => Vec::new(),
         };
         // Go's `pkg.X` is declared in `pkg`'s directory or nowhere: Go has no re-exports (#332).
-        // Cgo's `C` has no directory.
+        // Cgo's `C` has no directory. `pkg.Var.Method` goes through a value, and a package the
+        // lookup could not map while the project holds its directory (a `vendor/` copy) was not
+        // read: both keep the search by name.
         let go_qualified = kind == Kind::Go
-            && !chain.is_empty()
-            && bound(&imports, &chain[0]).is_some_and(|p| p != ["C"]);
+            && chain.len() == 1
+            && bound(&imports, &chain[0]).is_some_and(|p| {
+                p != ["C"]
+                    && (project_read || !self.files.iter().any(|f| search::in_package(f, &p)))
+            });
         if !found.is_empty() || go_qualified {
             self.show_definitions(kind, &word, &here, found, None);
             return;
