@@ -41,6 +41,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `…` right after its last drawn character, wrapped or not, so a cut line never reads as whole.
   (#283)
 - A macOS Intel binary, `merl-x86_64-apple-darwin.tar.gz`, ships with each release. (#394)
+- `d` in Markdown (`.md`, `.markdown`, `.mdx`) follows the link under the cursor, on its text or
+  its target: `[README](../README.md#languages)` opens `README.md` at its `## Languages` heading,
+  `[below](#setup)` goes to a heading of the same file, `#L12` to a line, and a reference link
+  goes through its `[label]: target` definition. A code span naming a file of the project,
+  `` `src/search/kind.rs:30` ``, opens it; a bare name several files carry is a picker of them.
+  A missing file or heading says so, and a link in a code block or a comment is not followed.
+  `D` no longer lists the examples of a README's code blocks as declarations. (#421)
 
 ### Changed
 

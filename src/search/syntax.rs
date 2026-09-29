@@ -29,6 +29,10 @@ pub(super) fn comment(kind: Kind, t: &str) -> bool {
 /// ponytail: Elixir's `~S"""` sigil is read from its `"""`, and its one-line `~s(…)` forms not at
 /// all.
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
+    // Markdown's are blocks, not tokens: a fence, an HTML comment, the front matter (#421).
+    if kind == Kind::Markdown {
+        return markdown_literal_lines(text);
+    }
     // What this kind writes: the triple quote of a heredoc, Lua's long bracket, the backtick
     // template and the `/* */` block of the C family, and the comments that run to the end of a
     // line. Elixir writes its heredocs and its comments exactly as Python does; Swift and C#

@@ -24,6 +24,7 @@ mod edit;
 mod external;
 mod find;
 mod keys;
+mod links;
 mod members;
 mod missed;
 mod open;

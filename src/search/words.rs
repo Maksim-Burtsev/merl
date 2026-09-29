@@ -105,9 +105,9 @@ fn declared_name(kind: Option<Kind>, line: &str) -> Option<String> {
         .find_map(|(_, re)| symbol_name(re, line))
 }
 /// Whether a file of `kind` names what it nests: a YAML anchor names a value, not a container,
-/// so YAML qualifies no name and pins no header.
+/// so YAML qualifies no name and pins no header. Markdown declares nothing.
 fn nests(kind: Option<Kind>) -> bool {
-    kind != Some(Kind::Yaml)
+    !matches!(kind, Some(Kind::Yaml | Kind::Markdown))
 }
 /// Whether the trimmed line `t` is blank, a comment, an attribute or C's `#ifdef`: lines that
 /// can stand at the left edge inside a body.

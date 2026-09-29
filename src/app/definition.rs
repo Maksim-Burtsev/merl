@@ -20,6 +20,13 @@ impl App {
     /// `u` lists the uses.
     pub(super) fn goto_definition(&mut self) {
         let kind = self.kind();
+        // Markdown declares nothing: `d` follows the link under the cursor (#421).
+        if kind == Some(Kind::Markdown)
+            && let Some(here) = self.rel_current()
+        {
+            self.follow_markdown(&here);
+            return;
+        }
         let Some((range, word)) = search::definition_word(kind, self.line_str(), self.col) else {
             self.message = "no word".into();
             return;

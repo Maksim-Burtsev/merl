@@ -224,7 +224,8 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         | Kind::Make
         | Kind::Terraform
         | Kind::Docker
-        | Kind::Yaml => {}
+        | Kind::Yaml
+        | Kind::Markdown => {}
     }
     out
 }
@@ -562,7 +563,8 @@ pub fn module_files(
         | Kind::Make
         | Kind::Terraform
         | Kind::Docker
-        | Kind::Yaml => Vec::new(),
+        | Kind::Yaml
+        | Kind::Markdown => Vec::new(),
     }
 }
 /// Where an aliased TypeScript specifier points, most specific first: the targets of the

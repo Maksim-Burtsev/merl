@@ -342,6 +342,8 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"(^|\s)&{w}(\s|$)"),
             format!(r"^\s*\.?{w}:\s*(#.*)?$"),
         ],
+        // A link is followed before any pattern is asked for (#421); a heading is prose.
+        Kind::Markdown => Vec::new(),
     }
 }
 /// [`member_patterns`] and, in Go, the method lines of an interface, which carry no receiver:
@@ -420,7 +422,8 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Make
         | Kind::Terraform
         | Kind::Docker
-        | Kind::Yaml => return None,
+        | Kind::Yaml
+        | Kind::Markdown => return None,
     })
 }
 /// Line patterns that can declare `word` as a field, for the search by name: more than the fields,
