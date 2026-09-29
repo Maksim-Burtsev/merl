@@ -1199,3 +1199,65 @@ fn markdown_links_outside_to_a_directory_and_to_a_spaced_name() {
     assert!(rows.iter().any(|r| r.contains("serve")), "{rows:?}");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// PHP's `$x->name` is a member access (#348): a method for a call, a property otherwise, in the
+/// project and in `vendor/` alike, and never a local, a function or a class of the name.
+#[test]
+fn php_arrow_reaches_members_only() {
+    let other = "<?php\n\nnamespace App\\Services;\n\nclass Other\n{\n    public function run(): void\n    {\n        $where = ['a' => 1];\n        $title = 'x';\n    }\n\n    public function on(string $event): void\n    {\n    }\n}\n";
+    let repo = "<?php\n\nnamespace App\\Services;\n\nclass Repo\n{\n    public function run($join, $song, $request): void\n    {\n        $join->where('a', 'b');\n        echo $song->title;\n        $join->on('a', 'b');\n        $request->input('prompt');\n    }\n}\n";
+    let record =
+        "<?php\n\nnamespace App\\Values;\n\nclass Record\n{\n    protected string $input;\n}\n";
+    let join = "<?php\n\nnamespace Illuminate\\Database\\Query;\n\nclass JoinClause\n{\n    public function on($first, $operator = null)\n    {\n    }\n\n    public function where($column, $operator = null)\n    {\n    }\n}\n";
+    let vendored = "vendor/laravel/framework/src/Illuminate/Database/Query/JoinClause.php";
+    let files = [
+        (".gitignore", "vendor/\n"),
+        ("app/Services/Other.php", other),
+        ("app/Services/Repo.php", repo),
+        ("app/Values/Record.php", record),
+        (vendored, join),
+    ];
+    for vendor in [false, true] {
+        let (dir, mut a) = project_app("php-arrow", &files);
+        if !vendor {
+            a.no_external();
+        }
+        let mut d = |code: &str| {
+            d_on(&mut a, "app/Services/Repo.php", code);
+            shown(&mut a)
+        };
+        let none = |w: &str, line: usize| {
+            jump(
+                &format!("no definition for {w}"),
+                &format!("app/Services/Repo.php:{line}"),
+            )
+        };
+        let on = ("Other::on", "app/Services/Other.php:13");
+        let vendor_on = (
+            "JoinClause::on",
+            "laravel/framework/src/Illuminate/Database/Query/JoinClause.php:7",
+        );
+        // Not the local `$where` of another class, with `vendor/` or without.
+        let (where_, on) = match vendor {
+            true => (
+                jump(
+                    "where \u{2192} JoinClause::where (by name, 1 match)",
+                    &format!("{vendored}:11"),
+                ),
+                picker("on: by name, 2 declarations", &[on, vendor_on]),
+            ),
+            false => (
+                none("where", 9),
+                jump("on \u{2192} Other::on (by name, 1 match)", on.1),
+            ),
+        };
+        assert_eq!(d("$join->where"), where_, "vendor: {vendor}");
+        // Not the local `$title`.
+        assert_eq!(d("$song->title"), none("title", 10), "vendor: {vendor}");
+        // The project's first.
+        assert_eq!(d("$join->on"), on, "vendor: {vendor}");
+        // A call wants a method: the property `$input` is none.
+        assert_eq!(d("$request->input"), none("input", 12), "vendor: {vendor}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}

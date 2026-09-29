@@ -1,9 +1,52 @@
-//! PHP's own rules for `d`: the tags of a class's docblock and the segments of a namespace (#344).
+//! PHP's own rules for `d`: the tags of a class's docblock and the segments of a namespace (#344),
+//! and the members `->` reaches (#348).
 
 use std::ops::Range;
 use std::sync::LazyLock;
 
 use regex::Regex;
+
+use super::symbols::php_mods;
+
+/// A function or a method, behind its attributes and modifiers; `&` returns by reference.
+pub(super) fn php_method(w: &str) -> String {
+    format!(r"{}function\s+&?\s*{w}\s*\(", php_mods!())
+}
+
+/// A property, with the type it can carry between its modifiers and the `$`, and a constructor
+/// parameter promoted to one, wherever it sits in the constructor's list.
+pub(super) fn php_properties(w: &str) -> [String; 2] {
+    [
+        format!(r"{}(?:\??[\w\\|]+\s+)?\${w}\b", php_mods!("+")),
+        format!(
+            r"function\s+__construct\s*\(.*\b(?:public|private|protected|readonly)\s+(?:\??[\w\\|]+\s+)?\${w}\b"
+        ),
+    ]
+}
+
+/// The tags of a class's docblock (#344): a property, `-read` and `-write` ones included, and a
+/// method, `static` or not. A tag of any other docblock declares nothing: [`php_tag_class`]
+/// keeps the ones right above a class.
+pub(super) fn php_tags(w: &str) -> [String; 2] {
+    [
+        format!(r"^\s*\*\s*@property(?:-read|-write)?\s+(?:[^$]*\s)?\${w}\b"),
+        format!(r"^\s*\*\s*@method\s+(?:[^(]*\s)?{w}\s*\("),
+    ]
+}
+
+/// The line patterns of what `$x->word` reaches (#348): a `call`, `->word(`, is a method or an
+/// `@method` tag, since PHP calls a closure a property holds as `($x->word)(…)`; anything else a
+/// property, promoted or tagged. A method is indented: a `function` in column 0 is a global one.
+/// Never a local, a class, a constant or a namespace.
+pub fn php_member_patterns(word: &str, call: bool) -> Vec<String> {
+    let w = regex::escape(word);
+    let [property, promoted] = php_properties(&w);
+    let [property_tag, method_tag] = php_tags(&w);
+    match call {
+        true => vec![php_method(&w).replacen(r"^\s*", r"^\s+", 1), method_tag],
+        false => vec![property, promoted, property_tag],
+    }
+}
 
 /// The line pattern of a `namespace` line whose last part is the escaped word `w`.
 pub(super) fn php_namespace_line(w: &str) -> String {

@@ -317,6 +317,13 @@ read gets the project's declarations of that name, fields included, and nothing 
 project. Ruby's core and gems are not read, so there a member on a value, `logger.info` or
 `x&.each`, is never jumped to: the one method of that name the project declares is offered in a
 picker of one row, `info: by name, 1 match`. `Const.meth`, `self.meth` and a bare call still jump.
+PHP reaches a member with `->` and `?->`, on the arrow's line or at the start of the next one
+when a chain is broken before its arrows; its `.` concatenates, so `$a.foo()` calls the function
+`foo`. Behind the arrow a call, `$x->name(`, is a method — `function name(` indented, or a
+`@method` tag of a class's docblock — and anything else a property: `$name` behind a modifier, a
+promoted constructor parameter or a `@property` tag. The project's come first, then `vendor/`'s,
+and neither a local `$name = …` nor a function, a class or a constant of that name is ever the
+answer, `$this->name` included: with no member of the name, `d` says `no definition`.
 
 With the cursor on the declaration of a member — a `Protocol` method, an interface signature, a
 method of an abstract or a plain base class — `d` offers what implements it instead, labelled `send:

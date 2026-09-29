@@ -145,6 +145,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` in PHP reads `$x->name` and `$x?->name` as the member they are: a call finds the
+  methods of that name, anything else the properties, in the project and then in `vendor/`, the
+  `@method` and `@property` tags of a class's docblock included. It searched the bare word, so
+  `$join->where(…)` on a Laravel query landed on a local `$where = […]` of an unrelated class,
+  `$request->input(…)` on a property, and `vendor/` was never read. A chain broken before its
+  arrows reads as one line, and a `.`, which concatenates in PHP, is no member access. (#348)
 - `d` in PHP finds a typed class constant, `private const int LIMIT = 500;`, where it said
   `no definition`, and the `@property`, `@property-read`, `@property-write` and `@method` tags
   of a class's docblock, the way Laravel declares Eloquent columns: `$song->title` lands on the

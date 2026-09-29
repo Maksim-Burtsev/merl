@@ -201,11 +201,22 @@ impl App {
             return;
         }
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
-        let on_value = dotted && !own && chain.first().is_none_or(|f| bound(&imports, f).is_none());
-        let members = on_value
-            .then(|| search::member_patterns(kind, &word))
-            .flatten()
-            .map(|m| m.join("|"));
+        // PHP reaches a member with `->` alone, whatever the chain starts with: `Offer::Cut->value`
+        // is a value's member too (#348). Behind `->` a call is a method, anything else a property.
+        let php_members = (kind == Kind::Php && dotted).then(|| {
+            let call = self.line_str()[range.end..].trim_start().starts_with('(');
+            search::php_member_patterns(&word, call).join("|")
+        });
+        let on_value = dotted
+            && !own
+            && (kind == Kind::Php || chain.first().is_none_or(|f| bound(&imports, f).is_none()));
+        let members = match &php_members {
+            Some(m) => on_value.then(|| m.clone()),
+            None => on_value
+                .then(|| search::member_patterns(kind, &word))
+                .flatten()
+                .map(|m| m.join("|")),
+        };
         let mut patterns = search::def_patterns(kind, &word);
         if kind == Kind::Php {
             search::php_namespace_patterns(&mut patterns, &text, self.line_str(), range.clone());
@@ -603,15 +614,17 @@ impl App {
         }
         // A parameter or a local in front of the word is a value for certain: it has members,
         // and a function or a variable at the top of a module is not one of them.
+        // Nor is anything but a member one of PHP's, where `$x->` is always a value (#348).
         let hits = members
             .as_ref()
             .map(|m| self.members_by_name(kind, &here, &word, m))
-            .filter(|hits| !hits.is_empty() || !locals.is_empty())
+            .filter(|hits| !hits.is_empty() || !locals.is_empty() || kind == Kind::Php)
             .unwrap_or_else(|| {
                 if own {
                     // `self.word` whose class is not read to the end: the declarations of the name,
-                    // and the fields too (#104).
-                    self.members_by_name(kind, &here, &word, &pattern)
+                    // and the fields too (#104). PHP's `$this->word` is a member (#348).
+                    let pattern = php_members.as_ref().unwrap_or(&pattern);
+                    self.members_by_name(kind, &here, &word, pattern)
                 } else {
                     self.project_definitions(kind, &here, &word, &pattern)
                 }
