@@ -163,9 +163,14 @@ fn play(case: &Case) -> (Got, String) {
     let status = a.message.clone();
     let got = match a.picker {
         Some(_) => Got::Picker(definition_rows(&mut a).into_iter().map(|r| r.2).collect()),
-        // Nothing found leaves the cursor where it was and says so; a jump may land on the
-        // line it started from, on a declaration found by name.
-        None if at(&a) == before && status.starts_with("no ") => Got::None,
+        // Nothing found leaves the cursor where it was and says so, a builtin with no source
+        // too (#336); a jump may land on the line it started from, on a declaration found by
+        // name.
+        None if at(&a) == before
+            && (status.starts_with("no ") || status.contains(": builtin, no source")) =>
+        {
+            Got::None
+        }
         None => {
             let (path, line) = at(&a);
             let place = path.strip_prefix(&a.root).unwrap_or(&path);

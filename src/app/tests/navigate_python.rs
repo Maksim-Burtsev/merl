@@ -1208,3 +1208,98 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
+
+/// #336. A builtin has no source: a bare `next` nothing in the file binds, and a member of a
+/// value proven to be a `str`, say so rather than jumping to a namesake outside. A bare name
+/// nothing binds that is no builtin is no method outside, and only a module the file
+/// `*`-imports can declare it there.
+#[test]
+fn a_builtin_says_it_has_no_source() {
+    let std = external_root(
+        "py-builtins-std",
+        &[
+            (
+                "ast.py",
+                "class NodeVisitor:\n    def next(self):\n        pass\n",
+            ),
+            (
+                "datetime.py",
+                "class date:\n    def replace(self, year=None):\n        pass\n",
+            ),
+            ("tools/__init__.py", "def helper():\n    pass\n"),
+            (
+                "other.py",
+                "class Thing:\n    def helper(self):\n        pass\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "py-builtins",
+        &[
+            (
+                "app/builtins_use.py",
+                "def render() -> str | None:\n    return None\n\n\ndef go(name: str) -> None:\n    s = render()\n    s.replace(\"a\", \"b\")\n    first = next(iter([1]))\n    name.upper()\n    helper()\n",
+            ),
+            (
+                "app/starred.py",
+                "from tools import *\n\n\ndef go() -> None:\n    helper()\n",
+            ),
+            // A project class called `str` is read as before.
+            (
+                "app/own_str.py",
+                "class str:\n    def replace(self):\n        pass\n\n\ndef go(s: str) -> None:\n    s.replace()\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&std));
+    let here = |file: &str, line: usize| format!("{file}:{line}");
+    for (file, code, want) in [
+        (
+            "app/builtins_use.py",
+            "s.replace",
+            jump(
+                "replace: builtin, no source (via render() -> str)",
+                &here("app/builtins_use.py", 7),
+            ),
+        ),
+        (
+            "app/builtins_use.py",
+            "next",
+            jump("next: builtin, no source", &here("app/builtins_use.py", 8)),
+        ),
+        (
+            "app/builtins_use.py",
+            "name.upper",
+            jump(
+                "upper: builtin, no source (via name: str)",
+                &here("app/builtins_use.py", 9),
+            ),
+        ),
+        (
+            "app/builtins_use.py",
+            "^    helper",
+            jump("no definition for helper", &here("app/builtins_use.py", 10)),
+        ),
+        (
+            "app/starred.py",
+            "^    helper",
+            jump(
+                "helper: via import tools",
+                &format!("{}:1", std.join("tools/__init__.py").display()),
+            ),
+        ),
+        (
+            "app/own_str.py",
+            "s.replace",
+            jump(
+                "replace \u{2192} str.replace (via s: str)",
+                &here("app/own_str.py", 2),
+            ),
+        ),
+    ] {
+        d_on(&mut a, file, code);
+        assert_eq!(shown(&mut a), want, "{file}: {code}");
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+    std::fs::remove_dir_all(std).unwrap();
+}

@@ -100,6 +100,87 @@ impl App {
         }
     }
 
+    /// The links that prove the Python receiver `chain` holds a builtin type (#336), as a typed
+    /// jump names them: `s: str`, `render() -> str`, `self.name: str`. Every binding of the last
+    /// name reads the same type from [`search::PYTHON_BUILTIN_TYPES`] as written, one that the
+    /// file writing it neither declares nor imports: a project class called `str` is read as
+    /// before. The names in front of it are proven as for any typed jump.
+    pub(super) fn builtin_receiver(
+        &self,
+        kind: Kind,
+        here: &Path,
+        chain: &[String],
+        head: Option<&(String, search::Value, Vec<String>)>,
+    ) -> Option<String> {
+        if kind != Kind::Python || head.is_some() {
+            return None;
+        }
+        let (last, before) = chain.split_last()?;
+        let (file, text, bindings, mut links) = match before {
+            [] => {
+                let text = self.buf.lines.join("\n");
+                let bindings = search::bindings(kind, &text, self.line + 1, last);
+                (here.to_path_buf(), text, bindings, Vec::new())
+            }
+            _ => {
+                let (ty, links) = self.receiver(kind, here, before, None).ok()?;
+                let found = self.hierarchy(kind, &ty, 0, &mut |t| {
+                    let text = self.text_of(&t.path)?;
+                    let bindings = search::field_bindings(kind, &text, t.line, last);
+                    (!bindings.is_empty()).then(|| (t.path.clone(), text, bindings))
+                })?;
+                (found.0, found.1, found.2, links)
+            }
+        };
+        let imports = search::imports(kind, &text);
+        let builtin = |written: &str| {
+            let parts = search::type_path(kind, written)?;
+            let [name] = parts.as_slice() else {
+                return None;
+            };
+            (search::PYTHON_BUILTIN_TYPES.contains(&name.as_str())
+                && bound(&imports, name).is_none()
+                && self.declaration(kind, &file, &parts).is_none())
+            .then(|| name.clone())
+        };
+        let mut found: Option<(String, Option<String>)> = None;
+        for b in &bindings {
+            let this = match &b.value {
+                search::Value::Type(t) => (builtin(t)?, None),
+                search::Value::Call(callee) => {
+                    let first = callee.split('.').next().unwrap_or(callee);
+                    if hidden(kind, &text, b.line, first) {
+                        return None;
+                    }
+                    let (t, at) = self.declared_return(kind, &file, callee)?;
+                    let written = self.text_of(&at).map(|t2| search::imports(kind, &t2));
+                    let name = builtin(&t)?;
+                    if written.is_some_and(|i| bound(&i, &name).is_some()) {
+                        return None;
+                    }
+                    let link = signature(kind, callee, &name);
+                    (name, Some(link))
+                }
+                _ => return None,
+            };
+            match &found {
+                Some((name, _)) if *name != this.0 => return None,
+                Some(_) => {}
+                None => found = Some(this),
+            }
+        }
+        let (name, call) = found?;
+        let link = call.unwrap_or_else(|| match links.first() {
+            Some(_) if before.len() == 1 => format!("{}.{last}: {name}", before[0]),
+            _ => format!("{last}: {name}"),
+        });
+        match (before.len(), links.first_mut()) {
+            (1, Some(first)) => *first = link,
+            _ => links.push(link),
+        }
+        Some(links.join(" \u{2192} "))
+    }
+
     /// The project class a Python receiver is proven to be when what it lacks can only come from
     /// outside the project (#342): every base up its ancestry is a project class read or a name
     /// imported from outside, and at least one is the latter. `None` when no base is outside, or

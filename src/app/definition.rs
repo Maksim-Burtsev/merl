@@ -168,6 +168,21 @@ impl App {
         }
         // The word itself is that parameter or local: its declarations in this scope are the
         // answer, and a function of the same name elsewhere is not.
+        // A Python builtin nothing in the file binds has no source to land on (#336): not the
+        // project's namesake in another module, which the bare name does not reach without an
+        // import, nor a method of a dependency. A `*` import may bind it.
+        let star = kind == Kind::Python && imports.iter().any(|(name, _)| name == "*");
+        let unbound = kind == Kind::Python
+            && !dotted
+            && chain.is_empty()
+            && search::bindings(kind, &text, self.line + 1, &word).is_empty()
+            && !names_itself(self.line_str(), &word)
+            && !self.offer_only;
+        if unbound && !star && search::PYTHON_BUILTINS.contains(&word.as_str()) {
+            self.offer_only = false;
+            self.message = format!("{word}: builtin, no source");
+            return;
+        }
         if !dotted && !locals.is_empty() && locals != [self.line + 1] {
             let found = locals
                 .iter()
@@ -291,6 +306,13 @@ impl App {
                 }
                 // With one name in front of the word, `by name` already says where.
                 Err(at) => {
+                    // A value proven to be a builtin type: its members have no source (#336).
+                    if let Some(via) = self.builtin_receiver(kind, &here, &chain, head.as_ref()) {
+                        self.offer_only = false;
+                        self.truncated.set(false);
+                        self.message = format!("{word}: builtin, no source (via {via})");
+                        return;
+                    }
                     let names = head.as_ref().map_or(chain.len(), |(_, _, f)| f.len() + 1);
                     broke = (names > 1).then_some(at);
                 }
@@ -755,9 +777,14 @@ impl App {
         {
             // After the project, outside as the import names the module, every installed copy
             // of it: what a workspace package linked in hands on from a dependency is there.
-            found = self
-                .external_definitions(kind, &word, &chain, dotted, &imports, false)
-                .unwrap_or_default();
+            // A bare Python name nothing binds is no method, and outside the project only a
+            // module the file `*`-imports can bind it (#336).
+            found = match unbound && !search::PYTHON_BUILTINS.contains(&word.as_str()) {
+                true => self.star_imported(&word, &imports),
+                false => self
+                    .external_definitions(kind, &word, &chain, dotted, &imports, false)
+                    .unwrap_or_default(),
+            };
             // The module the import loads is the project's, searched already: nothing outside is
             // proven to be what it hands on.
             if own_module {
@@ -866,6 +893,36 @@ impl App {
                 reason: Reason::ByName,
             })
             .collect()
+    }
+
+    /// The top-level declarations of `word` in the modules outside the project that the file's
+    /// `from m import *` lines name (#336).
+    fn star_imported(&mut self, word: &str, imports: &[(String, Vec<String>)]) -> Vec<Candidate> {
+        let kind = Kind::Python;
+        let pattern = search::def_patterns(kind, word).join("|");
+        let mut found = Vec::new();
+        for (_, path) in imports.iter().filter(|(name, _)| name == "*") {
+            let module = &path[..path.len() - 1];
+            if module.is_empty() || module[0].starts_with('.') {
+                continue;
+            }
+            let Some(file) = self.external_module(module) else {
+                continue;
+            };
+            let Ok(text) = std::fs::read_to_string(&file) else {
+                continue;
+            };
+            let hits = self.external_grep(kind, std::slice::from_ref(&file), &pattern);
+            found.extend(
+                hits.into_iter()
+                    .filter(|h| search::qualified(kind, &text, h.line, word).is_none())
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Import(module.join(".")),
+                    }),
+            );
+        }
+        found
     }
 
     /// The first line of `file`, a module outside the project, named from its root.

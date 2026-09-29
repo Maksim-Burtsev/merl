@@ -142,6 +142,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A binary file (an image, a `.pyc`, a build artefact) opens on an empty pane with one centred,
   dimmed line, `binary file, not shown`, and no line number or cursor, instead of the text
   `binary file` as if it were the file's line 1. The status bar still says `read-only`. (#287)
+- `d` in Python on a builtin says `next: builtin, no source` and stays put: a bare `next`, `map`
+  or `ValueError` that nothing in the file binds, and a member of a value proven to be a builtin
+  type, `replace: builtin, no source (via render() -> str)`. It opened a picker of every method
+  of the name in the dependencies, or jumped to the only one, after a grep of all of them. A bare
+  name nothing binds is no longer looked for among the methods outside either: only at the top
+  of a module the file imports with `*`. (#336)
 
 ### Fixed
 

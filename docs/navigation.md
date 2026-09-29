@@ -32,6 +32,17 @@ module that does not declare the word itself — an `index.ts` that re-exports i
 further: `d` falls back to the search by name below and says `by name`. Behind
 `from repos import UserRepository as Users` a receiver typed `Users` is a `UserRepository`.
 
+A Python builtin has no source on the machine: the interpreter has it compiled. `d` on a bare
+name of `dir(builtins)` — `next`, `map`, `ValueError` — that nothing in the file binds (no
+parameter or local of the scope, no module-level `def`, `class` or assignment, no import, and no
+`from x import *`) says `next: builtin, no source` and stays where it is, with no picker and no
+search; a project function of that name in another module is not what the bare name means. So
+does a member of a value proven to be a builtin type (`str`, `bytes`, `int`, `float`, `bool`,
+`list`, `dict`, `set`, `tuple` and the like, `list[int]` included, but not `typing.List`) that the
+file neither declares nor imports: `replace: builtin, no source (via render() -> str)`. A bare
+name nothing binds that is no builtin is never a method outside the project: it is looked for
+there only at the top of the modules the file `*`-imports.
+
 A Python module's name lands on the module, at its first line: `repos: module app/repos.py`. That
 is a word in the module path of an import line (`app` or `repos` in `from app.repos import
 UserRepo`, `json` in `import json`), and a name an import binds to a module (`views` behind

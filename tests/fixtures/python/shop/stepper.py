@@ -1,0 +1,16 @@
+"""A builtin's name the file binds keeps the lookup it had (#336)."""
+
+
+def next(steps):
+    return steps[0]
+
+
+def advance(steps):
+    return next(steps)
+    #      ^ d: picker shop/stepper.py:4, shop/warehouse.py:11
+
+
+def peek(steps):
+    next = steps[-1]
+    return next
+    #      ^ d: shop/stepper.py:14

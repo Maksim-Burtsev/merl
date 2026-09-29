@@ -95,7 +95,8 @@ def ship(
 
 def first(couriers: list[Carrier]) -> Carrier:
     return next(iter(couriers))
-    #      ^ d: shop/warehouse.py:11; want none (#336)
+    #      ^ d: none
+    # status: next: builtin, no source
 
 
 def checkout(basket: Basket) -> int:
