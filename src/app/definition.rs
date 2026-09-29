@@ -219,6 +219,16 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // `x.word(…)` in Rust on a value whose type is not known (#358).
+        if kind == Kind::Rust
+            && on_value
+            && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
+            && word != "await"
+        {
+            let found = self.rust_methods(&here, &word);
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // On the declaration of a member of an interface, a protocol, an abstract or a base
         // class, `d` offers what implements it (#68, step 6).
         // A `#private` member is nobody's to override.

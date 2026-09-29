@@ -31,6 +31,9 @@ pub enum Reason {
     /// An item the file on screen declares where a bare Rust name sees it: no other file's item
     /// is in sight without a `use` or a path (#363).
     File,
+    /// The method of the one trait every candidate of `x.word()` declares or implements
+    /// (#358): whatever `x` is, the call reaches that declaration.
+    Trait(String),
 }
 impl Reason {
     /// Whether the reason alone picks the declaration. `by name` only says the name matched, so
@@ -49,6 +52,7 @@ impl std::fmt::Display for Reason {
             Self::Local => write!(f, "local"),
             Self::Module(file) => write!(f, "module {file}"),
             Self::File => write!(f, "in this file"),
+            Self::Trait(name) => write!(f, "via trait {name}"),
         }
     }
 }

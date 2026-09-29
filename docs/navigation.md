@@ -292,8 +292,16 @@ not known.
 
 When the type of `x` is not known, every method of that name is a candidate: Python `def` and
 `async def` inside a class, TypeScript class and object-literal methods, properties holding a
-function and bodiless signatures, Go `func (r *T) Name(`. They are collected from the project and
-from the standard library and dependencies, where TypeScript is read from its `.d.ts` files only.
+function and bodiless signatures, Go `func (r *T) Name(`, Rust `fn name` directly in an `impl` or
+a `trait`. They are collected from the project and from the standard library and dependencies,
+where TypeScript is read from its `.d.ts` files only. Rust drops what the cursor cannot reach: an
+inherent method without `pub` outside its module, a `pub(crate)` one outside its crate, a crate
+`Cargo.lock` does not lead to from the cursor's, a registry copy of a package of the project, a
+crate's tests, a trait outside the project that is not `pub`, and a method or a trait of the
+standard library with no `#[stable]` or `#[unstable]`, which is its own. A method a macro writes
+counts, whatever its `pub` says. The traits' methods come first,
+and when every candidate is the method of one trait or of an `impl` of it, `d` jumps to the
+trait's, `via trait Clone`.
 So is every field of that name in the project, one row per type, on the line a proven receiver
 would land on: Python `name: T` or `name = …` in a class body and `self.name = …` in a method,
 TypeScript members and constructor parameters behind a modifier and `this.name = …`, Go struct

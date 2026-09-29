@@ -157,16 +157,18 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
                 ],
             ),
         ),
-        // A Rust call on a value still looks outside the project.
+        // A Rust call on a value still looks outside the project, and a trait's own method is
+        // where every call of it lands (#358).
         (
             "main.rs",
             ".into_owned",
             jump(
-                "into_owned \u{2192} ToOwned::into_owned (by name, 1 match)",
+                "into_owned \u{2192} ToOwned::into_owned (via trait ToOwned)",
                 &at("alloc/src/borrow.rs:2"),
             ),
         ),
-        // A value named like a module is found in that module, by name.
+        // A value named like a module is a value like any other (#358): the one method of the
+        // name outside the project, by name.
         (
             "main.rs",
             "path.join",

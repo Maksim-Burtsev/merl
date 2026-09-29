@@ -599,3 +599,179 @@ pub fn rust_scope_items(text: &str, line: usize, word: &str, ns: RustNamespace) 
         false => items.into_iter().map(|i| i + 1).collect(),
     }
 }
+/// The line pattern of a Rust method `word`: an indented `fn word` behind the prefixes the
+/// declaration patterns take. A method only when [`rust_method_at`] reads one (#358).
+pub fn rust_method_pattern(word: &str) -> String {
+    format!(
+        r#"^\s+(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*fn\s+{}\b"#,
+        regex::escape(word)
+    )
+}
+/// What a Rust method's `fn` line sits directly in.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RustOwner {
+    /// `trait Tr {`: the trait's own method.
+    Trait(String),
+    /// `impl<…> Tr for X {`: an implementation of `Tr`'s method.
+    ImplOf(String),
+    /// `impl<…> X {`, no trait: an inherent method.
+    Inherent,
+    /// An `impl` whose header the rules do not read: one inside a `macro_rules!`, `impl const Tr
+    /// for`, a header wrapped before its `for`.
+    Unreadable,
+}
+/// How far a Rust method's own `pub` reaches.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RustVis {
+    Pub,
+    /// `pub(crate)`, `pub(super)`, `pub(in …)`: its own crate at most.
+    Crate,
+    /// No `pub`: its module and the modules below it.
+    Private,
+}
+/// Whether 1-based `line` of `lines`, a hit of [`rust_method_pattern`], declares a method: the
+/// nearest line above it indented less opens an `impl` or a `trait`, or it stands in a macro's
+/// body, which an `impl` may expand it in (`Unreadable`). Its owner, its visibility (a trait
+/// method's the trait's) and the 1-based line of the `impl`, `trait` or macro arm around it.
+/// `None` for a `fn` at the top level, nested in a function, or in a `mod` block: none of them
+/// can follow a `.`.
+pub fn rust_method_at(lines: &[&str], line: usize) -> Option<(RustOwner, RustVis, usize)> {
+    static TRAIT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s+([A-Za-z_]\w*)").unwrap()
+    });
+    static IMPL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|const|default)\s+)*impl\b").unwrap()
+    });
+    static IMPL_FOR: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:unsafe\s+)?impl(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").unwrap()
+    });
+    static INHERENT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:unsafe\s+)?impl(?:\s*<[^{]*?>)?\s+(?:\w+::)*[A-Za-z_]\w*").unwrap()
+    });
+    static VIS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*pub\s*(\()?").unwrap());
+    static MACRO: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:#\[[^\]]*\]\s*)*(?:pub(?:\([^)]*\))?\s+)?macro(?:_rules!|\s)").unwrap()
+    });
+    let k = line.checked_sub(1).filter(|&k| k < lines.len())?;
+    let at = rust_parent(lines, k)?;
+    let parent = lines[at];
+    let owner = if let Some(c) = TRAIT.captures(parent) {
+        RustOwner::Trait(c[1].to_owned())
+    } else if !IMPL.is_match(parent) {
+        // Inside a `macro_rules!` or a `macro`, at any depth of its arms.
+        let mut up = at;
+        while !MACRO.is_match(lines[up]) {
+            up = rust_parent(lines, up)?;
+        }
+        RustOwner::Unreadable
+    } else if let Some(c) = IMPL_FOR.captures(parent) {
+        RustOwner::ImplOf(c[1].to_owned())
+    } else {
+        // The whole header on its line, or its `where` on the next: no `for` further down.
+        let whole = parent.trim_end().ends_with('{')
+            || lines
+                .get(at + 1)
+                .is_some_and(|l| l.trim_start().starts_with("where"));
+        match whole && !parent.contains(" for ") && INHERENT.is_match(parent) {
+            true => RustOwner::Inherent,
+            false => RustOwner::Unreadable,
+        }
+    };
+    // A trait's method has no `pub` of its own: it reaches as far as the trait.
+    let at_vis = match owner {
+        RustOwner::Trait(_) => parent,
+        _ => lines[k],
+    };
+    let vis = match VIS.captures(at_vis) {
+        Some(c) if c.get(1).is_some() => RustVis::Crate,
+        Some(_) => RustVis::Pub,
+        None => RustVis::Private,
+    };
+    Some((owner, vis, at + 1))
+}
+/// A package of a `Cargo.lock`: its directory name in a registry, `name-version`, and its name.
+pub type LockPackage = (String, String);
+/// The crates of `lock`, a `Cargo.lock`, that the package `from` reaches: itself and its
+/// `dependencies` lists followed transitively (normal, dev and build alike), by name; with every
+/// package the lock lists, to tell a registry crate by. `None` when the lock does not list
+/// `from`.
+pub fn cargo_reach(lock: &str, from: &str) -> Option<(Vec<String>, Vec<LockPackage>)> {
+    let mut packages: Vec<(String, String, Vec<String>)> = Vec::new();
+    let mut in_deps = false;
+    for l in lock.lines() {
+        let t = l.trim();
+        if t == "[[package]]" {
+            packages.push(Default::default());
+            in_deps = false;
+            continue;
+        }
+        let Some(p) = packages.last_mut() else {
+            continue;
+        };
+        if let Some(v) = t.strip_prefix("name = ") {
+            p.0 = v.trim_matches('"').to_owned();
+        } else if let Some(v) = t.strip_prefix("version = ") {
+            p.1 = v.trim_matches('"').to_owned();
+        } else if let Some(v) = t.strip_prefix("dependencies = [") {
+            in_deps = !v.contains(']');
+            p.2.extend(quoted_names(v));
+        } else if in_deps {
+            in_deps = !t.starts_with(']');
+            p.2.extend(quoted_names(t));
+        } else if t.starts_with('[') {
+            in_deps = false;
+        }
+    }
+    packages.iter().find(|p| p.0 == from)?;
+    let mut reached = vec![from.to_owned()];
+    let mut i = 0;
+    while i < reached.len() {
+        let name = reached[i].clone();
+        for p in packages.iter().filter(|p| p.0 == name) {
+            for d in &p.2 {
+                if !reached.contains(d) {
+                    reached.push(d.clone());
+                }
+            }
+        }
+        i += 1;
+    }
+    let dirs = packages
+        .into_iter()
+        .map(|(n, v, _)| (format!("{n}-{v}"), n))
+        .collect();
+    Some((reached, dirs))
+}
+/// The crate names of a `Cargo.lock` dependency list: `"memchr"`, `"serde 1.0.1"`, `"x 1.0
+/// (registry+…)"` are `memchr`, `serde`, `x`.
+fn quoted_names(s: &str) -> impl Iterator<Item = String> + '_ {
+    s.split('"')
+        .skip(1)
+        .step_by(2)
+        .filter_map(|q| q.split_whitespace().next().map(str::to_owned))
+}
+/// The `name` of the `[package]` a `Cargo.toml` declares.
+pub fn cargo_package_name(toml: &str) -> Option<String> {
+    let mut in_package = false;
+    for l in toml.lines() {
+        let t = l.trim();
+        if t.starts_with('[') {
+            in_package = t == "[package]";
+        } else if in_package && let Some(v) = t.strip_prefix("name") {
+            let v = v.trim_start().strip_prefix('=')?;
+            return Some(v.trim().trim_matches('"').to_owned());
+        }
+    }
+    None
+}
+/// Whether the item on 1-based `line` of `lines` carries a `#[stable(…)]` or `#[unstable(…)]`
+/// among the attributes and doc comments right above it: the standard library marks so every
+/// item it offers outside (the `missing_stability` check), and what has neither is its own.
+pub fn rust_stability(lines: &[&str], line: usize) -> bool {
+    lines[..line.saturating_sub(1).min(lines.len())]
+        .iter()
+        .rev()
+        .map(|l| l.trim())
+        .take_while(|t| t.starts_with("//") || !(t.is_empty() || t.ends_with(['{', '}', ';'])))
+        .any(|t| t.starts_with("#[stable(") || t.starts_with("#[unstable("))
+}
