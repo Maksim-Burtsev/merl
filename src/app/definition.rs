@@ -354,7 +354,7 @@ impl App {
         }
         // A bare Rust name is an item of this file where the cursor sees it (#363).
         if kind == Kind::Rust && !dotted && chain.is_empty() && !before.ends_with("::") {
-            let found = self.rust_file_items(&here, &text, &word, range.clone(), &imports);
+            let found = self.rust_file_items(&here, &text, &word, range.clone());
             if !found.is_empty() {
                 self.show_definitions(kind, &word, &here, found, None);
                 return;
@@ -403,29 +403,40 @@ impl App {
         let mut home: Option<Vec<PathBuf>> = None;
         // `Type::w` where this file declares the `Type` its scope sees, and another file one
         // too: this file's `Type` is the one, and its `Type::w` is looked for here first (#363).
-        let mine = kind == Kind::Rust
-            && pathed
-            && locals.is_empty()
-            && chain.len() == 1
-            && bound(&imports, &chain[0]).is_none()
-            && !search::rust_scope_items(&text, self.line + 1, range.start, &chain[0], false)
-                .is_empty()
-            && self
-                .project_definitions(
-                    kind,
-                    &here,
-                    &chain[0],
-                    &search::def_patterns(kind, &chain[0]).join("|"),
-                )
-                .iter()
-                .any(|h| h.path != here);
-        self.truncated.set(false);
-        if mine {
+        let seen = match kind == Kind::Rust && pathed && locals.is_empty() && chain.len() == 1 {
+            true => search::rust_scope_items(
+                &text,
+                self.line + 1,
+                &chain[0],
+                search::RustNamespace::Path,
+            ),
+            false => Vec::new(),
+        };
+        // The `Type` the cursor sees, by the name its `impl` qualifies: `inner::Type` in a `mod`.
+        let owners: Vec<String> = seen
+            .iter()
+            .map(|&l| search::qualified(kind, &text, l, &chain[0]).unwrap_or(chain[0].clone()))
+            .collect();
+        let mine = match owners.as_slice() {
+            [owner, rest @ ..] if rest.iter().all(|o| o == owner) => {
+                // A cut in this grep says nothing about the list shown in the end.
+                let cut = self.truncated.get();
+                let pattern = search::def_patterns(kind, &chain[0]).join("|");
+                let elsewhere = self
+                    .project_definitions(kind, &here, &chain[0], &pattern)
+                    .iter()
+                    .any(|h| h.path != here);
+                self.truncated.set(cut);
+                elsewhere.then(|| owner.clone())
+            }
+            _ => None,
+        };
+        if mine.is_some() {
             home = Some(vec![here.clone()]);
         }
         let pathed = pathed
             && !chain.is_empty()
-            && (sep == "." || mine || {
+            && (sep == "." || mine.is_some() || {
                 // A glob, a `using` or a grouped `use` may bring the name in unread, and a PHP
                 // `\Vendor\Depot::open` spells out another namespace.
                 let owner = &chain[chain.len() - 1];
@@ -514,6 +525,11 @@ impl App {
                         return false;
                     };
                     search::qualified(kind, &t, h.line, &word).is_some_and(|q| match &home {
+                        Some(files) if mine.is_some() => {
+                            mine.as_ref()
+                                .is_some_and(|o| q == format!("{o}{sep}{word}"))
+                                && files.contains(&h.path)
+                        }
                         Some(files) => q == full && files.contains(&h.path),
                         None => {
                             q == full
@@ -524,7 +540,7 @@ impl App {
                 })
                 .map(|hit| Candidate {
                     reason: match home {
-                        Some(_) if mine => Reason::Path(path.clone()),
+                        Some(_) if mine.is_some() => Reason::Path(path.clone()),
                         Some(_) => Reason::Import(hit.path.display().to_string()),
                         None => Reason::Path(path.clone()),
                     },
