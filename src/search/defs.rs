@@ -268,13 +268,14 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 r"^\t(?:[A-Za-z_][A-Za-z0-9_]*[ \t]*,[ \t]*)*{w}(?:[ \t]*,[ \t]*[A-Za-z_][A-Za-z0-9_]*)*(?:[ \t]*=[^=]|[ \t]+[^ \t:=]|\[|[ \t]*$)"
             ),
         ],
-        // `impl X` is a use of `X`, not its definition, so it is left out on purpose.
+        // `impl X` is a use of `X`, not its definition, so it is left out on purpose. A `let` is
+        // a local of its block, which [`bindings`] reads: another function's never declares the
+        // word (#353).
         Kind::Rust => {
             let vis = r#"^\s*(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*"#;
             vec![
                 format!(r"{vis}(?:fn|struct|enum|union|trait|type|const|static|mod)\s+{w}\b"),
                 format!(r"^\s*macro_rules!\s+{w}\b"),
-                format!(r"^\s*let\s+(?:mut\s+)?{w}\b"),
             ]
         }
         Kind::TsJs => {
@@ -571,10 +572,12 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 sql_cte(word),
             ]
         }
-        // A target, alone or among others before the colon (`build test: deps`), or a variable.
+        // A target, alone or among others before the colon (`build test: deps`), a variable, or
+        // a multi-line one, `define NAME` … `endef`, with the operator GNU make allows after it.
         Kind::Make => vec![
             format!(r"^([^:=#\s]+\s+)*{w}(\s+[^:=#\s]+)*\s*::?([^=:]|$)"),
             format!(r"^\s*(export\s+|override\s+)?{w}\s*[:?!]{{0,3}}="),
+            format!(r"^\s*((export|override)\s+)*define\s+{w}\s*(\+=|[:?!]{{0,3}}=)?\s*(#|$)"),
         ],
         Kind::Terraform => terraform_patterns(word),
         // `FROM image AS name`, with any flags before the image. Stage names ignore case.

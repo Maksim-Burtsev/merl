@@ -200,3 +200,13 @@ func window() -> Int {
     //       status: separator: argument label
     return w.maximumAttempts
 }
+
+struct Bell {
+    func chime() -> Int { 1 }
+}
+
+func ringBell(_ bell: Bell) -> Int {
+    let chime = bell.chime()
+    //               ^ d: Sources/Shop/Basket.swift:205
+    return chime
+}

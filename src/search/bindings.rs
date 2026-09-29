@@ -189,6 +189,8 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
 ///   around it (#470).
 /// - Zig: [`zig_bindings`], inside a function only (#469).
 /// - Ruby: [`ruby_bindings`], scopes by indentation (#365).
+/// - Rust: [`rust_bindings`], the nearest binding above the line in the blocks around it (#353).
+/// - Elixir: [`elixir_bindings`], inside a `def` only (#460).
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -212,8 +214,160 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Jvm => jvm_bindings(&lines, at, name),
         Kind::Swift => swift_bindings(&lines, at, name),
         Kind::Ruby => ruby_bindings(&lines, at, name),
+        Kind::Rust => rust_bindings(&lines, at, name),
+        Kind::Elixir => elixir_bindings(&lines, at, name),
         _ => Vec::new(),
     }
+}
+/// Elixir's locals (#460): the nearest `pattern = value` above the cursor in a block around it,
+/// told by indentation as `mix format` keeps it, a clause head `pattern ->` or `fn x ->` or the
+/// `pattern <-` of a `for` or `with` that opens one of those blocks, and the parameters of the `def` around them, where the walk stops:
+/// a `def` sees nothing of the module around it. Nothing outside a `def` is a local.
+fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^def(?:p|macrop?|guardp?|module|impl|protocol)?\s+[\w.?!]+").unwrap()
+    });
+    let literal = literal_lines(Kind::Elixir, &lines.join("\n"));
+    let code = |i: usize| uncommented(Kind::Elixir, lines[i]).trim().to_owned();
+    let found = |line: usize| {
+        vec![Binding {
+            line,
+            value: Value::Unknown,
+        }]
+    };
+    // The head of a one-line `fn x -> … end` binds on the cursor's own line, above which the
+    // walk starts.
+    let own = code(at);
+    if let Some((h, _)) = own.split_once("->")
+        && let Some((_, p)) = h.rsplit_once("fn ")
+        && elixir_binds(p, name)
+    {
+        return found(at + 1);
+    }
+    let mut depth = indent(lines[at]);
+    let mut i = at;
+    while i > 0 {
+        i -= 1;
+        let t = code(i);
+        if t.is_empty() || literal[i] || indent(lines[i]) > depth {
+            continue;
+        }
+        if indent(lines[i]) == depth {
+            // A clause of its own binds for its own body alone.
+            let parts = split_top(Kind::Elixir, &t, b'=');
+            if parts.len() > 1
+                && !t.contains("->")
+                && !parts[1].starts_with('~')
+                && elixir_binds(parts[0], name)
+            {
+                return found(i + 1);
+            }
+            continue;
+        }
+        // A header opens the block the walk is in; `) do` closes parameters wrapped over the
+        // lines above it, from the line back at its indent.
+        depth = indent(lines[i]);
+        if t.starts_with(')') {
+            while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > depth) {
+                i -= 1;
+            }
+            i = i.saturating_sub(1);
+        }
+        let head = code(i);
+        if let Some(m) = HEAD.find(&head) {
+            // The parameters run to the `do` that opens the body.
+            let end = (i..at)
+                .find(|&j| code(j).ends_with(" do") || code(j).contains("do:"))
+                .unwrap_or(i);
+            return (i..=end)
+                .find(|&j| match j == i {
+                    true => elixir_binds(&head[m.end()..], name),
+                    false => elixir_binds(&code(j), name),
+                })
+                .map_or_else(Vec::new, |j| found(j + 1));
+        }
+        // A `for` or a `with` binds the left of each `<-` of its head, which runs to its `do`.
+        if head.starts_with("for ") || head.starts_with("with ") {
+            let end = (i..at)
+                .find(|&j| code(j).ends_with(" do") || code(j).contains("do:"))
+                .unwrap_or(i);
+            let generates = |j: usize| {
+                let c = code(j);
+                let c = c
+                    .strip_prefix("for ")
+                    .or_else(|| c.strip_prefix("with "))
+                    .unwrap_or(&c);
+                split_top(Kind::Elixir, c, b',').iter().any(|g| {
+                    g.split_once("<-")
+                        .is_some_and(|(p, _)| elixir_binds(p, name))
+                })
+            };
+            if let Some(j) = (i..=end).find(|&j| generates(j)) {
+                return found(j + 1);
+            }
+        }
+        if let Some(h) = t.strip_suffix("->") {
+            let h = h.rsplit_once("fn ").map_or(h, |(_, p)| p);
+            if elixir_binds(h, name) {
+                return found(i + 1);
+            }
+        }
+    }
+    Vec::new()
+}
+/// Whether the Elixir pattern `p` (a parameter list, the left of a `=`, a clause head) binds
+/// `name`: the name as a word of its own, and not a key `name:`, an atom `:name`, an attribute,
+/// a pinned `^name`, a call, a guard's or a default's.
+fn elixir_binds(p: &str, name: &str) -> bool {
+    static DEFAULT: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\\\\[^,)]*").unwrap());
+    let p = p.split(" when ").next().unwrap_or(p);
+    let p = p.split(", do:").next().unwrap_or(p);
+    let p = DEFAULT.replace_all(p, "");
+    let word = |c: char| c.is_alphanumeric() || c == '_';
+    p.match_indices(name).any(|(i, _)| {
+        let before = p[..i].chars().next_back();
+        let after = p[i + name.len()..].trim_start();
+        !before.is_some_and(|c| word(c) || ".@:^&%".contains(c))
+            && !p[i + name.len()..].starts_with(|c: char| word(c) || c == '?' || c == '!')
+            && !(after.starts_with(':') && !after.starts_with("::"))
+            && !after.starts_with(['(', '.'])
+    })
+}
+/// The 1-based lines of the `def`s, attributes and other declarations matching `pattern` that
+/// the Elixir module around 1-based `line` holds itself: its body's own statements, not those of
+/// a module nested in it (#460). A bare call and an attribute are that module's first.
+pub fn elixir_module_lines(text: &str, line: usize, pattern: &Regex) -> Vec<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return Vec::new();
+    };
+    static MODULE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*def(?:module|impl|protocol)\s").unwrap());
+    let literal = literal_lines(Kind::Elixir, text);
+    let code = |i: usize| !literal[i] && !lines[i].trim().is_empty();
+    let mut depth = indent(lines[at]);
+    let header = (0..at).rev().find(|&i| {
+        if !code(i) || indent(lines[i]) >= depth {
+            return false;
+        }
+        depth = indent(lines[i]);
+        MODULE.is_match(lines[i])
+    });
+    let Some(h) = header else {
+        return Vec::new();
+    };
+    let body: Vec<usize> = (h + 1..lines.len())
+        .filter(|&i| code(i))
+        .take_while(|&i| indent(lines[i]) > indent(lines[h]))
+        .collect();
+    let Some(child) = body.first().map(|&i| indent(lines[i])) else {
+        return Vec::new();
+    };
+    body.into_iter()
+        .filter(|&i| indent(lines[i]) == child && pattern.is_match(lines[i]))
+        .map(|i| i + 1)
+        .collect()
 }
 fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -769,6 +923,98 @@ pub fn table_key(text: &str, line: usize, range: &Range<usize>) -> bool {
         && !after.starts_with("==")
         && (before.ends_with(['{', ','])
             || (before.is_empty() && continued(Kind::Lua, &lines, line - 1)))
+}
+/// What `local name = …` gives a Lua qualifier `name` at 1-based `line` of `text` (#462): the
+/// `local` the cursor's function sees, else the nearest one above it at the top of the file.
+/// `None` for a parameter, a `for` variable, a `local` of several names or no `local` at all.
+pub fn lua_local_value(text: &str, line: usize, name: &str) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let re = Regex::new(&format!(r"^\s*local\s+{}\s*=\s*(.+)", regex::escape(name)))
+        .expect("an escaped name keeps the pattern valid");
+    let at = match bindings(Kind::Lua, text, line, name).first() {
+        Some(b) => b.line - 1,
+        None => {
+            // The walk reads the lines above the cursor: a `for` or a `function(…)` on its own
+            // line may bind the name, and then the file's `local` says nothing.
+            let own = line
+                .checked_sub(1)
+                .and_then(|i| lines.get(i))
+                .map(|l| uncommented(Kind::Lua, l))
+                .unwrap_or_default();
+            let word = Regex::new(&format!(r"\b{}\b", regex::escape(name)))
+                .expect("an escaped name keeps the pattern valid");
+            if Regex::new(r"\b(?:for|function)\b")
+                .expect("a fixed pattern compiles")
+                .find(&own)
+                .is_some_and(|m| word.is_match(&own[m.end()..]))
+            {
+                return None;
+            }
+            let literal = literal_lines(Kind::Lua, text);
+            (0..line.saturating_sub(1).min(lines.len()))
+                .rev()
+                .find(|&i| !literal[i] && indent(lines[i]) == 0 && re.is_match(lines[i]))?
+        }
+    };
+    let code = uncommented(Kind::Lua, lines[at]);
+    Some(re.captures(&code)?[1].trim().to_owned())
+}
+/// The module a Lua `require("a.b")` (or `require "a.b"`) names, when `value` is one.
+pub fn lua_required(value: &str) -> Option<&str> {
+    static REQUIRE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^require\s*\(?\s*["']([\w./-]+)["']\s*\)?$"#).unwrap()
+    });
+    Some(REQUIRE.captures(value)?.get(1)?.as_str())
+}
+/// The table a Lua module hands out: `M` of the `return M` at the top of `text`.
+pub fn lua_returned(text: &str) -> Option<String> {
+    let literal = literal_lines(Kind::Lua, text);
+    text.lines()
+        .zip(literal)
+        .filter(|(l, inside)| !inside && indent(l) == 0)
+        .filter_map(|(l, _)| {
+            let t = uncommented(Kind::Lua, l);
+            let t = t
+                .trim()
+                .strip_prefix("return ")?
+                .trim()
+                .trim_end_matches(';');
+            (!t.is_empty() && t.chars().all(|c| c.is_alphanumeric() || c == '_'))
+                .then(|| t.to_owned())
+        })
+        .last()
+}
+/// The table `name` of a Lua file, spelled as its functions qualify it (#462): `name` for its
+/// `local name = {…}`, `owner.name` for `owner.name = {…}` at the top of `text`.
+pub fn lua_table(text: &str, owner: Option<&str>, name: &str) -> Option<String> {
+    let end = text.lines().count() + 1;
+    if lua_local_value(text, end, name).is_some_and(|v| v.starts_with('{')) {
+        return Some(name.to_owned());
+    }
+    let path = format!("{}.{name}", owner?);
+    let re = Regex::new(&format!(r"^{}\s*=\s*\{{", regex::escape(&path)))
+        .expect("an escaped name keeps the pattern valid");
+    let literal = literal_lines(Kind::Lua, text);
+    text.lines()
+        .zip(literal)
+        .any(|(l, inside)| !inside && re.is_match(l))
+        .then_some(path)
+}
+/// The 1-based lines of `text` that declare `word` in the Lua table `table`:
+/// `function table.word(`, `function table:word(`, `table.word = function`.
+pub fn lua_members(text: &str, table: &str, word: &str) -> Vec<usize> {
+    let (t, w) = (regex::escape(table), regex::escape(word));
+    let re = Regex::new(&format!(
+        r"^\s*(?:function\s+{t}[.:]{w}\s*\(|{t}\.{w}\s*=\s*function\b)"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let literal = literal_lines(Kind::Lua, text);
+    text.lines()
+        .zip(literal)
+        .enumerate()
+        .filter(|(_, (l, inside))| !inside && re.is_match(l))
+        .map(|(i, _)| i + 1)
+        .collect()
 }
 /// Whether line `i` continues the statement above it: that line ends in an open bracket, a comma
 /// or a backslash.

@@ -276,7 +276,7 @@ fn go_def_patterns_cover_receivers_types_and_short_vars() {
 }
 
 #[test]
-fn rust_def_patterns_cover_items_behind_prefixes_and_lets() {
+fn rust_def_patterns_cover_items_behind_prefixes() {
     let (dir, files) = project("rs");
     let rs = files[2..3].to_vec();
     for (word, line) in [
@@ -288,8 +288,8 @@ fn rust_def_patterns_cover_items_behind_prefixes_and_lets() {
     ] {
         assert_eq!(defs(&dir, &rs, Kind::Rust, word), [line], "{word}");
     }
-    // Both the `let mut` binding and the macro: the caller shows a picker.
-    assert_eq!(defs(&dir, &rs, Kind::Rust, "order"), [12, 17]);
+    // The macro, not the `let mut` binding: a local is its block's, never found by name (#353).
+    assert_eq!(defs(&dir, &rs, Kind::Rust, "order"), [17]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

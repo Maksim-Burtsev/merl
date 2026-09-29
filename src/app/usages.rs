@@ -114,7 +114,7 @@ impl App {
         let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
         let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
         let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
-        let mut ranked: Vec<_> = hits
+        let mut marked: Vec<_> = hits
             .map(|h| {
                 let kind = search::kind_of(&h.path);
                 let re = rules.entry(kind).or_insert_with_key(|k| {
@@ -145,8 +145,28 @@ impl App {
                             })
                         })
                     });
-                (search::rank(&h.path, here, declares), h)
+                (kind, declares, h)
             })
+            .collect();
+        // In a Makefile `u` marks what `d` counts (#504): a recipe line declares only what
+        // `make_recipe_rule` says, and `X += …` or `release: X := 1.0` declare `X` only when no
+        // plain line among the hits does (#499).
+        let mut recipe = self.make_recipe_rule(here, word);
+        let make = Some(Kind::Make);
+        for (kind, declares, h) in &mut marked {
+            *declares &= *kind != make || recipe(h).unwrap_or(true);
+        }
+        if !marked.iter().any(|(k, d, _)| *k == make && *d) {
+            let fallback = Regex::new(&search::make_fallback_patterns(word).join("|")).ok();
+            for (kind, declares, h) in &mut marked {
+                *declares |= *kind == make
+                    && fallback.as_ref().is_some_and(|re| re.is_match(&h.text))
+                    && recipe(h).is_none();
+            }
+        }
+        let mut ranked: Vec<_> = marked
+            .into_iter()
+            .map(|(_, declares, h)| (search::rank(&h.path, here, declares), h))
             .collect();
         ranked.sort_by(|(a, x), (b, y)| {
             a.cmp(b)

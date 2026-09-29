@@ -226,6 +226,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   searched the project by name, so it jumped to another method's local of the same name, or
   offered a picker of them, and a parameter had no definition. A primary constructor's
   parameters bind across the type's body, and a lambda's parameter only inside its lambda. (#345)
+- `d` in Rust on a parameter or a local lands on what binds it in the block around the cursor,
+  `config → Printer::hyperlink::config (local)`, where it jumped to a function of the same name or
+  offered every file's `let` of it: a `let` and its patterns, an `if let`, a `while let`, a `match`
+  arm, a `for`, a closure's parameters and the function's, wrapped over lines too. The nearest
+  binding above the cursor wins, as Rust shadows: in `let x = x.trim();` the right-hand `x` is the
+  earlier one. Another function's `let` is no longer offered for a name. (#353)
 
 ### Fixed
 
@@ -554,6 +560,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nowhere say `no definition`, where they jumped to a property or method of the same name; a
   private member of another type, and a local or a local function of another method, are no
   longer offered, so `claims.Remove(…)` stays off a private `Remove` of a test mock. (#355)
+- `d` in a Makefile finds a variable declared by `define NAME` … `endef`, behind `export` or
+  `override`, and `D` lists it. (#468)
+- `d` in a Makefile with unsaved edits no longer drops an assignment the edits moved onto a
+  line that is a recipe line on disk. (#505)
+- `u` in a Makefile marks as declarations the lines `d` counts: not an assignment inside a
+  recipe, and a `+=` or target-specific line when nothing assigns the name plainly. (#504)
+- `d` in C++ counts the qualifier written on a declaration's line: on `Drawer::Scanner` it lands
+  on the body `struct Drawer::Scanner {`, not on the forward declaration in the class, and on
+  `Tariff::describe` on the out-of-line `std::string Tariff::describe()`. (#508)
+- `d` on a word its line declares elsewhere, the call in `let total = total(order)`, looks it up
+  as on any other line instead of offering its namesakes as "at a declaration". (#317)
+- Enter in `D` on a large project opens the row the list ranks first, even when pressed before
+  the list has caught up with the query, and a name holding `$`, `^`, `!` or `'` is found as
+  typed. (#293)
+- A new file that cannot be made, and a save that fails, say why in a few words as a file that
+  does not open does, without `(os error N)`. (#507)
+- `d` in Elixir lands on a function's parameter or a local bound above the cursor, and a bare
+  call, an `@spec` or a module attribute on its own module's declaration first. (#460)
+- `d` in Lua follows `require` to the module's file and reads `mod.name`, `mod.T.name` and
+  `T.name` in the table it names, instead of offering every function of that name. (#462)
 
 ## [0.7.0] - 2026-09-25
 

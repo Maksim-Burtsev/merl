@@ -238,6 +238,11 @@ fn c_and_cpp_scope_roots_and_names() {
         Some("Ledger::total")
     );
     assert_eq!(qualified(Kind::C, CPP, 3, "billing"), None);
+    // An out-of-line body is its class's by the qualifier on its own line (#508).
+    assert_eq!(
+        qualified(Kind::C, CPP, 30, "append").as_deref(),
+        Some("Ledger::append")
+    );
 }
 
 #[test]
@@ -946,5 +951,18 @@ fn php_scope_roots_imports_and_names() {
     assert_eq!(
         qualified(Kind::Php, PHP, 28, "parse").as_deref(),
         Some("Invoice::parse")
+    );
+}
+
+/// Review of #515: a qualified name written again before a `(` is a type in front of the name
+/// its line declares, and qualifies nothing; an out-of-line constructor still reads its class.
+#[test]
+fn a_cpp_alias_of_a_qualified_type_is_no_member_of_it() {
+    let text = "typedef ns::Foo Foo;\nns::Foo Foo(1);\nRefund::Refund(const Refund& other) {}\n";
+    assert_eq!(qualified(Kind::C, text, 1, "Foo"), None);
+    assert_eq!(qualified(Kind::C, text, 2, "Foo"), None);
+    assert_eq!(
+        qualified(Kind::C, text, 3, "Refund").as_deref(),
+        Some("Refund::Refund")
     );
 }

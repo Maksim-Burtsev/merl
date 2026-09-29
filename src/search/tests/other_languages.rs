@@ -811,6 +811,20 @@ fn make_def_patterns_find_targets_and_variables() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #468. `define NAME` declares the variable `NAME`, behind `export` / `override` and with any
+/// operator GNU make allows after the name. A longer name, a `define` in a comment and an
+/// `$(call NAME)` are none.
+#[test]
+fn make_define_declares_its_variable() {
+    let make = "define discount\nendef\nexport define discount =\noverride define discount := # x\ndefine discount ?=\ndefine discount +=\ndefine discount_x\ndefine discount-x\n# define discount\nX = $(call discount,1)\n  define discount\n";
+    let (dir, files) = scratch("make-define", &[("Makefile", make)]);
+    assert_eq!(
+        defs(&dir, &files, Kind::Make, "discount"),
+        [1, 3, 4, 5, 6, 11]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// #499. `+=` and a target-specific assignment, behind its modifiers, with any operator, for
 /// targets that are words or whole references, `$(SRC:.c=.o)`, and for a double-colon rule. A
 /// `:` inside a value, a substitution reference or the text of `$(error …)` and `$(info …)`, a

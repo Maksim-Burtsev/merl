@@ -480,8 +480,9 @@ fn reload_step(old: &[String], was: buffer::Format, buf: &Buffer) -> Option<Edit
     })
 }
 
-/// Why a file did not open, in a few words: the OS text without its `(os error N)` (#403).
-fn why_not(e: &anyhow::Error) -> String {
+/// Why a file did not open, could not be made or saved, in a few words: the OS text without
+/// its `(os error N)` (#403, #507).
+pub(super) fn why_not(e: &anyhow::Error) -> String {
     use std::io::ErrorKind::*;
     match e.downcast_ref::<std::io::Error>().map(std::io::Error::kind) {
         Some(PermissionDenied) => "permission denied".into(),

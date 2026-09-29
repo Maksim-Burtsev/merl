@@ -36,5 +36,7 @@ public sealed class Coupons : IPriced
 public class Order
 {
     public Courier Courier { get; set; } = new Courier("x");
-    //     ^ d: picker src/Shop/Warehouse/Courier.cs:3; want src/Shop/Warehouse/Courier.cs:3 (#317)
+    //     ^ d: src/Shop/Warehouse/Courier.cs:3
+    //             ^ d: !jump
+    //             status: at a declaration
 }

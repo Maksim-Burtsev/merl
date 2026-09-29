@@ -99,7 +99,8 @@ struct Cli {
         default_missing_value = ""
     )]
     review: Option<String>,
-    /// The branch the review is against (default: origin/HEAD, then origin/master, main, develop)
+    /// The branch the review is against (default: origin/HEAD, then the remote's master, main or
+    /// develop, then the local master or main)
     #[arg(short, long, value_name = "REF", requires = "review")]
     base: Option<String>,
 }
@@ -728,6 +729,30 @@ mod tests {
         );
         let readme = include_str!("../README.md");
         assert!(readme.contains(&wanted), "README.md should say {wanted:?}");
+    }
+
+    /// #322: the help of `--base` names the bases merl tries, in the order it tries them. A
+    /// change to either fails here until the other follows.
+    #[test]
+    fn the_help_of_base_names_the_bases_merl_tries() {
+        use clap::CommandFactory;
+        assert_eq!(
+            crate::git::BASES,
+            [
+                "origin/master",
+                "origin/main",
+                "origin/develop",
+                "master",
+                "main"
+            ]
+        );
+        let cli = super::Cli::command();
+        let base = cli.get_arguments().find(|a| a.get_id() == "base").unwrap();
+        assert_eq!(
+            base.get_help().unwrap().to_string(),
+            "The branch the review is against (default: origin/HEAD, then the remote's master, \
+             main or develop, then the local master or main)"
+        );
     }
 
     #[test]

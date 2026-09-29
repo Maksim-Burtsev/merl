@@ -407,6 +407,11 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
         Some(Kind::Make),
         r"^(?P<name>[A-Za-z0-9_][\w./-]*)(\s+[\w./-]+)*\s*::?([^=:]|$)",
     ),
+    // A `define NAME` … `endef` variable: a canned recipe, or a function for `$(call NAME)`.
+    (
+        Some(Kind::Make),
+        r"^\s*((export|override)\s+)*define\s+(?P<name>[^\s:=#+?!]+)",
+    ),
     (
         Some(Kind::Terraform),
         r#"^(?P<block>resource|data|module|variable|output)\s+"(?P<a>[^"]+)"(\s+"(?P<b>[^"]+)")?"#,
