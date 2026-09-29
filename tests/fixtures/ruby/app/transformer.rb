@@ -8,5 +8,7 @@ class Transformer
     manifest.fetch? || manifest.fetch!
     #        ^ d: app/manifest.rb:2
     #                           ^ d: app/manifest.rb:6
+    manifest.fetch!=1
+    #        ^ d: none
   end
 end

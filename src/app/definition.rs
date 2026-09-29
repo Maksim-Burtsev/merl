@@ -3,6 +3,43 @@
 use super::*;
 
 impl App {
+    /// The word under the cursor as `d` and `u` ask about it: [`search::definition_word`], and
+    /// a Ruby setter call `x.name = v` as the setter `name=` (#387); `def self.name = v` is a
+    /// method of one line.
+    pub(super) fn definition_word(
+        &self,
+        kind: Option<Kind>,
+    ) -> Option<(std::ops::Range<usize>, String)> {
+        let (range, word) = search::definition_word(kind, self.line_str(), self.col)?;
+        let mut word = word.to_owned();
+        let (written, start) = self.written(kind, range.start);
+        let before = &written[..start];
+        let after = self.line_str()[range.end..].trim_start();
+        if kind == Some(Kind::Ruby)
+            && before.ends_with('.')
+            && !before.ends_with("..")
+            && !before.trim_start().starts_with("def ")
+            && !word.ends_with(['?', '!'])
+            && after.starts_with('=')
+            && !after[1..].starts_with(['=', '~', '>'])
+        {
+            word.push('=');
+        }
+        Some((range, word))
+    }
+
+    /// The cursor's line as `d` reads it, with where the word at byte `start` of it moved to: a
+    /// member access broken over lines reads as the one line it is, in its plain access form.
+    fn written(&self, kind: Option<Kind>, start: usize) -> (String, usize) {
+        let (written, start) = kind
+            .and_then(|k| search::unbroken(k, &self.buf.lines, self.line, start))
+            .unwrap_or_else(|| (self.line_str().to_owned(), start));
+        match kind {
+            Some(k) => search::plain_access(k, &written, start),
+            None => (written, start),
+        }
+    }
+
     /// `d` / F12. A file of a known [`Kind`] gets its declaration patterns. A word or a qualifier
     /// an import binds is looked for in the module the import names: the project's file or
     /// package (`from app.repos import X` in `app/repos.py`, `store.Open` in the `store`
@@ -44,34 +81,14 @@ impl App {
             self.show_definitions(Kind::Graphql, &module, &here, found, None);
             return;
         }
-        let Some((range, word)) = search::definition_word(kind, self.line_str(), self.col) else {
+        let Some((range, word)) = self.definition_word(kind) else {
             self.message = "no word".into();
             return;
         };
-        let word = word.to_owned();
-        // A member access broken over lines reads as the one line it is.
-        let (written, start) = kind
-            .and_then(|k| search::unbroken(k, &self.buf.lines, self.line, range.start))
-            .unwrap_or_else(|| (self.line_str().to_owned(), range.start));
-        let (written, start) = match kind {
-            Some(k) => search::plain_access(k, &written, start),
-            None => (written, start),
-        };
+        let (written, start) = self.written(kind, range.start);
         let before = &written[..start];
         let dotted = before.ends_with('.') && !before.ends_with("..");
         let chain = search::qualifier(&written, start);
-        // `x.name = v` calls the setter, `name=` (#387); `def self.name = v` is a method of one line.
-        let mut word = word;
-        let after = self.line_str()[range.end..].trim_start();
-        if kind == Some(Kind::Ruby)
-            && dotted
-            && !before.trim_start().starts_with("def ")
-            && !word.ends_with(['?', '!'])
-            && after.starts_with('=')
-            && !after[1..].starts_with(['=', '~', '>'])
-        {
-            word.push('=');
-        }
         let here = self.rel_current();
         let (Some(kind), Some(here)) = (kind, here) else {
             self.message = self.no_rules();
