@@ -50,11 +50,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     }
     // A field of a Go struct whose body closes on its own line, `type Item struct{ Name string }`
     // or `[]struct{ want int }{…}`, is its type's, or the struct's written in place (#330).
-    if kind == Kind::Go
-        && field_bindings(kind, text, line, name)
-            .iter()
-            .any(|b| b.line == line)
-    {
+    if kind == Kind::Go && go_one_line_field(target, name) {
         let owner = GO_TYPE
             .captures(target)
             .map_or_else(|| "struct{\u{2026}}".to_owned(), |c| c[1].to_owned());

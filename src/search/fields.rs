@@ -36,33 +36,16 @@ pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<u
 ///   with one (`private name: T`), `this.name = …`, a getter `get name(): T`;
 /// - Go: a struct field `name T` or `a, name T`, and an embedded `*Name` under its type's name.
 pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Binding> {
-    static GO_FIELD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s+(\S.*)$").unwrap()
-    });
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = decl.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
     };
-    // A Go field line, `name T`, `a, name T` or an embedded `*pkg.Name`, as the type it reads.
-    let go_field = |t: &str| {
-        let t = t.split("//").next().unwrap_or("");
-        let t = t.split('`').next().unwrap_or("").trim();
-        if let Some(embedded) = go_embedded(t) {
-            return (embedded.rsplit('.').next() == Some(name)).then(|| Value::Type(t.to_owned()));
-        }
-        GO_FIELD
-            .captures(t)
-            .filter(|c| c[1].split(',').any(|p| p.trim() == name))
-            .map(|c| Value::Type(c[2].to_owned()))
-    };
+    let go_field = |t: &str| go_field(t, name);
     // A Go struct whose body closes on its own line: `type Item struct{ Name string }` (#327).
     if kind == Kind::Go
-        && let Some(open) = lines[k]
-            .find("struct")
-            .and_then(|at| lines[k][at..].find('{').map(|i| at + i))
-        && let Some(close) = close_of(kind, lines[k], open)
+        && let Some(body) = go_one_line(lines[k])
     {
-        return lines[k][open + 1..close - 1]
+        return body
             .split(';')
             .filter_map(go_field)
             .map(|value| Binding { line: decl, value })
@@ -202,6 +185,34 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
         _ => {}
     }
     out
+}
+/// A Go field line, `name T`, `a, name T` or an embedded `*pkg.Name`, that declares `name`, as
+/// the type it reads.
+fn go_field(t: &str, name: &str) -> Option<Value> {
+    static GO_FIELD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s+(\S.*)$").unwrap()
+    });
+    let t = t.split("//").next().unwrap_or("");
+    let t = t.split('`').next().unwrap_or("").trim();
+    if let Some(embedded) = go_embedded(t) {
+        return (embedded.rsplit('.').next() == Some(name)).then(|| Value::Type(t.to_owned()));
+    }
+    GO_FIELD
+        .captures(t)
+        .filter(|c| c[1].split(',').any(|p| p.trim() == name))
+        .map(|c| Value::Type(c[2].to_owned()))
+}
+/// The body of the Go struct that `line` opens and closes, `Name string` of
+/// `type Item struct{ Name string }`; `None` for a body over several lines.
+fn go_one_line(line: &str) -> Option<&str> {
+    let at = line.find("struct")?;
+    let open = at + line[at..].find('{')?;
+    let close = close_of(Kind::Go, line, open)?;
+    Some(&line[open + 1..close - 1])
+}
+/// Whether the Go `line` declares the field `name` of a struct whose body it closes too (#330).
+pub(super) fn go_one_line_field(line: &str, name: &str) -> bool {
+    go_one_line(line).is_some_and(|body| body.split(';').any(|f| go_field(f, name).is_some()))
 }
 /// The type an embedded Go field names, `sync.Mutex` for `*sync.Mutex`: a line of nothing else.
 pub(super) fn go_embedded(t: &str) -> Option<&str> {

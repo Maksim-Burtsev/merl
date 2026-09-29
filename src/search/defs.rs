@@ -80,7 +80,10 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^\s*{w}\s*:="),
             // A member of a column-0 `const (`, `var (` or `type (` block (#326): `W …`, `W = …`,
             // `A, W T`, `W[T any] …`, a bare iota `W`. [`declares_where`] checks the opener.
-            format!(r"^\t(?:\w+\s*,\s*)*{w}(?:\s*,\s*\w+)*(?:\s*=[^=]|\s+[^\s:=]|\[|\s*$)"),
+            // ASCII classes: Unicode's `\w` makes each grep build a DFA many times the size.
+            format!(
+                r"^\t(?:[A-Za-z_][A-Za-z0-9_]*[ \t]*,[ \t]*)*{w}(?:[ \t]*,[ \t]*[A-Za-z_][A-Za-z0-9_]*)*(?:[ \t]*=[^=]|[ \t]+[^ \t:=]|\[|[ \t]*$)"
+            ),
         ],
         // `impl X` is a use of `X`, not its definition, so it is left out on purpose.
         Kind::Rust => {
@@ -882,8 +885,10 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
     match kind {
         Kind::Graphql => !line_text.starts_with([' ', '\t']) || graphql_member(lines(), line),
         Kind::Go if line_text.starts_with([' ', '\t']) => {
-            let local = Regex::new(&format!(r"^\s*{}\s*:=", regex::escape(word)))
-                .is_ok_and(|re| re.is_match(line_text));
+            let local = line_text
+                .trim_start()
+                .strip_prefix(word)
+                .is_some_and(|rest| rest.trim_start().starts_with(":="));
             local || {
                 let lines = lines();
                 ["const (", "var (", "type ("]

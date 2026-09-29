@@ -37,12 +37,21 @@ impl App {
     /// among the files outside already walked. A type declared per platform is the host's.
     fn outside_declarations(&self, path: &[String], name: &str) -> Vec<Candidate> {
         let kind = Kind::Go;
-        let Some((_, all)) = self.external.get(&kind) else {
+        let (Some((_, all)), Some(last)) = (self.external.get(&kind), path.last()) else {
             return Vec::new();
         };
-        let Some((_, files)) = search::module_among(all, path, Some(path.len())) else {
+        // The package's directory spells its last element: a cheap cut of the thousands of
+        // files outside before the directory is matched part by part. The module cache escapes
+        // upper case (`!x`), so a name with some is not cut by.
+        let spelled = !last.contains(|c: char| c.is_ascii_uppercase());
+        let near: Vec<&PathBuf> = all
+            .iter()
+            .filter(|f| !spelled || f.as_os_str().to_string_lossy().contains(last.as_str()))
+            .collect();
+        let Some((_, files)) = search::module_among(&near, path, Some(path.len())) else {
             return Vec::new();
         };
+        let files: Vec<PathBuf> = files.into_iter().cloned().collect();
         let pattern = search::def_patterns(kind, name).join("|");
         let hits = self.declaring(kind, name, self.grep_in(&pattern, &files));
         let hits = hits
@@ -112,9 +121,10 @@ impl App {
             && file.is_absolute()
             && let Some((_, all)) = self.external.get(&kind)
         {
+            let dir = file.parent().map(Path::as_os_str);
             return all
                 .iter()
-                .filter(|f| f.parent() == file.parent())
+                .filter(|f| f.parent().map(Path::as_os_str) == dir)
                 .cloned()
                 .collect();
         }
