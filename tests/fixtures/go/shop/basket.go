@@ -72,7 +72,16 @@ scan:
 			continue scan
 		}
 		count++
-		//^ d: picker shop/basket.go:68, cart/cart.go:28, results.go:5; want shop/basket.go:68 (#330)
+		//^ d: shop/basket.go:68
 	}
 	return count
+}
+
+func Quota(quota int) int {
+outer:
+	for i := 0; i < quota; i++ {
+		continue outer
+	}
+	return quota
+	//     ^ d: shop/basket.go:80
 }

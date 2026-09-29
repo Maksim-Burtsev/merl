@@ -507,7 +507,15 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         let code = uncommented(kind, lines[i]);
         let t = code.trim();
         let ind = indent(lines[i]);
-        if t.is_empty() || comment(kind, t) || ind > depth || literal[i] {
+        // A Go label, `scan:`, stands one level left of its statement, at column 0 in a function
+        // body: it opens no block (#330).
+        let label = kind == Kind::Go
+            && t.strip_suffix(':').is_some_and(|l| {
+                l != "default"
+                    && !l.is_empty()
+                    && l.chars().all(|c| c.is_alphanumeric() || c == '_')
+            });
+        if t.is_empty() || comment(kind, t) || ind > depth || literal[i] || label {
             continue;
         }
         if ind == depth {

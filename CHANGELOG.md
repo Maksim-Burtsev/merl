@@ -155,6 +155,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   up as a bare name and jumped to a namesake type, method or function. A map's keys stay values;
   a literal whose type is not read (an anonymous struct, a type outside the project) offers what
   the name finds and never jumps to one. (#327)
+- `d` in Go reads the locals and parameters above a label: gofmt writes `scan:` at the left
+  margin of a function, and the scope walk took it for the function's end, so a local used
+  below it gave a namesake from elsewhere or `no definition`. (#330)
 - `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
   in the project, the standard library and the dependencies the cursor can reach, the traits'
   first, where it jumped to a lone project namesake: `v.unwrap()` on an `Option` landed on a

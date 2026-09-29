@@ -102,10 +102,11 @@ fn a_go_package_level_name_is_read_in_every_file_of_the_package() {
             "defaultRepo.DeleteUser|(20",
             picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
         ),
+        // A label opens no block: the local above it is read (#330).
         (
             "globals.go",
             "defaultRepo.DeleteUser|(21",
-            picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            audit("defaultRepo: AuditLog"),
         ),
         (
             "globals.go",
