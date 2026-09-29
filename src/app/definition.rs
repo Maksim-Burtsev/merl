@@ -734,6 +734,19 @@ impl App {
             }
             self.truncated.set(false);
         }
+        // A C# `Task.Delay` whose first name the project declares nowhere, in no form, is a
+        // member of a type outside it (#355): NuGet ships assemblies, so nothing names what the
+        // project's namesakes are not. A lowercase first name is a value of an unknown type.
+        if kind == Kind::CSharp
+            && dotted
+            && locals.is_empty()
+            && let Some(first) = chain.first()
+            && first.starts_with(|c: char| c.is_ascii_uppercase())
+            && !self.cs_declares(&here, first)
+        {
+            self.show_definitions(kind, &word, &here, Vec::new(), None);
+            return;
+        }
         // A parameter or a local in front of the word is a value for certain: it has members,
         // and a function or a variable at the top of a module is not one of them.
         let hits = members
@@ -754,6 +767,31 @@ impl App {
         // left was a namesake beside it on master, and is offered, never jumped to. The cursor's
         // own line stays, standing on a declaration.
         let mut hits = hits;
+        // A C# private member is reachable from its own type alone, a part of it this file
+        // declares included, and a local from its own method alone, never behind a dot (#355).
+        if kind == Kind::CSharp {
+            let mine: Vec<String> = self
+                .buf
+                .lines
+                .iter()
+                .filter_map(|l| search::cs_type_decl(l).map(|(_, name)| name))
+                .collect();
+            hits.retain(|h| {
+                let place = self.text_of(&h.path).map_or(search::CsPlace::Top, |t| {
+                    search::cs_place(&t, h.line, &word)
+                });
+                match place {
+                    search::CsPlace::Member {
+                        owner,
+                        private: true,
+                    } => mine.contains(&owner),
+                    search::CsPlace::Local { from, to } => {
+                        !dotted && h.path == here && (from..=to).contains(&(self.line + 1))
+                    }
+                    _ => true,
+                }
+            });
+        }
         if kind == Kind::Lua {
             let at = |h: &Hit| h.path == here && h.line == self.line + 1;
             let all = hits.len();
@@ -963,6 +1001,27 @@ impl App {
                 })
             })
             .collect()
+    }
+
+    /// Whether the C# project declares `name` in any form (#355): a rule of `d` matches it, or a
+    /// `namespace` line has it as one of its parts.
+    fn cs_declares(&self, here: &Path, name: &str) -> bool {
+        let cut = self.truncated.get();
+        let n = regex::escape(name);
+        let pattern = search::def_patterns(Kind::CSharp, name).join("|");
+        let declared = !self
+            .project_definitions(Kind::CSharp, here, name, &pattern)
+            .is_empty()
+            || self
+                .grep(
+                    &format!(r"^\s*namespace\s+(?:[\w.]+\.)?{n}\b"),
+                    false,
+                    false,
+                    |p| search::in_def_scope(Kind::CSharp, here, p),
+                )
+                .is_ok_and(|hits| !hits.is_empty());
+        self.truncated.set(cut);
+        declared
     }
 
     /// `word` as a constant of the Java or Kotlin enum `owner`, when the project declares one type

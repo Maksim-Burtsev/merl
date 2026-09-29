@@ -35,7 +35,7 @@ public class Basket
     }
 
     public string Dispatch(Courier courier) => courier.Name;
-    //                                         ^ d: src/Shop/Startup.cs:23; want src/Shop/Basket.cs:37 (#345)
+    //                                         ^ d: none; want src/Shop/Basket.cs:37 (#345)
     //                                                 ^ d: src/Shop/Warehouse/Courier.cs:5
 
     public int Bonus(List<IPriced> items)
@@ -44,10 +44,10 @@ public class Basket
         {
             Prices.Changed += (s, e) => item.Price();
             //     ^ d: src/Shop/Pricing/Pricing.cs:44
-            //                          ^ d: src/Shop/Startup.cs:24; want src/Shop/Basket.cs:43 (#345)
+            //                          ^ d: none; want src/Shop/Basket.cs:43 (#345)
         }
         return items.Sum(priced => priced.Price());
-        //                         ^ d: src/Shop/Startup.cs:25; want src/Shop/Basket.cs:49 (#345)
+        //                         ^ d: none; want src/Shop/Basket.cs:49 (#345)
         //                                ^ d: picker src/Shop/Pricing/Pricing.cs:9, src/Shop/Pricing/Pricing.cs:21, src/Shop/Pricing/Pricing.cs:28, src/Shop/Startup.cs:32; want src/Shop/Pricing/Pricing.cs:9 (#352)
     }
 

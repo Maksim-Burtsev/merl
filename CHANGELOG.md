@@ -366,6 +366,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in a Makefile finds a variable set only by `CFLAGS += -Wall` or for one target,
   `release: VERSION := 1.0`, where it answered `no definition`. A plain `CFLAGS = -O2` stays
   the only answer where there is one. (#499)
+- `d` in C# no longer lands on a project namesake of something the project does not declare.
+  `Task.Delay`, `HttpStatusCode.Created` and any member behind a type name the project declares
+  nowhere say `no definition`, where they jumped to a property or method of the same name; a
+  private member of another type, and a local or a local function of another method, are no
+  longer offered, so `claims.Remove(…)` stays off a private `Remove` of a test mock. (#355)
 
 ## [0.7.0] - 2026-09-25
 

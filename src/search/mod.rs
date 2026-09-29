@@ -9,6 +9,7 @@
 //! it wants (`search::def_patterns`) and not which module happens to hold it.
 
 mod bindings;
+mod csharp;
 mod defs;
 mod fields;
 mod grep;
@@ -23,6 +24,7 @@ mod types;
 mod words;
 
 pub use bindings::*;
+pub use csharp::*;
 pub use defs::*;
 pub use fields::*;
 pub use grep::*;
