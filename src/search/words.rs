@@ -34,6 +34,9 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     static EX_MODULE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*def(?:module|protocol)\s+([A-Z](?:[\w.]*\w)?)").unwrap()
     });
+    static EX_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*def(?:p|macrop?|guardp?|delegate)?\s+([\w?!]+)").unwrap()
+    });
     if !nests(Some(kind)) {
         return None;
     }
@@ -70,10 +73,14 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         return Some(format!("{owner}{sep}{name}"));
     }
     // Any other name on a Python `def` line is a parameter (#100): `Recipes.get_one.slug`, as a
-    // local of the body reads, not `Recipes.slug`, a field's name.
-    if kind == Kind::Python
-        && let Some(c) = PY_DEF.captures(target).filter(|c| &c[1] != name)
-    {
+    // local of the body reads, not `Recipes.slug`, a field's name. So is one on an Elixir
+    // function's `def` line (#460).
+    let def = match kind {
+        Kind::Python => PY_DEF.captures(target),
+        Kind::Elixir => EX_DEF.captures(target),
+        _ => None,
+    };
+    if let Some(c) = def.filter(|c| &c[1] != name) {
         let owner = qualified(kind, text, line, &c[1]).unwrap_or_else(|| c[1].to_owned());
         return Some(format!("{owner}{sep}{name}"));
     }
@@ -85,6 +92,12 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     let ruby = kind == Kind::Ruby;
     if ruby {
         names.extend(ruby_namespace(target));
+    }
+    // C++ writes it in front of an out-of-line body (#508): `struct Drawer::Scanner {` is
+    // `Scanner` inside `Drawer`, and `std::string Tariff::describe()` is `describe` of `Tariff`.
+    let cpp = kind == Kind::C;
+    if cpp {
+        names.extend(cpp_namespace(target, name));
     }
     for l in lines[..line - 1].iter().rev() {
         if depth == 0 {
@@ -110,7 +123,14 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             })
             .or_else(|| declared_name(Some(kind), l));
         match named {
-            Some(n) => names.push(n),
+            Some(n) => {
+                if cpp {
+                    names.push(n.clone());
+                    names.extend(cpp_namespace(l, &n));
+                } else {
+                    names.push(n);
+                }
+            }
             None => break,
         }
         if ruby {
@@ -180,6 +200,35 @@ fn ruby_namespace(line: &str) -> Vec<String> {
         .split("::")
         .filter(|s| !s.is_empty())
         .map(str::to_owned)
+        .collect();
+    names.reverse();
+    names
+}
+/// The qualifier a C++ declaration line writes in front of the `name` it declares, innermost
+/// first: `Drawer`, `shop` for `int shop::Drawer::count() {`, `Box` for `T Box<T>::get()`. Only
+/// the first `name` on the line counts: the `run` a body calls, `Other::run()`, is not it.
+fn cpp_namespace(line: &str, name: &str) -> Vec<String> {
+    let spelled = Regex::new(&format!(
+        r"((?:\w+(?:<[^<>]*>)?::)*)\b{}\b",
+        regex::escape(name)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let Some(c) = spelled.captures(line) else {
+        return Vec::new();
+    };
+    // Written again before a `(`, the qualified one is a type in front of the name the line
+    // declares: `typedef ns::Foo Foo;` declares a `Foo` of no `ns`.
+    let rest = &line[c.get(0).map_or(0, |m| m.end())..];
+    let rest = rest.split('(').next().unwrap_or(rest);
+    let again = Regex::new(&format!(r"\b{}\b", regex::escape(name)))
+        .expect("an escaped name keeps the pattern valid");
+    if again.is_match(rest) {
+        return Vec::new();
+    }
+    let mut names: Vec<String> = c[1]
+        .split("::")
+        .filter(|s| !s.is_empty())
+        .map(|s| s.split('<').next().unwrap_or(s).to_owned())
         .collect();
     names.reverse();
     names

@@ -599,6 +599,24 @@ fn edits_that_cannot_be_saved_keep_merl_on_the_file() {
     assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
 }
 
+/// #507: a save that fails says why in a few words, as a file that does not open does (#403),
+/// not with the OS text and its `(os error N)`.
+#[test]
+#[cfg(unix)]
+fn a_save_that_fails_says_why_in_a_few_words() {
+    use std::os::unix::fs::PermissionsExt;
+    let (path, mut a) = temp_file("save-locked", "one\n");
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o444)).unwrap();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    typed(&mut a, "x");
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    // As root every file is writable, and there is nothing to assert.
+    if a.dirty {
+        assert_eq!(a.message, "save failed: permission denied");
+    }
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}
+
 /// README: a file that changes on disk under unsaved edits is "neither reloaded nor
 /// overwritten". Deleted or renamed is changed: only Ctrl+S puts it back.
 #[test]

@@ -372,6 +372,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in a Makefile finds a variable set only by `CFLAGS += -Wall` or for one target,
   `release: VERSION := 1.0`, where it answered `no definition`. A plain `CFLAGS = -O2` stays
   the only answer where there is one. (#499)
+- `d` in a Makefile finds a variable declared by `define NAME` … `endef`, behind `export` or
+  `override`, and `D` lists it. (#468)
+- `d` in a Makefile with unsaved edits no longer drops an assignment the edits moved onto a
+  line that is a recipe line on disk. (#505)
+- `u` in a Makefile marks as declarations the lines `d` counts: not an assignment inside a
+  recipe, and a `+=` or target-specific line when nothing assigns the name plainly. (#504)
+- `d` in C++ counts the qualifier written on a declaration's line: on `Drawer::Scanner` it lands
+  on the body `struct Drawer::Scanner {`, not on the forward declaration in the class, and on
+  `Tariff::describe` on the out-of-line `std::string Tariff::describe()`. (#508)
+- `d` on a word its line declares elsewhere, the call in `let total = total(order)`, looks it up
+  as on any other line instead of offering its namesakes as "at a declaration". (#317)
+- Enter in `D` on a large project opens the row the list ranks first, even when pressed before
+  the list has caught up with the query, and a name holding `$`, `^`, `!` or `'` is found as
+  typed. (#293)
+- A new file that cannot be made, and a save that fails, say why in a few words as a file that
+  does not open does, without `(os error N)`. (#507)
+- `d` in Elixir lands on a function's parameter or a local bound above the cursor, and a bare
+  call, an `@spec` or a module attribute on its own module's declaration first. (#460)
+- `d` in Lua follows `require` to the module's file and reads `mod.name`, `mod.T.name` and
+  `T.name` in the table it names, instead of offering every function of that name. (#462)
 
 ## [0.7.0] - 2026-09-25
 

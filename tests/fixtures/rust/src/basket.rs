@@ -112,3 +112,15 @@ pub fn hidden(o: Offer, grams: u32) -> u32 {
     weigh + offer(o)
     // ^ d: src/basket.rs:111
 }
+
+fn chime(total: u32) -> u32 {
+    total
+}
+
+pub fn rebate(total: u32) -> u32 {
+    let chime = chime(total);
+    //  ^ d: src/basket.rs:121
+    //  status: chime → rebate::chime (local)
+    //          ^ d: src/basket.rs:116
+    chime
+}

@@ -376,7 +376,7 @@ impl App {
             }
             Err(e) => {
                 // Retried on the next autosave; the message stays until then.
-                self.message = format!("save failed: {e}");
+                self.message = format!("save failed: {}", super::open::why_not(&e.into()));
                 self.last_edit = Some(Instant::now());
             }
         }

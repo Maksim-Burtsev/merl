@@ -177,6 +177,28 @@ fn ctrl_n_resolves_the_links_on_the_path() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #507: a file that cannot be made is named from the root with the reason in a few words, as a
+/// file that does not open is (#403), not with the OS text and its `(os error N)`.
+#[cfg(unix)]
+#[test]
+fn ctrl_n_in_a_folder_merl_may_not_write_says_why_in_a_few_words() {
+    use std::os::unix::fs::PermissionsExt;
+    let (dir, mut a) = new_file_project("locked");
+    let locked = dir.join("locked");
+    std::fs::create_dir(&locked).unwrap();
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o555)).unwrap();
+    ctrl_n(&mut a);
+    press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+    typed(&mut a, "locked/new.txt");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    // As root every folder is writable, and there is nothing to assert.
+    if !locked.join("new.txt").exists() {
+        assert_eq!(a.message, "locked/new.txt: permission denied");
+    }
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// #405: Ctrl+N on the name of a FIFO that is there opens it as it opens any file that is
 /// there, and reading one waited for a writer forever, on the UI thread. Here it runs on a thread
 /// of its own, so a wait fails the test instead of hanging it.

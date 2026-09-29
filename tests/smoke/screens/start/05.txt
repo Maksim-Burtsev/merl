@@ -13,7 +13,7 @@ Options:
       --reviews            Print your review sessions of the last 30 days, the time each took and its excursions, and exit
   -r, --review [<BRANCH>]  Review the checked-out branch (or `--review BRANCH` to fetch it and check out what was pushed): its files in the panel, its diff over the code, c / C between
 hunks
-  -b, --base <REF>         The branch the review is against (default: origin/HEAD, then origin/master, main, develop)
+  -b, --base <REF>         The branch the review is against (default: origin/HEAD, then the remote's master, main or develop, then the local master or main)
   -h, --help               Print help
   -V, --version            Print version
 

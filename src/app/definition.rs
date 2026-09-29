@@ -194,6 +194,20 @@ impl App {
         let key = kind == Kind::Lua
             && (search::table_key(&text, self.line + 1, &range)
                 || (before.ends_with(':') && !before.ends_with("::")));
+        // An Elixir name followed by `(` is a call, one behind `@` an attribute and behind `&` a
+        // capture, and the names an `@spec` promises are functions: each is its module's first
+        // (#460). Nor is a key `name:` or an atom `:name` a variable.
+        let after = &self.line_str()[range.end..];
+        let call = kind == Kind::Elixir
+            && !dotted
+            && (after.starts_with('(')
+                || before.ends_with(['@', '&'])
+                || before.trim_start().starts_with("@spec "));
+        let key = key
+            || call
+            || (kind == Kind::Elixir
+                && !dotted
+                && (before.ends_with(':') || (after.starts_with(':') && !after.starts_with("::"))));
         // `super` is no local, whatever the member lookup reads it as; Lua has no `super`. A name
         // of a destructuring or a parameter list wrapped over several lines is on a line of its
         // own (#393).
@@ -252,6 +266,20 @@ impl App {
                 .collect();
             self.show_definitions(kind, &word, &here, found, None);
             return;
+        }
+        // A Lua qualifier a `require` or a table constructor gives (#462). Standing on the one
+        // declaration it finds, the namesakes by name are offered, as before.
+        if kind == Kind::Lua {
+            let chain = match before.strip_suffix(':') {
+                Some(b) if !b.ends_with(':') => search::qualifier(&format!("{b}."), start),
+                _ => chain.clone(),
+            };
+            let found = self.lua_qualified(&here, &text, &chain, &word);
+            let on = |c: &Candidate| c.hit.path == here && c.hit.line == self.line + 1;
+            if !found.iter().all(on) {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
         }
         // A Go package qualifier, `db` in `db.Get`, is declared by the import line of this file
         // (#100), unless a local hides it (taken out above, or one the walk may have missed:
@@ -639,6 +667,26 @@ impl App {
                     hit,
                 })
                 .collect();
+            // Every row names the one `Drawer::Scanner`, so its forward declaration in the class
+            // yields to its body, `struct Drawer::Scanner {` (#508): read as outside any class.
+            // On the body itself, the declaration is the other end to go to.
+            let on_row = named
+                .iter()
+                .any(|c| c.hit.path == here && c.hit.line == self.line + 1);
+            let named = match kind == Kind::C && !on_row {
+                true => {
+                    let rows: Vec<Hit> = named.iter().map(|c| c.hit.clone()).collect();
+                    let kept = search::c_type_rows(&word, rows, |_| None, true, false);
+                    named
+                        .into_iter()
+                        .filter(|c| {
+                            kept.iter()
+                                .any(|h| h.path == c.hit.path && h.line == c.hit.line)
+                        })
+                        .collect()
+                }
+                false => named,
+            };
             if !named.is_empty() {
                 self.show_definitions(kind, &word, &here, named, None);
                 return;
@@ -685,6 +733,47 @@ impl App {
                 .external_definitions(kind, &word, &chain, dotted, &imports, true)
                 .unwrap_or_default();
             if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
+        // An Elixir call or attribute is its own module's first (#460). On a declaration of the
+        // name, its namesakes are offered as before. A call is never an attribute nor a struct's
+        // field, and an attribute is nothing else. Past an `import` that may bring the name in
+        // (no `only:`, or one listing it) a call is looked up by name, as on master: which of
+        // the two it means turns on an arity this rule does not count.
+        let attribute = before.ends_with('@');
+        let imported = !attribute
+            && text.lines().any(|l| {
+                l.trim_start().starts_with("import ")
+                    && (!l.contains("only:") || l.contains(&format!("{word}:")))
+            });
+        let module_pattern = search::def_patterns(kind, &word)
+            .into_iter()
+            .filter(|p| match attribute {
+                true => p.starts_with(r"^\s*@"),
+                false => !p.starts_with(r"^\s*@") && !p.contains("defstruct"),
+            })
+            .collect::<Vec<_>>()
+            .join("|");
+        if call
+            && !imported
+            && let Ok(re) = Regex::new(&module_pattern)
+        {
+            let lines = search::elixir_module_lines(&text, self.line + 1, &re);
+            if !lines.is_empty() && !lines.contains(&(self.line + 1)) {
+                let found = lines
+                    .into_iter()
+                    .map(|line| Candidate {
+                        hit: Hit {
+                            path: here.clone(),
+                            line,
+                            col: 0,
+                            text: self.buf.lines[line - 1].clone(),
+                        },
+                        reason: Reason::File,
+                    })
+                    .collect();
                 self.show_definitions(kind, &word, &here, found, None);
                 return;
             }
@@ -922,6 +1011,71 @@ impl App {
         }
     }
 
+    /// Lua's `m.word`, `m.T.word`, `T.word` (#462): `m` bound by `local m = require("a.b")` reads
+    /// `a/b.lua` or `a/b/init.lua`, at the root or under `lua/`, and the table it returns; `T` is
+    /// a table that file, or the one on screen, declares. The declarations of `word` in that
+    /// table are the answer. A qualifier these rules cannot read gives nothing, and the search
+    /// by name goes on.
+    fn lua_qualified(
+        &self,
+        here: &Path,
+        text: &str,
+        chain: &[String],
+        word: &str,
+    ) -> Vec<Candidate> {
+        let Some((first, rest)) = chain.split_first() else {
+            return Vec::new();
+        };
+        let Some(value) = search::lua_local_value(text, self.line + 1, first) else {
+            return Vec::new();
+        };
+        let required = search::lua_required(&value);
+        let (path, reason) = match required {
+            Some(module) => {
+                let dir = module.replace('.', "/");
+                let Some(path) = ["", "lua/"]
+                    .iter()
+                    .flat_map(|root| [format!("{root}{dir}.lua"), format!("{root}{dir}/init.lua")])
+                    .map(PathBuf::from)
+                    .find(|p| self.files.contains(p))
+                else {
+                    return Vec::new();
+                };
+                (path, Reason::Import(module.to_owned()))
+            }
+            None if value.starts_with('{') => (here.to_path_buf(), Reason::Path(chain.join("."))),
+            None => return Vec::new(),
+        };
+        let Some(source) = self.text_of(&path) else {
+            return Vec::new();
+        };
+        let mut table = match required {
+            Some(_) => search::lua_returned(&source),
+            None => Some(first.clone()),
+        };
+        for name in rest {
+            let Some(next) = search::lua_table(&source, table.as_deref(), name) else {
+                return Vec::new();
+            };
+            table = Some(next);
+        }
+        let Some(table) = table else {
+            return Vec::new();
+        };
+        search::lua_members(&source, &table, word)
+            .into_iter()
+            .map(|line| Candidate {
+                hit: Hit {
+                    path: path.clone(),
+                    line,
+                    col: 0,
+                    text: source.lines().nth(line - 1).unwrap_or_default().to_owned(),
+                },
+                reason: reason.clone(),
+            })
+            .collect()
+    }
+
     /// The first line of each of `files`, a module a name or a path leads to as a whole.
     fn module_candidates(&self, files: Vec<PathBuf>) -> Vec<Candidate> {
         files
@@ -1118,7 +1272,19 @@ impl App {
             // Alone, the declaration under the cursor is its own answer.
             && found
                 .iter()
-                .any(|c| c.hit.line != self.line + 1 || c.hit.path != here);
+                .any(|c| c.hit.line != self.line + 1 || c.hit.path != here)
+            && self.on_declared_name(kind, word);
+        // Off the name of the line's declaration (#317), a bare word whose lone namesake nothing
+        // proves and is declared as this line declares it, `let courier` of another function, is
+        // as likely another scope's copy as what the word means: offered, as before, never
+        // jumped to. Behind a `.` it is a member, which no local is.
+        let extra = search::word_chars(Some(kind), true);
+        let form = |t: &str| t[..word_col(t, word, extra)].trim().to_owned();
+        let copy = found.len() < all
+            && !namesakes
+            && search::definition_word(Some(kind), self.line_str(), self.col)
+                .is_some_and(|(r, _)| !self.line_str()[..r.start].ends_with('.'))
+            && matches!(found.as_slice(), [c] if !c.reason.proven() && form(&c.hit.text) == form(self.line_str()));
         // Tests, mocks, fixtures, generated and vendored copies of a declaration come last here
         // too (#81) — except in the file on screen, which is what the reader is reading. The sort
         // is stable and every candidate is a declaration, so the rest keep the order the search
@@ -1128,7 +1294,7 @@ impl App {
         found.truncate(search::MAX_HITS);
         match found.as_slice() {
             [] => self.message = resolution(word, None, &found, broke, truncated),
-            [one] if !namesakes && !offer_only && !truncated => {
+            [one] if !namesakes && !offer_only && !truncated && !copy => {
                 let path = self.root.join(&one.hit.path);
                 // A module's first line declares nothing of the word.
                 let target = self
@@ -1167,6 +1333,100 @@ impl App {
         }
     }
 
+    /// A Makefile line a declaration pattern matched, as `d` and `u` both count it (#504): `None`
+    /// off a recipe, else whether it still declares `word`. `GO=$(GO) ./build.sh` in a recipe
+    /// sets a variable of one shell command (#477): it declares the word only for a shell
+    /// variable of the command under the cursor, `$${ARCH}`, and never for make's own `$(GO)`.
+    /// The file on screen is read as it is, which is what the grep matched (#505).
+    pub(super) fn make_recipe_rule<'a>(
+        &'a self,
+        here: Option<&Path>,
+        word: &str,
+    ) -> impl FnMut(&Hit) -> Option<bool> + 'a {
+        let line = self.line_str();
+        let shell =
+            search::definition_word(Some(Kind::Make), line, self.col).is_some_and(|(r, w)| {
+                let before = &line[..r.start];
+                let shell_ref = before.ends_with("$$(") || before.ends_with("$${");
+                let make_ref = before.ends_with("$(") || before.ends_with("${");
+                w == word && (shell_ref || !make_ref)
+            });
+        let command = search::make_recipe_command(&self.buf.lines.join("\n"), self.line + 1)
+            .filter(|_| shell);
+        let here = here.map(Path::to_path_buf);
+        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
+        move |h: &Hit| {
+            let text = texts
+                .entry(h.path.clone())
+                .or_insert_with(|| self.text_of(&h.path));
+            let at = search::make_recipe_command(text.as_deref()?, h.line)?;
+            Some(here.as_ref() == Some(&h.path) && Some(at) == command)
+        }
+    }
+
+    /// Whether the cursor stands on the name its line declares, not only on that line (#317):
+    /// `let request = session.request(url)` declares the first `request`, and the second is a
+    /// method looked up as on any other line. The declared one is the occurrence of `word` the
+    /// line no longer reads as a declaration without; a line no pattern reads (a parameter)
+    /// declares its first. A word the line does not spell as is (a Ruby setter) is on it, and
+    /// so is another occurrence of a shape #317 does not name (see below).
+    fn on_declared_name(&self, kind: Kind, word: &str) -> bool {
+        let line = self.line_str();
+        let Some((r, _)) = search::definition_word(Some(kind), line, self.col) else {
+            return true;
+        };
+        let part = |c: char| is_word(c) || search::word_chars(Some(kind), true).contains(c);
+        let at: Vec<usize> = line
+            .match_indices(word)
+            .map(|(i, _)| i)
+            .filter(|&i| !line[..i].ends_with(part) && !line[i + word.len()..].starts_with(part))
+            .collect();
+        if !at.contains(&r.start) {
+            return true;
+        }
+        let mut patterns = search::def_patterns(kind, word);
+        patterns.extend(search::member_or_signature(kind, word).unwrap_or_default());
+        let re = Regex::new(&patterns.join("|"))
+            .ok()
+            .filter(|re| re.is_match(line));
+        // Another word of the same shape, capitals where it has them: a C# type still reads as one.
+        let other: String = word
+            .chars()
+            .map(|c| match c {
+                'q' => 'z',
+                'Q' => 'Z',
+                '0' => '1',
+                c if c.is_lowercase() => 'q',
+                c if c.is_uppercase() => 'Q',
+                c if c.is_numeric() => '0',
+                c => c,
+            })
+            .collect();
+        let declared: Vec<usize> = at
+            .iter()
+            .copied()
+            .filter(|&i| {
+                re.as_ref().is_some_and(|re| {
+                    !re.is_match(&format!("{}{other}{}", &line[..i], &line[i + word.len()..]))
+                })
+            })
+            .collect();
+        let first = declared.first().copied().unwrap_or(at[0]);
+        if declared.contains(&r.start) || (declared.is_empty() && first == r.start) {
+            return true;
+        }
+        // Off the declared name, only the shapes #317 is about are looked up as on any other
+        // line: a word in front of it (the type of C#'s `Courier Courier`), a member
+        // (`session.request`, `$this->chime`), and a call on a line that declares no function
+        // (`let chime = chime(total)`). Anything else, a shadowed parameter in `let chime =
+        // chime + 1` or the recursion of a one-line `fun fact(n) = … fact(n - 1)`, nothing here
+        // tells from another scope's namesake: offered, as on master.
+        let called = |i: usize| line[i + word.len()..].trim_start().starts_with('(');
+        let before = line[..r.start].trim_end();
+        let member = before.ends_with(['.', '>']) || before.ends_with("::");
+        !(r.start < first || member || (called(r.start) && !called(first)))
+    }
+
     /// The lines `pattern` matches where a definition of `word` in `here`, a file of `kind`, can
     /// live in the project. Escaped or built-in patterns always compile.
     pub(super) fn project_definitions(
@@ -1192,29 +1452,9 @@ impl App {
                 })
             })
         });
-        // `GO=$(GO) ./build.sh` in a recipe sets a variable of one shell command (#477): it
-        // declares the word only for a shell variable of the command under the cursor,
-        // `$${ARCH}`, and never for make's own `$(GO)`.
         if kind == Kind::Make {
-            let line = self.line_str();
-            let shell =
-                search::definition_word(Some(kind), line, self.col).is_some_and(|(r, w)| {
-                    let before = &line[..r.start];
-                    let shell_ref = before.ends_with("$$(") || before.ends_with("$${");
-                    let make_ref = before.ends_with("$(") || before.ends_with("${");
-                    w == word && (shell_ref || !make_ref)
-                });
-            let text = self.buf.lines.join("\n");
-            let command = search::make_recipe_command(&text, self.line + 1).filter(|_| shell);
-            let recipe = |h: &Hit| {
-                std::fs::read_to_string(self.root.join(&h.path))
-                    .ok()
-                    .and_then(|text| search::make_recipe_command(&text, h.line))
-            };
-            hits.retain(|h| match recipe(h) {
-                None => true,
-                at => h.path == here && at == command,
-            });
+            let mut recipe = self.make_recipe_rule(Some(here), word);
+            hits.retain(|h| recipe(h).unwrap_or(true));
             // `X += …` and `release: X := 1.0` set the variable only when nothing else does
             // (#499), so a jump to a plain assignment never becomes a picker. A recipe's `X+=1`
             // declares nothing, not even for the shell: `/bin/sh` has no `+=`.
