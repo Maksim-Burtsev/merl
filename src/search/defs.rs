@@ -490,6 +490,17 @@ pub fn directly_inside(text: &str, line: usize, opener: &str) -> bool {
         .find(|l| !l.trim().is_empty() && indent(l) < indent(target))
         .is_some_and(|l| l.trim_start().starts_with(opener))
 }
+/// Line patterns that set the Makefile variable `word` only in addition or for some targets:
+/// `X += …`, which make reads as `=` on a variable nothing set before, and a target-specific
+/// `release: X := 1.0`, behind `override`, `export` or `private`. `d` falls back to them only
+/// when no line of [`def_patterns`] declares the word (#499).
+pub fn make_fallback_patterns(word: &str) -> Vec<String> {
+    let w = regex::escape(word);
+    vec![
+        format!(r"^\s*(export\s+|override\s+)?{w}\s*\+="),
+        format!(r"^[^:=#]+:\s*((export|override|private)\s+)*{w}\s*(\+|[:?!]{{0,3}})="),
+    ]
+}
 /// When 1-based `line` of a Makefile is a recipe line, a shell command that declares nothing
 /// make knows, the line its command starts on: a line that starts with a tab after a rule, until
 /// a line that is neither a recipe line, a blank, a comment nor a conditional ends the rule, as

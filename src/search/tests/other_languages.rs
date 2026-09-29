@@ -672,6 +672,22 @@ fn make_def_patterns_find_targets_and_variables() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #499. `+=` and a target-specific assignment, behind its modifiers, with any operator; a
+/// `:` inside a value or a substitution reference, `+=` of another name and a rule that only
+/// names the variable among its prerequisites are none.
+#[test]
+fn make_fallback_patterns_find_appends_and_target_variables() {
+    let make = "CFLAGS += -Wall\nexport CFLAGS+=-g\nrelease: CFLAGS := -O2\n$(BIN) %.o: private override CFLAGS ?= x\nt: CFLAGS=1\nOBJ = a:CFLAGS\nX := $(CFLAGS:.c=.o)\nCFLAGSX += 1\nall: CFLAGS\nt:: CFLAGS = 1\n";
+    let (dir, files) = scratch("make-fallback", &[("Makefile", make)]);
+    let pat = make_fallback_patterns("CFLAGS").join("|");
+    let lines: Vec<usize> = grep(&dir, &files, &pat, false, false)
+        .iter()
+        .map(|h| h.line)
+        .collect();
+    assert_eq!(lines, [1, 2, 3, 4, 5]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// #477. A line that starts with a tab is a recipe line only in a rule: after `build:` and its
 /// continued prerequisites, past blanks, comments and conditionals, until an assignment ends the
 /// rule. A tab-indented assignment in an `ifeq` before any rule, a `\` continuation of an
