@@ -299,6 +299,7 @@ impl App {
             .unwrap_or_default();
         let mut texts: HashMap<PathBuf, String> = HashMap::new();
         let mut rows: Vec<(Hit, search::RustOwner)> = Vec::new();
+        let mut hidden: Vec<String> = Vec::new();
         for h in hits {
             if !texts.contains_key(&h.path) {
                 let text = self.text_of(&h.path).unwrap_or_default();
@@ -331,7 +332,10 @@ impl App {
                     && !search::rust_stability(&lines, h.line)));
             let visible = !internal
                 && match (&owner, vis) {
-                    (search::RustOwner::Trait(_) | search::RustOwner::ImplOf(_), _) => true,
+                    (search::RustOwner::ImplOf(_), _) => true,
+                    // A trait outside the project that is not `pub` is its crate's own.
+                    (search::RustOwner::Trait(_), search::RustVis::Pub) => true,
+                    (search::RustOwner::Trait(_), _) => inside,
                     (_, search::RustVis::Pub) => true,
                     (_, search::RustVis::Crate) => inside && crate_of(&h.path) == own,
                     (search::RustOwner::Inherent, search::RustVis::Private) => {
@@ -339,10 +343,25 @@ impl App {
                     }
                     (_, search::RustVis::Private) => true,
                 };
+            if let (search::RustOwner::Trait(t), false) = (&owner, visible) {
+                hidden.push(t.clone());
+            }
             if visible && reached(&h) {
                 rows.push((h, owner));
             }
         }
+        // The `impl`s outside the project of a trait out of reach are as far out of reach.
+        let kept: Vec<String> = rows
+            .iter()
+            .filter_map(|(_, o)| match o {
+                search::RustOwner::Trait(t) => Some(t.clone()),
+                _ => None,
+            })
+            .collect();
+        rows.retain(|(h, o)| {
+            !matches!(o, search::RustOwner::ImplOf(t)
+                if h.path.is_absolute() && hidden.contains(t) && !kept.contains(t))
+        });
         rows.sort_by_key(|(_, o)| !matches!(o, search::RustOwner::Trait(_)));
         let traits: Vec<&String> = rows
             .iter()

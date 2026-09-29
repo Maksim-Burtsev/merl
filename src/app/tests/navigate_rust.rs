@@ -167,6 +167,10 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
                 "pub trait ToString {\n    fn to_string(&self) -> String;\n}\n\nimpl<T: fmt::Display + ?Sized> ToString for T {\n    default fn to_string(&self) -> String {\n        String::new()\n    }\n}\n",
             ),
             (
+                "lib/rustlib/src/rust/library/core/src/spec.rs",
+                "trait SpecUnwrap {\n    fn unwrap(self);\n}\n\nimpl<T> SpecUnwrap for Option<T> {\n    fn unwrap(self) {}\n}\n",
+            ),
+            (
                 "lib/rustlib/src/rust/library/std/src/sys/process.rs",
                 "pub struct Command;\n\nimpl Command {\n    pub fn unwrap(&self) {}\n}\n",
             ),

@@ -630,7 +630,8 @@ pub enum RustVis {
     Private,
 }
 /// Whether 1-based `line` of `lines`, a hit of [`rust_method_pattern`], declares a method: the
-/// nearest line above it indented less opens an `impl` or a `trait`. Its owner and visibility.
+/// nearest line above it indented less opens an `impl` or a `trait`. Its owner and visibility,
+/// a trait method's the trait's.
 /// `None` for a `fn` at the top level, nested in a function, or in a `mod` block: none of them
 /// can follow a `.`.
 pub fn rust_method_at(lines: &[&str], line: usize) -> Option<(RustOwner, RustVis)> {
@@ -667,7 +668,12 @@ pub fn rust_method_at(lines: &[&str], line: usize) -> Option<(RustOwner, RustVis
             false => RustOwner::Unreadable,
         }
     };
-    let vis = match VIS.captures(lines[k]) {
+    // A trait's method has no `pub` of its own: it reaches as far as the trait.
+    let at_vis = match owner {
+        RustOwner::Trait(_) => parent,
+        _ => lines[k],
+    };
+    let vis = match VIS.captures(at_vis) {
         Some(c) if c.get(1).is_some() => RustVis::Crate,
         Some(_) => RustVis::Pub,
         None => RustVis::Private,
