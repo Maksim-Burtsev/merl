@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `name → struct{…}.name (via tc: struct{…})`, and so does the key `name:` of an element of
   the table. It read the loop from its `}{` line, so `tc` was not bound and `tc.name` jumped to
   a namesake elsewhere or offered every `name` of the project. (#330)
+- `d` in Go proves a receiver whose type the standard library or a `go.mod` module declares:
+  `wg.Add` on a `sync.WaitGroup`, `t.Errorf` through the `common` a `testing.T` embeds,
+  `ctx.Err()` on the `context.Context` interface, `r.URL.Path` through `*http.Request`, `srv`
+  from `httptest.NewServer(…)`, and a key of `sync.Pool{New: …}`, each read-only in GOROOT or
+  the module cache. It offered every method of the name in GOROOT and the module cache, often
+  hundreds and often without the field, and took a third of a second or more for it. (#334)
 - The hidden characters a file can hold are on screen, in every file and in `--review`: the
   bidirectional controls behind "Trojan Source" (U+202A–U+202E, U+2066–U+2069, U+200E, U+200F,
   U+061C) and the zero-width U+200B, U+2060 and U+FEFF are drawn as their code, such as

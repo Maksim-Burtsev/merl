@@ -996,3 +996,132 @@ fn a_go_table_test_struct_is_a_type() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #334. A receiver whose type is declared in the standard library or a module is proven there:
+/// a struct's field and method, an interface's method line, a method of an embedded type, a
+/// type reached through one call, and a literal's key.
+#[test]
+fn a_go_type_outside_the_project_is_proven() {
+    let (dir, mut a) = project_app(
+        "go-external",
+        &[
+            (
+                "go.mod",
+                "module example.com/external\n\nrequire example.com/lib v1.0.0\n",
+            ),
+            (
+                "app/app.go",
+                "package app\n\nimport (\n\t\"context\"\n\t\"net/http\"\n\t\"net/http/httptest\"\n\t\"sync\"\n\t\"testing\"\n\n\t\"example.com/lib\"\n)\n\nfunc handle(ctx context.Context, r *http.Request, t *testing.T) string {\n\tvar wg sync.WaitGroup\n\twg.Add(1)\n\tt.Errorf(\"x\")\n\t_ = ctx.Err()\n\tsrv := httptest.NewServer(nil)\n\tsrv.Close()\n\tvar c lib.Config\n\t_ = c.Name\n\t_ = sync.Pool{New: nil}\n\treturn r.URL.Path\n}\n",
+            ),
+            (
+                "app/other.go",
+                "package app\n\ntype other struct{}\n\nfunc (o other) Add(n int) {}\n\nfunc (o other) Close() {}\n",
+            ),
+        ],
+    );
+    let root = external_root(
+        "go-external",
+        &[
+            (
+                "src/sync/waitgroup.go",
+                "package sync\n\ntype WaitGroup struct {\n\tn int\n}\n\nfunc (wg *WaitGroup) Add(delta int) {}\n",
+            ),
+            (
+                "src/sync/pool.go",
+                "package sync\n\ntype Pool struct {\n\tNew func() any\n}\n",
+            ),
+            (
+                "src/testing/testing.go",
+                "package testing\n\ntype common struct{}\n\nfunc (c *common) Errorf(format string, args ...any) {}\n\ntype T struct {\n\tcommon\n\tname string\n}\n",
+            ),
+            (
+                "src/context/context.go",
+                "package context\n\ntype Context interface {\n\tErr() error\n}\n",
+            ),
+            (
+                "src/net/http/request.go",
+                "package http\n\nimport \"net/url\"\n\ntype Request struct {\n\tURL *url.URL\n}\n",
+            ),
+            (
+                "src/net/url/url.go",
+                "package url\n\ntype URL struct {\n\tPath string\n}\n",
+            ),
+            (
+                "src/net/http/httptest/server.go",
+                "package httptest\n\ntype Server struct{}\n\nfunc NewServer(handler any) *Server { return nil }\n\nfunc (s *Server) Close() {}\n",
+            ),
+            (
+                "mod/example.com/lib@v1.0.0/lib.go",
+                "package lib\n\ntype Config struct {\n\tName string\n}\n",
+            ),
+        ],
+    );
+    use_roots(
+        &mut a,
+        Kind::Go,
+        &[root.join("src"), root.join("mod/example.com/lib@v1.0.0")],
+    );
+    let mut d = |code: &str| {
+        d_on(&mut a, "app/app.go", code);
+        shown(&mut a)
+    };
+    let at = |file: &str, line: usize| format!("{}:{line}", root.join(file).display());
+    assert_eq!(
+        d("wg.Add"),
+        jump(
+            "Add \u{2192} WaitGroup.Add (via wg: WaitGroup)",
+            &at("src/sync/waitgroup.go", 7)
+        )
+    );
+    assert_eq!(
+        d("t.Errorf"),
+        jump(
+            "Errorf \u{2192} common.Errorf (via t: T)",
+            &at("src/testing/testing.go", 5)
+        )
+    );
+    assert_eq!(
+        d("ctx.Err"),
+        jump(
+            "Err \u{2192} Context.Err (via ctx: Context)",
+            &at("src/context/context.go", 4)
+        )
+    );
+    assert_eq!(
+        d("r.URL"),
+        jump(
+            "URL \u{2192} Request.URL (via r: Request)",
+            &at("src/net/http/request.go", 6)
+        )
+    );
+    assert_eq!(
+        d("r.URL.Path"),
+        jump(
+            "Path \u{2192} URL.Path (via r.URL: URL)",
+            &at("src/net/url/url.go", 4)
+        )
+    );
+    assert_eq!(
+        d("srv.Close"),
+        jump(
+            "Close \u{2192} Server.Close (via httptest.NewServer() *Server)",
+            &at("src/net/http/httptest/server.go", 7)
+        )
+    );
+    assert_eq!(
+        d("c.Name"),
+        jump(
+            "Name \u{2192} Config.Name (via c: Config)",
+            &at("mod/example.com/lib@v1.0.0/lib.go", 4)
+        )
+    );
+    assert_eq!(
+        d("{New"),
+        jump(
+            "New \u{2192} Pool.New (via sync.Pool{\u{2026}})",
+            &at("src/sync/pool.go", 4)
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}

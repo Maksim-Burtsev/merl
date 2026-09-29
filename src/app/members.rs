@@ -4,8 +4,9 @@ use super::*;
 
 impl App {
     /// The one top-level declaration `parts` names as `file` sees it: in the file itself (for Go,
-    /// its package), else in the project module an import binds the first part to. `None` when
-    /// there is none or more than one, and for a module outside the project.
+    /// its package), else in the project module an import binds the first part to, or for Go the
+    /// package outside the project the import names (#334). `None` when there is none or more
+    /// than one, and for a module outside the project in the other kinds.
     pub(super) fn declaration(&self, kind: Kind, file: &Path, parts: &[String]) -> Option<Hit> {
         let (name, chain) = parts.split_last()?;
         let one = |hits: Vec<Hit>| <[Hit; 1]>::try_from(hits).ok().map(|[hit]| hit);
@@ -19,12 +20,57 @@ impl App {
         }
         let imports = search::imports(kind, &self.text_of(file)?);
         let path = bound(&imports, chain.first().unwrap_or(name))?;
-        let found = self.imported_definitions(kind, file, name, chain, &path)?;
+        let found = match self.imported_definitions(kind, file, name, chain, &path) {
+            Some(found) => found,
+            None if kind == Kind::Go && chain.len() == 1 => self.outside_declarations(&path, name),
+            None => return None,
+        };
         one(found
             .into_iter()
             .map(|c| c.hit)
             .filter(|h| self.in_code(kind, h))
             .collect())
+    }
+
+    /// The top-level declarations of `name` in the Go package outside the project that the
+    /// import `path` names (#334): the directory `via import` reads, standard library or module,
+    /// among the files outside already walked. A type declared per platform is the host's.
+    fn outside_declarations(&self, path: &[String], name: &str) -> Vec<Candidate> {
+        let kind = Kind::Go;
+        let Some((_, all)) = self.external.get(&kind) else {
+            return Vec::new();
+        };
+        let Some((_, files)) = search::module_among(all, path, Some(path.len())) else {
+            return Vec::new();
+        };
+        let pattern = search::def_patterns(kind, name).join("|");
+        let hits = self.declaring(kind, name, self.grep_in(&pattern, &files));
+        let hits = hits
+            .into_iter()
+            .filter(|h| {
+                self.text_of(&h.path)
+                    .is_some_and(|t| search::qualified(kind, &t, h.line, name).is_none())
+            })
+            .collect();
+        self.host_built(kind, hits)
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Import(path.join("/")),
+            })
+            .collect()
+    }
+
+    /// `pattern` over `files`: the project's as [`App::grep`] reads them, the open file as it is
+    /// on screen, or files outside the project, whose paths are absolute.
+    pub(super) fn grep_in(&self, pattern: &str, files: &[PathBuf]) -> Vec<Hit> {
+        match files.first().is_some_and(|f| f.is_absolute()) {
+            true => search::grep_project(&self.root, files, pattern, false, false, None, None)
+                .unwrap_or_default(),
+            false => self
+                .grep(pattern, false, false, |p| files.iter().any(|f| f == p))
+                .unwrap_or_default(),
+        }
     }
 
     /// Whether `hit` stands in code, not in a docstring, a raw string or a block comment, where
@@ -45,9 +91,7 @@ impl App {
     ) -> Vec<Hit> {
         let own = self.package_files(kind, file);
         let pattern = search::def_patterns(kind, name).join("|");
-        let hits = self
-            .grep(&pattern, false, false, |p| own.iter().any(|f| f == p))
-            .unwrap_or_default();
+        let hits = self.grep_in(&pattern, &own);
         self.declaring(kind, name, hits)
             .into_iter()
             .filter(|h| {
@@ -63,6 +107,17 @@ impl App {
     /// file of its package (a `_test.go` file only from a test). An external test package,
     /// `package x_test`, shares the directory with `package x` but not its names (#332).
     pub(super) fn package_files(&self, kind: Kind, file: &Path) -> Vec<PathBuf> {
+        // A package outside the project is its directory among the files walked there (#334).
+        if kind == Kind::Go
+            && file.is_absolute()
+            && let Some((_, all)) = self.external.get(&kind)
+        {
+            return all
+                .iter()
+                .filter(|f| f.parent() == file.parent())
+                .cloned()
+                .collect();
+        }
         let mut files = vec![file.to_path_buf()];
         if kind == Kind::Go {
             let test = |f: &Path| f.to_string_lossy().ends_with("_test.go");
@@ -102,10 +157,7 @@ impl App {
         let patterns = search::member_or_signature(kind, word).unwrap_or_default();
         let files = self.package_files(kind, &ty.path);
         let hits = self
-            .grep(&patterns.join("|"), false, false, |p| {
-                files.iter().any(|f| f == p)
-            })
-            .unwrap_or_default()
+            .grep_in(&patterns.join("|"), &files)
             .into_iter()
             .filter(|h| {
                 self.text_of(&h.path)

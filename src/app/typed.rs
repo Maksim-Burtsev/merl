@@ -507,8 +507,7 @@ impl App {
         let receiver = |alias: &str| {
             let files = self.package_files(kind, &decl.path);
             let pattern = format!(r"^func\s+\(\s*(?:\w+\s+)?\*?{}\b", regex::escape(alias));
-            self.grep(&pattern, false, false, |p| files.iter().any(|f| f == p))
-                .is_ok_and(|hits| !hits.is_empty())
+            !self.grep_in(&pattern, &files).is_empty()
         };
         if depth < 8
             && let Some(named) = search::go_alias(kind, &decl.text)

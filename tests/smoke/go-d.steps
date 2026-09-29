@@ -55,3 +55,13 @@ key /
 type worker {
 key Enter d
 wait worker → struct{…}.worker (via k: struct{…})
+# A receiver typed by the standard library (#334): ctx is a context.Context, and d on ctx.Done
+# lands on the method line of GOROOT's interface, read-only.
+key o
+type worker/main.go
+key Enter
+wait worker/main.go  1:1
+key /
+type Done()
+key Enter d
+wait Done → Context.Done (via ctx: Context)

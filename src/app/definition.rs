@@ -139,6 +139,11 @@ impl App {
             false => search::GoKey::No,
         };
         let key = go_key != search::GoKey::No;
+        // A receiver's or a literal's type may be declared outside the project, and is read
+        // from the files walked there (#334).
+        if kind == Kind::Go && (dotted || matches!(go_key, search::GoKey::Of(_))) {
+            self.external_files(kind);
+        }
         match go_key {
             search::GoKey::Of(written) => match self.literal_field(kind, &here, &written, &word) {
                 Ok(Some(found)) => {
