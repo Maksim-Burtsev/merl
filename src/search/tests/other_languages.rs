@@ -295,6 +295,44 @@ fn elixir_heredocs_hide_what_they_hold() {
     );
 }
 
+/// #437. The `deps/` beside each `mix.exs` from the file up to the root, nearest first: an
+/// umbrella app has none of its own and reads the umbrella's, and nothing above the root counts.
+#[test]
+fn mix_deps_are_those_beside_a_mix_exs_from_the_file_up() {
+    let dir = std::env::temp_dir().join(format!("merl-mix-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let root = dir.join("project");
+    for d in [
+        "deps",
+        "project/deps",
+        "project/apps/shop/lib",
+        "project/apps/web/deps",
+        "project/apps/web/lib",
+        "project/tools/deps",
+    ] {
+        std::fs::create_dir_all(dir.join(d)).unwrap();
+    }
+    for f in [
+        "mix.exs",
+        "project/mix.exs",
+        "project/apps/shop/mix.exs",
+        "project/apps/web/mix.exs",
+    ] {
+        std::fs::write(dir.join(f), "").unwrap();
+    }
+    assert_eq!(
+        mix_deps(&root, &root.join("apps/shop/lib")),
+        [root.join("deps")]
+    );
+    assert_eq!(
+        mix_deps(&root, &root.join("apps/web/lib")),
+        [root.join("apps/web/deps"), root.join("deps")]
+    );
+    // A `deps` with no `mix.exs` beside it is some other directory.
+    assert_eq!(mix_deps(&root, &root.join("tools")), [root.join("deps")]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 #[test]
 fn elixir_scope_roots_and_names() {
     let here = Path::new("lib/my_app/ledger.ex");
@@ -304,8 +342,8 @@ fn elixir_scope_roots_and_names() {
         Path::new("test/ledger_test.exs")
     ));
     assert!(!in_def_scope(Kind::Elixir, here, Path::new("mix.lock")));
-    // `alias` and `import` bind names, but `mix` puts the dependencies in `deps/` inside the
-    // project, so they are project files already and there is no root to leave for.
+    // `alias` and `import` bind no path, and the machine holds no Elixir source to leave for:
+    // the dependencies are the project's `deps/`, [`mix_deps`].
     assert!(imports(Kind::Elixir, EX).is_empty());
     assert!(external_roots(Kind::Elixir, Path::new("/")).is_empty());
     assert!(member_patterns(Kind::Elixir, "parse").is_none());

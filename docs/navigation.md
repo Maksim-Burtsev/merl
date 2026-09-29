@@ -78,9 +78,15 @@ reports; its dependencies live in the global package cache under hashed director
 line spells out, so they are left out, and `const std = @import("std")` narrows nothing — `std` is
 that root, not a directory inside it. Lua has none to ask for, since `package.path` belongs to
 whatever interpreter embeds it and neither a Neovim runtime nor a LuaRocks tree is a standard
-library every project shares; Elixir needs none, since `mix` puts the dependencies and their
-sources in `deps/` inside the project, where they are project files already, and an installed
-standard library is `.beam` files rather than `.ex`. Java, Kotlin,
+library every project shares. Elixir has the `deps/` that `mix deps.get` fetches the
+dependencies into, as source, beside the `mix.exs` of the file's project or of the umbrella above
+it: `mix new` gitignores it, so it is outside the project walk the way `node_modules` is, and the
+picker shows it from the project root, `deps/jason/lib/jason.ex`. A module is no path
+(`Phoenix.LiveView` lives in `phoenix_live_view/lib/phoenix_live_view.ex`), so a qualifier such
+as `Jason` in `Jason.encode!` narrows the search to the file of `deps/` that declares
+`defmodule Jason`, else to the rest of its package, and that comes before a namesake the project
+declares; a qualifier no dependency declares, `Enum` or `String`, finds nothing outside, since an
+installed standard library is `.beam` files rather than `.ex`. Java, Kotlin,
 Ruby and the rest have no roots yet, so `d` stays inside the project for them. `d` on a Go package
 qualifier, `db` in `db.Get`, lands on the import line of the open file, `db: via import
 code.gitea.io/gitea/models/db`, unless a local or a top-level name of the package is called

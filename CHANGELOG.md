@@ -210,6 +210,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with the reason in a few words: `src/locked.txt: permission denied`. It was the absolute path
   and the OS text, `Permission denied (os error 13)`, and the path could push the reason off the
   line; a path still too long for the pane is cut from the left. (#403)
+- `d` in Elixir reaches the dependencies in `deps/`, which `mix new` gitignores: `Jason.encode!`
+  jumps to `deps/jason/lib/jason.ex`, read-only, where it said `no definition` or landed on a
+  namesake of the project. A module's qualifier narrows the search to the dependency that
+  declares the module, so `Phoenix.LiveView.assign` finds `phoenix_live_view`, not Plug's
+  `assign`. (#437)
 
 ## [0.7.0] - 2026-09-25
 

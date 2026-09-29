@@ -203,7 +203,8 @@ block scalar holding a declaration-shaped line: today's answers there are the kn
 #436, and the globs inside quotes (`"parcels/*"`, `["src/**/*.rs"]`) guard what already works.
 
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
-`deps/jason` added with `git add -f`: a dependency the project walk does not reach (#437).
+`deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
+the project walk does not reach, one whose module is no path and two declaring one name (#437).
 
 ### Adding a kind
 

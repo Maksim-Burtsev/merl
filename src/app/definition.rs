@@ -351,6 +351,17 @@ impl App {
             // A cut in a grep whose result is dropped says nothing about the list below.
             self.truncated.set(false);
         }
+        // An Elixir qualifier a dependency declares as a module names that package, as an import
+        // does elsewhere: its `def` there comes before a namesake of the project's (#437).
+        if kind == Kind::Elixir && dotted && !chain.is_empty() && locals.is_empty() {
+            let found = self
+                .external_definitions(kind, &word, &chain, dotted, &imports, true)
+                .unwrap_or_default();
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
         // A parameter or a local in front of the word is a value for certain: it has members,
         // and a function or a variable at the top of a module is not one of them.
         let hits = members
