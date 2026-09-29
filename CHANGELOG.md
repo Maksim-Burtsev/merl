@@ -86,6 +86,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Enter with `no results for …`. (#288)
 - With no file open, on the start screen and at the tutor's first lesson, the status bar no longer
   shows a cursor position: `demo/  [tree]` instead of `demo/  1:1  [tree]`. (#285)
+- A binary file (an image, a `.pyc`, a build artefact) opens on an empty pane with one centred,
+  dimmed line, `binary file, not shown`, and no line number or cursor, instead of the text
+  `binary file` as if it were the file's line 1. The status bar still says `read-only`. (#287)
 
 ### Fixed
 
@@ -172,6 +175,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   declaration of the variable: a recipe line is a shell command, and `d` on `$(GO)` jumps to the
   `GO ?= go` make knows instead of offering both. A tab-indented assignment inside an `ifeq`
   outside any rule still declares. (#477)
+- `d` in PHP reads `#` in PHP code as a comment, as `//` is, save `#[`, which opens an
+  attribute: a glob such as `# loads lib/*` no longer hides the rest of the file, where every
+  declaration answered `no definition`. The `#` of the HTML, CSS or JS around `<?php … ?>`
+  stays text. (#488)
+- `d` in C# reads a verbatim string ending in a backslash, `@"C:\"`, as ending at its second
+  `"`, and `@$"…"` as the verbatim string it is. It kept the string open, and every declaration
+  after it in the file answered `no definition`. (#475)
 
 ## [0.7.0] - 2026-09-25
 
