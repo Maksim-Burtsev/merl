@@ -885,6 +885,41 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
 pub fn def_block(kind: Kind, word: &str) -> Option<&'static str> {
     (kind == Kind::Terraform && word.starts_with("local.")).then_some("locals")
 }
+/// Whether the TypeScript declaration on 1-based `line` of `lines` is a local no other file sees
+/// (#339): a `const`, `let`, `var`, `function` or `class` inside a function, a method or a block.
+/// One at indent 0, behind `export`, or directly inside a `namespace`, `module` or `declare
+/// global` body is at the top of its module. Members are none of these forms.
+pub fn ts_nested_local<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
+    static DECL: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(
+            r"^\s+(?:(?:async|abstract|declare)\s+)*(?:const|let|var|function\*?|class)\s",
+        )
+        .unwrap()
+    });
+    static SCOPE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(
+            r"^\s*(?:export\s+)?(?:declare\s+)?(?:namespace|module)\s|^\s*(?:export\s+)?declare\s+global\b",
+        )
+        .unwrap()
+    });
+    let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return false;
+    };
+    let target = target.as_ref();
+    if !DECL.is_match(target) {
+        return false;
+    }
+    let depth = indent(target);
+    !lines[..line - 1]
+        .iter()
+        .map(AsRef::as_ref)
+        .rev()
+        .find(|l| {
+            let t = l.trim_start();
+            !t.is_empty() && indent(l) < depth && !t.starts_with(['}', ')', ']', '/', '*'])
+        })
+        .is_some_and(|l| SCOPE.is_match(l))
+}
 /// Whether 1-based `line` of `lines` sits directly inside a block whose first line starts with
 /// `opener`: the nearest non-blank line above it that is indented less. `terraform fmt` indents
 /// every block, so the indentation is the nesting.

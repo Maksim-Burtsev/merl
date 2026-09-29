@@ -145,6 +145,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` in TypeScript and JavaScript no longer offers another file's function locals: a
+  `const`, `let`, `var`, `function` or `class` inside a function, a method or a block is out of
+  sight there, in the project and in the dependencies. `Object.values(o)` jumped to a `const
+  values` inside some other function, and `node.callee` to a `const callee` of another file. A
+  method named by a string or a computed key, `"NewExpression:exit"(node) {`, binds its
+  parameters, so `node` there is the parameter. (#339)
 - `d` in TypeScript and JavaScript follows a barrel to the declaration: `import { Group } from
   "./models"`, where `models/index.ts` says `export { default as Group } from "./Group"` or `export
   * from "./helpers"`, lands on the class in `Group.ts`, where it fell back to the search by name

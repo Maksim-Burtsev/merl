@@ -971,6 +971,19 @@ impl App {
                 })
             })
         });
+        // Another file's function locals are not in sight from here (#339).
+        if kind == Kind::TsJs {
+            hits.retain(|h| {
+                h.path == here
+                    || !search::ts_nested_local(
+                        lines.entry(h.path.clone()).or_insert_with(|| {
+                            self.text_of(&h.path)
+                                .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
+                        }),
+                        h.line,
+                    )
+            });
+        }
         // `GO=$(GO) ./build.sh` in a recipe sets a variable of one shell command (#477): it
         // declares the word only for a shell variable of the command under the cursor,
         // `$${ARCH}`, and never for make's own `$(GO)`.

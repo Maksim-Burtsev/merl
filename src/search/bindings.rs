@@ -666,7 +666,7 @@ fn opener_bindings(
     static TS_FUNCTION: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"\bfunction\*?\s*[\w$]*\s*(?:<[^>]*>)?$").unwrap());
     static TS_METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*\*?#?([\w$]+)\s*(?:<[^>]*>)?$").unwrap()
+        Regex::new(r#"^(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*\*?(?:#?([\w$]+)|"[^"\n]*"|'[^'\n]*'|\[[^\]\n]*\])\s*(?:<[^>]*>)?$"#).unwrap()
     });
     static TS_BODY: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^(?::.*)?\{").unwrap());
@@ -722,11 +722,21 @@ fn opener_bindings(
                     continue;
                 };
                 let (before, after) = (header[..open].trim_end(), header[close..].trim_start());
+                // A quoted or computed name opens a method too, `"NewExpression:exit"(node) {`
+                // (#339), when it is all that stands before the `(`.
                 let method = TS_METHOD.captures(before).is_some_and(|c| {
-                    !matches!(
-                        &c[1],
-                        "if" | "for" | "while" | "switch" | "catch" | "with" | "return" | "super"
-                    ) && TS_BODY.is_match(after)
+                    !c.get(1).is_some_and(|m| {
+                        matches!(
+                            m.as_str(),
+                            "if" | "for"
+                                | "while"
+                                | "switch"
+                                | "catch"
+                                | "with"
+                                | "return"
+                                | "super"
+                        )
+                    }) && TS_BODY.is_match(after)
                 });
                 if TS_ARROW.is_match(after) || TS_FUNCTION.is_match(before) || method {
                     let count = out.len();

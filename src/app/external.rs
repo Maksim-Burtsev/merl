@@ -255,6 +255,18 @@ impl App {
         let mut hits = search::grep_project(&self.root, files, pattern, false, false, None, None)
             .unwrap_or_default();
         self.note_cut(&hits);
+        // A function's locals in a dependency are no one's to import (#339).
+        if kind == Kind::TsJs {
+            let mut texts: HashMap<PathBuf, Vec<String>> = HashMap::new();
+            hits.retain(|h| {
+                let lines = texts.entry(h.path.clone()).or_insert_with(|| {
+                    std::fs::read_to_string(&h.path)
+                        .map(|t| t.lines().map(str::to_owned).collect())
+                        .unwrap_or_default()
+                });
+                !search::ts_nested_local(lines, h.line)
+            });
+        }
         hits.sort_by_cached_key(|h| {
             (
                 roots.iter().position(|r| h.path.starts_with(r)),

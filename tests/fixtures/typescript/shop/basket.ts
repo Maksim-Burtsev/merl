@@ -95,5 +95,5 @@ export function heavy(p: Props): number {
 
 function schedule(o: { weight: number }): number {
   return Object.values(o).length;
-  //            ^ d: shop/props.ts:8; want none (#339)
+  //            ^ d: none
 }
