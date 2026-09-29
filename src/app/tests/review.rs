@@ -621,7 +621,10 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("zz.py"), 0));
-    assert_eq!((a.diff.marks.len(), &a.diff.hunks), (3, &vec![0]));
+    assert_eq!(
+        (a.diff.marks.len(), &a.diff.hunks),
+        (3, &vec![TextLine::File(0)])
+    );
     assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 10/10");
 
     // A reverted file leaves the panel. The open one stays open, without marks.
@@ -760,9 +763,9 @@ fn the_current_hunk_stays_current_when_one_is_added_above() {
     a.view_h = 4;
     a.clamp_scroll();
     a.top_line = 3;
-    a.anchor = Some((4, 0));
+    a.anchor = Some((TextLine::File(4), 0));
     let stop = |a: &App| a.history[a.hist_idx].clone();
-    assert_eq!(stop(&a), (dir.join("src/a.rs"), 5, 0));
+    assert_eq!(stop(&a), (dir.join("src/a.rs"), TextLine::File(5), 0));
     assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/5");
     std::fs::write(dir.join("src/a.rs"), "new\nnew\na\nB\nc\nd\ne\nF\n").unwrap();
     assert!(a.reload(false));
@@ -772,8 +775,8 @@ fn the_current_hunk_stays_current_when_one_is_added_above() {
     );
     assert_eq!(a.review_status().unwrap(), "hunk 3/3  file 1/5");
     // What is selected is still selected, and the history stop is still under the cursor.
-    assert_eq!(a.anchor, Some((6, 0)));
-    assert_eq!(stop(&a), (dir.join("src/a.rs"), 7, 0));
+    assert_eq!(a.anchor, Some((TextLine::File(6), 0)));
+    assert_eq!(stop(&a), (dir.join("src/a.rs"), TextLine::File(7), 0));
     a.anchor = None;
     // A block deleted above the pane, from a file longer than what is left of it: the
     // scroll is carried from where it was, not from where the shorter file clamps it.
@@ -998,7 +1001,7 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
     big_c(&mut a);
     assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
     assert_eq!(a.buf.readonly, Some("mixed line endings"));
-    assert_eq!(a.diff.hunks, vec![1]);
+    assert_eq!(a.diff.hunks, vec![TextLine::Deleted(1, 0)]);
     assert_eq!(a.diff.marks.len(), 1);
     big_c(&mut a);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
@@ -1039,12 +1042,13 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
     a.focus = Focus::Tree;
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    // From the deleted `b` the hunk starts with (#439), over `B` onto `c`.
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     a.focus = Focus::Tree;
     a.tree.reveal(Path::new("src/a.rs"));
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("src/a.rs"), 3));
+    assert_eq!((at(&a), a.line_str()), ((dir.join("src/a.rs"), 2), "c"));
     // Opening a shorter file from far down a long one (Enter in the panel, #61 follow-up):
     // the viewport of the old file must not be read against the new one.
     a.jump_to(&dir.join("src/a.rs"), 6);
@@ -1135,7 +1139,8 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
         std::fs::write(dir.join(name), text).unwrap();
         refresh(a);
     };
-    let here = |a: &App| (at(a).0, a.line_str().to_string());
+    // The hunk by the file line it rewrites: `c` stands on the deleted line above it (#439).
+    let here = |a: &App| (at(a).0, a.buf.lines[a.line].clone());
     let src = dir.join("src/a.rs");
     let on = |word: &str| (src.clone(), word.to_string());
     // Written while the reader is on `F`, the third hunk: `B` grows by three lines, and `D`
@@ -1151,6 +1156,11 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
     refresh(&mut a);
     c(&mut a);
     assert_eq!(here(&a), on("F"));
+    assert_eq!(
+        a.line_str(),
+        "f",
+        "back on the deleted line the hunk starts with"
+    );
     // Deleted above while away: `B` goes from line 6 up to 2 and `D`, unread, to 4, both past
     // the line `B` was left on. `c` goes back to `B`, and the next one to `D`.
     write(&mut a, "src/a.rs", "p1\np2\np3\np4\np5\na\nB\nc\nD\ne\nF\n");
@@ -1228,5 +1238,165 @@ fn a_deleted_file_with_nothing_to_read_is_not_gone_back_to() {
     assert!(f.status == 'D' && !f.has_hunks());
     press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// #439: the lines a branch deleted are lines of the text. `c` stands on the first line of a
+/// hunk, a deleted one when it starts with a deletion; `/` finds them, Ctrl+C copies them as they
+/// were, and nothing edits them.
+#[test]
+fn deleted_lines_are_lines_of_the_text() {
+    use TextLine::{Deleted, File};
+    let (dir, mut a) = review_app("onetext");
+    let key = |a: &mut App, c| press(a, c, KeyModifiers::NONE);
+    // src/a.rs reads a, [b], B, c, d, e, [f], F: `b` and `f` are deleted.
+    a.jump_to(&dir.join("src/a.rs"), 1);
+    key(&mut a, KeyCode::Char('c'));
+    assert_eq!((a.at(), a.line_str()), (Deleted(1, 0), "b"));
+    key(&mut a, KeyCode::Char('c'));
+    assert_eq!((a.at(), a.line_str()), (Deleted(5, 0), "f"));
+    key(&mut a, KeyCode::Char('C'));
+    assert_eq!(a.at(), Deleted(1, 0));
+
+    // `/` finds the deleted `b` and the added `B` alike, in the order they are drawn.
+    key(&mut a, KeyCode::Up);
+    key(&mut a, KeyCode::Char('/'));
+    typed(&mut a, "b");
+    assert_eq!((a.at(), a.message.as_str()), (Deleted(1, 0), "1/2"));
+    key(&mut a, KeyCode::Enter);
+    key(&mut a, KeyCode::Char('n'));
+    assert_eq!((a.at(), a.message.as_str()), (File(1), "2/2"));
+    key(&mut a, KeyCode::Char('n'));
+    assert_eq!(a.at(), Deleted(1, 0));
+    key(&mut a, KeyCode::Esc);
+
+    // Ctrl+C copies the deleted line; a selection from it into the added one copies both.
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(
+        (a.clipboard.take().as_deref(), a.message.as_str()),
+        (Some("b\n"), "copied 1 line")
+    );
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(
+        (a.clipboard.take().as_deref(), a.message.as_str()),
+        (Some("b\nB"), "copied 2 lines")
+    );
+
+    // Nothing edits a deleted line: not Enter on it, not typing after moving onto it, not the
+    // break between it and the line under it, not a selection that holds it.
+    let file = a.buf.lines.clone();
+    key(&mut a, KeyCode::Esc);
+    key(&mut a, KeyCode::Up);
+    key(&mut a, KeyCode::Enter);
+    assert_eq!((a.mode, a.message.as_str()), (Mode::Normal, "deleted"));
+    key(&mut a, KeyCode::Down);
+    key(&mut a, KeyCode::Home);
+    key(&mut a, KeyCode::Enter);
+    assert_eq!(a.mode, Mode::Edit);
+    key(&mut a, KeyCode::Backspace);
+    assert_eq!(
+        a.message, "deleted",
+        "the break the deleted line is drawn after"
+    );
+    key(&mut a, KeyCode::Up);
+    key(&mut a, KeyCode::Char('x'));
+    assert_eq!((a.at(), a.message.as_str()), (Deleted(1, 0), "deleted"));
+    key(&mut a, KeyCode::Up);
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    assert_eq!(a.at(), File(1));
+    key(&mut a, KeyCode::Backspace);
+    assert_eq!(a.message, "deleted", "a selection from `a` over `b`");
+    assert_eq!(a.buf.lines, file);
+    // The file's own lines are edited as ever.
+    key(&mut a, KeyCode::End);
+    key(&mut a, KeyCode::Char('!'));
+    assert_eq!(a.buf.lines[1], "B!");
+    key(&mut a, KeyCode::Esc);
+    press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+
+    // `d` and `u` wait for #440 on a deleted line.
+    key(&mut a, KeyCode::Up);
+    key(&mut a, KeyCode::Char('d'));
+    assert_eq!((a.at(), a.message.as_str()), (Deleted(1, 0), "deleted"));
+
+    // The lines deleted at the end of a file are lines too: `tail` reads t1, [t2], [t3].
+    a.jump_to(&dir.join("tail"), 1);
+    key(&mut a, KeyCode::Char('c'));
+    assert_eq!((a.at(), a.line_str()), (Deleted(1, 0), "t2"));
+    press(&mut a, KeyCode::End, KeyModifiers::CONTROL);
+    assert_eq!(a.line_str(), "t3");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// #439, each way into a deleted line on its own: a selection inside one line of a file with
+/// deleted lines is copied and typed over as anywhere; paste, `u` and F12 refuse a deleted line;
+/// Esc from `/` and `N` come back to one; a reload finds the deleted line the cursor was on.
+#[test]
+fn a_deleted_line_is_refused_and_returned_to_every_way() {
+    use TextLine::{Deleted, File};
+    let (dir, mut a) = review_app("onetext-ways");
+    let key = |a: &mut App, c| press(a, c, KeyModifiers::NONE);
+    let shift = |a: &mut App, c| press(a, c, KeyModifiers::SHIFT);
+    a.jump_to(&dir.join("src/a.rs"), 1);
+    shift(&mut a, KeyCode::Right);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(a.clipboard.take().as_deref(), Some("a"));
+    key(&mut a, KeyCode::Enter);
+    key(&mut a, KeyCode::Char('z'));
+    assert_eq!(a.buf.lines[0], "z");
+    press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+    key(&mut a, KeyCode::Esc);
+
+    // A paste over a selection that holds the deleted `b` is refused.
+    let file = a.buf.lines.clone();
+    a.jump_to(&dir.join("src/a.rs"), 1);
+    shift(&mut a, KeyCode::Down);
+    shift(&mut a, KeyCode::Down);
+    key(&mut a, KeyCode::Enter);
+    a.paste("zz");
+    assert_eq!((a.message.as_str(), &a.buf.lines), ("deleted", &file));
+    key(&mut a, KeyCode::Esc);
+    key(&mut a, KeyCode::Esc);
+
+    // `u` and F12 wait for #440 on a deleted line.
+    a.jump_to(&dir.join("src/a.rs"), 2);
+    key(&mut a, KeyCode::Up);
+    assert_eq!(a.at(), Deleted(1, 0));
+    for k in [KeyCode::Char('u'), KeyCode::F(12)] {
+        a.message.clear();
+        key(&mut a, k);
+        assert_eq!((a.message.as_str(), a.picker.is_none()), ("deleted", true));
+    }
+
+    // Esc from `/` puts the cursor back on the deleted line it started from.
+    key(&mut a, KeyCode::Char('/'));
+    typed(&mut a, "d");
+    assert_ne!(a.at(), Deleted(1, 0));
+    key(&mut a, KeyCode::Esc);
+    assert_eq!(a.at(), Deleted(1, 0));
+
+    // `N` goes back over the end of the file onto the lines deleted there: tail reads t1,
+    // [t2], [t3].
+    a.jump_to(&dir.join("tail"), 1);
+    key(&mut a, KeyCode::Char('/'));
+    typed(&mut a, "t");
+    key(&mut a, KeyCode::Enter);
+    assert_eq!((a.at(), a.message.as_str()), (File(0), "1/3"));
+    key(&mut a, KeyCode::Char('N'));
+    assert_eq!((a.at(), a.message.as_str()), (Deleted(1, 1), "3/3"));
+    key(&mut a, KeyCode::Char('N'));
+    assert_eq!((a.at(), a.message.as_str()), (Deleted(1, 0), "2/3"));
+    key(&mut a, KeyCode::Esc);
+
+    // An agent appends to the file: git keys the deletion above the first new line, and the
+    // cursor stays on the deleted line it was reading.
+    key(&mut a, KeyCode::Down);
+    assert_eq!(a.line_str(), "t3");
+    std::fs::write(dir.join("tail"), "t1\nA\nB\n").unwrap();
+    assert!(a.reload(false));
+    assert_eq!((a.at(), a.line_str()), (Deleted(1, 1), "t3"));
     let _ = std::fs::remove_dir_all(dir);
 }

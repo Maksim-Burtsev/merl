@@ -14,7 +14,7 @@ fn word_jumps_by_word_runs() {
     // Past the end of the line, jump to the start of the next one.
     a.col = 13;
     press(&mut a, KeyCode::Right, KeyModifiers::ALT);
-    assert_eq!(((a.line, a.col), a.selection()), ((1, 0), None));
+    assert_eq!(((a.line, a.col), a.file_selection()), ((1, 0), None));
 }
 
 #[test]
@@ -52,14 +52,14 @@ fn shift_left_right_select_by_char_and_cross_the_line_end() {
     let mut a = app("ab\ncd");
     a.col = 1;
     press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
-    assert_eq!(a.selection(), Some(((0, 1), (0, 2))));
+    assert_eq!(a.file_selection(), Some(((0, 1), (0, 2))));
     press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
-    assert_eq!(a.selection(), Some(((0, 1), (1, 0))));
+    assert_eq!(a.file_selection(), Some(((0, 1), (1, 0))));
     for _ in 0..3 {
         press(&mut a, KeyCode::Left, KeyModifiers::SHIFT);
     }
     assert_eq!(
-        a.selection(),
+        a.file_selection(),
         Some(((0, 0), (0, 1))),
         "back over the anchor"
     );
@@ -72,7 +72,7 @@ fn ctrl_c_copies_in_navigation_and_never_quits() {
     press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
     assert!(!press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL));
     assert_eq!(a.clipboard.take().as_deref(), Some("ab"));
-    assert!(a.selection().is_some(), "copy leaves the selection");
+    assert!(a.file_selection().is_some(), "copy leaves the selection");
     // Cmd+C, from a terminal that passes it on, copies too.
     assert!(!press(&mut a, KeyCode::Char('c'), KeyModifiers::SUPER));
     assert_eq!(a.clipboard.take().as_deref(), Some("ab"));
@@ -93,18 +93,18 @@ fn v_grows_the_selection_word_line_paragraph() {
     (a.line, a.col) = (2, 7);
     let v = |a: &mut App| press(a, KeyCode::Char('v'), KeyModifiers::NONE);
     v(&mut a);
-    assert_eq!(a.selection(), Some(((2, 6), (2, 9))), "the word");
+    assert_eq!(a.file_selection(), Some(((2, 6), (2, 9))), "the word");
     v(&mut a);
-    assert_eq!(a.selection(), Some(((2, 0), (2, 14))), "the line");
+    assert_eq!(a.file_selection(), Some(((2, 0), (2, 14))), "the line");
     v(&mut a);
-    assert_eq!(a.selection(), Some(((2, 0), (3, 5))), "the paragraph");
+    assert_eq!(a.file_selection(), Some(((2, 0), (3, 5))), "the paragraph");
     v(&mut a);
-    assert_eq!(a.selection(), Some(((2, 0), (3, 5))), "nothing wider");
+    assert_eq!(a.file_selection(), Some(((2, 0), (3, 5))), "nothing wider");
     // Off a word the first step is the line; a hand-made selection grows from what it is.
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     (a.line, a.col) = (2, 11);
     v(&mut a);
-    assert_eq!(a.selection(), Some(((2, 0), (2, 14))));
+    assert_eq!(a.file_selection(), Some(((2, 0), (2, 14))));
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     (a.line, a.col) = (2, 5);
     for _ in 0..3 {
@@ -112,7 +112,7 @@ fn v_grows_the_selection_word_line_paragraph() {
     }
     v(&mut a);
     assert_eq!(
-        a.selection(),
+        a.file_selection(),
         Some(((2, 0), (2, 14))),
         "` fo` is wider than no word"
     );
@@ -120,37 +120,37 @@ fn v_grows_the_selection_word_line_paragraph() {
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     (a.line, a.col) = (1, 0);
     v(&mut a);
-    assert_eq!(a.selection(), None);
+    assert_eq!(a.file_selection(), None);
 }
 
 #[test]
 fn shift_up_down_extend_a_selection_from_the_cursor_column() {
     let mut a = app("abc\ndef\nghi\nj\n");
-    assert_eq!(a.selection(), None);
+    assert_eq!(a.file_selection(), None);
     press(&mut a, KeyCode::Right, KeyModifiers::NONE);
     press(&mut a, KeyCode::Right, KeyModifiers::NONE);
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
-    assert_eq!((a.line, a.selection()), (2, Some(((0, 2), (2, 2)))));
+    assert_eq!((a.line, a.file_selection()), (2, Some(((0, 2), (2, 2)))));
     // Per line, the bytes the renderer paints: partial edges, whole lines in between.
-    assert_eq!(a.selected_bytes(0), Some(2..3));
-    assert_eq!(a.selected_bytes(1), Some(0..3));
-    assert_eq!(a.selected_bytes(2), Some(0..2));
-    assert_eq!(a.selected_bytes(3), None);
+    assert_eq!(a.selected_bytes(TextLine::File(0)), Some(2..3));
+    assert_eq!(a.selected_bytes(TextLine::File(1)), Some(0..3));
+    assert_eq!(a.selected_bytes(TextLine::File(2)), Some(0..2));
+    assert_eq!(a.selected_bytes(TextLine::File(3)), None);
     // Back onto the anchor nothing is selected, and Shift+Down selects from there again.
     for _ in 0..3 {
         press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
     }
-    assert_eq!((a.line, a.selection()), (0, None));
+    assert_eq!((a.line, a.file_selection()), (0, None));
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
-    assert_eq!(a.selection(), Some(((0, 2), (1, 2))));
+    assert_eq!(a.file_selection(), Some(((0, 2), (1, 2))));
     // Any other cursor move drops it; Esc drops it too.
     press(&mut a, KeyCode::Left, KeyModifiers::NONE);
-    assert_eq!(a.selection(), None);
+    assert_eq!(a.file_selection(), None);
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
-    assert!(a.selection().is_some());
+    assert!(a.file_selection().is_some());
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    assert_eq!(a.selection(), None);
+    assert_eq!(a.file_selection(), None);
 }
 
 #[test]
@@ -159,7 +159,7 @@ fn a_selection_collapsed_onto_its_anchor_selects_nothing() {
     press(&mut a, KeyCode::Right, KeyModifiers::NONE);
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
     press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
-    assert_eq!(a.selection(), None);
+    assert_eq!(a.file_selection(), None);
     // A plain arrow moves on instead of collapsing a range that is not there.
     press(&mut a, KeyCode::Right, KeyModifiers::NONE);
     assert_eq!(a.col, 2);
@@ -180,37 +180,37 @@ fn a_jump_or_a_find_match_drops_the_selection() {
     press(&mut a, KeyCode::Char(':'), KeyModifiers::NONE);
     typed(&mut a, "4");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!((a.line, a.selection()), (3, None));
+    assert_eq!((a.line, a.file_selection()), (3, None));
     // Find sets the selection aside while it moves the cursor: Esc puts both back, a match
     // taken with Enter leaves it behind.
     press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
-    let sel = a.selection();
+    let sel = a.file_selection();
     assert_eq!(sel, Some(((2, 0), (3, 0))));
     // A jump onto the cursor itself goes nowhere and keeps it.
     press(&mut a, KeyCode::Char(':'), KeyModifiers::NONE);
     typed(&mut a, "3");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!(a.selection(), sel);
+    assert_eq!(a.file_selection(), sel);
     press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
     typed(&mut a, "abc");
-    assert_eq!((a.line, a.selection()), (0, None));
+    assert_eq!((a.line, a.file_selection()), (0, None));
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    assert_eq!((a.line, a.selection()), (2, sel));
+    assert_eq!((a.line, a.file_selection()), (2, sel));
     press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
     typed(&mut a, "abc");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!((a.line, a.selection()), (0, None));
+    assert_eq!((a.line, a.file_selection()), (0, None));
     // A search that has nowhere to move the cursor keeps it.
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
     press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
     typed(&mut a, "zzz");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!(a.selection(), Some(((0, 0), (1, 0))));
+    assert_eq!(a.file_selection(), Some(((0, 0), (1, 0))));
     // One that moved the cursor and then stopped matching has still moved it.
     press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
     typed(&mut a, "ghz");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!((a.line, a.selection()), (2, None));
+    assert_eq!((a.line, a.file_selection()), (2, None));
     // So does a picker jump within the open file.
     press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
     let hit = Hit {
@@ -222,7 +222,7 @@ fn a_jump_or_a_find_match_drops_the_selection() {
     a.show_picker(PickerKind::Usages, App::hit_items(vec![hit]));
     a.picker.as_mut().unwrap().settle();
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!((a.line, a.selection()), (3, None));
+    assert_eq!((a.line, a.file_selection()), (3, None));
 }
 
 #[test]
@@ -236,10 +236,10 @@ fn ctrl_shift_left_right_select_to_the_line_edges() {
         KeyCode::Right,
         KeyModifiers::CONTROL | KeyModifiers::SHIFT,
     );
-    assert_eq!((a.col, a.selection()), (7, Some(((0, 3), (0, 7)))));
+    assert_eq!((a.col, a.file_selection()), (7, Some(((0, 3), (0, 7)))));
     // A plain arrow collapses the selection to its end without moving on, VS Code style.
     press(&mut a, KeyCode::Right, KeyModifiers::NONE);
-    assert_eq!(((a.line, a.col), a.selection()), ((0, 7), None));
+    assert_eq!(((a.line, a.col), a.file_selection()), ((0, 7), None));
     press(&mut a, KeyCode::Right, KeyModifiers::NONE);
     assert_eq!((a.line, a.col), (1, 0));
     press(&mut a, KeyCode::Up, KeyModifiers::NONE);
@@ -249,17 +249,17 @@ fn ctrl_shift_left_right_select_to_the_line_edges() {
         KeyCode::Left,
         KeyModifiers::CONTROL | KeyModifiers::SHIFT,
     );
-    assert_eq!((a.col, a.selection()), (0, Some(((0, 0), (0, 7)))));
+    assert_eq!((a.col, a.file_selection()), (0, Some(((0, 0), (0, 7)))));
     // Left collapses to the start, which is where the cursor already is: no move.
     press(&mut a, KeyCode::Left, KeyModifiers::NONE);
-    assert_eq!(((a.line, a.col), a.selection()), ((0, 0), None));
+    assert_eq!(((a.line, a.col), a.file_selection()), ((0, 0), None));
     press(
         &mut a,
         KeyCode::Right,
         KeyModifiers::CONTROL | KeyModifiers::SHIFT,
     );
     press(&mut a, KeyCode::Left, KeyModifiers::NONE);
-    assert_eq!(((a.line, a.col), a.selection()), ((0, 0), None));
+    assert_eq!(((a.line, a.col), a.file_selection()), ((0, 0), None));
     // Alt+Right alone is a plain word jump: it drops the selection.
     press(
         &mut a,
@@ -267,7 +267,7 @@ fn ctrl_shift_left_right_select_to_the_line_edges() {
         KeyModifiers::CONTROL | KeyModifiers::SHIFT,
     );
     press(&mut a, KeyCode::Left, KeyModifiers::ALT);
-    assert_eq!((a.col, a.selection()), (4, None));
+    assert_eq!((a.col, a.file_selection()), (4, None));
 }
 
 #[test]
@@ -277,9 +277,9 @@ fn alt_shift_left_right_select_by_word_without_touching_find() {
     let m = KeyModifiers::ALT | KeyModifiers::SHIFT;
     press(&mut a, KeyCode::Right, m);
     press(&mut a, KeyCode::Right, m);
-    assert_eq!((a.col, a.selection()), (9, Some(((0, 0), (0, 9)))));
+    assert_eq!((a.col, a.file_selection()), (9, Some(((0, 0), (0, 9)))));
     press(&mut a, KeyCode::Left, m);
-    assert_eq!((a.col, a.selection()), (4, Some(((0, 0), (0, 4)))));
+    assert_eq!((a.col, a.file_selection()), (4, Some(((0, 0), (0, 4)))));
     assert!(a.find_re.is_some(), "Alt on an arrow is not an Esc");
     assert_eq!(a.message, "");
 }
@@ -464,7 +464,7 @@ fn a_selection_to_the_end_of_a_cut_line_copies_all_of_it() {
     let to_end = KeyModifiers::SHIFT | KeyModifiers::CONTROL;
     press(&mut a, KeyCode::Right, to_end);
     press(&mut a, KeyCode::Right, to_end);
-    assert!(a.selection().is_some());
+    assert!(a.file_selection().is_some());
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
     assert_eq!(a.clipboard.take().as_deref(), Some(line.as_str()));
 }
