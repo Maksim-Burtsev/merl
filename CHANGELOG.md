@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- In `--review`, `s`, `D`, `u` and `d` find the code the branch deleted as well as the files on
+  disk. `s`, `D` and `u` list the deleted lines red, numbered as the file had them at the base
+  (`app/repos.py:-20`), and Enter lands on the deleted line. `d` looks in the branch's code
+  first and lands on a deleted definition only when the branch has none, so `d` on a call the
+  branch removed opens the function it removed with it, and `[` goes back. On a deleted line `d`
+  and `u` read the word under the cursor, where they said `deleted` before. (#440)
 - The hidden characters a file can hold are on screen, in every file and in `--review`: the
   bidirectional controls behind "Trojan Source" (U+202A–U+202E, U+2066–U+2069, U+200E, U+200F,
   U+061C) and the zero-width U+200B, U+2060 and U+FEFF are drawn as their code, such as

@@ -210,10 +210,6 @@ impl App {
             KeyCode::Char('u') if ctrl => self.half_page(-1),
             KeyCode::Char('{') => self.paragraph(-1),
             KeyCode::Char('}') => self.paragraph(1),
-            // `d` and `u` read the file's code; the lines a review deleted wait for #440.
-            KeyCode::Char('d' | 'u') | KeyCode::F(12) if self.deleted.is_some() => {
-                self.message = "deleted".into();
-            }
             KeyCode::Char('d') | KeyCode::F(12) if !shift => self.goto_definition(),
             KeyCode::Char('u') | KeyCode::F(12) => self.usages(),
             KeyCode::Char('D') => self.symbols(),

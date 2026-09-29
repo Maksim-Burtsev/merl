@@ -272,10 +272,13 @@ pub(super) fn draw_picker(
             } else {
                 base
             };
-            let style = if i == selected {
-                base.bg(theme.line_hl)
-            } else {
-                base
+            // A line the branch deleted is red, as the review draws it (#440), and its text is
+            // not the file's to take colours from.
+            let style = match (row.item.deleted, i == selected) {
+                (true, true) => base.bg(theme.del_bg_hl),
+                (true, false) => base.bg(theme.del_bg),
+                (false, true) => base.bg(theme.line_hl),
+                (false, false) => base,
             };
             let label = &row.item.label;
             let mut spans = Vec::new();
@@ -285,17 +288,21 @@ pub(super) fn draw_picker(
                     None => Span::styled("  ", style),
                 });
             }
+            // A deleted line has no mark in the gutter either.
             if let Some(r) = marks {
-                spans.push(
-                    match review_mark(&mut picker.marks, r, &app.root, &row.item) {
-                        Some(Mark::Added) => Span::styled("\u{258e}", style.fg(Color::Green)),
-                        Some(Mark::Changed) => Span::styled("\u{258e}", style.fg(Color::Blue)),
-                        _ => Span::styled(" ", style),
-                    },
-                );
+                let mark = (!row.item.deleted)
+                    .then(|| review_mark(&mut picker.marks, r, &app.root, &row.item))
+                    .flatten();
+                spans.push(match mark {
+                    Some(Mark::Added) => Span::styled("\u{258e}", style.fg(Color::Green)),
+                    Some(Mark::Changed) => Span::styled("\u{258e}", style.fg(Color::Blue)),
+                    _ => Span::styled(" ", style),
+                });
             }
             let used: usize = spans.iter().map(|s| wrap::width(&s.content)).sum();
-            let code = code_hl(&mut picker.bufs, &app.root, &row.item, theme);
+            let code = (!row.item.deleted)
+                .then(|| code_hl(&mut picker.bufs, &app.root, &row.item, theme))
+                .flatten();
             // A span per cluster: ratatui measures each span apart, so an emoji split from its
             // selector would be drawn one column narrower than `wrap::width` counts it.
             let mut c = 0;

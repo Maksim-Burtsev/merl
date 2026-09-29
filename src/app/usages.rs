@@ -11,9 +11,10 @@ impl App {
         let extra = search::word_chars(self.kind(), false);
         // A Ruby name is read as `d` reads it (#387): `valid?` lists `valid?`, its own `def`
         // first, and on `x.name = v` the setter `name=` declared by `attr_writer :name` does.
-        let Some(read) = (match self.kind() {
-            Some(Kind::Ruby) => self.definition_word(Some(Kind::Ruby)).map(|(_, w)| w),
-            _ => self.word_under(extra),
+        // On a line the branch deleted, the word is read there (#440).
+        let Some(read) = self.on_drawn(|a| match a.kind() {
+            Some(Kind::Ruby) => a.definition_word(Some(Kind::Ruby)).map(|(_, w)| w),
+            _ => a.word_under(extra),
         }) else {
             self.message = "no word under the cursor".into();
             return;
@@ -100,10 +101,19 @@ impl App {
         // whole (#281). In code `db-main-2` is a subtraction and stays.
         // A Ruby setter `name=` is called as `x.name = v`: the rows hold its bare name.
         let text = word.strip_suffix('=').unwrap_or(word);
-        let hits = self
+        let mut hits = self
             .grep(&regex::escape(text), true, false, |_| true)
             .unwrap_or_default();
         let cut = hits.len() >= search::MAX_HITS;
+        // In a review, the lines the branch deleted too (#440), where the word stands whole as the
+        // grep reads a word.
+        let whole = Regex::new(&format!(r"(?:^|\W)({})(?:$|\W)", regex::escape(text)))
+            .expect("an escaped word keeps the pattern valid");
+        hits.extend(deleted_hits(
+            &self.deleted_lines(),
+            |_| true,
+            |t| whole.captures(t).and_then(|c| c.get(1)).map(|m| m.start()),
+        ));
         let hits = hits.into_iter().filter(|h| {
             let extra = search::word_chars(search::kind_of(&h.path), false);
             extra.is_empty() || whole_at(&h.text, text, extra).is_some()
@@ -111,8 +121,9 @@ impl App {
         // What tells a declaration of the word from a use of it is `def_patterns`, and which
         // ones apply is the hit file's own kind: one regex per kind met, built once.
         let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
-        let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
-        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
+        // A deleted line is read in the file at the base, apart from the file on disk.
+        let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
+        let mut lines: HashMap<(PathBuf, bool), Vec<String>> = HashMap::new();
         let mut ranked: Vec<_> = hits
             .map(|h| {
                 let kind = search::kind_of(&h.path);
@@ -127,9 +138,9 @@ impl App {
                 // `d` reads them too; only a file with a match is read.
                 let declares = re.as_ref().is_some_and(|re| re.is_match(&h.text))
                     && !literal
-                        .entry(h.path.clone())
+                        .entry((h.path.clone(), h.deleted.is_some()))
                         .or_insert_with(|| {
-                            kind.zip(self.text_of(&h.path))
+                            kind.zip(self.hit_text(&h))
                                 .map_or_else(Vec::new, |(k, t)| search::literal_lines(k, &t))
                         })
                         .get(h.line - 1)
@@ -137,11 +148,13 @@ impl App {
                         .unwrap_or(false)
                     && kind.is_some_and(|k| {
                         search::declares_where(k, word, h.line, &h.text, || {
-                            lines.entry(h.path.clone()).or_insert_with(|| {
-                                self.text_of(&h.path).map_or_else(Vec::new, |t| {
-                                    t.lines().map(str::to_owned).collect()
+                            lines
+                                .entry((h.path.clone(), h.deleted.is_some()))
+                                .or_insert_with(|| {
+                                    self.hit_text(&h).map_or_else(Vec::new, |t| {
+                                        t.lines().map(str::to_owned).collect()
+                                    })
                                 })
-                            })
                         })
                     });
                 (search::rank(&h.path, here, declares), h)
@@ -149,7 +162,7 @@ impl App {
             .collect();
         ranked.sort_by(|(a, x), (b, y)| {
             a.cmp(b)
-                .then_with(|| (&x.path, x.line).cmp(&(&y.path, y.line)))
+                .then_with(|| (&x.path, x.place()).cmp(&(&y.path, y.place())))
         });
         let ranked = ranked.into_iter().map(|((tier, _), h)| (tier, h)).collect();
         (ranked, cut)

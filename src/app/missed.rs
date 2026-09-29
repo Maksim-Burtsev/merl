@@ -448,9 +448,8 @@ impl App {
             n: 1,
             from: (self.buf.path.clone()?, self.at()),
             here: self.rel_current(),
-            // The preview has no word under the cursor for `d` or `u` to read, nor a line the
-            // branch deleted, where they say `deleted` (#439).
-            word: (!self.previewing() && self.deleted.is_none())
+            // The preview has no word under the cursor for `d` or `u` to read.
+            word: (!self.previewing())
                 .then(|| self.word_under(search::word_chars(self.kind(), false)))
                 .flatten(),
             query: String::new(),
@@ -505,7 +504,7 @@ impl App {
         let (hits, _) = self.usage_hits(word, trip.here.as_deref());
         let row = hits
             .iter()
-            .position(|(_, h)| h.path == landed && h.line == self.line + 1)?;
+            .position(|(_, h)| h.path == landed && h.place() == self.at())?;
         match hits[row].0 {
             Tier::Declaration => Some((1, "d")),
             _ if trip.kind == PickerKind::Search => Some((row + 2, "u")),

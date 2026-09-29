@@ -6,6 +6,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
 
@@ -50,6 +51,17 @@ impl PartialOrd for TextLine {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
+}
+
+/// A line the branch deleted (#440): the file the review lists it under, its 1-based number in
+/// the file at the base, the line of the text the review draws it as, and what it said. In a file
+/// the branch deleted, whose text is the base's, that is a line of the file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeletedLine {
+    pub path: PathBuf,
+    pub line: usize,
+    pub at: TextLine,
+    pub text: String,
 }
 
 /// What one file's diff looks like from the editor: marks per 0-based line, and, in review
@@ -214,6 +226,9 @@ pub struct Review {
     /// working tree lines up with the numbers.
     pub merge_base: String,
     pub files: Vec<ReviewFile>,
+    /// Every line the branch deleted, file by file in the panel's order: the second source `s`,
+    /// `D`, `u` and `d` search besides the files on disk (#440).
+    pub deleted: Arc<Vec<DeletedLine>>,
     /// What opening found about the branch against `origin` (`diverged from origin/feat`), for
     /// the status bar; `App::start_review` takes it, so it is said once.
     pub note: Option<String>,
@@ -303,11 +318,29 @@ impl Review {
         }
         // The panel's order, so `c` walks the files top to bottom.
         files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false));
+        // The prefixes and the rename detection are spelled out: a user's `diff.noprefix` or
+        // `diff.renames` would read the patch otherwise. Names keep their letters.
+        let patch = git(&[
+            "-c",
+            "core.quotePath=false",
+            "diff",
+            "-U0",
+            "-M",
+            "--no-color",
+            "--no-ext-diff",
+            "--ignore-submodules",
+            "--inter-hunk-context=0",
+            "--src-prefix=a/",
+            "--dst-prefix=b/",
+            &merge_base,
+        ])?;
+        let deleted = Arc::new(deleted_lines(&patch, &files));
         Ok(Self {
             branch,
             base,
             merge_base,
             files,
+            deleted,
             note: None,
         })
     }
@@ -364,6 +397,99 @@ impl Review {
         }
         Ok(out.stdout)
     }
+}
+
+/// The lines `patch`, the branch's whole diff, deletes from `files`, in their order. Each file's
+/// part is read as [`diff`] reads one file, so a line is keyed as the review draws it. An
+/// untracked file deleted nothing: its row is the file on disk.
+fn deleted_lines(patch: &str, files: &[ReviewFile]) -> Vec<DeletedLine> {
+    let mut parts: HashMap<PathBuf, String> = HashMap::new();
+    let (mut name, mut part, mut header) = (None::<PathBuf>, String::new(), true);
+    let mut done = |name: Option<PathBuf>, part: &mut String| {
+        if let Some(name) = name {
+            parts.insert(name, std::mem::take(part));
+        }
+        part.clear();
+    };
+    for line in patch.lines() {
+        if line.starts_with("diff --git ") {
+            done(name.take(), &mut part);
+            header = true;
+            continue;
+        }
+        // `--- a/x` names the file only above the first hunk: below it, a deleted `-- x`.
+        if header {
+            header = !line.starts_with("@@ ");
+            let named = |prefix: &str| {
+                let n = unquote(line.strip_prefix(prefix)?.trim_end_matches('\t'));
+                let n = n.strip_prefix("a/").or_else(|| n.strip_prefix("b/"))?;
+                Some(PathBuf::from(n))
+            };
+            // The name on disk, the base's for a file the branch deleted.
+            if let Some(n) = named("+++ ").or_else(|| named("--- ").filter(|_| name.is_none())) {
+                name = Some(n);
+            }
+        }
+        part.push_str(line);
+        part.push('\n');
+    }
+    done(name, &mut part);
+    let mut out = Vec::new();
+    for f in files.iter().filter(|f| !f.untracked) {
+        let Some(diff) = parts.get(&f.path).map(|p| parse(p, true)) else {
+            continue;
+        };
+        for (&k, ghosts) in &diff.ghosts {
+            let from = diff.ghost_from.get(&k).copied().unwrap_or(0);
+            out.extend(ghosts.iter().enumerate().map(|(i, text)| DeletedLine {
+                path: f.path.clone(),
+                line: from + i + 1,
+                at: match f.status {
+                    'D' => TextLine::File(from + i),
+                    _ => TextLine::Deleted(k, i),
+                },
+                text: text.clone(),
+            }));
+        }
+    }
+    out
+}
+
+/// A name as git writes it in a patch: as it is, or in C quotes when it holds a `"`, a `\` or a
+/// control character.
+fn unquote(s: &str) -> String {
+    let Some(inner) = s.strip_prefix('"').and_then(|s| s.strip_suffix('"')) else {
+        return s.to_string();
+    };
+    let b = inner.as_bytes();
+    let (mut out, mut i) = (Vec::new(), 0);
+    while i < b.len() {
+        if b[i] != b'\\' || i + 1 == b.len() {
+            out.push(b[i]);
+            i += 1;
+            continue;
+        }
+        i += 2;
+        out.push(match b[i - 1] {
+            b'n' => b'\n',
+            b't' => b'\t',
+            b'r' => b'\r',
+            b'a' => 7,
+            b'b' => 8,
+            b'v' => 11,
+            b'f' => 12,
+            // Three octal digits, a byte of a name that is not UTF-8.
+            b'0'..=b'7' => {
+                let end = (i + 2).min(b.len());
+                let digits = std::str::from_utf8(&b[i - 1..end]).unwrap_or("");
+                let n = u8::from_str_radix(digits, 8).unwrap_or(b'?');
+                i = end;
+                n
+            }
+            c => c,
+        });
+    }
+    String::from_utf8_lossy(&out).into_owned()
 }
 
 fn git(root: &Path, args: &[&str]) -> Result<String> {

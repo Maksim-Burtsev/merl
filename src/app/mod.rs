@@ -42,8 +42,9 @@ mod typed;
 mod usages;
 
 pub use preview::Preview;
+use project_search::at_label;
 pub use search_job::SearchJob;
-use search_job::{SEARCH_PAUSE, Typed};
+use search_job::{SEARCH_PAUSE, Typed, deleted_hits};
 
 /// Longest hit text kept in a picker label; the rest is off the screen anyway.
 const MAX_LABEL_TEXT: usize = 120;
@@ -659,7 +660,7 @@ impl App {
     }
 
     /// How many lines the branch deleted above file line `k`.
-    fn deleted_at(&self, k: usize) -> usize {
+    pub(super) fn deleted_at(&self, k: usize) -> usize {
         self.diff.ghosts.get(&k).map_or(0, Vec::len)
     }
 

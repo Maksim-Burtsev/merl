@@ -56,14 +56,32 @@ impl App {
     /// enum variant outside Rust or a parameter has no declaration the rules know and gets "no
     /// definition": `u` lists the uses.
     pub(super) fn goto_definition(&mut self) {
-        let kind = self.kind();
         // Markdown declares nothing: `d` follows the link under the cursor (#421).
-        if kind == Some(Kind::Markdown)
+        if self.kind() == Some(Kind::Markdown)
             && let Some(here) = self.rel_current()
         {
             self.follow_markdown(&here);
             return;
         }
+        // On a line the branch deleted, the lookup reads the lines deleted there where the review
+        // draws them (#440), and what it found in them is numbered back as the base had them.
+        let lookup = match self.deleted {
+            None => self.find_definition(),
+            Some((k, _)) => {
+                let m = self.deleted_at(k);
+                let lookup = self.on_drawn(Self::find_definition);
+                lookup.map(|l| self.renumber(l, k, m))
+            }
+        };
+        if let Some(lookup) = lookup {
+            self.show_definitions(lookup);
+        }
+    }
+
+    /// What `d` finds for the word under the cursor, to be shown; `None` when there is nothing to
+    /// look for, and the status bar says why.
+    fn find_definition(&mut self) -> Option<Lookup> {
+        let kind = self.kind();
         // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included.
         if kind == Some(Kind::Graphql)
             && let Some(here) = self.rel_current()
@@ -78,12 +96,11 @@ impl App {
                 std::slice::from_ref(&module),
             );
             let found = self.module_candidates(files);
-            self.show_definitions(Kind::Graphql, &module, &here, found, None);
-            return;
+            return Some(self.settle_definitions(Kind::Graphql, &module, &here, found, None));
         }
         let Some((range, word)) = self.definition_word(kind) else {
             self.message = "no word".into();
-            return;
+            return None;
         };
         let (written, start) = self.written(kind, range.start);
         let before = &written[..start];
@@ -92,7 +109,7 @@ impl App {
         let here = self.rel_current();
         let (Some(kind), Some(here)) = (kind, here) else {
             self.message = self.no_rules();
-            return;
+            return None;
         };
         // Go's blank identifier names nothing: every `_` is a fresh discard (#476). Nor has a
         // GraphQL operation's `$variable` a rule: it is a parameter, and `$id` is no field `id`.
@@ -100,7 +117,7 @@ impl App {
             || (kind == Kind::Graphql && self.line_str()[..range.start].ends_with('$'))
         {
             self.message = resolution(&word, None, &[], None, false);
-            return;
+            return None;
         }
         let text = self.buf.lines.join("\n");
         // Nothing in a Rust string names code, save the `{name}` a format string captures and
@@ -120,14 +137,13 @@ impl App {
             && !search::rust_attribute_path(&self.buf.lines, self.line, range.start)
         {
             self.message = resolution(&word, None, &[], None, false);
-            return;
+            return None;
         }
         // An import's path, and a name its package qualifies (#418).
         if kind == Kind::Proto
             && let Some(found) = self.proto_definitions(&text, &written[..start], &word)
         {
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
+            return Some(self.settle_definitions(kind, &word, &here, found, None));
         }
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
@@ -168,12 +184,12 @@ impl App {
                         line,
                         col: 0,
                         text: self.buf.lines[line - 1].clone(),
+                        deleted: None,
                     },
                     reason: Reason::Local,
                 })
                 .collect();
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
+            return Some(self.settle_definitions(kind, &word, &here, found, None));
         }
         // A Go package qualifier, `db` in `db.Get`, is declared by the import line of this file
         // (#100), unless a local hides it (taken out above, or one the walk may have missed:
@@ -195,10 +211,16 @@ impl App {
                 line,
                 col: 0,
                 text: self.buf.lines[line - 1].clone(),
+                deleted: None,
             };
             let reason = Reason::Import(path.join("/"));
-            self.show_definitions(kind, &word, &here, vec![Candidate { hit, reason }], None);
-            return;
+            return Some(self.settle_definitions(
+                kind,
+                &word,
+                &here,
+                vec![Candidate { hit, reason }],
+                None,
+            ));
         }
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
         let on_value = dotted && !own && chain.first().is_none_or(|f| bound(&imports, f).is_none());
@@ -209,15 +231,14 @@ impl App {
         let patterns = search::def_patterns(kind, &word);
         if patterns.is_empty() {
             self.message = self.no_rules();
-            return;
+            return None;
         }
         let pattern = patterns.join("|");
         // Rust's attributes, fields and variants, which the lines below cannot tell (#370).
         if kind == Kind::Rust
             && let Some(found) = self.rust_early(&here, &text, &word, range.clone(), dotted)
         {
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
+            return Some(self.settle_definitions(kind, &word, &here, found, None));
         }
         // On the declaration of a member of an interface, a protocol, an abstract or a base
         // class, `d` offers what implements it (#68, step 6).
@@ -225,16 +246,14 @@ impl App {
         if !dotted && !word.starts_with('#') {
             let found = self.implementations(kind, &here, &text, &word);
             if !found.is_empty() {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
+                return Some(self.settle_definitions(kind, &word, &here, found, None));
             }
         }
         // On the name a field's declaration gives it, the other fields and members of the name
         // are namesakes (#104). `self.repo = repo` is decided below, by where `self.repo` leads.
         if !dotted && search::field_decl_at(kind, &text, self.line + 1, range.start, &word) {
             let found = self.field_namesakes(kind, &here, &word);
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
+            return Some(self.settle_definitions(kind, &word, &here, found, None));
         }
         // A receiver whose type is proven narrows the member to that type (#68, steps 2 to 4).
         let mut broke = None;
@@ -253,12 +272,10 @@ impl App {
                         && matches!(found.as_slice(), [c] if c.hit.line == self.line + 1 && c.hit.path == here) =>
                 {
                     let found = self.field_namesakes(kind, &here, &word);
-                    self.show_definitions(kind, &word, &here, found, None);
-                    return;
+                    return Some(self.settle_definitions(kind, &word, &here, found, None));
                 }
                 Ok(found) if !found.is_empty() => {
-                    self.show_definitions(kind, &word, &here, found, None);
-                    return;
+                    return Some(self.settle_definitions(kind, &word, &here, found, None));
                 }
                 Ok(_) => {}
                 // With one name in front of the word, `by name` already says where.
@@ -301,11 +318,17 @@ impl App {
                 path: here.clone(),
                 line,
                 col: 0,
+                deleted: None,
                 text: self.buf.lines[line - 1].clone(),
             };
             let reason = Reason::Import(format!("{} (not installed)", module.join("/")));
-            self.show_definitions(kind, &word, &here, vec![Candidate { hit, reason }], None);
-            return;
+            return Some(self.settle_definitions(
+                kind,
+                &word,
+                &here,
+                vec![Candidate { hit, reason }],
+                None,
+            ));
         }
         let mut outside = false;
         // The import names a module of the project's own: a workspace package linked in, an alias.
@@ -341,15 +364,13 @@ impl App {
             None => Vec::new(),
         };
         if !found.is_empty() {
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
+            return Some(self.settle_definitions(kind, &word, &here, found, None));
         }
         // A bare Rust variant behind a glob `use` of its enum (#370).
         if kind == Kind::Rust && !dotted && chain.is_empty() && locals.is_empty() {
             let found = self.rust_glob_variant(&here, &text, &word, &imports);
             if !found.is_empty() {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
+                return Some(self.settle_definitions(kind, &word, &here, found, None));
             }
         }
         // Python's `Cls.CONST`, an `Enum` member, a dataclass field (#100): the qualifier is a
@@ -364,8 +385,7 @@ impl App {
         if kind == Kind::Python && locals.is_empty() && !chain.is_empty() && !nested(self) {
             let found = self.class_attribute(kind, &here, &chain, &word);
             if !found.is_empty() {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
+                return Some(self.settle_definitions(kind, &word, &here, found, None));
             }
         }
         // A member in the project first. A qualifier no import names can still be a class, a
@@ -501,8 +521,7 @@ impl App {
                 })
                 .collect();
             if !named.is_empty() {
-                self.show_definitions(kind, &word, &here, named, None);
-                return;
+                return Some(self.settle_definitions(kind, &word, &here, named, None));
             }
             if class_method {
                 let found: Vec<Candidate> = concerns
@@ -521,8 +540,7 @@ impl App {
                 } else {
                     &word
                 };
-                self.show_definitions(kind, asked, &here, found, None);
-                return;
+                return Some(self.settle_definitions(kind, asked, &here, found, None));
             }
             // A cut in a grep whose result is dropped says nothing about the list below.
             self.truncated.set(false);
@@ -537,8 +555,7 @@ impl App {
                 .external_definitions(kind, &word, &chain, dotted, &imports, true)
                 .unwrap_or_default();
             if !found.is_empty() {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
+                return Some(self.settle_definitions(kind, &word, &here, found, None));
             }
         }
         // A parameter or a local in front of the word is a value for certain: it has members,
@@ -574,7 +591,7 @@ impl App {
                 let construction = after.trim_start().starts_with(['(', '{']) || keyword("new");
                 let tag = ["struct", "union", "enum"].into_iter().any(keyword);
                 // What a raw string or a block comment holds declares nothing, and must not count
-                // as a second body or definition in the rules below (show_definitions drops it
+                // as a second body or definition in the rules below (settle_definitions drops it
                 // again, for every kind).
                 let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
                 let hits: Vec<Hit> = hits
@@ -671,11 +688,9 @@ impl App {
                 })
                 .collect();
         }
-        self.show_definitions(kind, &word, &here, found, broke.as_deref());
-        // The status of the one definition says what was set aside: `1 definition, 1 prototype`.
-        if let Some(note) = aside {
-            self.message = self.message.replacen("1 match", &note, 1);
-        }
+        let mut lookup = self.settle_definitions(kind, &word, &here, found, broke.as_deref());
+        lookup.aside = aside;
+        Some(lookup)
     }
 
     /// The first line of each of `files`, a module a name or a path leads to as a whole.
@@ -691,6 +706,7 @@ impl App {
                     path,
                     line: 1,
                     col: 0,
+                    deleted: None,
                 },
             })
             .collect()
@@ -754,16 +770,16 @@ impl App {
             })
     }
 
-    /// Jumps to the one candidate, or opens the picker over several, and says how they were found
-    /// and at which name of the chain in front of the word the typed lookup `broke`, if it did.
-    fn show_definitions(
+    /// The candidates of a lookup made ready to show, read as the cursor's line reads them, with
+    /// at which name of the chain in front of the word the typed lookup `broke`, if it did.
+    fn settle_definitions(
         &mut self,
         kind: Kind,
         word: &str,
         here: &Path,
         mut found: Vec<Candidate>,
         broke: Option<&str>,
-    ) {
+    ) -> Lookup {
         // Standing on one of the definitions is not a reason to go nowhere. But what is left are
         // namesakes nothing ties to this one, so they are offered, never jumped to: a second `d`
         // after a proven jump would walk out of the type it has just proven (#68).
@@ -829,13 +845,44 @@ impl App {
         found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).0);
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
+        Lookup {
+            kind,
+            word: word.to_owned(),
+            here: here.to_path_buf(),
+            found,
+            broke: broke.map(str::to_owned),
+            namesakes,
+            offer_only,
+            truncated,
+            aside: None,
+        }
+    }
+
+    /// Jumps to the one candidate, or opens the picker over several, and says how they were
+    /// found. With none in the branch, the definitions the branch deleted are the answer (#440).
+    fn show_definitions(&mut self, lookup: Lookup) {
+        let Lookup {
+            kind,
+            ref word,
+            ref here,
+            mut found,
+            broke,
+            namesakes,
+            offer_only,
+            truncated,
+            aside,
+        } = lookup;
+        let broke = broke.as_deref();
+        if found.is_empty() {
+            found = self.deleted_definitions(kind, word, here);
+        }
         match found.as_slice() {
             [] => self.message = resolution(word, None, &found, broke, truncated),
             [one] if !namesakes && !offer_only && !truncated => {
                 let path = self.root.join(&one.hit.path);
                 // A module's first line declares nothing of the word.
                 let target = self
-                    .text_of(&one.hit.path)
+                    .hit_text(&one.hit)
                     .filter(|_| !matches!(one.reason, Reason::Module(_)))
                     .and_then(|text| search::qualified(kind, &text, one.hit.line, word));
                 let status = resolution(word, target.as_deref(), &found, broke, false);
@@ -844,7 +891,11 @@ impl App {
                 // implements the declaration it just landed on (#68, step 6). A row of the
                 // picker below lands there too, the word read by the rules `d` read it with.
                 let extra = search::word_chars(Some(kind), true);
-                self.jump_to_col(&path, one.hit.line, word_col(&one.hit.text, word, extra));
+                let col = word_col(&one.hit.text, word, extra);
+                match one.hit.deleted {
+                    Some(_) => self.jump_to_deleted(&path, one.hit.line, col),
+                    None => self.jump_to_col(&path, one.hit.line, col),
+                }
                 // A refused jump (edits that cannot be saved) leaves its own reason, not a
                 // resolution nobody followed.
                 if self.buf.path.as_deref() == Some(path.as_path()) {
@@ -868,6 +919,94 @@ impl App {
                 self.message = status;
             }
         }
+        // The status of the one definition says what was set aside: `1 definition, 1 prototype`.
+        if let Some(note) = aside {
+            self.message = self.message.replacen("1 match", &note, 1);
+        }
+    }
+
+    /// `f` run with the cursor's deleted line read where the review draws it (#440): the lines
+    /// the branch deleted there are put back into the open file above the line they were
+    /// deleted from, the cursor on its own, as the file's text for everything `f` reads. The
+    /// text is the file's again afterwards; [`App::renumber`] numbers back what `f` found in it.
+    pub(super) fn on_drawn<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
+        let Some((k, i)) = self.deleted else {
+            return f(self);
+        };
+        let block = self.diff.ghosts.get(&k).cloned().unwrap_or_default();
+        let m = block.len();
+        let kept = (self.line, self.deleted, self.dirty);
+        self.buf.lines.splice(k..k, block);
+        // Dirty, so the grep reads the open file as it is here, not from the disk.
+        (self.line, self.deleted, self.dirty) = (k + i, None, true);
+        let r = f(self);
+        self.buf.lines.drain(k..k + m);
+        (self.line, self.deleted, self.dirty) = kept;
+        r
+    }
+
+    /// `lookup`, found by [`App::on_drawn`] over the `m` lines deleted above file line `k`: its
+    /// lines of the open file numbered as the file has them, and the deleted ones as the base
+    /// had them. The branch's definitions are the answer when there are any: a deleted one only
+    /// where the branch has none (#440).
+    fn renumber(&self, mut lookup: Lookup, k: usize, m: usize) -> Lookup {
+        let from = self.diff.ghost_from.get(&k).copied().unwrap_or(0);
+        for c in &mut lookup.found {
+            let h = &mut c.hit;
+            if h.path != lookup.here {
+                continue;
+            }
+            match (h.line - 1).checked_sub(k) {
+                Some(i) if i < m => {
+                    (h.line, h.deleted) = (from + i + 1, Some(TextLine::Deleted(k, i)));
+                }
+                Some(_) => h.line -= m,
+                None => {}
+            }
+        }
+        if lookup.found.iter().any(|c| c.hit.deleted.is_none()) {
+            lookup.found.retain(|c| c.hit.deleted.is_none());
+        }
+        lookup
+    }
+
+    /// The lines the branch deleted that declare `word` where a definition of it in `here` can
+    /// live, found by name (#440): a string or a comment of the file at the base declares
+    /// nothing, as in the branch. Nothing outside a review.
+    fn deleted_definitions(&self, kind: Kind, word: &str, here: &Path) -> Vec<Candidate> {
+        let Some(r) = &self.review else {
+            return Vec::new();
+        };
+        let mut patterns = search::def_patterns(kind, word);
+        patterns.extend(search::member_patterns(kind, word).unwrap_or_default());
+        let Ok(re) = Regex::new(&patterns.join("|")) else {
+            return Vec::new();
+        };
+        let hits = deleted_hits(
+            &r.deleted,
+            |p| search::in_def_scope(kind, here, p),
+            |t| re.is_match(t).then_some(0),
+        );
+        let mut base: HashMap<PathBuf, (Vec<String>, Vec<bool>)> = HashMap::new();
+        let mut found: Vec<Candidate> = hits
+            .into_iter()
+            .filter(|h| {
+                let (lines, literal) = base.entry(h.path.clone()).or_insert_with(|| {
+                    let text = self.hit_text(h).unwrap_or_default();
+                    let literal = search::literal_lines(kind, &text);
+                    (text.lines().map(str::to_owned).collect(), literal)
+                });
+                !literal.get(h.line - 1).copied().unwrap_or(false)
+                    && search::declares_where(kind, word, h.line, &h.text, || lines)
+            })
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            })
+            .collect();
+        found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).0);
+        found.truncate(search::MAX_HITS);
+        found
     }
 
     /// The lines `pattern` matches where a definition of `word` in `here`, a file of `kind`, can
@@ -1224,4 +1363,19 @@ pub(super) fn resolution(
         // Each row says its own reason.
         format!("{word}: {n} declarations{note}")
     }
+}
+
+/// What a lookup of `d` found, settled and ready to be shown (#440): a lookup on a deleted line
+/// is read on the text [`App::on_drawn`] makes, and shown once the file is its own again.
+pub(super) struct Lookup {
+    kind: Kind,
+    word: String,
+    here: PathBuf,
+    found: Vec<Candidate>,
+    broke: Option<String>,
+    namesakes: bool,
+    offer_only: bool,
+    truncated: bool,
+    /// What the one definition set aside: `1 definition, 1 prototype`.
+    aside: Option<String>,
 }

@@ -148,6 +148,7 @@ impl App {
             line,
             col: 0,
             text: text.lines().nth(line - 1).unwrap_or_default().to_owned(),
+            deleted: None,
         })
     }
 
@@ -186,6 +187,7 @@ impl App {
                         path: path.clone(),
                         line,
                         col: 0,
+                        deleted: None,
                     });
                 }
             }
@@ -372,6 +374,7 @@ impl App {
                         path: hit.path,
                         line: at,
                         col: 0,
+                        deleted: None,
                     });
                 }
             }

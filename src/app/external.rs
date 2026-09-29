@@ -382,6 +382,18 @@ impl App {
         }
     }
 
+    /// The text `h` was read from: the file as the search read it, or for a line the branch
+    /// deleted, the file at the base, under the name it had there (#440).
+    pub(super) fn hit_text(&self, h: &Hit) -> Option<String> {
+        if h.deleted.is_none() {
+            return self.text_of(&h.path);
+        }
+        let r = self.review.as_ref()?;
+        let from = r.file(&h.path).and_then(|f| f.old.as_deref());
+        let bytes = r.base_bytes(&self.root, from.unwrap_or(&h.path)).ok()?;
+        Some(String::from_utf8_lossy(&bytes).into_owned())
+    }
+
     /// `path` relative to the standard library or dependency root of `kind` it is under,
     /// `json/__init__.py` rather than the whole path to the interpreter; any other path as it
     /// is. A root that is one package keeps its name, `serde-1.0.200/src/lib.rs`, or its files
@@ -417,13 +429,13 @@ impl App {
         word: &str,
         found: Vec<Candidate>,
     ) -> Vec<PickItem> {
-        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
+        let mut texts: HashMap<(PathBuf, bool), Option<String>> = HashMap::new();
         let named: Vec<(String, String, Candidate)> = found
             .into_iter()
             .map(|c| {
                 let text = texts
-                    .entry(c.hit.path.clone())
-                    .or_insert_with(|| self.text_of(&c.hit.path));
+                    .entry((c.hit.path.clone(), c.hit.deleted.is_some()))
+                    .or_insert_with(|| self.hit_text(&c.hit));
                 let name = text
                     .as_deref()
                     .filter(|_| !matches!(c.reason, Reason::Module(_)))
@@ -448,16 +460,20 @@ impl App {
             .into_iter()
             .map(|(name, why, c)| {
                 let head = format!(
-                    "{name}{}  {why}{}  {}:{}: ",
+                    "{name}{}  {why}{}  {}: ",
                     pad(name_w, &name),
                     pad(why_w, &why),
-                    self.rel_to_its_root(kind, &c.hit.path).display(),
-                    c.hit.line
+                    at_label(
+                        self.rel_to_its_root(kind, &c.hit.path),
+                        c.hit.line,
+                        c.hit.deleted.is_some()
+                    ),
                 );
                 PickItem {
                     code_at: Some(head.len()),
                     col: word_col(&c.hit.text, word, search::word_chars(Some(kind), true)),
                     label: head + &clip(c.hit.text.trim(), MAX_LABEL_TEXT),
+                    deleted: c.hit.deleted.is_some(),
                     path: c.hit.path,
                     line: c.hit.line,
                 }

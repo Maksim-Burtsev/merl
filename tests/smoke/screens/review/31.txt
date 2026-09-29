@@ -1,0 +1,57 @@
+wait app/repos.py  -59:14
+┌agent/refund ← origin/main──┐  ▎
+│  ▾ app                     │  ▎
+│✓   A refunds.py      +18 −0│  ▎class InMemoryOrderRepo:
+│✓   M repos.py        +0 −28│  ▎    """Orders in a dict, for running the API without Postgres. Same methods as OrderRepo."""
+│✓   M service.py      +13 −1│  ▎
+│  ▾ deploy                  │  ▎    def __init__(self):
+│    ▾ helm                  │  ▎        self.orders: dict[int, Order] = {}
+│      ▾ orders              │  ▎
+│✓       M values.yaml  +1 −0│  ▎    def get(self, order_id: int) -> Order | None:
+│  ▾ docs                    │  ▎        return self.orders.get(order_id)
+│    M architecture.png   bin│  ▎
+│  ▾ scripts                 │  ▎    def find_by_customer(self, customer_id: int) -> list[Order]:
+│    D refund_by_hand.… +0 −9│  ▎        return sorted(
+│  ▾ tests                   │  ▎            (o for o in self.orders.values() if o.customer_id == customer_id),
+│    A test_refunds.py +23 −0│  ▎            key=lambda o: o.id,
+│  ▾ worker                  │  ▎        )
+│    M main.go          +4 −1│  ▎
+│                            │  ▎    def find_by_status(self, status: OrderStatus) -> list[Order]:
+│                            │  ▎        return [o for o in self.orders.values() if o.status is status]
+│                            │  ▎
+│                            │  ▎    def save(self, order: Order) -> None:
+│                            │  ▎        self.orders[order.id] = order
+│                            │  ▎
+│                            │  ▎    def delete(self, order_id: int) -> None:
+│                            │  ▎        self.orders.pop(order_id, None)
+│                            │  ▎
+│                            │  ▎    def clear(self) -> None:
+│                            │  ▎        self.orders.clear()
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 8 files · +59 −39 ─────────┘
+app/repos.py  -59:14  [code]  hunk 1/1  file 2/8  1/1
+cursor (x,y,shown) 46,27,1

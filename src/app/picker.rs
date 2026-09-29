@@ -29,6 +29,7 @@ impl App {
                 line: 0,
                 col: 0,
                 code_at: None,
+                deleted: false,
             })
             .collect();
         // Only the file picker wants nucleo's path-aware scoring.
@@ -65,6 +66,7 @@ impl App {
                 line: 0,
                 col: 0,
                 code_at: None,
+                deleted: false,
             })
             .collect();
         self.show_picker(PickerKind::Themes, items);
@@ -124,10 +126,7 @@ impl App {
                     None => format!("theme {}", self.theme),
                 };
             }
-            Pick::Accept(item) => {
-                let path = self.root.join(&item.path);
-                self.jump_to_col(&path, item.line, item.col);
-            }
+            Pick::Accept(item) => self.jump_to_item(&item),
         }
         // Dropping the picker stops nucleo's workers.
         self.picker = None;
