@@ -630,11 +630,12 @@ pub enum RustVis {
     Private,
 }
 /// Whether 1-based `line` of `lines`, a hit of [`rust_method_pattern`], declares a method: the
-/// nearest line above it indented less opens an `impl` or a `trait`. Its owner and visibility,
-/// a trait method's the trait's.
+/// nearest line above it indented less opens an `impl` or a `trait`, or it stands in a macro's
+/// body, which an `impl` may expand it in (`Unreadable`). Its owner, its visibility (a trait
+/// method's the trait's) and the 1-based line of the `impl`, `trait` or macro arm around it.
 /// `None` for a `fn` at the top level, nested in a function, or in a `mod` block: none of them
 /// can follow a `.`.
-pub fn rust_method_at(lines: &[&str], line: usize) -> Option<(RustOwner, RustVis)> {
+pub fn rust_method_at(lines: &[&str], line: usize) -> Option<(RustOwner, RustVis, usize)> {
     static TRAIT: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s+([A-Za-z_]\w*)").unwrap()
     });
@@ -648,13 +649,21 @@ pub fn rust_method_at(lines: &[&str], line: usize) -> Option<(RustOwner, RustVis
         Regex::new(r"^\s*(?:unsafe\s+)?impl(?:\s*<[^{]*?>)?\s+(?:\w+::)*[A-Za-z_]\w*").unwrap()
     });
     static VIS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*pub\s*(\()?").unwrap());
+    static MACRO: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:#\[[^\]]*\]\s*)*(?:pub(?:\([^)]*\))?\s+)?macro(?:_rules!|\s)").unwrap()
+    });
     let k = line.checked_sub(1).filter(|&k| k < lines.len())?;
     let at = rust_parent(lines, k)?;
     let parent = lines[at];
     let owner = if let Some(c) = TRAIT.captures(parent) {
         RustOwner::Trait(c[1].to_owned())
     } else if !IMPL.is_match(parent) {
-        return None;
+        // Inside a `macro_rules!` or a `macro`, at any depth of its arms.
+        let mut up = at;
+        while !MACRO.is_match(lines[up]) {
+            up = rust_parent(lines, up)?;
+        }
+        RustOwner::Unreadable
     } else if let Some(c) = IMPL_FOR.captures(parent) {
         RustOwner::ImplOf(c[1].to_owned())
     } else {
@@ -678,18 +687,16 @@ pub fn rust_method_at(lines: &[&str], line: usize) -> Option<(RustOwner, RustVis
         Some(_) => RustVis::Pub,
         None => RustVis::Private,
     };
-    Some((owner, vis))
+    Some((owner, vis, at + 1))
 }
-/// A package of a `Cargo.lock`: its directory name in a registry, `name-version`, its name, and
-/// whether it comes from a `source` (a registry, a git repository) rather than a path of the
-/// workspace.
-pub type LockPackage = (String, String, bool);
+/// A package of a `Cargo.lock`: its directory name in a registry, `name-version`, and its name.
+pub type LockPackage = (String, String);
 /// The crates of `lock`, a `Cargo.lock`, that the package `from` reaches: itself and its
 /// `dependencies` lists followed transitively (normal, dev and build alike), by name; with every
 /// package the lock lists, to tell a registry crate by. `None` when the lock does not list
 /// `from`.
 pub fn cargo_reach(lock: &str, from: &str) -> Option<(Vec<String>, Vec<LockPackage>)> {
-    let mut packages: Vec<(String, String, Vec<String>, bool)> = Vec::new();
+    let mut packages: Vec<(String, String, Vec<String>)> = Vec::new();
     let mut in_deps = false;
     for l in lock.lines() {
         let t = l.trim();
@@ -705,8 +712,6 @@ pub fn cargo_reach(lock: &str, from: &str) -> Option<(Vec<String>, Vec<LockPacka
             p.0 = v.trim_matches('"').to_owned();
         } else if let Some(v) = t.strip_prefix("version = ") {
             p.1 = v.trim_matches('"').to_owned();
-        } else if t.starts_with("source = ") {
-            p.3 = true;
         } else if let Some(v) = t.strip_prefix("dependencies = [") {
             in_deps = !v.contains(']');
             p.2.extend(quoted_names(v));
@@ -733,7 +738,7 @@ pub fn cargo_reach(lock: &str, from: &str) -> Option<(Vec<String>, Vec<LockPacka
     }
     let dirs = packages
         .into_iter()
-        .map(|(n, v, _, source)| (format!("{n}-{v}"), n, source))
+        .map(|(n, v, _)| (format!("{n}-{v}"), n))
         .collect();
     Some((reached, dirs))
 }

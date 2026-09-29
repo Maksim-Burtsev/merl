@@ -243,6 +243,9 @@ impl App {
         let mut hits = self.project_definitions(kind, here, word, &pattern);
         let files = self.external_files(kind);
         hits.extend(self.external_grep(kind, &files, &pattern));
+        // Behind a `.` the word is never the declaration on its own line: a one-line
+        // `fn is_empty(&self) -> bool { self.0.is_empty() }` calls another.
+        hits.retain(|h| h.path != here || h.line != self.line + 1);
         let crate_of = |p: &Path| {
             p.ancestors()
                 .skip(1)
@@ -259,35 +262,52 @@ impl App {
             .as_deref()
             .and_then(package)
             .and_then(|name| search::cargo_reach(&lock, &name));
-        // A crate the lock does not list, the standard library's, is always reached. A registry
-        // copy of a crate of the workspace is not the one built.
+        // The packages the project's own `Cargo.toml`s declare: a registry copy of one of them
+        // is not the one built.
+        let workspace: Vec<String> = self
+            .files
+            .iter()
+            .filter(|f| f.file_name().is_some_and(|n| n == "Cargo.toml"))
+            .filter_map(|f| f.parent().and_then(package))
+            .collect();
+        // A crate the lock does not list, the standard library's, is always reached.
         let reached = |h: &Hit| {
-            let Some((reached, dirs)) = &reach else {
-                return true;
-            };
             let name = match h.path.is_absolute() {
                 true => {
                     let listed = h.path.ancestors().find_map(|a| {
                         let dir = a.file_name()?.to_str()?;
-                        dirs.iter().find(|(d, _, _)| d == dir)
+                        let dirs = reach
+                            .as_ref()
+                            .map(|(_, d)| d.as_slice())
+                            .unwrap_or_default();
+                        dirs.iter().find(|(d, _)| d == dir).map(|(_, n)| n.clone())
                     });
-                    match listed {
-                        Some((_, _, false)) => return false,
-                        found => found.map(|(_, n, _)| n.clone()),
+                    if listed.as_ref().is_some_and(|n| workspace.contains(n)) {
+                        return false;
                     }
+                    listed
                 }
                 false => crate_of(&h.path).as_deref().and_then(package),
             };
-            name.is_none_or(|n| reached.contains(&n) || !dirs.iter().any(|(_, m, _)| *m == n))
+            let Some((reached, dirs)) = &reach else {
+                return true;
+            };
+            name.is_none_or(|n| reached.contains(&n) || !dirs.iter().any(|(_, m)| *m == n))
         };
-        // A module's private items are its own and its children's: `src/foo.rs` has
-        // `src/foo/`, `lib.rs`, `main.rs` and `mod.rs` their directory.
+        // A module's private items are its own and its children's: `src/foo.rs` has `src/foo/`.
+        // A crate root has its directory: `lib.rs`, `main.rs`, `mod.rs`, `build.rs`, and a file
+        // directly in `tests/`, `benches/`, `examples/` or `src/bin/`.
         let below = |p: &Path| {
+            let parent = p.parent().unwrap_or(Path::new(""));
             let root_file = p
                 .file_stem()
-                .is_some_and(|s| s == "lib" || s == "main" || s == "mod");
+                .is_some_and(|s| s == "lib" || s == "main" || s == "mod" || s == "build")
+                || ["tests", "benches", "examples"]
+                    .iter()
+                    .any(|d| parent.file_name().is_some_and(|n| n == *d))
+                || parent.ends_with("src/bin");
             let dir = match root_file {
-                true => p.parent().unwrap_or(Path::new("")).to_path_buf(),
+                true => parent.to_path_buf(),
                 false => p.with_extension(""),
             };
             here == p || here.starts_with(dir)
@@ -306,7 +326,7 @@ impl App {
                 texts.insert(h.path.clone(), text);
             }
             let lines: Vec<&str> = texts[&h.path].lines().collect();
-            let Some((owner, vis)) = search::rust_method_at(&lines, h.line) else {
+            let Some((owner, vis, owner_line)) = search::rust_method_at(&lines, h.line) else {
                 continue;
             };
             let inside = !h.path.is_absolute();
@@ -316,20 +336,27 @@ impl App {
                 .iter()
                 .find_map(|r| h.path.strip_prefix(r).ok())
                 .unwrap_or(&h.path);
+            // The standard library marks what it offers `#[stable]` or `#[unstable]`: an inherent
+            // method, or a trait, with neither is its own (compiler-builtins' `Int`, a vendored
+            // `gimli`). A method a macro writes has the attributes the macro is handed.
+            let sysroot = h
+                .path
+                .to_string_lossy()
+                .contains("rustlib/src/rust/library/");
+            let unmarked = sysroot
+                && match owner {
+                    search::RustOwner::Inherent => !search::rust_stability(&lines, h.line),
+                    search::RustOwner::Trait(_) => !search::rust_stability(&lines, owner_line),
+                    _ => false,
+                };
             let internal = !inside
-                && (rel.components().any(|c| {
-                    matches!(
-                        c.as_os_str().to_str(),
-                        Some("tests" | "benches" | "examples")
-                    )
-                }) || (matches!(
-                    owner,
-                    search::RustOwner::Inherent | search::RustOwner::Unreadable
-                ) && h
-                    .path
-                    .to_string_lossy()
-                    .contains("rustlib/src/rust/library/")
-                    && !search::rust_stability(&lines, h.line)));
+                && (unmarked
+                    || rel.components().any(|c| {
+                        matches!(
+                            c.as_os_str().to_str(),
+                            Some("tests" | "benches" | "examples")
+                        )
+                    }));
             let visible = !internal
                 && match (&owner, vis) {
                     (search::RustOwner::ImplOf(_), _) => true,

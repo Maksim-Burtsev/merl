@@ -74,7 +74,7 @@ rust0071	crates/printer/src/standard.rs:879
 rust0072	crates/globset/src/lib.rs:183		
 rust0073			
 rust0074	crates/printer/src/json.rs:24	derived Clone: the oracle points at the derive attribute	
-rust0075	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/alloc/src/string.rs:2738		
+rust0075	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/alloc/src/string.rs:2738	blanket ToString: the oracle lands on the receiver's Display::fmt	
 rust0076	crates/searcher/src/line_buffer.rs:301		
 rust0077	crates/core/flags/mod.rs:192		
 rust0078	crates/printer/src/standard.rs:515		

@@ -167,7 +167,8 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
                 &at("alloc/src/borrow.rs:2"),
             ),
         ),
-        // A value named like a module is found in that module, by name.
+        // A value named like a module is a value like any other (#358): the one method of the
+        // name outside the project, by name.
         (
             "main.rs",
             "path.join",

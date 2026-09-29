@@ -296,8 +296,10 @@ function and bodiless signatures, Go `func (r *T) Name(`, Rust `fn name` directl
 a `trait`. They are collected from the project and from the standard library and dependencies,
 where TypeScript is read from its `.d.ts` files only. Rust drops what the cursor cannot reach: an
 inherent method without `pub` outside its module, a `pub(crate)` one outside its crate, a crate
-`Cargo.lock` does not lead to from the cursor's, a crate's tests, and a method of the standard
-library with no `#[stable]` or `#[unstable]`, which is its own. The traits' methods come first,
+`Cargo.lock` does not lead to from the cursor's, a registry copy of a package of the project, a
+crate's tests, a trait outside the project that is not `pub`, and a method or a trait of the
+standard library with no `#[stable]` or `#[unstable]`, which is its own. A method a macro writes
+counts, whatever its `pub` says. The traits' methods come first,
 and when every candidate is the method of one trait or of an `impl` of it, `d` jumps to the
 trait's, `via trait Clone`.
 So is every field of that name in the project, one row per type, on the line a proven receiver
