@@ -10,7 +10,8 @@
 # counters, as outside a review (#286). Back in repos.py, c stands on the first line the branch
 # deleted and the status bar reads its old number, negative; / finds the deleted text, Ctrl+C
 # copies it, and an edit there is refused (#439). The panel's status letters are plain, in the
-# row's style (#450).
+# row's style (#450). o lists the review's files first, each with its panel letter, and u marks
+# the uses on lines the branch changed with the gutter's bar (#246).
 caption review · merl --review=agent/refund fetches the agent's branch and opens on its first hunk
 merl --review=agent/refund
 wait hunk 1/1  file 1/8
@@ -76,6 +77,17 @@ wait copied 1 line
 run $SMOKE_TMUX show-buffer | grep -qx '        self.orders.clear()'
 key Enter
 wait -59:14  [code]  hunk 1/1  file 2/8  deleted
+caption o lists the review's files first, with their panel letter (#246)
+key o
+wait Files (
+type app/service.py
+key Enter
+caption u marks the uses on lines the branch changed with the gutter's bar (#246)
+key /
+type OrderStatus.REFUNDED
+key Enter u
+wait Usages of OrderStatus
+key Escape
 # --base names the branch the review is against, here the one origin/HEAD would give (#310).
 merl --review=agent/refund --base main
 wait hunk 1/1  file 1/8

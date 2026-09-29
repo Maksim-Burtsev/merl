@@ -356,6 +356,10 @@ pub struct App {
     pub autosave: Duration,
     /// `review_panel_colours` of the config: off, the review panel draws as it did before #250.
     pub review_panel_colours: bool,
+    /// `review_list_marks` of the config: `u` and `s` mark the rows the branch changed (#246).
+    pub review_list_marks: bool,
+    /// `review_open_files_first` of the config: `o` lists the review's files first (#246).
+    pub review_open_files_first: bool,
     /// Linear per-file undo history, oldest first, and what undo took back.
     undo: Vec<Edit>,
     redo: Vec<Edit>,
@@ -528,6 +532,8 @@ impl App {
             last_edit: None,
             autosave: Duration::from_secs(1),
             review_panel_colours: true,
+            review_list_marks: true,
+            review_open_files_first: true,
             undo: Vec::new(),
             redo: Vec::new(),
             undo_break: false,

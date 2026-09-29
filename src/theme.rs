@@ -451,6 +451,12 @@ pub struct Config {
     /// The review panel's dim counts and branch totals (#250).
     #[serde(default = "default_true")]
     pub review_panel_colours: bool,
+    /// Review: `u` and `s` mark the rows on lines the branch changed with the gutter's `▎` (#246).
+    #[serde(default = "default_true")]
+    pub review_list_marks: bool,
+    /// Review: `o` lists the review's files first, with their panel letter (#246).
+    #[serde(default = "default_true")]
+    pub review_open_files_first: bool,
 }
 
 fn default_autosave() -> u64 {
@@ -471,6 +477,8 @@ impl Default for Config {
             theme: default_theme(),
             autosave_delay_ms: default_autosave(),
             review_panel_colours: true,
+            review_list_marks: true,
+            review_open_files_first: true,
         }
     }
 }
@@ -713,6 +721,12 @@ mod tests {
         let read = |text| toml::from_str::<Config>(text).unwrap().review_panel_colours;
         assert!(read(""));
         assert!(!read("review_panel_colours = false"));
+        let c = toml::from_str::<Config>("").unwrap();
+        assert!(c.review_list_marks && c.review_open_files_first);
+        let c =
+            toml::from_str::<Config>("review_list_marks = false\nreview_open_files_first = false")
+                .unwrap();
+        assert!(!c.review_list_marks && !c.review_open_files_first);
     }
 
     #[test]

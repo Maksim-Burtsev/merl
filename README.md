@@ -251,7 +251,9 @@ hours: no neon, and light themes that look like paper.
 ## Config
 
 There is none to write. `T` remembers your theme in `~/.config/merl/config.toml`, and
-`autosave_delay_ms` (1000) lives there too.
+`autosave_delay_ms` (1000) lives there too. In a review, `review_list_marks = false` stops `u`
+and `s` marking the rows on lines the branch changed, and `review_open_files_first = false` keeps
+the review's files from the top of `o`.
 
 ## Terminals
 

@@ -168,6 +168,8 @@ fn run() -> Result<()> {
     }
     app.autosave = Duration::from_millis(config.autosave_delay_ms);
     app.review_panel_colours = config.review_panel_colours;
+    app.review_list_marks = config.review_list_marks;
+    app.review_open_files_first = config.review_open_files_first;
     app.theme = name;
     app.config = theme::config_path();
     if cli.tutor || cli.drill.is_some() {

@@ -1241,6 +1241,106 @@ fn a_deleted_file_with_nothing_to_read_is_not_gone_back_to() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// #246: in a review `u` and `s` give a row on a line the branch added or changed the gutter's
+/// `▎` in its colour, an untouched line a blank column; `o` lists the review's files first, with
+/// their panel letter, then the rest. Either config key off draws its list as before.
+#[test]
+fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    use ratatui::style::Color;
+    let (dir, mut a) = review_app("reviewlists");
+    a.show_tree = false;
+    // Line 2 changed, line 3 as at the base; both hold a whole `c`.
+    std::fs::write(dir.join("src/a.rs"), "a\nB c\nc\nd\ne\nF\n").unwrap();
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    // Each row of the screen with the colours of its cells.
+    let screen = |a: &mut App| {
+        if let Some(p) = &mut a.picker {
+            p.settle();
+        }
+        let mut t = Terminal::new(TestBackend::new(70, 16)).unwrap();
+        t.draw(|f| crate::ui::draw(f, a, &theme)).unwrap();
+        let buf = t.backend().buffer();
+        (0..buf.area.height)
+            .map(|y| {
+                let cells = (0..buf.area.width).map(|x| &buf[(x, y)]);
+                let text: String = cells.clone().map(|c| c.symbol()).collect();
+                (text, cells.map(|c| c.fg).collect::<Vec<_>>())
+            })
+            .collect::<Vec<_>>()
+    };
+    // The colour of the cell right after the first char of `needle`, a picker's border.
+    let row = |rows: &[(String, Vec<Color>)], needle: &str| {
+        rows.iter()
+            .find_map(|(t, c)| {
+                let at = t.find(needle)?;
+                Some(c[t[..at].chars().count() + 1])
+            })
+            .unwrap_or_else(|| panic!("{needle:?} not in {rows:#?}"))
+    };
+    let esc = |a: &mut App| press(a, KeyCode::Esc, KeyModifiers::NONE);
+
+    a.jump_to(&dir.join("src/a.rs"), 3);
+    a.col = 0;
+    press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
+    let rows = screen(&mut a);
+    assert_eq!(row(&rows, "\u{2502}\u{258e}src/a.rs:2: B c"), Color::Green);
+    row(&rows, "\u{2502} src/a.rs:3: c");
+    esc(&mut a);
+
+    press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+    typed(&mut a, "c");
+    a.settle_search();
+    let rows = screen(&mut a);
+    row(&rows, "\u{2502}\u{258e}src/a.rs:2: B c");
+    row(&rows, "\u{2502} src/a.rs:3: c");
+    esc(&mut a);
+
+    // The review's files on disk in the panel's order, then the rest; `gone` is not on disk.
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    let rows = screen(&mut a);
+    let listed: Vec<&str> = rows
+        .iter()
+        .filter_map(|(t, _)| {
+            let t = t.trim_end_matches([' ', '\u{2502}']);
+            t.rsplit_once('\u{2502}').map(|(_, r)| r.trim_end())
+        })
+        .skip_while(|r| !r.starts_with('>'))
+        .skip(1)
+        .collect();
+    assert_eq!(
+        listed,
+        [
+            "M src/a.rs",
+            "M crlf.txt",
+            "A new",
+            "M tail",
+            "  src/keep.rs",
+        ],
+        "{:#?}",
+        rows.iter().map(|(t, _)| t).collect::<Vec<_>>()
+    );
+    // The letter in the row's style, as the panel draws it (#450): the name's colour.
+    let (t, c) = rows
+        .iter()
+        .find(|(t, _)| t.contains("\u{2502}M src/a.rs"))
+        .unwrap();
+    let at = t[..t.find("\u{2502}M src/a.rs").unwrap()].chars().count() + 1;
+    assert_eq!(c[at], c[at + 2]);
+    esc(&mut a);
+
+    a.review_list_marks = false;
+    a.review_open_files_first = false;
+    press(&mut a, KeyCode::Char('u'), KeyModifiers::NONE);
+    row(&screen(&mut a), "\u{2502}src/a.rs:2: B c");
+    esc(&mut a);
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    let rows = screen(&mut a);
+    assert!(!rows.iter().any(|(t, _)| t.contains("M src/a.rs")));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// #439: the lines a branch deleted are lines of the text. `c` stands on the first line of a
 /// hunk, a deleted one when it starts with a deletion; `/` finds them, Ctrl+C copies them as they
 /// were, and nothing edits them.
