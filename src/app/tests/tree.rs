@@ -159,6 +159,12 @@ fn ctrl_n_resolves_the_links_on_the_path() {
         assert_eq!(a.message, "outside the project", "{path}");
     }
     assert_eq!(std::fs::read_dir(&outside).unwrap().count(), 0);
+    // A link to a file out there is refused as well, not opened (#448).
+    std::fs::write(outside.join("far.py"), "far = 1\n").unwrap();
+    std::os::unix::fs::symlink(outside.join("far.py"), dir.join("far.py")).unwrap();
+    new(&mut a, "far.py");
+    assert_eq!(a.message, "outside the project");
+    assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("src/a.py")));
     new(&mut a, "inside/b.py");
     let made = dir.join("src/b.py");
     assert!(made.is_file());
