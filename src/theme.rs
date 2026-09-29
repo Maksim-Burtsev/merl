@@ -448,7 +448,7 @@ pub struct Config {
     /// Edits are written this long after the last keystroke; VS Code's `files.autoSaveDelay`.
     #[serde(default = "default_autosave")]
     pub autosave_delay_ms: u64,
-    /// The review panel's coloured status letters, dim counts and branch totals (#250).
+    /// The review panel's dim counts and branch totals (#250).
     #[serde(default = "default_true")]
     pub review_panel_colours: bool,
 }
