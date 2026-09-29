@@ -537,6 +537,29 @@ impl App {
                     .is_ok_and(|text| search::directly_inside(&text, h.line, block))
             });
         }
+        // `GO=$(GO) ./build.sh` in a recipe sets a variable of one shell command (#477): it
+        // declares the word only for a shell variable of the command under the cursor,
+        // `$${ARCH}`, and never for make's own `$(GO)`.
+        if kind == Kind::Make {
+            let line = self.line_str();
+            let shell =
+                search::definition_word(Some(kind), line, self.col).is_some_and(|(r, w)| {
+                    let before = &line[..r.start];
+                    let shell_ref = before.ends_with("$$(") || before.ends_with("$${");
+                    let make_ref = before.ends_with("$(") || before.ends_with("${");
+                    w == word && (shell_ref || !make_ref)
+                });
+            let text = self.buf.lines.join("\n");
+            let command = search::make_recipe_command(&text, self.line + 1).filter(|_| shell);
+            hits.retain(|h| {
+                std::fs::read_to_string(self.root.join(&h.path)).map_or(true, |text| {
+                    match search::make_recipe_command(&text, h.line) {
+                        None => true,
+                        at => h.path == here && at == command,
+                    }
+                })
+            });
+        }
         hits
     }
 

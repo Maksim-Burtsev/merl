@@ -35,7 +35,7 @@ fn command_line_column_counts_chars() {
     };
     let a = at(2, 3);
     assert_eq!((a.line, a.col, a.display_col()), (1, 3, 3));
-    assert_eq!(a.history, [(path.clone(), 1, 3)]);
+    assert_eq!(a.history, [(path.clone(), TextLine::File(1), 3)]);
     assert_eq!(at(2, 99).col, "héllo".len());
 }
 

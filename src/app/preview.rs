@@ -55,7 +55,7 @@ impl App {
                 .preview
                 .as_ref()
                 .map_or(0, |p| p.row.saturating_sub(p.top));
-            let cur = (self.line, self.cursor_row());
+            let cur = self.cursor_at();
             (self.top_line, self.top_row) = self.back_rows(cur, off);
             self.sync_want_x();
             return;
@@ -66,10 +66,7 @@ impl App {
         }
         // A cursor above the pane (the pane scrolled onto the lines deleted after the last one,
         // where no row of text reaches) goes to the top.
-        let (top, cur) = (
-            (self.top_line, self.top_row),
-            (self.line, self.cursor_row()),
-        );
+        let (top, cur) = ((self.top_line, self.top_row), self.cursor_at());
         let off = match cur < top {
             true => 0,
             false => self
@@ -235,7 +232,7 @@ impl App {
                 .find(|r| !r.lines.is_empty())
                 .map_or((usize::MAX, usize::MAX), |r| (r.lines.start, 0)),
         };
-        (self.line, self.col) = self.clamp_pos(src);
+        self.go(self.clamp_pos(src));
         let at = (self.line, self.col);
         if let Some(p) = &mut self.preview {
             (p.row, p.top, p.at) = (to, top, Some(at));

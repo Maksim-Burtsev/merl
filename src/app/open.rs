@@ -57,7 +57,8 @@ impl App {
                     if self.mode == Mode::Edit {
                         self.mode = Mode::Normal;
                     }
-                    (self.line, self.col, self.want_x) = (0, 0, 0);
+                    self.go((0, 0));
+                    self.want_x = 0;
                     (self.top_line, self.top_row) = (0, 0);
                     // After the viewport is reset: the diff clamps it against the new file.
                     self.diff = git::Diff::default();
@@ -185,8 +186,10 @@ impl App {
             }
             _ => None,
         };
-        // Ghosts change how many rows a line has; the viewport must not point past them.
+        // Ghosts change how many rows a line has; the viewport must not point past them, nor
+        // the cursor at a deleted line that went.
         self.clamp_top();
+        self.clamp_cursor();
     }
 
     /// The project changed on disk and was walked again: the file list is the new one for the
@@ -244,19 +247,31 @@ impl App {
         }
         let mut buf = Buffer::from_bytes(path.clone(), &bytes);
         self.lock_unwritable(&mut buf);
+        // A deleted line the cursor is on is found again by what it says (below).
+        let reading = self.deleted.map(|(_, i)| (self.line_str().to_string(), i));
         let old = std::mem::replace(&mut self.buf, buf);
         if self.review.is_some() {
             // The reader stays in the hunk they are in when an agent writes above it: every
             // line kept of this file goes down with its text, before anything is clamped.
             let to = |l: &mut usize| *l = carried(&old.lines, &self.buf.lines, *l);
+            let here = self.at();
             let stop = self.history.get_mut(self.hist_idx);
-            let stop = stop.filter(|s| s.0 == path && s.1 == self.line);
-            [&mut self.line, &mut self.top_line, &mut self.find_anchor.0]
+            let stop = stop.filter(|s| s.0 == path && s.1 == here);
+            let deleted = self.deleted.as_mut().map(|(k, _)| k);
+            [&mut self.line, &mut self.top_line]
+                .into_iter()
+                .chain(deleted)
+                .for_each(to);
+            // A deleted line goes with the key it is drawn above.
+            let carry = |t: &mut TextLine| match t {
+                TextLine::File(l) | TextLine::Deleted(l, _) => to(l),
+            };
+            [&mut self.find_anchor.0]
                 .into_iter()
                 .chain(self.anchor.as_mut().map(|a| &mut a.0))
                 .chain(self.find_sel.as_mut().map(|a| &mut a.0))
                 .chain(stop.map(|s| &mut s.1))
-                .for_each(to);
+                .for_each(carry);
         }
         self.dirty = false;
         self.conflict = false;
@@ -272,15 +287,42 @@ impl App {
         }
         self.undo_break = true;
         self.refresh_diff();
-        (self.line, self.col) = self.clamp_pos((self.line, self.col));
+        if let Some(reading) = reading {
+            self.find_deleted_again(reading);
+        }
+        self.clamp_cursor();
         self.sync_want_x();
         self.clamp_scroll();
         self.message = "reloaded".into();
         true
     }
 
-    pub(super) fn pos(&self) -> Option<(PathBuf, usize, usize)> {
-        self.buf.path.clone().map(|p| (p, self.line, self.col))
+    /// The cursor back on the deleted line `text`, the `i`th at its key before a reload: git keys
+    /// a deletion by where the lines around it went, which the carry of the file's lines cannot
+    /// know (lines appended under those deleted at the end key them above the first new one).
+    /// The copy nearest the carried key, then the index, wins; none, and `clamp_cursor` decides.
+    fn find_deleted_again(&mut self, (text, i): (String, usize)) {
+        let near = self.at().key();
+        let found = (self.diff.ghosts.iter())
+            .flat_map(|(&k, g)| g.iter().enumerate().map(move |(j, t)| (k, j, t)))
+            .filter(|&(_, _, t)| *t == text)
+            .min_by_key(|&(k, j, _)| (k.abs_diff(near), j.abs_diff(i)));
+        if let Some((k, j, _)) = found {
+            self.set_at(TextLine::Deleted(k, j));
+        }
+    }
+
+    /// Fewer than [`HIST_NEAR`] lines of the text apart, the deleted ones counted: a move across
+    /// a tall deletion is far however few file lines it passes.
+    fn near(&self, a: TextLine, b: TextLine) -> bool {
+        let (lo, hi) = (a.min(b), a.max(b));
+        std::iter::successors(Some(lo), |&t| self.next_line(t))
+            .take(HIST_NEAR)
+            .any(|t| t == hi)
+    }
+
+    pub(super) fn pos(&self) -> Option<(PathBuf, TextLine, usize)> {
+        self.buf.path.clone().map(|p| (p, self.at(), self.col))
     }
 
     /// Records where the cursor is now, VS Code style: the current stop always tracks the
@@ -296,7 +338,7 @@ impl App {
             if *cur == pos {
                 return;
             }
-            if !jump && cur.0 == pos.0 && cur.1.abs_diff(pos.1) < HIST_NEAR {
+            if !jump && cur.0 == pos.0 && self.near(cur.1, pos.1) {
                 self.history[self.hist_idx] = pos;
                 return;
             }
@@ -319,12 +361,12 @@ impl App {
     /// [`App::jump_to`], the cursor on byte `col` of the line: on the name `d` found, on the
     /// word a picker row is about (#236). The stop is made there, so `[` and `]` come back to it.
     pub(super) fn jump_to_col(&mut self, path: &Path, line: usize, col: usize) {
-        let before = (self.line, self.col);
+        let before = (self.at(), self.col);
         self.preview_jumped();
         if self.open(path, line) {
             self.focus = Focus::Code;
             if col > 0 {
-                (self.line, self.col) = self.clamp_pos((self.line, col));
+                self.go(self.clamp_pos((self.line, col)));
                 self.sync_want_x();
             }
         }
@@ -353,8 +395,8 @@ impl App {
             // With the stops between them dropped, this one can be where the cursor already
             // is: not a step, it goes too.
             let twin = self.history[i] == self.history[self.hist_idx];
-            if !twin && self.open(&path, line + 1) {
-                break Some((i, path, col));
+            if !twin && self.open(&path, line.key() + 1) {
+                break Some((i, path, line, col));
             }
             // Edits that could not be saved, or a file that is there and does not open: the
             // stop stays, and `open` has said why.
@@ -372,14 +414,18 @@ impl App {
             [one] => self.message = format!("{} gone", self.rel_path_of(one)),
             _ => self.message = format!("{} files gone", gone.len()),
         }
-        let Some((i, path, col)) = landed else { return };
+        let Some((i, path, line, col)) = landed else {
+            return;
+        };
         self.hist_idx = i;
         self.focus = Focus::Code;
-        (self.line, self.col) = self.clamp_pos((self.line, col));
+        let (line, col) = self.clamp_place((line, col));
+        self.set_at(line);
+        self.col = col;
         self.sync_want_x();
         // The stop follows the file: after a reload shortened it, this is where `[` lands,
         // and `hist_note` must not read the clamp as a move that drops the forward history.
-        self.history[i] = (path, self.line, self.col);
+        self.history[i] = (path, self.at(), self.col);
     }
 }
 
