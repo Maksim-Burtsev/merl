@@ -821,3 +821,111 @@ fn a_go_literal_key_is_a_field_of_the_literals_type() {
     assert_eq!(d("shop/more.go", "^Street"), street());
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #332. A bare Go name is a local, a top-level name of the file's own package, a name of a dot
+/// import or a predeclared one, and `pkg.X` is declared in `pkg`'s directory or nowhere: no
+/// namesake of another package is offered.
+#[test]
+fn a_go_name_is_looked_up_in_its_own_package() {
+    let (dir, mut a) = project_app(
+        "go-confine",
+        &[
+            ("go.mod", "module example.com/confine\n"),
+            (
+                "shop/shop.go",
+                "package shop\n\nconst (\n\tMaxItems = 10\n)\n\ntype NetworkAddress struct{ Network string }\n\nfunc (na NetworkAddress) IsUnix() bool { return false }\n\nfunc IsUnix(n string) bool { return n == \"unix\" }\n\nfunc check(n string) bool { return IsUnix(n) }\n\nfunc Network() string { return \"\" }\n\nvar addr = NetworkAddress{Network: \"tcp\"}\n",
+            ),
+            (
+                "shop/inner_test.go",
+                "package shop\n\nfunc inner() bool { return IsUnix(\"x\") && extOnly() }\n",
+            ),
+            (
+                "shop/outer_test.go",
+                "package shop_test\n\nfunc extOnly() bool { return IsUnix(\"x\") }\n",
+            ),
+            (
+                "other/other.go",
+                "package other\n\nfunc MaxItems() int { return 3 }\n\nfunc helper() {\n\tcount := 1\n\t_ = count\n}\n",
+            ),
+            (
+                "app/app.go",
+                "package app\n\nimport \"example.com/confine/shop\"\n\nvar (\n\tcount         = 0\n\tvalidUserinfo = true\n)\n\nfunc limit() int { return shop.MaxItems }\n\nfunc total() int { return count }\n\nfunc valid() bool { return validUserinfo }\n\nfunc size(xs []int) int { return len(xs) }\n\nfunc unknown() int { return shop.Missing }\n",
+            ),
+            (
+                "dot/dot.go",
+                "package dot\n\nimport . \"example.com/confine/shop\"\n\nfunc most() int { return MaxItems }\n",
+            ),
+        ],
+    );
+    let goroot = external_root(
+        "go-confine",
+        &[
+            (
+                "src/builtin/builtin.go",
+                "package builtin\n\ntype Type int\n\nfunc len(v Type) int\n",
+            ),
+            (
+                "src/net/url/url.go",
+                "package url\n\nfunc validUserinfo(s string) bool { return true }\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Go, &[goroot.join("src")]);
+    let mut d = |file: &str, code: &str| {
+        d_on(&mut a, file, code);
+        shown(&mut a)
+    };
+    let by_name = |word: &str, place: &str| jump(&format!("{word}: by name, 1 match"), place);
+    // A bare name is never a method.
+    assert_eq!(
+        d("shop/shop.go", "return IsUnix"),
+        by_name("IsUnix", "shop/shop.go:11")
+    );
+    assert_eq!(
+        d("app/app.go", "shop.MaxItems"),
+        jump("MaxItems: via import shop/", "shop/shop.go:4")
+    );
+    assert_eq!(
+        d("app/app.go", "shop.Missing"),
+        jump("no definition for Missing", "app/app.go:18")
+    );
+    assert_eq!(
+        d("app/app.go", "return count"),
+        by_name("count", "app/app.go:6")
+    );
+    assert_eq!(
+        d("app/app.go", "return validUserinfo"),
+        by_name("validUserinfo", "app/app.go:7")
+    );
+    assert_eq!(
+        d("app/app.go", "return len"),
+        jump(
+            "len: via builtin",
+            &format!("{}:5", goroot.join("src/builtin/builtin.go").display())
+        )
+    );
+    assert_eq!(
+        d("dot/dot.go", "return MaxItems"),
+        jump("MaxItems: via import shop/", "shop/shop.go:4")
+    );
+    // An external test package shares the directory, not the names.
+    assert_eq!(
+        d("shop/inner_test.go", "return IsUnix"),
+        by_name("IsUnix", "shop/shop.go:11")
+    );
+    assert_eq!(
+        d("shop/inner_test.go", "&& extOnly"),
+        jump("no definition for extOnly", "shop/inner_test.go:3")
+    );
+    assert_eq!(
+        d("shop/outer_test.go", "return IsUnix"),
+        jump("no definition for IsUnix", "shop/outer_test.go:3")
+    );
+    // A key is the literal's field, whatever the package declares of its name.
+    assert_eq!(
+        d("shop/shop.go", "{Network"),
+        jump("Network: via NetworkAddress{\u{2026}}", "shop/shop.go:7")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&goroot).unwrap();
+}

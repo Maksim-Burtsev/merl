@@ -158,6 +158,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in Go reads the locals and parameters above a label: gofmt writes `scan:` at the left
   margin of a function, and the scope walk took it for the function's end, so a local used
   below it gave a namesake from elsewhere or `no definition`. (#330)
+- `d` in Go looks a bare name up where Go does: a local, a name of the file's own package, of a
+  dot import, or a predeclared one (`len` lands in GOROOT's `builtin/builtin.go`). `pkg.X` is
+  looked for in `pkg`'s directory only, since Go has no re-exports. It searched every package
+  of the project, GOROOT and the module cache, so a name it missed jumped to a namesake of
+  another package, a method or another function's local; now that is `no definition`. A
+  `package x_test` file no longer sees the names of `package x`. (#332)
 - `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
   in the project, the standard library and the dependencies the cursor can reach, the traits'
   first, where it jumped to a lone project namesake: `v.unwrap()` on an `Option` landed on a

@@ -305,14 +305,16 @@ pub fn field_decl_at(kind: Kind, text: &str, line: usize, start: usize, name: &s
 /// What a Go word followed by `:` is a key of (#327).
 #[derive(Debug, PartialEq)]
 pub enum GoKey {
-    /// No key of a struct literal: a label, a `case`, a slice expression, a key of a map or a
-    /// slice literal, which is a value. The word keeps the lookup of a bare name.
+    /// No key of a composite literal: a label, a `case`, a slice expression. The word keeps the
+    /// lookup of a bare name.
     No,
     /// A key of a literal of the type written so: `Order`, `shop.Order`, `Order[T]`.
     Of(String),
     /// A key of a literal whose type the rules cannot read: an anonymous struct, an element of
     /// a collection whose type is not written in front of it.
     Unknown,
+    /// A key of a map or a slice literal, which is a value.
+    Value,
 }
 /// Whether the Go word at bytes `start..end` of 1-based `line` of `text` is a key of a composite
 /// literal, and of what type (#327). The word is followed by `:` (not `:=`), has no `.` in front,
@@ -342,11 +344,10 @@ pub fn go_key(text: &str, line: usize, start: usize, end: usize) -> GoKey {
         return GoKey::No;
     };
     match go_literal_type(&lines, &literal, j, i, 0) {
-        Some(Ok(t)) if !t.starts_with('[') && !t.starts_with("map[") => {
-            GoKey::Of(t.trim_start_matches('*').to_owned())
-        }
+        Some(Ok(t)) if t.starts_with('[') || t.starts_with("map[") => GoKey::Value,
+        Some(Ok(t)) => GoKey::Of(t.trim_start_matches('*').to_owned()),
         Some(Err(())) => GoKey::Unknown,
-        _ => GoKey::No,
+        None => GoKey::No,
     }
 }
 /// The bracket still open in front of byte `col` of 0-based line `k`: its line, its byte and

@@ -60,16 +60,30 @@ impl App {
     }
 
     /// The files a name of `file` is declared in without an import: the file, or for Go every
-    /// file of its package (a `_test.go` file only from a test).
+    /// file of its package (a `_test.go` file only from a test). An external test package,
+    /// `package x_test`, shares the directory with `package x` but not its names (#332).
     pub(super) fn package_files(&self, kind: Kind, file: &Path) -> Vec<PathBuf> {
         let mut files = vec![file.to_path_buf()];
         if kind == Kind::Go {
             let test = |f: &Path| f.to_string_lossy().ends_with("_test.go");
+            let package = |f: &Path| {
+                self.text_of(f).and_then(|t| {
+                    t.lines()
+                        .find_map(|l| l.strip_prefix("package "))
+                        .map(|p| p.split_whitespace().next().unwrap_or_default().to_owned())
+                })
+            };
+            let own = test(file).then(|| package(file)).flatten();
+            let external = own.as_ref().is_some_and(|p| p.ends_with("_test"));
             files.extend(
                 self.files
                     .iter()
                     .filter(|f| f.parent() == file.parent() && f.as_path() != file)
                     .filter(|f| search::kind_of(f) == Some(Kind::Go) && (test(file) || !test(f)))
+                    .filter(|f| match test(f) {
+                        true => own.is_none() || package(f) == own,
+                        false => !external,
+                    })
                     .cloned(),
             );
         }

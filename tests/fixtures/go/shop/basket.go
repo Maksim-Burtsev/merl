@@ -31,7 +31,7 @@ func (b *Basket) Bonus() int {
 func DescribeAny(p interface{ Describe() string }) string {
 	return p.Describe() + Describe("x")
 	//       ^ d: picker shop/pricing.go:28, shop/pricing.go:33
-	//                    ^ d: picker shop/pricing.go:28, shop/pricing.go:33, shop/warehouse.go:15; want shop/warehouse.go:15 (#332)
+	//                    ^ d: shop/warehouse.go:15
 }
 
 func Restock(Discount int) int {
@@ -50,7 +50,7 @@ func Overweight(grams int) bool {
 func Currency() string {
 	return Euro + Dollar
 	//     ^ d: shop/pricing.go:11
-	//            ^ d: picker shop/pricing.go:12, cart/cart.go:25; want shop/pricing.go:12 (#332)
+	//            ^ d: shop/pricing.go:12
 }
 
 func Fallback() Tariff {

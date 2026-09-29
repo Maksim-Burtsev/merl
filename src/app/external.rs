@@ -115,8 +115,9 @@ impl App {
                     .module(m)
                     .or_else(|| search::module_among(&all, m, package)),
             };
-            // An import of something not installed: nothing outside says what it is.
-            let Some((n, found)) = found else {
+            // An import of something not installed: nothing outside says what it is. A Go
+            // package is its own directory, never one above it (#332).
+            let Some((n, found)) = found.filter(|(n, _)| package.is_none_or(|k| *n >= k)) else {
                 return Some(Vec::new());
             };
             m.truncate(n);
@@ -164,6 +165,10 @@ impl App {
         // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.
         // Past a copy, first where the module's other copies are, as the module's files among
         // all of them: no slower and no noisier than without the copy.
+        // Go has no re-exports: a package that does not declare the name is the answer (#332).
+        if hits.is_empty() && imported && kind == Kind::Go {
+            return Some(Vec::new());
+        }
         if hits.is_empty() && imported {
             if narrowed {
                 let others = search::module_among(&all, &named.unwrap_or_default(), package);
