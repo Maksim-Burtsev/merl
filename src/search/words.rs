@@ -152,7 +152,7 @@ fn aside(t: &str) -> bool {
 /// Whether a walk up the indentation from a line to the declarations around it steps over the
 /// trimmed line `t` of a file of `kind`: an [`aside`], or a line that names nothing itself but
 /// belongs to the header above it.
-fn steps_over(kind: Option<Kind>, t: &str) -> bool {
+pub(super) fn steps_over(kind: Option<Kind>, t: &str) -> bool {
     // A lone `{` opens the body of a declaration wrapped over the lines above it, as prettier
     // writes a long TypeScript class header; it names nothing itself. Neither does a C++ access
     // specifier, which is a label inside the class, not a wall in front of it.

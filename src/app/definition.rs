@@ -613,6 +613,10 @@ impl App {
                     self.project_definitions(kind, &here, &word, &pattern)
                 }
             });
+        let hits = match kind {
+            Kind::Jvm => self.jvm_seen(&here, hits, dotted || before.ends_with("::")),
+            _ => hits,
+        };
         // A C or C++ type is its body, not its forward declarations and constructors (#368).
         // Behind `.` or `->` no type is meant. Then what the file on screen can see (#364): not
         // another source file's statics and macros, not a `#define` that only stands in where
@@ -736,6 +740,45 @@ impl App {
         if let Some(note) = aside {
             self.message = self.message.replacen("1 match", &note, 1);
         }
+    }
+
+    /// Of the Java or Kotlin declarations `hits` found by name, what the cursor can see (#357): a
+    /// local only in its own block, below it, and never `behind` a `.` or a `::`; a `private`
+    /// declaration only in its own file. When that drops some and leaves one that is no local
+    /// in sight, it is still found by name only, and offered rather than jumped to.
+    fn jvm_seen(&mut self, here: &Path, hits: Vec<Hit>, behind: bool) -> Vec<Hit> {
+        let all = hits.len();
+        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
+        let mut seen_local = false;
+        let kept: Vec<Hit> = hits
+            .into_iter()
+            .filter(|h| {
+                if h.path != here && search::jvm_private(&h.text) {
+                    return false;
+                }
+                // A declaration in column 0 is top-level, never a local.
+                if !h.text.starts_with([' ', '\t']) {
+                    return true;
+                }
+                let text = texts
+                    .entry(h.path.clone())
+                    .or_insert_with(|| self.text_of(&h.path));
+                match text
+                    .as_deref()
+                    .and_then(|t| search::jvm_local_block(t, h.line))
+                {
+                    None => true,
+                    Some(end) => {
+                        let seen =
+                            !behind && h.path == here && (h.line..=end).contains(&(self.line + 1));
+                        seen_local |= seen;
+                        seen
+                    }
+                }
+            })
+            .collect();
+        self.offer_only |= kept.len() == 1 && kept.len() < all && !seen_local;
+        kept
     }
 
     /// The first line of each of `files`, a module a name or a path leads to as a whole.

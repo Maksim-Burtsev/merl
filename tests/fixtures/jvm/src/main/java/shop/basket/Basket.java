@@ -63,7 +63,7 @@ public class Basket implements Priced {
         //                    ^ d: picker src/main/kotlin/shop/warehouse/Warehouse.kt:4, src/main/kotlin/shop/warehouse/Warehouse.kt:8; want src/main/kotlin/shop/warehouse/Warehouse.kt:8 (#367)
         return courier.label() + owner;
         //             ^ d: src/main/kotlin/shop/warehouse/Warehouse.kt:9
-        //                       ^ d: picker src/main/java/shop/basket/Basket.java:23, src/main/java/shop/legacy/Settings.java:6; want src/main/java/shop/basket/Basket.java:23 (#376)
+        //                       ^ d: picker src/main/java/shop/basket/Basket.java:23; want src/main/java/shop/basket/Basket.java:23 (#376)
     }
 
     public int receipt(Receipt r, Offer o) {
