@@ -132,6 +132,24 @@ impl App {
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
         self.truncated.set(false);
+        // A key of a Go composite literal is a field of the literal's type (#327). A literal whose
+        // type is not read offers what the name finds, and never jumps to one.
+        if kind == Kind::Go && !dotted {
+            match search::go_key(&text, self.line + 1, range.start, range.end) {
+                search::GoKey::Of(written) => {
+                    match self.literal_field(kind, &here, &written, &word) {
+                        Ok(Some(found)) => {
+                            self.show_definitions(kind, &word, &here, found, None);
+                            return;
+                        }
+                        Ok(None) => {}
+                        Err(()) => self.offer_only = true,
+                    }
+                }
+                search::GoKey::Unknown => self.offer_only = true,
+                search::GoKey::No => {}
+            }
+        }
         // Inside a docstring's example the imports written there count too.
         let in_literal = search::literal_lines(kind, &text).get(self.line) == Some(&true);
         let mut imports = match in_literal {
@@ -735,6 +753,62 @@ impl App {
         // The status of the one definition says what was set aside: `1 definition, 1 prototype`.
         if let Some(note) = aside {
             self.message = self.message.replacen("1 match", &note, 1);
+        }
+    }
+
+    /// The field `word` of the Go struct a literal `written{…}` builds, `file` the file writing it
+    /// (#327): only the struct's own fields, since Go takes no promoted field as a key. An empty
+    /// list is a struct without the field, `None` a type that is no struct (a named map or slice,
+    /// whose keys are values), `Err` a type the rules do not find or read.
+    fn literal_field(
+        &self,
+        kind: Kind,
+        file: &Path,
+        written: &str,
+        word: &str,
+    ) -> Result<Option<Vec<Candidate>>, ()> {
+        let Some(ty) = self.struct_decl(kind, file, written, 0)? else {
+            return Ok(None);
+        };
+        let label = format!(
+            "{}{{\u{2026}}}",
+            written.split('[').next().unwrap_or(written)
+        );
+        Ok(Some(
+            self.field_of(kind, &ty, word, false)
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(label.clone()),
+                })
+                .collect(),
+        ))
+    }
+
+    /// The Go struct the type written as `written` in `file` is: itself, or what a defined
+    /// `type X Y` is over, eight deep. `None` for a type that is no struct, `Err` for one the
+    /// rules do not find or read.
+    pub(super) fn struct_decl(
+        &self,
+        kind: Kind,
+        file: &Path,
+        written: &str,
+        depth: usize,
+    ) -> Result<Option<Typed>, ()> {
+        static DEFINED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^type\s+[A-Za-z_]\w*(?:\[[^\]]*\])?\s+([^/{]*)").unwrap()
+        });
+        let ty = self.type_decl(kind, file, written).ok_or(())?;
+        let text = self.text_of(&ty.path).ok_or(())?;
+        let line = text.lines().nth(ty.line - 1).ok_or(())?;
+        let over = DEFINED.captures(line).ok_or(())?[1].trim().to_owned();
+        if over.starts_with("struct") {
+            return Ok(Some(ty));
+        }
+        let named = search::type_path(kind, &over).is_some() && !over.starts_with('*');
+        match named && depth < 8 {
+            true => self.struct_decl(kind, &ty.path, &over, depth + 1),
+            false => Ok(None),
         }
     }
 

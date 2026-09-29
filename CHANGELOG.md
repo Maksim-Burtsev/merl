@@ -149,6 +149,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   iota enum, `time.Hour`, `http.StatusOK`, a type of a `type (` block. It said `no definition`,
   or jumped to a namesake elsewhere. A field of a struct inside the block, and a `var (` block
   inside a function, still declare nothing of the package. (#326)
+- `d` in Go on a key of a composite literal, `Address` in `Order{Address: addr}`, lands on the
+  field of the literal's type, `Address → Order.Address (via Order{…})`, also for an element
+  whose type is elided (`[]Item{{Name: "a"}}`) and a type of another package. It looked the key
+  up as a bare name and jumped to a namesake type, method or function. A map's keys stay values;
+  a literal whose type is not read (an anonymous struct, a type outside the project) offers what
+  the name finds and never jumps to one. (#327)
 - `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
   in the project, the standard library and the dependencies the cursor can reach, the traits'
   first, where it jumped to a lone project namesake: `v.unwrap()` on an `Option` landed on a

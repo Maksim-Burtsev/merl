@@ -9,7 +9,7 @@ func Checkout() int {
 	//      ^ d: shop/basket.go:11
 	//                   ^ d: shop/pricing.go:23
 	c := wh.Courier{Name: "post"}
-	//              ^ d: none; want shop/warehouse.go:9 (#327)
+	//              ^ d: shop/warehouse.go:9
 	return b.Bonus() + wh.Weigh(len(c.Name))
 	//       ^ d: shop/basket.go:25
 	//                 ^ d: cart/cart.go:4

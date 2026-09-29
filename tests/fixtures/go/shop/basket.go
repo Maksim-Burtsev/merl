@@ -11,7 +11,7 @@ type Basket struct {
 func NewBasket(t Tariff) *Basket {
 	return &Basket{Tariff: t, coupon: &Coupon{}}
 	//       ^ d: shop/basket.go:5
-	//             ^ d: shop/pricing.go:23; want shop/basket.go:6 (#327)
+	//             ^ d: shop/basket.go:6
 }
 
 func (b *Basket) Gross() Money {

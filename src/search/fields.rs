@@ -43,6 +43,31 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
     let Some(k) = decl.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
     };
+    // A Go field line, `name T`, `a, name T` or an embedded `*pkg.Name`, as the type it reads.
+    let go_field = |t: &str| {
+        let t = t.split("//").next().unwrap_or("");
+        let t = t.split('`').next().unwrap_or("").trim();
+        if let Some(embedded) = go_embedded(t) {
+            return (embedded.rsplit('.').next() == Some(name)).then(|| Value::Type(t.to_owned()));
+        }
+        GO_FIELD
+            .captures(t)
+            .filter(|c| c[1].split(',').any(|p| p.trim() == name))
+            .map(|c| Value::Type(c[2].to_owned()))
+    };
+    // A Go struct whose body closes on its own line: `type Item struct{ Name string }` (#327).
+    if kind == Kind::Go
+        && let Some(open) = lines[k]
+            .find("struct")
+            .and_then(|at| lines[k][at..].find('{').map(|i| at + i))
+        && let Some(close) = close_of(kind, lines[k], open)
+    {
+        return lines[k][open + 1..close - 1]
+            .split(';')
+            .filter_map(go_field)
+            .map(|value| Binding { line: decl, value })
+            .collect();
+    }
     let body = body_of(kind, &lines, k);
     let Some(base) = lines[body.clone()]
         .iter()
@@ -169,16 +194,8 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
         }
         Kind::Go if lines[k].contains("struct") => {
             for i in body.filter(|&i| indent(lines[i]) == base) {
-                let t = lines[i].split("//").next().unwrap_or("");
-                let t = t.split('`').next().unwrap_or("").trim();
-                if let Some(embedded) = go_embedded(t) {
-                    if embedded.rsplit('.').next() == Some(name) {
-                        push(i, Value::Type(t.to_owned()));
-                    }
-                } else if let Some(c) = GO_FIELD.captures(t)
-                    && c[1].split(',').any(|p| p.trim() == name)
-                {
-                    push(i, Value::Type(c[2].to_owned()));
+                if let Some(value) = go_field(lines[i]) {
+                    push(i, value);
                 }
             }
         }
@@ -283,4 +300,159 @@ pub fn field_decl_at(kind: Kind, text: &str, line: usize, start: usize, name: &s
     let embedded =
         kind == Kind::Go && go_embedded(bare.split('`').next().unwrap_or("").trim()).is_some();
     first == Some(start) && !embedded && field_rows(kind, text, &[line], name) == [line]
+}
+
+/// What a Go word followed by `:` is a key of (#327).
+#[derive(Debug, PartialEq)]
+pub enum GoKey {
+    /// No key of a struct literal: a label, a `case`, a slice expression, a key of a map or a
+    /// slice literal, which is a value. The word keeps the lookup of a bare name.
+    No,
+    /// A key of a literal of the type written so: `Order`, `shop.Order`, `Order[T]`.
+    Of(String),
+    /// A key of a literal whose type the rules cannot read: an anonymous struct, an element of
+    /// a collection whose type is not written in front of it.
+    Unknown,
+}
+/// Whether the Go word at bytes `start..end` of 1-based `line` of `text` is a key of a composite
+/// literal, and of what type (#327). The word is followed by `:` (not `:=`), has no `.` in front,
+/// and its line is no `case`, `default` or label. The bracket still open in front of it, strings
+/// and comments skipped, is a `{` whose type is written in front of it (`T{`, `&T{`, `pkg.T{`,
+/// `T[A]{`), or an element whose type is elided (`{` after `{`, `,` or `key:`), which is the
+/// element type of the literal around it, as often as it nests.
+pub fn go_key(text: &str, line: usize, start: usize, end: usize) -> GoKey {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(&l) = line.checked_sub(1).and_then(|k| lines.get(k)) else {
+        return GoKey::No;
+    };
+    let (word, t) = (&l[start..end], l.trim_start());
+    let after = l[end..].trim_start();
+    let key = after.starts_with(':')
+        && !after.starts_with(":=")
+        && !l[..start].trim_end().ends_with('.')
+        && !t.starts_with("case ")
+        && !t.starts_with("default")
+        && uncommented(Kind::Go, l).trim() != format!("{word}:")
+        && code(Kind::Go, l).any(|(i, c)| i == start && c != 0);
+    if !key {
+        return GoKey::No;
+    }
+    let literal = literal_lines(Kind::Go, text);
+    let Some((j, i, b'{')) = go_open_before(&lines, &literal, line - 1, start) else {
+        return GoKey::No;
+    };
+    match go_literal_type(&lines, &literal, j, i, 0) {
+        Some(Ok(t)) if !t.starts_with('[') && !t.starts_with("map[") => {
+            GoKey::Of(t.trim_start_matches('*').to_owned())
+        }
+        Some(Err(())) => GoKey::Unknown,
+        _ => GoKey::No,
+    }
+}
+/// The bracket still open in front of byte `col` of 0-based line `k`: its line, its byte and
+/// itself. Strings, comments and the lines inside a raw string or a block comment are skipped.
+fn go_open_before(
+    lines: &[&str],
+    literal: &[bool],
+    k: usize,
+    col: usize,
+) -> Option<(usize, usize, u8)> {
+    let mut depth = 0usize;
+    // ponytail: a literal still open 2000 lines up is not read.
+    for j in (k.saturating_sub(2000)..=k).rev() {
+        if j != k && literal.get(j) == Some(&true) {
+            continue;
+        }
+        let l = if j == k { &lines[j][..col] } else { lines[j] };
+        let bytes: Vec<(usize, u8)> = code(Kind::Go, l).collect();
+        for &(i, c) in bytes.iter().rev() {
+            match c {
+                b')' | b']' | b'}' => depth += 1,
+                b'(' | b'[' | b'{' if depth == 0 => return Some((j, i, c)),
+                b'(' | b'[' | b'{' => depth -= 1,
+                _ => {}
+            }
+        }
+    }
+    None
+}
+/// The type of the Go composite literal whose `{` is byte `i` of 0-based line `j`, as written:
+/// `Order`, `[]Item`, `map[string]T`, the element type for an elided `{`. `None` for a `{` that
+/// opens no literal (a block, a type's body), `Err` for a literal whose type is not written where
+/// the rules read it: `struct {…}{`, an element of a named collection type.
+fn go_literal_type(
+    lines: &[&str],
+    literal: &[bool],
+    j: usize,
+    i: usize,
+    depth: usize,
+) -> Option<Result<String, ()>> {
+    static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"(?:map\[[^\]]*\]|\[[^\]]*\]|\*)*[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?(?:\[[^\]]*\])?$",
+        )
+        .unwrap()
+    });
+    const KEYWORDS: [&str; 12] = [
+        "else",
+        "for",
+        "switch",
+        "select",
+        "struct",
+        "interface",
+        "func",
+        "range",
+        "go",
+        "defer",
+        "if",
+        "return",
+    ];
+    let pre = uncommented(Kind::Go, &lines[j][..i]);
+    let pre = pre.trim_end();
+    // The line in front of a `{` alone on its line.
+    let above = || {
+        lines[..j]
+            .iter()
+            .rev()
+            .map(|l| uncommented(Kind::Go, l))
+            .find(|l| !l.trim().is_empty())
+            .unwrap_or_default()
+    };
+    let elided = match pre.is_empty() {
+        true => above().trim_end().ends_with(['{', ',']),
+        false => pre.ends_with(['{', ',', ':']),
+    };
+    if elided {
+        // ponytail: eight elided levels deep.
+        let (pj, pi, b'{') = go_open_before(lines, literal, j, i)? else {
+            return None;
+        };
+        if depth == 8 {
+            return Some(Err(()));
+        }
+        return Some(
+            go_literal_type(lines, literal, pj, pi, depth + 1)?
+                .and_then(|p| element_type(Kind::Go, &p).ok_or(())),
+        );
+    }
+    if pre.ends_with('}') {
+        return Some(Err(()));
+    }
+    let written = TYPE.find(pre)?.as_str();
+    let last = written.rsplit(['.', ']', '*']).next().unwrap_or(written);
+    let last = last.split('[').next().unwrap_or(last);
+    if KEYWORDS.contains(&last) || matches!(last, "nil" | "true" | "false") {
+        return None;
+    }
+    let before = pre[..pre.len() - written.len()].trim_end();
+    let comparison = ["==", "!=", "<=", ">=", "&&"]
+        .iter()
+        .any(|op| before.ends_with(op));
+    let opens = before.is_empty()
+        || before.ends_with(['=', '(', ',', '{', ':', '[', '&'])
+        || before.ends_with("<-")
+        || before
+            .strip_suffix("return")
+            .is_some_and(|b| !b.ends_with(|c: char| c.is_alphanumeric() || c == '_'));
+    (opens && !comparison).then(|| Ok(written.to_owned()))
 }

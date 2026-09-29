@@ -745,3 +745,78 @@ fn a_go_grouped_declaration_is_top_level() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&goroot).unwrap();
 }
+
+/// #327. A key of a composite literal is a field of the literal's type: written in front of the
+/// `{`, or the element type of the literal around an elided `{`. A map's keys are values, and so
+/// are a slice expression's, a label and a `case`; a literal whose type is outside the project
+/// offers what the name finds.
+#[test]
+fn a_go_literal_key_is_a_field_of_the_literals_type() {
+    let (dir, mut a) = project_app(
+        "go-keys",
+        &[
+            ("go.mod", "module example.com/keys\n"),
+            (
+                "shop/shop.go",
+                "package shop\n\ntype Order struct {\n\tAddress string\n\tItems   []Item\n}\n\ntype Item struct{ Name string }\n\ntype Address struct{ Street string }\n\nfunc (a Address) Name() string { return a.Street }\n\nfunc build(addr string) Order {\n\treturn Order{\n\t\tAddress: addr,\n\t\tItems: []Item{\n\t\t\t{Name: \"a\"},\n\t\t},\n\t}\n}\n",
+            ),
+            (
+                "shop/more.go",
+                "package shop\n\nconst Street = \"s\"\n\nvar names = map[string]string{Street: \"a\"}\n\nvar nested = map[string][]Item{\"k\": {{Name: \"b\"}}}\n\nfunc cut(xs []int, Street int) []int { return xs[Street:] }\n\nfunc label(k string) int {\nStreet:\n\tfor range 3 {\n\t\tbreak Street\n\t}\n\tswitch k {\n\tcase Street:\n\t\treturn 1\n\t}\n\treturn 0\n}\n\nfunc none() Order { return Order{Missing: 1} }\n",
+            ),
+            (
+                "app/app.go",
+                "package app\n\nimport (\n\t\"sync\"\n\n\t\"example.com/keys/shop\"\n)\n\nvar pool = sync.Pool{\n\tNew: func() any { return nil },\n}\n\nfunc order() *shop.Order { return &shop.Order{Address: \"x\"} }\n",
+            ),
+            (
+                "other/other.go",
+                "package other\n\nfunc New() int { return 1 }\n",
+            ),
+        ],
+    );
+    a.external
+        .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+    let mut d = |file: &str, code: &str| {
+        d_on(&mut a, file, code);
+        shown(&mut a)
+    };
+    assert_eq!(
+        d("shop/shop.go", "\t\tAddress|: addr"),
+        jump(
+            "Address \u{2192} Order.Address (via Order{\u{2026}})",
+            "shop/shop.go:4"
+        )
+    );
+    assert_eq!(
+        d("shop/shop.go", "{Name"),
+        jump("Name: via Item{\u{2026}}", "shop/shop.go:8")
+    );
+    assert_eq!(
+        d("shop/more.go", "{{Name"),
+        jump("Name: via Item{\u{2026}}", "shop/shop.go:8")
+    );
+    assert_eq!(
+        d("app/app.go", "{Address"),
+        jump(
+            "Address \u{2192} Order.Address (via shop.Order{\u{2026}})",
+            "shop/shop.go:4"
+        )
+    );
+    // `sync.Pool` is outside the project: what the name finds is offered, never jumped to.
+    assert_eq!(
+        d("app/app.go", "\tNew"),
+        picker("New: by name, 1 match", &[("New", "other/other.go:3")])
+    );
+    // A struct without the field says so.
+    assert_eq!(
+        d("shop/more.go", "Order{Missing"),
+        jump("no definition for Missing", "shop/more.go:23")
+    );
+    // A map's keys, a slice expression, a label and a `case` are no fields.
+    let street = || jump("Street: local", "shop/more.go:3");
+    assert_eq!(d("shop/more.go", "{Street"), street());
+    assert_eq!(d("shop/more.go", "xs[Street"), street());
+    assert_eq!(d("shop/more.go", "case Street"), street());
+    assert_eq!(d("shop/more.go", "^Street"), street());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
