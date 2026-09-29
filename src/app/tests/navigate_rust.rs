@@ -120,3 +120,144 @@ fn attributes_name_macros_and_fields_reach_outside() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
 }
+
+/// #358: `x.method()` of a type `d` does not know is every method of the name the cursor can
+/// reach, in the project, the standard library and the dependencies, and the one trait's method
+/// when every candidate declares or implements it.
+#[test]
+fn a_method_of_an_unknown_type_is_every_reachable_one() {
+    let lock = "version = 3\n\n[[package]]\nname = \"dep\"\nversion = \"1.0.0\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\n\n[[package]]\nname = \"far\"\nversion = \"1.0.0\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\n\n[[package]]\nname = \"other\"\nversion = \"0.1.0\"\ndependencies = [\n \"far\",\n]\n\n[[package]]\nname = \"repro\"\nversion = \"0.1.0\"\ndependencies = [\n \"dep\",\n]\n";
+    let (dir, mut a) = project_app(
+        "rust-358",
+        &[
+            ("Cargo.toml", "[package]\nname = \"repro\"\n"),
+            ("Cargo.lock", lock),
+            ("other/Cargo.toml", "[package]\nname = \"other\"\n"),
+            (
+                "other/src/lib.rs",
+                "pub struct Query;\n\nimpl Query {\n    fn unwrap(self) -> Query {\n        self\n    }\n\n    pub fn to_string(&self) -> String {\n        String::new()\n    }\n}\n",
+            ),
+            (
+                "src/lib.rs",
+                "mod extra;\n\npub struct Error {\n    msg: String,\n}\n\nimpl Clone for Error {\n    fn clone(&self) -> Error {\n        Error { msg: self.msg.clone() }\n    }\n}\n\nimpl Error {\n    fn describe(&self) -> u32 {\n        1\n    }\n}\n\npub fn first(v: Option<u32>) -> u32 {\n    v.unwrap()\n}\n\npub fn name(n: &String) -> String {\n    n.clone()\n}\n\npub fn text(s: &str) -> String {\n    s.to_string()\n}\n\npub fn told(e: &Error, x: &extra::Extra) -> u32 {\n    x.secret();\n    e.describe()\n}\n\npub fn peeked(v: Option<u32>) {\n    v.peek()\n}\n",
+            ),
+            (
+                "src/extra.rs",
+                "pub struct Extra;\n\nimpl Extra {\n    fn secret(&self) {}\n}\n",
+            ),
+        ],
+    );
+    let std = external_root(
+        "rust-358-std",
+        &[
+            (
+                "lib/rustlib/src/rust/library/core/src/option.rs",
+                "pub enum Option<T> {\n    None,\n    Some(T),\n}\n\nimpl<T> Option<T> {\n    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n    pub fn unwrap(self) -> T {\n        loop {}\n    }\n\n    pub(crate) fn peek(&self) {}\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/result.rs",
+                "pub enum Result<T, E> {\n    Ok(T),\n    Err(E),\n}\n\nimpl<T, E> Result<T, E> {\n    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n    pub fn unwrap(self) -> T {\n        loop {}\n    }\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/clone.rs",
+                "pub trait Clone: Sized {\n    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n    fn clone(&self) -> Self;\n}\n\nimpl Clone for u32 {\n    fn clone(&self) -> u32 {\n        *self\n    }\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/string.rs",
+                "pub trait ToString {\n    fn to_string(&self) -> String;\n}\n\nimpl<T: fmt::Display + ?Sized> ToString for T {\n    default fn to_string(&self) -> String {\n        String::new()\n    }\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/std/src/sys/process.rs",
+                "pub struct Command;\n\nimpl Command {\n    pub fn unwrap(&self) {}\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/coretests/tests/option.rs",
+                "fn probe() {\n    trait Probe {\n        fn unwrap(self);\n    }\n}\n",
+            ),
+        ],
+    );
+    let registry = external_root(
+        "rust-358-registry",
+        &[
+            (
+                "dep-1.0.0/src/lib.rs",
+                "pub struct Thing;\n\nimpl Thing {\n    pub fn unwrap(self) {}\n}\n",
+            ),
+            (
+                "dep-1.0.0/tests/it.rs",
+                "struct Probe;\n\nimpl Probe {\n    pub fn unwrap(self) {}\n}\n",
+            ),
+            (
+                "far-1.0.0/src/lib.rs",
+                "pub struct Far;\n\nimpl Far {\n    pub fn unwrap(self) {}\n}\n",
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, &[library.clone(), registry.clone()]);
+    let row = |name: &str, place: &str| (name.to_owned(), "by name".to_owned(), place.to_owned());
+    for (code, want) in [
+        (
+            "v.unwrap",
+            Shown::Picker(
+                "unwrap: by name, 3 declarations".into(),
+                vec![
+                    row("Option::unwrap", "core/src/option.rs:8"),
+                    row("Result::unwrap", "core/src/result.rs:8"),
+                    row("Thing::unwrap", "dep-1.0.0/src/lib.rs:4"),
+                ],
+            ),
+        ),
+        (
+            "n.clone",
+            jump(
+                "clone \u{2192} Clone::clone (via trait Clone)",
+                "core/src/clone.rs:3",
+            ),
+        ),
+        (
+            "s.to_string",
+            jump(
+                "to_string \u{2192} ToString::to_string (via trait ToString)",
+                "alloc/src/string.rs:2",
+            ),
+        ),
+        (
+            "e.describe",
+            jump(
+                "describe \u{2192} Error::describe (by name, 1 match)",
+                "src/lib.rs:14",
+            ),
+        ),
+        (
+            "x.secret",
+            Shown::Jump("no definition for secret".into(), String::new()),
+        ),
+        (
+            "v.peek",
+            Shown::Jump("no definition for peek".into(), String::new()),
+        ),
+    ] {
+        d_on(&mut a, "src/lib.rs", code);
+        let strip = |p: &str| {
+            p.replace(&format!("{}/", library.display()), "")
+                .replace(&format!("{}/", registry.display()), "")
+        };
+        let got = match shown(&mut a) {
+            Shown::Jump(status, _) if status.starts_with("no definition") => {
+                Shown::Jump(status, String::new())
+            }
+            Shown::Jump(status, place) => Shown::Jump(status, strip(&place)),
+            Shown::Picker(status, rows) => Shown::Picker(
+                status,
+                rows.into_iter()
+                    .map(|(n, w, p)| (n, w, strip(&p)))
+                    .collect(),
+            ),
+        };
+        assert_eq!(got, want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+    std::fs::remove_dir_all(&registry).unwrap();
+}

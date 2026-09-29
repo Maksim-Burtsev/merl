@@ -145,6 +145,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
+  in the project, the standard library and the dependencies the cursor can reach, the traits'
+  first, where it jumped to a lone project namesake: `v.unwrap()` on an `Option` landed on a
+  private `unwrap` of another crate, `n.clone()` on the project's `impl Clone for Error`, and
+  `s.to_string()` said `no definition`. When every candidate is the method of one trait or an
+  `impl` of it, `d` jumps to the trait's method, `clone → Clone::clone (via trait Clone)`. (#358)
 - `d` in Python and Go follows a typed chain through a type whose module or package has a
   line shaped like its declaration inside a docstring or a raw string: `self.tariff.rate()`
   jumps to `Tariff.rate`. That line counted as a second declaration, so the chain broke and
