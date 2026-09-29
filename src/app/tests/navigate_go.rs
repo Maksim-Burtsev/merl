@@ -1150,3 +1150,47 @@ fn a_go_local_named_from_is_the_local() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// Go's `pkg.X` ends at `pkg`'s directory only when that directory was read (#332): a chain
+/// through a package's value, and a package the lookup cannot map, such as one committed under
+/// `vendor/`, keep the search by name (#521 review).
+#[test]
+fn a_go_chain_or_a_vendored_package_keeps_the_search_by_name() {
+    let (dir, mut a) = project_app(
+        "go-chain-vendor",
+        &[
+            ("go.mod", "module example.com/app\n"),
+            (
+                "client/client.go",
+                "package client\n\ntype Client struct{}\n\nvar Default = build()\n\nfunc build() *Client { return nil }\n\nfunc (c *Client) Do() {}\n",
+            ),
+            (
+                "vendor/github.com/zzfake/errs/errs.go",
+                "package errs\n\nfunc Wrap(e error) error { return e }\n",
+            ),
+            (
+                "main.go",
+                "package main\n\nimport (\n\t\"example.com/app/client\"\n\t\"github.com/zzfake/errs\"\n)\n\nfunc main() {\n\tclient.Default.Do()\n\t_ = errs.Wrap(nil)\n}\n",
+            ),
+        ],
+    );
+    a.external
+        .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+    d_on(&mut a, "main.go", "client.Default.Do");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Do \u{2192} Client.Do (by name, 1 match)",
+            "client/client.go:9"
+        )
+    );
+    d_on(&mut a, "main.go", "errs.Wrap");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Wrap: by name, 1 match",
+            "vendor/github.com/zzfake/errs/errs.go:3"
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
