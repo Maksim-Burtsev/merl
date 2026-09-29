@@ -17,10 +17,13 @@ key c
 wait hunk 3/9
 sleep 2.4
 
-# c: validate drops its lookup for the service's; the cursor is on the call: onto the method, d
+# c: validate drops its lookup for the service's; the cursor stands on the lookup it dropped
+# (#439), Down walks it onto the new call: onto the method, d
 key c
 wait hunk 4/9
-sleep 2.0
+sleep 1.6
+key@0.12 Down*7
+sleep 0.4
 key@0.18 M-Right*4
 sleep 0.3
 key d

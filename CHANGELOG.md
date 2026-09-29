@@ -44,6 +44,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- In `merl --review` the lines the branch deleted are lines of the text, as they are on a GitLab
+  or GitHub diff page: the cursor stands on them, and every move, Up, Down, the pages, `{` and
+  `}`, Home and End, the words, goes through them as through the file's own lines, so a deletion
+  taller than the pane is read line by line and the lines deleted at the end of a file are
+  reached with Down. Shift+moves and `v` select them, Ctrl+C copies them as they were, and `/`
+  finds text in them. `c` and `C` stand on the first line of a change, its first deleted line
+  when it starts with a deletion. On a deleted line the status bar reads its number in the file
+  the branch started from, negative: `-9:5`. Nothing edits a deleted line: typing on one, or on
+  a selection that holds one, says `deleted`, and `d` and `u` there say the same for now.
+  `:12` and the gutter still count the branch's lines. For the selection to show on the red
+  tint, eight themes take a selection colour a shade further from their background, in every
+  file: rose-pine, rose-pine-moon, melange-dark, bamboo, cendre, ayu-light, jellybeans-light and
+  neomodern-light. (#439)
 - `merl --review feature` reviews `feature`: the branch goes after a space, as the base does after
   `--base`, and `--review=feature` still works. A file after a bare `--review` is now read as the
   branch: `merl --review` opens on the first hunk, and `o` opens any file.
@@ -72,12 +85,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the review for a while, as during a rebase stopped on a conflict, has its mark back when it
   returns. A review started on a detached HEAD, outside a rebase, keeps its marks only while it
   runs. The marks of a review untouched for 30 days are forgotten. (#240)
-- The file panel of `merl --review` paints the status letter bold in the gutter's colours, `A`
-  green, `M` blue, `D` red, a rename or a copy dim; the line counts and `bin` are dim, so the
-  name reads first; and the bottom border gives the size of the branch, `3 files · +13 −1`. A
-  long name of wide characters is cut to fit instead of pushing the counts off the panel.
-  `review_panel_colours = false` in `~/.config/merl/config.toml` turns the colours, the dimming and
-  the totals off. (#250)
+- The file panel of `merl --review` dims the line counts and `bin`, so the name reads first, and
+  the bottom border gives the size of the branch, `3 files · +13 −1`. A long name of wide
+  characters is cut to fit instead of pushing the counts off the panel.
+  `review_panel_colours = false` in `~/.config/merl/config.toml` turns the dimming and the totals
+  off. (#250, #450)
 - On a file the branch did not change, the status bar of `merl --review` drops `hunk 0/0  file
   -/8` and reads as it does outside a review. (#286)
 - Enter in a list whose query matches nothing does nothing, as in VS Code's quick open: `o`,
