@@ -5,7 +5,7 @@ merl app/service.py
 wait class OrderService:
 key t s
 type Order
-wait Search (176 hits)
+wait Search (178 hits)
 type Repo
 wait Search (15 hits)
 key Escape s
