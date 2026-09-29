@@ -205,6 +205,33 @@ fn lines_inside_a_literal_or_a_block_comment_are_told() {
     assert_eq!(inside(Kind::Php, php), [2, 3, 5, 6, 9, 10]);
 }
 
+/// The 1-based lines of `text` that start inside a literal of `kind`.
+fn inside(kind: Kind, text: &str) -> Vec<usize> {
+    let lines = literal_lines(kind, text);
+    (1..=lines.len()).filter(|&n| lines[n - 1]).collect()
+}
+
+/// #346. A Rust string runs over lines to the `"` no `\` escapes, a raw one to its `"#`; a
+/// lifetime and a char literal open nothing, and `/*` inside a string opens no comment.
+#[test]
+fn a_rust_string_runs_over_lines() {
+    let rs = "const A: &str = \"\\\\\";\nfn real() {}\nconst U: &str = \"a \\\" /* \\\nfn ghost() {}\n\";\nfn f<'a>(x: &'a str) -> &'a str { let r#type = x; r#type }\nconst R: &str = r#\"say \"hi\"\nfn ghost() {}\n\"#;\nlet c = '\"'; let g = \"**/*.rs\"; let e = '\\u{1F600}'; let b = br##\"#\"##;\nfn real2() {}\n/// [`Foo`] \"doc\nfn documented() {}\n";
+    assert_eq!(inside(Kind::Rust, rs), [4, 5, 8, 9]);
+    let at = |s: &str| rs.find(s).unwrap();
+    for (word, is) in [
+        ("ghost", true),
+        ("*/*.rs", true),
+        ("hi\"", true),
+        ("real2", false),
+        ("a str", false),
+        ("Foo", false),
+        ("documented", false),
+    ] {
+        assert_eq!(in_string(Kind::Rust, rs, at(word)), is, "{word}");
+    }
+    assert!(!in_string(Kind::TsJs, "const s = \"ghost\";", 12));
+}
+
 #[test]
 fn a_reason_says_whether_it_proves_the_target() {
     assert_eq!(Reason::ByName.to_string(), "by name");

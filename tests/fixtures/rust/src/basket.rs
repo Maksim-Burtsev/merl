@@ -12,7 +12,7 @@ pub struct Basket {
 impl Basket {
     pub fn new(tariff: Tariff) -> Self {
         Basket {
-        // ^ d: picker src/basket.rs:6, src/warehouse.rs:3; want src/basket.rs:6 (#346)
+        // ^ d: src/basket.rs:6
             tariff,
             coupon: Coupon,
             // ^ d: none; want src/basket.rs:8 (#316)
@@ -58,7 +58,7 @@ pub fn restock(discount: u32) -> u32 {
 pub fn overweight(grams: u32) -> bool {
     let limit = WEIGHT_LIMIT + 20;
     warehouse::weigh(grams) > limit
-    //         ^ d: picker src/basket.rs:111, src/warehouse.rs:2, src/warehouse.rs:23; want src/warehouse.rs:23 (#350)
+    //         ^ d: picker src/basket.rs:111, src/warehouse.rs:23; want src/warehouse.rs:23 (#350)
     //                        ^ d: src/basket.rs:59
 }
 
@@ -99,7 +99,7 @@ pub fn money() -> u32 {
 
 pub async fn pay(total: u32) -> u32 {
     crate::pricing::settle(total).await
-    //              ^ d: picker src/pricing.rs:59, src/warehouse.rs:7; want src/pricing.rs:59 (#346)
+    //              ^ d: src/pricing.rs:59
 }
 
 #[derive(Debug)]
@@ -110,5 +110,5 @@ pub fn hidden(o: Offer, grams: u32) -> u32 {
     //           ^ d: src/pricing.rs:36
     let weigh = warehouse::weigh(grams);
     weigh + offer(o)
-    // ^ d: picker src/basket.rs:111, src/warehouse.rs:2, src/warehouse.rs:23; want src/basket.rs:111 (#353)
+    // ^ d: picker src/basket.rs:111, src/warehouse.rs:23; want src/basket.rs:111 (#353)
 }
