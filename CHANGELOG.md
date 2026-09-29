@@ -90,6 +90,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   included, answers `via` the class, `scheduler → Use.scheduler (via Use)`, and one the class it
   extends declares, `via` that class, before the declarations of the name in the rest of the
   project. Kotlin's `it` and the implicit receivers of `with` and `apply` are not read. (#376)
+- `d` in PHP on `$this->name`, `self::NAME`, `static::name()` and `parent::name()` reads the
+  class the cursor is in, the traits it uses and the classes it extends, and lands on the one
+  declaration, `open → BaseStorage::open (via $this: ImageStorage)`, where it offered every
+  declaration of the name in the project: a picker for most, and a jump to another enum's case
+  for `self::INVALID`. A parent from `vendor/` is read from its own file, and a member it does
+  not declare is `no definition` rather than a namesake of the project. (#356)
 - `merl -r BRANCH` reviews a branch another worktree has checked out, an agent's say, in that
   worktree, as `merl -r` started there would: nothing is fetched, switched or reset there, and its
   work not committed yet is part of the review. Before, merl exited with git's `already used by
@@ -224,6 +230,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   named by its receiver, so `Topic::asExternalModel` jumps to `fun Topic.asExternalModel()`
   among the extensions of other types, and `val Topic.testTag` declares `testTag`, no longer a
   second `Topic`. (#362)
+- `d` in PHP reads `$x->name` and `$x?->name` as the member they are: a call finds the
+  methods of that name, anything else the properties, in the project and then in `vendor/`, the
+  `@method` and `@property` tags of a class's docblock included. It searched the bare word, so
+  `$join->where(…)` on a Laravel query landed on a local `$where = […]` of an unrelated class,
+  `$request->input(…)` on a property, and `vendor/` was never read. A chain broken before its
+  arrows reads as one line, and a `.`, which concatenates in PHP, is no member access. (#348)
+- `d` in PHP finds a typed class constant, `private const int LIMIT = 500;`, where it said
+  `no definition`, and the `@property`, `@property-read`, `@property-write` and `@method` tags
+  of a class's docblock, the way Laravel declares Eloquent columns: `$song->title` lands on the
+  tag, `title → Song::title`. A `namespace …\Support;` line no longer answers `Support` in
+  `use Illuminate\Support\Facades\Route;`, nor a class called like its last part: a segment
+  of a qualified name finds only the namespace written up to it. (#344)
 - `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
   in the project, the standard library and the dependencies the cursor can reach, the traits'
   first, where it jumped to a lone project namesake: `v.unwrap()` on an `Option` landed on a

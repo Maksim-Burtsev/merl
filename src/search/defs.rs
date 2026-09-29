@@ -1,6 +1,7 @@
 //! The line patterns `d` looks a declaration up with, per kind and per word, and the
 //! reason a candidate is offered under.
 
+use super::php::{php_constants, php_method, php_namespace_line, php_properties, php_tags};
 use super::*;
 use regex::Regex;
 use std::path::{Path, PathBuf};
@@ -445,27 +446,24 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         // to a property the class declares elsewhere.
         Kind::Php => {
             let mods = php_mods!();
-            let mods_one = php_mods!("+");
+            let [property, promoted] = php_properties(&w);
+            let [property_tag, method_tag] = php_tags(&w);
+            let [constant, case] = php_constants(&w);
             vec![
-                // A function or a method; `&` returns by reference.
-                format!(r"{mods}function\s+&?\s*{w}\s*\("),
+                php_method(&w),
                 format!(r"{mods}(?:class|interface|trait|enum)\s+{w}\b"),
-                format!(r"^\s*namespace\s+(?:[\w\\]+\\)?{w}\s*[;{{]"),
-                // A constant: the `const` of a class or a file, and the `define()` of a global.
-                format!(r"{mods}const\s+{w}\b"),
+                php_namespace_line(&w),
+                constant,
+                // The `define()` of a global.
                 format!(r#"^\s*define\s*\(\s*['"]{w}['"]"#),
-                // An enum case. A `case X:` of a `switch` matches against a constant, so what
-                // follows the name must not be a `:`.
-                format!(r"^\s*case\s+{w}\s*(?:=[^=]|;|$)"),
-                // A property, with the type it can carry between its modifiers and the `$`.
-                format!(r"{mods_one}(?:\??[\w\\|]+\s+)?\${w}\b"),
-                // A constructor parameter promoted to one, wherever it sits in the list.
-                format!(
-                    r"function\s+__construct\s*\(.*\b(?:public|private|protected|readonly)\s+(?:\??[\w\\|]+\s+)?\${w}\b"
-                ),
+                case,
+                property,
+                promoted,
                 // An assignment that opens a line, `.=` and `??=` included. `==` compares, `=>`
                 // is a key in an array literal, and `$rows['x'] =` writes to an element.
                 format!(r"^\s*\${w}\s*(?:\.|\?\?|\+)?=(?:$|[^=>])"),
+                property_tag,
+                method_tag,
             ]
         }
         // Lua declares with `function` and `local`, and with nothing else: a bare `name = value`

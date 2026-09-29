@@ -19,7 +19,7 @@ class Tariff implements Priced
     public function rate(): int
     {
         return self::FLOOR;
-        //           ^ d: none; want src/Pricing/Tariff.php:12 (#344)
+        //           ^ d: src/Pricing/Tariff.php:12
     }
 
     public function describe(): string

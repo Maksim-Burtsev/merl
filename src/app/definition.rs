@@ -355,23 +355,62 @@ impl App {
         let referenced = kind == Kind::Jvm
             && before.ends_with("::")
             && chain.first().is_some_and(|f| f != "super");
+        // PHP reaches a member with `->` alone, whatever the chain starts with: `Offer::Cut->value`
+        // is a value's member too (#348). Behind `->` a call is a method, anything else a property.
+        let php_members = (kind == Kind::Php && dotted).then(|| {
+            let call = self.line_str()[range.end..].trim_start().starts_with('(');
+            search::php_member_patterns(&word, call).join("|")
+        });
         let on_value = (dotted || referenced)
             && !own
-            && chain.first().is_none_or(|f| bound(&imports, f).is_none());
-        let members = on_value
-            .then(|| search::member_patterns(kind, &word))
-            .flatten()
-            .map(|m| m.join("|"));
+            && (kind == Kind::Php || chain.first().is_none_or(|f| bound(&imports, f).is_none()));
+        let members = match &php_members {
+            Some(m) => on_value.then(|| m.clone()),
+            None => on_value
+                .then(|| search::member_patterns(kind, &word))
+                .flatten()
+                .map(|m| m.join("|")),
+        };
         let mut patterns = search::def_patterns(kind, &word);
         // An Elixir call is never a module attribute: `Shop.currency()` is no `@currency` (#459).
         if kind == Kind::Elixir && dotted {
             patterns.retain(|p| !p.starts_with(r"^\s*@"));
+        }
+        if kind == Kind::Php {
+            search::php_namespace_patterns(&mut patterns, &text, self.line_str(), range.clone());
         }
         if patterns.is_empty() {
             self.message = self.no_rules();
             return;
         }
         let pattern = patterns.join("|");
+        // PHP's `$this->`, `self::`, `static::` and `parent::` name the class around the cursor, a
+        // trait it uses or a class it extends (#356); `self::$name` is a static property.
+        if kind == Kind::Php {
+            let property = before.strip_suffix('$').filter(|b| b.ends_with("::"));
+            let b = property.unwrap_or(before);
+            let link = match search::qualifier(b, b.len()).as_slice() {
+                [l] if dotted && l == "this" => Some(l.clone()),
+                [l] if !dotted
+                    && b.ends_with("::")
+                    && matches!(l.as_str(), "self" | "static" | "parent") =>
+                {
+                    Some(l.clone())
+                }
+                _ => None,
+            };
+            let access = match self.line_str()[range.end..].trim_start().starts_with('(') {
+                true => search::PhpAccess::Call,
+                false if dotted || property.is_some() => search::PhpAccess::Property,
+                false => search::PhpAccess::Constant,
+            };
+            if let Some(link) = link
+                && let Some(found) = self.php_link(&here, &text, &link, &word, access)
+            {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
         // Rust's attributes, fields and variants, which the lines below cannot tell (#370).
         if kind == Kind::Rust
             && let Some(found) = self.rust_early(&here, &text, &word, range.clone(), dotted)
@@ -905,15 +944,17 @@ impl App {
         }
         // A parameter or a local in front of the word is a value for certain: it has members,
         // and a function or a variable at the top of a module is not one of them.
+        // Nor is anything but a member one of PHP's, where `$x->` is always a value (#348).
         let hits = members
             .as_ref()
             .map(|m| self.members_by_name(kind, &here, &word, m))
-            .filter(|hits| !hits.is_empty() || !locals.is_empty())
+            .filter(|hits| !hits.is_empty() || !locals.is_empty() || kind == Kind::Php)
             .unwrap_or_else(|| {
                 if own {
                     // `self.word` whose class is not read to the end: the declarations of the name,
-                    // and the fields too (#104).
-                    self.members_by_name(kind, &here, &word, &pattern)
+                    // and the fields too (#104). PHP's `$this->word` is a member (#348).
+                    let pattern = php_members.as_ref().unwrap_or(&pattern);
+                    self.members_by_name(kind, &here, &word, pattern)
                 } else {
                     self.project_definitions(kind, &here, &word, &pattern)
                 }
@@ -1621,7 +1662,14 @@ impl App {
                     && self
                         .text_of(&c.hit.path)
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));
-                !call && !lines.get(c.hit.line - 1).copied().unwrap_or(false)
+                // A tag of a PHP class's docblock is a declaration inside a comment (#344).
+                let literal = lines.get(c.hit.line - 1).copied().unwrap_or(false)
+                    && !(kind == Kind::Php
+                        && self.text_of(&c.hit.path).is_some_and(|t| {
+                            search::php_tag_class(&t.lines().collect::<Vec<_>>(), c.hit.line - 1)
+                                .is_some()
+                        }));
+                !call && !literal
             });
         }
         // A Ruby superclass, right of the `<` of a `class` line, is a use of the name (#387): the

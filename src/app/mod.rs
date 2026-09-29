@@ -29,6 +29,7 @@ mod links;
 mod members;
 mod missed;
 mod open;
+mod php;
 mod picker;
 mod preview;
 mod project_search;

@@ -73,6 +73,14 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         let owner = qualified(kind, text, decl, &ty).unwrap_or(ty);
         return Some(format!("{owner}{sep}{name}"));
     }
+    // A tag of a PHP class's docblock declares a member of the class under it (#344).
+    if kind == Kind::Php
+        && let Some(class) = php_tag_class(&lines, line - 1)
+        && let Some(owner) = declared_name(Some(kind), lines[class])
+    {
+        let owner = qualified(kind, text, class + 1, &owner).unwrap_or(owner);
+        return Some(format!("{owner}{sep}{name}"));
+    }
     // Any other name on a Python `def` line is a parameter (#100): `Recipes.get_one.slug`, as a
     // local of the body reads, not `Recipes.slug`, a field's name.
     if kind == Kind::Python
@@ -347,17 +355,25 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
     chain
 }
 /// The line a member access reads as when prettier has broken it in front of its dots (#100):
-/// `return this.db` over `  .selectFrom(` is `return this.db.selectFrom(`. Gives the lines joined,
+/// `return this.db` over `  .selectFrom(` is `return this.db.selectFrom(`, and a PHP chain
+/// broken in front of its arrows, `$query` over `    ->where(` (#348). Gives the lines joined,
 /// without their comments, and where the word that starts at byte `word_start` of line `at`
-/// stands in them; `None` for a line that does not start with a dot.
+/// stands in them; `None` for a line that does not start with a dot or an arrow.
 pub fn unbroken(
     kind: Kind,
     lines: &[String],
     at: usize,
     word_start: usize,
 ) -> Option<(String, usize)> {
-    let led = |l: &str| l.trim_start().starts_with('.') && !l.trim_start().starts_with("..");
-    if kind != Kind::TsJs || !led(&lines[at]) {
+    let led = |l: &str| {
+        let t = l.trim_start();
+        match kind {
+            Kind::TsJs => t.starts_with('.') && !t.starts_with(".."),
+            Kind::Php => t.starts_with("->") || t.starts_with("?->"),
+            _ => false,
+        }
+    };
+    if !led(&lines[at]) {
         return None;
     }
     let mut joined = lines[at].trim_start().to_owned();
@@ -382,12 +398,18 @@ pub fn unbroken(
     None
 }
 /// A TypeScript line with `a?.b` and `a!.b` in front of byte `start` written as the plain `a.b`
-/// they are for a member lookup (#100), and where `start` stands in it.
+/// they are for a member lookup (#100), and where `start` stands in it. A PHP line likewise with
+/// its `->` and `?->` as `.` (#348), and its own `.`, which concatenates, as a space: `$a.foo()`
+/// calls the function `foo`.
 pub fn plain_access(kind: Kind, line: &str, start: usize) -> (String, usize) {
-    if kind != Kind::TsJs {
-        return (line.to_owned(), start);
-    }
-    let before = line[..start].replace("?.", ".").replace("!.", ".");
+    let before = match kind {
+        Kind::TsJs => line[..start].replace("?.", ".").replace("!.", "."),
+        Kind::Php => line[..start]
+            .replace('.', " ")
+            .replace("?->", ".")
+            .replace("->", "."),
+        _ => return (line.to_owned(), start),
+    };
     (format!("{before}{}", &line[start..]), before.len())
 }
 /// The call a member access hangs off, where [`qualifier`] has no name to start from:

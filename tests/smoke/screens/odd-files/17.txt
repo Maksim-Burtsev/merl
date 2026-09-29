@@ -9,6 +9,7 @@ wait scripts/grant_admin.py  5:23
 │▾ scripts                   │
 │  ▸ payouts                 │
 │    grant_admin.py          │
+│    invoices.php            │
 │    refund_by_hand.py       │
 │▸ tests                     │
 │▸ web                       │
@@ -20,7 +21,6 @@ wait scripts/grant_admin.py  5:23
 │  Makefile                  │
 │  pyproject.toml            │
 │  README.md                 │
-│                            │
 │                            │
 │                            │
 │                            │
