@@ -390,6 +390,105 @@ fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     }
     Vec::new()
 }
+// ---- Swift's scopes (#371, #366) --------------------------------------------------------------
+/// A Swift line that opens a function's body, whose `let`s, `var`s and parameters are its own: a
+/// `func`, an `init`, a `subscript`, a `deinit`, an accessor, a computed property.
+static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(&format!(
+        r"{}(?:func\s|(?:init|subscript)\s*[?!(<]|deinit\b|(?:get|set|willSet|didSet|_read|_modify)\b|(?:var|let)\s+`?\w+`?\s*:[^=]*\{{\s*$)",
+        swift_mods!()
+    ))
+    .unwrap()
+});
+/// A Swift line that opens a type's body, whose `let`s and `var`s are members. Read after
+/// [`SWIFT_FUNC`], which takes `class func` and `class var x: T {`.
+static SWIFT_TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(&format!(
+        r"{}(?:class|struct|enum|protocol|actor|extension)\s+[`\w]",
+        swift_mods!()
+    ))
+    .unwrap()
+});
+/// A `let` or a `var` statement of Swift, and what follows the keyword.
+static SWIFT_DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(&format!(r"{}(?:let|var)\s+(.*)$", swift_mods!())).unwrap()
+});
+/// Whether 0-based line `i` of Swift `lines` is something the walk over the blocks reads: code,
+/// no comment, no `#if`, no line of a multi-line string.
+fn swift_code<S: AsRef<str>>(lines: &[S], literal: &[bool], i: usize) -> bool {
+    let t = lines[i].as_ref().trim();
+    !t.is_empty()
+        && !literal.get(i).copied().unwrap_or(false)
+        && !t.starts_with('#')
+        && !comment(Kind::Swift, t)
+}
+/// The first line of the header that 0-based line `i` of Swift `lines` ends: `) -> Int {` and a
+/// lone `{` close one wrapped over the lines above, from the line back at their indent, and a line
+/// under one ending in `,` goes on a condition or a parameter list.
+fn swift_header_start<S: AsRef<str>>(lines: &[S], literal: &[bool], mut i: usize) -> usize {
+    loop {
+        let ind = indent(lines[i].as_ref());
+        let wrapped = lines[i]
+            .as_ref()
+            .trim_start()
+            .starts_with([')', '{', ']', '>']);
+        let code = |j: usize| swift_code(lines, literal, j);
+        let Some(j) = (0..i)
+            .rev()
+            .find(|&j| code(j) && indent(lines[j].as_ref()) <= ind)
+        else {
+            return i;
+        };
+        let comma = (0..i).rev().find(|&j| code(j)) == Some(j)
+            && uncommented(Kind::Swift, lines[j].as_ref())
+                .trim_end()
+                .ends_with(',');
+        if !wrapped && !comma {
+            return i;
+        }
+        i = j;
+    }
+}
+/// Where 1-based `line` of a Swift file sits, told by indentation (#371): the 1-based line of the
+/// nearest `func`, `init`, `subscript`, `deinit` or accessor around it, or of a type's header when
+/// that comes first, or 0 at the top of the file; and whether a `let` or a `var` there is a local,
+/// which is when the block right around it is no type's body and not the file's top level.
+/// `literal` is [`literal_lines`] of the file.
+pub fn swift_scope<S: AsRef<str>>(lines: &[S], literal: &[bool], line: usize) -> (usize, bool) {
+    let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return (0, false);
+    };
+    let (mut depth, mut i, mut local) = (indent(target.as_ref()), line - 1, None);
+    while i > 0 && depth > 0 {
+        i -= 1;
+        if !swift_code(lines, literal, i) || indent(lines[i].as_ref()) >= depth {
+            continue;
+        }
+        depth = indent(lines[i].as_ref());
+        i = swift_header_start(lines, literal, i);
+        let t = uncommented(Kind::Swift, lines[i].as_ref());
+        let func = SWIFT_FUNC.is_match(&t);
+        let ty = !func && SWIFT_TYPE.is_match(&t);
+        let local = *local.get_or_insert(!ty);
+        if func || ty {
+            return (i + 1, local);
+        }
+    }
+    (0, local.unwrap_or(false))
+}
+/// Whether a Swift line is an `extension` (#371).
+pub fn swift_extension(line: &str) -> bool {
+    static EXTENSION: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(&format!(r"{}extension\s", swift_mods!())).unwrap());
+    EXTENSION.is_match(line)
+}
+/// The function whose local the `let` or `var` on 1-based `line` of a Swift file is, as
+/// [`swift_scope`] names it; `None` for a member, a global, or no `let` or `var` at all.
+pub fn swift_local<S: AsRef<str>>(lines: &[S], literal: &[bool], line: usize) -> Option<usize> {
+    let text = lines.get(line.checked_sub(1)?)?.as_ref();
+    let (scope, local) = swift_scope(lines, literal, line);
+    (local && SWIFT_DECL.is_match(&uncommented(Kind::Swift, text))).then_some(scope)
+}
 /// Whether the word at `range` of 1-based `line` names a keyword argument of a Python call:
 /// `recipe_yield=…` behind a `(` or a `,`, or at the start of a line that continues a call. It
 /// names a parameter of whatever is called, and no variable of that spelling.

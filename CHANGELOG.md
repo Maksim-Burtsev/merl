@@ -366,6 +366,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in a Makefile finds a variable set only by `CFLAGS += -Wall` or for one target,
   `release: VERSION := 1.0`, where it answered `no definition`. A plain `CFLAGS = -O2` stays
   the only answer where there is one. (#499)
+- `d` in Swift on a type the project declares lands on its `class`, `struct` or `enum`, where it
+  listed every `extension` of it beside the type (a picker of 24 for Alamofire's `AFError`). A
+  type the project only extends, such as Foundation's `Data`, offers its extensions rather than
+  jumping into one as if it were the type. And a `let` or `var` inside a function is no longer a
+  candidate behind a `.` or in another function: `session.request` lands on the method, not in a
+  picker beside a test's `let request`. (#371)
 
 ## [0.7.0] - 2026-09-25
 

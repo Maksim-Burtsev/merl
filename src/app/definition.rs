@@ -764,6 +764,30 @@ impl App {
             });
             self.offer_only |= hits.len() < all && hits.iter().any(|h| !at(h));
         }
+        // A Swift function's `let` or `var` is seen inside that function alone (#371): behind a
+        // `.` it is no member, and for a bare word anywhere else it is another function's local.
+        // The cursor's own line alone is offered rather than jumped to when others went: the
+        // word may be a use on the line of a declaration of its name (#317).
+        if kind == Kind::Swift {
+            let all = hits.len();
+            let lines: Vec<&str> = text.lines().collect();
+            let (scope, _) =
+                search::swift_scope(&lines, &search::literal_lines(kind, &text), self.line + 1);
+            let mut files: HashMap<PathBuf, (Vec<String>, Vec<bool>)> = HashMap::new();
+            hits.retain(|h| {
+                let (lines, literal) = files.entry(h.path.clone()).or_insert_with(|| {
+                    let t = self.text_of(&h.path).unwrap_or_default();
+                    let literal = search::literal_lines(kind, &t);
+                    (t.lines().map(str::to_owned).collect(), literal)
+                });
+                match search::swift_local(lines, literal, h.line) {
+                    Some(at) => !dotted && h.path == here && at == scope,
+                    None => true,
+                }
+            });
+            self.offer_only |= hits.len() < all
+                && matches!(hits.as_slice(), [h] if h.path == here && h.line == self.line + 1);
+        }
         // A C or C++ type is its body, not its forward declarations and constructors (#368).
         // Behind `.` or `->` no type is meant. Then what the file on screen can see (#364): not
         // another source file's statics and macros, not a `#define` that only stands in where
@@ -829,6 +853,25 @@ impl App {
                 reason: Reason::ByName,
             })
             .collect();
+        // A Swift `extension X` declares no `X` (#371). With the type in the project the
+        // extensions are no candidates; with only extensions, `X` is declared outside: in a
+        // dependency, else in Foundation or the standard library, which ship no source, and the
+        // extensions are offered then, never jumped to.
+        if kind == Kind::Swift && !found.is_empty() {
+            let extends = |c: &Candidate| search::swift_extension(&c.hit.text);
+            if found.iter().any(|c| !extends(c)) {
+                found.retain(|c| !extends(c));
+            } else {
+                let mut away = self
+                    .external_definitions(kind, &word, &chain, dotted, &imports, false)
+                    .unwrap_or_default();
+                away.retain(|c| !extends(c));
+                match away.is_empty() {
+                    true => self.offer_only = true,
+                    false => found = away,
+                }
+            }
+        }
         if let Some(members) = &members {
             // A value's type is unknown: its member may come from a dependency as well. Outside
             // the project TypeScript is read from its declaration files, as VS Code lands on

@@ -518,6 +518,45 @@ fn swift_def_patterns_find_declarations_behind_attributes_and_modifiers() {
 }
 
 #[test]
+fn swift_locals_are_a_functions_and_members_a_types() {
+    let text = r#"let global = 1
+final class Box {
+#if DEBUG
+    let debug = 1
+#endif
+    var size: Int {
+        let side = 2
+        return side
+    }
+    func open(
+        _ lid: Int
+    ) {
+        items.forEach { item in
+            var seen = item
+        }
+    }
+}
+protocol Boxed {
+    var lid: Int { get }
+}"#;
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Swift, text);
+    let local = |line| swift_local(&lines, &literal, line);
+    assert_eq!(local(1), None, "a global");
+    assert_eq!(local(4), None, "a member under an `#if`");
+    assert_eq!(local(7), Some(6), "a computed property's local");
+    assert_eq!(
+        local(14),
+        Some(10),
+        "a closure's, of the wrapped `func` around it"
+    );
+    assert_eq!(local(19), None, "a protocol's requirement");
+    assert_eq!(swift_scope(&lines, &literal, 13).0, 10);
+    assert!(swift_extension("public extension Box where T: Equatable {"));
+    assert!(!swift_extension("let extensionCount = 1"));
+}
+
+#[test]
 fn swift_def_patterns_tell_a_declaration_from_a_call_or_a_pattern() {
     let (dir, files) = scratch("swift-calls", &[("Session.swift", SWIFT)]);
     let d = |w| defs(&dir, &files, Kind::Swift, w);

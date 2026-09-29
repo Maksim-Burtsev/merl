@@ -11,7 +11,7 @@ extension Tariff {
 
 public struct Basket {
     let tariff: Tariff
-    //          ^ d: picker Sources/Shop/Basket.swift:5, Sources/Shop/Pricing.swift:8; want Sources/Shop/Pricing.swift:8 (#371)
+    //          ^ d: Sources/Shop/Pricing.swift:8
     let coupon: Coupon?
     //          ^ d: Sources/Shop/Pricing.swift:21
     var owner = ""
@@ -48,7 +48,7 @@ func describeAny(_ t: Tariff, _ c: Coupon) -> String {
 func restock(weigh: Int) -> Int {
     weigh + weightLimit
     // ^ d: Sources/Warehouse/Warehouse.swift:8; want Sources/Shop/Basket.swift:48 (#366)
-    //         ^ d: picker Sources/Shop/Basket.swift:3, Sources/Shop/Basket.swift:55; want Sources/Shop/Basket.swift:3 (#371)
+    //         ^ d: Sources/Shop/Basket.swift:3
 }
 
 func overweight(_ grams: Int) -> Bool {
@@ -150,7 +150,7 @@ func cheapest<Item: Priced>(_ items: [Item]) -> Item? {
 }
 
 let label: String = "shop"
-//         ^ d: Sources/Warehouse/Warehouse.swift:18; want none (#371)
+//         ^ d: picker Sources/Warehouse/Warehouse.swift:18
 
 func sealed(_ p: Parcel) -> Parcel.Seal {
     //                             ^ d: Sources/Shop/Pricing.swift:82
@@ -171,7 +171,7 @@ func items() -> Int {
 
 func renamed(_ courier: Courier) -> Courier {
     let courier = Courier(name: courier.name)
-    //                          ^ d: picker Sources/Shop/Basket.swift:62; want Sources/Shop/Basket.swift:172 (#317)
+    //                          ^ d: picker Sources/Shop/Basket.swift:173; want Sources/Shop/Basket.swift:172 (#317)
     return courier
 }
 
