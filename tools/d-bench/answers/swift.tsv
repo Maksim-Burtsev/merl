@@ -1,0 +1,271 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+swift0000			
+swift0001			
+swift0002	Source/Core/Request.swift:207		
+swift0003		builtin: an SDK interface the server generated	
+swift0004	Tests/TestHelpers.swift:63		
+swift0005	Tests/TestHelpers.swift:258		
+swift0006	Source/Core/DataRequest.swift:54		
+swift0007	Tests/AFError+AlamofireTests.swift:115		
+swift0008			
+swift0009	Source/Features/ResponseSerialization.swift:462;Source/Features/ResponseSerialization.swift:476		
+swift0010	Source/Core/Request.swift:29		
+swift0011	Source/Core/Session.swift:1248		
+swift0012	Source/Core/Protected.swift:28		
+swift0013	Source/Features/CachedResponseHandler.swift:50;Source/Features/CachedResponseHandler.swift:72		
+swift0014	Tests/TestHelpers.swift:457		
+swift0015	Tests/RequestInterceptorTests.swift:29		
+swift0016	Source/Core/SessionDelegate.swift:115		
+swift0017	Source/Core/Response.swift:226		
+swift0018	Tests/ServerTrustEvaluatorTests.swift:80		
+swift0019	Tests/ServerTrustEvaluatorTests.swift:80		
+swift0020	Source/Features/URLEncodedFormEncoder.swift:62		
+swift0021	Source/Features/AuthenticationInterceptor.swift:215		
+swift0022			
+swift0023	Source/Core/Session.swift:30		
+swift0024		builtin: an SDK interface the server generated	
+swift0025			
+swift0026	Tests/HTTPHeadersTests.swift:94		
+swift0027		builtin: an SDK interface the server generated	
+swift0028		builtin: an SDK interface the server generated	
+swift0029		builtin: an SDK interface the server generated	
+swift0030		builtin: an SDK interface the server generated	
+swift0031	Source/Features/URLEncodedFormEncoder.swift:1081		
+swift0032	Source/Core/Session.swift:30;Source/Core/Session.swift:201		
+swift0033	Source/Core/DownloadRequest.swift:118		
+swift0034	Tests/ProtectedTests.swift:111		
+swift0035	Source/Core/Session.swift:30;Source/Core/Session.swift:201		
+swift0036	Source/Core/HTTPMethod.swift:39		
+swift0037		builtin: an SDK interface the server generated	
+swift0038			
+swift0039		builtin: an SDK interface the server generated	
+swift0040	Tests/TestHelpers.swift:291		
+swift0041	Tests/CombineTests.swift:1506		
+swift0042		builtin: an SDK interface the server generated	
+swift0043			
+swift0044			
+swift0045			
+swift0046	Source/Core/Instant.swift:35		
+swift0047	Tests/InspectorEventMonitor.swift:57		
+swift0048	Tests/TestHelpers.swift:287		
+swift0049		builtin: an SDK interface the server generated	
+swift0050		builtin: an SDK interface the server generated	
+swift0051	Source/Core/Request.swift:250		
+swift0052			
+swift0053	Source/Features/MultipartFormData.swift:148		
+swift0054			
+swift0055			
+swift0056			
+swift0057			
+swift0058			
+swift0059	Tests/Result+AlamofireTests.swift:28		
+swift0060	Source/Features/RequestInterceptor.swift:69		
+swift0061	Tests/ConcurrencyTests.swift:718		
+swift0062	Source/Core/RequestTaskMap.swift:47		
+swift0063	Source/Core/Session.swift:30;Source/Core/Session.swift:201		
+swift0064	Tests/RequestTests.swift:684		
+swift0065	Tests/BaseTestCase.swift:57		
+swift0066			
+swift0067		builtin: an SDK interface the server generated	
+swift0068			
+swift0069	Tests/AuthenticationInterceptorTests.swift:32;Tests/AuthenticationInterceptorTests.swift:40		
+swift0070	Source/Core/AFError.swift:33		
+swift0071	Source/Features/Combine.swift:258		
+swift0072	Tests/Result+AlamofireTests.swift:33		
+swift0073			
+swift0074	Tests/AuthenticationInterceptorTests.swift:67		
+swift0075			
+swift0076	Source/Core/DataStreamRequest.swift:301		
+swift0077		builtin: an SDK interface the server generated	
+swift0078	Source/Core/RequestTaskMap.swift:102		
+swift0079	Source/Core/Request.swift:931		
+swift0080	Source/Core/Request.swift:29		
+swift0081	Tests/SessionTests.swift:90;Tests/SessionTests.swift:114		
+swift0082	Source/Core/Session.swift:30;Source/Core/Session.swift:201		
+swift0083			
+swift0084			
+swift0085		builtin: an SDK interface the server generated	
+swift0086			
+swift0087	Source/Core/DataRequest.swift:28		
+swift0088	Source/Features/URLEncodedFormEncoder.swift:450		
+swift0089			
+swift0090	Tests/ProtectedTests.swift:95		
+swift0091		builtin: an SDK interface the server generated	
+swift0092	Source/Core/AFError.swift:33		
+swift0093		builtin: an SDK interface the server generated	
+swift0094			
+swift0095	Source/Core/AFError.swift:220		
+swift0096			
+swift0097	Source/Features/Validation.swift:35		
+swift0098	Source/Core/Session.swift:1220		
+swift0099			
+swift0100	Source/Core/Protected.swift:114		
+swift0101	Source/Core/Session.swift:925		
+swift0102	Source/Features/Concurrency.swift:831		
+swift0103	Tests/RedirectHandlerTests.swift:231		
+swift0104	Source/Core/SessionDelegate.swift:388		
+swift0105	Source/Features/MultipartFormData.swift:48		
+swift0106	Source/Features/RetryPolicy.swift:266		
+swift0107	Source/Features/AuthenticationInterceptor.swift:187		
+swift0108			
+swift0109	Source/Core/AFError.swift:119		
+swift0110	Tests/TestHelpers.swift:390		
+swift0111	Tests/ServerTrustEvaluatorTests.swift:80		
+swift0112			
+swift0113			
+swift0114		builtin: an SDK interface the server generated	
+swift0115	Source/Core/HTTPMethod.swift:43		
+swift0116		builtin: an SDK interface the server generated	
+swift0117			
+swift0118			
+swift0119			
+swift0120			
+swift0121			
+swift0122			
+swift0123			
+swift0124	Source/Core/Session.swift:779		
+swift0125	Source/Features/Combine.swift:330		
+swift0126	Tests/TestHelpers.swift:409		
+swift0127			
+swift0128	Tests/AuthenticationInterceptorTests.swift:60		
+swift0129	Tests/BaseTestCase.swift:57		
+swift0130	Tests/AuthenticationInterceptorTests.swift:32;Tests/AuthenticationInterceptorTests.swift:40		
+swift0131	Source/Core/HTTPMethod.swift:29		
+swift0132	Source/Features/Concurrency.swift:375		
+swift0133	Source/Core/Response.swift:33		
+swift0134		builtin: an SDK interface the server generated	
+swift0135	Source/Core/Request.swift:120		
+swift0136	Tests/TestHelpers.swift:80		
+swift0137	Source/Features/AuthenticationInterceptor.swift:160;Source/Features/AuthenticationInterceptor.swift:258		
+swift0138	Source/Core/Session.swift:30;Source/Core/Session.swift:201		
+swift0139			
+swift0140	Source/Core/Session.swift:318		
+swift0141	Source/Core/Notifications.swift:87;Source/Features/EventMonitor.swift:137;Source/Features/EventMonitor.swift:282;Source/Features/EventMonitor.swift:489;Source/Features/EventMonitor.swift:844;Tests/InspectorEventMonitor.swift:171;Tests/NSLoggingEventMonitor.swift:143		
+swift0142			
+swift0143	Source/Core/Request.swift:37		
+swift0144	Source/Features/RetryPolicy.swift:364		
+swift0145		builtin: an SDK interface the server generated	
+swift0146	Tests/TestHelpers.swift:37		
+swift0147		builtin: an SDK interface the server generated	
+swift0148	Source/Core/Instant.swift:34;Source/Core/Instant.swift:42		
+swift0149			
+swift0150	Source/Features/RequestInterceptor.swift:119		
+swift0151		builtin: an SDK interface the server generated	
+swift0152		builtin: an SDK interface the server generated	
+swift0153		builtin: an SDK interface the server generated	
+swift0154		builtin: an SDK interface the server generated	
+swift0155		builtin: an SDK interface the server generated	
+swift0156		builtin: an SDK interface the server generated	
+swift0157			
+swift0158			
+swift0159			
+swift0160	Source/Core/Response.swift:53		
+swift0161	Source/Features/NetworkReachabilityManager.swift:43;Source/Features/NetworkReachabilityManager.swift:51		
+swift0162	Source/Core/AFError.swift:234		
+swift0163	Source/Core/DataRequest.swift:34		
+swift0164	Source/Features/URLEncodedFormEncoder.swift:546		
+swift0165			
+swift0166	Source/Core/AFError.swift:33		
+swift0167			
+swift0168	Tests/TestHelpers.swift:37		
+swift0169			
+swift0170	Source/Core/Response.swift:53		
+swift0171	Tests/TestHelpers.swift:494		
+swift0172		builtin: an SDK interface the server generated	
+swift0173			
+swift0174			
+swift0175	Source/Core/Protected.swift:104		
+swift0176	Source/Core/Session.swift:30;Source/Core/Session.swift:201		
+swift0177	Source/Core/Request.swift:29		
+swift0178	Source/Core/DownloadRequest.swift:278		
+swift0179	Tests/TestHelpers.swift:350		
+swift0180	Source/Features/RequestInterceptor.swift:255		
+swift0181		builtin: an SDK interface the server generated	
+swift0182	Source/Core/HTTPMethod.swift:29		
+swift0183	Tests/SessionTests.swift:1832		
+swift0184	Source/Core/Response.swift:53		
+swift0185			
+swift0186	Tests/TestHelpers.swift:204		
+swift0187	Tests/TestHelpers.swift:494		
+swift0188	Source/Features/ResponseSerialization.swift:462;Source/Features/ResponseSerialization.swift:476		
+swift0189	Tests/BaseTestCase.swift:104		
+swift0190			
+swift0191	Tests/TestHelpers.swift:457		
+swift0192			
+swift0193			
+swift0194			
+swift0195	Source/Features/ResponseSerialization.swift:156		
+swift0196	Tests/MultipartFormDataTests.swift:35		
+swift0197	Source/Features/Concurrency.swift:724		
+swift0198		builtin: an SDK interface the server generated	
+swift0199			
+swift0200			
+swift0201		builtin: an SDK interface the server generated	
+swift0202		builtin: an SDK interface the server generated	
+swift0203	Tests/AFError+AlamofireTests.swift:237		
+swift0204	Source/Core/AFError.swift:33		
+swift0205	Source/Features/ResponseSerialization.swift:430		
+swift0206			
+swift0207	Tests/BaseTestCase.swift:108		
+swift0208			
+swift0209	Source/Core/Session.swift:98		
+swift0210	Source/Core/AFError.swift:131		
+swift0211			
+swift0212	Source/Core/Response.swift:38		
+swift0213	Source/Core/WebSocketRequest.swift:377		
+swift0214			
+swift0215	Tests/RetryPolicyTests.swift:303		
+swift0216			
+swift0217	Source/Features/ResponseSerialization.swift:416		
+swift0218		builtin: an SDK interface the server generated	
+swift0219	Source/Core/Request.swift:40		
+swift0220	Source/Core/AFError.swift:33		
+swift0221	Source/Core/AFError.swift:33		
+swift0222	Tests/AuthenticationInterceptorTests.swift:58		
+swift0223	Source/Features/URLEncodedFormEncoder.swift:547		
+swift0224		builtin: an SDK interface the server generated	
+swift0225	Tests/ServerTrustEvaluatorTests.swift:152		
+swift0226			
+swift0227		builtin: an SDK interface the server generated	
+swift0228			
+swift0229		builtin: an SDK interface the server generated	
+swift0230			
+swift0231			
+swift0232	Tests/DataStreamTests.swift:816		
+swift0233	Source/Core/Request.swift:804		
+swift0234	Tests/AuthenticationInterceptorTests.swift:1349		
+swift0235	Source/Core/Response.swift:53		
+swift0236		builtin: an SDK interface the server generated	
+swift0237	Source/Features/Concurrency.swift:98		
+swift0238		builtin: an SDK interface the server generated	
+swift0239	Source/Features/URLEncodedFormEncoder.swift:538		
+swift0240		builtin: an SDK interface the server generated	
+swift0241			
+swift0242	Tests/TestHelpers.swift:29		
+swift0243	Source/Features/ResponseSerialization.swift:64		
+swift0244	Tests/BaseTestCase.swift:29		
+swift0245	Source/Core/Request.swift:441		
+swift0246	Source/Features/RequestInterceptor.swift:73		
+swift0247		builtin: an SDK interface the server generated	
+swift0248	Source/Features/Concurrency.swift:585		
+swift0249	Tests/BaseTestCase.swift:57		
+swift0250	Source/Features/NetworkReachabilityManager.swift:80		
+swift0251			
+swift0252	Tests/RequestInterceptorTests.swift:628		
+swift0253		builtin: an SDK interface the server generated	
+swift0254		builtin: an SDK interface the server generated	
+swift0255	Tests/BaseTestCase.swift:108		
+swift0256	Tests/MultipartFormDataTests.swift:35		
+swift0257	Source/Features/Combine.swift:391		
+swift0258			
+swift0259	Source/Core/AFError.swift:33		
+swift0260	Source/Features/ResponseSerialization.swift:272		
+swift0261	Tests/Result+AlamofireTests.swift:33		
+swift0262	Source/Core/Session.swift:367		
+swift0263	Source/Core/Response.swift:33		
+swift0264	Source/Features/RequestCompression.swift:39;Source/Features/RequestCompression.swift:64		
+swift0265			
+swift0266		builtin: an SDK interface the server generated	
+swift0267	Tests/SessionTests.swift:212		
+swift0268		builtin: an SDK interface the server generated	
+swift0269	Source/Features/RetryPolicy.swift:29		

@@ -19,11 +19,31 @@
   the last release stops at the first wait for what it lacks, so the new steps go at the end.
   Keep the whole run under ~3 min (`wall` in the report's header) and check the scenario with
   `tests/smoke/run.py --only NAME`: PASS or DIFF on the new build.
+- CI plays the scenarios on every PR (`tests/smoke/run.py --golden`, all but `RELEASE_ONLY` in
+  `run.py`) and fails on any checkpoint whose screen, as text, differs from its file under
+  `tests/smoke/screens/SCENARIO/`. A visible change, or new steps in a scenario, updates those
+  files in the same PR: `tests/smoke/run.py --update --only NAME`, then commit them, so the PR's
+  diff shows every screen it changes. Check each rewritten screen shows what the change meant.
+- Beside the screens, `keys.txt` lists the `KEYS` actions merl counted a press of in the play.
+  `every_key_and_flag_is_smoked_or_skipped_on_purpose` (`src/app/tests/smoke.rs`) fails on an
+  action of `KEYS` or a flag of the command line that no scenario plays: a new key or flag gets
+  steps in a scenario and its `keys.txt` rewritten by `--update`, or a line in `NOT_SMOKED` with
+  why.
 - A PR that changes a text a scenario waits for updates that scenario in the same PR; `grep -rn
   'TEXT' tests/smoke assets/*.steps` finds them all, the README's tapes that `scale` plays
   included. The wait moves to text both the change and the last release draw: the change then
   shows as a difference in its checkpoint, while a wait on the new text would stop the last
   release there and leave the rest of the scenario unplayed.
+- `src/app/tests/edit_fuzz.rs` plays random edit sessions on `App` and on a plain model of the
+  edit keys, comparing text, cursor, selection, clipboard and the file on disk after every key.
+  A change to what an edit key does changes the model in the same PR; before pushing a change to
+  `src/app/edit.rs`, run `MERL_FUZZ_SESSIONS=5000 cargo test --release edit_fuzz` (a failure
+  prints its seed and the shortest key sequence that still fails).
+- `tests/snapshots/*.txt` are whole screens, text and colours, of every overlay, picker and panel
+  at 80×24, 120×33 and 185×55 in a dark and a light theme (`src/ui/tests/snapshots.rs`). A PR
+  that changes what a screen draws updates them in the same PR: `MERL_UPDATE_SNAPSHOTS=1 cargo
+  test snapshots`, then read `git diff tests/snapshots` as the change seen on screen. A new
+  screen, overlay or panel adds its state to `STATES`.
 
 ## Issues
 
@@ -56,7 +76,7 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
    origin or carry commits origin never got. Read code, reviews included, from your worktree.
 3. Build into the worktree's own `target/`. Worktrees sharing a `CARGO_TARGET_DIR` hand you a
    stale `merl` test binary, one built from another tree; after sharing one, `cargo clean -p
-   merl` before trusting a result. A build of master (for a screencast or a sweep) gets a
+   merl` before trusting a result. A build of master (for a screencast) gets a
    worktree and a target of its own too.
 4. Keep scratch files (fixtures, GIFs, harnesses) in a folder named after the issue: parallel
    runs share a scratchpad and overwrite each other's `before.gif`.
@@ -78,21 +98,27 @@ Everything on GitHub (issues, PR bodies, reviews, comments) is in English.
 A wrong jump is worse than a picker or "don't know", and no lookup may get worse than on master.
 Only the path the change narrows gets new rules: every other lookup, and every other language,
 matches exactly as master does. Rules that start answering a new question tend to leak into the
-fallback paths, so a `d` PR is ready to merge only after both passes below show no row worse than
-master; their tables go into the commit message.
+fallback paths, so a `d` PR is ready to merge only after the bench shows no cursor worse than
+master.
 
-- **Sweep.** Every scenario the tests and the reviews raised, as a TSV of `tag root file line
-  col`, played on master and on the branch by a temporary `#[ignore]` test `zz_sweep` in
-  `src/app/tests/`, the same file in both worktrees: one `App` per project, set `jump_to` and
-  `col`, press `d`, write `shown()` and the milliseconds. `cargo test --release zz_sweep --
-  --ignored` plays ~900 cursors in ~40 s. Time in release only (a `grep` call costs ~35 ms in
-  debug, ~1 ms in release), master and branch back to back, with `sysctl -n vm.loadavg` under ~8:
-  parallel sessions' builds push it to 30–90 and skew timings two- to threefold. Each row is
-  same, better or WORSE. Never commit the harness.
-- **Replay** over real projects, `git clone --depth 1` into your scratch folder, cursors picked
-  by shape: fastapi, mealie (`uv sync`); gin, gitea; hono (`npm install --ignore-scripts`),
-  typeorm, nest, immich (`pnpm install --ignore-scripts --filter 'immich...'`). TypeScript rows
-  are checked against TypeScript's own `getDefinitionAtPosition`.
+- **The bench**, `tools/d-bench/run [--lang go,rust]` (`tools/d-bench/README.md`): 2,870
+  recorded cursors in 13 real projects pinned to a commit, one per language, merl's answer scored
+  against a language server's (a judgement read from the code for Java, Kotlin, C# and Ruby) and
+  diffed against `baseline.tsv`, master's. It prints per language the direct hits, pickers with
+  the answer, wrong jumps, misses and p50 / p90 ms, lists every cursor that got worse (a new
+  wrong jump first), and exits 1 when there is any. Run the languages the change touches, all of them when a shared path moves; the table
+  goes into the commit message. A PR that changes the table commits the new baseline with it
+  (`--update-baseline`), so the next PR compares against what master will be.
+- It times in release; the times mean something only with `sysctl -n vm.loadavg` under ~8:
+  parallel sessions' builds push it to 30–90 and skew timings two- to threefold.
+- The answers are recorded once, never in CI and never in merl (`record.py`); a cursor whose
+  recorded answer is debatable is marked `skip` with the reason in `answers/LANG.tsv`, not argued
+  with in the code.
+
+The expected answers of `d` are written in the fixtures, under the line they probe
+(`tests/fixtures/README.md`, #307). A fixed case flips its annotation from `today; want … (#N)`
+to the wanted answer, or adds one when no annotation covers it; a miss found in a real project
+becomes an annotation with the issue that will fix it.
 
 An adversarial fixture per language (shadowed imports, namesake types, declaration-shaped lines
 in strings) finds what real projects do not. To prove a test can fail, revert one fix at a time
@@ -203,9 +229,12 @@ Only when the owner asks for one, and with nothing open under `release-blocker`.
      note as `![](https://raw.githubusercontent.com/Maksim-Burtsev/merl/media/releases/X.Y.Z.gif)`.
 4. A release PR, `release: X.Y.Z`: `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD` with its
    link, the version goes into `Cargo.toml` and `Cargo.lock`, it adds `docs/releases/X.Y.Z.md`,
-   and its body holds the smoke test's verdict table.
+   it carries the `tests/budgets.tsv` the smoke test's time budgets wrote, and its body holds the
+   smoke test's verdict table.
 5. After the merge, an annotated tag `vX.Y.Z` (message `merl X.Y.Z`) on that commit, pushed;
    `release.yml` builds the GitHub release and its binaries.
 6. The Homebrew tap: `release.yml` bumps it when the `TAP_TOKEN` secret is set; otherwise bump
-   `Formula/merl.rb` in `Maksim-Burtsev/homebrew-tap` by hand (the version and the three sha256
-   of the `.sha256` assets), commit `merl X.Y.Z` and push.
+   `Formula/merl.rb` in `Maksim-Burtsev/homebrew-tap` by hand (the version and the four sha256
+   of the `.sha256` assets), commit `merl X.Y.Z` and push. The first release that ships
+   `merl-x86_64-apple-darwin.tar.gz` adds an `on_intel` block under `on_macos`, with that
+   asset's url and sha256; `bump-tap` fails on an asset the formula has no block for.

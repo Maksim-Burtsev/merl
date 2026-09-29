@@ -1,0 +1,57 @@
+wait app/uow.py  21:45  [code]  app/uow.py gone
+ 1 from app.repos import OrderRepo
+ 2
+ 3
+ 4 class UnitOfWork:
+ 5     """One transaction: `with uow:` commits on success and rolls back on an error."""
+ 6
+ 7     def __init__(self, db):
+ 8         self.db = db
+ 9         self.orders = OrderRepo(db)
+10
+11     def __enter__(self):
+12         self.db.begin()
+13         return self
+14
+15     def __exit__(self, exc_type, exc, tb):
+16         if exc_type is None:
+17             self.db.commit()
+18         else:
+19             self.db.rollback()
+20         return False
+21         # unused since the service took over
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+app/uow.py  21:45  [code]  app/uow.py gone
+cursor (x,y,shown) 47,20,1

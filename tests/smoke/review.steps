@@ -62,6 +62,13 @@ key Enter d
 wait [code]  REFUNDED → OrderStatus.REFUNDED (via OrderStatus)
 key c
 wait :1  [code]  hunk
+# --base names the branch the review is against, here the one origin/HEAD would give (#310).
+merl --review=agent/refund --base main
+wait hunk 1/1  file 1/8
+# --reviews prints the two sessions this scenario played, and exits 0 (#310).
+merl --reviews
+wait 30 days: 2 sessions
+wait merl exited: 0
 caption merl -r agent/page-size: the branch an agent works on in a worktree of its own is reviewed there (#396)
 merl -r agent/page-size
 wait app/config.py  10:1  [code]  hunk 1/1  file 1/2

@@ -1,0 +1,57 @@
+wait Usages of save: 2 declarations, 2 in code, 1 in tests (5/5)
+ 1 from app.models import Order, OrderStatus
+ 2
+ 3
+ 4 class OrderRepo:
+ 5     """Orders in Postgres. Every method runs in the caller's transaction."""
+ 6
+ 7     def __init__(self, db):
+ 8         self.db = db
+ 9
+10     def get(self, order_id: int) -> Order | None:
+11         row = self.db.fetch_one("SELECT * FROM orders WHERE id = %s", order_id)
+12         return O┌Usages of save: 2 declarations, 2 in code, 1 in tests (5/5)───────────────────────────────────────────────────────────────────────────────────────┐
+13                 │>                                                                                                                                                 │
+14     def find_by_│declaration  app/repos.py:20: def save(self, order: Order) -> None:                                                                               │
+15         rows = s│declaration  app/repos.py:52: def save(self, order: Order) -> None:                                                                               │
+16             "SEL│             app/service.py:26: self.repo.save(order)                                                                                             │
+17         )       │             app/service.py:35: self.uow.orders.save(order)                                                                                       │
+18         return [│             tests/test_service.py:21: def save(self, order):                                                                                     │
+19                 │                                                                                                                                                  │
+20     def save(sel│                                                                                                                                                  │
+21         self.db.│                                                                                                                                                  │
+22             "INS│                                                                                                                                                  │
+23             "ON │                                                                                                                                                  │
+24             orde│                                                                                                                                                  │
+25             orde│                                                                                                                                                  │
+26             orde│                                                                                                                                                  │
+27             orde│                                                                                                                                                  │
+28         )       │                                                                                                                                                  │
+29                 │                                                                                                                                                  │
+30     def delete(s│                                                                                                                                                  │
+31         self.db.│                                                                                                                                                  │
+32                 │                                                                                                                                                  │
+33                 │                                                                                                                                                  │
+34 class InMemoryOr│                                                                                                                                                  │
+35     """Orders in│                                                                                                                                                  │
+36                 │                                                                                                                                                  │
+37     def __init__│                                                                                                                                                  │
+38         self.ord│                                                                                                                                                  │
+39                 │                                                                                                                                                  │
+40     def get(self│                                                                                                                                                  │
+41         return s│                                                                                                                                                  │
+42                 │                                                                                                                                                  │
+43     def find_by_│                                                                                                                                                  │
+44         return s└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+45             (o for o in self.orders.values() if o.customer_id == customer_id),
+46             key=lambda o: o.id,
+47         )
+48
+49     def find_by_status(self, status: OrderStatus) -> list[Order]:
+50         return [o for o in self.orders.values() if o.status is status]
+51
+52     def save(self, order: Order) -> None:
+53         self.orders[order.id] = order
+54
+app/repos.py  20:9  [code]                                                                                                                                                        ? help
+cursor (x,y,shown) 22,12,1

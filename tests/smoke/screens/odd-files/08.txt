@@ -1,0 +1,57 @@
+wait binary file
+1 binary file
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+docs/architecture.png  1:1  [code]  read-only                                                                                                                                     ? help
+cursor (x,y,shown) 2,0,1

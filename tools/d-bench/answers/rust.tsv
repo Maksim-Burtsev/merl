@@ -1,0 +1,301 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+rust0000	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/fmt/mod.rs:1093;/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/fmt/mod.rs:1053		reviewed: derive Debug: the builtin macro and the Debug trait both fair
+rust0001			
+rust0002	crates/ignore/src/overrides.rs:97		
+rust0003			
+rust0004	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/collections/mod.rs:1;/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/lib.rs:624		reviewed: module segment: module file or its pub mod line
+rust0005	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/io/mod.rs:1;/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/lib.rs:630		reviewed: module segment: module file or its pub mod line
+rust0006	crates/printer/src/standard.rs:127		
+rust0007	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/str/mod.rs:513		
+rust0008			
+rust0009	crates/ignore/src/incremental.rs:609		
+rust0010	crates/ignore/src/dir.rs:1129		
+rust0011	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/result.rs:1225		
+rust0012	crates/ignore/src/walk.rs:1325		
+rust0013	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/option.rs:1011		
+rust0014			
+rust0015	crates/ignore/src/incremental.rs:609		
+rust0016			
+rust0017	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/fmt/mod.rs:2966	blanket ToString: the oracle lands on the receiver's Display::fmt	
+rust0018			
+rust0019	crates/core/flags/lowargs.rs:273		
+rust0020	crates/searcher/src/testutil.rs:250		
+rust0021			
+rust0022	crates/printer/src/color.rs:203		
+rust0023	crates/regex/src/non_matching.rs:95		
+rust0024	crates/core/flags/defs.rs:6348		
+rust0025	crates/ignore/src/dir.rs:1129		
+rust0026	crates/core/search.rs:171		
+rust0027	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/macros/mod.rs:1793		
+rust0028	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/macros/mod.rs:1769		
+rust0029	crates/regex/src/non_matching.rs:89		
+rust0030			
+rust0031	crates/printer/src/summary.rs:77		
+rust0032	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/path.rs:3077		
+rust0033	crates/printer/src/hyperlink/aliases.rs:6		
+rust0034			
+rust0035			
+rust0036			
+rust0037	crates/pcre2/src/matcher.rs:22		
+rust0038	crates/printer/src/standard.rs:1772		
+rust0039	crates/regex/src/non_matching.rs:10		
+rust0040	crates/regex/src/ast.rs:150		
+rust0041	crates/searcher/src/searcher/core.rs:22		
+rust0042	crates/regex/src/config.rs:306		
+rust0043	crates/searcher/src/sink.rs:379		
+rust0044			
+rust0045			
+rust0046	crates/ignore/src/incremental.rs:486		
+rust0047	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/time.rs:285		
+rust0048			
+rust0049			
+rust0050	crates/ignore/src/walk.rs:1121		
+rust0051	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/io/error.rs:86		
+rust0052	crates/searcher/src/searcher/mod.rs:102		
+rust0053	crates/globset/src/lib.rs:244	blanket ToString: the oracle lands on the receiver's Display::fmt	
+rust0054	crates/cli/src/escape.rs:26		
+rust0055	crates/core/flags/lowargs.rs:100		
+rust0056	crates/ignore/src/walk.rs:488		
+rust0057			
+rust0058	tests/util.rs:305		
+rust0059	crates/printer/src/color.rs:191		
+rust0060	crates/searcher/src/sink.rs:460		
+rust0061	crates/regex/src/ast.rs:8		
+rust0062	crates/core/flags/parse.rs:319		
+rust0063	crates/printer/src/summary.rs:808		
+rust0064	crates/ignore/src/walk.rs:1571		
+rust0065	crates/core/flags/lowargs.rs:675		
+rust0066	tests/util.rs:102		
+rust0067	crates/printer/src/standard.rs:1772		
+rust0068	crates/matcher/src/lib.rs:69		
+rust0069	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:3967		
+rust0070	crates/ignore/src/lib.rs:437		
+rust0071	crates/printer/src/standard.rs:879		
+rust0072	crates/globset/src/lib.rs:183		
+rust0073			
+rust0074	crates/printer/src/json.rs:24	derived Clone: the oracle points at the derive attribute	
+rust0075	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/alloc/src/string.rs:2738		
+rust0076	crates/searcher/src/line_buffer.rs:301		
+rust0077	crates/core/flags/mod.rs:192		
+rust0078	crates/printer/src/standard.rs:515		
+rust0079	tests/util.rs:58		
+rust0080	crates/core/flags/lowargs.rs:82		
+rust0081	tests/util.rs:252		
+rust0082	~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.8.11/src/hir/mod.rs:1838		
+rust0083	~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-automata-0.4.18/src/util/search.rs:112		
+rust0084	crates/ignore/src/walk.rs:2204		
+rust0085	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:1001		
+rust0086			
+rust0087	crates/ignore/src/lib.rs:545		
+rust0088			
+rust0089	crates/ignore/src/incremental.rs:449		
+rust0090	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/fmt/mod.rs:1093;/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/fmt/mod.rs:1053		reviewed: derive Debug: the builtin macro and the Debug trait both fair
+rust0091	~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glob-0.3.4/src/lib.rs:770		
+rust0092	crates/core/flags/mod.rs:301		
+rust0093	crates/printer/src/util.rs:415		
+rust0094	crates/regex/src/strip.rs:136		
+rust0095	crates/ignore/src/incremental.rs:609		
+rust0096			
+rust0097	crates/ignore/src/dir.rs:878		
+rust0098	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/path.rs:3304		
+rust0099	crates/core/flags/parse.rs:139		
+rust0100	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/alloc/src/str.rs:308		
+rust0101			
+rust0102	crates/core/flags/lowargs.rs:36		
+rust0103	crates/regex/src/matcher.rs:24		
+rust0104	crates/core/flags/lowargs.rs:726		
+rust0105			
+rust0106	tests/util.rs:305		
+rust0107	crates/ignore/src/walk.rs:2220		
+rust0108	crates/core/flags/parse.rs:139		
+rust0109	crates/regex/src/literal.rs:669		
+rust0110	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/fmt/mod.rs:2966	blanket ToString: the oracle lands on the receiver's Display::fmt	
+rust0111	crates/globset/src/lib.rs:661		
+rust0112	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/macros/mod.rs:1769		
+rust0113	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/macros/mod.rs:1769		
+rust0114	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/alloc/src/sync.rs:269		
+rust0115	crates/ignore/src/dir.rs:1129		
+rust0116	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/result.rs:1225		
+rust0117	crates/core/flags/mod.rs:192		
+rust0118	crates/ignore/src/gitignore.rs:202		
+rust0119	crates/searcher/src/searcher/mod.rs:298		
+rust0120	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/alloc/src/string.rs:2378		
+rust0121	crates/core/flags/lowargs.rs:657		
+rust0122	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/io/error.rs:753		
+rust0123			
+rust0124	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/slice/mod.rs:2594		
+rust0125	crates/ignore/src/incremental.rs:94		
+rust0126	crates/printer/src/standard.rs:1753		
+rust0127	crates/ignore/src/lib.rs:289		
+rust0128	crates/printer/src/jsont.rs:111		
+rust0129	crates/regex/src/literal.rs:676		
+rust0130	crates/printer/src/hyperlink/mod.rs:946		
+rust0131			
+rust0132	crates/ignore/src/incremental.rs:581		
+rust0133	crates/core/flags/parse.rs:139		
+rust0134	crates/searcher/src/searcher/mod.rs:368		
+rust0135	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/option.rs:1011		
+rust0136			
+rust0137	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/fmt/mod.rs:2966	blanket ToString: the oracle lands on the receiver's Display::fmt	
+rust0138	crates/core/flags/mod.rs:114		
+rust0139	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/macros/mod.rs:1769		
+rust0140	tests/util.rs:252		
+rust0141	tests/macros.rs:2		
+rust0142			
+rust0143	crates/core/flags/parse.rs:139		
+rust0144			
+rust0145			
+rust0146	crates/searcher/src/searcher/mod.rs:727		
+rust0147	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/macros/mod.rs:1769		
+rust0148	tests/misc.rs:498		
+rust0149	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/fs.rs:2669		
+rust0150			
+rust0151	crates/core/flags/parse.rs:139		
+rust0152	crates/ignore/src/dir.rs:1129		
+rust0153	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/ops/range.rs:88		
+rust0154	crates/searcher/src/lines.rs:238		
+rust0155	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/fs.rs:569		
+rust0156	crates/ignore/src/lib.rs:437		
+rust0157			
+rust0158	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/path.rs:3077		
+rust0159	crates/printer/src/stats.rs:14		
+rust0160			
+rust0161	tests/json.rs:148		
+rust0162			
+rust0163	crates/core/flags/parse.rs:139		
+rust0164	crates/ignore/src/pathutil.rs:56		
+rust0165			
+rust0166	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/alloc/src/string.rs:2378		
+rust0167			
+rust0168			
+rust0169	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/result.rs:1225		
+rust0170	crates/regex/src/strip.rs:55		
+rust0171	crates/core/logger.rs:16		
+rust0172	crates/ignore/src/lib.rs:545		
+rust0173	tests/util.rs:102		
+rust0174	crates/core/flags/lowargs.rs:230		
+rust0175	tests/util.rs:58		
+rust0176	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/alloc/src/string.rs:2754		
+rust0177	crates/ignore/src/dir.rs:708		
+rust0178			
+rust0179	crates/searcher/src/searcher/mod.rs:368		
+rust0180	crates/searcher/src/lines.rs:238		
+rust0181	crates/regex/src/literal.rs:440		
+rust0182			
+rust0183			
+rust0184	crates/index/src/literal.rs:208		
+rust0185	crates/searcher/src/searcher/mod.rs:413		
+rust0186	crates/ignore/src/dir.rs:1016		
+rust0187			
+rust0188	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/macros/mod.rs:1769		
+rust0189	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/path.rs:3077		
+rust0190	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/macros/mod.rs:1769		
+rust0191			
+rust0192	crates/searcher/src/testutil.rs:209		
+rust0193			
+rust0194	crates/searcher/src/line_buffer.rs:283		
+rust0195	crates/ignore/src/lib.rs:545		
+rust0196	tests/util.rs:305		
+rust0197	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/path.rs:3077		
+rust0198	crates/pcre2/src/matcher.rs:12		
+rust0199	crates/ignore/src/dir.rs:93	derived Clone: the oracle points at the derive attribute	
+rust0200	crates/regex/src/non_matching.rs:89		
+rust0201	crates/printer/src/standard.rs:182		
+rust0202	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/collections/hash/map.rs:1013		
+rust0203	crates/globset/src/glob.rs:16		
+rust0204	tests/util.rs:102		
+rust0205			
+rust0206	crates/printer/src/summary.rs:83		
+rust0207			
+rust0208	crates/printer/src/standard.rs:1772		
+rust0209	crates/regex/src/matcher.rs:385		
+rust0210	crates/ignore/src/lib.rs:429		
+rust0211	crates/ignore/src/incremental.rs:609		
+rust0212	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/ffi/os_str.rs:115		
+rust0213	crates/index/src/literal.rs:349		
+rust0214	crates/core/flags/lowargs.rs:525		
+rust0215	crates/matcher/src/lib.rs:71		
+rust0216	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:3821		
+rust0217	crates/core/flags/parse.rs:139		
+rust0218			
+rust0219	tests/macros.rs:18		
+rust0220	crates/globset/src/lib.rs:379		
+rust0221	crates/cli/src/decompress.rs:500		
+rust0222	crates/ignore/src/gitignore.rs:699		
+rust0223	crates/core/flags/lowargs.rs:36		
+rust0224			
+rust0225	crates/core/flags/parse.rs:184		
+rust0226	crates/searcher/src/searcher/glue.rs:53		
+rust0227	crates/core/flags/lowargs.rs:305		
+rust0228	crates/searcher/src/line_buffer.rs:116		
+rust0229			
+rust0230			
+rust0231	crates/globset/src/glob.rs:271		
+rust0232			
+rust0233	crates/core/flags/mod.rs:146		
+rust0234			
+rust0235			
+rust0236	crates/ignore/src/incremental.rs:609		
+rust0237	crates/core/flags/parse.rs:139		
+rust0238	crates/printer/src/stats.rs:15		
+rust0239	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/path.rs:2356		
+rust0240	crates/regex/src/literal.rs:676		
+rust0241	~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bstr-1.13.0/src/ext_slice.rs:114		
+rust0242	crates/index/src/literal.rs:871		
+rust0243	crates/ignore/src/dir.rs:80		
+rust0244	tests/util.rs:305		
+rust0245	crates/globset/src/lib.rs:1086		
+rust0246	crates/ignore/src/dir.rs:753		
+rust0247	crates/core/flags/hiargs.rs:1246		
+rust0248	tests/util.rs:266		
+rust0249	crates/globset/src/glob.rs:855		
+rust0250	crates/ignore/src/incremental.rs:618		
+rust0251	~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/termcolor-1.4.1/src/lib.rs:1387		
+rust0252	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/fmt/mod.rs:1093;/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/fmt/mod.rs:1053		reviewed: derive Debug: the builtin macro and the Debug trait both fair
+rust0253	crates/regex/src/config.rs:25		
+rust0254	crates/matcher/tests/util.rs:93		
+rust0255	crates/core/flags/parse.rs:139		
+rust0256	crates/matcher/src/lib.rs:69		
+rust0257	crates/printer/src/hyperlink/mod.rs:120		
+rust0258	crates/core/flags/parse.rs:139		
+rust0259	tests/util.rs:252		
+rust0260	crates/ignore/src/incremental.rs:581		
+rust0261	crates/printer/src/summary.rs:83		
+rust0262	crates/ignore/src/incremental.rs:577		
+rust0263	crates/ignore/src/incremental.rs:449		
+rust0264	crates/printer/src/json.rs:601		
+rust0265	tests/util.rs:102		
+rust0266	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/macros/mod.rs:1769		
+rust0267	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/cmp.rs:273		
+rust0268	crates/searcher/src/line_buffer.rs:88		
+rust0269			
+rust0270	crates/ignore/src/lib.rs:475		
+rust0271	tests/util.rs:102		
+rust0272	crates/core/flags/parse.rs:139		
+rust0273	crates/core/flags/lowargs.rs:552		
+rust0274	~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.8.11/src/hir/mod.rs:734		
+rust0275	crates/core/flags/parse.rs:27		
+rust0276	crates/searcher/src/line_buffer.rs:319		
+rust0277	crates/regex/src/matcher.rs:24		
+rust0278	crates/core/flags/lowargs.rs:55		
+rust0279	crates/core/flags/config.rs:84		
+rust0280	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/fs.rs:1;/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/lib.rs:628		reviewed: module segment: module file or its pub mod line
+rust0281	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/num/uint_macros.rs:51;/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/num/mod.rs:1449	macro-generated constant: the oracle points into uint_impl! macro	
+rust0282	crates/ignore/src/walk.rs:1560		
+rust0283	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/std/src/ffi/os_str.rs:115		
+rust0284			
+rust0285			
+rust0286	crates/printer/src/util.rs:175		
+rust0287	crates/regex/src/literal.rs:132		
+rust0288	/opt/homebrew/Cellar/rust/1.98.0/lib/rustlib/src/rust/library/core/src/ops/range.rs:88		
+rust0289	crates/globset/src/glob.rs:272		
+rust0290	tests/util.rs:58		
+rust0291	crates/ignore/src/gitignore.rs:744		
+rust0292	crates/printer/src/summary.rs:59		
+rust0293	crates/globset/src/lib.rs:659		
+rust0294	crates/ignore/src/walk.rs:1547		
+rust0295	crates/ignore/src/gitignore.rs:83		
+rust0296			
+rust0297	crates/core/flags/defs.rs:7513		
+rust0298	crates/ignore/src/walk.rs:1353		
+rust0299	crates/ignore/src/gitignore.rs:664		

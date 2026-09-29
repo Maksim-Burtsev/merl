@@ -1,0 +1,57 @@
+wait find_by_customer: by name, 3 declarations (3/3)
+ 1 import json
+ 2 from http import HTTPStatus
+ 3 from typing import cast
+ 4
+ 5 from app.service import OrderNotFound, OrderService
+ 6
+ 7
+ 8 def order_json(order) -> str:
+ 9     return json.dumps(
+10         {"id": order.id, "status": order.status.value, "total": str(order.total)},
+11         sort_keys=True,
+12     )           ┌find_by_customer: by name, 3 declarations (3/3)───────────────────────────────────────────────────────────────────────────────────────────────────┐
+13                 │>                                                                                                                                                 │
+14                 │OrderRepo.find_by_customer          by name  app/repos.py:14: def find_by_customer(self, customer_id: int) -> list[Order]:                        │
+15 def get_order(se│InMemoryOrderRepo.find_by_customer  by name  app/repos.py:43: def find_by_customer(self, customer_id: int) -> list[Order]:                        │
+16     try:        │FakeOrderRepo.find_by_customer      by name  tests/test_service.py:18: def find_by_customer(self, customer_id):                                   │
+17         return H│                                                                                                                                                  │
+18     except Order│                                                                                                                                                  │
+19         return H│                                                                                                                                                  │
+20                 │                                                                                                                                                  │
+21                 │                                                                                                                                                  │
+22 def list_orders(│                                                                                                                                                  │
+23     orders = rep│                                                                                                                                                  │
+24     return HTTPS│                                                                                                                                                  │
+25                 │                                                                                                                                                  │
+26                 │                                                                                                                                                  │
+27 def cancel_order│                                                                                                                                                  │
+28     service = ca│                                                                                                                                                  │
+29         OrderSer│                                                                                                                                                  │
+30     )           │                                                                                                                                                  │
+31     return HTTPS│                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+app/api.py  23:19  [code]  find_by_customer: by name, 3 declarations
+cursor (x,y,shown) 22,12,1

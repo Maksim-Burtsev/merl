@@ -1,0 +1,57 @@
+wait Drill 1/3
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                           ███╗   ███╗███████╗██████╗ ██╗
+                                                                           ████╗ ████║██╔════╝██╔══██╗██║
+                                                                           ██╔████╔██║█████╗  ██████╔╝██║
+                                                                           ██║╚██╔╝██║██╔══╝  ██╔══██╗██║
+                                                                           ██║ ╚═╝ ██║███████╗██║  ██║███████╗
+                                                                           ╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝
+
+                                                                           o / Ctrl+E   Open a file (fuzzy)
+                                                                           s            Search the project
+                                                                           D            Project symbols (fuzzy)
+                                                                           ?            This help
+                                                                           q            Quit
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Drill 1/3
+Open store.py.
+
+merl-tutor-NNNNN/  [code]                                                                                                                                                         ? help
+cursor (x,y,shown) 185,54,0

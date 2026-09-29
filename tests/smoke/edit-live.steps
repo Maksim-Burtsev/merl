@@ -9,7 +9,7 @@ key t :
 type 30
 key Enter C-d
 wait app/service.py  36:1
-run sed -i '' 's/is {order.status.value}/cannot be cancelled: {order.status.value}/' app/service.py
+run perl -pi -e 's/\Qis {order.status.value}\E/cannot be cancelled: {order.status.value}/' app/service.py
 wait app/service.py  36:1  [code]  reloaded
 key C-z
 wait raise ValueError(f"order {order_id} is {order.status.value}")
@@ -19,13 +19,13 @@ key /
 type return order
 key Enter End Enter Enter
 type # paid orders go to the worker
-run sed -i '' 's/OrderNotFound(Exception)/OrderNotFound(LookupError)/' app/service.py
+run perl -pi -e 's/\QOrderNotFound(Exception)\E/OrderNotFound(LookupError)/' app/service.py
 wait changed on disk: Ctrl+S overwrites, Ctrl+R reloads
 key C-s
 wait app/service.py  37:39  [edit]
 run grep -q 'paid orders go to the worker' app/service.py && ! grep -q LookupError app/service.py
 type  soon
-run sed -i '' 's/OrderNotFound(Exception)/OrderNotFound(LookupError)/' app/service.py
+run perl -pi -e 's/\QOrderNotFound(Exception)\E/OrderNotFound(LookupError)/' app/service.py
 wait changed on disk: Ctrl+S overwrites, Ctrl+R reloads
 key C-r
 wait reloaded

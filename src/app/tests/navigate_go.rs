@@ -614,3 +614,80 @@ fn a_second_d_on_the_declaration_a_jump_landed_on_lists_the_implementations() {
         "send: implementations of Notifier.send, 4 declarations"
     );
 }
+
+/// #325. A Go raw string has no escapes, so a backslash before its closing backtick is a
+/// backslash: the declarations after `` `\` ``, `` `C:\` `` and `` `{\\\}\\\\` `` are found.
+#[test]
+fn a_go_raw_string_ending_in_a_backslash_ends_there() {
+    let (dir, mut a) = project_app(
+        "go-raw-backslash",
+        &[
+            ("go.mod", "module example.com/rawstr\n"),
+            (
+                "shop/shop.go",
+                "package shop\n\nimport \"strings\"\n\nfunc slash(p string) string { return below(strings.ReplaceAll(p, `\\`, \"/\")) }\n\nfunc below(p string) string { return p }\n",
+            ),
+            (
+                "shop/drive.go",
+                "package shop\n\nfunc root() string { return drive() + volume() }\n\nfunc drive() string { return `C:\\` }\n\nfunc volume() string { return \"\" }\n",
+            ),
+            (
+                "shop/braces.go",
+                "package shop\n\nfunc pattern() string { return braces() + tail() }\n\nfunc braces() string { return `{\\\\\\}\\\\\\\\` }\n\nfunc tail() string { return \"\" }\n",
+            ),
+        ],
+    );
+    a.external
+        .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+    let mut d = |file: &str, code: &str| {
+        d_on(&mut a, file, code);
+        shown(&mut a)
+    };
+    let by_name = |word: &str, place: &str| jump(&format!("{word}: by name, 1 match"), place);
+    assert_eq!(
+        d("shop/shop.go", "return below"),
+        by_name("below", "shop/shop.go:7")
+    );
+    // On its declaration `d` says what it says on any other, as on `slash` above the string.
+    assert_eq!(
+        d("shop/shop.go", "func slash"),
+        by_name("slash", "shop/shop.go:5")
+    );
+    assert_eq!(
+        d("shop/shop.go", "func below"),
+        by_name("below", "shop/shop.go:7")
+    );
+    assert_eq!(
+        d("shop/drive.go", "+ volume"),
+        by_name("volume", "shop/drive.go:7")
+    );
+    assert_eq!(
+        d("shop/braces.go", "+ tail"),
+        by_name("tail", "shop/braces.go:7")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #476. Go's blank identifier names nothing: `d` on `_` says so without a search, and jumps to
+/// no earlier `_`. In Python `_` is a name like any other and is still found.
+#[test]
+fn the_go_blank_identifier_has_no_definition() {
+    let (dir, mut a) = project_app(
+        "go-blank",
+        &[
+            ("go.mod", "module example.com/blank\n"),
+            (
+                "main.go",
+                "package main\n\nfunc pair() (int, int) { return 1, 2 }\n\nfunc main() {\n\t_, a := pair()\n\t_, b := pair()\n\tprintln(a, b)\n}\n",
+            ),
+            ("tr.py", "_ = str\n\nprint(_(1))\n"),
+        ],
+    );
+    a.external
+        .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+    d_on(&mut a, "main.go", "\t_|, b");
+    assert_eq!(shown(&mut a), jump("no definition for _", "main.go:7"));
+    d_on(&mut a, "tr.py", "print(_");
+    assert_eq!(shown(&mut a), jump("_: local", "tr.py:1"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
