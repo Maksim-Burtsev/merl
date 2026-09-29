@@ -170,6 +170,8 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(
                     r"^\s*{mods}(?:typedef\s+)?(?:struct|class|union|enum\s+class|enum\s+struct|enum|namespace)\s+{macros}(?:\w+(?:<[^<>]*>)?::)*{w}\s*(?:[{{;<]|:(?:[^:]|$)|final\b|$)"
                 ),
+                // A nested namespace, `namespace outer::inner {`, opens every name on its path.
+                format!(r"^\s*(?:inline\s+)?namespace\s+(?:\w+::)*{w}\s*::"),
                 // `typedef unsigned long ull;`, `typedef int (*cb)(void);`, and the name a
                 // `typedef struct { … } client;` closes with, whose brace is in column zero: an
                 // indented one closes a nested anonymous struct, and that name is a field.
@@ -493,10 +495,11 @@ fn in_class_body(text: &str, line: usize) -> bool {
 /// Of the C and C++ candidates for `word` found by name, the ones the file `here` can see (#364).
 /// A source file (`.c`, `.cc`, `.cpp`, `.cxx`) is compiled alone, so what another one declares
 /// `static` at file scope, with `#define` or inside an unnamed `namespace {` is visible in no
-/// other file: those rows go, unless `here` `#include`s that file. A header's rows stay, as do
-/// types (an opaque struct's body lives in one source file). In `here` itself a file-scope
-/// `static` hides every other declaration of the name, so it is the answer — unless the cursor
-/// stands `on` a candidate, where the others are offered as namesakes.
+/// other file: those rows go, unless `here` `#include`s that file or that file `#include`s
+/// `here`. A header's rows stay, as do types (an opaque struct's body lives in one source
+/// file). In `here` itself a file-scope `static` hides every other declaration of the name, so
+/// it is the answer — unless the cursor stands `on` a candidate, where the others are offered as
+/// namesakes.
 pub fn c_file_local(
     word: &str,
     here: &Path,
@@ -533,16 +536,32 @@ pub fn c_file_local(
             .and_then(|e| e.to_str())
             .is_some_and(|e| matches!(e, "c" | "cc" | "cpp" | "cxx"))
     };
+    // The X-macro idiom: a source file that `#define`s a name and then `#include`s `here` hands
+    // it what it declares. A quoted include is looked up next to the file first, so a namesake
+    // there is the one it means (hiredis's `async.c` includes its own `dict.c`, not redis's).
+    let includes_here = |file: &Path, t: &str| {
+        let dir = file.parent().unwrap_or(Path::new(""));
+        t.lines()
+            .filter_map(|l| INCLUDE.captures(l).and_then(|c| c.get(1)))
+            .any(|m| {
+                let next = dir.join(m.as_str());
+                next == here || here.ends_with(m.as_str()) && text_of(&next).is_none()
+            })
+    };
     hits.into_iter()
         .filter(|h| {
             if h.path == here || !source(&h.path) || included.iter().any(|i| h.path.ends_with(i)) {
+                return true;
+            }
+            let text = text_of(&h.path);
+            if text.as_deref().is_some_and(|t| includes_here(&h.path, t)) {
                 return true;
             }
             if DEFINE.is_match(&h.text) {
                 return false;
             }
             ty.is_match(&h.text)
-                || !local(h) && !text_of(&h.path).is_some_and(|t| in_unnamed_namespace(&t, h.line))
+                || !local(h) && !text.is_some_and(|t| in_unnamed_namespace(&t, h.line))
         })
         .collect()
 }
