@@ -1,0 +1,57 @@
+wait Search (3 hits)
+ 1 apiVersion: apps/v1
+ 2 kind: Deployment
+ 3 metadata:
+ 4   name: {{ include "orders.fullname" . }}
+ 5   labels:
+ 6     {{- include "orders.labels" . | nindent 4 }}
+ 7 spec:
+ 8   replicas: {{ .Values.replicaCount }}
+ 9   selector:
+10     matchLabels:
+11       {{- include "orders.selectorLabels" . | nindent 6 }}
+12   template:     ┌Search (3 hits)───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+13     metadata:   │s> replicaCount                                                                                                                                   │
+14       labels:   │deploy/helm/orders/templates/deployment.yaml:8: replicas: {{ .Values.replicaCount }}                                                              │
+15         {{- incl│deploy/helm/orders/values.yaml:1: replicaCount: 2                                                                                                 │
+16     spec:       │deploy/helm/orders/values.yaml:16: replicaCount: 1                                                                                                │
+17       containers│                                                                                                                                                  │
+18         - name: │                                                                                                                                                  │
+19           image:│                                                                                                                                                  │
+20           imageP│                                                                                                                                                  │
+21           ports:│                                                                                                                                                  │
+22             - na│                                                                                                                                                  │
+23               co│                                                                                                                                                  │
+24           envFro│                                                                                                                                                  │
+25             - se│                                                                                                                                                  │
+26                 │                                                                                                                                                  │
+27           env:  │                                                                                                                                                  │
+28             {{- │                                                                                                                                                  │
+29             - na│                                                                                                                                                  │
+30               va│                                                                                                                                                  │
+31             {{- │                                                                                                                                                  │
+32           resour│                                                                                                                                                  │
+33             {{- │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+deploy/helm/orders/templates/deployment.yaml  1:1  [code]                                                                                                                         ? help
+cursor (x,y,shown) 35,12,1

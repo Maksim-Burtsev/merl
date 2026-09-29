@@ -1,0 +1,44 @@
+# The shop of #307: every d case carries its answer in a comment under it.
+stages: [build, test, deploy]
+
+.rust: &rust
+  image: rust:1.81
+  cache:
+    paths: [target]
+
+build:
+  extends: .rust
+  #         ^ d: .gitlab-ci.yml:4
+  stage: build
+  #      ^ d: .gitlab-ci.yml:9; want .gitlab-ci.yml:2 (#473)
+  script:
+    - cargo build
+
+test-unit:
+  <<: *rust
+  #    ^ d: .gitlab-ci.yml:4
+  stage: test
+  needs: [build]
+  #       ^ d: .gitlab-ci.yml:9
+  script:
+    - cargo test
+
+deploy:
+  stage: deploy
+  needs:
+    - job: test-unit
+    #      ^ d: .gitlab-ci.yml:17
+  script:
+    - echo "Quote a job with a ` inside quotes"
+    - echo Never quote a job with a ` here
+    - ./deploy.sh
+
+notify:
+  needs: [cleanup]
+  #       ^ d: .gitlab-ci.yml:42
+  script:
+    - ./notify.sh
+
+cleanup:
+  script:
+    - rm -rf target

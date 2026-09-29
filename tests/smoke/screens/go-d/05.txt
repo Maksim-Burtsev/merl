@@ -1,0 +1,57 @@
+wait Pop: implementations of Queue.Pop, 2 declarations (2/2)
+ 1 // Package queue holds the jobs the worker has yet to run.
+ 2 package queue
+ 3
+ 4 import "sync"
+ 5
+ 6 // Job is one unit of work for an order.
+ 7 type Job struct {
+ 8     Kind    string
+ 9     OrderID int64
+10 }
+11
+12 // Queue is what┌Pop: implementations of Queue.Pop, 2 declarations (2/2)───────────────────────────────────────────────────────────────────────────────────────────┐
+13 type Queue inter│>                                                                                                                                                 │
+14     Push(job Job│memQueue.Pop    implementations of Queue.Pop  worker/internal/queue/queue.go:34: func (q *memQueue) Pop() (Job, bool) {                           │
+15     Pop() (Job, │redisQueue.Pop  implementations of Queue.Pop  worker/internal/queue/redis.go:27: func (q *redisQueue) Pop() (Job, bool) {                         │
+16 }               │                                                                                                                                                  │
+17                 │                                                                                                                                                  │
+18 type memQueue st│                                                                                                                                                  │
+19     mu   sync.Mu│                                                                                                                                                  │
+20     jobs []Job  │                                                                                                                                                  │
+21 }               │                                                                                                                                                  │
+22                 │                                                                                                                                                  │
+23 // New returns a│                                                                                                                                                  │
+24 func New() *memQ│                                                                                                                                                  │
+25     return &memQ│                                                                                                                                                  │
+26 }               │                                                                                                                                                  │
+27                 │                                                                                                                                                  │
+28 func (q *memQueu│                                                                                                                                                  │
+29     q.mu.Lock() │                                                                                                                                                  │
+30     defer q.mu.U│                                                                                                                                                  │
+31     q.jobs = app│                                                                                                                                                  │
+32 }               │                                                                                                                                                  │
+33                 │                                                                                                                                                  │
+34 func (q *memQueu│                                                                                                                                                  │
+35     q.mu.Lock() │                                                                                                                                                  │
+36     defer q.mu.U│                                                                                                                                                  │
+37     if len(q.job│                                                                                                                                                  │
+38         return J│                                                                                                                                                  │
+39     }           │                                                                                                                                                  │
+40     job := q.job│                                                                                                                                                  │
+41     q.jobs = q.j│                                                                                                                                                  │
+42     return job, │                                                                                                                                                  │
+43 }               │                                                                                                                                                  │
+                   └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+worker/internal/queue/queue.go  15:5  [code]  Pop: implementations of Queue.Pop, 2 declarations
+cursor (x,y,shown) 22,12,1

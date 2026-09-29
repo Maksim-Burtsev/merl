@@ -1,0 +1,301 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+php0000	app/Enums/SmartPlaylistOperator.php:10		
+php0001			
+php0002			
+php0003			
+php0004			
+php0005			
+php0006		builtin: the server's own stub	
+php0007	app/Services/Image/ImageStorage.php:91		
+php0008	app/Values/AiSettings.php:8		
+php0009	app/Http/Requests/API/Upload/UploadSongRequest.php:10	use statement namespace segment: oracle jumps to the imported class	
+php0010	app/Http/Resources/SongResource.php:81		
+php0011	app/Repositories/Pagination/PaginationStrategyResolver.php:10		
+php0012	app/Http/Controllers/Controller.php:9		
+php0013	app/Services/Scanners/FileScanner.php:19		
+php0014			
+php0015		builtin: the server's own stub	
+php0016		builtin: the server's own stub	
+php0017	app/Http/Resources/AlbumResource.php:71		
+php0018	app/Services/Image/ImageStorage.php:27		
+php0019		builtin: the server's own stub	
+php0020	app/Values/User/UserUpdateData.php:8		
+php0021	app/Models/Song.php:129		
+php0022			
+php0023			
+php0024	app/Models/Artist.php:55	use statement namespace segment: oracle jumps to the imported class	
+php0025			
+php0026	app/Models/Artist.php:40		
+php0027	app/Repositories/ArtistRepository.php:39		
+php0028			
+php0029			
+php0030			
+php0031			
+php0032	app/Console/Commands/DoctorCommand.php:356		
+php0033	app/Facades/License.php:9		
+php0034			
+php0035	app/Services/SongStorages/CloudStorage.php:15		
+php0036			
+php0037		builtin: the server's own stub	
+php0038			
+php0039			
+php0040			
+php0041			
+php0042		builtin: the server's own stub	
+php0043			
+php0044	app/Ai/Tools/RemoveFromPlaylist.php:19		
+php0045	app/Rules/ValidSmartPlaylistRulePayload.php:10		
+php0046	app/Models/Album.php:43		
+php0047			
+php0048			
+php0049			
+php0050			
+php0051			
+php0052			
+php0053	app/Helpers.php:189		
+php0054	app/Models/Artist.php:43		
+php0055			
+php0056	app/Ai/Tools/AddToPlaylist.php:20		
+php0057			
+php0058			
+php0059	app/Console/Commands/Admin/ChangePasswordCommand.php:19		
+php0060			
+php0061	app/Helpers.php:189		
+php0062	app/Values/Artist/ArtistInformation.php:21		
+php0063	app/Http/Controllers/Controller.php:9	use statement namespace segment: oracle jumps to the imported class	
+php0064	app/Models/Album.php:39		
+php0065			
+php0066			
+php0067		builtin: the server's own stub	
+php0068	app/Models/Genre.php:28		
+php0069			
+php0070			
+php0071	app/Models/User.php:53		
+php0072			
+php0073	app/Values/License/LicenseStatus.php:11		
+php0074	app/Repositories/AlbumRepository.php:24		
+php0075			
+php0076			
+php0077	app/Http/Responses/Subsonic/Resources/AlbumResource.php:38		
+php0078			
+php0079			
+php0080			
+php0081	app/Http/Requests/API/Settings/UpdateBrandingRequest.php:18	use statement namespace segment: oracle jumps to the imported class	
+php0082			
+php0083			
+php0084			
+php0085			
+php0086			
+php0087			
+php0088			
+php0089	app/Facades/License.php:15		
+php0090			
+php0091	app/Exceptions/ProxyAuthIpNotAllowedException.php:10		
+php0092			
+php0093			
+php0094		builtin: the server's own stub	
+php0095			
+php0096			
+php0097	app/Values/Theme/ThemeProperties.php:12		
+php0098			
+php0099			
+php0100			
+php0101			
+php0102	app/Console/Commands/DoctorCommand.php:361		
+php0103	app/Repositories/TranscodeRepository.php:17		
+php0104	app/Http/Requests/API/UpdateQueueStateRequest.php:8		
+php0105			
+php0106			
+php0107			
+php0108			
+php0109	app/Http/Requests/Subsonic/GetAlbumList2Request.php:8		
+php0110	app/Models/Song.php:67		
+php0111	app/Http/Controllers/Subsonic/UpdatePlaylistController.php:15	use statement namespace segment: oracle jumps to the imported class	
+php0112	app/Jobs/RunCommandJob.php:7;app/Jobs/RunCommandJob.php:9		
+php0113	app/Repositories/ArtistRepository.php:73		
+php0114			
+php0115			
+php0116			
+php0117	app/Values/License/LicenseStatus.php:15		
+php0118	app/Http/Controllers/API/ListenBrainzTokenController.php:14		
+php0119	app/Http/Controllers/API/FetchDemoCreditsController.php:9	use statement namespace segment: oracle jumps to the imported class	
+php0120	app/Services/Integrations/EncyclopediaService.php:17		
+php0121	app/Ai/Tools/GetCurrentSong.php:20		
+php0122			
+php0123			
+php0124			
+php0125			
+php0126			
+php0127	app/Console/Commands/InitCommand.php:41		
+php0128			
+php0129			
+php0130	app/Repositories/SongRepository.php:317		
+php0131	app/Http/Integrations/CoverArtArchive/CoverArtArchiveConnector.php:9	use statement namespace segment: oracle jumps to the imported class	
+php0132	app/Http/Requests/API/Playlist/PlaylistStoreRequest.php:22		
+php0133			
+php0134	app/Enums/SmartPlaylistModel.php:49		
+php0135	app/Models/User.php:91		
+php0136			
+php0137			
+php0138	app/Services/Image/ImageStorage.php:17		
+php0139	app/Models/Podcast.php:30		
+php0140	app/Values/Scanning/ScanConfiguration.php:7		
+php0141	app/Http/Responses/Subsonic/SubsonicResponse.php:17	use statement namespace segment: oracle jumps to the imported class	
+php0142			
+php0143			
+php0144			
+php0145	app/Models/PlaylistFolder.php:32		
+php0146			
+php0147			
+php0148		builtin: the server's own stub	
+php0149	app/Http/Middleware/AuthenticateSubsonicRequests.php:15		
+php0150			
+php0151			
+php0152			
+php0153			
+php0154			
+php0155	app/Services/Podcast/PodcastService.php:208		
+php0156		builtin: the server's own stub	
+php0157			
+php0158			
+php0159			
+php0160			
+php0161			
+php0162			
+php0163			
+php0164	app/Http/Integrations/Wikidata/Requests/GetEntityDataRequest.php:8;app/Http/Integrations/Wikidata/Requests/GetEntityDataRequest.php:12		
+php0165			
+php0166	app/Events/LibraryChanged.php:5		
+php0167			
+php0168			
+php0169			
+php0170	app/Http/Resources/ArtistResource.php:45		
+php0171	app/Repositories/SongRepository.php:317		
+php0172	app/Http/Requests/API/Request.php:7	use statement namespace segment: oracle jumps to the imported class	
+php0173		builtin: the server's own stub	
+php0174			
+php0175			
+php0176			
+php0177	app/Helpers.php:189		
+php0178			
+php0179	app/Services/Integrations/EncyclopediaService.php:14	use statement namespace segment: oracle jumps to the imported class	
+php0180	app/Values/Scanning/ScanInformation.php:35		
+php0181		builtin: the server's own stub	
+php0182			
+php0183		builtin: the server's own stub	
+php0184			
+php0185			
+php0186	app/Services/Integrations/ListenBrainzService.php:17		
+php0187		builtin: the server's own stub	
+php0188	app/Services/SongStorages/S3CompatibleStorage.php:105		
+php0189	app/Helpers.php:189		
+php0190	app/Services/Playlist/PlaylistFolderService.php:43		
+php0191			
+php0192			
+php0193			
+php0194	app/Builders/AlbumBuilder.php:135		
+php0195	app/Services/License/LicenseService.php:120		
+php0196			
+php0197			
+php0198	app/Values/AiSettings.php:8	use statement namespace segment: oracle jumps to the imported class	
+php0199			
+php0200			
+php0201			
+php0202	app/Facades/Dispatcher.php:12		
+php0203			
+php0204			
+php0205	app/Helpers.php:98		
+php0206			
+php0207			
+php0208	app/Hooks/HookRegistry.php:13		
+php0209	app/Http/Requests/API/UserUpdateRequest.php:14		
+php0210		builtin: the server's own stub	
+php0211	app/Models/Album.php:87		
+php0212			
+php0213			
+php0214			
+php0215			
+php0216	app/Values/Artist/ArtistUpdateData.php:11		
+php0217			
+php0218			
+php0219			
+php0220	app/Events/SongFavoriteToggled.php:11		
+php0221	app/Services/SettingService.php:21		
+php0222			
+php0223	app/Console/Commands/ExtractFoldersCommand.php:16		
+php0224			
+php0225	app/Rules/AllPlayablesAreAccessibleBy.php:11;app/Rules/AllPlayablesAreAccessibleBy.php:13		
+php0226	app/Models/User.php:131		
+php0227			
+php0228			
+php0229			
+php0230	app/Values/SongStorageMetadata/WebDAVMetadata.php:5	use statement namespace segment: oracle jumps to the imported class	
+php0231			
+php0232			
+php0233			
+php0234			
+php0235			
+php0236			
+php0237	app/Http/Responses/Subsonic/SubsonicResponse.php:17		
+php0238			
+php0239			
+php0240			
+php0241	app/Services/Integrations/EncyclopediaService.php:14		
+php0242			
+php0243			
+php0244			
+php0245		builtin: the server's own stub	
+php0246			
+php0247			
+php0248	app/Http/Requests/API/Playlist/RemoveSongsFromPlaylistRequest.php:12	use statement namespace segment: oracle jumps to the imported class	
+php0249	app/Values/Scanning/ScanInformation.php:159		
+php0250			
+php0251	app/Http/Requests/API/Album/AlbumListRequest.php:12	use statement namespace segment: oracle jumps to the imported class	
+php0252	app/Http/Controllers/Subsonic/RefreshPodcastsController.php:17		
+php0253	app/Models/Album.php:59		
+php0254	app/Http/Integrations/MusicBrainz/Requests/GetReleaseGroupForReleaseRequest.php:8;app/Http/Integrations/MusicBrainz/Requests/GetReleaseGroupForReleaseRequest.php:12		
+php0255			
+php0256	app/Helpers.php:118		
+php0257			
+php0258	app/Values/Scanning/ScanResult.php:12		
+php0259			
+php0260		builtin: the server's own stub	
+php0261	app/Services/Podcast/PodcastService.php:181		
+php0262	app/Models/Artist.php:35		
+php0263	app/Services/SongStorages/SongStorage.php:10		
+php0264			
+php0265			
+php0266	app/Http/Controllers/Controller.php:9		
+php0267			
+php0268	app/Models/Song.php:129		
+php0269			
+php0270	app/Repositories/SongRepository.php:39		
+php0271	app/Helpers.php:62		
+php0272	app/Values/User/UserCreateData.php:14		
+php0273			
+php0274			
+php0275			
+php0276			
+php0277	app/Http/Requests/API/PlaylistCollaboration/PlaylistCollaboratorDestroyRequest.php:8		
+php0278	app/Http/Responses/Subsonic/Resources/AlbumResource.php:38		
+php0279			
+php0280	app/Exceptions/TranscodingFailedException.php:7;app/Exceptions/TranscodingFailedException.php:9		
+php0281		builtin: the server's own stub	
+php0282	app/Values/Theme/ThemeProperties.php:24		
+php0283	app/Http/Resources/RadioStationResource.php:28		
+php0284			
+php0285			
+php0286	app/Models/Song.php:70		
+php0287			
+php0288	app/Ai/Tools/PlayPlaylist.php:20		
+php0289			
+php0290	app/Http/Responses/Subsonic/Resources/RadioStationResource.php:7	use statement namespace segment: oracle jumps to the imported class	
+php0291		builtin: the server's own stub	
+php0292	app/Http/Requests/Subsonic/SavePlayQueueRequest.php:10		
+php0293	app/Events/UserUnsubscribedFromPodcast.php:12		
+php0294			
+php0295			
+php0296	app/Values/Scanning/ScanResult.php:7		
+php0297			
+php0298			
+php0299			

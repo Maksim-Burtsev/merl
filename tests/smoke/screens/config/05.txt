@@ -1,0 +1,57 @@
+wait defaults: by name, 1 match
+ 1 replicaCount: 2
+ 2
+ 3 image:
+ 4   repository: ghcr.io/example/orders
+ 5   tag: ""
+ 6   pullPolicy: IfNotPresent
+ 7
+ 8 resources: &defaults
+ 9   requests:
+10     cpu: 100m
+11     memory: 128Mi
+12   limits:
+13     memory: 256Mi
+14
+15 worker:
+16   replicaCount: 1
+17   resources: *defaults
+18
+19 service:
+20   type: ClusterIP
+21   port: 8000
+22
+23 env:
+24   PAGE_SIZE: "50"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+deploy/helm/orders/values.yaml  8:13  [code]  defaults: by name, 1 match
+cursor (x,y,shown) 15,7,1

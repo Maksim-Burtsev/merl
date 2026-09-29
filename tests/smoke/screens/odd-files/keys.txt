@@ -1,0 +1,12 @@
+/
+Ctrl+End
+End
+Enter
+Esc
+PgDn
+PgUp
+Picker: Enter
+o
+q
+t
+w

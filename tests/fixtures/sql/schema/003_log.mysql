@@ -1,0 +1,4 @@
+CREATE TABLE `parcel_log` (
+  `id` int NOT NULL,
+  `courier_id` int NOT NULL
+);

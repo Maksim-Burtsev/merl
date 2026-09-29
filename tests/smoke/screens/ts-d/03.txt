@@ -1,0 +1,57 @@
+wait OrderRepo: via import web/src/orders/repo.ts
+ 1 import { ApiClient } from "@/api/client";
+ 2 import type { Order } from "./types";
+ 3
+ 4 export class OrderRepo {
+ 5   constructor(private readonly client: ApiClient) {}
+ 6
+ 7   find(id: number): Promise<Order> {
+ 8     return this.client.get<Order>(`/orders/${id}`);
+ 9   }
+10
+11   cancel(id: number): Promise<Order> {
+12     return this.client.post<Order>(`/orders/${id}/cancel`, {});
+13   }
+14 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/src/orders/repo.ts  4:14  [code]  OrderRepo: via import web/src/orders/repo.ts
+cursor (x,y,shown) 16,3,1

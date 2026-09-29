@@ -1,0 +1,81 @@
+# id	targets: path:line joined by ; (project-relative; empty: none in reach)	skip: why the row is not scored	note (judged by reading the code: no language server ran for this language)
+java0000			outside the project: java.lang.Class
+java0001			outside the project: java.util.Objects (import line)
+java0002	api/src/main/java/run/halo/app/core/extension/User.java:25		class User (imported)
+java0003	application/src/main/java/run/halo/app/theme/finders/vo/CategoryTreeVo.java:26		merl's jump, judged right
+java0004		a package segment of an import or package line	
+java0005		a package segment of an import or package line	
+java0006			outside the project: Boolean::booleanValue
+java0007	api/src/main/java/run/halo/app/core/extension/Role.java:90		PolicyRule 5-arg constructor
+java0008			outside the project: "true".equals -> String.equals
+java0009	application/src/main/java/run/halo/app/infra/utils/SortUtils.java:19		method parameter directionParams
+java0010	application/src/main/java/run/halo/app/theme/finders/vo/CommentVo.java:22		merl's jump, judged right
+java0011	application/src/main/java/run/halo/app/security/LogoutSecurityConfigurer.java:99		lambda parameter request
+java0012	api/src/main/java/run/halo/app/infra/FileCategoryMatcher.java:25		enum declaration, implicit values()
+java0013		a package segment of an import or package line	
+java0014	application/src/main/java/run/halo/app/theme/HaloViewResolver.java:50		local var map
+java0015			outside the project: BooleanUtils.isFalse (import static)
+java0016			outside the project: reactor Retry
+java0017	api/src/main/java/run/halo/app/infra/SystemSetting.java:25		merl's jump, judged right
+java0018	application/src/main/java/run/halo/app/core/extension/migration/MenuItemHierarchyMigration.java:311		Lombok @Value field menuName
+java0019		a package segment of an import or package line	picker 97
+java0020			outside the project: Spring ServerWebExchangeMatcher
+java0021	application/src/main/java/run/halo/app/theme/finders/vo/CommentVo.java:36		Lombok @Data field stats
+java0022	application/src/main/java/run/halo/app/core/endpoint/console/MenuItemConsoleService.java:234		private static method parentNameOf
+java0023	api/src/main/java/run/halo/app/core/extension/Plugin.java:136		Lombok @Data field PluginStatus.conditions
+java0024	application/src/main/java/run/halo/app/migration/BackupFile.java:14		merl's jump, judged right
+java0025			outside the project: Boolean::booleanValue
+java0026			outside the project: Stream.reduce
+java0027			outside the project: import static org.springdoc...Builder
+java0028			outside the project: java.util.Objects.equals
+java0029	application/src/main/java/run/halo/app/plugin/resources/ReverseProxyRouterFunctionFactory.java:143		merl's jump, judged right
+java0030	application/src/main/java/run/halo/app/security/device/DeviceEndpoint.java:139		merl's jump, judged right
+java0031			outside the project: AuthenticationTrustResolver.isAuthenticated (Spring)
+java0032	application/src/main/java/run/halo/app/core/reconciler/SinglePageReconciler.java:108		method subscribeNewCommentNotification, same class
+java0033		the cursor is on a declaration	
+java0034	api/src/main/java/run/halo/app/extension/index/query/Query.java:13		merl's jump, judged right
+java0035	application/src/main/java/run/halo/app/event/post/UpvotedEvent.java:11		constructor parameter source
+java0036	api/src/main/java/run/halo/app/extension/MetadataUtil.java:7		merl's jump, judged right
+java0037	application/src/main/java/run/halo/app/security/AuthProviderServiceImpl.java:117		AuthProviderWithPriority.getName method
+java0038		a package segment of an import or package line	
+java0039			outside the project: java.time.Instant
+java0040	api/src/main/java/run/halo/app/core/extension/content/Comment.java:31		class Comment (imported)
+java0041	api/src/main/java/run/halo/app/extension/controller/Reconciler.java:11		merl's jump, judged right
+java0042	api/src/main/java/run/halo/app/infra/ConditionList.java:53		2-arg overload addAndEvictFIFO
+java0043		a package segment of an import or package line	
+java0044		the cursor is on a declaration	
+java0045	api/src/main/java/run/halo/app/infra/SystemSetting.java:119		Lombok @Data field Post.authorPageSize
+java0046	api/src/main/java/run/halo/app/core/extension/notification/Subscription.java:114		field ReasonSubject.name
+java0047		the cursor is on a declaration	
+java0048	application/src/main/java/run/halo/app/core/endpoint/console/TrackerEndpoint.java:120		record component VoteRequest.group
+java0049		a package segment of an import or package line	
+java0050	api/src/main/java/run/halo/app/core/extension/content/Category.java:41		Lombok @Data field spec
+java0051	application/src/main/java/run/halo/app/security/authentication/SecurityConfigurer.java:5		merl's jump, judged right
+java0052	application/src/main/java/run/halo/app/theme/endpoint/ThemeEndpoint.java:361		private method fetchActivatedTheme
+java0053		the cursor is on a declaration	
+java0054	api/src/main/java/run/halo/app/extension/index/query/Queries.java:94		static import Queries.isNull
+java0055			outside the project: Spring Part (import line)
+java0056		the cursor is on a declaration	
+java0057	api/src/main/java/run/halo/app/core/extension/notification/NotificationTemplate.java:30		merl's jump, judged right
+java0058			outside the project: ArrayList.add (var indices = new ArrayList<>())
+java0059			outside the project: Mono.doOnSuccess
+java0060			outside the project: reactor Mono
+java0061	application/src/main/java/run/halo/app/core/reconciler/MenuItemReconciler.java:45		own field reactiveClient
+java0062		a package segment of an import or package line	picker 21
+java0063	application/src/main/java/run/halo/app/migration/impl/MigrationServiceImpl.java:103		own field scheduler
+java0064			outside the project: reactor Mono
+java0065		a package segment of an import or package line	
+java0066		a package segment of an import or package line	picker 36
+java0067			outside the project: BooleanUtils.isTrue (import static)
+java0068		a package segment of an import or package line	picker 57
+java0069		the cursor is on a declaration	
+java0070		the cursor is on a declaration	
+java0071		the cursor is on a declaration	
+java0072		the cursor is on a declaration	
+java0073			outside the project: java.nio.file.Path (import line)
+java0074		a package segment of an import or package line	
+java0075	api/src/main/java/run/halo/app/extension/controller/RequeueException.java:18		2-arg constructor RequeueException
+java0076	application/src/main/java/run/halo/app/theme/finders/vo/ListedPostVo.java:50		static method ListedPostVo.from
+java0077		a package segment of an import or package line	
+java0078		a package segment of an import or package line	
+java0079	api/src/main/java/run/halo/app/core/extension/content/Comment.java:92		Lombok @Data field BaseCommentSpec.creationTime

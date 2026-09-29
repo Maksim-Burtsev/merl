@@ -1,0 +1,57 @@
+wait copied 1 line
+┌orders──────────────────────┐1
+│▸ .github                   │
+│▸ .venv                     │
+│▾ app                       │
+│    __init__.py             │
+│    api.py                  │
+│    config.py               │
+│    models.py               │
+│    money.py                │
+│    repos.py                │
+│    service.py              │
+│    uow.py                  │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/money.py ●  1:1  [edit]  Spaces: 4  copied 1 line
+cursor (x,y,shown) 32,0,1
