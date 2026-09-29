@@ -57,4 +57,17 @@ suspend fun deliver(grams: Grams): Int = weigh(grams)
 //                                       ^ d: picker src/main/kotlin/shop/warehouse/Warehouse.kt:5, src/main/kotlin/shop/warehouse/Warehouse.kt:12; want src/main/kotlin/shop/warehouse/Warehouse.kt:12 (#367)
 
 fun fast(speed: Speed): Boolean = speed == Speed.FAST
-//                                               ^ d: none; want src/main/kotlin/shop/basket/Checkout.kt:12 (#457)
+//                                               ^ d: src/main/kotlin/shop/basket/Checkout.kt:12
+
+enum class Lane(val days: Int) {
+    ROAD(3),
+    // A comment between the constants.
+    AIR(1) {
+        override fun toString() = "air"
+    };
+
+    fun late() = days > 2
+}
+
+fun air(): Lane = Lane.AIR
+//                     ^ d: src/main/kotlin/shop/basket/Checkout.kt:65

@@ -234,15 +234,16 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(
                     r"{mods}(?:class|struct|enum|protocol|actor|extension|typealias|associatedtype)\s+`?{w}\b"
                 ),
-                // A function, past its generic parameters.
-                format!(r"{mods}func\s+`?{w}\s*[(<]"),
+                // A function, past its generic parameters. A name in backticks, as a keyword
+                // has to be written, is the name (#463).
+                format!(r"{mods}func\s+`?{w}`?\s*[(<]"),
                 format!(r"{mods}(?:let|var)\s+`?{w}\b"),
                 // An enum case, alone or among several on one line, with the associated values or
                 // the raw value it can carry. A `case .open:` or a `case let .open(x):` of a
                 // `switch` is a pattern, and a `case open:` there matches against a constant, so
                 // what follows the name must not be a `:`.
                 format!(
-                    r"^\s*(?:indirect\s+)?case\s+(?:\w+(?:\([^)]*\))?\s*,\s*)*{w}\s*(?:\(|=[^=]|,|$)"
+                    r"^\s*(?:indirect\s+)?case\s+(?:`?\w+`?(?:\([^)]*\))?\s*,\s*)*`?{w}`?\s*(?:\(|=[^=]|,|$)"
                 ),
             ];
             // `init` and `subscript` are keywords, so the word under the cursor is the keyword
@@ -300,10 +301,11 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         // which is which, the way a C++ overload set is offered.
         Kind::Elixir => {
             let mut patterns = vec![
-                // Every `def` form. A name can end in `?` or `!`, and a clause is written
-                // `def name(x) do`, `def name do` or `def name, do: x`.
+                // Every `def` form. A clause is written `def name(x) do`, `def name do` or
+                // `def name, do: x`. A trailing `?` or `!` is part of the word (#459), so
+                // `ship` never finds `def ship!`.
                 format!(
-                    r"^\s*def(?:p|macro|macrop|guard|guardp|delegate)?\s+{w}[!?]?\s*(?:\(|,|do\b|$)"
+                    r"^\s*def(?:p|macro|macrop|guard|guardp|delegate)?\s+{w}\s*(?:\(|,|do\b|$)"
                 ),
                 // A module or a protocol, under the namespace it is written with. The word has
                 // to be the last part: `defmodule MyApp.Repo` declares `MyApp.Repo` and nothing
@@ -371,10 +373,9 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         Kind::Sql => {
             let create = sql_create!();
             vec![
-                format!(r#"{create}(?:{SQL_NAME}\.)?(?:"{w}"|`{w}`|{w}\b)"#),
-                // A common table expression: opening the `WITH`, or continuing it after the
-                // comma that follows the previous one's closing `)`.
-                format!(r"(?i)^\s*(?:\)\s*)?(?:WITH\s+(?:RECURSIVE\s+)?|,\s*)?{w}\s+AS\s*\("),
+                // The name, not a schema: `shop.tariffs` declares `tariffs`, so no `.` may follow (#471).
+                format!(r#"{create}(?:{SQL_NAME}\.)?(?:"{w}"|`{w}`|{w}\b)(?:[^.]|$)"#),
+                sql_cte(word),
             ]
         }
         // A target, alone or among others before the colon (`build test: deps`), a variable, or
@@ -734,6 +735,36 @@ pub fn c_parameter(text: &str, line: usize, word: &str) -> bool {
         .and_then(|l| l.split_once('('))
         .is_some_and(|(_, params)| names(params, word))
 }
+/// GitLab CI's `stage: build` names an entry of the file's top-level `stages:` list, not a job
+/// named after its stage (#473): the 1-based lines listing `word`, in the flow form (`stages:
+/// [build, test]`) or the block form (`- build` under `stages:`), none when the file lists no
+/// such stage. `None` when `before`, the line in front of the word, is no `stage:` key.
+///
+/// ponytail: a flow list wrapped over several lines is not read.
+pub fn stage_entries(before: &str, text: &str, word: &str) -> Option<Vec<usize>> {
+    let key = regex::Regex::new(r#"^\s*stage:\s*["']?$"#).expect("a fixed pattern is valid");
+    if !key.is_match(before) {
+        return None;
+    }
+    let w = regex::escape(word);
+    let flow = regex::Regex::new(&format!(r#"^stages:\s*\[(.*,)?\s*["']?{w}["']?\s*[,\]]"#))
+        .expect("an escaped name keeps the pattern valid");
+    let entry = regex::Regex::new(&format!(r#"^\s*-\s*["']?{w}["']?\s*(#.*)?$"#))
+        .expect("an escaped name keeps the pattern valid");
+    let opens = regex::Regex::new(r"^stages:\s*(#.*)?$").expect("a fixed pattern is valid");
+    let mut found = Vec::new();
+    let mut in_block = false;
+    for (i, l) in text.lines().enumerate() {
+        // The block runs while its lines are indented, entries at the key's own column, blank or
+        // comments.
+        in_block &= l.trim().is_empty() || l.starts_with([' ', '\t', '-', '#']);
+        if in_block && entry.is_match(l) || flow.is_match(l) {
+            found.push(i + 1);
+        }
+        in_block |= opens.is_match(l);
+    }
+    Some(found)
+}
 /// [`member_patterns`] and, in Go, the method lines of an interface, which carry no receiver:
 /// every form in which a type declares a member called `word`.
 pub fn member_or_signature(kind: Kind, word: &str) -> Option<Vec<String>> {
@@ -901,6 +932,108 @@ pub fn directly_inside<S: AsRef<str>>(lines: &[S], line: usize, opener: &str) ->
         .rev()
         .find(|l| !l.trim().is_empty() && indent(l) < depth)
         .is_some_and(|l| l.trim_start().starts_with(opener))
+}
+/// A common table expression named `word`: opening the `WITH`, or continuing it after the
+/// comma that follows the previous one's closing `)`. The match ends on the `(` of its body.
+pub fn sql_cte(word: &str) -> String {
+    let w = regex::escape(word);
+    format!(r"(?i)^\s*(?:\)\s*)?(?:WITH\s+(?:RECURSIVE\s+)?|,\s*)?{w}\s+AS\s*\(")
+}
+/// Whether byte `col` of 1-based `line` of `text` sees the common table expression `word` that
+/// 1-based `cte` opens (#472). A CTE lives in its own statement: after its `AS (…)` up to the
+/// `;` that ends it, and inside its own body too under `WITH RECURSIVE`. A bracket or a `;` in
+/// a comment or a `'string'` counts for nothing. `None` past its body when no `;` ends the
+/// statement (a script of T-SQL batches split by `GO`, say): where its scope ends is not known.
+pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize) -> Option<bool> {
+    let start = |l: usize| -> usize { text.split_inclusive('\n').take(l - 1).map(str::len).sum() };
+    let head = Regex::new(&sql_cte(word)).expect("an escaped name keeps the pattern valid");
+    let Some(m) = text.lines().nth(cte - 1).and_then(|l| head.find(l)) else {
+        return Some(false);
+    };
+    let (open, at, b) = (start(cte) + m.end() - 1, start(line) + col, text.as_bytes());
+    // The statement's first byte, the depth inside the body, and the body's closing `)`.
+    let (mut first, mut depth, mut close, mut i) = (0, None::<usize>, None, 0);
+    let mut ended = false;
+    while i < b.len() {
+        let skip = match &b[i..] {
+            [b'-', b'-', ..] => "\n",
+            [b'/', b'*', ..] => "*/",
+            [b'\'', ..] => "'",
+            [b'(', ..] if i >= open => {
+                depth = Some(depth.map_or(1, |d| d + 1));
+                ""
+            }
+            [b')', ..] if close.is_none() => {
+                depth = depth.map(|d| d - 1);
+                if depth == Some(0) {
+                    close = Some(i);
+                }
+                ""
+            }
+            [b';', ..] if i < open => {
+                first = i + 1;
+                ""
+            }
+            [b';', ..] => {
+                ended = true;
+                break;
+            }
+            _ => "",
+        };
+        i += match skip {
+            "" => 1,
+            s => text[i + 1..].find(s).map_or(b.len(), |n| n + 1 + s.len()),
+        };
+    }
+    let recursive = Regex::new(r"(?i)\bWITH\s+RECURSIVE\b").expect("a valid pattern");
+    let from = if recursive.is_match(&text[first..open]) {
+        open
+    } else {
+        close.unwrap_or(i)
+    };
+    match at > from {
+        false => Some(false),
+        true => ended.then_some(at <= i),
+    }
+}
+/// Whether the Zig declaration on 1-based `line` of `text` can be what a name elsewhere names
+/// (#469): no function or test holds it, whose local it would be — the blocks around it, told by
+/// indentation, lead to a container (the file, a `struct`, an `enum`, a `union`, an `opaque`)
+/// before any `fn` or `test`; a block the walk cannot name (`comptime {`) is looked past. From
+/// another file (`same_file` false) it is `pub`, since each file is a struct only whose `pub`
+/// members leave it. An `export` is a symbol of the whole program, the one thing its name can
+/// mean anywhere, and stays.
+pub fn zig_visible(text: &str, line: usize, same_file: bool) -> bool {
+    static CONTAINER: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(
+            r"\b(?:struct|enum|union|opaque)\s*(?:\((?:[^()]|\([^()]*\))*\))?\s*\{\s*(?://.*)?$",
+        )
+        .unwrap()
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return false;
+    };
+    // The header of each block around the line, innermost first; `) u32 {` closes a header
+    // wrapped over the lines above it, which starts back at its indent.
+    let (mut depth, mut wrapped) = (indent(target), false);
+    for l in lines[..line - 1].iter().rev() {
+        let code = uncommented(Kind::Zig, l);
+        let t = code.trim();
+        if t.is_empty() || indent(l) > depth || (indent(l) == depth && !wrapped) {
+            continue;
+        }
+        depth = indent(l);
+        if CONTAINER.is_match(t) {
+            break;
+        }
+        if ZIG_BODY.is_match(t) {
+            return false;
+        }
+        wrapped = t.starts_with(')');
+    }
+    let open = target.trim_start();
+    same_file || open.starts_with("pub ") || open.starts_with("export ")
 }
 /// Whether 1-based `line` of `lines`, a GraphQL file, declares a field or an enum value: the
 /// nearest line above it indented less, past blanks and `#` comments, opens a `type`, an

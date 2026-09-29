@@ -52,7 +52,7 @@ defmodule Shop.Basket do
   def ship(courier) do
     if W.full?(courier), do: courier, else: W.ship!(courier)
     #    ^ d: lib/shop/warehouse.ex:13
-    #                                         ^ d: picker lib/shop/basket.ex:52, lib/shop/warehouse.ex:14; want lib/shop/warehouse.ex:14 (#459)
+    #                                         ^ d: lib/shop/warehouse.ex:14
   end
 
   def dispatch(n) do
@@ -72,13 +72,13 @@ defmodule Shop.Basket do
     #                              ^ d: lib/shop/pricing.ex:35
     Shop.Pricing.settle(total) + String.length(Shop.currency())
     #            ^ d: lib/shop/pricing.ex:27
-    #                                                ^ d: picker lib/shop.ex:10, lib/shop.ex:12; want lib/shop.ex:12 (#459)
+    #                                                ^ d: lib/shop.ex:12
   end
 
   def price(courier) do
     Shop.Pricing.Priced.price(courier)
     #            ^ d: lib/shop/pricing.ex:18
-    #                   ^ d: picker lib/shop/basket.ex:78, lib/shop/ledger.ex:17, lib/shop/pricing.ex:19, lib/shop/warehouse.ex:22; want lib/shop/pricing.ex:19 (#459)
+    #                   ^ d: lib/shop/pricing.ex:19
   end
 
   def show, do: Shop.Pricing.banner()
@@ -97,4 +97,7 @@ defmodule Shop.Basket do
 
   def encode(basket), do: Jason.encode!(basket)
   #                             ^ d: deps/jason/lib/jason.ex:2
+
+  def reship(courier), do: ship(courier)
+  #                        ^ d: lib/shop/basket.ex:52
 end

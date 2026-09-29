@@ -64,7 +64,8 @@ public class Basket
         //                        ^ d: src/Shop/Pricing/Pricing.cs:53
         //                                      ^ d: src/Shop/Pricing/Pricing.cs:38
         //                                                 ^ d: src/Shop/Pricing/Pricing.cs:31
-        //                                                       ^ d: none; want src/Shop/Pricing/Pricing.cs:31 (#466)
+        //                                                       ^ d: src/Shop/Pricing/Pricing.cs:31
+        // status: via Offer
     }
 
     public int Compare(Weights w, object o) => ((IComparable)w).CompareTo(o);
@@ -82,4 +83,11 @@ public class Basket
 
     public int Coupons(Coupon coupon) => coupon.Price();
     //                                          ^ d: picker src/Shop/Pricing/Pricing.cs:9, src/Shop/Pricing/Pricing.cs:21, src/Shop/Pricing/Pricing.cs:28, src/Shop/Startup.cs:32; want src/Shop/Pricing/Pricing.cs:28 (#352)
+
+    public Tier Level(bool gold) => gold ? Tier.Platinum : Tier.Diamond;
+    //                                          ^ d: src/Shop/Pricing/Pricing.cs:65
+    //                                                          ^ d: src/Shop/Pricing/Pricing.cs:66
+
+    public Tier First() => Tier.Basic;
+    //                          ^ d: src/Shop/Pricing/Pricing.cs:64
 }

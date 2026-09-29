@@ -381,6 +381,35 @@ fn usages_of_a_ruby_suffixed_method_put_its_declaration_first() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #459: `u` reads an Elixir name as `d` does, its `?` or `!` included, so the `def` of `ship!`
+/// is its declaration and comes first.
+#[test]
+fn usages_of_an_elixir_suffixed_function_put_its_declaration_first() {
+    let (dir, mut a) = project_app(
+        "u-elixir-suffix",
+        &[
+            (
+                "lib/w.ex",
+                "defmodule W do\n  def full?(c), do: c\n  def ship!(c), do: c\nend\n",
+            ),
+            ("lib/use.ex", "W.full?(c)\nW.ship!(c)\n"),
+        ],
+    );
+    for (line, word, declared) in [(1, "full", 2), (2, "ship", 3)] {
+        usages_at(&mut a, &dir, "lib/use.ex", line, word);
+        assert_eq!(
+            usage_rows(&mut a),
+            [
+                ("declaration".to_string(), format!("lib/w.ex:{declared}")),
+                (String::new(), format!("lib/use.ex:{line}")),
+            ],
+            "{word}"
+        );
+        a.picker = None;
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// #419: `u` asks what declares a GraphQL field as `d` does. An indented `email` is a field only
 /// directly inside a type; a selection of a query, in the file on screen or not, is a use.
 #[test]

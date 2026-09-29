@@ -69,7 +69,7 @@ public class Basket implements Priced {
     public int receipt(Receipt r, Offer o) {
         return r.total() + (o == Offer.CUT ? 1 : 0);
         //       ^ d: none; want src/main/java/shop/pricing/Receipt.java:5 (#367)
-        //                             ^ d: none; want src/main/java/shop/pricing/Offer.java:5 (#457)
+        //                             ^ d: src/main/java/shop/pricing/Offer.java:5
     }
 
     public java.util.function.ToIntFunction<Tariff> rater() {

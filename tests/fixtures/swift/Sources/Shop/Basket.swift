@@ -98,7 +98,7 @@ func money(_ ledger: Ledger) async -> Money {
 func pay(_ b: Basket) -> Int {
     settle(b) + `default`()
     // ^ d: Sources/Shop/Pricing.swift:64
-    //           ^ d: none; want Sources/Shop/Pricing.swift:68 (#463)
+    //           ^ d: Sources/Shop/Pricing.swift:68
 }
 
 func code(_ c: Coupon) -> String {
@@ -175,12 +175,21 @@ func renamed(_ courier: Courier) -> Courier {
     return courier
 }
 
+func mode() -> Int {
+    let m = Mode.open
+    //           ^ d: Sources/Shop/Pricing.swift:92
+    let f: Mode = .fast(1)
+    //             ^ d: Sources/Shop/Pricing.swift:92
+    return `tally`(1)
+    //      ^ d: Sources/Shop/Pricing.swift:87
+}
+
 struct Bell {
     func chime() -> Int { 1 }
 }
 
 func ringBell(_ bell: Bell) -> Int {
     let chime = bell.chime()
-    //               ^ d: Sources/Shop/Basket.swift:179
+    //               ^ d: Sources/Shop/Basket.swift:188
     return chime
 }

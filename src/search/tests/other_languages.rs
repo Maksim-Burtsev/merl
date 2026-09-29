@@ -267,12 +267,14 @@ fn elixir_def_patterns_find_every_def_form() {
     assert_eq!(d("raw"), Vec::<usize>::new(), "a parameter");
     assert_eq!(d("block"), Vec::<usize>::new());
     assert_eq!(d("Jason"), Vec::<usize>::new());
-    assert_eq!(d("guard"), [49], "`defmacrop`, past the trailing `!`");
+    assert_eq!(d("guard!"), [49], "`defmacrop`, with its trailing `!`");
     assert_eq!(d("is_even"), [50], "`defguardp`");
-    // A name Elixir spells with a trailing `?` or `!` is found from the bare word: the cursor
-    // on `empty` in `empty?(rows)` reaches `def empty?`. Ruby's keeps its suffix (#387).
-    assert_eq!(d("empty"), [52]);
-    assert_eq!(d("put"), [53]);
+    // A trailing `?` or `!` is part of the name (#459): `empty` is not `empty?`.
+    assert_eq!(d("empty?"), [52]);
+    assert_eq!(d("put!"), [53]);
+    assert_eq!(d("empty"), Vec::<usize>::new());
+    assert_eq!(d("put"), Vec::<usize>::new());
+    assert_eq!(d("guard"), Vec::<usize>::new());
     // ExUnit's and Mix's attributes are directives too, so `d` on one has nothing to find
     // rather than a picker of every place the directive is written.
     assert_eq!(d("tag"), Vec::<usize>::new());
@@ -347,12 +349,54 @@ fn elixir_scope_roots_and_names() {
     assert!(imports(Kind::Elixir, EX).is_empty());
     assert!(external_roots(Kind::Elixir, Path::new("/")).is_empty());
     assert!(member_patterns(Kind::Elixir, "parse").is_none());
-    // A function is named under the module it is written in, as in every kind.
+    // A function is named under the module it is written in, as in every kind, and the
+    // module as it is written (#459).
     assert_eq!(
         qualified(Kind::Elixir, EX, 22, "normalise").as_deref(),
-        Some("Ledger.normalise")
+        Some("MyApp.Ledger.normalise")
+    );
+    assert_eq!(
+        qualified(Kind::Elixir, EX, 38, "render").as_deref(),
+        Some("Renderable.render"),
+        "a protocol is a module"
     );
     assert_eq!(qualified(Kind::Elixir, EX, 1, "Ledger"), None);
+}
+
+#[test]
+fn elixir_word_and_alias() {
+    // #459: the `?` or `!` that ends a name is the name's, the `!` of `!=` is not.
+    let word = |line, col| definition_word(Some(Kind::Elixir), line, col).map(|(_, w)| w);
+    assert_eq!(word("W.ship!(c)", 3), Some("ship!"));
+    assert_eq!(word("W.ship!(c)", 6), Some("ship!"), "on the `!` itself");
+    assert_eq!(word("if full?(c), do: c", 4), Some("full?"));
+    assert_eq!(word("a != b", 0), Some("a"));
+    assert_eq!(word("x = ship!", 5), Some("ship!"));
+    // An `alias` names the module a qualifier stands for.
+    let text = "  alias Shop.Warehouse, as: W\n  alias Shop.Pricing.{Tariff, Coupon}\n  alias Shop.Warehouse.Courier\n";
+    let un = |chain: &[&str]| {
+        elixir_unalias(text, 3, chain.iter().map(|s| s.to_string()).collect()).join(".")
+    };
+    assert_eq!(un(&["W"]), "Shop.Warehouse");
+    assert_eq!(un(&["Coupon"]), "Shop.Pricing.Coupon");
+    assert_eq!(un(&["Courier", "Inner"]), "Shop.Warehouse.Courier.Inner");
+    assert_eq!(un(&["Warehouse"]), "Warehouse", "`as: W` renames it");
+    assert_eq!(un(&["Shop", "Pricing"]), "Shop.Pricing");
+    assert_eq!(un(&[]), "");
+    // Another module's `alias`, one below the cursor, and one inside a closed `def` rename
+    // nothing.
+    let text = "defmodule A do\n  alias Plug.Conn\nend\n\ndefmodule B do\n  def f(c) do\n    alias Shop.Tariff\n    Tariff.x(c)\n  end\n  def g(c), do: Conn.assign(c)\n  alias Shop.Coupon\nend\n";
+    let un = |line, chain: &[&str]| {
+        elixir_unalias(text, line, chain.iter().map(|s| s.to_string()).collect()).join(".")
+    };
+    assert_eq!(un(9, &["Conn"]), "Conn");
+    assert_eq!(un(9, &["Tariff"]), "Tariff");
+    assert_eq!(un(9, &["Coupon"]), "Coupon");
+    assert_eq!(
+        un(7, &["Tariff"]),
+        "Shop.Tariff",
+        "inside the `def` it is seen"
+    );
 }
 
 #[test]

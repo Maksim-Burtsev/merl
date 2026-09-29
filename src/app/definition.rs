@@ -122,6 +122,30 @@ impl App {
             self.message = resolution(&word, None, &[], None, false);
             return;
         }
+        // An Elixir `alias` names the module a qualifier stands for (#459).
+        let chain = match kind {
+            Kind::Elixir => search::elixir_unalias(&text, self.line, chain),
+            _ => chain,
+        };
+        if kind == Kind::Yaml
+            && let Some(lines) =
+                search::stage_entries(&self.line_str()[..range.start], &text, &word)
+        {
+            let found = lines
+                .into_iter()
+                .map(|line| Candidate {
+                    hit: Hit {
+                        path: here.clone(),
+                        line,
+                        col: 0,
+                        text: self.buf.lines[line - 1].clone(),
+                    },
+                    reason: Reason::ByName,
+                })
+                .collect();
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // An import's path, and a name its package qualifies (#418).
         if kind == Kind::Proto
             && let Some(found) = self.proto_definitions(&text, &written[..start], &word)
@@ -132,6 +156,30 @@ impl App {
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
         self.truncated.set(false);
+        // A PHP `$name` is a variable of its own function, never a function, a method or another
+        // function's local (#464). `self::$x` is a static property, and `$this` the object.
+        let sigil = &self.line_str()[..range.start];
+        if kind == Kind::Php
+            && sigil.ends_with('$')
+            && !sigil.ends_with("::$")
+            && word != "this"
+            && let Some(lines) = search::php_variable(&text, self.line + 1, &word)
+        {
+            let found = lines
+                .into_iter()
+                .map(|line| Candidate {
+                    hit: Hit {
+                        path: here.clone(),
+                        line,
+                        col: 0,
+                        text: self.buf.lines[line - 1].clone(),
+                    },
+                    reason: Reason::Local,
+                })
+                .collect();
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // Inside a docstring's example the imports written there count too.
         let in_literal = search::literal_lines(kind, &text).get(self.line) == Some(&true);
         let mut imports = match in_literal {
@@ -141,13 +189,20 @@ impl App {
         // A parameter or a local of the same name hides the import where the cursor is: `json`
         // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
         let first = chain.first().map_or(word.as_str(), String::as_str);
-        // `super` is no local, whatever the member lookup reads it as. A name of a destructuring
-        // or a parameter list wrapped over several lines is on a line of its own (#393).
+        // A key of a Lua table constructor names a field, whatever local shares its name, and so
+        // does a method called with `:`.
+        let key = kind == Kind::Lua
+            && (search::table_key(&text, self.line + 1, &range)
+                || (before.ends_with(':') && !before.ends_with("::")));
+        // `super` is no local, whatever the member lookup reads it as; Lua has no `super`. A name
+        // of a destructuring or a parameter list wrapped over several lines is on a line of its
+        // own (#393).
         let locals: Vec<usize> = search::bindings(kind, &text, self.line + 1, first)
             .iter()
             .map(|b| b.line)
             .filter(|&n| {
-                (dotted || word != "super") && !names_itself(&self.buf.lines[n - 1], first)
+                !key && (dotted || word != "super" || kind == Kind::Lua)
+                    && !names_itself(&self.buf.lines[n - 1], first)
             })
             .map(|n| match kind {
                 Kind::TsJs => search::written_line(&self.buf.lines, n, first),
@@ -206,7 +261,11 @@ impl App {
             .then(|| search::member_patterns(kind, &word))
             .flatten()
             .map(|m| m.join("|"));
-        let patterns = search::def_patterns(kind, &word);
+        let mut patterns = search::def_patterns(kind, &word);
+        // An Elixir call is never a module attribute: `Shop.currency()` is no `@currency` (#459).
+        if kind == Kind::Elixir && dotted {
+            patterns.retain(|p| !p.starts_with(r"^\s*@"));
+        }
         if patterns.is_empty() {
             self.message = self.no_rules();
             return;
@@ -581,6 +640,15 @@ impl App {
                 self.show_definitions(kind, &word, &here, named, None);
                 return;
             }
+            // Java's and Kotlin's `Offer.CUT`: a constant of the enum the project declares once
+            // (#457).
+            if let (Kind::Jvm, [owner]) = (kind, chain.as_slice()) {
+                let found = self.enum_constant(kind, &here, owner, &word);
+                if !found.is_empty() {
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
+            }
             if class_method {
                 let found: Vec<Candidate> = concerns
                     .map(|hits| self.concern_class_methods(kind, &here, &chain, hits))
@@ -618,6 +686,74 @@ impl App {
                 return;
             }
         }
+        // A C# `Offer.Cut` whose qualifier is an `enum` of the project is a member its body
+        // lists (#466). A bare `Cut` has no rule: in C# only a `using static` brings it in.
+        // The enum's namespace has to be one this file sees, or a namesake the SDK brings in
+        // (MAUI's `PermissionStatus`) would pass for the project's.
+        if kind == Kind::CSharp && pathed && locals.is_empty() {
+            let owner = &chain[chain.len() - 1];
+            let owners = search::def_patterns(kind, owner).join("|");
+            let members: Vec<(Candidate, String)> = self
+                .project_definitions(kind, &here, owner, &owners)
+                .into_iter()
+                .filter_map(|h| {
+                    let text = self.text_of(&h.path)?;
+                    let (line, col) = search::enum_member(kind, &text, h.line, &word)?;
+                    let hit = Hit {
+                        text: text.lines().nth(line - 1)?.to_owned(),
+                        path: h.path,
+                        line,
+                        col,
+                    };
+                    let reason = Reason::Path(path.clone());
+                    Some((Candidate { hit, reason }, search::cs_namespace(&text, line)))
+                })
+                .collect();
+            let prefix = chain[..chain.len() - 1].join(".");
+            let inside = search::cs_namespace(&text, self.line + 1);
+            let mut opened = search::cs_usings(&text);
+            if !members.is_empty() {
+                // `global using` in any file of the `.csproj` this file is in, `<Using Include>` in
+                // that `.csproj`: a solution's other projects open their own.
+                let csproj = |d: &Path| {
+                    self.files.iter().any(|f| {
+                        f.parent() == Some(d) && f.extension().is_some_and(|e| e == "csproj")
+                    })
+                };
+                let project = here
+                    .ancestors()
+                    .skip(1)
+                    .find(|d| csproj(d))
+                    .unwrap_or(Path::new(""));
+                let global = r#"^\u{feff}?\s*global\s+using\s+[\w.]+\s*;|<Using\s+Include=""#;
+                let files = |p: &Path| {
+                    p.starts_with(project)
+                        && p.extension().is_some_and(|e| e == "cs" || e == "csproj")
+                };
+                for h in self.grep(global, false, false, files).unwrap_or_default() {
+                    opened.extend(search::cs_usings(&h.text));
+                }
+            }
+            let sees = |ns: &String| match prefix.as_str() {
+                "" => {
+                    ns.is_empty()
+                        || inside == *ns
+                        || inside.starts_with(&format!("{ns}."))
+                        || opened.contains(ns)
+                }
+                p => ns == p || ns.ends_with(&format!(".{p}")),
+            };
+            let named: Vec<Candidate> = members
+                .into_iter()
+                .filter(|(_, ns)| sees(ns))
+                .map(|(c, _)| c)
+                .collect();
+            if !named.is_empty() {
+                self.show_definitions(kind, &word, &here, named, None);
+                return;
+            }
+            self.truncated.set(false);
+        }
         // A parameter or a local in front of the word is a value for certain: it has members,
         // and a function or a variable at the top of a module is not one of them.
         let hits = members
@@ -633,6 +769,21 @@ impl App {
                     self.project_definitions(kind, &here, &word, &pattern)
                 }
             });
+        // A Lua `local` inside a block is seen by that block alone, where the bindings above
+        // found it already: anywhere else, and behind a dot, it is no candidate (#461). What is
+        // left was a namesake beside it on master, and is offered, never jumped to. The cursor's
+        // own line stays, standing on a declaration.
+        let mut hits = hits;
+        if kind == Kind::Lua {
+            let at = |h: &Hit| h.path == here && h.line == self.line + 1;
+            let all = hits.len();
+            hits.retain(|h| {
+                !h.text.starts_with([' ', '\t'])
+                    || !h.text.trim_start().starts_with("local ")
+                    || at(h)
+            });
+            self.offer_only |= hits.len() < all && hits.iter().any(|h| !at(h));
+        }
         // A C or C++ type is its body, not its forward declarations and constructors (#368).
         // Behind `.` or `->` no type is meant. Then what the file on screen can see (#364): not
         // another source file's statics and macros, not a `#define` that only stands in where
@@ -739,6 +890,16 @@ impl App {
                 }
             }
         }
+        // A Zig local is no candidate outside its function, nor a declaration without `pub`
+        // outside its file (#469); the one under the cursor stays, its own answer.
+        if kind == Kind::Zig {
+            found.retain(|c| {
+                (c.hit.path == here && c.hit.line == self.line + 1)
+                    || self
+                        .text_of(&c.hit.path)
+                        .is_some_and(|t| search::zig_visible(&t, c.hit.line, c.hit.path == here))
+            });
+        }
         if found.is_empty() {
             found = fallbacks
                 .into_iter()
@@ -820,6 +981,59 @@ impl App {
                         .iter()
                         .any(|m| search::ruby_concern_class_method(&t, h.line, m))
                 })
+            })
+            .collect()
+    }
+
+    /// `word` as a constant of the Java or Kotlin enum `owner`, when the project declares one type
+    /// of that name and it is an `enum` (#457), and this file sees it: it is in the enum's package,
+    /// or imports the enum or its whole package (`.*`). `import java.util.concurrent.TimeUnit`, or
+    /// `java.util.concurrent.*` alone, is not the project's `TimeUnit`.
+    fn enum_constant(&self, kind: Kind, here: &Path, owner: &str, word: &str) -> Vec<Candidate> {
+        let owners = search::def_patterns(kind, owner).join("|");
+        let declared = self.project_definitions(kind, here, owner, &owners);
+        self.truncated.set(false);
+        let [decl] = declared.as_slice() else {
+            return Vec::new();
+        };
+        let o = regex::escape(owner);
+        let is_enum = Regex::new(&format!(r"\benum\s+(?:class\s+)?{o}\b"))
+            .is_ok_and(|re| re.is_match(&decl.text));
+        let Some(text) = self.text_of(&decl.path).filter(|_| is_enum) else {
+            return Vec::new();
+        };
+        let package = |t: &str| {
+            let re = Regex::new(r"^\s*package\s+([\w.]+)").expect("a fixed pattern");
+            t.lines()
+                .find_map(|l| re.captures(l).map(|c| c[1].to_owned()))
+                .unwrap_or_default()
+        };
+        let import = Regex::new(&format!(r"^\s*import\s+([\w.]+)\.({o}|\*)\s*;?\s*$"))
+            .expect("an escaped name keeps the pattern valid");
+        let home = package(&text);
+        let imports: Vec<(String, bool)> = (self.buf.lines.iter())
+            .filter_map(|l| import.captures(l))
+            .map(|c| (c[1].to_owned(), &c[2] == "*"))
+            .collect();
+        // A type imported by name from elsewhere hides the package's own.
+        let elsewhere = imports.iter().any(|(p, all)| !all && *p != home);
+        let sees =
+            package(&self.buf.lines.join("\n")) == home || imports.iter().any(|(p, _)| *p == home);
+        if elsewhere || !sees {
+            return Vec::new();
+        }
+        let lines: Vec<&str> = text.lines().collect();
+        search::enum_constants(&text, decl.line)
+            .into_iter()
+            .filter(|(name, _)| name == word)
+            .map(|(_, line)| Candidate {
+                hit: Hit {
+                    path: decl.path.clone(),
+                    line,
+                    col: 0,
+                    text: lines.get(line - 1).copied().unwrap_or_default().to_owned(),
+                },
+                reason: Reason::Path(owner.to_owned()),
             })
             .collect()
     }
@@ -1075,6 +1289,47 @@ impl App {
                 self.note_cut(&hits);
                 hits.retain(|h| recipe(h).is_none());
             }
+        }
+        // A Shell `local` belongs to its function: no candidate from any other (#470).
+        if kind == Kind::Shell {
+            let lines: Vec<&str> = self.buf.lines.iter().map(String::as_str).collect();
+            let mine = search::shell_function_at(&lines, self.line);
+            hits.retain(|h| {
+                let Some(text) = self.text_of(&h.path) else {
+                    return true;
+                };
+                let lines: Vec<&str> = text.lines().collect();
+                let at = h.line - 1;
+                match lines.get(at).and_then(|l| search::shell_local_of(l)) {
+                    Some(_) => search::shell_function_at(&lines, at)
+                        .is_none_or(|f| h.path == here && Some(f) == mine),
+                    None => true,
+                }
+            });
+        }
+        // A common table expression is a declaration only inside its own statement, where it
+        // hides a table of its name (#472). On a declaration's own line nothing changes.
+        if kind == Kind::Sql
+            && !hits
+                .iter()
+                .any(|h| h.path == here && h.line == self.line + 1)
+        {
+            let cte = Regex::new(&search::sql_cte(word)).expect("an escaped name keeps it valid");
+            let text = self.text_of(here).unwrap_or_default();
+            let sees = |h: &Hit| match h.path == here {
+                true => search::sql_cte_sees(&text, h.line, word, self.line + 1, self.col),
+                false => Some(false),
+            };
+            // A CTE whose scope has no known end leaves the candidates as they are.
+            let known = hits
+                .iter()
+                .filter(|h| cte.is_match(&h.text))
+                .all(|h| sees(h).is_some());
+            let seen = hits.iter().any(|h| sees(h) == Some(true));
+            hits.retain(|h| match cte.is_match(&h.text) {
+                true => !known || sees(h) == Some(true),
+                false => !known || !seen,
+            });
         }
         hits
     }

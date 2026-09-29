@@ -1,0 +1,7 @@
+# An included file of #473 with no `stages:` list of its own: a job named after its stage is no
+# stage.
+release:
+  stage: release
+  #      ^ d: none
+  script:
+    - ./release.sh
