@@ -19,7 +19,7 @@ func Checkout() int {
 
 func Currency() string {
 	return wh.Euro
-	//        ^ d: none; want shop/pricing.go:11 (#326)
+	//        ^ d: shop/pricing.go:11
 }
 
 func Dollar() string { return "USD" }

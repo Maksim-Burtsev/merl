@@ -78,6 +78,9 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^type\s+{w}\b"),
             format!(r"^(var|const)\s+{w}\b"),
             format!(r"^\s*{w}\s*:="),
+            // A member of a column-0 `const (`, `var (` or `type (` block (#326): `W …`, `W = …`,
+            // `A, W T`, `W[T any] …`, a bare iota `W`. [`declares_where`] checks the opener.
+            format!(r"^\t(?:\w+\s*,\s*)*{w}(?:\s*,\s*\w+)*(?:\s*=[^=]|\s+[^\s:=]|\[|\s*$)"),
         ],
         // `impl X` is a use of `X`, not its definition, so it is left out on purpose.
         Kind::Rust => {
@@ -865,7 +868,9 @@ fn terraform_patterns(address: &str) -> Vec<String> {
 /// patterns asks it, so `d` and `u` agree on what declares (#419). Where the line alone cannot
 /// tell, the lines above it can: a Terraform local is `x = ...` directly inside `locals { }`,
 /// as every other attribute is inside its block, and an indented GraphQL line is a field or an
-/// enum value directly inside a type and a selection anywhere else. `lines` reads the file, and
+/// enum value directly inside a type and a selection anywhere else. An indented Go line that is
+/// no `W :=` is a member of a grouped `const (`, `var (` or `type (` only directly inside one at
+/// column 0: a struct's field and a line inside a function are not. `lines` reads the file, and
 /// only for those.
 pub fn declares_where<'a, S: AsRef<str> + 'a>(
     kind: Kind,
@@ -876,6 +881,16 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
 ) -> bool {
     match kind {
         Kind::Graphql => !line_text.starts_with([' ', '\t']) || graphql_member(lines(), line),
+        Kind::Go if line_text.starts_with([' ', '\t']) => {
+            let local = Regex::new(&format!(r"^\s*{}\s*:=", regex::escape(word)))
+                .is_ok_and(|re| re.is_match(line_text));
+            local || {
+                let lines = lines();
+                ["const (", "var (", "type ("]
+                    .iter()
+                    .any(|o| directly_inside(lines, line, o))
+            }
+        }
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
 }

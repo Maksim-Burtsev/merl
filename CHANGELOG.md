@@ -145,6 +145,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` in Go finds a name declared inside a grouped `const (`, `var (` or `type (` block: an
+  iota enum, `time.Hour`, `http.StatusOK`, a type of a `type (` block. It said `no definition`,
+  or jumped to a namesake elsewhere. A field of a struct inside the block, and a `var (` block
+  inside a function, still declare nothing of the package. (#326)
 - `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
   in the project, the standard library and the dependencies the cursor can reach, the traits'
   first, where it jumped to a lone project namesake: `v.unwrap()` on an `Option` landed on a

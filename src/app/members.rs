@@ -45,8 +45,10 @@ impl App {
     ) -> Vec<Hit> {
         let own = self.package_files(kind, file);
         let pattern = search::def_patterns(kind, name).join("|");
-        self.grep(&pattern, false, false, |p| own.iter().any(|f| f == p))
-            .unwrap_or_default()
+        let hits = self
+            .grep(&pattern, false, false, |p| own.iter().any(|f| f == p))
+            .unwrap_or_default();
+        self.declaring(kind, name, hits)
             .into_iter()
             .filter(|h| {
                 self.in_code(kind, h)
@@ -167,7 +169,8 @@ impl App {
         let Some(fields) = search::field_patterns(kind, word) else {
             return hits;
         };
-        let raw = self.project_definitions(kind, here, word, &fields.join("|"));
+        // A field is no declaration [`search::declares_where`] reads: a Go field is indented.
+        let raw = self.project_grep(kind, here, &fields.join("|"));
         let mut by_file: Vec<(PathBuf, Vec<usize>)> = Vec::new();
         for h in raw {
             match by_file.last_mut() {

@@ -939,22 +939,8 @@ impl App {
         word: &str,
         pattern: &str,
     ) -> Vec<Hit> {
-        let mut hits = self
-            .grep(pattern, false, false, |p| {
-                search::in_def_scope(kind, here, p)
-            })
-            .unwrap_or_default();
-        self.note_cut(&hits);
-        // One file holds thousands of GraphQL `id` fields, so each file is split once.
-        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
-        hits.retain(|h| {
-            search::declares_where(kind, word, h.line, &h.text, || {
-                lines.entry(h.path.clone()).or_insert_with(|| {
-                    self.text_of(&h.path)
-                        .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
-                })
-            })
-        });
+        let hits = self.project_grep(kind, here, pattern);
+        let mut hits = self.declaring(kind, word, hits);
         // `GO=$(GO) ./build.sh` in a recipe sets a variable of one shell command (#477): it
         // declares the word only for a shell variable of the command under the cursor,
         // `$${ARCH}`, and never for make's own `$(GO)`.
@@ -992,6 +978,34 @@ impl App {
                 hits.retain(|h| recipe(h).is_none());
             }
         }
+        hits
+    }
+
+    /// `pattern` over the project files where a definition of a word in `here`, a file of
+    /// `kind`, can live, a cut noted.
+    pub(super) fn project_grep(&self, kind: Kind, here: &Path, pattern: &str) -> Vec<Hit> {
+        let hits = self
+            .grep(pattern, false, false, |p| {
+                search::in_def_scope(kind, here, p)
+            })
+            .unwrap_or_default();
+        self.note_cut(&hits);
+        hits
+    }
+
+    /// Of `hits` of the [`search::def_patterns`] of `word`, the lines that declare it where they
+    /// sit ([`search::declares_where`]).
+    pub(super) fn declaring(&self, kind: Kind, word: &str, mut hits: Vec<Hit>) -> Vec<Hit> {
+        // One file holds thousands of GraphQL `id` fields, so each file is split once.
+        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
+        hits.retain(|h| {
+            search::declares_where(kind, word, h.line, &h.text, || {
+                lines.entry(h.path.clone()).or_insert_with(|| {
+                    self.text_of(&h.path)
+                        .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
+                })
+            })
+        });
         hits
     }
 
@@ -1131,9 +1145,10 @@ impl App {
         };
         let wanted = |p: &Path| files.iter().any(|f| f == p);
         let pattern = search::def_patterns(kind, name).join("|");
-        let mut hits = self
+        let hits = self
             .grep(&pattern, false, false, wanted)
             .unwrap_or_default();
+        let mut hits = self.declaring(kind, name, hits);
         let within = (inside.len() > 1).then(|| inside.join("."));
         hits.retain(|h| {
             self.text_of(&h.path)

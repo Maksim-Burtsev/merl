@@ -15,7 +15,7 @@ func NewBasket(t Tariff) *Basket {
 }
 
 func (b *Basket) Gross() Money {
-//                       ^ d: none; want shop/pricing.go:20 (#326)
+//                       ^ d: shop/pricing.go:20
 	return Money(Discount(b.Tariff.Rate()))
 	//           ^ d: shop/pricing.go:35
 	//                      ^ d: shop/basket.go:6
@@ -49,13 +49,13 @@ func Overweight(grams int) bool {
 
 func Currency() string {
 	return Euro + Dollar
-	//     ^ d: none; want shop/pricing.go:11 (#326)
-	//            ^ d: cart/cart.go:25; want shop/pricing.go:12 (#326)
+	//     ^ d: shop/pricing.go:11
+	//            ^ d: picker shop/pricing.go:12, cart/cart.go:25; want shop/pricing.go:12 (#332)
 }
 
 func Fallback() Tariff {
 	return DefaultTariff
-	//     ^ d: none; want shop/pricing.go:16 (#326)
+	//     ^ d: shop/pricing.go:16
 }
 
 func PriceOf(p Priced) int {

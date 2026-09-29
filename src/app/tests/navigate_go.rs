@@ -691,3 +691,57 @@ fn the_go_blank_identifier_has_no_definition() {
     assert_eq!(shown(&mut a), jump("_: local", "tr.py:1"));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #326. A member of a column-0 `const (`, `var (` or `type (` block is a top-level declaration,
+/// in the project and in a package outside it; a field of a struct inside `type (` and a `var (`
+/// block inside a function are not.
+#[test]
+fn a_go_grouped_declaration_is_top_level() {
+    let (dir, mut a) = project_app(
+        "go-grouped",
+        &[
+            ("go.mod", "module example.com/grouped\n"),
+            (
+                "shop/shop.go",
+                "package shop\n\nimport \"time\"\n\nconst (\n\tsortByName = \"name\"\n\tKindA      = iota\n\tKindB\n)\n\nvar (\n\tDefaultTimeout = 5 * time.Second\n)\n\ntype (\n\tOrder struct {\n\t\tAddress string\n\t}\n)\n\nfunc sorted(s string) bool { return s == sortByName }\n\nfunc wait() time.Duration { return DefaultTimeout + time.Hour }\n\nfunc build() Order { return Order{} }\n\nfunc kind() int { return KindB }\n\nfunc local() string {\n\tvar (\n\t\tStreet = \"x\"\n\t)\n\treturn Street\n}\n\nfunc Address() string { return \"\" }\n\nfunc street() string { return Street + Address() }\n",
+            ),
+        ],
+    );
+    let goroot = external_root(
+        "go-grouped",
+        &[(
+            "src/time/time.go",
+            "package time\n\ntype Duration int64\n\nconst (\n\tNanosecond Duration = 1\n\tMinute             = 60 * Nanosecond\n\tHour               = 60 * Minute\n)\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Go, &[goroot.join("src")]);
+    let mut d = |code: &str| {
+        d_on(&mut a, "shop/shop.go", code);
+        shown(&mut a)
+    };
+    let by_name = |word: &str, place: &str| jump(&format!("{word}: by name, 1 match"), place);
+    assert_eq!(
+        d("s == sortByName"),
+        by_name("sortByName", "shop/shop.go:6")
+    );
+    assert_eq!(
+        d("return DefaultTimeout"),
+        by_name("DefaultTimeout", "shop/shop.go:12")
+    );
+    let hour = goroot.join("src/time/time.go");
+    assert_eq!(
+        d("time.Hour"),
+        jump("Hour: via import time", &format!("{}:8", hour.display()))
+    );
+    assert_eq!(d("return Order"), by_name("Order", "shop/shop.go:16"));
+    assert_eq!(d("return KindB"), by_name("KindB", "shop/shop.go:8"));
+    // The field of `Order` is no top-level `Address`, and the function's own `var (` block
+    // declares a local, not a name of the package.
+    assert_eq!(d("+ Address"), by_name("Address", "shop/shop.go:36"));
+    assert_eq!(
+        d("return Street| +"),
+        jump("no definition for Street", "shop/shop.go:38")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&goroot).unwrap();
+}
