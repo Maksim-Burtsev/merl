@@ -1,0 +1,2 @@
+wait merl exited: 0
+(screen not compared: merl --reviews prints today's date and the time each session took)

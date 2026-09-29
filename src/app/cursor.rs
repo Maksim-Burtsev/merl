@@ -234,6 +234,11 @@ impl App {
         } else {
             self.forward_rows(cur, n as usize)
         };
+        // Down on the last row of the text leaves the cursor as it is: aimed again at `want_x`,
+        // it would slide off a char narrower than the column it stands at.
+        if n > 0 && to == cur {
+            return;
+        }
         self.land(to);
     }
 
