@@ -248,6 +248,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in TypeScript and JavaScript on a name of a destructuring or a parameter list wrapped one
   name per line, as prettier writes them, lands on the line of the name, on the name, instead
   of the `const {` or `function Row({` above it, so a second `d` goes on from there. (#393)
+- `d` in Rust on `x.name` with no `()` behind it lands on the field `name: T` of a struct, one
+  row per struct, and when the project has none, on the `pub` fields of the standard library and
+  the dependencies; it landed on a method or a local of the name. A word inside an attribute is
+  the macro it names (`#[derive(Debug)]`, `#[test]`, `#[tokio::main]`) or declared nowhere
+  (`#[cfg(test)]`, `#[allow(…)]`), never a project item called the same. `Mode::Auto`, and a
+  bare `Auto` behind a `use Mode::*;`, land on the enum variant, which said `no definition` or
+  landed on a struct of its name. (#370)
 
 ## [0.7.0] - 2026-09-25
 

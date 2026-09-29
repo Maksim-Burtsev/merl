@@ -34,7 +34,7 @@ fn infra_definitions_stay_in_their_scope() {
 }
 
 #[test]
-fn a_field_has_no_definition_and_locals_must_be_direct() {
+fn a_rust_field_is_its_struct_line_and_locals_must_be_direct() {
     let (dir, mut a) = project_app(
         "fallback",
         &[
@@ -48,12 +48,12 @@ fn a_field_has_no_definition_and_locals_must_be_direct() {
             ),
         ],
     );
-    // A field is no declaration the Rust rules know, and `u` is the key for its uses.
+    // A Rust field is its line in the struct (#370).
     a.jump_to(&dir.join("order.rs"), 5);
     a.col = 10;
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("order.rs"), 4));
-    assert_eq!(a.message, "no definition for items");
+    assert_eq!(at(&a), (dir.join("order.rs"), 1));
+    assert_eq!(a.message, "items \u{2192} Order::items (by name, 1 match)");
     // Of the two `name =` lines, only the one directly inside `locals` is `local.name`.
     a.jump_to(&dir.join("main.tf"), 8);
     a.col = 17;

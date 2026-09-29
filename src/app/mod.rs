@@ -32,6 +32,7 @@ mod picker;
 mod preview;
 mod project_search;
 mod review;
+mod rust;
 mod scroll;
 mod search_job;
 mod symbols;
