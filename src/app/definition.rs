@@ -1226,6 +1226,59 @@ impl App {
             hits = self
                 .grep(r"^export\s+default\b", false, false, wanted)
                 .unwrap_or_default();
+            // `import Text from "../shared/Text"; export default Text;` hands on what it imports
+            // (#335): that import is followed. `export default observer(Text)` is what it says.
+            if let [hit] = hits.as_slice()
+                && depth < 4
+                && let Some(name) = search::default_name(&hit.text)
+                && let Some(source) = self.text_of(&hit.path).and_then(|t| {
+                    let imports = search::imports(kind, &t);
+                    bound(&imports, &name)
+                })
+                && let Some(found) = self
+                    .imported_at(kind, &hit.path, &name, &[], &source, depth + 1)
+                    .filter(|f| !f.is_empty())
+            {
+                return Some(found);
+            }
+        }
+        // A barrel hands the name on (#335): `export { Name } from "./x"`, `export { default as
+        // Name }`, `export { x as Name }`, `export * from "./x"`, each source followed as an
+        // import of it. Several `export *` sources that declare it are a picker.
+        // ponytail: four modules deep, which also ends a cycle.
+        if hits.is_empty() && kind == Kind::TsJs && depth < 4 && !inside.is_empty() {
+            let (first, rest) = inside.split_first().expect("not empty");
+            let (chain, word) = match rest.split_last() {
+                Some((word, between)) => {
+                    let mut chain = vec![first.clone()];
+                    chain.extend(between.iter().cloned());
+                    (chain, word.clone())
+                }
+                None => (Vec::new(), first.clone()),
+            };
+            let mut found: Vec<Candidate> = Vec::new();
+            for f in &files {
+                let Some(text) = self.text_of(f) else {
+                    continue;
+                };
+                for (mut module, taken) in search::reexported(&text, first) {
+                    module.push(taken);
+                    let more = self
+                        .imported_at(kind, f, &word, &chain, &module, depth + 1)
+                        .unwrap_or_default();
+                    for c in more {
+                        if !found
+                            .iter()
+                            .any(|o| (&o.hit.path, o.hit.line) == (&c.hit.path, c.hit.line))
+                        {
+                            found.push(c);
+                        }
+                    }
+                }
+            }
+            if !found.is_empty() {
+                return Some(found);
+            }
         }
         // A Python module of the project that does not declare the name but imports it hands
         // it on (#100): `from .sessions import open_session` in a package's `__init__.py`.

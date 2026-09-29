@@ -330,6 +330,14 @@ pub fn declares_wrapped_generic(text: &str, line: usize) -> bool {
         rest.starts_with(':') || rest.starts_with('{')
     })
 }
+/// The name `export default Name;` hands out, when it is a bare name (#335).
+pub fn default_name(line: &str) -> Option<String> {
+    static DEFAULT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*export\s+default\s+([A-Za-z_$][\w$]*)\s*;?\s*$").unwrap()
+    });
+    let name = DEFAULT.captures(line)?[1].to_owned();
+    (!matches!(name.as_str(), "class" | "function" | "async" | "abstract")).then_some(name)
+}
 /// What a CommonJS module hands out as a whole (#328): the 1-based line of its one
 /// `module.exports = …`, and the name it assigns when that is a bare name, as `module.exports =
 /// Segment;` does. The outer `None` is a module that says nothing of `module.exports` or
@@ -380,22 +388,38 @@ pub fn exported_as(text: &str, name: &str) -> Option<String> {
 }
 /// The modules a TypeScript barrel hands `name` on from, as [`imports`] spells a module:
 /// `export * from "./a"` and `export { name } from "./a"`. Under another name
-/// (`export { x as name }`) nothing is followed.
+/// (`export { x as name }`) nothing is followed: [`reexported`] has those.
 pub fn reexports(text: &str, name: &str) -> Vec<Vec<String>> {
+    reexported(text, name)
+        .into_iter()
+        .filter(|(_, taken)| taken == name)
+        .map(|(module, _)| module)
+        .collect()
+}
+/// What a TypeScript barrel hands `name` on from (#335): each module, as [`imports`] spells one,
+/// with what it takes there, as an import path ends: `name` for `export { name }` and `export *`,
+/// `x` for `export { x as name }`, `default` for `export { default as name }`.
+pub fn reexported(text: &str, name: &str) -> Vec<(Vec<String>, String)> {
     static EXPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"(?m)^\s*export\s+(?:type\s+)?(\*|\{[^}]*\})\s*from\s*['"]([^'"]+)['"]"#)
             .unwrap()
     });
     EXPORT
         .captures_iter(text)
-        .filter(|c| {
-            let items = c[1].trim_matches(['{', '}']);
-            &c[1] == "*"
-                || items
-                    .split(',')
-                    .any(|i| i.trim().strip_prefix("type ").unwrap_or(i.trim()) == name)
-        })
-        .map(|c| {
+        .filter_map(|c| {
+            let taken = match &c[1] {
+                "*" => name.to_owned(),
+                items => items.trim_matches(['{', '}']).split(',').find_map(|i| {
+                    let i = i.trim();
+                    let i = i.strip_prefix("type ").unwrap_or(i);
+                    match i.split_once(" as ") {
+                        Some((local, exported)) => {
+                            (exported.trim() == name).then(|| local.trim().to_owned())
+                        }
+                        None => (i == name).then(|| name.to_owned()),
+                    }
+                })?,
+            };
             let mut path: Vec<String> = c[2]
                 .split('/')
                 .filter(|p| !p.is_empty())
@@ -404,7 +428,7 @@ pub fn reexports(text: &str, name: &str) -> Vec<Vec<String>> {
             if c[2].starts_with('/') {
                 path.insert(0, ".".to_owned());
             }
-            path
+            Some((path, taken))
         })
         .collect()
 }

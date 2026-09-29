@@ -145,6 +145,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` in TypeScript and JavaScript follows a barrel to the declaration: `import { Group } from
+  "./models"`, where `models/index.ts` says `export { default as Group } from "./Group"` or `export
+  * from "./helpers"`, lands on the class in `Group.ts`, where it fell back to the search by name
+  and opened a list of every namesake, or jumped to the wrong one. A module that imports a
+  default and exports it again, `export default Text;`, is followed to the module that declares
+  it, where `d` stopped on that line. (#335)
 - `d` in TypeScript finds a class or an interface whose type parameters prettier wrapped,
   `class User extends Model<` over its type arguments over `> {`: it was dropped as a wrapped
   call, so `d` said `no definition` or jumped to the one namesake left, a client-side model for

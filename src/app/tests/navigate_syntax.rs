@@ -1892,19 +1892,17 @@ fn an_export_under_another_name_is_followed() {
             "extends TrunkBase|",
             jump("TrunkBase: via import aliased.ts", "aliased.ts:4"),
         ),
+        // The re-export under another name is followed to the class it renames (#335).
         (
             "import { HatchBase|",
-            jump("no definition for HatchBase", "aliased_use.ts:1"),
+            jump("HatchBase: via import repos.ts", "repos.ts:5"),
         ),
         // `HatchBase` is the `UserRepository` of `repos`, not the one `aliased` declares.
         (
             "hatch.deleteUser|(2)",
-            picker(
-                "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+            jump(
+                "deleteUser \u{2192} UserRepository.deleteUser (via hatch: UserRepository)",
+                "repos.ts:10",
             ),
         ),
     ];
