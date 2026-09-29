@@ -190,17 +190,18 @@ The shop's names (`Tariff`, `Coupon`, `Courier`, `Basket`, `gross`, `weigh`, …
 else in a fixture: a namesake would change what the `navigate_*.rs` tests find by name (a `total`
 method did).
 
-The kinds with no types keep the shop's names and bend its shape to what they have. Zig forbids
-a name that shadows another, so `zig/` has two functions' locals of one name and imports of one
-name in three files instead. `shell/` declares `describe` in two files, as two plugins would, and
-a `local` named like a function. `sql/` has a CTE named like a table, a schema-qualified and a
-quoted name, and a `$$` function body. `make/` declares a target in two `.mk` files and a
-double-colon rule twice. `terraform/` has a module whose `var.region` is its own, a local named
-like an attribute of a `tags` map, and a heredoc. `docker/` and `yaml/` are searched file by file,
-so each file probes the stages or jobs of its own and one of another file. Each of these kinds
-also has a file that opens with a glob or a lone backtick above a declaration, and a heredoc or a
-block scalar holding a declaration-shaped line: today's answers there are the known misses of
-#436, and the globs inside quotes (`"parcels/*"`, `["src/**/*.rs"]`) guard what already works.
+The kinds with no types keep the shop's names and bend its shape to what they have. Zig forbids a
+name that shadows another, so `zig/` has two functions' locals of one name and imports of one name
+in three files instead. `shell/` declares `describe` in two files, as two plugins would, and a
+`local` named like a function. `sql/` has a CTE named like a table, a schema-qualified and a quoted
+name, and a `$$` function body. `make/` declares a target in two `.mk` files and a double-colon rule
+twice, and sets variables only by `+=` or for one target. `terraform/` has a module whose
+`var.region` is its own, a local named like an attribute of a `tags` map, and a heredoc. `docker/`
+and `yaml/` are searched file by file, so each file probes the stages or jobs of its own and one of
+another file. Each of these kinds also has a file that opens with a glob or a lone backtick above a
+declaration, and a heredoc or a block scalar holding a declaration-shaped line: today's answers
+there are the known misses of #436, and the globs inside quotes (`"parcels/*"`, `["src/**/*.rs"]`)
+guard what already works.
 
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
