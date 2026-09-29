@@ -41,6 +41,11 @@ impl App {
             self.message = self.no_rules();
             return;
         };
+        // Go's blank identifier names nothing: every `_` is a fresh discard (#476).
+        if kind == Kind::Go && word == "_" {
+            self.message = resolution(&word, None, &[], None, false);
+            return;
+        }
         let text = self.buf.lines.join("\n");
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);

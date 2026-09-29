@@ -160,6 +160,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In `merl --review`, Enter on the panel row of a symbolic link to a directory opens nothing
   and leaves the file shown and the status bar as they were. It put the raw OS error with the
   whole path in the status bar, `…/alink: Is a directory (os error 21)`. (#449)
+- `d` in Go on the blank identifier `_` answers `no definition for _` at once. It jumped to an
+  earlier `_`, as if it were a local of that name; every `_` is a fresh discard. (#476)
 
 ## [0.7.0] - 2026-09-25
 
