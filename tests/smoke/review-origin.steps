@@ -1,0 +1,5 @@
+# review-origin: the branch named as `git branch -a` or a merge request shows it.
+# `merl -r origin/agent/refund` reviews agent/refund as `--review=agent/refund` does: fetched from
+# the local origin, opened on its first hunk (#271).
+merl -r origin/agent/refund
+wait hunk 1/1  file 1/8
