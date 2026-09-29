@@ -47,7 +47,7 @@ func describeAny(_ t: Tariff, _ c: Coupon) -> String {
 
 func restock(weigh: Int) -> Int {
     weigh + weightLimit
-    // ^ d: Sources/Warehouse/Warehouse.swift:8; want Sources/Shop/Basket.swift:48 (#366)
+    // ^ d: Sources/Shop/Basket.swift:48
     //         ^ d: Sources/Shop/Basket.swift:3
 }
 
@@ -55,7 +55,7 @@ func overweight(_ grams: Int) -> Bool {
     let weightLimit = 50
     return weigh(grams) > weightLimit
     //     ^ d: Sources/Warehouse/Warehouse.swift:8
-    //                    ^ d: picker Sources/Shop/Basket.swift:3, Sources/Shop/Basket.swift:55; want Sources/Shop/Basket.swift:55 (#366)
+    //                    ^ d: Sources/Shop/Basket.swift:55
 }
 
 func dispatch() -> String {
@@ -115,21 +115,21 @@ func entries(_ l: Ledger) async -> Int {
 func handle(_ o: Offer?, items: [Int]) {
     if let o {
         print(o)
-        //    ^ d: none; want Sources/Shop/Basket.swift:115 (#366)
+        //    ^ d: Sources/Shop/Basket.swift:115
     }
     for item in items {
         print(item)
-        //    ^ d: none; want Sources/Shop/Basket.swift:120 (#366)
+        //    ^ d: Sources/Shop/Basket.swift:120
     }
     items.forEach { entry in
         print(entry)
-        //    ^ d: none; want Sources/Shop/Basket.swift:124 (#366)
+        //    ^ d: Sources/Shop/Basket.swift:124
     }
     do {
         try check()
     } catch {
         print(error)
-        //    ^ d: none
+        //    ^ d: Sources/Shop/Basket.swift:130
     }
 }
 
@@ -171,7 +171,7 @@ func items() -> Int {
 
 func renamed(_ courier: Courier) -> Courier {
     let courier = Courier(name: courier.name)
-    //                          ^ d: picker Sources/Shop/Basket.swift:173; want Sources/Shop/Basket.swift:172 (#317)
+    //                          ^ d: Sources/Shop/Basket.swift:172
     return courier
 }
 

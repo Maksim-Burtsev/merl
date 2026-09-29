@@ -194,6 +194,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
                 .collect()
         }),
         Kind::Zig => zig_bindings(&lines, at, name),
+        Kind::Swift => swift_bindings(&lines, at, name),
         _ => Vec::new(),
     }
 }
@@ -488,6 +489,239 @@ pub fn swift_local<S: AsRef<str>>(lines: &[S], literal: &[bool], line: usize) ->
     let text = lines.get(line.checked_sub(1)?)?.as_ref();
     let (scope, local) = swift_scope(lines, literal, line);
     (local && SWIFT_DECL.is_match(&uncommented(Kind::Swift, text))).then_some(scope)
+}
+/// Whether a Swift pattern binds `name`: `x`, `(a, b)`, `.cut(n)`, `.x(label: a)`, `x as T`. A
+/// `let` or a `var` in front binds every name in it, as a `for` does (`bind_all`); otherwise only
+/// the names behind a `let` of their own do, as in `.x(let a, b)`. `None` for a pattern the rules
+/// cannot read that mentions `name`: a nested tuple or enum pattern.
+fn swift_pattern_binds(pattern: &str, bind_all: bool, name: &str) -> Option<bool> {
+    let p = pattern.trim();
+    let p = p.split(" where ").next().unwrap_or(p).trim();
+    let (p, bind_all) = match p.strip_prefix("let ").or_else(|| p.strip_prefix("var ")) {
+        Some(rest) => (rest.trim(), true),
+        None => (p, bind_all),
+    };
+    let p = p.split(" as ").next().unwrap_or(p).trim();
+    let bare = |n: &str| n.trim().trim_matches('`') == name;
+    let Some(open) = p.find('(') else {
+        return Some(bind_all && bare(p));
+    };
+    let inner = p[open + 1..].trim_end();
+    let inner = inner.strip_suffix(')').unwrap_or(inner);
+    if inner.contains(['(', '[']) {
+        return (!names(inner, name)).then_some(false);
+    }
+    Some(split_top(Kind::Swift, inner, b',').iter().any(|e| {
+        // `label: a`, `label: let a`
+        let e = e.rsplit(':').next().unwrap_or(e).trim();
+        match e.strip_prefix("let ").or_else(|| e.strip_prefix("var ")) {
+            Some(n) => bare(n),
+            None => bind_all && bare(e),
+        }
+    }))
+}
+/// Whether the clauses of an `if`, a `while` or a `guard` condition, `text` from the keyword on,
+/// bind `name`: `let x = …`, `var x: T = …`, `case let .x(a) = …`. The shorthand `let x` rebinds
+/// an outer `x` and binds nothing new.
+fn swift_condition_binds(text: &str, name: &str) -> Option<bool> {
+    static KEYWORD: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\b(?:if|while|guard)\s").unwrap());
+    let Some(m) = KEYWORD.find(text) else {
+        return Some(false);
+    };
+    let rest = text[m.end()..].trim_end().trim_end_matches('{');
+    let rest = match m.as_str().starts_with("guard") {
+        true => rest.rsplit_once(" else").map_or(rest, |(c, _)| c),
+        false => rest,
+    };
+    let mut bound = Some(false);
+    for clause in split_top(Kind::Swift, rest, b',') {
+        let c = clause.trim();
+        let (pattern, bind_all) = match c.strip_prefix("case ") {
+            Some(p) => (p, false),
+            None if c.starts_with("let ") || c.starts_with("var ") => (c, true),
+            None => continue,
+        };
+        let parts = split_top(Kind::Swift, pattern, b'=');
+        if parts.len() < 2 {
+            continue;
+        }
+        match swift_pattern_binds(split_top(Kind::Swift, parts[0], b':')[0], bind_all, name) {
+            Some(true) => return Some(true),
+            None => bound = None,
+            Some(false) => {}
+        }
+    }
+    bound
+}
+/// Whether a `let` or a `var` statement, `rest` past its keyword, binds `name`: `a = 1`, `b: T`,
+/// `a = 1, b = 2`, `(a, b) = t`.
+fn swift_decl_binds(rest: &str, name: &str) -> Option<bool> {
+    let mut bound = Some(false);
+    for part in split_top(Kind::Swift, rest, b',') {
+        let pattern = split_top(Kind::Swift, split_top(Kind::Swift, part, b'=')[0], b':')[0];
+        match swift_pattern_binds(pattern, true, name) {
+            Some(true) => return Some(true),
+            None => bound = None,
+            Some(false) => {}
+        }
+    }
+    bound
+}
+/// Swift's locals (#366), walked outward from the cursor over the blocks around it, told by
+/// indentation: a `let`, a `var` or a `guard` statement above the cursor in each block; what the
+/// block's header binds — an `if let`, a `while let`, a `for`, a `catch` (a bare one binds
+/// `error`), a closure's parameters, a `case` of a `switch`; and last the parameters of the
+/// enclosing `func`, `init` or `subscript`. The innermost wins. A type's body and the top of the
+/// file bind no local, and a pattern the rules cannot read that names the word stops the walk:
+/// the search by name decides then.
+fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    static CATCH: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^(?:\}\s*)?catch\b\s*(.*?)\s*\{$").unwrap());
+    static CONDITION: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^(?:\}\s*)?(?:else\s+)?(?:if|while)\s").unwrap());
+    static FOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^for\s+(?:try\s+)?(?:await\s+)?(?:case\s+)?(.+?)\s+in\s").unwrap()
+    });
+    static CLOSURE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"\{\s*(?:\[[^\]]*\]\s*)?(?:@\w+\s+)?(\([^()]*\)|[\w\s,]*?)\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin$",
+        )
+        .unwrap()
+    });
+    static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"{}(?:func|init|subscript|set)\b", swift_mods!())).unwrap()
+    });
+    let literal = literal_lines(Kind::Swift, &lines.join("\n"));
+    let code = |i: usize| uncommented(Kind::Swift, lines[i]).trim().to_owned();
+    let found = |line: usize| {
+        vec![Binding {
+            line,
+            value: Value::Unknown,
+        }]
+    };
+    // The 1-based line of `start..=end` that writes the name, or `start`'s.
+    let written = |start: usize, end: usize, re: &Regex| {
+        (start..=end)
+            .find(|&j| re.is_match(&code(j)))
+            .unwrap_or(start)
+            + 1
+    };
+    let n = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let (word, param) = (
+        rule(format!(r"(?:^|[^\w.]){n}\b")),
+        rule(format!(r"\b{n}\s*:")),
+    );
+    let mut depth = indent(lines[at]);
+    // The nearest binding among the statements of the block the walk is in: it counts once the
+    // block's header says the block is no type's body.
+    let mut pending = None;
+    let mut i = at;
+    while i > 0 && depth > 0 {
+        i -= 1;
+        if !swift_code(lines, &literal, i) || indent(lines[i]) > depth {
+            continue;
+        }
+        let t = code(i);
+        if indent(lines[i]) == depth {
+            if pending.is_some() {
+                continue;
+            }
+            let (binds, line) = if let Some(c) = SWIFT_DECL.captures(&t) {
+                (swift_decl_binds(&c[1], name), i + 1)
+            } else if t.starts_with("guard ") {
+                // A `guard` wrapped over lines goes on to its `else`.
+                let end = (i..at).find(|&j| code(j).contains("else")).unwrap_or(i);
+                let text: Vec<String> = (i..=end).map(code).collect();
+                (
+                    swift_condition_binds(&text.join(" "), name),
+                    written(i, end, &word),
+                )
+            } else {
+                (Some(false), 0)
+            };
+            match binds {
+                None => return Vec::new(),
+                Some(true) => pending = Some(line),
+                Some(false) => {}
+            }
+            continue;
+        }
+        // The header of a block around the cursor, over the lines it wraps.
+        depth = indent(lines[i]);
+        let end = i;
+        i = swift_header_start(lines, &literal, i);
+        let head = code(i);
+        let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
+        if SWIFT_FUNC.is_match(&head) {
+            if let Some(line) = pending {
+                return found(line);
+            }
+            // Parameters wrapped over the lines under the header's first go on to its `{`.
+            let end = (end..at).find(|&j| code(j).ends_with('{')).unwrap_or(end);
+            let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
+            let mods = PARAMS.find(&text).map_or(text.len(), |m| m.end());
+            let params = text[mods..].find('(').and_then(|open| {
+                let open = mods + open;
+                close_of(Kind::Swift, &text, open).map(|close| &text[open + 1..close - 1])
+            });
+            let bound = params.is_some_and(|p| {
+                split_top(Kind::Swift, p, b',').iter().any(|p| {
+                    let names = split_top(Kind::Swift, p, b':')[0];
+                    names
+                        .split_whitespace()
+                        .last()
+                        .is_some_and(|w| w.trim_matches('`') == name)
+                })
+            });
+            return match bound {
+                true => found(written(i, end, &param)),
+                false => Vec::new(),
+            };
+        }
+        if SWIFT_TYPE.is_match(&head) {
+            return Vec::new();
+        }
+        if let Some(line) = pending {
+            return found(line);
+        }
+        let binds = if let Some(c) = CATCH.captures(&head) {
+            match &c[1] {
+                "" => Some(name == "error"),
+                pattern => Some(rule(format!(r"\b(?:let|var)\s+{n}\b")).is_match(pattern)),
+            }
+        } else if let Some(pattern) = head.strip_prefix("case ") {
+            let pattern = pattern.strip_suffix(':').unwrap_or(pattern);
+            let mut bound = Some(false);
+            for p in split_top(Kind::Swift, pattern, b',') {
+                match swift_pattern_binds(p, false, name) {
+                    Some(true) => return found(i + 1),
+                    None => bound = None,
+                    Some(false) => {}
+                }
+            }
+            bound
+        } else if let Some(c) = FOR.captures(&text) {
+            swift_pattern_binds(&c[1], true, name)
+        } else if CONDITION.is_match(&head) {
+            swift_condition_binds(&text, name)
+        } else if let Some(c) = CLOSURE.captures(&code(end)) {
+            let params = c[1].trim().trim_start_matches('(').trim_end_matches(')');
+            Some(params.split(',').any(|p| {
+                let p = p.split(':').next().unwrap_or(p);
+                p.split_whitespace().last() == Some(name)
+            }))
+        } else {
+            Some(false)
+        };
+        match binds {
+            None => return Vec::new(),
+            Some(true) => return found(written(i, end, &word)),
+            Some(false) => {}
+        }
+    }
+    Vec::new()
 }
 /// Whether the word at `range` of 1-based `line` names a keyword argument of a Python call:
 /// `recipe_yield=…` behind a `(` or a `,`, or at the start of a line that continues a call. It

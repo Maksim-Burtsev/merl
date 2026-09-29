@@ -150,6 +150,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A binary file (an image, a `.pyc`, a build artefact) opens on an empty pane with one centred,
   dimmed line, `binary file, not shown`, and no line number or cursor, instead of the text
   `binary file` as if it were the file's line 1. The status bar still says `read-only`. (#287)
+- `d` in Swift on a parameter, a closure's parameter, a `let` or `var` of the function you are
+  in, or a name that `if let`, `guard let`, `while let`, `for`, `catch` or a `switch` case binds
+  lands on where it is bound, `(local)`, as in Python, TypeScript and Go; a bare `catch` lands on
+  its line for the implicit `error`. It searched the project by name: a picker of other types'
+  properties and other functions' locals, or with one namesake a wrong jump, as a loop's
+  `attempt` to a struct's property `attempt`. (#366)
 
 ### Fixed
 
