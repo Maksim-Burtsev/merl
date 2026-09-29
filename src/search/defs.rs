@@ -386,7 +386,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         // A definition of the type system, an operation or a fragment starts its line. `extend
         // type X {` is a use of `X`, as a Rust `impl` is. The indented rule is a field, one whose
         // arguments wrap included, or an enum value, and so is every selection of an operation:
-        // [`graphql_member`] keeps only the lines directly inside a type, an interface, an input
+        // [`declares_where`] keeps only the lines directly inside a type, an interface, an input
         // or an enum.
         Kind::Graphql => vec![
             format!(
@@ -833,25 +833,44 @@ fn terraform_patterns(address: &str) -> Vec<String> {
     };
     vec![pattern]
 }
+/// Whether a line a pattern of [`def_patterns`] for `word` matched, 1-based `line` of a file of
+/// `kind` whose text is `line_text`, declares the word where it sits. Every consumer of the
+/// patterns asks it, so `d` and `u` agree on what declares (#419). Where the line alone cannot
+/// tell, the lines above it can: a Terraform local is `x = ...` directly inside `locals { }`,
+/// as every other attribute is inside its block, and an indented GraphQL line is a field or an
+/// enum value directly inside a type and a selection anywhere else. `lines` reads the file, and
+/// only for those.
+pub fn declares_where<'a, S: AsRef<str> + 'a>(
+    kind: Kind,
+    word: &str,
+    line: usize,
+    line_text: &str,
+    lines: impl FnOnce() -> &'a [S],
+) -> bool {
+    match kind {
+        Kind::Graphql => !line_text.starts_with([' ', '\t']) || graphql_member(lines(), line),
+        _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
+    }
+}
 /// The block a definition of `word` has to sit directly inside, when its line pattern cannot
 /// tell on its own: a Terraform local is `x = ...` inside `locals { }`, and so is every other
 /// attribute.
 pub fn def_block(kind: Kind, word: &str) -> Option<&'static str> {
     (kind == Kind::Terraform && word.starts_with("local.")).then_some("locals")
 }
-/// Whether 1-based `line` of `text` sits directly inside a block whose first line starts with
+/// Whether 1-based `line` of `lines` sits directly inside a block whose first line starts with
 /// `opener`: the nearest non-blank line above it that is indented less. `terraform fmt` indents
 /// every block, so the indentation is the nesting.
-pub fn directly_inside(text: &str, line: usize, opener: &str) -> bool {
-    let lines: Vec<&str> = text.lines().collect();
-    let indent = |s: &str| s.len() - s.trim_start().len();
+pub fn directly_inside<S: AsRef<str>>(lines: &[S], line: usize, opener: &str) -> bool {
     let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
         return false;
     };
+    let depth = indent(target.as_ref());
     lines[..line - 1]
         .iter()
+        .map(AsRef::as_ref)
         .rev()
-        .find(|l| !l.trim().is_empty() && indent(l) < indent(target))
+        .find(|l| !l.trim().is_empty() && indent(l) < depth)
         .is_some_and(|l| l.trim_start().starts_with(opener))
 }
 /// Whether 1-based `line` of `lines`, a GraphQL file, declares a field or an enum value: the

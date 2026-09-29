@@ -864,28 +864,16 @@ impl App {
             })
             .unwrap_or_default();
         self.note_cut(&hits);
-        if let Some(block) = search::def_block(kind, word) {
-            hits.retain(|h| {
-                std::fs::read_to_string(self.root.join(&h.path))
-                    .is_ok_and(|text| search::directly_inside(&text, h.line, block))
-            });
-        }
-        // An indented GraphQL line is a field or an enum value only directly inside a type, an
-        // interface, an input or an enum; one file holds thousands of `id` fields, so each file
-        // is split once.
-        if kind == Kind::Graphql {
-            let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
-            hits.retain(|h| {
-                !h.text.starts_with([' ', '\t'])
-                    || search::graphql_member(
-                        lines.entry(h.path.clone()).or_insert_with(|| {
-                            self.text_of(&h.path)
-                                .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
-                        }),
-                        h.line,
-                    )
-            });
-        }
+        // One file holds thousands of GraphQL `id` fields, so each file is split once.
+        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
+        hits.retain(|h| {
+            search::declares_where(kind, word, h.line, &h.text, || {
+                lines.entry(h.path.clone()).or_insert_with(|| {
+                    self.text_of(&h.path)
+                        .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
+                })
+            })
+        });
         // `GO=$(GO) ./build.sh` in a recipe sets a variable of one shell command (#477): it
         // declares the word only for a shell variable of the command under the cursor,
         // `$${ARCH}`, and never for make's own `$(GO)`.
