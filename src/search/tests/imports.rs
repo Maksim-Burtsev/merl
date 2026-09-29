@@ -33,6 +33,11 @@ fn imports_bind_names_to_module_paths() {
             ("c".into(), p(&["x", "c"])),
         ]
     );
+    // Nor after a plain `import` (#298).
+    assert_eq!(
+        imports(Kind::Python, "import a, b  # c, d\n"),
+        [("a".into(), p(&["a"])), ("b".into(), p(&["b"]))]
+    );
     let rs = "use std::fs;\nuse std::collections::{HashMap, hash_map::Entry};\nuse regex::Regex as Re;\nuse crate::buffer::Buffer;\npub(crate) use anyhow::{self, Context};\nuse std::{\n    io::Write,\n    path::Path,\n};\n";
     let got = imports(Kind::Rust, rs);
     assert_eq!(

@@ -1,0 +1,6 @@
+:
+Arrows
+Enter
+Esc
+q
+t

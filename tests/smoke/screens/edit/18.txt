@@ -1,0 +1,57 @@
+wait README.md  1:1
+ 1 # orders
+ 2
+ 3 The orders API (Python, `app/`), the worker that ships and syncs orders (Go, `worker/`) and the
+ 4 support team's web page (TypeScript, `web/`).
+ 5
+ 6     make serve     # the API on :8000, reads .env
+ 7     make test      # Python and Go tests
+ 8     make worker    # the queue worker
+ 9
+10 Deployed with the Helm chart in `deploy/helm/orders`; `docker compose up` runs it all locally.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+README.md  1:1  [code]                                                                                                                                                            ? help
+cursor (x,y,shown) 3,0,1

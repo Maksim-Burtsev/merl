@@ -1,0 +1,57 @@
+wait .github/workflows/ci.yml  1:1
+ 1 name: ci
+ 2 on:
+ 3   push:
+ 4     branches: [main]
+ 5   pull_request:
+ 6
+ 7 jobs:
+ 8   test:
+ 9     runs-on: ubuntu-latest
+10     steps:
+11       - uses: actions/checkout@v4
+12       - uses: actions/setup-python@v5
+13         with:
+14           python-version: "3.13"
+15       - run: make test
+16       - uses: actions/setup-go@v5
+17         with:
+18           go-version-file: worker/go.mod
+19       - run: cd worker && go test ./...
+20   lint:
+21     needs: test
+22     runs-on: ubuntu-latest
+23     steps:
+24       - uses: actions/checkout@v4
+25       - run: make lint
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.github/workflows/ci.yml  1:1  [code]                                                                                                                                             ? help
+cursor (x,y,shown) 3,0,1

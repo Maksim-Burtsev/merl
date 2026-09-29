@@ -72,3 +72,10 @@ type OrderStatus.REFUNDED
 key Enter u
 wait Usages of OrderStatus
 key Escape
+# --base names the branch the review is against, here the one origin/HEAD would give (#310).
+merl --review=agent/refund --base main
+wait hunk 1/1  file 1/8
+# --reviews prints the two sessions this scenario played, and exits 0 (#310).
+merl --reviews
+wait 30 days: 2 sessions
+wait merl exited: 0

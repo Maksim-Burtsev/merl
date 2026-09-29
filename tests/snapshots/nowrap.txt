@@ -1,0 +1,454 @@
+merl snapshot: nowrap
+
+==== 80x24 tokyonight-moon text, cursor 33,0
+┌notes───────────────────────┐ 1 id,created,updated,due,done,pinned,archived,pr›
+│▸ tests                     │ 2 1,2026-01-08,2026-01-08,,yes,no,no,low,home,bu›
+│  cli.py                    │ 3 3,2026-01-18,2026-02-02,2026-02-10,yes,yes,no,›
+│  config.py                 │ 4 4,2026-01-23,2026-01-23,2026-03-01,no,yes,no,h›
+│  export.csv                │ 5 8,2026-02-12,2026-02-20,2026-02-28,no,no,no,me›
+│  Makefile                  │ 6 9,2026-02-17,2026-03-04,,no,no,no,low,study,re›
+│  models.py                 │ 7 13,2026-03-09,2026-03-09,2026-03-10,yes,no,yes›
+│  notes.json                │ 8 16,2026-03-24,2026-04-01,2026-04-02,no,no,no,h›
+│  PLAN.md                   │ 9 21,2026-04-18,2026-04-18,,no,yes,no,medium,com›
+│  store.py                  │10 26,2026-05-13,2026-05-20,2026-06-06,no,no,no,l›
+│                            │11 33,2026-06-17,2026-07-01,2026-07-31,no,yes,no,›
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+export.csv  1:1  [code]  nowrap                                          ? help
+
+==== 80x24 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddefffffffegggggggeeeeehhhheddddddeffffffffeggc
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaiiijkllllllllllkmmmmmmmmmmkknnnkjjkllkmmmkkkkkknni
+aooooooooooooooooooooooooooooaiiijkllllllllllkmmmmmmmmmmkkkkkkkkkkkknnnkjjjkllki
+aooooooooooooooooooooooooooooaiiijkllllllllllkmmmmmmmmmmkkkkkkkkkkkknnkjjjkllkmi
+appppppppppppppppppppppppppppaiiijkllllllllllkmmmmmmmmmmkkkkkkkkkkkknnkjjkllkmmi
+aooooooooooooooooooooooooooooaiiijkllllllllllkmmmmmmmmmmkknnkjjkllkmmmkkkkkkknni
+aooooooooooooooooooooooooooooaiiijjkllllllllllkmmmmmmmmmmkkkkkkkkkkkknnnkjjkllli
+aooooooooooooooooooooooooooooaiiijjkllllllllllkmmmmmmmmmmkkkkkkkkkkkknnkjjkllkmi
+aooooooooooooooooooooooooooooaiiijjkllllllllllkmmmmmmmmmmkknnkjjjkllkmmmmmmkkkki
+aooooooooooooooooooooooooooooaiiijjkllllllllllkmmmmmmmmmmkkkkkkkkkkkknnkjjkllkmi
+aooooooooooooooooooooooooooooaiiijjkllllllllllkmmmmmmmmmmkkkkkkkkkkkknnkjjjkllki
+aooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooooo
+aooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooooo
+aooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooooo
+aooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooooo
+aooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooooo
+aooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooooo
+aooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooooo
+aooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooooo
+aooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooooo
+aooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooooo
+aooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooooo
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaoooooooooooooooooooooooooooooooooooooooooooooooooo
+qqqqqqqqqqrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #32374f bg #1b1d2c
+d fg #ffc777 bg #1b1d2c
+e fg #89ddff bg #1b1d2c
+f fg #65bcff bg #1b1d2c
+g fg #ff966c bg #1b1d2c
+h fg #c3e88d bg #1b1d2c
+i fg #32374f bg #222436
+j fg #ffc777 bg #222436
+k fg #89ddff bg #222436
+l fg #65bcff bg #222436
+m fg #ff966c bg #222436
+n fg #c3e88d bg #222436
+o fg #c8d3f5 bg #222436
+p fg #c8d3f5 bg #1e2031
+q fg #82aaff bg #1b1d2c BOLD
+r fg #c8d3f5 bg #1b1d2c
+
+==== 80x24 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddeeeeeeedfffffffdgggdhhhhddddddddeeeeeeeedffc
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaiiijjaaaaaaaaaajkkkkkkkkkkjjllljjjjaajkkkjmmmmjlli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjllljjjjjaaji
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjlljjjjjaajki
+annnnnnnnnnnnnnnnnnnnnnnnnnnnaiiijjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjlljjjjaajkki
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjaaaaaaaaaajkkkkkkkkkkjjlljjjjaajkkkjmmmmmjlli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjllljjjjaaai
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjlljjjjaajki
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjjaaaaaaaaaajkkkkkkkkkkjjlljjjjjaajkkkkkkjmmmi
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjlljjjjaajki
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjlljjjjjaaji
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+oooooooooodddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #e7eaf0
+d fg #1f2328 bg #e7eaf0
+e fg #6639ba bg #e7eaf0
+f fg #0550ae bg #e7eaf0
+g fg #cf222e bg #e7eaf0
+h fg #0a3069 bg #e7eaf0
+i fg #6e7781 bg #ffffff
+j fg #1f2328 bg #ffffff
+k fg #0550ae bg #ffffff
+l fg #0a3069 bg #ffffff
+m fg #cf222e bg #ffffff
+n fg #1f2328 bg #f3f4f7
+o fg #6639ba bg #e7eaf0 BOLD
+
+==== 120x33 tokyonight-moon text, cursor 33,0
+┌notes───────────────────────┐ 1 id,created,updated,due,done,pinned,archived,priority,tags,title,text,source,words
+│▸ tests                     │ 2 1,2026-01-08,2026-01-08,,yes,no,no,low,home,buy milk,"Whole milk, two litres, and oat ›
+│  cli.py                    │ 3 3,2026-01-18,2026-02-02,2026-02-10,yes,yes,no,high,health,call the dentist about the c›
+│  config.py                 │ 4 4,2026-01-23,2026-01-23,2026-03-01,no,yes,no,high,papers,renew the passport before Mar›
+│  export.csv                │ 5 8,2026-02-12,2026-02-20,2026-02-28,no,no,no,medium,work money,send the invoice for Aug›
+│  Makefile                  │ 6 9,2026-02-17,2026-03-04,,no,no,no,low,study,read the chapter on B-trees,"Chapter six, ›
+│  models.py                 │ 7 13,2026-03-09,2026-03-09,2026-03-10,yes,no,yes,medium,work,move the standup to 10:30,"›
+│  notes.json                │ 8 16,2026-03-24,2026-04-01,2026-04-02,no,no,no,high,work,write the retro notes,"What wen›
+│  PLAN.md                   │ 9 21,2026-04-18,2026-04-18,,no,yes,no,medium,computer,back up the photos,"Everything fro›
+│  store.py                  │10 26,2026-05-13,2026-05-20,2026-06-06,no,no,no,low,outdoors family,plan the weekend hike›
+│                            │11 33,2026-06-17,2026-07-01,2026-07-31,no,yes,no,high,money papers,sort out the tax recei›
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+export.csv  1:1  [code]  nowrap                                                                                  ? help
+
+==== 120x33 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddefffffffegggggggeeeeehhhheddddddeffffffffeggggggggeeeeeehhhhheddddeffffffegggggiiiiii
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaajjjklmmmmmmmmmmlnnnnnnnnnnllooolkklmmlnnnlllllloooooooollooooooooooooooooooooooooooooooooj
+appppppppppppppppppppppppppppajjjklmmmmmmmmmmlnnnnnnnnnnllllllllllllooolkkklmmlnnnnllllllllooooooooooooooooooooooooooooj
+appppppppppppppppppppppppppppajjjklmmmmmmmmmmlnnnnnnnnnnlllllllllllloolkkklmmlnnnnlllllllloooooooooooooooooooooooooooooj
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqajjjklmmmmmmmmmmlnnnnnnnnnnlllllllllllloolkklmmlnnnnnnllllllllllllooooooooooooooooooooooooj
+appppppppppppppppppppppppppppajjjklmmmmmmmmmmlnnnnnnnnnnlloolkklmmlnnnlllllllooooooooooooooooooooooooooolloooooooooooooj
+appppppppppppppppppppppppppppajjjkklmmmmmmmmmmlnnnnnnnnnnllllllllllllooolkklmmmlnnnnnnllllllooooooooooooooooooooooooollj
+appppppppppppppppppppppppppppajjjkklmmmmmmmmmmlnnnnnnnnnnlllllllllllloolkklmmlnnnnllllllooooooooooooooooooooollooooooooj
+appppppppppppppppppppppppppppajjjkklmmmmmmmmmmlnnnnnnnnnnlloolkkklmmlnnnnnnlllllllllloooooooooooooooooollooooooooooooooj
+appppppppppppppppppppppppppppajjjkklmmmmmmmmmmlnnnnnnnnnnlllllllllllloolkklmmlnnnllllllllllllllllloooooooooooooooooooooj
+appppppppppppppppppppppppppppajjjkklmmmmmmmmmmlnnnnnnnnnnlllllllllllloolkkklmmlnnnnllllllllllllllooooooooooooooooooooooj
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaapppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+rrrrrrrrrriiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #32374f bg #1b1d2c
+d fg #ffc777 bg #1b1d2c
+e fg #89ddff bg #1b1d2c
+f fg #65bcff bg #1b1d2c
+g fg #ff966c bg #1b1d2c
+h fg #c3e88d bg #1b1d2c
+i fg #c8d3f5 bg #1b1d2c
+j fg #32374f bg #222436
+k fg #ffc777 bg #222436
+l fg #89ddff bg #222436
+m fg #65bcff bg #222436
+n fg #ff966c bg #222436
+o fg #c3e88d bg #222436
+p fg #c8d3f5 bg #222436
+q fg #c8d3f5 bg #1e2031
+r fg #82aaff bg #1b1d2c BOLD
+
+==== 120x33 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddeeeeeeedfffffffdgggdhhhhddddddddeeeeeeeedffffffffdggggdhhhhhddddddeeeeeedfffffdddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaiiijjaaaaaaaaaajkkkkkkkkkkjjllljjjjaajkkkjmmmmjlllllllljjlllllllllllllllllllllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjllljjjjjaajkkkkjmmmmmmjlllllllllllllllllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjlljjjjjaajkkkkjmmmmmmjllllllllllllllllllllllllllllli
+annnnnnnnnnnnnnnnnnnnnnnnnnnnaiiijjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjlljjjjaajkkkkkkjmmmmmmmmmmjlllllllllllllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjaaaaaaaaaajkkkkkkkkkkjjlljjjjaajkkkjmmmmmjllllllllllllllllllllllllllljjllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjllljjjjaaajkkkkkkjmmmmjllllllllllllllllllllllllljji
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjlljjjjaajkkkkjmmmmjllllllllllllllllllllljjlllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjjaaaaaaaaaajkkkkkkkkkkjjlljjjjjaajkkkkkkjmmmmmmmmjlllllllllllllllllljjlllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjlljjjjaajkkkjmmmmmmmmmmmmmmmjllllllllllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjlljjjjjaajkkkkjmmmmmmmmmmmmjlllllllllllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+oooooooooodddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #e7eaf0
+d fg #1f2328 bg #e7eaf0
+e fg #6639ba bg #e7eaf0
+f fg #0550ae bg #e7eaf0
+g fg #cf222e bg #e7eaf0
+h fg #0a3069 bg #e7eaf0
+i fg #6e7781 bg #ffffff
+j fg #1f2328 bg #ffffff
+k fg #0550ae bg #ffffff
+l fg #0a3069 bg #ffffff
+m fg #cf222e bg #ffffff
+n fg #1f2328 bg #f3f4f7
+o fg #6639ba bg #e7eaf0 BOLD
+
+==== 185x55 tokyonight-moon text, cursor 33,0
+┌notes───────────────────────┐ 1 id,created,updated,due,done,pinned,archived,priority,tags,title,text,source,words
+│▸ tests                     │ 2 1,2026-01-08,2026-01-08,,yes,no,no,low,home,buy milk,"Whole milk, two litres, and oat milk if the shop by the station has the barista one again; otherw›
+│  cli.py                    │ 3 3,2026-01-18,2026-02-02,2026-02-10,yes,yes,no,high,health,call the dentist about the crown,"The temporary crown on the lower left molar came loose on T›
+│  config.py                 │ 4 4,2026-01-23,2026-01-23,2026-03-01,no,yes,no,high,papers,renew the passport before March,"Needs two photos to the new size rules, the old passport, the›
+│  export.csv                │ 5 8,2026-02-12,2026-02-20,2026-02-28,no,no,no,medium,work money,send the invoice for August,"Hours from the timesheet, the travel to the client twice at ›
+│  Makefile                  │ 6 9,2026-02-17,2026-03-04,,no,no,no,low,study,read the chapter on B-trees,"Chapter six, the part on node splits and merges; then write out the insert of ›
+│  models.py                 │ 7 13,2026-03-09,2026-03-09,2026-03-10,yes,no,yes,medium,work,move the standup to 10:30,"Everyone in the Berlin office asked for it after the clocks chang›
+│  notes.json                │ 8 16,2026-03-24,2026-04-01,2026-04-02,no,no,no,high,work,write the retro notes,"What went well: the release went out on the day, the flaky test got fixed›
+│  PLAN.md                   │ 9 21,2026-04-18,2026-04-18,,no,yes,no,medium,computer,back up the photos,"Everything from the phone since the trip to the coast, the old laptop's Picture›
+│  store.py                  │10 26,2026-05-13,2026-05-20,2026-06-06,no,no,no,low,outdoors family,plan the weekend hike,"The ridge walk from the lake, about fourteen kilometres with th›
+│                            │11 33,2026-06-17,2026-07-01,2026-07-31,no,yes,no,high,money papers,sort out the tax receipts,"Medical receipts, the donation letters, the train tickets fo›
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+export.csv  1:1  [code]  nowrap                                                                                                                                                   ? help
+
+==== 185x55 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddefffffffegggggggeeeeehhhheddddddeffffffffeggggggggeeeeeehhhhheddddeffffffegggggiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaajjjklmmmmmmmmmmlnnnnnnnnnnllooolkklmmlnnnlllllloooooooolloooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooj
+appppppppppppppppppppppppppppajjjklmmmmmmmmmmlnnnnnnnnnnllllllllllllooolkkklmmlnnnnlllllllloooooooooooooooooooooooooooooooolloooooooooooooooooooooooooooooooooooooooooooooooooooooooooooj
+appppppppppppppppppppppppppppajjjklmmmmmmmmmmlnnnnnnnnnnlllllllllllloolkkklmmlnnnnllllllllooooooooooooooooooooooooooooooolloooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooj
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqajjjklmmmmmmmmmmlnnnnnnnnnnlllllllllllloolkklmmlnnnnnnllllllllllllooooooooooooooooooooooooooollooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooj
+appppppppppppppppppppppppppppajjjklmmmmmmmmmmlnnnnnnnnnnlloolkklmmlnnnlllllllooooooooooooooooooooooooooollooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooj
+appppppppppppppppppppppppppppajjjkklmmmmmmmmmmlnnnnnnnnnnllllllllllllooolkklmmmlnnnnnnllllllooooooooooooooooooooooooolloooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooj
+appppppppppppppppppppppppppppajjjkklmmmmmmmmmmlnnnnnnnnnnlllllllllllloolkklmmlnnnnllllllooooooooooooooooooooolloooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooj
+appppppppppppppppppppppppppppajjjkklmmmmmmmmmmlnnnnnnnnnnlloolkkklmmlnnnnnnlllllllllloooooooooooooooooolloooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooj
+appppppppppppppppppppppppppppajjjkklmmmmmmmmmmlnnnnnnnnnnlllllllllllloolkklmmlnnnlllllllllllllllllooooooooooooooooooooolloooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooj
+appppppppppppppppppppppppppppajjjkklmmmmmmmmmmlnnnnnnnnnnlllllllllllloolkkklmmlnnnnllllllllllllllooooooooooooooooooooooooollooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooj
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+appppppppppppppppppppppppppppappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+rrrrrrrrrriiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #32374f bg #1b1d2c
+d fg #ffc777 bg #1b1d2c
+e fg #89ddff bg #1b1d2c
+f fg #65bcff bg #1b1d2c
+g fg #ff966c bg #1b1d2c
+h fg #c3e88d bg #1b1d2c
+i fg #c8d3f5 bg #1b1d2c
+j fg #32374f bg #222436
+k fg #ffc777 bg #222436
+l fg #89ddff bg #222436
+m fg #65bcff bg #222436
+n fg #ff966c bg #222436
+o fg #c3e88d bg #222436
+p fg #c8d3f5 bg #222436
+q fg #c8d3f5 bg #1e2031
+r fg #82aaff bg #1b1d2c BOLD
+
+==== 185x55 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddeeeeeeedfffffffdgggdhhhhddddddddeeeeeeeedffffffffdggggdhhhhhddddddeeeeeedfffffddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaiiijjaaaaaaaaaajkkkkkkkkkkjjllljjjjaajkkkjmmmmjlllllllljjllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjllljjjjjaajkkkkjmmmmmmjlllllllllllllllllllllllllllllllljjllllllllllllllllllllllllllllllllllllllllllllllllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjlljjjjjaajkkkkjmmmmmmjllllllllllllllllllllllllllllllljjllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllli
+annnnnnnnnnnnnnnnnnnnnnnnnnnnaiiijjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjlljjjjaajkkkkkkjmmmmmmmmmmjllllllllllllllllllllllllllljjlllllllllllllllllllllllllllllllllllllllllllllllllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjaaaaaaaaaajkkkkkkkkkkjjlljjjjaajkkkjmmmmmjllllllllllllllllllllllllllljjlllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjllljjjjaaajkkkkkkjmmmmjllllllllllllllllllllllllljjllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjlljjjjaajkkkkjmmmmjllllllllllllllllllllljjllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjjaaaaaaaaaajkkkkkkkkkkjjlljjjjjaajkkkkkkjmmmmmmmmjlllllllllllllllllljjllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjlljjjjaajkkkjmmmmmmmmmmmmmmmjllllllllllllllllllllljjllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaiiijjjaaaaaaaaaajkkkkkkkkkkjmmmmmmmmmmjlljjjjjaajkkkkjmmmmmmmmmmmmjllllllllllllllllllllllllljjlllllllllllllllllllllllllllllllllllllllllllllllllllllllllllli
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+ooooooooooddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #e7eaf0
+d fg #1f2328 bg #e7eaf0
+e fg #6639ba bg #e7eaf0
+f fg #0550ae bg #e7eaf0
+g fg #cf222e bg #e7eaf0
+h fg #0a3069 bg #e7eaf0
+i fg #6e7781 bg #ffffff
+j fg #1f2328 bg #ffffff
+k fg #0550ae bg #ffffff
+l fg #0a3069 bg #ffffff
+m fg #cf222e bg #ffffff
+n fg #1f2328 bg #f3f4f7
+o fg #6639ba bg #e7eaf0 BOLD

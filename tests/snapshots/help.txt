@@ -1,0 +1,403 @@
+merl snapshot: help
+
+==== 80x24 tokyonight-moon text, cursor hidden
+┌merl — keys (Up / Down to scroll)─────────────────────────────────────────────┐
+│ Files and jumps                                                              │
+│   o / Ctrl+E                        Open a file (fuzzy)                      │
+│   Ctrl+N                            New file: type its path, Enter creates an│
+│   d / F12                           Go to definition of the word under the cu│
+│   D                                 Project symbols (fuzzy)                  │
+│   u / Shift+F12                     Usages of the word under the cursor      │
+│   [ / ]                             Back / forward in the jump history       │
+│   : / Ctrl+G                        Go to line                               │
+│ Search                                                                       │
+│   / / Ctrl+F                        Find in the open file                    │
+│   n / N                             Next / previous match                    │
+│   s                                 Search the project                       │
+│ Review                                                                       │
+│   c / C                             Review: next / previous hunk, on to the n│
+│   m                                 Review: mark the file as viewed, or take │
+│ Editing                                                                      │
+│   Enter                             Edit at the cursor (Esc returns to naviga│
+│   Ctrl+S                            Save now (edits are saved on their own af│
+│   Ctrl+R                            Reload from disk, dropping unsaved edits │
+│   Ctrl+Z / Ctrl+Y                   Undo / redo                              │
+│   Ctrl+C                            Copy the selection, or the line, to the c│
+│   Edit: Ctrl+X                      Cut the selection, or the line           │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+==== 80x24 tokyonight-moon styles
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+abbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddddaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+abbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaa
+abbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+abbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddaa
+acccccccccccccccccccccccccccccccccccccdddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddaaaaaaaaaaaa
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+a fg #c8d3f5 bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #c8d3f5 bg #222436 BOLD
+d fg #7d849f bg #222436
+
+==== 80x24 github-light styles
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+abbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddddaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+abbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaa
+abbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+abbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddaa
+acccccccccccccccccccccccccccccccccccccdddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddda
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddaaaaaaaaaaaa
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+a fg #1f2328 bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #1f2328 bg #ffffff BOLD
+d fg #787b7e bg #ffffff
+
+==== 120x33 tokyonight-moon text, cursor hidden
+┌n┌merl — keys (Up / Down to scroll)──────────────────────────────────────────────────────────────────────────────────┐
+│▸│ Files and jumps                                                                                                   │
+│ │   o / Ctrl+E                        Open a file (fuzzy)                                                           │
+│ │   Ctrl+N                            New file: type its path, Enter creates and edits it                           │
+│ │   d / F12                           Go to definition of the word under the cursor, or its implementations         │
+│ │   D                                 Project symbols (fuzzy)                                                       │
+│ │   u / Shift+F12                     Usages of the word under the cursor                                           │
+│ │   [ / ]                             Back / forward in the jump history                                            │
+│ │   : / Ctrl+G                        Go to line                                                                    │
+│ │ Search                                                                                                            │
+│ │   / / Ctrl+F                        Find in the open file                                                         │
+│ │   n / N                             Next / previous match                                                         │
+│ │   s                                 Search the project                                                            │
+│ │ Review                                                                                                            │
+│ │   c / C                             Review: next / previous hunk, on to the next file                             │
+│ │   m                                 Review: mark the file as viewed, or take the mark off                         │
+│ │ Editing                                                                                                           │
+│ │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
+│ │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
+│ │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
+│ │   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
+│ │   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
+│ │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
+│ │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
+│ │ Selection                                                                                                         │
+│ │   v                                 Select the word, then the line, then the paragraph                            │
+│ │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
+│ │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
+│ │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
+│ │   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
+│ │ Movement                                                                                                          │
+└─│   Arrows                            Move the cursor; Up / Down go by screen row                                   │
+st└───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+==== 120x33 tokyonight-moon styles
+abcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aacbbbbbbbbbbbbbbbbccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+afcbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccg
+accbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccc
+accbbbbbbbbccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccc
+accbbbbbbbbbbccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccc
+accbbbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aacdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccc
+hhcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccg
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #c8d3f5 bg #222436
+d fg #c8d3f5 bg #222436 BOLD
+e fg #7d849f bg #222436
+f fg #c8d3f5 bg #1e2031
+g fg #c8d3f5 bg #1b1d2c
+h fg #82aaff bg #1b1d2c BOLD
+
+==== 120x33 github-light styles
+abcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aacbbbbbbbbbbbbbbbbccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+afcbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccg
+accbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccc
+accbbbbbbbbccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccc
+accbbbbbbbbbbccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccc
+accbbbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aacdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccc
+hhcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccg
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #1f2328 bg #ffffff
+d fg #1f2328 bg #ffffff BOLD
+e fg #787b7e bg #ffffff
+f fg #1f2328 bg #f3f4f7
+g fg #1f2328 bg #e7eaf0
+h fg #6639ba bg #e7eaf0 BOLD
+
+==== 185x55 tokyonight-moon text, cursor hidden
+┌notes───────────────────────┐ 1 "┌merl — keys (Up / Down to scroll)──────────────────────────────────────────────────────────────────────────────────┐
+│▸ tests                     │ 2  │ Files and jumps                                                                                                   │
+│  cli.py                    │ 3 i│   o / Ctrl+E                        Open a file (fuzzy)                                                           │
+│  config.py                 │ 4  │   Ctrl+N                            New file: type its path, Enter creates and edits it                           │
+│  export.csv                │ 5 f│   d / F12                           Go to definition of the word under the cursor, or its implementations         │
+│  Makefile                  │ 6 f│   D                                 Project symbols (fuzzy)                                                       │
+│  models.py                 │ 7  │   u / Shift+F12                     Usages of the word under the cursor                                           │
+│  notes.json                │ 8  │   [ / ]                             Back / forward in the jump history                                            │
+│  PLAN.md                   │ 9 c│   : / Ctrl+G                        Go to line                                                                    │
+│  store.py                  │10  │ Search                                                                                                            │
+│                            │11  │   / / Ctrl+F                        Find in the open file                                                         │
+│                            │12  │   n / N                             Next / previous match                                                         │
+│                            │13  │   s                                 Search the project                                                            │
+│                            │14  │ Review                                                                                                            │
+│                            │15  │   c / C                             Review: next / previous hunk, on to the next file                             │
+│                            │16  │   m                                 Review: mark the file as viewed, or take the mark off                         │
+│                            │17  │ Editing                                                                                                           │
+│                            │18  │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
+│                            │19  │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
+│                            │20  │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
+│                            │21  │   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
+│                            │22  │   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
+│                            │23  │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
+│                            │24  │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
+│                            │25  │ Selection                                                                                                         │
+│                            │26  │   v                                 Select the word, then the line, then the paragraph                            │
+│                            │27  │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
+│                            │28  │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
+│                            │29  │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
+│                            │30  │   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
+│                            │31  │ Movement                                                                                                          │
+│                            │32  │   Arrows                            Move the cursor; Up / Down go by screen row                                   │
+│                            │33  │   Alt+Left / Alt+Right              Move one word                                                                 │
+│                            │34  │   Home / End                        Start / end of the screen row, then of the line                               │
+│                            │35  │   Ctrl+Home / Ctrl+End              Start / end of the file                                                       │
+│                            │36  │   { / }                             Previous / next paragraph (blank line)                                        │
+│                            │37  │   Ctrl+D / Ctrl+U                   Move half a screen down / up                                                  │
+│                            │38  │   PgUp / PgDn                       Move one screen                                                               │
+│                            │39  │ Panels                                                                                                            │
+│                            │40  │   t                                 Show or hide the file tree                                                    │
+│                            │41  │   Tab                               Switch focus between tree and code                                            │
+│                            │42  │   Tree: Up / Down                   Move                                                                          │
+│                            │43  │   Tree: Enter                       Open the file, or expand the directory                                        │
+│                            │44  │   Tree: Left / Right                Collapse / expand                                                             │
+│                            │45  │   Picker: Up / Down                 Move                                                                          │
+│                            │46  │   Picker: PgUp / PgDn               Move one page                                                                 │
+│                            │47  │   Picker: Enter                     Accept                                                                        │
+│                            │48  │   Picker: Esc                       Cancel                                                                        │
+│                            │49  │   ?                                 This help                                                                     │
+│                            │50  │   Help: Up / Down                   Scroll                                                                        │
+│                            │51  │ General                                                                                                           │
+│                            │52  │   w                                 Wrap long lines, or cut them at the edge and scroll sideways                  │
+│                            │53  │   p                                 Show a Markdown file rendered, or its source again                            │
+└────────────────────────────┘54  │   T                                 Pick a theme (live preview)                                                   │
+store.py  13:33  [code]           └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                           ? help
+
+==== 185x55 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceebbbbbbbbbbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccfeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccfeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccfeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccieggggggggggggggggggggggggggggggggggggghhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaccceebbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeakkkleggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeellllllllllllllllllllllllllllllllll
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceebbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceebbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceebbbbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceebbbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceebbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceebbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+mmmmmmmmlllllllllllllllllllllllllleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeellllllllllllllllllllllllllllllllll
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #32374f bg #222436
+d fg #636da6 bg #222436 ITALIC
+e fg #c8d3f5 bg #222436
+f fg #86e1fc bg #222436
+g fg #c8d3f5 bg #222436 BOLD
+h fg #7d849f bg #222436
+i fg #c099ff bg #222436
+j fg #c8d3f5 bg #1e2031
+k fg #32374f bg #1b1d2c
+l fg #c8d3f5 bg #1b1d2c
+m fg #82aaff bg #1b1d2c BOLD
+
+==== 185x55 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccddbbbbbbbbbbbbbbbbdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccedfffffffffffffffffffffffffffffffffffffgggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccedfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccedfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccedfffffffffffffffffffffffffffffffffffffggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+ahhhhhhhhhhhhhhhhhhhhhhhhhhhhacccddbbbbbbbddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaiiijdfffffffffffffffffffffffffffffffffffffggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+addddddddddddddddddddddddddddacccddbbbbbbbddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddbbbbbbbbdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddbbbbbbbbbbdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddbbbbbbbbbddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddbbbbbbbddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffgggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddbbbbbbbbdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddfffffffffffffffffffffffffffffffffffffggggggggggggggggggggggggggggggggggggggggggggggggggddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccddfffffffffffffffffffffffffffffffffffffgggggggggggggggggggggggggggdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+kkkkkkkkjjjjjjjjjjjjjjjjjjjjjjjjjjdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #ffffff
+d fg #1f2328 bg #ffffff
+e fg #cf222e bg #ffffff
+f fg #1f2328 bg #ffffff BOLD
+g fg #787b7e bg #ffffff
+h fg #1f2328 bg #f3f4f7
+i fg #6e7781 bg #e7eaf0
+j fg #1f2328 bg #e7eaf0
+k fg #6639ba bg #e7eaf0 BOLD

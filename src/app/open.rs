@@ -103,8 +103,9 @@ impl App {
                     .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)))
                 // Another package's `node_modules`, walked from a file opened before.
                 || !listed && self.node_modules.keys().any(|r| path.starts_with(r))
-                // Below a link to a directory that leads out of the project (#404).
-                || !listed && self.in_project(path).is_none();
+                // Below a link to a directory that leads out of the project (#404), or a link to a
+                // file out there, which the walk lists (#448).
+                || self.in_project(path).is_none();
         if external {
             buf.readonly.get_or_insert("outside the project");
         }
@@ -112,13 +113,21 @@ impl App {
     }
 
     /// `path`, below the root, as a path from the root once the directories on it that exist are
-    /// resolved, links included; `None` when they lead out of the project (#404).
+    /// resolved, links included; `None` when they lead out of the project (#404), or the file is
+    /// a link that does (#448). A link to a file that stays inside keeps its own name.
     pub(super) fn in_project(&self, path: &Path) -> Option<PathBuf> {
+        let root = self.root.canonicalize().ok()?;
+        if path
+            .canonicalize()
+            .is_ok_and(|real| !real.starts_with(&root))
+        {
+            return None;
+        }
         let dir = path.parent()?;
         let (real, rest) = (dir.ancestors())
             .find_map(|a| Some((a.canonicalize().ok()?, dir.strip_prefix(a).ok()?)))?;
         let resolved = real.join(rest).join(path.file_name()?);
-        let rel = resolved.strip_prefix(self.root.canonicalize().ok()?).ok()?;
+        let rel = resolved.strip_prefix(root).ok()?;
         Some(rel.to_path_buf())
     }
 
