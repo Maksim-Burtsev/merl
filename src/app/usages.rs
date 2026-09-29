@@ -113,7 +113,7 @@ impl App {
         let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
         let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
         let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
-        let mut ranked: Vec<_> = hits
+        let mut marked: Vec<_> = hits
             .map(|h| {
                 let kind = search::kind_of(&h.path);
                 let re = rules.entry(kind).or_insert_with_key(|k| {
@@ -144,8 +144,34 @@ impl App {
                             })
                         })
                     });
-                (search::rank(&h.path, here, declares), h)
+                (kind, declares, h)
             })
+            .collect();
+        // In a Makefile `u` marks what `d` counts (#504): a recipe line declares nothing make
+        // knows (#477), and `X += …` or `release: X := 1.0` declare `X` only when no plain line
+        // among the hits does (#499).
+        let mut texts: HashMap<PathBuf, String> = HashMap::new();
+        let mut recipe = |h: &Hit| {
+            let text = texts
+                .entry(h.path.clone())
+                .or_insert_with(|| self.text_of(&h.path).unwrap_or_default());
+            search::make_recipe_command(text, h.line).is_some()
+        };
+        let make = Some(Kind::Make);
+        for (kind, declares, h) in &mut marked {
+            *declares &= *kind != make || !recipe(h);
+        }
+        if !marked.iter().any(|(k, d, _)| *k == make && *d) {
+            let fallback = Regex::new(&search::make_fallback_patterns(word).join("|")).ok();
+            for (kind, declares, h) in &mut marked {
+                *declares |= *kind == make
+                    && fallback.as_ref().is_some_and(|re| re.is_match(&h.text))
+                    && !recipe(h);
+            }
+        }
+        let mut ranked: Vec<_> = marked
+            .into_iter()
+            .map(|(_, declares, h)| (search::rank(&h.path, here, declares), h))
             .collect();
         ranked.sort_by(|(a, x), (b, y)| {
             a.cmp(b)

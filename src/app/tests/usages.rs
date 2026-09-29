@@ -302,6 +302,33 @@ fn usages_of_a_hyphenated_name_leave_out_longer_names() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #504: in a Makefile `u` marks what `d` counts. A recipe's `GO=$(GO) cmd` sets a variable of
+/// one shell command, not make's; `+=` declares a name nothing assigns plainly, and only then.
+#[test]
+fn makefile_usages_mark_the_declarations_d_jumps_to() {
+    let (dir, mut a) = project_app(
+        "u-make",
+        &[(
+            "Makefile",
+            "GO ?= go\nCFLAGS += -Wall\nLDFLAGS = -s\nLDFLAGS += -w\n\nbuild:\n\tGO=$(GO) ./build.sh $(CFLAGS) $(LDFLAGS)\n",
+        )],
+    );
+    let rows = |a: &mut App, word: &str| {
+        usages_at(a, &dir, "Makefile", 7, word);
+        let rows = usage_rows(a);
+        press(a, KeyCode::Esc, KeyModifiers::NONE);
+        rows
+    };
+    let row = |mark: &str, line: usize| (mark.to_string(), format!("Makefile:{line}"));
+    assert_eq!(rows(&mut a, "GO"), [row("declaration", 1), row("", 7)]);
+    assert_eq!(rows(&mut a, "CFLAGS"), [row("declaration", 2), row("", 7)]);
+    assert_eq!(
+        rows(&mut a, "LDFLAGS"),
+        [row("declaration", 3), row("", 4), row("", 7)]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// #281: a grep that stopped at its cap stays marked as cut after the filter drops the longer
 /// names, or the hits past the cap would look absent.
 #[test]

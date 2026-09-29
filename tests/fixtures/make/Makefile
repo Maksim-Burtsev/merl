@@ -18,7 +18,7 @@ all: gross bonus dispatch
 gross: tariff-rate
 #      ^ d: mk/pricing.mk:9
 	@echo $(call discount,$(TARIFF_RATE))
-#                  ^ d: none; want mk/pricing.mk:5 (#468)
+#                  ^ d: mk/pricing.mk:5
 #                              ^ d: mk/pricing.mk:1
 
 bonus: coupon-rate gross
