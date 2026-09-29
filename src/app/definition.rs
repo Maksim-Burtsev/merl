@@ -244,6 +244,20 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // A Lua qualifier a `require` or a table constructor gives (#462). Standing on the one
+        // declaration it finds, the namesakes by name are offered, as before.
+        if kind == Kind::Lua {
+            let chain = match before.strip_suffix(':') {
+                Some(b) if !b.ends_with(':') => search::qualifier(&format!("{b}."), start),
+                _ => chain.clone(),
+            };
+            let found = self.lua_qualified(&here, &text, &chain, &word);
+            let on = |c: &Candidate| c.hit.path == here && c.hit.line == self.line + 1;
+            if !found.iter().all(on) {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
         // A Go package qualifier, `db` in `db.Get`, is declared by the import line of this file
         // (#100), unless a local hides it (taken out above, or one the walk may have missed:
         // the function mentions the name other than as a qualifier) or the package declares the
@@ -952,6 +966,71 @@ impl App {
         if let Some(note) = aside {
             self.message = self.message.replacen("1 match", &note, 1);
         }
+    }
+
+    /// Lua's `m.word`, `m.T.word`, `T.word` (#462): `m` bound by `local m = require("a.b")` reads
+    /// `a/b.lua` or `a/b/init.lua`, at the root or under `lua/`, and the table it returns; `T` is
+    /// a table that file, or the one on screen, declares. The declarations of `word` in that
+    /// table are the answer. A qualifier these rules cannot read gives nothing, and the search
+    /// by name goes on.
+    fn lua_qualified(
+        &self,
+        here: &Path,
+        text: &str,
+        chain: &[String],
+        word: &str,
+    ) -> Vec<Candidate> {
+        let Some((first, rest)) = chain.split_first() else {
+            return Vec::new();
+        };
+        let Some(value) = search::lua_local_value(text, self.line + 1, first) else {
+            return Vec::new();
+        };
+        let required = search::lua_required(&value);
+        let (path, reason) = match required {
+            Some(module) => {
+                let dir = module.replace('.', "/");
+                let Some(path) = ["", "lua/"]
+                    .iter()
+                    .flat_map(|root| [format!("{root}{dir}.lua"), format!("{root}{dir}/init.lua")])
+                    .map(PathBuf::from)
+                    .find(|p| self.files.contains(p))
+                else {
+                    return Vec::new();
+                };
+                (path, Reason::Import(module.to_owned()))
+            }
+            None if value.starts_with('{') => (here.to_path_buf(), Reason::Path(chain.join("."))),
+            None => return Vec::new(),
+        };
+        let Some(source) = self.text_of(&path) else {
+            return Vec::new();
+        };
+        let mut table = match required {
+            Some(_) => search::lua_returned(&source),
+            None => Some(first.clone()),
+        };
+        for name in rest {
+            let Some(next) = search::lua_table(&source, table.as_deref(), name) else {
+                return Vec::new();
+            };
+            table = Some(next);
+        }
+        let Some(table) = table else {
+            return Vec::new();
+        };
+        search::lua_members(&source, &table, word)
+            .into_iter()
+            .map(|line| Candidate {
+                hit: Hit {
+                    path: path.clone(),
+                    line,
+                    col: 0,
+                    text: source.lines().nth(line - 1).unwrap_or_default().to_owned(),
+                },
+                reason: reason.clone(),
+            })
+            .collect()
     }
 
     /// The first line of each of `files`, a module a name or a path leads to as a whole.

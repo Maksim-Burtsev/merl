@@ -543,6 +543,82 @@ pub fn table_key(text: &str, line: usize, range: &Range<usize>) -> bool {
         && (before.ends_with(['{', ','])
             || (before.is_empty() && continued(Kind::Lua, &lines, line - 1)))
 }
+/// What `local name = …` gives a Lua qualifier `name` at 1-based `line` of `text` (#462): the
+/// `local` the cursor's function sees, else the nearest one above it at the top of the file.
+/// `None` for a parameter, a `for` variable, a `local` of several names or no `local` at all.
+pub fn lua_local_value(text: &str, line: usize, name: &str) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let re = Regex::new(&format!(r"^\s*local\s+{}\s*=\s*(.+)", regex::escape(name)))
+        .expect("an escaped name keeps the pattern valid");
+    let at = match bindings(Kind::Lua, text, line, name).first() {
+        Some(b) => b.line - 1,
+        None => {
+            let literal = literal_lines(Kind::Lua, text);
+            (0..line.saturating_sub(1).min(lines.len()))
+                .rev()
+                .find(|&i| !literal[i] && indent(lines[i]) == 0 && re.is_match(lines[i]))?
+        }
+    };
+    let code = uncommented(Kind::Lua, lines[at]);
+    Some(re.captures(&code)?[1].trim().to_owned())
+}
+/// The module a Lua `require("a.b")` (or `require "a.b"`) names, when `value` is one.
+pub fn lua_required(value: &str) -> Option<&str> {
+    static REQUIRE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^require\s*\(?\s*["']([\w./-]+)["']\s*\)?$"#).unwrap()
+    });
+    Some(REQUIRE.captures(value)?.get(1)?.as_str())
+}
+/// The table a Lua module hands out: `M` of the `return M` at the top of `text`.
+pub fn lua_returned(text: &str) -> Option<String> {
+    let literal = literal_lines(Kind::Lua, text);
+    text.lines()
+        .zip(literal)
+        .filter(|(l, inside)| !inside && indent(l) == 0)
+        .filter_map(|(l, _)| {
+            let t = uncommented(Kind::Lua, l);
+            let t = t
+                .trim()
+                .strip_prefix("return ")?
+                .trim()
+                .trim_end_matches(';');
+            (!t.is_empty() && t.chars().all(|c| c.is_alphanumeric() || c == '_'))
+                .then(|| t.to_owned())
+        })
+        .last()
+}
+/// The table `name` of a Lua file, spelled as its functions qualify it (#462): `name` for its
+/// `local name = {…}`, `owner.name` for `owner.name = {…}` at the top of `text`.
+pub fn lua_table(text: &str, owner: Option<&str>, name: &str) -> Option<String> {
+    let end = text.lines().count() + 1;
+    if lua_local_value(text, end, name).is_some_and(|v| v.starts_with('{')) {
+        return Some(name.to_owned());
+    }
+    let path = format!("{}.{name}", owner?);
+    let re = Regex::new(&format!(r"^{}\s*=\s*\{{", regex::escape(&path)))
+        .expect("an escaped name keeps the pattern valid");
+    let literal = literal_lines(Kind::Lua, text);
+    text.lines()
+        .zip(literal)
+        .any(|(l, inside)| !inside && re.is_match(l))
+        .then_some(path)
+}
+/// The 1-based lines of `text` that declare `word` in the Lua table `table`:
+/// `function table.word(`, `function table:word(`, `table.word = function`.
+pub fn lua_members(text: &str, table: &str, word: &str) -> Vec<usize> {
+    let (t, w) = (regex::escape(table), regex::escape(word));
+    let re = Regex::new(&format!(
+        r"^\s*(?:function\s+{t}[.:]{w}\s*\(|{t}\.{w}\s*=\s*function\b)"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let literal = literal_lines(Kind::Lua, text);
+    text.lines()
+        .zip(literal)
+        .enumerate()
+        .filter(|(_, (l, inside))| !inside && re.is_match(l))
+        .map(|(i, _)| i + 1)
+        .collect()
+}
 /// Whether line `i` continues the statement above it: that line ends in an open bracket, a comma
 /// or a backslash.
 pub(super) fn continued(kind: Kind, lines: &[&str], i: usize) -> bool {
