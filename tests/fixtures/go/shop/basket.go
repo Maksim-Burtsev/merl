@@ -19,12 +19,12 @@ func (b *Basket) Gross() Money {
 	return Money(Discount(b.Tariff.Rate()))
 	//           ^ d: shop/pricing.go:35
 	//                      ^ d: shop/basket.go:6
-	//                             ^ d: picker shop/pricing.go:27, shop/pricing.go:32; want shop/pricing.go:27 (#453)
+	//                             ^ d: shop/pricing.go:27
 }
 
 func (b *Basket) Bonus() int {
 	return b.coupon.Rate() + int(b.Gross())
-	//              ^ d: picker shop/pricing.go:27, shop/pricing.go:32; want shop/pricing.go:32 (#453)
+	//              ^ d: shop/pricing.go:32
 	//                             ^ d: shop/basket.go:17
 }
 

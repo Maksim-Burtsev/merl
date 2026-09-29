@@ -20,7 +20,18 @@ impl App {
         let imports = search::imports(kind, &self.text_of(file)?);
         let path = bound(&imports, chain.first().unwrap_or(name))?;
         let found = self.imported_definitions(kind, file, name, chain, &path)?;
-        one(found.into_iter().map(|c| c.hit).collect())
+        one(found
+            .into_iter()
+            .map(|c| c.hit)
+            .filter(|h| self.in_code(kind, h))
+            .collect())
+    }
+
+    /// Whether `hit` stands in code, not in a docstring, a raw string or a block comment, where
+    /// a declaration-shaped line declares nothing (#453).
+    fn in_code(&self, kind: Kind, hit: &Hit) -> bool {
+        self.text_of(&hit.path)
+            .is_some_and(|text| search::literal_lines(kind, &text).get(hit.line - 1) != Some(&true))
     }
 
     /// The declarations of `name` that `file` sees without an import: at the top level, or
@@ -38,9 +49,10 @@ impl App {
             .unwrap_or_default()
             .into_iter()
             .filter(|h| {
-                self.text_of(&h.path).is_some_and(|text| {
-                    search::qualified(kind, &text, h.line, name).as_deref() == within
-                })
+                self.in_code(kind, h)
+                    && self.text_of(&h.path).is_some_and(|text| {
+                        search::qualified(kind, &text, h.line, name).as_deref() == within
+                    })
             })
             .collect()
     }
