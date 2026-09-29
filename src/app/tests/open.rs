@@ -479,6 +479,59 @@ fn dropping_a_stop_does_not_leave_its_neighbours_as_twins() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #403: a file that does not open is named as the status bar names an open file, from the
+/// project root, with the reason in a few words and no `(os error N)`: a file merl may not read,
+/// a file that became a directory, and one removed between `o` and Enter.
+#[test]
+#[cfg(unix)]
+fn a_file_that_does_not_open_is_named_from_the_root_with_the_reason() {
+    use std::os::unix::fs::PermissionsExt;
+    let (dir, mut a) = project_app(
+        "no-open",
+        &[
+            ("open.txt", "ok\n"),
+            ("src/locked.txt", "secret\n"),
+            ("src/gone.txt", "x\n"),
+            ("src/dir.txt", "x\n"),
+        ],
+    );
+    let locked = dir.join("src/locked.txt");
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+    a.jump_to(&dir.join("open.txt"), 1);
+    let open = |a: &mut App, query: &str, before_enter: &dyn Fn()| {
+        press(a, KeyCode::Char('o'), KeyModifiers::NONE);
+        typed(a, query);
+        a.picker.as_mut().unwrap().settle();
+        before_enter();
+        press(a, KeyCode::Enter, KeyModifiers::NONE);
+        a.message.clone()
+    };
+    // As root every file is readable, and there is nothing to assert.
+    if std::fs::read(&locked).is_err() {
+        assert_eq!(
+            open(&mut a, "locked", &|| ()),
+            "src/locked.txt: permission denied"
+        );
+    }
+    let d = dir.join("src/dir.txt");
+    let to_dir = || {
+        std::fs::remove_file(&d).unwrap();
+        std::fs::create_dir(&d).unwrap();
+    };
+    assert_eq!(
+        open(&mut a, "dir.txt", &to_dir),
+        "src/dir.txt: is a directory"
+    );
+    let gone = dir.join("src/gone.txt");
+    assert_eq!(
+        open(&mut a, "gone", &|| std::fs::remove_file(&gone).unwrap()),
+        "src/gone.txt: no such file"
+    );
+    assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("open.txt")));
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// Edits that cannot be saved keep merl on the file; that is no reason to drop a stop.
 #[test]
 fn a_stop_that_does_not_open_for_another_reason_leaves_the_history_alone() {
@@ -498,6 +551,6 @@ fn a_stop_that_does_not_open_for_another_reason_leaves_the_history_alone() {
     std::fs::create_dir(&x).unwrap();
     press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
     assert_eq!((at(&a), a.hist_idx, a.history.len()), ((y, 0), 1, 2));
-    assert!(a.message.contains("a.rs: "), "{}", a.message);
+    assert_eq!(a.message, "a.rs: is a directory");
     std::fs::remove_dir_all(&dir).unwrap();
 }

@@ -108,3 +108,19 @@ fn the_rest_of_the_line_is_measured_in_columns_too() {
          \u{30c7} \u{30fc} \u{30bf} : via import json"
     );
 }
+
+/// #403: a message that opens with a path gives way from the left too, once the open file's
+/// path is down to its name, so the reason stays on the line.
+#[test]
+fn a_message_naming_a_long_path_keeps_its_reason() {
+    let why = "services/billing/src/providers/stripe/webhooks/locked.txt: permission denied";
+    assert_eq!(
+        status("/work/app/paid.py", why, 80),
+        "paid.py  185:5  [code]  read-only  \u{2026}/webhooks/locked.txt: permission denied"
+    );
+    // A message that fits is left whole.
+    assert_eq!(
+        status("/work/app/paid.py", "src/locked.txt: permission denied", 80),
+        "paid.py  185:5  [code]  read-only  src/locked.txt: permission denied"
+    );
+}

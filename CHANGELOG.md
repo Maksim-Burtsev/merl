@@ -176,6 +176,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in C# reads a verbatim string ending in a backslash, `@"C:\"`, as ending at its second
   `"`, and `@$"…"` as the verbatim string it is. It kept the string open, and every declaration
   after it in the file answered `no definition`. (#475)
+- A file that will not open is named in the status bar as an open file is, from the project root,
+  with the reason in a few words: `src/locked.txt: permission denied`. It was the absolute path
+  and the OS text, `Permission denied (os error 13)`, and the path could push the reason off the
+  line; a path still too long for the pane is cut from the left. (#403)
 
 ## [0.7.0] - 2026-09-25
 

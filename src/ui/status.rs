@@ -121,6 +121,17 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         (area.width as usize).saturating_sub(rest),
     )
     .into();
+    // Then a message that opens with a path gives way the same way, keeping its reason (#403).
+    if !app.message.is_empty() {
+        let before = spans[..spans.len() - 1]
+            .iter()
+            .map(|s| wrap::width(&s.content))
+            .sum::<usize>();
+        let room = (area.width as usize).saturating_sub(before + 2);
+        let (name, why) = app.message.split_at(app.message.find(' ').unwrap_or(0));
+        let name = fit_path(name, room.saturating_sub(wrap::width(why)));
+        spans.last_mut().unwrap().content = format!("  {name}{why}").into();
+    }
     frame.render_widget(Paragraph::new(Line::from(spans)).style(style), area);
     if hint {
         let hint = Rect {
