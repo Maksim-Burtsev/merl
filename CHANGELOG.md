@@ -60,6 +60,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `merl --review feature` reviews `feature`: the branch goes after a space, as the base does after
   `--base`, and `--review=feature` still works. A file after a bare `--review` is now read as the
   branch: `merl --review` opens on the first hunk, and `o` opens any file.
+- `merl -r origin/feature`, the name as `git branch -a` or a merge request shows it, reviews
+  `feature` as `merl -r feature` does, where git refused to switch to a remote branch. origin
+  without that branch is an error, `merl: no branch feature on origin`, even when a local
+  `feature` exists; offline, the local branch opens with `origin/feature not fetched`. A local
+  branch literally named `origin/feature` is still that branch, and other remotes' prefixes are
+  part of a local name, as before. (#271)
 - `merl --review` paints the diff as GitHub does: the lines the branch deleted on a red tint,
   in their syntax colours instead of grey, the lines it added on a green one, and on a changed
   line the words that changed on a stronger tint, on the old line and on the new. A deleted line
