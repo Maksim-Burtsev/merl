@@ -847,7 +847,10 @@ pub fn is_word(c: char) -> bool {
 /// counts as part of a word besides letters, digits and `_` ([`search::word_chars`]): the `-` of
 /// a Makefile target.
 pub(super) fn word_col(line: &str, word: &str, extra: &str) -> usize {
-    whole_at(line, word, extra).unwrap_or(0)
+    // `attr_writer :name` declares Ruby's setter `name=` under its bare name.
+    whole_at(line, word, extra)
+        .or_else(|| whole_at(line, word.strip_suffix('=')?, extra))
+        .unwrap_or(0)
 }
 
 /// The byte where `word` first stands whole in `line` with `extra` counted as word characters,

@@ -118,17 +118,36 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         // the assignment rule is not anchored at column zero as Python's is, and it takes the
         // `@`/`@@` of an instance or class variable with it. The Rails-style DSL (`scope`,
         // `has_many`, `define_method`) has no rule.
-        Kind::Ruby => vec![
-            // A method: `def name`, `def self.name`, `def Klass.name`, and the `name=` setter.
-            format!(r"^\s*def\s+(?:self\.|[A-Z]\w*\.)?{w}\b"),
-            format!(r"^\s*(?:class|module)\s+(?:[\w:]+::)?{w}\b"),
-            // An assignment, `||=` included; `==`, `=~` and `=>` are not one.
-            format!(r"^\s*@{{0,2}}{w}\s*(?:\|\|)?=($|[^=~>])"),
-            // The reader and writer methods a class declares for its attributes, wherever the
-            // name sits in the list.
-            format!(r"^\s*attr_(?:accessor|reader|writer)\s+(?:[:\w]+\s*,\s*)*:{w}\b"),
-            format!(r"^\s*alias(?:_method)?\s+:?{w}\b"),
-        ],
+        // `name?`, `name!` and the setter `name=` are methods of their own (#387): the word
+        // carries its suffix, and a bare `name` is none of them.
+        Kind::Ruby => {
+            let end = r"(?:[^\w?!=]|$)";
+            let method = vec![
+                // A method: `def name`, `def self.name`, `def Klass.name`.
+                format!(r"^\s*def\s+(?:self\.|[A-Z]\w*\.)?{w}{end}"),
+                format!(r"^\s*alias(?:_method)?\s+:?{w}{end}"),
+            ];
+            let attr = |which: &str, name: &str| {
+                format!(r"^\s*attr_(?:accessor|{which})\s+(?:[:\w]+\s*,\s*)*:{name}\b")
+            };
+            match word.strip_suffix('=') {
+                // The reader and writer methods a class declares for its attributes, wherever
+                // the name sits in the list.
+                Some(name) => [method, vec![attr("writer", &regex::escape(name))]].concat(),
+                None if word.ends_with(['?', '!']) => method,
+                None => [
+                    method,
+                    vec![
+                        // `class A::B` declares `B`, not `A`.
+                        format!(r"^\s*(?:class|module)\s+(?:[\w:]+::)?{w}(?:[^\w:]|$)"),
+                        // An assignment, `||=` included; `==`, `=~` and `=>` are not one.
+                        format!(r"^\s*@{{0,2}}{w}\s*(?:\|\|)?=($|[^=~>])"),
+                        attr("reader", &w),
+                    ],
+                ]
+                .concat(),
+            }
+        }
         // C and C++ have no statements at the top level, so a line in column zero that is shaped
         // like a declaration is one — a definition, a prototype and a signature that wraps alike.
         // Indented, only a line that opens a body can be told from a call. An enum constant has no

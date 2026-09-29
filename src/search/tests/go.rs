@@ -93,6 +93,24 @@ fn qualified_names_come_from_the_declarations_around() {
         q(Kind::Ruby, rb, 3, "total").as_deref(),
         Some("Billing.Invoice.total")
     );
+    // #387: `class << self` opens the class around it, and a path written into the line counts.
+    let rb = "module Billing\n  class Invoice\n    class << self\n      def parse\n      end\n    end\n  end\nend\nclass Api::V1::Invoice\n  def total\n  end\nend\ndef Invoice.blank\nend\n";
+    assert_eq!(
+        q(Kind::Ruby, rb, 4, "parse").as_deref(),
+        Some("Billing.Invoice.parse")
+    );
+    assert_eq!(
+        q(Kind::Ruby, rb, 9, "Invoice").as_deref(),
+        Some("Api.V1.Invoice")
+    );
+    assert_eq!(
+        q(Kind::Ruby, rb, 10, "total").as_deref(),
+        Some("Api.V1.Invoice.total")
+    );
+    assert_eq!(
+        q(Kind::Ruby, rb, 13, "blank").as_deref(),
+        Some("Invoice.blank")
+    );
 }
 
 /// #100. A `var (` block declares what stands at its own level; a function may declare a

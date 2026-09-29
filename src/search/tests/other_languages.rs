@@ -269,8 +269,8 @@ fn elixir_def_patterns_find_every_def_form() {
     assert_eq!(d("Jason"), Vec::<usize>::new());
     assert_eq!(d("guard"), [49], "`defmacrop`, past the trailing `!`");
     assert_eq!(d("is_even"), [50], "`defguardp`");
-    // A name Elixir spells with a trailing `?` or `!` is found from the bare word, as
-    // Ruby's is: the cursor on `empty` in `empty?(rows)` reaches `def empty?`.
+    // A name Elixir spells with a trailing `?` or `!` is found from the bare word: the cursor
+    // on `empty` in `empty?(rows)` reaches `def empty?`. Ruby's keeps its suffix (#387).
     assert_eq!(d("empty"), [52]);
     assert_eq!(d("put"), [53]);
     // ExUnit's and Mix's attributes are directives too, so `d` on one has nothing to find

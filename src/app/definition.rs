@@ -60,6 +60,18 @@ impl App {
         let before = &written[..start];
         let dotted = before.ends_with('.') && !before.ends_with("..");
         let chain = search::qualifier(&written, start);
+        // `x.name = v` calls the setter, `name=` (#387); `def self.name = v` is a method of one line.
+        let mut word = word;
+        let after = self.line_str()[range.end..].trim_start();
+        if kind == Some(Kind::Ruby)
+            && dotted
+            && !before.trim_start().starts_with("def ")
+            && !word.ends_with(['?', '!'])
+            && after.starts_with('=')
+            && !after[1..].starts_with(['=', '~', '>'])
+        {
+            word.push('=');
+        }
         let here = self.rel_current();
         let (Some(kind), Some(here)) = (kind, here) else {
             self.message = self.no_rules();
@@ -337,8 +349,13 @@ impl App {
         // with `::`, where no `.` stands in front of the word, and a `.` there is a value's.
         let sep = search::separator(kind);
         let path = chain.join(sep);
+        // Ruby writes a constant's path with `::` and a method's with `.` (#387). The name a
+        // `class A::B` line declares is no use of the path.
+        let declared = !self.line_str()[range.end..].starts_with("::")
+            && Regex::new(r"^\s*(?:class|module)\s+[\w:]*$").is_ok_and(|re| re.is_match(before));
+        let colons = kind == Kind::Ruby && before.ends_with("::") && !declared;
         let pathed = match sep {
-            "." => on_value,
+            "." => on_value || colons,
             _ => self.line_str()[..range.start].ends_with(&format!("{path}{sep}")),
         };
         // A type's name is no proof of which type (#129): in a `::` kind the project has to
@@ -392,6 +409,24 @@ impl App {
                 self.truncated.set(false);
                 !outside && (declared.len() == 1 || home.is_some())
             });
+        // Ruby's `Const.meth` is a class method (#387): a `def` of the class's instances is no
+        // answer, and nor is a method of some other class found by name. `Const.new` runs the
+        // class's `initialize`.
+        // A constant in capitals holds a value, not a class: `REDIS_CONFIGURATION.cache`. An
+        // acronym module (`JSON.parse`) reads so too, and stays the search by name.
+        let class_method = kind == Kind::Ruby
+            && dotted
+            && chain.last().is_some_and(|c| {
+                c.starts_with(|c: char| c.is_ascii_uppercase())
+                    && c.contains(|c: char| c.is_ascii_lowercase())
+            });
+        let (word, pattern) = match class_method && word == "new" {
+            true => (
+                "initialize".to_owned(),
+                search::def_patterns(kind, "initialize").join("|"),
+            ),
+            false => (word, pattern),
+        };
         if pathed && locals.is_empty() && !chain.is_empty() {
             let full = format!("{path}{sep}{word}");
             // `depot::Shed::open` has the modules of the project in front of `Shed::open`.
@@ -412,19 +447,22 @@ impl App {
                         .filter(|v| home.as_ref().is_none_or(|files| files.contains(&v.path))),
                 );
             }
+            let singleton = class_method && word != "initialize";
+            let concerns = singleton.then(|| hits.clone());
             let named: Vec<Candidate> = hits
                 .into_iter()
                 .filter(|h| {
-                    self.text_of(&h.path)
-                        .and_then(|t| search::qualified(kind, &t, h.line, &word))
-                        .is_some_and(|q| match &home {
-                            Some(files) => q == full && files.contains(&h.path),
-                            None => {
-                                q == full
-                                    || q.ends_with(&format!("{sep}{full}"))
-                                    || (in_project && full.ends_with(&format!("{sep}{q}")))
-                            }
-                        })
+                    let Some(t) = self.text_of(&h.path) else {
+                        return false;
+                    };
+                    search::qualified(kind, &t, h.line, &word).is_some_and(|q| match &home {
+                        Some(files) => q == full && files.contains(&h.path),
+                        None => {
+                            q == full
+                                || q.ends_with(&format!("{sep}{full}"))
+                                || (in_project && full.ends_with(&format!("{sep}{q}")))
+                        }
+                    }) && (!singleton || search::ruby_singleton(&t, h.line))
                 })
                 .map(|hit| Candidate {
                     reason: match home {
@@ -438,8 +476,31 @@ impl App {
                 self.show_definitions(kind, &word, &here, named, None);
                 return;
             }
+            if class_method {
+                let found: Vec<Candidate> = concerns
+                    .map(|hits| self.concern_class_methods(kind, &here, &chain, hits))
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Path(path.clone()),
+                    })
+                    .collect();
+                // Nothing of the class declares it: a class method from outside the project
+                // (ActiveRecord's `find`), or `Class#new` itself.
+                let asked = if found.is_empty() && word == "initialize" {
+                    "new"
+                } else {
+                    &word
+                };
+                self.show_definitions(kind, asked, &here, found, None);
+                return;
+            }
             // A cut in a grep whose result is dropped says nothing about the list below.
             self.truncated.set(false);
+            // `Api::Fasp` that no declaration spells is no `::Fasp` elsewhere: what the name
+            // alone finds is offered, not jumped to.
+            self.offer_only |= colons;
         }
         // An Elixir qualifier a dependency declares as a module names that package, as an import
         // does elsewhere: its `def` there comes before a namesake of the project's (#437).
@@ -607,6 +668,54 @@ impl App {
             .collect()
     }
 
+    /// Of `hits`, the declarations of a Ruby method that a concern included by the class
+    /// `chain` spells gives it as a class method (#387): `include Searchable` in a file declaring
+    /// the class, and the method in `Searchable`'s `class_methods do` or `module ClassMethods`.
+    fn concern_class_methods(
+        &self,
+        kind: Kind,
+        here: &Path,
+        chain: &[String],
+        hits: Vec<Hit>,
+    ) -> Vec<Hit> {
+        static INCLUDE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^\s*include\s+([A-Z][\w:]*(?:\s*,\s*[A-Z][\w:]*)*)").unwrap()
+        });
+        let (Some(owner), path) = (chain.last(), chain.join(".")) else {
+            return Vec::new();
+        };
+        let pattern = search::def_patterns(kind, owner).join("|");
+        let cut = self.truncated.get();
+        let declared = self.project_definitions(kind, here, owner, &pattern);
+        self.truncated.set(cut);
+        // ponytail: every `include` of the file, not only the ones inside the class's body.
+        let mut modules: Vec<String> = Vec::new();
+        for h in declared {
+            let Some(text) = self.text_of(&h.path) else {
+                continue;
+            };
+            let q = search::qualified(kind, &text, h.line, owner).unwrap_or_else(|| owner.clone());
+            if q != path && !q.ends_with(&format!(".{path}")) {
+                continue;
+            }
+            for c in text.lines().filter_map(|l| INCLUDE.captures(l)) {
+                modules.extend(
+                    c[1].split(',')
+                        .filter_map(|m| m.trim().rsplit("::").next().map(str::to_owned)),
+                );
+            }
+        }
+        hits.into_iter()
+            .filter(|h| {
+                self.text_of(&h.path).is_some_and(|t| {
+                    modules
+                        .iter()
+                        .any(|m| search::ruby_concern_class_method(&t, h.line, m))
+                })
+            })
+            .collect()
+    }
+
     /// Whether `first` starts a path inside the project: `crate`, `self`, `super`, or a file or a
     /// directory of the project called so.
     fn names_module(&self, first: &str) -> bool {
@@ -648,6 +757,18 @@ impl App {
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));
                 !call && !lines.get(c.hit.line - 1).copied().unwrap_or(false)
             });
+        }
+        // A Ruby superclass, right of the `<` of a `class` line, is a use of the name (#387): the
+        // line declares another class.
+        let superclass = kind == Kind::Ruby
+            && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
+                |(r, _)| {
+                    Regex::new(r"^\s*class\s+[\w:]+\s*<\s*[\w:]*$")
+                        .is_ok_and(|re| re.is_match(&self.line_str()[..r.start]))
+                },
+            );
+        if superclass {
+            found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
         }
         let all = found.len();
         if all > 1 {
