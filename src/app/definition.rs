@@ -352,6 +352,14 @@ impl App {
                 return;
             }
         }
+        // A bare Rust name is an item of this file where the cursor sees it (#363).
+        if kind == Kind::Rust && !dotted && chain.is_empty() && !before.ends_with("::") {
+            let found = self.rust_file_items(&here, &text, &word, range.clone(), &imports);
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
         // Python's `Cls.CONST`, an `Enum` member, a dataclass field (#100): the qualifier is a
         // class the file declares or imports, no value of the scope, and the word is what the
         // class body declares, or a class above it.
@@ -393,9 +401,31 @@ impl App {
         // takes it from (#227): an `impl` at the top of that file is for the type the path
         // names, declared there or handed on, and nothing else is offered then.
         let mut home: Option<Vec<PathBuf>> = None;
+        // `Type::w` where this file declares the `Type` its scope sees, and another file one
+        // too: this file's `Type` is the one, and its `Type::w` is looked for here first (#363).
+        let mine = kind == Kind::Rust
+            && pathed
+            && locals.is_empty()
+            && chain.len() == 1
+            && bound(&imports, &chain[0]).is_none()
+            && !search::rust_scope_items(&text, self.line + 1, range.start, &chain[0], false)
+                .is_empty()
+            && self
+                .project_definitions(
+                    kind,
+                    &here,
+                    &chain[0],
+                    &search::def_patterns(kind, &chain[0]).join("|"),
+                )
+                .iter()
+                .any(|h| h.path != here);
+        self.truncated.set(false);
+        if mine {
+            home = Some(vec![here.clone()]);
+        }
         let pathed = pathed
             && !chain.is_empty()
-            && (sep == "." || {
+            && (sep == "." || mine || {
                 // A glob, a `using` or a grouped `use` may bring the name in unread, and a PHP
                 // `\Vendor\Depot::open` spells out another namespace.
                 let owner = &chain[chain.len() - 1];
@@ -494,6 +524,7 @@ impl App {
                 })
                 .map(|hit| Candidate {
                     reason: match home {
+                        Some(_) if mine => Reason::Path(path.clone()),
                         Some(_) => Reason::Import(hit.path.display().to_string()),
                         None => Reason::Path(path.clone()),
                     },

@@ -32,6 +32,14 @@ module that does not declare the word itself — an `index.ts` that re-exports i
 further: `d` falls back to the search by name below and says `by name`. Behind
 `from repos import UserRepository as Users` a receiver typed `Users` is a `UserRepository`.
 
+In Rust a bare name, with no `.` or `::` in front, is the item the file declares under it where
+the cursor sees it: a `fn` nested in the function, an item of the inline `mod` around the cursor
+or of the file's top level, and inside a `mod tests { use super::*; … }` the file's own after the
+block's. `d` jumps there and says `in this file`, since another file's items are out of sight
+without a `use` or a path. A name the function binds before the cursor (a `let`, a parameter, a
+closure's) and a name a `use` imports are looked up as before. `Type::new` where the file declares
+`Type` and another crate one too looks for `Type::new` in this file first, `via Type`.
+
 An import of anything else is looked for outside the project first, even when the project declares
 a word of the same name (Rust still looks in the project first). A word no import binds goes
 outside only when the project has no definition of it. Outside means the standard library and the

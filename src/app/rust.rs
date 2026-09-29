@@ -193,4 +193,35 @@ impl App {
         }
         found
     }
+
+    /// A bare `word` at `range` of the cursor's line (nothing in front of it, `before`, but a
+    /// `::`-less text) is the item this file declares where the cursor sees it
+    /// ([`search::rust_scope_items`], #363), unless a `use` of the file binds it: that is the
+    /// import's. A struct literal's or a pattern's `word:` names a field, no item.
+    pub(super) fn rust_file_items(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        range: std::ops::Range<usize>,
+        imports: &[(String, Vec<String>)],
+    ) -> Vec<Candidate> {
+        let after = self.line_str()[range.end..].trim_start();
+        if bound(imports, word).is_some() || (after.starts_with(':') && !after.starts_with("::")) {
+            return Vec::new();
+        }
+        let macro_call = after.starts_with('!') && !after.starts_with("!=");
+        search::rust_scope_items(text, self.line + 1, range.start, word, macro_call)
+            .into_iter()
+            .map(|line| Candidate {
+                hit: Hit {
+                    path: here.to_path_buf(),
+                    line,
+                    col: 0,
+                    text: self.buf.lines[line - 1].clone(),
+                },
+                reason: Reason::File,
+            })
+            .collect()
+    }
 }

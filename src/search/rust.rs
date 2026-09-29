@@ -448,3 +448,83 @@ pub fn rust_glob_uses(text: &str, line: usize) -> (Vec<Vec<String>>, bool) {
         false,
     )
 }
+/// The 1-based lines of the Rust `text` that declare the item `word` a bare word at 1-based
+/// `line` sees without a path (#363): the items directly in the body of the function around it
+/// (a nested `fn`), else those directly in its module, the innermost inline `mod` around it or
+/// the file, and through a `use super::*;` directly in that `mod`, those of the module around it.
+/// Another file's items are out of sight without a `use` or a path, and a `use` of the name beside
+/// an item of it does not compile (E0255). `macro_call` (`word!`) asks for a `macro_rules!` above
+/// the line, anything else for an item of the other kinds. Empty when the function may bind the
+/// word before byte `start` of the line (a `let`, a parameter, a closure's, a `for`'s or a match
+/// arm's), which hides the item, and on the item's own line; a `mod word;` is left out, its
+/// declaration is its file.
+pub fn rust_scope_items(
+    text: &str,
+    line: usize,
+    start: usize,
+    word: &str,
+    macro_call: bool,
+) -> Vec<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
+        return Vec::new();
+    };
+    let w = regex::escape(word);
+    let rule = |p: &str| Regex::new(p).expect("an escaped name keeps the pattern valid");
+    let patterns = def_patterns(Kind::Rust, word);
+    let item = rule(&patterns[usize::from(macro_call)]);
+    let outline = rule(&format!(r"\bmod\s+{w}\s*;"));
+    let literal = literal_lines(Kind::Rust, text);
+    let around = rust_around(&lines, k, &literal);
+    let function = around.iter().copied().find(|&i| FN_LINE.is_match(lines[i]));
+    if let Some(f) = function {
+        // ponytail: binding shapes read off lines; reading Rust locals is #353.
+        let local = rule(&format!(
+            r"\blet\b(?:[^=;:]|::)*\b{w}\b|\bfor\b[^;{{]*\b{w}\b[^;{{]*\bin\b|\|[^|]*\b{w}\b\s*(?::[^|]*)?(?:,[^|]*)?\||\b{w}\s*:[^:]|\b{w}\b[^=]*=>|\b{w}\s*@"
+        ));
+        let body = lines[f..k]
+            .iter()
+            .copied()
+            .chain(std::iter::once(&lines[k][..start.min(lines[k].len())]));
+        if body
+            .into_iter()
+            .any(|l| local.is_match(&uncommented(Kind::Rust, l)))
+        {
+            return Vec::new();
+        }
+    }
+    let found = |scope: Option<usize>| -> Vec<usize> {
+        rust_direct(&lines, scope, &literal)
+            .into_iter()
+            .filter(|&i| item.is_match(lines[i]) && !outline.is_match(lines[i]))
+            .filter(|&i| !macro_call || i < k)
+            .collect()
+    };
+    let mut items = function.map(|f| found(Some(f))).unwrap_or_default();
+    let modules: Vec<Option<usize>> = around
+        .iter()
+        .copied()
+        .filter(|&i| MOD_LINE.is_match(lines[i]))
+        .map(Some)
+        .chain(std::iter::once(None))
+        .collect();
+    let glob = rule(r"^\s*use\s+super\s*::\s*\*\s*;");
+    for scope in modules {
+        if !items.is_empty() {
+            break;
+        }
+        items = found(scope);
+        let through = scope.is_some_and(|m| {
+            rust_direct(&lines, Some(m), &literal)
+                .iter()
+                .any(|&i| glob.is_match(lines[i]))
+        });
+        if !through {
+            break;
+        }
+    }
+    match items.contains(&k) {
+        true => Vec::new(),
+        false => items.into_iter().map(|i| i + 1).collect(),
+    }
+}

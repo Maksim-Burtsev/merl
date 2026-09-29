@@ -112,6 +112,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it was a picker of every `new` in the project, `by name`. Only a `use` at the top of the file
   counts, and a type of the name in the file itself, a name bound twice, a binary under
   `src/bin/` or a module with no `impl` of the type stay `by name`. (#227)
+- `d` on a bare name in Rust lands on the item the file declares under it, `helper: in this
+  file`, where it was a picker of every file's namesake: Rust sees another file's items only
+  through a `use` or a path. The item counts where the cursor sees it: a `fn` nested in the
+  function, the inline `mod` around the cursor or the file's top level, and the file's own items
+  inside a `mod tests { use super::*; … }`. A name the function binds before the cursor, as a
+  `let`, a parameter or a closure's, and a name a `use` imports stay as before. `Type::new` where
+  the file declares `Type` and another crate a `Type` too lands in this file's
+  `impl Type`, `via Type`. (#363)
 - `merl --review` keeps the files marked viewed from one start to the next, per branch and base,
   in the repository's git directory, so a review in a worktree has them too. A file changed since
   it was viewed, on screen or between two starts, loses its tick, as on GitLab. A file that leaves
