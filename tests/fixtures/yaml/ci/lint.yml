@@ -16,3 +16,11 @@ build:
   #       ^ d: ci/lint.yml:6
   script:
     - cargo build
+
+# A `needs:` list in the block form, after the `stages:` block has ended: no stage.
+review:
+  stage: lint
+  needs:
+    - lint
+  script:
+    - cargo test

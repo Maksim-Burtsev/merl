@@ -375,7 +375,7 @@ fn elixir_word_and_alias() {
     // An `alias` names the module a qualifier stands for.
     let text = "  alias Shop.Warehouse, as: W\n  alias Shop.Pricing.{Tariff, Coupon}\n  alias Shop.Warehouse.Courier\n";
     let un = |chain: &[&str]| {
-        elixir_unalias(text, chain.iter().map(|s| s.to_string()).collect()).join(".")
+        elixir_unalias(text, 3, chain.iter().map(|s| s.to_string()).collect()).join(".")
     };
     assert_eq!(un(&["W"]), "Shop.Warehouse");
     assert_eq!(un(&["Coupon"]), "Shop.Pricing.Coupon");
@@ -383,6 +383,20 @@ fn elixir_word_and_alias() {
     assert_eq!(un(&["Warehouse"]), "Warehouse", "`as: W` renames it");
     assert_eq!(un(&["Shop", "Pricing"]), "Shop.Pricing");
     assert_eq!(un(&[]), "");
+    // Another module's `alias`, one below the cursor, and one inside a closed `def` rename
+    // nothing.
+    let text = "defmodule A do\n  alias Plug.Conn\nend\n\ndefmodule B do\n  def f(c) do\n    alias Shop.Tariff\n    Tariff.x(c)\n  end\n  def g(c), do: Conn.assign(c)\n  alias Shop.Coupon\nend\n";
+    let un = |line, chain: &[&str]| {
+        elixir_unalias(text, line, chain.iter().map(|s| s.to_string()).collect()).join(".")
+    };
+    assert_eq!(un(9, &["Conn"]), "Conn");
+    assert_eq!(un(9, &["Tariff"]), "Tariff");
+    assert_eq!(un(9, &["Coupon"]), "Coupon");
+    assert_eq!(
+        un(7, &["Tariff"]),
+        "Shop.Tariff",
+        "inside the `def` it is seen"
+    );
 }
 
 #[test]

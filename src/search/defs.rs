@@ -940,16 +940,18 @@ pub fn sql_cte(word: &str) -> String {
 /// Whether byte `col` of 1-based `line` of `text` sees the common table expression `word` that
 /// 1-based `cte` opens (#472). A CTE lives in its own statement: after its `AS (…)` up to the
 /// `;` that ends it, and inside its own body too under `WITH RECURSIVE`. A bracket or a `;` in
-/// a comment or a `'string'` counts for nothing.
-pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize) -> bool {
+/// a comment or a `'string'` counts for nothing. `None` past its body when no `;` ends the
+/// statement (a script of T-SQL batches split by `GO`, say): where its scope ends is not known.
+pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize) -> Option<bool> {
     let start = |l: usize| -> usize { text.split_inclusive('\n').take(l - 1).map(str::len).sum() };
     let head = Regex::new(&sql_cte(word)).expect("an escaped name keeps the pattern valid");
     let Some(m) = text.lines().nth(cte - 1).and_then(|l| head.find(l)) else {
-        return false;
+        return Some(false);
     };
     let (open, at, b) = (start(cte) + m.end() - 1, start(line) + col, text.as_bytes());
     // The statement's first byte, the depth inside the body, and the body's closing `)`.
     let (mut first, mut depth, mut close, mut i) = (0, None::<usize>, None, 0);
+    let mut ended = false;
     while i < b.len() {
         let skip = match &b[i..] {
             [b'-', b'-', ..] => "\n",
@@ -970,7 +972,10 @@ pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize)
                 first = i + 1;
                 ""
             }
-            [b';', ..] => break,
+            [b';', ..] => {
+                ended = true;
+                break;
+            }
             _ => "",
         };
         i += match skip {
@@ -984,30 +989,49 @@ pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize)
     } else {
         close.unwrap_or(i)
     };
-    at > from && at <= i
+    match at > from {
+        false => Some(false),
+        true => ended.then_some(at <= i),
+    }
 }
 /// Whether the Zig declaration on 1-based `line` of `text` can be what a name elsewhere names
-/// (#469): it sits directly in a container — the file, a `struct`, an `enum`, a `union`, an
-/// `opaque` — and not in a function, a test or a block, whose locals it would be; and from
+/// (#469): no function or test holds it, whose local it would be — the blocks around it, told by
+/// indentation, lead to a container (the file, a `struct`, an `enum`, a `union`, an `opaque`)
+/// before any `fn` or `test`; a block the walk cannot name (`comptime {`) is looked past. From
 /// another file (`same_file` false) it is `pub`, since each file is a struct only whose `pub`
 /// members leave it. An `export` is a symbol of the whole program, the one thing its name can
 /// mean anywhere, and stays.
 pub fn zig_visible(text: &str, line: usize, same_file: bool) -> bool {
     static CONTAINER: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r"\b(?:struct|enum|union|opaque)\s*(?:\([^)]*\))?\s*\{\s*(?://.*)?$")
-            .unwrap()
+        regex::Regex::new(
+            r"\b(?:struct|enum|union|opaque)\s*(?:\((?:[^()]|\([^()]*\))*\))?\s*\{\s*(?://.*)?$",
+        )
+        .unwrap()
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
         return false;
     };
-    let in_container = lines[..line - 1]
-        .iter()
-        .rev()
-        .find(|l| !l.trim().is_empty() && indent(l) < indent(target))
-        .is_none_or(|l| CONTAINER.is_match(l));
+    // The header of each block around the line, innermost first; `) u32 {` closes a header
+    // wrapped over the lines above it, which starts back at its indent.
+    let (mut depth, mut wrapped) = (indent(target), false);
+    for l in lines[..line - 1].iter().rev() {
+        let code = uncommented(Kind::Zig, l);
+        let t = code.trim();
+        if t.is_empty() || indent(l) > depth || (indent(l) == depth && !wrapped) {
+            continue;
+        }
+        depth = indent(l);
+        if CONTAINER.is_match(t) {
+            break;
+        }
+        if ZIG_BODY.is_match(t) {
+            return false;
+        }
+        wrapped = t.starts_with(')');
+    }
     let open = target.trim_start();
-    in_container && (same_file || open.starts_with("pub ") || open.starts_with("export "))
+    same_file || open.starts_with("pub ") || open.starts_with("export ")
 }
 /// Whether 1-based `line` of `lines`, a GraphQL file, declares a field or an enum value: the
 /// nearest line above it indented less, past blanks and `#` comments, opens a `type`, an

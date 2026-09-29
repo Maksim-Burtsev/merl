@@ -183,6 +183,30 @@ fn alt_backspace_and_alt_delete_take_a_word_in_one_undo_step() {
     assert_eq!(a.buf.lines, vec![" мир;!next"]);
 }
 
+/// #455: Alt+Delete at the end of the file and Alt+Backspace at its start take nothing: no undo
+/// step, the file not edited, and the column Up / Down aim at stays where it was.
+#[test]
+fn an_alt_delete_with_nothing_to_take_changes_nothing() {
+    let mut a = app("abcdef\nxy");
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (1, 2));
+    press(&mut a, KeyCode::Delete, KeyModifiers::ALT);
+    press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (0, 6));
+    let mut a = app("\nabcdef");
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (0, 0));
+    press(&mut a, KeyCode::Backspace, KeyModifiers::ALT);
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (1, 6));
+    assert!(a.undo.is_empty() && !a.dirty);
+}
+
 #[test]
 fn undo_groups_typing_and_redo_replays_it() {
     let mut a = app("ab\ncd\n");

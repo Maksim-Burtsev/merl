@@ -77,6 +77,10 @@ stock() {
   #       ^ d: bin/basket.sh:70
 }
 
+# Outside every function a function's `typeset` is no local (#470).
+echo "$shelf"
+#      ^ d: none
+
 audit() {
   echo "$STOCK_LEVEL $shelf"
   #       ^ d: bin/basket.sh:69

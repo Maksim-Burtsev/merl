@@ -218,6 +218,16 @@ fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         }]
     };
     let mut depth = indent(lines[at]);
+    // An `until` reads the body of its `repeat`, one block deeper than itself.
+    let own = uncommented(Kind::Lua, lines[at]);
+    if own
+        .trim_start()
+        .strip_prefix("until")
+        .is_some_and(|r| !r.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+        && let Some(body) = (0..at).rev().find(|&i| !lines[i].trim().is_empty())
+    {
+        depth = depth.max(indent(lines[body]));
+    }
     for i in (0..at).rev() {
         let code = uncommented(Kind::Lua, lines[i]);
         let t = code.trim();
@@ -255,13 +265,14 @@ fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
 }
 /// The 0-based line of the header of the Shell function whose body holds 0-based line `at`:
 /// `name() {`, `function name {`, told by indentation, since the `}` that closes a function
-/// stands at its header's indent. A one-line function holds no line below it.
+/// stands at its header's indent. A one-line function holds no line below it, a comment after its
+/// `}` or not, and a `name() (` subshell body, closed by a `)`, is not read.
 pub fn shell_function_at(lines: &[&str], at: usize) -> Option<usize> {
     static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:function\s+[^\s(){}]+|[\w.:-]+\s*\(\s*\))").unwrap()
     });
     static ONE_LINE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\{.*[;\s]\}\s*$").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"\{.*[;\s]\}\s*(?:#.*)?$|\(\s*$").unwrap());
     (0..at.min(lines.len())).rev().find(|&k| {
         let l = lines[k];
         HEADER.is_match(l)
@@ -272,19 +283,21 @@ pub fn shell_function_at(lines: &[&str], at: usize) -> Option<usize> {
     })
 }
 /// The names a Shell `local`, or a `declare` / `typeset` without `-g`, declares on `line`: local
-/// to the function it is written in. `None` for any other line.
+/// to the function it is written in. `None` for any other line, and for `-p`, `-f` and `-F`,
+/// which print rather than declare.
 pub fn shell_local_of(line: &str) -> Option<Vec<&str>> {
     static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:local|declare|typeset)((?:\s+-\w+)*)\s+(.*)").unwrap()
     });
     let c = LOCAL.captures(line)?;
-    if c[1].contains('g') {
+    if c[1].contains(['g', 'p', 'f', 'F']) {
         return None;
     }
     let rest = c.get(2).map_or("", |m| m.as_str());
-    // Each word up to its `=` is a name, until one is not: the value of the one before it.
-    let names = rest
-        .split_whitespace()
+    // Each word up to its `=` is a name, until one is not: the value of the one before it. A
+    // quoted value or an array `(…)` is one word, whatever spaces it holds.
+    let names = shell_words(rest)
+        .into_iter()
         .map(|w| w.split(['=', '+']).next().unwrap_or(""))
         .take_while(|n| {
             n.chars()
@@ -295,6 +308,34 @@ pub fn shell_local_of(line: &str) -> Option<Vec<&str>> {
         .collect();
     Some(names)
 }
+/// `s` cut into Shell words: a `'…'`, a `"…"` or a `(…)` stays inside the word it starts in.
+fn shell_words(s: &str) -> Vec<&str> {
+    let (b, mut out, mut i) = (s.as_bytes(), Vec::new(), 0);
+    while i < b.len() {
+        if b[i].is_ascii_whitespace() {
+            i += 1;
+            continue;
+        }
+        let (start, mut depth, mut quote) = (i, 0usize, None);
+        while i < b.len() && (quote.is_some() || depth > 0 || !b[i].is_ascii_whitespace()) {
+            match (quote, b[i]) {
+                (Some(b'"'), b'\\') => i += 1,
+                (Some(q), c) if c == q => quote = None,
+                (Some(_), _) => {}
+                (None, c @ (b'"' | b'\'')) => quote = Some(c),
+                (None, b'(') => depth += 1,
+                (None, b')') => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+            i += 1;
+        }
+        out.push(&s[start..i.min(b.len())]);
+    }
+    out
+}
+/// A Zig line that opens a function's or a test's body, whose `const`s and `var`s are locals.
+pub(super) static ZIG_BODY: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"\bfn\b|^(?:pub\s+)?test\b").unwrap());
 /// Zig's locals (#469): a parameter of the `fn` (or the `test`) the cursor is in, and a `const` or
 /// `var` above the cursor in a block around it, told by indentation, which `zig fmt` keeps. Zig
 /// allows no shadowing, so every one found counts. Nothing at a container level (the file, a
@@ -305,8 +346,6 @@ fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         .expect("an escaped name keeps the pattern valid");
     let param = Regex::new(&format!(r"(?:^|[(,])\s*(?:comptime\s+|noalias\s+)?{n}\s*:"))
         .expect("an escaped name keeps the pattern valid");
-    static BODY: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\bfn\b|^(?:pub\s+)?test\b").unwrap());
     let literal = literal_lines(Kind::Zig, &lines.join("\n"));
     let code = |i: usize| uncommented(Kind::Zig, lines[i]).trim().to_owned();
     let mut depth = indent(lines[at]);
@@ -337,7 +376,7 @@ fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             }
             i = i.saturating_sub(1);
         }
-        if BODY.is_match(&code(i)) {
+        if ZIG_BODY.is_match(&code(i)) {
             for j in i..=end {
                 if param.is_match(&code(j)) {
                     out.push(Binding {

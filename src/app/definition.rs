@@ -124,7 +124,7 @@ impl App {
         }
         // An Elixir `alias` names the module a qualifier stands for (#459).
         let chain = match kind {
-            Kind::Elixir => search::elixir_unalias(&text, chain),
+            Kind::Elixir => search::elixir_unalias(&text, self.line, chain),
             _ => chain,
         };
         if kind == Kind::Yaml
@@ -189,8 +189,11 @@ impl App {
         // A parameter or a local of the same name hides the import where the cursor is: `json`
         // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
         let first = chain.first().map_or(word.as_str(), String::as_str);
-        // A key of a Lua table constructor names a field, whatever local shares its name.
-        let key = kind == Kind::Lua && search::table_key(&text, self.line + 1, &range);
+        // A key of a Lua table constructor names a field, whatever local shares its name, and so
+        // does a method called with `:`.
+        let key = kind == Kind::Lua
+            && (search::table_key(&text, self.line + 1, &range)
+                || (before.ends_with(':') && !before.ends_with("::")));
         // `super` is no local, whatever the member lookup reads it as; Lua has no `super`. A name
         // of a destructuring or a parameter list wrapped over several lines is on a line of its
         // own (#393).
@@ -963,9 +966,9 @@ impl App {
     }
 
     /// `word` as a constant of the Java or Kotlin enum `owner`, when the project declares one type
-    /// of that name and it is an `enum` (#457). An import of `owner` in this file has to name the
-    /// package the enum is declared in: `import java.util.concurrent.TimeUnit` is not the
-    /// project's `TimeUnit`.
+    /// of that name and it is an `enum` (#457), and this file sees it: it is in the enum's package,
+    /// or imports the enum or its whole package (`.*`). `import java.util.concurrent.TimeUnit`, or
+    /// `java.util.concurrent.*` alone, is not the project's `TimeUnit`.
     fn enum_constant(&self, kind: Kind, here: &Path, owner: &str, word: &str) -> Vec<Candidate> {
         let owners = search::def_patterns(kind, owner).join("|");
         let declared = self.project_definitions(kind, here, owner, &owners);
@@ -985,10 +988,18 @@ impl App {
                 .find_map(|l| re.captures(l).map(|c| c[1].to_owned()))
                 .unwrap_or_default()
         };
-        let import = Regex::new(&format!(r"^\s*import\s+([\w.]+)\.{o}\s*;?\s*$"))
+        let import = Regex::new(&format!(r"^\s*import\s+([\w.]+)\.({o}|\*)\s*;?\s*$"))
             .expect("an escaped name keeps the pattern valid");
-        let imported = self.buf.lines.iter().find_map(|l| import.captures(l));
-        if imported.is_some_and(|c| c[1] != package(&text)) {
+        let home = package(&text);
+        let imports: Vec<(String, bool)> = (self.buf.lines.iter())
+            .filter_map(|l| import.captures(l))
+            .map(|c| (c[1].to_owned(), &c[2] == "*"))
+            .collect();
+        // A type imported by name from elsewhere hides the package's own.
+        let elsewhere = imports.iter().any(|(p, all)| !all && *p != home);
+        let sees =
+            package(&self.buf.lines.join("\n")) == home || imports.iter().any(|(p, _)| *p == home);
+        if elsewhere || !sees {
             return Vec::new();
         }
         let lines: Vec<&str> = text.lines().collect();
@@ -1221,16 +1232,19 @@ impl App {
         {
             let cte = Regex::new(&search::sql_cte(word)).expect("an escaped name keeps it valid");
             let text = self.text_of(here).unwrap_or_default();
-            let sees = |h: &Hit| {
-                h.path == here && search::sql_cte_sees(&text, h.line, word, self.line + 1, self.col)
+            let sees = |h: &Hit| match h.path == here {
+                true => search::sql_cte_sees(&text, h.line, word, self.line + 1, self.col),
+                false => Some(false),
             };
-            let seen = hits.iter().any(sees);
-            hits.retain(|h| {
-                if cte.is_match(&h.text) {
-                    sees(h)
-                } else {
-                    !seen
-                }
+            // A CTE whose scope has no known end leaves the candidates as they are.
+            let known = hits
+                .iter()
+                .filter(|h| cte.is_match(&h.text))
+                .all(|h| sees(h).is_some());
+            let seen = hits.iter().any(|h| sees(h) == Some(true));
+            hits.retain(|h| match cte.is_match(&h.text) {
+                true => !known || sees(h) == Some(true),
+                false => !known || !seen,
             });
         }
         hits

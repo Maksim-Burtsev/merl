@@ -113,9 +113,12 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
 /// `chain`, the names in front of an Elixir word, with the first read through an `alias` of
 /// `text` (#459): `W` behind `alias Shop.Warehouse, as: W` is `Shop.Warehouse`, and `Courier`
 /// behind `alias Shop.Warehouse.Courier` or `alias Shop.Warehouse.{Courier, Depot}` is
-/// `Shop.Warehouse.Courier`. Any `alias` of the file counts, wherever it is written.
+/// `Shop.Warehouse.Courier`. An `alias` counts above 0-based `line`, the cursor's, and only while
+/// the block it is written in is still open there: none of the lines between is indented less
+/// than it. Another module's `alias`, or one inside another function, renames nothing here; the
+/// nearest one wins.
 /// ponytail: a `{…}` group wrapped over several lines is not read.
-pub fn elixir_unalias(text: &str, mut chain: Vec<String>) -> Vec<String> {
+pub fn elixir_unalias(text: &str, line: usize, mut chain: Vec<String>) -> Vec<String> {
     static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*alias\s+([A-Z](?:[\w.]*\w)?)(?:\.\{([^}]*)\}|\s*,\s*as:\s*([A-Z]\w*))?")
             .unwrap()
@@ -124,10 +127,17 @@ pub fn elixir_unalias(text: &str, mut chain: Vec<String>) -> Vec<String> {
         return chain;
     };
     let last = |s: &str| s.rsplit('.').next() == Some(first.as_str());
-    let full = text
-        .lines()
-        .filter_map(|l| ALIAS.captures(l))
-        .find_map(|c| {
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Elixir, text);
+    // The least indent from the cursor's line up to the line being read.
+    let mut floor = lines.get(line).map_or(usize::MAX, |l| indent(l));
+    let full = (0..line.min(lines.len()))
+        .rev()
+        .filter(|&i| !literal[i] && !lines[i].trim().is_empty())
+        .find_map(|i| {
+            let open = indent(lines[i]) <= floor;
+            floor = floor.min(indent(lines[i]));
+            let c = ALIAS.captures(lines[i]).filter(|_| open)?;
             let module = &c[1];
             match (c.get(2), c.get(3)) {
                 (Some(group), _) => group

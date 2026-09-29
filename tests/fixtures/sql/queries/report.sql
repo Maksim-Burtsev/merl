@@ -69,3 +69,10 @@ WITH RECURSIVE parcels AS (
 SELECT n FROM parcels, couriers;
 --            ^ d: queries/report.sql:65
 --                     ^ d: schema/001_tables.sql:23
+
+-- #472: a `;` or a bracket in a string or a comment ends nothing.
+WITH boxed AS (
+  SELECT ';' AS p /* ; ) */ -- ;
+)
+SELECT p FROM boxed;
+--            ^ d: queries/report.sql:74
