@@ -17,7 +17,7 @@ same-named class in a test fake or another package is not a candidate. Python's
 `app/repos.py` or `app/repos/__init__.py`, at the root, under `src/` or deeper, but not inside
 another package. TypeScript's `./x` reads `x.ts`, `x.tsx`, `x.d.ts`, the JavaScript forms or
 `x/index.*` (`./x.js` finds `x.ts` too), and an alias such as `@/x` goes through the `paths` and
-`baseUrl` of the nearest `tsconfig.json` and the configs it extends. A named import finds that
+`baseUrl` of the nearest `tsconfig.json` (or `jsconfig.json`) and the configs it extends. A named import finds that
 name, aliased or not; a default import finds the declaration under its local name, or else the
 module's `export default`; `ns.x` behind `import * as ns` finds `x`. A Go import path below the
 `module` of a `go.mod` in the project is that package's directory. The word must be declared
