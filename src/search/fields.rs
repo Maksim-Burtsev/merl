@@ -196,7 +196,7 @@ pub(super) fn go_embedded(t: &str) -> Option<&str> {
 /// The 1-based line of the type declaration 0-based line `k` of `lines` sits in, however deep:
 /// the enclosing lines, each indented less than the last, until one declares a type. `None` when
 /// the walk reaches the top level first.
-pub(super) fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usize> {
+pub fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usize> {
     let mut depth = indent(lines[k]);
     for i in (0..k).rev() {
         if depth == 0 {

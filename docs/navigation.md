@@ -32,6 +32,28 @@ module that does not declare the word itself — an `index.ts` that re-exports i
 further: `d` falls back to the search by name below and says `by name`. Behind
 `from repos import UserRepository as Users` a receiver typed `Users` is a `UserRepository`.
 
+A Python builtin has no source on the machine: the interpreter has it compiled. `d` on a bare
+name of `dir(builtins)` — `next`, `map`, `ValueError` — that nothing in the file binds (no
+parameter or local of the scope, no module-level `def`, `class` or assignment, no import, and no
+`from x import *`) says `next: builtin, no source` and stays where it is, with no picker and no
+search; a project function of that name in another module is not what the bare name means. So
+does a member of a value proven to be a builtin type (`str`, `bytes`, `int`, `float`, `bool`,
+`list`, `dict`, `set`, `tuple` and the like, `list[int]` included, but not `typing.List`) that the
+file neither declares nor imports: `replace: builtin, no source (via render() -> str)`. A bare
+name nothing binds that is no builtin is never a method outside the project: it is looked for
+there only at the top of the modules the file `*`-imports.
+
+A Python module's name lands on the module, at its first line: `repos: module app/repos.py`. That
+is a word in the module path of an import line (`app` or `repos` in `from app.repos import
+UserRepo`, `json` in `import json`), and a name an import binds to a module (`views` behind
+`from shop import views`, `json` in `json.dumps`), in the project and outside it. A package comes
+before a module of the same name beside it, as Python imports it. Outside, the module is matched
+from the root it lies under, `json/__init__.py`, `json.py` or `json.pyi` there, never a `json.py`
+deep in another package; a package that binds the name itself (`serializers = …` in its
+`__init__.py`) keeps its say. A word of an import's path that names no module, and the name of a
+plain `import x` where `x` is not installed, get `no definition`: they can only be modules, so no
+namesake is searched for.
+
 In Rust a bare name, with no `.` or `::` in front, is the item the file declares under it where
 the cursor sees it: a `fn` nested in the function, an item of the inline `mod` around the cursor
 or of the file's top level, and inside a `mod tests { use super::*; … }` the file's own after the
@@ -310,12 +332,22 @@ fields and embedded structs. A local, the key of a dict or an object literal and
 block are no field, and a name several types declare, such as `id`, is a picker rather than a
 jump. The field lines are searched apart from the methods, and when they fill the search the count
 says `+` and a single candidate is offered rather than jumped to. Fields outside the project are
-not collected: there a field name is every `name: string;` of every `.d.ts`. A project with no
+not collected: there a field name is every `name: string;` of every `.d.ts`. In Python they are
+looked for all the same, in the same pass as the methods: when the project has no candidate and
+one method outside is all there is, a field of the name outside makes that method one candidate
+of `1+`, offered and not jumped to (`m.return_value` on a `mock.Mock` is a field of
+`unittest/mock.py`, not a method of some other package). A project with no
 such method or field has the word at its top level instead — `x` was a class or a
 namespace — and the usual declarations answer. One candidate jumps; several open the picker, the
 project's first. A bare `self.word` or `this.word` whose class, or a class it extends, cannot be
 read gets the project's declarations of that name, fields included, and nothing outside the
-project. Ruby's core and gems are not read, so there a member on a value, `logger.info` or
+project. In Python, when the class is read and does not declare the word, but its ancestry goes
+outside the project — Django's `TestCase` behind `self.client` — the answer lies there or in a
+project class extending it that sets the word on `self`: only those subclasses' declarations are
+offered, and none is `no definition`, never another project class's `client`. A base that cannot
+be read (a call such as `six.with_metaclass(…)`, a name nothing binds, a `*` import) leaves the
+search by name as it was. Likewise `User.objects` with `User` imported from a module outside is a
+member of `User` in that module, never a top-level `objects` there or anywhere else. Ruby's core and gems are not read, so there a member on a value, `logger.info` or
 `x&.each`, is never jumped to: the one method of that name the project declares is offered in a
 picker of one row, `info: by name, 1 match`. `Const.meth`, `self.meth` and a bare call still jump.
 

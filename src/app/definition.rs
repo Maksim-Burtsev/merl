@@ -202,6 +202,15 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // A word in the module path of an import line names that module and nothing else
+        // (#333): the project's, else the one outside, and never a namesake found by name.
+        if kind == Kind::Python
+            && let Some(module) = search::python_import_module(self.line_str(), range.start)
+        {
+            let found = self.python_module(&here, &module);
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // Inside a docstring's example the imports written there count too.
         let in_literal = search::literal_lines(kind, &text).get(self.line) == Some(&true);
         let mut imports = match in_literal {
@@ -233,6 +242,21 @@ impl App {
             .collect();
         if !locals.is_empty() {
             imports.retain(|(name, _)| name != first);
+        }
+        // A Python builtin nothing in the file binds has no source to land on (#336): not the
+        // project's namesake in another module, which the bare name does not reach without an
+        // import, nor a method of a dependency. A `*` import may bind it.
+        let star = kind == Kind::Python && imports.iter().any(|(name, _)| name == "*");
+        let unbound = kind == Kind::Python
+            && !dotted
+            && chain.is_empty()
+            && search::bindings(kind, &text, self.line + 1, &word).is_empty()
+            && !names_itself(self.line_str(), &word)
+            && !self.offer_only;
+        if unbound && !star && search::PYTHON_BUILTINS.contains(&word.as_str()) {
+            self.offer_only = false;
+            self.message = format!("{word}: builtin, no source");
+            return;
         }
         // The word itself is that parameter or local: its declarations in this scope are the
         // answer, and a function of the same name elsewhere is not.
@@ -372,9 +396,25 @@ impl App {
                     self.show_definitions(kind, &word, &here, found, None);
                     return;
                 }
-                Ok(_) => {}
+                // What the class lacks can come from its bases outside the project, or from a
+                // project class extending it, which may set it on `self` (#342): only those
+                // subclasses' declarations of the name are candidates.
+                Ok(_) => {
+                    if let Some(ty) = self.inherited_outside(kind, &here, &chain, head.as_ref()) {
+                        let found = self.subclass_members(kind, &here, &word, &pattern, &ty);
+                        self.show_definitions(kind, &word, &here, found, None);
+                        return;
+                    }
+                }
                 // With one name in front of the word, `by name` already says where.
                 Err(at) => {
+                    // A value proven to be a builtin type: its members have no source (#336).
+                    if let Some(via) = self.builtin_receiver(kind, &here, &chain, head.as_ref()) {
+                        self.offer_only = false;
+                        self.truncated.set(false);
+                        self.message = format!("{word}: builtin, no source (via {via})");
+                        return;
+                    }
                     let names = head.as_ref().map_or(chain.len(), |(_, _, f)| f.len() + 1);
                     broke = (names > 1).then_some(at);
                 }
@@ -424,17 +464,38 @@ impl App {
         let mut own_module = false;
         let mut found = match import {
             Some(path) => {
-                let mut found = self
-                    .imported_definitions(kind, &here, &word, &chain, &path)
-                    .unwrap_or_else(|| {
-                        // A workspace package linked in is the project's own: the search by
-                        // name in the project comes first, the one outside after it (below).
-                        let found =
-                            self.external_definitions(kind, &word, &chain, dotted, &imports, true);
-                        outside = found.is_some();
-                        own_module = found.is_none();
-                        found.unwrap_or_default()
-                    });
+                let project = self.imported_definitions(kind, &here, &word, &chain, &path);
+                // The name itself, bare or as a qualifier, bound to a module outside (#333).
+                if project.is_none()
+                    && kind == Kind::Python
+                    && !dotted
+                    && chain.is_empty()
+                    && imports.iter().filter(|(name, _)| *name == word).count() == 1
+                    && let Some(found) = self.bound_module(&path)
+                {
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
+                // `User.objects` behind an import from outside, `User` a name in the module
+                // (#342): a member of `User` there, never a top-level `objects` anywhere.
+                if project.is_none()
+                    && kind == Kind::Python
+                    && dotted
+                    && chain.len() == 1
+                    && let Some(found) = self.outside_class_member(&word, &path)
+                {
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
+                let mut found = project.unwrap_or_else(|| {
+                    // A workspace package linked in is the project's own: the search by
+                    // name in the project comes first, the one outside after it (below).
+                    let found =
+                        self.external_definitions(kind, &word, &chain, dotted, &imports, true);
+                    outside = found.is_some();
+                    own_module = found.is_none();
+                    found.unwrap_or_default()
+                });
                 // `try: from a import pick` / `except ImportError: from b import pick` names
                 // two sources: both are offered, and which one ran is not for `d` to guess.
                 let others: Vec<Vec<String>> = imports
@@ -891,7 +952,15 @@ impl App {
                 .filter(|p| kind != Kind::TsJs || search::declaration_file(p))
                 .cloned()
                 .collect();
-            let external = self.external_grep(kind, &files, members);
+            // One method outside is no proof while a field of the name is declared outside
+            // too, which is never listed (#342): the one method is offered, counted `1+`.
+            let (external, field) = match kind {
+                Kind::Python => self.external_methods(&files, members, &word),
+                _ => (self.external_grep(kind, &files, members), false),
+            };
+            if found.is_empty() && external.len() == 1 && field {
+                self.truncated.set(true);
+            }
             let seen: Vec<PathBuf> = found.iter().map(|c| self.root.join(&c.hit.path)).collect();
             found.extend(
                 external
@@ -911,9 +980,14 @@ impl App {
         {
             // After the project, outside as the import names the module, every installed copy
             // of it: what a workspace package linked in hands on from a dependency is there.
-            found = self
-                .external_definitions(kind, &word, &chain, dotted, &imports, false)
-                .unwrap_or_default();
+            // A bare Python name nothing binds is no method, and outside the project only a
+            // module the file `*`-imports can bind it (#336).
+            found = match unbound && !search::PYTHON_BUILTINS.contains(&word.as_str()) {
+                true => self.star_imported(&word, &imports),
+                false => self
+                    .external_definitions(kind, &word, &chain, dotted, &imports, false)
+                    .unwrap_or_default(),
+            };
             // `group->pel` opens no system `struct group` (#378).
             let after = self.line_str()[range.end..].trim_start();
             if kind == Kind::C
@@ -1065,6 +1139,151 @@ impl App {
             }
         }
         out
+    }
+
+    /// The files of the Python module `module` in the project: a package over a module of the
+    /// same name beside it, as Python imports it (#280).
+    fn project_module(&self, here: &Path, module: &[String]) -> Vec<PathBuf> {
+        let mut files = search::module_files(Kind::Python, &self.root, &self.files, here, module);
+        if files.iter().any(|f| f.ends_with("__init__.py")) {
+            files.retain(|f| f.ends_with("__init__.py"));
+        }
+        files
+    }
+
+    /// The Python module `module` as a whole (#333): the project's, else, for an absolute path,
+    /// the one outside, named from its root as the picker names it.
+    fn python_module(&mut self, here: &Path, module: &[String]) -> Vec<Candidate> {
+        let files = self.project_module(here, module);
+        if !files.is_empty() || module[0].starts_with('.') {
+            return self.module_candidates(files);
+        }
+        let file = self.external_module(module);
+        file.map(|f| self.outside_module(f)).unwrap_or_default()
+    }
+
+    /// `word` qualified by a name an import binds to `path` outside the project, when the path
+    /// resolves to a module only without its last part, the name the import takes
+    /// (#342): the declarations of `Name.word` in that module, `Name` as the module calls it. An
+    /// empty list is a member the lookup does not find there, which no namesake elsewhere
+    /// answers for. `None` leaves it to the lookup by import: a relative import, a name that is a
+    /// module itself, a module not found.
+    fn outside_class_member(&mut self, word: &str, path: &[String]) -> Option<Vec<Candidate>> {
+        let (name, module) = path.split_last()?;
+        if module.is_empty() || path[0].starts_with('.') {
+            return None;
+        }
+        if self.external_module(path).is_some() {
+            return None;
+        }
+        let file = self.external_module(module)?;
+        let kind = Kind::Python;
+        let mut patterns = search::def_patterns(kind, word);
+        patterns.extend(search::field_patterns(kind, word).unwrap_or_default());
+        let within = Some(format!("{name}.{word}"));
+        let hits = self.external_grep(kind, std::slice::from_ref(&file), &patterns.join("|"));
+        let text = std::fs::read_to_string(&file).ok()?;
+        let reason = Reason::Import(module.join("."));
+        Some(
+            hits.into_iter()
+                .filter(|h| search::qualified(kind, &text, h.line, word) == within)
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect(),
+        )
+    }
+
+    /// The declarations of `word` by name (`pattern`, and the fields), in `ty` and the project
+    /// classes that extend it, four levels down (#342). `ty` itself counts for what the typed
+    /// walk does not read: a nested class, a `def` under an `if`.
+    fn subclass_members(
+        &mut self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        pattern: &str,
+        ty: &Typed,
+    ) -> Vec<Candidate> {
+        let mut owners = self.subtypes(kind, here, ty);
+        owners.push((ty.path.clone(), ty.line));
+        self.members_by_name(kind, here, word, pattern)
+            .into_iter()
+            .filter(|h| {
+                self.text_of(&h.path).is_some_and(|t| {
+                    let lines: Vec<&str> = t.lines().collect();
+                    search::enclosing_type(kind, &lines, h.line - 1)
+                        .is_some_and(|d| owners.contains(&(h.path.clone(), d)))
+                })
+            })
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            })
+            .collect()
+    }
+
+    /// The top-level declarations of `word` in the modules outside the project that the file's
+    /// `from m import *` lines name (#336).
+    fn star_imported(&mut self, word: &str, imports: &[(String, Vec<String>)]) -> Vec<Candidate> {
+        let kind = Kind::Python;
+        let pattern = search::def_patterns(kind, word).join("|");
+        let mut found = Vec::new();
+        for (_, path) in imports.iter().filter(|(name, _)| name == "*") {
+            let module = &path[..path.len() - 1];
+            if module.is_empty() || module[0].starts_with('.') {
+                continue;
+            }
+            let Some(file) = self.external_module(module) else {
+                continue;
+            };
+            let Ok(text) = std::fs::read_to_string(&file) else {
+                continue;
+            };
+            let hits = self.external_grep(kind, std::slice::from_ref(&file), &pattern);
+            found.extend(
+                hits.into_iter()
+                    .filter(|h| search::qualified(kind, &text, h.line, word).is_none())
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Import(module.join(".")),
+                    }),
+            );
+        }
+        found
+    }
+
+    /// The first line of `file`, a module outside the project, named from its root.
+    fn outside_module(&self, file: PathBuf) -> Vec<Candidate> {
+        let mut found = self.module_candidates(vec![file]);
+        for c in &mut found {
+            let shown = self.rel_to_its_root(Kind::Python, &c.hit.path);
+            c.reason = Reason::Module(shown.display().to_string());
+        }
+        found
+    }
+
+    /// What a Python name bound by an import to `path`, outside the project, is as a whole
+    /// (#333): the module, when the whole path is one and the package above does not bind the
+    /// name itself (that binding keeps its say, through the lookup by import). The name a plain
+    /// `import x` binds is a module or nothing, never a namesake found by name. `None` leaves the
+    /// name to the lookup by import.
+    fn bound_module(&mut self, path: &[String]) -> Option<Vec<Candidate>> {
+        if path[0].starts_with('.') {
+            return None;
+        }
+        let Some(file) = self.external_module(path) else {
+            return (path.len() == 1).then(Vec::new);
+        };
+        if let Some((name, above)) = path.split_last().filter(|(_, above)| !above.is_empty())
+            && let Some(package) = self.external_module(above)
+            && std::fs::read_to_string(&package)
+                .is_ok_and(|t| !search::bindings(Kind::Python, &t, 1, name).is_empty())
+        {
+            return None;
+        }
+        Some(self.outside_module(file))
     }
 
     /// The first line of each of `files`, a module a name or a path leads to as a whole.
@@ -1495,11 +1714,7 @@ impl App {
         // same name beside it. Only when nothing the lookup below reads declares or hands on
         // the name, so what a package's `__init__.py` binds keeps its say.
         let whole_module = || {
-            let mut files = module_files(&tail(path.to_vec()));
-            if files.iter().any(|f| f.ends_with("__init__.py")) {
-                files.retain(|f| f.ends_with("__init__.py"));
-            }
-            let found = self.module_candidates(files);
+            let found = self.module_candidates(self.project_module(here, &tail(path.to_vec())));
             (!found.is_empty()).then_some(found)
         };
         let (files, inside) = match kind {

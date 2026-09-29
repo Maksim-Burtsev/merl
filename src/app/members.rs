@@ -281,6 +281,25 @@ impl App {
     /// it declares it, or an import binds it — so a same-named class in another package is no
     /// subtype. A type that inherits the member without declaring it is no implementation.
     fn subtype_impls(&self, kind: Kind, here: &Path, word: &str, owner: &Typed) -> Vec<Hit> {
+        self.subtypes(kind, here, owner)
+            .into_iter()
+            .filter_map(|(path, decl)| {
+                let text = self.text_of(&path)?;
+                let at = search::member_decl(kind, &text, decl, word)?;
+                Some(Hit {
+                    text: text.lines().nth(at - 1).unwrap_or_default().to_owned(),
+                    path,
+                    line: at,
+                    col: 0,
+                })
+            })
+            .collect()
+    }
+
+    /// The types that name `owner` as a base, and the types that name those, four levels down:
+    /// each as its file and the 1-based line declaring it. [`Self::subtype_impls`] says when a
+    /// type counts as one.
+    pub(super) fn subtypes(&self, kind: Kind, here: &Path, owner: &Typed) -> Vec<(PathBuf, usize)> {
         let mut names = vec![owner.name.clone()];
         let mut types = vec![(owner.name.clone(), owner.path.clone())];
         let mut seen = vec![(owner.path.clone(), owner.line)];
@@ -366,14 +385,7 @@ impl App {
                 seen.push((hit.path.clone(), decl));
                 found.push((name.clone(), hit.path.clone()));
                 next.push(name);
-                if let Some(at) = search::member_decl(kind, &text, decl, word) {
-                    out.push(Hit {
-                        text: text.lines().nth(at - 1).unwrap_or_default().to_owned(),
-                        path: hit.path,
-                        line: at,
-                        col: 0,
-                    });
-                }
+                out.push((hit.path, decl));
             }
             if next.is_empty() || out.len() >= search::MAX_HITS {
                 break;

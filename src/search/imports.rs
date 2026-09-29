@@ -27,6 +27,58 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
     }
     imports_as_written(kind, text)
 }
+/// The module a word in the module path of a Python import line names (#333), when byte `at` of
+/// `line` is in that path: the path's parts up to and including the word. `from app.repos import
+/// X` on `repos` is `[app, repos]`, `import a.b as c, d` on `a` is `[a]`, and a relative `from
+/// ..x.y import z` on `x` keeps its dots as the first part, `["..", "x"]`. `None` on an imported
+/// name, an alias, or any other line.
+pub fn python_import_module(line: &str, at: usize) -> Option<Vec<String>> {
+    static FROM: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*from\s+([\w.]+)\s+import\b").unwrap());
+    static IMPORT: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*import\s+([^#;]+)").unwrap());
+    // Each module path the line spells, with where it starts.
+    let paths: Vec<(usize, &str)> = match FROM.captures(line) {
+        Some(c) => c
+            .get(1)
+            .map(|m| (m.start(), m.as_str()))
+            .into_iter()
+            .collect(),
+        None => {
+            let list = IMPORT.captures(line)?.get(1)?;
+            let mut at = list.start();
+            let mut out = Vec::new();
+            for item in list.as_str().split(',') {
+                let lead = item.len() - item.trim_start().len();
+                if let Some(path) = item.split_whitespace().next() {
+                    out.push((at + lead, path));
+                }
+                at += item.len() + 1;
+            }
+            out
+        }
+    };
+    let (start, path) = paths
+        .into_iter()
+        .find(|&(s, p)| (s..s + p.len()).contains(&at))?;
+    let end = path[at - start..]
+        .find(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .map_or(path.len(), |i| at - start + i);
+    let spelled = &path[..end];
+    let relative = spelled.trim_start_matches('.');
+    let mut parts: Vec<String> = relative
+        .split('.')
+        .filter(|p| !p.is_empty())
+        .map(str::to_owned)
+        .collect();
+    if parts.is_empty() {
+        return None;
+    }
+    if relative.len() < spelled.len() {
+        parts.insert(0, ".".repeat(spelled.len() - relative.len()));
+    }
+    Some(parts)
+}
 /// A TypeScript `import … from`, `require` or `import x = require`: the clause (one of the first
 /// three groups) and the module.
 static TS_IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

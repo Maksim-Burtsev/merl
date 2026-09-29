@@ -164,11 +164,13 @@ fn play(case: &Case) -> (Got, String) {
     let got = match a.picker {
         Some(_) => Got::Picker(definition_rows(&mut a).into_iter().map(|r| r.2).collect()),
         // Nothing found leaves the cursor where it was and says so, or names the label the word
-        // is (#315); a jump may land on the line it started from, on a declaration found by name.
+        // is (#315) or a builtin with no source (#336); a jump may land on the line it started
+        // from, on a declaration found by name.
         None if at(&a) == before
             && (status.starts_with("no ")
                 || status.ends_with(": argument label")
-                || status.ends_with(": key")) =>
+                || status.ends_with(": key")
+                || status.contains(": builtin, no source")) =>
         {
             Got::None
         }

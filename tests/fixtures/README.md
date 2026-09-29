@@ -46,8 +46,8 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   again, which must not make it `Issue`'s; Python's `Issue.summary` is a field over a method of
   `Base`. `tally` / `Serve` hold a local of a field's name (an annotated local, an object
   literal's key, a `var` block) that is no field. Python's `Encoder` extends a class outside the
-  project, so its `self.poster_id` is looked up by name and its nested `Options` is found as on
-  master; `Point` declares `offset` first in a tuple. TypeScript's `Issue` binds `close` in its
+  project, so its `self.poster_id` is no other class's namesake (#342) and its nested `Options` is
+  found as on master; `Point` declares `offset` first in a tuple. TypeScript's `Issue` binds `close` in its
   constructor, and `Issue.label` reads its fields inside `case …: {` blocks, which are no object
   literals, and inside the literal a `case …: return {` returns, which is one.
 

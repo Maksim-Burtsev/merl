@@ -59,3 +59,10 @@ key /
 type OrderService(
 key Enter d
 wait OrderService: via import app/service.py
+# A builtin has no source: d on next says so, with no jump and no picker (#336).
+key [
+wait tests/test_service.py  38:
+key /
+type next(
+key Enter d
+wait next: builtin, no source

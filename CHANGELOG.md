@@ -159,6 +159,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A binary file (an image, a `.pyc`, a build artefact) opens on an empty pane with one centred,
   dimmed line, `binary file, not shown`, and no line number or cursor, instead of the text
   `binary file` as if it were the file's line 1. The status bar still says `read-only`. (#287)
+- `d` in Python on a builtin says `next: builtin, no source` and stays put: a bare `next`, `map`
+  or `ValueError` that nothing in the file binds, and a member of a value proven to be a builtin
+  type, `replace: builtin, no source (via render() -> str)`. It opened a picker of every method
+  of the name in the dependencies, or jumped to the only one, after a grep of all of them. A bare
+  name nothing binds is no longer looked for among the methods outside either: only at the top
+  of a module the file imports with `*`. (#336)
 
 - `d` on a named argument lands on the parameter it names: `Basket(tariff=…)` on `__init__`'s
   `tariff`, `RefreshWindow(interval: 30, maximumAttempts: 1)` on the `init`'s `maximumAttempts`,
@@ -395,6 +401,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or a function-pointer field, never a free function. When the project has no field of the name,
   the system headers are searched for fields only, so `st.st_size` still finds `struct stat`. In
   a C++ constructor's `: filename_(name)` the name lands on the class's own field. (#359)
+- `d` in Python on a module's name opens the module at its first line, `repos: module
+  app/repos.py`: a word in the path of an import line (`repos` in `from app.repos import
+  UserRepo`, `json` in `import json`), and a name an import binds to a module outside the
+  project (`serializers` behind `from rest_framework import serializers`, `json` in
+  `json.dumps`). It jumped to any method of the name in the dependencies, landed `json` in the
+  base interpreter's pip, or said `no definition`. (#333)
+- `d` in Python no longer jumps to a namesake that cannot be the answer. `self.client` in a
+  subclass of Django's `TestCase` offers only what project subclasses of the class set, and
+  says `no definition` without one, where it jumped to any project class's `client`.
+  `User.objects` with `User` imported from a dependency is a member of `User` there, never a
+  module-level `objects` of another package. The one method of a name found outside the project
+  is offered rather than jumped to when a field of that name is declared outside too:
+  `m.return_value` on a `mock.Mock` jumped to anyio's `TaskHandle.return_value`. (#342)
 
 ## [0.7.0] - 2026-09-25
 
