@@ -276,11 +276,7 @@ impl App {
         let same_line = kind == Kind::Jvm
             && locals == [self.line + 1]
             && whole_at(self.line_str(), &word, "").is_some_and(|at| at < range.start);
-        if !dotted
-            && !before.ends_with("::")
-            && !locals.is_empty()
-            && (!on_itself || same_line)
-        {
+        if !dotted && !before.ends_with("::") && !locals.is_empty() && (!on_itself || same_line) {
             let found = locals
                 .iter()
                 .map(|&line| Candidate {

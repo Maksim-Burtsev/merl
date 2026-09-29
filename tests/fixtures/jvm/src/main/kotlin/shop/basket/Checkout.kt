@@ -71,7 +71,7 @@ enum class Lane(val days: Int) {
 }
 
 fun air(): Lane = Lane.AIR
-//                     ^ d: src/main/kotlin/shop/basket/Checkout.kt:65
+//                     ^ d: src/main/kotlin/shop/basket/Checkout.kt:66
 
 fun hire(): String = Courier(name = "post").name
 //                           ^ d: src/main/kotlin/shop/warehouse/Warehouse.kt:8

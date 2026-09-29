@@ -9,8 +9,7 @@ fun card(vm: Vm) {
     //                         ^ d: none
     // status: no definition for height
     vm.followTopic(followedTopicId = "a", false)
-    //             ^ d: none
-    // status: no definition for followedTopicId
+    //             ^ d: src/main/kotlin/locals/data/Vm.kt:4
 }
 
 fun size(repo: Repo): Int = repo.cacheSize + repo.pending
