@@ -368,8 +368,8 @@ pub fn label_lines(
     };
     // The type's own name: an alias or an import may call it otherwise.
     let ty = TYPE.captures(lines[k]).map(|c| c[1].to_owned());
-    match owner {
-        Owner::Args if let Some(name) = ty.as_deref() => {
+    match (owner, ty.as_deref()) {
+        (Owner::Args, Some(name)) => {
             let n = regex::escape(name);
             // Kotlin's and C#'s primary constructor is on the class's own line; Python's
             // brackets there hold its bases.
@@ -420,10 +420,10 @@ pub fn label_lines(
             }
             out
         }
-        Owner::Args => params(kind, &lines, k, name, |p| param_named(kind, p, word))
+        (Owner::Args, None) => params(kind, &lines, k, name, |p| param_named(kind, p, word))
             .into_iter()
             .collect(),
-        Owner::Object(n) => {
+        (Owner::Object(n), _) => {
             let key = Regex::new(&format!(
                 r"(?:^|[{{,;])\s*(?:readonly\s+)?{}\s*\??\s*[:,}};=]",
                 regex::escape(word)
@@ -439,7 +439,7 @@ pub fn label_lines(
             .into_iter()
             .collect()
         }
-        Owner::Typed => {
+        (Owner::Typed, _) => {
             let key = Regex::new(&format!(
                 r"^\s*(?:(?:readonly|public|private|protected|static|declare)\s+)*{}\s*[?!]?\s*:",
                 regex::escape(word)

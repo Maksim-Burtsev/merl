@@ -412,9 +412,9 @@ pub fn go_key(text: &str, line: usize, start: usize, end: usize) -> GoKey {
     };
     match go_literal_type(&lines, &literal, j, i, 0) {
         Some(Ok(t)) if t.starts_with('[') || t.starts_with("map[") => GoKey::Value,
-        Some(Ok(ref t)) if let Some(line) = t.strip_prefix("struct@") => {
-            line.parse().map_or(GoKey::Unknown, GoKey::Struct)
-        }
+        Some(Ok(t)) if t.starts_with("struct@") => t["struct@".len()..]
+            .parse()
+            .map_or(GoKey::Unknown, GoKey::Struct),
         Some(Ok(t)) => GoKey::Of(t.trim_start_matches('*').to_owned()),
         Some(Err(())) => GoKey::Unknown,
         None => GoKey::No,
