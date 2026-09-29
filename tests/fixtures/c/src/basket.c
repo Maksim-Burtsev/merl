@@ -48,7 +48,7 @@ int overweight(int grams)
 {
     int limit = WEIGHT_LIMIT + 20;
     return weigh(grams) > limit;
-    //     ^ d: picker include/shop/warehouse.h:11, src/offers.cc:9, src/warehouse.c:4; want src/warehouse.c:4 (#364)
+    //     ^ d: picker include/shop/warehouse.h:11, src/warehouse.c:4; want src/warehouse.c:4 (#364)
     //                    ^ d: src/basket.c:7; want src/basket.c:49 (#378)
 }
 

@@ -242,6 +242,14 @@ fn ruby_literals_are_read_as_ruby_writes_them() {
     assert!(inside(Kind::Ruby, "# `\n/* x\ndef a; end\n").is_empty());
 }
 
+/// #465. C++'s raw string, with a delimiter and behind an encoding prefix, runs to `)`, the
+/// delimiter and `"`; an `R` that ends a longer name opens nothing.
+#[test]
+fn a_cpp_raw_string_runs_to_its_delimiter() {
+    let cc = "auto a = R\"(\nstruct Ghost {\n)\";\nauto b = u8R\"x(a )\" b\nstruct Ghost2 {\n)x\";\nauto c = LR\"(x)\"; int real;\nauto d = FOOR\"(\";\nstruct Real {};\n";
+    assert_eq!(inside(Kind::C, cc), [2, 3, 5, 6]);
+}
+
 #[test]
 fn a_reason_says_whether_it_proves_the_target() {
     assert_eq!(Reason::ByName.to_string(), "by name");

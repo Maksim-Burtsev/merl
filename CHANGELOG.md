@@ -187,6 +187,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `=begin` block declare nothing, and a comment holding an odd number of backticks no longer
   hides every declaration below it in the file. Ruby was read with the C family's `//`, `/* */`
   and backtick template, so `User#prepare!` in mastodon answered `no definition`. (#379)
+- `d` in C++ reads a raw string, `R"( … )"`, `R"sql( … )sql"` or `u8R"( … )"`, as a string: a
+  declaration-shaped line inside one, such as a banner holding `struct Basket {`, is no longer
+  offered beside the real declaration. (#465)
 
 ## [0.7.0] - 2026-09-25
 

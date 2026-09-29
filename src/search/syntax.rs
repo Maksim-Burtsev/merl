@@ -28,10 +28,10 @@ pub(super) fn comment(kind: Kind, t: &str) -> bool {
 /// backtick in a comment would in a shell script, a Makefile or a CI workflow (#436).
 ///
 /// Rust's strings run over lines as the language runs them (#346): a `"…"` to the `"` no `\`
-/// escapes, a raw `r#"…"#` to its `"#`; a `'` opens only a char literal, never a lifetime.
-/// Ruby writes `#` comments, `=begin` blocks, heredocs (`<<~SQL`, several on one line read in
-/// order) and `__END__`, after which every line is data (#379); its `%q()`, backtick and regex
-/// literals end with their line.
+/// escapes, a raw `r#"…"#` to its `"#`; a `'` opens only a char literal, never a lifetime. A C++
+/// raw string, `R"(…)"` or `u8R"x(…)x"`, runs to its `)x"` (#465). Ruby writes `#` comments,
+/// `=begin` blocks, heredocs (`<<~SQL`, several on one line read in order) and `__END__`, after
+/// which every line is data (#379); its `%q()`, backtick and regex literals end with their line.
 ///
 /// ponytail: Elixir's `~S"""` sigil is read from its `"""`, and its one-line `~s(…)` forms not at
 /// all; Ruby's multi-line `%q{…}` is read as code, and a `/` opens a regex only after an operator
@@ -292,6 +292,23 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             if let Some(end) = end.filter(|&e| b.get(e) == Some(&b'\'')) {
                 i = end;
             }
+        } else if let Some(delim) = (kind == Kind::C
+            && c == b'R'
+            && b.get(i + 1) == Some(&b'"')
+            && token_at(i, &[b"u8", b"u", b"U", b"L"]))
+        .then(|| {
+            b[i + 2..]
+                .iter()
+                .take(17)
+                .position(|&c| c == b'(')
+                .map(|n| &b[i + 2..i + 2 + n])
+        })
+        .flatten()
+        .filter(|d| !d.iter().any(|c| b" )\\\t\n".contains(c)))
+        {
+            // C++'s `R"(…)"`, `R"sql(…)sql"`: closed by `)`, the delimiter and `"`, no escapes.
+            block = Some([&b")"[..], delim, b"\""].concat().into());
+            i += delim.len() + 2;
         } else if kind == Kind::Ruby && line_start && b[i..].starts_with(b"__END__") && {
             let rest = &b[i + 7..];
             rest.first().is_none_or(|&c| c == b'\n' || c == b'\r')

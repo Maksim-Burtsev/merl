@@ -54,7 +54,7 @@ int weight() {
   return rnd.rate() + shop::Basket(rnd).price();
   //     ^ d: none; want src/checkout.cc:53 (#378)
   //                  ^ d: picker src/checkout.cc:5, …
-  //                        ^ d: picker src/checkout.cc:7, src/offers.cc:8; want src/checkout.cc:7 (#465)
+  //                        ^ d: src/checkout.cc:7
 }
 
 }  // namespace shop
