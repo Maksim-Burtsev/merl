@@ -1,0 +1,13 @@
+# php-d: d on `$this->render()` in a PHP class lands on the method of the class it extends, and
+# `$this->number()` on the trait it uses, where each was a picker of every declaration of the
+# name in the project (#356). `Receipt` declares both names too.
+merl scripts/invoices.php
+wait final class Receipt
+key t /
+type render('pdf
+key Enter d
+wait render → Document::render (via $this: Invoice)
+key [ /
+type number() .
+key Enter d
+wait number → Numbered::number (via $this: Invoice)

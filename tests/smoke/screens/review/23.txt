@@ -10,7 +10,7 @@ wait Files (
 │✓       M values.yaml  +1 −0│  ▎    def get(self, order_id: int) -> Order | None:
 │  ▾ docs                    │  ▎        return self.orders.get(order_id)
 │    M architecture.png   bin│  ▎
-│  ▾ scripts       ┌Files (47/47)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  ▾ scripts       ┌Files (48/48)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │    D refund_by_ha│>                                                                                                                                                 │
 │  ▾ tests         │A app/refunds.py                                                                                                                                  │
 │    A test_refunds│M app/repos.py                                                                                                                                    │
@@ -35,13 +35,13 @@ wait Files (
 │                  │  scripts/payouts/src/main.rs                                                                                                                     │
 │                  │  scripts/payouts/src/summary.rs                                                                                                                  │
 │                  │  scripts/payouts/Cargo.toml                                                                                                                      │
+│                  │  scripts/invoices.php                                                                                                                            │
 │                  │  tests/test_service.py                                                                                                                           │
 │                  │  web/src/api/client.ts                                                                                                                           │
 │                  │  web/src/components/Dialog.ts                                                                                                                    │
 │                  │  web/src/orders/GetShipment.graphql                                                                                                              │
 │                  │  web/src/orders/repo.ts                                                                                                                          │
 │                  │  web/src/orders/shipment.graphql                                                                                                                 │
-│                  │  web/src/orders/ShipmentParts.graphql                                                                                                            │
 │                  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 │                            │
 │                            │

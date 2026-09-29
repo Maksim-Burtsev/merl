@@ -73,6 +73,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` in PHP on `$this->name`, `self::NAME`, `static::name()` and `parent::name()` reads the
+  class the cursor is in, the traits it uses and the classes it extends, and lands on the one
+  declaration, `open → BaseStorage::open (via $this: ImageStorage)`, where it offered every
+  declaration of the name in the project: a picker for most, and a jump to another enum's case
+  for `self::INVALID`. A parent from `vendor/` is read from its own file, and a member it does
+  not declare is `no definition` rather than a namesake of the project. (#356)
 - `merl -r BRANCH` reviews a branch another worktree has checked out, an agent's say, in that
   worktree, as `merl -r` started there would: nothing is fetched, switched or reset there, and its
   work not committed yet is part of the review. Before, merl exited with git's `already used by

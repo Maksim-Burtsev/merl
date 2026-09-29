@@ -9,6 +9,7 @@ wait access_level = "user<202e> <2066>// Check if admin<2069> <2066>"
 │▾ scripts                   │
 │  ▸ payouts                 │
 │    grant_admin.py          │
+│    invoices.php            │
 │    refund_by_hand.py       │
 │▸ tests                     │
 │▸ web                       │
@@ -20,7 +21,6 @@ wait access_level = "user<202e> <2066>// Check if admin<2069> <2066>"
 │  Makefile                  │
 │  pyproject.toml            │
 │  README.md                 │
-│                            │
 │                            │
 │                            │
 │                            │

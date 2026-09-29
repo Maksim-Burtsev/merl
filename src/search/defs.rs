@@ -1,7 +1,7 @@
 //! The line patterns `d` looks a declaration up with, per kind and per word, and the
 //! reason a candidate is offered under.
 
-use super::php::{php_method, php_namespace_line, php_properties, php_tags};
+use super::php::{php_constants, php_method, php_namespace_line, php_properties, php_tags};
 use super::*;
 use regex::Regex;
 use std::path::{Path, PathBuf};
@@ -261,17 +261,15 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             let mods = php_mods!();
             let [property, promoted] = php_properties(&w);
             let [property_tag, method_tag] = php_tags(&w);
+            let [constant, case] = php_constants(&w);
             vec![
                 php_method(&w),
                 format!(r"{mods}(?:class|interface|trait|enum)\s+{w}\b"),
                 php_namespace_line(&w),
-                // A constant: the `const` of a class or a file, and the `define()` of a global.
-                // A class constant can carry a type (PHP 8.3), `const ?string X` included (#344).
-                format!(r"{mods}const\s+(?:[\w\\|&?()]+\s+)?{w}\b"),
+                constant,
+                // The `define()` of a global.
                 format!(r#"^\s*define\s*\(\s*['"]{w}['"]"#),
-                // An enum case. A `case X:` of a `switch` matches against a constant, so what
-                // follows the name must not be a `:`.
-                format!(r"^\s*case\s+{w}\s*(?:=[^=]|;|$)"),
+                case,
                 property,
                 promoted,
                 // An assignment that opens a line, `.=` and `??=` included. `==` compares, `=>`

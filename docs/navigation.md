@@ -268,6 +268,19 @@ the member first, leave the word to the search by name, and so do `super()` in a
 the method and a local assigned from `super.make()`, whose return type an override may narrow. Go has no `super`: its
 `i.Base.Touch()` is a chain through the embedded struct.
 
+PHP's `$this->word`, `self::word` and `static::word` are a member of the class the cursor is in:
+the nearest `class`, `interface` or `enum` line above, indented less. Its methods, its properties
+(promoted constructor parameters included), its constants and enum cases and the tags of its
+docblock count; a call is a method, `->word` and `::$word` a property, `::WORD` a constant. When
+the class does not declare the word, the traits its body `use`s come first, then the class it
+`extends`, walked the same way up to eight levels: `open → BaseStorage::open (via $this:
+ImageStorage)`. `parent::word` starts the walk one level up, `(via parent of ImageStorage)`. A
+trait or a parent is the one its `use` import names, else the project's one declaration of the
+name; one the project does not declare is read from its file in `vendor/`, and a member found
+nowhere there is `no definition`, never another class's namesake. A cursor in an anonymous class
+or in a trait's own body, a trait or a parent the project declares twice with no import to
+choose, and a walk that finds nothing inside the project leave the word to the search by name.
+
 A chain is followed the same way one field at a time, up to six names in front of the word: on
 `self.uow.users.delete_user` the type of `self.uow`, then the field `users` in that type, then
 `delete_user` in the type of `users`. A field may be declared in a class the type extends, or

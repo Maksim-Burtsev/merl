@@ -226,6 +226,33 @@ impl App {
             return;
         }
         let pattern = patterns.join("|");
+        // PHP's `$this->`, `self::`, `static::` and `parent::` name the class around the cursor, a
+        // trait it uses or a class it extends (#356); `self::$name` is a static property.
+        if kind == Kind::Php {
+            let property = before.strip_suffix('$').filter(|b| b.ends_with("::"));
+            let b = property.unwrap_or(before);
+            let link = match search::qualifier(b, b.len()).as_slice() {
+                [l] if dotted && l == "this" => Some(l.clone()),
+                [l] if !dotted
+                    && b.ends_with("::")
+                    && matches!(l.as_str(), "self" | "static" | "parent") =>
+                {
+                    Some(l.clone())
+                }
+                _ => None,
+            };
+            let access = match self.line_str()[range.end..].trim_start().starts_with('(') {
+                true => search::PhpAccess::Call,
+                false if dotted || property.is_some() => search::PhpAccess::Property,
+                false => search::PhpAccess::Constant,
+            };
+            if let Some(link) = link
+                && let Some(found) = self.php_link(&here, &text, &link, &word, access)
+            {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
         // Rust's attributes, fields and variants, which the lines below cannot tell (#370).
         if kind == Kind::Rust
             && let Some(found) = self.rust_early(&here, &text, &word, range.clone(), dotted)

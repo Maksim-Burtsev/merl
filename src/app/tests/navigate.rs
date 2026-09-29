@@ -1261,3 +1261,49 @@ fn php_arrow_reaches_members_only() {
         let _ = std::fs::remove_dir_all(dir);
     }
 }
+
+/// A walk from `$this` that leaves the project reads the parent's file in `vendor/`, the one its
+/// import names, and never another class's namesake (#356).
+#[test]
+fn php_this_walks_into_vendor_and_no_further() {
+    let crate_ = "<?php\n\nnamespace App;\n\nuse Symfony\\Component\\Console\\Command\\Command;\n\nfinal class Crate extends Command\n{\n    public function pack(): void\n    {\n        $this->run();\n        $this->seal();\n        self::SUCCESS;\n    }\n}\n";
+    let rack = "<?php\n\nnamespace App;\n\nclass Rack\n{\n    public function run(): void\n    {\n    }\n\n    public function seal(): void\n    {\n    }\n}\n";
+    let command = "<?php\n\nnamespace Symfony\\Component\\Console\\Command;\n\nclass Command\n{\n    public const SUCCESS = 0;\n\n    public function run(): int\n    {\n    }\n}\n";
+    // Another `Command.php` in another namespace: the import names the one to read.
+    let other = "<?php\n\nnamespace Other;\n\nclass Command\n{\n    public function run(): int\n    {\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "php-this-vendor",
+        &[
+            (".gitignore", "vendor/\n"),
+            ("app/Crate.php", crate_),
+            ("app/Rack.php", rack),
+            ("vendor/symfony/console/Command/Command.php", command),
+            ("vendor/other/Command.php", other),
+        ],
+    );
+    let vendored = "symfony/console/Command/Command.php";
+    let mut d = |code: &str| {
+        d_on(&mut a, "app/Crate.php", code);
+        shown(&mut a)
+    };
+    assert_eq!(
+        d("$this->run"),
+        jump(
+            "run \u{2192} Command::run (via $this: Crate)",
+            &format!("vendor/{vendored}:9")
+        )
+    );
+    assert_eq!(
+        d("self::SUCCESS"),
+        jump(
+            "SUCCESS \u{2192} Command::SUCCESS (via self: Crate)",
+            &format!("vendor/{vendored}:7")
+        )
+    );
+    // Not `Rack::seal`.
+    assert_eq!(
+        d("$this->seal"),
+        jump("no definition for seal", "app/Crate.php:12")
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
