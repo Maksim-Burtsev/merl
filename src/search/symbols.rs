@@ -414,7 +414,8 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
 /// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, C#,
 /// Swift, PHP, Lua and Elixir have rows of their own in [`SYMBOLS`], written for what those
 /// languages declare and how they name it, so reading the all-language pattern over them too
-/// would list a declaration twice.
+/// would list a declaration twice. Markdown has none: a declaration in a README's code block is
+/// an example, not one of the project, and a heading is prose that `s` finds (#421).
 pub fn shared_symbols(kind: Option<Kind>) -> bool {
     !matches!(
         kind,
@@ -427,6 +428,7 @@ pub fn shared_symbols(kind: Option<Kind>) -> bool {
                 | Kind::Php
                 | Kind::Lua
                 | Kind::Elixir
+                | Kind::Markdown
         )
     )
 }

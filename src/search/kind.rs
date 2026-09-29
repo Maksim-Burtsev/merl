@@ -26,6 +26,8 @@ pub enum Kind {
     Terraform,
     Docker,
     Yaml,
+    /// `d` follows a link or a path in a code span to the file or the heading it names (#421).
+    Markdown,
 }
 pub fn kind_of(path: &Path) -> Option<Kind> {
     let name = path.file_name()?.to_str()?;
@@ -69,6 +71,8 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,
         (_, "yml" | "yaml") => Kind::Yaml,
+        // MDX writes its links as Markdown does.
+        (_, "md" | "markdown" | "mdx") => Kind::Markdown,
         (_, "dockerignore") => return None,
         ("Dockerfile" | "Containerfile", _) | (_, "dockerfile" | "Dockerfile") => Kind::Docker,
         _ if name.starts_with("Dockerfile.") || name.starts_with("Containerfile.") => Kind::Docker,

@@ -37,6 +37,10 @@ pub(super) fn comment(kind: Kind, t: &str) -> bool {
 /// all; Ruby's multi-line `%q{…}` is read as code, and a `/` opens a regex only after an operator
 /// or a bracket, not after `when` or `split `.
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
+    // Markdown's are blocks, not tokens: a fence, an HTML comment, the front matter (#421).
+    if kind == Kind::Markdown {
+        return markdown_literal_lines(text);
+    }
     scan(kind, text, usize::MAX).0
 }
 /// Whether byte `at` of `text` stands inside a Rust string literal, between its quotes: nothing

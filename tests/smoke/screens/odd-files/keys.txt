@@ -6,6 +6,7 @@ Esc
 PgDn
 PgUp
 Picker: Enter
+d
 o
 q
 t

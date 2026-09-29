@@ -416,6 +416,8 @@ fn known_file(name: &str) -> Option<&'static str> {
         ("Procfile" | "yarn.lock", _) => "YAML",
         // Starlark.
         ("WORKSPACE" | "Tiltfile", _) => "Python",
+        // bat's set owns `.md` and `.markdown`; MDX is Markdown with JSX in it (#421).
+        (_, "mdx") => "Markdown",
         _ => return None,
     })
 }
@@ -536,6 +538,26 @@ mod tests {
                 colours.len() > 1,
                 "init.lua {name}: everything is one colour"
             );
+        }
+    }
+
+    #[test]
+    fn markdown_highlights_with_every_shipped_theme() {
+        let src = "# Notes\n\nSee the [README](../README.md#languages) and `src/main.rs`.\n";
+        for file in ["notes.md", "notes.markdown", "page.mdx"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("Markdown"),
+                    "{file} {name}"
+                );
+                b.highlight_to(3, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
         }
     }
 

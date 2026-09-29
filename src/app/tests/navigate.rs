@@ -1150,3 +1150,52 @@ fn a_makefile_recipe_line_declares_no_variable() {
     assert_eq!(shown(&mut a), jump("EXE: by name, 1 match", "tools.mk:2"));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #421. `d` on a Markdown link says why nothing opens where the fixture's annotations cannot
+/// (their answers are no places, or name a file with a space), and `D` lists nothing of a README.
+#[test]
+fn markdown_links_outside_to_a_directory_and_to_a_spaced_name() {
+    let (dir, mut a) = project_app(
+        "markdown",
+        &[
+            (
+                "docs/a.md",
+                "[site](https://example.com) [host](//example.com) [mail](mailto:me@x.org)\n\
+                 [dir](../docs/) [up](../../out.md) [spaced](<my notes.md>) [encoded](my%20notes.md)\n",
+            ),
+            ("docs/my notes.md", "# Notes\n"),
+            (
+                "README.md",
+                "# Parse\n\n```python\ndef parse(raw):\n    return raw\n```\n",
+            ),
+            ("app.py", "def serve():\n    pass\n"),
+        ],
+    );
+    for word in ["[site", "[host", "[mail", "[up"] {
+        d_on(&mut a, "docs/a.md", &format!("{word}|]"));
+        assert_eq!(a.message, "link outside the project", "{word}");
+    }
+    d_on(&mut a, "docs/a.md", "[dir|]");
+    assert_eq!(a.message, "docs/: a directory");
+    for word in ["[spaced", "[encoded"] {
+        d_on(&mut a, "docs/a.md", &format!("{word}|]"));
+        assert_eq!(
+            shown(&mut a),
+            jump("link docs/my notes.md", "docs/my notes.md:1"),
+            "{word}"
+        );
+    }
+    // A declaration in a README's code block is an example, not one of the project.
+    press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+    let picker = a.picker.as_mut().unwrap();
+    picker.settle();
+    let rows: Vec<String> = picker
+        .window(20)
+        .0
+        .into_iter()
+        .map(|r| r.item.label.clone())
+        .collect();
+    assert!(rows.iter().all(|r| !r.contains("README.md")), "{rows:?}");
+    assert!(rows.iter().any(|r| r.contains("serve")), "{rows:?}");
+    let _ = std::fs::remove_dir_all(dir);
+}

@@ -32,3 +32,7 @@
 - The support page lists the last 20 orders of a customer.
 - ✔️ Cancelled orders show the reason the customer gave, under the total.
 - Refunds by hand go through scripts/refund_by_hand.py until the refund flow ships.
+
+## 1.4.0
+
+- How to run the API on your machine: [the README](../README.md#orders).

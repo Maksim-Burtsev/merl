@@ -202,6 +202,13 @@ also has a file that opens with a glob or a lone backtick above a declaration, a
 block scalar holding a declaration-shaped line: today's answers there are the known misses of
 #436, and the globs inside quotes (`"parcels/*"`, `["src/**/*.rs"]`) guard what already works.
 
+`markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
+`docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
+a setext one, backticks and punctuation, an `<a id>`), code spans naming files (`mod.rs` is
+carried by two), and links in a fence, a comment and the front matter. Its annotations start
+with `#`, which Markdown reads as a heading: a `#^` right under a line is no heading but text, so
+a reference definition below one needs a blank line to start its own block.
+
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
 the project walk does not reach, one whose module is no path and two declaring one name (#437).

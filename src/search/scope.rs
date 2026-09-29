@@ -13,7 +13,7 @@ use super::*;
 /// directory; everything else is every file of the same kind, so `.tsx` finds `.ts`.
 pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
     match kind {
-        Kind::Docker | Kind::Yaml => path == here,
+        Kind::Docker | Kind::Yaml | Kind::Markdown => path == here,
         Kind::Terraform => kind_of(path) == Some(kind) && path.parent() == here.parent(),
         Kind::Python
         | Kind::Go
@@ -204,7 +204,8 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         | Kind::Make
         | Kind::Terraform
         | Kind::Docker
-        | Kind::Yaml => Vec::new(),
+        | Kind::Yaml
+        | Kind::Markdown => Vec::new(),
     };
     // The order is deliberate, so no sort: `sys.path` can list a directory twice, far apart.
     let mut seen = std::collections::HashSet::new();

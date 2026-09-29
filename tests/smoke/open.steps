@@ -62,6 +62,6 @@ wait docs/notes.md  1:1
 key /
 type order
 key Enter n n N
-wait 2/13
+wait 2/14
 key Escape p
 wait ━━━━━━━━━━
