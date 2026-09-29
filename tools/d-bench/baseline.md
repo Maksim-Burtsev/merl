@@ -1,6 +1,6 @@
 # `d` bench baseline
 
-merl at `fa159b2`, 2026-09-29, release build, `vm.loadavg` { 6.15 9.16 6.73 } before the run, { 5.74 9.02 6.70 } after.
+merl at `15e641d`, 2026-09-29, release build, `vm.loadavg` { 15.77 13.76 14.34 } before the run, { 15.77 13.76 14.34 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -16,4 +16,4 @@ merl at `fa159b2`, 2026-09-29, release build, `vm.loadavg` { 6.15 9.16 6.73 } be
 | java (halo) | 37 | 11 (30%) | 14 (38%) | 0 (0%) | 12 (32%) | 43 | 30.4 | 63.3 |
 | kotlin (nowinandroid) | 30 | 17 (57%) | 8 (27%) | 2 (7%) | 3 (10%) | 50 | 10.0 | 18.5 |
 | csharp (eShop) | 27 | 10 (37%) | 14 (52%) | 0 (0%) | 3 (11%) | 53 | 12.4 | 23.1 |
-| ruby (mastodon) | 28 | 19 (68%) | 4 (14%) | 2 (7%) | 3 (11%) | 52 | 63.8 | 124.2 |
+| ruby (mastodon) | 28 | 17 (61%) | 6 (21%) | 2 (7%) | 3 (11%) | 52 | 40.4 | 77.2 |

@@ -15,7 +15,7 @@ class Settings
 
   def warm
     STORE.cache
-    #     ^ d: app/settings.rb:2
+    #     ^ d: picker app/settings.rb:2
   end
 end
 

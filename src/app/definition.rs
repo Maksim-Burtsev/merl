@@ -688,6 +688,9 @@ impl App {
                 })
                 .collect();
         }
+        // Ruby's core and gems are not read (#390): the one namesake the project declares of
+        // `x.each` or `logger.info` proves nothing, and is offered rather than jumped to.
+        self.offer_only |= kind == Kind::Ruby && on_value && self.external_files(kind).is_empty();
         let mut lookup = self.settle_definitions(kind, &word, &here, found, broke.as_deref());
         lookup.aside = aside;
         Some(lookup)

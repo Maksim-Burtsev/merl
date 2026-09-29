@@ -6,6 +6,6 @@ class Report
 
   def remotes(account)
     account.remote?
-    #       ^ d: app/account.rb:7
+    #       ^ d: picker app/account.rb:7
   end
 end

@@ -17,7 +17,7 @@ class Feed
     Clock.tick
     #     ^ d: app/helpers.rb:18
     post.title = "x"
-    #    ^ d: app/post.rb:10
+    #    ^ d: picker app/post.rb:10
     post.title == "x"
     #    ^ d: picker app/post.rb:4, app/post.rb:7, app/post.rb:11
   end
