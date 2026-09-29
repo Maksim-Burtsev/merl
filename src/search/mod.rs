@@ -9,6 +9,7 @@
 //! it wants (`search::def_patterns`) and not which module happens to hold it.
 
 mod bindings;
+mod c;
 mod defs;
 mod fields;
 mod grep;
@@ -24,6 +25,7 @@ mod types;
 mod words;
 
 pub use bindings::*;
+pub use c::*;
 pub use defs::*;
 pub use fields::*;
 pub use grep::*;

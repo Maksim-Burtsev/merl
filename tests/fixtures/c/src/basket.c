@@ -19,7 +19,7 @@ int gross(struct basket *b, rate_fn fn)
 {
     return discount(fn(b->items)) + CENTS(RATE_CAP);
     //     ^ d: src/pricing.c:5
-    //                    ^ d: none; want src/basket.c:11 (#359)
+    //                    ^ d: src/basket.c:11
     //                              ^ d: include/shop/pricing.h:10
     //                                    ^ d: include/shop/pricing.h:9
 }
@@ -33,14 +33,14 @@ money_t bonus(enum offer o, struct bits *bits, union tag_value *v)
     return o == OFFER_CUT ? settle(bits->whole) : v->number;
     //          ^ d: none; want include/shop/pricing.h:18 (#373)
     //                      ^ d: src/pricing.c:11
-    //                                   ^ d: none; want include/shop/pricing.h:21 (#359)
-    //                                               ^ d: none; want include/shop/pricing.h:26 (#359)
+    //                                   ^ d: include/shop/pricing.h:21
+    //                                               ^ d: picker include/shop/invoice.hh:8, include/shop/pricing.h:26; want include/shop/pricing.h:26 (#386)
 }
 
 int restock(int discount)
 {
     return discount + WEIGHT_LIMIT;
-    //     ^ d: picker include/shop/pricing.h:39, src/pricing.c:5; want src/basket.c:40 (#378)
+    //     ^ d: src/basket.c:40
     //                ^ d: src/basket.c:5
 }
 
@@ -49,7 +49,7 @@ int overweight(int grams)
     int limit = WEIGHT_LIMIT + 20;
     return weigh(grams) > limit;
     //     ^ d: src/warehouse.c:4
-    //                    ^ d: src/basket.c:7; want src/basket.c:49 (#378)
+    //                    ^ d: src/basket.c:49
 }
 
 const char *dispatch(void)
@@ -58,7 +58,7 @@ const char *dispatch(void)
  // ^ d: include/shop/warehouse.h:9
     //                   ^ d: src/warehouse.c:9
     return courier->name;
-    //              ^ d: none; want include/shop/warehouse.h:5 (#359)
+    //              ^ d: include/shop/warehouse.h:5
 }
 
 int counted(stamp *s)

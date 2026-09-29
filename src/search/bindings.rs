@@ -194,6 +194,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
                 .collect()
         }),
         Kind::Zig => zig_bindings(&lines, at, name),
+        Kind::C => c_bindings(text, line, name),
         _ => Vec::new(),
     }
 }

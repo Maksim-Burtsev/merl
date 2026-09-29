@@ -70,6 +70,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `import` opens that file; a type qualified by its package, `billing.v1.Money` or
   `google.protobuf.Timestamp`, lands in that package's files, and the well-known types `protoc`
   installs are reached, read-only. `D` lists the messages, enums, services and rpcs. (#418)
+- `d` in C and C++ on a parameter or a local lands on its declaration, `i → crc32::i (local)`,
+  and it hides every function, macro, global and system header of the name: `link` in
+  `link->node` jumped to POSIX `link()`, and a variable declared a few lines up said `no
+  definition`. The innermost block that declares the name wins, a block closed before the cursor
+  does not count, a `for (int i = …)` binds `i` in its loop, and a lambda reads on into the
+  function around it; `a && b == c`, `x & FLAG` and a declaration inside a string bind nothing.
+  In a C++ method a bare member, `return filename_;`, lands on its class's field. A value, a word
+  followed by `->` or `.`, is never a struct, a `typedef` or a `using` alias, so `group->pel`
+  no longer opens the system's `struct group`. (#378)
 
 ### Changed
 
@@ -379,6 +388,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for in the callee or the literal's type only; when that is outside the project or not found, the
   status line says `node: key` or `ids: argument label` and nothing opens. Python, TypeScript,
   JavaScript, Kotlin, Swift, C#, PHP and Ruby. (#315)
+- `d` in C and C++ on `x->name` or `x.name` lands on the field `name` of a struct, union or
+  class, where it landed on a function, a `#define`, a global or a type of the same name, or
+  said `no definition`: in redis `n->data` jumped to a `#define data`, in leveldb `m->level` to
+  a method `level()`. Several fields of one name are a picker. A called `x->name(…)` is a method
+  or a function-pointer field, never a free function. When the project has no field of the name,
+  the system headers are searched for fields only, so `st.st_size` still finds `struct stat`. In
+  a C++ constructor's `: filename_(name)` the name lands on the class's own field. (#359)
 
 ## [0.7.0] - 2026-09-25
 

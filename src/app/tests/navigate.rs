@@ -1200,3 +1200,62 @@ fn markdown_links_outside_to_a_directory_and_to_a_spaced_name() {
     assert!(rows.iter().any(|r| r.contains("serve")), "{rows:?}");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// #359. `x->word` in C names a field: the function, the macro and the type of the name are
+/// none. With no field of the name in the project, the files outside are searched for fields
+/// only, so a system struct's field is found and its namesakes there are not.
+#[test]
+fn a_c_member_the_project_lacks_is_a_field_outside() {
+    let (dir, mut a) = project_app(
+        "c-field-outside",
+        &[(
+            "size.c",
+            "#include <sys/stat.h>\n\nlong st_size(void) { return 0; }\n\nlong size_of(struct stat *st) { return st->st_size + st->st_mode; }\n",
+        )],
+    );
+    let root = external_root(
+        "c-field-outside",
+        &[(
+            "sys/stat.h",
+            "#define st_mode st_x\nstruct st_size { int n; };\nstruct stat {\n    long st_size;\n    int st_x;\n};\nint st_mode(void);\n",
+        )],
+    );
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
+    d_on(&mut a, "size.c", "st->st_size");
+    let stat = root.join("sys/stat.h");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "st_size \u{2192} stat::st_size (by name, 1 match)",
+            &format!("{}:4", stat.display())
+        )
+    );
+    d_on(&mut a, "size.c", "st->st_mode");
+    assert_eq!(a.message, "no definition for st_mode");
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// #378. A word followed by `->` or `.` is a value: a system `struct group` is no answer for
+/// `group->gr_name`, and a parameter of the name is.
+#[test]
+fn a_c_value_is_never_a_system_struct() {
+    let (dir, mut a) = project_app(
+        "c-value-type",
+        &[(
+            "who.c",
+            "#include <grp.h>\n\nconst char *who(void) { return group->gr_name; }\n\nconst char *mine(struct group *group)\n{\n    return group->gr_name;\n}\n",
+        )],
+    );
+    let root = external_root(
+        "c-value-type",
+        &[("grp.h", "struct group {\n    char *gr_name;\n};\n")],
+    );
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
+    d_on(&mut a, "who.c", "return group");
+    assert_eq!(a.message, "no definition for group");
+    d_on(&mut a, "who.c", "    return group");
+    assert_eq!(shown(&mut a), jump("group: local", "who.c:5"));
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
