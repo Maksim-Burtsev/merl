@@ -881,7 +881,8 @@ impl App {
             // Alone, the declaration under the cursor is its own answer.
             && found
                 .iter()
-                .any(|c| c.hit.line != self.line + 1 || c.hit.path != here);
+                .any(|c| c.hit.line != self.line + 1 || c.hit.path != here)
+            && self.on_declared_name(kind, word);
         // Tests, mocks, fixtures, generated and vendored copies of a declaration come last here
         // too (#81) — except in the file on screen, which is what the reader is reading. The sort
         // is stable and every candidate is a declaration, so the rest keep the order the search
@@ -927,6 +928,58 @@ impl App {
                 }
                 self.message = status;
             }
+        }
+    }
+
+    /// Whether the cursor stands on the name its line declares, not only on that line (#317):
+    /// `let request = session.request(url)` declares the first `request`, and the second is a
+    /// method looked up as on any other line. The declared one is the occurrence of `word` the
+    /// line no longer reads as a declaration without; a line no pattern reads (a parameter)
+    /// declares its first. A word the line does not spell as is (a Ruby setter) is on it.
+    fn on_declared_name(&self, kind: Kind, word: &str) -> bool {
+        let line = self.line_str();
+        let Some((r, _)) = search::definition_word(Some(kind), line, self.col) else {
+            return true;
+        };
+        let part = |c: char| is_word(c) || search::word_chars(Some(kind), true).contains(c);
+        let at: Vec<usize> = line
+            .match_indices(word)
+            .map(|(i, _)| i)
+            .filter(|&i| !line[..i].ends_with(part) && !line[i + word.len()..].starts_with(part))
+            .collect();
+        if !at.contains(&r.start) {
+            return true;
+        }
+        let mut patterns = search::def_patterns(kind, word);
+        patterns.extend(search::member_or_signature(kind, word).unwrap_or_default());
+        let re = Regex::new(&patterns.join("|"))
+            .ok()
+            .filter(|re| re.is_match(line));
+        // Another word of the same shape, capitals where it has them: a C# type still reads as one.
+        let other: String = word
+            .chars()
+            .map(|c| match c {
+                'q' => 'z',
+                'Q' => 'Z',
+                '0' => '1',
+                c if c.is_lowercase() => 'q',
+                c if c.is_uppercase() => 'Q',
+                c if c.is_numeric() => '0',
+                c => c,
+            })
+            .collect();
+        let declared: Vec<usize> = at
+            .iter()
+            .copied()
+            .filter(|&i| {
+                re.as_ref().is_some_and(|re| {
+                    !re.is_match(&format!("{}{other}{}", &line[..i], &line[i + word.len()..]))
+                })
+            })
+            .collect();
+        match declared.as_slice() {
+            [] => at[0] == r.start,
+            _ => declared.contains(&r.start),
         }
     }
 

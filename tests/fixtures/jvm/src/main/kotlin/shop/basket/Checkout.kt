@@ -43,7 +43,7 @@ private fun limit(): Grams = LIMIT
 fun track(tracker: Tracker, speed: Speed): Boolean = tracker.track(speed.name) && limit() > 0
 //                 ^ d: src/main/kotlin/shop/basket/Checkout.kt:14
 //                                 ^ d: src/main/kotlin/shop/basket/Checkout.kt:12
-//                                                           ^ d: picker src/main/kotlin/shop/basket/Checkout.kt:15; want src/main/kotlin/shop/basket/Checkout.kt:15 (#317)
+//                                                           ^ d: src/main/kotlin/shop/basket/Checkout.kt:15
 //                                                                                ^ d: picker src/main/kotlin/shop/basket/Checkout.kt:39, src/main/kotlin/shop/warehouse/Warehouse.kt:18; want src/main/kotlin/shop/basket/Checkout.kt:39 (#357)
 
 fun outcome(o: Outcome): Int = when (o) {
