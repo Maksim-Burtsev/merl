@@ -213,6 +213,37 @@ fn a_declaration_inside_a_literal_is_not_one() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #488: PHP's `#` is a line comment, so the `/*` of a glob in one opens nothing. #475: a C#
+/// verbatim string has no escapes, so `@"C:\"` ends at its second `"`. The declarations below
+/// both are found.
+#[test]
+fn a_php_hash_comment_or_a_csharp_verbatim_backslash_hides_nothing() {
+    let (dir, mut a) = project_app(
+        "hash-verbatim",
+        &[
+            (
+                "a.php",
+                "<?php\n# loads lib/*\nfunction below() { return 1; }\nfunction call() { return below(); }\n",
+            ),
+            (
+                "a.cs",
+                "class A {\n    string P = @\"C:\\\";\n    void Below() { }\n    void Call() { Below(); }\n}\n",
+            ),
+        ],
+    );
+    for kind in [Kind::Php, Kind::CSharp] {
+        a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
+    }
+    d_on(&mut a, "a.php", "return below");
+    assert_eq!(shown(&mut a), jump("below: by name, 1 match", "a.php:3"));
+    d_on(&mut a, "a.cs", "{ Below");
+    assert_eq!(
+        shown(&mut a),
+        jump("Below \u{2192} A.Below (by name, 1 match)", "a.cs:3")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// Found by the acceptance pass of #68: `Outer.find` names what `Outer` declares, and a
 /// method `find` of some class elsewhere used to take the jump with `1 match`.
 #[test]

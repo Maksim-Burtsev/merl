@@ -42,3 +42,8 @@ key C-End
 wait {"i…
 key w End
 wait 1 ‹
+# A binary file is an empty pane with one centred, dimmed note, no line number, no cursor (#287).
+key o
+type architecture
+key Enter
+wait binary file, not shown

@@ -1485,3 +1485,32 @@ fn a_wider_pane_draws_the_cursor_on_its_own_line() {
     assert_eq!(screen[y], "11 Xline 11");
     assert_eq!(app.buf.lines[10], "Xline 11");
 }
+
+/// #287: a binary file shows no line of text and no gutter, only a dimmed note in the middle
+/// of the pane; the status bar says `read-only` as before.
+#[test]
+fn a_binary_file_is_an_empty_pane_with_a_centred_note() {
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/logo.png"), b"\x89PNG\0\x01"),
+        None,
+    );
+    app.show_tree = false;
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(60, 11)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let rows = rows(&terminal);
+    let note = "binary file, not shown";
+    assert_eq!(rows.iter().position(|r| r == note), Some(3), "{rows:#?}");
+    assert!(
+        rows[..10].iter().all(|r| r.is_empty() || r == note),
+        "{rows:#?}"
+    );
+    assert!(rows[10].contains("read-only"), "{}", rows[10]);
+    let buf = terminal.backend().buffer();
+    let x = (0..60).find(|&x| buf[(x, 3)].symbol() == "b").unwrap();
+    assert_eq!(x, (60 - note.len() as u16) / 2);
+    assert_eq!(buf[(x, 3)].fg, theme.ghost_fg);
+}
