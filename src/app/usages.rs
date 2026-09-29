@@ -12,15 +12,24 @@ impl App {
         // A Ruby name is read as `d` reads it (#387): `valid?` lists `valid?`, its own `def`
         // first, and on `x.name = v` the setter `name=` declared by `attr_writer :name` does. So
         // is an Elixir one, whose `?` or `!` is the name's too (#459).
+        // On a Ruby `@x` or `@@x` the word keeps its sigil, so that `@x =` declares it (#383).
         let Some(read) = (match self.kind() {
-            k @ Some(Kind::Ruby | Kind::Elixir) => self.definition_word(k).map(|(_, w)| w),
+            k @ Some(Kind::Ruby | Kind::Elixir) => self.definition_word(k).map(|(r, w)| {
+                let lead = &self.line_str()[..r.start];
+                let sigil = lead.len() - lead.trim_end_matches('@').len();
+                match k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
+                    true => format!("{}{w}", &lead[lead.len() - sigil..]),
+                    false => w,
+                }
+            }),
             _ => self.word_under(extra),
         }) else {
             self.message = "no word under the cursor".into();
             return;
         };
         let (ranked, cut) = self.usage_hits(&read, self.rel_current().as_deref());
-        let word = read.strip_suffix('=').unwrap_or(&read);
+        let word = read.trim_start_matches('@');
+        let word = word.strip_suffix('=').unwrap_or(word);
         if ranked.is_empty() {
             self.message = format!("no usages of {word}");
             return;
@@ -99,7 +108,10 @@ impl App {
         // To grep `-` ends a word, so `db-main` also finds `db-main-2`: a hit goes when its own
         // file's language counts that `-` as part of a word and no occurrence in the line stands
         // whole (#281). In code `db-main-2` is a subtraction and stays.
-        // A Ruby setter `name=` is called as `x.name = v`: the rows hold its bare name.
+        // A Ruby setter `name=` is called as `x.name = v`: the rows hold its bare name. On a Ruby
+        // `@x` they are every `x`, as on a bare `x`, and its assignment `@x =` declares it too.
+        let ivar = word.starts_with('@').then_some(word);
+        let word = word.trim_start_matches('@');
         let text = word.strip_suffix('=').unwrap_or(word);
         let hits = self
             .grep(&regex::escape(text), true, false, |_| true)
@@ -118,7 +130,10 @@ impl App {
             .map(|h| {
                 let kind = search::kind_of(&h.path);
                 let re = rules.entry(kind).or_insert_with_key(|k| {
-                    let patterns = k.map(|k| search::def_patterns(k, word)).unwrap_or_default();
+                    let mut patterns = k.map(|k| search::def_patterns(k, word)).unwrap_or_default();
+                    if let (Some(Kind::Ruby), Some(ivar)) = (k, ivar) {
+                        patterns.push(search::ruby_assignment(ivar));
+                    }
                     (!patterns.is_empty())
                         .then(|| Regex::new(&patterns.join("|")).ok())
                         .flatten()
