@@ -41,6 +41,11 @@ impl App {
             self.message = self.no_rules();
             return;
         };
+        // Go's blank identifier names nothing: every `_` is a fresh discard (#476).
+        if kind == Kind::Go && word == "_" {
+            self.message = resolution(&word, None, &[], None, false);
+            return;
+        }
         let text = self.buf.lines.join("\n");
         // An Elixir `alias` names the module a qualifier stands for (#459).
         let chain = match kind {
