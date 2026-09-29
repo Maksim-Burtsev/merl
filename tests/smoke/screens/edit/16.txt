@@ -1,0 +1,57 @@
+wait .env  1:1
+1 API_TOKEN=changeme
+2 DATABASE_URL=postgresql://orders:orders@localhost/orders
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.env  1:1  [code]                                                                                                                                                                 ? help
+cursor (x,y,shown) 2,0,1

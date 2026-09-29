@@ -17,3 +17,8 @@ wait theme rose-pine-moon saved
 run grep -q rose-pine-moon "$HOME/.config/merl/config.toml"
 merl app/models.py
 wait class OrderStatus(Enum):
+# --theme opens in the theme it names, whatever the config saved: T lists it (#310).
+merl --theme github-light app/models.py
+wait class OrderStatus(Enum):
+key T
+wait github-light

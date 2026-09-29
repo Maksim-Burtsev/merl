@@ -930,6 +930,44 @@ fn review_walks_past_a_link_to_a_directory_wherever_it_is() {
     }
 }
 
+/// #449: Enter on the panel row of a link to a directory opens nothing: the file shown and the
+/// status bar stay as they were, with no OS error and no absolute path.
+#[cfg(unix)]
+#[test]
+fn enter_on_a_link_to_a_directory_in_the_review_panel_opens_nothing() {
+    let (dir, _) = review_app("dirlink-enter");
+    std::os::unix::fs::symlink("src", dir.join("alink")).unwrap();
+    for args in [&["add", "-A"][..], &["commit", "-q", "-m", "link"]] {
+        let mut git = std::process::Command::new("git");
+        assert!(
+            git.arg("-C")
+                .arg(&dir)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let r = git::Review::open(&dir, None, None).unwrap();
+    let (_, files) = crate::tree::build(&dir, false);
+    let panel: Vec<_> = r.files.iter().map(|f| f.path.clone()).collect();
+    let first = r.first_file(&dir).unwrap();
+    let mut a = App::new(
+        dir.clone(),
+        crate::tree::from_files(&panel),
+        files,
+        Buffer::load(&first).unwrap(),
+        None,
+    );
+    a.start_review(r);
+    a.focus = Focus::Tree;
+    a.tree.reveal(Path::new("alink"));
+    let before = (at(&a), a.message.clone());
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!((at(&a), a.message.clone()), before);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 #[test]
 fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
     let (dir, mut a) = review_app("reviewapp");

@@ -30,3 +30,9 @@ toml = "1.1"
 two-face = "0.5"
 unicase = "2.6"
 unicode-segmentation = "1"
+
+# The tests run regex, syntect and nucleo in the dev profile, where compiling the symbol patterns
+# alone costs seconds a press of `D`: optimised dependencies take `cargo test` from ~75 s to ~10 s.
+# merl's own code stays unoptimised, so it builds and debugs as before.
+[profile.dev.package."*"]
+opt-level = 2

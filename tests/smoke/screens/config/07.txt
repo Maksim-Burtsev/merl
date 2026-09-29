@@ -1,0 +1,57 @@
+wait docker-compose.yml  15:3  [code]  db: by name, 1 match
+ 1 services:
+ 2   api:
+ 3     build: .
+ 4     command: make serve
+ 5     env_file: .env
+ 6     ports:
+ 7       - "8000:8000"
+ 8     depends_on: [db]
+ 9   worker:
+10     build:
+11       context: worker
+12     environment:
+13       QUEUE_URL: redis://queue:6379/0
+14     depends_on: [db]
+15   db:
+16     image: postgres:16
+17     environment:
+18       POSTGRES_USER: orders
+19       POSTGRES_PASSWORD: orders
+20     volumes:
+21       - pgdata:/var/lib/postgresql/data
+22
+23 volumes:
+24   pgdata:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+docker-compose.yml  15:3  [code]  db: by name, 1 match
+cursor (x,y,shown) 5,14,1

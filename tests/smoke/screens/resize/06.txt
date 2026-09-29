@@ -1,0 +1,15 @@
+wait docs/notes.md  16:1
+┌orders──────────────────────┐     the payment team reads it.
+│▸ .github                   │ 6 - Заказы старше года архивируются, их нельзя вернуть через API: пишите в поддержку платёжного провайдера.
+│▸ .venv                     │ 7 - The refund flow was tested with the payment team 👍🏽 on staging, on the cards and on the bank transfers both, twice.
+│▸ app                       │ 8
+│▸ data                      │ 9 ## 1.7.2
+│▸ deploy                    │10
+│▾ docs                      │11 - The order list shows 50 orders a page. Ask ops to change PAGE_SIZE if a customer needs more.
+│    architecture.png        │12 - Search by customer finds orders by the customer's number, not by their name.
+│    notes.md                │13
+│▸ scripts                   │14 ## 1.7.1
+│▸ tests                     │15
+└────────────────────────────┘16 - A cancelled order keeps its total. The customer sees it struck through.
+docs/notes.md  16:1  [code]                                                                                                                              ? help
+cursor (x,y,shown) 33,11,1

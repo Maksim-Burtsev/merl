@@ -1,0 +1,15 @@
+wait 16▎X- A cancelled order keeps its total.
+ 5 - ⚠️ A refund past the 30-day window needs a manager's approval: open the order, press Refund and write the reason in the note, the payment team reads it.
+ 6 - Заказы старше года архивируются, их нельзя вернуть через API: пишите в поддержку платёжного провайдера.
+ 7 - The refund flow was tested with the payment team 👍🏽 on staging, on the cards and on the bank transfers both, twice.
+ 8
+ 9 ## 1.7.2
+10
+11 - The order list shows 50 orders a page. Ask ops to change PAGE_SIZE if a customer needs more.
+12 - Search by customer finds orders by the customer's number, not by their name.
+13
+14 ## 1.7.1
+15
+16▎X- A cancelled order keeps its total. The customer sees it struck through.
+docs/notes.md  16:2  [code]                                                                                                                              ? help
+cursor (x,y,shown) 4,11,1

@@ -10,6 +10,9 @@ wait merl exited: 0
 # only the project and the pane (#285)
 merl
 wait Open a file (fuzzy)
+# --help prints the flags and exits 0 (#310).
+merl --help
+wait merl exited: 0
 # #261: at 80x24 the tutor's lesson 3 wraps to three rows, and the panel grows to them: the key
 # it asks for, on the third row, is drawn
 size 80x24
