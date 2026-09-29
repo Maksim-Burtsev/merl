@@ -161,6 +161,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inside tmux with its default settings, Ctrl+C and Ctrl+X copy: the text goes to a tmux paste
   buffer and, on tmux 3.2 and newer, to the terminal's clipboard. tmux's default `set-clipboard
   external` dropped the copy, and the status said `copied` while nothing was copied. (#395)
+- The lesson panel of `merl --tutor` and `merl --drill` grows to its text wrapped at the pane's
+  width, and the code above gets the rows that are left. At 80 columns six lessons were cut after
+  two rows, in lesson 3 before the key it asks you to press. (#261)
 - The Linux binaries run on glibc 2.17 and newer: the x86_64 one needed 2.39 and stopped at start
   on Ubuntu 22.04, Debian 12 and older, the aarch64 one 2.18. A release that would need more
   now fails before the Homebrew tap moves to it. (#394)

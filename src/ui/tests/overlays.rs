@@ -679,3 +679,42 @@ fn overlays_leave_the_tutor_panel_in_sight() {
     app.picker.as_mut().unwrap().settle();
     shows(&mut app, "Files (");
 }
+
+/// At 80 columns six tutor texts wrap to three or four rows: the panel grows to them, so the
+/// key a lesson names is never on a row that is not drawn (#261). A short text keeps the
+/// panel at a title and two rows.
+#[test]
+fn the_lesson_panel_grows_to_its_text() {
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::empty(),
+        None,
+    );
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+    let mut tallest = 0;
+    for step in 0..crate::tutor::TUTOR.len() {
+        app.tutor = Some(crate::tutor::Tutor {
+            step,
+            dir: PathBuf::from("/demo"),
+            drill: None,
+        });
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        let r = rows(&terminal);
+        let top = r.iter().position(|l| l.starts_with("Tutor ")).unwrap();
+        // The panel runs from its title to the status bar, the last row.
+        let panel = r[top + 1..r.len() - 1].join(" ").trim_end().to_string();
+        let last = crate::tutor::lesson(step)
+            .unwrap()
+            .tutor
+            .rsplit(' ')
+            .next()
+            .unwrap();
+        assert!(panel.ends_with(last), "lesson {}:\n{r:#?}", step + 1);
+        assert!(r.len() - 1 - top >= 3, "lesson {}:\n{r:#?}", step + 1);
+        tallest = tallest.max(r.len() - 1 - top);
+    }
+    assert!(tallest > 3, "no lesson wraps past two rows at 80 columns");
+}
