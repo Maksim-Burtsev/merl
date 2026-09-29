@@ -1,0 +1,57 @@
+wait ShipmentParts: by name, 1 match
+1 fragment ShipmentParts on Shipment {
+2   id
+3   carrier
+4   status
+5 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/src/orders/ShipmentParts.graphql  1:10  [code]  ShipmentParts: by name, 1 match
+cursor (x,y,shown) 11,0,1

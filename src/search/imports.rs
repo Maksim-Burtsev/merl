@@ -224,7 +224,9 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         | Kind::Make
         | Kind::Terraform
         | Kind::Docker
-        | Kind::Yaml => {}
+        | Kind::Yaml
+        // `#import "./parts.graphql"` pastes the file in and binds no name: [`graphql_import`].
+        | Kind::Graphql => {}
     }
     out
 }
@@ -563,7 +565,21 @@ pub fn module_files(
         | Kind::Terraform
         | Kind::Docker
         | Kind::Yaml => Vec::new(),
+        // The path of an `#import`, relative to the importing file.
+        Kind::Graphql => lexical(&dir.join(module.join("/")))
+            .filter(|f| files.contains(f))
+            .into_iter()
+            .collect(),
     }
+}
+/// The path of the `#import "./parts.graphql"` a GraphQL `line` is, when byte `col` stands on it
+/// or its quotes: the convention of `graphql-tag/loader`, which pastes that file in.
+pub fn graphql_import(line: &str, col: usize) -> Option<&str> {
+    static IMPORT: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r#"^#\s*import\s+(["'])([^"']+)["']"#).unwrap());
+    let c = IMPORT.captures(line)?;
+    let path = c.get(2)?;
+    (c.get(1)?.start() <= col && col <= path.end()).then_some(path.as_str())
 }
 /// Where an aliased TypeScript specifier points, most specific first: the targets of the
 /// `compilerOptions.paths` entries it matches, then the specifier under `baseUrl`. Read from the

@@ -41,6 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `…` right after its last drawn character, wrapped or not, so a cut line never reads as whole.
   (#283)
 - A macOS Intel binary, `merl-x86_64-apple-darwin.tar.gz`, ships with each release. (#394)
+- GraphQL: `d` in a `.graphql`, `.graphqls` or `.gql` file lands on a `type`, an `interface`, an
+  `input`, an `enum`, a `union`, a `scalar`, a `directive`, a fragment from its `...spread`, a
+  named operation, a field (`email → User.email`) and an enum value; on the path of an
+  `#import "./parts.graphql"` it opens that file. `extend type`, a selection, an alias, an
+  argument and a `$variable` are no declarations. `D` lists the types, directives, fragments and
+  named operations. (#419)
 
 ### Changed
 

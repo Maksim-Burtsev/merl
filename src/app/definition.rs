@@ -20,6 +20,23 @@ impl App {
     /// `u` lists the uses.
     pub(super) fn goto_definition(&mut self) {
         let kind = self.kind();
+        // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included.
+        if kind == Some(Kind::Graphql)
+            && let Some(here) = self.rel_current()
+            && let Some(module) = search::graphql_import(self.line_str(), self.col)
+        {
+            let module = module.to_owned();
+            let files = search::module_files(
+                Kind::Graphql,
+                &self.root,
+                &self.files,
+                &here,
+                std::slice::from_ref(&module),
+            );
+            let found = self.module_candidates(files);
+            self.show_definitions(Kind::Graphql, &module, &here, found, None);
+            return;
+        }
         let Some((range, word)) = search::definition_word(kind, self.line_str(), self.col) else {
             self.message = "no word".into();
             return;
@@ -41,8 +58,11 @@ impl App {
             self.message = self.no_rules();
             return;
         };
-        // Go's blank identifier names nothing: every `_` is a fresh discard (#476).
-        if kind == Kind::Go && word == "_" {
+        // Go's blank identifier names nothing: every `_` is a fresh discard (#476). Nor has a
+        // GraphQL operation's `$variable` a rule: it is a parameter, and `$id` is no field `id`.
+        if (kind == Kind::Go && word == "_")
+            || (kind == Kind::Graphql && self.line_str()[..range.start].ends_with('$'))
+        {
             self.message = resolution(&word, None, &[], None, false);
             return;
         }
@@ -402,6 +422,24 @@ impl App {
         self.show_definitions(kind, &word, &here, found, broke.as_deref());
     }
 
+    /// The first line of each of `files`, a module a name or a path leads to as a whole.
+    fn module_candidates(&self, files: Vec<PathBuf>) -> Vec<Candidate> {
+        files
+            .into_iter()
+            .map(|path| Candidate {
+                reason: Reason::Module(path.display().to_string()),
+                hit: Hit {
+                    text: self.text_of(&path).map_or_else(String::new, |t| {
+                        t.lines().next().unwrap_or_default().to_owned()
+                    }),
+                    path,
+                    line: 1,
+                    col: 0,
+                },
+            })
+            .collect()
+    }
+
     /// Whether `first` starts a path inside the project: `crate`, `self`, `super`, or a file or a
     /// directory of the project called so.
     fn names_module(&self, first: &str) -> bool {
@@ -537,6 +575,22 @@ impl App {
                     .is_ok_and(|text| search::directly_inside(&text, h.line, block))
             });
         }
+        // An indented GraphQL line is a field or an enum value only directly inside a type, an
+        // interface, an input or an enum; one file holds thousands of `id` fields, so each file
+        // is split once.
+        if kind == Kind::Graphql {
+            let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
+            hits.retain(|h| {
+                !h.text.starts_with([' ', '\t'])
+                    || search::graphql_member(
+                        lines.entry(h.path.clone()).or_insert_with(|| {
+                            self.text_of(&h.path)
+                                .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
+                        }),
+                        h.line,
+                    )
+            });
+        }
         // `GO=$(GO) ./build.sh` in a recipe sets a variable of one shell command (#477): it
         // declares the word only for a shell variable of the command under the cursor,
         // `$${ARCH}`, and never for make's own `$(GO)`.
@@ -639,20 +693,7 @@ impl App {
             if files.iter().any(|f| f.ends_with("__init__.py")) {
                 files.retain(|f| f.ends_with("__init__.py"));
             }
-            let found: Vec<Candidate> = files
-                .into_iter()
-                .map(|path| Candidate {
-                    reason: Reason::Module(path.display().to_string()),
-                    hit: Hit {
-                        text: self.text_of(&path).map_or_else(String::new, |t| {
-                            t.lines().next().unwrap_or_default().to_owned()
-                        }),
-                        path,
-                        line: 1,
-                        col: 0,
-                    },
-                })
-                .collect();
+            let found = self.module_candidates(files);
             (!found.is_empty()).then_some(found)
         };
         let (files, inside) = match kind {

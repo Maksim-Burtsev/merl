@@ -409,9 +409,16 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
         r"(?i)^\s*FROM\s+(\S+\s+)+AS\s+(?P<name>[\w.-]+)",
     ),
     (Some(Kind::Yaml), r"(^|\s)&(?P<anchor>[\w.-]+)"),
+    // GraphQL from this row only: the shared pattern knows `type`, `interface`, `union` and
+    // `enum`, and would list them twice. A directive under its name, without the `@`; no field,
+    // enum value or `extend`.
+    (
+        Some(Kind::Graphql),
+        r"^(?:(?:type|interface|input|enum|union|scalar|fragment|query|mutation|subscription)\s+|directive\s+@)(?P<name>[A-Za-z_]\w*)",
+    ),
 ];
 /// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, C#,
-/// Swift, PHP, Lua and Elixir have rows of their own in [`SYMBOLS`], written for what those
+/// Swift, PHP, Lua, Elixir and GraphQL have rows of their own in [`SYMBOLS`], written for what those
 /// languages declare and how they name it, so reading the all-language pattern over them too
 /// would list a declaration twice.
 pub fn shared_symbols(kind: Option<Kind>) -> bool {
@@ -426,6 +433,7 @@ pub fn shared_symbols(kind: Option<Kind>) -> bool {
                 | Kind::Php
                 | Kind::Lua
                 | Kind::Elixir
+                | Kind::Graphql
         )
     )
 }

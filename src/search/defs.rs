@@ -342,6 +342,18 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"(^|\s)&{w}(\s|$)"),
             format!(r"^\s*\.?{w}:\s*(#.*)?$"),
         ],
+        // A definition of the type system, an operation or a fragment starts its line. `extend
+        // type X {` is a use of `X`, as a Rust `impl` is. The indented rule is a field, one whose
+        // arguments wrap included, or an enum value, and so is every selection of an operation:
+        // [`graphql_member`] keeps only the lines directly inside a type, an interface, an input
+        // or an enum.
+        Kind::Graphql => vec![
+            format!(
+                r"^(?:type|interface|input|enum|union|scalar|fragment|query|mutation|subscription)\s+{w}\b"
+            ),
+            format!(r"^directive\s+@{w}\b"),
+            format!(r"^\s+{w}\s*(?:[:(@#,]|$)"),
+        ],
     }
 }
 /// [`member_patterns`] and, in Go, the method lines of an interface, which carry no receiver:
@@ -420,7 +432,8 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Make
         | Kind::Terraform
         | Kind::Docker
-        | Kind::Yaml => return None,
+        | Kind::Yaml
+        | Kind::Graphql => return None,
     })
 }
 /// Line patterns that can declare `word` as a field, for the search by name: more than the fields,
@@ -489,6 +502,28 @@ pub fn directly_inside(text: &str, line: usize, opener: &str) -> bool {
         .rev()
         .find(|l| !l.trim().is_empty() && indent(l) < indent(target))
         .is_some_and(|l| l.trim_start().starts_with(opener))
+}
+/// Whether 1-based `line` of `lines`, a GraphQL file, declares a field or an enum value: the
+/// nearest line above it indented less, past blanks and `#` comments, opens a `type`, an
+/// `interface`, an `input` or an `enum`, or an `extend` of one, which declares fields all the
+/// same. A selection of an operation or a fragment is the same line one level down elsewhere.
+pub fn graphql_member<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
+    static OPENER: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"^(?:extend\s+)?(?:type|interface|input|enum)\s").unwrap()
+    });
+    let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return false;
+    };
+    let depth = indent(target.as_ref());
+    lines[..line - 1]
+        .iter()
+        .map(AsRef::as_ref)
+        .rev()
+        .find(|l| {
+            let t = l.trim_start();
+            !t.is_empty() && !t.starts_with('#') && indent(l) < depth
+        })
+        .is_some_and(|l| OPENER.is_match(l))
 }
 /// When 1-based `line` of a Makefile is a recipe line, a shell command that declares nothing
 /// make knows, the line its command starts on: a line that starts with a tab after a rule, until

@@ -892,3 +892,105 @@ fn a_glob_or_a_lone_backtick_opens_nothing_in_the_kinds_without_them() {
         ]
     );
 }
+
+const GRAPHQL: &str = r#""""
+A person.
+type Ghost {
+'''
+"""
+type User implements Node @key(fields: "id") {
+  id: ID!
+  email: String!
+  posts(
+    first: Int
+  ): [Post!]!
+}
+
+extend type User {
+  karma: Int
+}
+
+enum Status {
+  ACTIVE
+  BANNED @deprecated(reason: "spam")
+}
+
+input UserInput {
+  email: String
+}
+
+scalar DateTime
+union Found = User | Post
+directive @auth(requires: Status) on FIELD_DEFINITION
+
+query GetUser($id: ID!) {
+  user(id: $id) {
+    email
+    first: posts(first: 1) {
+      id
+    }
+  }
+}
+'''
+type Late {
+  id: ID
+}
+"#;
+
+/// #419. The definitions start their line; a field, one whose arguments wrap, and an enum value
+/// are indented, directly inside a type, an interface, an input or an enum, an `extend` of one
+/// included. A selection, an alias, an argument, an `extend` line and a line of a `"""`
+/// description are none, and `'''` opens nothing.
+#[test]
+fn graphql_def_patterns_find_definitions_fields_and_enum_values() {
+    let (dir, files) = scratch("graphql", &[("schema.graphql", GRAPHQL)]);
+    let lines: Vec<&str> = GRAPHQL.lines().collect();
+    let literal = literal_lines(Kind::Graphql, GRAPHQL);
+    let d = |w| -> Vec<usize> {
+        defs(&dir, &files, Kind::Graphql, w)
+            .into_iter()
+            .filter(|&n| !literal[n - 1])
+            .filter(|&n| !lines[n - 1].starts_with(' ') || graphql_member(&lines, n))
+            .collect()
+    };
+    assert_eq!(d("Ghost"), Vec::<usize>::new(), "inside a description");
+    assert_eq!(d("User"), [6], "not the `extend type`");
+    assert_eq!(
+        d("email"),
+        [8, 24],
+        "a field of a type and of an input, no selection"
+    );
+    assert_eq!(d("posts"), [9], "arguments wrapped");
+    assert_eq!(d("first"), Vec::<usize>::new(), "an argument, an alias");
+    assert_eq!(d("karma"), [15], "a field of an extension");
+    assert_eq!(d("ACTIVE"), [19]);
+    assert_eq!(d("BANNED"), [20]);
+    assert_eq!(d("Status"), [18]);
+    assert_eq!(d("UserInput"), [23]);
+    assert_eq!(d("DateTime"), [27]);
+    assert_eq!(d("Found"), [28]);
+    assert_eq!(d("auth"), [29]);
+    assert_eq!(d("GetUser"), [31]);
+    assert_eq!(d("user"), Vec::<usize>::new(), "a selection");
+    assert_eq!(d("Late"), [40], "`'''` is no block string");
+    assert_eq!(d("id"), [7, 41]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_graphql_import_is_the_path_under_the_cursor() {
+    let line = r#"#import "./UserParts.graphql""#;
+    assert_eq!(
+        graphql_import(line, 8),
+        Some("./UserParts.graphql"),
+        "on the quote"
+    );
+    assert_eq!(
+        graphql_import(line, 10),
+        Some("./UserParts.graphql"),
+        "on the `/`"
+    );
+    assert_eq!(graphql_import(line, 3), None, "on `import`");
+    assert_eq!(graphql_import("# import './a.gql'", 12), Some("./a.gql"));
+    assert_eq!(graphql_import(r#"  user # import "./a.gql""#, 20), None);
+}

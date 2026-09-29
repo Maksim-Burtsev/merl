@@ -236,7 +236,7 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | PHP | Composer's `vendor/` |
 | Zig | the standard library |
 | Java, Kotlin, Ruby, C#, Lua, Elixir | |
-| Shell, SQL, Makefile, Terraform, Dockerfile, YAML | |
+| Shell, SQL, Makefile, Terraform, Dockerfile, YAML, GraphQL | |
 
 What each rule reads and what it refuses to guess: [docs/navigation.md](docs/navigation.md).
 
