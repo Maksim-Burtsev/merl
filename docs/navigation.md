@@ -304,7 +304,9 @@ such method or field has the word at its top level instead — `x` was a class o
 namespace — and the usual declarations answer. One candidate jumps; several open the picker, the
 project's first. A bare `self.word` or `this.word` whose class, or a class it extends, cannot be
 read gets the project's declarations of that name, fields included, and nothing outside the
-project.
+project. Ruby's core and gems are not read, so there a member on a value, `logger.info` or
+`x&.each`, is never jumped to: the one method of that name the project declares is offered in a
+picker of one row, `info: by name, 1 match`. `Const.meth`, `self.meth` and a bare call still jump.
 
 With the cursor on the declaration of a member — a `Protocol` method, an interface signature, a
 method of an abstract or a plain base class — `d` offers what implements it instead, labelled `send:

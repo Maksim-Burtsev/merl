@@ -702,6 +702,9 @@ impl App {
                 })
                 .collect();
         }
+        // Ruby's core and gems are not read (#390): the one namesake the project declares of
+        // `x.each` or `logger.info` proves nothing, and is offered rather than jumped to.
+        self.offer_only |= kind == Kind::Ruby && on_value && self.external_files(kind).is_empty();
         self.show_definitions(kind, &word, &here, found, broke.as_deref());
         // The status of the one definition says what was set aside: `1 definition, 1 prototype`.
         if let Some(note) = aside {
