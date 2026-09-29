@@ -29,9 +29,13 @@ pub(super) fn comment(kind: Kind, t: &str) -> bool {
 ///
 /// Rust's strings run over lines as the language runs them (#346): a `"…"` to the `"` no `\`
 /// escapes, a raw `r#"…"#` to its `"#`; a `'` opens only a char literal, never a lifetime.
+/// Ruby writes `#` comments, `=begin` blocks, heredocs (`<<~SQL`, several on one line read in
+/// order) and `__END__`, after which every line is data (#379); its `%q()`, backtick and regex
+/// literals end with their line.
 ///
 /// ponytail: Elixir's `~S"""` sigil is read from its `"""`, and its one-line `~s(…)` forms not at
-/// all.
+/// all; Ruby's multi-line `%q{…}` is read as code, and a `/` opens a regex only after an operator
+/// or a bracket, not after `when` or `split `.
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     scan(kind, text, usize::MAX).0
 }
@@ -66,6 +70,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             // JS or the `&#8212;` of HTML. A line comment ends at `?>` too, as PHP ends it.
             Kind::Php => (false, false, true, true, &["//", "#"]),
             Kind::Rust => (false, false, false, true, &["//"]),
+            Kind::Ruby => (false, false, false, false, &["#"]),
             _ => (false, false, true, true, &["//"]),
         };
     // The forms one language each has: C#'s verbatim string, which closes on a `"` that no
@@ -95,11 +100,13 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
     let mut out = vec![false];
     // The multi-line literal the scan is in, by its closing bytes, and, for a long bracket, the
     // number of `=` its closer carries; a one-line quote. A heredoc has no closing bytes at all:
-    // `label` holds the word its last line repeats, `verbatim` marks a `@"…"`, and `raw` a Rust
-    // string with no escapes.
+    // `label` holds the word its last line repeats, `exact` whether that line must hold it alone
+    // (Ruby's, and whether indented), and `verbatim` marks a `@"…"`, `raw` a Rust string with no
+    // escapes. Ruby's heredocs opened on the line read so far wait in `pending`, in order.
     let (mut block, mut level, mut quote, mut i): (Option<Cow<[u8]>>, usize, Option<u8>, usize) =
         (None, 0, None, 0);
-    let (mut verbatim, mut raw, mut label) = (false, false, Vec::new());
+    let (mut verbatim, mut raw, mut label, mut exact) = (false, false, Vec::new(), None);
+    let mut pending: Vec<(Vec<u8>, bool)> = Vec::new();
     // Where the Rust string the scan is in opened, and whether `at` is inside one.
     let (mut string_from, mut inside) = (None, false);
     // A long bracket opening at `at` — `[[` or `[==[`, behind `--` or not: how many `=` it
@@ -119,18 +126,33 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
     };
     while i < b.len() {
         let c = b[i];
+        let line_start = i == 0 || b[i - 1] == b'\n';
         if c == b'\n' {
             quote = None;
-            // A heredoc ends on the line that repeats its label, as `ID;`, `ID,` or `ID)`.
+            // Ruby's heredoc starts on the line after the one that opened it.
+            if label.is_empty() && !pending.is_empty() {
+                let (word, indented) = pending.remove(0);
+                (label, exact, block) = (word, Some(indented), Some(b"".into()));
+            }
+            // A heredoc ends on the line that repeats its label, as `ID;`, `ID,` or `ID)`; a
+            // Ruby one on the line that is the label alone, indented only after `<<~` or `<<-`.
             if !label.is_empty() {
                 let rest = &b[i + 1..];
                 let word = rest
                     .iter()
                     .position(|c| !c.is_ascii_whitespace())
                     .map_or(rest, |n| &rest[n..]);
-                if word.starts_with(&label[..])
-                    && !word[label.len()..].first().is_some_and(|&c| ident(c))
-                {
+                let ends = match exact {
+                    Some(indented) => {
+                        let line = rest.split(|&c| c == b'\n').next().unwrap_or(rest);
+                        line.trim_ascii() == label && (indented || line.starts_with(&label))
+                    }
+                    None => {
+                        word.starts_with(&label[..])
+                            && !word[label.len()..].first().is_some_and(|&c| ident(c))
+                    }
+                };
+                if ends {
                     label.clear();
                     block = None;
                 }
@@ -270,7 +292,47 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             if let Some(end) = end.filter(|&e| b.get(e) == Some(&b'\'')) {
                 i = end;
             }
-        } else if c == b'"' || c == b'\'' || (kind == Kind::Sql && c == b'`') {
+        } else if kind == Kind::Ruby && line_start && b[i..].starts_with(b"__END__") && {
+            let rest = &b[i + 7..];
+            rest.first().is_none_or(|&c| c == b'\n' || c == b'\r')
+        } {
+            // Whatever follows `__END__` is the script's data.
+            out.extend(b[i..].iter().filter(|&&c| c == b'\n').map(|_| true));
+            break;
+        } else if kind == Kind::Ruby
+            && line_start
+            && b[i..].starts_with(b"=begin")
+            && b.get(i + 6).is_none_or(|c| c.is_ascii_whitespace())
+        {
+            (block, label, exact) = (Some(b"".into()), b"=end".to_vec(), None);
+        } else if kind == Kind::Ruby && b[i..].starts_with(b"<<") {
+            // `<<~SQL`, `<<-SQL`, `<<SQL`, `<<~'SQL'`: a bare `<<` needs a capital or a quote, so
+            // `list << x` and `class << self` open nothing. The rest of the line is code.
+            let flag = matches!(b.get(i + 2), Some(b'~' | b'-'));
+            let at_word = i + 2 + usize::from(flag);
+            let q = b.get(at_word).copied().filter(|c| b"'\"`".contains(c));
+            let from = at_word + usize::from(q.is_some());
+            let len = b[from..].iter().take_while(|&&c| ident(c)).count();
+            let first = b.get(from).copied().filter(|_| len > 0);
+            if first.is_some_and(|c| !c.is_ascii_digit())
+                && (flag || q.is_some() || first.is_some_and(|c| c.is_ascii_uppercase()))
+                && (q.is_none() || b.get(from + len).copied() == q)
+            {
+                pending.push((b[from..from + len].to_vec(), flag));
+                i = from + len + usize::from(q.is_some()) - 1;
+            } else {
+                i += 1;
+            }
+        } else if kind == Kind::Ruby
+            && c == b'/'
+            && b[..i]
+                .iter()
+                .rfind(|c| **c != b' ' && **c != b'\t')
+                .is_none_or(|p| b"\n(,=~!|&;{[".contains(p))
+        {
+            // A regex, `=~ /#/`: its `#` is no comment.
+            quote = Some(c);
+        } else if c == b'"' || c == b'\'' || (matches!(kind, Kind::Sql | Kind::Ruby) && c == b'`') {
             quote = Some(c);
         } else if kind == Kind::Php && (b[i..].starts_with(b"<?") || b[i..].starts_with(b"?>")) {
             php_code = c == b'<';

@@ -232,6 +232,16 @@ fn a_rust_string_runs_over_lines() {
     assert!(!in_string(Kind::TsJs, "const s = \"ghost\";", 12));
 }
 
+/// #379. Ruby's `#` comment, heredocs (two on a line, in order; a plain `<<X` closed only by `X`
+/// at the margin), `=begin` blocks and `__END__`; `<<` that opens no heredoc, a regex's `#`.
+#[test]
+fn ruby_literals_are_read_as_ruby_writes_them() {
+    let rb = "# don't `touch\ndef a; end\nx = <<~SQL + <<-'B' # two\n  def ghost1\nSQL\n  def ghost2\n  B\ndef b; end\nlist << item\nclass << self\ndef c; end\ny = <<X\n  X\ndef ghost3\nX\np = /#/ && <<~Q\ndef ghost4\nQ\n=begin\ndef ghost5\n=end\ndef d; end\n`echo #{1} '`\ndef e; end\n__END__\ndef ghost6\n";
+    assert_eq!(inside(Kind::Ruby, rb), [4, 6, 13, 14, 17, 20, 26, 27]);
+    // No backtick template, no `/* */` block: neither hides the lines below.
+    assert!(inside(Kind::Ruby, "# `\n/* x\ndef a; end\n").is_empty());
+}
+
 #[test]
 fn a_reason_says_whether_it_proves_the_target() {
     assert_eq!(Reason::ByName.to_string(), "by name");

@@ -182,6 +182,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   string captures. A word of prose was looked up as a name: `Choose` in an error message jumped
   to a `struct Choose`, and `to` or `with` searched every dependency for a picker of namesakes.
   A lifetime, `'a`, opens no string. (#346)
+- `d` in Ruby reads `#` comments, heredocs (`<<~SQL`, `<<-'EOS'`), `=begin` blocks and what
+  follows `__END__` as Ruby writes them: the SQL of a migration's heredoc and the old code of a
+  `=begin` block declare nothing, and a comment holding an odd number of backticks no longer
+  hides every declaration below it in the file. Ruby was read with the C family's `//`, `/* */`
+  and backtick template, so `User#prepare!` in mastodon answered `no definition`. (#379)
 
 ## [0.7.0] - 2026-09-25
 
