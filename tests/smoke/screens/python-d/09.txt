@@ -1,0 +1,2 @@
+wait cancel: by name
+(screen not compared: the cancel methods of the machine's Python standard library)

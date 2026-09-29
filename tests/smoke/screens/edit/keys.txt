@@ -1,0 +1,19 @@
+/
+:
+Alt+Shift+Right
+Ctrl+C
+Ctrl+End
+Ctrl+N
+Ctrl+Y
+Ctrl+Z
+Edit: Alt+Backspace
+Edit: Alt+Delete
+Edit: Ctrl+X
+End
+Enter
+Esc
+Picker: Enter
+Shift+Down
+o
+q
+t

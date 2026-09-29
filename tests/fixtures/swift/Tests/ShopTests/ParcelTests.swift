@@ -1,0 +1,1 @@
+enum Seal { case tape }

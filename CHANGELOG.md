@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A line longer than merl draws (20 KB: a minified bundle, a one-line JSON dump) ends in a dim
   `…` right after its last drawn character, wrapped or not, so a cut line never reads as whole.
   (#283)
+- A macOS Intel binary, `merl-x86_64-apple-darwin.tar.gz`, ships with each release. (#394)
 
 ### Changed
 
@@ -147,6 +148,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inside tmux with its default settings, Ctrl+C and Ctrl+X copy: the text goes to a tmux paste
   buffer and, on tmux 3.2 and newer, to the terminal's clipboard. tmux's default `set-clipboard
   external` dropped the copy, and the status said `copied` while nothing was copied. (#395)
+- The Linux binaries run on glibc 2.17 and newer: the x86_64 one needed 2.39 and stopped at start
+  on Ubuntu 22.04, Debian 12 and older, the aarch64 one 2.18. A release that would need more
+  now fails before the Homebrew tap moves to it. (#394)
+- `d` in Python no longer reads the words of a comment after a plain `import a, b  # c, d` as
+  imports: `d` on a name that follows a comma there went through a made-up import. (#298)
+- `d` in Go reads a raw string ending in a backslash, `` `\` `` or `` `C:\` ``, as ending at its
+  backtick. It kept the string open, and every declaration after it in the file answered
+  `no definition`. (#325)
+- `d` in shell scripts, Makefiles, Dockerfiles, YAML, SQL and Terraform: a glob such as
+  `rm -rf build/*` or a lone backtick in a comment no longer hides the rest of the file, where
+  every declaration answered `no definition`. Each reads its own comments, and the shell, a
+  Dockerfile and Terraform their heredocs. (#436)
+- A symbolic link to a file that lies outside the project opens read-only, `outside the
+  project`, as a file behind a directory link out does. It opened editable, and a save wrote the
+  file out there. A link to a file inside the project stays editable. (#448)
+- In `merl --review`, Enter on the panel row of a symbolic link to a directory opens nothing
+  and leaves the file shown and the status bar as they were. It put the raw OS error with the
+  whole path in the status bar, `…/alink: Is a directory (os error 21)`. (#449)
+- `d` in Go on the blank identifier `_` answers `no definition for _` at once. It jumped to an
+  earlier `_`, as if it were a local of that name; every `_` is a fresh discard. (#476)
+- `d` in a Makefile no longer reads an assignment inside a recipe, `GO=$(GO) ./build.sh`, as a
+  declaration of the variable: a recipe line is a shell command, and `d` on `$(GO)` jumps to the
+  `GO ?= go` make knows instead of offering both. A tab-indented assignment inside an `ifeq`
+  outside any rule still declares. (#477)
 
 ## [0.7.0] - 2026-09-25
 

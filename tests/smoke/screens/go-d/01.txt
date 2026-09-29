@@ -1,0 +1,57 @@
+wait func main() {
+┌orders──────────────────────┐ 1 // Command worker drains the order jobs the API queues: shipping and syncs.
+│▸ .github                   │ 2 package main
+│▸ .venv                     │ 3
+│▸ app                       │ 4 import (
+│▸ data                      │ 5     "context"
+│▸ deploy                    │ 6     "fmt"
+│▸ docs                      │ 7     "log"
+│▸ scripts                   │ 8     "os"
+│▸ tests                     │ 9     "os/signal"
+│▸ web                       │10     "time"
+│▾ worker                    │11
+│  ▸ internal                │12     "example.com/orders/worker/internal/queue"
+│    go.mod                  │13 )
+│    main.go                 │14
+│  .env                      │15 func main() {
+│  .gitignore                │16     ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+│  docker-compose.yml        │17     defer stop()
+│  Dockerfile                │18
+│  Makefile                  │19     q := queue.New()
+│  pyproject.toml            │20     q.Push(queue.Job{Kind: "sync"})
+│  README.md                 │21     if err := run(ctx, q); err != nil {
+│                            │22         log.Fatal(err)
+│                            │23     }
+│                            │24 }
+│                            │25
+│                            │26 func run(ctx context.Context, q queue.Queue) error {
+│                            │27     for {
+│                            │28         select {
+│                            │29         case <-ctx.Done():
+│                            │30             return drain(q)
+│                            │31         case <-time.After(time.Second):
+│                            │32         }
+│                            │33         job, ok := q.Pop()
+│                            │34         if !ok {
+│                            │35             continue
+│                            │36         }
+│                            │37         if err := handle(job); err != nil {
+│                            │38             return fmt.Errorf("job for order %d: %w", job.OrderID, err)
+│                            │39         }
+│                            │40     }
+│                            │41 }
+│                            │42
+│                            │43 // drain runs the jobs left in q before the worker stops.
+│                            │44 func drain(q queue.Queue) error {
+│                            │45     jobs := make(
+│                            │46         []queue.Job, 0, 16,
+│                            │47     )
+│                            │48     for job, ok := q.Pop(); ok; job, ok = q.Pop() {
+│                            │49         jobs = append(jobs, job)
+│                            │50     }
+│                            │51     for _, job := range jobs {
+│                            │52         if err := handle(job); err != nil {
+│                            │53             return err
+└────────────────────────────┘54         }
+worker/main.go  1:1  [code]                                                                                                                                                       ? help
+cursor (x,y,shown) 33,0,1

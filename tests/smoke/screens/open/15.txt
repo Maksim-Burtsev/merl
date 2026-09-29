@@ -1,0 +1,57 @@
+wait orders.min.json
+┌orders──────────────────────┐ 1 from app.config import Settings
+│▸ .github                   │ 2 from app.models import Order, OrderStatus
+│▸ .venv                     │ 3 from app.repos import OrderRepo
+│▾ app                       │ 4 from app.uow import UnitOfWork
+│    __init__.py             │ 5
+│    api.py                  │ 6
+│    config.py               │ 7 class OrderNotFound(Exception):
+│    models.py               │ 8     pass
+│    repos.py                │ 9
+│    service.py              │10
+│    uow.py                  │11 class OrderService:
+│▾ data                      │12     def __init__(self, repo: OrderRepo, uow: UnitOfWork, settings: Settings):
+│    orders.min.json         │13         self.repo = repo
+│    refunds-2026-08.csv     │14         self.uow = uow
+│▸ deploy                    │15         self.settings = settings
+│▸ docs                      │16
+│▸ scripts                   │17     def get(self, order_id: int) -> Order:
+│▸ tests                     │18         order = self.repo.get(order_id)
+│▸ web                       │19         if order is None:
+│▸ worker                    │20             raise OrderNotFound(order_id)
+│  .env                      │21         return order
+│  .gitignore                │22
+│  docker-compose.yml        │23     def mark_paid(self, order_id: int) -> Order:
+│  Dockerfile                │24         order = self.get(order_id)
+│  Makefile                  │25         order.status = OrderStatus.PAID
+│  pyproject.toml            │26         self.repo.save(order)
+│  README.md                 │27         return order
+│                            │28
+│                            │29     def cancel(self, order_id: int) -> Order:
+│                            │30         order = self.get(order_id)
+│                            │31         if not order.can_cancel():
+│                            │32             raise ValueError(f"order {order_id} is {order.status.value}")
+│                            │33         order.status = OrderStatus.CANCELLED
+│                            │34         with self.uow:
+│                            │35             self.uow.orders.save(order)
+│                            │36         return order
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/service.py  1:1  [tree]                                                                                                                                                       ? help
+cursor (x,y,shown) 33,0,1

@@ -86,7 +86,9 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                         }
                     }
                 } else if let Some(list) = c.get(3) {
-                    for item in list.as_str().split(',') {
+                    // Nor after a plain `import` (#298).
+                    let list = list.as_str().split('#').next().unwrap_or_default();
+                    for item in list.split(',') {
                         if let Some((alias, name)) = bound(item.trim()) {
                             // `import a.b.c` binds `a`; `import a.b.c as d` binds `d` to `a.b.c`.
                             if alias == name {
