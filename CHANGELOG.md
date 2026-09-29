@@ -382,6 +382,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   typed. (#293)
 - A new file that cannot be made, and a save that fails, say why in a few words as a file that
   does not open does, without `(os error N)`. (#507)
+- `d` in Elixir lands on a function's parameter or a local bound above the cursor, and a bare
+  call, an `@spec` or a module attribute on its own module's declaration first. (#460)
+- `d` in Lua follows `require` to the module's file and reads `mod.name`, `mod.T.name` and
+  `T.name` in the table it names, instead of offering every function of that name. (#462)
 
 ## [0.7.0] - 2026-09-25
 
