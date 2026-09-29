@@ -1135,7 +1135,10 @@ pub fn def_block(kind: Kind, word: &str) -> Option<&'static str> {
 /// Whether the TypeScript declaration on 1-based `line` of `lines` is a local no other file sees
 /// (#339): a `const`, `let`, `var`, `function` or `class` inside a function, a method or a block.
 /// One at indent 0, behind `export`, or directly inside a `namespace`, `module` or `declare
-/// global` body is at the top of its module. Members are none of these forms.
+/// global` body is at the top of its module, and so is one directly inside a function that runs
+/// at load: an IIFE, `(function () {`, `!function () {`, `(() => {`, or a UMD wrapper's factory,
+/// `})(this, function (exports) {`, which is how a script or a bundle publishes its functions.
+/// Members are none of these forms.
 pub fn ts_nested_local<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
     static DECL: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
         regex::Regex::new(
@@ -1146,6 +1149,12 @@ pub fn ts_nested_local<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
     static SCOPE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
         regex::Regex::new(
             r"^\s*(?:export\s+)?(?:declare\s+)?(?:namespace|module)\s|^\s*(?:export\s+)?declare\s+global\b",
+        )
+        .unwrap()
+    });
+    static AT_LOAD: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(
+            r"^\s*(?:[;!+~]\s*\(?|\(\s*|\}\)?\s*\(.*,\s*\(?)(?:async\s+)?(?:function\b|(?:\([^)]*\)|\w+)\s*=>)",
         )
         .unwrap()
     });
@@ -1163,9 +1172,11 @@ pub fn ts_nested_local<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
         .rev()
         .find(|l| {
             let t = l.trim_start();
-            !t.is_empty() && indent(l) < depth && !t.starts_with(['}', ')', ']', '/', '*'])
+            !t.is_empty()
+                && indent(l) < depth
+                && (!t.starts_with(['}', ')', ']', '/', '*']) || AT_LOAD.is_match(l))
         })
-        .is_some_and(|l| SCOPE.is_match(l))
+        .is_some_and(|l| SCOPE.is_match(l) || AT_LOAD.is_match(l))
 }
 /// Whether 1-based `line` of `lines` sits directly inside a block whose first line starts with
 /// `opener`: the nearest non-blank line above it that is indented less. `terraform fmt` indents

@@ -224,7 +224,13 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             holes.push(0);
             block = None;
             i += 1;
-        } else if !holes.is_empty() && quote.is_none() && (c == b'{' || c == b'}') {
+        } else if !holes.is_empty()
+            && quote.is_none()
+            && (c == b'{' || c == b'}')
+            && b[i - 1] != b'\\'
+        {
+            // A regex's `\{` is no brace (`${s.replace(/\{/g, "")}`). ponytail: the `{` of
+            // `/[{]/` still counts; skip regex literals in a hole if one shows up.
             let depth = holes.last_mut().expect("not empty");
             match (c, *depth) {
                 (b'{', _) => *depth += 1,
