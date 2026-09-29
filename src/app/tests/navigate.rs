@@ -165,10 +165,11 @@ fn a_local_name_is_not_an_import_and_a_member_is_not_a_module_level_name() {
     // Behind the module's name as well: `fakelib.pick` is no method of a class in it.
     d_on(&mut a, "outside.py", "fakelib.pick");
     assert_eq!(a.message, "no definition for pick");
-    // A keyword argument names a parameter: the one variable spelled so is offered.
+    // A keyword argument names a parameter of a callee outside the project, and the variable
+    // spelled so is no answer (#315).
     d_on(&mut a, "outside.py", "    limit");
-    assert!(a.picker.is_some(), "{}", a.message);
-    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    assert!(a.picker.is_none(), "{}", a.message);
+    assert_eq!(a.message, "limit: argument label");
     // What the module does declare at its top is still found through the import.
     d_on(&mut a, "outside.py", "    make");
     assert_eq!(a.message, "make: via import fakelib.core");

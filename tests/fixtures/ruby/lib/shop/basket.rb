@@ -105,7 +105,7 @@ module Shop
 
     def rated(courier)
       Warehouse::Courier.new(rate: 3)
-      #                      ^ d: picker lib/shop/pricing.rb:17, lib/shop/pricing.rb:30; want none (#315)
+      #                      ^ d: none
     end
 
     def routed(courier)

@@ -143,6 +143,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dimmed line, `binary file, not shown`, and no line number or cursor, instead of the text
   `binary file` as if it were the file's line 1. The status bar still says `read-only`. (#287)
 
+- `d` on a named argument lands on the parameter it names: `Basket(tariff=…)` on `__init__`'s
+  `tariff`, `RefreshWindow(interval: 30, maximumAttempts: 1)` on the `init`'s `maximumAttempts`,
+  `new self(name: …)` on the constructor's promoted `$name`, and a key of an object passed to a
+  function, `<Tag size={2}>` or `const x: Opts = { weight: 1 }` on the key the parameter or the
+  type declares. A callee with several declarations offers their parameters in a picker. (#316)
+
 ### Fixed
 
 - `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
@@ -312,6 +318,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in a Makefile finds a variable set only by `CFLAGS += -Wall` or for one target,
   `release: VERSION := 1.0`, where it answered `no definition`. A plain `CFLAGS = -O2` stays
   the only answer where there is one. (#499)
+- `d` on a named argument, an object literal's key or a JSX attribute no longer lands on
+  whatever else is spelled so: `vm.followTopic(followedTopicId = "a")` in Kotlin jumped to another
+  file's local `followedTopicId`, `context.report({ node: lastItem })` to the enclosing function's
+  parameter `node`, `getMany(ids: …)` in PHP listed fifteen `$ids =` lines. What it names is looked
+  for in the callee or the literal's type only; when that is outside the project or not found, the
+  status line says `node: key` or `ids: argument label` and nothing opens. Python, TypeScript,
+  JavaScript, Kotlin, Swift, C#, PHP and Ruby. (#315)
 
 ## [0.7.0] - 2026-09-25
 

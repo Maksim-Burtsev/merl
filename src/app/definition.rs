@@ -129,6 +129,21 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // A named argument, a literal's key or a JSX attribute names a parameter of the callee
+        // or a field of the literal's type, and nothing else spelled so (#315, #316).
+        if self.probe.is_none()
+            && let Some(label) = search::label_at(kind, &text, self.line, range.clone())
+        {
+            let found = label
+                .owner
+                .map(|(line, col, owner)| self.label_targets(kind, &here, &word, line, col, &owner))
+                .unwrap_or_default();
+            match found.is_empty() {
+                true => self.message = format!("{word}: {}", label.what),
+                false => self.show_definitions(kind, &word, &here, found, None),
+            }
+            return;
+        }
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
         self.truncated.set(false);
@@ -738,6 +753,114 @@ impl App {
         }
     }
 
+    /// Where the label `word` lands (#316): `d` resolves the name at 0-based `line` and byte
+    /// `col` as it would there, and each declaration of it in the project gives the parameter
+    /// or the field the label names. Several are overloads; none leaves the label unresolved.
+    fn label_targets(
+        &mut self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        line: usize,
+        col: usize,
+        owner: &search::Owner,
+    ) -> Vec<Candidate> {
+        let (line0, col0) = (self.line, self.col);
+        let message = std::mem::take(&mut self.message);
+        (self.line, self.col) = (line, col);
+        let name = self.definition_word(Some(kind)).map(|(_, w)| w);
+        let text = self.buf.lines.join("\n");
+        let owners = match name
+            .as_deref()
+            .and_then(|n| search::own_type(kind, &text, line, n))
+        {
+            // `new self(…)`: the class the cursor is in.
+            Some(decl) => vec![Candidate {
+                hit: Hit {
+                    path: here.to_path_buf(),
+                    line: decl,
+                    col: 0,
+                    text: self.buf.lines[decl - 1].clone(),
+                },
+                reason: Reason::File,
+            }],
+            None => {
+                self.probe = Some(Vec::new());
+                self.goto_definition();
+                self.probe.take().unwrap_or_default()
+            }
+        };
+        (self.line, self.col, self.message) = (line0, col0, message);
+        self.offer_only = false;
+        self.truncated.set(false);
+        let Some(name) = name else {
+            return Vec::new();
+        };
+        let what = match owner {
+            search::Owner::Args => "parameter",
+            search::Owner::Object(_) | search::Owner::Typed => "field",
+        };
+        let mut out: Vec<Candidate> = Vec::new();
+        for c in owners {
+            // Outside the project nothing is read; the line under the cursor declares nothing
+            // it calls.
+            if c.hit.path.is_absolute() || (c.hit.path == here && c.hit.line == line0 + 1) {
+                continue;
+            }
+            let Some(text) = self.text_of(&c.hit.path) else {
+                continue;
+            };
+            let of = search::qualified(kind, &text, c.hit.line, &name).unwrap_or(name.clone());
+            let mut at: Vec<(PathBuf, usize, String)> =
+                search::label_lines(kind, &text, c.hit.line, &name, word, owner)
+                    .into_iter()
+                    .map(|l| (c.hit.path.clone(), l, of.clone()))
+                    .collect();
+            // `<Tag a={…}>` of `function Tag(p: Props)`: the key is `Props`'s, when the project
+            // declares one `Props`.
+            if at.is_empty()
+                && let search::Owner::Object(n) = owner
+                && let Some(ty) = search::object_type(kind, &text, c.hit.line, &name, *n)
+            {
+                let cut = self.truncated.get();
+                let pattern = search::def_patterns(kind, &ty).join("|");
+                let decls = self.project_definitions(kind, here, &ty, &pattern);
+                self.truncated.set(cut);
+                if let [d] = decls.as_slice()
+                    && let Some(t) = self.text_of(&d.path)
+                {
+                    at = search::label_lines(kind, &t, d.line, &ty, word, &search::Owner::Typed)
+                        .into_iter()
+                        .map(|l| (d.path.clone(), l, ty.clone()))
+                        .collect();
+                }
+            }
+            let by_name = match c.reason.proven() {
+                true => "",
+                false => ", found by name",
+            };
+            for (path, line, of) in at {
+                if out.iter().any(|o| o.hit.path == path && o.hit.line == line) {
+                    continue;
+                }
+                let text = self
+                    .text_of(&path)
+                    .and_then(|t| t.lines().nth(line - 1).map(str::to_owned))
+                    .unwrap_or_default();
+                out.push(Candidate {
+                    hit: Hit {
+                        path,
+                        line,
+                        col: 0,
+                        text,
+                    },
+                    reason: Reason::Label(format!("{what} of {of}{by_name}")),
+                });
+            }
+        }
+        out
+    }
+
     /// The first line of each of `files`, a module a name or a path leads to as a whole.
     fn module_candidates(&self, files: Vec<PathBuf>) -> Vec<Candidate> {
         files
@@ -889,14 +1012,19 @@ impl App {
         found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).0);
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
+        if let Some(probe) = &mut self.probe {
+            *probe = found;
+            return;
+        }
         match found.as_slice() {
             [] => self.message = resolution(word, None, &found, broke, truncated),
             [one] if !namesakes && !offer_only && !truncated => {
                 let path = self.root.join(&one.hit.path);
-                // A module's first line declares nothing of the word.
+                // A module's first line declares nothing of the word, and a label's reason names
+                // what declares the parameter or the field already.
                 let target = self
                     .text_of(&one.hit.path)
-                    .filter(|_| !matches!(one.reason, Reason::Module(_)))
+                    .filter(|_| !matches!(one.reason, Reason::Module(_) | Reason::Label(_)))
                     .and_then(|text| search::qualified(kind, &text, one.hit.line, word));
                 let status = resolution(word, target.as_deref(), &found, broke, false);
                 // The cursor lands on the word rather than at the start of the line, so a

@@ -61,7 +61,7 @@ func overweight(_ grams: Int) -> Bool {
 func dispatch() -> String {
     let courier = Courier(name: "post")
     //            ^ d: Sources/Warehouse/Warehouse.swift:1
-    //                    ^ d: Sources/Warehouse/Warehouse.swift:2; want Sources/Warehouse/Warehouse.swift:3 (#316)
+    //                    ^ d: Sources/Warehouse/Warehouse.swift:3
     return courier.name
     //             ^ d: Sources/Warehouse/Warehouse.swift:2
 }
@@ -137,7 +137,7 @@ func check() throws {}
 
 func weighed(_ c: Courier) -> String {
     Courier(name: c.name).name
-    //      ^ d: Sources/Warehouse/Warehouse.swift:2; want Sources/Warehouse/Warehouse.swift:3 (#316)
+    //      ^ d: Sources/Warehouse/Warehouse.swift:3
 }
 
 let amount: Priced.Type? = nil
@@ -173,4 +173,21 @@ func renamed(_ courier: Courier) -> Courier {
     let courier = Courier(name: courier.name)
     //                          ^ d: picker Sources/Shop/Basket.swift:62; want Sources/Shop/Basket.swift:172 (#317)
     return courier
+}
+
+struct RefreshWindow {
+    let maximumAttempts: Int
+    init(interval: Double = 30, maximumAttempts: Int = 5) {
+        self.maximumAttempts = maximumAttempts
+    }
+}
+
+func window() -> Int {
+    let w = RefreshWindow.init(interval: 30, maximumAttempts: 1)
+    //                                       ^ d: Sources/Shop/Basket.swift:180
+    //                                       status: maximumAttempts: parameter of RefreshWindow
+    print(w, separator: "")
+    //       ^ d: none
+    //       status: separator: argument label
+    return w.maximumAttempts
 }

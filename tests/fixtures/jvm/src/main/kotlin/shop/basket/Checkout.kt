@@ -58,3 +58,15 @@ suspend fun deliver(grams: Grams): Int = weigh(grams)
 
 fun fast(speed: Speed): Boolean = speed == Speed.FAST
 //                                               ^ d: none; want src/main/kotlin/shop/basket/Checkout.kt:12 (#457)
+
+fun hire(): String = Courier(name = "post").name
+//                           ^ d: src/main/kotlin/shop/warehouse/Warehouse.kt:8
+
+fun heavy(): Int = weigh(
+    grams = 3,
+//  ^ d: picker src/main/kotlin/shop/warehouse/Warehouse.kt:5, src/main/kotlin/shop/warehouse/Warehouse.kt:12; want src/main/kotlin/shop/warehouse/Warehouse.kt:12 (#367)
+)
+
+fun loud(): Unit = println(message = "x")
+//                         ^ d: none
+//                         status: message: argument label

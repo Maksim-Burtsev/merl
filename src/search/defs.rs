@@ -34,6 +34,9 @@ pub enum Reason {
     /// The method of the one trait every candidate of `x.word()` declares or implements
     /// (#358): whatever `x` is, the call reaches that declaration.
     Trait(String),
+    /// What a named argument, a literal's key or a JSX attribute names (#316): `parameter of
+    /// followTopic`, `field of Opts`.
+    Label(String),
 }
 impl Reason {
     /// Whether the reason alone picks the declaration. `by name` only says the name matched, so
@@ -53,6 +56,7 @@ impl std::fmt::Display for Reason {
             Self::Module(file) => write!(f, "module {file}"),
             Self::File => write!(f, "in this file"),
             Self::Trait(name) => write!(f, "via trait {name}"),
+            Self::Label(what) => write!(f, "{what}"),
         }
     }
 }

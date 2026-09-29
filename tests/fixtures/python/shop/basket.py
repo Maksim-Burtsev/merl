@@ -101,4 +101,10 @@ def first(couriers: list[Carrier]) -> Carrier:
 def checkout(basket: Basket) -> int:
     return basket.gross() + Basket(tariff=Tariff()).bonus()
     #             ^ d: shop/basket.py:24
-    #                                  ^ d: !jump; want shop/basket.py:18 (#316)
+    #                                  ^ d: shop/basket.py:18
+
+
+def ordered(items: list[str]) -> list[str]:
+    return sorted(items, key=len)
+    #                    ^ d: none
+    #                    status: key: argument label

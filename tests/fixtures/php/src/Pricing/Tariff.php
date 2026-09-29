@@ -26,4 +26,10 @@ class Tariff implements Priced
     {
         return 'tariff';
     }
+
+    public static function flat(): self
+    {
+        return new self(base: 1);
+        //              ^ d: src/Pricing/Tariff.php:15
+    }
 }

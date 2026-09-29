@@ -158,8 +158,8 @@ The grammar:
 - `d: FILE:LINE` is a jump there, `FILE` from the fixture's root.
 - `d: picker FILE:LINE, FILE:LINE` is a picker holding exactly these rows, in any order; `, …` at
   the end means at least these.
-- `d: none` is nothing found (the status line starts with `no `); `d: !jump` is anything but a
-  jump.
+- `d: none` is nothing found (the status line starts with `no `, or names the label the word is:
+  `name: argument label`, `name: key`); `d: !jump` is anything but a jump.
 - `status: TEXT` on the line right under an annotation is optional: the status line contains TEXT.
 - A known miss records today's answer and the wanted one: `d: none; want shop/order.go:12 (#NNN)`.
   Only the part before `; want` is checked, so the suite stays green; the wanted answer must
