@@ -368,8 +368,15 @@ fn code_hl<'a>(
 }
 
 /// `--tutor`'s current lesson, or `--drill`'s task, three rows above the status bar.
-pub(super) fn draw_lesson(frame: &mut Frame, app: &App, theme: &Theme, area: Rect, base: Style) {
-    let Some(tutor) = &app.tutor else { return };
+/// The tutor's and the drill's lesson panel at `width`: a title bar, then the task's text,
+/// wrapped. `None` outside `--tutor` and `--drill`.
+pub(super) fn lesson_panel(
+    app: &App,
+    theme: &Theme,
+    width: u16,
+    base: Style,
+) -> Option<Paragraph<'static>> {
+    let tutor = app.tutor.as_ref()?;
     let (title, text) = match (&tutor.drill, crate::tutor::lesson(tutor.step)) {
         (Some(drill), _) => drill.panel(),
         (None, Some(t)) => (
@@ -384,7 +391,7 @@ pub(super) fn draw_lesson(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         (None, None) => (" Tutor \u{2713} done".to_string(), crate::tutor::DONE),
     };
     // The title row is a bar, so it is padded to the full width.
-    let pad = (area.width as usize).saturating_sub(wrap::width(&title));
+    let pad = (width as usize).saturating_sub(wrap::width(&title));
     let head = Style::new()
         .bg(theme.status_bg)
         .fg(theme.status_fg)
@@ -393,8 +400,5 @@ pub(super) fn draw_lesson(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         Line::from(Span::styled(format!("{title}{}", " ".repeat(pad)), head)),
         Line::from(Span::styled(format!(" {text}"), base)),
     ];
-    frame.render_widget(
-        Paragraph::new(lines).wrap(Wrap { trim: true }).style(base),
-        area,
-    );
+    Some(Paragraph::new(lines).wrap(Wrap { trim: true }).style(base))
 }
