@@ -315,3 +315,41 @@ fn a_cut_usages_list_says_so_after_the_filter() {
     assert!(picker.title.ends_with("(first 5000)"), "{}", picker.title);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #387: `u` reads a Ruby name as `d` does, its `?`, `!` or setter `=` included, so the method it
+/// asks about is the one its own `def` or `attr_writer` declares, and that row comes first.
+#[test]
+fn usages_of_a_ruby_suffixed_method_put_its_declaration_first() {
+    let (dir, mut a) = project_app(
+        "u-ruby-suffix",
+        &[
+            (
+                "app/user.rb",
+                "class User\n  attr_writer :name\n\n  def valid?\n    true\n  end\n\n  def save!\n    true\n  end\nend\n",
+            ),
+            ("app/use.rb", "user.valid?\nuser.save!\nuser.name = \"x\"\n"),
+        ],
+    );
+    for (line, word, declared) in [(1, "valid", 4), (2, "save", 8), (3, "name", 2)] {
+        usages_at(&mut a, &dir, "app/use.rb", line, word);
+        assert_eq!(
+            usage_rows(&mut a),
+            [
+                ("declaration".to_string(), format!("app/user.rb:{declared}")),
+                (String::new(), format!("app/use.rb:{line}")),
+            ],
+            "{word}"
+        );
+        assert!(
+            a.picker
+                .as_ref()
+                .unwrap()
+                .title
+                .ends_with("1 declaration, 1 in code"),
+            "{}",
+            a.picker.as_ref().unwrap().title
+        );
+        a.picker = None;
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
