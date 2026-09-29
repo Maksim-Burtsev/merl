@@ -518,6 +518,7 @@ fn the_shared_pattern_skips_the_kinds_with_rows_of_their_own() {
     assert!(!shared_symbols(Some(Kind::Php)));
     assert!(!shared_symbols(Some(Kind::Lua)));
     assert!(!shared_symbols(Some(Kind::Elixir)));
+    assert!(!shared_symbols(Some(Kind::Graphql)));
     // Shell and SQL rows complement the shared pattern instead, and it reads every other
     // file, known kind or not.
     assert!(shared_symbols(Some(Kind::Shell)));
@@ -571,4 +572,35 @@ fn infra_symbol_names() {
     assert_eq!(yaml("x-common: &common").as_deref(), Some("&common"));
     assert_eq!(yaml("  <<: *common"), None);
     assert_eq!(yaml("apiVersion: v1"), None);
+}
+
+/// #419. `D` lists GraphQL's definitions from its own row, each once, a directive without its
+/// `@`; a field, an enum value, an `extend` and an anonymous operation are no rows.
+#[test]
+fn graphql_symbol_names() {
+    for (line, name) in [
+        ("type User implements Node & Entity {", Some("User")),
+        ("type User @key(fields: \"id\") {", Some("User")),
+        ("interface Node {", Some("Node")),
+        ("input CreateUserInput {", Some("CreateUserInput")),
+        ("enum Status {", Some("Status")),
+        ("union SearchResult = User | Post", Some("SearchResult")),
+        ("scalar DateTime", Some("DateTime")),
+        (
+            "directive @auth(requires: Role) on FIELD_DEFINITION",
+            Some("auth"),
+        ),
+        ("fragment UserParts on User {", Some("UserParts")),
+        ("query GetUser($id: ID!) {", Some("GetUser")),
+        ("mutation CreateUser(", Some("CreateUser")),
+        ("subscription OnMessage {", Some("OnMessage")),
+        ("extend type Query {", None),
+        ("  email: String!", None),
+        ("  ACTIVE", None),
+        ("query {", None),
+        ("{", None),
+    ] {
+        let want: Vec<String> = name.into_iter().map(str::to_owned).collect();
+        assert_eq!(listed(Kind::Graphql, line), want, "{line}");
+    }
 }

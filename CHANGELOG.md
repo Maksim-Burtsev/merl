@@ -48,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `` `src/search/kind.rs:30` ``, opens it; a bare name several files carry is a picker of them.
   A missing file or heading says so, and a link in a code block or a comment is not followed.
   `D` no longer lists the examples of a README's code blocks as declarations. (#421)
+- GraphQL: `d` in a `.graphql`, `.graphqls` or `.gql` file lands on a `type`, an `interface`, an
+  `input`, an `enum`, a `union`, a `scalar`, a `directive`, a fragment from its `...spread`, a
+  named operation, a field (`email → User.email`) and an enum value; on the path of an
+  `#import "./parts.graphql"` it opens that file. `extend type`, a selection, an alias, an
+  argument and a `$variable` are no declarations. `D` lists the types, directives, fragments and
+  named operations. (#419)
 
 ### Changed
 

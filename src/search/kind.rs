@@ -28,6 +28,7 @@ pub enum Kind {
     Yaml,
     /// `d` follows a link or a path in a code span to the file or the heading it names (#421).
     Markdown,
+    Graphql,
 }
 pub fn kind_of(path: &Path) -> Option<Kind> {
     let name = path.file_name()?.to_str()?;
@@ -73,6 +74,8 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "yml" | "yaml") => Kind::Yaml,
         // MDX writes its links as Markdown does.
         (_, "md" | "markdown" | "mdx") => Kind::Markdown,
+        // `.graphqls` is a schema by convention, `.gql` the short form of either.
+        (_, "graphql" | "graphqls" | "gql") => Kind::Graphql,
         (_, "dockerignore") => return None,
         ("Dockerfile" | "Containerfile", _) | (_, "dockerfile" | "Dockerfile") => Kind::Docker,
         _ if name.starts_with("Dockerfile.") || name.starts_with("Containerfile.") => Kind::Docker,

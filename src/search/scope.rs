@@ -30,7 +30,8 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Zig
         | Kind::Shell
         | Kind::Sql
-        | Kind::Make => kind_of(path) == Some(kind),
+        | Kind::Make
+        | Kind::Graphql => kind_of(path) == Some(kind),
     }
 }
 /// Where the standard library and the dependencies of the project at `root` live on this
@@ -205,7 +206,8 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         | Kind::Terraform
         | Kind::Docker
         | Kind::Yaml
-        | Kind::Markdown => Vec::new(),
+        | Kind::Markdown
+        | Kind::Graphql => Vec::new(),
     };
     // The order is deliberate, so no sort: `sys.path` can list a directory twice, far apart.
     let mut seen = std::collections::HashSet::new();

@@ -69,6 +69,9 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             }
             Kind::Sql => (false, false, false, true, &["--", "//"]),
             Kind::Terraform => (false, false, false, true, &["#", "//"]),
+            // GraphQL writes its descriptions in `"""` block strings, and nothing else runs
+            // over lines: no `'''`, no `/* */`, no backtick.
+            Kind::Graphql => (true, false, false, false, &["#"]),
             // PHP's `#` is a comment as `//` is, save `#[`, which opens an attribute (#488), and
             // only in PHP's code: outside `<?php … ?>` it is the `#id` of CSS, the `#field` of
             // JS or the `&#8212;` of HTML. A line comment ends at `?>` too, as PHP ends it.
@@ -213,9 +216,11 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
                 quote = None;
             }
         } else if heredoc
-            && (b[i..].starts_with(b"\"\"\"") || (!template && b[i..].starts_with(b"'''")))
+            && (b[i..].starts_with(b"\"\"\"")
+                || (!template && kind != Kind::Graphql && b[i..].starts_with(b"'''")))
         {
-            // `'''` is Python's and Elixir's alone; Swift and C# write the block with `"` only.
+            // `'''` is Python's and Elixir's alone; Swift, C# and GraphQL write the block with
+            // `"` only.
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" }.into());
             i += 2;
         } else if verbatim_strings && (b[i..].starts_with(b"@\"") || b[i..].starts_with(b"@$\"")) {

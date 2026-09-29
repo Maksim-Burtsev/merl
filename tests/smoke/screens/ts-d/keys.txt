@@ -1,4 +1,5 @@
 /
+Arrows
 Esc
 Picker: Enter
 [

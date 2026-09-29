@@ -327,6 +327,7 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | Dockerfile | the `FROM … AS name` stage | the same file |
 | YAML | the `&name` anchor, a key that opens a block (compose services, CI jobs) | the same file |
 | Markdown (`.md`, `.markdown`, `.mdx`) | no declarations: `d` follows what the cursor stands on. A link, on its text or its target: `[text](target)`, a reference `[text][label]`, `[label][]` or `[label]` through its `[label]: target` definition (and on that line), an `<a href>`; not an image. The target is a path, percent-decoded, from the file's directory or, after a `/`, from the root; `#anchor` is the heading with that GitHub anchor (the second of a name `-1`) or an `<a id>` / `<a name>`, in that file or this one; `#L12` and `#L12-L20` are a line. A missing file or heading, a directory and a URL say so. A code span naming a file of the project, from the root or from here, opens it, at `:line` when it has one; a bare name several files carry is a picker of them. Nothing in a fenced block, an HTML comment or the front matter is followed. | the file the link names |
+| GraphQL | `type` (behind `implements` and directives), `interface`, `input`, `enum`, `union`, `scalar`, `directive @name`, `fragment` (for a `...spread`), a named `query`, `mutation` or `subscription`, each at the start of its line; a field, one whose arguments wrap included, and an enum value, on a line directly inside a `type`, an `interface`, an `input` or an `enum` (an `extend` of one too), the nearest line above indented less. `extend type X` is a use of `X`, as a Rust `impl` is; a selection or an alias in an operation, an argument, a `$variable` and a line of a `"""` description declare nothing. `d` on the path of `#import "./parts.graphql"` opens that file, relative to the importing one. | every `.graphql`, `.graphqls` and `.gql` file |
 
 In Makefiles, Terraform, Dockerfiles and YAML a `-` is part of the word under the cursor, and `d`
 in Terraform reads the whole dotted address, so it works from anywhere in `aws_s3_bucket.logs.id`.
@@ -341,7 +342,9 @@ exported, since indented they are locals), plus shell functions (`name()`; the `
 the single regex already finds), SQL `CREATE`d objects under the name as written (`public.orders`,
 not CTEs), Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`,
 `module.x`, `var.x`, `output.x`), Dockerfile stages and YAML anchors, each read only from its own
-kind of file; recomputed on each press. Zig adds a function behind `inline` or `noinline` and a
+kind of file; GraphQL's `type`, `interface`, `input`, `enum`, `union`, `scalar`, `directive` (under
+its name, without the `@`), `fragment` and named operations, from a row of its own, since the regex
+above knows four of those words and would list them twice; recomputed on each press. Zig adds a function behind `inline` or `noinline` and a
 `test`, under the description it is written with, which that regex has no word for. Java, Kotlin,
 Ruby, C, C++, C#, Swift, PHP, Lua and Elixir are read from rules of their
 own instead of that regex — Java's types and its methods, told from a call by the return type before
