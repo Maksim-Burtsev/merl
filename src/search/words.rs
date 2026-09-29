@@ -206,6 +206,15 @@ fn cpp_namespace(line: &str, name: &str) -> Vec<String> {
     let Some(c) = spelled.captures(line) else {
         return Vec::new();
     };
+    // Written again before a `(`, the qualified one is a type in front of the name the line
+    // declares: `typedef ns::Foo Foo;` declares a `Foo` of no `ns`.
+    let rest = &line[c.get(0).map_or(0, |m| m.end())..];
+    let rest = rest.split('(').next().unwrap_or(rest);
+    let again = Regex::new(&format!(r"\b{}\b", regex::escape(name)))
+        .expect("an escaped name keeps the pattern valid");
+    if again.is_match(rest) {
+        return Vec::new();
+    }
     let mut names: Vec<String> = c[1]
         .split("::")
         .filter(|s| !s.is_empty())

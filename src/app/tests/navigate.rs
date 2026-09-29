@@ -1225,3 +1225,81 @@ fn markdown_links_outside_to_a_directory_and_to_a_spaced_name() {
     assert!(rows.iter().any(|r| r.contains("serve")), "{rows:?}");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Review of #515 (#317): off the declared name, a bare value (a shadowed parameter) or a
+/// recursive call is a namesake nothing here tells from the line's own: offered, as on master.
+#[test]
+fn off_the_declared_name_a_value_or_a_recursion_stays_a_picker() {
+    let (dir, mut a) = project_app(
+        "d-317-shadow",
+        &[
+            (
+                "src/a.rs",
+                "fn chime(x: u32) -> u32 { x }\npub fn rebate(chime: u32) -> u32 {\n    let chime = chime + 1;\n    chime\n}\n",
+            ),
+            (
+                "src/A.kt",
+                "fun fact(n: Int): Int = if (n < 2) 1 else n * fact(n - 1)\n",
+            ),
+            ("src/B.kt", "private fun fact(n: Int): Int = n\n"),
+        ],
+    );
+    d_on(&mut a, "src/a.rs", "let chime = chime");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "chime: at a declaration, 1 other by name",
+            &[("chime", "src/a.rs:1")]
+        )
+    );
+    d_on(&mut a, "src/A.kt", "n * fact");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "fact: at a declaration, 1 other by name",
+            &[("fact", "src/B.kt:1")]
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Review of #515 (#460): an Elixir call or capture is its module's function, never its
+/// attribute, and an attribute is nothing else. Past an `import` that lists the name, the call
+/// is looked up by name, as on master.
+#[test]
+fn an_elixir_call_is_no_attribute_and_an_import_leaves_it_to_the_search() {
+    let (dir, mut a) = project_app(
+        "d-460-call",
+        &[
+            (
+                "lib/b.ex",
+                "defmodule B do\n  def timeout, do: 1\n  def discount(n), do: n\nend\n",
+            ),
+            (
+                "lib/c.ex",
+                "defmodule C do\n  import B, only: [discount: 1]\n  @timeout 5_000\n  def run(n) do\n    timeout() + discount(n)\n  end\n  def timeout, do: @timeout\n  def all(xs), do: Enum.map(xs, &timeout/0)\n  defp discount(a, b), do: a - b\nend\n",
+            ),
+        ],
+    );
+    let mut d = |code: &str| {
+        d_on(&mut a, "lib/c.ex", code);
+        shown(&mut a)
+    };
+    assert_eq!(
+        d("    timeout|() +"),
+        jump("timeout → C.timeout (in this file)", "lib/c.ex:7")
+    );
+    assert_eq!(
+        d("do: @timeout"),
+        jump("timeout → C.timeout (in this file)", "lib/c.ex:3")
+    );
+    assert_eq!(
+        d("&timeout"),
+        jump("timeout → C.timeout (in this file)", "lib/c.ex:7")
+    );
+    assert!(
+        matches!(d("() + discount"), Shown::Picker(..)),
+        "an imported discount/1 is no jump to the local discount/2"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

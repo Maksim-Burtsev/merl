@@ -148,26 +148,20 @@ impl App {
                 (kind, declares, h)
             })
             .collect();
-        // In a Makefile `u` marks what `d` counts (#504): a recipe line declares nothing make
-        // knows (#477), and `X += …` or `release: X := 1.0` declare `X` only when no plain line
-        // among the hits does (#499).
-        let mut texts: HashMap<PathBuf, String> = HashMap::new();
-        let mut recipe = |h: &Hit| {
-            let text = texts
-                .entry(h.path.clone())
-                .or_insert_with(|| self.text_of(&h.path).unwrap_or_default());
-            search::make_recipe_command(text, h.line).is_some()
-        };
+        // In a Makefile `u` marks what `d` counts (#504): a recipe line declares only what
+        // `make_recipe_rule` says, and `X += …` or `release: X := 1.0` declare `X` only when no
+        // plain line among the hits does (#499).
+        let mut recipe = self.make_recipe_rule(here, word);
         let make = Some(Kind::Make);
         for (kind, declares, h) in &mut marked {
-            *declares &= *kind != make || !recipe(h);
+            *declares &= *kind != make || recipe(h).unwrap_or(true);
         }
         if !marked.iter().any(|(k, d, _)| *k == make && *d) {
             let fallback = Regex::new(&search::make_fallback_patterns(word).join("|")).ok();
             for (kind, declares, h) in &mut marked {
                 *declares |= *kind == make
                     && fallback.as_ref().is_some_and(|re| re.is_match(&h.text))
-                    && !recipe(h);
+                    && recipe(h).is_none();
             }
         }
         let mut ranked: Vec<_> = marked

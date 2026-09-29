@@ -313,8 +313,12 @@ fn makefile_usages_mark_the_declarations_d_jumps_to() {
             "GO ?= go\nCFLAGS += -Wall\nLDFLAGS = -s\nLDFLAGS += -w\n\nbuild:\n\tGO=$(GO) ./build.sh $(CFLAGS) $(LDFLAGS)\n",
         )],
     );
+    // On make's `$(GO)`: on the recipe's own `GO=` the line declares the shell variable of its
+    // command, for `d` and `u` alike (`makefile_usages_ask_the_rule_d_asks`).
     let rows = |a: &mut App, word: &str| {
-        usages_at(a, &dir, "Makefile", 7, word);
+        a.jump_to(&dir.join("Makefile"), 7);
+        a.col = a.line_str().find(&format!("$({word})")).unwrap() + 2;
+        press(a, KeyCode::Char('u'), KeyModifiers::NONE);
         let rows = usage_rows(a);
         press(a, KeyCode::Esc, KeyModifiers::NONE);
         rows
@@ -429,5 +433,31 @@ fn usages_in_graphql_mark_the_field_not_the_selection() {
             (String::new(), "ops.graphql:3".into()),
         ]
     );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Review of #515: `u` asks the rule `d` asks. A recipe's `ARCH=x86` declares the shell variable
+/// of its own command, `$${ARCH}`, for both; a recipe's `X += 1` declares nothing, even with no
+/// other line setting `X`.
+#[test]
+fn makefile_usages_ask_the_rule_d_asks() {
+    let (dir, mut a) = project_app(
+        "u-make-rule",
+        &[(
+            "Makefile",
+            "build:\n\tARCH=x86 ./b.sh $${ARCH}\n\tX += 1\n\techo $(X)\n",
+        )],
+    );
+    let row = |mark: &str, line: usize| (mark.to_string(), format!("Makefile:{line}"));
+    usages_at(&mut a, &dir, "Makefile", 2, "ARCH");
+    assert_eq!(usage_rows(&mut a), [row("declaration", 2)]);
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    usages_at(&mut a, &dir, "Makefile", 4, "X");
+    assert_eq!(usage_rows(&mut a), [row("", 3), row("", 4)]);
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    a.jump_to(&dir.join("Makefile"), 2);
+    a.col = a.line_str().rfind("ARCH").unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(at(&a), (dir.join("Makefile"), 1));
     std::fs::remove_dir_all(&dir).unwrap();
 }

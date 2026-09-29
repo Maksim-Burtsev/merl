@@ -737,3 +737,16 @@ fn php_scope_roots_imports_and_names() {
         Some("Invoice::parse")
     );
 }
+
+/// Review of #515: a qualified name written again before a `(` is a type in front of the name
+/// its line declares, and qualifies nothing; an out-of-line constructor still reads its class.
+#[test]
+fn a_cpp_alias_of_a_qualified_type_is_no_member_of_it() {
+    let text = "typedef ns::Foo Foo;\nns::Foo Foo(1);\nRefund::Refund(const Refund& other) {}\n";
+    assert_eq!(qualified(Kind::C, text, 1, "Foo"), None);
+    assert_eq!(qualified(Kind::C, text, 2, "Foo"), None);
+    assert_eq!(
+        qualified(Kind::C, text, 3, "Refund").as_deref(),
+        Some("Refund::Refund")
+    );
+}

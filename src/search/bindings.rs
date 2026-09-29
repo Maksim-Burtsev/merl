@@ -200,8 +200,8 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
     }
 }
 /// Elixir's locals (#460): the nearest `pattern = value` above the cursor in a block around it,
-/// told by indentation as `mix format` keeps it, a clause head `pattern ->` or `fn x ->` that
-/// opens one of those blocks, and the parameters of the `def` around them, where the walk stops:
+/// told by indentation as `mix format` keeps it, a clause head `pattern ->` or `fn x ->` or the
+/// `pattern <-` of a `for` or `with` that opens one of those blocks, and the parameters of the `def` around them, where the walk stops:
 /// a `def` sees nothing of the module around it. Nothing outside a `def` is a local.
 fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -215,6 +215,15 @@ fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             value: Value::Unknown,
         }]
     };
+    // The head of a one-line `fn x -> … end` binds on the cursor's own line, above which the
+    // walk starts.
+    let own = code(at);
+    if let Some((h, _)) = own.split_once("->")
+        && let Some((_, p)) = h.rsplit_once("fn ")
+        && elixir_binds(p, name)
+    {
+        return found(at + 1);
+    }
     let mut depth = indent(lines[at]);
     let mut i = at;
     while i > 0 {
@@ -256,6 +265,26 @@ fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
                     false => elixir_binds(&code(j), name),
                 })
                 .map_or_else(Vec::new, |j| found(j + 1));
+        }
+        // A `for` or a `with` binds the left of each `<-` of its head, which runs to its `do`.
+        if head.starts_with("for ") || head.starts_with("with ") {
+            let end = (i..at)
+                .find(|&j| code(j).ends_with(" do") || code(j).contains("do:"))
+                .unwrap_or(i);
+            let generates = |j: usize| {
+                let c = code(j);
+                let c = c
+                    .strip_prefix("for ")
+                    .or_else(|| c.strip_prefix("with "))
+                    .unwrap_or(&c);
+                split_top(Kind::Elixir, c, b',').iter().any(|g| {
+                    g.split_once("<-")
+                        .is_some_and(|(p, _)| elixir_binds(p, name))
+                })
+            };
+            if let Some(j) = (i..=end).find(|&j| generates(j)) {
+                return found(j + 1);
+            }
         }
         if let Some(h) = t.strip_suffix("->") {
             let h = h.rsplit_once("fn ").map_or(h, |(_, p)| p);
@@ -553,6 +582,22 @@ pub fn lua_local_value(text: &str, line: usize, name: &str) -> Option<String> {
     let at = match bindings(Kind::Lua, text, line, name).first() {
         Some(b) => b.line - 1,
         None => {
+            // The walk reads the lines above the cursor: a `for` or a `function(…)` on its own
+            // line may bind the name, and then the file's `local` says nothing.
+            let own = line
+                .checked_sub(1)
+                .and_then(|i| lines.get(i))
+                .map(|l| uncommented(Kind::Lua, l))
+                .unwrap_or_default();
+            let word = Regex::new(&format!(r"\b{}\b", regex::escape(name)))
+                .expect("an escaped name keeps the pattern valid");
+            if Regex::new(r"\b(?:for|function)\b")
+                .expect("a fixed pattern compiles")
+                .find(&own)
+                .is_some_and(|m| word.is_match(&own[m.end()..]))
+            {
+                return None;
+            }
             let literal = literal_lines(Kind::Lua, text);
             (0..line.saturating_sub(1).min(lines.len()))
                 .rev()
