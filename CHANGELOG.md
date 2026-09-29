@@ -165,6 +165,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whole path in the status bar, `…/alink: Is a directory (os error 21)`. (#449)
 - `d` in Go on the blank identifier `_` answers `no definition for _` at once. It jumped to an
   earlier `_`, as if it were a local of that name; every `_` is a fresh discard. (#476)
+- `d` in a Makefile no longer reads an assignment inside a recipe, `GO=$(GO) ./build.sh`, as a
+  declaration of the variable: a recipe line is a shell command, and `d` on `$(GO)` jumps to the
+  `GO ?= go` make knows instead of offering both. A tab-indented assignment inside an `ifeq`
+  outside any rule still declares. (#477)
 
 ## [0.7.0] - 2026-09-25
 
