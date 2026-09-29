@@ -28,29 +28,66 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
     imports_as_written(kind, text)
 }
 /// A TypeScript `import … from`, `require` or `import x = require`: the clause (one of the first
-/// three groups) and the module.
+/// three groups), the module, and after a `require(…)` what follows its `)`: a `.name` it takes,
+/// and a last `(`, `[` or `.` when the value is used further (#328).
 static TS_IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(
-        r#"(?ms)^\s*(?:import\s+(?:type\s+)?([^'"]*?)\s*from\s*|(?:const|let|var)\s+([^=]+?)\s*=\s*(?:await\s+)?(?:require|import)\s*\(\s*|import\s+([\w$]+)\s*=\s*require\s*\(\s*)['"]([^'"]+)['"]"#,
+        r#"(?ms)^\s*(?:import\s+(?:type\s+)?([^'"]*?)\s*from\s*|(?:const|let|var)\s+([^=]+?)\s*=\s*(?:await\s+)?(?:require|import)\s*\(\s*|import\s+([\w$]+)\s*=\s*require\s*\(\s*)['"]([^'"]+)['"](\s*\)(?:\s*\.\s*[\w$]+)?\s*[(\[.]?)?"#,
     )
     .unwrap()
 });
+/// `text` with each declarator on a continuation line of a TypeScript `const`, `let` or `var`
+/// statement written as a statement of its own, `var more = require("./m"),`, so that
+/// [`TS_IMPORT`] reads it (#328). The lines stay where they are.
+fn ts_continued(text: &str) -> std::borrow::Cow<'_, str> {
+    if !text.contains("require") {
+        return text.into();
+    }
+    let lines: Vec<&str> = text.lines().collect();
+    let mut out: Vec<String> = lines.iter().map(|l| (*l).to_owned()).collect();
+    let mut changed = false;
+    for k in 0..lines.len() {
+        for (l, _) in ts_declarators(&lines, k)
+            .unwrap_or_default()
+            .into_iter()
+            .skip(1)
+        {
+            if l > k && !out[l].trim_start().starts_with("var ") {
+                out[l] = format!("var {}", lines[l].trim_start());
+                changed = true;
+            }
+        }
+    }
+    match changed {
+        true => out.join("\n").into(),
+        false => text.into(),
+    }
+}
 /// The 1-based line of the TypeScript import in `text` that binds `name`, as [`imports`] reads
 /// it: in an import wrapped over several lines, the line the name is written on.
 pub fn ts_import_line(text: &str, name: &str) -> Option<usize> {
+    ts_import_lines(text, name).first().copied()
+}
+/// Every line [`ts_import_line`] could name: each import of `text` that binds `name`.
+pub fn ts_import_lines(text: &str, name: &str) -> Vec<usize> {
     let ident = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_' || c == '$');
-    TS_IMPORT.captures_iter(text).find_map(|c| {
-        let binds = imports_as_written(Kind::TsJs, &c[0])
-            .iter()
-            .any(|(n, _)| n == name);
-        let clause = c.get(1).or_else(|| c.get(2)).or_else(|| c.get(3))?;
-        let s = clause.as_str();
-        let at = s.match_indices(name).map(|(i, _)| i).find(|&i| {
-            !ident(s[..i].chars().next_back()) && !ident(s[i + name.len()..].chars().next())
-        });
-        let at = at.filter(|_| binds)?;
-        Some(text[..clause.start() + at].matches('\n').count() + 1)
-    })
+    let text = ts_continued(text);
+    let text = text.as_ref();
+    TS_IMPORT
+        .captures_iter(text)
+        .filter_map(|c| {
+            let binds = imports_as_written(Kind::TsJs, &c[0])
+                .iter()
+                .any(|(n, _)| n == name);
+            let clause = c.get(1).or_else(|| c.get(2)).or_else(|| c.get(3))?;
+            let s = clause.as_str();
+            let at = s.match_indices(name).map(|(i, _)| i).find(|&i| {
+                !ident(s[..i].chars().next_back()) && !ident(s[i + name.len()..].chars().next())
+            });
+            let at = at.filter(|_| binds)?;
+            Some(text[..clause.start() + at].matches('\n').count() + 1)
+        })
+        .collect()
 }
 /// [`imports`] over every line of `text`, a docstring's too: what a reader inside the docstring's
 /// example goes by.
@@ -170,8 +207,16 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
             }
         }
         Kind::TsJs => {
-            for c in TS_IMPORT.captures_iter(text) {
+            let text = ts_continued(text);
+            for c in TS_IMPORT.captures_iter(&text) {
                 let module = &c[4];
+                // `require("debug")("app")` is what the module's value returns, no import of it;
+                // `require("./x").Name` takes the module's `Name` (#328).
+                let after = c.get(5).map_or("", |m| m.as_str()).trim_end();
+                if after.ends_with(['(', '[', '.']) {
+                    continue;
+                }
+                let member = after.split_once('.').map(|(_, m)| m.trim());
                 // `./x` and `../x` keep their dots as the first part; an absolute path gets one.
                 let mut path = parts(module, "/");
                 if module.starts_with('/') {
@@ -181,8 +226,12 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                 // `require`. `x`, `* as x`, `{a, type b as c}` and `x, {a}` in one clause.
                 let (clause, whole) = match (c.get(1), c.get(2).or_else(|| c.get(3))) {
                     (Some(m), _) => (m.as_str(), "default"),
-                    (None, m) => (m.map_or("", |m| m.as_str()), "*"),
+                    (None, m) => (m.map_or("", |m| m.as_str()), member.unwrap_or("*")),
                 };
+                // What a destructuring takes out of a member is not read.
+                if member.is_some() && clause.contains('{') {
+                    continue;
+                }
                 let (outside, named) = clause.split_once('{').map_or((clause, ""), |(o, n)| {
                     (o, n.split('}').next().unwrap_or(""))
                 });
@@ -199,7 +248,16 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
                 }
                 for item in named.split(',') {
                     let item = item.trim();
-                    if let Some((alias, name)) = bound(item.strip_prefix("type ").unwrap_or(item)) {
+                    let item = item.strip_prefix("type ").unwrap_or(item);
+                    // A destructuring renames with `:`, `const { a: b } = require("./x")` (#328).
+                    if let Some((name, alias)) = item.split_once(':') {
+                        let (name, alias) = (name.trim(), alias.trim());
+                        if !name.is_empty() && !alias.is_empty() {
+                            out.push((alias.to_owned(), with(name)));
+                        }
+                        continue;
+                    }
+                    if let Some((alias, name)) = bound(item) {
                         out.push((alias, with(&name)));
                     }
                 }
@@ -270,6 +328,34 @@ pub fn declares_wrapped_generic(text: &str, line: usize) -> bool {
     group(Kind::TsJs, &lines, i, open).is_some_and(|(_, _, rest)| {
         let rest = rest.trim();
         rest.starts_with(':') || rest.starts_with('{')
+    })
+}
+/// What a CommonJS module hands out as a whole (#328): the 1-based line of its one
+/// `module.exports = …`, and the name it assigns when that is a bare name, as `module.exports =
+/// Segment;` does. The outer `None` is a module that says nothing of `module.exports` or
+/// `exports`, an ES module; the inner one a module that assigns `module.exports` more than once or
+/// builds it with `exports.x = …` lines, where nothing is known of the whole.
+pub fn module_exports(text: &str) -> Option<Option<(usize, Option<String>)>> {
+    static WHOLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?m)^[ \t]*module\.exports\s*=\s*([^=\n][^\n]*)$").unwrap()
+    });
+    static PART: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?m)^[ \t]*(?:module\.)?exports\.[\w$]+\s*=[^=]").unwrap()
+    });
+    static NAME: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^([A-Za-z_$][\w$]*)\s*;?\s*$").unwrap());
+    let whole: Vec<regex::Captures> = WHOLE.captures_iter(text).collect();
+    let part = PART.is_match(text);
+    if whole.is_empty() && !part {
+        return None;
+    }
+    Some(match (whole.as_slice(), part) {
+        ([one], false) => {
+            let line = text[..one.get(0).unwrap().start()].matches('\n').count() + 1;
+            let name = NAME.captures(one[1].trim()).map(|c| c[1].to_owned());
+            Some((line, name))
+        }
+        _ => None,
     })
 }
 /// The name a TypeScript module declares what it exports as `name` under: `Hono` for

@@ -145,6 +145,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` in JavaScript reads a `require` as an import. A name that `const { helper } =
+  require("./m")` or `const Segment = require("./seg")` binds leads into the required module,
+  where it stopped on the `require` line; `utils.helper` behind `const utils = require("./m")`
+  finds `helper` there, `Segment.make` the `make` of the class that `module.exports = Segment`
+  hands out, and `d` on `utils` itself lands on its `module.exports =` line. A `const` continued
+  over several lines binds every name it declares, where the names after the first were found
+  nowhere. `require("debug")("app")` returns something else and stays a local. (#328)
 - `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
   in the project, the standard library and the dependencies the cursor can reach, the traits'
   first, where it jumped to a lone project namesake: `v.unwrap()` on an `Option` landed on a

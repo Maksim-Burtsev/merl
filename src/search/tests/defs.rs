@@ -182,6 +182,9 @@ fn lines_inside_a_literal_or_a_block_comment_are_told() {
     let ts = "const q = `\\`\nfunction ghost() {}\n`;\nfunction real() {}\n";
     assert_eq!(inside(Kind::TsJs, ts), [2, 3]);
     assert!(inside(Kind::Go, "const q = `\\`\nfunc real() {}\n").is_empty());
+    // A template inside a template's `${…}` closes there, and so does the `${…}` (#328).
+    let ts = "const a = `${b ? `${c}/` : \"\"}${d}`;\nfunction real() {}\nconst e = `\n${`\nnested`}\n`;\nclass After {}\n";
+    assert_eq!(inside(Kind::TsJs, ts), [4, 5, 6]);
     // A migration embeds SQL, and a raw or a verbatim string is where it puts it. `""` is how
     // a verbatim string writes a quote, so it does not close one.
     let cs = "var q = \"\"\"\n    WHERE EXISTS(SELECT 1 FROM t)\n    \"\"\";\nvar v = @\"\n    SELECT MIN(\"\"rowid\"\") FROM t\n    \";\npublic int Real() => 1;\n";

@@ -154,6 +154,17 @@ impl App {
                 _ => n,
             })
             .collect();
+        // `const { helper } = require("./m")` binds an import, as `import` does (#328).
+        let locals = match kind {
+            Kind::TsJs => {
+                let required = search::ts_import_lines(&text, first);
+                locals
+                    .into_iter()
+                    .filter(|n| !required.contains(n))
+                    .collect()
+            }
+            _ => locals,
+        };
         if !locals.is_empty() {
             imports.retain(|(name, _)| name != first);
         }
@@ -1054,6 +1065,8 @@ impl App {
     ) -> Option<Vec<Candidate>> {
         let module_files =
             |module: &[String]| search::module_files(kind, &self.root, &self.files, here, module);
+        // What a CommonJS module bound whole hands out (#328), [`search::module_exports`].
+        let mut exports = None;
         // The names from the module down to the word: what the import takes, then the chain.
         let tail = |mut names: Vec<String>| {
             if let Some((_, after)) = chain.split_first() {
@@ -1110,8 +1123,41 @@ impl App {
                 if files.is_empty() {
                     return None;
                 }
+                // A CommonJS module bound whole, `const X = require("./x")` (#328): `X` is what
+                // its one `module.exports =` hands out, the name it assigns or the line itself,
+                // and `X.member` a member of the class that name declares there. Where it
+                // builds `module.exports` otherwise, only its top-level `X` counts.
+                if taken == "*" {
+                    exports = files.iter().find_map(|f| {
+                        Some((f.clone(), search::module_exports(&self.text_of(f)?)?))
+                    });
+                }
+                let class = |n: &String| {
+                    let pattern = search::def_patterns(kind, n).join("|");
+                    self.grep(&pattern, false, false, |p| files.iter().any(|f| f == p))
+                        .unwrap_or_default()
+                        .iter()
+                        .any(|h| {
+                            self.text_of(&h.path).is_some_and(|t| {
+                                search::qualified(kind, &t, h.line, n).is_none()
+                                    && search::declares_type(kind, &h.text)
+                            })
+                        })
+                };
                 let inside = match taken.as_str() {
-                    "*" => tail(Vec::new()),
+                    "*" => match (exports.as_ref().map(|(_, e)| e), chain.is_empty()) {
+                        (Some(Some((_, name))), true) => {
+                            vec![name.clone().unwrap_or_else(|| word.to_owned())]
+                        }
+                        (Some(None), true) => vec![word.to_owned()],
+                        (Some(Some((_, Some(name)))), false) if class(name) => {
+                            let mut names = vec![name.clone()];
+                            names.extend(chain[1..].iter().cloned());
+                            names.push(word.to_owned());
+                            names
+                        }
+                        _ => tail(Vec::new()),
+                    },
                     // What a default export is called is known only on its own line.
                     "default" if !chain.is_empty() => return Some(Vec::new()),
                     "default" => vec![word.to_owned()],
@@ -1147,6 +1193,29 @@ impl App {
             hits = self.renamed_export(name, |p| {
                 self.grep(p, false, false, wanted).unwrap_or_default()
             });
+        }
+        // `const utils = require("./m")` over `module.exports = { helper };`: that line.
+        if hits.is_empty()
+            && chain.is_empty()
+            && let Some((file, Some((line, _)))) = &exports
+        {
+            let line = *line;
+            hits = vec![Hit {
+                text: self
+                    .text_of(file)
+                    .and_then(|t| t.lines().nth(line - 1).map(str::to_owned))
+                    .unwrap_or_default(),
+                path: file.clone(),
+                line,
+                col: 0,
+            }];
+        }
+        // One that builds its exports line by line hands out itself: its file, as a module.
+        if hits.is_empty()
+            && chain.is_empty()
+            && let Some((file, None)) = &exports
+        {
+            return Some(self.module_candidates(vec![file.clone()]));
         }
         if hits.is_empty() && kind == Kind::TsJs && path.last().is_some_and(|t| t == "default") {
             hits = self

@@ -533,7 +533,16 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                         read = Some(j);
                     }
                     None if read == Some(i) => {}
-                    None => statement_bindings(kind, t, i + 1, name, &mut out),
+                    // `const fs = require("fs"),` over `more = …,` over `LIMIT = 10;` binds every
+                    // name it declares (#328).
+                    None => match ts_declarators(lines, i).filter(|_| kind == Kind::TsJs) {
+                        Some(each) => {
+                            for (at, d) in each {
+                                statement_bindings(kind, &d, at + 1, name, &mut out);
+                            }
+                        }
+                        None => statement_bindings(kind, t, i + 1, name, &mut out),
+                    },
                 }
                 // In `case *Repo:` the variable of a type switch is a `*Repo`; under several
                 // types or `default` it is whatever came in. A `switch` met with no `case` on
@@ -865,6 +874,9 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
     static TS_DESTRUCTURE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:export\s+)?(?:const|let|var)\s*[\[{](.*)[\]}]\s*(?::.*)?=").unwrap()
     });
+    // `{ helper: assist }` binds `assist`: the key names what is taken (#328).
+    static KEY: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"[\w$]+\s*:").unwrap());
     let n = regex::escape(name);
     let value = match kind {
         Kind::TsJs => {
@@ -887,7 +899,7 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
             } else if named.is_match(t)
                 || TS_DESTRUCTURE
                     .captures(t)
-                    .is_some_and(|c| names(&c[1], name))
+                    .is_some_and(|c| names(&KEY.replace_all(&c[1], ""), name))
             {
                 Value::Unknown
             } else {
@@ -927,6 +939,103 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
         _ => return,
     };
     out.push(Binding { line, value });
+}
+/// The declarators of the TypeScript `const`, `let` or `var` statement on 0-based line `k` of
+/// `lines` when it goes on over lines ending in `,` (#328): each with the 0-based line it starts
+/// on, written as a statement of its own (`const more = require("./m")`). The statement ends at
+/// its `;`, or at the end of a line that ends in no `,`; a comma inside brackets, a string or a
+/// template splits nothing. `None` for a statement of one line, or one that starts with no
+/// declaration keyword: `a = 1,` over `b = 2;` assigns.
+pub(super) fn ts_declarators(lines: &[&str], k: usize) -> Option<Vec<(usize, String)>> {
+    static KEYWORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:export\s+)?(?:declare\s+)?(?:const|let|var)\s+").unwrap()
+    });
+    let first = uncommented(Kind::TsJs, lines.get(k)?);
+    if !first.trim_end().ends_with(',') {
+        return None;
+    }
+    let keyword = KEYWORD.find(first.trim_start())?.as_str().to_owned();
+    // ponytail: two hundred lines of declarators.
+    let text = blank_comments(&lines[k..lines.len().min(k + 200)].join("\n"));
+    let ind = indent(lines[k]);
+    let (mut depth, mut end) = (0i32, text.len());
+    let mut starts = vec![0];
+    for (i, c) in code(Kind::TsJs, &text) {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            b',' if depth == 0 => starts.push(i + 1),
+            b';' if depth == 0 => {
+                end = i;
+                break;
+            }
+            // Its last line is the one before a line back at its indent.
+            b'\n' if depth == 0 => {
+                let next = text[i + 1..].lines().find(|l| !l.trim().is_empty());
+                if next.is_none_or(|l| indent(l) <= ind) {
+                    end = i;
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut out = Vec::new();
+    for (n, &from) in starts.iter().enumerate() {
+        let to = starts.get(n + 1).map_or(end, |&s| s - 1).min(end);
+        let Some(piece) = text.get(from..to) else {
+            continue;
+        };
+        let lead = piece.len() - piece.trim_start().len();
+        let line = k + text[..from + lead].matches('\n').count();
+        let piece = piece.split_whitespace().collect::<Vec<_>>().join(" ");
+        if piece.is_empty() {
+            continue;
+        }
+        out.push(match n {
+            0 => (line, piece),
+            _ => (line, format!("{keyword}{piece}")),
+        });
+    }
+    (out.len() > 1).then_some(out)
+}
+/// `s` with its TypeScript comments, `//` and `/* */`, blanked out and its lines kept.
+fn blank_comments(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = b.to_vec();
+    let (mut i, mut quote) = (0, None);
+    while i < b.len() {
+        match (quote, b[i]) {
+            (Some(q), c) => {
+                if c == b'\\' {
+                    i += 1;
+                } else if c == q {
+                    quote = None;
+                }
+            }
+            (None, c @ (b'"' | b'\'' | b'`')) => quote = Some(c),
+            (None, b'/') if b.get(i + 1) == Some(&b'/') => {
+                while i < b.len() && b[i] != b'\n' {
+                    out[i] = b' ';
+                    i += 1;
+                }
+                continue;
+            }
+            (None, b'/') if b.get(i + 1) == Some(&b'*') => {
+                let end = s[i + 2..].find("*/").map_or(b.len(), |e| i + 2 + e + 2);
+                for o in &mut out[i..end] {
+                    if *o != b'\n' {
+                        *o = b' ';
+                    }
+                }
+                i = end;
+                continue;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    String::from_utf8(out).unwrap_or_else(|_| s.to_owned())
 }
 /// The header of the TypeScript declaration on line `k` as one line, up to the `{` of its body,
 /// and the index of the line that `{` stands on. prettier wraps a long one (#100): the clauses on
