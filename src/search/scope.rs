@@ -384,6 +384,44 @@ pub fn package_copy(
     }
     Some(copy)
 }
+/// Whether a TypeScript import of `module` from the directory `dir` of the project `root`, whose
+/// files are `files`, loads a package that is not installed (#392): a bare specifier (no
+/// relative path, no `@/`, `~/` or `#` alias, no alias of the `tsconfig.json`, no module of
+/// Node's own, none with a scheme such as `node:` or `virtual:`) that no workspace package of the
+/// project is called (the `name` of a `package.json` among `files`), and that no `node_modules`
+/// from `dir` up holds, itself or its types. Past the project's root too, as Node looks there.
+pub fn package_missing(root: &Path, files: &[PathBuf], dir: &Path, module: &[String]) -> bool {
+    static NAME: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r#""name"\s*:\s*"([^"]*)""#).unwrap());
+    let name = match module {
+        [scope, pkg, ..] if scope.len() > 1 && scope.starts_with('@') => format!("{scope}/{pkg}"),
+        [pkg, ..]
+            if !pkg.starts_with(['.', '@', '~', '#'])
+                && !pkg.contains(':')
+                && !NODE_BUILTINS.contains(&pkg.as_str()) =>
+        {
+            pkg.clone()
+        }
+        _ => return false,
+    };
+    if ts_alias(root, files, dir, &module.join("/")) {
+        return false;
+    }
+    let types = format!("@types/{}", name.trim_start_matches('@').replace('/', "__"));
+    let installed = root.join(dir).ancestors().any(|d| {
+        [&name, &types]
+            .iter()
+            .any(|p| d.join("node_modules").join(p).exists())
+    });
+    let workspace = || {
+        files
+            .iter()
+            .filter(|f| f.file_name().is_some_and(|n| n == "package.json"))
+            .filter_map(|f| std::fs::read_to_string(root.join(f)).ok())
+            .any(|t| NAME.captures(&t).is_some_and(|c| c[1] == name))
+    };
+    !installed && !workspace()
+}
 /// Whether the `package.json` `text` has an `exports` map, a top-level key that is not `null`.
 /// Strings are read whole, so neither a nested `exports` nor a brace inside one counts.
 fn exports_map(text: &str) -> bool {

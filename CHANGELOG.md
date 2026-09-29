@@ -235,6 +235,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an unnamed `namespace` of another source file is no longer offered, and a `static` of the file
   on screen is its answer. A `#define X` under `#ifndef X` yields to any other declaration of
   `X`: `strcasecmp` in redis jumps to the system's instead of a Windows-only header. (#364)
+- `d` in TypeScript and JavaScript on a name imported from a package that is not installed
+  (a fresh clone, a package of a monorepo not bootstrapped) lands on its import line and says
+  `via import mobx-react (not installed)`. It offered the project's namesakes as if one of them
+  were the answer, or jumped to the only one. (#392)
+- `d` in TypeScript and JavaScript on a name of a destructuring or a parameter list wrapped one
+  name per line, as prettier writes them, lands on the line of the name, on the name, instead
+  of the `const {` or `function Row({` above it, so a second `d` goes on from there. (#393)
 
 ## [0.7.0] - 2026-09-25
 

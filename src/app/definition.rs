@@ -81,12 +81,17 @@ impl App {
         // A parameter or a local of the same name hides the import where the cursor is: `json`
         // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
         let first = chain.first().map_or(word.as_str(), String::as_str);
-        // `super` is no local, whatever the member lookup reads it as.
+        // `super` is no local, whatever the member lookup reads it as. A name of a destructuring
+        // or a parameter list wrapped over several lines is on a line of its own (#393).
         let locals: Vec<usize> = search::bindings(kind, &text, self.line + 1, first)
             .iter()
             .map(|b| b.line)
             .filter(|&n| {
                 (dotted || word != "super") && !names_itself(&self.buf.lines[n - 1], first)
+            })
+            .map(|n| match kind {
+                Kind::TsJs => search::written_line(&self.buf.lines, n, first),
+                _ => n,
             })
             .collect();
         if !locals.is_empty() {
@@ -207,6 +212,34 @@ impl App {
                 )
             })
             .flatten();
+        // A package no `node_modules` holds and no workspace package is called is not installed
+        // (#392): nothing says what it declares, and the project's namesakes are not it. The
+        // import line is where the name comes from, as far as anything tells. A copy of it among
+        // the files outside, wherever they have it, is what the lookup outside reads, as before.
+        if kind == Kind::TsJs
+            && let Some((_, module)) = import.as_ref().and_then(|p| p.split_last())
+            && search::package_missing(
+                &self.root,
+                &self.files,
+                here.parent().unwrap_or(Path::new("")),
+                module,
+            )
+            && !self.external_files(kind).iter().any(|f| {
+                let parts = if module[0].starts_with('@') { 2 } else { 1 };
+                search::in_module(f, &module[..parts.min(module.len())])
+            })
+            && let Some(line) = search::ts_import_line(&text, first)
+        {
+            let hit = Hit {
+                path: here.clone(),
+                line,
+                col: 0,
+                text: self.buf.lines[line - 1].clone(),
+            };
+            let reason = Reason::Import(format!("{} (not installed)", module.join("/")));
+            self.show_definitions(kind, &word, &here, vec![Candidate { hit, reason }], None);
+            return;
+        }
         let mut outside = false;
         // The import names a module of the project's own: a workspace package linked in, an alias.
         let mut own_module = false;
