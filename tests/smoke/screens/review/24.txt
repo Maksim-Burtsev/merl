@@ -1,2 +1,57 @@
-wait 30 days: 2 sessions
-(screen not compared: merl --reviews prints today's date and the time each session took)
+wait Usages of OrderStatus
+┌agent/refund ← origin/main──┐14 class OrderService:
+│  ▾ app                     │20     def get(self, order_id: int) -> Order:
+│✓   A refunds.py      +18 −0│21         order = self.repo.get(order_id)
+│✓   M repos.py        +0 −28│22         if order is None:
+│✓   M service.py      +13 −1│23             raise OrderNotFound(order_id)
+│  ▾ deploy                  │24         return order
+│    ▾ helm                  │25
+│      ▾ orders              │26     def mark_paid(self, order_id: int) -> Order:
+│✓       M values.yaml  +1 −0│27         order = self.get(order_id)
+│  ▾ docs                    │28         order.status = OrderStatus.PAID
+│    M architecture.png   bin│  ▎        self.repo.save(order)
+│  ▾ scripts       ┌Usages of OrderStatus: 2 declarations, 10 in code, 4 in tests (16/16)─────────────────────────────────────────────────────────────────────────────┐
+│    D refund_by_ha│>                                                                                                                                                 │
+│  ▾ tests         │ declaration  app/models.py:7: class OrderStatus(Enum):                                                                                           │
+│    A test_refunds│ declaration  web/src/orders/types.ts:1: export type OrderStatus = "pending" | "paid" | "shipped" | "cancelled" | "refunded";                     │
+│  ▾ worker        │              app/service.py:4: from app.models import Order, OrderStatus                                                                         │
+│    M main.go     │              app/service.py:28: order.status = OrderStatus.PAID                                                                                  │
+│                  │              app/service.py:37: order.status = OrderStatus.CANCELLED                                                                             │
+│                  │▎             app/service.py:45: order.status = OrderStatus.REFUNDED                                                                              │
+│                  │              app/models.py:20: status: OrderStatus = OrderStatus.PENDING                                                                         │
+│                  │              app/models.py:24: return self.status in (OrderStatus.PENDING, OrderStatus.PAID)                                                     │
+│                  │▎             app/refunds.py:4: from app.models import Order, OrderStatus                                                                         │
+│                  │▎             app/refunds.py:14: if order.status is not OrderStatus.PAID:                                                                         │
+│                  │              app/repos.py:1: from app.models import Order, OrderStatus                                                                           │
+│                  │              web/src/orders/types.ts:5: status: OrderStatus;                                                                                     │
+│                  │▎             tests/test_refunds.py:6: from app.models import Order, OrderStatus                                                                  │
+│                  │▎             tests/test_refunds.py:13: return Order(id=1, customer_id=7, total=Decimal("40.00"), status=OrderStatus.PAID,                        │
+│                  │              tests/test_service.py:6: from app.models import Order, OrderStatus                                                                  │
+│                  │              tests/test_service.py:43: assert service.cancel(1).status is OrderStatus.CANCELLED                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  │                                                                                                                                                  │
+│                  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 8 files · +59 −39 ─────────┘
+app/service.py  45:24  [code]  hunk 4/4  file 3/8                                                                                                                                 ? help
+cursor (x,y,shown) 22,12,1

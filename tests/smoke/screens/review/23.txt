@@ -1,48 +1,48 @@
-wait hunk 1/1  file 1/8
-┌agent/refund ← main─────────┐ 1▎from datetime import datetime, timedelta, timezone
-│  ▾ app                     │ 2▎from decimal import Decimal
-│    A refunds.py      +18 −0│ 3▎
-│    M repos.py        +0 −28│ 4▎from app.models import Order, OrderStatus
-│    M service.py      +13 −1│ 5▎
-│  ▾ deploy                  │ 6▎
-│    ▾ helm                  │ 7▎class RefundNotAllowed(Exception):
-│      ▾ orders              │ 8▎    pass
-│        M values.yaml  +1 −0│ 9▎
-│  ▾ docs                    │10▎
-│    M architecture.png   bin│11▎def refund_amount(order: Order, window_days: int, now: datetime | None = None) -> Decimal:
-│  ▾ scripts                 │12▎    """What to give back: the whole total inside the window, nothing after it."""
-│    D refund_by_hand.… +0 −9│13▎    now = now or datetime.now(timezone.utc)
-│  ▾ tests                   │14▎    if order.status is not OrderStatus.PAID:
-│    A test_refunds.py +23 −0│15▎        raise RefundNotAllowed(f"order {order.id} is {order.status.value}")
-│  ▾ worker                  │16▎    if now - order.created_at > timedelta(days=window_days):
-│    M main.go          +4 −1│17▎        raise RefundNotAllowed(f"order {order.id} is past the {window_days}-day window")
-│                            │18▎    return order.total
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
+wait Files (
+┌agent/refund ← origin/main──┐  ▎
+│  ▾ app                     │  ▎
+│✓   A refunds.py      +18 −0│  ▎class InMemoryOrderRepo:
+│✓   M repos.py        +0 −28│  ▎    """Orders in a dict, for running the API without Postgres. Same methods as OrderRepo."""
+│✓   M service.py      +13 −1│  ▎
+│  ▾ deploy                  │  ▎    def __init__(self):
+│    ▾ helm                  │  ▎        self.orders: dict[int, Order] = {}
+│      ▾ orders              │  ▎
+│✓       M values.yaml  +1 −0│  ▎    def get(self, order_id: int) -> Order | None:
+│  ▾ docs                    │  ▎        return self.orders.get(order_id)
+│    M architecture.png   bin│  ▎
+│  ▾ scripts       ┌Files (39/39)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│    D refund_by_ha│>                                                                                                                                                 │
+│  ▾ tests         │A app/refunds.py                                                                                                                                  │
+│    A test_refunds│M app/repos.py                                                                                                                                    │
+│  ▾ worker        │M app/service.py                                                                                                                                  │
+│    M main.go     │M deploy/helm/orders/values.yaml                                                                                                                  │
+│                  │M docs/architecture.png                                                                                                                           │
+│                  │A tests/test_refunds.py                                                                                                                           │
+│                  │M worker/main.go                                                                                                                                  │
+│                  │  .github/workflows/ci.yml                                                                                                                        │
+│                  │  app/__init__.py                                                                                                                                 │
+│                  │  app/api.py                                                                                                                                      │
+│                  │  app/config.py                                                                                                                                   │
+│                  │  app/models.py                                                                                                                                   │
+│                  │  app/uow.py                                                                                                                                      │
+│                  │  data/orders.min.json                                                                                                                            │
+│                  │  data/refunds-2026-08.csv                                                                                                                        │
+│                  │  deploy/helm/orders/templates/_helpers.tpl                                                                                                       │
+│                  │  deploy/helm/orders/templates/deployment.yaml                                                                                                    │
+│                  │  deploy/helm/orders/Chart.yaml                                                                                                                   │
+│                  │  docs/notes.md                                                                                                                                   │
+│                  │  tests/test_service.py                                                                                                                           │
+│                  │  web/src/api/client.ts                                                                                                                           │
+│                  │  web/src/components/Dialog.ts                                                                                                                    │
+│                  │  web/src/orders/repo.ts                                                                                                                          │
+│                  │  web/src/orders/store.ts                                                                                                                         │
+│                  │  web/src/orders/types.ts                                                                                                                         │
+│                  │  web/src/routes/orders/[id].tsx                                                                                                                  │
+│                  │  web/src/routes/orders/index.tsx                                                                                                                 │
+│                  │  web/package.json                                                                                                                                │
+│                  │  web/tsconfig.json                                                                                                                               │
+│                  │  worker/internal/queue/queue.go                                                                                                                  │
+│                  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 │                            │
 │                            │
 │                            │
@@ -53,5 +53,5 @@ wait hunk 1/1  file 1/8
 │                            │
 │                            │
 └ 8 files · +59 −39 ─────────┘
-app/refunds.py  1:1  [code]  hunk 1/1  file 1/8                                                                                                                                   ? help
-cursor (x,y,shown) 33,0,1
+app/repos.py  -59:14  [code]  hunk 1/1  file 2/8                                                                                                                                  ? help
+cursor (x,y,shown) 22,12,1

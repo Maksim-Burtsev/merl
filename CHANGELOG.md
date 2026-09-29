@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The hidden characters a file can hold are on screen, in every file and in `--review`: the
+  bidirectional controls behind "Trojan Source" (U+202A–U+202E, U+2066–U+2069, U+200E, U+200F,
+  U+061C) and the zero-width U+200B, U+2060 and U+FEFF are drawn as their code, such as
+  `<202e>`, on an amber of their own that no diff uses. The cursor steps over one in a press and
+  Delete removes it; a ZWJ inside an emoji and a BOM at the start of a file stay as they are.
+  (#401)
 - `merl --reviews` prints your review sessions of the last 30 days, newest first: the branch,
   which round of it the session was, the files, hunks and lines under review, the active time
   and how much of it was on the review's files, and the excursions, the jumps with `d`, `u`, `D`,
@@ -40,6 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A line longer than merl draws (20 KB: a minified bundle, a one-line JSON dump) ends in a dim
   `…` right after its last drawn character, wrapped or not, so a cut line never reads as whole.
   (#283)
+- In `--review`, `u` and `s` mark each row on a line the branch added or changed with the
+  gutter's `▎`, in its colour, and leave an untouched line's row blank, so the readers a change
+  did not reach stand out; the rows keep their order. `o` lists the review's files first, each
+  with its panel letter, then the rest of the project as before. `review_list_marks = false` and
+  `review_open_files_first = false` in `~/.config/merl/config.toml` turn either off. (#246)
 - A macOS Intel binary, `merl-x86_64-apple-darwin.tar.gz`, ships with each release. (#394)
 
 ### Changed
