@@ -1125,3 +1125,28 @@ fn a_go_type_outside_the_project_is_proven() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
+
+/// A Go local named `from` is a local: `from ` starts an import line in Python, not in Go, so the
+/// package's `var from` in another file is not the answer (#521 review).
+#[test]
+fn a_go_local_named_from_is_the_local() {
+    let (dir, mut a) = project_app(
+        "go-local-from",
+        &[
+            ("go.mod", "module example.com/span\n"),
+            (
+                "main.go",
+                "package main\n\nimport \"time\"\n\nfunc span(to time.Time) time.Duration {\n\tfrom := time.Now()\n\treturn to.Sub(from)\n}\n",
+            ),
+            ("other.go", "package main\n\nvar from = 1\n"),
+        ],
+    );
+    a.external
+        .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+    d_on(&mut a, "main.go", "to.Sub(from");
+    assert_eq!(
+        shown(&mut a),
+        jump("from \u{2192} span.from (local)", "main.go:6")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

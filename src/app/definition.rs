@@ -330,10 +330,8 @@ impl App {
                 .into_iter()
                 .filter(|&n| {
                     let l = &self.buf.lines[n - 1];
-                    let t = l.trim_start();
-                    let imports = t.starts_with("import ") || t.starts_with("from ");
                     !key && (dotted || word != "super" || kind == Kind::Lua)
-                        && !(imports || (!bare && names_itself(l, first)))
+                        && !(import_line(kind, l) || (!bare && names_itself(kind, l, first)))
                         && !rust_path
                         && (!rust_field || n == self.line + 1)
                 })
@@ -367,7 +365,7 @@ impl App {
             && !dotted
             && chain.is_empty()
             && search::bindings(kind, &text, self.line + 1, &word).is_empty()
-            && !names_itself(self.line_str(), &word)
+            && !names_itself(kind, self.line_str(), &word)
             && !self.offer_only;
         if unbound && !star && search::PYTHON_BUILTINS.contains(&word.as_str()) {
             self.offer_only = false;

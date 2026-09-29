@@ -690,7 +690,7 @@ fn hidden(kind: Kind, text: &str, line: usize, name: &str) -> bool {
     search::bindings(kind, text, line, name).iter().any(|b| {
         lines
             .get(b.line - 1)
-            .is_some_and(|l| !names_itself(l, name))
+            .is_some_and(|l| !names_itself(kind, l, name))
     })
 }
 
