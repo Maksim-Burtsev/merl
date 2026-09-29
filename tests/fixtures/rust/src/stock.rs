@@ -114,3 +114,22 @@ fn after_a_string() {}
     //     ^ d: none
 )]
 pub struct Probe;
+
+// #346, #370: an attribute macro may name project code, in a value string or a nested list.
+pub fn default_port() -> u16 {
+    80
+}
+
+#[serde(default = "default_port")]
+//                 ^ d: src/stock.rs:119
+#[pool(capacity = 3)]
+//     ^ d: none
+#[error("Tester")]
+//       ^ d: none
+#[doc = "Tester"]
+//       ^ d: none
+#[diesel(belongs_to(Tester))]
+//                  ^ d: src/stock.rs:40
+#[enum_dispatch(Tester)]
+//              ^ d: src/stock.rs:40
+pub struct Row;

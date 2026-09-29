@@ -86,8 +86,9 @@ impl App {
             return;
         }
         let text = self.buf.lines.join("\n");
-        // Nothing in a Rust string names code, save the `{name}` a format string captures:
-        // no search for a word of prose (#346).
+        // Nothing in a Rust string names code, save the `{name}` a format string captures and
+        // the path an attribute takes as a value, `#[serde(default = "default_port")]`: no
+        // search for a word of prose (#346).
         let at = self.buf.lines[..self.line]
             .iter()
             .map(|l| l.len() + 1)
@@ -97,7 +98,10 @@ impl App {
         let captured = line[..range.start].ends_with('{')
             && !line[..range.start].ends_with("{{")
             && line[range.end..].starts_with(['}', ':']);
-        if !captured && search::in_string(kind, &text, at) {
+        if !captured
+            && search::in_string(kind, &text, at)
+            && !search::rust_attribute_path(&self.buf.lines, self.line, range.start)
+        {
             self.message = resolution(&word, None, &[], None, false);
             return;
         }
