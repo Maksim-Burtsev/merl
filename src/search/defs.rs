@@ -170,6 +170,8 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(
                     r"^\s*{mods}(?:typedef\s+)?(?:struct|class|union|enum\s+class|enum\s+struct|enum|namespace)\s+{macros}(?:\w+(?:<[^<>]*>)?::)*{w}\s*(?:[{{;<]|:(?:[^:]|$)|final\b|$)"
                 ),
+                // A nested namespace, `namespace outer::inner {`, opens every name on its path.
+                format!(r"^\s*(?:inline\s+)?namespace\s+(?:\w+::)*{w}\s*::"),
                 // `typedef unsigned long ull;`, `typedef int (*cb)(void);`, and the name a
                 // `typedef struct { … } client;` closes with, whose brace is in column zero: an
                 // indented one closes a nested anonymous struct, and that name is a field.
