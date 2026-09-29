@@ -1409,7 +1409,7 @@ fn off_the_declared_name_a_value_or_a_recursion_stays_a_picker() {
                 "src/A.kt",
                 "fun fact(n: Int): Int = if (n < 2) 1 else n * fact(n - 1)\n",
             ),
-            ("src/B.kt", "private fun fact(n: Int): Int = n\n"),
+            ("src/B.kt", "fun fact(n: Int): Int = n\n"),
         ],
     );
     // Since #353 Rust reads its locals: the right-hand `chime` is the parameter it shadows.
