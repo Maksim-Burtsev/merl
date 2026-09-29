@@ -105,7 +105,8 @@ const C_METHOD_SYMBOL: &str =
     r"^\s+[^;(){}=]*\w[\s*&]+(?P<name>[A-Za-z_]\w*)\s*\([^;{}]*\)[^;{}=]*\{";
 /// A type, a namespace and a C++ `using` alias. What follows the name keeps `struct dict *d;` out;
 /// a `<` is a template specialization (`struct formatter<path, Char> {`), and a lone `:` a base
-/// list, where the `::` of a `using a::b;` names an imported symbol, not a declared one. A
+/// list, where the `::` of a `using a::b;` names an imported symbol, not a declared one; a nested
+/// type defined through its outer one, `struct DBImpl::Writer {`, is listed as `Writer`. A
 /// `typedef struct name { … }` is listed from the line it closes on instead, under the name the
 /// project uses.
 const C_TYPE_SYMBOL: &str = concat!(
@@ -113,7 +114,7 @@ const C_TYPE_SYMBOL: &str = concat!(
     c_mods!(),
     r"(?:struct|class|union|enum\s+class|enum\s+struct|enum|namespace|using)\s+",
     c_mods!(macros),
-    r"(?P<name>[A-Za-z_]\w*)\s*(?:[{=<]|:[^:]|final\b|$)"
+    r"(?:\w+(?:<[^<>]*>)?::)*(?P<name>[A-Za-z_]\w*)\s*(?:[{=<]|:[^:]|final\b|$)"
 );
 /// The name a `typedef` or a `} name;` gives a type. The closing brace is in column zero: an
 /// indented one closes a nested anonymous struct, and that name is a field. A global stays off the

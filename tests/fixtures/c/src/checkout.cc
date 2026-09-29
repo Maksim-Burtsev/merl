@@ -14,7 +14,7 @@ class Basket : public Priced {
 
  private:
   Tariff tariff_{1};
-//^ d: picker include/shop/forward.hh:4, include/shop/offers.hh:8, include/shop/offers.hh:10; want include/shop/offers.hh:8 (#368)
+//^ d: include/shop/offers.hh:8
   Coupon coupon_;
 //^ d: include/shop/offers.hh:18
 };

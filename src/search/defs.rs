@@ -2,6 +2,8 @@
 //! reason a candidate is offered under.
 
 use super::*;
+use regex::Regex;
+use std::path::{Path, PathBuf};
 
 /// How `d` found a declaration. Every step that narrows the search adds a variant here; the
 /// status line and the picker rows print it, so a guess never passes for a resolution.
@@ -144,9 +146,10 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"^[^;(){{}}=]*\w[\s*&]+{w}\s*\([^;{{}}]*\)[^;{{}}=]*\{{"),
                 // A type. What follows the name — the body, a base list, a `<` of a template
                 // specialization, a `;` or the end of the line — keeps the `struct dict *d;` that
-                // uses one out.
+                // uses one out. A nested type defined through its outer one, `struct Table::Rep {`,
+                // declares `Rep` (#368): the `:` of a `::` is no base list.
                 format!(
-                    r"^\s*{mods}(?:typedef\s+)?(?:struct|class|union|enum\s+class|enum\s+struct|enum|namespace)\s+{macros}{w}\s*(?:[:{{;<]|final\b|$)"
+                    r"^\s*{mods}(?:typedef\s+)?(?:struct|class|union|enum\s+class|enum\s+struct|enum|namespace)\s+{macros}(?:\w+(?:<[^<>]*>)?::)*{w}\s*(?:[{{;<]|:(?:[^:]|$)|final\b|$)"
                 ),
                 // `typedef unsigned long ull;`, `typedef int (*cb)(void);`, and the name a
                 // `typedef struct { … } client;` closes with, whose brace is in column zero: an
@@ -343,6 +346,99 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^\s*\.?{w}:\s*(#.*)?$"),
         ],
     }
+}
+/// Of the C and C++ candidates for `word` found by name, the ones that are the type itself
+/// (#368), when a type line is among them:
+/// - a forward declaration at namespace scope (`class X;`) yields to the one body of `X`; one
+///   inside a class body declares a nested type and stays, and two bodies keep every row;
+/// - a constructor or destructor (`X::X(`, `explicit X(` in the class) is not the type, unless
+///   the word under the cursor is `construction`, called or braced;
+/// - C's `typedef struct X { … } X;` is one type: a bare `X` lands on the `} X;` line, the
+///   `tag` `struct X` on the opening one.
+///
+/// The caller runs it only where a type can be meant: never behind `.` or `->` (#359).
+pub fn c_type_rows(
+    word: &str,
+    hits: Vec<Hit>,
+    text_of: impl Fn(&Path) -> Option<String>,
+    construction: bool,
+    tag: bool,
+) -> Vec<Hit> {
+    let (w, mods, macros) = (regex::escape(word), c_mods!(), c_mods!(macros));
+    let ty = format!(
+        r"^\s*{mods}(?:typedef\s+)?(?:struct|class|union|enum\s+class|enum\s+struct|enum)\s+{macros}(?:\w+(?:<[^<>]*>)?::)*{w}\s*"
+    );
+    let re = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let forward = re(format!(r"{ty}(?::[^:{{;][^{{;]*)?;"));
+    let body = re(format!(r"{ty}(?:[{{<]|:(?:[^:]|$)|final\b|$)"));
+    let ctor = re(format!(
+        r"\b{w}(?:<[^;()]*>)?::~?{w}\s*\(|^\s+(?:(?:explicit|constexpr|consteval|inline)\s+)*~?{w}\s*\("
+    ));
+    let opens = re(format!(
+        r"^\s*typedef\s+(?:struct|union|enum)\s+{macros}{w}\s*(?:\{{[^}}]*)?$"
+    ));
+    let closes = re(format!(r"^\}}\s*[\w\s,*]*\b{w}\s*[,;]"));
+    let is_body = |h: &Hit| body.is_match(&h.text) && !forward.is_match(&h.text);
+    let typed = |h: &Hit| forward.is_match(&h.text) || body.is_match(&h.text);
+    if !hits.iter().any(|h| typed(h) || closes.is_match(&h.text)) {
+        return hits;
+    }
+    let one_body = hits.iter().filter(|h| is_body(h)).count() == 1;
+    // `typedef struct X {` and the `} X;` after it in the same file: the one of the pair to drop.
+    let paired: Vec<(PathBuf, usize)> = hits
+        .iter()
+        .filter(|o| opens.is_match(&o.text))
+        .filter_map(|o| {
+            let close = hits
+                .iter()
+                .filter(|c| c.path == o.path && c.line > o.line && closes.is_match(&c.text))
+                .min_by_key(|c| c.line)?;
+            Some(match tag {
+                true => (close.path.clone(), close.line),
+                false => (o.path.clone(), o.line),
+            })
+        })
+        .collect();
+    hits.into_iter()
+        .filter(|h| {
+            if paired.iter().any(|(p, l)| *p == h.path && *l == h.line) {
+                return false;
+            }
+            if !construction && ctor.is_match(&h.text) && !typed(h) {
+                return false;
+            }
+            !(one_body
+                && forward.is_match(&h.text)
+                && !text_of(&h.path).is_some_and(|t| in_class_body(&t, h.line)))
+        })
+        .collect()
+}
+/// Whether 1-based `line` of a C++ `text` sits in a class, struct or union body: the nearest line
+/// above indented less, past blanks, comments, directives and access specifiers, opens one.
+fn in_class_body(text: &str, line: usize) -> bool {
+    static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:template\s*<.*>\s*)?(?:class|struct|union)\b[^;]*$").unwrap()
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(depth) = line
+        .checked_sub(1)
+        .and_then(|k| lines.get(k))
+        .map(|l| indent(l))
+    else {
+        return false;
+    };
+    lines[..line - 1]
+        .iter()
+        .rev()
+        .filter(|l| {
+            let t = l.trim();
+            !t.is_empty()
+                && t != "{"
+                && !t.starts_with(['#', '/', '*'])
+                && !matches!(t, "public:" | "private:" | "protected:")
+        })
+        .find(|l| indent(l) < depth)
+        .is_some_and(|l| CLASS.is_match(l))
 }
 /// [`member_patterns`] and, in Go, the method lines of an interface, which carry no receiver:
 /// every form in which a type declares a member called `word`.

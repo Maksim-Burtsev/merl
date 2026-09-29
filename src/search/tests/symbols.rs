@@ -285,6 +285,9 @@ fn c_symbol_names() {
             Some("formatter"),
         ),
         ("struct client;", None),
+        // A nested type defined through its outer one declares the inner name (#368).
+        ("struct DBImpl::Writer {", Some("Writer")),
+        ("struct SkipList<K, C>::Node {", Some("Node")),
         ("union value {", Some("value")),
         ("enum class Status {", Some("Status")),
         ("namespace billing {", Some("billing")),

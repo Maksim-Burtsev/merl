@@ -281,7 +281,13 @@ impl App {
                         .strip_suffix(&format!("{path}{sep}"))
                         .is_some_and(|b| b.ends_with('\\'));
                 let owners = search::def_patterns(kind, owner).join("|");
-                let declared = self.project_definitions(kind, &here, owner, &owners);
+                let mut declared = self.project_definitions(kind, &here, owner, &owners);
+                // A class is declared once, whatever its forward declarations and constructors
+                // (#368).
+                if kind == Kind::C {
+                    declared =
+                        search::c_type_rows(owner, declared, |p| self.text_of(p), false, false);
+                }
                 // A type of the same name in this file is the one its own scope sees.
                 if !outside
                     && declared.len() > 1
@@ -351,6 +357,23 @@ impl App {
                     self.project_definitions(kind, &here, &word, &pattern)
                 }
             });
+        // A C or C++ type is its body, not its forward declarations and constructors (#368).
+        // Behind `.` or `->` no type is meant.
+        let hits = match kind == Kind::C && !dotted && !before.ends_with("->") {
+            true => {
+                let (before, after) = (before.trim_end(), &self.line_str()[range.end..]);
+                // `before` ends in the keyword `k` itself, not in a name ending so.
+                let keyword = |k: &str| {
+                    before.strip_suffix(k).is_some_and(|b| {
+                        !b.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_')
+                    })
+                };
+                let construction = after.trim_start().starts_with(['(', '{']) || keyword("new");
+                let tag = ["struct", "union", "enum"].into_iter().any(keyword);
+                search::c_type_rows(&word, hits, |p| self.text_of(p), construction, tag)
+            }
+            false => hits,
+        };
         found = hits
             .into_iter()
             .map(|hit| Candidate {

@@ -176,6 +176,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in C# reads a verbatim string ending in a backslash, `@"C:\"`, as ending at its second
   `"`, and `@$"…"` as the verbatim string it is. It kept the string open, and every declaration
   after it in the file answered `no definition`. (#475)
+- `d` in C and C++ on a type name lands on its class or struct. It offered a picker of the
+  class, every `class X;` forward declaration in other headers and every constructor, and C's
+  `typedef struct X { … } X;` as two rows; a bare `X` now lands on `} X;`, `struct X` on the
+  opening line. With the class declared once, `Status::Corruption(…)` resolves `via Status`
+  again instead of offering every `Corruption`, and `struct DBImpl::Writer {` is found as
+  `Writer`, in `d` and `D`. A forward declaration inside a class body, two classes of one name
+  and a construction, `Status(…)`, keep their pickers. (#368)
 
 ## [0.7.0] - 2026-09-25
 

@@ -77,7 +77,13 @@ const char *money(void)
 }
 
 int width(route *r)
-//        ^ d: picker include/shop/warehouse.h:14, include/shop/warehouse.h:16; want include/shop/warehouse.h:16 (#368)
+//        ^ d: include/shop/warehouse.h:16
+{
+    return r->end - r->start;
+}
+
+int span(struct route *r)
+//              ^ d: include/shop/warehouse.h:14
 {
     return r->end - r->start;
 }
