@@ -190,10 +190,10 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // assemblies, and the runtime's own source is not on the machine at all. Lua has no root
         // to ask for either: `package.path` is whatever the interpreter embedding it was built
         // with, and a Neovim or a LuaRocks tree is not a standard library any project can be
-        // assumed to use. Elixir needs none: `mix` puts both the dependencies and their sources
-        // in `deps/` inside the project, so they are project files already, and the standard
-        // library ships compiled — an installed Elixir has `.beam` files, not `.ex`. `d` stays
-        // inside the project for all of them, as for the rest.
+        // assumed to use. Elixir's standard library ships compiled — an installed Elixir has
+        // `.beam` files, not `.ex` — and its dependencies are the project's `deps/`, which
+        // depend on the open file: [`mix_deps`]. `d` stays inside the project for all of them,
+        // as for the rest.
         Kind::Jvm
         | Kind::Ruby
         | Kind::CSharp
@@ -235,6 +235,18 @@ pub fn node_modules(root: &Path, file: &Path) -> Vec<PathBuf> {
     file.ancestors()
         .take_while(|dir| dir.starts_with(root))
         .map(|dir| dir.join("node_modules"))
+        .filter(|dir| dir.is_dir())
+        .collect()
+}
+/// The `deps/` a Mix project of the project `root` fetches its dependencies into, as source, for
+/// an Elixir file in `file` (#437): beside every `mix.exs` from the file's directory up to `root`,
+/// nearest first, so an umbrella app finds the umbrella's. `mix new` gitignores it, so the project
+/// walk does not list it, as `node_modules` for TypeScript.
+pub fn mix_deps(root: &Path, file: &Path) -> Vec<PathBuf> {
+    file.ancestors()
+        .take_while(|dir| dir.starts_with(root))
+        .filter(|dir| dir.join("mix.exs").is_file())
+        .map(|dir| dir.join("deps"))
         .filter(|dir| dir.is_dir())
         .collect()
 }

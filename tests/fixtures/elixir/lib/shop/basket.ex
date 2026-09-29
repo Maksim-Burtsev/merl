@@ -96,5 +96,5 @@ defmodule Shop.Basket do
   end
 
   def encode(basket), do: Jason.encode!(basket)
-  #                             ^ d: lib/shop/basket.ex:98; want deps/jason/lib/jason.ex:2 (#437)
+  #                             ^ d: deps/jason/lib/jason.ex:2
 end

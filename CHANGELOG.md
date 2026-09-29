@@ -189,6 +189,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in C# reads a verbatim string ending in a backslash, `@"C:\"`, as ending at its second
   `"`, and `@$"…"` as the verbatim string it is. It kept the string open, and every declaration
   after it in the file answered `no definition`. (#475)
+- `d` in Elixir reaches the dependencies in `deps/`, which `mix new` gitignores: `Jason.encode!`
+  jumps to `deps/jason/lib/jason.ex`, read-only, where it said `no definition` or landed on a
+  namesake of the project. A module's qualifier narrows the search to the dependency that
+  declares the module, so `Phoenix.LiveView.assign` finds `phoenix_live_view`, not Plug's
+  `assign`. (#437)
 
 ## [0.7.0] - 2026-09-25
 
