@@ -34,7 +34,7 @@ fn infra_definitions_stay_in_their_scope() {
 }
 
 #[test]
-fn a_field_has_no_definition_and_locals_must_be_direct() {
+fn a_rust_field_is_its_struct_line_and_locals_must_be_direct() {
     let (dir, mut a) = project_app(
         "fallback",
         &[
@@ -48,12 +48,12 @@ fn a_field_has_no_definition_and_locals_must_be_direct() {
             ),
         ],
     );
-    // A field is no declaration the Rust rules know, and `u` is the key for its uses.
+    // A Rust field is its line in the struct (#370).
     a.jump_to(&dir.join("order.rs"), 5);
     a.col = 10;
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("order.rs"), 4));
-    assert_eq!(a.message, "no definition for items");
+    assert_eq!(at(&a), (dir.join("order.rs"), 1));
+    assert_eq!(a.message, "items \u{2192} Order::items (by name, 1 match)");
     // Of the two `name =` lines, only the one directly inside `locals` is `local.name`.
     a.jump_to(&dir.join("main.tf"), 8);
     a.col = 17;
@@ -209,6 +209,37 @@ fn a_declaration_inside_a_literal_is_not_one() {
     assert_eq!(
         shown(&mut a),
         jump("ghost \u{2192} Real.ghost (by name, 1 match)", "a.py:9")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #488: PHP's `#` is a line comment, so the `/*` of a glob in one opens nothing. #475: a C#
+/// verbatim string has no escapes, so `@"C:\"` ends at its second `"`. The declarations below
+/// both are found.
+#[test]
+fn a_php_hash_comment_or_a_csharp_verbatim_backslash_hides_nothing() {
+    let (dir, mut a) = project_app(
+        "hash-verbatim",
+        &[
+            (
+                "a.php",
+                "<?php\n# loads lib/*\nfunction below() { return 1; }\nfunction call() { return below(); }\n",
+            ),
+            (
+                "a.cs",
+                "class A {\n    string P = @\"C:\\\";\n    void Below() { }\n    void Call() { Below(); }\n}\n",
+            ),
+        ],
+    );
+    for kind in [Kind::Php, Kind::CSharp] {
+        a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
+    }
+    d_on(&mut a, "a.php", "return below");
+    assert_eq!(shown(&mut a), jump("below: by name, 1 match", "a.php:3"));
+    d_on(&mut a, "a.cs", "{ Below");
+    assert_eq!(
+        shown(&mut a),
+        jump("Below \u{2192} A.Below (by name, 1 match)", "a.cs:3")
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -1080,4 +1111,91 @@ fn two_modules_an_import_may_mean_are_a_picker_of_modules() {
         .map(|(n, r, p)| (n.to_string(), r.to_string(), p.to_string()))
     );
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #477. A recipe line is a shell command: `GO=$(GO) ./build.sh` sets a variable of that one
+/// command and declares nothing make knows, so `d` on `$(GO)` jumps to the `?=` above the rules,
+/// from that line too. A shell variable, `$${ARCH}`, is still declared by the command it is used
+/// in, and a tab-indented assignment inside an `ifeq` before any rule is make's own.
+#[test]
+fn a_makefile_recipe_line_declares_no_variable() {
+    let (dir, mut a) = project_app(
+        "make-recipe",
+        &[
+            (
+                "Makefile",
+                "GO ?= go\n\nbuild:\n\tGO=$(GO) ./build.sh\n\ntest:\n\t$(GO) test ./...\n",
+            ),
+            (
+                "tools.mk",
+                "ifeq ($(OS),Windows_NT)\n\tEXE := .exe\nendif\n\nall:\n\tEXE=x $(EXE)\n\tARCH=$$(uname -m); \\\n\techo $${ARCH}\n\techo $${ARCH}\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "Makefile", "\t$(GO");
+    assert_eq!(shown(&mut a), jump("GO: by name, 1 match", "Makefile:1"));
+    d_on(&mut a, "Makefile", "GO=$(GO");
+    assert_eq!(shown(&mut a), jump("GO: by name, 1 match", "Makefile:1"));
+    d_on(&mut a, "tools.mk", "echo $${ARCH");
+    assert_eq!(
+        shown(&mut a),
+        jump("ARCH → all.ARCH (by name, 1 match)", "tools.mk:7")
+    );
+    // The next command runs in a shell of its own, where nothing set `ARCH`.
+    a.jump_to(&dir.join("tools.mk"), 9);
+    a.col = 9;
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(shown(&mut a), jump("no definition for ARCH", "tools.mk:9"));
+    d_on(&mut a, "tools.mk", "x $(EXE");
+    assert_eq!(shown(&mut a), jump("EXE: by name, 1 match", "tools.mk:2"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #421. `d` on a Markdown link says why nothing opens where the fixture's annotations cannot
+/// (their answers are no places, or name a file with a space), and `D` lists nothing of a README.
+#[test]
+fn markdown_links_outside_to_a_directory_and_to_a_spaced_name() {
+    let (dir, mut a) = project_app(
+        "markdown",
+        &[
+            (
+                "docs/a.md",
+                "[site](https://example.com) [host](//example.com) [mail](mailto:me@x.org)\n\
+                 [dir](../docs/) [up](../../out.md) [spaced](<my notes.md>) [encoded](my%20notes.md)\n",
+            ),
+            ("docs/my notes.md", "# Notes\n"),
+            (
+                "README.md",
+                "# Parse\n\n```python\ndef parse(raw):\n    return raw\n```\n",
+            ),
+            ("app.py", "def serve():\n    pass\n"),
+        ],
+    );
+    for word in ["[site", "[host", "[mail", "[up"] {
+        d_on(&mut a, "docs/a.md", &format!("{word}|]"));
+        assert_eq!(a.message, "link outside the project", "{word}");
+    }
+    d_on(&mut a, "docs/a.md", "[dir|]");
+    assert_eq!(a.message, "docs/: a directory");
+    for word in ["[spaced", "[encoded"] {
+        d_on(&mut a, "docs/a.md", &format!("{word}|]"));
+        assert_eq!(
+            shown(&mut a),
+            jump("link docs/my notes.md", "docs/my notes.md:1"),
+            "{word}"
+        );
+    }
+    // A declaration in a README's code block is an example, not one of the project.
+    press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+    let picker = a.picker.as_mut().unwrap();
+    picker.settle();
+    let rows: Vec<String> = picker
+        .window(20)
+        .0
+        .into_iter()
+        .map(|r| r.item.label.clone())
+        .collect();
+    assert!(rows.iter().all(|r| !r.contains("README.md")), "{rows:?}");
+    assert!(rows.iter().any(|r| r.contains("serve")), "{rows:?}");
+    let _ = std::fs::remove_dir_all(dir);
 }

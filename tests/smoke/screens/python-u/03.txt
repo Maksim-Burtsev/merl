@@ -1,0 +1,57 @@
+wait tests/test_service.py  21:
+ 1 from decimal import Decimal
+ 2
+ 3 import pytest
+ 4
+ 5 from app import OrderService
+ 6 from app.models import Order, OrderStatus
+ 7 from app.service import OrderNotFound
+ 8
+ 9
+10 class FakeOrderRepo:
+11     def __init__(self, *orders):
+12         self.orders = {order.id: order for order in orders}
+13         self.saved = []
+14
+15     def get(self, order_id):
+16         return self.orders.get(order_id)
+17
+18     def find_by_customer(self, customer_id):
+19         return [o for o in self.orders.values() if o.customer_id == customer_id]
+20
+21     def save(self, order):
+22         self.saved.append(order)
+23
+24
+25 class FakeUow:
+26     def __init__(self, repo):
+27         self.orders = repo
+28
+29     def __enter__(self):
+30         return self
+31
+32     def __exit__(self, *exc):
+33         return False
+34
+35
+36 def make_service(*orders):
+37     repo = FakeOrderRepo(*orders)
+38     return OrderService(repo, FakeUow(repo), settings=None), repo
+39
+40
+41 def test_cancel_pending_order():
+42     service, repo = make_service(Order(id=1, customer_id=7, total=Decimal("12.50")))
+43     assert service.cancel(1).status is OrderStatus.CANCELLED
+44     assert repo.saved[0].id == 1
+45
+46
+47 def test_missing_order():
+48     service, _ = make_service()
+49     with pytest.raises(OrderNotFound):
+50         service.get(404)
+
+
+
+
+tests/test_service.py  21:9  [code]                                                                                                                                               ? help
+cursor (x,y,shown) 11,20,1

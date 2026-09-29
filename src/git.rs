@@ -17,6 +17,41 @@ pub enum Mark {
     DeletedBelow,
 }
 
+/// A line of a file as a review draws it (#439): a line of the file, or the `i`th of the lines
+/// the branch deleted above file line `key`, `Diff::ghosts[key][i]` (`key` is `lines.len()` for
+/// those deleted at the end). Ordered as drawn: the deleted lines at a key come before the
+/// file's line there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TextLine {
+    File(usize),
+    Deleted(usize, usize),
+}
+
+impl TextLine {
+    /// The file line: this one's, or the one a deleted line is drawn above.
+    pub fn key(self) -> usize {
+        match self {
+            TextLine::File(l) | TextLine::Deleted(l, _) => l,
+        }
+    }
+}
+
+impl Ord for TextLine {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let order = |t: &TextLine| match *t {
+            TextLine::File(l) => (l, usize::MAX),
+            TextLine::Deleted(k, i) => (k, i),
+        };
+        order(self).cmp(&order(other))
+    }
+}
+
+impl PartialOrd for TextLine {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 /// What one file's diff looks like from the editor: marks per 0-based line, and, in review
 /// mode, the deleted text as ghost lines keyed by the line they sit above (`lines.len()` for
 /// the end of the file) plus the first line of every hunk, for `c` / `C`.
@@ -24,7 +59,8 @@ pub enum Mark {
 pub struct Diff {
     pub marks: HashMap<usize, Mark>,
     pub ghosts: BTreeMap<usize, Vec<String>>,
-    pub hunks: Vec<usize>,
+    /// Review: the first line of every hunk, deleted when the hunk starts with a deletion.
+    pub hunks: Vec<TextLine>,
     /// Review: the 0-based base-file line of the first ghost at each key; the ghosts under one
     /// key are consecutive base lines.
     pub ghost_from: BTreeMap<usize, usize>,
@@ -65,6 +101,9 @@ pub fn diff(root: &Path, path: &Path, base: Option<&str>, old: Option<&Path>) ->
 fn parse(diff: &str, review: bool) -> Diff {
     let mut out = Diff::default();
     let mut lines = diff.lines().peekable();
+    // Review: the key right after the last hunk's lines. A hunk that starts there reads on from
+    // it, with no line between them, and is no stop of its own.
+    let mut after = None;
     while let Some(line) = lines.next() {
         if !line.starts_with("@@ ") {
             continue;
@@ -92,9 +131,11 @@ fn parse(diff: &str, review: bool) -> Diff {
                     added.push(text.to_string());
                 }
             }
+            let mut first = TextLine::File(at);
             if !deleted.is_empty() {
                 let ghosts = out.ghosts.entry(at).or_default();
                 let offset = ghosts.len();
+                first = TextLine::Deleted(at, offset);
                 // `a` of `-a,b` is 1-based; a hunk with deleted lines never has `a == 0`.
                 out.ghost_from.entry(at).or_insert(old_start - 1);
                 for (i, j) in crate::intraline::pair(&deleted, &added) {
@@ -102,12 +143,10 @@ fn parse(diff: &str, review: bool) -> Diff {
                 }
                 ghosts.extend(deleted);
             }
-            // A deletion at the end of the file is drawn under the last line; `c` stands on
-            // that line for it.
-            let stop = if new_n == 0 && at > 0 { at - 1 } else { at };
-            if out.hunks.last() != Some(&stop) {
-                out.hunks.push(stop);
+            if after != Some(at) {
+                out.hunks.push(first);
             }
+            after = Some(at + new_n);
             for l in at..at + new_n {
                 out.marks.insert(l, Mark::Added);
             }
@@ -281,7 +320,7 @@ impl Review {
                 let n = count_lines(path).map_or(0, |(_, n)| n);
                 Diff {
                     marks: (0..n).map(|l| (l, Mark::Added)).collect(),
-                    hunks: Vec::from_iter((n > 0).then_some(0)),
+                    hunks: Vec::from_iter((n > 0).then_some(TextLine::File(0))),
                     ..Default::default()
                 }
             }
@@ -353,6 +392,24 @@ pub fn dirs(root: &Path) -> Option<(PathBuf, PathBuf)> {
     let out = git(root, &["rev-parse", "--git-dir", "--git-common-dir"]).ok()?;
     let mut dirs = out.lines().map(|d| root.join(d).canonicalize().ok());
     Some((dirs.next()??, dirs.next()??))
+}
+
+/// The other worktree of this repository that has `branch` checked out, an agent's say (#396):
+/// `-r BRANCH` reviews it there, since git will not check the branch out twice. A worktree git
+/// calls `prunable` (its directory is gone) is not one.
+pub fn worktree_of(root: &Path, branch: &str) -> Option<PathBuf> {
+    let out = git(root, &["worktree", "list", "--porcelain"]).ok()?;
+    let here = root.canonicalize().ok()?;
+    let head = format!("branch refs/heads/{branch}");
+    out.split("\n\n")
+        .filter(|w| w.lines().any(|l| l == head) && !w.lines().any(|l| l.starts_with("prunable")))
+        .filter_map(|w| {
+            w.lines()
+                .next()?
+                .strip_prefix("worktree ")
+                .map(PathBuf::from)
+        })
+        .find(|p| p.canonicalize().is_ok_and(|p| p != here))
 }
 
 /// The branch a rebase (stopped on a conflict, say) is rebasing: `refs/heads/…`, from the
@@ -471,9 +528,24 @@ fn checkout(
     b: &str,
     base: &str,
 ) -> Result<Option<String>> {
+    // `origin/feat`, copied from `git branch -a` or a merge request, is `feat` as it was pushed
+    // (#271), which origin must then have; a local branch literally named so is that branch, as
+    // `git switch` takes it. Other remotes stay local names: the fetch and the base are origin's.
+    let pushed = b
+        .strip_prefix("origin/")
+        .filter(|_| git(&["rev-parse", "--verify", "-q", &format!("refs/heads/{b}")]).is_err());
+    let b = pushed.unwrap_or(b);
     let mut fetch = vec!["fetch", "-q", "origin", b];
     fetch.extend(base.strip_prefix("origin/"));
     let fetched = git(&fetch).is_ok();
+    // A failed fetch is origin offline, or origin without the branch: `ls-remote` answers only
+    // when origin is reachable, and then with nothing.
+    if !fetched
+        && pushed.is_some()
+        && git(&["ls-remote", "origin", &format!("refs/heads/{b}")]).is_ok_and(|o| o.is_empty())
+    {
+        bail!("no branch {b} on origin");
+    }
     git(&["switch", "-q", b]).with_context(|| format!("switching to {b}"))?;
     let remote = format!("origin/{b}");
     if !fetched {
@@ -562,7 +634,8 @@ mod tests {
                     @@ -3,0 +4,2 @@\n+a\n+b\n\
                     @@ -8,2 +9,0 @@\n-c\n-d\n\\ No newline at end of file\n";
         let d = parse(diff, true);
-        assert_eq!(d.hunks, vec![0, 3, 8]);
+        use TextLine::{Deleted, File};
+        assert_eq!(d.hunks, vec![Deleted(0, 0), File(3), Deleted(9, 0)]);
         assert_eq!(d.ghosts[&0], vec!["x"]);
         assert_eq!(d.ghosts[&9], vec!["c", "d"]);
         assert_eq!(d.ghosts.get(&3), None);
@@ -571,7 +644,10 @@ mod tests {
         assert_eq!(d.marks.len(), 3, "{:?}", d.marks);
         // A deletion right after a changed last line is one stop, not two.
         let d = parse("@@ -5 +5 @@\n-a\n+b\n@@ -6,2 +5,0 @@\n-c\n-d\n", true);
-        assert_eq!((d.hunks.clone(), d.ghosts[&5].len()), (vec![4], 2));
+        assert_eq!(
+            (d.hunks.clone(), d.ghosts[&5].len()),
+            (vec![Deleted(4, 0)], 2)
+        );
     }
 
     #[test]
@@ -643,7 +719,8 @@ mod tests {
         let d = diff(&dir, &dir.join("f"), Some("HEAD"), None);
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(m, HashMap::from([(2, Mark::Changed), (5, Mark::Changed)]));
-        assert_eq!(d.hunks, vec![2, 5]);
+        use TextLine::Deleted;
+        assert_eq!(d.hunks, vec![Deleted(2, 0), Deleted(5, 0)]);
         assert_eq!(d.ghosts[&5], vec!["6"]);
     }
 
@@ -755,10 +832,11 @@ mod tests {
             Some(&r.merge_base),
             moved.old.as_deref(),
         );
-        assert_eq!(d.hunks, vec![9]);
+        use TextLine::{Deleted, File};
+        assert_eq!(d.hunks, vec![Deleted(9, 0)]);
         assert_eq!(d.ghosts[&9], vec!["m10"]);
         let d = diff(&dir, &dir.join("src/a.rs"), Some(&r.merge_base), None);
-        assert_eq!(d.hunks, vec![1, 3]);
+        assert_eq!(d.hunks, vec![Deleted(1, 0), File(3)]);
         assert_eq!(d.ghosts[&1], vec!["b"]);
         assert_eq!(r.base_bytes(&dir, Path::new("gone")).unwrap(), b"x\n");
         assert!(
@@ -785,6 +863,71 @@ mod tests {
         assert!(
             Review::open(&dir, Some("feature"), None).is_err(),
             "dirty switch"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #396: `-r BRANCH` for a branch an agent's worktree has checked out reviews it there.
+    #[test]
+    fn a_branch_checked_out_in_another_worktree_is_reviewed_there() {
+        let tmp = std::env::temp_dir().canonicalize().unwrap();
+        let dir = tmp.join(format!("merl-other-wt-{}", std::process::id()));
+        let wt = dir.with_extension("agent");
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&wt);
+        std::fs::create_dir_all(&dir).unwrap();
+        let git = |at: &Path, args: &[&str]| {
+            let out = Command::new("git").arg("-C").arg(at).args(args).output();
+            String::from_utf8(out.unwrap().stdout).unwrap()
+        };
+        git(&dir, &["init", "-q", "-b", "main"]);
+        git(&dir, &["config", "user.email", "t@t"]);
+        git(&dir, &["config", "user.name", "t"]);
+        std::fs::write(dir.join("a.py"), "x = 1\n").unwrap();
+        git(&dir, &["add", "."]);
+        git(&dir, &["commit", "-q", "-m", "init"]);
+        git(
+            &dir,
+            &[
+                "worktree",
+                "add",
+                "-q",
+                "-b",
+                "agent/task",
+                wt.to_str().unwrap(),
+            ],
+        );
+        std::fs::write(wt.join("a.py"), "x = 2\n").unwrap();
+        git(&wt, &["commit", "-q", "-am", "agent work"]);
+        // Not committed yet: the agent is still at it.
+        std::fs::write(wt.join("new.py"), "y = 3\n").unwrap();
+
+        assert_eq!(worktree_of(&dir, "agent/task"), Some(wt.clone()));
+        // The branch of this very worktree, or of none, is today's `-r BRANCH`.
+        assert_eq!(worktree_of(&dir, "main"), None);
+        assert_eq!(worktree_of(&dir, "nowhere"), None);
+        let r = Review::open(&wt, None, None).unwrap();
+        assert_eq!((r.branch.as_str(), r.base.as_str()), ("agent/task", "main"));
+        let rows: Vec<_> = r
+            .files
+            .iter()
+            .map(|f| (f.status, f.path.to_str().unwrap()))
+            .collect();
+        assert_eq!(rows, vec![('M', "a.py"), ('A', "new.py")]);
+        // Nothing switched on either side.
+        let head = |at: &Path| git(at, &["symbolic-ref", "--short", "HEAD"]);
+        assert_eq!(
+            (head(&dir), head(&wt)),
+            ("main\n".into(), "agent/task\n".into())
+        );
+
+        // A worktree whose directory is gone is `prunable`: the error stays git's.
+        std::fs::remove_dir_all(&wt).unwrap();
+        assert_eq!(worktree_of(&dir, "agent/task"), None);
+        let e = Review::open(&dir, Some("agent/task"), None).unwrap_err();
+        assert!(
+            format!("{e:#}").contains("switching to agent/task"),
+            "{e:#}"
         );
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -1005,6 +1148,67 @@ mod tests {
         std::fs::remove_dir_all(&remote).unwrap();
         let r = open();
         assert_eq!(names(&r), ["three", "two"]);
+        assert_eq!(r.note.as_deref(), Some("origin/feat not fetched"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #271: `-r origin/feat` is `-r feat` that origin must have.
+    #[test]
+    fn a_review_of_origin_slash_branch_reads_the_pushed_branch() {
+        let dir = std::env::temp_dir().join(format!("merl-origin-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let git = |at: &str, args: &[&str]| {
+            let out = Command::new("git")
+                .current_dir(dir.join(at))
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "git {args:?}");
+            String::from_utf8(out.stdout).unwrap()
+        };
+        let commit = |at: &str, file: &str| {
+            std::fs::write(dir.join(at).join(file), format!("{file}\n")).unwrap();
+            git(at, &["add", "."]);
+            git(at, &["commit", "-q", "-m", file]);
+        };
+        let b = dir.join("b");
+        let open = |branch: &str| Review::open(&b, Some(branch), None);
+        let error = |branch: &str| format!("{:#}", open(branch).unwrap_err());
+        git("", &["init", "-q", "--bare", "-b", "main", "remote.git"]);
+        git("", &["clone", "-q", "remote.git", "a"]);
+        git("a", &["switch", "-q", "-c", "main"]);
+        commit("a", "README");
+        git("a", &["push", "-q", "origin", "main"]);
+        git("", &["clone", "-q", "remote.git", "b"]);
+        git("a", &["switch", "-q", "-c", "feat"]);
+        commit("a", "one");
+        git("a", &["push", "-q", "origin", "feat"]);
+
+        // Fetched, and the local `feat` made from it, as `-r feat` does.
+        let r = open("origin/feat").unwrap();
+        assert_eq!((r.branch.as_str(), r.note), ("feat", None));
+        assert_eq!(r.files[0].path, Path::new("one"));
+        git("b", &["switch", "-q", "main"]);
+
+        // Not on origin: an error, though a local branch of that name exists.
+        git("b", &["branch", "mine"]);
+        assert_eq!(error("origin/mine"), "no branch mine on origin");
+        // Another remote's prefix is part of a local name, as before.
+        assert!(error("upstream/feat").starts_with("switching to upstream/feat"));
+
+        // A local branch literally named `origin/lit` is that branch.
+        git("b", &["switch", "-q", "-c", "origin/lit"]);
+        commit("b", "lit");
+        git("b", &["switch", "-q", "main"]);
+        assert_eq!(open("origin/lit").unwrap().branch, "origin/lit");
+        git("b", &["switch", "-q", "main"]);
+
+        // Origin unreachable: the local branch, and the review says it was not fetched.
+        std::fs::remove_dir_all(dir.join("remote.git")).unwrap();
+        let r = open("origin/feat").unwrap();
+        assert_eq!(r.branch, "feat");
         assert_eq!(r.note.as_deref(), Some("origin/feat not fetched"));
         std::fs::remove_dir_all(&dir).unwrap();
     }

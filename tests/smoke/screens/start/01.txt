@@ -1,0 +1,57 @@
+wait Tutor 1/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                           ███╗   ███╗███████╗██████╗ ██╗
+                                                                           ████╗ ████║██╔════╝██╔══██╗██║
+                                                                           ██╔████╔██║█████╗  ██████╔╝██║
+                                                                           ██║╚██╔╝██║██╔══╝  ██╔══██╗██║
+                                                                           ██║ ╚═╝ ██║███████╗██║  ██║███████╗
+                                                                           ╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝
+
+                                                                           o / Ctrl+E   Open a file (fuzzy)
+                                                                           s            Search the project
+                                                                           D            Project symbols (fuzzy)
+                                                                           ?            This help
+                                                                           q            Quit
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Tutor 1/22 · Open a file
+Press `o` (or Ctrl+E), type `store`, and press Enter to open store.py.
+
+merl-tutor-NNNNN/  [code]                                                                                                                                                         ? help
+cursor (x,y,shown) 185,54,0

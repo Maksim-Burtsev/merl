@@ -1,0 +1,5 @@
+fragment ShipmentParts on Shipment {
+  id
+  carrier
+  status
+}

@@ -1,0 +1,13 @@
+/
+End
+Esc
+Picker: Down
+Picker: Enter
+Picker: Esc
+d
+n
+o
+q
+s
+t
+u

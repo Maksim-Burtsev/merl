@@ -1,0 +1,9 @@
+/
+Arrows
+Esc
+Picker: Enter
+[
+d
+o
+q
+t

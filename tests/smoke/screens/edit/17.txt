@@ -1,0 +1,57 @@
+wait .env  3:30  [code]
+1 API_TOKEN=changeme
+2 DATABASE_URL=postgresql://orders:orders@localhost/orders
+3 STRIPE_KEY=sk_live_smoke_4242
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.env  3:30  [code]                                                                                                                                                                ? help
+cursor (x,y,shown) 31,2,1

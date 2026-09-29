@@ -1,0 +1,15 @@
+/
+C
+Ctrl+C
+Enter
+Esc
+PgDn
+Picker: Enter
+Picker: Esc
+[
+c
+d
+m
+o
+q
+u

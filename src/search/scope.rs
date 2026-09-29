@@ -13,7 +13,7 @@ use super::*;
 /// directory; everything else is every file of the same kind, so `.tsx` finds `.ts`.
 pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
     match kind {
-        Kind::Docker | Kind::Yaml => path == here,
+        Kind::Docker | Kind::Yaml | Kind::Markdown => path == here,
         Kind::Terraform => kind_of(path) == Some(kind) && path.parent() == here.parent(),
         Kind::Python
         | Kind::Go
@@ -28,9 +28,11 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Lua
         | Kind::Elixir
         | Kind::Zig
+        | Kind::Proto
         | Kind::Shell
         | Kind::Sql
-        | Kind::Make => kind_of(path) == Some(kind),
+        | Kind::Make
+        | Kind::Graphql => kind_of(path) == Some(kind),
     }
 }
 /// Where the standard library and the dependencies of the project at `root` live on this
@@ -177,6 +179,16 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             dirs.push(PathBuf::from("/opt/homebrew/include"));
             dirs
         }
+        // Where `protoc` installs the well-known types (`google/protobuf/timestamp.proto`), as
+        // Homebrew and a Linux package lay it out. buf keeps a module's dependencies in a cache
+        // under hashed directories no import spells, and is left out, as Zig's package cache is.
+        Kind::Proto => [
+            "/opt/homebrew/include",
+            "/usr/local/include",
+            "/usr/include",
+        ]
+        .map(PathBuf::from)
+        .to_vec(),
         // Composer installs a project's dependencies into `vendor/`, as source, and gitignores
         // it, so the project walk does not list it: it is outside in the same way `node_modules`
         // is. PHP's own library is built into the interpreter and has no source to read.
@@ -190,10 +202,10 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // assemblies, and the runtime's own source is not on the machine at all. Lua has no root
         // to ask for either: `package.path` is whatever the interpreter embedding it was built
         // with, and a Neovim or a LuaRocks tree is not a standard library any project can be
-        // assumed to use. Elixir needs none: `mix` puts both the dependencies and their sources
-        // in `deps/` inside the project, so they are project files already, and the standard
-        // library ships compiled — an installed Elixir has `.beam` files, not `.ex`. `d` stays
-        // inside the project for all of them, as for the rest.
+        // assumed to use. Elixir's standard library ships compiled — an installed Elixir has
+        // `.beam` files, not `.ex` — and its dependencies are the project's `deps/`, which
+        // depend on the open file: [`mix_deps`]. `d` stays inside the project for all of them,
+        // as for the rest.
         Kind::Jvm
         | Kind::Ruby
         | Kind::CSharp
@@ -204,7 +216,9 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         | Kind::Make
         | Kind::Terraform
         | Kind::Docker
-        | Kind::Yaml => Vec::new(),
+        | Kind::Yaml
+        | Kind::Markdown
+        | Kind::Graphql => Vec::new(),
     };
     // The order is deliberate, so no sort: `sys.path` can list a directory twice, far apart.
     let mut seen = std::collections::HashSet::new();
@@ -235,6 +249,18 @@ pub fn node_modules(root: &Path, file: &Path) -> Vec<PathBuf> {
     file.ancestors()
         .take_while(|dir| dir.starts_with(root))
         .map(|dir| dir.join("node_modules"))
+        .filter(|dir| dir.is_dir())
+        .collect()
+}
+/// The `deps/` a Mix project of the project `root` fetches its dependencies into, as source, for
+/// an Elixir file in `file` (#437): beside every `mix.exs` from the file's directory up to `root`,
+/// nearest first, so an umbrella app finds the umbrella's. `mix new` gitignores it, so the project
+/// walk does not list it, as `node_modules` for TypeScript.
+pub fn mix_deps(root: &Path, file: &Path) -> Vec<PathBuf> {
+    file.ancestors()
+        .take_while(|dir| dir.starts_with(root))
+        .filter(|dir| dir.join("mix.exs").is_file())
+        .map(|dir| dir.join("deps"))
         .filter(|dir| dir.is_dir())
         .collect()
 }
@@ -370,6 +396,68 @@ pub fn package_copy(
         }
     }
     Some(copy)
+}
+/// Whether a TypeScript import of `module` from the directory `dir` of the project `root`, whose
+/// files are `files`, loads a package that is not installed (#392): a bare specifier (no
+/// relative path, no `@/`, `~/` or `#` alias, no alias of the `tsconfig.json`, no module of
+/// Node's own, none with a scheme such as `node:` or `virtual:`) that no workspace package of the
+/// project is called (the `name` of a `package.json` among `files`), that no `node_modules`
+/// from `dir` up holds, itself or its types (past the project's root too, as Node looks there),
+/// and that no `declare module` of a `.d.ts` among `files` types, `*` patterns included.
+pub fn package_missing(root: &Path, files: &[PathBuf], dir: &Path, module: &[String]) -> bool {
+    static NAME: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r#""name"\s*:\s*"([^"]*)""#).unwrap());
+    let name = match module {
+        [scope, pkg, ..] if scope.len() > 1 && scope.starts_with('@') => format!("{scope}/{pkg}"),
+        [pkg, ..]
+            if !pkg.starts_with(['.', '@', '~', '#'])
+                && !pkg.contains(':')
+                && !NODE_BUILTINS.contains(&pkg.as_str()) =>
+        {
+            pkg.clone()
+        }
+        _ => return false,
+    };
+    if ts_alias(root, files, dir, &module.join("/")) {
+        return false;
+    }
+    let types = format!("@types/{}", name.trim_start_matches('@').replace('/', "__"));
+    let installed = root.join(dir).ancestors().any(|d| {
+        [&name, &types]
+            .iter()
+            .any(|p| d.join("node_modules").join(p).exists())
+    });
+    let workspace = || {
+        files
+            .iter()
+            .filter(|f| f.file_name().is_some_and(|n| n == "package.json"))
+            .filter_map(|f| std::fs::read_to_string(root.join(f)).ok())
+            .any(|t| NAME.captures(&t).is_some_and(|c| c[1] == name))
+    };
+    // ponytail: reads every `.d.ts` of the project, only for a package nothing else supplies.
+    let declared = || {
+        static DECLARE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r#"declare\s+module\s+['"]([^'"]+)['"]"#).unwrap()
+        });
+        let spec = module.join("/");
+        files
+            .iter()
+            .filter(|f| f.to_string_lossy().ends_with(".d.ts"))
+            .filter_map(|f| std::fs::read_to_string(root.join(f)).ok())
+            .any(|t| {
+                DECLARE
+                    .captures_iter(&t)
+                    .any(|c| match c[1].split_once('*') {
+                        Some((pre, post)) => {
+                            spec.len() >= pre.len() + post.len()
+                                && spec.starts_with(pre)
+                                && spec.ends_with(post)
+                        }
+                        None => c[1] == spec,
+                    })
+            })
+    };
+    !installed && !workspace() && !declared()
 }
 /// Whether the `package.json` `text` has an `exports` map, a top-level key that is not `null`.
 /// Strings are read whole, so neither a nested `exports` nor a brace inside one counts.
@@ -525,6 +613,9 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
                     && (e.file_name() == "testdata" || e.path().join("go.mod").is_file());
                 !unreachable && (e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
             })
+            // Homebrew links each formula's headers into `include/` a directory at a time:
+            // `include/google` is a link into the protobuf keg.
+            .follow_links(kind == Kind::Proto)
             .hidden(false)
             .git_ignore(false)
             .git_global(false)

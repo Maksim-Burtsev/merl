@@ -1,0 +1,57 @@
+wait A refund_api.py    +5 −0
+┌agent/refund ← origin/main──┐ 1▎from datetime import datetime, timedelta, timezone
+│  ▾ app                     │ 2▎from decimal import Decimal
+│    A refund_api.py    +5 −0│ 3▎
+│    A refunds.py      +18 −0│ 4▎from app.models import Order, OrderStatus
+│    M repos.py        +0 −28│ 5▎
+│    M service.py      +13 −1│ 6▎
+│  ▾ deploy                  │ 7▎class RefundNotAllowed(Exception):
+│    ▾ helm                  │ 8▎    pass
+│      ▾ orders              │ 9▎
+│        M values.yaml  +1 −0│10▎
+│  ▾ docs                    │11▎def refund_amount(order: Order, window_days: int, now: datetime | None = None) -> Decimal:
+│    M architecture.png   bin│12▎    """What to give back: the whole total inside the window, nothing after it."""
+│  ▾ scripts                 │13▎    now = now or datetime.now(timezone.utc)
+│    D refund_by_hand.… +0 −9│14▎    if order.status is not OrderStatus.PAID:
+│  ▾ tests                   │15▎        raise RefundNotAllowed(f"order {order.id} is {order.status.value}")
+│    A test_refunds.py +28 −0│16▎    if now - order.created_at > timedelta(days=window_days):
+│  ▾ worker                  │17▎        raise RefundNotAllowed(f"order {order.id} is past the {window_days}-day window")
+│    M main.go          +4 −1│18▎    return order.total
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 9 files · +69 −39 ─────────┘
+app/refunds.py  1:1  [code]  hunk 1/1  file 2/9                                                                                                                                   ? help
+cursor (x,y,shown) 33,0,1

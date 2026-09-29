@@ -1,0 +1,18 @@
+fragment BasketParts on Basket {
+  #                     ^ d: schema/root.graphqls:15
+  id
+  gross
+  # ^ d: schema/root.graphqls:22
+  # status: gross → Basket.gross (by name, 1 match)
+  tariff {
+    rate
+    # ^ d: picker schema/shop.graphql:13, schema/shop.graphql:25, schema/shop.graphql:39
+    describe(locale: "en")
+    #        ^ d: none
+  }
+}
+
+fragment CourierParts on Courier {
+  name
+  # ^ d: picker schema/shop.graphql:58, schema/shop.graphql:65
+}

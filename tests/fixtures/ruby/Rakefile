@@ -1,0 +1,13 @@
+require_relative "lib/shop"
+
+def build_basket
+  Shop::Basket.new(Shop::Tariff.new(1))
+  #     ^ d: lib/shop/basket.rb:8
+  #                      ^ d: lib/shop/pricing.rb:10
+end
+
+task :restock do
+  build_basket.restock(2)
+  # ^ d: Rakefile:3
+  #            ^ d: picker lib/shop/basket.rb:36
+end

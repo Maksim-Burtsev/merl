@@ -1,0 +1,57 @@
+wait 1 ‹
+┌orders──────────────────────┐1 ‹y":1}]},{"id":122,"customer_id":2516,"total":"660.22","status":"pending","created_at":"2026-04-05T15:18:00Z","items":[{"sku":"SKU-89932","qty":3}]},{"i…
+│▸ .github                   │
+│▸ .venv                     │
+│▸ app                       │
+│▾ data                      │
+│    orders.min.json         │
+│    refunds-2026-08.csv     │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+data/orders.min.json  1:20001  [code]  nowrap                                                                                                                                     ? help
+cursor (x,y,shown) 184,0,1

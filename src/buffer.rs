@@ -20,6 +20,8 @@ const CHECKPOINT: usize = 64;
 const BOM: &[u8] = b"\xEF\xBB\xBF";
 /// How far in we look for a NUL before calling a file binary.
 const SNIFF: usize = 8 * 1024;
+/// Why a binary file is read-only, and how the pane tells it from an empty file (#287).
+const BINARY: &str = "binary file";
 /// ponytail: syntect is sequential, so a huge file would have to be parsed from line 1 before
 /// anything can be drawn. Past these limits merl shows plain text instead of stalling.
 const MAX_HL_LINES: usize = 30_000;
@@ -82,12 +84,20 @@ impl Buffer {
         Self::new(None, vec![String::new()], None)
     }
 
+    /// A binary file: nothing of it is shown. It rides on `readonly`, so a reload and its undo
+    /// carry it with the rest of the [`Format`].
+    pub fn binary(&self) -> bool {
+        self.readonly == Some(BINARY)
+    }
+
     pub fn load(path: &Path) -> Result<Self> {
         // A FIFO, a socket or a device: reading one can wait forever, whichever way it was
         // reached (#405). A directory fails the read on its own.
         let meta = std::fs::metadata(path).with_context(|| format!("{}", path.display()))?;
         if !meta.is_file() && !meta.is_dir() {
-            anyhow::bail!("{}: not a regular file", path.display());
+            // The reason apart from the path, for the status bar to name the file its own way.
+            return Err(anyhow::anyhow!("not a regular file"))
+                .with_context(|| format!("{}", path.display()));
         }
         let bytes = std::fs::read(path).with_context(|| format!("{}", path.display()))?;
         Ok(Self::from_bytes(path.to_path_buf(), &bytes))
@@ -95,8 +105,10 @@ impl Buffer {
 
     pub fn from_bytes(path: PathBuf, bytes: &[u8]) -> Self {
         if bytes[..bytes.len().min(SNIFF)].contains(&0) {
-            let mut b = Self::new(Some(path), vec!["binary file".to_string()], None);
-            b.readonly = Some("binary file");
+            // No placeholder text: the pane draws a note instead of lines (#287), and a text
+            // in the lines would pass for the file's content to `/`, `y` and the gutter.
+            let mut b = Self::new(Some(path), vec![String::new()], None);
+            b.readonly = Some(BINARY);
             return b;
         }
         let bom = bytes.starts_with(BOM);
@@ -404,6 +416,8 @@ fn known_file(name: &str) -> Option<&'static str> {
         ("Procfile" | "yarn.lock", _) => "YAML",
         // Starlark.
         ("WORKSPACE" | "Tiltfile", _) => "Python",
+        // bat's set owns `.md` and `.markdown`; MDX is Markdown with JSX in it (#421).
+        (_, "mdx") => "Markdown",
         _ => return None,
     })
 }
@@ -524,6 +538,26 @@ mod tests {
                 colours.len() > 1,
                 "init.lua {name}: everything is one colour"
             );
+        }
+    }
+
+    #[test]
+    fn markdown_highlights_with_every_shipped_theme() {
+        let src = "# Notes\n\nSee the [README](../README.md#languages) and `src/main.rs`.\n";
+        for file in ["notes.md", "notes.markdown", "page.mdx"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("Markdown"),
+                    "{file} {name}"
+                );
+                b.highlight_to(3, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
         }
     }
 
@@ -654,11 +688,13 @@ mod tests {
     }
 
     #[test]
-    fn binary_is_one_line() {
+    fn binary_has_no_text() {
         let b = load(b"ELF\0\x01\x02");
-        assert_eq!(b.lines, vec!["binary file"]);
+        assert_eq!(b.lines, vec![""]);
         assert!(b.syntax.is_none());
+        assert!(b.binary());
         assert_eq!(b.readonly, Some("binary file"));
+        assert!(!load(b"").binary());
     }
 
     #[test]
@@ -726,6 +762,44 @@ mod tests {
                     b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
                 assert!(colours.len() > 1, "{file} {name}: everything is one colour");
             }
+        }
+    }
+
+    #[test]
+    fn graphql_highlights_with_every_shipped_theme() {
+        let src = "# doc\ntype User {\n  email: String! @deprecated(reason: \"x\")\n}\n";
+        for file in ["a.graphql", "b.graphqls", "c.gql"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("GraphQL"),
+                    "{file} {name}"
+                );
+                b.highlight_to(3, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn proto_highlights_with_every_shipped_theme() {
+        let src = "// doc\nsyntax = \"proto3\";\nmessage User {\n  string id = 1;\n}\n";
+        for name in crate::theme::names() {
+            let theme = crate::theme::load(name).unwrap();
+            let mut b = Buffer::from_bytes(PathBuf::from("user.proto"), src.as_bytes());
+            assert_eq!(
+                b.syntax.map(|s| s.name.as_str()),
+                Some("Protocol Buffer"),
+                "{name}"
+            );
+            b.highlight_to(4, &theme);
+            let colours: std::collections::HashSet<_> =
+                b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+            assert!(colours.len() > 1, "{name}: everything is one colour");
         }
     }
 

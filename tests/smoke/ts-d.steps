@@ -7,7 +7,7 @@
 merl 'web/src/routes/orders/[id].tsx'
 wait export default function OrderPage
 key t
-run sed -i '' 's/Loading…/Loading order…/' 'web/src/routes/orders/[id].tsx'
+run perl -pi -e 's/Loading…/Loading order…/' 'web/src/routes/orders/[id].tsx'
 wait 17▎    return <p>Loading order…</p>;
 key /
 type OrderRepo }
@@ -37,3 +37,17 @@ key /
 type close.bind
 key Enter d
 wait close → Dialog.close (via this: Dialog)
+# GraphQL beside it (#419): d on the path of an `#import` opens that file, and d on a fragment
+# spread lands on the fragment.
+key o
+type GetShipment
+key Enter
+wait web/src/orders/GetShipment.graphql  1:1
+key /
+type ShipmentParts
+key Enter d
+wait module web/src/orders/ShipmentParts.graphql
+key [ /
+type .Ship
+key Enter Right d
+wait ShipmentParts: by name, 1 match

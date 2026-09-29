@@ -1,0 +1,2 @@
+wait Errorf: via import fmt
+(screen not compared: the standard library of the machine's Go)

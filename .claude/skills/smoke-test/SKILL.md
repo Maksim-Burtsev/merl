@@ -6,7 +6,9 @@ description: The release gate of merl, step 2 of AGENTS.md `## Releases`, after 
 # Smoke test before a release
 
 The run answers two questions: did anything get worse than in the last release, and does what
-the changelog promises work. A release goes out only on a GO.
+the changelog promises work. A release goes out only on a GO. Its per-PR half runs in CI:
+`run.py --golden` plays the scenarios on the PR's build alone against the screens checked in
+under `tests/smoke/screens/`, as text, without timings or the last release.
 
 ## 1. Run
 
@@ -31,6 +33,20 @@ fake merls go through every verdict in about 20 seconds, and it ends `selftest o
 
 The run is done when the report's table has a row for every scenario.
 
+Then the time budgets (#314), on the same quiet machine, ~30 s (the first run also generates a
+30,000-file repository into the temp directory, ~35 s more):
+
+```sh
+MERL_BUDGETS_SAVE=1 cargo test --release time_budgets -- --ignored --nocapture
+```
+
+The `d` rows press `d` in paperless-ngx from the `d` bench's cache (`tools/d-bench/run --project
+paperless-ngx` fills it, #308; `MERL_BUDGET_D_PROJECT` points elsewhere); without it they are
+skipped with a note. The test prints startup, `o`, `s`, `D`, `d` and `--review` in milliseconds
+beside the last release's (`last`, from `tests/budgets.tsv`) and each budget, fails on a median
+over its budget, and with `MERL_BUDGETS_SAVE=1` writes this run's medians to `tests/budgets.tsv`
+for the release PR to commit, so the next release compares against them.
+
 ## 2. Read the report
 
 - **The table**, its legend under it: PASS needs nothing; DIFF has differences to judge. FAIL (a
@@ -47,16 +63,48 @@ The run is done when the report's table has a row for every scenario.
 - **Plays that did not end ok**, each with its stderr and a PNG of the screen at the failure (for
   a merl that died, its last checkpoint).
 - **Unreleased entries**, with the scenarios whose comments cite their issues.
+- **Time budgets**: a row `OVER` its budget, or at twice its `last` and over 200 ms more, is a
+  regression unless an Unreleased entry says why. A load over ~8 stretches every row: rerun.
 
-## 3. Give the verdict
+## 3. Look at every checkpoint
 
-Every difference, failure and slower step gets one verdict:
+The report compares screens as text: colour, contrast and alignment in text that did not change
+never reach it (#144's deleted lines nearly invisible, #146's 1.6:1 contrast were found by
+people). So every checkpoint of the new build gets looked at, in two themes:
+
+```sh
+tests/smoke/run.py --all-shots   # ~2 min: the new build alone, every scenario in each theme
+```
+
+It writes `/tmp/merl-smoke/shots/shots.md`, which lists the PNGs beside it:
+`default/SCENARIO/NN.png` in merl's default theme on a dark terminal, `github-light/SCENARIO/NN.png`
+in a light theme on a light one, each screen headed by its checkpoint. A play that did not end ok
+is named there with its `last.png`; step 2 already judges it. Open every PNG and look for:
+
+- text cut at an edge, of the screen or of a panel;
+- panels overlapping;
+- contrast too low to read: text, a deleted line, a selection, the cursor line, a hint;
+- the cursor off its word;
+- a state drawn in the wrong colour: an added line in red, a status letter, an error.
+
+A finding is a regression only when the last release does not have it. Look at the same
+checkpoint on it: `tests/smoke/run.py --all-shots --new ~/.cache/merl-smoke/TAG/merl --only NAME
+--out /tmp/merl-smoke/shots-old` (step 1 fetched it; it stops at the first wait for what it
+lacks, so a checkpoint it never reaches is new). A regression goes to step 4 as one. Every other
+finding is an issue and does not block: search the open ones first (`gh issue list --search`),
+else file a `bug` per AGENTS.md `## Issues`, its PNG uploaded to `media` as
+`issues/<slug>.png` (a name not taken yet) and the scenario's steps up to the checkpoint.
+
+## 4. Give the verdict
+
+Every difference, failure, slower step and budget row over gets one verdict:
 
 - `intended (#N)`: an Unreleased entry describes this change; cite its issue.
 - `changelog gap`: a visible change the changelog does not mention, wanted all the same. The
   entry goes into the release PR.
 - `regression`: anything else a user would see as worse, a FAIL, CRASH, EXIT, HUNG or RUN of
-  the new build, a slower step no entry explains.
+  the new build, a slower step no entry explains, a step 3 finding the last release does not
+  have.
 
 Every Unreleased entry gets one too: `seen working in SCENARIO` when a scenario cites its issue,
 passed on the new build and shows the change in a checkpoint, else `not checked`. `not checked` does not
@@ -67,7 +115,7 @@ regression, labelled `bug`, with the two screens (the PNG) and the keys that rep
 scenario's steps up to the checkpoint). A bug the last release has too gets its own issue and
 does not block.
 
-## 4. The verdict table
+## 5. The verdict table
 
 It goes into the body of the release PR, a row for every scenario and every Unreleased entry:
 
@@ -79,6 +127,8 @@ Smoke test: merl 0.8.0 (abc1234) against v0.7.0, 16 scenarios, wall 150 s, load 
 | scenario `review` | intended (#165) | differences 1-3: the diff tints, review/04.png |
 | scenario `edit` | PASS | |
 | timed steps | none slower | `d` on gitea 48 ms / 51 ms |
+| every checkpoint, two themes | 2 findings, not regressions | 212 PNGs; #460, #461 filed |
+| time budgets | all within | `s` done 550 ms / 460 ms (budget 2,000), review 260 ms / 310 ms |
 | #165 review paints the diff as GitHub does | seen working in `review` | |
 | #227 `d` on `Type::name` in Rust | not checked | no scenario reads Rust |
 

@@ -1,0 +1,54 @@
+// The shop of #307: every d case carries its answer in a comment under it.
+syntax = "proto3";
+
+package shop.v1;
+
+import "shop/v1/tariff.proto";
+//              ^ d: proto/shop/v1/tariff.proto:1
+//                     ^ d: proto/shop/v1/tariff.proto:1
+import weak "billing/v1/money.proto";
+//           ^ d: proto/billing/v1/money.proto:1
+import "google/protobuf/timestamp.proto";
+//                      ^ d: third_party/google/protobuf/timestamp.proto:1
+import "carrier/v1/parcel.proto";
+//                 ^ d: none
+
+service Couriers {
+//      ^ d: proto/shop/v1/courier.proto:16
+  rpc Weigh(WeighRequest) returns (WeighReply);
+  //  ^ d: proto/shop/v1/courier.proto:18
+  // status: Weigh → Couriers.Weigh (by name, 1 match)
+  //        ^ d: proto/shop/v1/courier.proto:37
+  //                               ^ d: proto/shop/v1/courier.proto:45
+  rpc Track(stream TrackRequest) returns (stream Tariff) {
+  //  ^ d: proto/shop/v1/courier.proto:23
+  //               ^ d: proto/shop/v1/courier.proto:51
+  //                                             ^ d: proto/shop/v1/tariff.proto:10
+  // status: Tariff: by name, 1 match
+    option deprecated = true;
+    //     ^ d: none
+  }
+}
+
+message Courier {
+  string name = 1;
+}
+
+message WeighRequest {
+  Tariff tariff = 1;
+//^ d: proto/shop/v1/tariff.proto:10
+  google.protobuf.Timestamp at = 2;
+  //              ^ d: third_party/google/protobuf/timestamp.proto:6
+  // status: Timestamp: via google.protobuf
+}
+
+message WeighReply {
+  billing.v1.Money price = 1;
+  //         ^ d: proto/billing/v1/money.proto:6
+  // status: Money: via billing.v1
+}
+
+message TrackRequest {
+  Courier courier = 1;
+//^ d: proto/shop/v1/courier.proto:33
+}

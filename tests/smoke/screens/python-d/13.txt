@@ -1,0 +1,57 @@
+wait save → OrderRepo.save (via self.repo: OrderRepo)
+ 1 from app.models import Order, OrderStatus
+ 2
+ 3
+ 4 class OrderRepo:
+ 5     """Orders in Postgres. Every method runs in the caller's transaction."""
+ 6
+ 7     def __init__(self, db):
+ 8         self.db = db
+ 9
+10     def get(self, order_id: int) -> Order | None:
+11         row = self.db.fetch_one("SELECT * FROM orders WHERE id = %s", order_id)
+12         return Order(**row) if row else None
+13
+14     def find_by_customer(self, customer_id: int) -> list[Order]:
+15         rows = self.db.fetch_all(
+16             "SELECT * FROM orders WHERE customer_id = %s ORDER BY id", customer_id
+17         )
+18         return [Order(**row) for row in rows]
+19
+20     def save(self, order: Order) -> None:
+21         self.db.execute(
+22             "INSERT INTO orders (id, customer_id, total, status) VALUES (%s, %s, %s, %s) "
+23             "ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status",
+24             order.id,
+25             order.customer_id,
+26             order.total,
+27             order.status.value,
+28         )
+29
+30     def delete(self, order_id: int) -> None:
+31         self.db.execute("DELETE FROM orders WHERE id = %s", order_id)
+32
+33
+34 class InMemoryOrderRepo:
+35     """Orders in a dict, for running the API without Postgres. Same methods as OrderRepo."""
+36
+37     def __init__(self):
+38         self.orders: dict[int, Order] = {}
+39
+40     def get(self, order_id: int) -> Order | None:
+41         return self.orders.get(order_id)
+42
+43     def find_by_customer(self, customer_id: int) -> list[Order]:
+44         return sorted(
+45             (o for o in self.orders.values() if o.customer_id == customer_id),
+46             key=lambda o: o.id,
+47         )
+48
+49     def find_by_status(self, status: OrderStatus) -> list[Order]:
+50         return [o for o in self.orders.values() if o.status is status]
+51
+52     def save(self, order: Order) -> None:
+53         self.orders[order.id] = order
+54
+app/repos.py  20:9  [code]  save → OrderRepo.save (via self.repo: OrderRepo)
+cursor (x,y,shown) 11,19,1

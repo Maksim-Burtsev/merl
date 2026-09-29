@@ -1,0 +1,57 @@
+wait Files (
+ 1 from dataclasses import dataclass, field
+ 2 from datetime import datetime, timezone
+ 3 from decimal import Decimal
+ 4 from enum import Enum
+ 5
+ 6
+ 7 class OrderStatus(Enum):
+ 8     PENDING = "pending"
+ 9     PAID = "paid"
+10     SHIPPED = "shipped"
+11     CANCELLED = "cancelled"
+12     REFUNDED = "┌Files (46/46)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+13                 │>                                                                                                                                                 │
+14                 │.github/workflows/ci.yml                                                                                                                          │
+15 @dataclass      │app/__init__.py                                                                                                                                   │
+16 class Order:    │app/api.py                                                                                                                                        │
+17     id: int     │app/config.py                                                                                                                                     │
+18     customer_id:│app/models.py                                                                                                                                     │
+19     total: Decim│app/repos.py                                                                                                                                      │
+20     status: Orde│app/service.py                                                                                                                                    │
+21     created_at: │app/uow.py                                                                                                                                        │
+22                 │data/orders.min.json                                                                                                                              │
+23     def can_canc│data/refunds-2026-08.csv                                                                                                                          │
+24         return s│deploy/helm/orders/templates/_helpers.tpl                                                                                                         │
+                   │deploy/helm/orders/templates/deployment.yaml                                                                                                      │
+                   │deploy/helm/orders/Chart.yaml                                                                                                                     │
+                   │deploy/helm/orders/values.yaml                                                                                                                    │
+                   │docs/architecture.png                                                                                                                             │
+                   │docs/notes.md                                                                                                                                     │
+                   │scripts/payouts/src/ledger.rs                                                                                                                     │
+                   │scripts/payouts/src/main.rs                                                                                                                       │
+                   │scripts/payouts/src/summary.rs                                                                                                                    │
+                   │scripts/payouts/Cargo.toml                                                                                                                        │
+                   │scripts/refund_by_hand.py                                                                                                                         │
+                   │tests/test_service.py                                                                                                                             │
+                   │web/src/api/client.ts                                                                                                                             │
+                   │web/src/components/Dialog.ts                                                                                                                      │
+                   │web/src/orders/GetShipment.graphql                                                                                                                │
+                   │web/src/orders/repo.ts                                                                                                                            │
+                   │web/src/orders/shipment.graphql                                                                                                                   │
+                   │web/src/orders/ShipmentParts.graphql                                                                                                              │
+                   │web/src/orders/store.ts                                                                                                                           │
+                   │web/src/orders/types.ts                                                                                                                           │
+                   └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+app/models.py  1:1  [code]                                                                                                                                                        ? help
+cursor (x,y,shown) 22,12,1

@@ -187,6 +187,7 @@ impl App {
         new.selected = selected;
         new.query = std::mem::take(&mut old.query);
         new.bufs = std::mem::take(&mut old.bufs);
+        new.marks = std::mem::take(&mut old.marks);
         // `D` hands nucleo the query too: the grep says which declarations the name reaches,
         // nucleo ranks them and marks the letters, and the cursor goes to the best of them —
         // the same reset a keystroke under the cap does. `s` keeps the order its grep found,

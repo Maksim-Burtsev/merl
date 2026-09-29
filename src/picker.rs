@@ -9,6 +9,7 @@ use nucleo::{Config, Matcher, Nucleo};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
 use crate::buffer::Buffer;
+use crate::git::Mark;
 use crate::line_edit::LineEdit;
 
 /// One pickable target. `line` 0 means "no specific line", i.e. keep the file's start.
@@ -54,6 +55,9 @@ pub struct Picker {
     /// Files of the rows drawn so far, highlighted up to the deepest row shown. Filled lazily by
     /// `ui`, so a picker over thousands of hits only ever parses what is on screen.
     pub bufs: HashMap<PathBuf, Buffer>,
+    /// Review: the gutter marks of the review's files drawn so far, filled lazily by `ui` like
+    /// `bufs` (#246).
+    pub marks: HashMap<PathBuf, HashMap<usize, Mark>>,
 }
 
 impl Picker {
@@ -83,6 +87,7 @@ impl Picker {
             title: title.into(),
             page: 10,
             bufs: HashMap::new(),
+            marks: HashMap::new(),
         }
     }
 
