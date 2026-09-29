@@ -10,7 +10,7 @@ wait Files (
  9     PAID = "paid"
 10     SHIPPED = "shipped"
 11     CANCELLED = "cancelled"
-12     REFUNDED = "┌Files (48/48)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+12     REFUNDED = "┌Files (49/49)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 13                 │>                                                                                                                                                 │
 14                 │.github/workflows/ci.yml                                                                                                                          │
 15 @dataclass      │app/__init__.py                                                                                                                                   │
@@ -32,6 +32,7 @@ wait Files (
                    │scripts/payouts/src/main.rs                                                                                                                       │
                    │scripts/payouts/src/summary.rs                                                                                                                    │
                    │scripts/payouts/Cargo.toml                                                                                                                        │
+                   │scripts/invoices.php                                                                                                                              │
                    │scripts/refund_by_hand.py                                                                                                                         │
                    │tests/test_service.py                                                                                                                             │
                    │web/android/src/main/java/courier/app/ParcelSync.java                                                                                             │
@@ -41,7 +42,6 @@ wait Files (
                    │web/src/orders/GetShipment.graphql                                                                                                                │
                    │web/src/orders/repo.ts                                                                                                                            │
                    │web/src/orders/shipment.graphql                                                                                                                   │
-                   │web/src/orders/ShipmentParts.graphql                                                                                                              │
                    └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
 
