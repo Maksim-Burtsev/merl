@@ -207,6 +207,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or jumped to one. A call with no receiver, and `self.name`, lands on the method of the class it
   is made in, then of the modules the class includes and of its superclasses, before a namesake
   of another class: `track → SessionsController.track (via SessionsController)`. (#365)
+- `d` in C# on a parameter, a lambda's parameter, a `foreach`, `for`, `catch` or `using`
+  variable, an `out var`, a pattern variable or a local lands on its binding in the method you
+  are in, `options → Refunds.Register.options (local)`, as in Python, TypeScript and Go. It
+  searched the project by name, so it jumped to another method's local of the same name, or
+  offered a picker of them, and a parameter had no definition. A primary constructor's
+  parameters bind across the type's body, and a lambda's parameter only inside its lambda. (#345)
 
 ### Fixed
 
@@ -506,6 +512,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reopened in another file included. Behind a dot, as in `x.name`, only a `def`, an `attr_*` or
   an `alias` of the name answers: `uri.scheme` went to some other method's `scheme = …`, and
   `@name = name` read as a declaration of the `name` on its right. (#383)
+- `d` in C# no longer lands on a project namesake of something the project does not declare.
+  `Task.Delay`, `HttpStatusCode.Created` and any member behind a type name the project declares
+  nowhere say `no definition`, where they jumped to a property or method of the same name; a
+  private member of another type, and a local or a local function of another method, are no
+  longer offered, so `claims.Remove(…)` stays off a private `Remove` of a test mock. (#355)
 
 ## [0.7.0] - 2026-09-25
 

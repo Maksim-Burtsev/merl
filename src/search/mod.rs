@@ -10,6 +10,7 @@
 
 mod bindings;
 mod c;
+mod csharp;
 mod defs;
 mod fields;
 mod grep;
@@ -29,6 +30,7 @@ mod words;
 
 pub use bindings::*;
 pub use c::*;
+pub use csharp::*;
 pub use defs::*;
 pub use fields::*;
 pub use grep::*;

@@ -196,7 +196,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
     };
     match kind {
         Kind::Python => python_bindings(&lines, at, name),
-        Kind::TsJs | Kind::Go => block_bindings(kind, &lines, at, name),
+        Kind::TsJs | Kind::Go | Kind::CSharp => block_bindings(kind, &lines, at, name),
         Kind::Lua => lua_bindings(&lines, at, name),
         Kind::Shell => shell_function_at(&lines, at).map_or_else(Vec::new, |f| {
             (f + 1..=at)
@@ -1067,6 +1067,13 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
     let mut i = at;
     // Whether a declaration of the block the walk is in, or of its header, has been found.
     let mut scoped = false;
+    // A C# walk out of a member into its type's body: the lines there are fields, properties
+    // and other members, never statements that declare a local (#345).
+    let in_type = |i: usize| {
+        kind == Kind::CSharp
+            && cs_enclosing(lines, i).is_some_and(|e| cs_type_decl(lines[e]).is_some())
+    };
+    let mut members = in_type(at);
     // The types of the innermost Go `case` around the cursor, for the `switch v := x.(type)` it
     // may belong to (#100): gofmt writes the two at one indent, so the `switch` is met as a
     // statement right after its `case`.
@@ -1093,11 +1100,13 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                     && !l.is_empty()
                     && l.chars().all(|c| c.is_alphanumeric() || c == '_')
             });
-        if t.is_empty() || comment(kind, t) || ind > depth || literal[i] || label {
+        // A C# preprocessor line (`#if`, `#region`) may stand at any indent.
+        let directive = kind == Kind::CSharp && t.starts_with('#');
+        if t.is_empty() || comment(kind, t) || ind > depth || literal[i] || label || directive {
             continue;
         }
         if ind == depth {
-            if !this {
+            if !this && !members {
                 let before = out.len();
                 // `} = deps;` closes a destructuring prettier wrapped (#131): its names are on
                 // the lines above, down from the `const {` that is back at this indent. Any
@@ -1161,7 +1170,8 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         let params = kind == Kind::TsJs
             && t.starts_with('>')
             && opener.is_some_and(|j| lines[j].trim_end().ends_with('<'));
-        let wrapped = params || (kind == Kind::TsJs && body);
+        // C# opens a block on a line of its own, under the header it belongs to.
+        let wrapped = params || (kind == Kind::TsJs && body) || (kind == Kind::CSharp && t == "{");
         if t.starts_with([')', '}', ']']) || wrapped {
             while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > ind) {
                 i -= 1;
@@ -1216,6 +1226,15 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
             // the cursor's own line may be: its parameters count, and hide nothing.
             if opener_bindings(kind, &header, i + 1, name, &mut out) || scoped {
                 break;
+            }
+            // Past a C# type's header the walk is out of its body; past a member's, in it.
+            if kind == Kind::CSharp {
+                if cs_type_decl(lines[i]).is_some()
+                    || lines[i].trim_start().starts_with("namespace ")
+                {
+                    break;
+                }
+                members |= in_type(i);
             }
         } else if let Some(value) = this_opener(&header, i + 1) {
             out.push(Binding { line: i + 1, value });
@@ -1344,6 +1363,13 @@ fn opener_bindings(
                 unknown(out);
                 own |= c.get(1).is_some();
             }
+        }
+        Kind::CSharp => {
+            let (binds, hides) = cs_opener(header, name);
+            if binds {
+                unknown(out);
+            }
+            own = hides;
         }
         Kind::Go => {
             let count = out.len();
@@ -1544,6 +1570,7 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
                 return;
             }
         }
+        Kind::CSharp if cs_statement(t, name) => Value::Unknown,
         _ => return,
     };
     out.push(Binding { line, value });

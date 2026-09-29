@@ -292,6 +292,7 @@ impl App {
             })
             .map(|n| match kind {
                 Kind::TsJs => search::written_line(&self.buf.lines, n, first),
+                Kind::CSharp => search::cs_written_line(&self.buf.lines, n, first),
                 _ => n,
             })
             .collect();
@@ -317,7 +318,9 @@ impl App {
         // answer, and a function of the same name elsewhere is not.
         // In C a function on one line holds its parameter and its uses (#378). A Java or Kotlin
         // name bound earlier on the cursor's own line, `fun f(x: Int) = x`, is bound there
-        // (#376); behind a `::` the word is a member, whatever the qualifier is.
+        // (#376); behind a `::` the word is a member, whatever the qualifier is. A C# use past its
+        // declaration on the same line, a lambda's parameter inside that lambda, is bound there
+        // too (#345).
         let on_itself = match kind {
             Kind::C => search::c_bindings_at(&text, self.line + 1, first)
                 .iter()
@@ -327,7 +330,14 @@ impl App {
         let same_line = kind == Kind::Jvm
             && locals == [self.line + 1]
             && whole_at(self.line_str(), &word, "").is_some_and(|at| at < range.start);
-        if !dotted && !before.ends_with("::") && !locals.is_empty() && (!on_itself || same_line) {
+        let own_line = kind == Kind::CSharp
+            && locals == [self.line + 1]
+            && search::cs_binds_here(self.line_str(), &word, range.start);
+        if !dotted
+            && !before.ends_with("::")
+            && !locals.is_empty()
+            && (!on_itself || same_line || own_line)
+        {
             let found = locals
                 .iter()
                 .map(|&line| Candidate {
@@ -1041,6 +1051,19 @@ impl App {
             }
             self.truncated.set(false);
         }
+        // A C# `Task.Delay` whose first name the project declares nowhere, in no form, is a
+        // member of a type outside it (#355): NuGet ships assemblies, so nothing names what the
+        // project's namesakes are not. A lowercase first name is a value of an unknown type.
+        if kind == Kind::CSharp
+            && dotted
+            && locals.is_empty()
+            && let Some(first) = chain.first()
+            && first.starts_with(|c: char| c.is_ascii_uppercase())
+            && !self.cs_declares(&here, first)
+        {
+            self.show_definitions(kind, &word, &here, Vec::new(), None);
+            return;
+        }
         // A parameter or a local in front of the word is a value for certain: it has members,
         // and a function or a variable at the top of a module is not one of them.
         // Nor is anything but a member one of PHP's, where `$x->` is always a value (#348).
@@ -1074,6 +1097,31 @@ impl App {
                         text: self.buf.lines[line - 1].clone(),
                     }),
             );
+        }
+        // A C# private member is reachable from its own type alone, a part of it this file
+        // declares included, and a local from its own method alone, never behind a dot (#355).
+        if kind == Kind::CSharp {
+            let mine: Vec<String> = self
+                .buf
+                .lines
+                .iter()
+                .filter_map(|l| search::cs_type_decl(l).map(|(_, name)| name))
+                .collect();
+            hits.retain(|h| {
+                let place = self.text_of(&h.path).map_or(search::CsPlace::Top, |t| {
+                    search::cs_place(&t, h.line, &word)
+                });
+                match place {
+                    search::CsPlace::Member {
+                        owner,
+                        private: true,
+                    } => mine.contains(&owner),
+                    search::CsPlace::Local { from, to } => {
+                        !dotted && h.path == here && (from..=to).contains(&(self.line + 1))
+                    }
+                    _ => true,
+                }
+            });
         }
         if kind == Kind::Lua {
             let at = |h: &Hit| h.path == here && h.line == self.line + 1;
@@ -1832,6 +1880,27 @@ impl App {
                 })
             })
             .collect()
+    }
+
+    /// Whether the C# project declares `name` in any form (#355): a rule of `d` matches it, or a
+    /// `namespace` line has it as one of its parts.
+    fn cs_declares(&self, here: &Path, name: &str) -> bool {
+        let cut = self.truncated.get();
+        let n = regex::escape(name);
+        let pattern = search::def_patterns(Kind::CSharp, name).join("|");
+        let declared = !self
+            .project_definitions(Kind::CSharp, here, name, &pattern)
+            .is_empty()
+            || self
+                .grep(
+                    &format!(r"^\s*namespace\s+(?:[\w.]+\.)?{n}\b"),
+                    false,
+                    false,
+                    |p| search::in_def_scope(Kind::CSharp, here, p),
+                )
+                .is_ok_and(|hits| !hits.is_empty());
+        self.truncated.set(cut);
+        declared
     }
 
     /// `word` as a constant of the Java or Kotlin enum `owner`, when the project declares one type

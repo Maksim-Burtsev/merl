@@ -395,6 +395,41 @@ fn csharp_scope_stays_in_the_project() {
     );
 }
 
+#[test]
+fn csharp_bindings_read_headers_not_calls_or_fields() {
+    let text = "\
+public class Cart
+{
+    Item item = new Item();
+
+    public void Fill(Item seed)
+    {
+        var order = new Order(seed)
+        {
+            Name = seed.Name,
+        };
+        order.Ship();
+        var (left, right) = Split(order);
+        Use(item, left);
+    }
+}
+";
+    let lines = |name: &str, line: usize| -> Vec<usize> {
+        bindings(Kind::CSharp, text, line, name)
+            .iter()
+            .map(|b| b.line)
+            .collect()
+    };
+    // The object initialiser's `new Order(seed)` over `{` is no signature: `seed` is Fill's.
+    assert_eq!(lines("seed", 9), [5]);
+    assert_eq!(lines("order", 11), [7]);
+    // A deconstruction binds nothing, and a field of the class is no local.
+    assert!(lines("left", 13).is_empty());
+    assert!(lines("item", 13).is_empty());
+    // On a member's own line the class body is not read as statements either.
+    assert!(lines("item", 3).is_empty());
+}
+
 const SWIFT: &str = r#"import Foundation
 
 public protocol RequestDelegate: AnyObject {
