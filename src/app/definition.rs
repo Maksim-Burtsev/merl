@@ -221,7 +221,7 @@ impl App {
             true => search::go_key(&text, self.line + 1, range.start, range.end),
             false => search::GoKey::No,
         };
-        let key = go_key != search::GoKey::No;
+        let go_keyed = go_key != search::GoKey::No;
         // A receiver's or a literal's type may be declared outside the project, and is read
         // from the files walked there (#334).
         if kind == Kind::Go && (dotted || matches!(go_key, search::GoKey::Of(_))) {
@@ -492,7 +492,7 @@ impl App {
             Regex::new(&declaring.join("|")).is_ok_and(|re| re.is_match(self.line_str()));
         if kind == Kind::Go
             && !dotted
-            && !key
+            && !go_keyed
             && locals.is_empty()
             && !declares_here
             && bound(&imports, &word).is_none()
