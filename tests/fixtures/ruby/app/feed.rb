@@ -19,6 +19,6 @@ class Feed
     post.title = "x"
     #    ^ d: picker app/post.rb:10
     post.title == "x"
-    #    ^ d: picker app/post.rb:4, app/post.rb:7, app/post.rb:11
+    #    ^ d: picker app/post.rb:4
   end
 end

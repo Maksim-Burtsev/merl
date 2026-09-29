@@ -366,6 +366,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in a Makefile finds a variable set only by `CFLAGS += -Wall` or for one target,
   `release: VERSION := 1.0`, where it answered `no definition`. A plain `CFLAGS = -O2` stays
   the only answer where there is one. (#499)
+- `d` in Ruby no longer jumps to a local of another method. A local `name = …` is a candidate
+  only in its own method or block, and `@name = …` only for `@name`, in its own class, the class
+  reopened in another file included. Behind a dot, as in `x.name`, only a `def`, an `attr_*` or
+  an `alias` of the name answers: `uri.scheme` went to some other method's `scheme = …`, and
+  `@name = name` read as a declaration of the `name` on its right. (#383)
 
 ## [0.7.0] - 2026-09-25
 

@@ -58,7 +58,7 @@ module Shop
       courier = Warehouse::Courier.new("post")
       #                    ^ d: lib/shop/warehouse.rb:5
       courier.name
-      #       ^ d: picker lib/shop/warehouse.rb:6, lib/shop/warehouse.rb:9; want lib/shop/warehouse.rb:6 (#383)
+      #       ^ d: picker lib/shop/warehouse.rb:6
     end
 
     def pick(couriers)
@@ -79,7 +79,7 @@ module Shop
       coupon.owner = "me"
       #      ^ d: picker lib/shop/pricing.rb:28
       @tariff.base
-      #       ^ d: picker lib/shop/pricing.rb:11, lib/shop/pricing.rb:14; want lib/shop/pricing.rb:11 (#383)
+      #       ^ d: picker lib/shop/pricing.rb:11
     end
 
     def depot
@@ -110,19 +110,19 @@ module Shop
 
     def routed(courier)
       courier.route
-      #       ^ d: picker lib/shop/warehouse.rb:17; want none (#383)
+      #       ^ d: none
     end
 
     def each_coupon(coupons)
       coupons.each do |coupon|
         coupon.describe
-        # ^ d: picker lib/shop/basket.rb:9, lib/shop/basket.rb:15; want lib/shop/basket.rb:116 (#365)
+        # ^ d: lib/shop/basket.rb:9; want lib/shop/basket.rb:116 (#365)
       end
     end
 
     def rewrap
       @coupon.describe
-      #^ d: picker lib/shop/basket.rb:9, lib/shop/basket.rb:15; want lib/shop/basket.rb:15 (#383)
+      #^ d: lib/shop/basket.rb:15
     end
   end
 end

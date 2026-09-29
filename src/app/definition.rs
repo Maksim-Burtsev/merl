@@ -180,6 +180,19 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // A Ruby `@name` or `@@name` is a variable of the class around the cursor, assigned in
+        // its methods (#383): a word of its own, never the bare `name`, and never another class's.
+        let lead = &self.line_str()[..range.start];
+        if kind == Kind::Ruby && lead.ends_with('@') {
+            let sigil = match lead.ends_with("@@") {
+                true => "@@",
+                false => "@",
+            };
+            let ivar = format!("{sigil}{word}");
+            let found = self.ruby_ivars(&here, &text, &ivar);
+            self.show_definitions(kind, &ivar, &here, found, None);
+            return;
+        }
         // Inside a docstring's example the imports written there count too.
         let in_literal = search::literal_lines(kind, &text).get(self.line) == Some(&true);
         let mut imports = match in_literal {
@@ -262,6 +275,15 @@ impl App {
             .flatten()
             .map(|m| m.join("|"));
         let mut patterns = search::def_patterns(kind, &word);
+        // A Ruby local is seen from its own method or block alone, and a value has none: its
+        // assignments are this file's where the cursor sees them, below, never a search by name
+        // (#383). A constant is the project's.
+        let ruby_local =
+            kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_');
+        if kind == Kind::Ruby && (dotted || ruby_local) {
+            let assignment = search::ruby_assignment(&word);
+            patterns.retain(|p| *p != assignment);
+        }
         // An Elixir call is never a module attribute: `Shop.currency()` is no `@currency` (#459).
         if kind == Kind::Elixir && dotted {
             patterns.retain(|p| !p.starts_with(r"^\s*@"));
@@ -754,6 +776,18 @@ impl App {
         // left was a namesake beside it on master, and is offered, never jumped to. The cursor's
         // own line stays, standing on a declaration.
         let mut hits = hits;
+        if ruby_local && !dotted && chain.is_empty() {
+            hits.extend(
+                search::ruby_locals(&text, self.line + 1, &word)
+                    .into_iter()
+                    .map(|line| Hit {
+                        path: here.clone(),
+                        line,
+                        col: 0,
+                        text: self.buf.lines[line - 1].clone(),
+                    }),
+            );
+        }
         if kind == Kind::Lua {
             let at = |h: &Hit| h.path == here && h.line == self.line + 1;
             let all = hits.len();
@@ -1030,6 +1064,30 @@ impl App {
 
     /// Jumps to the one candidate, or opens the picker over several, and says how they were found
     /// and at which name of the chain in front of the word the typed lookup `broke`, if it did.
+    /// The lines that assign the Ruby instance or class variable `ivar` in the class around the
+    /// cursor, in `here` or in another file that reopens the class (#383). At the top of a file,
+    /// that file's own.
+    fn ruby_ivars(&self, here: &Path, text: &str, ivar: &str) -> Vec<Candidate> {
+        let class = search::ruby_class_path(text, self.line + 1);
+        let pattern = search::ruby_assignment(ivar);
+        self.project_definitions(Kind::Ruby, here, ivar, &pattern)
+            .into_iter()
+            .filter(|h| {
+                (!class.is_empty() || h.path == here)
+                    && self
+                        .text_of(&h.path)
+                        .is_some_and(|t| search::ruby_class_path(&t, h.line) == class)
+            })
+            .map(|hit| Candidate {
+                hit,
+                reason: match class.is_empty() {
+                    true => Reason::File,
+                    false => Reason::Receiver(class.clone()),
+                },
+            })
+            .collect()
+    }
+
     fn show_definitions(
         &mut self,
         kind: Kind,
