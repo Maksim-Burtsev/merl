@@ -73,6 +73,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` in TypeScript and JavaScript on a bare name that the file declares jumps there, `local`,
+  instead of opening a list of every namesake in the project: a `type Props`, a `function
+  report` inside a rule's `create`, a `class Config`. A declaration at the top of the file counts
+  wherever it stands, so a styled `const Container` at the bottom of a component is found from
+  above it. Several declarations of the name in one scope, such as an `interface` beside a
+  `namespace`, are a list of those alone. (#337)
 - `merl -r BRANCH` reviews a branch another worktree has checked out, an agent's say, in that
   worktree, as `merl -r` started there would: nothing is fetched, switched or reset there, and its
   work not committed yet is part of the review. Before, merl exited with git's `already used by

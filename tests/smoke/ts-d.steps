@@ -51,3 +51,12 @@ key [ /
 type .Ship
 key Enter Right d
 wait ShipmentParts: by name, 1 match
+# A name the file declares, below the use, wins over its namesake in index.tsx (#337).
+key o
+type Dialog
+key Enter
+wait web/src/components/Dialog.ts  1:1
+key /
+type Props)
+key Enter d
+wait Props: local

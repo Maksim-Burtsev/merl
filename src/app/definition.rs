@@ -143,28 +143,41 @@ impl App {
         let first = chain.first().map_or(word.as_str(), String::as_str);
         // `super` is no local, whatever the member lookup reads it as. A name of a destructuring
         // or a parameter list wrapped over several lines is on a line of its own (#393).
-        let locals: Vec<usize> = search::bindings(kind, &text, self.line + 1, first)
-            .iter()
-            .map(|b| b.line)
-            .filter(|&n| {
-                (dotted || word != "super") && !names_itself(&self.buf.lines[n - 1], first)
-            })
-            .map(|n| match kind {
-                Kind::TsJs => search::written_line(&self.buf.lines, n, first),
-                _ => n,
-            })
-            .collect();
-        // `const { helper } = require("./m")` binds an import, as `import` does (#328).
-        let locals = match kind {
-            Kind::TsJs => {
-                let required = search::ts_import_lines(&text, first);
-                locals
-                    .into_iter()
-                    .filter(|n| !required.contains(n))
-                    .collect()
-            }
-            _ => locals,
+        // A TypeScript bare word is a value a `class`, `function`, `type`, `interface` or `enum`
+        // of its scope declares as well as a `const` (#337); the first name of a chain is not.
+        let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
+        let required = match kind {
+            Kind::TsJs => search::ts_import_lines(&text, first),
+            _ => Vec::new(),
         };
+        let locals_at = |text: &str, line: usize| -> Vec<usize> {
+            search::bindings(kind, text, line, first)
+                .iter()
+                .map(|b| b.line)
+                .filter(|&n| {
+                    let l = &self.buf.lines[n - 1];
+                    let t = l.trim_start();
+                    let imports = t.starts_with("import ") || t.starts_with("from ");
+                    (dotted || word != "super") && !(imports || (!bare && names_itself(l, first)))
+                })
+                .map(|n| match kind {
+                    Kind::TsJs => search::written_line(&self.buf.lines, n, first),
+                    _ => n,
+                })
+                // `const { helper } = require("./m")` binds an import, as `import` does (#328).
+                .filter(|n| !required.contains(n))
+                .collect()
+        };
+        let mut locals = locals_at(&text, self.line + 1);
+        // No scope around the cursor binds it: the module's scope is the whole file, and its
+        // declarations below the cursor count too (#337). One on the cursor's line leaves the
+        // namesakes to the rules below, as on a declaration anywhere.
+        if bare && locals.is_empty() {
+            let module = locals_at(&format!("{text}\n0"), self.buf.lines.len() + 1);
+            if !module.contains(&(self.line + 1)) {
+                locals = module;
+            }
+        }
         if !locals.is_empty() {
             imports.retain(|(name, _)| name != first);
         }

@@ -15,3 +15,9 @@ export class Dialog {
     this.el.close();
   }
 }
+
+export function dialogOf(el: HTMLDialogElement, props: Props): Dialog {
+  return props.modal ? new Dialog(el) : new Dialog(el);
+}
+
+type Props = { modal: boolean };

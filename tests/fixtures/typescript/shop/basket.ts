@@ -88,7 +88,7 @@ export function euro(): Currency {
 }
 
 export function heavy(p: Props): number {
-  //                     ^ d: picker shop/basket.ts:9, shop/props.ts:1; want shop/basket.ts:9 (#337)
+  //                     ^ d: shop/basket.ts:9
   return schedule({ weight: p.weight });
   //                ^ d: none; want shop/basket.ts:96 (#315)
 }

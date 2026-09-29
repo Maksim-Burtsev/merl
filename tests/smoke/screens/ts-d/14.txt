@@ -1,4 +1,4 @@
-wait close → Dialog.close (via this: Dialog)
+wait Props: local
  1 export class Dialog {
  2   private readonly el: HTMLDialogElement;
  3
@@ -53,5 +53,5 @@ wait close → Dialog.close (via this: Dialog)
 
 
 
-web/src/components/Dialog.ts  14:3  [code]  close → Dialog.close (via this: Dialog)
-cursor (x,y,shown) 5,13,1
+web/src/components/Dialog.ts  23:6  [code]  Props: local
+cursor (x,y,shown) 8,22,1
