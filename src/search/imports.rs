@@ -366,6 +366,97 @@ pub fn module_exports(text: &str) -> Option<Option<(usize, Option<String>)>> {
         _ => None,
     })
 }
+/// A TypeScript method header's start, up to its `(`, for [`ts_call_statement`]: `word(`,
+/// `async word<T>(`, `word?(`.
+pub fn ts_method_head(word: &str) -> Regex {
+    Regex::new(&format!(
+        r"^\s*(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*\*?{}\??\s*(?:<.*?>)?\(",
+        regex::escape(word)
+    ))
+    .expect("an escaped name keeps the pattern valid")
+}
+/// Whether 1-based `line`, a TypeScript line shaped like a method header `word(…`, is
+/// a call statement instead (#343): one of its arguments is what no parameter is (a
+/// string, a number, a bracket, a callback, `this.x`), or, wrapped after its `(`, the line that
+/// closes it, back at its indent, goes on as no body and no return type (`);`, `),`, `).x`), as
+/// [`declares_wrapped_generic`] tells for `word<`.
+///
+/// `head` is [`ts_method_head`] of the word, `l` the line, and `text` reads the file, only for a
+/// line that ends in its `(`.
+pub fn ts_call_statement(
+    head: &Regex,
+    l: &str,
+    line: usize,
+    text: impl FnOnce() -> Option<String>,
+) -> bool {
+    let Some(m) = head.find(l) else {
+        return false;
+    };
+    let rest = l[m.end()..].trim_start();
+    if rest.is_empty() {
+        let Some(text) = text() else {
+            return false;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let ind = indent(l);
+        let closer = (line..lines.len().min(line + 60))
+            .find(|&i| !lines[i].trim().is_empty() && indent(lines[i]) <= ind);
+        return closer.is_some_and(|i| {
+            lines[i]
+                .trim_start()
+                .strip_prefix(')')
+                .is_some_and(|after| {
+                    let after = after.trim_start();
+                    !after.starts_with('{') && !after.starts_with(':')
+                })
+        });
+    }
+    // Each parameter opens with a name, a pattern, a rest or the list's end: an argument that
+    // is a string, a number, a callback or `this.x` makes it a call.
+    !split_top(Kind::TsJs, rest, b',').iter().all(|item| {
+        let item = item.trim();
+        if item.is_empty() || item.starts_with([')', '{', '[', '@']) || item.starts_with("...") {
+            return true;
+        }
+        let name = item
+            .find(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+            .map_or(item, |n| &item[..n]);
+        if name.is_empty() || name.starts_with(|c: char| c.is_ascii_digit()) {
+            return false;
+        }
+        let after = item[name.len()..].trim_start();
+        // `this: Window` and `x?: T` are parameters, whatever the name; a modifier opens one.
+        if after.starts_with([':', '?'])
+            || matches!(
+                name,
+                "public" | "private" | "protected" | "readonly" | "override"
+            )
+        {
+            return true;
+        }
+        let keyword = matches!(
+            name,
+            "function"
+                | "async"
+                | "new"
+                | "await"
+                | "this"
+                | "null"
+                | "undefined"
+                | "true"
+                | "false"
+                | "typeof"
+                | "void"
+                | "yield"
+                | "class"
+                | "super"
+        );
+        !keyword
+            && (after.is_empty()
+                || after.starts_with(')')
+                || (after.starts_with('=') && !after.starts_with("=>") && !after.starts_with("==")))
+    })
+}
 /// The name a TypeScript module declares what it exports as `name` under: `Hono` for
 /// `export { Hono as HonoBase }`. A re-export `… from "./x"` declares nothing here.
 pub fn exported_as(text: &str, name: &str) -> Option<String> {

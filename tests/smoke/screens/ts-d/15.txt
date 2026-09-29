@@ -1,4 +1,4 @@
-wait web/src/components/Dialog.ts  1:1
+wait no definition for onClose
  1 export class Dialog {
  2   private readonly el: HTMLDialogElement;
  3
@@ -53,5 +53,5 @@ wait web/src/components/Dialog.ts  1:1
 
 
 
-web/src/components/Dialog.ts  1:1  [code]                                                                                                                                         ? help
-cursor (x,y,shown) 3,0,1
+web/src/components/Dialog.ts  26:3  [code]  no definition for onClose
+cursor (x,y,shown) 5,25,1

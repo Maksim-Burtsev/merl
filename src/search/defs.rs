@@ -92,8 +92,11 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             let pre = r"^\s*(?:(?:export|default|declare|abstract|async)\s+)*";
             let mut patterns = vec![
                 format!(
-                    r"{pre}(?:function\*?|class|interface|type|(?:const\s+)?enum|namespace|module)\s+{w}\b"
+                    r"{pre}(?:function\*?|class|interface|(?:const\s+)?enum|namespace|module)\s+{w}\b"
                 ),
+                // An alias goes on as `=` or `<`: `type NodeSpec,` in a wrapped import list is
+                // one of its names (#343).
+                format!(r"{pre}type\s+{w}\s*[=<]"),
                 // Arrow functions assigned to a name land here too.
                 format!(r"{pre}(?:const|let|var)\s+{w}\b"),
             ];
@@ -765,7 +768,8 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
             vec![
                 // A class or object-literal method: `foo(` at the end of the line, `foo(..) {`,
                 // or an empty `foo(): void {}`. A `;` on the line means it was a call statement.
-                format!(r"{mods}{w}\s*(?:<.*>)?\((?:[^;]*\{{\s*\}}?)?\s*$"),
+                // An optional one, `foo?(` over its parameters over `): void;` (#343).
+                format!(r"{mods}{w}\??\s*(?:<.*>)?\((?:[^;]*\{{\s*\}}?)?\s*$"),
                 // A method whose type parameters prettier wrapped: `route<` over `  T,` over
                 // `>(path: T): this {` (#100).
                 format!(r"{mods}{w}\??\s*<\s*$"),

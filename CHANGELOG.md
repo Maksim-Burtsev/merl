@@ -73,6 +73,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` in TypeScript and JavaScript reads fewer calls as declarations and finds more real ones.
+  A call that passes a callback, `it("works", async () => {`, or wraps after its `(` and closes
+  with `);` is no method, so `d` on it no longer says `at a declaration` over thousands of
+  namesakes, and `type NodeSpec,` in a wrapped import list is no type alias. An optional method
+  signature wrapped over lines, `onCodePathEnd?(` over `): void;`, and the fields of a class
+  whose header wraps at a type argument, `implements Base<{` over `}> {`, are found by name.
+  (#343)
 - `d` in TypeScript and JavaScript on a bare name that the file declares jumps there, `local`,
   instead of opening a list of every namesake in the project: a `type Props`, a `function
   report` inside a rule's `create`, a `class Config`. A declaration at the top of the file counts

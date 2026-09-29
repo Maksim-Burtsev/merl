@@ -2023,3 +2023,29 @@ fn what_the_review_of_the_typescript_items_found() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A call statement shaped like a method header declares nothing (#343): one that passes a
+/// callback or opens with a string, and one wrapped after its `(` whose closer is `);`.
+#[test]
+fn a_call_statement_is_no_method_header() {
+    let mut a = fixture_app("typescript");
+    for (file, code) in [
+        ("lint/a.test.ts", "^  it|(\"works\""),
+        ("lint/socket.ts", "^  action|((event"),
+        ("lint/c.js", "^  isFullLineComment|("),
+    ] {
+        d_on(&mut a, file, code);
+        let word = code
+            .trim_start_matches('^')
+            .trim()
+            .split('|')
+            .next()
+            .unwrap();
+        assert!(a.picker.is_none(), "{file}: {code}");
+        assert_eq!(
+            a.message,
+            format!("no definition for {word}"),
+            "{file}: {code}"
+        );
+    }
+}

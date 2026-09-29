@@ -60,3 +60,8 @@ key /
 type Props)
 key Enter d
 wait Props: local
+# A call that passes a callback declares nothing: `onClose(dialog, () => {` is no method (#343).
+key /
+type onClose(
+key Enter d
+wait no definition for onClose

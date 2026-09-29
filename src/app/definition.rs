@@ -854,6 +854,16 @@ impl App {
         // A line inside a raw string, a docstring or a block comment declares nothing. Past a
         // few hundred candidates the picker is a list to filter, and reading every file is not
         // worth what it would drop.
+        // `it("works", async () => {` and `check(` over `line,` over `);` are calls shaped like
+        // a method's header (#343), however many: a test suite has thousands of `it(`.
+        if kind == Kind::TsJs {
+            let head = search::ts_method_head(word);
+            found.retain(|c| {
+                !search::ts_call_statement(&head, &c.hit.text, c.hit.line, || {
+                    self.text_of(&c.hit.path)
+                })
+            });
+        }
         if found.len() <= 500 {
             let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
             found.retain(|c| {

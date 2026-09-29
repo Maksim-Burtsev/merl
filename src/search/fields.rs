@@ -208,7 +208,7 @@ pub(super) fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usi
             || t == "{"
             || comment(kind, t)
             || t.starts_with([')', ']'])
-            || (kind == Kind::TsJs && t.starts_with('>'))
+            || (kind == Kind::TsJs && (t.starts_with('>') || t.starts_with("}>")))
             || indent(lines[i]) >= depth
         {
             continue;

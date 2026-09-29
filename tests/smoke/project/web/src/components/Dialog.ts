@@ -21,3 +21,12 @@ export function dialogOf(el: HTMLDialogElement, props: Props): Dialog {
 }
 
 type Props = { modal: boolean };
+
+export function whenClosed(dialog: Dialog, done: () => void): void {
+  onClose(dialog, () => {
+    done();
+  });
+  onClose(dialog, () => {
+    dialog.close();
+  });
+}
