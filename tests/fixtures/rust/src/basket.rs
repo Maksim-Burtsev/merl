@@ -112,3 +112,15 @@ pub fn hidden(o: Offer, grams: u32) -> u32 {
     weigh + offer(o)
     // ^ d: picker src/basket.rs:111, src/warehouse.rs:23; want src/basket.rs:111 (#353)
 }
+
+fn chime(total: u32) -> u32 {
+    total
+}
+
+pub fn rebate(total: u32) -> u32 {
+    let chime = chime(total);
+    //  ^ d: picker src/basket.rs:116
+    //  status: at a declaration, 1 other by name
+    //          ^ d: src/basket.rs:116
+    chime
+}

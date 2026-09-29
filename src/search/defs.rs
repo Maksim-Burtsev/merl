@@ -378,10 +378,12 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 sql_cte(word),
             ]
         }
-        // A target, alone or among others before the colon (`build test: deps`), or a variable.
+        // A target, alone or among others before the colon (`build test: deps`), a variable, or
+        // a multi-line one, `define NAME` … `endef`, with the operator GNU make allows after it.
         Kind::Make => vec![
             format!(r"^([^:=#\s]+\s+)*{w}(\s+[^:=#\s]+)*\s*::?([^=:]|$)"),
             format!(r"^\s*(export\s+|override\s+)?{w}\s*[:?!]{{0,3}}="),
+            format!(r"^\s*((export|override)\s+)*define\s+{w}\s*(\+=|[:?!]{{0,3}}=)?\s*(#|$)"),
         ],
         Kind::Terraform => terraform_patterns(word),
         // `FROM image AS name`, with any flags before the image. Stage names ignore case.

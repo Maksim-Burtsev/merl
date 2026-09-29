@@ -171,7 +171,7 @@ func items() -> Int {
 
 func renamed(_ courier: Courier) -> Courier {
     let courier = Courier(name: courier.name)
-    //                          ^ d: picker Sources/Shop/Basket.swift:62; want Sources/Shop/Basket.swift:172 (#317)
+    //                          ^ d: picker Sources/Shop/Basket.swift:62; want Sources/Shop/Basket.swift:172 (#366)
     return courier
 }
 
@@ -182,4 +182,14 @@ func mode() -> Int {
     //             ^ d: Sources/Shop/Pricing.swift:92
     return `tally`(1)
     //      ^ d: Sources/Shop/Pricing.swift:87
+}
+
+struct Bell {
+    func chime() -> Int { 1 }
+}
+
+func ringBell(_ bell: Bell) -> Int {
+    let chime = bell.chime()
+    //               ^ d: Sources/Shop/Basket.swift:188
+    return chime
 }

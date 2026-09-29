@@ -318,3 +318,110 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
     assert_eq!(at(18, "repo"), [(17, ty("*UserRepository"))]);
     assert_eq!(at(21, "other"), [(20, Value::Unknown)]);
 }
+
+#[test]
+fn elixir_bindings_stop_at_their_def() {
+    let text = "\
+defmodule Shop do
+  def pay(total, fee \\\\ rate) when total > 0 do
+    {:ok, sum} = split(total)
+    case sum do
+      {:ok, part} ->
+        part + fee + sum + rate
+      other ->
+        other
+    end
+  end
+
+  def wrap(
+        first,
+        %{key: second}
+      ) do
+    first + second + key
+  end
+end
+";
+    let at = |line, name| {
+        bindings(Kind::Elixir, text, line, name)
+            .iter()
+            .map(|b| b.line)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(at(6, "total"), [2]);
+    assert_eq!(at(6, "fee"), [2]);
+    assert_eq!(at(6, "sum"), [3]);
+    assert_eq!(at(6, "part"), [5]);
+    // A default, a guard and a key bind nothing, nor does a sibling clause.
+    assert!(at(6, "rate").is_empty());
+    assert!(at(6, "other").is_empty());
+    assert_eq!(at(8, "other"), [7]);
+    // Parameters wrapped over several lines.
+    assert_eq!(at(16, "first"), [13]);
+    assert_eq!(at(16, "second"), [14]);
+    assert!(at(16, "key").is_empty());
+    // Nothing outside a `def` is a local.
+    assert!(at(12, "pay").is_empty());
+}
+
+/// Review of #515: a `for` or `with` binds the left of its `<-`, over a namesake above it; a
+/// one-line `fn x ->` binds on the cursor's own line; a pinned `^x` binds nothing.
+#[test]
+fn elixir_generators_and_one_line_fns_bind() {
+    let text = "\
+defmodule Shop do
+  def pay(xs) do
+    x = hd(xs)
+    for x <- xs do
+      x
+    end
+    with {:ok, y} <- fetch(x),
+         {:ok, z} <- fetch(y) do
+      z
+    end
+    Enum.map(xs, fn x -> x end)
+    {^x, w} = pair(x)
+    x + w
+  end
+end
+";
+    let at = |line, name| {
+        bindings(Kind::Elixir, text, line, name)
+            .iter()
+            .map(|b| b.line)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(at(5, "x"), [4]);
+    assert_eq!(at(9, "z"), [8]);
+    assert_eq!(at(11, "x"), [11]);
+    assert_eq!(at(13, "x"), [3], "a pin binds nothing");
+    assert_eq!(at(13, "w"), [12]);
+}
+
+/// Review of #515: a `for` or a `function(…)` on the cursor's own line may bind the qualifier,
+/// and then the file's `local m = require(…)` says nothing; below them it does. `require` takes
+/// its module with or without parentheses and either quote.
+#[test]
+fn a_lua_qualifier_bound_on_its_own_line_is_no_require() {
+    let text = "\
+local m = require(\"x\")
+local function go(mods)
+  for _, m in ipairs(mods) do m.run() end
+end
+local f = function(m) return m.run() end
+return m.run()
+";
+    assert_eq!(lua_local_value(text, 3, "m"), None);
+    assert_eq!(lua_local_value(text, 5, "m"), None);
+    assert_eq!(
+        lua_local_value(text, 6, "m").as_deref(),
+        Some("require(\"x\")")
+    );
+    for value in [
+        "require(\"a.b\")",
+        "require \"a.b\"",
+        "require 'a.b'",
+        "require('a.b')",
+    ] {
+        assert_eq!(lua_required(value), Some("a.b"), "{value}");
+    }
+}

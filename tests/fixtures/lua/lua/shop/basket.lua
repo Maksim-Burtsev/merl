@@ -37,7 +37,7 @@ end
 function Basket.overweight(grams)
   local limit = WEIGHT_LIMIT + 20
   return warehouse.weigh(grams) > limit
-  --               ^ d: picker lua/shop/warehouse.lua:14; want lua/shop/warehouse.lua:14 (#462)
+  --               ^ d: lua/shop/warehouse.lua:14
   --                              ^ d: lua/shop/basket.lua:38
 end
 
@@ -50,7 +50,7 @@ end
 function Basket.dispatch()
   local courier = warehouse.Courier.new("post")
   --                        ^ d: lua/shop/warehouse.lua:3
-  --                                ^ d: picker lua/shop/basket.lua:10, lua/shop/pricing.lua:13, lua/shop/warehouse.lua:6; want lua/shop/warehouse.lua:6 (#462)
+  --                                ^ d: lua/shop/warehouse.lua:6
   return courier:dispatch()
   --             ^ d: picker lua/shop/basket.lua:50, lua/shop/warehouse.lua:10
 end
@@ -69,7 +69,7 @@ end
 local function sign(tariff)
   return tariff:describe() .. pricing.Tariff.new(1):rate()
   --                                  ^ d: lua/shop/pricing.lua:10
-  --                                         ^ d: picker lua/shop/basket.lua:10, lua/shop/pricing.lua:13, lua/shop/warehouse.lua:6; want lua/shop/pricing.lua:13 (#462)
+  --                                         ^ d: lua/shop/pricing.lua:13
 end
 
 function Basket.label()
@@ -81,7 +81,7 @@ function Basket.probe(b)
   return Basket.gross(b) .. pricing.label()
   --     ^ d: lua/shop/basket.lua:7
   --            ^ d: lua/shop/basket.lua:15
-  --                                ^ d: picker lua/shop/basket.lua:75, lua/shop/pricing.lua:60; want lua/shop/pricing.lua:60 (#462)
+  --                                ^ d: lua/shop/pricing.lua:60
 end
 
 function Basket.tally(items)
@@ -104,6 +104,12 @@ function Basket.receipt(total)
   return { total = total }
   --       ^ d: none
   --               ^ d: lua/shop/basket.lua:103
+end
+
+function Basket.van()
+  return warehouse.Courier:new("van")
+  --                       ^ d: lua/shop/warehouse.lua:6
+  --                         status: via import
 end
 
 return Basket

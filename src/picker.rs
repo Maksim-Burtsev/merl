@@ -48,6 +48,8 @@ pub struct Picker {
     /// The query is not a fuzzy filter over the items: a key that changes it returns
     /// [`Pick::Typed`] and the list stays as it is. `s` greps for it instead.
     pub live: bool,
+    /// The query is a name as it is written, not nucleo's pattern syntax: `D` (#293).
+    pub literal: bool,
     pub selected: usize,
     pub title: String,
     /// List height of the last drawn frame, so PgUp/PgDn know how far a page is.
@@ -83,6 +85,7 @@ impl Picker {
             matcher: Matcher::new(Config::DEFAULT),
             query: LineEdit::default(),
             live: false,
+            literal: false,
             selected: 0,
             title: title.into(),
             page: 10,
@@ -174,9 +177,14 @@ impl Picker {
     /// Hands the query to nucleo. `append`: the new pattern extends the old one, so nucleo can
     /// refine the previous result set instead of rescoring everything.
     pub(crate) fn requery(&mut self, append: bool) {
+        let query = self.query.to_string();
+        let query = match self.literal {
+            true => query.split(' ').map(escape).collect::<Vec<_>>().join(" "),
+            false => query,
+        };
         self.nucleo.pattern.reparse(
             0,
-            &self.query,
+            &query,
             CaseMatching::Ignore,
             Normalization::Smart,
             append,
@@ -225,6 +233,22 @@ impl Picker {
         }
         self.requery(self.query.starts_with(old));
         Pick::Stay
+    }
+}
+
+/// One word of a query, escaped so nucleo reads it as the characters typed: a leading `!`, `^`
+/// or `'` and a trailing `$` are its pattern syntax otherwise.
+/// ponytail: a word opening with `\!`, `\^` or `\'` still loses its backslash, as nucleo has no
+/// spelling for it; no declaration name starts with a backslash.
+fn escape(word: &str) -> String {
+    let lead = if word.starts_with(['!', '^', '\'']) {
+        "\\"
+    } else {
+        ""
+    };
+    match word.strip_suffix('$') {
+        Some(rest) => format!("{lead}{rest}\\$"),
+        None => format!("{lead}{word}"),
     }
 }
 

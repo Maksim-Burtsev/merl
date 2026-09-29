@@ -159,4 +159,16 @@ final class Basket
         //                               ^ d: none
         //                                        ^ d: src/Basket.php:130
     }
+
+    public function chime(): int
+    {
+        return 1;
+    }
+
+    public function rung(): int
+    {
+        $chime = $this->chime();
+        //              ^ d: src/Basket.php:163
+        return $chime;
+    }
 }

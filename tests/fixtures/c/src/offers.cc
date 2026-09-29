@@ -28,4 +28,8 @@ int Tally() {
   //     ^ d: src/offers.cc:22
 }
 
+// An out-of-line method is its class's by the qualifier on its line, not `Coupon`'s (#508).
+auto describer = &Tariff::describe;
+//                        ^ d: src/offers.cc:5
+
 }  // namespace shop

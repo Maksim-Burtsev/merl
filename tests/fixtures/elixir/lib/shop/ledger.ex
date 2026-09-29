@@ -4,7 +4,7 @@ defmodule Shop.Ledger do
   @rate_cap 5
 
   def cap, do: @rate_cap
-  #              ^ d: picker lib/shop/ledger.ex:4, lib/shop/pricing.ex:2; want lib/shop/ledger.ex:4 (#460)
+  #              ^ d: lib/shop/ledger.ex:4
 
   def total(n), do: discount(n) + cents(n)
   #                 ^ d: picker lib/shop/pricing.ex:22, lib/shop/pricing.ex:23

@@ -585,19 +585,21 @@ fn own_commits(git: &dyn Fn(&[&str]) -> Result<String>, b: &str) -> bool {
     !git(&args).is_ok_and(|n| n == "0")
 }
 
-/// `origin/HEAD`, else the first of `origin/master`, `origin/main`, `origin/develop` that
-/// exists, else the local `master` / `main`.
+/// The bases tried in order when origin has no `HEAD`; the help of `--base` names them (#322).
+pub const BASES: [&str; 5] = [
+    "origin/master",
+    "origin/main",
+    "origin/develop",
+    "master",
+    "main",
+];
+
+/// `origin/HEAD`, else the first of [`BASES`] that exists.
 fn detect_base(git: &dyn Fn(&[&str]) -> Result<String>) -> Result<String> {
     if let Ok(b) = git(&["symbolic-ref", "-q", "--short", "refs/remotes/origin/HEAD"]) {
         return Ok(b);
     }
-    for b in [
-        "origin/master",
-        "origin/main",
-        "origin/develop",
-        "master",
-        "main",
-    ] {
+    for b in BASES {
         if git(&["rev-parse", "--verify", "-q", &format!("{b}^{{commit}}")]).is_ok() {
             return Ok(b.to_string());
         }
