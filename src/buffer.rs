@@ -20,6 +20,8 @@ const CHECKPOINT: usize = 64;
 const BOM: &[u8] = b"\xEF\xBB\xBF";
 /// How far in we look for a NUL before calling a file binary.
 const SNIFF: usize = 8 * 1024;
+/// Why a binary file is read-only, and how the pane tells it from an empty file (#287).
+const BINARY: &str = "binary file";
 /// ponytail: syntect is sequential, so a huge file would have to be parsed from line 1 before
 /// anything can be drawn. Past these limits merl shows plain text instead of stalling.
 const MAX_HL_LINES: usize = 30_000;
@@ -82,6 +84,12 @@ impl Buffer {
         Self::new(None, vec![String::new()], None)
     }
 
+    /// A binary file: nothing of it is shown. It rides on `readonly`, so a reload and its undo
+    /// carry it with the rest of the [`Format`].
+    pub fn binary(&self) -> bool {
+        self.readonly == Some(BINARY)
+    }
+
     pub fn load(path: &Path) -> Result<Self> {
         // A FIFO, a socket or a device: reading one can wait forever, whichever way it was
         // reached (#405). A directory fails the read on its own.
@@ -95,8 +103,10 @@ impl Buffer {
 
     pub fn from_bytes(path: PathBuf, bytes: &[u8]) -> Self {
         if bytes[..bytes.len().min(SNIFF)].contains(&0) {
-            let mut b = Self::new(Some(path), vec!["binary file".to_string()], None);
-            b.readonly = Some("binary file");
+            // No placeholder text: the pane draws a note instead of lines (#287), and a text
+            // in the lines would pass for the file's content to `/`, `y` and the gutter.
+            let mut b = Self::new(Some(path), vec![String::new()], None);
+            b.readonly = Some(BINARY);
             return b;
         }
         let bom = bytes.starts_with(BOM);
@@ -654,11 +664,13 @@ mod tests {
     }
 
     #[test]
-    fn binary_is_one_line() {
+    fn binary_has_no_text() {
         let b = load(b"ELF\0\x01\x02");
-        assert_eq!(b.lines, vec!["binary file"]);
+        assert_eq!(b.lines, vec![""]);
         assert!(b.syntax.is_none());
+        assert!(b.binary());
         assert_eq!(b.readonly, Some("binary file"));
+        assert!(!load(b"").binary());
     }
 
     #[test]

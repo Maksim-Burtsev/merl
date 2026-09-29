@@ -472,10 +472,11 @@ fn review_app(files: &[(&str, char, usize, usize)]) -> App {
     app
 }
 
-/// #250: the status letter is bold, in the colours of the gutter marks; a rename is dim. The
-/// counts are dim, `bin` too, and the name keeps the text colour.
+/// #250: the counts are dim, `bin` too, and the name keeps the text colour. The status letter
+/// takes the row's style, plain like the name: coloured, it read differently on every theme
+/// (#450).
 #[test]
-fn review_panel_colours_the_status_and_dims_the_counts() {
+fn review_panel_dims_the_counts_and_leaves_the_status_plain() {
     let mut app = review_app(&[
         ("new.rs", 'A', 6, 0),
         ("store.rs", 'M', 7, 1),
@@ -486,15 +487,10 @@ fn review_panel_colours_the_status_and_dims_the_counts() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(60, 8)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    for (needle, colour) in [
-        ("A new.rs", Color::Green),
-        ("M store.rs", Color::Blue),
-        ("D gone.rs", Color::Red),
-        ("R moved.rs", theme.ghost_fg),
-    ] {
+    for needle in ["A new.rs", "M store.rs", "D gone.rs", "R moved.rs"] {
         let c = cell(&terminal, needle);
-        assert_eq!(c.fg, colour, "{needle}");
-        assert!(c.modifier.contains(Modifier::BOLD), "{needle}");
+        assert_eq!(c.fg, theme.fg, "{needle}");
+        assert!(!c.modifier.contains(Modifier::BOLD), "{needle}");
     }
     assert_eq!(at(&terminal, "store.rs"), theme.fg);
     assert_eq!(at(&terminal, "+7 \u{2212}1"), theme.ghost_fg);
@@ -503,7 +499,7 @@ fn review_panel_colours_the_status_and_dims_the_counts() {
     app.viewed.insert("store.rs".into(), 0);
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(at(&terminal, "\u{2713} M store.rs"), theme.accent);
-    assert_eq!(cell(&terminal, "M store.rs").fg, Color::Blue);
+    assert_eq!(cell(&terminal, "M store.rs").fg, theme.fg);
 }
 
 /// #250: the branch totals sit dim on the bottom border, as `feature ← main` on the top one; a

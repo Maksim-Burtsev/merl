@@ -273,10 +273,10 @@ fn review_runs_into_a_hunk_or_o_to_the_next_file_miss_c() {
     open_by_name(&mut a, "tail");
     assert_eq!(a.rel_path(), "tail");
     assert_eq!(a.missed, missed(&[("c", 1)]));
-    // src/a.rs: hunks on `B` and `F`, lines 2 and 6.
+    // src/a.rs: hunks on `B` and `F`, lines 2 and 6, each under the line it rewrites (#439).
     a.jump_to(&dir.join("src/a.rs"), 2);
     hold(&mut a, KeyCode::Down, NONE, 4, FAST);
-    assert_eq!(a.line_str(), "F");
+    assert_eq!(a.line_str(), "f");
     hold(&mut a, KeyCode::Up, NONE, 4, FAST);
     assert_eq!(a.line_str(), "B");
     assert_eq!(a.missed, missed(&[("c", 2), ("C", 1)]));
@@ -301,15 +301,15 @@ fn review_runs_that_are_slow_pass_the_hunk_or_type_count_no_c() {
     let (dir, mut a) = review_app("missed-review-not");
     a.jump_to(&dir.join("src/a.rs"), 2);
     hold(&mut a, KeyCode::Down, NONE, 4, SLOW);
-    assert_eq!(a.line_str(), "F");
+    assert_eq!(a.line_str(), "f");
     a.jump_to(&dir.join("src/a.rs"), 1);
     hold(&mut a, KeyCode::Down, NONE, 4, FAST);
-    assert_eq!(a.line_str(), "e");
+    assert_eq!(a.line_str(), "d");
     assert!(a.missed.is_empty(), "{:?}", a.missed);
     a.jump_to(&dir.join("src/a.rs"), 2);
     press(&mut a, KeyCode::Enter, NONE);
     hold(&mut a, KeyCode::Down, NONE, 4, FAST);
-    assert_eq!(a.line_str(), "F");
+    assert_eq!(a.line_str(), "f");
     assert!(!a.missed.contains_key("c"), "edit mode: {:?}", a.missed);
     a.missed.clear();
     // `crlf.txt` comes after `src/a.rs`, but `c` still has `B` and `F` to go to.
