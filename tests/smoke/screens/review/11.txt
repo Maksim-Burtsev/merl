@@ -1,0 +1,57 @@
+wait hunk 1/1  file 4/8
+┌agent/refund ← origin/main──┐ 1 replicaCount: 2
+│  ▾ app                     │ 2
+│✓   A refunds.py      +18 −0│ 3 image:
+│✓   M repos.py        +0 −28│ 4   repository: ghcr.io/example/orders
+│✓   M service.py      +13 −1│ 5   tag: ""
+│  ▾ deploy                  │ 6   pullPolicy: IfNotPresent
+│    ▾ helm                  │ 7
+│      ▾ orders              │ 8 resources: &defaults
+│        M values.yaml  +1 −0│ 9   requests:
+│  ▾ docs                    │10     cpu: 100m
+│    M architecture.png   bin│11     memory: 128Mi
+│  ▾ scripts                 │12   limits:
+│    D refund_by_hand.… +0 −9│13     memory: 256Mi
+│  ▾ tests                   │14
+│    A test_refunds.py +23 −0│15 worker:
+│  ▾ worker                  │16   replicaCount: 1
+│    M main.go          +4 −1│17   resources: *defaults
+│                            │18
+│                            │19 service:
+│                            │20   type: ClusterIP
+│                            │21   port: 8000
+│                            │22
+│                            │23 env:
+│                            │24   PAGE_SIZE: "50"
+│                            │25▎  REFUND_WINDOW_DAYS: "30"
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 8 files · +59 −39 ─────────┘
+deploy/helm/orders/values.yaml  25:1  [code]  hunk 1/1  file 4/8                                                                                                                  ? help
+cursor (x,y,shown) 33,24,1

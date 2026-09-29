@@ -1081,3 +1081,41 @@ fn two_modules_an_import_may_mean_are_a_picker_of_modules() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #477. A recipe line is a shell command: `GO=$(GO) ./build.sh` sets a variable of that one
+/// command and declares nothing make knows, so `d` on `$(GO)` jumps to the `?=` above the rules,
+/// from that line too. A shell variable, `$${ARCH}`, is still declared by the command it is used
+/// in, and a tab-indented assignment inside an `ifeq` before any rule is make's own.
+#[test]
+fn a_makefile_recipe_line_declares_no_variable() {
+    let (dir, mut a) = project_app(
+        "make-recipe",
+        &[
+            (
+                "Makefile",
+                "GO ?= go\n\nbuild:\n\tGO=$(GO) ./build.sh\n\ntest:\n\t$(GO) test ./...\n",
+            ),
+            (
+                "tools.mk",
+                "ifeq ($(OS),Windows_NT)\n\tEXE := .exe\nendif\n\nall:\n\tEXE=x $(EXE)\n\tARCH=$$(uname -m); \\\n\techo $${ARCH}\n\techo $${ARCH}\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "Makefile", "\t$(GO");
+    assert_eq!(shown(&mut a), jump("GO: by name, 1 match", "Makefile:1"));
+    d_on(&mut a, "Makefile", "GO=$(GO");
+    assert_eq!(shown(&mut a), jump("GO: by name, 1 match", "Makefile:1"));
+    d_on(&mut a, "tools.mk", "echo $${ARCH");
+    assert_eq!(
+        shown(&mut a),
+        jump("ARCH → all.ARCH (by name, 1 match)", "tools.mk:7")
+    );
+    // The next command runs in a shell of its own, where nothing set `ARCH`.
+    a.jump_to(&dir.join("tools.mk"), 9);
+    a.col = 9;
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(shown(&mut a), jump("no definition for ARCH", "tools.mk:9"));
+    d_on(&mut a, "tools.mk", "x $(EXE");
+    assert_eq!(shown(&mut a), jump("EXE: by name, 1 match", "tools.mk:2"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}

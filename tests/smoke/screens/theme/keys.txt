@@ -1,0 +1,7 @@
+Esc
+Picker: Down
+Picker: Enter
+Picker: Esc
+T
+q
+t

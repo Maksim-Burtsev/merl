@@ -75,3 +75,10 @@ wait copied 1 line
 run $SMOKE_TMUX show-buffer | grep -qx '        self.orders.clear()'
 key Enter
 wait -59:14  [code]  hunk 1/1  file 2/8  deleted
+# --base names the branch the review is against, here the one origin/HEAD would give (#310).
+merl --review=agent/refund --base main
+wait hunk 1/1  file 1/8
+# --reviews prints the two sessions this scenario played, and exits 0 (#310).
+merl --reviews
+wait 30 days: 2 sessions
+wait merl exited: 0
