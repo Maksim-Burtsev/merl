@@ -672,6 +672,22 @@ fn make_def_patterns_find_targets_and_variables() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #477. A line that starts with a tab is a recipe line only in a rule: after `build:` and its
+/// continued prerequisites, past blanks, comments and conditionals, until an assignment ends the
+/// rule. A tab-indented assignment in an `ifeq` before any rule, a `\` continuation of an
+/// assignment, and `x := a:b` or `$(X:.c=.o)` are no rules.
+#[test]
+fn a_makefile_recipe_line_is_one_after_a_rule() {
+    let make = "ifeq ($(OS),Windows_NT)\n\tEXE := .exe\nendif\nSRC = a.c \\\n\tb.c\nOBJ := $(SRC:.c=.o) x:y\n\tNOT := 1\nbuild: $(OBJ) \\\n  deps\n\tGO=$(GO) go build \\\nX=1\n\n# note\nifdef CI\n\tCI=1 make\nendif\nY ?= 2\n\tZ=3\n.PHONY: t\n\tW=4\n";
+    let recipe: Vec<(usize, usize)> = (1..=make.lines().count())
+        .filter_map(|n| make_recipe_command(make, n).map(|at| (n, at)))
+        .collect();
+    // Line 11 continues the command of line 10: one shell runs both.
+    assert_eq!(recipe, [(10, 10), (11, 10), (15, 15), (20, 20)]);
+    assert_eq!(make_recipe_command(make, 0), None);
+    assert_eq!(make_recipe_command(make, 99), None);
+}
+
 const TF: &str = r#"variable "region" {
   default = "eu"
 }
