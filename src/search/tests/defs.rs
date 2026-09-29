@@ -475,8 +475,10 @@ fn ruby_def_patterns_find_methods_attributes_and_assignments() {
     assert_eq!(d("Billing"), [1]);
     assert_eq!(d("LIMIT"), [2], "a constant, indented in its module");
     assert_eq!(d("Invoice"), [4]);
-    // The accessor, the setter and the assignment behind it -- not `total == other.total`.
-    assert_eq!(d("total"), [5, 19, 20]);
+    // The accessor and the assignment behind the setter -- not `total == other.total`; the
+    // setter itself is `total=` (#387).
+    assert_eq!(d("total"), [5, 20]);
+    assert_eq!(d("total="), [5, 19]);
     assert_eq!(d("customer"), [6], "second in the `attr_reader` list");
     // `id => 1,` is a hash pair, not an assignment.
     assert_eq!(d("id"), [6, 11]);
@@ -488,10 +490,12 @@ fn ruby_def_patterns_find_methods_attributes_and_assignments() {
         [23, 24],
         "the method and the `||=` it memoises with"
     );
-    // `?` is not part of the word under the cursor, and `@rows.empty?` is a call.
-    assert_eq!(d("empty"), [27]);
+    // `?` is part of the name (#387), and `@rows.empty?` is a call.
+    assert_eq!(d("empty?"), [27]);
+    assert_eq!(d("empty"), Vec::<usize>::new());
     assert_eq!(d("rows"), [12]);
-    assert_eq!(d("blank"), [41]);
+    assert_eq!(d("blank?"), [41]);
+    assert_eq!(d("blank"), Vec::<usize>::new());
     assert_eq!(d("name"), Vec::<usize>::new(), "`name =~ /x/` is a match");
     assert_eq!(d("new"), Vec::<usize>::new());
     std::fs::remove_dir_all(&dir).unwrap();
