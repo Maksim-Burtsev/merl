@@ -176,6 +176,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
     match kind {
         Kind::Python => python_bindings(&lines, at, name),
         Kind::TsJs | Kind::Go => block_bindings(kind, &lines, at, name),
+        Kind::Jvm => jvm_bindings(&lines, at, name),
         _ => Vec::new(),
     }
 }

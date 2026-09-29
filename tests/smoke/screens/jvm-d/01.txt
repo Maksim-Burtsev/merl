@@ -1,0 +1,57 @@
+wait public class ParcelSync {
+┌orders──────────────────────┐ 1 package courier.app;
+│▸ .github                   │ 2
+│▸ .venv                     │ 3 import java.util.List;
+│▸ app                       │ 4
+│▸ data                      │ 5 /** Sends the parcels scanned offline once the phone is back online. */
+│▸ deploy                    │ 6 public class ParcelSync {
+│▸ docs                      │ 7     private final Dispatcher dispatcher = new Dispatcher();
+│▸ scripts                   │ 8
+│▸ tests                     │ 9     public int send(List<String> parcelCodes) {
+│▾ web                       │10         parcelCodes.forEach(code -> dispatcher.run(code));
+│  ▾ android                 │11         return parcelCodes.size();
+│    ▾ src                   │12     }
+│      ▾ main                │13 }
+│        ▾ java              │
+│          ▾ courier         │
+│            ▾ app           │
+│                ParcelSync.j│
+│        ▸ kotlin            │
+│  ▸ src                     │
+│    package.json            │
+│    tsconfig.json           │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+web/android/src/main/java/courier/app/ParcelSync.java  1:1  [code]                                                                                                                ? help
+cursor (x,y,shown) 33,0,1

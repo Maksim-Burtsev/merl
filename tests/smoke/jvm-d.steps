@@ -1,0 +1,25 @@
+# jvm-d: d in the Android client's Java and Kotlin (#376). A parameter, a lambda's parameter and a
+# field of the class around the cursor answer as such, `(local)` and `(via ParcelSync)`, where d
+# found no parameter at all; then a local of a Kotlin function.
+merl web/android/src/main/java/courier/app/ParcelSync.java
+wait public class ParcelSync {
+key t /
+type parcelCodes.size
+key Enter d
+wait parcelCodes → ParcelSync.send.parcelCodes (local)
+key /
+type code));
+key Enter d
+wait code → ParcelSync.send.code (local)
+key /
+type dispatcher.run
+key Enter d
+wait dispatcher → ParcelSync.dispatcher (via ParcelSync)
+key o
+type ParcelList
+key Enter
+wait web/android/src/main/kotlin/courier/app/ParcelList.kt  1:1
+key /
+type trimmed)
+key Enter d
+wait trimmed → ParcelList.refresh.trimmed (local)

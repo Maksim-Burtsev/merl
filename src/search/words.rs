@@ -48,6 +48,14 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     {
         return Some(format!("{receiver}{sep}{name}"));
     }
+    // Any other name on a Java or Kotlin function's header is a parameter (#376), named as a
+    // local of the body is: `SortUtils.resolve.directionParams`.
+    if kind == Kind::Jvm
+        && let Some(f) = jvm_function(target).filter(|f| f != name)
+    {
+        let owner = qualified(kind, text, line, &f).unwrap_or(f);
+        return Some(format!("{owner}{sep}{name}"));
+    }
     // A field declared inside a method or in a constructor's parameters is the class's:
     // `Issue.repo`, not `Issue.__init__.repo`.
     if field_like(kind, target.trim_start(), name)

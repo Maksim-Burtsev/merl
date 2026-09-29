@@ -73,6 +73,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
+  parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
+  said `no definition` or offered namesakes from other files: `directionParams →
+  SortUtils.resolve.directionParams (local)`. A name the method's class declares, a field or a
+  method, the members of its `companion object` and the properties of its primary constructor
+  included, answers `via` the class, `scheduler → Use.scheduler (via Use)`, and one the class it
+  extends declares, `via` that class, before the declarations of the name in the rest of the
+  project. Kotlin's `it` and the implicit receivers of `with` and `apply` are not read. (#376)
 - `merl -r BRANCH` reviews a branch another worktree has checked out, an agent's say, in that
   worktree, as `merl -r` started there would: nothing is fetched, switched or reset there, and its
   work not committed yet is part of the review. Before, merl exited with git's `already used by
