@@ -67,6 +67,13 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         let owner = qualified(kind, text, line, &c[1]).unwrap_or_else(|| c[1].to_owned());
         return Some(format!("{owner}{sep}{name}"));
     }
+    // A parameter on a C# method's line reads as a local of its body (#345).
+    if kind == Kind::CSharp
+        && let Some(m) = cs_parameter_of(target, name)
+    {
+        let owner = qualified(kind, text, line, &m).unwrap_or(m);
+        return Some(format!("{owner}{sep}{name}"));
+    }
     let indent = |s: &str| s.len() - s.trim_start().len();
     let mut depth = indent(target);
     let mut names = vec![name.to_owned()];

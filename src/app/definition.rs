@@ -206,6 +206,7 @@ impl App {
             })
             .map(|n| match kind {
                 Kind::TsJs => search::written_line(&self.buf.lines, n, first),
+                Kind::CSharp => search::cs_written_line(&self.buf.lines, n, first),
                 _ => n,
             })
             .collect();
@@ -214,7 +215,12 @@ impl App {
         }
         // The word itself is that parameter or local: its declarations in this scope are the
         // answer, and a function of the same name elsewhere is not.
-        if !dotted && !locals.is_empty() && locals != [self.line + 1] {
+        // A C# use past its declaration on the same line, a lambda's parameter inside that
+        // lambda, is bound there too (#345).
+        let own_line = kind == Kind::CSharp
+            && locals == [self.line + 1]
+            && search::cs_binds_here(self.line_str(), &word, range.start);
+        if !dotted && !locals.is_empty() && (locals != [self.line + 1] || own_line) {
             let found = locals
                 .iter()
                 .map(|&line| Candidate {

@@ -34,7 +34,7 @@ public class Tabs
     public void Fill(Options options)
     {
         options.Enabled = true;
-        // ^ d: none
+        // ^ d: src/Shop.Api/Tabs.cs:34
     }
 
     public void Show() => Tidy();
