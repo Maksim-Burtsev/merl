@@ -79,12 +79,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the review for a while, as during a rebase stopped on a conflict, has its mark back when it
   returns. A review started on a detached HEAD, outside a rebase, keeps its marks only while it
   runs. The marks of a review untouched for 30 days are forgotten. (#240)
-- The file panel of `merl --review` paints the status letter bold in the gutter's colours, `A`
-  green, `M` blue, `D` red, a rename or a copy dim; the line counts and `bin` are dim, so the
-  name reads first; and the bottom border gives the size of the branch, `3 files · +13 −1`. A
-  long name of wide characters is cut to fit instead of pushing the counts off the panel.
-  `review_panel_colours = false` in `~/.config/merl/config.toml` turns the colours, the dimming and
-  the totals off. (#250)
+- The file panel of `merl --review` dims the line counts and `bin`, so the name reads first, and
+  the bottom border gives the size of the branch, `3 files · +13 −1`. A long name of wide
+  characters is cut to fit instead of pushing the counts off the panel.
+  `review_panel_colours = false` in `~/.config/merl/config.toml` turns the dimming and the totals
+  off. (#250, #450)
 - On a file the branch did not change, the status bar of `merl --review` drops `hunk 0/0  file
   -/8` and reads as it does outside a review. (#286)
 - Enter in a list whose query matches nothing does nothing, as in VS Code's quick open: `o`,

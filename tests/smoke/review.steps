@@ -9,7 +9,8 @@
 # to the hunk left once #239 lands (0.7.0 opens the first file). On such a file the status bar has no
 # counters, as outside a review (#286). Back in repos.py, c stands on the first line the branch
 # deleted and the status bar reads its old number, negative; / finds the deleted text, Ctrl+C
-# copies it, and an edit there is refused (#439).
+# copies it, and an edit there is refused (#439). The panel's status letters are plain, in the
+# row's style (#450).
 caption review · merl --review=agent/refund fetches the agent's branch and opens on its first hunk
 merl --review=agent/refund
 wait hunk 1/1  file 1/8
