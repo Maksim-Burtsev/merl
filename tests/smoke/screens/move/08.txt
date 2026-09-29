@@ -1,0 +1,57 @@
+wait app/service.py  32:1  [code]
+11 class OrderService:
+23     def mark_paid(self, order_id: int) -> Order:
+27         return order
+28
+29     def cancel(self, order_id: int) -> Order:
+30         order = self.get(order_id)
+31         if not order.can_cancel():
+32             raise ValueError(f"order {order_id} is {order.status.value}")
+33         order.status = OrderStatus.CANCELLED
+34         with self.uow:
+35             self.uow.orders.save(order)
+36         return order
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+app/service.py  32:1  [code]                                                                                                                                                      ? help
+cursor (x,y,shown) 3,7,1

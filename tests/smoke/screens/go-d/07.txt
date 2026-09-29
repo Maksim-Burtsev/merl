@@ -1,0 +1,57 @@
+wait jobs → drain.jobs (local)
+15 func main() {
+19     q := queue.New()
+20     q.Push(queue.Job{Kind: "sync"})
+21     if err := run(ctx, q); err != nil {
+22         log.Fatal(err)
+23     }
+24 }
+25
+26 func run(ctx context.Context, q queue.Queue) error {
+27     for {
+28         select {
+29         case <-ctx.Done():
+30             return drain(q)
+31         case <-time.After(time.Second):
+32         }
+33         job, ok := q.Pop()
+34         if !ok {
+35             continue
+36         }
+37         if err := handle(job); err != nil {
+38             return fmt.Errorf("job for order %d: %w", job.OrderID, err)
+39         }
+40     }
+41 }
+42
+43 // drain runs the jobs left in q before the worker stops.
+44 func drain(q queue.Queue) error {
+45     jobs := make(
+46         []queue.Job, 0, 16,
+47     )
+48     for job, ok := q.Pop(); ok; job, ok = q.Pop() {
+49         jobs = append(jobs, job)
+50     }
+51     for _, job := range jobs {
+52         if err := handle(job); err != nil {
+53             return err
+54         }
+55     }
+56     return nil
+57 }
+58
+59 func handle(job queue.Job) error {
+60     switch job.Kind {
+61     case "ship", "sync":
+62         log.Printf("order %d → %s", job.OrderID, job.Kind)
+63         return nil
+64     default:
+65         return fmt.Errorf("unknown job kind %q", job.Kind)
+66     }
+67 }
+
+
+
+
+worker/main.go  45:5  [code]  jobs → drain.jobs (local)
+cursor (x,y,shown) 7,27,1

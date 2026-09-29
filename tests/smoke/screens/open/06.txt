@@ -1,0 +1,57 @@
+wait Go to definition of the word under the cursor
+ 1 from app.repos import OrderRepo┌merl — keys (Up / Down to scroll)──────────────────────────────────────────────────────────────────────────────────┐
+ 2                                │ Files and jumps                                                                                                   │
+ 3                                │   o / Ctrl+E                        Open a file (fuzzy)                                                           │
+ 4 class UnitOfWork:              │   Ctrl+N                            New file: type its path, Enter creates and edits it                           │
+ 5     """One transaction: `with u│   d / F12                           Go to definition of the word under the cursor, or its implementations         │
+ 6                                │   D                                 Project symbols (fuzzy)                                                       │
+ 7     def __init__(self, db):    │   u / Shift+F12                     Usages of the word under the cursor                                           │
+ 8         self.db = db           │   [ / ]                             Back / forward in the jump history                                            │
+ 9         self.orders = OrderRepo│   : / Ctrl+G                        Go to line                                                                    │
+10                                │ Search                                                                                                            │
+11     def __enter__(self):       │   / / Ctrl+F                        Find in the open file                                                         │
+12         self.db.begin()        │   n / N                             Next / previous match                                                         │
+13         return self            │   s                                 Search the project                                                            │
+14                                │ Review                                                                                                            │
+15     def __exit__(self, exc_type│   c / C                             Review: next / previous hunk, on to the next file                             │
+16         if exc_type is None:   │   m                                 Review: mark the file as viewed, or take the mark off                         │
+17             self.db.commit()   │ Editing                                                                                                           │
+18         else:                  │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
+19             self.db.rollback() │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
+20         return False           │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
+                                  │   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
+                                  │   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
+                                  │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
+                                  │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
+                                  │ Selection                                                                                                         │
+                                  │   v                                 Select the word, then the line, then the paragraph                            │
+                                  │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
+                                  │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
+                                  │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
+                                  │   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
+                                  │ Movement                                                                                                          │
+                                  │   Arrows                            Move the cursor; Up / Down go by screen row                                   │
+                                  │   Alt+Left / Alt+Right              Move one word                                                                 │
+                                  │   Home / End                        Start / end of the screen row, then of the line                               │
+                                  │   Ctrl+Home / Ctrl+End              Start / end of the file                                                       │
+                                  │   { / }                             Previous / next paragraph (blank line)                                        │
+                                  │   Ctrl+D / Ctrl+U                   Move half a screen down / up                                                  │
+                                  │   PgUp / PgDn                       Move one screen                                                               │
+                                  │ Panels                                                                                                            │
+                                  │   t                                 Show or hide the file tree                                                    │
+                                  │   Tab                               Switch focus between tree and code                                            │
+                                  │   Tree: Up / Down                   Move                                                                          │
+                                  │   Tree: Enter                       Open the file, or expand the directory                                        │
+                                  │   Tree: Left / Right                Collapse / expand                                                             │
+                                  │   Picker: Up / Down                 Move                                                                          │
+                                  │   Picker: PgUp / PgDn               Move one page                                                                 │
+                                  │   Picker: Enter                     Accept                                                                        │
+                                  │   Picker: Esc                       Cancel                                                                        │
+                                  │   ?                                 This help                                                                     │
+                                  │   Help: Up / Down                   Scroll                                                                        │
+                                  │ General                                                                                                           │
+                                  │   w                                 Wrap long lines, or cut them at the edge and scroll sideways                  │
+                                  │   p                                 Show a Markdown file rendered, or its source again                            │
+                                  │   T                                 Pick a theme (live preview)                                                   │
+app/uow.py  15:1  [code]          └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                           ? help
+cursor (x,y,shown) 151,54,0

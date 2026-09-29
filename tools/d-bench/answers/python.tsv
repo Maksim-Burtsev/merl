@@ -1,0 +1,271 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+python0000	src/paperless/parsers/utils.py:133		
+python0001	src/documents/models.py:1207		
+python0002	src/paperless_ai/base_model.py:222		
+python0003	src/paperless/checks.py:201		
+python0004	src/paperless_ai/embedding.py:23		
+python0005	src/documents/tests/test_workflows.py:5703		
+python0006	src/documents/search/_query.py:393		
+python0007	src/documents/models.py:767		
+python0008	.venv/lib/python3.11/site-packages/cryptography/fernet.py:32		
+python0009	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/typing.py:658		
+python0010			
+python0011	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857		
+python0012	.venv/lib/python3.11/site-packages/rest_framework/status.py:34		
+python0013	src/paperless/tests/test_api_auth.py:27		
+python0014	src/paperless_ai/base_model.py:14		
+python0015			
+python0016	src/documents/search/_errors.py:1		
+python0017	src/paperless_mail/models.py:125		
+python0018	.venv/lib/python3.11/site-packages/django/db/models/expressions.py:1574		
+python0019	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/typing.py:2754		
+python0020	.venv/lib/python3.11/site-packages/llama_index/core/schema.py:289		
+python0021	src/paperless_testing/factories.py:1		
+python0022	src/documents/utils.py:1		
+python0023	src/documents/tests/search/test_backend.py:1086;src/documents/tests/search/test_backend.py:1091		
+python0024			
+python0025			
+python0026	src/paperless_mail/models.py:8		
+python0027	src/documents/management/commands/document_importer.py:176		
+python0028	.venv/lib/python3.11/site-packages/django/core/management/__init__.py:1		
+python0029			
+python0030	src/documents/search/_schema.py:107		
+python0031	.venv/lib/python3.11/site-packages/rest_framework/serializers.py:1		
+python0032			
+python0033	.venv/lib/python3.11/site-packages/django_softdelete/models.py:49		
+python0034			
+python0035	src/paperless/parsers/mail.py:778;src/paperless/parsers/mail.py:810		
+python0036	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:834		
+python0037	src/documents/search/_backend.py:1055		
+python0038	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/uuid.py:721		
+python0039	src/paperless_ai/tests/test_vector_store.py:101		
+python0040	src/documents/utils.py:95		
+python0041	src/documents/plugins/base.py:125		
+python0042	src/documents/models.py:1032		
+python0043	.venv/lib/python3.11/site-packages/django/core/management/base.py:279;.venv/lib/python3.11/site-packages/django/core/management/base.py:455		
+python0044	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/logging/__init__.py:1479		
+python0045			
+python0046	src/documents/tests/search/test_checksum_prefix_queries.py:40		
+python0047	src/paperless/models.py:97		
+python0048	src/documents/tests/search/test_widen_leaf.py:21		
+python0049	src/documents/models.py:1150		
+python0050	src/paperless_ai/vector_store.py:109		
+python0051			
+python0052	src/documents/tasks.py:81		
+python0053	src/documents/data_models.py:206		
+python0054	.venv/lib/python3.11/site-packages/django/test/testcases.py:393		
+python0055	src/documents/plugins/date_parsing/regex_parser.py:11		
+python0056	.venv/lib/python3.11/site-packages/pytest_mock/plugin.py:80		
+python0057			
+python0058	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:892		
+python0059	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857		
+python0060	.venv/lib/python3.11/site-packages/django/test/utils.py:468		
+python0061			
+python0062			
+python0063	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/case.py:868		
+python0064			
+python0065	src/paperless/models.py:33		
+python0066	.venv/lib/python3.11/site-packages/django/test/testcases.py:1366		
+python0067	src/documents/models.py:1150		
+python0068	.venv/lib/python3.11/site-packages/django/test/utils.py:721		
+python0069	src/documents/sanity_checker.py:305		
+python0070	.venv/lib/python3.11/site-packages/django/db/models/expressions.py:977		
+python0071			
+python0072	.venv/lib/python3.11/site-packages/django/utils/text.py:1		
+python0073	src/documents/tests/test_api_search.py:357		
+python0074	src/documents/search/_backend.py:882		
+python0075	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/json/__init__.py:183		
+python0076	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/case.py:711		
+python0077	src/documents/parsers.py:201		
+python0078	.venv/lib/python3.11/site-packages/django/db/__init__.py:57		
+python0079	src/documents/classifier.py:335		
+python0080	.venv/lib/python3.11/site-packages/_pytest/logging.py:419		
+python0081	.venv/lib/python3.11/site-packages/django/contrib/auth/models.py:486		
+python0082			
+python0083	.venv/lib/python3.11/site-packages/django/core/management/__init__.py:83		
+python0084	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:1008		
+python0085	src/documents/tests/test_api_documents.py:3328		
+python0086	src/documents/models.py:103		
+python0087	src/paperless_mail/models.py:13		
+python0088			
+python0089	src/documents/tests/test_permission_filtering_security.py:232		
+python0090	src/documents/bulk_edit.py:188		
+python0091	src/paperless_ai/tests/test_vector_store.py:29		
+python0092	src/documents/tests/management/test_management_sanity_checker.py:118		
+python0093	src/documents/barcodes.py:132		
+python0094	src/documents/models.py:1207		
+python0095	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/datetime.py:1665		
+python0096	src/paperless_ai/indexing.py:365		
+python0097	src/documents/bulk_edit.py:73		
+python0098			
+python0099	.venv/lib/python3.11/site-packages/tantivy/__init__.py:1		
+python0100			
+python0101			
+python0102	src/documents/models.py:97		
+python0103	src/documents/tests/test_consumer.py:899		
+python0104	src/documents/search/_backend.py:367		
+python0105			
+python0106	src/documents/models.py:158		
+python0107			
+python0108	src/paperless_mail/tests/factories.py:12		
+python0109	src/documents/tests/test_tag_hierarchy.py:60		
+python0110	src/paperless/parsers/registry.py:172		
+python0111		builtin: the server's own stub	
+python0112	.venv/lib/python3.11/site-packages/_pytest/mark/__init__.py:49		
+python0113	src/documents/models.py:1480		
+python0114	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:1207		
+python0115	.venv/lib/python3.11/site-packages/_pytest/fixtures.py:1458;.venv/lib/python3.11/site-packages/_pytest/fixtures.py:1435;.venv/lib/python3.11/site-packages/_pytest/fixtures.py:1447		
+python0116	src/documents/models.py:1032		
+python0117	src/documents/tests/test_api_tasks.py:28		
+python0118	src/documents/models.py:158		
+python0119	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/case.py:868		
+python0120			
+python0121	src/paperless_testing/permissions.py:21		
+python0122	src/documents/search/_schema.py:303		
+python0123	.venv/lib/python3.11/site-packages/django_softdelete/models.py:49		
+python0124			
+python0125	src/documents/models.py:805		
+python0126	src/documents/search/_backend.py:1267		
+python0127	src/paperless_ai/tests/test_vector_store.py:32		
+python0128		builtin: the server's own stub	
+python0129	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/case.py:868		
+python0130	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857		
+python0131	src/documents/search/_query.py:270		
+python0132	src/documents/filters.py:193		
+python0133		builtin: the server's own stub	
+python0134	src/paperless_ai/tests/test_vector_store.py:32		
+python0135			
+python0136	.venv/lib/python3.11/site-packages/_pytest/logging.py:570		
+python0137		builtin: the server's own stub	
+python0138	src/documents/models.py:767		
+python0139	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:1599		
+python0140			
+python0141	.venv/lib/python3.11/site-packages/django/test/client.py:1141		
+python0142	.venv/lib/python3.11/site-packages/django/db/models/base.py:665		
+python0143	src/paperless_ai/vector_store.py:202		
+python0144	src/paperless_testing/permissions.py:40		
+python0145	src/documents/search/_errors.py:19		
+python0146	src/documents/serialisers.py:2447		
+python0147	src/documents/models.py:477		
+python0148	src/paperless_ai/vector_store.py:36		
+python0149	src/documents/tests/test_api_permissions.py:1132		
+python0150	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/json/__init__.py:183		
+python0151			
+python0152	src/paperless_mail/tests/test_api.py:176		
+python0153	src/documents/tests/test_management_consumer.py:1307		
+python0154	src/documents/search/_schema.py:107		
+python0155	src/paperless_mail/tests/factories.py:12		
+python0156	src/documents/file_handling.py:156		
+python0157	.venv/lib/python3.11/site-packages/django/db/models/fields/__init__.py:2062		
+python0158	src/documents/models.py:158		
+python0159		builtin: the server's own stub	
+python0160	src/documents/models.py:1		
+python0161	src/documents/tests/test_bulk_edit.py:1441		
+python0162	src/paperless_testing/factories.py:62		
+python0163	src/documents/permissions.py:1		
+python0164	src/documents/models.py:158		
+python0165	src/paperless_ai/migrations/__init__.py:32		
+python0166	src/documents/versioning.py:140		
+python0167	src/documents/models.py:97		
+python0168	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/case.py:1069		
+python0169			
+python0170		builtin: the server's own stub	
+python0171	.venv/lib/python3.11/site-packages/django/urls/conf.py:96		
+python0172			
+python0173	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:892		
+python0174	src/documents/tests/test_management_retagger.py:29		
+python0175	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:2155		
+python0176	src/documents/search/_schema.py:205		
+python0177	src/documents/models.py:1678		
+python0178	src/documents/serialisers.py:3216		
+python0179	src/documents/tests/test_workflows.py:87		
+python0180	src/documents/consumer.py:90		
+python0181	.venv/lib/python3.11/site-packages/django/test/client.py:1309		
+python0182	src/paperless_testing/factories.py:74		
+python0183	src/documents/models.py:1991		
+python0184	src/documents/consumer.py:125		
+python0185	src/paperless_mail/tests/test_mail.py:160		
+python0186	src/paperless/parsers/registry.py:151		
+python0187	src/documents/models.py:158		
+python0188	src/documents/models.py:158		
+python0189	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/datetime.py:1058		
+python0190	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/typing.py:2734		
+python0191	src/documents/tests/test_barcodes.py:28		
+python0192	src/documents/models.py:1207		
+python0193			
+python0194	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pickle.py:66		
+python0195	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857		
+python0196	.venv/lib/python3.11/site-packages/_pytest/mark/__init__.py:49		
+python0197	src/documents/search/_backend.py:77		
+python0198	src/documents/models.py:1363		
+python0199	.venv/lib/python3.11/site-packages/django/core/management/base.py:23		
+python0200	.venv/lib/python3.11/site-packages/click/utils.py:246		
+python0201	.venv/lib/python3.11/site-packages/_pytest/mark/structures.py:639		
+python0202	.venv/lib/python3.11/site-packages/whoosh_compat/ast.py:88		
+python0203	src/documents/data_models.py:165		
+python0204	src/documents/file_handling.py:156		
+python0205	src/documents/models.py:550		
+python0206	.venv/lib/python3.11/site-packages/django/test/client.py:1274		
+python0207	src/paperless_ai/exceptions.py:1		
+python0208	src/documents/models.py:1207		
+python0209	src/paperless_ai/indexing.py:300		
+python0210	src/paperless_testing/permissions.py:40		
+python0211	src/paperless/settings/parsers.py:61		
+python0212	src/paperless/tests/parsers/test_tesseract_parser.py:820		
+python0213	.venv/lib/python3.11/site-packages/_pytest/mark/__init__.py:49		
+python0214	src/documents/models.py:158		
+python0215	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/case.py:344		
+python0216	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:1111		
+python0217	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/json/__init__.py:1		
+python0218	src/documents/plugins/base.py:10		
+python0219	src/documents/tests/test_permission_filtering_security.py:316		
+python0220			
+python0221			
+python0222		builtin: the server's own stub	
+python0223			
+python0224	src/documents/tests/search/_ast_helpers.py:23		
+python0225	src/paperless/checks.py:266		
+python0226	src/documents/tests/test_api_documents.py:1219		
+python0227			
+python0228	src/documents/tests/test_file_handling.py:921		
+python0229			
+python0230	.venv/lib/python3.11/site-packages/rest_framework/status.py:34		
+python0231	src/documents/models.py:97		
+python0232	src/documents/tests/test_barcodes.py:592		
+python0233	src/paperless_ai/vector_store.py:1		
+python0234	src/paperless_mail/models.py:316		
+python0235	.venv/lib/python3.11/site-packages/django/test/testcases.py:393		
+python0236	.venv/lib/python3.11/site-packages/django/utils/timezone.py:237		
+python0237	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/case.py:1279		
+python0238	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857		
+python0239	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857		
+python0240	src/documents/models.py:1676		
+python0241	src/paperless_testing/factories.py:62		
+python0242	src/paperless_mail/models.py:87		
+python0243	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857		
+python0244	src/documents/models.py:1363		
+python0245	src/documents/models.py:103		
+python0246	.venv/lib/python3.11/site-packages/_pytest/mark/structures.py:586		
+python0247	.venv/lib/python3.11/site-packages/django/core/management/base.py:280;.venv/lib/python3.11/site-packages/django/core/management/base.py:457		
+python0248	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:557;~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:545		
+python0249	src/documents/models.py:1698		
+python0250	src/documents/tests/search/test_query_negation.py:30		
+python0251	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:2155		
+python0252	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857		
+python0253	.venv/lib/python3.11/site-packages/django/test/__init__.py:1		
+python0254	src/documents/sanity_checker.py:305		
+python0255	.venv/lib/python3.11/site-packages/rest_framework/exceptions.py:143		
+python0256	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857		
+python0257	.venv/lib/python3.11/site-packages/_pytest/fixtures.py:1458;.venv/lib/python3.11/site-packages/_pytest/fixtures.py:1435;.venv/lib/python3.11/site-packages/_pytest/fixtures.py:1447		
+python0258	src/paperless_mail/tests/test_mail.py:2023		
+python0259		builtin: the server's own stub	
+python0260	src/paperless/settings/parsers.py:49;src/paperless/settings/parsers.py:38;src/paperless/settings/parsers.py:42;src/paperless/settings/parsers.py:46		
+python0261	src/documents/serialisers.py:262		
+python0262	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:1061		
+python0263	src/documents/tests/search/test_acceptance.py:39		
+python0264	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:1207		
+python0265			
+python0266	.venv/lib/python3.11/site-packages/django/contrib/__init__.py:1		
+python0267			
+python0268	src/documents/models.py:755		
+python0269	.venv/lib/python3.11/site-packages/celery/schedules.py:323		

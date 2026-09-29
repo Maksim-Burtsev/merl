@@ -1,0 +1,57 @@
+wait file 3/8  not viewed
+┌agent/refund ← origin/main──┐14 class OrderService:
+│  ▾ app                     │19
+│✓   A refunds.py      +18 −0│20     def get(self, order_id: int) -> Order:
+│✓   M repos.py        +0 −28│21         order = self.repo.get(order_id)
+│    M service.py      +13 −1│22         if order is None:
+│  ▾ deploy                  │23             raise OrderNotFound(order_id)
+│    ▾ helm                  │24         return order
+│      ▾ orders              │25
+│        M values.yaml  +1 −0│26     def mark_paid(self, order_id: int) -> Order:
+│  ▾ docs                    │27         order = self.get(order_id)
+│    M architecture.png   bin│28         order.status = OrderStatus.PAID
+│  ▾ scripts                 │  ▎        self.repo.save(order)
+│    D refund_by_hand.… +0 −9│29▎        with self.uow:
+│  ▾ tests                   │30▎            self.uow.orders.save(order)
+│    A test_refunds.py +23 −0│31         return order
+│  ▾ worker                  │32
+│    M main.go          +4 −1│33     def cancel(self, order_id: int) -> Order:
+│                            │34         order = self.get(order_id)
+│                            │35         if not order.can_cancel():
+│                            │36             raise ValueError(f"order {order_id} is {order.status.value}")
+│                            │37         order.status = OrderStatus.CANCELLED
+│                            │38         with self.uow:
+│                            │39             self.uow.orders.save(order)
+│                            │40         return order
+│                            │41▎
+│                            │42▎    def refund(self, order_id: int) -> Decimal:
+│                            │43▎        order = self.get(order_id)
+│                            │44▎        amount = refund_amount(order, self.settings.refund_window_days)
+│                            │45▎        order.status = OrderStatus.REFUNDED
+│                            │46▎        with self.uow:
+│                            │47▎            self.uow.orders.save(order)
+│                            │48▎        return amount
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 8 files · +59 −39 ─────────┘
+app/service.py  44:18  [code]  hunk 4/4  file 3/8  not viewed
+cursor (x,y,shown) 50,27,1

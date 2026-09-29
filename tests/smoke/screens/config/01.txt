@@ -1,0 +1,57 @@
+wait replicas: {{ .Values.replicaCount }}
+┌orders──────────────────────┐ 1 apiVersion: apps/v1
+│▸ .github                   │ 2 kind: Deployment
+│▸ .venv                     │ 3 metadata:
+│▸ app                       │ 4   name: {{ include "orders.fullname" . }}
+│▸ data                      │ 5   labels:
+│▾ deploy                    │ 6     {{- include "orders.labels" . | nindent 4 }}
+│  ▾ helm                    │ 7 spec:
+│    ▾ orders                │ 8   replicas: {{ .Values.replicaCount }}
+│      ▾ templates           │ 9   selector:
+│          _helpers.tpl      │10     matchLabels:
+│          deployment.yaml   │11       {{- include "orders.selectorLabels" . | nindent 6 }}
+│        Chart.yaml          │12   template:
+│        values.yaml         │13     metadata:
+│▸ docs                      │14       labels:
+│▸ scripts                   │15         {{- include "orders.labels" . | nindent 8 }}
+│▸ tests                     │16     spec:
+│▸ web                       │17       containers:
+│▸ worker                    │18         - name: api
+│  .env                      │19           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+│  .gitignore                │20           imagePullPolicy: {{ .Values.image.pullPolicy }}
+│  docker-compose.yml        │21           ports:
+│  Dockerfile                │22             - name: http
+│  Makefile                  │23               containerPort: {{ .Values.service.port }}
+│  pyproject.toml            │24           envFrom:
+│  README.md                 │25             - secretRef:
+│                            │26                 name: {{ include "orders.fullname" . }}
+│                            │27           env:
+│                            │28             {{- range $name, $value := .Values.env }}
+│                            │29             - name: {{ $name }}
+│                            │30               value: {{ $value | quote }}
+│                            │31             {{- end }}
+│                            │32           resources:
+│                            │33             {{- toYaml .Values.resources | nindent 12 }}
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+deploy/helm/orders/templates/deployment.yaml  1:1  [code]                                                                                                                         ? help
+cursor (x,y,shown) 33,0,1

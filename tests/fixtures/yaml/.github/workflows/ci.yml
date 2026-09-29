@@ -1,0 +1,30 @@
+# The shop of #307: every d case carries its answer in a comment under it.
+on:
+  push:
+    paths: ["src/**/*.rs"]
+
+defaults: &defaults
+  runs-on: ubuntu-latest
+
+jobs:
+  build:
+    <<: *defaults
+    #     ^ d: .github/workflows/ci.yml:6
+    steps:
+      - run: cargo build
+
+  test:
+    <<: *defaults
+    needs: build
+    #      ^ d: .github/workflows/ci.yml:10
+    steps:
+      - run: cargo test
+
+  release:
+    <<: *defaults
+    needs: [build, test]
+    #              ^ d: .github/workflows/ci.yml:16
+    if: needs.test.result == 'success'
+    #         ^ d: .github/workflows/ci.yml:16
+    steps:
+      - run: cargo build --release

@@ -1,0 +1,16 @@
+/
+:
+Ctrl+D
+Ctrl+End
+Ctrl+R
+Ctrl+S
+Ctrl+Z
+End
+Enter
+Esc
+Picker: Enter
+[
+]
+o
+q
+t

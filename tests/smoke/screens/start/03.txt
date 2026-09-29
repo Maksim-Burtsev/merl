@@ -1,0 +1,57 @@
+wait merl exited: 0
+m                      0       0    0  never  Review: mark the file as viewed, or take the mark off
+Enter                  0       0    0  never  Edit at the cursor (Esc returns to navigation)
+Ctrl+S                 0       0    0  never  Save now (edits are saved on their own after a pause)
+Ctrl+R                 0       0    0  never  Reload from disk, dropping unsaved edits
+Ctrl+Z                 0       0    0  never  Undo / redo
+Ctrl+Y                 0       0    0  never  Undo / redo
+Ctrl+C                 0       0    0  never  Copy the selection, or the line, to the clipboard
+Edit: Ctrl+X           0       0    0  never  Cut the selection, or the line
+Edit: Alt+Backspace    0       0    0  never  Delete the word before / after the cursor
+Edit: Alt+Delete       0       0    0  never  Delete the word before / after the cursor
+v                      0       0    0  never  Select the word, then the line, then the paragraph
+Shift+Up               0       0    0  never  Extend the selection by a screen row
+Shift+Down             0       0    0  never  Extend the selection by a screen row
+Shift+Left             0       0    0  never  Extend the selection by a char
+Shift+Right            0       0    0  never  Extend the selection by a char
+Alt+Shift+Left         0       0    0  never  Extend the selection by a word
+Alt+Shift+Right        0       0    0  never  Extend the selection by a word
+Ctrl+Shift+Left        0       0    0  never  Extend the selection to the start / end of the screen row, then of the line
+Ctrl+Shift+Right       0       0    0  never  Extend the selection to the start / end of the screen row, then of the line
+Arrows                 0       0    0  never  Move the cursor; Up / Down go by screen row
+Alt+Left               0       0    0  never  Move one word
+Alt+Right              0       0    0  never  Move one word
+Home                   0       0    0  never  Start / end of the screen row, then of the line
+End                    0       0    0  never  Start / end of the screen row, then of the line
+Ctrl+Home              0       0    0  never  Start / end of the file
+Ctrl+End               0       0    0  never  Start / end of the file
+{                      0       0    0  never  Previous / next paragraph (blank line)
+}                      0       0    0  never  Previous / next paragraph (blank line)
+Ctrl+D                 0       0    0  never  Move half a screen down / up
+Ctrl+U                 0       0    0  never  Move half a screen down / up
+PgUp                   0       0    0  never  Move one screen
+PgDn                   0       0    0  never  Move one screen
+t                      0       0    0  never  Show or hide the file tree
+Tab                    0       0    0  never  Switch focus between tree and code
+Tree: Up               0       0    0  never  Move
+Tree: Down             0       0    0  never  Move
+Tree: Enter            0       0    0  never  Open the file, or expand the directory
+Tree: Left             0       0    0  never  Collapse / expand
+Tree: Right            0       0    0  never  Collapse / expand
+Picker: Up             0       0    0  never  Move
+Picker: Down           0       0    0  never  Move
+Picker: PgUp           0       0    0  never  Move one page
+Picker: PgDn           0       0    0  never  Move one page
+Picker: Enter          0       0    0  never  Accept
+Picker: Esc            0       0    0  never  Cancel
+?                      0       0    0  never  This help
+Help: Up               0       0    0  never  Scroll
+Help: Down             0       0    0  never  Scroll
+w                      0       0    0  never  Wrap long lines, or cut them at the edge and scroll sideways
+p                      0       0    0  never  Show a Markdown file rendered, or its source again
+T                      0       0    0  never  Pick a theme (live preview)
+Esc                    0       0    0  never  Close an overlay, leave edit mode, or clear selection and find
+q                      0       0    0  never  Quit
+
+merl exited: 0
+cursor (x,y,shown) 0,54,0

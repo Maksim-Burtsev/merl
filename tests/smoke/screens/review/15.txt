@@ -1,0 +1,57 @@
+wait REFUNDED → OrderStatus.REFUNDED (via OrderStatus)
+┌agent/refund ← origin/main──┐ 1 from dataclasses import dataclass, field
+│  ▾ app                     │ 2 from datetime import datetime, timezone
+│✓   A refunds.py      +18 −0│ 3 from decimal import Decimal
+│✓   M repos.py        +0 −28│ 4 from enum import Enum
+│✓   M service.py      +13 −1│ 5
+│  ▾ deploy                  │ 6
+│    ▾ helm                  │ 7 class OrderStatus(Enum):
+│      ▾ orders              │ 8     PENDING = "pending"
+│✓       M values.yaml  +1 −0│ 9     PAID = "paid"
+│  ▾ docs                    │10     SHIPPED = "shipped"
+│    M architecture.png   bin│11     CANCELLED = "cancelled"
+│  ▾ scripts                 │12     REFUNDED = "refunded"
+│    D refund_by_hand.… +0 −9│13
+│  ▾ tests                   │14
+│    A test_refunds.py +23 −0│15 @dataclass
+│  ▾ worker                  │16 class Order:
+│    M main.go          +4 −1│17     id: int
+│                            │18     customer_id: int
+│                            │19     total: Decimal
+│                            │20     status: OrderStatus = OrderStatus.PENDING
+│                            │21     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+│                            │22
+│                            │23     def can_cancel(self) -> bool:
+│                            │24         return self.status in (OrderStatus.PENDING, OrderStatus.PAID)
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 8 files · +59 −39 ─────────┘
+app/models.py  12:5  [code]  REFUNDED → OrderStatus.REFUNDED (via OrderStatus)
+cursor (x,y,shown) 37,11,1
