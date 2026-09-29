@@ -206,6 +206,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in C++ reads a raw string, `R"( … )"`, `R"sql( … )sql"` or `u8R"( … )"`, as a string: a
   declaration-shaped line inside one, such as a banner holding `struct Basket {`, is no longer
   offered beside the real declaration. (#465)
+- A file that will not open is named in the status bar as an open file is, from the project root,
+  with the reason in a few words: `src/locked.txt: permission denied`. It was the absolute path
+  and the OS text, `Permission denied (os error 13)`, and the path could push the reason off the
+  line; a path still too long for the pane is cut from the left. (#403)
 
 ## [0.7.0] - 2026-09-25
 

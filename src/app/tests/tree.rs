@@ -198,7 +198,7 @@ fn ctrl_n_on_a_fifo_does_not_read_it() {
         std::fs::remove_dir_all(&dir).unwrap();
     });
     let (message, open) = rx.recv_timeout(std::time::Duration::from_secs(60)).unwrap();
-    assert!(message.ends_with("/pipe: not a regular file"), "{message}");
+    assert_eq!(message, "pipe: not a regular file");
     assert!(open.is_some_and(|p| p.ends_with("src/a.py")));
 }
 

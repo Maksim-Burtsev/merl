@@ -95,7 +95,9 @@ impl Buffer {
         // reached (#405). A directory fails the read on its own.
         let meta = std::fs::metadata(path).with_context(|| format!("{}", path.display()))?;
         if !meta.is_file() && !meta.is_dir() {
-            anyhow::bail!("{}: not a regular file", path.display());
+            // The reason apart from the path, for the status bar to name the file its own way.
+            return Err(anyhow::anyhow!("not a regular file"))
+                .with_context(|| format!("{}", path.display()));
         }
         let bytes = std::fs::read(path).with_context(|| format!("{}", path.display()))?;
         Ok(Self::from_bytes(path.to_path_buf(), &bytes))
