@@ -195,6 +195,11 @@ pub struct Theme {
     /// The text of a changed word, which GitHub draws in the plain text colour: `fg`, pushed
     /// toward white on a dark theme or black on a light one until it reads on every word tint.
     pub word_fg: Color,
+    /// A hidden char's tag (#401): a warning's amber, GitHub's attention colour over this
+    /// background, which no diff tint uses, so a tag on an added row never reads as deleted
+    /// text; and its text, as `word_fg` is found for the diff's words.
+    pub tag_bg: Color,
+    pub tag_fg: Color,
     /// The background is lighter than the text: what picks GitHub's light colours over its dark
     /// ones, for the review's diff and the Markdown preview's alerts.
     pub light: bool,
@@ -300,6 +305,13 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         .map(|percent| blend(toward, fg, percent))
         .find(|&c| words.iter().all(|&w| contrast(c, w) >= WORD_CONTRAST))
         .unwrap_or(rgb(toward));
+    // Primer's attention yellow, at the strength of a changed word.
+    let tag_bg = blend(hue(0xd2, 0x99, 0x22), bg, if light { 45 } else { 40 });
+    let tag_fg = (0..=100)
+        .step_by(10)
+        .map(|percent| blend(toward, fg, percent))
+        .find(|&c| contrast(c, tag_bg) >= WORD_CONTRAST)
+        .unwrap_or(rgb(toward));
     // The selection is drawn over the cursor line (#62) and, in a review, over added and
     // deleted rows (#439), so a theme whose own selection colour sits within a few points of one
     // of them gets one blended further from the background instead.
@@ -336,6 +348,8 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         add_word_bg: words[1],
         add_word_bg_hl: words[2],
         word_fg,
+        tag_bg,
+        tag_fg,
         accent: rgb(accent_color(&syntect).unwrap_or(fg)),
         light,
         syntect,
@@ -838,6 +852,33 @@ mod tests {
                     t.selection
                 );
             }
+        }
+    }
+
+    /// A hidden char's tag stands off every row it can sit on and off the red of a deleted
+    /// word, and its text reads (#401).
+    #[test]
+    fn a_tag_reads_on_every_row_in_every_theme() {
+        for name in names() {
+            let t = load(name).unwrap();
+            for under in [
+                t.bg,
+                t.line_hl,
+                t.selection,
+                t.add_bg,
+                t.add_bg_hl,
+                t.del_bg,
+                t.add_word_bg,
+                t.del_word_bg,
+            ] {
+                assert!(
+                    apart(t.tag_bg, under),
+                    "{name}: tag {:?} on {under:?}",
+                    t.tag_bg
+                );
+            }
+            let c = contrast(t.tag_fg, t.tag_bg);
+            assert!(c >= WORD_CONTRAST, "{name}: tag text at {c:.2}");
         }
     }
 

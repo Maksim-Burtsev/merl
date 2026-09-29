@@ -16,6 +16,7 @@ use crate::theme::Theme;
 use crate::wrap;
 
 use super::code::digits;
+use super::tagged;
 
 pub(super) fn draw_preview(
     frame: &mut Frame,
@@ -85,7 +86,12 @@ pub(super) fn draw_preview(
             _ => Vec::new(),
         };
         let mut spans = vec![Span::styled(" ".repeat(gutter_w), g)];
-        spans.extend(layered(&row.text, &[&looks, &syntax], t));
+        spans.extend(layered(
+            &row.text,
+            &[&looks, &syntax],
+            t,
+            Style::new().bg(theme.tag_bg).fg(theme.tag_fg),
+        ));
         // A code block's tint and the cursor row reach the right edge.
         let fill = match (bg, row.kind) {
             (Some(_), _) => Some(t),
@@ -101,23 +107,29 @@ pub(super) fn draw_preview(
     frame.render_widget(Paragraph::new(lines).style(base), area);
 }
 
-/// `text` in spans, each byte in `base` patched with the style every layer gives it, in order.
-fn layered<'a>(text: &'a str, layers: &[&[(Style, Range<usize>)]], base: Style) -> Vec<Span<'a>> {
+/// `text` in spans, each byte in `base` patched with the style every layer gives it, in order;
+/// a hidden char is its tag, in `tag`.
+fn layered<'a>(
+    text: &'a str,
+    layers: &[&[(Style, Range<usize>)]],
+    base: Style,
+    tag: Style,
+) -> Vec<Span<'a>> {
     let mut cuts = vec![0, text.len()];
     for layer in layers {
         cuts.extend(layer.iter().flat_map(|(_, r)| [r.start, r.end]));
     }
     cuts.sort_unstable();
     cuts.dedup();
-    cuts.windows(2)
-        .map(|w| {
-            let style = layers.iter().fold(base, |st, layer| {
-                match layer.iter().find(|(_, r)| r.start <= w[0] && w[1] <= r.end) {
-                    Some((s, _)) => st.patch(*s),
-                    None => st,
-                }
-            });
-            Span::styled(&text[w[0]..w[1]], style)
-        })
-        .collect()
+    let mut out = Vec::new();
+    for w in cuts.windows(2) {
+        let style = layers.iter().fold(base, |st, layer| {
+            match layer.iter().find(|(_, r)| r.start <= w[0] && w[1] <= r.end) {
+                Some((s, _)) => st.patch(*s),
+                None => st,
+            }
+        });
+        tagged(&mut out, &text[w[0]..w[1]], style, tag);
+    }
+    out
 }
