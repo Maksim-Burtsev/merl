@@ -1,5 +1,4 @@
 wait binary file
-1 binary file
 
 
 
@@ -21,6 +20,7 @@ wait binary file
 
 
 
+                                                                                 binary file, not shown
 
 
 
@@ -54,4 +54,4 @@ wait binary file
 
 
 docs/architecture.png  1:1  [code]  read-only                                                                                                                                     ? help
-cursor (x,y,shown) 2,0,1
+cursor (x,y,shown) 45,54,0
