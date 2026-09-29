@@ -70,19 +70,99 @@ const COMPILER_ATTRIBUTES: &[&str] = &[
 /// (`#[…]` or `#![…]` opened before it and not closed, on its line or on a line above for one
 /// rustfmt wrapped) or inside a `cfg!(…)`, and what it names there. `None` elsewhere, and for a
 /// word in an attribute's value (`#[arg(value_parser = parse)]`), which is an expression like any
-/// other.
+/// other, or in an attribute macro's nested argument list, which may name a project type.
 pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -> Option<RustAttr> {
-    struct Frame {
-        /// `#[`, `[`, `(` or `{`.
-        open: u8,
-        attr: bool,
-        /// The name in front of a `(`, with its `!`.
-        name: String,
-        /// An `=` since the last `,` of this frame: a value.
-        value: bool,
-        /// Where the frame's content starts in `text`.
-        at: usize,
+    let cur = lines.get(line)?;
+    let (text, stack, _) = frames(lines, line, start)?;
+    let pathed = cur[end..].trim_start().starts_with("::");
+    if stack.iter().any(|f| f.name == "cfg!") {
+        return Some(RustAttr::Nothing);
     }
+    let a = stack.iter().rposition(|f| f.attr)?;
+    let inner = &stack[a + 1..];
+    if stack[a..].iter().any(|f| f.value) {
+        return None;
+    }
+    if inner
+        .last()
+        .is_some_and(|f| f.open == b'(' && f.name == "derive")
+    {
+        return Some(if pathed {
+            RustAttr::Nothing
+        } else {
+            RustAttr::Derive
+        });
+    }
+    // In a nested argument list a word is nothing only where the compiler reads it (`cfg`,
+    // `allow`, …) or where it is a key (`rename_all = …`). An attribute macro may take a project
+    // type there, `#[diesel(belongs_to(User))]`, `#[enum_dispatch(Shape)]`: the lookup that
+    // follows answers it, as before #370.
+    if !inner.is_empty() {
+        let after = cur[end..].trim_start();
+        let key = after.starts_with('=') && !after[1..].starts_with(['=', '>']);
+        return (key || compiler(&text, &stack[a..])).then_some(RustAttr::Nothing);
+    }
+    // The attribute's own name: nothing but a path stands between the `#[` and the word.
+    static PATH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*(\w+\s*::\s*)*$").unwrap());
+    let head = &text[stack[a].at..];
+    let word = &cur[start..end];
+    let own = PATH.is_match(head) && !pathed;
+    let compiler = head.trim().is_empty() && COMPILER_ATTRIBUTES.contains(&word);
+    Some(if own && !compiler {
+        RustAttr::Macro
+    } else {
+        RustAttr::Nothing
+    })
+}
+/// Whether the word at byte `start` of 0-based `line` of `lines` stands in a string an attribute
+/// takes as a value, `#[serde(default = "default_port")]`, that holds a path: serde's `default`,
+/// `with`, `serialize_with` and `skip_serializing_if` name code so. Not in a compiler attribute's
+/// (`#[doc = "…"]`), nor in a string of prose (#346).
+pub fn rust_attribute_path(lines: &[String], line: usize, start: usize) -> bool {
+    static PATH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\w+(?:::\w+)*$").unwrap());
+    let Some((text, stack, in_string)) = frames(lines, line, start) else {
+        return false;
+    };
+    let Some(a) = stack.iter().rposition(|f| f.attr) else {
+        return false;
+    };
+    let cur = &lines[line];
+    let content = cur[..start].rfind('"').and_then(|open| {
+        let close = cur[start..].find('"')?;
+        Some(&cur[open + 1..start + close])
+    });
+    in_string
+        && stack.last().is_some_and(|f| f.value)
+        && !compiler(&text, &stack[a..])
+        && content.is_some_and(|c| PATH.is_match(c))
+}
+/// Whether the attribute of `stack` (its `#[` frame first) is one the compiler reads: its own
+/// name, or the name of an argument list in it, `cfg_attr(test, allow(…))`.
+fn compiler(text: &str, stack: &[Frame]) -> bool {
+    let head = text[stack[0].at..].trim_start();
+    let name = &head[..head
+        .find(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .unwrap_or(head.len())];
+    COMPILER_ATTRIBUTES.contains(&name)
+        || stack[1..]
+            .iter()
+            .any(|f| COMPILER_ATTRIBUTES.contains(&f.name.as_str()))
+}
+struct Frame {
+    /// `#[`, `[`, `(` or `{`.
+    open: u8,
+    attr: bool,
+    /// The name in front of a `(`, with its `!`.
+    name: String,
+    /// An `=` since the last `,` of this frame: a value.
+    value: bool,
+    /// Where the frame's content starts in the text [`frames`] reads.
+    at: usize,
+}
+/// The brackets open before byte `start` of 0-based `line` of `lines`, read from the attribute a
+/// line above opens when rustfmt wrapped one; with the text read and whether `start` stands in a
+/// `"…"` string.
+fn frames(lines: &[String], line: usize, start: usize) -> Option<(String, Vec<Frame>, bool)> {
     let cur = lines.get(line)?;
     // An attribute rustfmt wrapped starts on a line of its own, and the lines between it and
     // the cursor end in what opens or goes on with a list, or are comments. Any other line above
@@ -104,6 +184,7 @@ pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -
     text.push_str(&cur[..start]);
     let b = text.as_bytes();
     let mut stack: Vec<Frame> = Vec::new();
+    let mut in_string = false;
     let mut i = 0;
     while i < b.len() {
         let c = b[i];
@@ -113,6 +194,7 @@ pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -
                 while i < b.len() && b[i] != b'"' {
                     i += if b[i] == b'\\' { 2 } else { 1 };
                 }
+                in_string = i >= b.len();
             }
             // A char literal, `'"'` or `'\''`, opens nothing; a lifetime is no literal.
             b'\'' if b.get(i + 2) == Some(&b'\'') => i += 2,
@@ -176,39 +258,7 @@ pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -
         }
         i += 1;
     }
-    let pathed = cur[end..].trim_start().starts_with("::");
-    if stack.iter().any(|f| f.name == "cfg!") {
-        return Some(RustAttr::Nothing);
-    }
-    let a = stack.iter().rposition(|f| f.attr)?;
-    let inner = &stack[a + 1..];
-    if stack[a..].iter().any(|f| f.value) {
-        return None;
-    }
-    if inner
-        .last()
-        .is_some_and(|f| f.open == b'(' && f.name == "derive")
-    {
-        return Some(if pathed {
-            RustAttr::Nothing
-        } else {
-            RustAttr::Derive
-        });
-    }
-    if !inner.is_empty() {
-        return Some(RustAttr::Nothing);
-    }
-    // The attribute's own name: nothing but a path stands between the `#[` and the word.
-    static PATH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*(\w+\s*::\s*)*$").unwrap());
-    let head = &text[stack[a].at..];
-    let word = &cur[start..end];
-    let own = PATH.is_match(head) && !pathed;
-    let compiler = head.trim().is_empty() && COMPILER_ATTRIBUTES.contains(&word);
-    Some(if own && !compiler {
-        RustAttr::Macro
-    } else {
-        RustAttr::Nothing
-    })
+    Some((text, stack, in_string))
 }
 /// The lines `d` greps outside the project for the macro a word of an attribute names: a
 /// `pub macro W` (the standard library declares every built-in derive and attribute so), and a
