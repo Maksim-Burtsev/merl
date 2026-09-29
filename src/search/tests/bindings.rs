@@ -318,3 +318,73 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
     assert_eq!(at(18, "repo"), [(17, ty("*UserRepository"))]);
     assert_eq!(at(21, "other"), [(20, Value::Unknown)]);
 }
+
+#[test]
+fn java_and_kotlin_bind_locals_parameters_and_loop_variables_in_their_block() {
+    let java = "class A {
+    int size;
+
+    int f(List<String> names,
+            Map<String, Integer> counts) {
+        int total = 0;
+        for (String name : names) {
+            try (Reader in = open(name)) {
+                total += in.read();
+            } catch (IOException e) {
+                log(e);
+            }
+            if (name instanceof String s) {
+                use(s, counts, size);
+            }
+        }
+        names.forEach((a, b) -> use(a));
+        return total;
+    }
+}
+";
+    let lines = |name: &str, at: usize| -> Vec<usize> {
+        bindings(Kind::Jvm, java, at, name)
+            .iter()
+            .map(|b| b.line)
+            .collect()
+    };
+    assert_eq!(lines("total", 9), [6], "a local of the block around");
+    assert_eq!(lines("name", 9), [7], "a loop variable");
+    assert_eq!(lines("in", 9), [8], "a resource");
+    assert_eq!(lines("e", 11), [10], "a catch parameter");
+    assert_eq!(lines("s", 14), [13], "an instanceof pattern");
+    assert_eq!(lines("counts", 14), [5], "a parameter on a wrapped header");
+    assert_eq!(lines("a", 17), [17], "a lambda's parameter");
+    assert!(lines("size", 14).is_empty(), "a field is no local");
+    assert!(lines("e", 18).is_empty(), "a block that closed is no scope");
+    assert!(lines("name", 18).is_empty(), "nor is a loop's");
+
+    let kotlin = "class B(val seed: Int) {
+    fun g(
+        items: List<Pair<Int, Int>>,
+    ): Int {
+        for ((left, right) in items) {
+            print(left)
+        }
+        val (x, y) = items.first()
+        return items.sumOf { (p, q) -> p + x }
+    }
+}
+";
+    let lines = |name: &str, at: usize| -> Vec<usize> {
+        bindings(Kind::Jvm, kotlin, at, name)
+            .iter()
+            .map(|b| b.line)
+            .collect()
+    };
+    assert_eq!(lines("right", 6), [5], "a destructured loop variable");
+    assert_eq!(
+        lines("items", 6),
+        [3],
+        "a parameter of a header its tail closes"
+    );
+    assert_eq!(lines("x", 9), [8], "a destructured local");
+    assert_eq!(lines("p", 9), [9], "a destructured lambda parameter");
+    assert!(lines("seed", 9).is_empty(), "a property is no local");
+    assert!(lines("left", 9).is_empty());
+}

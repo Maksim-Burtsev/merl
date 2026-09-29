@@ -293,7 +293,11 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(
                     r"{mods}fun\s+(?:<[^>]*>\s*)?(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?{w}\s*\("
                 ),
-                format!(r"{mods}(?:val|var)\s+{w}\b"),
+                // A property, with an extension's receiver in front of its name: the receiver
+                // itself, `Topic` in `val Topic.testTag`, is no declaration (#362).
+                format!(
+                    r"{mods}(?:val|var)\s+(?:<[^>]*>\s*)?(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?{w}(?:[^\w.]|$)"
+                ),
                 // Java: a constructor, behind at least one modifier. With nothing in front,
                 // `Card(title) {` is a Kotlin call with a trailing lambda and `new Runnable() {`
                 // an anonymous class, so a bare name before `(` is never a declaration here; a

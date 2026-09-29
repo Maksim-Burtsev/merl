@@ -82,6 +82,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
+  parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
+  said `no definition` or offered namesakes from other files: `directionParams →
+  SortUtils.resolve.directionParams (local)`. A name the method's class declares, a field or a
+  method, the members of its `companion object` and the properties of its primary constructor
+  included, answers `via` the class, `scheduler → Use.scheduler (via Use)`, and one the class it
+  extends declares, `via` that class, before the declarations of the name in the rest of the
+  project. Kotlin's `it` and the implicit receivers of `with` and `apply` are not read. (#376)
 - `merl -r BRANCH` reviews a branch another worktree has checked out, an agent's say, in that
   worktree, as `merl -r` started there would: nothing is fetched, switched or reset there, and its
   work not committed yet is part of the review. Before, merl exited with git's `already used by
@@ -204,6 +212,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   list, flow or block form, and says `no definition` in a file without one. It jumped to the job
   named after the stage, `build:` for `stage: build`, which is how most pipelines name them.
   (#473)
+- `d` in Java and Kotlin no longer lands on a local of another function or a `private`
+  declaration of another file: `Modifier.height` jumped to a `val height` inside some function
+  elsewhere, and `isBlank(s)` to a `private static` method of another class. A local answers
+  only below it in its own block, never behind a `.` or a `::`, and a `private` declaration only
+  in its own file; when one declaration is left that way, it is offered in the list rather than
+  jumped to, since it was still found by name only. (#357)
+- `d` in Java and Kotlin reads `Type::method` as `Type.method`: `Inner::getName` jumps to the
+  `getName` of `Inner`, and `this::show` or `this.show` to the `show` of the class around the
+  cursor, where they listed every method of that name in the project. A Kotlin extension is
+  named by its receiver, so `Topic::asExternalModel` jumps to `fun Topic.asExternalModel()`
+  among the extensions of other types, and `val Topic.testTag` declares `testTag`, no longer a
+  second `Topic`. (#362)
 - `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
   in the project, the standard library and the dependencies the cursor can reach, the traits'
   first, where it jumped to a lone project namesake: `v.unwrap()` on an `Option` landed on a

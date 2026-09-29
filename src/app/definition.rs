@@ -96,8 +96,12 @@ impl App {
         };
         // Go's blank identifier names nothing: every `_` is a fresh discard (#476). Nor has a
         // GraphQL operation's `$variable` a rule: it is a parameter, and `$id` is no field `id`.
+        // A Java or Kotlin class literal, `Foo::class`, names no member `class` (#362).
         if (kind == Kind::Go && word == "_")
             || (kind == Kind::Graphql && self.line_str()[..range.start].ends_with('$'))
+            || (kind == Kind::Jvm
+                && word == "class"
+                && self.line_str()[..range.start].ends_with("::"))
         {
             self.message = resolution(&word, None, &[], None, false);
             return;
@@ -260,14 +264,23 @@ impl App {
         }
         // The word itself is that parameter or local: its declarations in this scope are the
         // answer, and a function of the same name elsewhere is not.
-        // In C a function on one line holds its parameter and its uses (#378).
+        // In C a function on one line holds its parameter and its uses (#378). A Java or Kotlin
+        // name bound earlier on the cursor's own line, `fun f(x: Int) = x`, is bound there
+        // (#376); behind a `::` the word is a member, whatever the qualifier is.
         let on_itself = match kind {
             Kind::C => search::c_bindings_at(&text, self.line + 1, first)
                 .iter()
                 .all(|&(l, c)| l == self.line + 1 && c == range.start),
             _ => locals == [self.line + 1],
         };
-        if !dotted && !locals.is_empty() && !on_itself {
+        let same_line = kind == Kind::Jvm
+            && locals == [self.line + 1]
+            && whole_at(self.line_str(), &word, "").is_some_and(|at| at < range.start);
+        if !dotted
+            && !before.ends_with("::")
+            && !locals.is_empty()
+            && (!on_itself || same_line)
+        {
             let found = locals
                 .iter()
                 .map(|&line| Candidate {
@@ -297,6 +310,24 @@ impl App {
                 return;
             }
         }
+        // A bare Java or Kotlin name no local binds: a member of the classes around the cursor,
+        // innermost first, then of the class the innermost one extends (#376). Behind `new` it
+        // is a constructor, which a nested class's line is not.
+        let constructed = before
+            .trim_end()
+            .strip_suffix("new")
+            .is_some_and(|b| !b.ends_with(is_word));
+        if kind == Kind::Jvm
+            && !constructed
+            && chain.is_empty()
+            && !dotted
+            && !before.ends_with("::")
+            && locals.is_empty()
+            && let Some(found) = self.jvm_members(&here, &text, &word)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // A Go package qualifier, `db` in `db.Get`, is declared by the import line of this file
         // (#100), unless a local hides it (taken out above, or one the walk may have missed:
         // the function mentions the name other than as a qualifier) or the package declares the
@@ -323,7 +354,14 @@ impl App {
             return;
         }
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
-        let on_value = dotted && !own && chain.first().is_none_or(|f| bound(&imports, f).is_none());
+        // Java and Kotlin's `Type::m` names a member of `Type` as `Type.m` does (#362). `super::m`
+        // stays the search by name, and a bare `::m` has no chain.
+        let referenced = kind == Kind::Jvm
+            && before.ends_with("::")
+            && chain.first().is_some_and(|f| f != "super");
+        let on_value = (dotted || referenced)
+            && !own
+            && chain.first().is_none_or(|f| bound(&imports, f).is_none());
         let members = on_value
             .then(|| search::member_patterns(kind, &word))
             .flatten()
@@ -544,6 +582,37 @@ impl App {
         };
         if kind == Kind::Python && locals.is_empty() && !chain.is_empty() && !nested(self) {
             let found = self.class_attribute(kind, &here, &chain, &word);
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
+        // `this.m` and `this::m` in Java and Kotlin: `m` of the class around the cursor, which
+        // this file declares (#362). Nothing of it declares `m`: the search by name, as before.
+        if kind == Kind::Jvm
+            && own
+            && (dotted || before.ends_with("::"))
+            && let Some(owner) = search::jvm_this_owner(&text, self.line + 1)
+        {
+            let full = format!("{owner}.{word}");
+            let re = Regex::new(&pattern).expect("an escaped name keeps the pattern valid");
+            let found: Vec<Candidate> = text
+                .lines()
+                .enumerate()
+                .filter(|&(i, l)| {
+                    re.is_match(l)
+                        && search::qualified(kind, &text, i + 1, &word).as_ref() == Some(&full)
+                })
+                .map(|(i, l)| Candidate {
+                    hit: Hit {
+                        path: here.clone(),
+                        line: i + 1,
+                        col: 0,
+                        text: l.to_owned(),
+                    },
+                    reason: Reason::Path("this".to_owned()),
+                })
+                .collect();
             if !found.is_empty() {
                 self.show_definitions(kind, &word, &here, found, None);
                 return;
@@ -868,6 +937,10 @@ impl App {
             });
             self.offer_only |= hits.len() < all && hits.iter().any(|h| !at(h));
         }
+        let hits = match kind {
+            Kind::Jvm => self.jvm_seen(&here, hits, dotted || before.ends_with("::")),
+            _ => hits,
+        };
         // A C or C++ type is its body, not its forward declarations and constructors (#368).
         // Behind `.` or `->` no type is meant. Then what the file on screen can see (#364): not
         // another source file's statics and macros, not a `#define` that only stands in where
@@ -1284,6 +1357,114 @@ impl App {
             return None;
         }
         Some(self.outside_module(file))
+    }
+
+    /// Of the Java or Kotlin declarations `hits` found by name, what the cursor can see (#357): a
+    /// local only in its own block, below it, and never `behind` a `.` or a `::`; a `private`
+    /// declaration only in its own file. When that drops some and leaves one that is no local
+    /// in sight, it is still found by name only, and offered rather than jumped to.
+    fn jvm_seen(&mut self, here: &Path, hits: Vec<Hit>, behind: bool) -> Vec<Hit> {
+        let all = hits.len();
+        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
+        let mut seen_local = false;
+        let kept: Vec<Hit> = hits
+            .into_iter()
+            .filter(|h| {
+                if h.path != here && search::jvm_private(&h.text) {
+                    return false;
+                }
+                // A declaration in column 0 is top-level, never a local.
+                if !h.text.starts_with([' ', '\t']) {
+                    return true;
+                }
+                let text = texts
+                    .entry(h.path.clone())
+                    .or_insert_with(|| self.text_of(&h.path));
+                match text
+                    .as_deref()
+                    .and_then(|t| search::jvm_local_block(t, h.line))
+                {
+                    None => true,
+                    Some(end) => {
+                        let seen =
+                            !behind && h.path == here && (h.line..=end).contains(&(self.line + 1));
+                        seen_local |= seen;
+                        seen
+                    }
+                }
+            })
+            .collect();
+        self.offer_only |= kept.len() == 1 && kept.len() < all && !seen_local;
+        kept
+    }
+
+    /// What a bare `word` names among the members of the Java or Kotlin classes around the
+    /// cursor (#376): what the innermost class that declares it declares, `via` its name (an
+    /// anonymous class's members are `local`), else what the class the innermost one extends
+    /// declares, when the project declares that class once. `None` when neither does, or when the
+    /// cursor stands on the member itself, whose namesakes and implementations are asked for.
+    fn jvm_members(&self, here: &Path, text: &str, word: &str) -> Option<Vec<Candidate>> {
+        let lines: Vec<&str> = text.lines().collect();
+        let candidate = |path: &Path, lines: &[&str], line: usize, reason: Reason| Candidate {
+            hit: Hit {
+                path: path.to_path_buf(),
+                line,
+                col: 0,
+                text: lines[line - 1].to_owned(),
+            },
+            reason,
+        };
+        let types = search::jvm_enclosing_types(text, self.line + 1);
+        let mut found: Vec<Candidate> = Vec::new();
+        for &decl in &types {
+            let reason = match search::jvm_type_name(lines[decl - 1]) {
+                Some(name) => Reason::Path(name),
+                None => Reason::Local,
+            };
+            found = search::jvm_members_of(text, decl, word)
+                .into_iter()
+                .map(|line| candidate(here, &lines, line, reason.clone()))
+                .collect();
+            if !found.is_empty() {
+                break;
+            }
+        }
+        // One level up: the class the innermost named one extends, declared once.
+        let inner = types
+            .iter()
+            .find(|&&d| search::jvm_type_name(lines[d - 1]).is_some());
+        if found.is_empty()
+            && let Some(&decl) = inner
+        {
+            for base in search::jvm_bases(text, decl) {
+                let pattern = search::def_patterns(Kind::Jvm, &base).join("|");
+                let cut = self.truncated.get();
+                let declared: Vec<Hit> = self
+                    .project_definitions(Kind::Jvm, here, &base, &pattern)
+                    .into_iter()
+                    .filter(|h| search::jvm_type_name(&h.text).as_deref() == Some(base.as_str()))
+                    .collect();
+                self.truncated.set(cut);
+                let [hit] = declared.as_slice() else {
+                    continue;
+                };
+                let Some(t) = self.text_of(&hit.path) else {
+                    continue;
+                };
+                let base_lines: Vec<&str> = t.lines().collect();
+                found.extend(
+                    search::jvm_members_of(&t, hit.line, word)
+                        .into_iter()
+                        .map(|line| {
+                            candidate(&hit.path, &base_lines, line, Reason::Path(base.clone()))
+                        }),
+                );
+            }
+        }
+        let on_it = found
+            .iter()
+            .any(|c| c.hit.path == here && c.hit.line == self.line + 1);
+        (!found.is_empty() && !on_it).then_some(found)
     }
 
     /// The first line of each of `files`, a module a name or a path leads to as a whole.

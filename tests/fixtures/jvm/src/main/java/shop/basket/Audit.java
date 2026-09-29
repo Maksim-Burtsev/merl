@@ -42,7 +42,7 @@ public class Audit {
     }
 
     Basket basket() {
-    // ^ d: picker src/main/java/shop/basket/Audit.java:13, src/main/java/shop/basket/Basket.java:15, src/main/java/shop/basket/Basket.java:25; want src/main/java/shop/basket/Basket.java:15 (#367)
+    // ^ d: picker src/main/java/shop/basket/Basket.java:15, src/main/java/shop/basket/Basket.java:25; want src/main/java/shop/basket/Basket.java:15 (#367)
         return null;
     }
 }
