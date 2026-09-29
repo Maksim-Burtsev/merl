@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
 use unicode_segmentation::UnicodeSegmentation;
@@ -146,23 +146,12 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             match app.review.as_ref().and_then(|r| r.file(&n.path)) {
                 // Review: `M name  +6 −2`, the status in place of the marker.
                 Some(f) => {
-                    // The letter in the colours of the gutter marks, so a file reads like its
-                    // lines; a rename or a copy is dim, as GitHub draws it grey. With
-                    // `review_panel_colours = false`, letter and counts take the row's style.
-                    let (letter, dim) = match app.review_panel_colours {
-                        true => {
-                            let colour = match f.status {
-                                'A' => Color::Green,
-                                'M' => Color::Blue,
-                                'D' => Color::Red,
-                                _ => theme.ghost_fg,
-                            };
-                            (
-                                style.fg(colour).add_modifier(Modifier::BOLD),
-                                style.fg(theme.ghost_fg),
-                            )
-                        }
-                        false => (style, style),
+                    // The letter takes the row's style: coloured by the terminal's palette or by the
+                    // theme's, it read differently on every theme, and on some it clashed (#450).
+                    // The counts are dim unless `review_panel_colours = false`.
+                    let dim = match app.review_panel_colours {
+                        true => style.fg(theme.ghost_fg),
+                        false => style,
                     };
                     let counts = if f.binary {
                         "bin".to_string()
@@ -181,7 +170,7 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                     let gap =
                         width.saturating_sub(used + wrap::width(&name) + wrap::width(&counts));
                     spans.extend([
-                        Span::styled(f.status.to_string(), letter),
+                        Span::styled(f.status.to_string(), style),
                         Span::styled(format!(" {name}{}", " ".repeat(gap)), style),
                         // Dim, in the readable grey (#146): the name reads first, the numbers
                         // are there when looked for.

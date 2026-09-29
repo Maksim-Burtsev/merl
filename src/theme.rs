@@ -312,12 +312,12 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         .map(|percent| blend(toward, fg, percent))
         .find(|&c| contrast(c, tag_bg) >= WORD_CONTRAST)
         .unwrap_or(rgb(toward));
-    // The selection is drawn over the cursor line (#62) and, in a review, over added rows, so a
-    // theme whose own selection colour sits within a few points of one of them gets one blended
-    // further from the background instead.
+    // The selection is drawn over the cursor line (#62) and, in a review, over added and
+    // deleted rows (#439), so a theme whose own selection colour sits within a few points of one
+    // of them gets one blended further from the background instead.
     let mut selection = s.selection.map_or_else(|| blend(fg, bg, 25), over_bg);
     for percent in [35, 45, 55, 65] {
-        if [line_hl, add_bg, add_bg_hl]
+        if [line_hl, add_bg, add_bg_hl, del_bg, del_bg_hl]
             .into_iter()
             .all(|c| apart(selection, c))
         {
@@ -462,7 +462,7 @@ pub struct Config {
     /// Edits are written this long after the last keystroke; VS Code's `files.autoSaveDelay`.
     #[serde(default = "default_autosave")]
     pub autosave_delay_ms: u64,
-    /// The review panel's coloured status letters, dim counts and branch totals (#250).
+    /// The review panel's dim counts and branch totals (#250).
     #[serde(default = "default_true")]
     pub review_panel_colours: bool,
 }
@@ -813,7 +813,7 @@ mod tests {
 
     /// Review's diff colours are derived, never set per theme, so this is what keeps them working
     /// on every palette: the rows stand off what is under them, the changed words off their row,
-    /// the words' text reads on them, and a selection on an added row still shows.
+    /// the words' text reads on them, and a selection on an added or a deleted row still shows.
     #[test]
     fn diff_colours_read_in_every_theme() {
         for name in names() {
@@ -831,7 +831,7 @@ mod tests {
                     "{name}: changed text at {c:.2} on {word:?}"
                 );
             }
-            for row in [t.add_bg, t.add_bg_hl] {
+            for row in [t.add_bg, t.add_bg_hl, t.del_bg, t.del_bg_hl] {
                 assert!(
                     apart(t.selection, row),
                     "{name}: selection {:?} on {row:?}",

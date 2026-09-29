@@ -161,7 +161,7 @@ impl App {
         // no stops and drops no forward history.
         let paging = matches!(key.code, KeyCode::PageUp | KeyCode::PageDown)
             || ctrl && matches!(key.code, KeyCode::Char('d' | 'u'));
-        let before = (self.line, self.col);
+        let before = (self.at(), self.col);
         self.action = (self.focus == Focus::Tree)
             .then(|| named("Tree: ", key))
             .flatten()
@@ -210,6 +210,10 @@ impl App {
             KeyCode::Char('u') if ctrl => self.half_page(-1),
             KeyCode::Char('{') => self.paragraph(-1),
             KeyCode::Char('}') => self.paragraph(1),
+            // `d` and `u` read the file's code; the lines a review deleted wait for #440.
+            KeyCode::Char('d' | 'u') | KeyCode::F(12) if self.deleted.is_some() => {
+                self.message = "deleted".into();
+            }
             KeyCode::Char('d') | KeyCode::F(12) if !shift => self.goto_definition(),
             KeyCode::Char('u') | KeyCode::F(12) => self.usages(),
             KeyCode::Char('D') => self.symbols(),
@@ -249,11 +253,13 @@ impl App {
             // A plain arrow on a selection collapses it to the matching end, VS Code style.
             KeyCode::Left | KeyCode::Right if !shift && !alt && self.selection().is_some() => {
                 let (start, end) = self.selection().unwrap();
-                (self.line, self.col) = self.clamp_pos(if key.code == KeyCode::Left {
+                let (t, col) = if key.code == KeyCode::Left {
                     start
                 } else {
                     end
-                });
+                };
+                self.set_at(t);
+                self.col = col;
                 self.sync_want_x();
                 self.anchor = None;
             }
@@ -266,12 +272,12 @@ impl App {
             KeyCode::PageUp => self.move_rows(-(self.page_rows(false) as isize)),
             KeyCode::PageDown => self.move_rows(self.page_rows(true) as isize),
             KeyCode::Home if ctrl => {
-                self.line = 0;
+                self.set_at(self.first_line());
                 self.col = 0;
                 self.want_x = 0;
             }
             KeyCode::End if ctrl => {
-                self.line = self.buf.lines.len() - 1;
+                self.set_at(self.last_line());
                 self.col = self.shown_len();
                 self.sync_want_x();
             }
