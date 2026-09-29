@@ -1,0 +1,57 @@
+wait (local)
+1 struct Stats {
+2     let attempt: Int
+3 }
+4
+5 func retry(times: Int) {
+6     for attempt in 0..<times {
+7         print(attempt)
+8     }
+9 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ios/Retry.swift  6:9  [code]  attempt → retry.attempt (local)
+cursor (x,y,shown) 10,5,1

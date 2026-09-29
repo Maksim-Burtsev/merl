@@ -196,6 +196,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `new self(name: …)` on the constructor's promoted `$name`, and a key of an object passed to a
   function, `<Tag size={2}>` or `const x: Opts = { weight: 1 }` on the key the parameter or the
   type declares. A callee with several declarations offers their parameters in a picker. (#316)
+- `d` in Swift on a parameter, a closure's parameter, a `let` or `var` of the function you are
+  in, or a name that `if let`, `guard let`, `while let`, `for`, `catch` or a `switch` case binds
+  lands on where it is bound, `(local)`, as in Python, TypeScript and Go; a bare `catch` lands on
+  its line for the implicit `error`. It searched the project by name: a picker of other types'
+  properties and other functions' locals, or with one namesake a wrong jump, as a loop's
+  `attempt` to a struct's property `attempt`. (#366)
 
 ### Fixed
 
@@ -484,6 +490,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   module-level `objects` of another package. The one method of a name found outside the project
   is offered rather than jumped to when a field of that name is declared outside too:
   `m.return_value` on a `mock.Mock` jumped to anyio's `TaskHandle.return_value`. (#342)
+- `d` in Swift on a type the project declares lands on its `class`, `struct` or `enum`, where it
+  listed every `extension` of it beside the type (a picker of 24 for Alamofire's `AFError`). A
+  type the project only extends, such as Foundation's `Data`, offers its extensions rather than
+  jumping into one as if it were the type. And a `let` or `var` inside a function is no longer a
+  candidate behind a `.` or in another function: `session.request` lands on the method, not in a
+  picker beside a test's `let request`. (#371)
 
 ## [0.7.0] - 2026-09-25
 

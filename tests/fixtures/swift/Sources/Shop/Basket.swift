@@ -11,7 +11,7 @@ extension Tariff {
 
 public struct Basket {
     let tariff: Tariff
-    //          ^ d: picker Sources/Shop/Basket.swift:5, Sources/Shop/Pricing.swift:8; want Sources/Shop/Pricing.swift:8 (#371)
+    //          ^ d: Sources/Shop/Pricing.swift:8
     let coupon: Coupon?
     //          ^ d: Sources/Shop/Pricing.swift:21
     var owner = ""
@@ -47,15 +47,15 @@ func describeAny(_ t: Tariff, _ c: Coupon) -> String {
 
 func restock(weigh: Int) -> Int {
     weigh + weightLimit
-    // ^ d: Sources/Warehouse/Warehouse.swift:8; want Sources/Shop/Basket.swift:48 (#366)
-    //         ^ d: picker Sources/Shop/Basket.swift:3, Sources/Shop/Basket.swift:55; want Sources/Shop/Basket.swift:3 (#371)
+    // ^ d: Sources/Shop/Basket.swift:48
+    //         ^ d: Sources/Shop/Basket.swift:3
 }
 
 func overweight(_ grams: Int) -> Bool {
     let weightLimit = 50
     return weigh(grams) > weightLimit
     //     ^ d: Sources/Warehouse/Warehouse.swift:8
-    //                    ^ d: picker Sources/Shop/Basket.swift:3, Sources/Shop/Basket.swift:55; want Sources/Shop/Basket.swift:55 (#366)
+    //                    ^ d: Sources/Shop/Basket.swift:55
 }
 
 func dispatch() -> String {
@@ -115,21 +115,21 @@ func entries(_ l: Ledger) async -> Int {
 func handle(_ o: Offer?, items: [Int]) {
     if let o {
         print(o)
-        //    ^ d: none; want Sources/Shop/Basket.swift:115 (#366)
+        //    ^ d: Sources/Shop/Basket.swift:115
     }
     for item in items {
         print(item)
-        //    ^ d: none; want Sources/Shop/Basket.swift:120 (#366)
+        //    ^ d: Sources/Shop/Basket.swift:120
     }
     items.forEach { entry in
         print(entry)
-        //    ^ d: none; want Sources/Shop/Basket.swift:124 (#366)
+        //    ^ d: Sources/Shop/Basket.swift:124
     }
     do {
         try check()
     } catch {
         print(error)
-        //    ^ d: none
+        //    ^ d: Sources/Shop/Basket.swift:130
     }
 }
 
@@ -150,7 +150,7 @@ func cheapest<Item: Priced>(_ items: [Item]) -> Item? {
 }
 
 let label: String = "shop"
-//         ^ d: Sources/Warehouse/Warehouse.swift:18; want none (#371)
+//         ^ d: picker Sources/Warehouse/Warehouse.swift:18
 
 func sealed(_ p: Parcel) -> Parcel.Seal {
     //                             ^ d: Sources/Shop/Pricing.swift:82
@@ -171,7 +171,7 @@ func items() -> Int {
 
 func renamed(_ courier: Courier) -> Courier {
     let courier = Courier(name: courier.name)
-    //                          ^ d: picker Sources/Shop/Basket.swift:62; want Sources/Shop/Basket.swift:172 (#317)
+    //                          ^ d: Sources/Shop/Basket.swift:172
     return courier
 }
 
