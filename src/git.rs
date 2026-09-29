@@ -528,9 +528,24 @@ fn checkout(
     b: &str,
     base: &str,
 ) -> Result<Option<String>> {
+    // `origin/feat`, copied from `git branch -a` or a merge request, is `feat` as it was pushed
+    // (#271), which origin must then have; a local branch literally named so is that branch, as
+    // `git switch` takes it. Other remotes stay local names: the fetch and the base are origin's.
+    let pushed = b
+        .strip_prefix("origin/")
+        .filter(|_| git(&["rev-parse", "--verify", "-q", &format!("refs/heads/{b}")]).is_err());
+    let b = pushed.unwrap_or(b);
     let mut fetch = vec!["fetch", "-q", "origin", b];
     fetch.extend(base.strip_prefix("origin/"));
     let fetched = git(&fetch).is_ok();
+    // A failed fetch is origin offline, or origin without the branch: `ls-remote` answers only
+    // when origin is reachable, and then with nothing.
+    if !fetched
+        && pushed.is_some()
+        && git(&["ls-remote", "origin", &format!("refs/heads/{b}")]).is_ok_and(|o| o.is_empty())
+    {
+        bail!("no branch {b} on origin");
+    }
     git(&["switch", "-q", b]).with_context(|| format!("switching to {b}"))?;
     let remote = format!("origin/{b}");
     if !fetched {
@@ -1133,6 +1148,67 @@ mod tests {
         std::fs::remove_dir_all(&remote).unwrap();
         let r = open();
         assert_eq!(names(&r), ["three", "two"]);
+        assert_eq!(r.note.as_deref(), Some("origin/feat not fetched"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// #271: `-r origin/feat` is `-r feat` that origin must have.
+    #[test]
+    fn a_review_of_origin_slash_branch_reads_the_pushed_branch() {
+        let dir = std::env::temp_dir().join(format!("merl-origin-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let git = |at: &str, args: &[&str]| {
+            let out = Command::new("git")
+                .current_dir(dir.join(at))
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "git {args:?}");
+            String::from_utf8(out.stdout).unwrap()
+        };
+        let commit = |at: &str, file: &str| {
+            std::fs::write(dir.join(at).join(file), format!("{file}\n")).unwrap();
+            git(at, &["add", "."]);
+            git(at, &["commit", "-q", "-m", file]);
+        };
+        let b = dir.join("b");
+        let open = |branch: &str| Review::open(&b, Some(branch), None);
+        let error = |branch: &str| format!("{:#}", open(branch).unwrap_err());
+        git("", &["init", "-q", "--bare", "-b", "main", "remote.git"]);
+        git("", &["clone", "-q", "remote.git", "a"]);
+        git("a", &["switch", "-q", "-c", "main"]);
+        commit("a", "README");
+        git("a", &["push", "-q", "origin", "main"]);
+        git("", &["clone", "-q", "remote.git", "b"]);
+        git("a", &["switch", "-q", "-c", "feat"]);
+        commit("a", "one");
+        git("a", &["push", "-q", "origin", "feat"]);
+
+        // Fetched, and the local `feat` made from it, as `-r feat` does.
+        let r = open("origin/feat").unwrap();
+        assert_eq!((r.branch.as_str(), r.note), ("feat", None));
+        assert_eq!(r.files[0].path, Path::new("one"));
+        git("b", &["switch", "-q", "main"]);
+
+        // Not on origin: an error, though a local branch of that name exists.
+        git("b", &["branch", "mine"]);
+        assert_eq!(error("origin/mine"), "no branch mine on origin");
+        // Another remote's prefix is part of a local name, as before.
+        assert!(error("upstream/feat").starts_with("switching to upstream/feat"));
+
+        // A local branch literally named `origin/lit` is that branch.
+        git("b", &["switch", "-q", "-c", "origin/lit"]);
+        commit("b", "lit");
+        git("b", &["switch", "-q", "main"]);
+        assert_eq!(open("origin/lit").unwrap().branch, "origin/lit");
+        git("b", &["switch", "-q", "main"]);
+
+        // Origin unreachable: the local branch, and the review says it was not fetched.
+        std::fs::remove_dir_all(dir.join("remote.git")).unwrap();
+        let r = open("origin/feat").unwrap();
+        assert_eq!(r.branch, "feat");
         assert_eq!(r.note.as_deref(), Some("origin/feat not fetched"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
