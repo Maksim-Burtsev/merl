@@ -25,7 +25,7 @@ class Basket:
         return discount(self.tariff.rate())
         #      ^ d: shop/pricing.py:28
         #                    ^ d: shop/basket.py:20
-        #                           ^ d: picker shop/pricing.py:13, shop/pricing.py:21; want shop/pricing.py:13 (#453)
+        #                           ^ d: shop/pricing.py:13
 
     def bonus(self) -> int:
         return self.coupon.rate() + self.gross()

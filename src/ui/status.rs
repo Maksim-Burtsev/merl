@@ -68,11 +68,15 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
             format!(
                 "{}  {}[{pane}]{}{}{}{}",
                 if app.dirty { " \u{25cf}" } else { "" },
-                // With no file open there is no cursor to place (#285).
-                if app.buf.path.is_some() {
-                    format!("{}:{}  ", app.line + 1, app.display_col())
-                } else {
-                    String::new()
+                // With no file open there is no cursor to place (#285). On a line the branch
+                // deleted, its number in the file at the base, negative (#439).
+                match app.deleted {
+                    _ if app.buf.path.is_none() => String::new(),
+                    Some((k, i)) => {
+                        let from = app.diff.ghost_from.get(&k).copied().unwrap_or(0);
+                        format!("-{}:{}  ", from + i + 1, app.display_col())
+                    }
+                    None => format!("{}:{}  ", app.line + 1, app.display_col()),
                 },
                 if app.mode == Mode::Edit {
                     if app.buf.tabs { "  Tab" } else { "  Spaces: 4" }
@@ -121,6 +125,18 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         (area.width as usize).saturating_sub(rest),
     )
     .into();
+    // Then a message about a file gives way the same way, keeping its reason (#403): the
+    // path is the part its maker said it is.
+    if let Some((_, len)) = app.message_path.as_ref().filter(|(m, _)| *m == app.message) {
+        let before = spans[..spans.len() - 1]
+            .iter()
+            .map(|s| wrap::width(&s.content))
+            .sum::<usize>();
+        let room = (area.width as usize).saturating_sub(before + 2);
+        let (name, why) = app.message.split_at(*len);
+        let name = fit_path(name, room.saturating_sub(wrap::width(why)));
+        spans.last_mut().unwrap().content = format!("  {name}{why}").into();
+    }
     frame.render_widget(Paragraph::new(Line::from(spans)).style(style), area);
     if hint {
         let hint = Rect {

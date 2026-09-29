@@ -785,7 +785,7 @@ fn play(path: &Path, file: &[u8], ops: &[Op]) -> Result<(), Failure> {
             ),
             (
                 "selection",
-                format!("{:?}", a.selection()),
+                format!("{:?}", a.file_selection()),
                 format!("{:?}", m.selection()),
             ),
             (

@@ -235,8 +235,10 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | Swift | `.build/checkouts` |
 | PHP | Composer's `vendor/` |
 | Zig | the standard library |
+| Protocol Buffers | the well-known types `protoc` installs |
 | Java, Kotlin, Ruby, C#, Lua, Elixir | |
-| Shell, SQL, Makefile, Terraform, Dockerfile, YAML | |
+| Shell, SQL, Makefile, Terraform, Dockerfile, YAML, GraphQL | |
+| Markdown | the file or the heading a link names, and a file a code span names |
 
 What each rule reads and what it refuses to guess: [docs/navigation.md](docs/navigation.md).
 
@@ -251,7 +253,9 @@ hours: no neon, and light themes that look like paper.
 ## Config
 
 There is none to write. `T` remembers your theme in `~/.config/merl/config.toml`, and
-`autosave_delay_ms` (1000) lives there too.
+`autosave_delay_ms` (1000) lives there too. In a review, `review_list_marks = false` stops `u`
+and `s` marking the rows on lines the branch changed, and `review_open_files_first = false` keeps
+the review's files from the top of `o`.
 
 ## Terminals
 

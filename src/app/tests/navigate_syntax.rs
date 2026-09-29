@@ -1305,6 +1305,70 @@ fn a_linked_package_is_the_version_it_links() {
     std::fs::remove_dir_all(&store).unwrap();
 }
 
+/// #392: a package is not installed only when nothing in the project supplies it: an alias of a
+/// JavaScript project's `jsconfig.json`, a name under `baseUrl`, a `declare module` all do.
+#[test]
+fn what_the_project_supplies_is_no_missing_package() {
+    let (js, mut a) = project_app(
+        "supplied-js",
+        &[
+            (
+                "jsconfig.json",
+                "{ \"compilerOptions\": { \"paths\": { \"@components/*\": [\"src/components/*\"] } } }\n",
+            ),
+            ("src/components/Button.js", "export function Button() {}\n"),
+            (
+                "src/main.js",
+                "import { Button } from \"@components/Button\";\n\nButton();\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "src/main.js", "^Button");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Button: via import src/components/Button.js",
+            "src/components/Button.js:1"
+        )
+    );
+    let (ts, mut a) = project_app(
+        "supplied-ts",
+        &[
+            (
+                "tsconfig.json",
+                "{ \"compilerOptions\": { \"baseUrl\": \"src\" } }\n",
+            ),
+            ("src/components/Button.ts", "export function Button() {}\n"),
+            (
+                "types/untyped.d.ts",
+                "declare module \"untyped-lib\" {\n  export function helper(): void;\n}\n",
+            ),
+            (
+                "src/main.ts",
+                "import { Button } from \"components/Button\";\nimport { helper } from \"untyped-lib\";\n\nButton();\nhelper();\n",
+            ),
+        ],
+    );
+    for (code, want) in [
+        (
+            "^Button",
+            jump(
+                "Button: via import src/components/Button.ts",
+                "src/components/Button.ts:1",
+            ),
+        ),
+        (
+            "^helper",
+            jump("helper: by name, 1 match", "types/untyped.d.ts:2"),
+        ),
+    ] {
+        d_on(&mut a, "src/main.ts", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    std::fs::remove_dir_all(&js).unwrap();
+    std::fs::remove_dir_all(&ts).unwrap();
+}
+
 /// #141: `@/lib`, `~/lib` and `#lib` are aliases of the project's own modules, no npm scope or
 /// package: what the project does not declare is looked for outside by name, and an alias never
 /// narrows into a scoped package such as `@mui`.

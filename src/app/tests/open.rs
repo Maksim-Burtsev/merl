@@ -135,7 +135,11 @@ fn history_walks_back_and_forward() {
     a.jump_to(&y, 5);
     assert_eq!(
         a.history,
-        [(x.clone(), 0, 0), (y.clone(), 0, 0), (y.clone(), 4, 0)]
+        [
+            (x.clone(), TextLine::File(0), 0),
+            (y.clone(), TextLine::File(0), 0),
+            (y.clone(), TextLine::File(4), 0)
+        ]
     );
     assert_eq!(a.hist_idx, 2);
 
@@ -166,7 +170,10 @@ fn history_truncates_forward_and_stops_at_the_ends() {
     press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
     // A jump from the middle of the history drops everything after it.
     a.jump_to(&y, 8);
-    assert_eq!(a.history, [(x, 0, 0), (y, 7, 0)]);
+    assert_eq!(
+        a.history,
+        [(x, TextLine::File(0), 0), (y, TextLine::File(7), 0)]
+    );
     assert_eq!(a.hist_idx, 1);
     press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
     assert_eq!(a.message, "end of history");
@@ -180,7 +187,7 @@ fn repeated_jumps_to_the_same_spot_are_not_recorded() {
     a.jump_to(&x, 3);
     a.jump_to(&x, 3);
     a.jump_to(&x, 3);
-    assert_eq!(a.history, [(x, 2, 0)]);
+    assert_eq!(a.history, [(x, TextLine::File(2), 0)]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -194,12 +201,22 @@ fn far_moves_become_stops_and_near_moves_update_the_current_one() {
     for _ in 0..3 {
         press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     }
-    assert_eq!(a.history, [(x.clone(), 0, 0), (y.clone(), 3, 0)]);
+    assert_eq!(
+        a.history,
+        [
+            (x.clone(), TextLine::File(0), 0),
+            (y.clone(), TextLine::File(3), 0)
+        ]
+    );
     // The end of the file (36 lines away) is somewhere else: a new stop.
     press(&mut a, KeyCode::End, KeyModifiers::CONTROL);
     assert_eq!(
         a.history,
-        [(x.clone(), 0, 0), (y.clone(), 3, 0), (y.clone(), 39, 1)]
+        [
+            (x.clone(), TextLine::File(0), 0),
+            (y.clone(), TextLine::File(3), 0),
+            (y.clone(), TextLine::File(39), 1)
+        ]
     );
     press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
     assert_eq!(at(&a), (y.clone(), 3));
@@ -223,13 +240,22 @@ fn paging_moves_the_current_stop_instead_of_adding_stops() {
     press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
     a.jump_to(&y, 1);
     press(&mut a, KeyCode::PageDown, KeyModifiers::NONE);
-    assert_eq!(a.history, [(x.clone(), 24, 0), (y.clone(), 24, 0)]);
+    assert_eq!(
+        a.history,
+        [
+            (x.clone(), TextLine::File(24), 0),
+            (y.clone(), TextLine::File(24), 0)
+        ]
+    );
     press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
     assert_eq!(at(&a), (x.clone(), 24));
     press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
     press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
     assert_eq!(at(&a), (y.clone(), 24));
-    assert_eq!(a.history, [(x, 12, 0), (y, 24, 0)]);
+    assert_eq!(
+        a.history,
+        [(x, TextLine::File(12), 0), (y, TextLine::File(24), 0)]
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -261,7 +287,10 @@ fn find_next_is_a_stop_even_when_near() {
     find(&mut a, "x");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
-    assert_eq!(a.history, [(x.clone(), 0, 0), (x, 1, 0)]);
+    assert_eq!(
+        a.history,
+        [(x.clone(), TextLine::File(0), 0), (x, TextLine::File(1), 0)]
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -290,7 +319,7 @@ fn enter_on_the_open_file_in_the_tree_keeps_the_cursor() {
     a.focus = Focus::Tree;
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!((at(&a), a.focus), ((x.clone(), 4), Focus::Code));
-    assert_eq!(a.history, [(x, 4, 0)]);
+    assert_eq!(a.history, [(x, TextLine::File(4), 0)]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -314,7 +343,7 @@ fn picking_the_open_file_keeps_the_cursor() {
         ((x.clone(), 4), Focus::Code, Mode::Normal)
     );
     assert_eq!(a.tree.selected().unwrap().path, Path::new("a.rs"));
-    assert_eq!(a.history, [(x, 4, 0)]);
+    assert_eq!(a.history, [(x, TextLine::File(4), 0)]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -363,11 +392,11 @@ fn stored_positions_survive_a_reload() {
     // the forward history instead of reading the clamp as a new move.
     a.jump_to(&path, 1);
     assert_eq!(a.history.len(), 4);
-    assert_eq!(a.history[1], (path.clone(), 40, 0));
+    assert_eq!(a.history[1], (path.clone(), TextLine::File(40), 0));
     press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
     assert_eq!((a.line, a.col, a.hist_idx), (1, 0, 1));
-    assert_eq!(a.history[1], (path.clone(), 1, 0));
+    assert_eq!(a.history[1], (path.clone(), TextLine::File(1), 0));
     assert_eq!(a.history.len(), 4);
     press(&mut a, KeyCode::Char(']'), KeyModifiers::NONE);
     assert_eq!(a.hist_idx, 2);
@@ -479,6 +508,73 @@ fn dropping_a_stop_does_not_leave_its_neighbours_as_twins() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #403: a file that does not open is named as the status bar names an open file, from the
+/// project root, with the reason in a few words and no `(os error N)`: a file merl may not read,
+/// a file that became a directory, and one removed between `o` and Enter.
+#[test]
+#[cfg(unix)]
+fn a_file_that_does_not_open_is_named_from_the_root_with_the_reason() {
+    use std::os::unix::fs::PermissionsExt;
+    let (dir, mut a) = project_app(
+        "no-open",
+        &[
+            ("open.txt", "ok\n"),
+            ("src/locked.txt", "secret\n"),
+            ("src/gone.txt", "x\n"),
+            ("src/dir.txt", "x\n"),
+        ],
+    );
+    let locked = dir.join("src/locked.txt");
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+    a.jump_to(&dir.join("open.txt"), 1);
+    let open = |a: &mut App, query: &str, before_enter: &dyn Fn()| {
+        press(a, KeyCode::Char('o'), KeyModifiers::NONE);
+        typed(a, query);
+        a.picker.as_mut().unwrap().settle();
+        before_enter();
+        press(a, KeyCode::Enter, KeyModifiers::NONE);
+        a.message.clone()
+    };
+    // As root every file is readable, and there is nothing to assert.
+    if std::fs::read(&locked).is_err() {
+        assert_eq!(
+            open(&mut a, "locked", &|| ()),
+            "src/locked.txt: permission denied"
+        );
+    }
+    let d = dir.join("src/dir.txt");
+    let to_dir = || {
+        std::fs::remove_file(&d).unwrap();
+        std::fs::create_dir(&d).unwrap();
+    };
+    assert_eq!(
+        open(&mut a, "dir.txt", &to_dir),
+        "src/dir.txt: is a directory"
+    );
+    let gone = dir.join("src/gone.txt");
+    assert_eq!(
+        open(&mut a, "gone", &|| std::fs::remove_file(&gone).unwrap()),
+        "src/gone.txt: no such file"
+    );
+    assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("open.txt")));
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #403: a reason the OS gives no short word for is its own text, still without the
+/// `(os error N)`: a symlink that leads back to itself.
+#[test]
+#[cfg(unix)]
+fn a_reason_without_a_word_of_its_own_drops_the_os_error_number() {
+    let (dir, mut a) = project_app("loop", &[("open.txt", "ok\n")]);
+    std::os::unix::fs::symlink("loop.txt", dir.join("loop.txt")).unwrap();
+    a.jump_to(&dir.join("open.txt"), 1);
+    a.jump_to(&dir.join("loop.txt"), 1);
+    assert_eq!(a.message, "loop.txt: Too many levels of symbolic links");
+    assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("open.txt")));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// Edits that cannot be saved keep merl on the file; that is no reason to drop a stop.
 #[test]
 fn a_stop_that_does_not_open_for_another_reason_leaves_the_history_alone() {
@@ -498,6 +594,6 @@ fn a_stop_that_does_not_open_for_another_reason_leaves_the_history_alone() {
     std::fs::create_dir(&x).unwrap();
     press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
     assert_eq!((at(&a), a.hist_idx, a.history.len()), ((y, 0), 1, 2));
-    assert!(a.message.contains("a.rs: "), "{}", a.message);
+    assert_eq!(a.message, "a.rs: is a directory");
     std::fs::remove_dir_all(&dir).unwrap();
 }

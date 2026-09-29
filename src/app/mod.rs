@@ -9,8 +9,8 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use regex::{Regex, RegexBuilder};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::buffer::{self, Buffer};
-use crate::git;
+use crate::buffer::{self, Buffer, shown_str};
+use crate::git::{self, TextLine};
 use crate::line_edit::LineEdit;
 use crate::picker::{Pick, PickItem, Picker};
 use crate::search::{self, Candidate, Hit, Kind, Reason, Tier};
@@ -24,13 +24,16 @@ mod edit;
 mod external;
 mod find;
 mod keys;
+mod links;
 mod members;
 mod missed;
 mod open;
 mod picker;
 mod preview;
 mod project_search;
+mod proto;
 mod review;
+mod rust;
 mod scroll;
 mod search_job;
 mod symbols;
@@ -300,14 +303,18 @@ pub struct App {
     search_enter: bool,
     /// Stops of the jump history, oldest first; `hist_idx` is the current one and follows
     /// the cursor (see `hist_note`).
-    pub history: Vec<(PathBuf, usize, usize)>,
+    pub history: Vec<(PathBuf, TextLine, usize)>,
     pub hist_idx: usize,
     /// Cursor: file line, byte offset into that line, and the display column Up/Down aims for.
     pub line: usize,
     pub col: usize,
     pub want_x: usize,
+    /// Review: the line the branch deleted the cursor stands on, as its key and index in
+    /// `diff.ghosts` (#439); `col` is then a byte of it. `line` is the key, or the last line
+    /// for the lines deleted at the end of the file.
+    pub deleted: Option<(usize, usize)>,
     /// (line, col) where the selection started; it runs from here to the cursor.
-    anchor: Option<(usize, usize)>,
+    anchor: Option<(TextLine, usize)>,
     /// Top of the viewport: a file line plus which wrapped row of it is first on screen.
     pub top_line: usize,
     pub top_row: usize,
@@ -328,10 +335,14 @@ pub struct App {
     /// The text `find_re` was built from: `/` opens with it again while the pattern is active.
     find_query: String,
     /// Where the cursor was when `/` was pressed: the start of the incremental search.
-    find_anchor: (usize, usize),
+    find_anchor: (TextLine, usize),
     /// The selection anchor, set aside while `/` moves the cursor; Esc puts it back.
-    find_sel: Option<(usize, usize)>,
+    find_sel: Option<(TextLine, usize)>,
     pub message: String,
+    /// The `message` that opens with a path, and the bytes of it the path takes: the status
+    /// bar cuts that part from the left and no other (#403). It stands only while `message` is
+    /// still that text; [`App::say_about`] sets both.
+    pub message_path: Option<(String, usize)>,
     /// Code text area, in cells, written by `ui::draw` before every frame.
     pub view_w: usize,
     pub view_h: usize,
@@ -352,6 +363,10 @@ pub struct App {
     pub autosave: Duration,
     /// `review_panel_colours` of the config: off, the review panel draws as it did before #250.
     pub review_panel_colours: bool,
+    /// `review_list_marks` of the config: `u` and `s` mark the rows the branch changed (#246).
+    pub review_list_marks: bool,
+    /// `review_open_files_first` of the config: `o` lists the review's files first (#246).
+    pub review_open_files_first: bool,
     /// Linear per-file undo history, oldest first, and what undo took back.
     undo: Vec<Edit>,
     redo: Vec<Edit>,
@@ -497,6 +512,7 @@ impl App {
             hist_idx: 0,
             line: 0,
             col: 0,
+            deleted: None,
             want_x: 0,
             anchor: None,
             top_line: 0,
@@ -509,9 +525,10 @@ impl App {
             prompt: LineEdit::default(),
             find_re: None,
             find_query: String::new(),
-            find_anchor: (0, 0),
+            find_anchor: (TextLine::File(0), 0),
             find_sel: None,
             message: String::new(),
+            message_path: None,
             view_w: 80,
             view_h: 24,
             center: false,
@@ -523,6 +540,8 @@ impl App {
             last_edit: None,
             autosave: Duration::from_secs(1),
             review_panel_colours: true,
+            review_list_marks: true,
+            review_open_files_first: true,
             undo: Vec::new(),
             redo: Vec::new(),
             undo_break: false,
@@ -589,6 +608,14 @@ impl App {
         .to_string()
     }
 
+    /// Says `rest` about the file at `path`, named as [`App::rel_path_of`] names it: the status
+    /// bar may cut the name from the left to keep `rest` on the line, and nothing else.
+    pub fn say_about(&mut self, path: &Path, rest: &str) {
+        let name = self.rel_path_of(path);
+        self.message = format!("{name}{rest}");
+        self.message_path = Some((self.message.clone(), name.len()));
+    }
+
     pub fn root_name(&self) -> String {
         self.root
             .file_name()
@@ -596,8 +623,97 @@ impl App {
             .unwrap_or_else(|| self.root.display().to_string())
     }
 
+    /// The text of the cursor's line: a file line, or in review the deleted line it is on.
     pub fn line_str(&self) -> &str {
-        &self.buf.lines[self.line]
+        self.text(self.at())
+    }
+
+    /// The line the cursor is on, a deleted one included.
+    pub fn at(&self) -> TextLine {
+        match self.deleted {
+            Some((k, i)) => TextLine::Deleted(k, i),
+            None => TextLine::File(self.line),
+        }
+    }
+
+    /// Puts the cursor on line `t`; its column is the caller's to set.
+    pub(super) fn set_at(&mut self, t: TextLine) {
+        let last = self.buf.lines.len() - 1;
+        (self.line, self.deleted) = match t {
+            TextLine::File(l) => (l, None),
+            TextLine::Deleted(k, i) => (k.min(last), Some((k, i))),
+        };
+    }
+
+    /// Puts the cursor on byte `col` of file line `line`, off any deleted line.
+    pub(super) fn go(&mut self, (line, col): (usize, usize)) {
+        (self.line, self.col, self.deleted) = (line, col, None);
+    }
+
+    /// The text of line `t`.
+    pub fn text(&self, t: TextLine) -> &str {
+        match t {
+            TextLine::File(l) => &self.buf.lines[l],
+            TextLine::Deleted(k, i) => &self.diff.ghosts[&k][i],
+        }
+    }
+
+    /// How many lines the branch deleted above file line `k`.
+    fn deleted_at(&self, k: usize) -> usize {
+        self.diff.ghosts.get(&k).map_or(0, Vec::len)
+    }
+
+    /// The line drawn after `t`, deleted lines included; `None` after the last.
+    pub(super) fn next_line(&self, t: TextLine) -> Option<TextLine> {
+        let n = self.buf.lines.len();
+        match t {
+            TextLine::Deleted(k, i) if i + 1 < self.deleted_at(k) => {
+                Some(TextLine::Deleted(k, i + 1))
+            }
+            TextLine::Deleted(k, _) => (k < n).then_some(TextLine::File(k)),
+            TextLine::File(l) if l < n && self.deleted_at(l + 1) > 0 => {
+                Some(TextLine::Deleted(l + 1, 0))
+            }
+            TextLine::File(l) => (l + 1 < n).then_some(TextLine::File(l + 1)),
+        }
+    }
+
+    /// The line drawn before `t`, deleted lines included; `None` before the first.
+    pub(super) fn prev_line(&self, t: TextLine) -> Option<TextLine> {
+        match t {
+            TextLine::Deleted(k, i) if i > 0 => Some(TextLine::Deleted(k, i - 1)),
+            TextLine::File(l) if self.deleted_at(l) > 0 => {
+                Some(TextLine::Deleted(l, self.deleted_at(l) - 1))
+            }
+            t => t.key().checked_sub(1).map(TextLine::File),
+        }
+    }
+
+    /// The first line of the text: the lines deleted above the file's first, if any.
+    pub(super) fn first_line(&self) -> TextLine {
+        match self.deleted_at(0) {
+            0 => TextLine::File(0),
+            _ => TextLine::Deleted(0, 0),
+        }
+    }
+
+    /// The last line of the text: the last of those deleted at the end of the file, if any.
+    pub(super) fn last_line(&self) -> TextLine {
+        let n = self.buf.lines.len();
+        match self.deleted_at(n) {
+            0 => TextLine::File(n - 1),
+            g => TextLine::Deleted(n, g - 1),
+        }
+    }
+
+    /// `t` if the text still has it; a deleted line that went with a new diff gives way to the
+    /// file line it was drawn above.
+    pub(super) fn clamp_line(&self, t: TextLine) -> TextLine {
+        let last = self.buf.lines.len() - 1;
+        match t {
+            TextLine::Deleted(k, i) if k <= last + 1 && i < self.deleted_at(k) => t,
+            t => TextLine::File(t.key().min(last)),
+        }
     }
 
     /// Whether long lines are cut at the pane edge instead of wrapped: `w` flips it for the open
@@ -633,46 +749,79 @@ impl App {
     /// Screen rows of file line `l` at the current viewport width, over the text `ui` draws:
     /// the wrapped rows, or the whole line as one row when the file is not wrapped.
     pub fn rows(&self, l: usize) -> Vec<std::ops::Range<usize>> {
+        self.text_rows(&self.buf.lines[l])
+    }
+
+    /// Screen rows of a line with the text `text`, as [`App::rows`] counts them.
+    pub fn text_rows(&self, text: &str) -> Vec<std::ops::Range<usize>> {
         if self.nowrap() {
-            return std::iter::once(0..self.buf.shown(l).len()).collect();
+            return std::iter::once(0..shown_str(text).len()).collect();
         }
-        wrap::wrap_shown(&self.buf.lines[l], self.view_w)
+        wrap::wrap_shown(text, self.view_w)
     }
 
     /// Screen rows of the ghosts at `l` (review mode: the lines the branch deleted there,
     /// drawn above the text): one per ghost when the file is not wrapped, else each wraps
     /// like a file line.
     pub fn ghost_rows(&self, l: usize) -> usize {
-        let Some(ghosts) = self.diff.ghosts.get(&l) else {
-            return 0;
-        };
-        if self.nowrap() {
-            return ghosts.len();
-        }
-        ghosts
-            .iter()
-            .map(|g| wrap::wrap_shown(g, self.view_w).len())
-            .sum()
+        self.diff.ghosts.get(&l).map_or(0, |ghosts| {
+            ghosts.iter().map(|g| self.text_rows(g).len()).sum()
+        })
     }
 
     /// Screen rows of line `l`: its ghosts (review mode, drawn above the text) and then its
-    /// wrapped rows. A `(line, row)` pair counts rows from the first ghost.
+    /// wrapped rows. A `(line, row)` pair counts rows from the first ghost; `lines.len()` has
+    /// the ghosts deleted at the end of the file only.
     pub fn row_count(&self, l: usize) -> usize {
-        self.ghost_rows(l) + self.rows(l).len()
+        let text = match l < self.buf.lines.len() {
+            true => self.rows(l).len(),
+            false => 0,
+        };
+        self.ghost_rows(l) + text
     }
 
+    /// The cursor's screen row among the rows of its key, as a `(line, row)` pair counts them.
+    // ponytail: the deleted lines above the cursor in its block are wrapped again on every call,
+    // 30-45 ms a move 5,000 lines into one; keep their row counts per key if deletions that tall
+    // are ever read line by line.
     pub fn cursor_row(&self) -> usize {
-        self.ghost_rows(self.line) + wrap::col_to_row(&self.rows(self.line), self.col)
+        let above = match self.deleted {
+            Some((k, i)) => self.diff.ghosts[&k][..i]
+                .iter()
+                .map(|g| self.text_rows(g).len())
+                .sum(),
+            None => self.ghost_rows(self.line),
+        };
+        above + wrap::col_to_row(&self.text_rows(self.line_str()), self.col)
+    }
+
+    /// The cursor as a `(line, row)` pair: its key and [`App::cursor_row`].
+    pub fn cursor_at(&self) -> (usize, usize) {
+        (self.at().key(), self.cursor_row())
+    }
+
+    /// The line on screen row `row` of key `key` (counted from its first ghost, as a `(line,
+    /// row)` pair counts), and that row's number among the line's own rows.
+    pub(super) fn line_at_row(&self, key: usize, mut row: usize) -> (TextLine, usize) {
+        let ghosts = self.diff.ghosts.get(&key).map_or(&[][..], Vec::as_slice);
+        for (i, g) in ghosts.iter().enumerate() {
+            let n = self.text_rows(g).len();
+            if row < n || (i + 1 == ghosts.len() && key >= self.buf.lines.len()) {
+                return (TextLine::Deleted(key, i), row.min(n - 1));
+            }
+            row -= n;
+        }
+        (TextLine::File(key.min(self.buf.lines.len() - 1)), row)
     }
 
     /// Display column of the cursor on its wrapped row, counting the indent rows after the first
     /// are drawn with. Not wrapped, the row is the line: `left` of these columns are off screen.
     pub fn cursor_x(&self) -> usize {
-        let rows = self.rows(self.line);
+        let rows = self.text_rows(self.line_str());
         let row = wrap::col_to_row(&rows, self.col);
         let indent = match row {
             0 => 0,
-            _ => wrap::indent(self.buf.shown(self.line), self.view_w),
+            _ => wrap::indent(shown_str(self.line_str()), self.view_w),
         };
         indent + wrap::width(&self.line_str()[wrap::row_to_col(&rows, row)..self.col])
     }
@@ -718,7 +867,10 @@ pub fn is_word(c: char) -> bool {
 /// counts as part of a word besides letters, digits and `_` ([`search::word_chars`]): the `-` of
 /// a Makefile target.
 pub(super) fn word_col(line: &str, word: &str, extra: &str) -> usize {
-    whole_at(line, word, extra).unwrap_or(0)
+    // `attr_writer :name` declares Ruby's setter `name=` under its bare name.
+    whole_at(line, word, extra)
+        .or_else(|| whole_at(line, word.strip_suffix('=')?, extra))
+        .unwrap_or(0)
 }
 
 /// The byte where `word` first stands whole in `line` with `extra` counted as word characters,

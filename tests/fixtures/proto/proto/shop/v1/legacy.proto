@@ -1,0 +1,16 @@
+// The shop of #307: every d case carries its answer in a comment under it.
+syntax = "proto2";
+
+package shop.v1;
+
+import "shop/v1/tariff.proto";
+
+message LegacyParcel {
+  required string id = 1;
+  //              ^ d: picker proto/shop/v1/tariff.proto:12
+  optional Channel channel = 2 [default = CHANNEL_POST];
+  //       ^ d: proto/shop/v1/tariff.proto:38
+  //                                      ^ d: proto/shop/v1/tariff.proto:40
+  optional Status status = 3;
+  //       ^ d: proto/shop/v1/basket.proto:50
+}

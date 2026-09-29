@@ -29,8 +29,8 @@ module Shop
     def describe_any(t, c)
       t.describe + c.caption + c.label
       # ^ d: picker lib/shop/pricing.rb:21, lib/shop/pricing.rb:34
-      #              ^ d: lib/shop/pricing.rb:51
-      #                          ^ d: lib/shop/pricing.rb:50
+      #              ^ d: picker lib/shop/pricing.rb:51
+      #                          ^ d: picker lib/shop/pricing.rb:50
     end
 
     def restock(discount)
@@ -50,7 +50,7 @@ module Shop
     def hidden(grams)
       weigh = Warehouse.weigh(grams)
       weigh + Warehouse::LIMIT
-      # ^ d: picker lib/shop/basket.rb:51, lib/shop/pricing.rb:4, lib/shop/warehouse.rb:22; want lib/shop/basket.rb:51 (#365)
+      # ^ d: picker lib/shop/basket.rb:51, lib/shop/warehouse.rb:22; want lib/shop/basket.rb:51 (#365)
       #                  ^ d: lib/shop/warehouse.rb:3
     end
 
@@ -63,27 +63,28 @@ module Shop
 
     def pick(couriers)
       couriers.first
-      #        ^ d: lib/shop/warehouse.rb:12; want !jump (#390)
+      #        ^ d: picker lib/shop/warehouse.rb:12
+      #        status: first: by name, 1 match
     end
 
     def check(coupon)
       coupon.expired? || coupon.expired!
-      #      ^ d: picker lib/shop/pricing.rb:42, lib/shop/pricing.rb:46; want lib/shop/pricing.rb:42 (#387)
-      #                         ^ d: picker lib/shop/pricing.rb:42, lib/shop/pricing.rb:46; want lib/shop/pricing.rb:46 (#387)
+      #      ^ d: picker lib/shop/pricing.rb:42
+      #                         ^ d: picker lib/shop/pricing.rb:46
     end
 
     def stamp(coupon)
       coupon.code = "x"
-      #      ^ d: lib/shop/pricing.rb:27
+      #      ^ d: picker lib/shop/pricing.rb:27
       coupon.owner = "me"
-      #      ^ d: lib/shop/pricing.rb:28
+      #      ^ d: picker lib/shop/pricing.rb:28
       @tariff.base
       #       ^ d: picker lib/shop/pricing.rb:11, lib/shop/pricing.rb:14; want lib/shop/pricing.rb:11 (#383)
     end
 
     def depot
       Warehouse.open
-      #         ^ d: lib/shop/warehouse.rb:32; want lib/shop/warehouse.rb:27 (#387)
+      #         ^ d: lib/shop/warehouse.rb:27
     end
 
     def settle(total)
@@ -94,12 +95,12 @@ module Shop
     def audit(order)
       order.lines.recent
       #     ^ d: none; want lib/shop/order.rb:3 (#374)
-      #           ^ d: lib/shop/order.rb:7; want lib/shop/order.rb:4 (#374)
+      #           ^ d: none; want lib/shop/order.rb:4 (#374)
     end
 
     def ledger
       Ledger.new.prepare!
-      #          ^ d: none; want lib/shop/order.rb:19 (#379)
+      #          ^ d: picker lib/shop/order.rb:19
     end
 
     def rated(courier)
@@ -109,7 +110,7 @@ module Shop
 
     def routed(courier)
       courier.route
-      #       ^ d: lib/shop/warehouse.rb:17; want none (#383)
+      #       ^ d: picker lib/shop/warehouse.rb:17; want none (#383)
     end
 
     def each_coupon(coupons)

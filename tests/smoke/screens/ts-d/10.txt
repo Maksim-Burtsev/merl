@@ -1,0 +1,57 @@
+wait web/src/orders/GetShipment.graphql  1:1
+1 #import "./ShipmentParts.graphql"
+2
+3 query GetShipment($id: ID!) {
+4   shipment(id: $id) {
+5     ...ShipmentParts
+6   }
+7 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/src/orders/GetShipment.graphql  1:1  [code]                                                                                                                                   ? help
+cursor (x,y,shown) 2,0,1

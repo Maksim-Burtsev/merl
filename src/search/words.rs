@@ -70,6 +70,12 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     let indent = |s: &str| s.len() - s.trim_start().len();
     let mut depth = indent(target);
     let mut names = vec![name.to_owned()];
+    // Ruby writes the namespace into the line (#387): `class A::B` is `B` inside `A`, and
+    // `def Klass.m` is `m` of `Klass`.
+    let ruby = kind == Kind::Ruby;
+    if ruby {
+        names.extend(ruby_namespace(target));
+    }
     for l in lines[..line - 1].iter().rev() {
         if depth == 0 {
             break;
@@ -78,6 +84,10 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             continue;
         }
         depth = indent(l);
+        // `class << self` opens the class around it, which the walk goes on to name.
+        if ruby && l.trim_start().starts_with("class << self") {
+            continue;
+        }
         let named = IMPL
             .captures(l)
             .filter(|_| kind == Kind::Rust)
@@ -92,6 +102,9 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         match named {
             Some(n) => names.push(n),
             None => break,
+        }
+        if ruby {
+            names.extend(ruby_namespace(l));
         }
     }
     names.reverse();
@@ -132,6 +145,25 @@ pub fn elixir_unalias(text: &str, mut chain: Vec<String>) -> Vec<String> {
     }
     chain
 }
+/// The namespace a Ruby declaration line writes in front of its name, innermost first: `B`, `A`
+/// for `class A::B::C`, `Klass` for `def Klass.m`. Empty for every other line.
+fn ruby_namespace(line: &str) -> Vec<String> {
+    static SPELLED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:class|module)\s+(?:::)?((?:\w+::)+)\w|def\s+([A-Z]\w*)\.\w)")
+            .unwrap()
+    });
+    let Some(c) = SPELLED.captures(line) else {
+        return Vec::new();
+    };
+    let spelled = c.get(1).or(c.get(2)).map_or("", |m| m.as_str());
+    let mut names: Vec<String> = spelled
+        .split("::")
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+        .collect();
+    names.reverse();
+    names
+}
 /// The name `D` lists for `line` in a file of `kind`: the first [`SYMBOLS`] row such a file is
 /// read with that names something on it.
 fn declared_name(kind: Option<Kind>, line: &str) -> Option<String> {
@@ -151,9 +183,9 @@ fn declared_name(kind: Option<Kind>, line: &str) -> Option<String> {
         .find_map(|(_, re)| symbol_name(re, line))
 }
 /// Whether a file of `kind` names what it nests: a YAML anchor names a value, not a container,
-/// so YAML qualifies no name and pins no header.
+/// so YAML qualifies no name and pins no header. Markdown declares nothing.
 fn nests(kind: Option<Kind>) -> bool {
-    kind != Some(Kind::Yaml)
+    !matches!(kind, Some(Kind::Yaml | Kind::Markdown))
 }
 /// Whether the trimmed line `t` is blank, a comment, an attribute or C's `#ifdef`: lines that
 /// can stand at the left edge inside a body.
@@ -413,17 +445,76 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
         Some(i) => i,
         None => range.start,
     };
-    // In Elixir a trailing `?` or `!` is part of the name (#459): `ship!` is no `ship`. The `!`
-    // of a `!=` is the operator's.
-    let rest = &line[range.end..];
-    let end = match kind == Some(Kind::Elixir)
-        && rest.starts_with(['?', '!'])
-        && !rest[1..].starts_with('=')
-    {
-        true => range.end + 1,
-        false => range.end,
+    // A Ruby method (#387) and an Elixir function (#459) take their `?` or `!` with them:
+    // `empty?` is no `empty`, `ship!` no `ship`. The `!` of a `!=` is the operator's, as in Ruby
+    // are `!~` and an instance or global variable, which has no suffix.
+    let mut end = range.end;
+    let rest = &line.as_bytes()[end..];
+    let suffixed = match kind {
+        Some(Kind::Ruby) => {
+            !matches!(rest.get(1), Some(b'=' | b'~')) && !line[..start].ends_with(['@', '$'])
+        }
+        Some(Kind::Elixir) => rest.get(1) != Some(&b'='),
+        _ => false,
     };
+    if suffixed && matches!(rest.first(), Some(b'?' | b'!')) {
+        end += 1;
+    }
     Some((start..end, &line[start..end]))
+}
+/// The line 0-based `at` of `lines` stands directly inside: the nearest one above it indented
+/// less that is no blank line or comment.
+fn owner_line(lines: &[&str], at: usize) -> Option<usize> {
+    let depth = indent(lines.get(at)?);
+    (0..at)
+        .rev()
+        .find(|&i| !aside(lines[i].trim_start()) && indent(lines[i]) < depth)
+}
+/// Whether the Ruby method declared on 1-based `line` of `text` is a class method (#387):
+/// `def self.m`, `def Const.m`, a `def` inside `class << self`, or one of a module that is
+/// `extend self` or `module_function`.
+pub fn ruby_singleton(text: &str, line: usize) -> bool {
+    static ON: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*def\s+(?:self|[A-Z]\w*)\.").unwrap());
+    static MODULE_WIDE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:extend\s+self|module_function)\s*(?:#|$)").unwrap()
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(t) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return false;
+    };
+    if ON.is_match(t) {
+        return true;
+    }
+    let Some(owner) = owner_line(&lines, line - 1) else {
+        return false;
+    };
+    let head = lines[owner].trim_start();
+    // ponytail: a bare `module_function` anywhere in the module's body counts for every `def`
+    // of it, the ones above it too; its list form, `module_function :m`, is not read.
+    head.starts_with("class << self")
+        || (head.starts_with("module ")
+            && lines[owner + 1..]
+                .iter()
+                .take_while(|l| l.trim().is_empty() || indent(l) > indent(lines[owner]))
+                .any(|l| MODULE_WIDE.is_match(l)))
+}
+/// Where the ActiveSupport concern `module` keeps the class methods it gives the class that
+/// includes it (#387): whether the Ruby method on 1-based `line` of `text` is inside its
+/// `class_methods do` block or its `module ClassMethods`.
+pub fn ruby_concern_class_method(text: &str, line: usize, module: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(owner) = line.checked_sub(1).and_then(|i| owner_line(&lines, i)) else {
+        return false;
+    };
+    let head = lines[owner].trim_start();
+    let inside = |block: &str| {
+        qualified(Kind::Ruby, text, owner + 1, block).is_some_and(|q| {
+            q == format!("{module}.{block}") || q.ends_with(&format!(".{module}.{block}"))
+        })
+    };
+    (head.starts_with("class_methods do") && inside("class_methods"))
+        || (head.starts_with("module ClassMethods") && inside("ClassMethods"))
 }
 /// The run of `[A-Za-z0-9_]` and `extra` characters at byte offset `col`, or the one that ends
 /// there when the cursor sits right after a word. `extra` characters do not start or end a word.

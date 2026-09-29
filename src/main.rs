@@ -138,7 +138,14 @@ fn run() -> Result<()> {
     let review = match &cli.review {
         Some(branch) => {
             root = git_toplevel(&root).context("--review needs a git repository")?;
-            let branch = Some(branch.as_str()).filter(|b| !b.is_empty());
+            let mut branch = Some(branch.as_str()).filter(|b| !b.is_empty());
+            // A branch another worktree has checked out is reviewed there, as it stands:
+            // nothing is fetched, switched or reset in someone else's worktree (#396).
+            if let Some(wt) = branch.and_then(|b| git::worktree_of(&root, b)) {
+                let rel = |f: PathBuf| Some(wt.join(f.strip_prefix(&root).ok()?));
+                file = file.and_then(rel).filter(|f| f.is_file());
+                (root, branch) = (wt, None);
+            }
             let r = git::Review::open(&root, branch, cli.base.as_deref())?;
             if file.is_none() {
                 file = r.first_file(&root);
@@ -168,6 +175,8 @@ fn run() -> Result<()> {
     }
     app.autosave = Duration::from_millis(config.autosave_delay_ms);
     app.review_panel_colours = config.review_panel_colours;
+    app.review_list_marks = config.review_list_marks;
+    app.review_open_files_first = config.review_open_files_first;
     app.theme = name;
     app.config = theme::config_path();
     if cli.tutor || cli.drill.is_some() {

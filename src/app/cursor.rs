@@ -8,16 +8,14 @@ impl App {
         self.want_x = self.cursor_x();
     }
 
-    /// Places the cursor on screen row `row` of `self.line`, on the cluster under the column
+    /// Places the cursor on screen row `row` of its line, on the cluster under the column
     /// `want_x`, or as far right as the row goes. A row other than the last ends on its last
     /// char: its end is where the next row starts.
     pub(super) fn apply_want_x(&mut self, row: usize) {
-        let rows = self.rows(self.line);
-        let row = row
-            .saturating_sub(self.ghost_rows(self.line))
-            .min(rows.len() - 1);
+        let rows = self.text_rows(self.line_str());
+        let row = row.min(rows.len() - 1);
         let r = rows[row].clone();
-        let s = self.buf.shown(self.line);
+        let s = shown_str(self.line_str());
         let mut col = if row + 1 < rows.len() {
             prev_char(s, r.end)
         } else {
@@ -25,7 +23,7 @@ impl App {
         };
         let mut used = match row {
             0 => 0,
-            _ => wrap::indent(self.buf.shown(self.line), self.view_w),
+            _ => wrap::indent(s, self.view_w),
         };
         for (i, g) in wrap::clusters(&s[r.start..r.end]) {
             if used >= self.want_x {
@@ -35,6 +33,14 @@ impl App {
             used += wrap::cluster_width(g);
         }
         self.col = col;
+    }
+
+    /// Puts the cursor on the `(line, row)` pair `at`, a row of a deleted line included, aiming
+    /// at the column in `want_x`.
+    fn land(&mut self, (key, row): (usize, usize)) {
+        let (t, row) = self.line_at_row(key, row);
+        self.set_at(t);
+        self.apply_want_x(row);
     }
 
     /// A stored `(line, col)` made valid for the buffer as it is now: the line clamped to the
@@ -51,42 +57,89 @@ impl App {
         (line, col)
     }
 
+    /// [`App::clamp_pos`] for a place that can be on a deleted line: one that went with a new
+    /// diff gives way to the file line it was drawn above.
+    pub(super) fn clamp_place(&self, (t, col): (TextLine, usize)) -> (TextLine, usize) {
+        let t = self.clamp_line(t);
+        let s = shown_str(self.text(t));
+        let mut col = col.min(s.len());
+        while !s.is_char_boundary(col) {
+            col -= 1;
+        }
+        (t, col)
+    }
+
+    /// The cursor made valid for the text as it is now: on a line the file still has, or a
+    /// deleted line the diff still has; else on the line that one was drawn above.
+    pub(super) fn clamp_cursor(&mut self) {
+        let (t, col) = self.clamp_place((self.at(), self.col));
+        self.set_at(t);
+        self.col = col;
+    }
+
     /// The selection as ordered (line, col) ends: anchor and cursor, whichever comes first.
     /// None while the cursor stands on the anchor: an empty range selects nothing, so Ctrl+C
     /// copies the line and Backspace deletes a char, as with no selection. The anchor stays for
     /// the next Shift+move.
-    pub fn selection(&self) -> Option<((usize, usize), (usize, usize))> {
-        let a = self.clamp_pos(self.anchor?);
-        let b = (self.line, self.col);
+    pub fn selection(&self) -> Option<((TextLine, usize), (TextLine, usize))> {
+        let a = self.clamp_place(self.anchor?);
+        let b = (self.at(), self.col);
         (a != b).then(|| (a.min(b), a.max(b)))
     }
 
-    /// Bytes of line `l` inside the selection.
-    pub fn selected_bytes(&self, l: usize) -> Option<std::ops::Range<usize>> {
+    /// The selection when it holds no deleted line, in file lines: what an edit can replace.
+    pub fn file_selection(&self) -> Option<((usize, usize), (usize, usize))> {
+        match self.selection()? {
+            ((TextLine::File(a), ca), (TextLine::File(b), cb)) if !self.on_deleted() => {
+                Some(((a, ca), (b, cb)))
+            }
+            _ => None,
+        }
+    }
+
+    /// The cursor, or the selection, is on a line the branch deleted: an edit there is refused
+    /// (#439). A selection between two file lines holds the deleted lines drawn between them.
+    pub(super) fn on_deleted(&self) -> bool {
+        match self.selection() {
+            _ if self.deleted.is_some() => true,
+            // The deleted lines above file line `b`, and above every line between: none inside
+            // one line.
+            Some(((TextLine::File(a), _), (TextLine::File(b), _))) => {
+                a < b && self.diff.ghosts.range(a + 1..=b).next().is_some()
+            }
+            Some(_) => true,
+            None => false,
+        }
+    }
+
+    /// Bytes of line `t` inside the selection.
+    pub fn selected_bytes(&self, t: TextLine) -> Option<std::ops::Range<usize>> {
         let (start, end) = self.selection()?;
-        if l < start.0 || l > end.0 {
+        if t < start.0 || t > end.0 {
             return None;
         }
-        let from = if l == start.0 { start.1 } else { 0 };
-        let to = if l == end.0 {
+        let from = if t == start.0 { start.1 } else { 0 };
+        let to = if t == end.0 {
             end.1
         } else {
-            self.buf.lines[l].len()
+            self.text(t).len()
         };
         Some(from..to)
     }
 
-    /// The selected text, lines joined with `\n`. The drawn end of a line cut at
-    /// [`Buffer::shown`] stands for its real end (#284): the cursor stops there, and what it
-    /// selects runs on to the end, as Ctrl+C with no selection copies it.
+    /// The selected text, lines joined with `\n`, the deleted ones among them as they were.
+    /// The drawn end of a line cut at [`Buffer::shown`] stands for its real end (#284): the
+    /// cursor stops there, and what it selects runs on to the end, as Ctrl+C with no selection
+    /// copies it.
     pub(super) fn selected_text(&self) -> Option<String> {
         let (start, end) = self.selection()?;
-        let lines: Vec<&str> = (start.0..=end.0)
-            .map(|l| {
-                let line = &self.buf.lines[l];
-                let cut = self.buf.shown(l).len();
+        let lines: Vec<&str> = std::iter::successors(Some(start.0), |&t| self.next_line(t))
+            .take_while(|&t| t <= end.0)
+            .map(|t| {
+                let line = self.text(t);
+                let cut = shown_str(line).len();
                 let end_of = |col: usize| if col == cut { line.len() } else { col };
-                let r = self.selected_bytes(l).unwrap();
+                let r = self.selected_bytes(t).unwrap();
                 &line[end_of(r.start)..end_of(r.end)]
             })
             .collect();
@@ -96,7 +149,7 @@ impl App {
     /// Shift+move, VS Code style: the anchor is set where the first extending move started and
     /// the selection runs from there to wherever `mv` takes the cursor.
     pub(super) fn extend(&mut self, mv: fn(&mut Self)) {
-        self.anchor.get_or_insert((self.line, self.col));
+        self.anchor.get_or_insert((self.at(), self.col));
         mv(self);
     }
 
@@ -104,17 +157,17 @@ impl App {
     /// line, then the paragraph between blank lines. No state: the next step is the first of the
     /// three that is wider than what is selected, so a selection made by hand grows too.
     pub(super) fn grow_selection(&mut self) {
-        let blank = |l: usize| self.buf.lines[l].trim().is_empty();
-        let l = self.line;
+        let blank = |t: TextLine| self.text(t).trim().is_empty();
+        let l = self.at();
         let (mut top, mut bottom) = (l, l);
-        while top > 0 && !blank(top - 1) {
-            top -= 1;
+        while let Some(t) = self.prev_line(top).filter(|&t| !blank(t)) {
+            top = t;
         }
-        while bottom + 1 < self.buf.lines.len() && !blank(bottom + 1) {
-            bottom += 1;
+        while let Some(t) = self.next_line(bottom).filter(|&t| !blank(t)) {
+            bottom = t;
         }
         // The run of word chars under the cursor or, at its end, just before it.
-        let s = self.buf.shown(l);
+        let s = shown_str(self.text(l));
         let (mut from, mut to) = (self.col, self.col);
         while from > 0 && is_word(char_at(s, prev_char(s, from))) {
             from = prev_char(s, from);
@@ -126,30 +179,31 @@ impl App {
         let steps = [
             word.map(|r| ((l, r.start), (l, r.end))),
             Some(((l, 0), (l, s.len()))),
-            Some(((top, 0), (bottom, self.buf.shown(bottom).len()))),
+            Some(((top, 0), (bottom, shown_str(self.text(bottom)).len()))),
         ];
         let cur = self.selection().unwrap_or(((l, self.col), (l, self.col)));
-        let wider = |&(from, to): &((usize, usize), (usize, usize))| {
-            !blank(l) && from <= cur.0 && cur.1 <= to && (from, to) != cur
-        };
+        type Span = ((TextLine, usize), (TextLine, usize));
+        let wider =
+            |&(from, to): &Span| !blank(l) && from <= cur.0 && cur.1 <= to && (from, to) != cur;
         if let Some((from, to)) = steps.into_iter().flatten().find(wider) {
             self.anchor = Some(from);
-            (self.line, self.col) = to;
+            self.set_at(to.0);
+            self.col = to.1;
             self.sync_want_x();
         }
     }
 
     /// Any move that does not extend the selection drops it, unless it ends where it started:
     /// arrows, jumps and find all decide it here, from where the cursor finally is.
-    pub(super) fn drop_selection_if_moved(&mut self, before: (usize, usize)) {
-        if (self.line, self.col) != before {
+    pub(super) fn drop_selection_if_moved(&mut self, before: (TextLine, usize)) {
+        if (self.at(), self.col) != before {
             self.anchor = None;
         }
     }
 
     /// Home: the start of the screen row and, pressed there, of the line, as in VS Code.
     pub(super) fn line_start(&mut self) {
-        let rows = self.rows(self.line);
+        let rows = self.text_rows(self.line_str());
         let start = rows[wrap::col_to_row(&rows, self.col)].start;
         self.col = if self.col == start { 0 } else { start };
         self.sync_want_x();
@@ -159,7 +213,7 @@ impl App {
     /// other than the last ends on its last char, since its end is where the next row starts.
     /// A line cut at [`Buffer::shown`] ends where the cut is.
     pub(super) fn line_end(&mut self) {
-        let rows = self.rows(self.line);
+        let rows = self.text_rows(self.line_str());
         let row = wrap::col_to_row(&rows, self.col);
         let len = self.shown_len();
         let end = if row + 1 < rows.len() {
@@ -171,60 +225,30 @@ impl App {
         self.sync_want_x();
     }
 
-    /// Up / Down, PgUp / PgDn: `n` screen rows, aiming at the column in `want_x`.
+    /// Up / Down, PgUp / PgDn: `n` screen rows, aiming at the column in `want_x`. The rows of
+    /// the lines a review deleted are rows like any other (#439).
     pub(super) fn move_rows(&mut self, n: isize) {
-        // Up on a line whose ghosts are scrolled off above it brings them in, one row at a
-        // time, so a deletion taller than the pane can still be read through.
-        if n < 0
-            && self.top_line == self.line
-            && (1..=self.ghost_rows(self.line)).contains(&self.top_row)
-        {
-            self.top_row -= 1;
-            return;
-        }
-        // Down on the last row of the text scrolls on through the lines deleted after it, the
-        // cursor staying where it is, until the last of them is on the bottom row.
-        if n > 0 && self.at_text_end() {
-            let (end, bottom) = (self.buf.lines.len(), self.bottom_top());
-            for _ in 0..n {
-                let (l, r) = (self.top_line, self.top_row);
-                if (l, r) >= bottom {
-                    break;
-                }
-                (self.top_line, self.top_row) = if l < end && r + 1 == self.row_count(l) {
-                    (l + 1, 0)
-                } else {
-                    (l, r + 1)
-                };
-            }
-            return;
-        }
-        let cur = (self.line, self.cursor_row());
-        let (mut line, mut row) = if n < 0 {
+        let cur = self.cursor_at();
+        let to = if n < 0 {
             self.back_rows(cur, n.unsigned_abs())
         } else {
             self.forward_rows(cur, n as usize)
         };
-        // Ghost rows are not for the cursor: going up onto one lands on the text above it.
-        if n < 0 && row < self.ghost_rows(line) {
-            if line > 0 {
-                line -= 1;
-                row = self.row_count(line) - 1;
-            } else {
-                row = self.ghost_rows(line);
-            }
+        // Down on the last row of the text leaves the cursor as it is: aimed again at `want_x`,
+        // it would slide off a char narrower than the column it stands at.
+        if n > 0 && to == cur {
+            return;
         }
-        self.line = line;
-        self.apply_want_x(row);
+        self.land(to);
     }
 
     /// Ctrl+D / Ctrl+U: cursor and viewport both move half a screen, like vim and less,
     /// so the cursor keeps its place on screen and half the context stays visible.
     pub(super) fn half_page(&mut self, dir: isize) {
         let half = (self.page_rows(dir > 0) / 2).max(1);
-        let before = (self.line, self.cursor_row());
+        let before = self.cursor_at();
         self.move_rows(dir * half as isize);
-        let moved = self.rows_between(before, (self.line, self.cursor_row()));
+        let moved = self.rows_between(before, self.cursor_at());
         let top = (self.top_line, self.top_row);
         (self.top_line, self.top_row) = if dir < 0 {
             self.back_rows(top, moved)
@@ -237,30 +261,33 @@ impl App {
     /// from a blank line the jump crosses the next paragraph instead of stopping next door.
     /// In code, blank lines separate functions, so this is "next function" without a parser.
     pub(super) fn paragraph(&mut self, dir: isize) {
-        let blank = |l: &String| l.trim().is_empty();
-        let last = self.buf.lines.len() - 1;
-        let step = |l: usize| l.saturating_add_signed(dir).min(last);
-        let mut l = self.line;
-        while l != step(l) && blank(&self.buf.lines[l]) {
-            l = step(l);
+        let blank = |t: TextLine| self.text(t).trim().is_empty();
+        let step = |t: TextLine| match dir < 0 {
+            true => self.prev_line(t),
+            false => self.next_line(t),
+        };
+        let mut t = self.at();
+        while let Some(s) = step(t).filter(|_| blank(t)) {
+            t = s;
         }
-        while l != step(l) && !blank(&self.buf.lines[l]) {
-            l = step(l);
+        while let Some(s) = step(t).filter(|_| !blank(t)) {
+            t = s;
         }
-        self.line = l;
+        self.set_at(t);
         self.apply_want_x(0);
     }
 
     /// Wrapped rows from `a` to `b` (either order).
-    pub(super) fn rows_between(&self, a: (usize, usize), b: (usize, usize)) -> usize {
+    /// Counted a line at a time: a line's rows, a thousand deleted ones among them, are wrapped
+    /// once.
+    pub fn rows_between(&self, a: (usize, usize), b: (usize, usize)) -> usize {
         let (lo, hi) = if a <= b { (a, b) } else { (b, a) };
-        let mut n = 0;
-        let mut cur = lo;
-        while cur < hi {
-            cur = self.forward_rows(cur, 1);
-            n += 1;
+        let ((mut line, mut row), mut n) = (lo, 0);
+        while line < hi.0 {
+            n += self.row_count(line) - row;
+            (line, row) = (line + 1, 0);
         }
-        n
+        n + hi.1 - row
     }
 
     /// Walks `n` wrapped rows forwards from `(line, row)`, stopping at the end of the file.
@@ -269,12 +296,14 @@ impl App {
         (mut line, mut row): (usize, usize),
         n: usize,
     ) -> (usize, usize) {
+        let last = self.last_line().key();
+        let mut count = self.row_count(line);
         for _ in 0..n {
-            if row + 1 < self.row_count(line) {
+            if row + 1 < count {
                 row += 1;
-            } else if line + 1 < self.buf.lines.len() {
-                line += 1;
-                row = 0;
+            } else if line < last {
+                (line, row) = (line + 1, 0);
+                count = self.row_count(line);
             } else {
                 break;
             }
@@ -285,8 +314,8 @@ impl App {
     pub(super) fn left(&mut self) {
         if self.col > 0 {
             self.col = prev_char(self.line_str(), self.col);
-        } else if self.line > 0 {
-            self.line -= 1;
+        } else if let Some(t) = self.prev_line(self.at()) {
+            self.set_at(t);
             self.col = self.shown_len();
         }
         self.sync_want_x();
@@ -295,33 +324,29 @@ impl App {
     pub(super) fn right(&mut self) {
         if self.col < self.shown_len() {
             self.col = next_char(self.line_str(), self.col);
-        } else if self.line + 1 < self.buf.lines.len() {
-            self.line += 1;
+        } else if let Some(t) = self.next_line(self.at()) {
+            self.set_at(t);
             self.col = 0;
         }
         self.sync_want_x();
     }
 
     pub(super) fn word_right(&mut self) {
-        if self.col >= self.shown_len() {
-            if self.line + 1 < self.buf.lines.len() {
-                self.line += 1;
-                self.col = 0;
-            }
-        } else {
-            self.col = word_end(self.buf.shown(self.line), self.col);
+        if self.col < self.shown_len() {
+            self.col = word_end(shown_str(self.line_str()), self.col);
+        } else if let Some(t) = self.next_line(self.at()) {
+            self.set_at(t);
+            self.col = 0;
         }
         self.sync_want_x();
     }
 
     pub(super) fn word_left(&mut self) {
-        if self.col == 0 {
-            if self.line > 0 {
-                self.line -= 1;
-                self.col = self.shown_len();
-            }
-        } else {
+        if self.col > 0 {
             self.col = word_start(self.line_str(), self.col);
+        } else if let Some(t) = self.prev_line(self.at()) {
+            self.set_at(t);
+            self.col = self.shown_len();
         }
         self.sync_want_x();
     }
@@ -329,13 +354,12 @@ impl App {
     /// Where the cursor's line ends for the cursor: a line cut at [`Buffer::shown`] ends at the
     /// cut, since the rest is on no screen.
     pub(super) fn shown_len(&self) -> usize {
-        self.buf.shown(self.line).len()
+        shown_str(self.line_str()).len()
     }
 
-    /// Jumps to a 1-based line number, clamped to the file, and centers the view.
+    /// Jumps to a 1-based line number of the file, clamped to it, and centers the view.
     pub fn goto_line(&mut self, n: usize) {
-        self.line = n.max(1).min(self.buf.lines.len()) - 1;
-        self.col = 0;
+        self.go((n.max(1).min(self.buf.lines.len()) - 1, 0));
         self.want_x = 0;
         self.center = true;
     }

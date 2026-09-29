@@ -115,7 +115,7 @@ fn tab_over_a_selection_of_several_lines_indents_them() {
     // The line the selection ends on at column 0 is not indented, as in VS Code.
     assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
     // The same lines are still selected, so a second Tab indents them again.
-    assert_eq!(a.selection(), Some(((0, 0), (2, 0))));
+    assert_eq!(a.file_selection(), Some(((0, 0), (2, 0))));
     press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
     assert_eq!(a.buf.lines, ["        a = 1", "        b = 2", "c = 3"]);
     // One undo step each, and the lines are never lost.
@@ -139,10 +139,10 @@ fn tab_indents_from_the_file_own_indent_and_keeps_the_selected_text() {
     press(&mut a, KeyCode::Right, KeyModifiers::NONE);
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
     press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
-    assert_eq!(a.selection(), Some(((0, 1), (1, 2))));
+    assert_eq!(a.file_selection(), Some(((0, 1), (1, 2))));
     press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
     assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
-    assert_eq!(a.selection(), Some(((0, 5), (1, 6))));
+    assert_eq!(a.file_selection(), Some(((0, 5), (1, 6))));
     // A file written with tabs is indented with a tab.
     let mut a = app("\tif x:\n\t\tpass\nend\n");
     assert!(a.buf.tabs);
@@ -237,7 +237,7 @@ fn typing_replaces_the_selection_and_the_clipboard_keys_copy_or_cut() {
     press(&mut a, KeyCode::Right, KeyModifiers::NONE);
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
-    assert_eq!(a.selection(), Some(((0, 1), (1, 1))));
+    assert_eq!(a.file_selection(), Some(((0, 1), (1, 1))));
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
     assert_eq!(a.clipboard.take().as_deref(), Some("bc\nd"));
     assert_eq!(a.message, "copied 2 lines");

@@ -641,6 +641,28 @@ fn python_class_of(lines: &[&str], d: usize) -> Option<usize> {
     }
     None
 }
+/// The 1-based line a TypeScript binding made on `line` writes `name` on (#393): that line, or,
+/// in a destructuring or a parameter list wrapped one name per line, the line below that holds
+/// it, down to the one back at the first line's indent that closes the list.
+pub fn written_line<S: AsRef<str>>(lines: &[S], line: usize, name: &str) -> usize {
+    let first = lines[line - 1].as_ref();
+    if names(&uncommented(Kind::TsJs, first), name) {
+        return line;
+    }
+    for (k, l) in lines.iter().enumerate().skip(line) {
+        let l = l.as_ref();
+        if l.trim().is_empty() {
+            continue;
+        }
+        if names(&uncommented(Kind::TsJs, l), name) {
+            return k + 1;
+        }
+        if indent(l) <= indent(first) {
+            break;
+        }
+    }
+    line
+}
 /// Walks up from line `at` through the blocks around it: a line at the cursor's block level is a
 /// statement, a line indented less opens the block the walk is in, and deeper lines belong to
 /// blocks already closed.

@@ -186,11 +186,68 @@ fn lines_inside_a_literal_or_a_block_comment_are_told() {
     // a verbatim string writes a quote, so it does not close one.
     let cs = "var q = \"\"\"\n    WHERE EXISTS(SELECT 1 FROM t)\n    \"\"\";\nvar v = @\"\n    SELECT MIN(\"\"rowid\"\") FROM t\n    \";\npublic int Real() => 1;\n";
     assert_eq!(inside(Kind::CSharp, cs), [2, 3, 5, 6]);
+    // A backslash escapes nothing in a verbatim string (#475), `$@"` and `@$"` included, and
+    // escapes a quote in a regular one: the `/*` after `\"` is inside the string.
+    let cs = "var a = @\"C:\\\";\nvar b = $@\"{d}\\\";\nvar c = @$\"\n    {d}\\\";\nvar e = \"a\\\" /* b\";\nvoid Real() {}\n";
+    assert_eq!(inside(Kind::CSharp, cs), [4]);
     let sw = "let doc = \"\"\"\n    class Ghost {}\n    \"\"\"\nclass Real {}\n";
     assert_eq!(inside(Kind::Swift, sw), [2, 3]);
     // A heredoc ends on the line that repeats its label, and only there.
     let php = "$sql = <<<SQL\n    function ghost() {}\n    class Ghost {}\nSQL;\n$n = <<<'TXT'\n    class Nowdoc {}\nTXT;\nclass Real {}\n";
     assert_eq!(inside(Kind::Php, php), [2, 3, 6]);
+    // `#` is a line comment as `//` is (#488), but `#[` opens an attribute, whose `/*` does.
+    let php =
+        "<?php\n# loads lib/*\nfunction below() {}\n#[Route('/api')] /*\nfunction ghost() {}\n*/\n";
+    assert_eq!(inside(Kind::Php, php), [5, 6]);
+    // Outside `<?php … ?>` a `#` is HTML's, CSS's or JS's, and a comment ends at `?>`: the
+    // template and the CSS comment after them still hide what they hold.
+    let php = "<?php # render ?><script>const t = `\nfunction ghost() {}\n`;</script>\n<style>#a { color: red; } /*\nfunction ghost() {}\n*/</style>\n<script>class W {\n  #tpl = `\n<b></b>\n`;\n}</script>\n<?php\nfunction real() {}\n";
+    assert_eq!(inside(Kind::Php, php), [2, 3, 5, 6, 9, 10]);
+}
+
+/// The 1-based lines of `text` that start inside a literal of `kind`.
+fn inside(kind: Kind, text: &str) -> Vec<usize> {
+    let lines = literal_lines(kind, text);
+    (1..=lines.len()).filter(|&n| lines[n - 1]).collect()
+}
+
+/// #346. A Rust string runs over lines to the `"` no `\` escapes, a raw one to its `"#`; a
+/// lifetime and a char literal open nothing, and `/*` inside a string opens no comment.
+#[test]
+fn a_rust_string_runs_over_lines() {
+    let rs = "const A: &str = \"\\\\\";\nfn real() {}\nconst U: &str = \"a \\\" /* \\\nfn ghost() {}\n\";\nfn f<'a>(x: &'a str) -> &'a str { let r#type = x; r#type }\nconst R: &str = r#\"say \"hi\"\nfn ghost() {}\n\"#;\nlet c = '\"'; let g = \"**/*.rs\"; let e = '\\u{1F600}'; let b = br##\"#\"##;\nfn real2() {}\n/// [`Foo`] \"doc\nfn documented() {}\n";
+    assert_eq!(inside(Kind::Rust, rs), [4, 5, 8, 9]);
+    let at = |s: &str| rs.find(s).unwrap();
+    for (word, is) in [
+        ("ghost", true),
+        ("*/*.rs", true),
+        ("hi\"", true),
+        ("real2", false),
+        ("a str", false),
+        ("Foo", false),
+        ("documented", false),
+    ] {
+        assert_eq!(in_string(Kind::Rust, rs, at(word)), is, "{word}");
+    }
+    assert!(!in_string(Kind::TsJs, "const s = \"ghost\";", 12));
+}
+
+/// #379. Ruby's `#` comment, heredocs (two on a line, in order; a plain `<<X` closed only by `X`
+/// at the margin), `=begin` blocks and `__END__`; `<<` that opens no heredoc, a regex's `#`.
+#[test]
+fn ruby_literals_are_read_as_ruby_writes_them() {
+    let rb = "# don't `touch\ndef a; end\nx = <<~SQL + <<-'B' # two\n  def ghost1\nSQL\n  def ghost2\n  B\ndef b; end\nlist << item\nclass << self\ndef c; end\ny = <<X\n  X\ndef ghost3\nX\np = /#/ && <<~Q\ndef ghost4\nQ\n=begin\ndef ghost5\n=end\ndef d; end\n`echo #{1} '`\ndef e; end\n__END__\ndef ghost6\n";
+    assert_eq!(inside(Kind::Ruby, rb), [4, 6, 13, 14, 17, 20, 26, 27]);
+    // No backtick template, no `/* */` block: neither hides the lines below.
+    assert!(inside(Kind::Ruby, "# `\n/* x\ndef a; end\n").is_empty());
+}
+
+/// #465. C++'s raw string, with a delimiter and behind an encoding prefix, runs to `)`, the
+/// delimiter and `"`; an `R` that ends a longer name opens nothing.
+#[test]
+fn a_cpp_raw_string_runs_to_its_delimiter() {
+    let cc = "auto a = R\"(\nstruct Ghost {\n)\";\nauto b = u8R\"x(a )\" b\nstruct Ghost2 {\n)x\";\nauto c = LR\"(x)\"; int real;\nauto d = FOOR\"(\";\nstruct Real {};\n";
+    assert_eq!(inside(Kind::C, cc), [2, 3, 5, 6]);
 }
 
 #[test]
@@ -463,8 +520,10 @@ fn ruby_def_patterns_find_methods_attributes_and_assignments() {
     assert_eq!(d("Billing"), [1]);
     assert_eq!(d("LIMIT"), [2], "a constant, indented in its module");
     assert_eq!(d("Invoice"), [4]);
-    // The accessor, the setter and the assignment behind it -- not `total == other.total`.
-    assert_eq!(d("total"), [5, 19, 20]);
+    // The accessor and the assignment behind the setter -- not `total == other.total`; the
+    // setter itself is `total=` (#387).
+    assert_eq!(d("total"), [5, 20]);
+    assert_eq!(d("total="), [5, 19]);
     assert_eq!(d("customer"), [6], "second in the `attr_reader` list");
     // `id => 1,` is a hash pair, not an assignment.
     assert_eq!(d("id"), [6, 11]);
@@ -476,10 +535,12 @@ fn ruby_def_patterns_find_methods_attributes_and_assignments() {
         [23, 24],
         "the method and the `||=` it memoises with"
     );
-    // `?` is not part of the word under the cursor, and `@rows.empty?` is a call.
-    assert_eq!(d("empty"), [27]);
+    // `?` is part of the name (#387), and `@rows.empty?` is a call.
+    assert_eq!(d("empty?"), [27]);
+    assert_eq!(d("empty"), Vec::<usize>::new());
     assert_eq!(d("rows"), [12]);
-    assert_eq!(d("blank"), [41]);
+    assert_eq!(d("blank?"), [41]);
+    assert_eq!(d("blank"), Vec::<usize>::new());
     assert_eq!(d("name"), Vec::<usize>::new(), "`name =~ /x/` is a match");
     assert_eq!(d("new"), Vec::<usize>::new());
     std::fs::remove_dir_all(&dir).unwrap();

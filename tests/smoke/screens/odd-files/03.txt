@@ -33,6 +33,10 @@ wait - ✔️ Cancelled orders show the reason the customer gave, under the tota
 32 - The support page lists the last 20 orders of a customer.
 33 - ✔️ Cancelled orders show the reason the customer gave, under the total.
 34 - Refunds by hand go through scripts/refund_by_hand.py until the refund flow ships.
+35
+36 ## 1.4.0
+37
+38 - How to run the API on your machine: [the README](../README.md#orders).
 
 
 
@@ -49,9 +53,5 @@ wait - ✔️ Cancelled orders show the reason the customer gave, under the tota
 
 
 
-
-
-
-
-docs/notes.md  34:46  [code]                                                                                                                                                      ? help
-cursor (x,y,shown) 48,33,1
+docs/notes.md  38:46  [code]                                                                                                                                                      ? help
+cursor (x,y,shown) 48,37,1

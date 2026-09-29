@@ -13,6 +13,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::app::{App, Focus, Mode, PickerKind};
 use crate::buffer::{Buffer, Spans};
+use crate::git::{Mark, Review};
 use crate::picker::PickItem;
 use crate::search::MAX_HITS;
 use crate::theme::Theme;
@@ -146,23 +147,12 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             match app.review.as_ref().and_then(|r| r.file(&n.path)) {
                 // Review: `M name  +6 −2`, the status in place of the marker.
                 Some(f) => {
-                    // The letter in the colours of the gutter marks, so a file reads like its
-                    // lines; a rename or a copy is dim, as GitHub draws it grey. With
-                    // `review_panel_colours = false`, letter and counts take the row's style.
-                    let (letter, dim) = match app.review_panel_colours {
-                        true => {
-                            let colour = match f.status {
-                                'A' => Color::Green,
-                                'M' => Color::Blue,
-                                'D' => Color::Red,
-                                _ => theme.ghost_fg,
-                            };
-                            (
-                                style.fg(colour).add_modifier(Modifier::BOLD),
-                                style.fg(theme.ghost_fg),
-                            )
-                        }
-                        false => (style, style),
+                    // The letter takes the row's style: coloured by the terminal's palette or by the
+                    // theme's, it read differently on every theme, and on some it clashed (#450).
+                    // The counts are dim unless `review_panel_colours = false`.
+                    let dim = match app.review_panel_colours {
+                        true => style.fg(theme.ghost_fg),
+                        false => style,
                     };
                     let counts = if f.binary {
                         "bin".to_string()
@@ -181,7 +171,7 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                     let gap =
                         width.saturating_sub(used + wrap::width(&name) + wrap::width(&counts));
                     spans.extend([
-                        Span::styled(f.status.to_string(), letter),
+                        Span::styled(f.status.to_string(), style),
                         Span::styled(format!(" {name}{}", " ".repeat(gap)), style),
                         // Dim, in the readable grey (#146): the name reads first, the numbers
                         // are there when looked for.
@@ -261,6 +251,17 @@ pub(super) fn draw_picker(
     let (rows, selected) = picker.window(list.height as usize);
     let width = list.width as usize;
     let files = app.mode == Mode::Picker(PickerKind::Files);
+    // Review (#246): `o` puts the review's files first, each with its panel letter; `u` and `s`
+    // give each row the gutter's `▎` when the branch added or changed its line.
+    let review = app.review.as_ref();
+    let letters = review.filter(|_| files && app.review_open_files_first);
+    let marks = review.filter(|_| {
+        app.review_list_marks
+            && matches!(
+                app.mode,
+                Mode::Picker(PickerKind::Usages | PickerKind::Search)
+            )
+    });
     let lines: Vec<Line> = rows
         .iter()
         .enumerate()
@@ -277,41 +278,70 @@ pub(super) fn draw_picker(
                 base
             };
             let label = &row.item.label;
+            let mut spans = Vec::new();
+            if let Some(r) = letters {
+                spans.push(match r.file(&row.item.path) {
+                    Some(f) => Span::styled(format!("{} ", f.status), style),
+                    None => Span::styled("  ", style),
+                });
+            }
+            if let Some(r) = marks {
+                spans.push(
+                    match review_mark(&mut picker.marks, r, &app.root, &row.item) {
+                        Some(Mark::Added) => Span::styled("\u{258e}", style.fg(Color::Green)),
+                        Some(Mark::Changed) => Span::styled("\u{258e}", style.fg(Color::Blue)),
+                        _ => Span::styled(" ", style),
+                    },
+                );
+            }
+            let used: usize = spans.iter().map(|s| wrap::width(&s.content)).sum();
             let code = code_hl(&mut picker.bufs, &app.root, &row.item, theme);
             // A span per cluster: ratatui measures each span apart, so an emoji split from its
             // selector would be drawn one column narrower than `wrap::width` counts it.
             let mut c = 0;
-            let mut spans: Vec<Span> = label
-                .grapheme_indices(true)
-                .map(|(b, g)| {
-                    // The matcher numbers chars; a cluster is bold when any of its chars matched.
-                    let chars = c..c + g.chars().count() as u32;
-                    c = chars.end;
-                    let mut style = style;
-                    if let (Some((hl, off)), Some(at)) = (&code, row.item.code_at)
-                        && b >= at
-                        && let Some((s, _)) = hl.iter().find(|(_, r)| r.contains(&(b - at + off)))
-                    {
-                        style = style.patch(*s);
-                    }
-                    if chars
-                        .into_iter()
-                        .any(|k| row.matched.binary_search(&k).is_ok())
-                    {
-                        style = style.add_modifier(Modifier::BOLD);
-                    }
-                    // Quoted code keeps its tabs, as the buffer does; `expand` draws them.
-                    Span::styled(expand(g).into_owned(), style)
-                })
-                .collect();
+            spans.extend(label.grapheme_indices(true).map(|(b, g)| {
+                // The matcher numbers chars; a cluster is bold when any of its chars matched.
+                let chars = c..c + g.chars().count() as u32;
+                c = chars.end;
+                let mut style = style;
+                if let (Some((hl, off)), Some(at)) = (&code, row.item.code_at)
+                    && b >= at
+                    && let Some((s, _)) = hl.iter().find(|(_, r)| r.contains(&(b - at + off)))
+                {
+                    style = style.patch(*s);
+                }
+                if chars
+                    .into_iter()
+                    .any(|k| row.matched.binary_search(&k).is_ok())
+                {
+                    style = style.add_modifier(Modifier::BOLD);
+                }
+                // Quoted code keeps its tabs, as the buffer does; `expand` draws them.
+                Span::styled(expand(g).into_owned(), style)
+            }));
             spans.push(Span::styled(
-                " ".repeat(width.saturating_sub(wrap::width(label))),
+                " ".repeat(width.saturating_sub(used + wrap::width(label))),
                 style,
             ));
             Line::from(spans)
         })
         .collect();
     frame.render_widget(Paragraph::new(lines).style(base), list);
+}
+
+/// Review: the gutter mark of the line an item points at, from the diff of its file against
+/// the merge base, taken once per file a picker draws. A file outside the review has none.
+fn review_mark(
+    marks: &mut HashMap<PathBuf, HashMap<usize, Mark>>,
+    review: &Review,
+    root: &Path,
+    item: &PickItem,
+) -> Option<Mark> {
+    let file = review.file(&item.path)?;
+    let marks = marks
+        .entry(item.path.clone())
+        .or_insert_with(|| review.diff(root, &root.join(&item.path), Some(file)).marks);
+    marks.get(&item.line.checked_sub(1)?).copied()
 }
 
 /// The highlighting of the file line an item quotes, plus the byte offset of the quoted text
@@ -338,8 +368,15 @@ fn code_hl<'a>(
 }
 
 /// `--tutor`'s current lesson, or `--drill`'s task, three rows above the status bar.
-pub(super) fn draw_lesson(frame: &mut Frame, app: &App, theme: &Theme, area: Rect, base: Style) {
-    let Some(tutor) = &app.tutor else { return };
+/// The tutor's and the drill's lesson panel at `width`: a title bar, then the task's text,
+/// wrapped. `None` outside `--tutor` and `--drill`.
+pub(super) fn lesson_panel(
+    app: &App,
+    theme: &Theme,
+    width: u16,
+    base: Style,
+) -> Option<Paragraph<'static>> {
+    let tutor = app.tutor.as_ref()?;
     let (title, text) = match (&tutor.drill, crate::tutor::lesson(tutor.step)) {
         (Some(drill), _) => drill.panel(),
         (None, Some(t)) => (
@@ -354,7 +391,7 @@ pub(super) fn draw_lesson(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         (None, None) => (" Tutor \u{2713} done".to_string(), crate::tutor::DONE),
     };
     // The title row is a bar, so it is padded to the full width.
-    let pad = (area.width as usize).saturating_sub(wrap::width(&title));
+    let pad = (width as usize).saturating_sub(wrap::width(&title));
     let head = Style::new()
         .bg(theme.status_bg)
         .fg(theme.status_fg)
@@ -363,8 +400,5 @@ pub(super) fn draw_lesson(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         Line::from(Span::styled(format!("{title}{}", " ".repeat(pad)), head)),
         Line::from(Span::styled(format!(" {text}"), base)),
     ];
-    frame.render_widget(
-        Paragraph::new(lines).wrap(Wrap { trim: true }).style(base),
-        area,
-    );
+    Some(Paragraph::new(lines).wrap(Wrap { trim: true }).style(base))
 }

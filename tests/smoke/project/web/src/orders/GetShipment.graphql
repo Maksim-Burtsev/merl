@@ -1,0 +1,7 @@
+#import "./ShipmentParts.graphql"
+
+query GetShipment($id: ID!) {
+  shipment(id: $id) {
+    ...ShipmentParts
+  }
+}
