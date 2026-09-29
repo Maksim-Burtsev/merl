@@ -1,14 +1,14 @@
-wait link README.md#orders
-┌orders──────────────────────┐ 1 # orders
-│▸ .github                   │ 2
-│▸ .venv                     │ 3 The orders API (Python, `app/`), the worker that ships and syncs orders (Go, `worker/`) and the
-│▸ app                       │ 4 support team's web page (TypeScript, `web/`).
-│▸ data                      │ 5
-│▸ deploy                    │ 6     make serve     # the API on :8000, reads .env
-│▾ docs                      │ 7     make test      # Python and Go tests
-│    architecture.png        │ 8     make worker    # the queue worker
-│    notes.md                │ 9
-│▸ scripts                   │10 Deployed with the Helm chart in `deploy/helm/orders`; `docker compose up` runs it all locally.
+wait access_level = "user<202e> <2066>// Check if admin<2069> <2066>"
+┌orders──────────────────────┐1 def is_admin(user):
+│▸ .github                   │2     access_level = "user<202e> <2066>// Check if admin<2069> <2066>"
+│▸ .venv                     │3     if access_level != "user<202e> <2066>// Check if admin<2069> <2066>":
+│▸ app                       │4         return True
+│▸ data                      │5     token = "abc<200b>def"
+│▸ deploy                    │6     return False
+│▸ docs                      │
+│▾ scripts                   │
+│    grant_admin.py          │
+│    refund_by_hand.py       │
 │▸ tests                     │
 │▸ web                       │
 │▸ worker                    │
@@ -53,5 +53,5 @@ wait link README.md#orders
 │                            │
 │                            │
 └────────────────────────────┘
-README.md  1:1  [code]  link README.md#orders
-cursor (x,y,shown) 33,0,1
+scripts/grant_admin.py  5:17  [code]                                                                                                                                              ? help
+cursor (x,y,shown) 48,4,1

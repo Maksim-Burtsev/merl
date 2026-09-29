@@ -1,4 +1,5 @@
 /
+Arrows
 Ctrl+End
 End
 Enter

@@ -1,4 +1,4 @@
-wait def is_admin(user):
+wait scripts/grant_admin.py  5:23
 ┌orders──────────────────────┐1 def is_admin(user):
 │▸ .github                   │2     access_level = "user<202e> <2066>// Check if admin<2069> <2066>"
 │▸ .venv                     │3     if access_level != "user<202e> <2066>// Check if admin<2069> <2066>":
@@ -53,5 +53,5 @@ wait def is_admin(user):
 │                            │
 │                            │
 └────────────────────────────┘
-scripts/grant_admin.py  5:17  [code]                                                                                                                                              ? help
-cursor (x,y,shown) 48,4,1
+scripts/grant_admin.py  5:23  [code]                                                                                                                                              ? help
+cursor (x,y,shown) 54,4,1

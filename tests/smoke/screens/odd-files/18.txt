@@ -1,9 +1,9 @@
-wait def is_admin(user):
+wait 5▎    token = "abcdef"
 ┌orders──────────────────────┐1 def is_admin(user):
 │▸ .github                   │2     access_level = "user<202e> <2066>// Check if admin<2069> <2066>"
 │▸ .venv                     │3     if access_level != "user<202e> <2066>// Check if admin<2069> <2066>":
 │▸ app                       │4         return True
-│▸ data                      │5     token = "abc<200b>def"
+│▸ data                      │5▎    token = "abcdef"
 │▸ deploy                    │6     return False
 │▸ docs                      │
 │▾ scripts                   │
