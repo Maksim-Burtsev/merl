@@ -20,6 +20,8 @@ pub enum Kind {
     Lua,
     Elixir,
     Zig,
+    /// Protocol Buffers: `.proto` schemas, never the `.textproto` data they describe.
+    Proto,
     Shell,
     Sql,
     Make,
@@ -55,6 +57,9 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         // build manifest is no reason to send `d` into the standard library. bat paints it
         // as Zig all the same.
         (_, "zig") => Kind::Zig,
+        // Not `.textproto` or `.pbtxt`: the text format is data, a message written out, and
+        // declares nothing.
+        (_, "proto") => Kind::Proto,
         (
             "Rakefile" | "rakefile" | "Gemfile" | "Guardfile" | "Capfile" | "Vagrantfile"
             | "Podfile" | "Brewfile" | "Dangerfile" | "Fastfile",

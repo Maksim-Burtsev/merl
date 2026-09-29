@@ -327,6 +327,23 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"{mods}(?:const|var)\s+{w}\b"),
             ]
         }
+        // Protocol Buffers declares with a keyword, or with the `= N` of a number a message or an
+        // enum gives each name. A field writes its type before the name and an enum value none.
+        // An `extend` adds fields to a message declared elsewhere, as a Rust `impl` is a use of
+        // its type, and an `option` sets a string, a bool or a name.
+        // ponytail: `option x = 1;` would read as a field `x`; no option protoc knows takes a
+        // number, and a custom one is `(x)`, so no rule tells them apart.
+        Kind::Proto => vec![
+            format!(r"^\s*(?:message|enum|service|oneof)\s+{w}\s*(?:\{{|$)"),
+            // Braces or not, `stream` arguments too: the name and the `(` of the argument.
+            format!(r"^\s*rpc\s+{w}\s*\("),
+            format!(r"^\s*{w}\s*=\s*-?\d"),
+            // `string id = 1;`, `repeated Order orders = 2;`, `map<string, int32> counts = 3;`,
+            // `.shop.v1.User owner = 4;`.
+            format!(
+                r"^\s*(?:(?:repeated|optional|required)\s+)?(?:map\s*<[^>]*>|\.?[A-Za-z_][\w.]*)\s+{w}\s*=\s*\d"
+            ),
+        ],
         // A function in either form, an assignment behind the declaration keywords that can
         // precede it (`+=` appends to one), or an alias. A shell has no declaration for the rest,
         // so a `$w` use or a `[ "$w" = x ]` test must not look like one.
@@ -759,6 +776,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Lua
         | Kind::Elixir
         | Kind::Zig
+        | Kind::Proto
         | Kind::Shell
         | Kind::Sql
         | Kind::Make

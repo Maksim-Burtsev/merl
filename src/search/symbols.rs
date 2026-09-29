@@ -396,6 +396,12 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // complement it, the way Shell's and SQL's do.
     (Some(Kind::Zig), ZIG_INLINE_FN_SYMBOL),
     (Some(Kind::Zig), ZIG_TEST_SYMBOL),
+    // Protocol Buffers by its keywords, nested messages included; a field and an enum value are
+    // the shape of a message, not symbols of the project, as a struct field is in every kind.
+    (
+        Some(Kind::Proto),
+        r"^\s*(?:message|enum|service|rpc)\s+(?P<name>[A-Za-z_]\w*)",
+    ),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
@@ -419,9 +425,9 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     ),
 ];
 /// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, C#,
-/// Swift, PHP, Lua, Elixir and GraphQL have rows of their own in [`SYMBOLS`], written for what those
-/// languages declare and how they name it, so reading the all-language pattern over them too
-/// would list a declaration twice. Markdown has none: a declaration in a README's code block is
+/// Swift, PHP, Lua, Elixir, GraphQL and Protocol Buffers have rows of their own in [`SYMBOLS`],
+/// written for what those languages declare and how they name it, so reading the all-language
+/// pattern over them too would list a declaration twice. Markdown has none: a declaration in a README's code block is
 /// an example, not one of the project, and a heading is prose that `s` finds (#421).
 pub fn shared_symbols(kind: Option<Kind>) -> bool {
     !matches!(
@@ -437,6 +443,7 @@ pub fn shared_symbols(kind: Option<Kind>) -> bool {
                 | Kind::Elixir
                 | Kind::Markdown
                 | Kind::Graphql
+                | Kind::Proto
         )
     )
 }

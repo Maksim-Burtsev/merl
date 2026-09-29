@@ -1,0 +1,15 @@
+// The jobs the API hands the worker, as they travel between the two.
+syntax = "proto3";
+
+package orders.queue.v1;
+
+service Jobs {
+  rpc Push(Job) returns (Ack);
+}
+
+message Job {
+  string kind = 1;
+  int64 order_id = 2;
+}
+
+message Ack {}

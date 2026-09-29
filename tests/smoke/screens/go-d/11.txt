@@ -1,0 +1,57 @@
+wait Job: by name, 1 match
+ 1 // The jobs the API hands the worker, as they travel between the two.
+ 2 syntax = "proto3";
+ 3
+ 4 package orders.queue.v1;
+ 5
+ 6 service Jobs {
+ 7   rpc Push(Job) returns (Ack);
+ 8 }
+ 9
+10 message Job {
+11   string kind = 1;
+12   int64 order_id = 2;
+13 }
+14
+15 message Ack {}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+worker/internal/queue/queue.proto  10:9  [code]  Job: by name, 1 match
+cursor (x,y,shown) 11,9,1

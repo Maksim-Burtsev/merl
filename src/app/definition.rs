@@ -101,6 +101,13 @@ impl App {
             self.message = resolution(&word, None, &[], None, false);
             return;
         }
+        // An import's path, and a name its package qualifies (#418).
+        if kind == Kind::Proto
+            && let Some(found) = self.proto_definitions(&text, &written[..start], &word)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
         self.truncated.set(false);

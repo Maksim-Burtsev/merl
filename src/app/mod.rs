@@ -31,6 +31,7 @@ mod open;
 mod picker;
 mod preview;
 mod project_search;
+mod proto;
 mod review;
 mod rust;
 mod scroll;

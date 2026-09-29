@@ -54,6 +54,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `#import "./parts.graphql"` it opens that file. `extend type`, a selection, an alias, an
   argument and a `$variable` are no declarations. `D` lists the types, directives, fragments and
   named operations. (#419)
+- `d`, `u` and `D` in Protocol Buffers (`.proto`): `d` finds a `message` (a nested one too), an
+  `enum` and its values, a `service`, an `rpc`, a field and a `oneof`; `d` on the path of an
+  `import` opens that file; a type qualified by its package, `billing.v1.Money` or
+  `google.protobuf.Timestamp`, lands in that package's files, and the well-known types `protoc`
+  installs are reached, read-only. `D` lists the messages, enums, services and rpcs. (#418)
 
 ### Changed
 

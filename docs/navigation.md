@@ -76,7 +76,18 @@ zero binds `Str` to that path, since PSR-4 spells a namespace the way the file s
 indented `use` pulls in a trait and names no file. Zig's root is the `std_dir` its own `zig env`
 reports; its dependencies live in the global package cache under hashed directory names no source
 line spells out, so they are left out, and `const std = @import("std")` narrows nothing — `std` is
-that root, not a directory inside it. Lua has none to ask for, since `package.path` belongs to
+that root, not a directory inside it. Protocol Buffers has the `include` directories `protoc`
+installs its well-known types into — `/opt/homebrew/include`, `/usr/local/include` and
+`/usr/include` — walked through the links Homebrew puts there; buf's module cache keeps
+dependencies under hashed directories no import spells, and is left out. `d` on the path of an
+`import` (`public` and `weak` too) opens the file it names: the path is relative to a proto root,
+never to the importing file, so it is the project's file whose path ends with it — several are a
+picker — then the first root that has it. A qualified type is resolved as `protoc` resolves it:
+its first part in the file's own `package`, then in each package around it out to the root (a
+leading `.` starts there), so `v1.User` inside `package shop.v1` is `shop.v1.User`. The longest run
+of parts that is some files' `package` narrows the search to those files, `Timestamp: via
+google.protobuf`, and the parts after it are the messages the name is nested in; a qualifier that
+is no package is a nesting (`Outer.Inner`), looked for as `Outer.find` is. Lua has none to ask for, since `package.path` belongs to
 whatever interpreter embeds it and neither a Neovim runtime nor a LuaRocks tree is a standard
 library every project shares. Elixir has the `deps/` that `mix deps.get` fetches the
 dependencies into, as source, beside the `mix.exs` of the file's project or of the umbrella above
@@ -322,6 +333,7 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | Lua | `function name(`, `local function name(`, `function M.name(`, `function M:name(` and the longer `function a.b.name(`; a function literal bound to a name (`M.name = function(`, `name = function(` in a table of handlers); `local name`, one of several on the line included. A field holding anything else has no rule: `limit = 10` in a table constructor and a re-assignment inside a body are the same line, and the language has no keyword to tell them apart. | every `.lua` file |
 | Elixir | every `def` form — `def`, `defp`, `defmacro`, `defmacrop`, `defguard`, `defguardp`, `defdelegate` — written `def name(x) do`, `def name do` or `def name, do: x`, a trailing `?` or `!` included; `defmodule` and `defprotocol` under the namespace they are written with, by their last part, so `defmodule MyApp.Repo` declares `MyApp.Repo` and nothing called `MyApp`; a `defstruct` field, atom list or keyword form, on the `defstruct` line itself — a field on a continuation line of a struct written over several lines has no rule, since that line is the shape of any keyword list; a module attribute where it is given a value (`@timeout 5_000`). Several clauses of one function are several declarations and all are offered. `@spec`, `@type` and the rest of the attributes the language and the libraries everyone uses own — ExUnit's `@tag`, Mix's `@shortdoc` — are directives: `@spec parse(t) :: t` is no declaration of `parse`, and `d` on one of those names has nothing to find. That is a list of known names, which is all a line pattern can have: any library may define an attribute, and `@tag :slow` and `@timeout 5_000` are the same line. `defimpl` declares the module `Protocol.Type`, where neither half is a name of its own, as a Rust `impl` is not. | every `.ex` and `.exs` file |
 | Zig | `fn name(`, behind `pub`, `export`, `extern "c"`, `inline`, `noinline`; `const` and `var`, which is how the language declares a type (`const Ledger = struct {`, `const Status = enum {`, `const Value = union(enum) {`), an import, a constant and a local alike, `threadlocal` and `comptime` included. A struct field (`total: u32,`) has no rule, as a C field has none: it is the shape of a value in a struct literal. Neither has a `test`: a word inside its description declares nothing, so `d` can never land there — `D` lists the tests instead. | every `.zig` file |
+| Protocol Buffers | `message`, `enum`, `service` and `oneof`, a nested message included; `rpc Name(`, braces or not, `stream` arguments too; an enum value, `NAME = 1;`, with no type before the name; a field, `string id = 1;`, `repeated Order orders = 2;`, `map<string, int32> counts = 3;`, `optional`, `required` and a qualified type included. A field's type, an rpc's argument and return types and the message an `extend` adds to are uses, as a Rust `impl` is; an `option`, a `reserved` list and a name inside an import's string declare nothing. The text format (`.textproto`, `.pbtxt`) is data and has no rules. | every `.proto` file |
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
 | SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns have no rule. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable | every Makefile |
@@ -348,7 +360,7 @@ kind of file; GraphQL's `type`, `interface`, `input`, `enum`, `union`, `scalar`,
 its name, without the `@`), `fragment` and named operations, from a row of its own, since the regex
 above knows four of those words and would list them twice; recomputed on each press. Zig adds a function behind `inline` or `noinline` and a
 `test`, under the description it is written with, which that regex has no word for. Java, Kotlin,
-Ruby, C, C++, C#, Swift, PHP, Lua and Elixir are read from rules of their
+Ruby, C, C++, C#, Swift, PHP, Lua, Elixir and Protocol Buffers are read from rules of their
 own instead of that regex — Java's types and its methods, told from a call by the return type before
 the name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and
 `const val`; Ruby's methods, classes and modules, `def self.name` included; C and C++ functions,
@@ -358,11 +370,12 @@ way Java's are; Swift's types, `protocol`s, `actor`s, `typealias`es, `func`s and
 extension under the type it extends; PHP's types and `const`s in one row and its functions and
 methods in another, behind `final public static` and the rest; Lua's functions in both of the
 forms it writes them, under the name and not the table they hang off; Elixir's modules, protocols
-and every `def` form — so none of them is listed twice or
+and every `def` form; Protocol Buffers' `message`, `enum`, `service` and `rpc`, nested messages
+included — so none of them is listed twice or
 under a modifier or a receiver. A C prototype is not listed, since every function of a header would
 be there twice, and a `typedef struct x { … } y;` is listed once, under the `y` the project writes.
 TypeScript's class methods, with neither a keyword nor a type in front, are not listed: the regex
-cannot tell `name(` from a call. Neither are fields, a C or Zig global, a Lua local, a C#
+cannot tell `name(` from a call. Neither are fields, a Protocol Buffers enum value, a C or Zig global, a Lua local, a C#
 constructor (its class is already a row), a Swift `let`, `var`, `init` or `enum` case, a PHP
 property, `enum` case, `define()` or magic method (`__construct`, `__toString`: the language's
 hook, not the project's), a Ruby

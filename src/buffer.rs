@@ -786,6 +786,24 @@ mod tests {
     }
 
     #[test]
+    fn proto_highlights_with_every_shipped_theme() {
+        let src = "// doc\nsyntax = \"proto3\";\nmessage User {\n  string id = 1;\n}\n";
+        for name in crate::theme::names() {
+            let theme = crate::theme::load(name).unwrap();
+            let mut b = Buffer::from_bytes(PathBuf::from("user.proto"), src.as_bytes());
+            assert_eq!(
+                b.syntax.map(|s| s.name.as_str()),
+                Some("Protocol Buffer"),
+                "{name}"
+            );
+            b.highlight_to(4, &theme);
+            let colours: std::collections::HashSet<_> =
+                b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+            assert!(colours.len() > 1, "{name}: everything is one colour");
+        }
+    }
+
+    #[test]
     fn ts_and_js_highlight_with_every_shipped_theme() {
         let src = "// doc\nexport class Order { n = 1 }\nfunction main() { const s = \"x\"; }\n";
         for (file, lang) in [

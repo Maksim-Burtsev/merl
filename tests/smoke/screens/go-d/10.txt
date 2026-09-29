@@ -1,0 +1,57 @@
+wait worker/internal/queue/queue.proto  1:1
+ 1 // The jobs the API hands the worker, as they travel between the two.
+ 2 syntax = "proto3";
+ 3
+ 4 package orders.queue.v1;
+ 5
+ 6 service Jobs {
+ 7   rpc Push(Job) returns (Ack);
+ 8 }
+ 9
+10 message Job {
+11   string kind = 1;
+12   int64 order_id = 2;
+13 }
+14
+15 message Ack {}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+worker/internal/queue/queue.proto  1:1  [code]                                                                                                                                    ? help
+cursor (x,y,shown) 3,0,1
