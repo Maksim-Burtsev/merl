@@ -160,7 +160,8 @@ impl App {
         // A named argument, a literal's key or a JSX attribute names a parameter of the callee
         // or a field of the literal's type, and nothing else spelled so (#315, #316).
         if self.probe.is_none()
-            && let Some(label) = search::label_at(kind, &text, self.line, range.clone())
+            && let java = here.extension().is_some_and(|e| e == "java")
+            && let Some(label) = search::label_at(kind, java, &text, self.line, range.clone())
         {
             let found = label
                 .owner
@@ -1519,7 +1520,17 @@ impl App {
             }
         };
         (self.line, self.col, self.message) = (line0, col0, message);
-        self.offer_only = false;
+        // A callee found only by name, or one of whose candidates lies outside the project, where
+        // nothing is read, may be another namesake's: its parameter is offered, never jumped to.
+        // A callee whose receiver's type the project does not declare, or one of whose candidates
+        // lies outside the project, where nothing is read, may be a library's namesake: its
+        // parameter is offered, never jumped to. A typed chain that broke says so for Python.
+        let offer = std::mem::take(&mut self.offer_only)
+            || owners.iter().any(|c| c.hit.path.is_absolute())
+            || (owners.iter().all(|c| !c.reason.proven())
+                && name
+                    .as_deref()
+                    .is_some_and(|n| self.receiver_outside(kind, here, line, col, n)));
         self.truncated.set(false);
         let Some(name) = name else {
             return Vec::new();
@@ -1586,7 +1597,54 @@ impl App {
                 });
             }
         }
+        self.offer_only = offer && !out.is_empty();
         out
+    }
+
+    /// Whether the receiver of the call whose callee `name` ends at byte `col` of 0-based `line`
+    /// has a type written for it that the project does not declare: `client` of `client.get(`,
+    /// declared `client: HttpClient` or `HttpClient client` on a line above.
+    fn receiver_outside(
+        &self,
+        kind: Kind,
+        here: &Path,
+        line: usize,
+        col: usize,
+        name: &str,
+    ) -> bool {
+        let lines = &self.buf.lines;
+        let Some(head) = lines[line]
+            .get(..col + 1)
+            .and_then(|h| h.strip_suffix(name))
+            .and_then(|h| h.strip_suffix('.'))
+        else {
+            return false;
+        };
+        let recv = head
+            .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .next()
+            .unwrap_or_default();
+        let r = regex::escape(recv);
+        let Ok(re) = Regex::new(&format!(
+            r"\b{r}\s*:\s*([A-Z][\w.]*)|\b([A-Z][\w.]*)(?:<[^>]*>)?\s+{r}\b"
+        )) else {
+            return false;
+        };
+        let ty = lines[..=line].iter().rev().find_map(|l| {
+            let c = re.captures(l)?;
+            let t = c.get(1).or(c.get(2))?.as_str();
+            t.rsplit('.').next().map(str::to_owned)
+        });
+        let Some(ty) = ty.filter(|_| !recv.is_empty()) else {
+            return false;
+        };
+        let cut = self.truncated.get();
+        let pattern = search::def_patterns(kind, &ty).join("|");
+        let none = self
+            .project_definitions(kind, here, &ty, &pattern)
+            .is_empty();
+        self.truncated.set(cut);
+        none
     }
 
     /// The files of the Python module `module` in the project: a package over a module of the
@@ -2413,6 +2471,7 @@ impl App {
         found.truncate(search::MAX_HITS);
         if let Some(probe) = &mut self.probe {
             *probe = found;
+            self.offer_only = offer_only || broke.is_some();
             return;
         }
         match found.as_slice() {
