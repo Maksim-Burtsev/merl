@@ -11,6 +11,9 @@ impl App {
             KeyCode::Left => self.tree.collapse(),
             KeyCode::Enter => match self.tree.selected() {
                 Some(n) if n.is_dir => self.tree.toggle(),
+                // The review panel lists what git changed, a link to a directory or a submodule
+                // among the files: there is no text to open (#449).
+                Some(n) if self.root.join(&n.path).is_dir() => {}
                 Some(n) => {
                     // A file behind a link that stays in the project opens by its own path, as
                     // Ctrl+N and the command line open it: one file, one name (#404).

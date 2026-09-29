@@ -1,0 +1,81 @@
+# id	targets: path:line joined by ; (project-relative; empty: none in reach)	skip: why the row is not scored	note (judged by reading the code: no language server ran for this language)
+csharp0000			outside the project: EF Core ReferenceCollectionBuilder.WithMany
+csharp0001	src/Ordering.API/Extensions/BasketItemExtensions.cs:13		extension method parameter this BasketItem item
+csharp0002			outside the project: MAUI Easing.BounceOut
+csharp0003		not a name with a definition	keyword `global`
+csharp0004	src/ClientApp/Validations/ValidatableObject.cs:29		property ValidatableObject.IsValid
+csharp0005			outside the project: MAUI BindableObject.SetValue
+csharp0006			outside the project: System.DateTime
+csharp0007		not a name with a definition	namespace segment in global::System.Diagnostics
+csharp0008		not a name with a definition	namespace declaration line; picker = other namespaces ending in .Domain (C9)
+csharp0009		not a name with a definition	on declaration (override ToString)
+csharp0010			outside the project: CommunityToolkit ObservableObject
+csharp0011			outside the project: EF Core ColumnsBuilder.Column
+csharp0012		not a name with a definition	on declaration
+csharp0013		not a name with a definition	on declaration
+csharp0014			outside the project: Duende Client.ClientName; picker = 5 project view-model properties (C2)
+csharp0015		not a name with a definition	namespace segment global::eShop
+csharp0016		not a name with a definition	namespace segment global::System
+csharp0017	tests/ClientApp.UnitTests/Mocks/MockSettingsService.cs:167		overload GetValueOrDefault(string, string)
+csharp0018	src/eShop.ServiceDefaults/HttpClientExtensions.cs:11		merl's jump, judged right
+csharp0019			outside the project: System.CodeDom.Compiler.GeneratedCodeAttribute
+csharp0020			outside the project: static object.Equals(object, object); picker = 16 one-parameter Equals of the generated protos
+csharp0021	src/Identity.API/Data/Migrations/ApplicationDbContextModelSnapshot.cs:16		BuildModel parameter modelBuilder
+csharp0022		not a name with a definition	namespace segment in using; picker = 4 `namespace *.Models` (C9)
+csharp0023	tests/Ordering.FunctionalTests/OrderingApiTests.cs:199		merl's jump, judged right
+csharp0024		not a name with a definition	on constructor declaration (wrapped parameters; merl jumped to the class)
+csharp0025	src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs:180		merl's jump, judged right
+csharp0026			outside the project: EF Core HasSequence
+csharp0027			outside the project: MSTest ParallelizeAttribute
+csharp0028	src/ClientApp/ViewModels/Base/ViewModelBase.cs:40		merl's jump, judged right
+csharp0029	src/Ordering.Domain/AggregatesModel/BuyerAggregate/Buyer.cs:5		class Buyer
+csharp0030	src/Ordering.API/Application/DomainEventHandlers/ValidateOrAddBuyerAggregateWhenOrderStartedDomainEventHandler.cs:7		own field _buyerRepository
+csharp0031	src/Ordering.Domain/Exceptions/OrderingDomainException.cs:15;src/Ordering.Domain/Exceptions/OrderingDomainException.cs:6		(string, Exception) constructor, or the class
+csharp0032			outside the project: HttpContentHeaders.ContentType
+csharp0033	src/Ordering.Domain/AggregatesModel/OrderAggregate/Address.cs:15;src/Ordering.Domain/AggregatesModel/OrderAggregate/Address.cs:5		Ordering.Domain Address constructor, or the class
+csharp0034			outside the project: Dictionary.Remove; jumped to private `void Remove(string key)` of a test mock (C2)
+csharp0035	src/Identity.API/Quickstart/Consent/ScopeViewModel.cs:14		property Checked, same-namespace ScopeViewModel
+csharp0036		not a name with a definition	on declaration
+csharp0037	src/Catalog.API/Infrastructure/CatalogContext.cs:14		merl's jump, judged right
+csharp0038		not a name with a definition	namespace segment in using (C9)
+csharp0039	src/Identity.API/Services/RedirectService.cs:5		RedirectService.ExtractRedirectUriFromReturnUrl
+csharp0040	src/WebhookClient/Extensions/Extensions.cs:48		lambda parameter options of AddOpenIdConnect
+csharp0041		not a name with a definition	on declaration
+csharp0042		not a name with a definition	on declaration
+csharp0043			outside the project: EF Core HasIndex
+csharp0044			outside the project: CommunityToolkit ObservableObject.SetProperty
+csharp0045	src/Catalog.API/Infrastructure/CatalogContext.cs:8		class CatalogContext
+csharp0046	src/Ordering.Domain/Events/OrderStartedDomainEvent.cs:7		merl's jump, judged right
+csharp0047			outside the project: MAUI BindableProperty
+csharp0048	src/Catalog.API/Model/PaginatedItems.cs:5		merl's jump, judged right
+csharp0049	tests/ClientApp.UnitTests/Mocks/MockViewModel.cs:8		merl's jump, judged right
+csharp0050			outside the project: AuthenticationScheme.DisplayName; picker = 3 project properties (C2)
+csharp0051	src/Catalog.API/Services/CatalogAI.cs:25		property CatalogAI.IsEnabled
+csharp0052			outside the project: MAUI Easing.Linear
+csharp0053	src/ClientApp/Services/RequestProvider/RequestProvider.cs:112		merl's jump, judged right
+csharp0054			outside the project: Grpc.Core.MethodType
+csharp0055		not a name with a definition	namespace segment of Microsoft.EntityFrameworkCore.Migrations; picker = 22 project `namespace *.Migrations` (C9)
+csharp0056	src/Ordering.API/Application/IntegrationEvents/Events/OrderStockRejectedIntegrationEvent.cs:17		record ConfirmedOrderStockItem, same file
+csharp0057			outside the project: MSTest Assert.AreEqual
+csharp0058		not a name with a definition	namespace in global using
+csharp0059			outside the project: System.Net.Http.HttpClient
+csharp0060			outside the project: ILogger LogDebug
+csharp0061			outside the project: EqualityComparer<T>
+csharp0062	src/ClientApp/Models/Catalog/CatalogItem.cs:14		ClientApp CatalogItem.CatalogType property
+csharp0063			outside the project: Controller.RedirectToAction
+csharp0064			outside the project: EF Core DbContextAttribute
+csharp0065			outside the project: MAUI VisualElement.BatchCommit
+csharp0066	src/Ordering.API/Apis/OrderServices.cs:1		merl's jump, judged right
+csharp0067	src/IntegrationEventLogEF/Services/IIntegrationEventLogService.cs:7		interface method MarkEventAsPublishedAsync
+csharp0068			outside the project: EF Core HasKey
+csharp0069			outside the project: MAUI GeolocationRequest
+csharp0070			outside the project: Grpc.Core.Marshaller
+csharp0071		not a name with a definition	namespace segment global::System
+csharp0072			outside the project: Google.Protobuf CodedOutputStream
+csharp0073		not a name with a definition	on parameter declaration
+csharp0074			outside the project: Google.Protobuf WriteContext
+csharp0075		not a name with a definition	namespace segment in using
+csharp0076		not a name with a definition	namespace segment global::System
+csharp0077		not a name with a definition	on declaration
+csharp0078			outside the project: ILogger LogInformation
+csharp0079	tests/Basket.UnitTests/BasketServiceTests.cs:110		local var service in same method

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::ops::Range;
 
 use ratatui::Frame;
-use ratatui::layout::Rect;
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
@@ -276,6 +276,18 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         let x = area.x + (gutter_w + app.cursor_x().saturating_sub(app.left)) as u16;
         frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
     }
+}
+
+/// A binary file (#287), as VS Code shows one: an empty pane with one dimmed line, centred
+/// where the welcome screen's block sits, and no gutter or cursor.
+pub(super) fn draw_binary(frame: &mut Frame, theme: &Theme, area: Rect, base: Style) {
+    let [_, row] = Layout::vertical([
+        Constraint::Length(area.height.saturating_sub(1) * 2 / 5),
+        Constraint::Length(1),
+    ])
+    .areas(area);
+    let note = Line::styled("binary file, not shown", base.fg(theme.ghost_fg)).centered();
+    frame.render_widget(Paragraph::new(note).style(base), row);
 }
 
 /// The declarations enclosing the top of the view, pinned over the text (#248): the first row

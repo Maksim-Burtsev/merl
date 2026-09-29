@@ -42,6 +42,11 @@ key C-End
 wait {"i…
 key w End
 wait 1 ‹
+# A binary file is an empty pane with one centred, dimmed note, no line number, no cursor (#287).
+key o
+type architecture
+key Enter
+wait binary file, not shown
 # A script an agent wrote with the hidden chars of a "Trojan Source" attack: each is drawn as its
 # code on a warning's amber, the cursor steps over one in a press, and Delete takes it out (#401).
 merl scripts/grant_admin.py:5:17

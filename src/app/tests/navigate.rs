@@ -213,6 +213,37 @@ fn a_declaration_inside_a_literal_is_not_one() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #488: PHP's `#` is a line comment, so the `/*` of a glob in one opens nothing. #475: a C#
+/// verbatim string has no escapes, so `@"C:\"` ends at its second `"`. The declarations below
+/// both are found.
+#[test]
+fn a_php_hash_comment_or_a_csharp_verbatim_backslash_hides_nothing() {
+    let (dir, mut a) = project_app(
+        "hash-verbatim",
+        &[
+            (
+                "a.php",
+                "<?php\n# loads lib/*\nfunction below() { return 1; }\nfunction call() { return below(); }\n",
+            ),
+            (
+                "a.cs",
+                "class A {\n    string P = @\"C:\\\";\n    void Below() { }\n    void Call() { Below(); }\n}\n",
+            ),
+        ],
+    );
+    for kind in [Kind::Php, Kind::CSharp] {
+        a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
+    }
+    d_on(&mut a, "a.php", "return below");
+    assert_eq!(shown(&mut a), jump("below: by name, 1 match", "a.php:3"));
+    d_on(&mut a, "a.cs", "{ Below");
+    assert_eq!(
+        shown(&mut a),
+        jump("Below \u{2192} A.Below (by name, 1 match)", "a.cs:3")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// Found by the acceptance pass of #68: `Outer.find` names what `Outer` declares, and a
 /// method `find` of some class elsewhere used to take the jump with `1 match`.
 #[test]
@@ -1079,5 +1110,43 @@ fn two_modules_an_import_may_mean_are_a_picker_of_modules() {
         ]
         .map(|(n, r, p)| (n.to_string(), r.to_string(), p.to_string()))
     );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #477. A recipe line is a shell command: `GO=$(GO) ./build.sh` sets a variable of that one
+/// command and declares nothing make knows, so `d` on `$(GO)` jumps to the `?=` above the rules,
+/// from that line too. A shell variable, `$${ARCH}`, is still declared by the command it is used
+/// in, and a tab-indented assignment inside an `ifeq` before any rule is make's own.
+#[test]
+fn a_makefile_recipe_line_declares_no_variable() {
+    let (dir, mut a) = project_app(
+        "make-recipe",
+        &[
+            (
+                "Makefile",
+                "GO ?= go\n\nbuild:\n\tGO=$(GO) ./build.sh\n\ntest:\n\t$(GO) test ./...\n",
+            ),
+            (
+                "tools.mk",
+                "ifeq ($(OS),Windows_NT)\n\tEXE := .exe\nendif\n\nall:\n\tEXE=x $(EXE)\n\tARCH=$$(uname -m); \\\n\techo $${ARCH}\n\techo $${ARCH}\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "Makefile", "\t$(GO");
+    assert_eq!(shown(&mut a), jump("GO: by name, 1 match", "Makefile:1"));
+    d_on(&mut a, "Makefile", "GO=$(GO");
+    assert_eq!(shown(&mut a), jump("GO: by name, 1 match", "Makefile:1"));
+    d_on(&mut a, "tools.mk", "echo $${ARCH");
+    assert_eq!(
+        shown(&mut a),
+        jump("ARCH → all.ARCH (by name, 1 match)", "tools.mk:7")
+    );
+    // The next command runs in a shell of its own, where nothing set `ARCH`.
+    a.jump_to(&dir.join("tools.mk"), 9);
+    a.col = 9;
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(shown(&mut a), jump("no definition for ARCH", "tools.mk:9"));
+    d_on(&mut a, "tools.mk", "x $(EXE");
+    assert_eq!(shown(&mut a), jump("EXE: by name, 1 match", "tools.mk:2"));
     std::fs::remove_dir_all(&dir).unwrap();
 }
