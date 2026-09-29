@@ -10,7 +10,7 @@ wait Files (
  9     PAID = "paid"
 10     SHIPPED = "shipped"
 11     CANCELLED = "cancelled"
-12     REFUNDED = "┌Files (42/42)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+12     REFUNDED = "┌Files (46/46)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 13                 │>                                                                                                                                                 │
 14                 │.github/workflows/ci.yml                                                                                                                          │
 15 @dataclass      │app/__init__.py                                                                                                                                   │
@@ -28,6 +28,10 @@ wait Files (
                    │deploy/helm/orders/values.yaml                                                                                                                    │
                    │docs/architecture.png                                                                                                                             │
                    │docs/notes.md                                                                                                                                     │
+                   │scripts/payouts/src/ledger.rs                                                                                                                     │
+                   │scripts/payouts/src/main.rs                                                                                                                       │
+                   │scripts/payouts/src/summary.rs                                                                                                                    │
+                   │scripts/payouts/Cargo.toml                                                                                                                        │
                    │scripts/refund_by_hand.py                                                                                                                         │
                    │tests/test_service.py                                                                                                                             │
                    │web/src/api/client.ts                                                                                                                             │
@@ -38,10 +42,6 @@ wait Files (
                    │web/src/orders/ShipmentParts.graphql                                                                                                              │
                    │web/src/orders/store.ts                                                                                                                           │
                    │web/src/orders/types.ts                                                                                                                           │
-                   │web/src/routes/orders/[id].tsx                                                                                                                    │
-                   │web/src/routes/orders/index.tsx                                                                                                                   │
-                   │web/package.json                                                                                                                                  │
-                   │web/tsconfig.json                                                                                                                                 │
                    └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
 

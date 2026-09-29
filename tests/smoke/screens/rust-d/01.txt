@@ -1,0 +1,57 @@
+wait pub fn report(
+┌orders──────────────────────┐ 1 //! One entry per payout, then the sum.
+│▸ .github                   │ 2
+│▸ .venv                     │ 3 fn cents(amount: u64) -> String {
+│▸ app                       │ 4     format!("{} EUR", amount as f64 / 100.0)
+│▸ data                      │ 5 }
+│▸ deploy                    │ 6
+│▸ docs                      │ 7 pub fn report(amounts: &[u64]) -> String {
+│▾ scripts                   │ 8     let sum: u64 = amounts.iter().sum();
+│  ▾ payouts                 │ 9     let mut out: Vec<String> = amounts.iter().map(|&a| crate::ledger::entry(a)).collect();
+│    ▾ src                   │10     out.push(cents(sum));
+│        ledger.rs           │11     out.join("\n")
+│        main.rs             │12 }
+│        summary.rs          │13
+│      Cargo.toml            │14 #[cfg(test)]
+│    refund_by_hand.py       │15 mod tests {
+│▸ tests                     │16     use super::*;
+│▸ web                       │17
+│▸ worker                    │18     fn sample() -> Vec<u64> {
+│  .env                      │19         vec![100, 250]
+│  .gitignore                │20     }
+│  docker-compose.yml        │21
+│  Dockerfile                │22     #[test]
+│  Makefile                  │23     fn sums() {
+│  pyproject.toml            │24         assert!(report(&sample()).ends_with(&cents(350)));
+│  README.md                 │25     }
+│                            │26 }
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+scripts/payouts/src/summary.rs  1:1  [code]                                                                                                                                       ? help
+cursor (x,y,shown) 33,0,1
