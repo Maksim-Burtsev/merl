@@ -47,6 +47,21 @@ impl App {
             return;
         }
         let text = self.buf.lines.join("\n");
+        // Nothing in a Rust string names code, save the `{name}` a format string captures:
+        // no search for a word of prose (#346).
+        let at = self.buf.lines[..self.line]
+            .iter()
+            .map(|l| l.len() + 1)
+            .sum::<usize>()
+            + range.start;
+        let line = self.line_str();
+        let captured = line[..range.start].ends_with('{')
+            && !line[..range.start].ends_with("{{")
+            && line[range.end..].starts_with(['}', ':']);
+        if !captured && search::in_string(kind, &text, at) {
+            self.message = resolution(&word, None, &[], None, false);
+            return;
+        }
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
         self.truncated.set(false);

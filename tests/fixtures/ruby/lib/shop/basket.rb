@@ -50,7 +50,7 @@ module Shop
     def hidden(grams)
       weigh = Warehouse.weigh(grams)
       weigh + Warehouse::LIMIT
-      # ^ d: picker lib/shop/basket.rb:51, lib/shop/pricing.rb:4, lib/shop/warehouse.rb:22; want lib/shop/basket.rb:51 (#365)
+      # ^ d: picker lib/shop/basket.rb:51, lib/shop/warehouse.rb:22; want lib/shop/basket.rb:51 (#365)
       #                  ^ d: lib/shop/warehouse.rb:3
     end
 
@@ -99,7 +99,7 @@ module Shop
 
     def ledger
       Ledger.new.prepare!
-      #          ^ d: none; want lib/shop/order.rb:19 (#379)
+      #          ^ d: lib/shop/order.rb:19
     end
 
     def rated(courier)

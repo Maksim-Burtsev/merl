@@ -3,3 +3,4 @@
 pub mod basket;
 pub mod pricing;
 pub mod warehouse;
+pub mod texts;

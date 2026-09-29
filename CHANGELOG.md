@@ -188,6 +188,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in C# reads a verbatim string ending in a backslash, `@"C:\"`, as ending at its second
   `"`, and `@$"…"` as the verbatim string it is. It kept the string open, and every declaration
   after it in the file answered `no definition`. (#475)
+- `d` in Rust reads a string that runs over several lines as a string, a raw `r#"…"#` included:
+  a declaration-shaped line of a test fixture or a `--help` text inside one is no declaration,
+  and `d` on a word inside a string says `no definition` at once, save on the `{name}` a format
+  string captures. A word of prose was looked up as a name: `Choose` in an error message jumped
+  to a `struct Choose`, and `to` or `with` searched every dependency for a picker of namesakes.
+  A lifetime, `'a`, opens no string. (#346)
+- `d` in Ruby reads `#` comments, heredocs (`<<~SQL`, `<<-'EOS'`), `=begin` blocks and what
+  follows `__END__` as Ruby writes them: the SQL of a migration's heredoc and the old code of a
+  `=begin` block declare nothing, and a comment holding an odd number of backticks no longer
+  hides every declaration below it in the file. Ruby was read with the C family's `//`, `/* */`
+  and backtick template, so `User#prepare!` in mastodon answered `no definition`. (#379)
+- `d` in C++ reads a raw string, `R"( … )"`, `R"sql( … )sql"` or `u8R"( … )"`, as a string: a
+  declaration-shaped line inside one, such as a banner holding `struct Basket {`, is no longer
+  offered beside the real declaration. (#465)
 
 ## [0.7.0] - 2026-09-25
 

@@ -128,10 +128,13 @@ What `d` does not claim, in Python, TypeScript and Go:
 - An imported name is looked up at the top of the module it comes from, outside the project as
   inside it, and a name imported from two modules (`try` / `except ImportError`) offers both.
 - A line inside a triple-quoted string — a Python docstring, an Elixir `@moduledoc` — a Go raw
-  string, a template literal, a Lua `[[ ]]` or `[==[ ]==]` long string or block comment, or a
-  `/* */` block declares nothing. Each language says which of those forms it has rather than
-  inheriting another's: Zig has none at all, since a `\\` string ends with its line, so the
-  markdown a `\\` block holds is read as the code it sits in.
+  string, a template literal, a Lua `[[ ]]` or `[==[ ]==]` long string or block comment, a Rust
+  string, raw (`r#"…"#`) or not, a Ruby heredoc (`<<~SQL`) or `=begin` block and what follows
+  `__END__`, a C++ raw string (`R"( … )"`, `u8R"sql( … )sql"`), or a `/* */` block declares
+  nothing. A word inside a Rust string names nothing either: `d` there says `no definition` at
+  once, save on the `{name}` a format string captures. Each language says which of those forms it
+  has rather than inheriting another's: Zig has none at all, since a `\\` string ends with its
+  line, so the markdown a `\\` block holds is read as the code it sits in.
 
 On `x.word`, `x.f.word` and longer chains in Python, TypeScript and Go, `d` first looks for the
 type of the receiver. `x` is `self` or `cls` in a method, `this` in a class, a Go method's
