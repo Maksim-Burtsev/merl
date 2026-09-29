@@ -202,6 +202,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its line for the implicit `error`. It searched the project by name: a picker of other types'
   properties and other functions' locals, or with one namesake a wrong jump, as a loop's
   `attempt` to a struct's property `attempt`. (#366)
+- `d` in Ruby lands on a parameter, a block parameter or a local of the method you are in, as
+  `user → SessionsController.user (local)`. It offered every method's `user = …` in the project
+  or jumped to one. A call with no receiver, and `self.name`, lands on the method of the class it
+  is made in, then of the modules the class includes and of its superclasses, before a namesake
+  of another class: `track → SessionsController.track (via SessionsController)`. (#365)
 
 ### Fixed
 
@@ -496,6 +501,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   jumping into one as if it were the type. And a `let` or `var` inside a function is no longer a
   candidate behind a `.` or in another function: `session.request` lands on the method, not in a
   picker beside a test's `let request`. (#371)
+- `d` in Ruby no longer jumps to a local of another method. A local `name = …` is a candidate
+  only in its own method or block, and `@name = …` only for `@name`, in its own class, the class
+  reopened in another file included. Behind a dot, as in `x.name`, only a `def`, an `attr_*` or
+  an `alias` of the name answers: `uri.scheme` went to some other method's `scheme = …`, and
+  `@name = name` read as a declaration of the `name` on its right. (#383)
 
 ## [0.7.0] - 2026-09-25
 

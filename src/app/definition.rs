@@ -253,6 +253,19 @@ impl App {
             search::GoKey::Unknown => self.offer_only = true,
             search::GoKey::No | search::GoKey::Value => {}
         }
+        // A Ruby `@name` or `@@name` is a variable of the class around the cursor, assigned in
+        // its methods (#383): a word of its own, never the bare `name`, and never another class's.
+        let lead = &self.line_str()[..range.start];
+        if kind == Kind::Ruby && lead.ends_with('@') {
+            let sigil = match lead.ends_with("@@") {
+                true => "@@",
+                false => "@",
+            };
+            let ivar = format!("{sigil}{word}");
+            let found = self.ruby_ivars(&here, &text, &ivar);
+            self.show_definitions(kind, &ivar, &here, found, None);
+            return;
+        }
         // Inside a docstring's example the imports written there count too.
         let in_literal = search::literal_lines(kind, &text).get(self.line) == Some(&true);
         let mut imports = match in_literal {
@@ -410,6 +423,31 @@ impl App {
                 .map(|m| m.join("|")),
         };
         let mut patterns = search::def_patterns(kind, &word);
+        // A Ruby local is seen from its own method or block alone, and a value has none: its
+        // assignments are this file's where the cursor sees them, below, never a search by name
+        // (#383). A constant is the project's.
+        let ruby_local =
+            kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_');
+        if kind == Kind::Ruby && (dotted || ruby_local) {
+            let assignment = search::ruby_assignment(&word);
+            patterns.retain(|p| *p != assignment);
+        }
+        // A Ruby call with no receiver that no local names, and `self.meth`, is a method of
+        // `self`: its class, the modules it mixes in, its superclasses, in that order, before any
+        // namesake by name (#365).
+        if ruby_local
+            && locals.is_empty()
+            && ((!dotted && chain.is_empty() && !before.ends_with("::")) || own)
+            && search::ruby_locals(&text, self.line + 1, &word).is_empty()
+        {
+            let found = self.ruby_self_methods(&here, &text, &word);
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+            // A cut in a grep whose result is dropped says nothing about the list below.
+            self.truncated.set(false);
+        }
         // An Elixir call is never a module attribute: `Shop.currency()` is no `@currency` (#459).
         if kind == Kind::Elixir && dotted {
             patterns.retain(|p| !p.starts_with(r"^\s*@"));
@@ -1025,6 +1063,18 @@ impl App {
         // left was a namesake beside it on master, and is offered, never jumped to. The cursor's
         // own line stays, standing on a declaration.
         let mut hits = hits;
+        if ruby_local && !dotted && chain.is_empty() {
+            hits.extend(
+                search::ruby_locals(&text, self.line + 1, &word)
+                    .into_iter()
+                    .map(|line| Hit {
+                        path: here.clone(),
+                        line,
+                        col: 0,
+                        text: self.buf.lines[line - 1].clone(),
+                    }),
+            );
+        }
         if kind == Kind::Lua {
             let at = |h: &Hit| h.path == here && h.line == self.line + 1;
             let all = hits.len();
@@ -1849,6 +1899,141 @@ impl App {
 
     /// Jumps to the one candidate, or opens the picker over several, and says how they were found
     /// and at which name of the chain in front of the word the typed lookup `broke`, if it did.
+    /// The methods named `word` a Ruby `self` at the cursor answers to (#365): those its class
+    /// declares, in any file that opens it, then those of the modules it `include`s (or, when
+    /// `self` is the class, `extend`s), then its superclass's, walked up. When `self` is the
+    /// class, only the class's own methods count. Empty when none declares it, or at the top of a
+    /// file.
+    fn ruby_self_methods(&self, here: &Path, text: &str, word: &str) -> Vec<Candidate> {
+        let class = search::ruby_class_path(text, self.line + 1);
+        if class.is_empty() {
+            return Vec::new();
+        }
+        let on_class = search::ruby_self_is_class(text, self.line + 1);
+        let mut patterns = search::def_patterns(Kind::Ruby, word);
+        let assignment = search::ruby_assignment(word);
+        patterns.retain(|p| *p != assignment);
+        // Each declaration with its class, whether it is on the class, and whether it is a
+        // method of a module every side of which counts.
+        let owned: Vec<(Hit, String, bool, bool)> = self
+            .project_definitions(Kind::Ruby, here, word, &patterns.join("|"))
+            .into_iter()
+            .filter_map(|h| {
+                let t = self.text_of(&h.path)?;
+                let c = search::ruby_class_path(&t, h.line);
+                let on = search::ruby_on_class(&t, h.line);
+                let both = search::ruby_singleton(&t, h.line);
+                Some((h, c, on, both))
+            })
+            .collect();
+        let mut seen = HashSet::from([class.clone()]);
+        let mut queue = std::collections::VecDeque::from([(class, on_class)]);
+        while let Some((c, side)) = queue.pop_front() {
+            let found: Vec<Candidate> = owned
+                .iter()
+                .filter(|(_, hc, on, both)| *hc == c && if side { *both } else { !*on })
+                .map(|(h, ..)| Candidate {
+                    hit: h.clone(),
+                    reason: Reason::Receiver(c.clone()),
+                })
+                .collect();
+            if !found.is_empty() {
+                return found;
+            }
+            let (supers, includes, extends) = self.ruby_parents(here, &c);
+            let mixed = match side {
+                true => extends,
+                false => includes,
+            };
+            // A module's methods mixed in are its instance methods, whichever side takes them.
+            let next = mixed
+                .into_iter()
+                .map(|m| (m, false))
+                .chain(supers.into_iter().map(|s| (s, side)));
+            for (name, side) in next {
+                for path in self.ruby_resolve(here, &name) {
+                    if seen.insert(path.clone()) {
+                        queue.push_back((path, side));
+                    }
+                }
+            }
+        }
+        Vec::new()
+    }
+
+    /// The superclasses, `include`d and `extend`ed modules of the Ruby class or module `path`, as
+    /// written, over every file of the project that opens it.
+    fn ruby_parents(&self, here: &Path, path: &str) -> (Vec<String>, Vec<String>, Vec<String>) {
+        let mut out = (Vec::new(), Vec::new(), Vec::new());
+        for (h, t) in self.ruby_declarations(here, path) {
+            let (s, i, e) = search::ruby_class_parents(&t, h.line);
+            out.0.extend(s);
+            out.1.extend(i);
+            out.2.extend(e);
+        }
+        out
+    }
+
+    /// The lines of the project that open the Ruby class or module `path`, with their file's text.
+    fn ruby_declarations(&self, here: &Path, path: &str) -> Vec<(Hit, String)> {
+        let last = path.rsplit("::").next().unwrap_or(path);
+        let pattern = format!(
+            r"^\s*(?:class|module)\s+(?:[\w:]+::)?{}(?:[^\w:]|$)",
+            regex::escape(last)
+        );
+        self.project_definitions(Kind::Ruby, here, last, &pattern)
+            .into_iter()
+            .filter_map(|h| {
+                let t = self.text_of(&h.path)?;
+                (search::ruby_declared_path(&t, h.line).as_deref() == Some(path)).then_some((h, t))
+            })
+            .collect()
+    }
+
+    /// The paths of the classes and modules the project declares that the constant `name`, as
+    /// written, can name: `Tariff` is `Shop::Tariff` as well.
+    /// ponytail: Ruby's lexical lookup is not modelled; every such path counts.
+    fn ruby_resolve(&self, here: &Path, name: &str) -> Vec<String> {
+        let last = name.rsplit("::").next().unwrap_or(name);
+        let pattern = format!(
+            r"^\s*(?:class|module)\s+(?:[\w:]+::)?{}(?:[^\w:]|$)",
+            regex::escape(last)
+        );
+        let mut paths: Vec<String> = self
+            .project_definitions(Kind::Ruby, here, last, &pattern)
+            .into_iter()
+            .filter_map(|h| search::ruby_declared_path(&self.text_of(&h.path)?, h.line))
+            .filter(|p| p == name || p.ends_with(&format!("::{name}")))
+            .collect();
+        paths.sort();
+        paths.dedup();
+        paths
+    }
+
+    /// The lines that assign the Ruby instance or class variable `ivar` in the class around the
+    /// cursor, in `here` or in another file that reopens the class (#383). At the top of a file,
+    /// that file's own.
+    fn ruby_ivars(&self, here: &Path, text: &str, ivar: &str) -> Vec<Candidate> {
+        let class = search::ruby_class_path(text, self.line + 1);
+        let pattern = search::ruby_assignment(ivar);
+        self.project_definitions(Kind::Ruby, here, ivar, &pattern)
+            .into_iter()
+            .filter(|h| {
+                (!class.is_empty() || h.path == here)
+                    && self
+                        .text_of(&h.path)
+                        .is_some_and(|t| search::ruby_class_path(&t, h.line) == class)
+            })
+            .map(|hit| Candidate {
+                hit,
+                reason: match class.is_empty() {
+                    true => Reason::File,
+                    false => Reason::Receiver(class.clone()),
+                },
+            })
+            .collect()
+    }
+
     fn show_definitions(
         &mut self,
         kind: Kind,

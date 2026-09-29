@@ -316,9 +316,9 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             ]
         }
         // Ruby declares everything on one line. A constant lives indented inside its class, so
-        // the assignment rule is not anchored at column zero as Python's is, and it takes the
-        // `@`/`@@` of an instance or class variable with it. The Rails-style DSL (`scope`,
-        // `has_many`, `define_method`) has no rule.
+        // the assignment rule is not anchored at column zero as Python's is. An instance or class
+        // variable is its own word, `@name` or `@@name`, and its assignment declares nothing else
+        // (#383). The Rails-style DSL (`scope`, `has_many`, `define_method`) has no rule.
         // `name?`, `name!` and the setter `name=` are methods of their own (#387): the word
         // carries its suffix, and a bare `name` is none of them.
         Kind::Ruby => {
@@ -336,13 +336,13 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 // the name sits in the list.
                 Some(name) => [method, vec![attr("writer", &regex::escape(name))]].concat(),
                 None if word.ends_with(['?', '!']) => method,
+                None if word.starts_with('@') => vec![ruby_assignment(word)],
                 None => [
                     method,
                     vec![
                         // `class A::B` declares `B`, not `A`.
                         format!(r"^\s*(?:class|module)\s+(?:[\w:]+::)?{w}(?:[^\w:]|$)"),
-                        // An assignment, `||=` included; `==`, `=~` and `=>` are not one.
-                        format!(r"^\s*@{{0,2}}{w}\s*(?:\|\|)?=($|[^=~>])"),
+                        ruby_assignment(word),
                         attr("reader", &w),
                     ],
                 ]
@@ -970,6 +970,11 @@ pub fn member_or_signature(kind: Kind, word: &str) -> Option<Vec<String>> {
         ));
     }
     Some(patterns)
+}
+/// A Ruby assignment of `word`, `||=` included; `==`, `=~` and `=>` are not one. The word
+/// carries its sigil: `@name =` assigns `@name`, never `name` (#383).
+pub fn ruby_assignment(word: &str) -> String {
+    format!(r"^\s*{}\s*(?:\|\|)?=($|[^=~>])", regex::escape(word))
 }
 /// Line patterns that declare `word` as a member of a class, an interface, an object literal or
 /// a receiver type: what `x.word` can reach when `x` is a value. A local, a module-level name or a

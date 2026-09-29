@@ -520,25 +520,27 @@ fn ruby_def_patterns_find_methods_attributes_and_assignments() {
     assert_eq!(d("Billing"), [1]);
     assert_eq!(d("LIMIT"), [2], "a constant, indented in its module");
     assert_eq!(d("Invoice"), [4]);
-    // The accessor and the assignment behind the setter -- not `total == other.total`; the
-    // setter itself is `total=` (#387).
-    assert_eq!(d("total"), [5, 20]);
+    // The accessor -- not `total == other.total`; the setter itself is `total=` (#387). The
+    // `@total` it sets is a word of its own (#383).
+    assert_eq!(d("total"), [5]);
+    assert_eq!(d("@total"), [20]);
     assert_eq!(d("total="), [5, 19]);
     assert_eq!(d("customer"), [6], "second in the `attr_reader` list");
     // `id => 1,` is a hash pair, not an assignment.
-    assert_eq!(d("id"), [6, 11]);
-    assert_eq!(d("count"), [8], "a class variable");
+    assert_eq!(d("id"), [6]);
+    assert_eq!(d("@id"), [11]);
+    assert_eq!(d("@@count"), [8], "a class variable");
+    assert_eq!(d("count"), Vec::<usize>::new());
+    assert_eq!(d("@count"), Vec::<usize>::new());
     assert_eq!(d("initialize"), [10]);
     assert_eq!(d("parse"), [15], "`def self.parse`");
-    assert_eq!(
-        d("cache"),
-        [23, 24],
-        "the method and the `||=` it memoises with"
-    );
+    assert_eq!(d("cache"), [23]);
+    assert_eq!(d("@cache"), [24], "the `||=` it memoises with");
     // `?` is part of the name (#387), and `@rows.empty?` is a call.
     assert_eq!(d("empty?"), [27]);
     assert_eq!(d("empty"), Vec::<usize>::new());
-    assert_eq!(d("rows"), [12]);
+    assert_eq!(d("rows"), Vec::<usize>::new());
+    assert_eq!(d("@rows"), [12]);
     assert_eq!(d("blank?"), [41]);
     assert_eq!(d("blank"), Vec::<usize>::new());
     assert_eq!(d("name"), Vec::<usize>::new(), "`name =~ /x/` is a match");
