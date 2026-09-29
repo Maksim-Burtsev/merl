@@ -31,6 +31,9 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     static EX_MODULE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*def(?:module|protocol)\s+([A-Z](?:[\w.]*\w)?)").unwrap()
     });
+    static EX_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*def(?:p|macrop?|guardp?|delegate)?\s+([\w?!]+)").unwrap()
+    });
     if !nests(Some(kind)) {
         return None;
     }
@@ -60,10 +63,14 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         return Some(format!("{owner}{sep}{name}"));
     }
     // Any other name on a Python `def` line is a parameter (#100): `Recipes.get_one.slug`, as a
-    // local of the body reads, not `Recipes.slug`, a field's name.
-    if kind == Kind::Python
-        && let Some(c) = PY_DEF.captures(target).filter(|c| &c[1] != name)
-    {
+    // local of the body reads, not `Recipes.slug`, a field's name. So is one on an Elixir
+    // function's `def` line (#460).
+    let def = match kind {
+        Kind::Python => PY_DEF.captures(target),
+        Kind::Elixir => EX_DEF.captures(target),
+        _ => None,
+    };
+    if let Some(c) = def.filter(|c| &c[1] != name) {
         let owner = qualified(kind, text, line, &c[1]).unwrap_or_else(|| c[1].to_owned());
         return Some(format!("{owner}{sep}{name}"));
     }

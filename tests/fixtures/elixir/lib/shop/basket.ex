@@ -87,12 +87,14 @@ defmodule Shop.Basket do
   def restock(discount) do
     discount + 1
     # ^ d: lib/shop/basket.ex:87
+    #   status: discount → Shop.Basket.restock.discount (local)
   end
 
   def weigh_all(grams) do
     weigh = W.weigh(grams)
     weigh + 1
-    # ^ d: lib/shop/basket.ex:93
+    # ^ d: lib/shop/basket.ex:94
+    #   status: weigh → Shop.Basket.weigh_all.weigh (local)
   end
 
   def encode(basket), do: Jason.encode!(basket)
@@ -103,6 +105,7 @@ defmodule Shop.Basket do
 
   def refund(%Shop.Basket{tariff: t}) do
     Tariff.rate(t)
-    #           ^ d: lib/shop/basket.ex:104
+    #           ^ d: lib/shop/basket.ex:106
+    #   status: t → Shop.Basket.refund.t (local)
   end
 end
