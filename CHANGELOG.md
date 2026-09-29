@@ -215,6 +215,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   namesake of the project. A module's qualifier narrows the search to the dependency that
   declares the module, so `Phoenix.LiveView.assign` finds `phoenix_live_view`, not Plug's
   `assign`. (#437)
+- `d` in C and C++ on a type name lands on its class or struct. It offered a picker of the
+  class, every `class X;` forward declaration in other headers and every constructor, and C's
+  `typedef struct X { … } X;` as two rows; a bare `X` now lands on `} X;`, `struct X` on the
+  opening line. With the class declared once, `Status::Corruption(…)` resolves `via Status`
+  again instead of offering every `Corruption`, and `struct DBImpl::Writer {` is found as
+  `Writer`, in `d` and `D`. A forward declaration inside a class body, two classes of one name
+  and a construction, `Status(…)`, keep their pickers. (#368)
+- `d` in C and C++ on a function jumps to its definition instead of offering it beside its
+  prototype, `add: by name, 1 definition, 1 prototype`, and on a global past its `extern`
+  declaration; overloads and `#if` / `#else` variants keep their picker. A `static`, a `#define` or
+  an unnamed `namespace` of another source file is no longer offered, and a `static` of the file
+  on screen is its answer. A `#define X` under `#ifndef X` yields to any other declaration of
+  `X`: `strcasecmp` in redis jumps to the system's instead of a Windows-only header. (#364)
 
 ## [0.7.0] - 2026-09-25
 
