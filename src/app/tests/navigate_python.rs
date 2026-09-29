@@ -956,3 +956,133 @@ fn a_member_of_a_value_is_looked_for_outside_the_project_too() {
     );
     std::fs::remove_dir_all(&site).unwrap();
 }
+
+/// #333. A word in the module path of an import line opens that module, in the project or outside
+/// it, matched from the root it lies under: never a method of the name, never a namesake found
+/// by name. So does a name an import binds to a module outside, bare or as a qualifier, unless
+/// the package above binds it itself; and the name a plain `import x` binds is a module or
+/// nothing.
+#[test]
+fn a_module_name_in_or_bound_by_an_import_opens_the_module() {
+    let std = external_root(
+        "py-modules-std",
+        &[
+            ("json/__init__.py", "def dumps(obj):\n    pass\n"),
+            // The base interpreter's pip, which a module found by name used to land in.
+            (
+                "site-packages/pip/_internal/cli/cmdoptions.py",
+                "json = object()\n",
+            ),
+        ],
+    );
+    let site = external_root(
+        "py-modules-site",
+        &[
+            ("django/__init__.py", ""),
+            ("django/core/__init__.py", ""),
+            (
+                "django/core/management/__init__.py",
+                "class CommandError(Exception):\n    pass\n",
+            ),
+            ("rest_framework/__init__.py", ""),
+            (
+                "rest_framework/serializers.py",
+                "class ListField:\n    pass\n",
+            ),
+            (
+                "fsspec/github.py",
+                "class GithubFileSystem:\n    def repos(self):\n        pass\n",
+            ),
+            // A module of the name deeper in another package is not the one imported.
+            ("kombu/utils/yaml.py", "def load(s):\n    pass\n"),
+            // A package that binds the name itself keeps its say.
+            ("drf/__init__.py", "fields = None\n"),
+            ("drf/fields.py", "x = 1\n"),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "py-modules",
+        &[
+            ("app/__init__.py", ""),
+            ("app/repos.py", "class UserRepo:\n    pass\n"),
+            (
+                "app/modules.py",
+                "from app.repos import UserRepo\nfrom django.core.management import CommandError\nimport json\nfrom rest_framework import serializers\nimport yaml\nfrom drf import fields\n\n\ndef main():\n    json.dumps({})\n    serializers.ListField()\n    yaml.load(\"\")\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, &[std.clone(), site.clone()]);
+    let module = |word: &str, file: &str, root: &Path| {
+        let place = format!("{}:1", root.join(file).display());
+        jump(&format!("{word}: module {file}"), &place)
+    };
+    for (code, want) in [
+        (
+            "from app.repos",
+            module("repos", "app/repos.py", Path::new("")),
+        ),
+        (
+            "from app|.repos",
+            module("app", "app/__init__.py", Path::new("")),
+        ),
+        (
+            "from django.core.management",
+            module("management", "django/core/management/__init__.py", &site),
+        ),
+        (
+            "from django.core|.management",
+            module("core", "django/core/__init__.py", &site),
+        ),
+        ("^import json", module("json", "json/__init__.py", &std)),
+        ("json|.dumps", module("json", "json/__init__.py", &std)),
+        (
+            "import serializers",
+            module("serializers", "rest_framework/serializers.py", &site),
+        ),
+        (
+            "serializers|.ListField",
+            module("serializers", "rest_framework/serializers.py", &site),
+        ),
+        // Nothing of the name at the root: no module, and no search by name.
+        (
+            "^import yaml",
+            jump("no definition for yaml", "app/modules.py:5"),
+        ),
+        (
+            "^    yaml|.load",
+            jump("no definition for yaml", "app/modules.py:12"),
+        ),
+        // Unchanged: what the import takes, and a name the package above binds.
+        (
+            "import UserRepo",
+            jump("UserRepo: via import app/repos.py", "app/repos.py:1"),
+        ),
+        (
+            "json.dumps",
+            jump(
+                "dumps: via import json",
+                &format!("{}:1", std.join("json/__init__.py").display()),
+            ),
+        ),
+        (
+            "serializers.ListField",
+            jump(
+                "ListField: via import rest_framework.serializers",
+                &format!("{}:1", site.join("rest_framework/serializers.py").display()),
+            ),
+        ),
+        (
+            "import fields",
+            jump(
+                "fields: by name, 1 match",
+                &format!("{}:1", site.join("drf/__init__.py").display()),
+            ),
+        ),
+    ] {
+        d_on(&mut a, "app/modules.py", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    for d in [dir, std, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}

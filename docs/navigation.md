@@ -32,6 +32,17 @@ module that does not declare the word itself — an `index.ts` that re-exports i
 further: `d` falls back to the search by name below and says `by name`. Behind
 `from repos import UserRepository as Users` a receiver typed `Users` is a `UserRepository`.
 
+A Python module's name lands on the module, at its first line: `repos: module app/repos.py`. That
+is a word in the module path of an import line (`app` or `repos` in `from app.repos import
+UserRepo`, `json` in `import json`), and a name an import binds to a module (`views` behind
+`from shop import views`, `json` in `json.dumps`), in the project and outside it. A package comes
+before a module of the same name beside it, as Python imports it. Outside, the module is matched
+from the root it lies under, `json/__init__.py`, `json.py` or `json.pyi` there, never a `json.py`
+deep in another package; a package that binds the name itself (`serializers = …` in its
+`__init__.py`) keeps its say. A word of an import's path that names no module, and the name of a
+plain `import x` where `x` is not installed, get `no definition`: they can only be modules, so no
+namesake is searched for.
+
 In Rust a bare name, with no `.` or `::` in front, is the item the file declares under it where
 the cursor sees it: a `fn` nested in the function, an item of the inline `mod` around the cursor
 or of the file's top level, and inside a `mod tests { use super::*; … }` the file's own after the

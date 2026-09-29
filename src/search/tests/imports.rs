@@ -628,3 +628,26 @@ fn rust_use_files_follow_the_crate_and_super_paths() {
         assert_eq!(find(here, text), want, "{here}: {text}");
     }
 }
+
+/// #333. A word in the module path of a Python import line is the module up to that word; an
+/// imported name, an alias and any other line are not.
+#[test]
+fn a_word_in_a_python_import_path_is_its_module() {
+    let module = |line: &str, word: &str| {
+        let at = line.find(word).unwrap();
+        python_import_module(line, at)
+    };
+    let parts = |p: &[&str]| Some(p.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+    let line = "from app.repos import UserRepo";
+    assert_eq!(module(line, "app"), parts(&["app"]));
+    assert_eq!(module(line, "repos"), parts(&["app", "repos"]));
+    assert_eq!(module(line, "UserRepo"), None);
+    let line = "from ..x.y import (";
+    assert_eq!(module(line, "x"), parts(&["..", "x"]));
+    let line = "import a.b as c, d.e  # f";
+    assert_eq!(module(line, "b"), parts(&["a", "b"]));
+    assert_eq!(module(line, "c"), None);
+    assert_eq!(module(line, "e"), parts(&["d", "e"]));
+    assert_eq!(module(line, "f"), None);
+    assert_eq!(module("x = json.dumps", "json"), None);
+}

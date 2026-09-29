@@ -236,6 +236,41 @@ impl App {
         })
     }
 
+    /// The file outside the project that is the Python module `parts` (#333), matched from the
+    /// root it lies under, the deepest that holds it: `a/b/c/__init__.py`, `a/b/c.py` or
+    /// `a/b/c.pyi` from there, never a `c.py` deeper in some other package. As Python imports it,
+    /// the first root holding it wins, and in a root a package over a module beside it; `.py`
+    /// over `.pyi`, which a compiled module has alone.
+    pub(super) fn external_module(&mut self, parts: &[String]) -> Option<PathBuf> {
+        let files = self.external_files(Kind::Python);
+        let roots = self
+            .external
+            .get(&Kind::Python)
+            .map(|(roots, _)| roots.clone())
+            .unwrap_or_default();
+        let name: PathBuf = parts.iter().collect();
+        let forms = [
+            name.join("__init__.py"),
+            name.join("__init__.pyi"),
+            name.with_extension("py"),
+            name.with_extension("pyi"),
+        ];
+        files
+            .iter()
+            .filter_map(|f| {
+                let root = roots
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, r)| f.starts_with(r))
+                    .max_by_key(|(_, r)| r.components().count())?;
+                let rel = f.strip_prefix(root.1).ok()?;
+                let form = forms.iter().position(|m| rel == m)?;
+                Some(((root.0, form), f))
+            })
+            .min_by_key(|(rank, _)| *rank)
+            .map(|(_, f)| f.clone())
+    }
+
     /// A grep that came back full stopped at the cap: what `d` counts from it is a lower bound,
     /// also after a filter has made the list short (#100).
     pub(super) fn note_cut(&self, hits: &[Hit]) {

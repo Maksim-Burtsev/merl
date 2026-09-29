@@ -312,6 +312,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in a Makefile finds a variable set only by `CFLAGS += -Wall` or for one target,
   `release: VERSION := 1.0`, where it answered `no definition`. A plain `CFLAGS = -O2` stays
   the only answer where there is one. (#499)
+- `d` in Python on a module's name opens the module at its first line, `repos: module
+  app/repos.py`: a word in the path of an import line (`repos` in `from app.repos import
+  UserRepo`, `json` in `import json`), and a name an import binds to a module outside the
+  project (`serializers` behind `from rest_framework import serializers`, `json` in
+  `json.dumps`). It jumped to any method of the name in the dependencies, landed `json` in the
+  base interpreter's pip, or said `no definition`. (#333)
 
 ## [0.7.0] - 2026-09-25
 

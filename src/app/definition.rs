@@ -132,6 +132,15 @@ impl App {
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
         self.truncated.set(false);
+        // A word in the module path of an import line names that module and nothing else
+        // (#333): the project's, else the one outside, and never a namesake found by name.
+        if kind == Kind::Python
+            && let Some(module) = search::python_import_module(self.line_str(), range.start)
+        {
+            let found = self.python_module(&here, &module);
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // Inside a docstring's example the imports written there count too.
         let in_literal = search::literal_lines(kind, &text).get(self.line) == Some(&true);
         let mut imports = match in_literal {
@@ -322,17 +331,27 @@ impl App {
         let mut own_module = false;
         let mut found = match import {
             Some(path) => {
-                let mut found = self
-                    .imported_definitions(kind, &here, &word, &chain, &path)
-                    .unwrap_or_else(|| {
-                        // A workspace package linked in is the project's own: the search by
-                        // name in the project comes first, the one outside after it (below).
-                        let found =
-                            self.external_definitions(kind, &word, &chain, dotted, &imports, true);
-                        outside = found.is_some();
-                        own_module = found.is_none();
-                        found.unwrap_or_default()
-                    });
+                let project = self.imported_definitions(kind, &here, &word, &chain, &path);
+                // The name itself, bare or as a qualifier, bound to a module outside (#333).
+                if project.is_none()
+                    && kind == Kind::Python
+                    && !dotted
+                    && chain.is_empty()
+                    && imports.iter().filter(|(name, _)| *name == word).count() == 1
+                    && let Some(found) = self.bound_module(&path)
+                {
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
+                let mut found = project.unwrap_or_else(|| {
+                    // A workspace package linked in is the project's own: the search by
+                    // name in the project comes first, the one outside after it (below).
+                    let found =
+                        self.external_definitions(kind, &word, &chain, dotted, &imports, true);
+                    outside = found.is_some();
+                    own_module = found.is_none();
+                    found.unwrap_or_default()
+                });
                 // `try: from a import pick` / `except ImportError: from b import pick` names
                 // two sources: both are offered, and which one ran is not for `d` to guess.
                 let others: Vec<Vec<String>> = imports
@@ -738,6 +757,59 @@ impl App {
         }
     }
 
+    /// The files of the Python module `module` in the project: a package over a module of the
+    /// same name beside it, as Python imports it (#280).
+    fn project_module(&self, here: &Path, module: &[String]) -> Vec<PathBuf> {
+        let mut files = search::module_files(Kind::Python, &self.root, &self.files, here, module);
+        if files.iter().any(|f| f.ends_with("__init__.py")) {
+            files.retain(|f| f.ends_with("__init__.py"));
+        }
+        files
+    }
+
+    /// The Python module `module` as a whole (#333): the project's, else, for an absolute path,
+    /// the one outside, named from its root as the picker names it.
+    fn python_module(&mut self, here: &Path, module: &[String]) -> Vec<Candidate> {
+        let files = self.project_module(here, module);
+        if !files.is_empty() || module[0].starts_with('.') {
+            return self.module_candidates(files);
+        }
+        let file = self.external_module(module);
+        file.map(|f| self.outside_module(f)).unwrap_or_default()
+    }
+
+    /// The first line of `file`, a module outside the project, named from its root.
+    fn outside_module(&self, file: PathBuf) -> Vec<Candidate> {
+        let mut found = self.module_candidates(vec![file]);
+        for c in &mut found {
+            let shown = self.rel_to_its_root(Kind::Python, &c.hit.path);
+            c.reason = Reason::Module(shown.display().to_string());
+        }
+        found
+    }
+
+    /// What a Python name bound by an import to `path`, outside the project, is as a whole
+    /// (#333): the module, when the whole path is one and the package above does not bind the
+    /// name itself (that binding keeps its say, through the lookup by import). The name a plain
+    /// `import x` binds is a module or nothing, never a namesake found by name. `None` leaves the
+    /// name to the lookup by import.
+    fn bound_module(&mut self, path: &[String]) -> Option<Vec<Candidate>> {
+        if path[0].starts_with('.') {
+            return None;
+        }
+        let Some(file) = self.external_module(path) else {
+            return (path.len() == 1).then(Vec::new);
+        };
+        if let Some((name, above)) = path.split_last().filter(|(_, above)| !above.is_empty())
+            && let Some(package) = self.external_module(above)
+            && std::fs::read_to_string(&package)
+                .is_ok_and(|t| !search::bindings(Kind::Python, &t, 1, name).is_empty())
+        {
+            return None;
+        }
+        Some(self.outside_module(file))
+    }
+
     /// The first line of each of `files`, a module a name or a path leads to as a whole.
     fn module_candidates(&self, files: Vec<PathBuf>) -> Vec<Candidate> {
         files
@@ -1067,11 +1139,7 @@ impl App {
         // same name beside it. Only when nothing the lookup below reads declares or hands on
         // the name, so what a package's `__init__.py` binds keeps its say.
         let whole_module = || {
-            let mut files = module_files(&tail(path.to_vec()));
-            if files.iter().any(|f| f.ends_with("__init__.py")) {
-                files.retain(|f| f.ends_with("__init__.py"));
-            }
-            let found = self.module_candidates(files);
+            let found = self.module_candidates(self.project_module(here, &tail(path.to_vec())));
             (!found.is_empty()).then_some(found)
         };
         let (files, inside) = match kind {
