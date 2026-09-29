@@ -18,7 +18,9 @@ impl App {
         // pattern. What is on screen is the cut list until a query is typed, and the answer to
         // that query after, so the title (`ui::draw_picker`) is the live picker's business.
         let items = Self::symbol_items(named);
-        self.picker = Some(Picker::new(PickerKind::Symbols.title(), items, false));
+        let mut picker = Picker::new(PickerKind::Symbols.title(), items, false);
+        picker.literal = true;
+        self.picker = Some(picker);
         self.mode = Mode::Picker(PickerKind::Symbols);
         if !cut {
             return;
