@@ -50,7 +50,7 @@ final class Basket
     public function restock(int $weigh): int
     {
         return $weigh + WEIGHT_LIMIT + self::MAX;
-        //      ^ d: src/Warehouse/functions.php:5; want src/Basket.php:50 (#464)
+        //      ^ d: src/Basket.php:50
         //              ^ d: src/Pricing/functions.php:6
         //                                   ^ d: src/Basket.php:16
     }
@@ -61,7 +61,7 @@ final class Basket
         $rows[] = weigh($grams);
         //        ^ d: src/Warehouse/functions.php:5
         return count($rows) > count($this->rows);
-        //            ^ d: picker src/Basket.php:17, src/Basket.php:60; want src/Basket.php:60 (#464)
+        //            ^ d: src/Basket.php:60
         //                                 ^ d: picker src/Basket.php:17, src/Basket.php:60; want src/Basket.php:17 (#348)
     }
 
@@ -94,7 +94,7 @@ final class Basket
         $label = CURRENCY;
         //       ^ d: src/Pricing/functions.php:5
         $label .= (string) $total;
-        //                  ^ d: picker src/Basket.php:91, src/Basket.php:92
+        //                  ^ d: src/Basket.php:91
         return $label;
     }
 
@@ -123,5 +123,40 @@ final class Basket
     public function floor(): int
     {
         return (new Plan())->rate();
+    }
+
+    public function ledger(array $entries): array
+    {
+        $tally = 0;
+        foreach ($entries as $slot => $entry) {
+        //        ^ d: src/Basket.php:128
+            $tally += $entry;
+            //         ^ d: src/Basket.php:131
+          // ^ d: src/Basket.php:130
+        }
+        $chooser = function (int $low) use ($tally): int {
+            return min($low, $tally);
+            //          ^ d: src/Basket.php:137
+            //                ^ d: src/Basket.php:137
+        };
+        $doubled = array_map(fn($entry) => $entry * 2, $entries);
+        //                                  ^ d: src/Basket.php:142
+        //                                              ^ d: src/Basket.php:128
+        [$low, $high] = [0, $tally];
+        //                   ^ d: src/Basket.php:130
+        try {
+            $chooser($low);
+          // ^ d: src/Basket.php:137
+            //        ^ d: src/Basket.php:145
+        } catch (\RuntimeException $failure) {
+            return [$failure->getMessage()];
+            //       ^ d: src/Basket.php:151
+        }
+        return [$high, $slot, $doubled, $ghost, "$tally"];
+        //       ^ d: src/Basket.php:145
+        //              ^ d: src/Basket.php:131
+        //                     ^ d: src/Basket.php:142
+        //                               ^ d: none
+        //                                        ^ d: src/Basket.php:130
     }
 }

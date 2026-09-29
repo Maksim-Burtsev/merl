@@ -8,7 +8,7 @@ $$ LANGUAGE sql;
 
 CREATE PROCEDURE restock(n integer) LANGUAGE sql AS $$
   INSERT INTO couriers (name) VALUES ('post')
-  --          ^ d: picker queries/report.sql:18, schema/001_tables.sql:23; want schema/001_tables.sql:23 (#472)
+  --          ^ d: schema/001_tables.sql:23
 $$;
 
 CREATE FUNCTION touch_basket() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -25,4 +25,9 @@ CREATE MATERIALIZED VIEW gross AS
   SELECT t.id, discount(t.rate) AS total FROM shop.tariffs t;
 
 CREATE VIEW coupon_rates AS
+  SELECT id, rate FROM coupons;
+
+-- A schema-qualified name declares the name, never the schema (#471).
+CREATE TABLE public.receipts (id integer);
+CREATE VIEW "shop"."daily_rates" AS
   SELECT id, rate FROM coupons;

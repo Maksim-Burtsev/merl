@@ -25,7 +25,7 @@ class Voucher extends Tariff implements Priced
         $cap ??= discount(total: 5);
         //                ^ d: picker src/Basket.php:91, src/Basket.php:92; want src/Pricing/functions.php:8 (#316)
         return $cap;
-        //      ^ d: picker src/Pricing/Voucher.php:23, src/Pricing/Voucher.php:25; want src/Pricing/Voucher.php:23 (#464)
+        //      ^ d: src/Pricing/Voucher.php:23
     }
 
     public function punches(): array

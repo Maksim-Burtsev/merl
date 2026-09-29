@@ -123,6 +123,11 @@ fn tab_over_a_selection_of_several_lines_indents_them() {
     assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
     assert_eq!(a.buf.lines, ["a = 1", "b = 2", "c = 3"]);
+    // Redo lands where the Tab left the cursor, at the start of `c`, not after `    b = 2`
+    // (#456).
+    press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
+    assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
+    assert_eq!((a.line, a.col), (2, 0));
 }
 
 #[test]
@@ -176,6 +181,30 @@ fn alt_backspace_and_alt_delete_take_a_word_in_one_undo_step() {
     press(&mut a, KeyCode::Home, KeyModifiers::NONE);
     press(&mut a, KeyCode::Backspace, KeyModifiers::ALT);
     assert_eq!(a.buf.lines, vec![" мир;!next"]);
+}
+
+/// #455: Alt+Delete at the end of the file and Alt+Backspace at its start take nothing: no undo
+/// step, the file not edited, and the column Up / Down aim at stays where it was.
+#[test]
+fn an_alt_delete_with_nothing_to_take_changes_nothing() {
+    let mut a = app("abcdef\nxy");
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (1, 2));
+    press(&mut a, KeyCode::Delete, KeyModifiers::ALT);
+    press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (0, 6));
+    let mut a = app("\nabcdef");
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (0, 0));
+    press(&mut a, KeyCode::Backspace, KeyModifiers::ALT);
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (1, 6));
+    assert!(a.undo.is_empty() && !a.dirty);
 }
 
 #[test]

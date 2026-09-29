@@ -26,6 +26,11 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").unwrap()
     });
+    // An Elixir module is named as written, `Shop.Pricing`, and one nested in it adds its own
+    // name: a call spells the module out that way (#459).
+    static EX_MODULE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*def(?:module|protocol)\s+([A-Z](?:[\w.]*\w)?)").unwrap()
+    });
     if !nests(Some(kind)) {
         return None;
     }
@@ -87,6 +92,12 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             .captures(l)
             .filter(|_| kind == Kind::Rust)
             .map(|c| c[1].to_owned())
+            .or_else(|| {
+                EX_MODULE
+                    .captures(l)
+                    .filter(|_| kind == Kind::Elixir)
+                    .map(|c| c[1].to_owned())
+            })
             .or_else(|| declared_name(Some(kind), l));
         match named {
             Some(n) => names.push(n),
@@ -98,6 +109,51 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     }
     names.reverse();
     (names.len() > 1).then(|| names.join(sep))
+}
+/// `chain`, the names in front of an Elixir word, with the first read through an `alias` of
+/// `text` (#459): `W` behind `alias Shop.Warehouse, as: W` is `Shop.Warehouse`, and `Courier`
+/// behind `alias Shop.Warehouse.Courier` or `alias Shop.Warehouse.{Courier, Depot}` is
+/// `Shop.Warehouse.Courier`. An `alias` counts above 0-based `line`, the cursor's, and only while
+/// the block it is written in is still open there: none of the lines between is indented less
+/// than it. Another module's `alias`, or one inside another function, renames nothing here; the
+/// nearest one wins.
+/// ponytail: a `{…}` group wrapped over several lines is not read.
+pub fn elixir_unalias(text: &str, line: usize, mut chain: Vec<String>) -> Vec<String> {
+    static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*alias\s+([A-Z](?:[\w.]*\w)?)(?:\.\{([^}]*)\}|\s*,\s*as:\s*([A-Z]\w*))?")
+            .unwrap()
+    });
+    let Some(first) = chain.first().cloned() else {
+        return chain;
+    };
+    let last = |s: &str| s.rsplit('.').next() == Some(first.as_str());
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Elixir, text);
+    // The least indent from the cursor's line up to the line being read.
+    let mut floor = lines.get(line).map_or(usize::MAX, |l| indent(l));
+    let full = (0..line.min(lines.len()))
+        .rev()
+        .filter(|&i| !literal[i] && !lines[i].trim().is_empty())
+        .find_map(|i| {
+            let open = indent(lines[i]) <= floor;
+            floor = floor.min(indent(lines[i]));
+            let c = ALIAS.captures(lines[i]).filter(|_| open)?;
+            let module = &c[1];
+            match (c.get(2), c.get(3)) {
+                (Some(group), _) => group
+                    .as_str()
+                    .split(',')
+                    .map(str::trim)
+                    .find(|n| last(n))
+                    .map(|n| format!("{module}.{n}")),
+                (None, Some(named)) => (named.as_str() == first).then(|| module.to_owned()),
+                (None, None) => last(module).then(|| module.to_owned()),
+            }
+        });
+    if let Some(full) = full {
+        chain.splice(..1, full.split('.').map(str::to_owned));
+    }
+    chain
 }
 /// The namespace a Ruby declaration line writes in front of its name, innermost first: `B`, `A`
 /// for `class A::B::C`, `Klass` for `def Klass.m`. Empty for every other line.
@@ -399,15 +455,19 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
         Some(i) => i,
         None => range.start,
     };
-    // A Ruby method takes its `?` or `!` with it (#387): `empty?` is no `empty`. `!=`, `!~` and
-    // an instance or global variable, which has no suffix, are left alone.
+    // A Ruby method (#387) and an Elixir function (#459) take their `?` or `!` with them:
+    // `empty?` is no `empty`, `ship!` no `ship`. The `!` of a `!=` is the operator's, as in Ruby
+    // are `!~` and an instance or global variable, which has no suffix.
     let mut end = range.end;
     let rest = &line.as_bytes()[end..];
-    if kind == Some(Kind::Ruby)
-        && matches!(rest.first(), Some(b'?' | b'!'))
-        && !matches!(rest.get(1), Some(b'=' | b'~'))
-        && !line[..start].ends_with(['@', '$'])
-    {
+    let suffixed = match kind {
+        Some(Kind::Ruby) => {
+            !matches!(rest.get(1), Some(b'=' | b'~')) && !line[..start].ends_with(['@', '$'])
+        }
+        Some(Kind::Elixir) => rest.get(1) != Some(&b'='),
+        _ => false,
+    };
+    if suffixed && matches!(rest.first(), Some(b'?' | b'!')) {
         end += 1;
     }
     Some((start..end, &line[start..end]))

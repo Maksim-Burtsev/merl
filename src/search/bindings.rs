@@ -168,6 +168,13 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
 ///   receiver). Only what a header binds for the block under it hides: another function on its
 ///   lines, or on the cursor's own line, binds without hiding. `this` is the class around it, unless a
 ///   `function` or an object literal comes first, and `super` reads as `this` does.
+/// - Lua (#461): a `local` belongs to its block, so the nearest one above the cursor counts, in
+///   the blocks around it told by indentation, and so do the parameters of a `function` and the
+///   variables of a `for` that open one of those blocks. The top of the file is left to the
+///   search by name: a module's `local` is what its `require` and its tables are read through.
+/// - Shell: a `local` (a `declare` / `typeset` without `-g`) above the cursor in the function
+///   around it (#470).
+/// - Zig: [`zig_bindings`], inside a function only (#469).
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -176,8 +183,212 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
     match kind {
         Kind::Python => python_bindings(&lines, at, name),
         Kind::TsJs | Kind::Go => block_bindings(kind, &lines, at, name),
+        Kind::Lua => lua_bindings(&lines, at, name),
+        Kind::Shell => shell_function_at(&lines, at).map_or_else(Vec::new, |f| {
+            (f + 1..=at)
+                .filter(|&i| shell_local_of(lines[i]).is_some_and(|names| names.contains(&name)))
+                .map(|i| Binding {
+                    line: i + 1,
+                    value: Value::Unknown,
+                })
+                .collect()
+        }),
+        Kind::Zig => zig_bindings(&lines, at, name),
         _ => Vec::new(),
     }
+}
+fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^local\s+(?:function\s+(\w+)|([\w\s,<>]+?)\s*(?:=|$))").unwrap()
+    });
+    static PARAMS: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\bfunction\b[^(]*\(([^)]*)\)").unwrap());
+    static FOR: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^for\s+([\w\s,]+?)\s*(?:\bin\b|=)").unwrap());
+    // `local a <const>, b = …` names `a` and `b`.
+    let lists = |list: &str| {
+        list.split(',')
+            .any(|n| n.split('<').next().is_some_and(|n| n.trim() == name))
+    };
+    let literal = literal_lines(Kind::Lua, &lines.join("\n"));
+    let found = |line: usize| {
+        vec![Binding {
+            line,
+            value: Value::Unknown,
+        }]
+    };
+    let mut depth = indent(lines[at]);
+    // An `until` reads the body of its `repeat`, one block deeper than itself.
+    let own = uncommented(Kind::Lua, lines[at]);
+    if own
+        .trim_start()
+        .strip_prefix("until")
+        .is_some_and(|r| !r.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+        && let Some(body) = (0..at).rev().find(|&i| !lines[i].trim().is_empty())
+    {
+        depth = depth.max(indent(lines[body]));
+    }
+    for i in (0..at).rev() {
+        let code = uncommented(Kind::Lua, lines[i]);
+        let t = code.trim();
+        let ind = indent(lines[i]);
+        if depth == 0 {
+            break;
+        }
+        if t.is_empty() || literal[i] || ind > depth {
+            continue;
+        }
+        if ind == depth {
+            // A statement of the block the cursor is in: a `local` declares for the lines below.
+            if let Some(c) = LOCAL.captures(t)
+                && (c.get(1).is_some_and(|f| f.as_str() == name)
+                    || c.get(2).is_some_and(|l| lists(l.as_str())))
+            {
+                return found(i + 1);
+            }
+            continue;
+        }
+        // The header of a block the cursor is in: its parameters, its loop variables, and the
+        // name of a `local function`, which its own body can call.
+        depth = ind;
+        let own = LOCAL
+            .captures(t)
+            .and_then(|c| c.get(1))
+            .is_some_and(|f| f.as_str() == name);
+        let params = PARAMS.captures_iter(t).any(|c| lists(&c[1]));
+        let vars = FOR.captures(t).is_some_and(|c| lists(&c[1]));
+        if own || params || vars {
+            return found(i + 1);
+        }
+    }
+    Vec::new()
+}
+/// The 0-based line of the header of the Shell function whose body holds 0-based line `at`:
+/// `name() {`, `function name {`, told by indentation, since the `}` that closes a function
+/// stands at its header's indent. A one-line function holds no line below it, a comment after its
+/// `}` or not, and a `name() (` subshell body, closed by a `)`, is not read.
+pub fn shell_function_at(lines: &[&str], at: usize) -> Option<usize> {
+    static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:function\s+[^\s(){}]+|[\w.:-]+\s*\(\s*\))").unwrap()
+    });
+    static ONE_LINE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\{.*[;\s]\}\s*(?:#.*)?$|\(\s*$").unwrap());
+    (0..at.min(lines.len())).rev().find(|&k| {
+        let l = lines[k];
+        HEADER.is_match(l)
+            && !ONE_LINE.is_match(l)
+            && !lines[k + 1..=at]
+                .iter()
+                .any(|b| b.trim_start().starts_with('}') && indent(b) == indent(l))
+    })
+}
+/// The names a Shell `local`, or a `declare` / `typeset` without `-g`, declares on `line`: local
+/// to the function it is written in. `None` for any other line, and for `-p`, `-f` and `-F`,
+/// which print rather than declare.
+pub fn shell_local_of(line: &str) -> Option<Vec<&str>> {
+    static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:local|declare|typeset)((?:\s+-\w+)*)\s+(.*)").unwrap()
+    });
+    let c = LOCAL.captures(line)?;
+    if c[1].contains(['g', 'p', 'f', 'F']) {
+        return None;
+    }
+    let rest = c.get(2).map_or("", |m| m.as_str());
+    // Each word up to its `=` is a name, until one is not: the value of the one before it. A
+    // quoted value or an array `(…)` is one word, whatever spaces it holds.
+    let names = shell_words(rest)
+        .into_iter()
+        .map(|w| w.split(['=', '+']).next().unwrap_or(""))
+        .take_while(|n| {
+            n.chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+                && n.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        })
+        .collect();
+    Some(names)
+}
+/// `s` cut into Shell words: a `'…'`, a `"…"` or a `(…)` stays inside the word it starts in.
+fn shell_words(s: &str) -> Vec<&str> {
+    let (b, mut out, mut i) = (s.as_bytes(), Vec::new(), 0);
+    while i < b.len() {
+        if b[i].is_ascii_whitespace() {
+            i += 1;
+            continue;
+        }
+        let (start, mut depth, mut quote) = (i, 0usize, None);
+        while i < b.len() && (quote.is_some() || depth > 0 || !b[i].is_ascii_whitespace()) {
+            match (quote, b[i]) {
+                (Some(b'"'), b'\\') => i += 1,
+                (Some(q), c) if c == q => quote = None,
+                (Some(_), _) => {}
+                (None, c @ (b'"' | b'\'')) => quote = Some(c),
+                (None, b'(') => depth += 1,
+                (None, b')') => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+            i += 1;
+        }
+        out.push(&s[start..i.min(b.len())]);
+    }
+    out
+}
+/// A Zig line that opens a function's or a test's body, whose `const`s and `var`s are locals.
+pub(super) static ZIG_BODY: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"\bfn\b|^(?:pub\s+)?test\b").unwrap());
+/// Zig's locals (#469): a parameter of the `fn` (or the `test`) the cursor is in, and a `const` or
+/// `var` above the cursor in a block around it, told by indentation, which `zig fmt` keeps. Zig
+/// allows no shadowing, so every one found counts. Nothing at a container level (the file, a
+/// `struct`) is a local: a cursor in no function gets none, and the search by name decides.
+fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    let n = regex::escape(name);
+    let decl = Regex::new(&format!(r"^(?:comptime\s+)?(?:const|var)\s+{n}\b"))
+        .expect("an escaped name keeps the pattern valid");
+    let param = Regex::new(&format!(r"(?:^|[(,])\s*(?:comptime\s+|noalias\s+)?{n}\s*:"))
+        .expect("an escaped name keeps the pattern valid");
+    let literal = literal_lines(Kind::Zig, &lines.join("\n"));
+    let code = |i: usize| uncommented(Kind::Zig, lines[i]).trim().to_owned();
+    let mut depth = indent(lines[at]);
+    let mut out = Vec::new();
+    let mut i = at;
+    while i > 0 {
+        i -= 1;
+        let t = code(i);
+        if t.is_empty() || literal[i] || indent(lines[i]) > depth {
+            continue;
+        }
+        if indent(lines[i]) == depth {
+            if decl.is_match(&t) {
+                out.push(Binding {
+                    line: i + 1,
+                    value: Value::Unknown,
+                });
+            }
+            continue;
+        }
+        // A header opens the block the walk is in; `) u32 {` closes one wrapped over the
+        // lines above it, from the line back at its indent.
+        let end = i;
+        depth = indent(lines[i]);
+        if t.starts_with(')') {
+            while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > depth) {
+                i -= 1;
+            }
+            i = i.saturating_sub(1);
+        }
+        if ZIG_BODY.is_match(&code(i)) {
+            for j in i..=end {
+                if param.is_match(&code(j)) {
+                    out.push(Binding {
+                        line: j + 1,
+                        value: Value::Unknown,
+                    });
+                }
+            }
+            return out;
+        }
+    }
+    Vec::new()
 }
 /// Whether the word at `range` of 1-based `line` names a keyword argument of a Python call:
 /// `recipe_yield=…` behind a `(` or a `,`, or at the start of a line that continues a call. It
@@ -193,6 +404,21 @@ pub fn keyword_argument(text: &str, line: usize, range: &Range<usize>) -> bool {
         && !after.starts_with("==")
         && (before.ends_with(['(', ','])
             || (before.is_empty() && continued(Kind::Python, &lines, line - 1)))
+}
+/// Whether the word at `range` of 1-based `line` of a Lua file is the key of a table
+/// constructor: `name = …` behind a `{` or a `,`, or at the start of a line inside one. It names a
+/// field, and no variable of that spelling (#461).
+pub fn table_key(text: &str, line: usize, range: &Range<usize>) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(l) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return false;
+    };
+    let after = l[range.end..].trim_start();
+    let before = l[..range.start].trim_end();
+    after.starts_with('=')
+        && !after.starts_with("==")
+        && (before.ends_with(['{', ','])
+            || (before.is_empty() && continued(Kind::Lua, &lines, line - 1)))
 }
 /// Whether line `i` continues the statement above it: that line ends in an open bracket, a comma
 /// or a backslash.
@@ -1070,4 +1296,156 @@ pub fn package_bindings(text: &str, name: &str) -> Vec<Binding> {
         }
     }
     out
+}
+
+// ---- PHP's `$variable` (#464) ------------------------------------------------------------
+/// The 1-based lines that bind PHP's `$name` where 1-based `line` of `text` reads it (#464). A
+/// variable belongs to its function or closure, which sees nothing of the scope around it but
+/// what its `use (…)` list names: its parameters (a promoted one included) and that list, and,
+/// above the cursor, a plain `=`, a `foreach` target, a `catch`, a `global` or `static`, a
+/// destructuring. A compound `.=`, `+=` or `??=` reads the variable first and binds nothing.
+/// Outside any function, the lines at the top of the file count. `None` in a class body, where
+/// `$name` declares a property.
+pub fn php_variable(text: &str, line: usize, name: &str) -> Option<Vec<usize>> {
+    let raw: Vec<&str> = text.lines().collect();
+    let at = line.checked_sub(1).filter(|&i| i < raw.len())?;
+    let literal = literal_lines(Kind::Php, text);
+    // Strings and comments blanked out: a `$name` there binds nothing, and a brace there opens
+    // nothing.
+    let lines: Vec<String> = raw.iter().map(|l| php_code(l)).collect();
+    let n = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let var = rule(format!(r"(?:^|[^\w$:>])\${n}\b"));
+    // A function or an arrow function in the statement the cursor's line ends, whose parameters
+    // or `use` list name the variable: the cursor stands on that declaration, in a header written
+    // over several lines, or in a one-line body. A promoted constructor parameter under the cursor
+    // is a property's declaration, whose namesakes the search by name offers (#104).
+    let mut top = at;
+    while top > 0 && at - top < 50 && !literal[top - 1] && {
+        let t = lines[top - 1].trim();
+        !t.is_empty() && !t.ends_with([';', '{', '}'])
+    } {
+        top -= 1;
+    }
+    let statement = lines[top..=at].join("\n");
+    let head = Regex::new(r"(?:^|[^\w$:>])(?:function|fn)\b([^{]*?)(?:\{|=>|$)").unwrap();
+    if let Some(at_var) = head
+        .captures_iter(&statement)
+        .filter_map(|c| var.find(&c[1]).map(|m| c.get(1).unwrap().start() + m.end()))
+        .last()
+    {
+        let bound = top + statement[..at_var].matches('\n').count();
+        let promoted = rule(format!(
+            r"(?:(?:public|private|protected|readonly)\s+)+(?:\??[\w\\|]+\s+)?\${n}\b"
+        ));
+        return (bound != at || !promoted.is_match(&lines[at])).then(|| vec![bound + 1]);
+    }
+    let binds = [
+        format!(r"(?:^|[^\w$:>])\${n}\s*=(?:[^=>]|$)"),
+        format!(r"\bforeach\s*\(.*\bas\b.*\${n}\b"),
+        format!(r"\bcatch\s*\([^)]*\${n}\b"),
+        format!(r"^\s*(?:global|static)\s+[^;(]*\${n}\b"),
+        format!(r"(?:^|[^\w$])(?:list\s*\(|\[)[^;=]*\${n}\b[^;=]*[\])]\s*=(?:[^=>]|$)"),
+    ]
+    .map(rule);
+    let scope = php_scope(&lines, &literal, at);
+    let mut out = Vec::new();
+    let from = match scope {
+        PhpScope::Class => return None,
+        PhpScope::Top => 0,
+        // The parameters and the `use` list, read from the last `function` of the header on.
+        PhpScope::Function(start, open, brace) => {
+            let mut seen = false;
+            for (i, l) in lines.iter().enumerate().take(open + 1).skip(start) {
+                let l = if i == open { &l[..brace] } else { &l[..] };
+                let l = match FUNCTION.find_iter(l).last() {
+                    Some(m) => {
+                        seen = true;
+                        &l[m.end()..]
+                    }
+                    None => l,
+                };
+                if seen && var.is_match(l) {
+                    out.push(i + 1);
+                }
+            }
+            open + 1
+        }
+    };
+    out.extend(
+        (from..=at)
+            .filter(|&i| !literal[i] && binds.iter().any(|b| b.is_match(&lines[i])))
+            .filter(|&i| i == at || php_scope(&lines, &literal, i) == scope)
+            .map(|i| i + 1),
+    );
+    Some(out)
+}
+static FUNCTION: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"(?:^|[^\w$:>])function\b").unwrap());
+/// Where a line of PHP stands: at the top of the file (or in a `namespace { }`), in a class body,
+/// or in the function whose header starts on the first 0-based line and opens its body on the
+/// second, at the byte the third names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PhpScope {
+    Top,
+    Class,
+    Function(usize, usize, usize),
+}
+/// The scope 0-based line `at` of `lines` (code only, [`php_code`]) stands in: the innermost
+/// brace above it left open whose header is a function, a class or a namespace. An `if`, a loop,
+/// a `match` is no scope in PHP.
+fn php_scope(lines: &[String], literal: &[bool], at: usize) -> PhpScope {
+    static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$:>])(?:class|interface|trait|enum)\b").unwrap()
+    });
+    let mut depth = 0usize;
+    for i in (0..at).rev().filter(|&i| !literal[i]) {
+        for (pos, c) in lines[i]
+            .bytes()
+            .enumerate()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+        {
+            match c {
+                b'}' => depth += 1,
+                b'{' if depth > 0 => depth -= 1,
+                b'{' => {
+                    // The header: this line up to the brace, and the lines above it up to the
+                    // end of the statement before.
+                    let own = &lines[i][..pos];
+                    let cut = own.rfind([';', '{', '}']);
+                    let mut start = i;
+                    let mut header = own[cut.map_or(0, |c| c + 1)..].to_owned();
+                    while cut.is_none() && start > 0 && i - start < 50 {
+                        let t = lines[start - 1].trim();
+                        if literal[start - 1] || t.is_empty() || t.ends_with([';', '{', '}']) {
+                            break;
+                        }
+                        start -= 1;
+                        header = format!("{t}\n{header}");
+                    }
+                    if FUNCTION.is_match(&header) {
+                        return PhpScope::Function(start, i, pos);
+                    }
+                    if CLASS.is_match(&header) {
+                        return PhpScope::Class;
+                    }
+                    if header.trim_start().starts_with("namespace") {
+                        return PhpScope::Top;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    PhpScope::Top
+}
+/// A line of PHP with its strings and its comment blanked out, byte for byte.
+fn php_code(l: &str) -> String {
+    let mut out = vec![b' '; l.len()];
+    for (i, c) in code(Kind::Php, l).take_while(|&(_, c)| c != 0) {
+        out[i] = c;
+    }
+    String::from_utf8_lossy(&out).into_owned()
 }

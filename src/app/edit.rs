@@ -133,7 +133,7 @@ impl App {
             KeyCode::Backspace | KeyCode::Delete if self.selection().is_some() => self.insert(""),
             // Option+Backspace / Option+Delete: up to where Alt+Left / Right would land.
             KeyCode::Backspace | KeyCode::Delete if alt => {
-                let at = (self.line, self.col);
+                let (at, want) = ((self.line, self.col), self.want_x);
                 if code == KeyCode::Backspace {
                     self.word_left();
                 } else {
@@ -141,8 +141,10 @@ impl App {
                 }
                 let to = (self.line, self.col);
                 // Undo puts the cursor back where the key was pressed, and takes the word alone:
-                // not the typing before it, not the typing after.
+                // not the typing before it, not the typing after. With no word to take, the
+                // column Up / Down aim at stays too (#455).
                 self.go(at);
+                self.want_x = want;
                 self.undo_break = true;
                 self.replace(at.min(to), at.max(to), "");
                 self.undo_break = true;
@@ -207,6 +209,8 @@ impl App {
             self.anchor = anchor.map(moved).map(|(l, c)| (TextLine::File(l), c));
             self.go(moved(cursor));
             self.sync_want_x();
+            // Redo lands where the Tab left the cursor, not at the end of the last line (#456).
+            self.undo.last_mut().unwrap().after = (self.line, self.col);
         }
     }
 
@@ -243,9 +247,14 @@ impl App {
     /// on where the previous step ended extends that step, as VS Code groups keystrokes. Refused,
     /// with the reason in the status bar, where `locked` says the text cannot change; returns
     /// whether the text changed, which a caller that moves the cursor itself has to know.
+    /// An edit with nothing to take and nothing to put (Alt+Delete at the end of the file, an
+    /// empty paste) does nothing: no undo step, the redo kept, the file not marked edited (#455).
     fn replace(&mut self, from: (usize, usize), to: (usize, usize), text: &str) -> bool {
         if self.deleted.is_some() {
             self.message = "deleted".into();
+            return false;
+        }
+        if from == to && text.is_empty() {
             return false;
         }
         let before = (self.line, self.col);

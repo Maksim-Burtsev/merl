@@ -112,6 +112,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it was a picker of every `new` in the project, `by name`. Only a `use` at the top of the file
   counts, and a type of the name in the file itself, a name bound twice, a binary under
   `src/bin/` or a module with no `impl` of the type stay `by name`. (#227)
+- `d` in C# on `Offer.Cut`, where `Offer` is an `enum` the project declares, lands on `Cut` in
+  the enum's body, `via Offer`, where it found nothing: one member per line or several on one,
+  with a value or an attribute. The enum has to be in a namespace the file sees, by its own
+  namespace, a `using`, a `global using` of its project or the path written out
+  (`Shop.Pricing.Offer.Cut`); a bare `Cut` still has no rule. (#466)
 - `d` on a bare name in Rust lands on the item the file declares under it, `helper: in this
   file`, where it was a picker of every file's namesake: Rust sees another file's items only
   through a `use` or a path. The item counts where the cursor sees it: a `fn` nested in the
@@ -139,12 +144,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Enter with `no results for …`. (#288)
 - With no file open, on the start screen and at the tutor's first lesson, the status bar no longer
   shows a cursor position: `demo/  [tree]` instead of `demo/  1:1  [tree]`. (#285)
+- `d` in Java and Kotlin on an enum constant, `Offer.CUT`, lands on the constant in the body of
+  the enum, `CUT → Offer.CUT (via Offer)`, instead of `no definition for CUT`, when the project
+  declares one type of that name and it is an `enum`. (#457)
 - A binary file (an image, a `.pyc`, a build artefact) opens on an empty pane with one centred,
   dimmed line, `binary file, not shown`, and no line number or cursor, instead of the text
   `binary file` as if it were the file's line 1. The status bar still says `read-only`. (#287)
 
 ### Fixed
 
+- `d` in Swift finds a function or an enum case declared with its name in backticks, as
+  ``func `default`()`` or ``case `open` ``: it said "no definition", or jumped to a namesake
+  elsewhere. (#463)
+- `d` on a PHP `$variable` lands on its parameter or its assignment in the function you are in.
+  It searched the project by the bare name, so `$weigh` jumped to a function `weigh()` and
+  `$courier` to another method's local; a closure's `use (…)`, a `foreach` or `catch` target and a
+  destructuring count too, and at the top of a file the file's own assignments. (#464)
+- A find match keeps the text's own colours on its tint, as in VS Code. In a theme that tints
+  matches without naming their text colour (github-light, vscode-light and -dark, koda, pencil
+  and eight more) the matched letters were drawn in the background colour, 1.1:1 to 2:1 on the
+  tint, and could not be read. (#480)
+- `d` in Lua on a parameter or a `local` of the function you are in lands on it, `(local)`,
+  where it jumped to a function of the same name in another module. A `local` inside another
+  function, or behind a dot, is no longer offered, and a table key is not read as the local of
+  its name. (#461)
+- `d` in Elixir reads a name with its trailing `?` or `!`: on `ship!` it finds `def ship!` and
+  not `def ship`, and on `Jason.encode!` no longer jumps to the project's own `def encode`. A
+  qualifier behind an `alias` (`W` of `alias Shop.Warehouse, as: W`, `Tariff` of
+  `alias Shop.Pricing.{Tariff, Coupon}`) and a module written out in full, a `defprotocol`
+  included, lead to that module's function instead of a picker of every namesake, and a call
+  such as `Shop.currency()` no longer offers the module attribute `@currency`. (#459)
+- An edit key with nothing to take does nothing: Alt+Delete at the end of the file, Alt+Backspace
+  at its start, Ctrl+X on an empty only line, an empty paste. Each was an undo step that changed
+  nothing, so the next Ctrl+Z seemed to do nothing, and it cleared what Ctrl+Y would redo. (#455)
+- Ctrl+Y after undoing a Tab over several lines puts the cursor where the Tab left it. It stood at
+  the end of the last indented line. (#456)
+- In a GitLab CI file, `d` on the value of `stage:` lands on that stage in the file's `stages:`
+  list, flow or block form, and says `no definition` in a file without one. It jumped to the job
+  named after the stage, `build:` for `stage: build`, which is how most pipelines name them.
+  (#473)
 - `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
   in the project, the standard library and the dependencies the cursor can reach, the traits'
   first, where it jumped to a lone project namesake: `v.unwrap()` on an `Option` landed on a
@@ -225,6 +263,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inside tmux with its default settings, Ctrl+C and Ctrl+X copy: the text goes to a tmux paste
   buffer and, on tmux 3.2 and newer, to the terminal's clipboard. tmux's default `set-clipboard
   external` dropped the copy, and the status said `copied` while nothing was copied. (#395)
+- In SQL, `d` on a schema goes to its `CREATE SCHEMA`: `CREATE TABLE shop.tariffs` declares
+  `tariffs`, and no longer counts as a declaration of `shop`. `d` on `public` in `public.orders`
+  jumped to `CREATE TABLE public.orders`, and on a schema created once offered every object in it.
+  (#471)
+- In a shell script, `d` on a name a `local` (or a `declare` / `typeset` without `-g`) binds in
+  the function around the cursor lands on that local, and a local of another function is no
+  longer offered: it opened a picker of every function's local and the function of that name,
+  and jumped to another function's local when it was the only match. (#470)
+- In SQL, a common table expression is a declaration only inside its own statement, where it
+  wins over a table of its name: `d` on the table in the CTE's own body, or anywhere else in the
+  project, goes to the `CREATE TABLE`, and after the `AS (…)` to the CTE, instead of a picker of
+  both. (#472)
+- In Zig, `d` on a local or a parameter lands on it, `(local)`: a `const` or `var` inside a
+  function is no longer offered anywhere outside that function, and a declaration without `pub`
+  no longer from another file, so `cap` in one function stopped offering, or jumping to, the
+  `cap` of another. (#469)
 - The lesson panel of `merl --tutor` and `merl --drill` grows to its text wrapped at the pane's
   width, and the code above gets the rows that are left. At 80 columns six lessons were cut after
   two rows, in lesson 3 before the key it asks you to press. (#261)

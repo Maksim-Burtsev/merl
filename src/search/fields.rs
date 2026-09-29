@@ -284,3 +284,56 @@ pub fn field_decl_at(kind: Kind, text: &str, line: usize, start: usize, name: &s
         kind == Kind::Go && go_embedded(bare.split('`').next().unwrap_or("").trim()).is_some();
     first == Some(start) && !embedded && field_rows(kind, text, &[line], name) == [line]
 }
+/// The 1-based line and the byte of it where the C# `enum` declared on 1-based `decl` of `text`
+/// lists the member `word`: one per line or several on one, with a value (`Cut = 2`) or
+/// without, behind its `[Attribute]`s. `None` when the line declares no enum or the body lists
+/// no such member. In an `enum` body a bare name is a member for certain, where the same line
+/// elsewhere may be an element of a collection initialiser.
+pub fn enum_member(kind: Kind, text: &str, decl: usize, word: &str) -> Option<(usize, usize)> {
+    static ENUM: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^[^(=]*\benum\s+\w").unwrap());
+    let lines: Vec<&str> = text.lines().collect();
+    let k = decl.checked_sub(1).filter(|&k| k < lines.len())?;
+    if !ENUM.is_match(lines[k]) {
+        return None;
+    }
+    // ponytail: an enum body still open 2000 lines on is not read, as `group` reads none.
+    let rest = lines[k..lines.len().min(k + 2000)].join("\n");
+    let open = code(kind, &rest).find(|&(_, c)| c == b'{')?.0;
+    let body = &rest[open + 1..close_of(kind, &rest, open)? - 1];
+    let gap = r"(?:\s+|//[^\n]*|/\*.*?\*/)*";
+    let member = Regex::new(&format!(
+        r"(?s)^(?:{gap}\[[^\]]*\])*{gap}({}){gap}(?:=.*)?$",
+        regex::escape(word)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    split_top(kind, body, b',').into_iter().find_map(|part| {
+        let at = member.captures(part)?.get(1)?.start();
+        let pos = open + 1 + (part.as_ptr() as usize - body.as_ptr() as usize) + at;
+        let line_start = rest[..pos].rfind('\n').map_or(0, |n| n + 1);
+        Some((decl + rest[..pos].matches('\n').count(), pos - line_start))
+    })
+}
+/// The C# namespace 1-based `line` of `text` is in, the last one declared above it; empty for the
+/// global one. Blocks nested in another namespace are read under their own name only.
+pub fn cs_namespace(text: &str, line: usize) -> String {
+    static NS: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\u{feff}?\s*namespace\s+([\w.]+)").unwrap());
+    text.lines()
+        .take(line)
+        .filter_map(|l| NS.captures(l))
+        .last()
+        .map_or_else(String::new, |c| c[1].to_owned())
+}
+/// The namespaces a C# `using N;` or `global using N;` opens in `text`, and a project file's
+/// `<Using Include="N" />`: an alias and a `using static` open none.
+pub fn cs_usings(text: &str) -> Vec<String> {
+    static USING: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^\u{feff}?\s*(?:global\s+)?using\s+([\w.]+)\s*;|<Using\s+Include="([\w.]+)""#)
+            .unwrap()
+    });
+    text.lines()
+        .filter_map(|l| USING.captures(l))
+        .filter_map(|c| c.get(1).or(c.get(2)).map(|m| m.as_str().to_owned()))
+        .collect()
+}

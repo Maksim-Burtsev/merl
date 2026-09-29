@@ -10,9 +10,10 @@ impl App {
     pub(super) fn usages(&mut self) {
         let extra = search::word_chars(self.kind(), false);
         // A Ruby name is read as `d` reads it (#387): `valid?` lists `valid?`, its own `def`
-        // first, and on `x.name = v` the setter `name=` declared by `attr_writer :name` does.
+        // first, and on `x.name = v` the setter `name=` declared by `attr_writer :name` does. So
+        // is an Elixir one, whose `?` or `!` is the name's too (#459).
         let Some(read) = (match self.kind() {
-            Some(Kind::Ruby) => self.definition_word(Some(Kind::Ruby)).map(|(_, w)| w),
+            k @ Some(Kind::Ruby | Kind::Elixir) => self.definition_word(k).map(|(_, w)| w),
             _ => self.word_under(extra),
         }) else {
             self.message = "no word under the cursor".into();
