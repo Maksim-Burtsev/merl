@@ -99,7 +99,7 @@ impl App {
         };
         let path = self.root.join(&rel);
         if path.is_dir() {
-            self.message = format!("{} is a directory", rel.display());
+            self.say_about(&path, " is a directory");
             return;
         }
         // Before anything is created: edits that cannot be saved keep their file open.
@@ -119,7 +119,7 @@ impl App {
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(e) => {
-                self.message = format!("{}: {e}", rel.display());
+                self.say_about(&path, &format!(": {e}"));
                 return;
             }
         }

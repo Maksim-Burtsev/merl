@@ -67,7 +67,7 @@ impl App {
                 Err(e) => {
                     // Named as the status bar names an open file, not by its absolute path,
                     // which left no room for the reason (#403).
-                    self.message = format!("{}: {}", self.rel_path_of(path), why_not(&e));
+                    self.say_about(path, &format!(": {}", why_not(&e)));
                     return false;
                 }
             }
@@ -413,7 +413,7 @@ impl App {
         };
         match &gone[..] {
             [] => {}
-            [one] => self.message = format!("{} gone", self.rel_path_of(one)),
+            [one] => self.say_about(one, " gone"),
             _ => self.message = format!("{} files gone", gone.len()),
         }
         let Some((i, path, line, col)) = landed else {
