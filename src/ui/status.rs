@@ -68,11 +68,15 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
             format!(
                 "{}  {}[{pane}]{}{}{}{}",
                 if app.dirty { " \u{25cf}" } else { "" },
-                // With no file open there is no cursor to place (#285).
-                if app.buf.path.is_some() {
-                    format!("{}:{}  ", app.line + 1, app.display_col())
-                } else {
-                    String::new()
+                // With no file open there is no cursor to place (#285). On a line the branch
+                // deleted, its number in the file at the base, negative (#439).
+                match app.deleted {
+                    _ if app.buf.path.is_none() => String::new(),
+                    Some((k, i)) => {
+                        let from = app.diff.ghost_from.get(&k).copied().unwrap_or(0);
+                        format!("-{}:{}  ", from + i + 1, app.display_col())
+                    }
+                    None => format!("{}:{}  ", app.line + 1, app.display_col()),
                 },
                 if app.mode == Mode::Edit {
                     if app.buf.tabs { "  Tab" } else { "  Spaces: 4" }
