@@ -148,6 +148,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `initialize`, and an instance method of the class, or a method of another class by name, is
   never the answer. `class A::B` declares `B`, not `A`, `A::B` in code is a path, and a
   superclass right of `<` is a use of the name. (#387)
+- `d` in Ruby on a method of a value, such as `logger.info` or `items.each`, offers the one
+  method of that name the project declares in a picker instead of jumping to it: the core and the
+  gems are not read, so it may be theirs, and was in most of such jumps in a real project.
+  `Const.meth`, `self.meth` and a bare call still jump. (#390)
 - In `merl --review`, `c` or `C` after a `d`, `u` or `s` into a file the branch did not touch goes
   back to the hunk you left, and the next `c` goes on from there. It opened the first file of the
   review (`C` the last), and the way back was one `[` per jump. The hunk is found again by its

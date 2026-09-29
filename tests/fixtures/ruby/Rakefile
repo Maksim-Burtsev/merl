@@ -9,5 +9,5 @@ end
 task :restock do
   build_basket.restock(2)
   # ^ d: Rakefile:3
-  #            ^ d: lib/shop/basket.rb:36
+  #            ^ d: picker lib/shop/basket.rb:36
 end
