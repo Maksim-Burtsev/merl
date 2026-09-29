@@ -189,6 +189,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in C# reads a verbatim string ending in a backslash, `@"C:\"`, as ending at its second
   `"`, and `@$"…"` as the verbatim string it is. It kept the string open, and every declaration
   after it in the file answered `no definition`. (#475)
+- `d` in TypeScript and JavaScript on a name imported from a package that is not installed
+  (a fresh clone, a package of a monorepo not bootstrapped) lands on its import line and says
+  `via import mobx-react (not installed)`. It offered the project's namesakes as if one of them
+  were the answer, or jumped to the only one. (#392)
 
 ## [0.7.0] - 2026-09-25
 

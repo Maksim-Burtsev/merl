@@ -185,6 +185,29 @@ impl App {
                 )
             })
             .flatten();
+        // A package no `node_modules` holds and no workspace package is called is not installed
+        // (#392): nothing says what it declares, and the project's namesakes are not it. The
+        // import line is where the name comes from, as far as anything tells.
+        if kind == Kind::TsJs
+            && let Some((_, module)) = import.as_ref().and_then(|p| p.split_last())
+            && search::package_missing(
+                &self.root,
+                &self.files,
+                here.parent().unwrap_or(Path::new("")),
+                module,
+            )
+            && let Some(line) = search::ts_import_line(&text, first)
+        {
+            let hit = Hit {
+                path: here.clone(),
+                line,
+                col: 0,
+                text: self.buf.lines[line - 1].clone(),
+            };
+            let reason = Reason::Import(format!("{} (not installed)", module.join("/")));
+            self.show_definitions(kind, &word, &here, vec![Candidate { hit, reason }], None);
+            return;
+        }
         let mut outside = false;
         // The import names a module of the project's own: a workspace package linked in, an alias.
         let mut own_module = false;

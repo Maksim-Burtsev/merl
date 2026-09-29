@@ -27,6 +27,31 @@ pub fn imports(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
     }
     imports_as_written(kind, text)
 }
+/// A TypeScript `import … from`, `require` or `import x = require`: the clause (one of the first
+/// three groups) and the module.
+static TS_IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(
+        r#"(?ms)^\s*(?:import\s+(?:type\s+)?([^'"]*?)\s*from\s*|(?:const|let|var)\s+([^=]+?)\s*=\s*(?:await\s+)?(?:require|import)\s*\(\s*|import\s+([\w$]+)\s*=\s*require\s*\(\s*)['"]([^'"]+)['"]"#,
+    )
+    .unwrap()
+});
+/// The 1-based line of the TypeScript import in `text` that binds `name`, as [`imports`] reads
+/// it: in an import wrapped over several lines, the line the name is written on.
+pub fn ts_import_line(text: &str, name: &str) -> Option<usize> {
+    let ident = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_' || c == '$');
+    TS_IMPORT.captures_iter(text).find_map(|c| {
+        let binds = imports_as_written(Kind::TsJs, &c[0])
+            .iter()
+            .any(|(n, _)| n == name);
+        let clause = c.get(1).or_else(|| c.get(2)).or_else(|| c.get(3))?;
+        let s = clause.as_str();
+        let at = s.match_indices(name).map(|(i, _)| i).find(|&i| {
+            !ident(s[..i].chars().next_back()) && !ident(s[i + name.len()..].chars().next())
+        });
+        let at = at.filter(|_| binds)?;
+        Some(text[..clause.start() + at].matches('\n').count() + 1)
+    })
+}
 /// [`imports`] over every line of `text`, a docstring's too: what a reader inside the docstring's
 /// example goes by.
 pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> {
@@ -145,13 +170,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
             }
         }
         Kind::TsJs => {
-            static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(
-                    r#"(?ms)^\s*(?:import\s+(?:type\s+)?([^'"]*?)\s*from\s*|(?:const|let|var)\s+([^=]+?)\s*=\s*(?:await\s+)?(?:require|import)\s*\(\s*|import\s+([\w$]+)\s*=\s*require\s*\(\s*)['"]([^'"]+)['"]"#,
-                )
-                .unwrap()
-            });
-            for c in IMPORT.captures_iter(text) {
+            for c in TS_IMPORT.captures_iter(text) {
                 let module = &c[4];
                 // `./x` and `../x` keep their dots as the first part; an absolute path gets one.
                 let mut path = parts(module, "/");
@@ -571,6 +590,24 @@ pub fn module_files(
 /// nearest setting winning; `paths` are relative to `baseUrl` when there is one, else to the
 /// config that declares them. Comments and trailing commas are fine: only these keys are read.
 fn ts_aliases(root: &Path, dir: &Path, spec: &str) -> Vec<PathBuf> {
+    let (paths, url) = ts_config(root, dir, spec);
+    paths.into_iter().chain(url.map(|u| u.join(spec))).collect()
+}
+/// Whether an entry of the `compilerOptions.paths` [`ts_aliases`] reads matches `spec`, or
+/// `baseUrl` has a file or a directory of its first part: the project's own module, no package.
+pub(super) fn ts_alias(root: &Path, files: &[PathBuf], dir: &Path, spec: &str) -> bool {
+    let (paths, url) = ts_config(root, dir, spec);
+    let first = spec.split('/').next().unwrap_or(spec);
+    !paths.is_empty()
+        || url.is_some_and(|u| {
+            let base = u.join(first);
+            files
+                .iter()
+                .any(|f| f.starts_with(&base) || f.with_extension("") == base)
+        })
+}
+/// The targets of the `paths` entries `spec` matches, most specific first, and `baseUrl`.
+fn ts_config(root: &Path, dir: &Path, spec: &str) -> (Vec<PathBuf>, Option<PathBuf>) {
     static COMMENT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#""(?:[^"\\]|\\.)*"|//[^\n]*|/\*(?s:.*?)\*/"#).unwrap()
     });
@@ -641,11 +678,7 @@ fn ts_aliases(root: &Path, dir: &Path, spec: &str) -> Vec<PathBuf> {
         }
     }
     targets.sort_by_key(|(rank, _)| std::cmp::Reverse(*rank));
-    targets
-        .into_iter()
-        .map(|(_, t)| t)
-        .chain(url.map(|u| u.join(spec)))
-        .collect()
+    (targets.into_iter().map(|(_, t)| t).collect(), url)
 }
 /// `path` with its `.` and `..` parts folded away, `None` when it climbs above where it starts.
 fn lexical(path: &Path) -> Option<PathBuf> {

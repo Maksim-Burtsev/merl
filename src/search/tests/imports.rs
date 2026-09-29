@@ -412,6 +412,78 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
 }
 
 #[test]
+fn a_package_is_missing_when_nothing_installs_or_declares_it() {
+    let dir = std::env::temp_dir().join(format!("merl-missing-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let root = dir.join("project");
+    let files: Vec<PathBuf> = [
+        "tsconfig.json",
+        "packages/labels/package.json",
+        "web/src/app.ts",
+        "web/node_modules/installed/index.d.ts",
+        "node_modules/@types/typed/index.d.ts",
+        "node_modules/@scope/pkg/index.d.ts",
+    ]
+    .iter()
+    .map(PathBuf::from)
+    .collect();
+    for f in &files {
+        std::fs::create_dir_all(root.join(f).parent().unwrap()).unwrap();
+        std::fs::write(root.join(f), "").unwrap();
+    }
+    std::fs::write(
+        root.join("tsconfig.json"),
+        r#"{ "compilerOptions": { "paths": { "@server/*": ["./server/*"] } } }"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("packages/labels/package.json"),
+        r#"{ "name": "@post/labels", "version": "1.0.0" }"#,
+    )
+    .unwrap();
+    // Above the project, as Node looks there too.
+    std::fs::create_dir_all(dir.join("node_modules/hoisted")).unwrap();
+    let missing = |spec: &str| {
+        let module: Vec<String> = spec.split('/').map(str::to_owned).collect();
+        package_missing(&root, &files, Path::new("web/src"), &module)
+    };
+    assert!(missing("mobx-react"));
+    assert!(missing("@other/pkg"));
+    assert!(missing("es-toolkit/compat"));
+    for here in [
+        ".",
+        "..",
+        "@",
+        "~",
+        "#lib",
+        "node:fs",
+        "virtual:pwa",
+        "fs",
+        "@server/models",
+        "@post/labels",
+        "installed",
+        "typed",
+        "@scope/pkg",
+        "hoisted",
+    ] {
+        assert!(!missing(&format!("{here}/x")), "{here}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_ts_import_line_is_the_line_of_the_name() {
+    let text = "import a from \"a\";\n\nimport {\n  observable,\n  obs as seen,\n} from \"mobx\";\nconst req = require(\"x\");\n";
+    assert_eq!(ts_import_line(text, "a"), Some(1));
+    assert_eq!(ts_import_line(text, "seen"), Some(5));
+    assert_eq!(ts_import_line(text, "observable"), Some(4));
+    // `obs` is taken under another name, and `observable` only starts with it.
+    assert_eq!(ts_import_line(text, "obs"), None);
+    assert_eq!(ts_import_line(text, "req"), Some(7));
+    assert_eq!(ts_import_line(text, "nothing"), None);
+}
+
+#[test]
 fn external_files_ignore_no_gitignore_and_keep_the_kind() {
     let dir = std::env::temp_dir().join(format!("merl-ext-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
