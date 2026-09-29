@@ -13,6 +13,7 @@ use super::welcome::{LOGO, WELCOME_ACTIONS, welcome_hints};
 mod code;
 mod overlays;
 mod preview;
+mod snapshots;
 mod status;
 mod welcome;
 

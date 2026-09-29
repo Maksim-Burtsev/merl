@@ -1,0 +1,57 @@
+wait app/api.py  9:17
+ 1 import json
+ 2 from http import HTTPStatus
+ 3 from typing import cast
+ 4
+ 5 from app.service import OrderNotFound, OrderService
+ 6
+ 7
+ 8 def order_json(order) -> str:
+ 9     return json.dumps(
+10         {"id": order.id, "status": order.status.value, "total": str(order.total)},
+11         sort_keys=True,
+12     )
+13
+14
+15 def get_order(service: OrderService, order_id: int) -> tuple[int, str]:
+16     try:
+17         return HTTPStatus.OK, order_json(service.get(order_id))
+18     except OrderNotFound:
+19         return HTTPStatus.NOT_FOUND, json.dumps({"error": "not found"})
+20
+21
+22 def list_orders(repo, customer_id: int) -> tuple[int, str]:
+23     orders = repo.find_by_customer(customer_id)
+24     return HTTPStatus.OK, json.dumps([order.id for order in orders])
+25
+26
+27 def cancel_order(container, order_id: int) -> tuple[int, str]:
+28     service = cast(
+29         OrderService, container.get("orders")
+30     )
+31     return HTTPStatus.OK, order_json(service.cancel(order_id))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+app/api.py  9:17  [code]                                                                                                                                                          ? help
+cursor (x,y,shown) 19,8,1

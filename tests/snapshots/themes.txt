@@ -1,0 +1,511 @@
+merl snapshot: themes
+
+==== 80x24 tokyonight-moon text, cursor 11,6
+┌notes───────────────────────┐
+│▸ tests                     │
+│  cli.py                    │
+│  config.py                 │
+│  export.csv                │       ███╗   ███╗███████╗██████╗ ██╗
+│  Makef┌Themes (94/94)────────────────────────────────────────────────┐
+│  model│>                                                             │
+│  notes│tokyonight-moon                                               │
+│  PLAN.│tokyonight-night                                              │
+│  store│tokyonight-storm                                              │
+│       │kanagawa-wave                                                 │
+│       │kanagawa-dragon                                               │
+│       │rose-pine                                                     │
+│       │rose-pine-moon                                                │)
+│       │everforest-dark                                               │
+│       │gruvbox-material-dark                                         │
+│       │gruvbox-dark                                                  │
+│       │catppuccin-mocha                                              │
+│       └──────────────────────────────────────────────────────────────┘
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+notes/  [tree]                                                           ? help
+
+==== 80x24 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
+addddddddddddddddddddddddddddacccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccc
+acccccccabbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
+ggggggffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #c8d3f5 bg #222436
+d fg #82aaff bg #1b1d2c
+e fg #6c94fc bg #222436
+f fg #c8d3f5 bg #1b1d2c
+g fg #82aaff bg #1b1d2c BOLD
+
+==== 80x24 github-light text, cursor 11,6
+┌notes───────────────────────┐
+│▸ tests                     │
+│  cli.py                    │
+│  config.py                 │
+│  export.csv                │       ███╗   ███╗███████╗██████╗ ██╗
+│  Makef┌Themes (94/94)────────────────────────────────────────────────┐
+│  model│>                                                             │
+│  notes│everforest-light                                              │
+│  PLAN.│flexoki-light                                                 │
+│  store│catppuccin-latte                                              │
+│       │gruvbox-material-light                                        │
+│       │gruvbox-light                                                 │
+│       │melange-light                                                 │
+│       │dawnfox                                                       │)
+│       │dayfox                                                        │
+│       │tokyonight-day                                                │
+│       │onedark-light                                                 │
+│       │github-light                                                  │
+│       └──────────────────────────────────────────────────────────────┘
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+notes/  [tree]                                                           ? help
+
+==== 80x24 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
+addddddddddddddddddddddddddddacccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccc
+acccccccabbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccc
+acccccccaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffacccccccc
+acccccccaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccc
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
+ggggggffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #1f2328 bg #ffffff
+d fg #6639ba bg #e7eaf0
+e fg #6c94fc bg #ffffff
+f fg #1f2328 bg #e7eaf0
+g fg #6639ba bg #e7eaf0 BOLD
+
+==== 120x33 tokyonight-moon text, cursor 15,8
+┌notes───────────────────────┐
+│▸ tests                     │
+│  cli.py                    │
+│  config.py                 │
+│  export.csv                │
+│  Makefile                  │
+│  models.py                 │
+│  notes.jso┌Themes (94/94)────────────────────────────────────────────────────────────────────────────────┐
+│  PLAN.md  │>                                                                                             │
+│  store.py │tokyonight-moon                                                                               │
+│           │tokyonight-night                                                                              │
+│           │tokyonight-storm                                                                              │
+│           │kanagawa-wave                                                                                 │
+│           │kanagawa-dragon                                                                               │
+│           │rose-pine                                                                                     │
+│           │rose-pine-moon                                                                                │
+│           │everforest-dark                                                                               │
+│           │gruvbox-material-dark                                                                         │
+│           │gruvbox-dark                                                                                  │
+│           │catppuccin-mocha                                                                              │
+│           │catppuccin-macchiato                                                                          │
+│           │catppuccin-frappe                                                                             │
+│           │flexoki-dark                                                                                  │
+│           │melange-dark                                                                                  │
+│           │nightfox                                                                                      │
+│           └──────────────────────────────────────────────────────────────────────────────────────────────┘
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+notes/  [tree]                                                                                                   ? help
+
+==== 120x33 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+addddddddddddddddddddddddddddacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+acccccccccccabbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+ffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #c8d3f5 bg #222436
+d fg #82aaff bg #1b1d2c
+e fg #c8d3f5 bg #1b1d2c
+f fg #82aaff bg #1b1d2c BOLD
+
+==== 120x33 github-light text, cursor 15,8
+┌notes───────────────────────┐
+│▸ tests                     │
+│  cli.py                    │
+│  config.py                 │
+│  export.csv                │
+│  Makefile                  │
+│  models.py                 │
+│  notes.jso┌Themes (94/94)────────────────────────────────────────────────────────────────────────────────┐
+│  PLAN.md  │>                                                                                             │
+│  store.py │token                                                                                         │
+│           │vague                                                                                         │
+│           │vesper                                                                                        │
+│           │rose-pine-dawn                                                                                │
+│           │kanagawa-lotus                                                                                │
+│           │everforest-light                                                                              │
+│           │flexoki-light                                                                                 │
+│           │catppuccin-latte                                                                              │
+│           │gruvbox-material-light                                                                        │
+│           │gruvbox-light                                                                                 │
+│           │melange-light                                                                                 │
+│           │dawnfox                                                                                       │
+│           │dayfox                                                                                        │
+│           │tokyonight-day                                                                                │
+│           │onedark-light                                                                                 │
+│           │github-light                                                                                  │
+│           └──────────────────────────────────────────────────────────────────────────────────────────────┘
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+notes/  [tree]                                                                                                   ? help
+
+==== 120x33 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+addddddddddddddddddddddddddddacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+acccccccccccabbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccc
+acccccccccccaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccccccccccc
+acccccccccccaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+ffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #1f2328 bg #ffffff
+d fg #6639ba bg #e7eaf0
+e fg #1f2328 bg #e7eaf0
+f fg #6639ba bg #e7eaf0 BOLD
+
+==== 185x55 tokyonight-moon text, cursor 22,12
+┌notes───────────────────────┐
+│▸ tests                     │
+│  cli.py                    │
+│  config.py                 │
+│  export.csv                │
+│  Makefile                  │
+│  models.py                 │
+│  notes.json                │
+│  PLAN.md                   │
+│  store.py                  │
+│                            │
+│                  ┌Themes (94/94)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                  │>                                                                                                                                                 │
+│                  │tokyonight-moon                                                                                                                                   │
+│                  │tokyonight-night                                                                                                                                  │
+│                  │tokyonight-storm                                                                                                                                  │
+│                  │kanagawa-wave                                                                                                                                     │
+│                  │kanagawa-dragon                                                                                                                                   │
+│                  │rose-pine                                                                                                                                         │
+│                  │rose-pine-moon                                                                                                                                    │
+│                  │everforest-dark                                                                                                                                   │
+│                  │gruvbox-material-dark                                                                                                                             │
+│                  │gruvbox-dark                                                                                                                                      │
+│                  │catppuccin-mocha                                                                                                                                  │
+│                  │catppuccin-macchiato                                                                                                                              │
+│                  │catppuccin-frappe                                                                                                                                 │
+│                  │flexoki-dark                                                                                                                                      │
+│                  │melange-dark                                                                                                                                      │
+│                  │nightfox                                                                                                                                          │
+│                  │nordfox                                                                                                                                           │
+│                  │nord                                                                                                                                              │
+│                  │onedark                                                                                                                                           │
+│                  │github-dark                                                                                                                                       │
+│                  │vscode-dark                                                                                                                                       │
+│                  │dracula                                                                                                                                           │
+│                  │solarized-dark                                                                                                                                    │
+│                  │oxocarbon-dark                                                                                                                                    │
+│                  │sonokai                                                                                                                                           │
+│                  │material-dark                                                                                                                                     │
+│                  │shokunin-dark                                                                                                                                     │
+│                  │adwaita                                                                                                                                           │
+│                  │alabaster                                                                                                                                         │
+│                  │ayu                                                                                                                                               │
+│                  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+notes/  [tree]                                                                                                                                                                    ? help
+
+==== 185x55 tokyonight-moon styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+addddddddddddddddddddddddddddaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccabbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+ffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #c8d3f5 bg #222436
+d fg #82aaff bg #1b1d2c
+e fg #c8d3f5 bg #1b1d2c
+f fg #82aaff bg #1b1d2c BOLD
+
+==== 185x55 github-light text, cursor 22,12
+┌notes───────────────────────┐
+│▸ tests                     │
+│  cli.py                    │
+│  config.py                 │
+│  export.csv                │
+│  Makefile                  │
+│  models.py                 │
+│  notes.json                │
+│  PLAN.md                   │
+│  store.py                  │
+│                            │
+│                  ┌Themes (94/94)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                  │>                                                                                                                                                 │
+│                  │jellybeans                                                                                                                                        │
+│                  │koda-dark                                                                                                                                         │
+│                  │lackluster                                                                                                                                        │
+│                  │mellifluous                                                                                                                                       │
+│                  │mellow                                                                                                                                            │
+│                  │miasma                                                                                                                                            │
+│                  │minischeme                                                                                                                                        │
+│                  │moonfly                                                                                                                                           │
+│                  │nightfly                                                                                                                                          │
+│                  │papercolor                                                                                                                                        │
+│                  │pencil                                                                                                                                            │
+│                  │selenized                                                                                                                                         │
+│                  │soviet-dark                                                                                                                                       │
+│                  │srcery                                                                                                                                            │
+│                  │token                                                                                                                                             │
+│                  │vague                                                                                                                                             │
+│                  │vesper                                                                                                                                            │
+│                  │rose-pine-dawn                                                                                                                                    │
+│                  │kanagawa-lotus                                                                                                                                    │
+│                  │everforest-light                                                                                                                                  │
+│                  │flexoki-light                                                                                                                                     │
+│                  │catppuccin-latte                                                                                                                                  │
+│                  │gruvbox-material-light                                                                                                                            │
+│                  │gruvbox-light                                                                                                                                     │
+│                  │melange-light                                                                                                                                     │
+│                  │dawnfox                                                                                                                                           │
+│                  │dayfox                                                                                                                                            │
+│                  │tokyonight-day                                                                                                                                    │
+│                  │onedark-light                                                                                                                                     │
+│                  │github-light                                                                                                                                      │
+│                  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+notes/  [tree]                                                                                                                                                                    ? help
+
+==== 185x55 github-light styles
+abbbbbaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+addddddddddddddddddddddddddddaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccabbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccacccccccccccccccccc
+accccccccccccccccccaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccccccccccccccccc
+accccccccccccccccccaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+accccccccccccccccccccccccccccaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+ffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #1f2328 bg #ffffff
+d fg #6639ba bg #e7eaf0
+e fg #1f2328 bg #e7eaf0
+f fg #6639ba bg #e7eaf0 BOLD

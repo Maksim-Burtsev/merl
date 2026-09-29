@@ -1,0 +1,64 @@
+# The shop of #307: every d case carries its answer in a comment under it.
+x-rates: &rates
+  TARIFF_RATE: "1"
+  COUPON_RATE: "2"
+
+x-service: &service-defaults
+  restart: unless-stopped
+  environment: *rates
+  #             ^ d: compose.yaml:2
+
+services:
+  pricing:
+    <<: *service-defaults
+    #      ^ d: compose.yaml:6
+    image: shop/pricing
+    depends_on: [db, warehouse]
+    #            ^ d: compose.yaml:40
+    #                ^ d: compose.yaml:20
+
+  warehouse:
+    <<: *service-defaults
+    image: shop/warehouse
+    command: |
+      parcels:
+        grams: 1500
+    depends_on:
+      - db
+      # ^ d: compose.yaml:40
+
+  courier:
+    image: shop/courier
+    depends_on:
+      pricing:
+      # ^ d: picker compose.yaml:12
+        condition: service_started
+    volumes:
+      - parcels:/var/parcels
+      #  ^ d: picker compose.yaml:24, compose.yaml:64; want compose.yaml:64 (#436)
+
+  db:
+    image: postgres:16
+    healthcheck:
+      test: ["CMD", "pg_isready"]
+
+  cron:
+    <<: [*service-defaults]
+    #      ^ d: compose.yaml:6
+    image: shop/cron
+    environment:
+      <<: *rates
+      #    ^ d: compose.yaml:2
+      DB_HOST: db
+      #        ^ d: compose.yaml:40
+      WEIGHT_LIMIT: *weight-limit
+      #               ^ d: compose.yaml:61
+    extends:
+      service: pricing
+      #        ^ d: picker compose.yaml:12, compose.yaml:33
+
+x-limits:
+  weight: &weight-limit 30
+
+volumes:
+  parcels:

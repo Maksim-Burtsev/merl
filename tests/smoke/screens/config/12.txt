@@ -1,0 +1,57 @@
+wait Dockerfile  1:1
+ 1 FROM python:3.13-slim AS build
+ 2 WORKDIR /src
+ 3 COPY pyproject.toml ./
+ 4 COPY app ./app
+ 5 RUN pip wheel --no-deps --wheel-dir /wheels .
+ 6
+ 7 FROM python:3.13-slim
+ 8 WORKDIR /srv
+ 9 COPY --from=build /wheels /wheels
+10 RUN pip install --no-index /wheels/*.whl && rm -rf /wheels
+11 USER nobody
+12 CMD ["python", "-m", "app.api"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Dockerfile  1:1  [code]                                                                                                                                                           ? help
+cursor (x,y,shown) 3,0,1
