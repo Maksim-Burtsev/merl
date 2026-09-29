@@ -312,6 +312,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in a Makefile finds a variable set only by `CFLAGS += -Wall` or for one target,
   `release: VERSION := 1.0`, where it answered `no definition`. A plain `CFLAGS = -O2` stays
   the only answer where there is one. (#499)
+- `d` in C and C++ on `x->name` or `x.name` lands on the field `name` of a struct, union or
+  class, where it landed on a function, a `#define`, a global or a type of the same name, or
+  said `no definition`: in redis `n->data` jumped to a `#define data`, in leveldb `m->level` to
+  a method `level()`. Several fields of one name are a picker. A called `x->name(…)` is a method
+  or a function-pointer field, never a free function. When the project has no field of the name,
+  the system headers are searched for fields only, so `st.st_size` still finds `struct stat`. In
+  a C++ constructor's `: filename_(name)` the name lands on the class's own field. (#359)
 
 ## [0.7.0] - 2026-09-25
 

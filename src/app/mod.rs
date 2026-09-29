@@ -18,6 +18,7 @@ use crate::tree::Tree;
 use crate::tutor::{self, Tutor};
 use crate::wrap;
 
+mod c;
 mod cursor;
 mod definition;
 mod edit;

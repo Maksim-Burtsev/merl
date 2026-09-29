@@ -132,6 +132,13 @@ impl App {
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
         self.truncated.set(false);
+        // A C or C++ member behind `->` or `.`, or in a constructor's initializer list (#359).
+        if kind == Kind::C
+            && let Some(found) = self.c_early(&here, &text, &word, range.clone())
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // Inside a docstring's example the imports written there count too.
         let in_literal = search::literal_lines(kind, &text).get(self.line) == Some(&true);
         let mut imports = match in_literal {
