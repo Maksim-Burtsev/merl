@@ -969,9 +969,9 @@ impl App {
                 });
             let text = self.buf.lines.join("\n");
             let command = search::make_recipe_command(&text, self.line + 1).filter(|_| shell);
+            // The text the grep matched: the open file as it is on screen (#505).
             let recipe = |h: &Hit| {
-                std::fs::read_to_string(self.root.join(&h.path))
-                    .ok()
+                self.text_of(&h.path)
                     .and_then(|text| search::make_recipe_command(&text, h.line))
             };
             hits.retain(|h| match recipe(h) {

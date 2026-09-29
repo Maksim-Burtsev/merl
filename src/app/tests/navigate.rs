@@ -1151,6 +1151,32 @@ fn a_makefile_recipe_line_declares_no_variable() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #505. With unsaved edits the recipe filter reads the buffer the grep matched, not the disk:
+/// with the two `echo` lines cut, buffer line 2 is `DFLAGS += -Wall`, which on disk is a recipe
+/// line.
+#[test]
+fn a_makefile_recipe_line_is_judged_on_the_unsaved_buffer() {
+    let (dir, mut a) = project_app(
+        "make-recipe-dirty",
+        &[(
+            "dirty.mk",
+            "build:\n\techo hi\n\techo ho\nDFLAGS += -Wall\n\nall:\n\tcc $(DFLAGS)\n",
+        )],
+    );
+    a.jump_to(&dir.join("dirty.mk"), 2);
+    // Esc would save: the edit stays unsaved as it is until autosave.
+    a.buf.lines.drain(1..3);
+    a.dirty = true;
+    a.jump_to(&dir.join("dirty.mk"), 5);
+    a.col = a.line_str().find("DFLAGS").unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        shown(&mut a),
+        jump("DFLAGS: by name, 1 match", "dirty.mk:2")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// #421. `d` on a Markdown link says why nothing opens where the fixture's annotations cannot
 /// (their answers are no places, or name a file with a space), and `D` lists nothing of a README.
 #[test]
