@@ -7,6 +7,7 @@ wait 5▎    token = "abcdef"
 │▸ deploy                    │6     return False
 │▸ docs                      │
 │▾ scripts                   │
+│  ▸ payouts                 │
 │    grant_admin.py          │
 │    refund_by_hand.py       │
 │▸ tests                     │
@@ -19,7 +20,6 @@ wait 5▎    token = "abcdef"
 │  Makefile                  │
 │  pyproject.toml            │
 │  README.md                 │
-│                            │
 │                            │
 │                            │
 │                            │

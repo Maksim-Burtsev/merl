@@ -7,6 +7,7 @@ wait scripts/grant_admin.py  5:23
 │▸ deploy                    │6     return False
 │▸ docs                      │
 │▾ scripts                   │
+│  ▸ payouts                 │
 │    grant_admin.py          │
 │    refund_by_hand.py       │
 │▸ tests                     │
@@ -19,7 +20,6 @@ wait scripts/grant_admin.py  5:23
 │  Makefile                  │
 │  pyproject.toml            │
 │  README.md                 │
-│                            │
 │                            │
 │                            │
 │                            │

@@ -28,6 +28,9 @@ pub enum Reason {
     /// The file of the module of the project an import binds the word to: `views` in `from
     /// shop import views`.
     Module(String),
+    /// An item the file on screen declares where a bare Rust name sees it: no other file's item
+    /// is in sight without a `use` or a path (#363).
+    File,
 }
 impl Reason {
     /// Whether the reason alone picks the declaration. `by name` only says the name matched, so
@@ -45,6 +48,7 @@ impl std::fmt::Display for Reason {
             Self::Implementation(member) => write!(f, "implementations of {member}"),
             Self::Local => write!(f, "local"),
             Self::Module(file) => write!(f, "module {file}"),
+            Self::File => write!(f, "in this file"),
         }
     }
 }

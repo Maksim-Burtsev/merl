@@ -193,4 +193,39 @@ impl App {
         }
         found
     }
+
+    /// A bare `word` at `range` of the cursor's line is the item this file declares where the
+    /// cursor sees it ([`search::rust_scope_items`], #363). A struct literal's or a pattern's
+    /// `word:` names a field, no item.
+    pub(super) fn rust_file_items(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        range: std::ops::Range<usize>,
+    ) -> Vec<Candidate> {
+        let after = self.line_str()[range.end..].trim_start();
+        if after.starts_with(':') && !after.starts_with("::") {
+            return Vec::new();
+        }
+        let ns = if after.starts_with('!') && !after.starts_with("!=") {
+            search::RustNamespace::Macro
+        } else if after.starts_with("::") {
+            search::RustNamespace::Path
+        } else {
+            search::RustNamespace::Other
+        };
+        search::rust_scope_items(text, self.line + 1, word, ns)
+            .into_iter()
+            .map(|line| Candidate {
+                hit: Hit {
+                    path: here.to_path_buf(),
+                    line,
+                    col: 0,
+                    text: self.buf.lines[line - 1].clone(),
+                },
+                reason: Reason::File,
+            })
+            .collect()
+    }
 }
