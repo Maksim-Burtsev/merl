@@ -206,7 +206,10 @@ impl App {
             .then(|| search::member_patterns(kind, &word))
             .flatten()
             .map(|m| m.join("|"));
-        let patterns = search::def_patterns(kind, &word);
+        let mut patterns = search::def_patterns(kind, &word);
+        if kind == Kind::Php {
+            search::php_namespace_patterns(&mut patterns, &text, self.line_str(), range.clone());
+        }
         if patterns.is_empty() {
             self.message = self.no_rules();
             return;
@@ -843,7 +846,14 @@ impl App {
                     && self
                         .text_of(&c.hit.path)
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));
-                !call && !lines.get(c.hit.line - 1).copied().unwrap_or(false)
+                // A tag of a PHP class's docblock is a declaration inside a comment (#344).
+                let literal = lines.get(c.hit.line - 1).copied().unwrap_or(false)
+                    && !(kind == Kind::Php
+                        && self.text_of(&c.hit.path).is_some_and(|t| {
+                            search::php_tag_class(&t.lines().collect::<Vec<_>>(), c.hit.line - 1)
+                                .is_some()
+                        }));
+                !call && !literal
             });
         }
         // A Ruby superclass, right of the `<` of a `class` line, is a use of the name (#387): the

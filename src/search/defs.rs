@@ -1,6 +1,7 @@
 //! The line patterns `d` looks a declaration up with, per kind and per word, and the
 //! reason a candidate is offered under.
 
+use super::php::php_namespace_line;
 use super::*;
 use regex::Regex;
 use std::path::{Path, PathBuf};
@@ -263,9 +264,10 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 // A function or a method; `&` returns by reference.
                 format!(r"{mods}function\s+&?\s*{w}\s*\("),
                 format!(r"{mods}(?:class|interface|trait|enum)\s+{w}\b"),
-                format!(r"^\s*namespace\s+(?:[\w\\]+\\)?{w}\s*[;{{]"),
+                php_namespace_line(&w),
                 // A constant: the `const` of a class or a file, and the `define()` of a global.
-                format!(r"{mods}const\s+{w}\b"),
+                // A class constant can carry a type (PHP 8.3), `const ?string X` included (#344).
+                format!(r"{mods}const\s+(?:[\w\\|&?()]+\s+)?{w}\b"),
                 format!(r#"^\s*define\s*\(\s*['"]{w}['"]"#),
                 // An enum case. A `case X:` of a `switch` matches against a constant, so what
                 // follows the name must not be a `:`.
@@ -279,6 +281,11 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 // An assignment that opens a line, `.=` and `??=` included. `==` compares, `=>`
                 // is a key in an array literal, and `$rows['x'] =` writes to an element.
                 format!(r"^\s*\${w}\s*(?:\.|\?\?|\+)?=(?:$|[^=>])"),
+                // The tags of a class's docblock (#344): a property, `-read` and `-write` ones
+                // included, and a method, `static` or not. A tag of any other docblock declares
+                // nothing: [`php_tag_class`] keeps the ones right above a class.
+                format!(r"^\s*\*\s*@property(?:-read|-write)?\s+(?:[^$]*\s)?\${w}\b"),
+                format!(r"^\s*\*\s*@method\s+(?:[^(]*\s)?{w}\s*\("),
             ]
         }
         // Lua declares with `function` and `local`, and with nothing else: a bare `name = value`

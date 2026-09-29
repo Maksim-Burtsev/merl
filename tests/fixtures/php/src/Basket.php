@@ -107,8 +107,8 @@ final class Basket
     public function coupon(): string
     {
         return $this->coupon->code . $this->coupon->bonus() . $this->coupon->stamps;
-        //                    ^ d: none; want src/Pricing/Coupon.php:6 (#344)
-        //                                          ^ d: src/Basket.php:36; want src/Pricing/Coupon.php:7 (#344)
+        //                    ^ d: src/Pricing/Coupon.php:6
+        //                                          ^ d: picker src/Basket.php:36, src/Pricing/Coupon.php:7; want src/Pricing/Coupon.php:7 (#361)
         //                                                                   ^ d: src/Pricing/Stamps.php:7
     }
 

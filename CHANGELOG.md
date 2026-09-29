@@ -145,6 +145,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` in PHP finds a typed class constant, `private const int LIMIT = 500;`, where it said
+  `no definition`, and the `@property`, `@property-read`, `@property-write` and `@method` tags
+  of a class's docblock, the way Laravel declares Eloquent columns: `$song->title` lands on the
+  tag, `title → Song::title`. A `namespace …\Support;` line no longer answers `Support` in
+  `use Illuminate\Support\Facades\Route;`, nor a class called like its last part: a segment
+  of a qualified name finds only the namespace written up to it. (#344)
 - `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
   in the project, the standard library and the dependencies the cursor can reach, the traits'
   first, where it jumped to a lone project namesake: `v.unwrap()` on an `Option` landed on a

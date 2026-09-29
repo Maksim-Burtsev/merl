@@ -54,6 +54,14 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         let owner = qualified(kind, text, decl, &ty).unwrap_or(ty);
         return Some(format!("{owner}{sep}{name}"));
     }
+    // A tag of a PHP class's docblock declares a member of the class under it (#344).
+    if kind == Kind::Php
+        && let Some(class) = php_tag_class(&lines, line - 1)
+        && let Some(owner) = declared_name(Some(kind), lines[class])
+    {
+        let owner = qualified(kind, text, class + 1, &owner).unwrap_or(owner);
+        return Some(format!("{owner}{sep}{name}"));
+    }
     // Any other name on a Python `def` line is a parameter (#100): `Recipes.get_one.slug`, as a
     // local of the body reads, not `Recipes.slug`, a field's name.
     if kind == Kind::Python
