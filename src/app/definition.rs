@@ -849,8 +849,13 @@ impl App {
                         .map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
                 });
                 // `register<` over its type arguments over `>(1);` is a call prettier wrapped.
+                // A type's header wrapped so declares the type: `class User extends Model<`,
+                // `export interface Context<` (#331).
                 let call = kind == Kind::TsJs
                     && c.hit.text.trim_end().ends_with('<')
+                    && !search::declares_type(kind, &c.hit.text)
+                    && !Regex::new(r"\b(?:extends|implements)\b")
+                        .is_ok_and(|re| re.is_match(&c.hit.text))
                     && self
                         .text_of(&c.hit.path)
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));

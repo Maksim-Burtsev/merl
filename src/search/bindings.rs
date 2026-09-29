@@ -739,7 +739,12 @@ fn opener_bindings(
                 regex::escape(name)
             ))
             .expect("an escaped name keeps the pattern valid");
-            if let Some(c) = arrow.captures_iter(header).last() {
+            // `): Node => ({` returns a `Node`: the name is the arrow's return type (#331).
+            if let Some(c) = arrow
+                .captures_iter(header)
+                .last()
+                .filter(|c| !return_type(&header[..c.get(0).map_or(0, |m| m.start())]))
+            {
                 unknown(out);
                 own |= c.get(1).is_some();
             }
@@ -780,6 +785,29 @@ fn opener_bindings(
         _ => {}
     }
     own
+}
+/// Whether what `before` ends in writes a return type: the nearest `:` in front, at its bracket
+/// depth, follows the `)` of a parameter list, `): A | B`. A `:` after a key, `onClick: e =>`,
+/// does not (#331).
+fn return_type(before: &str) -> bool {
+    let b = before.as_bytes();
+    let mut depth = 0i32;
+    for i in (0..b.len()).rev() {
+        match b[i] {
+            b')' | b']' | b'}' => depth += 1,
+            b'>' if i == 0 || b[i - 1] != b'=' => depth += 1,
+            b'(' | b'[' | b'{' | b'<' => {
+                depth -= 1;
+                if depth < 0 {
+                    return false;
+                }
+            }
+            b':' if depth == 0 => return before[..i].trim_end().ends_with(')'),
+            b',' | b';' | b'=' if depth == 0 => return false,
+            _ => {}
+        }
+    }
+    false
 }
 /// The binding of `name` among TypeScript parameters: its annotation, else its default value.
 fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {

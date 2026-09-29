@@ -145,6 +145,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` in TypeScript finds a class or an interface whose type parameters prettier wrapped,
+  `class User extends Model<` over its type arguments over `> {`: it was dropped as a wrapped
+  call, so `d` said `no definition` or jumped to the one namesake left, a client-side model for
+  the server's. The return type of an arrow, `): Node => ({`, is no longer read as its
+  parameter, which hid the import of `Node`. (#331)
 - `d` in JavaScript reads a `require` as an import. A name that `const { helper } =
   require("./m")` or `const Segment = require("./seg")` binds leads into the required module,
   where it stopped on the `require` line; `utils.helper` behind `const utils = require("./m")`
