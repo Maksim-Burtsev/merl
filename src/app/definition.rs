@@ -96,8 +96,12 @@ impl App {
         };
         // Go's blank identifier names nothing: every `_` is a fresh discard (#476). Nor has a
         // GraphQL operation's `$variable` a rule: it is a parameter, and `$id` is no field `id`.
+        // A Java or Kotlin class literal, `Foo::class`, names no member `class` (#362).
         if (kind == Kind::Go && word == "_")
             || (kind == Kind::Graphql && self.line_str()[..range.start].ends_with('$'))
+            || (kind == Kind::Jvm
+                && word == "class"
+                && self.line_str()[..range.start].ends_with("::"))
         {
             self.message = resolution(&word, None, &[], None, false);
             return;
@@ -201,7 +205,14 @@ impl App {
             return;
         }
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
-        let on_value = dotted && !own && chain.first().is_none_or(|f| bound(&imports, f).is_none());
+        // Java and Kotlin's `Type::m` names a member of `Type` as `Type.m` does (#362). `super::m`
+        // stays the search by name, and a bare `::m` has no chain.
+        let referenced = kind == Kind::Jvm
+            && before.ends_with("::")
+            && chain.first().is_some_and(|f| f != "super");
+        let on_value = (dotted || referenced)
+            && !own
+            && chain.first().is_none_or(|f| bound(&imports, f).is_none());
         let members = on_value
             .then(|| search::member_patterns(kind, &word))
             .flatten()
@@ -381,6 +392,37 @@ impl App {
         };
         if kind == Kind::Python && locals.is_empty() && !chain.is_empty() && !nested(self) {
             let found = self.class_attribute(kind, &here, &chain, &word);
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
+        // `this.m` and `this::m` in Java and Kotlin: `m` of the class around the cursor, which
+        // this file declares (#362). Nothing of it declares `m`: the search by name, as before.
+        if kind == Kind::Jvm
+            && own
+            && (dotted || before.ends_with("::"))
+            && let Some(owner) = search::jvm_this_owner(&text, self.line + 1)
+        {
+            let full = format!("{owner}.{word}");
+            let re = Regex::new(&pattern).expect("an escaped name keeps the pattern valid");
+            let found: Vec<Candidate> = text
+                .lines()
+                .enumerate()
+                .filter(|&(i, l)| {
+                    re.is_match(l)
+                        && search::qualified(kind, &text, i + 1, &word).as_ref() == Some(&full)
+                })
+                .map(|(i, l)| Candidate {
+                    hit: Hit {
+                        path: here.clone(),
+                        line: i + 1,
+                        col: 0,
+                        text: l.to_owned(),
+                    },
+                    reason: Reason::Path("this".to_owned()),
+                })
+                .collect();
             if !found.is_empty() {
                 self.show_definitions(kind, &word, &here, found, None);
                 return;

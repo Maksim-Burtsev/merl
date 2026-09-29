@@ -61,3 +61,44 @@ pub fn jvm_private(line: &str) -> bool {
     MODS.find(line)
         .is_some_and(|m| m.as_str().split_whitespace().any(|w| w == "private"))
 }
+
+/// The receiver type a Kotlin extension on `line` declares `name` for, as written but for its
+/// type arguments and a `?`: `Topic` for `fun Topic.asExternalModel()` and `val Topic.testTag`,
+/// `List` for `fun <T> List<T>.second()` (#362). `None` for any other line.
+pub fn jvm_receiver(line: &str, name: &str) -> Option<String> {
+    static EXTENSION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(
+            jvm_mods!(),
+            r"(?:fun|val|var)\s+(?:<[^>]*>\s*)?([\w.]+)(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.([A-Za-z_]\w*)"
+        ))
+        .unwrap()
+    });
+    EXTENSION
+        .captures(line)
+        .filter(|c| &c[2] == name)
+        .map(|c| c[1].to_owned())
+}
+
+/// The name `this` stands for at 1-based `line` of `text`, as [`qualified`] names a class:
+/// the innermost type whose body holds the line (#362). `None` in column 0, and inside an
+/// anonymous `object :` or `new X() {`, whose `this` has no name to look up.
+pub fn jvm_this_owner(text: &str, line: usize) -> Option<String> {
+    static ANONYMOUS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bobject\s*:|\bnew\s+[\w.]+\s*(?:<.*>)?\s*\(.*\)\s*\{\s*$").unwrap()
+    });
+    static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:class|interface|enum|record|@interface|object)\s+([A-Za-z_]\w*)").unwrap()
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let mut at = line.checked_sub(1).filter(|&i| i < lines.len())?;
+    loop {
+        at = scope_of(&lines, at)?;
+        if opens_type(lines[at]) {
+            let name = NAME.captures(lines[at])?[1].to_owned();
+            return Some(qualified(Kind::Jvm, text, at + 1, &name).unwrap_or(name));
+        }
+        if ANONYMOUS.is_match(lines[at]) {
+            return None;
+        }
+    }
+}

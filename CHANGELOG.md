@@ -151,6 +151,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only below it in its own block, never behind a `.` or a `::`, and a `private` declaration only
   in its own file; when one declaration is left that way, it is offered in the list rather than
   jumped to, since it was still found by name only. (#357)
+- `d` in Java and Kotlin reads `Type::method` as `Type.method`: `Inner::getName` jumps to the
+  `getName` of `Inner`, and `this::show` or `this.show` to the `show` of the class around the
+  cursor, where they listed every method of that name in the project. A Kotlin extension is
+  named by its receiver, so `Topic::asExternalModel` jumps to `fun Topic.asExternalModel()`
+  among the extensions of other types, and `val Topic.testTag` declares `testTag`, no longer a
+  second `Topic`. (#362)
 - `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
   in the project, the standard library and the dependencies the cursor can reach, the traits'
   first, where it jumped to a lone project namesake: `v.unwrap()` on an `Option` landed on a

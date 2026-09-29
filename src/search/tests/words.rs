@@ -211,3 +211,17 @@ public:
         [none, none, none]
     );
 }
+
+#[test]
+fn a_kotlin_extension_is_named_by_its_receiver() {
+    let text = "fun Topic.asExternalModel() = this\nfun <T> List<T>.second(): T = this[1]\nfun Topic?.orEmpty() = this\nval Topic.testTag get() = id\nfun plain() = 1\n";
+    let q = |line, name| qualified(Kind::Jvm, text, line, name);
+    assert_eq!(
+        q(1, "asExternalModel").as_deref(),
+        Some("Topic.asExternalModel")
+    );
+    assert_eq!(q(2, "second").as_deref(), Some("List.second"));
+    assert_eq!(q(3, "orEmpty").as_deref(), Some("Topic.orEmpty"));
+    assert_eq!(q(4, "testTag").as_deref(), Some("Topic.testTag"));
+    assert_eq!(q(5, "plain"), None);
+}

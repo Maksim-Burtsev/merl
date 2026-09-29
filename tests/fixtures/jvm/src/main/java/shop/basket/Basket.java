@@ -74,6 +74,7 @@ public class Basket implements Priced {
 
     public java.util.function.ToIntFunction<Tariff> rater() {
         return Tariff::rate;
-        //             ^ d: picker src/main/java/shop/pricing/Coupon.java:4, src/main/java/shop/pricing/Tariff.java:5; want src/main/java/shop/pricing/Tariff.java:5 (#362)
+        //             ^ d: src/main/java/shop/pricing/Tariff.java:5
+        // status: rate → Tariff.rate (via Tariff)
     }
 }
