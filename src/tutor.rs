@@ -282,7 +282,7 @@ fn edited(app: &App) -> bool {
 /// The selected text, when the selection sits on one line.
 fn selected(a: &App) -> Option<&str> {
     let ((l1, c1), (l2, c2)) = a.selection()?;
-    (l1 == l2).then(|| &a.buf.lines[l1][c1..c2])
+    (l1 == l2).then(|| &a.text(l1)[c1..c2])
 }
 
 #[cfg(test)]

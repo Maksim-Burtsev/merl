@@ -732,7 +732,7 @@ fn a_file_that_joins_the_review_leaves_the_preview_for_good() {
 }
 
 /// `p` on a file outside the review list whose diff has lines deleted after its last one, the
-/// pane scrolled onto them, returns on the row of the cursor's line: the list lags the file (it
+/// cursor on them (#439), returns on the row of the file's last line: the list lags the file (it
 /// waits out a debounce, or auto-reload is off and Ctrl+R took the file).
 #[test]
 fn p_past_the_last_line_of_a_file_the_list_lags_returns() {
@@ -747,7 +747,7 @@ fn p_past_the_last_line_of_a_file_the_list_lags_returns() {
         for _ in 0..70 {
             key(&mut a, KeyCode::Down);
         }
-        let scrolled = a.top_line == a.buf.lines.len();
+        let scrolled = a.deleted.is_some_and(|(k, _)| k == a.buf.lines.len());
         key(&mut a, KeyCode::Char('p'));
         let row = a.preview.as_ref().map(|p| p.doc.rows[p.row].text.clone());
         let _ = tx.send((scrolled, a.previewing(), row));
@@ -756,7 +756,7 @@ fn p_past_the_last_line_of_a_file_the_list_lags_returns() {
     let (scrolled, previewing, row) = rx
         .recv_timeout(Duration::from_secs(20))
         .expect("`p` did not return");
-    assert!(scrolled, "the pane was on the deleted lines");
+    assert!(scrolled, "the cursor was on the deleted lines");
     assert!(previewing);
     assert_eq!(row.as_deref(), Some("Kept."));
 }

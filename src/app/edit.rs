@@ -8,6 +8,10 @@ impl App {
         if self.buf.path.is_none() {
             return;
         }
+        if self.deleted.is_some() {
+            self.message = "deleted".into();
+            return;
+        }
         if let Some(why) = self.locked(std::iter::once(&self.buf.lines[self.line])) {
             self.message = why;
             return;
@@ -37,11 +41,17 @@ impl App {
     }
 
     /// Ctrl+C: the selection goes to the clipboard, without one the whole line with its break,
-    /// as in VS Code. Returns the range Ctrl+X then removes: the last line goes with the break
-    /// before it, so no empty line is left behind (a file's only line is emptied).
+    /// as in VS Code; the lines a review deleted are copied as they were. Returns the range
+    /// Ctrl+X then removes: the last line goes with the break before it, so no empty line is left
+    /// behind (a file's only line is emptied). Ctrl+X is refused on a deleted line before this.
     pub(super) fn copy(&mut self) -> ((usize, usize), (usize, usize)) {
+        let here = ((self.line, self.col), (self.line, self.col));
         let (from, to, text) = match self.selection() {
-            Some((from, to)) => (from, to, self.selected_text().unwrap()),
+            Some(_) => {
+                let (from, to) = self.file_selection().unwrap_or(here);
+                (from, to, self.selected_text().unwrap())
+            }
+            None if self.deleted.is_some() => (here.0, here.1, format!("{}\n", self.line_str())),
             None if self.line + 1 < self.buf.lines.len() => (
                 (self.line, 0),
                 (self.line + 1, 0),
@@ -69,6 +79,25 @@ impl App {
     /// Keys that only mean something while editing. Returns `false` for every other key, which
     /// then falls through to the navigation keys: arrows, Home / End, the chord aliases.
     pub(super) fn edit_key(&mut self, code: KeyCode, ctrl: bool, alt: bool) -> bool {
+        // The lines a review deleted are text to read, not to edit (#439): no key that changes
+        // the text works on one, nor on the line break a deleted line is drawn after.
+        let changes = matches!(code, KeyCode::Char(c) if !ctrl || c == 'x')
+            || matches!(
+                code,
+                KeyCode::Enter | KeyCode::Tab | KeyCode::Backspace | KeyCode::Delete
+            );
+        let joins = self.selection().is_none()
+            && match code {
+                KeyCode::Backspace => self.col == 0 && self.deleted_at(self.line) > 0,
+                KeyCode::Delete => {
+                    self.col == self.line_str().len() && self.deleted_at(self.line + 1) > 0
+                }
+                _ => false,
+            };
+        if changes && (self.on_deleted() || joins) {
+            self.message = "deleted".into();
+            return true;
+        }
         match code {
             KeyCode::Esc => {
                 self.mode = Mode::Normal;
@@ -94,7 +123,7 @@ impl App {
             }
             KeyCode::Tab => {
                 let indent = if self.buf.tabs { "\t" } else { buffer::TAB };
-                match self.selection() {
+                match self.file_selection() {
                     // Over lines Tab indents them, as in VS Code; over a piece of one line it
                     // is typed in place of it, as any other letter is.
                     Some((from, to)) if to.0 > from.0 => self.indent(from, to, indent),
@@ -113,7 +142,7 @@ impl App {
                 let to = (self.line, self.col);
                 // Undo puts the cursor back where the key was pressed, and takes the word alone:
                 // not the typing before it, not the typing after.
-                (self.line, self.col) = at;
+                self.go(at);
                 self.undo_break = true;
                 self.replace(at.min(to), at.max(to), "");
                 self.undo_break = true;
@@ -146,7 +175,7 @@ impl App {
     /// Inserts `text` at the cursor, or in place of the selection; a `\n` in it splits the line.
     fn insert(&mut self, text: &str) {
         let (from, to) = self
-            .selection()
+            .file_selection()
             .unwrap_or(((self.line, self.col), (self.line, self.col)));
         self.replace(from, to, text);
     }
@@ -161,6 +190,7 @@ impl App {
             .collect::<Vec<_>>()
             .join("\n");
         let (anchor, cursor) = (self.anchor, (self.line, self.col));
+        let anchor = anchor.map(|(t, c)| (t.key(), c));
         let end = (last, self.buf.lines[last].len());
         // One step of its own: not merged into the typing before it, and not extended by the
         // typing after it.
@@ -174,8 +204,8 @@ impl App {
             false => (l, c),
         };
         if indented {
-            self.anchor = anchor.map(moved);
-            (self.line, self.col) = moved(cursor);
+            self.anchor = anchor.map(moved).map(|(l, c)| (TextLine::File(l), c));
+            self.go(moved(cursor));
             self.sync_want_x();
         }
     }
@@ -186,7 +216,9 @@ impl App {
     pub fn paste(&mut self, text: &str) {
         let text = text.replace("\r\n", "\n").replace('\r', "\n");
         let line = text.lines().next().unwrap_or_default();
-        if self.mode == Mode::Edit {
+        if self.mode == Mode::Edit && self.on_deleted() {
+            self.message = "deleted".into();
+        } else if self.mode == Mode::Edit {
             self.insert(&text);
         } else if let Some(picker) = &mut self.picker {
             if let Pick::Typed = picker.paste(line) {
@@ -212,6 +244,10 @@ impl App {
     /// with the reason in the status bar, where `locked` says the text cannot change; returns
     /// whether the text changed, which a caller that moves the cursor itself has to know.
     fn replace(&mut self, from: (usize, usize), to: (usize, usize), text: &str) -> bool {
+        if self.deleted.is_some() {
+            self.message = "deleted".into();
+            return false;
+        }
         let before = (self.line, self.col);
         let old: Vec<String> = self.buf.lines[from.0..=to.0].to_vec();
         let head = &old[0][..from.1];
@@ -228,7 +264,7 @@ impl App {
             return false;
         }
         self.buf.lines.splice(from.0..=to.0, new.iter().cloned());
-        (self.line, self.col) = (from.0 + last, col);
+        self.go((from.0 + last, col));
         let edit = Edit {
             line: from.0,
             old,
@@ -273,7 +309,7 @@ impl App {
         self.buf
             .lines
             .splice(edit.line..edit.line + from.len(), to.iter().cloned());
-        (self.line, self.col) = at;
+        self.go(at);
         if let Some((was, is)) = edit.format {
             self.buf.set_format(if back { was } else { is });
         }
