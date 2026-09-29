@@ -166,7 +166,14 @@ impl App {
         }
         // The word itself is that parameter or local: its declarations in this scope are the
         // answer, and a function of the same name elsewhere is not.
-        if !dotted && !locals.is_empty() && locals != [self.line + 1] {
+        // In C a function on one line holds its parameter and its uses (#378).
+        let on_itself = match kind {
+            Kind::C => search::c_bindings_at(&text, self.line + 1, first)
+                .iter()
+                .all(|&(l, c)| l == self.line + 1 && c == range.start),
+            _ => locals == [self.line + 1],
+        };
+        if !dotted && !locals.is_empty() && !on_itself {
             let found = locals
                 .iter()
                 .map(|&line| Candidate {
@@ -181,6 +188,20 @@ impl App {
                 .collect();
             self.show_definitions(kind, &word, &here, found, None);
             return;
+        }
+        // A bare name inside a C++ method is a field of its class first (#378).
+        if kind == Kind::C
+            && !dotted
+            && chain.is_empty()
+            && locals.is_empty()
+            && !before.ends_with("::")
+            && let Some(class) = search::c_method_class(&text, self.line + 1, &word)
+        {
+            let found = self.c_class_fields(&here, &word, &class, false);
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
         }
         // A Go package qualifier, `db` in `db.Get`, is declared by the import line of this file
         // (#100), unless a local hides it (taken out above, or one the walk may have missed:
@@ -636,6 +657,15 @@ impl App {
                     })
                 };
                 let construction = after.trim_start().starts_with(['(', '{']) || keyword("new");
+                // A value is followed by `->` or `.`, and is never a type (#378).
+                let after = after.trim_start();
+                let value = locals.is_empty()
+                    && (after.starts_with("->")
+                        || (after.starts_with('.') && !after.starts_with("..")));
+                let hits: Vec<Hit> = hits
+                    .into_iter()
+                    .filter(|h| !value || !Self::c_type_line(&word, h))
+                    .collect();
                 let tag = ["struct", "union", "enum"].into_iter().any(keyword);
                 // What a raw string or a block comment holds declares nothing, and must not count
                 // as a second body or definition in the rules below (show_definitions drops it
@@ -718,6 +748,14 @@ impl App {
             found = self
                 .external_definitions(kind, &word, &chain, dotted, &imports, false)
                 .unwrap_or_default();
+            // `group->pel` opens no system `struct group` (#378).
+            let after = self.line_str()[range.end..].trim_start();
+            if kind == Kind::C
+                && locals.is_empty()
+                && (after.starts_with("->") || (after.starts_with('.') && !after.starts_with("..")))
+            {
+                found.retain(|c| !Self::c_type_line(&word, &c.hit));
+            }
             // The module the import loads is the project's, searched already: nothing outside is
             // proven to be what it hands on.
             if own_module {

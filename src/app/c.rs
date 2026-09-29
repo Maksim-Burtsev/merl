@@ -1,5 +1,6 @@
 //! `d` in C and C++ on the members a line pattern cannot tell from a function, a macro or a
-//! global of the same name: `x->word`, `x.word`, and a constructor's initializer list (#359).
+//! global of the same name: `x->word`, `x.word`, a constructor's initializer list (#359), a bare
+//! member inside a method and a value that is no type (#378).
 
 use super::*;
 
@@ -35,7 +36,7 @@ impl App {
             .starts_with(['(', '{'])
             .then(|| search::c_initialized_member(text, self.line + 1, range.start))
             .flatten()?;
-        let found = self.c_initialized(here, word, &class);
+        let found = self.c_class_fields(here, word, &class, true);
         (!found.is_empty()).then_some(found)
     }
 
@@ -100,15 +101,22 @@ impl App {
         rows
     }
 
-    /// `a_` in a C++ constructor's `X::X(…) : a_(x), b_{y} {` (#359): the fields `a_` of `X`,
-    /// else the fields of the name in any type; empty when no field has the name, as for a base
-    /// class, which the lookup by name finds.
-    pub(super) fn c_initialized(&mut self, here: &Path, word: &str, class: &str) -> Vec<Candidate> {
+    /// `a_` in a C++ constructor's `X::X(…) : a_(x), b_{y} {` (#359), or a bare `a_` in a
+    /// method of `X` (#378): the fields `a_` of `X`, and with `by_name` when `X` has none, the
+    /// fields of the name in any type. Empty when no field has the name, as for a base class,
+    /// which the lookup by name finds.
+    pub(super) fn c_class_fields(
+        &mut self,
+        here: &Path,
+        word: &str,
+        class: &str,
+        by_name: bool,
+    ) -> Vec<Candidate> {
         let hits = self.project_definitions(Kind::C, here, word, &search::c_field_pattern(word));
         let rows = self.c_member_rows(word, hits, false);
         let own = rows.iter().any(|(_, owner)| owner == class);
         rows.into_iter()
-            .filter(|(_, owner)| !own || owner == class)
+            .filter(|(_, owner)| owner == class || (by_name && !own))
             .map(|(hit, _)| Candidate {
                 hit,
                 reason: match own {
@@ -117,6 +125,15 @@ impl App {
                 },
             })
             .collect()
+    }
+
+    /// Whether `hit` declares `word` as a type: a struct, union, enum or class tag, a namespace,
+    /// a `typedef` or a `using` alias. A word followed by `->` or `.` is a value, none of these
+    /// (#378).
+    pub(super) fn c_type_line(word: &str, hit: &Hit) -> bool {
+        let p = search::def_patterns(Kind::C, word);
+        Regex::new(&[&p[2], &p[4], &p[6]].map(String::as_str).join("|"))
+            .is_ok_and(|re| re.is_match(&hit.text))
     }
 }
 

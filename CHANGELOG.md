@@ -70,6 +70,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `import` opens that file; a type qualified by its package, `billing.v1.Money` or
   `google.protobuf.Timestamp`, lands in that package's files, and the well-known types `protoc`
   installs are reached, read-only. `D` lists the messages, enums, services and rpcs. (#418)
+- `d` in C and C++ on a parameter or a local lands on its declaration, `i → crc32::i (local)`,
+  and it hides every function, macro, global and system header of the name: `link` in
+  `link->node` jumped to POSIX `link()`, and a variable declared a few lines up said `no
+  definition`. The innermost block that declares the name wins, a block closed before the cursor
+  does not count, a `for (int i = …)` binds `i` in its loop, and a lambda reads on into the
+  function around it; `a && b == c`, `x & FLAG` and a declaration inside a string bind nothing.
+  In a C++ method a bare member, `return filename_;`, lands on its class's field. A value, a word
+  followed by `->` or `.`, is never a struct, a `typedef` or a `using` alias, so `group->pel`
+  no longer opens the system's `struct group`. (#378)
 
 ### Changed
 

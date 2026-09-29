@@ -40,7 +40,7 @@ money_t bonus(enum offer o, struct bits *bits, union tag_value *v)
 int restock(int discount)
 {
     return discount + WEIGHT_LIMIT;
-    //     ^ d: picker include/shop/pricing.h:39, src/pricing.c:5; want src/basket.c:40 (#378)
+    //     ^ d: src/basket.c:40
     //                ^ d: src/basket.c:5
 }
 
@@ -49,7 +49,7 @@ int overweight(int grams)
     int limit = WEIGHT_LIMIT + 20;
     return weigh(grams) > limit;
     //     ^ d: src/warehouse.c:4
-    //                    ^ d: src/basket.c:7; want src/basket.c:49 (#378)
+    //                    ^ d: src/basket.c:49
 }
 
 const char *dispatch(void)

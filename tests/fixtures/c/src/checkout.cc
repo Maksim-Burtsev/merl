@@ -8,7 +8,7 @@ class Basket : public Priced {
 //                    ^ d: include/shop/offers.hh:24
  public:
   int price() const override { return tariff_.rate() + coupon_.rate(); }
-  //                                  ^ d: none; want src/checkout.cc:16 (#378)
+  //                                  ^ d: src/checkout.cc:16
   //                                          ^ d: picker include/shop/offers.hh:11, include/shop/offers.hh:20; want include/shop/offers.hh:11 (#389)
   //                                                           ^ d: picker include/shop/offers.hh:11, include/shop/offers.hh:20; want include/shop/offers.hh:20 (#389)
 
@@ -52,7 +52,7 @@ Label tag;
 int weight() {
   Tariff rnd(4);
   return rnd.rate() + shop::Basket(rnd).price();
-  //     ^ d: none; want src/checkout.cc:53 (#378)
+  //     ^ d: src/checkout.cc:53
   //                  ^ d: picker src/checkout.cc:5, …
   //                        ^ d: src/checkout.cc:7
 }

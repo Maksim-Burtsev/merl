@@ -1234,3 +1234,27 @@ fn a_c_member_the_project_lacks_is_a_field_outside() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
+
+/// #378. A word followed by `->` or `.` is a value: a system `struct group` is no answer for
+/// `group->gr_name`, and a parameter of the name is.
+#[test]
+fn a_c_value_is_never_a_system_struct() {
+    let (dir, mut a) = project_app(
+        "c-value-type",
+        &[(
+            "who.c",
+            "#include <grp.h>\n\nconst char *who(void) { return group->gr_name; }\n\nconst char *mine(struct group *group)\n{\n    return group->gr_name;\n}\n",
+        )],
+    );
+    let root = external_root(
+        "c-value-type",
+        &[("grp.h", "struct group {\n    char *gr_name;\n};\n")],
+    );
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
+    d_on(&mut a, "who.c", "return group");
+    assert_eq!(a.message, "no definition for group");
+    d_on(&mut a, "who.c", "    return group");
+    assert_eq!(shown(&mut a), jump("group: local", "who.c:5"));
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
