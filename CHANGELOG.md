@@ -150,6 +150,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A binary file (an image, a `.pyc`, a build artefact) opens on an empty pane with one centred,
   dimmed line, `binary file, not shown`, and no line number or cursor, instead of the text
   `binary file` as if it were the file's line 1. The status bar still says `read-only`. (#287)
+- `d` in Rust on a parameter or a local lands on what binds it in the block around the cursor,
+  `config → Printer::hyperlink::config (local)`, where it jumped to a function of the same name or
+  offered every file's `let` of it: a `let` and its patterns, an `if let`, a `while let`, a `match`
+  arm, a `for`, a closure's parameters and the function's, wrapped over lines too. The nearest
+  binding above the cursor wins, as Rust shadows: in `let x = x.trim();` the right-hand `x` is the
+  earlier one. Another function's `let` is no longer offered for a name. (#353)
 
 ### Fixed
 

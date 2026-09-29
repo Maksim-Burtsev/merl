@@ -51,14 +51,14 @@ pub fn describe_any(t: &Tariff, c: &Coupon) -> String {
 
 pub fn restock(discount: u32) -> u32 {
     discount + WEIGHT_LIMIT
-    // ^ d: src/pricing.rs:55; want src/basket.rs:52 (#353)
+    // ^ d: src/basket.rs:52
     //         ^ d: src/basket.rs:4
 }
 
 pub fn overweight(grams: u32) -> bool {
     let limit = WEIGHT_LIMIT + 20;
     warehouse::weigh(grams) > limit
-    //         ^ d: picker src/basket.rs:111, src/warehouse.rs:23; want src/warehouse.rs:23 (#350)
+    //         ^ d: src/warehouse.rs:23
     //                        ^ d: src/basket.rs:59
 }
 
@@ -110,5 +110,5 @@ pub fn hidden(o: Offer, grams: u32) -> u32 {
     //           ^ d: src/pricing.rs:36
     let weigh = warehouse::weigh(grams);
     weigh + offer(o)
-    // ^ d: picker src/basket.rs:111, src/warehouse.rs:23; want src/basket.rs:111 (#353)
+    // ^ d: src/basket.rs:111
 }

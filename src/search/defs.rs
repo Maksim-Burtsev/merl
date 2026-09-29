@@ -79,13 +79,14 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^(var|const)\s+{w}\b"),
             format!(r"^\s*{w}\s*:="),
         ],
-        // `impl X` is a use of `X`, not its definition, so it is left out on purpose.
+        // `impl X` is a use of `X`, not its definition, so it is left out on purpose. A `let` is
+        // a local of its block, which [`bindings`] reads: another function's never declares the
+        // word (#353).
         Kind::Rust => {
             let vis = r#"^\s*(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*"#;
             vec![
                 format!(r"{vis}(?:fn|struct|enum|union|trait|type|const|static|mod)\s+{w}\b"),
                 format!(r"^\s*macro_rules!\s+{w}\b"),
-                format!(r"^\s*let\s+(?:mut\s+)?{w}\b"),
             ]
         }
         Kind::TsJs => {

@@ -197,12 +197,34 @@ impl App {
         // `super` is no local, whatever the member lookup reads it as; Lua has no `super`. A name
         // of a destructuring or a parameter list wrapped over several lines is on a line of its
         // own (#393).
-        let locals: Vec<usize> = search::bindings(kind, &text, self.line + 1, first)
-            .iter()
-            .map(|b| b.line)
+        // A Rust macro, a path and its segments are no local, nor a field a literal or a pattern
+        // names with `w:` (a format string's `{w:?}` is the local), save on the line that
+        // declares the local (#353). On the pattern of a
+        // `let` the word is that local itself.
+        let after = self.line_str()[range.end..].trim_start();
+        let rust_path = kind == Kind::Rust
+            && (before.ends_with("::")
+                || after.starts_with("::")
+                || (after.starts_with('!') && !after.starts_with("!=")));
+        let rust_field =
+            kind == Kind::Rust && after.starts_with(':') && !after.starts_with("::") && !captured;
+        let declared = kind == Kind::Rust
+            && chain.is_empty()
+            && search::rust_let_declares(self.line_str(), range.start, &word);
+        let binding = match declared {
+            true => vec![self.line + 1],
+            false => search::bindings(kind, &text, self.line + 1, first)
+                .iter()
+                .map(|b| b.line)
+                .collect(),
+        };
+        let locals: Vec<usize> = binding
+            .into_iter()
             .filter(|&n| {
                 !key && (dotted || word != "super" || kind == Kind::Lua)
                     && !names_itself(&self.buf.lines[n - 1], first)
+                    && !rust_path
+                    && (!rust_field || n == self.line + 1)
             })
             .map(|n| match kind {
                 Kind::TsJs => search::written_line(&self.buf.lines, n, first),
@@ -213,8 +235,9 @@ impl App {
             imports.retain(|(name, _)| name != first);
         }
         // The word itself is that parameter or local: its declarations in this scope are the
-        // answer, and a function of the same name elsewhere is not.
-        if !dotted && !locals.is_empty() && locals != [self.line + 1] {
+        // answer, and a function of the same name elsewhere is not. A Rust local the cursor's own
+        // line binds is one too: a closure `|w| w`, an arm, the parameter or the `let` itself.
+        if !dotted && !locals.is_empty() && (locals != [self.line + 1] || kind == Kind::Rust) {
             let found = locals
                 .iter()
                 .map(|&line| Candidate {

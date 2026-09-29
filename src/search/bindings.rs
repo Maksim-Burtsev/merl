@@ -175,6 +175,7 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
 /// - Shell: a `local` (a `declare` / `typeset` without `-g`) above the cursor in the function
 ///   around it (#470).
 /// - Zig: [`zig_bindings`], inside a function only (#469).
+/// - Rust: [`rust_bindings`], the nearest binding above the line in the blocks around it (#353).
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -194,6 +195,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
                 .collect()
         }),
         Kind::Zig => zig_bindings(&lines, at, name),
+        Kind::Rust => rust_bindings(&lines, at, name),
         _ => Vec::new(),
     }
 }

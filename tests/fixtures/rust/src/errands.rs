@@ -12,7 +12,7 @@ pub fn run() -> u32 {
 
 pub fn shadow(helper: u32) -> u32 {
     helper + 1
-    // ^ d: !jump
+    // ^ d: src/errands.rs:13
 }
 
 pub fn nested() -> u32 {
@@ -41,39 +41,39 @@ mod tests {
 
 pub fn locals() -> u32 {
     let doubled = |helper: u32| helper * 2;
-    //                          ^ d: !jump
+    //                          ^ d: src/errands.rs:43
     let helper = doubled(1);
     helper
-    // ^ d: !jump
+    // ^ d: src/errands.rs:45
 }
 
 // After the review: every refusal with a namesake in `chores`, so a jump shows.
 pub fn bound_let() -> u32 {
     let helper = 4;
-    //  ^ d: !jump
+    //  ^ d: src/errands.rs:52
     helper + 1
-    // ^ d: !jump
+    // ^ d: src/errands.rs:52
 }
 
 pub fn bound_for(v: Vec<u32>) -> u32 {
     let mut n = 0;
     for helper in v {
         n += helper;
-        //   ^ d: !jump
+        //   ^ d: src/errands.rs:60
     }
     n
 }
 
 pub fn bound_closure() -> u32 {
     let f = |helper| helper + 1;
-    //               ^ d: !jump
+    //               ^ d: src/errands.rs:68
     f(1)
 }
 
 pub fn bound_arm(v: Option<u32>) -> u32 {
     match v {
         Some(helper) => helper,
-        //              ^ d: !jump
+        //              ^ d: src/errands.rs:75
         None => 0,
     }
 }
@@ -81,7 +81,7 @@ pub fn bound_arm(v: Option<u32>) -> u32 {
 pub fn bound_at(v: u32) -> u32 {
     match v {
         helper @ 0..=9 => helper,
-        //                ^ d: !jump
+        //                ^ d: src/errands.rs:83
         _ => 0,
     }
 }
@@ -97,12 +97,12 @@ pub fn bound_wrapped(p: (u32, u32)) -> u32 {
 
 pub fn bound_tuple(v: Vec<(u32, u32)>) -> u32 {
     v.iter().map(|(a, helper)| a + helper).sum()
-    //                             ^ d: !jump
+    //                             ^ d: src/errands.rs:99
 }
 
 pub fn bound_pattern((a, helper): (u32, u32)) -> u32 {
     a + helper
-    //  ^ d: !jump
+    //  ^ d: src/errands.rs:103
 }
 
 pub struct Tally;
