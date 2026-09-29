@@ -18,7 +18,7 @@ mod status;
 mod welcome;
 
 use code::{draw_binary, draw_code};
-use overlays::{draw_help, draw_lesson, draw_picker, draw_tree};
+use overlays::{draw_help, draw_picker, draw_tree, lesson_panel};
 use preview::draw_preview;
 use status::draw_status;
 use welcome::draw_welcome;
@@ -35,7 +35,14 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     frame.render_widget(Block::new().style(base), area);
 
     // The lesson panel is 0 rows tall outside `--tutor` and `--drill`, so nothing else moves.
-    let lesson_h = if app.tutor.is_some() { 3 } else { 0 };
+    // In them it takes as many rows as its text wraps to at the pane's width, never fewer than
+    // a title and two rows, so a short text does not move the code (#261).
+    let panel = lesson_panel(app, theme, area.width, base);
+    let lesson_h = panel.as_ref().map_or(0, |p| {
+        u16::try_from(p.line_count(area.width))
+            .unwrap_or(u16::MAX)
+            .max(3)
+    });
     let [main, lesson, status] = Layout::vertical([
         Constraint::Min(1),
         Constraint::Length(lesson_h),
@@ -58,8 +65,8 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     } else {
         draw_welcome(frame, theme, code, base);
     }
-    if app.tutor.is_some() {
-        draw_lesson(frame, app, theme, lesson, base);
+    if let Some(panel) = panel {
+        frame.render_widget(panel, lesson);
     }
     draw_status(frame, app, theme, status);
     // Over `--tutor`'s and `--drill`'s panel an overlay would hide the task it is part of: a
