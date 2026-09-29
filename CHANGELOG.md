@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` in Go follows a table test: in `for _, tc := range []struct {…}{…}` and in a range over
+  `tests := []struct {…}{…}`, `tc.name` lands on the field of the struct written in place,
+  `name → struct{…}.name (via tc: struct{…})`, and so does the key `name:` of an element of
+  the table. It read the loop from its `}{` line, so `tc` was not bound and `tc.name` jumped to
+  a namesake elsewhere or offered every `name` of the project. (#330)
 - The hidden characters a file can hold are on screen, in every file and in `--review`: the
   bidirectional controls behind "Trojan Source" (U+202A–U+202E, U+2066–U+2069, U+200E, U+200F,
   U+061C) and the zero-width U+200B, U+2060 and U+FEFF are drawn as their code, such as
@@ -157,7 +162,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the name finds and never jumps to one. (#327)
 - `d` in Go reads the locals and parameters above a label: gofmt writes `scan:` at the left
   margin of a function, and the scope walk took it for the function's end, so a local used
-  below it gave a namesake from elsewhere or `no definition`. (#330)
+  below it gave a namesake from elsewhere or `no definition`. And on a name that
+  `n, err := second()` declares again in its block, `d` lands on the first declaration, which
+  the `:=` reuses, where it offered both lines. (#330)
 - `d` in Go looks a bare name up where Go does: a local, a name of the file's own package, of a
   dot import, or a predeclared one (`len` lands in GOROOT's `builtin/builtin.go`). `pkg.X` is
   looked for in `pkg`'s directory only, since Go has no re-exports. It searched every package

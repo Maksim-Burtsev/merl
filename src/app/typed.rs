@@ -327,6 +327,7 @@ impl App {
                 Some((ty, None))
             }
             search::Value::Call(callee) => self.call_type(kind, file, text, b.line, callee, hops),
+            search::Value::Struct(line) => Some((anonymous(file, *line), None)),
             // `cast(T, x)` writes `T`, unless the project declares the `cast` this file calls:
             // that one is a function, with whatever it returns.
             search::Value::Cast(callee, t) => {
@@ -378,13 +379,17 @@ impl App {
                         Some(element) => (element, at.clone()),
                         None => named(&written)?,
                     };
-                    let ty = self.type_decl(kind, &at, &element)?;
+                    // `tests := []struct {…}{…}`: the struct written on the line itself (#330).
+                    let (ty, link) = match kind == Kind::Go && element == "struct" {
+                        true => (anonymous(&at, c.line), None),
+                        false => (self.type_decl(kind, &at, &element)?, Some(link)),
+                    };
                     match &found {
                         Some((one, _)) if (&one.path, one.line) != (&ty.path, ty.line) => {
                             return None;
                         }
                         Some(_) => {}
-                        None => found = Some((ty, Some(link))),
+                        None => found = Some((ty, link)),
                     }
                 }
                 found
@@ -520,6 +525,16 @@ impl App {
             path: decl.path,
             line: decl.line,
         })
+    }
+}
+
+/// The Go struct written in place whose body opens on 1-based `line` of `file`: `[]struct {…}`'s
+/// element, named `struct{…}` (#330).
+pub(super) fn anonymous(file: &Path, line: usize) -> Typed {
+    Typed {
+        name: "struct{\u{2026}}".to_owned(),
+        path: file.to_path_buf(),
+        line,
     }
 }
 

@@ -21,6 +21,12 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     static FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)").unwrap()
     });
+    static GO_TYPE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^type\s+([A-Za-z_]\w*)").unwrap());
+    // The line that opens a struct written in place: `range []struct {`, `x := struct {`.
+    static GO_ANONYMOUS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:\]|=|\(|,)\s*struct\s*\{\s*(?://.*)?$").unwrap()
+    });
     static PY_DEF: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)").unwrap());
     static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -41,6 +47,18 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     }
     if let Some(c) = RECEIVER.captures(target).filter(|_| kind == Kind::Go) {
         return Some(format!("{}{sep}{name}", &c[1]));
+    }
+    // A field of a Go struct whose body closes on its own line, `type Item struct{ Name string }`
+    // or `[]struct{ want int }{…}`, is its type's, or the struct's written in place (#330).
+    if kind == Kind::Go
+        && field_bindings(kind, text, line, name)
+            .iter()
+            .any(|b| b.line == line)
+    {
+        let owner = GO_TYPE
+            .captures(target)
+            .map_or_else(|| "struct{\u{2026}}".to_owned(), |c| c[1].to_owned());
+        return (owner != name).then(|| format!("{owner}{sep}{name}"));
     }
     // A field declared inside a method or in a constructor's parameters is the class's:
     // `Issue.repo`, not `Issue.__init__.repo`.
@@ -88,6 +106,11 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             .filter(|_| kind == Kind::Rust)
             .map(|c| c[1].to_owned())
             .or_else(|| declared_name(Some(kind), l));
+        // A field of a Go struct written in place is that struct's, wherever it stands (#330).
+        if named.is_none() && kind == Kind::Go && GO_ANONYMOUS.is_match(l) {
+            names.push("struct{\u{2026}}".to_owned());
+            break;
+        }
         match named {
             Some(n) => names.push(n),
             None => break,

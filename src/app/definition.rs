@@ -148,6 +148,20 @@ impl App {
                 Ok(None) => {}
                 Err(()) => self.offer_only = true,
             },
+            // A struct written in place: its body is on the lines above (#330).
+            search::GoKey::Struct(line) => {
+                let ty = typed::anonymous(&here, line);
+                let found = self
+                    .field_of(kind, &ty, &word, false)
+                    .into_iter()
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Receiver(ty.name.clone()),
+                    })
+                    .collect();
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
             search::GoKey::Unknown => self.offer_only = true,
             search::GoKey::No | search::GoKey::Value => {}
         }

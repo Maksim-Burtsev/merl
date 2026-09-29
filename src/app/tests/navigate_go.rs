@@ -790,11 +790,17 @@ fn a_go_literal_key_is_a_field_of_the_literals_type() {
     );
     assert_eq!(
         d("shop/shop.go", "{Name"),
-        jump("Name: via Item{\u{2026}}", "shop/shop.go:8")
+        jump(
+            "Name \u{2192} Item.Name (via Item{\u{2026}})",
+            "shop/shop.go:8"
+        )
     );
     assert_eq!(
         d("shop/more.go", "{{Name"),
-        jump("Name: via Item{\u{2026}}", "shop/shop.go:8")
+        jump(
+            "Name \u{2192} Item.Name (via Item{\u{2026}})",
+            "shop/shop.go:8"
+        )
     );
     assert_eq!(
         d("app/app.go", "{Address"),
@@ -924,8 +930,69 @@ fn a_go_name_is_looked_up_in_its_own_package() {
     // A key is the literal's field, whatever the package declares of its name.
     assert_eq!(
         d("shop/shop.go", "{Network"),
-        jump("Network: via NetworkAddress{\u{2026}}", "shop/shop.go:7")
+        jump(
+            "Network \u{2192} NetworkAddress.Network (via NetworkAddress{\u{2026}})",
+            "shop/shop.go:7"
+        )
     );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&goroot).unwrap();
+}
+
+/// #330. The scope walk reads a table test: the variable of `range []struct {…}{…}` and of a
+/// range over `tests := []struct {…}{…}` is the struct written in place, and a key of one of its
+/// elements is its field. A label opens no block, and a `:=` that redeclares a name reuses the
+/// one its block declared first.
+#[test]
+fn a_go_table_test_struct_is_a_type() {
+    let (dir, mut a) = project_app(
+        "go-walk",
+        &[
+            ("go.mod", "module example.com/walk\n"),
+            (
+                "shop/shop.go",
+                "package shop\n\nimport \"strings\"\n\nfunc labelled(input string) string {\n\tvar sb strings.Builder\n\tsb.Grow(len(input))\nscan:\n\tfor i := 0; i < len(input); i++ {\n\t\tif input[i] == 'x' {\n\t\t\tcontinue scan\n\t\t}\n\t\tsb.WriteString(\"y\")\n\t}\n\treturn sb.String()\n}\n\nfunc table() {\n\tfor _, tc := range []struct {\n\t\tname  string\n\t\tcheck func(error) bool\n\t}{\n\t\t{name: \"a\"},\n\t} {\n\t\t_ = tc.name\n\t\t_ = tc.check(nil)\n\t}\n\ttests := []struct{ want int }{{want: 1}}\n\tfor _, tt := range tests {\n\t\t_ = tt.want\n\t}\n}\n\nfunc redeclared() error {\n\terr := first()\n\tif err != nil {\n\t\treturn err\n\t}\n\tn, err := second()\n\t_ = n\n\terr = first()\n\treturn err\n}\n\nfunc first() error { return nil }\n\nfunc second() (int, error) { return 0, nil }\n",
+            ),
+            (
+                "other/other.go",
+                "package other\n\nfunc helper() {\n\tsb := 1\n\t_ = sb\n\tname := \"x\"\n\t_ = name\n}\n",
+            ),
+        ],
+    );
+    a.external
+        .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+    let mut d = |code: &str| {
+        d_on(&mut a, "shop/shop.go", code);
+        shown(&mut a)
+    };
+    let sb = || jump("sb \u{2192} labelled.sb (local)", "shop/shop.go:6");
+    assert_eq!(d("\t\tsb|.WriteString"), sb());
+    assert_eq!(d("return sb|.String"), sb());
+    let field = |word: &str, place: &str| {
+        jump(
+            &format!("{word} \u{2192} struct{{\u{2026}}}.{word} (via tc: struct{{\u{2026}}})"),
+            place,
+        )
+    };
+    assert_eq!(d("tc.name"), field("name", "shop/shop.go:20"));
+    assert_eq!(d("tc.check"), field("check", "shop/shop.go:21"));
+    assert_eq!(
+        d("{name"),
+        jump(
+            "name \u{2192} struct{\u{2026}}.name (via struct{\u{2026}})",
+            "shop/shop.go:20"
+        )
+    );
+    assert_eq!(
+        d("tt.want"),
+        jump(
+            "want \u{2192} struct{\u{2026}}.want (via tt: struct{\u{2026}})",
+            "shop/shop.go:28"
+        )
+    );
+    assert_eq!(
+        d("\terr| = first"),
+        jump("err \u{2192} redeclared.err (local)", "shop/shop.go:35")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
 }

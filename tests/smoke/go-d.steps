@@ -45,3 +45,13 @@ key /
 type Job)
 key Enter d
 wait Job: by name, 1 match
+# A table (#330): the variable of `range []struct {…}{…}` is the struct written in place, and d on
+# its field lands in the struct's body.
+key o
+type queue.go
+key Enter
+wait worker/internal/queue/queue.go  1:1
+key /
+type worker {
+key Enter d
+wait worker → struct{…}.worker (via k: struct{…})

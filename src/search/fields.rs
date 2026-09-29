@@ -315,6 +315,9 @@ pub enum GoKey {
     Unknown,
     /// A key of a map or a slice literal, which is a value.
     Value,
+    /// A key of a literal of a struct written in place, whose body opens on this 1-based line:
+    /// `struct {…}{…}`, an element of `[]struct {…}{…}` (#330).
+    Struct(usize),
 }
 /// Whether the Go word at bytes `start..end` of 1-based `line` of `text` is a key of a composite
 /// literal, and of what type (#327). The word is followed by `:` (not `:=`), has no `.` in front,
@@ -345,6 +348,9 @@ pub fn go_key(text: &str, line: usize, start: usize, end: usize) -> GoKey {
     };
     match go_literal_type(&lines, &literal, j, i, 0) {
         Some(Ok(t)) if t.starts_with('[') || t.starts_with("map[") => GoKey::Value,
+        Some(Ok(ref t)) if let Some(line) = t.strip_prefix("struct@") => {
+            line.parse().map_or(GoKey::Unknown, GoKey::Struct)
+        }
         Some(Ok(t)) => GoKey::Of(t.trim_start_matches('*').to_owned()),
         Some(Err(())) => GoKey::Unknown,
         None => GoKey::No,
@@ -394,6 +400,8 @@ fn go_literal_type(
         )
         .unwrap()
     });
+    static STRUCTS: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"(?:\[[^\]]*\]|map\[[^\]]*\])+$").unwrap());
     const KEYWORDS: [&str; 12] = [
         "else",
         "for",
@@ -436,8 +444,19 @@ fn go_literal_type(
                 .and_then(|p| element_type(Kind::Go, &p).ok_or(())),
         );
     }
+    // `struct {…}{`, `[]struct {…}{`: the struct written in place, `struct@LINE` for the line
+    // its body opens on (#330).
     if pre.ends_with('}') {
-        return Some(Err(()));
+        let close = lines[j][..i].rfind('}')?;
+        let Some((sj, si, b'{')) = go_open_before(lines, literal, j, close) else {
+            return Some(Err(()));
+        };
+        let head = uncommented(Kind::Go, &lines[sj][..si]);
+        let Some(head) = head.trim_end().strip_suffix("struct") else {
+            return Some(Err(()));
+        };
+        let collection = STRUCTS.find(head.trim_end()).map_or("", |m| m.as_str());
+        return Some(Ok(format!("{collection}struct@{}", sj + 1)));
     }
     let written = TYPE.find(pre)?.as_str();
     let last = written.rsplit(['.', ']', '*']).next().unwrap_or(written);

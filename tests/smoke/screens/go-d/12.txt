@@ -1,4 +1,4 @@
-wait Push → memQueue.Push (via queue.New() *memQueue)
+wait worker/internal/queue/queue.go  1:1
  1 // Package queue holds the jobs the worker has yet to run.
  2 package queue
  3
@@ -53,5 +53,5 @@ wait Push → memQueue.Push (via queue.New() *memQueue)
 52         {name: "ship", worker: true},
 53         {name: "sync", worker: true},
 54         {name: "audit"},
-worker/internal/queue/queue.go  28:20  [code]  Push → memQueue.Push (via queue.New() *memQueue)
-cursor (x,y,shown) 22,27,1
+worker/internal/queue/queue.go  1:1  [code]                                                                                                                                       ? help
+cursor (x,y,shown) 3,0,1

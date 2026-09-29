@@ -41,3 +41,21 @@ func (q *memQueue) Pop() (Job, bool) {
 	q.jobs = q.jobs[1:]
 	return job, true
 }
+
+// Kinds lists the job kinds a worker runs.
+func Kinds() []string {
+	var kinds []string
+	for _, k := range []struct {
+		name   string
+		worker bool
+	}{
+		{name: "ship", worker: true},
+		{name: "sync", worker: true},
+		{name: "audit"},
+	} {
+		if k.worker {
+			kinds = append(kinds, k.name)
+		}
+	}
+	return kinds
+}
