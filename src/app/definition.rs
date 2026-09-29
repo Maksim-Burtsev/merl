@@ -557,6 +557,26 @@ impl App {
                     hit,
                 })
                 .collect();
+            // Every row names the one `Drawer::Scanner`, so its forward declaration in the class
+            // yields to its body, `struct Drawer::Scanner {` (#508): read as outside any class.
+            // On the body itself, the declaration is the other end to go to.
+            let on_row = named
+                .iter()
+                .any(|c| c.hit.path == here && c.hit.line == self.line + 1);
+            let named = match kind == Kind::C && !on_row {
+                true => {
+                    let rows: Vec<Hit> = named.iter().map(|c| c.hit.clone()).collect();
+                    let kept = search::c_type_rows(&word, rows, |_| None, true, false);
+                    named
+                        .into_iter()
+                        .filter(|c| {
+                            kept.iter()
+                                .any(|h| h.path == c.hit.path && h.line == c.hit.line)
+                        })
+                        .collect()
+                }
+                false => named,
+            };
             if !named.is_empty() {
                 self.show_definitions(kind, &word, &here, named, None);
                 return;
