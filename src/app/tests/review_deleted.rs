@@ -22,6 +22,7 @@ class OrderService:
         self.repo = repo
 
     def show(self, order_id):
+        self.total(order_id)
         return self.repo.get_order_with_items(order_id)
 
     def total(self, order_id):
@@ -74,6 +75,7 @@ fn orders_review(tag: &str) -> (PathBuf, App) {
     write(
         "app/services/orders.py",
         &SERVICE
+            .replace("        self.total(order_id)\n", "")
             .replace(
                 "self.repo.get_order_with_items(order_id)",
                 "self.base_repo.get(Order, order_id, load=[\"items\"])",
@@ -128,7 +130,7 @@ fn d_on_a_deleted_call_lands_on_the_deleted_definition() {
         "get_order_with_items",
     );
     let from = a.at();
-    assert_eq!(from, Deleted(8, 0));
+    assert_eq!(from, Deleted(8, 1));
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     assert_eq!(
         a.buf.path.as_deref(),
@@ -187,6 +189,16 @@ fn d_prefers_the_branch_over_a_deleted_namesake() {
         "{}",
         a.message
     );
+    // `self.total` on a deleted line: the method under the block, on its line of the file.
+    let service = dir.join("app/services/orders.py");
+    on_deleted(&mut a, &service, "self.total", "total");
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.buf.path.as_deref(), a.at(), a.line_str()),
+        (Some(&*service), File(10), "    def total(self, order_id):"),
+        "{}",
+        a.message
+    );
     // `order` is bound by the deleted line above it, in the block deleted with it.
     on_deleted(&mut a, &repo, "return order", "order");
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
@@ -206,7 +218,7 @@ fn s_lists_deleted_lines_and_enter_lands_on_one() {
     assert_eq!(
         rows(&mut a),
         [
-            "app/services/orders.py:-9: return self.repo.get_order_with_items(order_id)",
+            "app/services/orders.py:-10: return self.repo.get_order_with_items(order_id)",
             "app/repositories/orders.py:-5: def get_order_with_items(self, order_id):",
         ]
     );
@@ -220,6 +232,34 @@ fn s_lists_deleted_lines_and_enter_lands_on_one() {
             Deleted(3, 1)
         )
     );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The cursor of `s` stays on its row as the query grows: `app/services/orders.py:9` is not
+/// the deleted `:-9` drawn above it.
+#[test]
+fn s_keeps_its_row_apart_from_a_deleted_line_of_the_same_number() {
+    let (dir, mut a) = orders_review("s-same-number");
+    a.jump_to(&dir.join("app/services/orders.py"), 1);
+    press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+    typed(&mut a, "self");
+    a.settle_search();
+    let row = "app/services/orders.py:9: ";
+    while !a
+        .picker
+        .as_ref()
+        .unwrap()
+        .current()
+        .unwrap()
+        .label
+        .starts_with(row)
+    {
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    }
+    typed(&mut a, ".");
+    a.settle_search();
+    let cur = a.picker.as_ref().unwrap().current().unwrap();
+    assert!(cur.label.starts_with(row), "{}", cur.label);
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -267,5 +307,35 @@ fn u_and_capital_d_list_deleted_lines() {
             && r.ends_with("app/repositories/orders.py:-5")),
         "{listed:#?}"
     );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// A deleted row of `s` is drawn red, brighter when selected, with no gutter bar: base line 9
+/// is no line of the file on disk, where line 9 is one the branch changed.
+#[test]
+fn a_deleted_row_is_red_and_has_no_gutter_bar() {
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    let (dir, mut a) = orders_review("s-red");
+    a.show_tree = false;
+    a.jump_to(&dir.join("app/services/orders.py"), 1);
+    press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+    typed(&mut a, "self.total");
+    a.settle_search();
+    a.picker.as_mut().unwrap().settle();
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut t = Terminal::new(TestBackend::new(90, 12)).unwrap();
+    t.draw(|f| crate::ui::draw(f, &mut a, &theme)).unwrap();
+    let buf = t.backend().buffer();
+    let label = "app/services/orders.py:-9: self.total(order_id)";
+    let (x, y) = (0..buf.area.height)
+        .find_map(|y| {
+            let text: String = (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
+            let at = text.find(label)?;
+            Some((text[..at].chars().count() as u16, y))
+        })
+        .expect("the deleted row");
+    assert_eq!(buf[(x - 1, y)].symbol(), " ", "no gutter bar");
+    assert_eq!(buf[(x, y)].bg, theme.del_bg_hl, "selected");
     let _ = std::fs::remove_dir_all(dir);
 }

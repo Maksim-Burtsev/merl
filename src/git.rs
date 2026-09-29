@@ -318,14 +318,14 @@ impl Review {
         }
         // The panel's order, so `c` walks the files top to bottom.
         files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false));
-        // The prefixes and the rename detection are spelled out: a user's `diff.noprefix` or
-        // `diff.renames` would read the patch otherwise. Names keep their letters.
+        // The prefixes are spelled out: a user's `diff.noprefix` would read the patch otherwise.
+        // Renames are left to the user's `diff.renames`, as in the listing above, so every part
+        // is keyed by a path the panel has. Names keep their letters.
         let patch = git(&[
             "-c",
             "core.quotePath=false",
             "diff",
             "-U0",
-            "-M",
             "--no-color",
             "--no-ext-diff",
             "--ignore-submodules",
@@ -884,6 +884,12 @@ mod tests {
     }
 
     #[test]
+    fn a_quoted_name_in_a_patch_reads_as_the_name_on_disk() {
+        assert_eq!(unquote("a/plain.rs"), "a/plain.rs");
+        assert_eq!(unquote(r#""a/x\"y\t\303\244""#), "a/x\"y\t\u{e4}");
+    }
+
+    #[test]
     fn a_review_lists_the_branch_files_against_the_merge_base() {
         let dir = std::env::temp_dir().join(format!("merl-review-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -948,6 +954,21 @@ mod tests {
             r.files
                 .iter()
                 .all(|f| f.status == 'D' || dir.join(&f.path).exists())
+        );
+        // The deleted lines (#440), keyed as the review draws them: under the new name of a
+        // rename, and in a file the branch deleted, whose text is the base's, as its lines.
+        let deleted: Vec<_> = r
+            .deleted
+            .iter()
+            .map(|d| (d.path.to_str().unwrap(), d.line, d.at, d.text.as_str()))
+            .collect();
+        assert_eq!(
+            deleted,
+            [
+                ("src/a.rs", 2, TextLine::Deleted(1, 0), "b"),
+                ("src/moved.rs", 10, TextLine::Deleted(9, 0), "m10"),
+                ("gone", 1, TextLine::File(0), "x"),
+            ]
         );
         // The rename diffs against its old name: one hunk, not a whole new file.
         let moved = &r.files[1];

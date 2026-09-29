@@ -178,7 +178,10 @@ impl App {
             .and_then(|cur| {
                 items
                     .iter()
-                    .position(|it| (&it.path, it.line) == (&cur.path, cur.line))
+                    // A deleted line's number is the base's: `a.py:-12` is not `a.py:12` (#440).
+                    .position(|it| {
+                        (&it.path, it.line, it.deleted) == (&cur.path, cur.line, cur.deleted)
+                    })
             })
             .unwrap_or(0);
         // An Enter that waited for an answer with no hit is spent: the list shows the answer.

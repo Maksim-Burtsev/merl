@@ -506,7 +506,9 @@ impl App {
             .iter()
             .position(|(_, h)| h.path == landed && h.place() == self.at())?;
         match hits[row].0 {
-            Tier::Declaration => Some((1, "d")),
+            // `d` lands on a deleted declaration only when the branch has none (#440): not a
+            // key `d` is proven to reach.
+            Tier::Declaration if hits[row].1.deleted.is_none() => Some((1, "d")),
             _ if trip.kind == PickerKind::Search => Some((row + 2, "u")),
             _ => None,
         }

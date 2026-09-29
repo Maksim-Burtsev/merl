@@ -107,13 +107,17 @@ impl App {
         let cut = hits.len() >= search::MAX_HITS;
         // In a review, the lines the branch deleted too (#440), where the word stands whole as the
         // grep reads a word.
-        let whole = Regex::new(&format!(r"(?:^|\W)({})(?:$|\W)", regex::escape(text)))
-            .expect("an escaped word keeps the pattern valid");
-        hits.extend(deleted_hits(
-            &self.deleted_lines(),
-            |_| true,
-            |t| whole.captures(t).and_then(|c| c.get(1)).map(|m| m.start()),
-        ));
+        // A word past the matcher's size limit finds none, as the grep's does.
+        let deleted = self.deleted_lines();
+        if !deleted.is_empty()
+            && let Ok(whole) = Regex::new(&format!(r"(?:^|\W)({})(?:$|\W)", regex::escape(text)))
+        {
+            hits.extend(deleted_hits(
+                &deleted,
+                |_| true,
+                |t| whole.captures(t).and_then(|c| c.get(1)).map(|m| m.start()),
+            ));
+        }
         let hits = hits.into_iter().filter(|h| {
             let extra = search::word_chars(search::kind_of(&h.path), false);
             extra.is_empty() || whole_at(&h.text, text, extra).is_some()
