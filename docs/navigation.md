@@ -27,9 +27,14 @@ never lands on a method called `Open`. The status line names the file or the pac
 does not declare the word but imports it — a package's `__init__.py` — hands it on: its own
 module-level imports are followed, under another name and through `from .labels import *` too,
 four modules deep, and the status line names the file the word ends up in. Two sources, a name
-the module also assigns, an import inside a function and a cycle are not followed. Any other
-module that does not declare the word itself — an `index.ts` that re-exports it — is not followed
-further: `d` falls back to the search by name below and says `by name`. Behind
+the module also assigns, an import inside a function and a cycle are not followed. A TypeScript
+module that does not declare the word hands it on too: a barrel's `export { Name } from "./x"`,
+`export { default as Name }`, `export { x as Name }` and `export * from "./x"` are followed to the
+module that declares it, several `export *` sources that do are offered in a list, and a module
+whose `export default Name;` exports what it imports is followed to that import, four modules deep
+(`export default observer(Name)` stays where it is). Any other module that does not declare the
+word itself is not followed further: `d` falls back to the search by name below and says `by
+name`. Behind
 `from repos import UserRepository as Users` a receiver typed `Users` is a `UserRepository`.
 
 A Python builtin has no source on the machine: the interpreter has it compiled. `d` on a bare

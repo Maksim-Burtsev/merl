@@ -1,0 +1,57 @@
+wait no definition for onClose
+ 1 export class Dialog {
+ 2   private readonly el: HTMLDialogElement;
+ 3
+ 4   constructor(el: HTMLDialogElement) {
+ 5     this.el = el;
+ 6     this.close = this.close.bind(this);
+ 7     el.addEventListener("cancel", this.close);
+ 8   }
+ 9
+10   open(): void {
+11     this.el.showModal();
+12   }
+13
+14   close(): void {
+15     this.el.close();
+16   }
+17 }
+18
+19 export function dialogOf(el: HTMLDialogElement, props: Props): Dialog {
+20   return props.modal ? new Dialog(el) : new Dialog(el);
+21 }
+22
+23 type Props = { modal: boolean };
+24
+25 export function whenClosed(dialog: Dialog, done: () => void): void {
+26   onClose(dialog, () => {
+27     done();
+28   });
+29   onClose(dialog, () => {
+30     dialog.close();
+31   });
+32 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/src/components/Dialog.ts  26:3  [code]  no definition for onClose
+cursor (x,y,shown) 5,25,1

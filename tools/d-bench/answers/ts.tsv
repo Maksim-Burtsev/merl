@@ -254,7 +254,7 @@ ts0251
 ts0252	app/components/Breadcrumb.tsx:113		
 ts0253			
 ts0254	server/scripts/20220722000000-backfill-subscriptions.ts:23		
-ts0255	shared/types.ts:189;shared/types.ts:197		
+ts0255	shared/types.ts:189;shared/types.ts:197	a type and a const of one name: the oracle answers both lines, and merl offers both in a picker once the wrapped type header is no longer dropped (#331)	
 ts0256			
 ts0257			
 ts0258	shared/components/EmojiText.tsx:5		

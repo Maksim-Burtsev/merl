@@ -107,6 +107,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   declaration of the name in the project: a picker for most, and a jump to another enum's case
   for `self::INVALID`. A parent from `vendor/` is read from its own file, and a member it does
   not declare is `no definition` rather than a namesake of the project. (#356)
+- `d` in TypeScript and JavaScript reads fewer calls as declarations and finds more real ones.
+  A call that passes a callback, `it("works", async () => {`, or wraps after its `(` and closes
+  with `);` is no method, so `d` on it no longer says `at a declaration` over thousands of
+  namesakes, and `type NodeSpec,` in a wrapped import list is no type alias. An optional method
+  signature wrapped over lines, `onCodePathEnd?(` over `): void;`, and the fields of a class
+  whose header wraps at a type argument, `implements Base<{` over `}> {`, are found by name.
+  (#343)
+- `d` in TypeScript and JavaScript on a bare name that the file declares jumps there, `local`,
+  instead of opening a list of every namesake in the project: a `type Props`, a `function
+  report` inside a rule's `create`, a `class Config`. A declaration at the top of the file counts
+  wherever it stands, so a styled `const Container` at the bottom of a component is found from
+  above it. Several declarations of the name in one scope, such as an `interface` beside a
+  `namespace`, are a list of those alone. (#337)
 - `merl -r BRANCH` reviews a branch another worktree has checked out, an agent's say, in that
   worktree, as `merl -r` started there would: nothing is fetched, switched or reset there, and its
   work not committed yet is part of the review. Before, merl exited with git's `already used by
@@ -291,6 +304,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the project, GOROOT and the module cache, so a name it missed jumped to a namesake of
   another package, a method or another function's local; now that is `no definition`. A
   `package x_test` file no longer sees the names of `package x`. (#332)
+- `d` in TypeScript and JavaScript no longer offers another file's function locals: a
+  `const`, `let`, `var`, `function` or `class` inside a function, a method or a block is out of
+  sight there, in the project and in the dependencies. `Object.values(o)` jumped to a `const
+  values` inside some other function, and `node.callee` to a `const callee` of another file. A
+  method named by a string or a computed key, `"NewExpression:exit"(node) {`, binds its
+  parameters, so `node` there is the parameter. (#339)
+- `d` in TypeScript and JavaScript follows a barrel to the declaration: `import { Group } from
+  "./models"`, where `models/index.ts` says `export { default as Group } from "./Group"` or `export
+  * from "./helpers"`, lands on the class in `Group.ts`, where it fell back to the search by name
+  and opened a list of every namesake, or jumped to the wrong one. A module that imports a
+  default and exports it again, `export default Text;`, is followed to the module that declares
+  it, where `d` stopped on that line. (#335)
+- `d` in TypeScript finds a class or an interface whose type parameters prettier wrapped,
+  `class User extends Model<` over its type arguments over `> {`: it was dropped as a wrapped
+  call, so `d` said `no definition` or jumped to the one namesake left, a client-side model for
+  the server's. The return type of an arrow, `): Node => ({`, is no longer read as its
+  parameter, which hid the import of `Node`. (#331)
+- `d` in JavaScript reads a `require` as an import. A name that `const { helper } =
+  require("./m")` or `const Segment = require("./seg")` binds leads into the required module,
+  where it stopped on the `require` line; `utils.helper` behind `const utils = require("./m")`
+  finds `helper` there, `Segment.make` the `make` of the class that `module.exports = Segment`
+  hands out, and `d` on `utils` itself lands on its `module.exports =` line. A `const` continued
+  over several lines binds every name it declares, where the names after the first were found
+  nowhere. `require("debug")("app")` returns something else and stays a local. (#328)
 - `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
   in the project, the standard library and the dependencies the cursor can reach, the traits'
   first, where it jumped to a lone project namesake: `v.unwrap()` on an `Option` landed on a

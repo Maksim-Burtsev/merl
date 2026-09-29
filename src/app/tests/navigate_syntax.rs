@@ -1892,19 +1892,17 @@ fn an_export_under_another_name_is_followed() {
             "extends TrunkBase|",
             jump("TrunkBase: via import aliased.ts", "aliased.ts:4"),
         ),
+        // The re-export under another name is followed to the class it renames (#335).
         (
             "import { HatchBase|",
-            jump("no definition for HatchBase", "aliased_use.ts:1"),
+            jump("HatchBase: via import repos.ts", "repos.ts:5"),
         ),
         // `HatchBase` is the `UserRepository` of `repos`, not the one `aliased` declares.
         (
             "hatch.deleteUser|(2)",
-            picker(
-                "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+            jump(
+                "deleteUser \u{2192} UserRepository.deleteUser (via hatch: UserRepository)",
+                "repos.ts:10",
             ),
         ),
     ];
@@ -2024,4 +2022,30 @@ fn what_the_review_of_the_typescript_items_found() {
         )
     );
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A call statement shaped like a method header declares nothing (#343): one that passes a
+/// callback or opens with a string, and one wrapped after its `(` whose closer is `);`.
+#[test]
+fn a_call_statement_is_no_method_header() {
+    let mut a = fixture_app("typescript");
+    for (file, code) in [
+        ("lint/a.test.ts", "^  it|(\"works\""),
+        ("lint/socket.ts", "^  action|((event"),
+        ("lint/c.js", "^  isFullLineComment|("),
+    ] {
+        d_on(&mut a, file, code);
+        let word = code
+            .trim_start_matches('^')
+            .trim()
+            .split('|')
+            .next()
+            .unwrap();
+        assert!(a.picker.is_none(), "{file}: {code}");
+        assert_eq!(
+            a.message,
+            format!("no definition for {word}"),
+            "{file}: {code}"
+        );
+    }
 }

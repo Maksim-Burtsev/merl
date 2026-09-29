@@ -119,7 +119,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     if ruby {
         names.extend(ruby_namespace(target));
     }
-    for l in lines[..line - 1].iter().rev() {
+    for (j, l) in lines[..line - 1].iter().enumerate().rev() {
         if depth == 0 {
             break;
         }
@@ -127,6 +127,12 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             continue;
         }
         depth = indent(l);
+        // `more = …` under `const fs = …,` is declared where that statement is (#328).
+        if kind == Kind::TsJs
+            && ts_declarators(&lines, j).is_some_and(|d| d.iter().any(|(at, _)| *at == line - 1))
+        {
+            return qualified(kind, text, j + 1, name);
+        }
         // `class << self` opens the class around it, which the walk goes on to name.
         if ruby && l.trim_start().starts_with("class << self") {
             continue;

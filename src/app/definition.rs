@@ -283,19 +283,43 @@ impl App {
         // `super` is no local, whatever the member lookup reads it as; Lua has no `super`. A name
         // of a destructuring or a parameter list wrapped over several lines is on a line of its
         // own (#393).
-        let locals: Vec<usize> = search::bindings(kind, &text, self.line + 1, first)
-            .iter()
-            .map(|b| b.line)
-            .filter(|&n| {
-                !key && (dotted || word != "super" || kind == Kind::Lua)
-                    && !names_itself(&self.buf.lines[n - 1], first)
-            })
-            .map(|n| match kind {
-                Kind::TsJs => search::written_line(&self.buf.lines, n, first),
-                Kind::CSharp => search::cs_written_line(&self.buf.lines, n, first),
-                _ => n,
-            })
-            .collect();
+        // A TypeScript bare word is a value a `class`, `function`, `type`, `interface` or `enum`
+        // of its scope declares as well as a `const` (#337); the first name of a chain is not.
+        let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
+        let required = match kind {
+            Kind::TsJs => search::ts_import_lines(&text, first),
+            _ => Vec::new(),
+        };
+        let locals_at = |text: &str, line: usize| -> Vec<usize> {
+            search::bindings(kind, text, line, first)
+                .iter()
+                .map(|b| b.line)
+                .filter(|&n| {
+                    let l = &self.buf.lines[n - 1];
+                    let t = l.trim_start();
+                    let imports = t.starts_with("import ") || t.starts_with("from ");
+                    !key && (dotted || word != "super" || kind == Kind::Lua)
+                        && !(imports || (!bare && names_itself(l, first)))
+                })
+                .map(|n| match kind {
+                    Kind::TsJs => search::written_line(&self.buf.lines, n, first),
+                    Kind::CSharp => search::cs_written_line(&self.buf.lines, n, first),
+                    _ => n,
+                })
+                // `const { helper } = require("./m")` binds an import, as `import` does (#328).
+                .filter(|n| !required.contains(n))
+                .collect()
+        };
+        let mut locals = locals_at(&text, self.line + 1);
+        // No scope around the cursor binds it: the module's scope is the whole file, and its
+        // declarations below the cursor count too (#337). One on the cursor's line leaves the
+        // namesakes to the rules below, as on a declaration anywhere.
+        if bare && locals.is_empty() {
+            let module = locals_at(&format!("{text}\n0"), self.buf.lines.len() + 1);
+            if !module.contains(&(self.line + 1)) {
+                locals = module;
+            }
+        }
         if !locals.is_empty() {
             imports.retain(|(name, _)| name != first);
         }
@@ -2117,6 +2141,16 @@ impl App {
         // A line inside a raw string, a docstring or a block comment declares nothing. Past a
         // few hundred candidates the picker is a list to filter, and reading every file is not
         // worth what it would drop.
+        // `it("works", async () => {` and `check(` over `line,` over `);` are calls shaped like
+        // a method's header (#343), however many: a test suite has thousands of `it(`.
+        if kind == Kind::TsJs {
+            let head = search::ts_method_head(word);
+            found.retain(|c| {
+                !search::ts_call_statement(&head, &c.hit.text, c.hit.line, || {
+                    self.text_of(&c.hit.path)
+                })
+            });
+        }
         if found.len() <= 500 {
             let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
             found.retain(|c| {
@@ -2125,8 +2159,13 @@ impl App {
                         .map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
                 });
                 // `register<` over its type arguments over `>(1);` is a call prettier wrapped.
+                // A type's header wrapped so declares the type: `class User extends Model<`,
+                // `export interface Context<` (#331).
                 let call = kind == Kind::TsJs
                     && c.hit.text.trim_end().ends_with('<')
+                    && !search::declares_type(kind, &c.hit.text)
+                    && !Regex::new(r"\b(?:extends|implements)\b")
+                        .is_ok_and(|re| re.is_match(&c.hit.text))
                     && self
                         .text_of(&c.hit.path)
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));
@@ -2240,6 +2279,20 @@ impl App {
     ) -> Vec<Hit> {
         let hits = self.project_grep(kind, here, pattern);
         let mut hits = self.declaring(kind, word, hits);
+        // Another file's function locals are not in sight from here (#339).
+        if kind == Kind::TsJs {
+            let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
+            hits.retain(|h| {
+                h.path == here
+                    || !search::ts_nested_local(
+                        lines.entry(h.path.clone()).or_insert_with(|| {
+                            self.text_of(&h.path)
+                                .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
+                        }),
+                        h.line,
+                    )
+            });
+        }
         // `GO=$(GO) ./build.sh` in a recipe sets a variable of one shell command (#477): it
         // declares the word only for a shell variable of the command under the cursor,
         // `$${ARCH}`, and never for make's own `$(GO)`.
@@ -2408,6 +2461,8 @@ impl App {
     ) -> Option<Vec<Candidate>> {
         let module_files =
             |module: &[String]| search::module_files(kind, &self.root, &self.files, here, module);
+        // What a CommonJS module bound whole hands out (#328), [`search::module_exports`].
+        let mut exports = None;
         // The names from the module down to the word: what the import takes, then the chain.
         let tail = |mut names: Vec<String>| {
             if let Some((_, after)) = chain.split_first() {
@@ -2460,8 +2515,41 @@ impl App {
                 if files.is_empty() {
                     return None;
                 }
+                // A CommonJS module bound whole, `const X = require("./x")` (#328): `X` is what
+                // its one `module.exports =` hands out, the name it assigns or the line itself,
+                // and `X.member` a member of the class that name declares there. Where it
+                // builds `module.exports` otherwise, only its top-level `X` counts.
+                if taken == "*" {
+                    exports = files.iter().find_map(|f| {
+                        Some((f.clone(), search::module_exports(&self.text_of(f)?)?))
+                    });
+                }
+                let class = |n: &String| {
+                    let pattern = search::def_patterns(kind, n).join("|");
+                    self.grep(&pattern, false, false, |p| files.iter().any(|f| f == p))
+                        .unwrap_or_default()
+                        .iter()
+                        .any(|h| {
+                            self.text_of(&h.path).is_some_and(|t| {
+                                search::qualified(kind, &t, h.line, n).is_none()
+                                    && search::declares_type(kind, &h.text)
+                            })
+                        })
+                };
                 let inside = match taken.as_str() {
-                    "*" => tail(Vec::new()),
+                    "*" => match (exports.as_ref().map(|(_, e)| e), chain.is_empty()) {
+                        (Some(Some((_, name))), true) => {
+                            vec![name.clone().unwrap_or_else(|| word.to_owned())]
+                        }
+                        (Some(None), true) => vec![word.to_owned()],
+                        (Some(Some((_, Some(name)))), false) if class(name) => {
+                            let mut names = vec![name.clone()];
+                            names.extend(chain[1..].iter().cloned());
+                            names.push(word.to_owned());
+                            names
+                        }
+                        _ => tail(Vec::new()),
+                    },
                     // What a default export is called is known only on its own line.
                     "default" if !chain.is_empty() => return Some(Vec::new()),
                     "default" => vec![word.to_owned()],
@@ -2499,10 +2587,86 @@ impl App {
                 self.grep(p, false, false, wanted).unwrap_or_default()
             });
         }
+        // `const utils = require("./m")` over `module.exports = { helper };`: that line.
+        if hits.is_empty()
+            && chain.is_empty()
+            && let Some((file, Some((line, _)))) = &exports
+        {
+            let line = *line;
+            hits = vec![Hit {
+                text: self
+                    .text_of(file)
+                    .and_then(|t| t.lines().nth(line - 1).map(str::to_owned))
+                    .unwrap_or_default(),
+                path: file.clone(),
+                line,
+                col: 0,
+            }];
+        }
+        // One that builds its exports line by line hands out itself: its file, as a module.
+        if hits.is_empty()
+            && chain.is_empty()
+            && let Some((file, None)) = &exports
+        {
+            return Some(self.module_candidates(vec![file.clone()]));
+        }
         if hits.is_empty() && kind == Kind::TsJs && path.last().is_some_and(|t| t == "default") {
             hits = self
                 .grep(r"^export\s+default\b", false, false, wanted)
                 .unwrap_or_default();
+            // `import Text from "../shared/Text"; export default Text;` hands on what it imports
+            // (#335): that import is followed. `export default observer(Text)` is what it says.
+            if let [hit] = hits.as_slice()
+                && depth < 4
+                && let Some(name) = search::default_name(&hit.text)
+                && let Some(source) = self.text_of(&hit.path).and_then(|t| {
+                    let imports = search::imports(kind, &t);
+                    bound(&imports, &name)
+                })
+                && let Some(found) = self
+                    .imported_at(kind, &hit.path, &name, &[], &source, depth + 1)
+                    .filter(|f| !f.is_empty())
+            {
+                return Some(found);
+            }
+        }
+        // A barrel hands the name on (#335): `export { Name } from "./x"`, `export { default as
+        // Name }`, `export { x as Name }`, `export * from "./x"`, each source followed as an
+        // import of it. Several `export *` sources that declare it are a picker.
+        // ponytail: four modules deep, which also ends a cycle.
+        if hits.is_empty() && kind == Kind::TsJs && depth < 4 && !inside.is_empty() {
+            let (first, rest) = inside.split_first().expect("not empty");
+            let (chain, word) = match rest.split_last() {
+                Some((word, between)) => {
+                    let mut chain = vec![first.clone()];
+                    chain.extend(between.iter().cloned());
+                    (chain, word.clone())
+                }
+                None => (Vec::new(), first.clone()),
+            };
+            let mut found: Vec<Candidate> = Vec::new();
+            for f in &files {
+                let Some(text) = self.text_of(f) else {
+                    continue;
+                };
+                for (mut module, taken) in search::reexported(&text, first) {
+                    module.push(taken);
+                    let more = self
+                        .imported_at(kind, f, &word, &chain, &module, depth + 1)
+                        .unwrap_or_default();
+                    for c in more {
+                        if !found
+                            .iter()
+                            .any(|o| (&o.hit.path, o.hit.line) == (&c.hit.path, c.hit.line))
+                        {
+                            found.push(c);
+                        }
+                    }
+                }
+            }
+            if !found.is_empty() {
+                return Some(found);
+            }
         }
         // A Python module of the project that does not declare the name but imports it hands
         // it on (#100): `from .sessions import open_session` in a package's `__init__.py`.

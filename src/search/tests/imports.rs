@@ -513,6 +513,42 @@ fn a_ts_import_line_is_the_line_of_the_name() {
 }
 
 #[test]
+fn a_require_binds_only_the_module_itself_or_a_name_of_it() {
+    let text = "const { a, b: c } = require(\"./m\");\nconst d = require(\"debug\")(\"app\");\nconst e = require(\"./m\").e;\nconst f = require(\"./m\").create();\nconst g = require(\"./g\"),\n  h = require(\"./h\"),\n  LIMIT = 10;\nh = require(\"./i\");\n";
+    let got = imports(Kind::TsJs, text);
+    let path = |p: &[&str]| p.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
+    assert_eq!(
+        got,
+        vec![
+            ("a".to_owned(), path(&[".", "m", "a"])),
+            ("c".to_owned(), path(&[".", "m", "b"])),
+            ("e".to_owned(), path(&[".", "m", "e"])),
+            ("g".to_owned(), path(&[".", "g", "*"])),
+            ("h".to_owned(), path(&[".", "h", "*"])),
+        ]
+    );
+    assert_eq!(ts_import_line(text, "h"), Some(6));
+}
+
+#[test]
+fn module_exports_is_one_assignment_or_nothing_known() {
+    assert_eq!(
+        module_exports("class S {}\n\nmodule.exports = S;\n"),
+        Some(Some((3, Some("S".to_owned()))))
+    );
+    assert_eq!(
+        module_exports("module.exports = {\n  a,\n};\n"),
+        Some(Some((1, None)))
+    );
+    assert_eq!(module_exports("exports.a = a;\n"), Some(None));
+    assert_eq!(
+        module_exports("module.exports = a;\nmodule.exports = b;\n"),
+        Some(None)
+    );
+    assert_eq!(module_exports("export default a;\n"), None);
+}
+
+#[test]
 fn external_files_ignore_no_gitignore_and_keep_the_kind() {
     let dir = std::env::temp_dir().join(format!("merl-ext-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
