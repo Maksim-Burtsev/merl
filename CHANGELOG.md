@@ -46,6 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A line longer than merl draws (20 KB: a minified bundle, a one-line JSON dump) ends in a dim
   `…` right after its last drawn character, wrapped or not, so a cut line never reads as whole.
   (#283)
+- In `--review`, `u` and `s` mark each row on a line the branch added or changed with the
+  gutter's `▎`, in its colour, and leave an untouched line's row blank, so the readers a change
+  did not reach stand out; the rows keep their order. `o` lists the review's files first, each
+  with its panel letter, then the rest of the project as before. `review_list_marks = false` and
+  `review_open_files_first = false` in `~/.config/merl/config.toml` turn either off. (#246)
 - A macOS Intel binary, `merl-x86_64-apple-darwin.tar.gz`, ships with each release. (#394)
 
 ### Changed
@@ -203,6 +208,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in C# reads a verbatim string ending in a backslash, `@"C:\"`, as ending at its second
   `"`, and `@$"…"` as the verbatim string it is. It kept the string open, and every declaration
   after it in the file answered `no definition`. (#475)
+- `d` in a Makefile finds a variable set only by `CFLAGS += -Wall` or for one target,
+  `release: VERSION := 1.0`, where it answered `no definition`. A plain `CFLAGS = -O2` stays
+  the only answer where there is one. (#499)
 
 ## [0.7.0] - 2026-09-25
 
