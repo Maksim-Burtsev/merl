@@ -115,8 +115,9 @@ impl App {
                     .module(m)
                     .or_else(|| search::module_among(&all, m, package)),
             };
-            // An import of something not installed: nothing outside says what it is.
-            let Some((n, found)) = found else {
+            // An import of something not installed: nothing outside says what it is. A Go
+            // package is its own directory, never one above it (#332).
+            let Some((n, found)) = found.filter(|(n, _)| package.is_none_or(|k| *n >= k)) else {
                 return Some(Vec::new());
             };
             m.truncate(n);
@@ -130,8 +131,12 @@ impl App {
                 })
                 .collect()
         };
+        // What the patterns match, of the lines that declare the word where they sit.
+        let grep = |this: &Self, files: &[PathBuf]| {
+            this.declaring(kind, word, this.external_grep(kind, files, pattern))
+        };
         let Some(module) = module else {
-            return Some(by_name(self.external_grep(kind, &all, pattern)));
+            return Some(by_name(grep(self, &all)));
         };
         // `from lib import pick` names something at the top of a module: a method called `pick`
         // is not it, however alone it stands (the real one may be native code).
@@ -146,7 +151,7 @@ impl App {
             }
             hits
         };
-        let mut hits = at_top(self, self.external_grep(kind, &files, pattern));
+        let mut hits = at_top(self, grep(self, &files));
         // `export { parseCookie as parse }` is the import's own `parse`, as in the project.
         if hits.is_empty() && narrowed && whole {
             // The package itself is its entry, not every file in it: a chunk, a legacy module.
@@ -160,14 +165,18 @@ impl App {
         // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.
         // Past a copy, first where the module's other copies are, as the module's files among
         // all of them: no slower and no noisier than without the copy.
+        // Go has no re-exports: a package that does not declare the name is the answer (#332).
+        if hits.is_empty() && imported && kind == Kind::Go {
+            return Some(Vec::new());
+        }
         if hits.is_empty() && imported {
             if narrowed {
                 let others = search::module_among(&all, &named.unwrap_or_default(), package);
                 let others = others.map(|(_, files)| files).unwrap_or_default();
-                hits = at_top(self, self.external_grep(kind, &others, pattern));
+                hits = at_top(self, grep(self, &others));
             }
             if hits.is_empty() {
-                hits = at_top(self, self.external_grep(kind, &all, pattern));
+                hits = at_top(self, grep(self, &all));
             }
             return Some(by_name(hits));
         }

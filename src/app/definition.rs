@@ -215,6 +215,44 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // A key of a Go composite literal is a field of the literal's type (#327). A literal whose
+        // type is not read offers what the name finds, and never jumps to one.
+        let go_key = match kind == Kind::Go && !dotted {
+            true => search::go_key(&text, self.line + 1, range.start, range.end),
+            false => search::GoKey::No,
+        };
+        let key = go_key != search::GoKey::No;
+        // A receiver's or a literal's type may be declared outside the project, and is read
+        // from the files walked there (#334).
+        if kind == Kind::Go && (dotted || matches!(go_key, search::GoKey::Of(_))) {
+            self.external_files(kind);
+        }
+        match go_key {
+            search::GoKey::Of(written) => match self.literal_field(kind, &here, &written, &word) {
+                Ok(Some(found)) => {
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
+                Ok(None) => {}
+                Err(()) => self.offer_only = true,
+            },
+            // A struct written in place: its body is on the lines above (#330).
+            search::GoKey::Struct(line) => {
+                let ty = typed::anonymous(&here, line);
+                let found = self
+                    .field_of(kind, &ty, &word, false)
+                    .into_iter()
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Receiver(ty.name.clone()),
+                    })
+                    .collect();
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+            search::GoKey::Unknown => self.offer_only = true,
+            search::GoKey::No | search::GoKey::Value => {}
+        }
         // Inside a docstring's example the imports written there count too.
         let in_literal = search::literal_lines(kind, &text).get(self.line) == Some(&true);
         let mut imports = match in_literal {
@@ -445,6 +483,24 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // A bare Go name is a local, a name of the file's package, of a dot import or a
+        // predeclared one, and nothing else (#332). A literal's key, a name an import binds and
+        // the declaration under the cursor keep their lookup.
+        let mut declaring = search::def_patterns(kind, &word);
+        declaring.extend(search::member_or_signature(kind, &word).unwrap_or_default());
+        let declares_here =
+            Regex::new(&declaring.join("|")).is_ok_and(|re| re.is_match(self.line_str()));
+        if kind == Kind::Go
+            && !dotted
+            && !key
+            && locals.is_empty()
+            && !declares_here
+            && bound(&imports, &word).is_none()
+        {
+            let found = self.go_bare(&here, &word, &imports);
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // A receiver whose type is proven narrows the member to that type (#68, steps 2 to 4).
         let mut broke = None;
         // A chain with no name to start from may hang off a call: `make_uow().users.word` (#100).
@@ -586,7 +642,12 @@ impl App {
             }
             None => Vec::new(),
         };
-        if !found.is_empty() {
+        // Go's `pkg.X` is declared in `pkg`'s directory or nowhere: Go has no re-exports (#332).
+        // Cgo's `C` has no directory.
+        let go_qualified = kind == Kind::Go
+            && !chain.is_empty()
+            && bound(&imports, &chain[0]).is_some_and(|p| p != ["C"]);
+        if !found.is_empty() || go_qualified {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
@@ -1504,6 +1565,116 @@ impl App {
         (!found.is_empty() && !on_it).then_some(found)
     }
 
+    /// The field `word` of the Go struct a literal `written{…}` builds, `file` the file writing it
+    /// (#327): only the struct's own fields, since Go takes no promoted field as a key. An empty
+    /// list is a struct without the field, `None` a type that is no struct (a named map or slice,
+    /// whose keys are values), `Err` a type the rules do not find or read.
+    fn literal_field(
+        &self,
+        kind: Kind,
+        file: &Path,
+        written: &str,
+        word: &str,
+    ) -> Result<Option<Vec<Candidate>>, ()> {
+        let Some(ty) = self.struct_decl(kind, file, written, 0)? else {
+            return Ok(None);
+        };
+        let label = format!(
+            "{}{{\u{2026}}}",
+            written.split('[').next().unwrap_or(written)
+        );
+        Ok(Some(
+            self.field_of(kind, &ty, word, false)
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(label.clone()),
+                })
+                .collect(),
+        ))
+    }
+
+    /// The Go struct the type written as `written` in `file` is: itself, or what a defined
+    /// `type X Y` is over, eight deep. `None` for a type that is no struct, `Err` for one the
+    /// rules do not find or read.
+    pub(super) fn struct_decl(
+        &self,
+        kind: Kind,
+        file: &Path,
+        written: &str,
+        depth: usize,
+    ) -> Result<Option<Typed>, ()> {
+        static DEFINED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^type\s+[A-Za-z_]\w*(?:\[[^\]]*\])?\s+([^/{]*)").unwrap()
+        });
+        let ty = self.type_decl(kind, file, written).ok_or(())?;
+        let text = self.text_of(&ty.path).ok_or(())?;
+        let line = text.lines().nth(ty.line - 1).ok_or(())?;
+        let over = DEFINED.captures(line).ok_or(())?[1].trim().to_owned();
+        if over.starts_with("struct") {
+            return Ok(Some(ty));
+        }
+        let named = search::type_path(kind, &over).is_some() && !over.starts_with('*');
+        match named && depth < 8 {
+            true => self.struct_decl(kind, &ty.path, &over, depth + 1),
+            false => Ok(None),
+        }
+    }
+
+    /// Where a bare Go name no scope of the file declares is declared (#332): at the top level
+    /// of the file's package, else in the package of a dot import, else in GOROOT's
+    /// `builtin/builtin.go`, the predeclared `len` and `error`.
+    fn go_bare(
+        &mut self,
+        here: &Path,
+        word: &str,
+        imports: &[(String, Vec<String>)],
+    ) -> Vec<Candidate> {
+        let kind = Kind::Go;
+        let by = |hits: Vec<Hit>, reason: Reason| -> Vec<Candidate> {
+            hits.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect()
+        };
+        let own = self.package_declarations(kind, here, word, None);
+        let own = self.host_built(kind, own);
+        if !own.is_empty() {
+            return by(own, Reason::ByName);
+        }
+        let dot = [".".to_owned()];
+        for (_, path) in imports.iter().filter(|(name, _)| name == ".") {
+            let found = match self.imported_definitions(kind, here, word, &dot, path) {
+                Some(found) => found,
+                None => {
+                    let only = [(".".to_owned(), path.clone())];
+                    self.external_definitions(kind, word, &dot, false, &only, true)
+                        .unwrap_or_default()
+                }
+            };
+            if !found.is_empty() {
+                return found;
+            }
+        }
+        self.external_files(kind);
+        let builtin: Vec<PathBuf> = self
+            .external
+            .get(&kind)
+            .and_then(|(roots, _)| roots.first())
+            .map(|goroot| goroot.join("builtin/builtin.go"))
+            .filter(|f| f.is_file())
+            .into_iter()
+            .collect();
+        let pattern = search::def_patterns(kind, word).join("|");
+        let hits = self.external_grep(kind, &builtin, &pattern);
+        by(
+            self.declaring(kind, word, hits),
+            Reason::Path("builtin".to_owned()),
+        )
+    }
+
     /// The first line of each of `files`, a module a name or a path leads to as a whole.
     fn module_candidates(&self, files: Vec<PathBuf>) -> Vec<Candidate> {
         files
@@ -1770,22 +1941,8 @@ impl App {
         word: &str,
         pattern: &str,
     ) -> Vec<Hit> {
-        let mut hits = self
-            .grep(pattern, false, false, |p| {
-                search::in_def_scope(kind, here, p)
-            })
-            .unwrap_or_default();
-        self.note_cut(&hits);
-        // One file holds thousands of GraphQL `id` fields, so each file is split once.
-        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
-        hits.retain(|h| {
-            search::declares_where(kind, word, h.line, &h.text, || {
-                lines.entry(h.path.clone()).or_insert_with(|| {
-                    self.text_of(&h.path)
-                        .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
-                })
-            })
-        });
+        let hits = self.project_grep(kind, here, pattern);
+        let mut hits = self.declaring(kind, word, hits);
         // `GO=$(GO) ./build.sh` in a recipe sets a variable of one shell command (#477): it
         // declares the word only for a shell variable of the command under the cursor,
         // `$${ARCH}`, and never for make's own `$(GO)`.
@@ -1864,6 +2021,34 @@ impl App {
                 false => !known || !seen,
             });
         }
+        hits
+    }
+
+    /// `pattern` over the project files where a definition of a word in `here`, a file of
+    /// `kind`, can live, a cut noted.
+    pub(super) fn project_grep(&self, kind: Kind, here: &Path, pattern: &str) -> Vec<Hit> {
+        let hits = self
+            .grep(pattern, false, false, |p| {
+                search::in_def_scope(kind, here, p)
+            })
+            .unwrap_or_default();
+        self.note_cut(&hits);
+        hits
+    }
+
+    /// Of `hits` of the [`search::def_patterns`] of `word`, the lines that declare it where they
+    /// sit ([`search::declares_where`]).
+    pub(super) fn declaring(&self, kind: Kind, word: &str, mut hits: Vec<Hit>) -> Vec<Hit> {
+        // One file holds thousands of GraphQL `id` fields, so each file is split once.
+        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
+        hits.retain(|h| {
+            search::declares_where(kind, word, h.line, &h.text, || {
+                lines.entry(h.path.clone()).or_insert_with(|| {
+                    self.text_of(&h.path)
+                        .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
+                })
+            })
+        });
         hits
     }
 
@@ -1999,9 +2184,10 @@ impl App {
         };
         let wanted = |p: &Path| files.iter().any(|f| f == p);
         let pattern = search::def_patterns(kind, name).join("|");
-        let mut hits = self
+        let hits = self
             .grep(&pattern, false, false, wanted)
             .unwrap_or_default();
+        let mut hits = self.declaring(kind, name, hits);
         let within = (inside.len() > 1).then(|| inside.join("."));
         hits.retain(|h| {
             self.text_of(&h.path)

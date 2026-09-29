@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` in Go follows a table test: in `for _, tc := range []struct {…}{…}` and in a range over
+  `tests := []struct {…}{…}`, `tc.name` lands on the field of the struct written in place,
+  `name → struct{…}.name (via tc: struct{…})`, and so does the key `name:` of an element of
+  the table. It read the loop from its `}{` line, so `tc` was not bound and `tc.name` jumped to
+  a namesake elsewhere or offered every `name` of the project. (#330)
+- `d` in Go proves a receiver whose type the standard library or a `go.mod` module declares:
+  `wg.Add` on a `sync.WaitGroup`, `t.Errorf` through the `common` a `testing.T` embeds,
+  `ctx.Err()` on the `context.Context` interface, `r.URL.Path` through `*http.Request`, `srv`
+  from `httptest.NewServer(…)`, and a key of `sync.Pool{New: …}`, each read-only in GOROOT or
+  the module cache. It offered every method of the name in GOROOT and the module cache, often
+  hundreds and often without the field, and took a third of a second or more for it. (#334)
 - The hidden characters a file can hold are on screen, in every file and in `--review`: the
   bidirectional controls behind "Trojan Source" (U+202A–U+202E, U+2066–U+2069, U+200E, U+200F,
   U+061C) and the zero-width U+200B, U+2060 and U+FEFF are drawn as their code, such as
@@ -242,6 +253,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tag, `title → Song::title`. A `namespace …\Support;` line no longer answers `Support` in
   `use Illuminate\Support\Facades\Route;`, nor a class called like its last part: a segment
   of a qualified name finds only the namespace written up to it. (#344)
+- `d` in Go finds a name declared inside a grouped `const (`, `var (` or `type (` block: an
+  iota enum, `time.Hour`, `http.StatusOK`, a type of a `type (` block. It said `no definition`,
+  or jumped to a namesake elsewhere. A field of a struct inside the block, and a `var (` block
+  inside a function, still declare nothing of the package. (#326)
+- `d` in Go on a key of a composite literal, `Address` in `Order{Address: addr}`, lands on the
+  field of the literal's type, `Address → Order.Address (via Order{…})`, also for an element
+  whose type is elided (`[]Item{{Name: "a"}}`) and a type of another package. It looked the key
+  up as a bare name and jumped to a namesake type, method or function. A map's keys stay values;
+  a literal whose type is not read (an anonymous struct, a type outside the project) offers what
+  the name finds and never jumps to one. (#327)
+- `d` in Go reads the locals and parameters above a label: gofmt writes `scan:` at the left
+  margin of a function, and the scope walk took it for the function's end, so a local used
+  below it gave a namesake from elsewhere or `no definition`. And on a name that
+  `n, err := second()` declares again in its block, `d` lands on the first declaration, which
+  the `:=` reuses, where it offered both lines. (#330)
+- `d` in Go looks a bare name up where Go does: a local, a name of the file's own package, of a
+  dot import, or a predeclared one (`len` lands in GOROOT's `builtin/builtin.go`). `pkg.X` is
+  looked for in `pkg`'s directory only, since Go has no re-exports. It searched every package
+  of the project, GOROOT and the module cache, so a name it missed jumped to a namesake of
+  another package, a method or another function's local; now that is `no definition`. A
+  `package x_test` file no longer sees the names of `package x`. (#332)
 - `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
   in the project, the standard library and the dependencies the cursor can reach, the traits'
   first, where it jumped to a lone project namesake: `v.unwrap()` on an `Option` landed on a

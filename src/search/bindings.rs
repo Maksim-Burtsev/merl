@@ -33,6 +33,9 @@ pub enum Value {
     /// A field of a chain of names, as a TypeScript destructuring hands it on: `this` and `repo`
     /// for `const { repo } = this`, `this.uow` and `users` for `const { users: u } = this.uow`.
     Field(Vec<String>, String),
+    /// A Go struct written in place, whose body opens on this 1-based line: the element of
+    /// `for _, tc := range []struct {…}{…}` (#330).
+    Struct(usize),
     /// A declaration whose type the rules cannot read: `for repo in`, a tuple, a parameter with
     /// no annotation.
     Unknown,
@@ -53,6 +56,9 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     });
     static NAME: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^[A-Za-z_$][\w$]*$").unwrap());
+    static GO_STRUCTS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^((?:\[[^\]]*\]|map\[[^\]]*\])+)\s*struct\s*\{").unwrap()
+    });
     static ASSERTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^[A-Za-z_][\w.]*\.\(\s*(\*?[A-Za-z_][\w.]*)\s*\)$").unwrap()
     });
@@ -138,6 +144,13 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
         && ends(c.get(0).unwrap().end() - 1)
     {
         return Value::New(c[2].to_owned());
+    }
+    // A collection of a struct written in place, `[]struct{ want int }{…}` (#330): the element
+    // is read at the line that writes it.
+    if kind == Kind::Go
+        && let Some(c) = GO_STRUCTS.captures(e)
+    {
+        return Value::Type(format!("{}struct", &c[1]));
     }
     // A slice, array or map literal writes its type in front of its `{`: `[]Repo{…}`.
     if kind == Kind::Go
@@ -725,6 +738,8 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
     let mut arm: Option<Vec<String>> = None;
     // The first line of a statement already read whole, from the line that closes it.
     let mut read: Option<usize> = None;
+    // Where in `out` the Go statement of the block the walk is in that declares the name stands.
+    let mut statement: Option<usize> = None;
     let type_switch = Regex::new(&format!(
         r"^switch\s+(?:[^;{{]*;\s*)?{}\s*:=\s*[^;{{]+\.\(type\)\s*\{{$",
         regex::escape(name)
@@ -735,7 +750,15 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         let code = uncommented(kind, lines[i]);
         let t = code.trim();
         let ind = indent(lines[i]);
-        if t.is_empty() || comment(kind, t) || ind > depth || literal[i] {
+        // A Go label, `scan:`, stands one level left of its statement, at column 0 in a function
+        // body: it opens no block (#330).
+        let label = kind == Kind::Go
+            && t.strip_suffix(':').is_some_and(|l| {
+                l != "default"
+                    && !l.is_empty()
+                    && l.chars().all(|c| c.is_alphanumeric() || c == '_')
+            });
+        if t.is_empty() || comment(kind, t) || ind > depth || literal[i] || label {
             continue;
         }
         if ind == depth {
@@ -762,6 +785,14 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                     }
                     None if read == Some(i) => {}
                     None => statement_bindings(kind, t, i + 1, name, &mut out),
+                }
+                // Go's `n, err := second()` reuses the `err` its block declared above (#330): of
+                // the statements of one block, the first to declare the name is its declaration.
+                if kind == Kind::Go && out.len() > before {
+                    if let Some(k) = statement.filter(|&k| k < before) {
+                        out.remove(k);
+                    }
+                    statement = Some(out.len() - 1);
                 }
                 // In `case *Repo:` the variable of a type switch is a `*Repo`; under several
                 // types or `default` it is whatever came in. A `switch` met with no `case` on
@@ -801,6 +832,21 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                 i -= 1;
             }
             i = i.saturating_sub(1);
+            // `}{` and `} {` close a struct written in the header and the literal of its
+            // elements: the header starts on the line back at their indent that opens the struct,
+            // `for _, tc := range []struct {` (#330).
+            while kind == Kind::Go && lines[i].trim_start().starts_with('}') {
+                let Some(j) = (0..i)
+                    .rev()
+                    .find(|&j| !lines[j].trim().is_empty() && indent(lines[j]) <= ind)
+                else {
+                    break;
+                };
+                if !uncommented(kind, lines[j]).trim_end().ends_with("struct {") {
+                    break;
+                }
+                i = j;
+            }
         }
         // Between an `if` and its `} else {` lies a block the cursor is not in: only the two
         // lines are the header, where a signature closed by `) {` or `}: Deps) {` is all of
@@ -816,6 +862,7 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         };
         let header = uncommented(kind, &header.join("\n"));
         depth = ind.min(indent(lines[i]));
+        statement = None;
         if !this {
             if kind == Kind::Go {
                 let types = header
@@ -965,9 +1012,19 @@ fn opener_bindings(
         }
         Kind::Go => {
             let count = out.len();
+            let structs = Regex::new(&format!(
+                r"^for\s+[A-Za-z_]\w*\s*,\s*{n}\s*:=\s*range\s+(?:\[[^\]]*\]|map\[[^\]]*\])+\s*struct\s*\{{"
+            ))
+            .expect("an escaped name keeps the pattern valid");
             // The second variable of a `range` over a plain name is an element of a slice, an
-            // array or a map; the first is an index or a key.
-            if let Some(b) = element(format!(
+            // array or a map; the first is an index or a key. Over `[]struct {…}{…}` written in
+            // the header it is that struct, whose body opens on the header's line (#330).
+            if structs.is_match(header) {
+                out.push(Binding {
+                    line,
+                    value: Value::Struct(line),
+                });
+            } else if let Some(b) = element(format!(
                 r"^for\s+[A-Za-z_]\w*\s*,\s*{n}\s*:=\s*range\s+([A-Za-z_]\w*)\s*\{{"
             )) {
                 out.push(b);

@@ -121,7 +121,7 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   package is `books` and `ledger` is a variable of `scopes`. `results` has a method with named
   results, a parameter and a local. After the review: `globals` also holds the locals the scope
   walk does not read (a header with a function-typed parameter, a receiver on one, a `var (`
-  block in a function, the lines above a label, a local handed on) and `globals_x_test.go`, the
+  block in a function, a local handed on; the lines above a label since #330) and `globals_x_test.go`, the
   external test package importing under a variable's name; `platform` a `Timer` whose method is
   per platform, a `Gauge` under `windows && !slow`, a `Gate` no CI host builds and a `Meter`
   under a tag of its own, the last two used from `platforms_gate.go` (`//go:build gated`);
