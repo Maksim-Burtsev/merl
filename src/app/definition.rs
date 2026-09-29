@@ -258,8 +258,8 @@ impl App {
                 )
             })
             .flatten();
-        // A package no `node_modules` holds and no workspace package is called is not installed
-        // (#392): nothing says what it declares, and the project's namesakes are not it. The
+        // A package no `node_modules` holds, no workspace package is called and no `declare
+        // module` types is not installed (#392): nothing says what it declares, and the project's namesakes are not it. The
         // import line is where the name comes from, as far as anything tells. A copy of it among
         // the files outside, wherever they have it, is what the lookup outside reads, as before.
         if kind == Kind::TsJs

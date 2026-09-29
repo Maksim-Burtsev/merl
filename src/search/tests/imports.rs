@@ -423,6 +423,11 @@ fn a_package_is_missing_when_nothing_installs_or_declares_it() {
         "web/node_modules/installed/index.d.ts",
         "node_modules/@types/typed/index.d.ts",
         "node_modules/@scope/pkg/index.d.ts",
+        "types/ambient.d.ts",
+        "js/jsconfig.json",
+        "js/src/components/Button.js",
+        "base/tsconfig.json",
+        "base/src/components/Button.ts",
     ]
     .iter()
     .map(PathBuf::from)
@@ -441,12 +446,36 @@ fn a_package_is_missing_when_nothing_installs_or_declares_it() {
         r#"{ "name": "@post/labels", "version": "1.0.0" }"#,
     )
     .unwrap();
+    std::fs::write(
+        root.join("types/ambient.d.ts"),
+        "declare module 'untyped-lib' {}\ndeclare module \"*.svg\";\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("js/jsconfig.json"),
+        r#"{ "compilerOptions": { "paths": { "@components/*": ["src/components/*"] } } }"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("base/tsconfig.json"),
+        r#"{ "compilerOptions": { "baseUrl": "src" } }"#,
+    )
+    .unwrap();
     // Above the project, as Node looks there too.
     std::fs::create_dir_all(dir.join("node_modules/hoisted")).unwrap();
-    let missing = |spec: &str| {
+    let missing_from = |dir: &str, spec: &str| {
         let module: Vec<String> = spec.split('/').map(str::to_owned).collect();
-        package_missing(&root, &files, Path::new("web/src"), &module)
+        package_missing(&root, &files, Path::new(dir), &module)
     };
+    let missing = |spec: &str| missing_from("web/src", spec);
+    // What the project supplies: a `declare module`, an alias of `jsconfig.json`, `baseUrl`.
+    assert!(!missing("untyped-lib"));
+    assert!(!missing("icons/logo.svg"));
+    assert!(missing("untyped-lib/sub"));
+    assert!(!missing_from("js/src", "@components/Button"));
+    assert!(missing_from("js/src", "@widgets/Button"));
+    assert!(!missing_from("base/src/pages", "components/Button"));
+    assert!(missing_from("base/src/pages", "widgets/Button"));
     assert!(missing("mobx-react"));
     assert!(missing("@other/pkg"));
     assert!(missing("es-toolkit/compat"));
