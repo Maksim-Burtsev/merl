@@ -48,6 +48,8 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             }
             Kind::Sql => (false, false, false, true, &["--", "//"]),
             Kind::Terraform => (false, false, false, true, &["#", "//"]),
+            // PHP's `#` is a comment as `//` is, save `#[`, which opens an attribute (#488).
+            Kind::Php => (false, false, true, true, &["//", "#"]),
             _ => (false, false, true, true, &["//"]),
         };
     // The forms one language each has: C#'s verbatim string, which closes on a `"` that no
@@ -110,7 +112,8 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             // A long bracket closes on `]`, the `=` its opener carried, and `]`; a verbatim
             // string on a `"` that no second `"` follows; a heredoc only on its label, above. A
             // Go raw string has no escapes, so its backtick closes it whatever stands before
-            // (#325); a template's `\`` is a backtick inside it.
+            // (#325), as a verbatim string's `"` does (#475); a template's `\`` is a backtick
+            // inside it.
             let doubled = verbatim && c == b'"' && b.get(i + 1) == Some(&b'"');
             let closes = if long_bracket {
                 c == b']'
@@ -125,7 +128,7 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
                 label.is_empty()
                     && !doubled
                     && b[i..].starts_with(end)
-                    && (end.len() > 1 || kind == Kind::Go || b[i - 1] != b'\\')
+                    && (end.len() > 1 || kind == Kind::Go || verbatim || b[i - 1] != b'\\')
             };
             if closes {
                 block = None;
@@ -151,10 +154,11 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             // `'''` is Python's and Elixir's alone; Swift and C# write the block with `"` only.
             block = Some(if c == b'"' { b"\"\"\"" } else { b"'''" });
             i += 2;
-        } else if verbatim_strings && b[i..].starts_with(b"@\"") {
+        } else if verbatim_strings && (b[i..].starts_with(b"@\"") || b[i..].starts_with(b"@$\"")) {
+            // `$@"` is read from its `@"`.
             block = Some(b"\"");
             verbatim = true;
-            i += 1;
+            i += if b[i + 1] == b'$' { 2 } else { 1 };
         } else if labelled && b[i..].starts_with(b"<<<") {
             // `<<<SQL`, `<<<"SQL"` or `<<<'SQL'`: the label is what ends it.
             let word: Vec<u8> = b[i + 3..]
@@ -207,6 +211,7 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             .iter()
             .any(|m| b[i..].starts_with(m.as_bytes()))
             && !(word_comment && i > 0 && !b" \t\n;&|()<>".contains(&b[i - 1]))
+            && !(kind == Kind::Php && b[i..].starts_with(b"#["))
         {
             while i + 1 < b.len() && b[i + 1] != b'\n' {
                 i += 1;

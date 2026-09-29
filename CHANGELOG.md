@@ -154,6 +154,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `rm -rf build/*` or a lone backtick in a comment no longer hides the rest of the file, where
   every declaration answered `no definition`. Each reads its own comments, and the shell, a
   Dockerfile and Terraform their heredocs. (#436)
+- `d` in PHP reads `#` as a comment, as `//` is, save `#[`, which opens an attribute: a glob
+  such as `# loads lib/*` no longer hides the rest of the file, where every declaration
+  answered `no definition`. (#488)
+- `d` in C# reads a verbatim string ending in a backslash, `@"C:\"`, as ending at its second
+  `"`, and `@$"…"` as the verbatim string it is. It kept the string open, and every declaration
+  after it in the file answered `no definition`. (#475)
 
 ## [0.7.0] - 2026-09-25
 

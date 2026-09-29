@@ -186,11 +186,19 @@ fn lines_inside_a_literal_or_a_block_comment_are_told() {
     // a verbatim string writes a quote, so it does not close one.
     let cs = "var q = \"\"\"\n    WHERE EXISTS(SELECT 1 FROM t)\n    \"\"\";\nvar v = @\"\n    SELECT MIN(\"\"rowid\"\") FROM t\n    \";\npublic int Real() => 1;\n";
     assert_eq!(inside(Kind::CSharp, cs), [2, 3, 5, 6]);
+    // A backslash escapes nothing in a verbatim string (#475), `$@"` and `@$"` included, and
+    // escapes a quote in a regular one, which ends with its line.
+    let cs = "var a = @\"C:\\\";\nvar b = $@\"{d}\\\";\nvar c = @$\"\n    {d}\\\";\nvar e = \"a\\\"b\";\nvoid Real() {}\n";
+    assert_eq!(inside(Kind::CSharp, cs), [4]);
     let sw = "let doc = \"\"\"\n    class Ghost {}\n    \"\"\"\nclass Real {}\n";
     assert_eq!(inside(Kind::Swift, sw), [2, 3]);
     // A heredoc ends on the line that repeats its label, and only there.
     let php = "$sql = <<<SQL\n    function ghost() {}\n    class Ghost {}\nSQL;\n$n = <<<'TXT'\n    class Nowdoc {}\nTXT;\nclass Real {}\n";
     assert_eq!(inside(Kind::Php, php), [2, 3, 6]);
+    // `#` is a line comment as `//` is (#488), but `#[` opens an attribute, whose `/*` does.
+    let php =
+        "<?php\n# loads lib/*\nfunction below() {}\n#[Route('/api')] /*\nfunction ghost() {}\n*/\n";
+    assert_eq!(inside(Kind::Php, php), [5, 6]);
 }
 
 #[test]
