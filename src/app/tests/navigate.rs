@@ -34,7 +34,7 @@ fn infra_definitions_stay_in_their_scope() {
 }
 
 #[test]
-fn a_field_has_no_definition_and_locals_must_be_direct() {
+fn a_rust_field_is_its_struct_line_and_locals_must_be_direct() {
     let (dir, mut a) = project_app(
         "fallback",
         &[
@@ -48,12 +48,12 @@ fn a_field_has_no_definition_and_locals_must_be_direct() {
             ),
         ],
     );
-    // A field is no declaration the Rust rules know, and `u` is the key for its uses.
+    // A Rust field is its line in the struct (#370).
     a.jump_to(&dir.join("order.rs"), 5);
     a.col = 10;
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("order.rs"), 4));
-    assert_eq!(a.message, "no definition for items");
+    assert_eq!(at(&a), (dir.join("order.rs"), 1));
+    assert_eq!(a.message, "items \u{2192} Order::items (by name, 1 match)");
     // Of the two `name =` lines, only the one directly inside `locals` is `local.name`.
     a.jump_to(&dir.join("main.tf"), 8);
     a.col = 17;
@@ -1149,4 +1149,53 @@ fn a_makefile_recipe_line_declares_no_variable() {
     d_on(&mut a, "tools.mk", "x $(EXE");
     assert_eq!(shown(&mut a), jump("EXE: by name, 1 match", "tools.mk:2"));
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #421. `d` on a Markdown link says why nothing opens where the fixture's annotations cannot
+/// (their answers are no places, or name a file with a space), and `D` lists nothing of a README.
+#[test]
+fn markdown_links_outside_to_a_directory_and_to_a_spaced_name() {
+    let (dir, mut a) = project_app(
+        "markdown",
+        &[
+            (
+                "docs/a.md",
+                "[site](https://example.com) [host](//example.com) [mail](mailto:me@x.org)\n\
+                 [dir](../docs/) [up](../../out.md) [spaced](<my notes.md>) [encoded](my%20notes.md)\n",
+            ),
+            ("docs/my notes.md", "# Notes\n"),
+            (
+                "README.md",
+                "# Parse\n\n```python\ndef parse(raw):\n    return raw\n```\n",
+            ),
+            ("app.py", "def serve():\n    pass\n"),
+        ],
+    );
+    for word in ["[site", "[host", "[mail", "[up"] {
+        d_on(&mut a, "docs/a.md", &format!("{word}|]"));
+        assert_eq!(a.message, "link outside the project", "{word}");
+    }
+    d_on(&mut a, "docs/a.md", "[dir|]");
+    assert_eq!(a.message, "docs/: a directory");
+    for word in ["[spaced", "[encoded"] {
+        d_on(&mut a, "docs/a.md", &format!("{word}|]"));
+        assert_eq!(
+            shown(&mut a),
+            jump("link docs/my notes.md", "docs/my notes.md:1"),
+            "{word}"
+        );
+    }
+    // A declaration in a README's code block is an example, not one of the project.
+    press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+    let picker = a.picker.as_mut().unwrap();
+    picker.settle();
+    let rows: Vec<String> = picker
+        .window(20)
+        .0
+        .into_iter()
+        .map(|r| r.item.label.clone())
+        .collect();
+    assert!(rows.iter().all(|r| !r.contains("README.md")), "{rows:?}");
+    assert!(rows.iter().any(|r| r.contains("serve")), "{rows:?}");
+    let _ = std::fs::remove_dir_all(dir);
 }

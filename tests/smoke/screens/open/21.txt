@@ -1,4 +1,4 @@
-wait 2/13
+wait 2/14
 ┌orders──────────────────────┐ 1 # Release notes for the support team
 │▸ .github                   │ 2
 │▸ .venv                     │ 3 ## 1.8.0
@@ -34,10 +34,10 @@ wait 2/13
 │                            │32 - The support page lists the last 20 orders of a customer.
 │                            │33 - ✔️ Cancelled orders show the reason the customer gave, under the total.
 │                            │34 - Refunds by hand go through scripts/refund_by_hand.py until the refund flow ships.
-│                            │
-│                            │
-│                            │
-│                            │
+│                            │35
+│                            │36 ## 1.4.0
+│                            │37
+│                            │38 - How to run the API on your machine: [the README](../README.md#orders).
 │                            │
 │                            │
 │                            │
@@ -53,5 +53,5 @@ wait 2/13
 │                            │
 │                            │
 └────────────────────────────┘
-docs/notes.md  11:7  [code]  2/13
+docs/notes.md  11:7  [code]  2/14
 cursor (x,y,shown) 39,11,1

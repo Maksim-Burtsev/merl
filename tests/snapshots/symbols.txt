@@ -6,7 +6,7 @@ merl snapshot: symbols
 │  cli.py                    │ 6 from models import Note
 │  config.py                 │ 7
 │  export.csv                │ 8
-│  Makef┌Symbols (6/32)────────────────────────────────────────────────┐
+│  Makef┌Symbols (6/31)────────────────────────────────────────────────┐
 │  model│> Note                                                        │single
 │  notes│NoteStore                         store.py:9                  │
 │  PLAN.│Note                              models.py:10                │
@@ -120,7 +120,7 @@ m fg #6639ba bg #e7eaf0 BOLD
 │  export.csv                │ 5 from config import Config, load_config
 │  Makefile                  │ 6 from models import Note
 │  models.py                 │ 7
-│  notes.jso┌Symbols (6/32)────────────────────────────────────────────────────────────────────────────────┐
+│  notes.jso┌Symbols (6/31)────────────────────────────────────────────────────────────────────────────────┐
 │  PLAN.md  │> Note                                                                                        │
 │  store.py │NoteStore                         store.py:9                                                  │
 │           │Note                              models.py:10                                                │
@@ -264,7 +264,7 @@ n fg #6639ba bg #e7eaf0 BOLD
 │  PLAN.md                   │ 9 class NoteStore:
 │  store.py                  │10     """Reads and writes the notes of a single JSON file."""
 │                            │11
-│                  ┌Symbols (6/32)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                  ┌Symbols (6/31)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                  │> Note                                                                                                                                            │
 │                  │NoteStore                         store.py:9                                                                                                      │
 │                  │Note                              models.py:10                                                                                                    │

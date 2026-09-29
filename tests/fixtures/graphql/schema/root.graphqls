@@ -1,0 +1,50 @@
+schema {
+  query: Query
+  # ^ d: none
+  #      ^ d: schema/root.graphqls:8
+  mutation: Mutation
+}
+
+type Query {
+  basket(id: ID!): Basket
+  #                ^ d: schema/root.graphqls:15
+  offers(first: Int): [Offer!]!
+  #                    ^ d: schema/shop.graphql:53
+}
+
+type Basket {
+  id: ID!
+  #   ^ d: none
+  tariff: Tariff
+  #       ^ d: schema/shop.graphql:21
+  coupons: [Coupon!]!
+  courier: Courier
+  gross: Float!
+}
+
+type Mutation {
+  discount(basket: ID!, coupon: ID!): Basket
+  weigh(
+    basket: ID!
+    unit: String
+  ): Grams
+  #  ^ d: schema/shop.graphql:2
+  hire(courier: CourierInput!): Courier
+  #             ^ d: schema/shop.graphql:57
+}
+
+type Subscription {
+  basketChanged(id: ID!): Basket
+}
+
+extend type Query {
+  #         ^ d: schema/root.graphqls:8
+  couriers: [Courier!]!
+}
+
+type Depot {
+  parcel: Parcel
+  #       ^ d: none
+  staff: [Courier!]!
+  #       ^ d: schema/shop.graphql:64
+}

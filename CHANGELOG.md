@@ -52,6 +52,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with its panel letter, then the rest of the project as before. `review_list_marks = false` and
   `review_open_files_first = false` in `~/.config/merl/config.toml` turn either off. (#246)
 - A macOS Intel binary, `merl-x86_64-apple-darwin.tar.gz`, ships with each release. (#394)
+- `d` in Markdown (`.md`, `.markdown`, `.mdx`) follows the link under the cursor, on its text or
+  its target: `[README](../README.md#languages)` opens `README.md` at its `## Languages` heading,
+  `[below](#setup)` goes to a heading of the same file, `#L12` to a line, and a reference link
+  goes through its `[label]: target` definition. A code span naming a file of the project,
+  `` `src/search/kind.rs:30` ``, opens it; a bare name several files carry is a picker of them.
+  A missing file or heading says so, and a link in a code block or a comment is not followed.
+  `D` no longer lists the examples of a README's code blocks as declarations. (#421)
+- GraphQL: `d` in a `.graphql`, `.graphqls` or `.gql` file lands on a `type`, an `interface`, an
+  `input`, an `enum`, a `union`, a `scalar`, a `directive`, a fragment from its `...spread`, a
+  named operation, a field (`email → User.email`) and an enum value; on the path of an
+  `#import "./parts.graphql"` it opens that file. `extend type`, a selection, an alias, an
+  argument and a `$variable` are no declarations. `D` lists the types, directives, fragments and
+  named operations. (#419)
+- `d`, `u` and `D` in Protocol Buffers (`.proto`): `d` finds a `message` (a nested one too), an
+  `enum` and its values, a `service`, an `rpc`, a field and a `oneof`; `d` on the path of an
+  `import` opens that file; a type qualified by its package, `billing.v1.Money` or
+  `google.protobuf.Timestamp`, lands in that package's files, and the well-known types `protoc`
+  installs are reached, read-only. `D` lists the messages, enums, services and rpcs. (#418)
 
 ### Changed
 
@@ -119,6 +137,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` in Python and Go follows a typed chain through a type whose module or package has a
+  line shaped like its declaration inside a docstring or a raw string: `self.tariff.rate()`
+  jumps to `Tariff.rate`. That line counted as a second declaration, so the chain broke and
+  `d` offered every `rate` of the project. (#453)
+- `d` in Ruby reads names as Ruby does. `empty?`, `save!` and the setter `name=` of `x.name = v`
+  are methods of their own, so `fetch` no longer lands on `def fetch?`. `Const.meth` is a class
+  method: `def self.meth`, a `def` in `class << self`, in an `extend self` or `module_function`
+  module, or in the `class_methods` of a concern the class includes; `Const.new` finds
+  `initialize`, and an instance method of the class, or a method of another class by name, is
+  never the answer. `class A::B` declares `B`, not `A`, `A::B` in code is a path, and a
+  superclass right of `<` is a use of the name. (#387)
 - In `merl --review`, `c` or `C` after a `d`, `u` or `s` into a file the branch did not touch goes
   back to the hunk you left, and the next `c` goes on from there. It opened the first file of the
   review (`C` the last), and the way back was one `[` per jump. The hunk is found again by its
@@ -212,6 +241,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in C# reads a verbatim string ending in a backslash, `@"C:\"`, as ending at its second
   `"`, and `@$"…"` as the verbatim string it is. It kept the string open, and every declaration
   after it in the file answered `no definition`. (#475)
+- `d` in Rust reads a string that runs over several lines as a string, a raw `r#"…"#` included:
+  a declaration-shaped line of a test fixture or a `--help` text inside one is no declaration,
+  and `d` on a word inside a string says `no definition` at once, save on the `{name}` a format
+  string captures. A word of prose was looked up as a name: `Choose` in an error message jumped
+  to a `struct Choose`, and `to` or `with` searched every dependency for a picker of namesakes.
+  A lifetime, `'a`, opens no string. (#346)
+- `d` in Ruby reads `#` comments, heredocs (`<<~SQL`, `<<-'EOS'`), `=begin` blocks and what
+  follows `__END__` as Ruby writes them: the SQL of a migration's heredoc and the old code of a
+  `=begin` block declare nothing, and a comment holding an odd number of backticks no longer
+  hides every declaration below it in the file. Ruby was read with the C family's `//`, `/* */`
+  and backtick template, so `User#prepare!` in mastodon answered `no definition`. (#379)
+- `d` in C++ reads a raw string, `R"( … )"`, `R"sql( … )sql"` or `u8R"( … )"`, as a string: a
+  declaration-shaped line inside one, such as a banner holding `struct Basket {`, is no longer
+  offered beside the real declaration. (#465)
+- A file that will not open is named in the status bar as an open file is, from the project root,
+  with the reason in a few words: `src/locked.txt: permission denied`. It was the absolute path
+  and the OS text, `Permission denied (os error 13)`, and the path could push the reason off the
+  line; a path still too long for the pane is cut from the left. (#403)
+- `d` in Elixir reaches the dependencies in `deps/`, which `mix new` gitignores: `Jason.encode!`
+  jumps to `deps/jason/lib/jason.ex`, read-only, where it said `no definition` or landed on a
+  namesake of the project. A module's qualifier narrows the search to the dependency that
+  declares the module, so `Phoenix.LiveView.assign` finds `phoenix_live_view`, not Plug's
+  `assign`. (#437)
+- `d` in C and C++ on a type name lands on its class or struct. It offered a picker of the
+  class, every `class X;` forward declaration in other headers and every constructor, and C's
+  `typedef struct X { … } X;` as two rows; a bare `X` now lands on `} X;`, `struct X` on the
+  opening line. With the class declared once, `Status::Corruption(…)` resolves `via Status`
+  again instead of offering every `Corruption`, and `struct DBImpl::Writer {` is found as
+  `Writer`, in `d` and `D`. A forward declaration inside a class body, two classes of one name
+  and a construction, `Status(…)`, keep their pickers. (#368)
+- `d` in C and C++ on a function jumps to its definition instead of offering it beside its
+  prototype, `add: by name, 1 definition, 1 prototype`, and on a global past its `extern`
+  declaration; overloads and `#if` / `#else` variants keep their picker. A `static`, a `#define` or
+  an unnamed `namespace` of another source file is no longer offered, and a `static` of the file
+  on screen is its answer. A `#define X` under `#ifndef X` yields to any other declaration of
+  `X`: `strcasecmp` in redis jumps to the system's instead of a Windows-only header. (#364)
+- `d` in TypeScript and JavaScript on a name imported from a package that is not installed
+  (a fresh clone, a package of a monorepo not bootstrapped) lands on its import line and says
+  `via import mobx-react (not installed)`. It offered the project's namesakes as if one of them
+  were the answer, or jumped to the only one. (#392)
+- `d` in TypeScript and JavaScript on a name of a destructuring or a parameter list wrapped one
+  name per line, as prettier writes them, lands on the line of the name, on the name, instead
+  of the `const {` or `function Row({` above it, so a second `d` goes on from there. (#393)
+- `d` in Rust on `x.name` with no `()` behind it lands on the field `name: T` of a struct, one
+  row per struct, and when the project has none, on the `pub` fields of the standard library and
+  the dependencies; it landed on a method or a local of the name. A word inside an attribute is
+  the macro it names (`#[derive(Debug)]`, `#[test]`, `#[tokio::main]`) or declared nowhere
+  (`#[cfg(test)]`, `#[allow(…)]`), never a project item called the same. `Mode::Auto`, and a
+  bare `Auto` behind a `use Mode::*;`, land on the enum variant, which said `no definition` or
+  landed on a struct of its name. (#370)
 - `d` in a Makefile finds a variable set only by `CFLAGS += -Wall` or for one target,
   `release: VERSION := 1.0`, where it answered `no definition`. A plain `CFLAGS = -O2` stays
   the only answer where there is one. (#499)

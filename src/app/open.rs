@@ -65,7 +65,9 @@ impl App {
                     self.refresh_diff();
                 }
                 Err(e) => {
-                    self.message = format!("{e:#}");
+                    // Named as the status bar names an open file, not by its absolute path,
+                    // which left no room for the reason (#403).
+                    self.say_about(path, &format!(": {}", why_not(&e)));
                     return false;
                 }
             }
@@ -411,7 +413,7 @@ impl App {
         };
         match &gone[..] {
             [] => {}
-            [one] => self.message = format!("{} gone", self.rel_path_of(one)),
+            [one] => self.say_about(one, " gone"),
             _ => self.message = format!("{} files gone", gone.len()),
         }
         let Some((i, path, line, col)) = landed else {
@@ -476,4 +478,21 @@ fn reload_step(old: &[String], was: buffer::Format, buf: &Buffer) -> Option<Edit
         after: (head.min(new.len() - 1), 0),
         format: Some((was, is)),
     })
+}
+
+/// Why a file did not open, in a few words: the OS text without its `(os error N)` (#403).
+fn why_not(e: &anyhow::Error) -> String {
+    use std::io::ErrorKind::*;
+    match e.downcast_ref::<std::io::Error>().map(std::io::Error::kind) {
+        Some(PermissionDenied) => "permission denied".into(),
+        Some(NotFound) => "no such file".into(),
+        Some(IsADirectory) => "is a directory".into(),
+        _ => {
+            let mut why = e.root_cause().to_string();
+            if let Some(i) = why.find(" (os error ") {
+                why.truncate(i);
+            }
+            why
+        }
+    }
 }

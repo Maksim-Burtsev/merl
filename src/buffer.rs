@@ -95,7 +95,9 @@ impl Buffer {
         // reached (#405). A directory fails the read on its own.
         let meta = std::fs::metadata(path).with_context(|| format!("{}", path.display()))?;
         if !meta.is_file() && !meta.is_dir() {
-            anyhow::bail!("{}: not a regular file", path.display());
+            // The reason apart from the path, for the status bar to name the file its own way.
+            return Err(anyhow::anyhow!("not a regular file"))
+                .with_context(|| format!("{}", path.display()));
         }
         let bytes = std::fs::read(path).with_context(|| format!("{}", path.display()))?;
         Ok(Self::from_bytes(path.to_path_buf(), &bytes))
@@ -414,6 +416,8 @@ fn known_file(name: &str) -> Option<&'static str> {
         ("Procfile" | "yarn.lock", _) => "YAML",
         // Starlark.
         ("WORKSPACE" | "Tiltfile", _) => "Python",
+        // bat's set owns `.md` and `.markdown`; MDX is Markdown with JSX in it (#421).
+        (_, "mdx") => "Markdown",
         _ => return None,
     })
 }
@@ -534,6 +538,26 @@ mod tests {
                 colours.len() > 1,
                 "init.lua {name}: everything is one colour"
             );
+        }
+    }
+
+    #[test]
+    fn markdown_highlights_with_every_shipped_theme() {
+        let src = "# Notes\n\nSee the [README](../README.md#languages) and `src/main.rs`.\n";
+        for file in ["notes.md", "notes.markdown", "page.mdx"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("Markdown"),
+                    "{file} {name}"
+                );
+                b.highlight_to(3, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
         }
     }
 
@@ -738,6 +762,44 @@ mod tests {
                     b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
                 assert!(colours.len() > 1, "{file} {name}: everything is one colour");
             }
+        }
+    }
+
+    #[test]
+    fn graphql_highlights_with_every_shipped_theme() {
+        let src = "# doc\ntype User {\n  email: String! @deprecated(reason: \"x\")\n}\n";
+        for file in ["a.graphql", "b.graphqls", "c.gql"] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some("GraphQL"),
+                    "{file} {name}"
+                );
+                b.highlight_to(3, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
+    fn proto_highlights_with_every_shipped_theme() {
+        let src = "// doc\nsyntax = \"proto3\";\nmessage User {\n  string id = 1;\n}\n";
+        for name in crate::theme::names() {
+            let theme = crate::theme::load(name).unwrap();
+            let mut b = Buffer::from_bytes(PathBuf::from("user.proto"), src.as_bytes());
+            assert_eq!(
+                b.syntax.map(|s| s.name.as_str()),
+                Some("Protocol Buffer"),
+                "{name}"
+            );
+            b.highlight_to(4, &theme);
+            let colours: std::collections::HashSet<_> =
+                b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+            assert!(colours.len() > 1, "{name}: everything is one colour");
         }
     }
 

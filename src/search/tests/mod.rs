@@ -11,6 +11,7 @@ mod fields;
 mod go;
 mod grep;
 mod imports;
+mod links;
 mod other_languages;
 mod scope;
 mod symbols;

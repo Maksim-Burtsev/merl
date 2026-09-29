@@ -1,0 +1,53 @@
+// The shop of #307: every d case carries its answer in a comment under it.
+syntax = "proto3";
+
+package shop.v1;
+
+import "shop/v1/coupon.proto";
+import "shop/v1/money.proto";
+import "billing/v1/money.proto";
+import "google/protobuf/descriptor.proto";
+//                      ^ d: third_party/google/protobuf/descriptor.proto:1
+
+message Basket {
+  repeated Tariff tariffs = 1;
+  //       ^ d: proto/shop/v1/tariff.proto:10
+  Coupon coupon = 2;
+//^ d: proto/shop/v1/coupon.proto:10
+  shop.v1.Tariff.Band band = 3;
+  //             ^ d: proto/shop/v1/tariff.proto:27
+  // status: Band → Tariff.Band (via shop.v1)
+  //      ^ d: proto/shop/v1/tariff.proto:10
+  // status: Tariff: via shop.v1
+  v1.Coupon relative = 4;
+  // ^ d: proto/shop/v1/coupon.proto:10
+  // status: Coupon: via shop.v1
+  billing.v1.Money charged = 5;
+  //         ^ d: proto/billing/v1/money.proto:6
+  // status: Money: via billing.v1
+  .shop.v1.Money total = 6;
+  //       ^ d: proto/shop/v1/money.proto:6
+  // status: Money: via shop.v1
+  Money unqualified = 7;
+//^ d: picker proto/shop/v1/money.proto:6, proto/billing/v1/money.proto:6
+  Tariff.Band first_band = 8;
+  //     ^ d: proto/shop/v1/tariff.proto:27
+  map<string, Coupon> by_code = 9;
+  //          ^ d: proto/shop/v1/coupon.proto:10
+  Parcel draft = 10;
+//^ d: none
+  Missing.Thing ghost = 11;
+  //      ^ d: none
+}
+
+extend google.protobuf.MessageOptions {
+//                     ^ d: third_party/google/protobuf/descriptor.proto:6
+// status: MessageOptions: via google.protobuf
+  string weigh_unit = 51234;
+  //     ^ d: proto/shop/v1/basket.proto:46
+}
+
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_OPEN = 1;
+}

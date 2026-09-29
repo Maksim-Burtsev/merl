@@ -9,11 +9,17 @@ impl App {
     /// vendored files. The title says how the list splits.
     pub(super) fn usages(&mut self) {
         let extra = search::word_chars(self.kind(), false);
-        let Some(word) = self.word_under(extra) else {
+        // A Ruby name is read as `d` reads it (#387): `valid?` lists `valid?`, its own `def`
+        // first, and on `x.name = v` the setter `name=` declared by `attr_writer :name` does.
+        let Some(read) = (match self.kind() {
+            Some(Kind::Ruby) => self.definition_word(Some(Kind::Ruby)).map(|(_, w)| w),
+            _ => self.word_under(extra),
+        }) else {
             self.message = "no word under the cursor".into();
             return;
         };
-        let (ranked, cut) = self.usage_hits(&word, self.rel_current().as_deref());
+        let (ranked, cut) = self.usage_hits(&read, self.rel_current().as_deref());
+        let word = read.strip_suffix('=').unwrap_or(&read);
         if ranked.is_empty() {
             self.message = format!("no usages of {word}");
             return;
@@ -29,7 +35,7 @@ impl App {
             .map(|(_, h)| {
                 let row = search::word_chars(search::kind_of(&h.path), false);
                 Hit {
-                    col: word_col(&h.text, &word, &format!("{extra}{row}")),
+                    col: word_col(&h.text, word, &format!("{extra}{row}")),
                     ..h
                 }
             })
@@ -92,18 +98,21 @@ impl App {
         // To grep `-` ends a word, so `db-main` also finds `db-main-2`: a hit goes when its own
         // file's language counts that `-` as part of a word and no occurrence in the line stands
         // whole (#281). In code `db-main-2` is a subtraction and stays.
+        // A Ruby setter `name=` is called as `x.name = v`: the rows hold its bare name.
+        let text = word.strip_suffix('=').unwrap_or(word);
         let hits = self
-            .grep(&regex::escape(word), true, false, |_| true)
+            .grep(&regex::escape(text), true, false, |_| true)
             .unwrap_or_default();
         let cut = hits.len() >= search::MAX_HITS;
         let hits = hits.into_iter().filter(|h| {
             let extra = search::word_chars(search::kind_of(&h.path), false);
-            extra.is_empty() || whole_at(&h.text, word, extra).is_some()
+            extra.is_empty() || whole_at(&h.text, text, extra).is_some()
         });
         // What tells a declaration of the word from a use of it is `def_patterns`, and which
         // ones apply is the hit file's own kind: one regex per kind met, built once.
         let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
         let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
+        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
         let mut ranked: Vec<_> = hits
             .map(|h| {
                 let kind = search::kind_of(&h.path);
@@ -114,7 +123,8 @@ impl App {
                         .flatten()
                 });
                 // A pattern that matched inside a docstring, a raw string or a block comment
-                // declares nothing, as `d` reads it too; only a file with a match is read.
+                // declares nothing, and neither does a line the lines around it make a use, as
+                // `d` reads them too; only a file with a match is read.
                 let declares = re.as_ref().is_some_and(|re| re.is_match(&h.text))
                     && !literal
                         .entry(h.path.clone())
@@ -124,7 +134,16 @@ impl App {
                         })
                         .get(h.line - 1)
                         .copied()
-                        .unwrap_or(false);
+                        .unwrap_or(false)
+                    && kind.is_some_and(|k| {
+                        search::declares_where(k, word, h.line, &h.text, || {
+                            lines.entry(h.path.clone()).or_insert_with(|| {
+                                self.text_of(&h.path).map_or_else(Vec::new, |t| {
+                                    t.lines().map(str::to_owned).collect()
+                                })
+                            })
+                        })
+                    });
                 (search::rank(&h.path, here, declares), h)
             })
             .collect();

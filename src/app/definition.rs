@@ -3,6 +3,43 @@
 use super::*;
 
 impl App {
+    /// The word under the cursor as `d` and `u` ask about it: [`search::definition_word`], and
+    /// a Ruby setter call `x.name = v` as the setter `name=` (#387); `def self.name = v` is a
+    /// method of one line.
+    pub(super) fn definition_word(
+        &self,
+        kind: Option<Kind>,
+    ) -> Option<(std::ops::Range<usize>, String)> {
+        let (range, word) = search::definition_word(kind, self.line_str(), self.col)?;
+        let mut word = word.to_owned();
+        let (written, start) = self.written(kind, range.start);
+        let before = &written[..start];
+        let after = self.line_str()[range.end..].trim_start();
+        if kind == Some(Kind::Ruby)
+            && before.ends_with('.')
+            && !before.ends_with("..")
+            && !before.trim_start().starts_with("def ")
+            && !word.ends_with(['?', '!'])
+            && after.starts_with('=')
+            && !after[1..].starts_with(['=', '~', '>'])
+        {
+            word.push('=');
+        }
+        Some((range, word))
+    }
+
+    /// The cursor's line as `d` reads it, with where the word at byte `start` of it moved to: a
+    /// member access broken over lines reads as the one line it is, in its plain access form.
+    fn written(&self, kind: Option<Kind>, start: usize) -> (String, usize) {
+        let (written, start) = kind
+            .and_then(|k| search::unbroken(k, &self.buf.lines, self.line, start))
+            .unwrap_or_else(|| (self.line_str().to_owned(), start));
+        match kind {
+            Some(k) => search::plain_access(k, &written, start),
+            None => (written, start),
+        }
+    }
+
     /// `d` / F12. A file of a known [`Kind`] gets its declaration patterns. A word or a qualifier
     /// an import binds is looked for in the module the import names: the project's file or
     /// package (`from app.repos import X` in `app/repos.py`, `store.Open` in the `store`
@@ -16,23 +53,39 @@ impl App {
     /// member whose type is not known: every member declaration of the name, in the project and
     /// outside it, and every field of the name in the project, is a candidate. The status line
     /// says how the target was found, and a single candidate found only by name says so too. An
-    /// enum variant or a parameter has no declaration the rules know and gets "no definition":
-    /// `u` lists the uses.
+    /// enum variant outside Rust or a parameter has no declaration the rules know and gets "no
+    /// definition": `u` lists the uses.
     pub(super) fn goto_definition(&mut self) {
         let kind = self.kind();
-        let Some((range, word)) = search::definition_word(kind, self.line_str(), self.col) else {
+        // Markdown declares nothing: `d` follows the link under the cursor (#421).
+        if kind == Some(Kind::Markdown)
+            && let Some(here) = self.rel_current()
+        {
+            self.follow_markdown(&here);
+            return;
+        }
+        // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included.
+        if kind == Some(Kind::Graphql)
+            && let Some(here) = self.rel_current()
+            && let Some(module) = search::graphql_import(self.line_str(), self.col)
+        {
+            let module = module.to_owned();
+            let files = search::module_files(
+                Kind::Graphql,
+                &self.root,
+                &self.files,
+                &here,
+                std::slice::from_ref(&module),
+            );
+            let found = self.module_candidates(files);
+            self.show_definitions(Kind::Graphql, &module, &here, found, None);
+            return;
+        }
+        let Some((range, word)) = self.definition_word(kind) else {
             self.message = "no word".into();
             return;
         };
-        let word = word.to_owned();
-        // A member access broken over lines reads as the one line it is.
-        let (written, start) = kind
-            .and_then(|k| search::unbroken(k, &self.buf.lines, self.line, range.start))
-            .unwrap_or_else(|| (self.line_str().to_owned(), range.start));
-        let (written, start) = match kind {
-            Some(k) => search::plain_access(k, &written, start),
-            None => (written, start),
-        };
+        let (written, start) = self.written(kind, range.start);
         let before = &written[..start];
         let dotted = before.ends_with('.') && !before.ends_with("..");
         let chain = search::qualifier(&written, start);
@@ -41,12 +94,41 @@ impl App {
             self.message = self.no_rules();
             return;
         };
-        // Go's blank identifier names nothing: every `_` is a fresh discard (#476).
-        if kind == Kind::Go && word == "_" {
+        // Go's blank identifier names nothing: every `_` is a fresh discard (#476). Nor has a
+        // GraphQL operation's `$variable` a rule: it is a parameter, and `$id` is no field `id`.
+        if (kind == Kind::Go && word == "_")
+            || (kind == Kind::Graphql && self.line_str()[..range.start].ends_with('$'))
+        {
             self.message = resolution(&word, None, &[], None, false);
             return;
         }
         let text = self.buf.lines.join("\n");
+        // Nothing in a Rust string names code, save the `{name}` a format string captures and
+        // the path an attribute takes as a value, `#[serde(default = "default_port")]`: no
+        // search for a word of prose (#346).
+        let at = self.buf.lines[..self.line]
+            .iter()
+            .map(|l| l.len() + 1)
+            .sum::<usize>()
+            + range.start;
+        let line = self.line_str();
+        let captured = line[..range.start].ends_with('{')
+            && !line[..range.start].ends_with("{{")
+            && line[range.end..].starts_with(['}', ':']);
+        if !captured
+            && search::in_string(kind, &text, at)
+            && !search::rust_attribute_path(&self.buf.lines, self.line, range.start)
+        {
+            self.message = resolution(&word, None, &[], None, false);
+            return;
+        }
+        // An import's path, and a name its package qualifies (#418).
+        if kind == Kind::Proto
+            && let Some(found) = self.proto_definitions(&text, &written[..start], &word)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         self.offer_only =
             kind == Kind::Python && search::keyword_argument(&text, self.line + 1, &range);
         self.truncated.set(false);
@@ -59,12 +141,17 @@ impl App {
         // A parameter or a local of the same name hides the import where the cursor is: `json`
         // in `def handler(json)` is a value, and `via import` would be a proof of nothing.
         let first = chain.first().map_or(word.as_str(), String::as_str);
-        // `super` is no local, whatever the member lookup reads it as.
+        // `super` is no local, whatever the member lookup reads it as. A name of a destructuring
+        // or a parameter list wrapped over several lines is on a line of its own (#393).
         let locals: Vec<usize> = search::bindings(kind, &text, self.line + 1, first)
             .iter()
             .map(|b| b.line)
             .filter(|&n| {
                 (dotted || word != "super") && !names_itself(&self.buf.lines[n - 1], first)
+            })
+            .map(|n| match kind {
+                Kind::TsJs => search::written_line(&self.buf.lines, n, first),
+                _ => n,
             })
             .collect();
         if !locals.is_empty() {
@@ -125,6 +212,13 @@ impl App {
             return;
         }
         let pattern = patterns.join("|");
+        // Rust's attributes, fields and variants, which the lines below cannot tell (#370).
+        if kind == Kind::Rust
+            && let Some(found) = self.rust_early(&here, &text, &word, range.clone(), dotted)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // On the declaration of a member of an interface, a protocol, an abstract or a base
         // class, `d` offers what implements it (#68, step 6).
         // A `#private` member is nobody's to override.
@@ -185,6 +279,34 @@ impl App {
                 )
             })
             .flatten();
+        // A package no `node_modules` holds, no workspace package is called and no `declare
+        // module` types is not installed (#392): nothing says what it declares, and the project's namesakes are not it. The
+        // import line is where the name comes from, as far as anything tells. A copy of it among
+        // the files outside, wherever they have it, is what the lookup outside reads, as before.
+        if kind == Kind::TsJs
+            && let Some((_, module)) = import.as_ref().and_then(|p| p.split_last())
+            && search::package_missing(
+                &self.root,
+                &self.files,
+                here.parent().unwrap_or(Path::new("")),
+                module,
+            )
+            && !self.external_files(kind).iter().any(|f| {
+                let parts = if module[0].starts_with('@') { 2 } else { 1 };
+                search::in_module(f, &module[..parts.min(module.len())])
+            })
+            && let Some(line) = search::ts_import_line(&text, first)
+        {
+            let hit = Hit {
+                path: here.clone(),
+                line,
+                col: 0,
+                text: self.buf.lines[line - 1].clone(),
+            };
+            let reason = Reason::Import(format!("{} (not installed)", module.join("/")));
+            self.show_definitions(kind, &word, &here, vec![Candidate { hit, reason }], None);
+            return;
+        }
         let mut outside = false;
         // The import names a module of the project's own: a workspace package linked in, an alias.
         let mut own_module = false;
@@ -222,6 +344,14 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // A bare Rust variant behind a glob `use` of its enum (#370).
+        if kind == Kind::Rust && !dotted && chain.is_empty() && locals.is_empty() {
+            let found = self.rust_glob_variant(&here, &text, &word, &imports);
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
         // Python's `Cls.CONST`, an `Enum` member, a dataclass field (#100): the qualifier is a
         // class the file declares or imports, no value of the scope, and the word is what the
         // class body declares, or a class above it.
@@ -247,8 +377,13 @@ impl App {
         // with `::`, where no `.` stands in front of the word, and a `.` there is a value's.
         let sep = search::separator(kind);
         let path = chain.join(sep);
+        // Ruby writes a constant's path with `::` and a method's with `.` (#387). The name a
+        // `class A::B` line declares is no use of the path.
+        let declared = !self.line_str()[range.end..].starts_with("::")
+            && Regex::new(r"^\s*(?:class|module)\s+[\w:]*$").is_ok_and(|re| re.is_match(before));
+        let colons = kind == Kind::Ruby && before.ends_with("::") && !declared;
         let pathed = match sep {
-            "." => on_value,
+            "." => on_value || colons,
             _ => self.line_str()[..range.start].ends_with(&format!("{path}{sep}")),
         };
         // A type's name is no proof of which type (#129): in a `::` kind the project has to
@@ -281,7 +416,13 @@ impl App {
                         .strip_suffix(&format!("{path}{sep}"))
                         .is_some_and(|b| b.ends_with('\\'));
                 let owners = search::def_patterns(kind, owner).join("|");
-                let declared = self.project_definitions(kind, &here, owner, &owners);
+                let mut declared = self.project_definitions(kind, &here, owner, &owners);
+                // A class is declared once, whatever its forward declarations and constructors
+                // (#368).
+                if kind == Kind::C {
+                    declared =
+                        search::c_type_rows(owner, declared, |p| self.text_of(p), false, false);
+                }
                 // A type of the same name in this file is the one its own scope sees.
                 if !outside
                     && declared.len() > 1
@@ -296,30 +437,60 @@ impl App {
                 self.truncated.set(false);
                 !outside && (declared.len() == 1 || home.is_some())
             });
+        // Ruby's `Const.meth` is a class method (#387): a `def` of the class's instances is no
+        // answer, and nor is a method of some other class found by name. `Const.new` runs the
+        // class's `initialize`.
+        // A constant in capitals holds a value, not a class: `REDIS_CONFIGURATION.cache`. An
+        // acronym module (`JSON.parse`) reads so too, and stays the search by name.
+        let class_method = kind == Kind::Ruby
+            && dotted
+            && chain.last().is_some_and(|c| {
+                c.starts_with(|c: char| c.is_ascii_uppercase())
+                    && c.contains(|c: char| c.is_ascii_lowercase())
+            });
+        let (word, pattern) = match class_method && word == "new" {
+            true => (
+                "initialize".to_owned(),
+                search::def_patterns(kind, "initialize").join("|"),
+            ),
+            false => (word, pattern),
+        };
         if pathed && locals.is_empty() && !chain.is_empty() {
             let full = format!("{path}{sep}{word}");
             // `depot::Shed::open` has the modules of the project in front of `Shed::open`.
             let in_project = sep != "." && self.names_module(&chain[0]);
             // Only the files of the module a `use` names can hold the answer then.
-            let hits = match &home {
+            let mut hits = match &home {
                 Some(files) => self
                     .grep(&pattern, false, false, |p| files.iter().any(|f| f == p))
                     .unwrap_or_default(),
                 None => self.project_definitions(kind, &here, &word, &pattern),
             };
+            // `Mode::Auto`: an enum variant, which has no line pattern of its own (#370).
+            if kind == Kind::Rust {
+                let variants = self.rust_variants(&here, &word);
+                hits.extend(
+                    variants
+                        .into_iter()
+                        .filter(|v| home.as_ref().is_none_or(|files| files.contains(&v.path))),
+                );
+            }
+            let singleton = class_method && word != "initialize";
+            let concerns = singleton.then(|| hits.clone());
             let named: Vec<Candidate> = hits
                 .into_iter()
                 .filter(|h| {
-                    self.text_of(&h.path)
-                        .and_then(|t| search::qualified(kind, &t, h.line, &word))
-                        .is_some_and(|q| match &home {
-                            Some(files) => q == full && files.contains(&h.path),
-                            None => {
-                                q == full
-                                    || q.ends_with(&format!("{sep}{full}"))
-                                    || (in_project && full.ends_with(&format!("{sep}{q}")))
-                            }
-                        })
+                    let Some(t) = self.text_of(&h.path) else {
+                        return false;
+                    };
+                    search::qualified(kind, &t, h.line, &word).is_some_and(|q| match &home {
+                        Some(files) => q == full && files.contains(&h.path),
+                        None => {
+                            q == full
+                                || q.ends_with(&format!("{sep}{full}"))
+                                || (in_project && full.ends_with(&format!("{sep}{q}")))
+                        }
+                    }) && (!singleton || search::ruby_singleton(&t, h.line))
                 })
                 .map(|hit| Candidate {
                     reason: match home {
@@ -333,8 +504,42 @@ impl App {
                 self.show_definitions(kind, &word, &here, named, None);
                 return;
             }
+            if class_method {
+                let found: Vec<Candidate> = concerns
+                    .map(|hits| self.concern_class_methods(kind, &here, &chain, hits))
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Path(path.clone()),
+                    })
+                    .collect();
+                // Nothing of the class declares it: a class method from outside the project
+                // (ActiveRecord's `find`), or `Class#new` itself.
+                let asked = if found.is_empty() && word == "initialize" {
+                    "new"
+                } else {
+                    &word
+                };
+                self.show_definitions(kind, asked, &here, found, None);
+                return;
+            }
             // A cut in a grep whose result is dropped says nothing about the list below.
             self.truncated.set(false);
+            // `Api::Fasp` that no declaration spells is no `::Fasp` elsewhere: what the name
+            // alone finds is offered, not jumped to.
+            self.offer_only |= colons;
+        }
+        // An Elixir qualifier a dependency declares as a module names that package, as an import
+        // does elsewhere: its `def` there comes before a namesake of the project's (#437).
+        if kind == Kind::Elixir && dotted && !chain.is_empty() && locals.is_empty() {
+            let found = self
+                .external_definitions(kind, &word, &chain, dotted, &imports, true)
+                .unwrap_or_default();
+            if !found.is_empty() {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
         }
         // A parameter or a local in front of the word is a value for certain: it has members,
         // and a function or a variable at the top of a module is not one of them.
@@ -351,6 +556,64 @@ impl App {
                     self.project_definitions(kind, &here, &word, &pattern)
                 }
             });
+        // A C or C++ type is its body, not its forward declarations and constructors (#368).
+        // Behind `.` or `->` no type is meant. Then what the file on screen can see (#364): not
+        // another source file's statics and macros, not a `#define` that only stands in where
+        // nothing else declares the name, and one definition over its prototypes.
+        let mut fallbacks = Vec::new();
+        let mut aside = None;
+        let hits = match kind == Kind::C && !dotted && !before.ends_with("->") {
+            true => {
+                let (before, after) = (before.trim_end(), &self.line_str()[range.end..]);
+                // `before` ends in the keyword `k` itself, not in a name ending so.
+                let keyword = |k: &str| {
+                    before.strip_suffix(k).is_some_and(|b| {
+                        !b.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_')
+                    })
+                };
+                let construction = after.trim_start().starts_with(['(', '{']) || keyword("new");
+                let tag = ["struct", "union", "enum"].into_iter().any(keyword);
+                // What a raw string or a block comment holds declares nothing, and must not count
+                // as a second body or definition in the rules below (show_definitions drops it
+                // again, for every kind).
+                let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
+                let hits: Vec<Hit> = hits
+                    .into_iter()
+                    .filter(|h| {
+                        let lines = literal.entry(h.path.clone()).or_insert_with(|| {
+                            self.text_of(&h.path)
+                                .map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
+                        });
+                        !lines.get(h.line - 1).copied().unwrap_or(false)
+                    })
+                    .collect();
+                let hits = search::c_type_rows(&word, hits, |p| self.text_of(p), construction, tag);
+                let on = hits
+                    .iter()
+                    .any(|h| h.path == here && h.line == self.line + 1);
+                let hits = search::c_file_local(&word, &here, &text, hits, |p| self.text_of(p), on);
+                let (fallback, hits): (Vec<Hit>, Vec<Hit>) = hits.into_iter().partition(|h| {
+                    self.text_of(&h.path)
+                        .is_some_and(|t| search::c_fallback(&t, h.line, &word))
+                });
+                // With nothing else in the project, the search outside runs first.
+                if hits.is_empty() {
+                    fallbacks = fallback;
+                }
+                // On a candidate the others are offered, the prototype included.
+                let parameter = search::c_parameter(&text, self.line + 1, &word);
+                match search::c_one_definition(&word, &hits, |p| self.text_of(p))
+                    .filter(|_| !on && !parameter)
+                {
+                    Some((at, note)) => {
+                        aside = Some(note);
+                        vec![hits[at].clone()]
+                    }
+                    None => hits,
+                }
+            }
+            false => hits,
+        };
         found = hits
             .into_iter()
             .map(|hit| Candidate {
@@ -399,7 +662,86 @@ impl App {
                 }
             }
         }
+        if found.is_empty() {
+            found = fallbacks
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::ByName,
+                })
+                .collect();
+        }
         self.show_definitions(kind, &word, &here, found, broke.as_deref());
+        // The status of the one definition says what was set aside: `1 definition, 1 prototype`.
+        if let Some(note) = aside {
+            self.message = self.message.replacen("1 match", &note, 1);
+        }
+    }
+
+    /// The first line of each of `files`, a module a name or a path leads to as a whole.
+    fn module_candidates(&self, files: Vec<PathBuf>) -> Vec<Candidate> {
+        files
+            .into_iter()
+            .map(|path| Candidate {
+                reason: Reason::Module(path.display().to_string()),
+                hit: Hit {
+                    text: self.text_of(&path).map_or_else(String::new, |t| {
+                        t.lines().next().unwrap_or_default().to_owned()
+                    }),
+                    path,
+                    line: 1,
+                    col: 0,
+                },
+            })
+            .collect()
+    }
+
+    /// Of `hits`, the declarations of a Ruby method that a concern included by the class
+    /// `chain` spells gives it as a class method (#387): `include Searchable` in a file declaring
+    /// the class, and the method in `Searchable`'s `class_methods do` or `module ClassMethods`.
+    fn concern_class_methods(
+        &self,
+        kind: Kind,
+        here: &Path,
+        chain: &[String],
+        hits: Vec<Hit>,
+    ) -> Vec<Hit> {
+        static INCLUDE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^\s*include\s+([A-Z][\w:]*(?:\s*,\s*[A-Z][\w:]*)*)").unwrap()
+        });
+        let (Some(owner), path) = (chain.last(), chain.join(".")) else {
+            return Vec::new();
+        };
+        let pattern = search::def_patterns(kind, owner).join("|");
+        let cut = self.truncated.get();
+        let declared = self.project_definitions(kind, here, owner, &pattern);
+        self.truncated.set(cut);
+        // ponytail: every `include` of the file, not only the ones inside the class's body.
+        let mut modules: Vec<String> = Vec::new();
+        for h in declared {
+            let Some(text) = self.text_of(&h.path) else {
+                continue;
+            };
+            let q = search::qualified(kind, &text, h.line, owner).unwrap_or_else(|| owner.clone());
+            if q != path && !q.ends_with(&format!(".{path}")) {
+                continue;
+            }
+            for c in text.lines().filter_map(|l| INCLUDE.captures(l)) {
+                modules.extend(
+                    c[1].split(',')
+                        .filter_map(|m| m.trim().rsplit("::").next().map(str::to_owned)),
+                );
+            }
+        }
+        hits.into_iter()
+            .filter(|h| {
+                self.text_of(&h.path).is_some_and(|t| {
+                    modules
+                        .iter()
+                        .any(|m| search::ruby_concern_class_method(&t, h.line, m))
+                })
+            })
+            .collect()
     }
 
     /// Whether `first` starts a path inside the project: `crate`, `self`, `super`, or a file or a
@@ -443,6 +785,18 @@ impl App {
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));
                 !call && !lines.get(c.hit.line - 1).copied().unwrap_or(false)
             });
+        }
+        // A Ruby superclass, right of the `<` of a `class` line, is a use of the name (#387): the
+        // line declares another class.
+        let superclass = kind == Kind::Ruby
+            && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
+                |(r, _)| {
+                    Regex::new(r"^\s*class\s+[\w:]+\s*<\s*[\w:]*$")
+                        .is_ok_and(|re| re.is_match(&self.line_str()[..r.start]))
+                },
+            );
+        if superclass {
+            found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
         }
         let all = found.len();
         if all > 1 {
@@ -531,12 +885,16 @@ impl App {
             })
             .unwrap_or_default();
         self.note_cut(&hits);
-        if let Some(block) = search::def_block(kind, word) {
-            hits.retain(|h| {
-                std::fs::read_to_string(self.root.join(&h.path))
-                    .is_ok_and(|text| search::directly_inside(&text, h.line, block))
-            });
-        }
+        // One file holds thousands of GraphQL `id` fields, so each file is split once.
+        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
+        hits.retain(|h| {
+            search::declares_where(kind, word, h.line, &h.text, || {
+                lines.entry(h.path.clone()).or_insert_with(|| {
+                    self.text_of(&h.path)
+                        .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
+                })
+            })
+        });
         // `GO=$(GO) ./build.sh` in a recipe sets a variable of one shell command (#477): it
         // declares the word only for a shell variable of the command under the cursor,
         // `$${ARCH}`, and never for make's own `$(GO)`.
@@ -653,20 +1011,7 @@ impl App {
             if files.iter().any(|f| f.ends_with("__init__.py")) {
                 files.retain(|f| f.ends_with("__init__.py"));
             }
-            let found: Vec<Candidate> = files
-                .into_iter()
-                .map(|path| Candidate {
-                    reason: Reason::Module(path.display().to_string()),
-                    hit: Hit {
-                        text: self.text_of(&path).map_or_else(String::new, |t| {
-                            t.lines().next().unwrap_or_default().to_owned()
-                        }),
-                        path,
-                        line: 1,
-                        col: 0,
-                    },
-                })
-                .collect();
+            let found = self.module_candidates(files);
             (!found.is_empty()).then_some(found)
         };
         let (files, inside) = match kind {

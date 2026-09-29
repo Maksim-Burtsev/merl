@@ -2,6 +2,8 @@
 //! reason a candidate is offered under.
 
 use super::*;
+use regex::Regex;
+use std::path::{Path, PathBuf};
 
 /// How `d` found a declaration. Every step that narrows the search adds a variant here; the
 /// status line and the picker rows print it, so a guess never passes for a resolution.
@@ -116,17 +118,36 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         // the assignment rule is not anchored at column zero as Python's is, and it takes the
         // `@`/`@@` of an instance or class variable with it. The Rails-style DSL (`scope`,
         // `has_many`, `define_method`) has no rule.
-        Kind::Ruby => vec![
-            // A method: `def name`, `def self.name`, `def Klass.name`, and the `name=` setter.
-            format!(r"^\s*def\s+(?:self\.|[A-Z]\w*\.)?{w}\b"),
-            format!(r"^\s*(?:class|module)\s+(?:[\w:]+::)?{w}\b"),
-            // An assignment, `||=` included; `==`, `=~` and `=>` are not one.
-            format!(r"^\s*@{{0,2}}{w}\s*(?:\|\|)?=($|[^=~>])"),
-            // The reader and writer methods a class declares for its attributes, wherever the
-            // name sits in the list.
-            format!(r"^\s*attr_(?:accessor|reader|writer)\s+(?:[:\w]+\s*,\s*)*:{w}\b"),
-            format!(r"^\s*alias(?:_method)?\s+:?{w}\b"),
-        ],
+        // `name?`, `name!` and the setter `name=` are methods of their own (#387): the word
+        // carries its suffix, and a bare `name` is none of them.
+        Kind::Ruby => {
+            let end = r"(?:[^\w?!=]|$)";
+            let method = vec![
+                // A method: `def name`, `def self.name`, `def Klass.name`.
+                format!(r"^\s*def\s+(?:self\.|[A-Z]\w*\.)?{w}{end}"),
+                format!(r"^\s*alias(?:_method)?\s+:?{w}{end}"),
+            ];
+            let attr = |which: &str, name: &str| {
+                format!(r"^\s*attr_(?:accessor|{which})\s+(?:[:\w]+\s*,\s*)*:{name}\b")
+            };
+            match word.strip_suffix('=') {
+                // The reader and writer methods a class declares for its attributes, wherever
+                // the name sits in the list.
+                Some(name) => [method, vec![attr("writer", &regex::escape(name))]].concat(),
+                None if word.ends_with(['?', '!']) => method,
+                None => [
+                    method,
+                    vec![
+                        // `class A::B` declares `B`, not `A`.
+                        format!(r"^\s*(?:class|module)\s+(?:[\w:]+::)?{w}(?:[^\w:]|$)"),
+                        // An assignment, `||=` included; `==`, `=~` and `=>` are not one.
+                        format!(r"^\s*@{{0,2}}{w}\s*(?:\|\|)?=($|[^=~>])"),
+                        attr("reader", &w),
+                    ],
+                ]
+                .concat(),
+            }
+        }
         // C and C++ have no statements at the top level, so a line in column zero that is shaped
         // like a declaration is one — a definition, a prototype and a signature that wraps alike.
         // Indented, only a line that opens a body can be told from a call. An enum constant has no
@@ -144,10 +165,13 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"^[^;(){{}}=]*\w[\s*&]+{w}\s*\([^;{{}}]*\)[^;{{}}=]*\{{"),
                 // A type. What follows the name — the body, a base list, a `<` of a template
                 // specialization, a `;` or the end of the line — keeps the `struct dict *d;` that
-                // uses one out.
+                // uses one out. A nested type defined through its outer one, `struct Table::Rep {`,
+                // declares `Rep` (#368): the `:` of a `::` is no base list.
                 format!(
-                    r"^\s*{mods}(?:typedef\s+)?(?:struct|class|union|enum\s+class|enum\s+struct|enum|namespace)\s+{macros}{w}\s*(?:[:{{;<]|final\b|$)"
+                    r"^\s*{mods}(?:typedef\s+)?(?:struct|class|union|enum\s+class|enum\s+struct|enum|namespace)\s+{macros}(?:\w+(?:<[^<>]*>)?::)*{w}\s*(?:[{{;<]|:(?:[^:]|$)|final\b|$)"
                 ),
+                // A nested namespace, `namespace outer::inner {`, opens every name on its path.
+                format!(r"^\s*(?:inline\s+)?namespace\s+(?:\w+::)*{w}\s*::"),
                 // `typedef unsigned long ull;`, `typedef int (*cb)(void);`, and the name a
                 // `typedef struct { … } client;` closes with, whose brace is in column zero: an
                 // indented one closes a nested anonymous struct, and that name is a field.
@@ -305,6 +329,23 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"{mods}(?:const|var)\s+{w}\b"),
             ]
         }
+        // Protocol Buffers declares with a keyword, or with the `= N` of a number a message or an
+        // enum gives each name. A field writes its type before the name and an enum value none.
+        // An `extend` adds fields to a message declared elsewhere, as a Rust `impl` is a use of
+        // its type, and an `option` sets a string, a bool or a name.
+        // ponytail: `option x = 1;` would read as a field `x`; no option protoc knows takes a
+        // number, and a custom one is `(x)`, so no rule tells them apart.
+        Kind::Proto => vec![
+            format!(r"^\s*(?:message|enum|service|oneof)\s+{w}\s*(?:\{{|$)"),
+            // Braces or not, `stream` arguments too: the name and the `(` of the argument.
+            format!(r"^\s*rpc\s+{w}\s*\("),
+            format!(r"^\s*{w}\s*=\s*-?\d"),
+            // `string id = 1;`, `repeated Order orders = 2;`, `map<string, int32> counts = 3;`,
+            // `.shop.v1.User owner = 4;`.
+            format!(
+                r"^\s*(?:(?:repeated|optional|required)\s+)?(?:map\s*<[^>]*>|\.?[A-Za-z_][\w.]*)\s+{w}\s*=\s*\d"
+            ),
+        ],
         // A function in either form, an assignment behind the declaration keywords that can
         // precede it (`+=` appends to one), or an alias. A shell has no declaration for the rest,
         // so a `$w` use or a `[ "$w" = x ]` test must not look like one.
@@ -342,7 +383,346 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"(^|\s)&{w}(\s|$)"),
             format!(r"^\s*\.?{w}:\s*(#.*)?$"),
         ],
+        // A link is followed before any pattern is asked for (#421); a heading is prose.
+        Kind::Markdown => Vec::new(),
+        // A definition of the type system, an operation or a fragment starts its line. `extend
+        // type X {` is a use of `X`, as a Rust `impl` is. The indented rule is a field, one whose
+        // arguments wrap included, or an enum value, and so is every selection of an operation:
+        // [`declares_where`] keeps only the lines directly inside a type, an interface, an input
+        // or an enum.
+        Kind::Graphql => vec![
+            format!(
+                r"^(?:type|interface|input|enum|union|scalar|fragment|query|mutation|subscription)\s+{w}\b"
+            ),
+            format!(r"^directive\s+@{w}\b"),
+            format!(r"^\s+{w}\s*(?:[:(@#,]|$)"),
+        ],
     }
+}
+/// Of the C and C++ candidates for `word` found by name, the ones that are the type itself
+/// (#368), when a type line is among them:
+/// - a forward declaration at namespace scope (`class X;`) yields to the one body of `X`; one
+///   inside a class body declares a nested type and stays, and two bodies keep every row;
+/// - a constructor or destructor (`X::X(`, `explicit X(` in the class) is not the type, unless
+///   the word under the cursor is `construction`, called or braced;
+/// - C's `typedef struct X { … } X;` is one type: a bare `X` lands on the `} X;` line, the
+///   `tag` `struct X` on the opening one.
+///
+/// The caller runs it only where a type can be meant: never behind `.` or `->` (#359).
+pub fn c_type_rows(
+    word: &str,
+    hits: Vec<Hit>,
+    text_of: impl Fn(&Path) -> Option<String>,
+    construction: bool,
+    tag: bool,
+) -> Vec<Hit> {
+    let (w, mods, macros) = (regex::escape(word), c_mods!(), c_mods!(macros));
+    let ty = format!(
+        r"^\s*{mods}(?:typedef\s+)?(?:struct|class|union|enum\s+class|enum\s+struct|enum)\s+{macros}(?:\w+(?:<[^<>]*>)?::)*{w}\s*"
+    );
+    let re = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let forward = re(format!(r"{ty}(?::[^:{{;][^{{;]*)?;"));
+    let body = re(format!(r"{ty}(?:[{{<]|:(?:[^:]|$)|final\b|$)"));
+    let ctor = re(format!(
+        r"\b{w}(?:<[^;()]*>)?::~?{w}\s*\(|^\s+(?:(?:explicit|constexpr|consteval|inline)\s+)*~?{w}\s*\("
+    ));
+    let opens = re(format!(
+        r"^\s*typedef\s+(?:struct|union|enum)\s+{macros}{w}\s*(?:\{{[^}}]*)?$"
+    ));
+    let closes = re(format!(r"^\}}\s*[\w\s,*]*\b{w}\s*[,;]"));
+    let is_body = |h: &Hit| body.is_match(&h.text) && !forward.is_match(&h.text);
+    let typed = |h: &Hit| forward.is_match(&h.text) || body.is_match(&h.text);
+    if !hits.iter().any(|h| typed(h) || closes.is_match(&h.text)) {
+        return hits;
+    }
+    let one_body = hits.iter().filter(|h| is_body(h)).count() == 1;
+    // `typedef struct X {` and the `} X;` after it in the same file: the one of the pair to drop.
+    let paired: Vec<(PathBuf, usize)> = hits
+        .iter()
+        .filter(|o| opens.is_match(&o.text))
+        .filter_map(|o| {
+            let close = hits
+                .iter()
+                .filter(|c| c.path == o.path && c.line > o.line && closes.is_match(&c.text))
+                .min_by_key(|c| c.line)?;
+            Some(match tag {
+                true => (close.path.clone(), close.line),
+                false => (o.path.clone(), o.line),
+            })
+        })
+        .collect();
+    hits.into_iter()
+        .filter(|h| {
+            if paired.iter().any(|(p, l)| *p == h.path && *l == h.line) {
+                return false;
+            }
+            if !construction && ctor.is_match(&h.text) && !typed(h) {
+                return false;
+            }
+            !(one_body
+                && forward.is_match(&h.text)
+                && !text_of(&h.path).is_some_and(|t| in_class_body(&t, h.line)))
+        })
+        .collect()
+}
+/// Whether 1-based `line` of a C++ `text` sits in a class, struct or union body: the nearest line
+/// above indented less, past blanks, comments, directives and access specifiers, opens one.
+fn in_class_body(text: &str, line: usize) -> bool {
+    static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:template\s*<.*>\s*)?(?:class|struct|union)\b[^;]*$").unwrap()
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(depth) = line
+        .checked_sub(1)
+        .and_then(|k| lines.get(k))
+        .map(|l| indent(l))
+    else {
+        return false;
+    };
+    lines[..line - 1]
+        .iter()
+        .rev()
+        .filter(|l| {
+            let t = l.trim();
+            !t.is_empty()
+                && t != "{"
+                && !t.starts_with(['#', '/', '*'])
+                && !matches!(t, "public:" | "private:" | "protected:")
+        })
+        .find(|l| indent(l) < depth)
+        .is_some_and(|l| CLASS.is_match(l))
+}
+/// Of the C and C++ candidates for `word` found by name, the ones the file `here` can see (#364).
+/// A source file (`.c`, `.cc`, `.cpp`, `.cxx`) is compiled alone, so what another one declares
+/// `static` at file scope, with `#define` or inside an unnamed `namespace {` is visible in no
+/// other file: those rows go, unless `here` `#include`s that file or that file `#include`s
+/// `here`. A header's rows stay, as do types (an opaque struct's body lives in one source
+/// file). In `here` itself a file-scope `static` hides every other declaration of the name, so
+/// it is the answer — unless the cursor stands `on` a candidate, where the others are offered as
+/// namesakes.
+pub fn c_file_local(
+    word: &str,
+    here: &Path,
+    here_text: &str,
+    hits: Vec<Hit>,
+    text_of: impl Fn(&Path) -> Option<String>,
+    on: bool,
+) -> Vec<Hit> {
+    static INCLUDE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r#"^\s*#\s*include\s*"([^"]+)""#).unwrap());
+    static STATIC: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^(?:inline\s+)?static\b").unwrap());
+    static DEFINE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*#\s*define\b").unwrap());
+    let (w, macros) = (regex::escape(word), c_mods!(macros));
+    let ty = Regex::new(&format!(
+        r"\b(?:struct|class|union|enum)\s+{macros}{w}\b|^\s*typedef\b"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let local = |h: &Hit| STATIC.is_match(&h.text) && !ty.is_match(&h.text);
+    if !on && hits.iter().any(|h| h.path == here && local(h)) {
+        return hits
+            .into_iter()
+            .filter(|h| h.path == here && local(h))
+            .collect();
+    }
+    let included: Vec<&str> = here_text
+        .lines()
+        .filter_map(|l| INCLUDE.captures(l).and_then(|c| c.get(1)))
+        .map(|m| m.as_str())
+        .collect();
+    let source = |p: &Path| {
+        p.extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| matches!(e, "c" | "cc" | "cpp" | "cxx"))
+    };
+    // The X-macro idiom: a source file that `#define`s a name and then `#include`s `here` hands
+    // it what it declares. A quoted include is looked up next to the file first, so a namesake
+    // there is the one it means (hiredis's `async.c` includes its own `dict.c`, not redis's).
+    let includes_here = |file: &Path, t: &str| {
+        let dir = file.parent().unwrap_or(Path::new(""));
+        t.lines()
+            .filter_map(|l| INCLUDE.captures(l).and_then(|c| c.get(1)))
+            .any(|m| {
+                let next = dir.join(m.as_str());
+                next == here || here.ends_with(m.as_str()) && text_of(&next).is_none()
+            })
+    };
+    hits.into_iter()
+        .filter(|h| {
+            if h.path == here || !source(&h.path) || included.iter().any(|i| h.path.ends_with(i)) {
+                return true;
+            }
+            let text = text_of(&h.path);
+            if text.as_deref().is_some_and(|t| includes_here(&h.path, t)) {
+                return true;
+            }
+            if DEFINE.is_match(&h.text) {
+                return false;
+            }
+            ty.is_match(&h.text)
+                || !local(h) && !text.is_some_and(|t| in_unnamed_namespace(&t, h.line))
+        })
+        .collect()
+}
+/// Whether 1-based `line` of a C++ `text` sits inside an unnamed `namespace {`, by the braces
+/// above it outside strings and comments.
+fn in_unnamed_namespace(text: &str, line: usize) -> bool {
+    static UNNAMED: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*namespace\s*(?:\{|$)").unwrap());
+    let literal = literal_lines(Kind::C, text);
+    let (mut open, mut unnamed) = (Vec::new(), false);
+    for (i, l) in text.lines().enumerate().take(line.saturating_sub(1)) {
+        if literal.get(i).copied().unwrap_or(false) {
+            continue;
+        }
+        unnamed |= UNNAMED.is_match(l);
+        for (_, c) in code(Kind::C, l) {
+            match c {
+                b'{' => {
+                    open.push(unnamed);
+                    unnamed = false;
+                }
+                b'}' => {
+                    open.pop();
+                }
+                _ => {}
+            }
+        }
+    }
+    open.contains(&true)
+}
+/// Whether the C line `line` of `text` defines `word` only where nothing else does: a
+/// `#define word` right under `#ifndef word` or `#if !defined(word)` (#364).
+pub fn c_fallback(text: &str, line: usize, word: &str) -> bool {
+    let w = regex::escape(word);
+    let re = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let define = re(format!(r"^\s*#\s*define\s+{w}\b"));
+    let guard = re(format!(
+        r"^\s*#\s*(?:ifndef\s+{w}\b|if\s+!\s*defined\s*\(?\s*{w}\b)"
+    ));
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
+        return false;
+    };
+    define.is_match(lines[k])
+        && lines[..k]
+            .iter()
+            .rev()
+            .find(|l| {
+                let t = l.trim();
+                !t.is_empty() && !t.starts_with("//") && !t.starts_with("/*") && !t.starts_with('*')
+            })
+            .is_some_and(|l| guard.is_match(l))
+}
+/// A C parameter as its type alone, to tell a prototype of a function from an overload:
+/// `const char *name = "x"` is `constchar*`. The name is the last word after another word, a `*`
+/// or a `&`, unless it is a word of a built-in type (`unsigned long`). A type written in a way
+/// this misreads only keeps a picker.
+fn c_param_type(p: &str) -> String {
+    static NAME: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"[\w*&\s]\b([A-Za-z_]\w*)\s*$").unwrap());
+    let mut p = p.split('=').next().unwrap_or(p).trim();
+    while let Some(open) = p.strip_suffix(']').and_then(|q| q.rfind('[')) {
+        p = p[..open].trim_end();
+    }
+    let builtin = [
+        "int", "char", "short", "long", "float", "double", "void", "signed", "unsigned", "bool",
+    ];
+    let p = match NAME.captures(p).and_then(|c| c.get(1)) {
+        Some(name) if !builtin.contains(&name.as_str()) => &p[..name.start()],
+        _ => p,
+    };
+    p.split_whitespace().collect()
+}
+/// When the C or C++ candidates for `word` are one function — its definition and its prototypes,
+/// all taking the same parameters — or one variable — its definition and its `extern`
+/// declarations — the index of the one definition, and what was set aside for the status line:
+/// `1 definition, 2 prototypes` (#364). `None` for anything else: overloads, two definitions
+/// (`#if` / `#else` variants), a macro, a type.
+pub fn c_one_definition(
+    word: &str,
+    hits: &[Hit],
+    text_of: impl Fn(&Path) -> Option<String>,
+) -> Option<(usize, String)> {
+    let w = regex::escape(word);
+    let re = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let call = re(format!(r"\b{w}\s*\("));
+    let global = re(format!(
+        r"^\w[^;(){{}}=<>]*[\s*&]{w}\s*(?:\[[^\]]*\])*\s*(?:=[^=]|;)"
+    ));
+    let macros = c_mods!(macros);
+    let other = re(format!(
+        r"^\s*#|\b(?:struct|class|union|enum|namespace)\s+{macros}{w}\b|^\s*(?:typedef|using)\b"
+    ));
+    if hits.len() < 2 || hits.iter().any(|h| other.is_match(&h.text)) {
+        return None;
+    }
+    // Per candidate: the parameters it takes (`None` for a variable), and whether it defines.
+    let mut shapes = Vec::new();
+    for h in hits {
+        shapes.push(match call.find(&h.text) {
+            Some(m) => {
+                let text = text_of(&h.path)?;
+                let s: String = text
+                    .lines()
+                    .skip(h.line - 1)
+                    .take(30)
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let open = m.end() - 1;
+                let close = close_of(Kind::C, &s, open)?;
+                let inner = &s[open + 1..close - 1];
+                let params: Vec<String> = match inner.trim() {
+                    "" | "void" => Vec::new(),
+                    _ => split_top(Kind::C, inner, b',')
+                        .into_iter()
+                        .map(c_param_type)
+                        .collect(),
+                };
+                let body = code(Kind::C, &s[close..])
+                    .find(|(_, c)| matches!(c, b'{' | b';'))
+                    .is_some_and(|(_, c)| c == b'{');
+                (Some(params), body)
+            }
+            None if global.is_match(&h.text) => (None, !h.text.starts_with("extern")),
+            None => return None,
+        });
+    }
+    if shapes.iter().any(|(p, _)| *p != shapes[0].0) {
+        return None;
+    }
+    let mut defs = shapes.iter().enumerate().filter(|(_, (_, body))| *body);
+    let (Some((at, _)), None) = (defs.next(), defs.next()) else {
+        return None;
+    };
+    let n = hits.len() - 1;
+    let what = match (shapes[0].0.is_some(), n) {
+        (true, 1) => "prototype",
+        (true, _) => "prototypes",
+        (false, 1) => "declaration",
+        (false, _) => "declarations",
+    };
+    Some((at, format!("1 definition, {n} {what}")))
+}
+/// Whether `word` is a parameter of the C function 1-based `line` of `text` stands in: named
+/// after the `(` of the nearest line above in column zero that opens no brace of its own, as
+/// a function's header does, the return type on the line above or not. The rules read no C
+/// parameter yet (#378), and one definition must not hide that a parameter was meant.
+pub fn c_parameter(text: &str, line: usize, word: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
+        return false;
+    };
+    lines[..=k]
+        .iter()
+        .rev()
+        .find(|l| {
+            l.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+                && !l.trim_end().ends_with(';')
+        })
+        .and_then(|l| l.split_once('('))
+        .is_some_and(|(_, params)| names(params, word))
 }
 /// [`member_patterns`] and, in Go, the method lines of an interface, which carry no receiver:
 /// every form in which a type declares a member called `word`.
@@ -415,12 +795,15 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Lua
         | Kind::Elixir
         | Kind::Zig
+        | Kind::Proto
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
         | Kind::Docker
-        | Kind::Yaml => return None,
+        | Kind::Yaml
+        | Kind::Markdown
+        | Kind::Graphql => return None,
     })
 }
 /// Line patterns that can declare `word` as a field, for the search by name: more than the fields,
@@ -469,27 +852,69 @@ fn terraform_patterns(address: &str) -> Vec<String> {
     };
     vec![pattern]
 }
+/// Whether a line a pattern of [`def_patterns`] for `word` matched, 1-based `line` of a file of
+/// `kind` whose text is `line_text`, declares the word where it sits. Every consumer of the
+/// patterns asks it, so `d` and `u` agree on what declares (#419). Where the line alone cannot
+/// tell, the lines above it can: a Terraform local is `x = ...` directly inside `locals { }`,
+/// as every other attribute is inside its block, and an indented GraphQL line is a field or an
+/// enum value directly inside a type and a selection anywhere else. `lines` reads the file, and
+/// only for those.
+pub fn declares_where<'a, S: AsRef<str> + 'a>(
+    kind: Kind,
+    word: &str,
+    line: usize,
+    line_text: &str,
+    lines: impl FnOnce() -> &'a [S],
+) -> bool {
+    match kind {
+        Kind::Graphql => !line_text.starts_with([' ', '\t']) || graphql_member(lines(), line),
+        _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
+    }
+}
 /// The block a definition of `word` has to sit directly inside, when its line pattern cannot
 /// tell on its own: a Terraform local is `x = ...` inside `locals { }`, and so is every other
 /// attribute.
 pub fn def_block(kind: Kind, word: &str) -> Option<&'static str> {
     (kind == Kind::Terraform && word.starts_with("local.")).then_some("locals")
 }
-/// Whether 1-based `line` of `text` sits directly inside a block whose first line starts with
+/// Whether 1-based `line` of `lines` sits directly inside a block whose first line starts with
 /// `opener`: the nearest non-blank line above it that is indented less. `terraform fmt` indents
 /// every block, so the indentation is the nesting.
-pub fn directly_inside(text: &str, line: usize, opener: &str) -> bool {
-    let lines: Vec<&str> = text.lines().collect();
-    let indent = |s: &str| s.len() - s.trim_start().len();
+pub fn directly_inside<S: AsRef<str>>(lines: &[S], line: usize, opener: &str) -> bool {
     let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
         return false;
     };
+    let depth = indent(target.as_ref());
     lines[..line - 1]
         .iter()
+        .map(AsRef::as_ref)
         .rev()
-        .find(|l| !l.trim().is_empty() && indent(l) < indent(target))
+        .find(|l| !l.trim().is_empty() && indent(l) < depth)
         .is_some_and(|l| l.trim_start().starts_with(opener))
 }
+/// Whether 1-based `line` of `lines`, a GraphQL file, declares a field or an enum value: the
+/// nearest line above it indented less, past blanks and `#` comments, opens a `type`, an
+/// `interface`, an `input` or an `enum`, or an `extend` of one, which declares fields all the
+/// same. A selection of an operation or a fragment is the same line one level down elsewhere.
+pub fn graphql_member<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
+    static OPENER: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"^(?:extend\s+)?(?:type|interface|input|enum)\s").unwrap()
+    });
+    let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return false;
+    };
+    let depth = indent(target.as_ref());
+    lines[..line - 1]
+        .iter()
+        .map(AsRef::as_ref)
+        .rev()
+        .find(|l| {
+            let t = l.trim_start();
+            !t.is_empty() && !t.starts_with('#') && indent(l) < depth
+        })
+        .is_some_and(|l| OPENER.is_match(l))
+}
+
 /// Line patterns that set the Makefile variable `word` only in addition or for some targets:
 /// `X += …`, which make reads as `=` on a variable nothing set before, and a target-specific
 /// `release: X := 1.0`, behind `override`, `export` or `private`. Its targets are words and

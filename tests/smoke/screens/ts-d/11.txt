@@ -1,0 +1,57 @@
+wait module web/src/orders/ShipmentParts.graphql
+1 fragment ShipmentParts on Shipment {
+2   id
+3   carrier
+4   status
+5 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/src/orders/ShipmentParts.graphql  1:1  [code]  ./ShipmentParts.graphql: module web/src/orders/ShipmentParts.graphql
+cursor (x,y,shown) 2,0,1

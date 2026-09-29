@@ -14,7 +14,7 @@ class Basket : public Priced {
 
  private:
   Tariff tariff_{1};
-//^ d: picker include/shop/forward.hh:4, include/shop/offers.hh:8, include/shop/offers.hh:10; want include/shop/offers.hh:8 (#368)
+//^ d: include/shop/offers.hh:8
   Coupon coupon_;
 //^ d: include/shop/offers.hh:18
 };
@@ -54,7 +54,7 @@ int weight() {
   return rnd.rate() + shop::Basket(rnd).price();
   //     ^ d: none; want src/checkout.cc:53 (#378)
   //                  ^ d: picker src/checkout.cc:5, …
-  //                        ^ d: picker src/checkout.cc:7, src/offers.cc:8; want src/checkout.cc:7 (#465)
+  //                        ^ d: src/checkout.cc:7
 }
 
 }  // namespace shop

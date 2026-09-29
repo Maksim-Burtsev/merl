@@ -1,0 +1,18 @@
+"""
+A parcel on its way to the customer.
+"""
+type Shipment {
+  id: ID!
+  carrier: String!
+  status: ShipmentStatus!
+}
+
+enum ShipmentStatus {
+  PACKED
+  SENT
+  DELIVERED
+}
+
+type Query {
+  shipment(id: ID!): Shipment
+}

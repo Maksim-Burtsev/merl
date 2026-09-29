@@ -59,3 +59,11 @@ wait scripts/grant_admin.py  5:23
 key Left Enter Delete Escape
 wait 5▎    token = "abcdef"
 run python3 -c "d = open('scripts/grant_admin.py').read(); assert 'token = \"abcdef\"' in d and '‮' in d, d"
+# `d` on a Markdown link opens the file at the heading it names (#421).
+merl docs/notes.md
+wait # Release notes for the support team
+key /
+type README
+key Enter
+key d
+wait link README.md#orders

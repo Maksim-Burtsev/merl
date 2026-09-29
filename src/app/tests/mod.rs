@@ -21,6 +21,7 @@ mod navigate_go;
 mod navigate_python;
 mod navigate_reason;
 mod navigate_receiver;
+mod navigate_rust;
 mod navigate_syntax;
 mod open;
 mod picker;

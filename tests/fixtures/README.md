@@ -175,7 +175,7 @@ The Python, TypeScript and Go projects above keep their lines, since the `naviga
 pin them, so their annotated cases are a package of their own inside them: `python/shop/`,
 `typescript/shop/`, `go/shop/` and `go/cart/`. Every other kind has a directory of its own
 (`rust/`, `jvm/`, `ruby/`, `c/`, `csharp/`, `swift/`, `php/`, `lua/`, `elixir/`, `zig/`, `shell/`,
-`sql/`, `make/`, `terraform/`, `docker/`, `yaml/`). Each is one small shop (a `Tariff` and a `Coupon` sharing `rate` and
+`sql/`, `make/`, `terraform/`, `docker/`, `yaml/`, `graphql/`, `proto/`). Each is one small shop (a `Tariff` and a `Coupon` sharing `rate` and
 `describe`, a `Courier`, `discount`, `weigh`, a basket that uses them) holding:
 
 - two types sharing a method name, an import inside the project (aliased, of a module, of a
@@ -203,8 +203,25 @@ declaration, and a heredoc or a block scalar holding a declaration-shaped line: 
 there are the known misses of #436, and the globs inside quotes (`"parcels/*"`, `["src/**/*.rs"]`)
 guard what already works.
 
+`markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
+`docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
+a setext one, backticks and punctuation, an `<a id>`), code spans naming files (`mod.rs` is
+carried by two), and links in a fence, a comment and the front matter. Its annotations start
+with `#`, which Markdown reads as a heading: a `#^` right under a line is no heading but text, so
+a reference definition below one needs a blank line to start its own block.
+
+`graphql/` (#419) is a schema over two files and operations over two more: fields and enum values
+beside selections, aliases and arguments of the same names, an `extend type`, a `"""` description
+holding a type, fragment spreads and an `#import`.
+
+`proto/` lays its files out under a proto root, `proto/shop/v1/`, as buf does, with the well-known
+types a project vendors under `third_party/`: its imports name paths from those roots, never from
+the importing file. `shop.v1` and `billing.v1` each declare a `Money`, used unqualified and
+qualified by each package, `.shop.v1.` absolute and `v1.` relative among them.
+
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
-`deps/jason` added with `git add -f`: a dependency the project walk does not reach (#437).
+`deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
+the project walk does not reach, one whose module is no path and two declaring one name (#437).
 
 ### Adding a kind
 

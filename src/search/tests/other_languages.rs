@@ -269,8 +269,8 @@ fn elixir_def_patterns_find_every_def_form() {
     assert_eq!(d("Jason"), Vec::<usize>::new());
     assert_eq!(d("guard"), [49], "`defmacrop`, past the trailing `!`");
     assert_eq!(d("is_even"), [50], "`defguardp`");
-    // A name Elixir spells with a trailing `?` or `!` is found from the bare word, as
-    // Ruby's is: the cursor on `empty` in `empty?(rows)` reaches `def empty?`.
+    // A name Elixir spells with a trailing `?` or `!` is found from the bare word: the cursor
+    // on `empty` in `empty?(rows)` reaches `def empty?`. Ruby's keeps its suffix (#387).
     assert_eq!(d("empty"), [52]);
     assert_eq!(d("put"), [53]);
     // ExUnit's and Mix's attributes are directives too, so `d` on one has nothing to find
@@ -295,6 +295,44 @@ fn elixir_heredocs_hide_what_they_hold() {
     );
 }
 
+/// #437. The `deps/` beside each `mix.exs` from the file up to the root, nearest first: an
+/// umbrella app has none of its own and reads the umbrella's, and nothing above the root counts.
+#[test]
+fn mix_deps_are_those_beside_a_mix_exs_from_the_file_up() {
+    let dir = std::env::temp_dir().join(format!("merl-mix-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let root = dir.join("project");
+    for d in [
+        "deps",
+        "project/deps",
+        "project/apps/shop/lib",
+        "project/apps/web/deps",
+        "project/apps/web/lib",
+        "project/tools/deps",
+    ] {
+        std::fs::create_dir_all(dir.join(d)).unwrap();
+    }
+    for f in [
+        "mix.exs",
+        "project/mix.exs",
+        "project/apps/shop/mix.exs",
+        "project/apps/web/mix.exs",
+    ] {
+        std::fs::write(dir.join(f), "").unwrap();
+    }
+    assert_eq!(
+        mix_deps(&root, &root.join("apps/shop/lib")),
+        [root.join("deps")]
+    );
+    assert_eq!(
+        mix_deps(&root, &root.join("apps/web/lib")),
+        [root.join("apps/web/deps"), root.join("deps")]
+    );
+    // A `deps` with no `mix.exs` beside it is some other directory.
+    assert_eq!(mix_deps(&root, &root.join("tools")), [root.join("deps")]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 #[test]
 fn elixir_scope_roots_and_names() {
     let here = Path::new("lib/my_app/ledger.ex");
@@ -304,8 +342,8 @@ fn elixir_scope_roots_and_names() {
         Path::new("test/ledger_test.exs")
     ));
     assert!(!in_def_scope(Kind::Elixir, here, Path::new("mix.lock")));
-    // `alias` and `import` bind names, but `mix` puts the dependencies in `deps/` inside the
-    // project, so they are project files already and there is no root to leave for.
+    // `alias` and `import` bind no path, and the machine holds no Elixir source to leave for:
+    // the dependencies are the project's `deps/`, [`mix_deps`].
     assert!(imports(Kind::Elixir, EX).is_empty());
     assert!(external_roots(Kind::Elixir, Path::new("/")).is_empty());
     assert!(member_patterns(Kind::Elixir, "parse").is_none());
@@ -583,6 +621,63 @@ fn zig_symbol_names() {
     }
 }
 
+#[test]
+fn proto_symbol_names() {
+    let proto = |line| one(Kind::Proto, line);
+    for (line, name) in [
+        ("message Tariff {", Some("Tariff")),
+        ("  message Band {", Some("Band")),
+        ("enum Channel {", Some("Channel")),
+        ("service Couriers {", Some("Couriers")),
+        (
+            "  rpc Weigh(WeighRequest) returns (WeighReply);",
+            Some("Weigh"),
+        ),
+        // Once, not a second time from the shared pattern's `enum`.
+        ("  enum Kind {", Some("Kind")),
+        // A field, an enum value, a oneof and an extension stay off the list.
+        ("  string id = 1;", None),
+        ("  CHANNEL_POST = 1;", None),
+        ("  oneof target {", None),
+        ("extend google.protobuf.MessageOptions {", None),
+    ] {
+        assert_eq!(proto(line).as_deref(), name, "{line}");
+    }
+}
+
+#[test]
+fn proto_roots_are_where_protoc_installs_its_types() {
+    assert!(external_roots(Kind::Proto, Path::new("/")).iter().all(|r| {
+        [
+            "/opt/homebrew/include",
+            "/usr/local/include",
+            "/usr/include",
+        ]
+        .iter()
+        .any(|d| r == Path::new(d))
+    }),);
+    // Homebrew links `include/google` into the protobuf keg: the walk goes through the link.
+    let dir = std::env::temp_dir().join(format!("merl-ext-proto-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("keg/google/protobuf")).unwrap();
+    std::fs::create_dir_all(dir.join("include")).unwrap();
+    std::fs::write(dir.join("keg/google/protobuf/timestamp.proto"), "").unwrap();
+    std::fs::write(dir.join("keg/google/protobuf/timestamp.pb.h"), "").unwrap();
+    std::os::unix::fs::symlink(dir.join("keg/google"), dir.join("include/google")).unwrap();
+    assert_eq!(
+        external_files(Kind::Proto, &[dir.join("include")]),
+        [dir.join("include/google/protobuf/timestamp.proto")]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    // The text format is data, and declares nothing.
+    assert_eq!(kind_of(Path::new("shop/v1/user.proto")), Some(Kind::Proto));
+    assert_eq!(kind_of(Path::new("testdata/user.textproto")), None);
+    assert_eq!(kind_of(Path::new("testdata/user.pbtxt")), None);
+    // Strings end with their line: a backtick in a comment opens nothing.
+    let text = "// run `buf generate\nmessage Tariff {\n}\n";
+    assert!(literal_lines(Kind::Proto, text).iter().all(|l| !l));
+}
+
 const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
 
 #[test]
@@ -743,11 +838,12 @@ fn terraform_def_patterns_resolve_the_address() {
     assert_eq!(d("local.name"), [5, 7]);
     assert_eq!(def_block(Kind::Terraform, "local.name"), Some("locals"));
     assert_eq!(def_block(Kind::Terraform, "var.name"), None);
-    assert!(directly_inside(TF, 5, "locals"));
-    assert!(!directly_inside(TF, 7, "locals"), "nested in `tags`");
-    assert!(!directly_inside(TF, 11, "locals"));
-    assert!(!directly_inside(TF, 1, "locals"));
-    assert!(!directly_inside(TF, 0, "locals"));
+    let lines: Vec<&str> = TF.lines().collect();
+    assert!(directly_inside(&lines, 5, "locals"));
+    assert!(!directly_inside(&lines, 7, "locals"), "nested in `tags`");
+    assert!(!directly_inside(&lines, 11, "locals"));
+    assert!(!directly_inside(&lines, 1, "locals"));
+    assert!(!directly_inside(&lines, 0, "locals"));
     assert!(def_patterns(Kind::Terraform, "each.key").is_empty());
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -908,4 +1004,106 @@ fn a_glob_or_a_lone_backtick_opens_nothing_in_the_kinds_without_them() {
             found(15)
         ]
     );
+}
+
+const GRAPHQL: &str = r#""""
+A person.
+type Ghost {
+'''
+"""
+type User implements Node @key(fields: "id") {
+  id: ID!
+  email: String!
+  posts(
+    first: Int
+  ): [Post!]!
+}
+
+extend type User {
+  karma: Int
+}
+
+enum Status {
+  ACTIVE
+  BANNED @deprecated(reason: "spam")
+}
+
+input UserInput {
+  email: String
+}
+
+scalar DateTime
+union Found = User | Post
+directive @auth(requires: Status) on FIELD_DEFINITION
+
+query GetUser($id: ID!) {
+  user(id: $id) {
+    email
+    first: posts(first: 1) {
+      id
+    }
+  }
+}
+'''
+type Late {
+  id: ID
+}
+"#;
+
+/// #419. The definitions start their line; a field, one whose arguments wrap, and an enum value
+/// are indented, directly inside a type, an interface, an input or an enum, an `extend` of one
+/// included. A selection, an alias, an argument, an `extend` line and a line of a `"""`
+/// description are none, and `'''` opens nothing.
+#[test]
+fn graphql_def_patterns_find_definitions_fields_and_enum_values() {
+    let (dir, files) = scratch("graphql", &[("schema.graphql", GRAPHQL)]);
+    let lines: Vec<&str> = GRAPHQL.lines().collect();
+    let literal = literal_lines(Kind::Graphql, GRAPHQL);
+    let d = |w| -> Vec<usize> {
+        defs(&dir, &files, Kind::Graphql, w)
+            .into_iter()
+            .filter(|&n| !literal[n - 1])
+            .filter(|&n| declares_where(Kind::Graphql, w, n, lines[n - 1], || &lines))
+            .collect()
+    };
+    assert_eq!(d("Ghost"), Vec::<usize>::new(), "inside a description");
+    assert_eq!(d("User"), [6], "not the `extend type`");
+    assert_eq!(
+        d("email"),
+        [8, 24],
+        "a field of a type and of an input, no selection"
+    );
+    assert_eq!(d("posts"), [9], "arguments wrapped");
+    assert_eq!(d("first"), Vec::<usize>::new(), "an argument, an alias");
+    assert_eq!(d("karma"), [15], "a field of an extension");
+    assert_eq!(d("ACTIVE"), [19]);
+    assert_eq!(d("BANNED"), [20]);
+    assert_eq!(d("Status"), [18]);
+    assert_eq!(d("UserInput"), [23]);
+    assert_eq!(d("DateTime"), [27]);
+    assert_eq!(d("Found"), [28]);
+    assert_eq!(d("auth"), [29]);
+    assert_eq!(d("GetUser"), [31]);
+    assert_eq!(d("user"), Vec::<usize>::new(), "a selection");
+    assert_eq!(d("Late"), [40], "`'''` is no block string");
+    assert_eq!(d("id"), [7, 41]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_graphql_import_is_the_path_under_the_cursor() {
+    let line = r#"#import "./UserParts.graphql""#;
+    assert_eq!(
+        graphql_import(line, 8),
+        Some("./UserParts.graphql"),
+        "on the quote"
+    );
+    assert_eq!(
+        graphql_import(line, 10),
+        Some("./UserParts.graphql"),
+        "on the `/`"
+    );
+    assert_eq!(graphql_import(line, 3), None, "on `import`");
+    assert_eq!(graphql_import("# import './a.gql'", 12), Some("./a.gql"));
+    assert_eq!(graphql_import(r#"  user # import "./a.gql""#, 20), None);
 }

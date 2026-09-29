@@ -17,7 +17,7 @@ same-named class in a test fake or another package is not a candidate. Python's
 `app/repos.py` or `app/repos/__init__.py`, at the root, under `src/` or deeper, but not inside
 another package. TypeScript's `./x` reads `x.ts`, `x.tsx`, `x.d.ts`, the JavaScript forms or
 `x/index.*` (`./x.js` finds `x.ts` too), and an alias such as `@/x` goes through the `paths` and
-`baseUrl` of the nearest `tsconfig.json` and the configs it extends. A named import finds that
+`baseUrl` of the nearest `tsconfig.json` (or `jsconfig.json`) and the configs it extends. A named import finds that
 name, aliased or not; a default import finds the declaration under its local name, or else the
 module's `export default`; `ns.x` behind `import * as ns` finds `x`. A Go import path below the
 `module` of a `go.mod` in the project is that package's directory. The word must be declared
@@ -76,18 +76,37 @@ zero binds `Str` to that path, since PSR-4 spells a namespace the way the file s
 indented `use` pulls in a trait and names no file. Zig's root is the `std_dir` its own `zig env`
 reports; its dependencies live in the global package cache under hashed directory names no source
 line spells out, so they are left out, and `const std = @import("std")` narrows nothing — `std` is
-that root, not a directory inside it. Lua has none to ask for, since `package.path` belongs to
+that root, not a directory inside it. Protocol Buffers has the `include` directories `protoc`
+installs its well-known types into — `/opt/homebrew/include`, `/usr/local/include` and
+`/usr/include` — walked through the links Homebrew puts there; buf's module cache keeps
+dependencies under hashed directories no import spells, and is left out. `d` on the path of an
+`import` (`public` and `weak` too) opens the file it names: the path is relative to a proto root,
+never to the importing file, so it is the project's file whose path ends with it — several are a
+picker — then the first root that has it. A qualified type is resolved as `protoc` resolves it:
+its first part in the file's own `package`, then in each package around it out to the root (a
+leading `.` starts there), so `v1.User` inside `package shop.v1` is `shop.v1.User`. The longest run
+of parts that is some files' `package` narrows the search to those files, `Timestamp: via
+google.protobuf`, and the parts after it are the messages the name is nested in; a qualifier that
+is no package is a nesting (`Outer.Inner`), looked for as `Outer.find` is. Lua has none to ask for, since `package.path` belongs to
 whatever interpreter embeds it and neither a Neovim runtime nor a LuaRocks tree is a standard
-library every project shares; Elixir needs none, since `mix` puts the dependencies and their
-sources in `deps/` inside the project, where they are project files already, and an installed
-standard library is `.beam` files rather than `.ex`. Java, Kotlin,
+library every project shares. Elixir has the `deps/` that `mix deps.get` fetches the
+dependencies into, as source, beside the `mix.exs` of the file's project or of the umbrella above
+it: `mix new` gitignores it, so it is outside the project walk the way `node_modules` is, and the
+picker shows it from the project root, `deps/jason/lib/jason.ex`. A module is no path
+(`Phoenix.LiveView` lives in `phoenix_live_view/lib/phoenix_live_view.ex`), so a qualifier such
+as `Jason` in `Jason.encode!` narrows the search to the file of `deps/` that declares
+`defmodule Jason`, else to the rest of its package, and that comes before a namesake the project
+declares; a qualifier no dependency declares, `Enum` or `String`, finds nothing outside, since an
+installed standard library is `.beam` files rather than `.ex`. Java, Kotlin,
 Ruby and the rest have no roots yet, so `d` stays inside the project for them. `d` on a Go package
 qualifier, `db` in `db.Get`, lands on the import line of the open file, `db: via import
 code.gitea.io/gitea/models/db`, unless a local or a top-level name of the package is called
 that, or the function mentions the name other than as a qualifier. A parameter has no
 declaration the rules know, nor has an enum variant unless its class declares it as a field (a
-Python `Enum` member, a TypeScript enum member with a value): `d` says so, and `u` lists every
-whole-word use of the identifier. On `x.field` the word is a member: in Python, TypeScript and Go
+Python `Enum` member, a TypeScript enum member with a value) or it is Rust's: `Mode::Auto` is the
+variant `Auto` of the `Mode` the project declares once, and a bare `Auto` is when a `use
+…::Mode::*;` of the function, else of the module, brings it in. Elsewhere `d` says so, and `u`
+lists every whole-word use of the identifier. On `x.field` the word is a member: in Python, TypeScript and Go
 the field of the type `x` is proven to have (below), else every method, property and field of
 that name, found by name.
 
@@ -128,10 +147,13 @@ What `d` does not claim, in Python, TypeScript and Go:
 - An imported name is looked up at the top of the module it comes from, outside the project as
   inside it, and a name imported from two modules (`try` / `except ImportError`) offers both.
 - A line inside a triple-quoted string — a Python docstring, an Elixir `@moduledoc` — a Go raw
-  string, a template literal, a Lua `[[ ]]` or `[==[ ]==]` long string or block comment, or a
-  `/* */` block declares nothing. Each language says which of those forms it has rather than
-  inheriting another's: Zig has none at all, since a `\\` string ends with its line, so the
-  markdown a `\\` block holds is read as the code it sits in.
+  string, a template literal, a Lua `[[ ]]` or `[==[ ]==]` long string or block comment, a Rust
+  string, raw (`r#"…"#`) or not, a Ruby heredoc (`<<~SQL`) or `=begin` block and what follows
+  `__END__`, a C++ raw string (`R"( … )"`, `u8R"sql( … )sql"`), or a `/* */` block declares
+  nothing. A word inside a Rust string names nothing either: `d` there says `no definition` at
+  once, save on the `{name}` a format string captures. Each language says which of those forms it
+  has rather than inheriting another's: Zig has none at all, since a `\\` string ends with its
+  line, so the markdown a `\\` block holds is read as the code it sits in.
 
 On `x.word`, `x.f.word` and longer chains in Python, TypeScript and Go, `d` first looks for the
 type of the receiver. `x` is `self` or `cls` in a method, `this` in a class, a Go method's
@@ -300,26 +322,30 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | Python | `def` and `async def`, `class`, module-level assignment (annotated or not); behind a dot, a field: `name: T` or `name = …` in a class body, `self.name = …` in a method | every `.py` file |
 | Go | `func` with or without a receiver, `type`, `var`/`const`, `:=`; behind a dot, a struct field or an embedded struct | every `.go` file |
 | TypeScript / JavaScript | `function`, `class`, `interface`, `type`, `enum`, `namespace`, `const`/`let`/`var` (so arrow functions assigned to a name), class and object-literal methods, properties holding a function, a method signature with a return type and no body (`find(id: string): User;` in an interface, an abstract class, an overload or a `.d.ts`), behind `export`/`default`/`declare`/`async` and the member modifiers; behind a dot, a field: a member `name: T;` or `name = …`, a constructor parameter behind a modifier, `this.name = …`. Destructuring and parameters have no rule. | every `.ts`, `.tsx`, `.js`, `.jsx` and friend: they search each other |
-| Rust | `fn`, `struct`, `enum`, `union`, `trait`, `type`, `const`, `static`, `mod`, `macro_rules!`, `let`, behind any `pub(..)`/`async`/`unsafe`/`const`/`extern`/`default` prefix. `impl` blocks count as uses. | every `.rs` file |
+| Rust | `fn`, `struct`, `enum`, `union`, `trait`, `type`, `const`, `static`, `mod`, `macro_rules!`, `let`, behind any `pub(..)`/`async`/`unsafe`/`const`/`extern`/`default` prefix, and an enum variant for `Enum::Variant` or behind a glob `use`. `impl` blocks count as uses. Behind a dot with no `(` after the word, a field: `name: T` in a `struct`, a `union` or a variant `Name {`, the project's, else the `pub` ones outside it. In an attribute, a derive is a `pub macro W` or a `#[proc_macro_derive(W`, the attribute's name a `pub macro W` or a `pub fn W` under `#[proc_macro_attribute]`, and a `cfg` predicate or a compiler attribute (`allow`, `repr`, `inline`, …) nothing. | every `.rs` file |
 | Java | `class`, `interface`, `enum`, `record`, `@interface`; a method, an abstract or interface method and a field, told from a call by the return type before the name — a primitive, or a name with a capital in it, as Java writes its types; a constructor, behind at least one modifier, since a bare `Name(x) {` is a call. Annotations and modifiers may stand in front of any of them. | every `.java`, `.kt` and `.kts` file: they search each other |
 | Kotlin | `fun` (with the receiver of an extension function), `class`, `interface`, `object`, `enum class`, `typealias`, `val`/`var`, behind `private`/`open`/`data`/`sealed`/`suspend`/`override` and the rest | every `.java`, `.kt` and `.kts` file: they search each other |
-| Ruby | `def`, `def self.name`, `class`, `module`, an assignment (a constant, an `@ivar`, a local), `attr_accessor`/`attr_reader`/`attr_writer`, `alias`/`alias_method`. A trailing `?` or `!` is not part of the word, so `d` on `empty?` finds `def empty?`. Rails-style DSL (`scope`, `has_many`) has no rule. | every `.rb`, `.rake`, `.gemspec`, `.podspec`, `.rbi`, `.ru` file and `Rakefile`, `Gemfile`, `Vagrantfile` and friends |
-| C / C++ | a function, a prototype and an out-of-line method (`Type::name(`) in column zero, where the languages have no statements, so a call is never one — the return type may sit on the line above, as GNU style writes it; a method or a function indented, when its body opens on the line; `struct`, `class`, `union`, `enum`, `enum class`, `namespace`, behind a template head, a storage specifier and an attribute or export macro (`struct __attribute__ ((__packed__)) sdshdr8`, `class FMT_API name`), a template specialization included; `typedef` in every form, `using x =`, `#define` (function-like too), a global. A header's prototype is offered next to the definition, in the picker's usual order, by path. An enum constant has no rule — `NAME,` in an `enum` body and in an initializer list are the same line — nor has a field, a local, a template parameter or a member function only declared inside its class. | every `.c`, `.h`, `.cc`, `.cpp`, `.cxx`, `.hpp`, `.hh` and `.hxx` file: they search each other |
+| Ruby | `def`, `def self.name`, `class`, `module`, an assignment (a constant, an `@ivar`, a local), `attr_accessor`/`attr_reader`/`attr_writer`, `alias`/`alias_method`. A trailing `?` or `!` is part of the word, so `d` on `empty?` finds `def empty?` and `d` on `empty` does not; `x.name = v` asks for the setter `name=`, which `def name=` and `attr_writer`/`attr_accessor :name` declare. `class A::B` declares `B` inside `A`, and `A::B` in code is a path, as `Outer.find` is. `Const.meth` is a class method: `def self.meth`, a `def` inside `class << self`, one of an `extend self` or `module_function` module, or of the `class_methods do` / `module ClassMethods` of a concern the class includes; `Const.new` finds its `initialize`. An instance method of the class is no answer, and when the class declares none the answer is "no definition", never a method of another class by name. Rails-style DSL (`scope`, `has_many`) has no rule. | every `.rb`, `.rake`, `.gemspec`, `.podspec`, `.rbi`, `.ru` file and `Rakefile`, `Gemfile`, `Vagrantfile` and friends |
+| C / C++ | a function, a prototype and an out-of-line method (`Type::name(`) in column zero, where the languages have no statements, so a call is never one — the return type may sit on the line above, as GNU style writes it; a method or a function indented, when its body opens on the line; `struct`, `class`, `union`, `enum`, `enum class`, `namespace`, behind a template head, a storage specifier and an attribute or export macro (`struct __attribute__ ((__packed__)) sdshdr8`, `class FMT_API name`), a template specialization included; `typedef` in every form, `using x =`, `#define` (function-like too), a global. One definition beats its prototypes (or a variable's `extern` declarations) when they take the same parameters, and the status says what was set aside (`add: by name, 1 definition, 1 prototype`); overloads and `#if` / `#else` variants stay a picker, and on the definition the prototype is offered. What another source file keeps to itself — a `static` at file scope, a `#define`, an unnamed `namespace {` — is not offered unless the file on screen `#include`s it, while a `static` of the file on screen is the answer there. A `#define X` under `#ifndef X` stands in only where nothing else declares `X`: the project's other declarations, else the system's, come first. A type lands on its body, not on its forward declarations and constructors, and `struct Outer::Inner {` declares `Inner`. An enum constant has no rule — `NAME,` in an `enum` body and in an initializer list are the same line — nor has a field, a local, a template parameter or a member function only declared inside its class. | every `.c`, `.h`, `.cc`, `.cpp`, `.cxx`, `.hpp`, `.hh` and `.hxx` file: they search each other |
 | C# | `class`, `struct`, `interface`, `enum`, `record`, `record class`, `record struct`, `delegate`, past the generic parameters they declare and behind `[Attribute]` lists and any modifiers (`public sealed partial class Foo<T>`); a `namespace`, under its last part; a `using x =` alias; a constructor, behind at least one access modifier, since a bare `Invoice(n)` is a call; and a method, a property, an event, a field or a local, told from a call by the type before the name — a predefined one, `var`, or a name with a capital in it, as C# names its types — so `public int X { get; }`, `public string Name => _name;` and `int IComparable.CompareTo(o)` all count. An enum member has no rule: `Open,` in an `enum` body and in a collection initialiser are the same line. | every `.cs` and `.csx` file |
 | Swift | `class`, `struct`, `enum`, `protocol`, `actor`, `typealias`, `associatedtype`, `extension Type` — where a project keeps its own members of a type, often the only place — `func` past its generic parameters, `init`, `init?`, `subscript` and `deinit`, `let` / `var`, and an `enum` case, alone or among several on a line, with the associated or raw value it carries. All of them behind their `@attributes` and any modifiers (`public final override class func`, `private(set)` included), and a backticked name counts. A `case .open:` or `case let .open(x):` of a `switch` is a pattern, not a declaration, and a binding made by `if let` / `guard let` has no rule: it rebinds a name declared elsewhere. | every `.swift` file |
 | PHP | `function` (`&` included), `class`, `interface`, `trait`, `enum`, a `const` and a `define('X', …)`, an `enum` case, a property with the type it carries, and a constructor parameter promoted to one — all behind their `#[Attribute]`s and modifiers (`final public static function`) — plus an assignment that opens a line (`$x =`, `.=`, `??=`, `+=`). A `case X:` of a `switch`, a `$key => $value` pair, `$rows['x'] =` and `$this->name = …`, which writes to a property declared elsewhere, are not declarations, and a `foreach` target and a parameter have no rule. | every `.php` and `.phtml` file |
 | Lua | `function name(`, `local function name(`, `function M.name(`, `function M:name(` and the longer `function a.b.name(`; a function literal bound to a name (`M.name = function(`, `name = function(` in a table of handlers); `local name`, one of several on the line included. A field holding anything else has no rule: `limit = 10` in a table constructor and a re-assignment inside a body are the same line, and the language has no keyword to tell them apart. | every `.lua` file |
 | Elixir | every `def` form — `def`, `defp`, `defmacro`, `defmacrop`, `defguard`, `defguardp`, `defdelegate` — written `def name(x) do`, `def name do` or `def name, do: x`, a trailing `?` or `!` included; `defmodule` and `defprotocol` under the namespace they are written with, by their last part, so `defmodule MyApp.Repo` declares `MyApp.Repo` and nothing called `MyApp`; a `defstruct` field, atom list or keyword form, on the `defstruct` line itself — a field on a continuation line of a struct written over several lines has no rule, since that line is the shape of any keyword list; a module attribute where it is given a value (`@timeout 5_000`). Several clauses of one function are several declarations and all are offered. `@spec`, `@type` and the rest of the attributes the language and the libraries everyone uses own — ExUnit's `@tag`, Mix's `@shortdoc` — are directives: `@spec parse(t) :: t` is no declaration of `parse`, and `d` on one of those names has nothing to find. That is a list of known names, which is all a line pattern can have: any library may define an attribute, and `@tag :slow` and `@timeout 5_000` are the same line. `defimpl` declares the module `Protocol.Type`, where neither half is a name of its own, as a Rust `impl` is not. | every `.ex` and `.exs` file |
 | Zig | `fn name(`, behind `pub`, `export`, `extern "c"`, `inline`, `noinline`; `const` and `var`, which is how the language declares a type (`const Ledger = struct {`, `const Status = enum {`, `const Value = union(enum) {`), an import, a constant and a local alike, `threadlocal` and `comptime` included. A struct field (`total: u32,`) has no rule, as a C field has none: it is the shape of a value in a struct literal. Neither has a `test`: a word inside its description declares nothing, so `d` can never land there — `D` lists the tests instead. | every `.zig` file |
+| Protocol Buffers | `message`, `enum`, `service` and `oneof`, a nested message included; `rpc Name(`, braces or not, `stream` arguments too; an enum value, `NAME = 1;`, with no type before the name; a field, `string id = 1;`, `repeated Order orders = 2;`, `map<string, int32> counts = 3;`, `optional`, `required` and a qualified type included. A field's type, an rpc's argument and return types and the message an `extend` adds to are uses, as a Rust `impl` is; an `option`, a `reserved` list and a name inside an import's string declare nothing. The text format (`.textproto`, `.pbtxt`) is data and has no rules. | every `.proto` file |
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
 | SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns have no rule. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable, outside a recipe; a variable set only by `+=` or for one target (`release: VERSION := 1.0`), when nothing assigns it plainly | every Makefile |
 | Terraform | the block behind `var.x`, `module.x`, `local.x`, `data.T.N`, `T.N`; a bare name, as in `.tfvars`, is any block with that label | `.tf` files in the same directory |
 | Dockerfile | the `FROM … AS name` stage | the same file |
 | YAML | the `&name` anchor, a key that opens a block (compose services, CI jobs) | the same file |
+| Markdown (`.md`, `.markdown`, `.mdx`) | no declarations: `d` follows what the cursor stands on. A link, on its text or its target: `[text](target)`, a reference `[text][label]`, `[label][]` or `[label]` through its `[label]: target` definition (and on that line), an `<a href>`; not an image. The target is a path, percent-decoded, from the file's directory or, after a `/`, from the root; `#anchor` is the heading with that GitHub anchor (the second of a name `-1`) or an `<a id>` / `<a name>`, in that file or this one; `#L12` and `#L12-L20` are a line. A missing file or heading, a directory and a URL say so. A code span naming a file of the project, from the root or from here, opens it, at `:line` when it has one; a bare name several files carry is a picker of them. Nothing in a fenced block, an HTML comment or the front matter is followed. | the file the link names |
+| GraphQL | `type` (behind `implements` and directives), `interface`, `input`, `enum`, `union`, `scalar`, `directive @name`, `fragment` (for a `...spread`), a named `query`, `mutation` or `subscription`, each at the start of its line; a field, one whose arguments wrap included, and an enum value, on a line directly inside a `type`, an `interface`, an `input` or an `enum` (an `extend` of one too), the nearest line above indented less. `extend type X` is a use of `X`, as a Rust `impl` is; a selection or an alias in an operation, an argument, a `$variable` and a line of a `"""` description declare nothing. `d` on the path of `#import "./parts.graphql"` opens that file, relative to the importing one. | every `.graphql`, `.graphqls` and `.gql` file |
 
 In Makefiles, Terraform, Dockerfiles and YAML a `-` is part of the word under the cursor, and `d`
 in Terraform reads the whole dotted address, so it works from anywhere in `aws_s3_bucket.logs.id`.
+Markdown reads a link or a code span whole around the cursor, not as a word.
 
 ## `D`: project symbols
 
@@ -330,9 +356,11 @@ exported, since indented they are locals), plus shell functions (`name()`; the `
 the single regex already finds), SQL `CREATE`d objects under the name as written (`public.orders`,
 not CTEs), Makefile targets, Terraform blocks by address (`aws_s3_bucket.logs`, `data.T.N`,
 `module.x`, `var.x`, `output.x`), Dockerfile stages and YAML anchors, each read only from its own
-kind of file; recomputed on each press. Zig adds a function behind `inline` or `noinline` and a
+kind of file; GraphQL's `type`, `interface`, `input`, `enum`, `union`, `scalar`, `directive` (under
+its name, without the `@`), `fragment` and named operations, from a row of its own, since the regex
+above knows four of those words and would list them twice; recomputed on each press. Zig adds a function behind `inline` or `noinline` and a
 `test`, under the description it is written with, which that regex has no word for. Java, Kotlin,
-Ruby, C, C++, C#, Swift, PHP, Lua and Elixir are read from rules of their
+Ruby, C, C++, C#, Swift, PHP, Lua, Elixir and Protocol Buffers are read from rules of their
 own instead of that regex — Java's types and its methods, told from a call by the return type before
 the name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and
 `const val`; Ruby's methods, classes and modules, `def self.name` included; C and C++ functions,
@@ -342,16 +370,19 @@ way Java's are; Swift's types, `protocol`s, `actor`s, `typealias`es, `func`s and
 extension under the type it extends; PHP's types and `const`s in one row and its functions and
 methods in another, behind `final public static` and the rest; Lua's functions in both of the
 forms it writes them, under the name and not the table they hang off; Elixir's modules, protocols
-and every `def` form — so none of them is listed twice or
+and every `def` form; Protocol Buffers' `message`, `enum`, `service` and `rpc`, nested messages
+included — so none of them is listed twice or
 under a modifier or a receiver. A C prototype is not listed, since every function of a header would
 be there twice, and a `typedef struct x { … } y;` is listed once, under the `y` the project writes.
 TypeScript's class methods, with neither a keyword nor a type in front, are not listed: the regex
-cannot tell `name(` from a call. Neither are fields, a C or Zig global, a Lua local, a C#
+cannot tell `name(` from a call. Neither are fields, a Protocol Buffers enum value, a C or Zig global, a Lua local, a C#
 constructor (its class is already a row), a Swift `let`, `var`, `init` or `enum` case, a PHP
 property, `enum` case, `define()` or magic method (`__construct`, `__toString`: the language's
 hook, not the project's), a Ruby
 constant, an Elixir module attribute or `defimpl`, or the names a Ruby `attr_accessor` or an
-Elixir `defstruct` line declares, since one line can declare several.
+Elixir `defstruct` line declares, since one line can declare several. Markdown lists nothing: a
+declaration in a README's code block is an example, not one of the project, and a heading is prose
+that `s` finds.
 Past 5,000 declarations the grep stops, so the list is only what it reached in file order: the
 title counts those rows and says what they are (`Symbols (first 5232, type to search all)`), and
 the query stops filtering them and greps the project for a declaration whose name it matches,

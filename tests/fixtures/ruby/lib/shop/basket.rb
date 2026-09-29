@@ -50,7 +50,7 @@ module Shop
     def hidden(grams)
       weigh = Warehouse.weigh(grams)
       weigh + Warehouse::LIMIT
-      # ^ d: picker lib/shop/basket.rb:51, lib/shop/pricing.rb:4, lib/shop/warehouse.rb:22; want lib/shop/basket.rb:51 (#365)
+      # ^ d: picker lib/shop/basket.rb:51, lib/shop/warehouse.rb:22; want lib/shop/basket.rb:51 (#365)
       #                  ^ d: lib/shop/warehouse.rb:3
     end
 
@@ -68,8 +68,8 @@ module Shop
 
     def check(coupon)
       coupon.expired? || coupon.expired!
-      #      ^ d: picker lib/shop/pricing.rb:42, lib/shop/pricing.rb:46; want lib/shop/pricing.rb:42 (#387)
-      #                         ^ d: picker lib/shop/pricing.rb:42, lib/shop/pricing.rb:46; want lib/shop/pricing.rb:46 (#387)
+      #      ^ d: lib/shop/pricing.rb:42
+      #                         ^ d: lib/shop/pricing.rb:46
     end
 
     def stamp(coupon)
@@ -83,7 +83,7 @@ module Shop
 
     def depot
       Warehouse.open
-      #         ^ d: lib/shop/warehouse.rb:32; want lib/shop/warehouse.rb:27 (#387)
+      #         ^ d: lib/shop/warehouse.rb:27
     end
 
     def settle(total)
@@ -94,12 +94,12 @@ module Shop
     def audit(order)
       order.lines.recent
       #     ^ d: none; want lib/shop/order.rb:3 (#374)
-      #           ^ d: lib/shop/order.rb:7; want lib/shop/order.rb:4 (#374)
+      #           ^ d: none; want lib/shop/order.rb:4 (#374)
     end
 
     def ledger
       Ledger.new.prepare!
-      #          ^ d: none; want lib/shop/order.rb:19 (#379)
+      #          ^ d: lib/shop/order.rb:19
     end
 
     def rated(courier)

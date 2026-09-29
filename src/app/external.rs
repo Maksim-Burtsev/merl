@@ -109,9 +109,12 @@ impl App {
         if let Some(m) = module.as_mut().filter(|_| !alias) {
             // The copy's files of the module, else, for a copy of no walked files, every file's,
             // as without a copy.
-            let found = copy
-                .module(m)
-                .or_else(|| search::module_among(&all, m, package));
+            let found = match kind {
+                Kind::Elixir => self.elixir_module(&all, m, pattern),
+                _ => copy
+                    .module(m)
+                    .or_else(|| search::module_among(&all, m, package)),
+            };
             // An import of something not installed: nothing outside says what it is.
             let Some((n, found)) = found else {
                 return Some(Vec::new());
@@ -187,6 +190,52 @@ impl App {
         Some(found.collect())
     }
 
+    /// Where the Elixir module `module`, or the one it is nested in, is among `all`, with how many
+    /// of its parts that is (#437): the files declaring it when `pattern` finds the word there,
+    /// else every file of their package, where a `use` may inject it. A module is no path:
+    /// `Phoenix.LiveView` is `phoenix_live_view/lib/phoenix_live_view.ex`, so the package is the
+    /// directory under `deps/` whose file declares it. `None` when none does: `Enum` and `String`
+    /// ship compiled, and no dependency's namesake is theirs.
+    fn elixir_module(
+        &self,
+        all: &[PathBuf],
+        module: &[String],
+        pattern: &str,
+    ) -> Option<(usize, Vec<PathBuf>)> {
+        let roots = self
+            .external
+            .get(&Kind::Elixir)
+            .map(|(roots, _)| roots.clone())
+            .unwrap_or_default();
+        (1..=module.len()).rev().find_map(|n| {
+            let name = regex::escape(&module[..n].join("."));
+            let declares = format!(r"^\s*def(?:module|protocol)\s+{name}\s*(?:,|do\b)");
+            let mut own: Vec<PathBuf> = self
+                .external_grep(Kind::Elixir, all, &declares)
+                .into_iter()
+                .map(|h| h.path)
+                .collect();
+            own.dedup();
+            if own.is_empty() {
+                return None;
+            }
+            if !self.external_grep(Kind::Elixir, &own, pattern).is_empty() {
+                return Some((n, own));
+            }
+            let packages: Vec<PathBuf> = own
+                .iter()
+                .filter_map(|f| {
+                    let root = roots.iter().find(|r| f.starts_with(r))?;
+                    Some(root.join(f.strip_prefix(root).ok()?.components().next()?))
+                })
+                .collect();
+            let files = all
+                .iter()
+                .filter(|f| packages.iter().any(|p| f.starts_with(p)));
+            Some((n, files.cloned().collect()))
+        })
+    }
+
     /// A grep that came back full stopped at the cap: what `d` counts from it is a lower bound,
     /// also after a filter has made the list short (#100).
     pub(super) fn note_cut(&self, hits: &[Hit]) {
@@ -235,12 +284,15 @@ impl App {
             | Kind::Lua
             | Kind::Elixir
             | Kind::Zig
+            | Kind::Proto
             | Kind::Shell
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
             | Kind::Docker
-            | Kind::Yaml => kind,
+            | Kind::Yaml
+            | Kind::Markdown
+            | Kind::Graphql => kind,
         };
         for kind in [
             Kind::Python,
@@ -256,12 +308,15 @@ impl App {
             Kind::Lua,
             Kind::Elixir,
             Kind::Zig,
+            Kind::Proto,
             Kind::Shell,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,
             Kind::Docker,
             Kind::Yaml,
+            Kind::Markdown,
+            Kind::Graphql,
         ]
         .map(every)
         {
@@ -295,6 +350,15 @@ impl App {
             }
             self.external.insert(kind, (roots, Arc::new(files)));
             self.node_modules_of = Some(here.to_path_buf());
+        }
+        // Elixir's are the `deps/` of the Mix project the file is in (#437), inside the project
+        // and not of the machine, so a test's `no_external` does not hide them either.
+        if let Some(here) = here.filter(|_| kind == Kind::Elixir) {
+            let roots = search::mix_deps(&self.root, here);
+            if self.external.get(&kind).is_none_or(|(r, _)| *r != roots) {
+                let files = Arc::new(search::external_files(kind, &roots));
+                self.external.insert(kind, (roots, files));
+            }
         }
         if let Some((_, files)) = self.external.get(&kind) {
             return files.clone();
@@ -331,6 +395,8 @@ impl App {
             .unwrap_or_default();
         match kind {
             Kind::TsJs => roots.last().into_iter().chain([&self.root]).collect(),
+            // `deps/` is inside the project: `deps/jason/lib/jason.ex`.
+            Kind::Elixir => vec![&self.root],
             _ => roots.iter().collect::<Vec<_>>(),
         }
         .into_iter()
