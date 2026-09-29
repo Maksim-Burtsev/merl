@@ -154,6 +154,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `rm -rf build/*` or a lone backtick in a comment no longer hides the rest of the file, where
   every declaration answered `no definition`. Each reads its own comments, and the shell, a
   Dockerfile and Terraform their heredocs. (#436)
+- `d` in Go on the blank identifier `_` answers `no definition for _` at once. It jumped to an
+  earlier `_`, as if it were a local of that name; every `_` is a fresh discard. (#476)
 
 ## [0.7.0] - 2026-09-25
 

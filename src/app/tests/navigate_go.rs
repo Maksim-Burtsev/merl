@@ -667,3 +667,27 @@ fn a_go_raw_string_ending_in_a_backslash_ends_there() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #476. Go's blank identifier names nothing: `d` on `_` says so without a search, and jumps to
+/// no earlier `_`. In Python `_` is a name like any other and is still found.
+#[test]
+fn the_go_blank_identifier_has_no_definition() {
+    let (dir, mut a) = project_app(
+        "go-blank",
+        &[
+            ("go.mod", "module example.com/blank\n"),
+            (
+                "main.go",
+                "package main\n\nfunc pair() (int, int) { return 1, 2 }\n\nfunc main() {\n\t_, a := pair()\n\t_, b := pair()\n\tprintln(a, b)\n}\n",
+            ),
+            ("tr.py", "_ = str\n\nprint(_(1))\n"),
+        ],
+    );
+    a.external
+        .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+    d_on(&mut a, "main.go", "\t_|, b");
+    assert_eq!(shown(&mut a), jump("no definition for _", "main.go:7"));
+    d_on(&mut a, "tr.py", "print(_");
+    assert_eq!(shown(&mut a), jump("_: local", "tr.py:1"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
