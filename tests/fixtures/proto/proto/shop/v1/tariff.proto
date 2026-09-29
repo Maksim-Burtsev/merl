@@ -1,0 +1,52 @@
+// The shop of #307: every d case carries its answer in a comment under it.
+syntax = "proto3";
+
+package shop.v1;
+
+option go_package = "example.com/shop/v1;shopv1";
+//     ^ d: none
+
+// What a parcel costs, by weight.
+message Tariff {
+//      ^ d: proto/shop/v1/tariff.proto:10
+  string id = 1;
+  double rate = 2;
+  //     ^ d: picker proto/shop/v1/coupon.proto:11
+  string describe = 3;
+  repeated Band bands = 4;
+  //       ^ d: proto/shop/v1/tariff.proto:27
+  //            ^ d: proto/shop/v1/tariff.proto:16
+  map<string, int32> limits = 5;
+  //                 ^ d: proto/shop/v1/tariff.proto:19
+  optional string note = 6;
+  //              ^ d: proto/shop/v1/tariff.proto:21
+  Channel channel = 7;
+//^ d: proto/shop/v1/tariff.proto:38
+
+  // A step of the tariff, nested inside it.
+  message Band {
+  //      ^ d: proto/shop/v1/tariff.proto:27
+    int32 up_to_grams = 1;
+    double price = 2;
+  }
+  reserved 8, 15, 9 to 11;
+  //                ^ d: none
+  reserved "legacy";
+  //        ^ d: none
+}
+
+enum Channel {
+  CHANNEL_UNSPECIFIED = 0;
+  CHANNEL_POST = 1;
+//^ d: proto/shop/v1/tariff.proto:40
+  CHANNEL_COURIER = 2 [deprecated = true];
+//^ d: proto/shop/v1/tariff.proto:42
+  //                   ^ d: none
+}
+
+/*
+The first draft, kept for the record:
+message Parcel {
+  string id = 1;
+}
+*/

@@ -235,6 +235,7 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | Swift | `.build/checkouts` |
 | PHP | Composer's `vendor/` |
 | Zig | the standard library |
+| Protocol Buffers | the well-known types `protoc` installs |
 | Java, Kotlin, Ruby, C#, Lua, Elixir | |
 | Shell, SQL, Makefile, Terraform, Dockerfile, YAML | |
 

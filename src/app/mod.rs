@@ -30,6 +30,7 @@ mod open;
 mod picker;
 mod preview;
 mod project_search;
+mod proto;
 mod review;
 mod scroll;
 mod search_job;

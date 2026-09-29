@@ -41,6 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `…` right after its last drawn character, wrapped or not, so a cut line never reads as whole.
   (#283)
 - A macOS Intel binary, `merl-x86_64-apple-darwin.tar.gz`, ships with each release. (#394)
+- `d`, `u` and `D` in Protocol Buffers (`.proto`): `d` finds a `message` (a nested one too), an
+  `enum` and its values, a `service`, an `rpc`, a field and a `oneof`; `d` on the path of an
+  `import` opens that file; a type qualified by its package, `billing.v1.Money` or
+  `google.protobuf.Timestamp`, lands in that package's files, and the well-known types `protoc`
+  installs are reached, read-only. `D` lists the messages, enums, services and rpcs. (#418)
 
 ### Changed
 

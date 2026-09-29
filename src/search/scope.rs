@@ -28,6 +28,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Lua
         | Kind::Elixir
         | Kind::Zig
+        | Kind::Proto
         | Kind::Shell
         | Kind::Sql
         | Kind::Make => kind_of(path) == Some(kind),
@@ -177,6 +178,16 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             dirs.push(PathBuf::from("/opt/homebrew/include"));
             dirs
         }
+        // Where `protoc` installs the well-known types (`google/protobuf/timestamp.proto`), as
+        // Homebrew and a Linux package lay it out. buf keeps a module's dependencies in a cache
+        // under hashed directories no import spells, and is left out, as Zig's package cache is.
+        Kind::Proto => [
+            "/opt/homebrew/include",
+            "/usr/local/include",
+            "/usr/include",
+        ]
+        .map(PathBuf::from)
+        .to_vec(),
         // Composer installs a project's dependencies into `vendor/`, as source, and gitignores
         // it, so the project walk does not list it: it is outside in the same way `node_modules`
         // is. PHP's own library is built into the interpreter and has no source to read.
@@ -525,6 +536,9 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
                     && (e.file_name() == "testdata" || e.path().join("go.mod").is_file());
                 !unreachable && (e.depth() != 1 || Some(e.file_name()) != copy.as_deref())
             })
+            // Homebrew links each formula's headers into `include/` a directory at a time:
+            // `include/google` is a link into the protobuf keg.
+            .follow_links(kind == Kind::Proto)
             .hidden(false)
             .git_ignore(false)
             .git_global(false)

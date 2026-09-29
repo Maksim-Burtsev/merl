@@ -48,6 +48,9 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             }
             Kind::Sql => (false, false, false, true, &["--", "//"]),
             Kind::Terraform => (false, false, false, true, &["#", "//"]),
+            // The C family's comments, and no backtick: a Protocol Buffers string ends with its
+            // line.
+            Kind::Proto => (false, false, false, true, &["//"]),
             // PHP's `#` is a comment as `//` is, save `#[`, which opens an attribute (#488), and
             // only in PHP's code: outside `<?php … ?>` it is the `#id` of CSS, the `#field` of
             // JS or the `&#8212;` of HTML. A line comment ends at `?>` too, as PHP ends it.

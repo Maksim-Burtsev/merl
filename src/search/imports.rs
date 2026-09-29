@@ -219,6 +219,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         | Kind::Lua
         | Kind::Elixir
         | Kind::Zig
+        | Kind::Proto
         | Kind::Shell
         | Kind::Sql
         | Kind::Make
@@ -557,6 +558,7 @@ pub fn module_files(
         | Kind::Lua
         | Kind::Elixir
         | Kind::Zig
+        | Kind::Proto
         | Kind::Shell
         | Kind::Sql
         | Kind::Make

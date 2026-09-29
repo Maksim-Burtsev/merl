@@ -1,7 +1,9 @@
 /
 Esc
+Picker: Enter
 Picker: Esc
 [
 d
+o
 q
 t

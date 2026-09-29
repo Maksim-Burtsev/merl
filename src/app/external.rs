@@ -235,6 +235,7 @@ impl App {
             | Kind::Lua
             | Kind::Elixir
             | Kind::Zig
+            | Kind::Proto
             | Kind::Shell
             | Kind::Sql
             | Kind::Make
@@ -256,6 +257,7 @@ impl App {
             Kind::Lua,
             Kind::Elixir,
             Kind::Zig,
+            Kind::Proto,
             Kind::Shell,
             Kind::Sql,
             Kind::Make,

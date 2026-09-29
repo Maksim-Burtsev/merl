@@ -175,7 +175,7 @@ The Python, TypeScript and Go projects above keep their lines, since the `naviga
 pin them, so their annotated cases are a package of their own inside them: `python/shop/`,
 `typescript/shop/`, `go/shop/` and `go/cart/`. Every other kind has a directory of its own
 (`rust/`, `jvm/`, `ruby/`, `c/`, `csharp/`, `swift/`, `php/`, `lua/`, `elixir/`, `zig/`, `shell/`,
-`sql/`, `make/`, `terraform/`, `docker/`, `yaml/`). Each is one small shop (a `Tariff` and a `Coupon` sharing `rate` and
+`sql/`, `make/`, `terraform/`, `docker/`, `yaml/`, `proto/`). Each is one small shop (a `Tariff` and a `Coupon` sharing `rate` and
 `describe`, a `Courier`, `discount`, `weigh`, a basket that uses them) holding:
 
 - two types sharing a method name, an import inside the project (aliased, of a module, of a
@@ -201,6 +201,11 @@ so each file probes the stages or jobs of its own and one of another file. Each 
 also has a file that opens with a glob or a lone backtick above a declaration, and a heredoc or a
 block scalar holding a declaration-shaped line: today's answers there are the known misses of
 #436, and the globs inside quotes (`"parcels/*"`, `["src/**/*.rs"]`) guard what already works.
+
+`proto/` lays its files out under a proto root, `proto/shop/v1/`, as buf does, with the well-known
+types a project vendors under `third_party/`: its imports name paths from those roots, never from
+the importing file. `shop.v1` and `billing.v1` each declare a `Money`, used unqualified and
+qualified by each package, `.shop.v1.` absolute and `v1.` relative among them.
 
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason` added with `git add -f`: a dependency the project walk does not reach (#437).

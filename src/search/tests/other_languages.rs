@@ -583,6 +583,63 @@ fn zig_symbol_names() {
     }
 }
 
+#[test]
+fn proto_symbol_names() {
+    let proto = |line| one(Kind::Proto, line);
+    for (line, name) in [
+        ("message Tariff {", Some("Tariff")),
+        ("  message Band {", Some("Band")),
+        ("enum Channel {", Some("Channel")),
+        ("service Couriers {", Some("Couriers")),
+        (
+            "  rpc Weigh(WeighRequest) returns (WeighReply);",
+            Some("Weigh"),
+        ),
+        // Once, not a second time from the shared pattern's `enum`.
+        ("  enum Kind {", Some("Kind")),
+        // A field, an enum value, a oneof and an extension stay off the list.
+        ("  string id = 1;", None),
+        ("  CHANNEL_POST = 1;", None),
+        ("  oneof target {", None),
+        ("extend google.protobuf.MessageOptions {", None),
+    ] {
+        assert_eq!(proto(line).as_deref(), name, "{line}");
+    }
+}
+
+#[test]
+fn proto_roots_are_where_protoc_installs_its_types() {
+    assert!(external_roots(Kind::Proto, Path::new("/")).iter().all(|r| {
+        [
+            "/opt/homebrew/include",
+            "/usr/local/include",
+            "/usr/include",
+        ]
+        .iter()
+        .any(|d| r == Path::new(d))
+    }),);
+    // Homebrew links `include/google` into the protobuf keg: the walk goes through the link.
+    let dir = std::env::temp_dir().join(format!("merl-ext-proto-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("keg/google/protobuf")).unwrap();
+    std::fs::create_dir_all(dir.join("include")).unwrap();
+    std::fs::write(dir.join("keg/google/protobuf/timestamp.proto"), "").unwrap();
+    std::fs::write(dir.join("keg/google/protobuf/timestamp.pb.h"), "").unwrap();
+    std::os::unix::fs::symlink(dir.join("keg/google"), dir.join("include/google")).unwrap();
+    assert_eq!(
+        external_files(Kind::Proto, &[dir.join("include")]),
+        [dir.join("include/google/protobuf/timestamp.proto")]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    // The text format is data, and declares nothing.
+    assert_eq!(kind_of(Path::new("shop/v1/user.proto")), Some(Kind::Proto));
+    assert_eq!(kind_of(Path::new("testdata/user.textproto")), None);
+    assert_eq!(kind_of(Path::new("testdata/user.pbtxt")), None);
+    // Strings end with their line: a backtick in a comment opens nothing.
+    let text = "// run `buf generate\nmessage Tariff {\n}\n";
+    assert!(literal_lines(Kind::Proto, text).iter().all(|l| !l));
+}
+
 const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
 
 #[test]

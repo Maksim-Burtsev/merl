@@ -10,7 +10,7 @@ wait Files (
  9     PAID = "paid"
 10     SHIPPED = "shipped"
 11     CANCELLED = "cancelled"
-12     REFUNDED = "┌Files (38/38)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+12     REFUNDED = "┌Files (39/39)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 13                 │>                                                                                                                                                 │
 14                 │.github/workflows/ci.yml                                                                                                                          │
 15 @dataclass      │app/__init__.py                                                                                                                                   │
@@ -40,8 +40,8 @@ wait Files (
                    │web/package.json                                                                                                                                  │
                    │web/tsconfig.json                                                                                                                                 │
                    │worker/internal/queue/queue.go                                                                                                                    │
+                   │worker/internal/queue/queue.proto                                                                                                                 │
                    │worker/internal/queue/redis.go                                                                                                                    │
-                   │worker/go.mod                                                                                                                                     │
                    └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
 
