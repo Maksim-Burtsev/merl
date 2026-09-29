@@ -623,3 +623,42 @@ fn navigation_searches_the_open_file_as_it_is_on_screen() {
     assert_eq!(a.line_str(), "fn target() {}", "{}", a.message);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #307: a well-known type the project does not vendor is found under a root outside it, as
+/// `protoc -I` finds it: the file its `import` names, and the message its package declares.
+#[test]
+fn proto_finds_an_import_and_a_type_only_under_a_root_outside() {
+    let (dir, mut a) = project_app(
+        "proto-outside",
+        &[(
+            "shop/v1/order.proto",
+            "syntax = \"proto3\";\n\npackage shop.v1;\n\nimport \"google/protobuf/timestamp.proto\";\n\nmessage Order {\n  google.protobuf.Timestamp at = 1;\n}\n",
+        )],
+    );
+    let root = external_root(
+        "proto-outside",
+        &[(
+            "google/protobuf/timestamp.proto",
+            "syntax = \"proto3\";\n\npackage google.protobuf;\n\nmessage Timestamp {\n  int64 seconds = 1;\n}\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Proto, std::slice::from_ref(&root));
+    let at = |line| {
+        format!(
+            "{}:{line}",
+            root.join("google/protobuf/timestamp.proto").display()
+        )
+    };
+    d_on(&mut a, "shop/v1/order.proto", "google/protobuf/timestamp");
+    assert_eq!(
+        shown(&mut a),
+        jump("timestamp: module google/protobuf/timestamp.proto", &at(1))
+    );
+    d_on(&mut a, "shop/v1/order.proto", "google.protobuf.Timestamp");
+    assert_eq!(
+        shown(&mut a),
+        jump("Timestamp: via google.protobuf", &at(5))
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}

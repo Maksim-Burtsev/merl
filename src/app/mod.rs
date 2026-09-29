@@ -339,6 +339,10 @@ pub struct App {
     /// The selection anchor, set aside while `/` moves the cursor; Esc puts it back.
     find_sel: Option<(TextLine, usize)>,
     pub message: String,
+    /// The `message` that opens with a path, and the bytes of it the path takes: the status
+    /// bar cuts that part from the left and no other (#403). It stands only while `message` is
+    /// still that text; [`App::say_about`] sets both.
+    pub message_path: Option<(String, usize)>,
     /// Code text area, in cells, written by `ui::draw` before every frame.
     pub view_w: usize,
     pub view_h: usize,
@@ -524,6 +528,7 @@ impl App {
             find_anchor: (TextLine::File(0), 0),
             find_sel: None,
             message: String::new(),
+            message_path: None,
             view_w: 80,
             view_h: 24,
             center: false,
@@ -601,6 +606,14 @@ impl App {
         }
         .display()
         .to_string()
+    }
+
+    /// Says `rest` about the file at `path`, named as [`App::rel_path_of`] names it: the status
+    /// bar may cut the name from the left to keep `rest` on the line, and nothing else.
+    pub fn say_about(&mut self, path: &Path, rest: &str) {
+        let name = self.rel_path_of(path);
+        self.message = format!("{name}{rest}");
+        self.message_path = Some((self.message.clone(), name.len()));
     }
 
     pub fn root_name(&self) -> String {

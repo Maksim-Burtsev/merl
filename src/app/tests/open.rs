@@ -561,6 +561,20 @@ fn a_file_that_does_not_open_is_named_from_the_root_with_the_reason() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #403: a reason the OS gives no short word for is its own text, still without the
+/// `(os error N)`: a symlink that leads back to itself.
+#[test]
+#[cfg(unix)]
+fn a_reason_without_a_word_of_its_own_drops_the_os_error_number() {
+    let (dir, mut a) = project_app("loop", &[("open.txt", "ok\n")]);
+    std::os::unix::fs::symlink("loop.txt", dir.join("loop.txt")).unwrap();
+    a.jump_to(&dir.join("open.txt"), 1);
+    a.jump_to(&dir.join("loop.txt"), 1);
+    assert_eq!(a.message, "loop.txt: Too many levels of symbolic links");
+    assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("open.txt")));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// Edits that cannot be saved keep merl on the file; that is no reason to drop a stop.
 #[test]
 fn a_stop_that_does_not_open_for_another_reason_leaves_the_history_alone() {

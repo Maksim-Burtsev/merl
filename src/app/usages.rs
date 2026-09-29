@@ -112,6 +112,7 @@ impl App {
         // ones apply is the hit file's own kind: one regex per kind met, built once.
         let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
         let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
+        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
         let mut ranked: Vec<_> = hits
             .map(|h| {
                 let kind = search::kind_of(&h.path);
@@ -122,7 +123,8 @@ impl App {
                         .flatten()
                 });
                 // A pattern that matched inside a docstring, a raw string or a block comment
-                // declares nothing, as `d` reads it too; only a file with a match is read.
+                // declares nothing, and neither does a line the lines around it make a use, as
+                // `d` reads them too; only a file with a match is read.
                 let declares = re.as_ref().is_some_and(|re| re.is_match(&h.text))
                     && !literal
                         .entry(h.path.clone())
@@ -132,7 +134,16 @@ impl App {
                         })
                         .get(h.line - 1)
                         .copied()
-                        .unwrap_or(false);
+                        .unwrap_or(false)
+                    && kind.is_some_and(|k| {
+                        search::declares_where(k, word, h.line, &h.text, || {
+                            lines.entry(h.path.clone()).or_insert_with(|| {
+                                self.text_of(&h.path).map_or_else(Vec::new, |t| {
+                                    t.lines().map(str::to_owned).collect()
+                                })
+                            })
+                        })
+                    });
                 (search::rank(&h.path, here, declares), h)
             })
             .collect();

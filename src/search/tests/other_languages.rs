@@ -838,11 +838,12 @@ fn terraform_def_patterns_resolve_the_address() {
     assert_eq!(d("local.name"), [5, 7]);
     assert_eq!(def_block(Kind::Terraform, "local.name"), Some("locals"));
     assert_eq!(def_block(Kind::Terraform, "var.name"), None);
-    assert!(directly_inside(TF, 5, "locals"));
-    assert!(!directly_inside(TF, 7, "locals"), "nested in `tags`");
-    assert!(!directly_inside(TF, 11, "locals"));
-    assert!(!directly_inside(TF, 1, "locals"));
-    assert!(!directly_inside(TF, 0, "locals"));
+    let lines: Vec<&str> = TF.lines().collect();
+    assert!(directly_inside(&lines, 5, "locals"));
+    assert!(!directly_inside(&lines, 7, "locals"), "nested in `tags`");
+    assert!(!directly_inside(&lines, 11, "locals"));
+    assert!(!directly_inside(&lines, 1, "locals"));
+    assert!(!directly_inside(&lines, 0, "locals"));
     assert!(def_patterns(Kind::Terraform, "each.key").is_empty());
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -1062,7 +1063,7 @@ fn graphql_def_patterns_find_definitions_fields_and_enum_values() {
         defs(&dir, &files, Kind::Graphql, w)
             .into_iter()
             .filter(|&n| !literal[n - 1])
-            .filter(|&n| !lines[n - 1].starts_with(' ') || graphql_member(&lines, n))
+            .filter(|&n| declares_where(Kind::Graphql, w, n, lines[n - 1], || &lines))
             .collect()
     };
     assert_eq!(d("Ghost"), Vec::<usize>::new(), "inside a description");

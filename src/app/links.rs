@@ -50,7 +50,7 @@ impl App {
         };
         let full = self.root.join(&rel);
         if full.is_dir() {
-            self.message = format!("{}/: a directory", rel.display());
+            self.say_about(&full, "/: a directory");
             return;
         }
         if !full.is_file() {
