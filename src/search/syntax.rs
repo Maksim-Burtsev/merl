@@ -48,7 +48,9 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             }
             Kind::Sql => (false, false, false, true, &["--", "//"]),
             Kind::Terraform => (false, false, false, true, &["#", "//"]),
-            // PHP's `#` is a comment as `//` is, save `#[`, which opens an attribute (#488).
+            // PHP's `#` is a comment as `//` is, save `#[`, which opens an attribute (#488), and
+            // only in PHP's code: outside `<?php … ?>` it is the `#id` of CSS, the `#field` of
+            // JS or the `&#8212;` of HTML. A line comment ends at `?>` too, as PHP ends it.
             Kind::Php => (false, false, true, true, &["//", "#"]),
             _ => (false, false, true, true, &["//"]),
         };
@@ -64,6 +66,8 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     // would hide the rest of the file behind one misread, and what `eval '…'` holds the shell
     // does declare.
     let word_comment = matches!(kind, Kind::Shell | Kind::Docker);
+    // Whether the scan of a PHP file is between `<?php` (or `<?=`) and `?>`.
+    let mut php_code = false;
     let b = text.as_bytes();
     let mut out = vec![false];
     // The multi-line literal the scan is in, by its closing bytes, and, for a long bracket, the
@@ -207,13 +211,19 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             i += 1;
         } else if c == b'"' || c == b'\'' || (kind == Kind::Sql && c == b'`') {
             quote = Some(c);
+        } else if kind == Kind::Php && (b[i..].starts_with(b"<?") || b[i..].starts_with(b"?>")) {
+            php_code = c == b'<';
+            i += 1;
         } else if line_comments
             .iter()
             .any(|m| b[i..].starts_with(m.as_bytes()))
             && !(word_comment && i > 0 && !b" \t\n;&|()<>".contains(&b[i - 1]))
-            && !(kind == Kind::Php && b[i..].starts_with(b"#["))
+            && !(kind == Kind::Php && c == b'#' && (!php_code || b[i..].starts_with(b"#[")))
         {
-            while i + 1 < b.len() && b[i + 1] != b'\n' {
+            while i + 1 < b.len()
+                && b[i + 1] != b'\n'
+                && !(kind == Kind::Php && b[i + 1..].starts_with(b"?>"))
+            {
                 i += 1;
             }
         }

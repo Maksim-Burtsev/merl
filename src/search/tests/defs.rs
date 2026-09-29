@@ -187,8 +187,8 @@ fn lines_inside_a_literal_or_a_block_comment_are_told() {
     let cs = "var q = \"\"\"\n    WHERE EXISTS(SELECT 1 FROM t)\n    \"\"\";\nvar v = @\"\n    SELECT MIN(\"\"rowid\"\") FROM t\n    \";\npublic int Real() => 1;\n";
     assert_eq!(inside(Kind::CSharp, cs), [2, 3, 5, 6]);
     // A backslash escapes nothing in a verbatim string (#475), `$@"` and `@$"` included, and
-    // escapes a quote in a regular one, which ends with its line.
-    let cs = "var a = @\"C:\\\";\nvar b = $@\"{d}\\\";\nvar c = @$\"\n    {d}\\\";\nvar e = \"a\\\"b\";\nvoid Real() {}\n";
+    // escapes a quote in a regular one: the `/*` after `\"` is inside the string.
+    let cs = "var a = @\"C:\\\";\nvar b = $@\"{d}\\\";\nvar c = @$\"\n    {d}\\\";\nvar e = \"a\\\" /* b\";\nvoid Real() {}\n";
     assert_eq!(inside(Kind::CSharp, cs), [4]);
     let sw = "let doc = \"\"\"\n    class Ghost {}\n    \"\"\"\nclass Real {}\n";
     assert_eq!(inside(Kind::Swift, sw), [2, 3]);
@@ -199,6 +199,10 @@ fn lines_inside_a_literal_or_a_block_comment_are_told() {
     let php =
         "<?php\n# loads lib/*\nfunction below() {}\n#[Route('/api')] /*\nfunction ghost() {}\n*/\n";
     assert_eq!(inside(Kind::Php, php), [5, 6]);
+    // Outside `<?php … ?>` a `#` is HTML's, CSS's or JS's, and a comment ends at `?>`: the
+    // template and the CSS comment after them still hide what they hold.
+    let php = "<?php # render ?><script>const t = `\nfunction ghost() {}\n`;</script>\n<style>#a { color: red; } /*\nfunction ghost() {}\n*/</style>\n<script>class W {\n  #tpl = `\n<b></b>\n`;\n}</script>\n<?php\nfunction real() {}\n";
+    assert_eq!(inside(Kind::Php, php), [2, 3, 5, 6, 9, 10]);
 }
 
 #[test]
