@@ -34,7 +34,7 @@ fn half(a: &App) -> usize {
 /// The selection runs over the 1-based lines `from` to `to`.
 fn lines_selected(a: &App, from: usize, to: usize) -> bool {
     a.selection()
-        .is_some_and(|(f, t)| (f.0 + 1, t.0 + 1) == (from, to))
+        .is_some_and(|(f, t)| (f.0.key() + 1, t.0.key() + 1) == (from, to))
 }
 
 fn picker_row(a: &App, kind: PickerKind) -> Option<usize> {

@@ -53,5 +53,5 @@ wait self.orders.clear()
 │                            │  ▎
 │                            │  ▎    def clear(self) -> None:
 └ 8 files · +59 −39 ─────────┘  ▎        self.orders.clear()
-app/repos.py  31:1  [code]  hunk 1/1  file 2/8                                                                                                                                    ? help
-cursor (x,y,shown) 33,25,1
+app/repos.py  -59:1  [code]  hunk 1/1  file 2/8                                                                                                                                   ? help
+cursor (x,y,shown) 33,53,1

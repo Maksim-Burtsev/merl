@@ -2,21 +2,24 @@
 # fetches it from the local origin and opens on the first hunk; the panel marks each file M, A or
 # D with its +n −m. c / C walk the hunks across files: the imports three lines apart are two hunks
 # though the fixture sets diff.interHunkContext (#220), the redrawn PNG is skipped (#77), the
-# deleted script opens read-only. The lines the branch deleted at the end of repos.py scroll into
-# view down to the last one (#179), painted as deletions (#144, #165). d from a changed line into
-# the function the branch added, [ back to the hunk; m puts the tick on the open file and takes
-# it off (#162). Last, c after a d into a file the branch did not touch goes back into the review,
+# deleted script opens read-only. The lines the branch deleted at the end of repos.py are lines
+# the cursor walks down to the last one (#179, #439), painted as deletions (#144, #165). d from a
+# changed line into the function the branch added, [ back to the hunk; m puts the tick on the open
+# file and takes it off (#162). Last, c after a d into a file the branch did not touch goes back into the review,
 # to the hunk left once #239 lands (0.7.0 opens the first file). On such a file the status bar has no
-# counters, as outside a review (#286). Then `merl -r agent/page-size` from the main checkout: the
-# branch an agent has checked out in a worktree of its own is reviewed there, its file not
-# committed yet included (#396).
+# counters, as outside a review (#286). Back in repos.py, c stands on the first line the branch
+# deleted and the status bar reads its old number, negative; / finds the deleted text, Ctrl+C
+# copies it, and an edit there is refused (#439). The panel's status letters are plain, in the
+# row's style (#450). Then `merl -r agent/page-size` from the main checkout: the branch an agent
+# has checked out in a worktree of its own is reviewed there, its file not committed yet
+# included (#396).
 caption review · merl --review=agent/refund fetches the agent's branch and opens on its first hunk
 merl --review=agent/refund
 wait hunk 1/1  file 1/8
 caption c: the next hunk, across files; the panel marks each file M, A or D with its +n −m
 key c
-wait app/repos.py  31:1  [code]  hunk 1/1  file 2/8
-caption the lines the branch deleted at the end of repos.py scroll into view, down to the last (#179)
+wait hunk 1/1  file 2/8
+caption the lines the branch deleted at the end of repos.py are lines: PgDn walks them, down to the last (#179, #439)
 key PageDown
 wait self.orders.clear()
 caption two imports three lines apart are two hunks, though git's interHunkContext would merge them (#220)
@@ -62,6 +65,19 @@ key Enter d
 wait [code]  REFUNDED → OrderStatus.REFUNDED (via OrderStatus)
 key c
 wait :1  [code]  hunk
+caption the lines a branch deleted are lines of the text: c stands on the first, the status bar reads its old number (#439)
+key C C C C
+wait app/repos.py  -32:1  [code]  hunk 1/1  file 2/8
+caption / finds the deleted text, Ctrl+C copies the deleted line, and an edit there is refused (#439)
+key /
+type orders.clear
+key Enter
+wait app/repos.py  -59:14  [code]  hunk 1/1  file 2/8  1/1
+key C-c
+wait copied 1 line
+run $SMOKE_TMUX show-buffer | grep -qx '        self.orders.clear()'
+key Enter
+wait -59:14  [code]  hunk 1/1  file 2/8  deleted
 # --base names the branch the review is against, here the one origin/HEAD would give (#310).
 merl --review=agent/refund --base main
 wait hunk 1/1  file 1/8
@@ -71,7 +87,7 @@ wait 30 days: 2 sessions
 wait merl exited: 0
 caption merl -r agent/page-size: the branch an agent works on in a worktree of its own is reviewed there (#396)
 merl -r agent/page-size
-wait app/config.py  10:1  [code]  hunk 1/1  file 1/2
+wait app/config.py  -10:1  [code]  hunk 1/1  file 1/2
 caption its file not committed yet is part of the review
 key c
 wait docs/paging.md

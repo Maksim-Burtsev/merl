@@ -17,6 +17,41 @@ pub enum Mark {
     DeletedBelow,
 }
 
+/// A line of a file as a review draws it (#439): a line of the file, or the `i`th of the lines
+/// the branch deleted above file line `key`, `Diff::ghosts[key][i]` (`key` is `lines.len()` for
+/// those deleted at the end). Ordered as drawn: the deleted lines at a key come before the
+/// file's line there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TextLine {
+    File(usize),
+    Deleted(usize, usize),
+}
+
+impl TextLine {
+    /// The file line: this one's, or the one a deleted line is drawn above.
+    pub fn key(self) -> usize {
+        match self {
+            TextLine::File(l) | TextLine::Deleted(l, _) => l,
+        }
+    }
+}
+
+impl Ord for TextLine {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let order = |t: &TextLine| match *t {
+            TextLine::File(l) => (l, usize::MAX),
+            TextLine::Deleted(k, i) => (k, i),
+        };
+        order(self).cmp(&order(other))
+    }
+}
+
+impl PartialOrd for TextLine {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 /// What one file's diff looks like from the editor: marks per 0-based line, and, in review
 /// mode, the deleted text as ghost lines keyed by the line they sit above (`lines.len()` for
 /// the end of the file) plus the first line of every hunk, for `c` / `C`.
@@ -24,7 +59,8 @@ pub enum Mark {
 pub struct Diff {
     pub marks: HashMap<usize, Mark>,
     pub ghosts: BTreeMap<usize, Vec<String>>,
-    pub hunks: Vec<usize>,
+    /// Review: the first line of every hunk, deleted when the hunk starts with a deletion.
+    pub hunks: Vec<TextLine>,
     /// Review: the 0-based base-file line of the first ghost at each key; the ghosts under one
     /// key are consecutive base lines.
     pub ghost_from: BTreeMap<usize, usize>,
@@ -65,6 +101,9 @@ pub fn diff(root: &Path, path: &Path, base: Option<&str>, old: Option<&Path>) ->
 fn parse(diff: &str, review: bool) -> Diff {
     let mut out = Diff::default();
     let mut lines = diff.lines().peekable();
+    // Review: the key right after the last hunk's lines. A hunk that starts there reads on from
+    // it, with no line between them, and is no stop of its own.
+    let mut after = None;
     while let Some(line) = lines.next() {
         if !line.starts_with("@@ ") {
             continue;
@@ -92,9 +131,11 @@ fn parse(diff: &str, review: bool) -> Diff {
                     added.push(text.to_string());
                 }
             }
+            let mut first = TextLine::File(at);
             if !deleted.is_empty() {
                 let ghosts = out.ghosts.entry(at).or_default();
                 let offset = ghosts.len();
+                first = TextLine::Deleted(at, offset);
                 // `a` of `-a,b` is 1-based; a hunk with deleted lines never has `a == 0`.
                 out.ghost_from.entry(at).or_insert(old_start - 1);
                 for (i, j) in crate::intraline::pair(&deleted, &added) {
@@ -102,12 +143,10 @@ fn parse(diff: &str, review: bool) -> Diff {
                 }
                 ghosts.extend(deleted);
             }
-            // A deletion at the end of the file is drawn under the last line; `c` stands on
-            // that line for it.
-            let stop = if new_n == 0 && at > 0 { at - 1 } else { at };
-            if out.hunks.last() != Some(&stop) {
-                out.hunks.push(stop);
+            if after != Some(at) {
+                out.hunks.push(first);
             }
+            after = Some(at + new_n);
             for l in at..at + new_n {
                 out.marks.insert(l, Mark::Added);
             }
@@ -281,7 +320,7 @@ impl Review {
                 let n = count_lines(path).map_or(0, |(_, n)| n);
                 Diff {
                     marks: (0..n).map(|l| (l, Mark::Added)).collect(),
-                    hunks: Vec::from_iter((n > 0).then_some(0)),
+                    hunks: Vec::from_iter((n > 0).then_some(TextLine::File(0))),
                     ..Default::default()
                 }
             }
@@ -580,7 +619,8 @@ mod tests {
                     @@ -3,0 +4,2 @@\n+a\n+b\n\
                     @@ -8,2 +9,0 @@\n-c\n-d\n\\ No newline at end of file\n";
         let d = parse(diff, true);
-        assert_eq!(d.hunks, vec![0, 3, 8]);
+        use TextLine::{Deleted, File};
+        assert_eq!(d.hunks, vec![Deleted(0, 0), File(3), Deleted(9, 0)]);
         assert_eq!(d.ghosts[&0], vec!["x"]);
         assert_eq!(d.ghosts[&9], vec!["c", "d"]);
         assert_eq!(d.ghosts.get(&3), None);
@@ -589,7 +629,10 @@ mod tests {
         assert_eq!(d.marks.len(), 3, "{:?}", d.marks);
         // A deletion right after a changed last line is one stop, not two.
         let d = parse("@@ -5 +5 @@\n-a\n+b\n@@ -6,2 +5,0 @@\n-c\n-d\n", true);
-        assert_eq!((d.hunks.clone(), d.ghosts[&5].len()), (vec![4], 2));
+        assert_eq!(
+            (d.hunks.clone(), d.ghosts[&5].len()),
+            (vec![Deleted(4, 0)], 2)
+        );
     }
 
     #[test]
@@ -661,7 +704,8 @@ mod tests {
         let d = diff(&dir, &dir.join("f"), Some("HEAD"), None);
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(m, HashMap::from([(2, Mark::Changed), (5, Mark::Changed)]));
-        assert_eq!(d.hunks, vec![2, 5]);
+        use TextLine::Deleted;
+        assert_eq!(d.hunks, vec![Deleted(2, 0), Deleted(5, 0)]);
         assert_eq!(d.ghosts[&5], vec!["6"]);
     }
 
@@ -773,10 +817,11 @@ mod tests {
             Some(&r.merge_base),
             moved.old.as_deref(),
         );
-        assert_eq!(d.hunks, vec![9]);
+        use TextLine::{Deleted, File};
+        assert_eq!(d.hunks, vec![Deleted(9, 0)]);
         assert_eq!(d.ghosts[&9], vec!["m10"]);
         let d = diff(&dir, &dir.join("src/a.rs"), Some(&r.merge_base), None);
-        assert_eq!(d.hunks, vec![1, 3]);
+        assert_eq!(d.hunks, vec![Deleted(1, 0), File(3)]);
         assert_eq!(d.ghosts[&1], vec!["b"]);
         assert_eq!(r.base_bytes(&dir, Path::new("gone")).unwrap(), b"x\n");
         assert!(
