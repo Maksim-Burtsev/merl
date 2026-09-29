@@ -1,0 +1,57 @@
+wait Makefile  12:1  [code]  lint: by name, 1 match
+ 1 PY ?= .venv/bin/python
+ 2
+ 3 .PHONY: serve test lint worker ci
+ 4
+ 5 serve:
+ 6     $(PY) -m app.api
+ 7
+ 8 test:
+ 9     $(PY) -m pytest -q tests
+10     cd worker && go test ./...
+11
+12 lint:
+13     $(PY) -m ruff check app tests
+14
+15 worker:
+16     cd worker && go run .
+17
+18 ci: lint test
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Makefile  12:1  [code]  lint: by name, 1 match
+cursor (x,y,shown) 3,11,1

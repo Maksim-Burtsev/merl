@@ -1,0 +1,9 @@
+{
+    "name": "fixtures/shop",
+    "autoload": {
+        "psr-4": {
+            "Shop\\": "src/"
+        },
+        "files": ["src/Pricing/functions.php", "src/Warehouse/functions.php"]
+    }
+}

@@ -1,0 +1,57 @@
+wait load → OrderStore.load (via store: OrderStore)
+ 1 import { OrderRepo } from "./repo";
+ 2 import type { Order } from "./types";
+ 3
+ 4 export class OrderStore {
+ 5   private readonly repo: OrderRepo;
+ 6   private cache = new Map<number, Order>();
+ 7
+ 8   constructor(repo: OrderRepo) {
+ 9     this.repo = repo;
+10   }
+11
+12   async load(id: number): Promise<Order> {
+13     const order = this.cache.get(id) ?? (await this.repo.find(id));
+14     this.cache.set(id, order);
+15     return order;
+16   }
+17
+18   async cancel(id: number): Promise<Order> {
+19     const order = await this.repo.cancel(id);
+20     this.cache.set(id, order);
+21     return order;
+22   }
+23 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/src/orders/store.ts  12:9  [code]  load → OrderStore.load (via store: OrderStore)
+cursor (x,y,shown) 11,11,1

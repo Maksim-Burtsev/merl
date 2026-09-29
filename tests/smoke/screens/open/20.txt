@@ -1,0 +1,57 @@
+wait docs/notes.md  1:1
+┌orders──────────────────────┐ 1 # Release notes for the support team
+│▸ .github                   │ 2
+│▸ .venv                     │ 3 ## 1.8.0
+│▾ app                       │ 4
+│    __init__.py             │ 5 - ⚠️ A refund past the 30-day window needs a manager's approval: open the order, press Refund and write the reason in the note, the payment team reads
+│    api.py                  │     it.
+│    config.py               │ 6 - Заказы старше года архивируются, их нельзя вернуть через API: пишите в поддержку платёжного провайдера.
+│    models.py               │ 7 - The refund flow was tested with the payment team 👍🏽 on staging, on the cards and on the bank transfers both, twice.
+│    repos.py                │ 8
+│    service.py              │ 9 ## 1.7.2
+│    uow.py                  │10
+│▸ data                      │11 - The order list shows 50 orders a page. Ask ops to change PAGE_SIZE if a customer needs more.
+│▸ deploy                    │12 - Search by customer finds orders by the customer's number, not by their name.
+│▾ docs                      │13
+│    architecture.png        │14 ## 1.7.1
+│    notes.md                │15
+│▸ scripts                   │16 - A cancelled order keeps its total. The customer sees it struck through.
+│▸ tests                     │17 - Orders paid by bank transfer stay pending until the bank confirms, up to two working days.
+│▸ web                       │18
+│▸ worker                    │19 ## 1.7.0
+│  .env                      │20
+│  .gitignore                │21 - Shipping jobs run in the worker: an order is marked shipped within a minute of the label.
+│  docker-compose.yml        │22 - The worker retries a failed sync three times, then the order shows up in the ops channel.
+│  Dockerfile                │23 - Orders from the old shop are imported read-only: no refunds, no cancellations.
+│  Makefile                  │24
+│  pyproject.toml            │25 ## 1.6.0
+│  README.md                 │26
+│                            │27 - The order page shows the payment provider's reference: quote it when you write to them.
+│                            │28 - Customers can cancel an order themselves while it is pending or paid.
+│                            │29
+│                            │30 ## 1.5.0
+│                            │31
+│                            │32 - The support page lists the last 20 orders of a customer.
+│                            │33 - ✔️ Cancelled orders show the reason the customer gave, under the total.
+│                            │34 - Refunds by hand go through scripts/refund_by_hand.py until the refund flow ships.
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+docs/notes.md  1:1  [code]                                                                                                                                                        ? help
+cursor (x,y,shown) 33,0,1
