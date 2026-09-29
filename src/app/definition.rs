@@ -187,7 +187,8 @@ impl App {
             .flatten();
         // A package no `node_modules` holds and no workspace package is called is not installed
         // (#392): nothing says what it declares, and the project's namesakes are not it. The
-        // import line is where the name comes from, as far as anything tells.
+        // import line is where the name comes from, as far as anything tells. A copy of it among
+        // the files outside, wherever they have it, is what the lookup outside reads, as before.
         if kind == Kind::TsJs
             && let Some((_, module)) = import.as_ref().and_then(|p| p.split_last())
             && search::package_missing(
@@ -196,6 +197,10 @@ impl App {
                 here.parent().unwrap_or(Path::new("")),
                 module,
             )
+            && !self.external_files(kind).iter().any(|f| {
+                let parts = if module[0].starts_with('@') { 2 } else { 1 };
+                search::in_module(f, &module[..parts.min(module.len())])
+            })
             && let Some(line) = search::ts_import_line(&text, first)
         {
             let hit = Hit {
