@@ -401,8 +401,9 @@ pub fn package_copy(
 /// files are `files`, loads a package that is not installed (#392): a bare specifier (no
 /// relative path, no `@/`, `~/` or `#` alias, no alias of the `tsconfig.json`, no module of
 /// Node's own, none with a scheme such as `node:` or `virtual:`) that no workspace package of the
-/// project is called (the `name` of a `package.json` among `files`), and that no `node_modules`
-/// from `dir` up holds, itself or its types. Past the project's root too, as Node looks there.
+/// project is called (the `name` of a `package.json` among `files`), that no `node_modules`
+/// from `dir` up holds, itself or its types (past the project's root too, as Node looks there),
+/// and that no `declare module` of a `.d.ts` among `files` types, `*` patterns included.
 pub fn package_missing(root: &Path, files: &[PathBuf], dir: &Path, module: &[String]) -> bool {
     static NAME: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r#""name"\s*:\s*"([^"]*)""#).unwrap());
@@ -433,7 +434,30 @@ pub fn package_missing(root: &Path, files: &[PathBuf], dir: &Path, module: &[Str
             .filter_map(|f| std::fs::read_to_string(root.join(f)).ok())
             .any(|t| NAME.captures(&t).is_some_and(|c| c[1] == name))
     };
-    !installed && !workspace()
+    // ponytail: reads every `.d.ts` of the project, only for a package nothing else supplies.
+    let declared = || {
+        static DECLARE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r#"declare\s+module\s+['"]([^'"]+)['"]"#).unwrap()
+        });
+        let spec = module.join("/");
+        files
+            .iter()
+            .filter(|f| f.to_string_lossy().ends_with(".d.ts"))
+            .filter_map(|f| std::fs::read_to_string(root.join(f)).ok())
+            .any(|t| {
+                DECLARE
+                    .captures_iter(&t)
+                    .any(|c| match c[1].split_once('*') {
+                        Some((pre, post)) => {
+                            spec.len() >= pre.len() + post.len()
+                                && spec.starts_with(pre)
+                                && spec.ends_with(post)
+                        }
+                        None => c[1] == spec,
+                    })
+            })
+    };
+    !installed && !workspace() && !declared()
 }
 /// Whether the `package.json` `text` has an `exports` map, a top-level key that is not `null`.
 /// Strings are read whole, so neither a nested `exports` nor a brace inside one counts.

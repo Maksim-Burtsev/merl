@@ -461,7 +461,7 @@ fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<(String, Vec<String>)>)
 ///   dots, one directory up per dot past the first; otherwise at any depth (the root, `src/`, a
 ///   folder of a monorepo) but not inside a package, since `json` is not `myapp/json.py`.
 /// - TypeScript: `./x` from the directory of `here`, an alias from the `paths` of the nearest
-///   `tsconfig.json` or a name under its `baseUrl`, as `x.ts`, `x.tsx`, `x.d.ts`, the JavaScript
+///   `tsconfig.json` (or `jsconfig.json`) or a name under its `baseUrl`, as `x.ts`, `x.tsx`, `x.d.ts`, the JavaScript
 ///   forms, then `x/index.*`. `./x.js` is `x.ts` first, as ESM projects write it.
 /// - Go: the directory under the `go.mod` whose `module` the import path starts with (the longest,
 ///   for a module nested in another), without its `_test.go` files.
@@ -606,7 +606,7 @@ pub fn graphql_import(line: &str, col: usize) -> Option<&str> {
 }
 /// Where an aliased TypeScript specifier points, most specific first: the targets of the
 /// `compilerOptions.paths` entries it matches, then the specifier under `baseUrl`. Read from the
-/// `tsconfig.json` nearest above `dir` and the configs it `extends` by a relative path, the
+/// `tsconfig.json`, or a JavaScript project's `jsconfig.json`, nearest above `dir` and the configs it `extends` by a relative path, the
 /// nearest setting winning; `paths` are relative to `baseUrl` when there is one, else to the
 /// config that declares them. Comments and trailing commas are fine: only these keys are read.
 fn ts_aliases(root: &Path, dir: &Path, spec: &str) -> Vec<PathBuf> {
@@ -644,7 +644,7 @@ fn ts_config(root: &Path, dir: &Path, spec: &str) -> (Vec<PathBuf>, Option<PathB
 
     let mut config = dir
         .ancestors()
-        .map(|d| d.join("tsconfig.json"))
+        .flat_map(|d| [d.join("tsconfig.json"), d.join("jsconfig.json")])
         .find(|c| root.join(c).is_file());
     let (mut url, mut table): (Option<PathBuf>, Option<(PathBuf, String)>) = (None, None);
     // ponytail: eight `extends` hops, which also ends a cycle.
