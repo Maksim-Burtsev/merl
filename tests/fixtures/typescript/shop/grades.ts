@@ -37,3 +37,10 @@ export class Manifest {
     return header;
   }
 }
+
+// A method of a literal behind a call is a declaration pattern's hit, kept through the import.
+export const api = Object.freeze({
+  get(url: string) {
+    return url;
+  },
+});

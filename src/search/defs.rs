@@ -1166,6 +1166,37 @@ pub fn owner_line(text: &str, line: usize) -> Option<&str> {
         .find(|l| !l.trim().is_empty() && indent(l) < depth)
         .copied()
 }
+/// Whether 1-based `line` of a TypeScript or JavaScript `text` declares into the global scope,
+/// where a member of `window` or `globalThis` can be the project's own (#341): inside `declare
+/// global { … }`, or in a script (no `import` or `export` at the top of the file) at its top level,
+/// either through `interface` and `namespace` blocks alone. A class's member is none.
+pub fn ts_global_scope(text: &str, line: usize) -> bool {
+    static MODULE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"(?m)^(?:import|export)\b").unwrap());
+    static GLOBAL: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*declare\s+global\s*\{").unwrap());
+    static SCOPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:interface|namespace)\s").unwrap()
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = lines.get(line.wrapping_sub(1)) else {
+        return false;
+    };
+    let mut depth = indent(at);
+    for l in lines[..line - 1].iter().rev() {
+        if l.trim().is_empty() || indent(l) >= depth {
+            continue;
+        }
+        depth = indent(l);
+        if GLOBAL.is_match(l) {
+            return true;
+        }
+        if !SCOPE.is_match(l) {
+            return false;
+        }
+    }
+    !MODULE.is_match(text)
+}
 /// Whether 1-based `line` of `lines` sits directly inside a block whose first line starts with
 /// `opener`: the nearest non-blank line above it that is indented less. `terraform fmt` indents
 /// every block, so the indentation is the nesting.
