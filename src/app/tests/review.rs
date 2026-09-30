@@ -1539,3 +1539,132 @@ fn a_deleted_line_is_refused_and_returned_to_every_way() {
     assert_eq!((a.at(), a.line_str()), (Deleted(1, 1), "t3"));
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// #243: a generated file is folded, as on GitHub and GitLab. `c` stops on the fold once and
+/// goes on, ticking it; `C` comes back to it; the keys that read the text do nothing on it;
+/// Enter loads the diff, and `c` walks its hunks. It stays unfolded when the review opens again.
+#[test]
+fn a_generated_file_is_one_stop_until_enter_loads_its_diff() {
+    let (dir, mut a) = review_app_with_lock("reviewfold");
+    let lock = dir.join("poetry.lock");
+    let key = |a: &mut App, code| press(a, code, KeyModifiers::NONE);
+    // Panel order: src/a.rs, crlf.txt, gone, new, poetry.lock, tail.
+    assert_eq!(at(&a).0, dir.join("new"));
+    key(&mut a, KeyCode::Char('c'));
+    assert_eq!(at(&a).0, lock);
+    assert!(a.folded_here().is_some());
+    assert_eq!(a.review_status().unwrap(), "folded  file 5/6");
+    key(&mut a, KeyCode::Char('c'));
+    assert_eq!(at(&a).0, dir.join("tail"), "one stop, then the next file");
+    assert!(a.viewed.contains_key(Path::new("poetry.lock")));
+    key(&mut a, KeyCode::Char('C'));
+    assert_eq!(at(&a).0, lock, "`C` comes back to the fold");
+    assert!(a.folded_here().is_some());
+    key(&mut a, KeyCode::Char('C'));
+    assert_eq!(at(&a).0, dir.join("new"), "`C` goes on from the fold too");
+    key(&mut a, KeyCode::Char('c'));
+    let folded_at = at(&a);
+    assert_eq!(folded_at.0, lock);
+    for code in [
+        KeyCode::Down,
+        KeyCode::PageDown,
+        KeyCode::Char('v'),
+        KeyCode::Char('d'),
+    ] {
+        key(&mut a, code);
+    }
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(
+        at(&a),
+        folded_at,
+        "the keys that read the text wait for the diff"
+    );
+    assert_eq!(a.mode, Mode::Normal);
+    assert!(a.selection().is_none());
+    assert_eq!(
+        a.message, "",
+        "no definition looked up, no hidden line copied"
+    );
+    // The panel works as anywhere: Enter there opens its row, and the fold stays.
+    key(&mut a, KeyCode::Tab);
+    a.tree.reveal(Path::new("tail"));
+    key(&mut a, KeyCode::Enter);
+    assert_eq!(at(&a).0, dir.join("tail"));
+    key(&mut a, KeyCode::Char('C'));
+    assert!(a.folded_here().is_some(), "the panel's Enter loads no diff");
+    key(&mut a, KeyCode::Enter);
+    assert!(a.folded_here().is_none());
+    assert_eq!(
+        a.mode,
+        Mode::Normal,
+        "Enter loads the diff, it does not edit"
+    );
+    assert_eq!(at(&a), (lock.clone(), 1));
+    assert_eq!(a.review_status().unwrap(), "hunk 1/3  file 5/6");
+    key(&mut a, KeyCode::Char('c'));
+    assert_eq!(at(&a), (lock.clone(), 4));
+    // Loaded stays loaded when the branch is reviewed again.
+    let mut again = review_start(&dir, None);
+    again.jump_to(&lock, 1);
+    assert!(again.folded_here().is_none());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// #243: Enter on a fold a jump reached keeps the jump's line; a file with nothing to fold (a
+/// pure rename) is not folded; a file whose text is on screen is not folded under the user by a
+/// refresh that comes to list it as generated.
+#[test]
+fn a_fold_keeps_a_jumps_line_and_never_covers_text_in_sight() {
+    let (dir, _) = review_app("reviewfold2");
+    let git = |args: &[&str]| {
+        let mut cmd = std::process::Command::new("git");
+        let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    let lines: String = (0..9).map(|i| format!("l{i}\n")).collect();
+    git(&["switch", "-q", "main"]);
+    std::fs::write(dir.join("poetry.lock"), &lines).unwrap();
+    std::fs::write(dir.join("Cargo.lock"), &lines).unwrap();
+    std::fs::write(dir.join("uv.lock"), &lines).unwrap();
+    git(&["add", "-A"]);
+    git(&["commit", "-q", "-m", "locks"]);
+    git(&["switch", "-q", "feature"]);
+    git(&["merge", "-q", "main", "-m", "merge"]);
+    let bumped = lines.replace("l1", "L1").replace("l7", "L7");
+    std::fs::write(dir.join("poetry.lock"), bumped).unwrap();
+    git(&["mv", "uv.lock", "src/uv.lock"]);
+    git(&["commit", "-qam", "bump"]);
+    let mut a = review_start(&dir, None);
+    // A jump onto line 6 of the folded lock file: Enter shows it there.
+    let lock = dir.join("poetry.lock");
+    a.jump_to(&lock, 6);
+    assert!(a.folded_here().is_some());
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert!(a.folded_here().is_none());
+    assert_eq!(at(&a), (lock, 5), "the jump's line, not the first hunk");
+    // A renamed lock file has nothing to fold.
+    a.jump_to(&dir.join("src/uv.lock"), 1);
+    let r = a.review.as_ref().unwrap();
+    assert!(
+        r.file(Path::new("src/uv.lock"))
+            .is_some_and(|f| f.generated)
+    );
+    assert!(a.folded_here().is_none());
+    // Cargo.lock, not in the branch, edited in sight: the refresh that lists it keeps it shown.
+    a.jump_to(&dir.join("Cargo.lock"), 1);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(a.mode, Mode::Edit);
+    typed(&mut a, "x");
+    press(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
+    let fresh = a.review.as_ref().unwrap().refresh(&dir).unwrap();
+    assert!(
+        fresh
+            .file(Path::new("Cargo.lock"))
+            .is_some_and(|f| f.generated)
+    );
+    a.review_refreshed(fresh);
+    assert!(a.folded_here().is_none());
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    assert!(a.folded_here().is_none(), "still in sight after the edit");
+    let _ = std::fs::remove_dir_all(dir);
+}

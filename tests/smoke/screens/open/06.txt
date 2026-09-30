@@ -15,10 +15,11 @@ wait Go to definition of the word under the cursor
 14                                │ Review                                                                                                            │
 15     def __exit__(self, exc_type│   c / C                             Review: next / previous hunk, on to the next file                             │
 16         if exc_type is None:   │   m                                 Review: mark the file as viewed, or take the mark off                         │
-17             self.db.commit()   │ Editing                                                                                                           │
-18         else:                  │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
-19             self.db.rollback() │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
-20         return False           │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
+17             self.db.commit()   │   Fold: Enter                       Review: load the diff of a folded generated file                              │
+18         else:                  │ Editing                                                                                                           │
+19             self.db.rollback() │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
+20         return False           │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
+                                  │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
                                   │   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
                                   │   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
                                   │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
@@ -52,6 +53,5 @@ wait Go to definition of the word under the cursor
                                   │ General                                                                                                           │
                                   │   w                                 Wrap long lines, or cut them at the edge and scroll sideways                  │
                                   │   p                                 Show a Markdown file rendered, or its source again                            │
-                                  │   T                                 Pick a theme (live preview)                                                   │
 app/uow.py  15:1  [code]          └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                           ? help
 cursor (x,y,shown) 151,54,0

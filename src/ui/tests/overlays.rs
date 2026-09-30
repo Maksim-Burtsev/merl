@@ -381,6 +381,7 @@ fn review_panel_counts_end_at_the_border() {
             deleted: 2,
             binary: false,
             untracked: false,
+            generated: false,
         }],
         deleted: Default::default(),
         added: Default::default(),
@@ -434,6 +435,7 @@ fn review_panel_cuts_a_long_name_and_keeps_the_counts() {
             deleted: 0,
             binary: true,
             untracked: false,
+            generated: false,
         }],
         deleted: Default::default(),
         added: Default::default(),
@@ -471,6 +473,7 @@ fn review_app(files: &[(&str, char, usize, usize)]) -> App {
                 deleted,
                 binary: path.ends_with(".png"),
                 untracked: false,
+                generated: false,
             })
             .collect(),
         deleted: Default::default(),

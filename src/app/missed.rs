@@ -435,7 +435,7 @@ impl App {
         let next = self
             .review
             .as_ref()
-            .filter(|_| !self.diff.hunks.iter().any(|&h| h > self.at()))
+            .filter(|_| self.hunk_ahead(1).is_none())
             .and_then(|r| {
                 let back = self.hunk_left(r).map(|(rel, _)| rel);
                 back.or_else(|| {

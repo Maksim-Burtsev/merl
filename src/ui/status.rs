@@ -71,7 +71,8 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
                 // With no file open there is no cursor to place (#285). On a line the branch
                 // deleted, its number in the file at the base, negative (#439).
                 match app.deleted {
-                    _ if app.buf.path.is_none() => String::new(),
+                    // A fold shows no text to place a cursor in (#243).
+                    _ if app.buf.path.is_none() || app.folded_here().is_some() => String::new(),
                     Some((k, i)) => {
                         let from = app.diff.ghost_from.get(&k).copied().unwrap_or(0);
                         format!("-{}:{}  ", from + i + 1, app.display_col())

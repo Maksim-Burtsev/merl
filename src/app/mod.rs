@@ -96,6 +96,11 @@ pub const KEYS: &[(&str, &str, &str)] = &[
         "Review",
     ),
     (
+        "Fold: Enter",
+        "Review: load the diff of a folded generated file",
+        "Review",
+    ),
+    (
         "Enter",
         "Edit at the cursor (Esc returns to navigation)",
         "Editing",
@@ -409,6 +414,9 @@ pub struct App {
     /// listing does not have now (a rebase stopped before their commit, a file reverted), kept
     /// with the hash they were viewed at for when the file comes back as it was.
     hidden: HashMap<PathBuf, u64>,
+    /// Review: the generated files whose diff Enter loaded (#243), kept beside the viewed marks
+    /// of the branch; every other generated file of the listing is folded.
+    unfolded: HashSet<PathBuf>,
     /// Review: the branch the marks are kept under, the one the listing names (during a rebase,
     /// the branch being rebased). While HEAD is detached, the last branch the review had.
     /// `None` for a review started detached, or whose store cannot be read: its marks are in
@@ -567,6 +575,7 @@ impl App {
             review: None,
             viewed: HashMap::new(),
             hidden: HashMap::new(),
+            unfolded: HashSet::new(),
             viewed_branch: None,
             last_hunk: None,
             session: None,

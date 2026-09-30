@@ -192,6 +192,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   off. (#250, #450)
 - On a file the branch did not change, the status bar of `merl --review` drops `hunk 0/0  file
   -/8` and reads as it does outside a review. (#286)
+- `merl --review` folds a generated file, as GitHub and GitLab fold it: `c` stops on it once and
+  shows a box instead of its text, with its name, its hunks and `+ −`; the next `c` goes on to
+  the next file and ticks it viewed, and `C` comes back to it. Enter loads its diff, and `c` then
+  walks its hunks; it stays loaded when the branch is reviewed again. Folded is what both forges
+  fold: lock files such as `package-lock.json`, `pnpm-lock.yaml`, `poetry.lock`, `uv.lock`,
+  `Cargo.lock` and `composer.lock`, `node_modules/`, minified scripts and their source maps, Go's
+  `// Code generated … DO NOT EDIT.`, and paths `.gitattributes` marks `linguist-generated` or
+  `gitlab-generated`. (#243)
 - Enter in a list whose query matches nothing does nothing, as in VS Code's quick open: `o`,
   `D`, `T`, `s` and the lists of `d` and `u` stay open with the query, so Backspace fixes a typo
   instead of the query being lost. Esc still closes the list. `s` no longer closes on such an
