@@ -666,6 +666,17 @@ impl App {
                 self.show_definitions(kind, &word, &here, found, None);
                 return;
             }
+            // `$x->word` and `$this->f->word` on a receiver whose class is proven (#361).
+            let receiver = before.strip_suffix(&format!("${}.", chain.join(".")));
+            if dotted
+                && !chain.is_empty()
+                && receiver
+                    .is_some_and(|b| !b.ends_with(|c: char| is_word(c) || c == ':' || c == '$'))
+                && let Some(found) = self.php_typed(&here, &text, &chain, &word, access)
+            {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
         }
         // `x.word` in Rust on a receiver whose type is proven (#377): the word of that type.
         let mut rust_broke = None;

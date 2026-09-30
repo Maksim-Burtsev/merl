@@ -164,7 +164,7 @@ Python `Enum` member, a TypeScript enum member with a value) or it is written be
 Java or Kotlin `Offer.CUT`, when the project declares one type `Offer` and it is an `enum`) or it
 is Rust's: `Mode::Auto` is the variant `Auto` of the `Mode` the project declares once, and a bare
 `Auto` is when a `use …::Mode::*;` of the function, else of the module, brings it in. Elsewhere
-`d` says so, and `u` lists every whole-word use of the identifier. On `x.field` the word is a member: in Python, TypeScript, Go and Swift
+`d` says so, and `u` lists every whole-word use of the identifier. On `x.field` the word is a member: in Python, TypeScript, Go, Swift and PHP
 the field of the type `x` is proven to have (below), else every method, property and field of
 that name, found by name.
 
@@ -214,7 +214,7 @@ What `d` does not claim, in Python, TypeScript, Go, Java and Kotlin:
   has rather than inheriting another's: Zig has none at all, since a `\\` string ends with its
   line, so the markdown a `\\` block holds is read as the code it sits in.
 
-On `x.word`, `x.f.word` and longer chains in Python, TypeScript, Go, Rust and Swift, `d` first looks
+On `x.word`, `x.f.word` and longer chains in Python, TypeScript, Go, Rust and Swift (and PHP, below), `d` first looks
 for the type of the receiver (Swift: #384, rules at the end of this list). `x` is `self` or `cls` in a method, `this` in a class, a Go method's
 receiver, a parameter, a local or a module-level variable, and each name after it is a field of
 the type before it. The type comes from the declaration:
@@ -389,6 +389,22 @@ name; one the project does not declare is read from its file in `vendor/`, and a
 nowhere there is `no definition`, never another class's namesake. A cursor in an anonymous class
 or in a trait's own body, a trait or a parent the project declares twice with no import to
 choose, and a walk that finds nothing inside the project leave the word to the search by name.
+
+PHP's receivers are typed too (#361): on `$x->word` and `$this->f->word`, `d` proves the class of
+`$x` and of each property after it, up to six names in front of the word, then walks that class
+as `$this` is walked above. `$x` is `$this`, or a variable whose every binding in its function
+or closure, above the cursor, reads one class: a parameter with a class type, nullable
+(`?Song $song`) or promoted, a header wrapped over several lines included; `$x = new T(…)`
+(`new self` is the class around it); `$x = T::make(…)`, `$x = $this->make(…)` or `$x = make(…)`
+whose declared return type is one class (`): self` is the class declaring it). A property is
+typed by its declaration, `private SongRepository $songs;` or a promoted constructor parameter.
+A class is the one the file's `use` import names, else the project's one declaration of the
+name. The status line lists the links: `getRecentlyAdded → ArtistRepository::getRecentlyAdded
+(via $this->artistRepository: ArtistRepository)`, `toArray → ScanInformation::toArray (via
+ScanInformation::make(): self)`. A union or an intersection, `mixed`, `array` and the other
+types of no single class, a `static` return type, docblocks (`@var`, `@return`, `@property`), a
+`foreach` target, a value that is not the whole call (`T::make()->other()`), two bindings of
+different classes, and a member the walk does not find leave the word to the search by name.
 
 A chain is followed the same way one field at a time, up to six names in front of the word: on
 `self.uow.users.delete_user` the type of `self.uow`, then the field `users` in that type, then
