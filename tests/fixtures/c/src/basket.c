@@ -34,7 +34,7 @@ money_t bonus(enum offer o, struct bits *bits, union tag_value *v)
     //          ^ d: include/shop/pricing.h:18
     //                      ^ d: src/pricing.c:11
     //                                   ^ d: include/shop/pricing.h:21
-    //                                               ^ d: picker include/shop/invoice.hh:8, include/shop/pricing.h:26; want include/shop/pricing.h:26 (#386)
+    //                                               ^ d: include/shop/pricing.h:26
 }
 
 int restock(int discount)

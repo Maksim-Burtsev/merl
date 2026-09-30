@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` in C knows the struct of a receiver from its declaration. In `void f(client *c)`,
+  `c->flags` lands on the `flags` of `client`, saying `via c: client`, where it offered every
+  `flags` of the project. The type comes from a parameter or a local, a
+  declaration at file scope or a global a header declares once (`extern struct redisServer
+  server;`), or a function's return type (`lookupClient(x)->flags`), and is followed through a
+  chain, `c->bstate.btype` and `c->argv[j]->ptr` included. A receiver not read offers the fields
+  of the name as before, and a longer chain says where it broke. (#386)
 - `d` in C and C++ knows enum constants and the member functions a class only declares. `return
   GREEN;` lands on `GREEN` in its `enum`, where it said `no definition for GREEN`, and a constant
   in an initializer list is still no declaration. `it->Valid()` offers the interface's `virtual

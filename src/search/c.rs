@@ -566,17 +566,18 @@ fn parameter_at(params: &str, name: &str) -> Option<usize> {
     }
     None
 }
-/// The declarations of `name` in the statements of the block that opens at byte `open`, above
-/// `pos` and directly in it: a block closed before `pos` is not read.
-fn block_declarations(code: &str, open: usize, pos: usize, name: &str) -> Vec<usize> {
+/// The declarations of `name` in the statements of the block whose code starts at byte `from`
+/// (past its `{`, or 0 for file scope), above `pos` and directly in it: a block closed before `pos`
+/// is not read.
+fn block_declarations(code: &str, from: usize, pos: usize, name: &str) -> Vec<usize> {
     let b = code.as_bytes();
-    let (mut depth, mut start, mut out) = (0usize, open + 1, Vec::new());
+    let (mut depth, mut start, mut out) = (0usize, from, Vec::new());
     let take = |from: usize, to: usize, out: &mut Vec<usize>| {
         if let Some(j) = declared_at(&code[from..to], name, false) {
             out.push(from + j);
         }
     };
-    for (i, &c) in b.iter().enumerate().take(pos).skip(open + 1) {
+    for (i, &c) in b.iter().enumerate().take(pos).skip(from) {
         match c {
             b'(' | b'[' => depth += 1,
             b')' | b']' => depth = depth.saturating_sub(1),
@@ -706,7 +707,7 @@ pub fn c_bindings_at(text: &str, line: usize, name: &str) -> Vec<(usize, usize)>
         (line, at - starts[line - 1])
     };
     for (open, start, head) in scopes(&code, pos) {
-        let found = block_declarations(&code, open, pos, name);
+        let found = block_declarations(&code, open + 1, pos, name);
         if !found.is_empty() {
             return found.into_iter().map(place).collect();
         }
@@ -949,4 +950,284 @@ pub fn c_defines_member(text: &str, scopes: &[String], word: &str) -> bool {
                 .zip(&written)
                 .all(|(s, w)| s == w)
     })
+}
+
+// ---- the struct of a receiver (#386) -----------------------------------------------------------
+/// What a C value is declared as: a type by the last word of its name (`client` for `struct
+/// client *c`), or the struct or union body that a `} name;` closes, by the byte of its `{`.
+#[derive(Clone, Debug, PartialEq)]
+pub enum CType {
+    Name(String),
+    Body(usize),
+}
+/// The receiver in front of a C member, `before` being its line up to the member and ending in
+/// `->` or `.`: the name it starts from, whether that name is called (`lookupClient(x)->`), and
+/// the fields between it and the member. `a->b.c->` gives `a` with `b`, `c`; an index is read past
+/// (`c->argv[j]->`). `None` for a receiver that starts with anything else: a cast, a bracketed
+/// expression, a call of a call or of a field, `this`.
+pub fn c_receiver(before: &str) -> Option<(String, bool, Vec<String>)> {
+    let code = c_code(before);
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let mut rest = code.trim_end();
+    let mut fields = Vec::new();
+    loop {
+        rest = match rest.strip_suffix("->") {
+            Some(r) => r,
+            None => rest.strip_suffix('.').filter(|r| !r.ends_with('.'))?,
+        }
+        .trim_end();
+        while rest.ends_with(']') {
+            rest = rest[..opening(rest)?].trim_end();
+        }
+        let called = rest.ends_with(')');
+        if called {
+            rest = rest[..opening(rest)?].trim_end();
+        }
+        let start = rest.rfind(|c: char| !is_name(c)).map_or(0, |i| i + 1);
+        let name = &rest[start..];
+        if name.is_empty() || name.starts_with(|c: char| c.is_ascii_digit()) || name == "this" {
+            return None;
+        }
+        rest = rest[..start].trim_end();
+        let member = rest.ends_with("->") || rest.ends_with('.') && !rest.ends_with("..");
+        match (member, called) {
+            (true, false) => fields.insert(0, name.to_owned()),
+            (false, _) => return Some((name.to_owned(), called, fields)),
+            // A call of a field is a function pointer's, whose return type is not read.
+            (true, true) => return None,
+        }
+    }
+}
+/// The byte of the bracket that opens the one `s` ends with, `None` when it does not open in `s`.
+fn opening(s: &str) -> Option<usize> {
+    let mut depth = 0usize;
+    for (i, c) in s.bytes().enumerate().rev() {
+        match c {
+            b')' | b']' => depth += 1,
+            b'(' | b'[' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+/// The words C writes in a type that name none: read past for the type's own.
+const C_TYPE_WORDS: &[&str] = &[
+    "const",
+    "volatile",
+    "struct",
+    "union",
+    "enum",
+    "unsigned",
+    "signed",
+    "static",
+    "extern",
+    "register",
+    "inline",
+    "restrict",
+    "__restrict",
+    "__restrict__",
+    "typedef",
+    "__inline",
+];
+/// What the name declared at byte `at` of `code`, a [`c_code`], is declared as: the body a `}
+/// name;` closes, else the last word of the type in front of it (`client` for `client *c`,
+/// `static const struct client *a, *c` and a parameter `client *c`). `None` for a type that is
+/// no word (a function pointer, a template), a typedef's `} name;` and no type at all.
+pub fn c_decl_type(code: &str, at: usize) -> Option<CType> {
+    let b = code.as_bytes();
+    let (mut depth, mut i) = (0usize, at);
+    let (mut first_comma, mut last_comma, mut param) = (None, None, false);
+    let stop = loop {
+        if i == 0 {
+            break None;
+        }
+        i -= 1;
+        match b[i] {
+            b')' | b']' => depth += 1,
+            b'(' | b'[' if depth > 0 => depth -= 1,
+            b'(' => {
+                param = true;
+                break Some(i);
+            }
+            b'[' => return None,
+            b',' if depth == 0 => {
+                first_comma = Some(i);
+                last_comma = last_comma.or(Some(i));
+            }
+            b';' | b'{' | b'}' if depth == 0 => break Some(i),
+            b';' | b'{' | b'}' => return None,
+            _ => {}
+        }
+    };
+    let from = stop.map_or(0, |s| s + 1);
+    let (segment, named) = match (param, first_comma) {
+        (true, _) => (&code[last_comma.map_or(from, |c| c + 1)..at], false),
+        (false, Some(c)) => (&code[from..c], true),
+        (false, None) => (&code[from..at], false),
+    };
+    // `} name;` closes a body: a value of its struct, when no typedef opens it.
+    if let Some(s) = stop.filter(|&s| b[s] == b'}' && !param && first_comma.is_none())
+        && segment
+            .trim_matches(|c: char| c.is_whitespace() || c == '*')
+            .is_empty()
+    {
+        let open = c_opener(b, s)?;
+        let head = c_back_to_stop(code, open).0.trim();
+        return (!head.starts_with("typedef") && c_struct_head(head).is_some())
+            .then_some(CType::Body(open));
+    }
+    let flat = flat(segment);
+    let typed = flat.split('=').next().unwrap_or_default();
+    if typed.contains(['(', ')', '<', '{', '}']) || typed.contains("::") {
+        return None;
+    }
+    let mut words: Vec<&str> = typed
+        .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .filter(|w| !w.is_empty() && !C_TYPE_WORDS.contains(w))
+        .collect();
+    if named {
+        words.pop();
+    }
+    words
+        .last()
+        .filter(|w| !w.starts_with(|c: char| c.is_ascii_digit()))
+        .map(|w| CType::Name((*w).to_owned()))
+}
+/// What the line of a C type's declaration says of the type `name` at byte `at` of `code`, a
+/// [`c_code`]: `struct name {` and `union name {` open its body, and so does the `typedef struct
+/// … {` whose `} name;` names it; `typedef struct TAG name;` and `typedef T name;` make it
+/// another name's. `None` for anything else: a forward declaration, an enum, a class.
+pub fn c_type_def(code: &str, at: usize) -> Option<CType> {
+    let tagged = after_word(&code[..at], &["struct", "union"]);
+    let after = at + code[at..].find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))?;
+    if tagged {
+        let open = after + code[after..].find(|c: char| !c.is_whitespace())?;
+        return (code.as_bytes()[open] == b'{').then_some(CType::Body(open));
+    }
+    let (stmt, stop) = c_back_to_stop(code, at);
+    let s = at - stmt.len();
+    if stop == b'}'
+        && stmt
+            .trim_matches(|c: char| c.is_whitespace() || c == '*')
+            .is_empty()
+    {
+        let open = c_opener(code.as_bytes(), s - 1)?;
+        let head = c_back_to_stop(code, open).0.trim();
+        return (head.starts_with("typedef") && c_struct_head(head).is_some())
+            .then_some(CType::Body(open));
+    }
+    if !stmt.trim_start().starts_with("typedef") {
+        return None;
+    }
+    c_decl_type(code, at).filter(|t| *t != CType::Name(code[at..after].to_owned()))
+}
+/// Whether `s` ends in one of `words`, whole, and whitespace.
+fn after_word(s: &str, words: &[&str]) -> bool {
+    let s = s.trim_end();
+    words.iter().any(|w| {
+        s.strip_suffix(w)
+            .is_some_and(|r| !r.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_'))
+    })
+}
+/// The byte of the member `word` of the struct or union whose body opens at byte `open` of
+/// `code`, a [`c_code`]: a field declared directly in it, or in a nested body that has no name of
+/// its own (`union { int a; };`).
+pub fn c_body_field(code: &str, open: usize, word: &str) -> Option<usize> {
+    let close = close_of_in(code, open, code.len());
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let b = code.as_bytes();
+    code[open + 1..close]
+        .match_indices(word)
+        .find_map(|(i, _)| {
+            let at = open + 1 + i;
+            let whole =
+                !code[..at].ends_with(is_name) && !code[at + word.len()..].starts_with(is_name);
+            if !whole || c_field_at(code, at, word).is_none() {
+                return None;
+            }
+            let mut o = c_opener(b, at)?;
+            while o != open {
+                let end = close_of_in(code, o, close);
+                let anonymous = c_struct_head(c_back_to_stop(code, o).0)
+                    .is_some_and(|n| n.is_empty())
+                    && code[end + 1..].trim_start().starts_with(';');
+                if !anonymous {
+                    return None;
+                }
+                o = c_opener(b, o)?;
+            }
+            Some(at)
+        })
+}
+/// The type the value `name` read on 1-based `line` of a C `text` is declared with in the file:
+/// its parameter or local ([`c_bindings_at`]), else its declaration at file scope, `} name;`
+/// included. `Ok(None)` when the file declares no such value; `Err(())` when it does with a type
+/// not read, or with two.
+pub fn c_value_type(text: &str, line: usize, name: &str) -> Result<Option<CType>, ()> {
+    let code = c_code(text);
+    let starts = line_starts(&code);
+    let mut at: Vec<usize> = c_bindings_at(text, line, name)
+        .into_iter()
+        .map(|(l, col)| starts[l - 1] + col)
+        .collect();
+    if at.is_empty() {
+        at = block_declarations(&code, 0, code.len(), name);
+        let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+        at.extend(code.match_indices(name).map(|(i, _)| i).filter(|&i| {
+            !code[..i].ends_with(is_name)
+                && !code[i + name.len()..].starts_with(is_name)
+                && code[..i]
+                    .trim_end_matches(|c: char| c.is_whitespace() || c == '*')
+                    .ends_with('}')
+                && c_opener(code.as_bytes(), i).is_none()
+                && matches!(c_decl_type(&code, i), Some(CType::Body(_)))
+        }));
+    }
+    // `static struct name { … } name;` names the tag first.
+    let mut types = at
+        .into_iter()
+        .filter(|&a| !after_word(&code[..a], &["struct", "union", "enum"]))
+        .map(|a| c_decl_type(&code, a));
+    let Some(first) = types.next() else {
+        return Ok(None);
+    };
+    match first {
+        Some(t) if types.all(|o| o.as_ref() == Some(&t)) => Ok(Some(t)),
+        _ => Err(()),
+    }
+}
+/// The bytes of 1-based `line` of `code` where the word `name` stands whole, with `then` right
+/// after it when given (`(` for a function).
+pub fn c_words_on_line(code: &str, line: usize, name: &str, then: Option<char>) -> Vec<usize> {
+    let starts = line_starts(code);
+    let Some(&from) = line.checked_sub(1).and_then(|k| starts.get(k)) else {
+        return Vec::new();
+    };
+    let to = starts.get(line).map_or(code.len(), |&s| s - 1);
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    code[from..to]
+        .match_indices(name)
+        .map(|(i, _)| from + i)
+        .filter(|&i| {
+            let after = code[i + name.len()..].trim_start();
+            !code[..i].ends_with(is_name)
+                && !code[i + name.len()..].starts_with(is_name)
+                && then.is_none_or(|c| after.starts_with(c))
+        })
+        .collect()
+}
+/// The 1-based line and byte column of byte `at` of `code`.
+pub fn c_place(code: &str, at: usize) -> (usize, usize) {
+    let line_start = code[..at].rfind('\n').map_or(0, |i| i + 1);
+    (code[..at].matches('\n').count() + 1, at - line_start)
+}
+/// The name of the struct or union whose body opens at byte `open` of `code`, `""` for an
+/// anonymous one.
+pub fn c_body_name(code: &str, open: usize) -> String {
+    c_struct_head(c_back_to_stop(code, open).0).unwrap_or_default()
 }
