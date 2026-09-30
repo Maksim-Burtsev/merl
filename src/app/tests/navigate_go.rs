@@ -819,10 +819,14 @@ fn a_go_literal_key_is_a_field_of_the_literals_type() {
         d("shop/more.go", "Order{Missing"),
         jump("no definition for Missing", "shop/more.go:23")
     );
-    // A map's keys, a slice expression, a label and a `case` are no fields.
+    // A map's keys, a slice expression, a label and a `case` are no fields. In the slice
+    // expression it is the parameter of the function on its line (#524).
     let street = || jump("Street: local", "shop/more.go:3");
     assert_eq!(d("shop/more.go", "{Street"), street());
-    assert_eq!(d("shop/more.go", "xs[Street"), street());
+    assert_eq!(
+        d("shop/more.go", "xs[Street"),
+        jump("Street \u{2192} cut.Street (local)", "shop/more.go:9")
+    );
     assert_eq!(d("shop/more.go", "case Street"), street());
     assert_eq!(d("shop/more.go", "^Street"), street());
     std::fs::remove_dir_all(&dir).unwrap();

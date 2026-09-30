@@ -1287,6 +1287,26 @@ pub fn python_class_binds(text: &str, line: usize, name: &str) -> bool {
     }
     false
 }
+/// Whether the Python `def` on 1-based `line` of `text` is a method: the nearest code line above
+/// it indented less opens a class (#522). A bare name never calls one.
+pub fn python_method(text: &str, line: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let literal = literal_lines(Kind::Python, text);
+    let depth = indent(lines[at]);
+    (0..at)
+        .rev()
+        .find(|&i| {
+            let t = lines[i].trim_start();
+            !t.is_empty()
+                && !t.starts_with(['#', ')', ']'])
+                && !literal[i]
+                && indent(lines[i]) < depth
+        })
+        .is_some_and(|i| lines[i].trim_start().starts_with("class "))
+}
 /// The 1-based line of the class the `def` on line `d` is a method of, unless it is a
 /// `@staticmethod`.
 fn python_class_of(lines: &[&str], d: usize) -> Option<usize> {
@@ -1721,6 +1741,23 @@ fn opener_bindings(
         _ => {}
     }
     own
+}
+/// Whether `name` at byte `at` of a Go `line` is bound by a header on that same line whose block
+/// the cursor is in (#524): the parameter of `func cut(xs []int, n int) []int { return xs[n:] }`,
+/// as it is when the body is on lines of its own.
+pub fn go_binds_here(line: &str, name: &str, at: usize) -> bool {
+    let mut open = Vec::new();
+    for (i, c) in code(Kind::Go, &line[..at]) {
+        match c {
+            b'{' => open.push(i),
+            b'}' => {
+                open.pop();
+            }
+            _ => {}
+        }
+    }
+    open.iter()
+        .any(|&b| opener_bindings(Kind::Go, line[..=b].trim(), 0, name, &mut Vec::new()))
 }
 /// Whether what `before` ends in writes a return type: the nearest `:` in front, at its bracket
 /// depth, follows the `)` of a parameter list, `): A | B`. A `:` after a key, `onClick: e =>`,

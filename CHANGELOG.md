@@ -580,6 +580,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   call, an `@spec` or a module attribute on its own module's declaration first. (#460)
 - `d` in Lua follows `require` to the module's file and reads `mod.name`, `mod.T.name` and
   `T.name` in the table it names, instead of offering every function of that name. (#462)
+- `d` in Go on a parameter used in a body written on its function's own line, `func cut(xs
+  []int, n int) []int { return xs[n:] }`, lands on the parameter. It jumped to a package-level
+  constant or variable of the same name. (#524)
+- `d` in Python on a bare call, `next(steps)`, never offers a method of that name: a `def` in a
+  class is reached through a value or the class. Where the file declares a module-level `def
+  next`, `d` jumps there instead of offering it beside `Courier.next`. (#522)
 
 ## [0.7.0] - 2026-09-25
 
