@@ -1908,6 +1908,47 @@ pub fn go_binds_here(line: &str, name: &str, at: usize) -> bool {
             opener_bindings(Kind::Go, header.trim(), 0, name, &mut Vec::new())
         })
 }
+/// Whether `name` at byte `at` of a Go `line` that declares a function or a method `name` stands
+/// in a parameter's type (#536): the second `Send` of `Send(msg Send) error` in an interface or
+/// of `func (e Email) Send(msg *Send) error {`. A parameter's own name is no type: the first
+/// word of an item when an item names one (`Send, n int`), and a list of bare types has none.
+pub fn go_param_type(line: &str, name: &str, at: usize) -> bool {
+    let head = format!(
+        r"^\s*(?:func\s*(?:\([^()]*\)\s*)?)?{}\s*\(",
+        regex::escape(name)
+    );
+    let Some(open) = Regex::new(&head)
+        .ok()
+        .and_then(|re| re.find(line))
+        .map(|m| m.end())
+    else {
+        return false;
+    };
+    if at < open {
+        return false;
+    }
+    // Where the item under the cursor starts, and whether the list closes behind it on the line.
+    let (mut depth, mut item, mut close) = (0usize, open, None);
+    for (i, c) in code(Kind::Go, &line[open..]) {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' if depth == 0 => {
+                close = Some(open + i);
+                break;
+            }
+            b')' | b']' | b'}' => depth = depth.saturating_sub(1),
+            b',' if depth == 0 && open + i < at => item = open + i + 1,
+            _ => {}
+        }
+    }
+    let Some(close) = close.filter(|&c| at < c) else {
+        return false;
+    };
+    let named = split_top(Kind::Go, &line[open..close], b',')
+        .iter()
+        .any(|i| i.trim().contains(char::is_whitespace));
+    !named || !line[item..at].trim().is_empty()
+}
 /// Whether what `before` ends in writes a return type: the nearest `:` in front, at its bracket
 /// depth, follows the `)` of a parameter list, `): A | B`. A `:` after a key, `onClick: e =>`,
 /// does not (#331).

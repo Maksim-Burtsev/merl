@@ -250,6 +250,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` in Go on a parameter's type named like the method it belongs to, the second `Send` of
+  `Send(msg Send) error`, jumps to `type Send`. It offered a picker of `type Send` and every
+  method `Send` beside it. (#536)
 - `d` in Swift finds a function or an enum case declared with its name in backticks, as
   ``func `default`()`` or ``case `open` ``: it said "no definition", or jumped to a namesake
   elsewhere. (#463)

@@ -423,3 +423,31 @@ fn a_go_file_is_built_for_a_platform_by_its_name_and_its_build_line() {
     let late = "package p\n\n//go:build windows\n";
     assert_eq!(go_built(Path::new("c.go"), late, &linux), Some(true));
 }
+
+/// #536: which occurrence of a method's name in its own parameter list is a type.
+#[test]
+fn a_go_parameter_type_named_like_its_method() {
+    let at = |line: &str, n: usize| line.match_indices("Send").nth(n).unwrap().0;
+    for (line, n, want) in [
+        ("\tSend(msg Send) error", 1, true),
+        (
+            "func (e Email) Send(msg *Send) error { return nil }",
+            1,
+            true,
+        ),
+        ("\tSend(m map[string]Send, n int) error", 1, true),
+        ("\tSend(Send) error", 1, true),
+        // A parameter's name, and the declared name itself, are no type.
+        ("\tSend(Send, n int) error", 1, false),
+        ("\tSend(msg Send) error", 0, false),
+        // A result, and a line that declares no `Send`.
+        ("\tSend(n int) Send", 1, false),
+        ("\tPost(msg Send) error", 0, false),
+    ] {
+        assert_eq!(
+            go_param_type(line, "Send", at(line, n)),
+            want,
+            "{line} #{n}"
+        );
+    }
+}

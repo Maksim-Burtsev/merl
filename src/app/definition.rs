@@ -2592,6 +2592,18 @@ impl App {
         if superclass {
             found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
         }
+        // A Go parameter's type named like the method it is a parameter of, `Send(msg Send)`, is
+        // looked up as a type (#536); with no type found, the namesakes stay offered.
+        let as_type = kind == Kind::Go
+            && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
+                |(r, w)| w == word && search::go_param_type(self.line_str(), word, r.start),
+            )
+            && found
+                .iter()
+                .any(|c| search::declares_type(kind, &c.hit.text));
+        if as_type {
+            found.retain(|c| search::declares_type(kind, &c.hit.text));
+        }
         let all = found.len();
         if all > 1 {
             found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
@@ -2609,7 +2621,8 @@ impl App {
                 .is_some_and(|re| re.is_match(self.line_str()))
                 && search::owner_decl(kind, &self.buf.lines.join("\n"), self.line + 1).is_some()
         };
-        let namesakes = found.iter().all(|c| !c.reason.proven())
+        let namesakes = !as_type
+            && found.iter().all(|c| !c.reason.proven())
             && !found.is_empty()
             && (found.len() < all || on_member())
             // Alone, the declaration under the cursor is its own answer.
