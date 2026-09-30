@@ -8,6 +8,7 @@ use std::sync::LazyLock;
 use regex::Regex;
 
 use super::symbols::php_mods;
+use super::syntax::close_of;
 use super::words::steps_over;
 use super::{Kind, indent};
 
@@ -250,4 +251,159 @@ pub fn php_namespace(text: &str) -> Option<&str> {
         .captures(text)
         .and_then(|c| c.get(1))
         .map(|m| m.as_str())
+}
+
+// ---- The type of a receiver (#361) ----------------------------------------------------------
+
+/// What a line binding PHP's `$name` says of its type (#361).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PhpBinding {
+    /// A type written in front of it: a parameter, a promoted one, a property, a `catch`.
+    Type(String),
+    /// `$name = new T(…)`; `self` is the class around the line.
+    New(String),
+    /// `$name = T::m(…)`, `self::m(…)` among them.
+    Static(String, String),
+    /// `$name = $this->m(…)`.
+    This(String),
+    /// `$name = f(…)`.
+    Function(String),
+}
+
+/// Names that stand where a class does and are none: the types of no single class, what refers
+/// to a class that can be a subclass, and the keywords a `$name` can follow on its line.
+const NO_CLASS: &[&str] = &[
+    "array",
+    "bool",
+    "callable",
+    "false",
+    "float",
+    "int",
+    "iterable",
+    "mixed",
+    "never",
+    "null",
+    "object",
+    "parent",
+    "resource",
+    "static",
+    "string",
+    "true",
+    "void",
+    "public",
+    "private",
+    "protected",
+    "readonly",
+    "var",
+    "global",
+    "return",
+    "echo",
+    "print",
+    "yield",
+    "clone",
+    "new",
+    "as",
+    "case",
+    "throw",
+    "else",
+    "and",
+    "or",
+    "xor",
+    "instanceof",
+    "include",
+    "require",
+    "fn",
+    "function",
+    "use",
+    "list",
+    "isset",
+    "unset",
+    "empty",
+    "match",
+];
+
+/// The one class written as the type of `$name` on `line`, `?` dropped: `UserUnsubscribed $event`,
+/// `private readonly ?Podcast $podcast`. `None` for no type, a union or an intersection
+/// (`A|B`, `A&B`), a variadic `T ...$xs`, and a type that is no single class (`mixed`, `array`,
+/// `static`…). `self` is returned as written.
+pub fn php_written_type(line: &str, name: &str) -> Option<String> {
+    let re = Regex::new(&format!(r"(\??[\w\\]+)\s+&?\${}\b", regex::escape(name))).ok()?;
+    let c = re.captures(line)?;
+    let m = c.get(1)?;
+    let before = line[..m.start()].trim_end();
+    if before.ends_with(['|', '&', '.', '$', ':', '>', '-', '=']) {
+        return None;
+    }
+    let written = m.as_str().trim_start_matches('?');
+    let short = written.rsplit('\\').next().unwrap_or(written);
+    (!short.is_empty() && !NO_CLASS.contains(&short.to_ascii_lowercase().as_str()))
+        .then(|| written.to_owned())
+}
+
+/// The class `statement` binds `$name` to, the statement starting on the line that binds it and
+/// running on over the lines below: a type written in front of it, or an assignment whose whole
+/// value is `new T(…)`, `T::m(…)`, `$this->m(…)` or `f(…)`. `None` for anything else: a
+/// `foreach` target, a `list(…)`, a call on a call, `new static`, `static::m()`.
+pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
+    static NEW: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^new\s+([\w\\]+)\s*").unwrap());
+    static STATIC: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^([\w\\]+)::(\w+)\s*\(").unwrap());
+    static THIS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\$this->(\w+)\s*\(").unwrap());
+    static FUNCTION: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^([\w\\]+)\s*\(").unwrap());
+    let first = statement.lines().next().unwrap_or_default();
+    let n = regex::escape(name);
+    let assign = Regex::new(&format!(r"(?:^|[^\w$:>])\${n}\s*=([^=>]|$)")).ok()?;
+    // A parameter's default, `Foo $x = null`, is no assignment of the variable.
+    if let Some(t) = php_written_type(first, name) {
+        return Some(PhpBinding::Type(t));
+    }
+    let at = assign.captures(first)?.get(1)?.start();
+    let value = statement[at..].trim_start();
+    // The whole value, up to the `;` that ends it: a call whose result is called on, or a
+    // construction followed by anything, is some other value.
+    let ends = |open: usize| {
+        let close = close_of(Kind::Php, value, open)?;
+        value[close..].trim_start().starts_with(';').then_some(())
+    };
+    if let Some(c) = NEW.captures(value) {
+        let class = c[1].to_owned();
+        let rest = c.get(0)?.end();
+        match value[rest..].starts_with('(') {
+            true => ends(rest)?,
+            false => value[rest..].starts_with(';').then_some(())?,
+        }
+        let lower = class.to_ascii_lowercase();
+        return (lower != "static" && lower != "class" && lower != "parent")
+            .then_some(PhpBinding::New(class));
+    }
+    let open = value.find('(')?;
+    ends(open)?;
+    if let Some(c) = STATIC.captures(value) {
+        let lower = c[1].to_ascii_lowercase();
+        return (lower != "static" && lower != "parent")
+            .then(|| PhpBinding::Static(c[1].to_owned(), c[2].to_owned()));
+    }
+    if let Some(c) = THIS.captures(value) {
+        return Some(PhpBinding::This(c[1].to_owned()));
+    }
+    let c = FUNCTION.captures(value)?;
+    let short = c[1]
+        .rsplit('\\')
+        .next()
+        .unwrap_or(&c[1])
+        .to_ascii_lowercase();
+    (!NO_CLASS.contains(&short.as_str())).then(|| PhpBinding::Function(c[1].to_owned()))
+}
+
+/// The one class a function or a method declares it returns, `?` dropped, in `header`: its line
+/// and the lines below it, which its parameters can wrap over. `self` is returned as written;
+/// `static`, a union, an intersection and no return type give `None`.
+pub fn php_return_type(header: &str) -> Option<String> {
+    static RETURNS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*:\s*\??([\w\\]+)\s*(?:\{|;|$)").unwrap());
+    let open = header.find("function")? + header[header.find("function")?..].find('(')?;
+    let close = close_of(Kind::Php, header, open)?;
+    let written = RETURNS.captures(&header[close..])?.get(1)?.as_str();
+    let short = written.rsplit('\\').next().unwrap_or(written);
+    (!NO_CLASS.contains(&short.to_ascii_lowercase().as_str())).then(|| written.to_owned())
 }

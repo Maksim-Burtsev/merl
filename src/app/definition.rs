@@ -604,6 +604,17 @@ impl App {
                 self.show_definitions(kind, &word, &here, found, None);
                 return;
             }
+            // `$x->word` and `$this->f->word` on a receiver whose class is proven (#361).
+            let receiver = before.strip_suffix(&format!("${}.", chain.join(".")));
+            if dotted
+                && !chain.is_empty()
+                && receiver
+                    .is_some_and(|b| !b.ends_with(|c: char| is_word(c) || c == ':' || c == '$'))
+                && let Some(found) = self.php_typed(&here, &text, &chain, &word, access)
+            {
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
         }
         // Rust's attributes, fields and variants, which the lines below cannot tell (#370).
         if kind == Kind::Rust

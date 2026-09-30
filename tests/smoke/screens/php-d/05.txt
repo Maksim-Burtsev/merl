@@ -1,27 +1,25 @@
-wait final class Receipt
-┌orders──────────────────────┐ 1 <?php
-│▸ .github                   │ 2
-│▸ .venv                     │ 3 namespace Billing;
-│▸ app                       │ 4
-│▸ data                      │ 5 abstract class Document
-│▸ deploy                    │ 6 {
-│▸ docs                      │ 7     public const PAPER = 'A4';
-│▾ scripts                   │ 8
-│  ▸ payouts                 │ 9     protected function render(string $format): string
-│    invoices.php            │10     {
-│    refund_by_hand.py       │11         return "{$format}:" . static::PAPER;
-│▸ tests                     │12     }
-│▸ web                       │13 }
-│▸ worker                    │14
-│  .env                      │15 trait Numbered
-│  .gitignore                │16 {
-│  docker-compose.yml        │17     protected function number(): string
-│  Dockerfile                │18     {
-│  Makefile                  │19         return sprintf('INV-%05d', $this->id);
-│  pyproject.toml            │20     }
-│  README.md                 │21 }
-│                            │22
-│                            │23 final class Receipt
+wait number → Receipt::number (via $receipt: Receipt)
+┌orders──────────────────────┐ 3 namespace Billing;
+│▸ .github                   │ 4
+│▸ .venv                     │ 5 abstract class Document
+│▸ app                       │ 6 {
+│▸ data                      │ 7     public const PAPER = 'A4';
+│▸ deploy                    │ 8
+│▸ docs                      │ 9     protected function render(string $format): string
+│▾ scripts                   │10     {
+│  ▸ payouts                 │11         return "{$format}:" . static::PAPER;
+│    invoices.php            │12     }
+│    refund_by_hand.py       │13 }
+│▸ tests                     │14
+│▸ web                       │15 trait Numbered
+│▸ worker                    │16 {
+│  .env                      │17     protected function number(): string
+│  .gitignore                │18     {
+│  docker-compose.yml        │19         return sprintf('INV-%05d', $this->id);
+│  Dockerfile                │20     }
+│  Makefile                  │21 }
+│  pyproject.toml            │22
+│  README.md                 │23 final class Receipt
 │                            │24 {
 │                            │25     public function render(string $format): string
 │                            │26     {
@@ -52,6 +50,8 @@ wait final class Receipt
 │                            │51 {
 │                            │52     return $receipt->number();
 │                            │53 }
+│                            │
+│                            │
 └────────────────────────────┘
-scripts/invoices.php  1:1  [code]                                                                                                                                                 ? help
-cursor (x,y,shown) 33,0,1
+scripts/invoices.php  30:21  [code]  number → Receipt::number (via $receipt: Receipt)
+cursor (x,y,shown) 53,27,1

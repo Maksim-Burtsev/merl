@@ -3,6 +3,9 @@
 
 use super::*;
 
+/// A class the project declares: its file, the file's text and the 0-based line of its header.
+type PhpClass = (PathBuf, String, usize);
+
 /// Where the walk of [`App::php_link`] reads a member from.
 enum Walk {
     /// Declared here.
@@ -116,10 +119,8 @@ impl App {
         }
     }
 
-    /// [`Self::php_walk`] from the class `name`, as the file `from` (its `text`) writes it: its
-    /// `use` import, a name spelled from the root, else the project's one declaration of it
-    /// (the file's namespace is #351). A class the project does not declare is read in
-    /// `vendor/`.
+    /// [`Self::php_walk`] from the class `name`, as the file `from` (its `text`) writes it
+    /// ([`Self::php_class`]). A class the project does not declare is read in `vendor/`.
     fn php_walk_class(
         &mut self,
         from: &Path,
@@ -129,6 +130,28 @@ impl App {
         depth: usize,
         seen: &mut Vec<(PathBuf, usize)>,
     ) -> Walk {
+        let short = name.rsplit('\\').next().unwrap_or(name);
+        let (full, mut matching) = self.php_class(from, text, name);
+        match matching.len() {
+            1 => {
+                let (path, t, line) = matching.remove(0);
+                self.php_walk(&path, &t, line, re, depth, seen)
+            }
+            0 => self.php_outside(full.as_deref(), short, re),
+            _ => Walk::Unread,
+        }
+    }
+
+    /// The project's declarations of the class `name` as the file `from` (its `text`) writes
+    /// it: its `use` import, a name spelled from the root, else every one of that name (the
+    /// file's namespace is #351). Each is its file, the file's text and its 0-based line; the
+    /// full name the file gives it comes first, when it gives one.
+    fn php_class(
+        &mut self,
+        from: &Path,
+        text: &str,
+        name: &str,
+    ) -> (Option<String>, Vec<(PathBuf, String, usize)>) {
         let kind = Kind::Php;
         let short = name.rsplit('\\').next().unwrap_or(name);
         let imports = search::imports(kind, text);
@@ -151,7 +174,7 @@ impl App {
                 _ => format!("{ns}\\{short}"),
             }
         };
-        let mut matching: Vec<(PathBuf, String, usize)> = declared
+        let matching = declared
             .into_iter()
             .filter_map(|h| {
                 let t = self.text_of(&h.path)?;
@@ -159,14 +182,201 @@ impl App {
                 fits.then_some((h.path, t, h.line - 1))
             })
             .collect();
-        match matching.len() {
-            1 => {
-                let (path, t, line) = matching.remove(0);
-                self.php_walk(&path, &t, line, re, depth, seen)
+        (full, matching)
+    }
+
+    /// What `d` answers for `word` behind `$x->…->` on the cursor's line of `text` (#361), `chain`
+    /// the names in front of it with `$` dropped: the class of `$x` proven, then each name a
+    /// typed property of the class before it, up to six names, and `word` looked up in the last
+    /// class as [`Self::php_walk`] does. `$x` is `$this` in a class, or a variable whose every
+    /// binding in its function reads one class ([`search::php_binding`]). `None` leaves the word
+    /// to the search by name: a name not proven, or a member found nowhere on the walk.
+    pub(super) fn php_typed(
+        &mut self,
+        here: &Path,
+        text: &str,
+        chain: &[String],
+        word: &str,
+        access: search::PhpAccess,
+    ) -> Option<Vec<Candidate>> {
+        // ponytail: six names in front of the word, as for Python.
+        let (head, fields) = chain.split_first().filter(|_| chain.len() <= 6)?;
+        let (mut class, mut links, rest) = match head.as_str() {
+            // `$this->word` alone is [`Self::php_link`]'s.
+            "this" => {
+                let (field, rest) = fields.split_first()?;
+                let own = self.php_self(here, text, self.line)?;
+                let class = self.php_property_type(&own, field)?;
+                let link = format!("$this->{field}: {}", self.php_class_name(&class)?);
+                (class, vec![link], rest)
             }
-            0 => self.php_outside(full.as_deref(), short, re),
-            _ => Walk::Unread,
+            _ => {
+                let (class, link) = self.php_variable_type(here, text, head)?;
+                (class, vec![link], fields)
+            }
+        };
+        for field in rest {
+            class = self.php_property_type(&class, field)?;
+            links.push(format!("{field}: {}", self.php_class_name(&class)?));
         }
+        let re = Regex::new(&search::php_access_patterns(word, access).join("|")).ok()?;
+        let (path, t, line) = class;
+        let Walk::Found(hits) = self.php_walk(&path, &t, line, &re, 0, &mut Vec::new()) else {
+            return None;
+        };
+        let reason = Reason::Receiver(links.join(" \u{2192} "));
+        Some(
+            hits.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect(),
+        )
+    }
+
+    /// The name of the class on 0-based `line` of `text`.
+    fn php_class_name(&self, (_, text, line): &PhpClass) -> Option<String> {
+        let l = text.lines().nth(*line)?;
+        search::php_class_header(l).map(|(_, name, _)| name.to_owned())
+    }
+
+    /// The class 0-based line `at` of `text`, the file `path`, stands in: `$this` and `self`
+    /// there. Not a trait, whose `$this` is whichever class uses it, nor an anonymous class.
+    fn php_self(&self, path: &Path, text: &str, at: usize) -> Option<PhpClass> {
+        let lines: Vec<&str> = text.lines().collect();
+        let class = search::php_enclosing_class(&lines, at)?;
+        let (keyword, _, _) = search::php_class_header(lines[class])?;
+        (keyword != "trait").then(|| (path.to_path_buf(), text.to_owned(), class))
+    }
+
+    /// The project's one class `written` names in the file `path`, whose 0-based line `at` writes
+    /// it: `self` is the class around that line.
+    fn php_type(&mut self, path: &Path, text: &str, at: usize, written: &str) -> Option<PhpClass> {
+        if written.eq_ignore_ascii_case("self") {
+            return self.php_self(path, text, at);
+        }
+        let (_, mut matching) = self.php_class(path, text, written);
+        (matching.len() == 1).then(|| matching.remove(0))
+    }
+
+    /// The class every binding of `$name` above the cursor reads, in its function, with the link
+    /// that proves it: `$event: UserUnsubscribed`, `$song: Song::make(): Song`. A binding on the
+    /// cursor's own line other than its function's header is read after the cursor is.
+    fn php_variable_type(
+        &mut self,
+        here: &Path,
+        text: &str,
+        name: &str,
+    ) -> Option<(PhpClass, String)> {
+        let lines: Vec<&str> = text.lines().collect();
+        let mut found: Option<(PhpClass, String)> = None;
+        for b in search::php_variable(text, self.line + 1, name)? {
+            let at = b - 1;
+            // ponytail: a statement read over twenty lines.
+            let statement = lines[at..lines.len().min(at + 20)].join("\n");
+            let binding = search::php_binding(&statement, name)?;
+            if at == self.line && !matches!(binding, search::PhpBinding::Type(_)) {
+                continue;
+            }
+            let (class, call) = match binding {
+                search::PhpBinding::Type(t) | search::PhpBinding::New(t) => {
+                    (self.php_type(here, text, at, &t)?, None)
+                }
+                search::PhpBinding::Static(on, method) => {
+                    let class = self.php_type(here, text, at, &on)?;
+                    let (ty, returns) = self.php_returns(class, &method)?;
+                    (ty, Some(format!("{on}::{method}(): {returns}")))
+                }
+                search::PhpBinding::This(method) => {
+                    let class = self.php_self(here, text, at)?;
+                    let (ty, returns) = self.php_returns(class, &method)?;
+                    (ty, Some(format!("$this->{method}(): {returns}")))
+                }
+                search::PhpBinding::Function(f) => {
+                    let (ty, returns) = self.php_function_returns(here, &f)?;
+                    (ty, Some(format!("{f}(): {returns}")))
+                }
+            };
+            match &found {
+                Some(((p, _, l), _)) if (p, *l) != (&class.0, class.2) => return None,
+                Some(_) => {}
+                None => {
+                    let link = match call {
+                        Some(call) => call,
+                        None => format!("${name}: {}", self.php_class_name(&class)?),
+                    };
+                    found = Some((class, link));
+                }
+            }
+        }
+        found
+    }
+
+    /// The class the method `method` of `class`, walked as [`Self::php_walk`] walks it, declares
+    /// it returns, and that return type as written.
+    fn php_returns(&mut self, class: PhpClass, method: &str) -> Option<(PhpClass, String)> {
+        let re =
+            Regex::new(&search::php_access_patterns(method, search::PhpAccess::Call).join("|"))
+                .ok()?;
+        let (path, t, line) = class;
+        let Walk::Found(hits) = self.php_walk(&path, &t, line, &re, 0, &mut Vec::new()) else {
+            return None;
+        };
+        let [hit] = hits.as_slice() else {
+            return None;
+        };
+        self.php_declared_return(&hit.path, hit.line - 1)
+    }
+
+    /// The class the function `name` declares it returns: the project's one `function name(`
+    /// outside a class.
+    fn php_function_returns(&mut self, here: &Path, name: &str) -> Option<(PhpClass, String)> {
+        let short = name.rsplit('\\').next().unwrap_or(name);
+        let pattern = format!(r"^function\s+&?\s*{}\s*\(", regex::escape(short));
+        let cut = self.truncated.get();
+        let hits = self.project_definitions(Kind::Php, here, short, &pattern);
+        self.truncated.set(cut);
+        let [hit] = hits.as_slice() else {
+            return None;
+        };
+        self.php_declared_return(&hit.path, hit.line - 1)
+    }
+
+    /// The class the function or method whose header starts on 0-based line `at` of the file
+    /// `path` declares it returns, and the type as written; a docblock's `@method` is no header.
+    fn php_declared_return(&mut self, path: &Path, at: usize) -> Option<(PhpClass, String)> {
+        let text = self.text_of(path)?;
+        let lines: Vec<&str> = text.lines().collect();
+        if lines.get(at)?.trim_start().starts_with('*') {
+            return None;
+        }
+        let header = lines[at..lines.len().min(at + 20)].join("\n");
+        let written = search::php_return_type(&header)?;
+        let class = self.php_type(path, &text, at, &written)?;
+        Some((class, written))
+    }
+
+    /// The class the property `field` of `class` is typed with: its one declaration on the walk
+    /// of [`Self::php_walk`], a typed property or a promoted constructor parameter. A docblock's
+    /// `@property` is none.
+    fn php_property_type(&mut self, class: &PhpClass, field: &str) -> Option<PhpClass> {
+        let re =
+            Regex::new(&search::php_access_patterns(field, search::PhpAccess::Property).join("|"))
+                .ok()?;
+        let (path, t, line) = class;
+        let Walk::Found(hits) = self.php_walk(path, t, *line, &re, 0, &mut Vec::new()) else {
+            return None;
+        };
+        let [hit] = hits.as_slice() else {
+            return None;
+        };
+        if hit.text.trim_start().starts_with('*') {
+            return None;
+        }
+        let written = search::php_written_type(&hit.text, field)?;
+        let text = self.text_of(&hit.path)?;
+        self.php_type(&hit.path, &text, hit.line - 1, &written)
     }
 
     /// The members `re` matches of the class `short` outside the project, in `vendor/`: its

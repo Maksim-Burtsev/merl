@@ -11,3 +11,9 @@ key [ /
 type number() .
 key Enter d
 wait number → Numbered::number (via $this: Invoice)
+# `$receipt->number()` on a parameter typed `Receipt` lands on Receipt's own method, where it was
+# a picker of every `number` in the project (#361).
+merl scripts/invoices.php:52:24
+wait send_receipt
+key d
+wait number → Receipt::number (via $receipt: Receipt)
