@@ -70,6 +70,9 @@ gets `agent-ok` only with a `## Proposal` in its body that the owner has picked 
 be built twice. A visible change the owner takes as an experiment ships behind a hidden setting,
 off by default.
 
+Several `agent-ok` issues at once, an evening queue or a night run, go as a batch:
+`.claude/skills/batch/SKILL.md`.
+
 ## Explaining to the owner
 
 The owner judges merl by what they press and what they see. An explanation of a bug, a fix or
