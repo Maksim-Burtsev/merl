@@ -20,18 +20,21 @@ pub(super) fn draw_fold(frame: &mut Frame, app: &App, theme: &Theme, area: Rect,
         .path
         .file_name()
         .map_or_else(|| f.path.to_string_lossy(), |n| n.to_string_lossy());
-    let hunks = app.diff.hunks.len();
-    let s = if hunks == 1 { "" } else { "s" };
+    // A deleted file has no hunks, only lines gone.
+    let size = match f.status {
+        'D' => "deleted".to_string(),
+        _ => {
+            let n = app.diff.hunks.len();
+            format!("{n} hunk{}", if n == 1 { "" } else { "s" })
+        }
+    };
     let bold = base.add_modifier(Modifier::BOLD);
     let dim = base.fg(theme.ghost_fg);
     let accent = base.fg(theme.accent);
     let button = base.bg(theme.accent).fg(theme.bg);
     let lines = vec![
         Line::styled(name.into_owned(), bold),
-        Line::styled(
-            format!("{hunks} hunk{s}  +{} \u{2212}{}", f.added, f.deleted),
-            dim,
-        ),
+        Line::styled(format!("{size}  +{} \u{2212}{}", f.added, f.deleted), dim),
         Line::default(),
         Line::from(vec![
             Span::styled(" Enter", button.add_modifier(Modifier::BOLD)),

@@ -99,7 +99,9 @@ impl App {
             // Ctrl+C is copy everywhere and never quits; a prompt or picker has nothing to copy.
             self.action = named("", key);
             // A preview row that shows no line has none to copy.
-            if self.mode == Mode::Normal && self.picker.is_none() && !self.preview_blank() {
+            // Nor does a fold, which shows no text (#243).
+            let shown = !self.preview_blank() && self.folded_here().is_none();
+            if self.mode == Mode::Normal && self.picker.is_none() && shown {
                 self.copy();
             }
             return false;

@@ -319,3 +319,17 @@ fn review_runs_that_are_slow_pass_the_hunk_or_type_count_no_c() {
     assert!(a.missed.is_empty(), "{:?}", a.missed);
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+/// #243: on a fold `c` goes on to the next file whatever hunks it hides, so `o` to that file
+/// misses `c`.
+#[test]
+fn o_from_a_fold_to_the_next_file_misses_c() {
+    let (dir, mut a) = review_app_with_lock("missed-fold");
+    press(&mut a, KeyCode::Char('c'), NONE);
+    assert!(a.folded_here().is_some());
+    a.missed.clear();
+    open_by_name(&mut a, "tail");
+    assert_eq!(a.rel_path(), "tail");
+    assert_eq!(a.missed, missed(&[("c", 1)]));
+    std::fs::remove_dir_all(dir).unwrap();
+}

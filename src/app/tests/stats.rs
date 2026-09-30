@@ -494,3 +494,39 @@ fn a_detached_head_is_filed_under_its_short_commit() {
     assert_eq!(a.review_row().unwrap().1, short);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// #243: a fold is one stop, reached by the `c` that lands on it: the lock file's three hunks
+/// count as one. After a `git switch` the new branch's stops are counted with its own unfolded
+/// files, not the ones the old branch loaded.
+#[test]
+fn a_fold_is_one_stop_whichever_branch_unfolded_it() {
+    let (dir, mut a) = review_app_with_lock("reviewstats-fold");
+    let git = |args: &[&str]| {
+        let mut cmd = std::process::Command::new("git");
+        let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert!(a.folded_here().is_some());
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    // Files, hunks; stops: `new` it opened on, the fold, `tail`.
+    let cols = columns(&mut a);
+    assert_eq!((cols[0], cols[1], cols[9]), (6, 7, 3), "{cols:?}");
+    // Unfolded on `feature`, folded on `other`.
+    press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert!(a.folded_here().is_none());
+    // Off the lock file, which would otherwise stay in sight through the switch.
+    a.jump_to(&dir.join("src/keep.rs"), 1);
+    git(&["switch", "-q", "-c", "other", "main"]);
+    std::fs::write(dir.join("poetry.lock"), lock_lines(&[2, 5, 8])).unwrap();
+    git(&["commit", "-qam", "other"]);
+    let fresh = a.review.as_ref().unwrap().refresh(&dir).unwrap();
+    a.review_refreshed(fresh);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    let rows = a.review_rows();
+    let (_, branch, columns) = &rows[1];
+    let cols: Vec<&str> = columns.split('\t').collect();
+    assert_eq!((branch.as_str(), cols[1]), ("other", "1"), "{rows:?}");
+    let _ = std::fs::remove_dir_all(dir);
+}

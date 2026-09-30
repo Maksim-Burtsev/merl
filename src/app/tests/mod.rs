@@ -116,6 +116,35 @@ fn review_app_with(tag: &str, extra: &[(&str, &[u8])]) -> (PathBuf, App) {
     let a = review_start(&dir, None);
     (dir, a)
 }
+/// [`review_app`] with a generated `poetry.lock` the branch changes in three hunks, on lines 2, 5
+/// and 8 (#243): a merl started on the review, on `new`.
+fn review_app_with_lock(tag: &str) -> (PathBuf, App) {
+    let (dir, _) = review_app(tag);
+    let git = |args: &[&str]| {
+        let mut cmd = std::process::Command::new("git");
+        let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    git(&["switch", "-q", "main"]);
+    std::fs::write(dir.join("poetry.lock"), lock_lines(&[])).unwrap();
+    git(&["add", "poetry.lock"]);
+    git(&["commit", "-q", "-m", "lock"]);
+    git(&["switch", "-q", "feature"]);
+    git(&["merge", "-q", "main", "-m", "merge"]);
+    std::fs::write(dir.join("poetry.lock"), lock_lines(&[1, 4, 7])).unwrap();
+    git(&["commit", "-qam", "bump"]);
+    let a = review_start(&dir, None);
+    (dir, a)
+}
+/// Nine lines of a lock file, those at `up` (from 0) in capitals.
+fn lock_lines(up: &[usize]) -> String {
+    (0..9)
+        .map(|i| match up.contains(&i) {
+            true => format!("L{i}\n"),
+            false => format!("l{i}\n"),
+        })
+        .collect()
+}
 /// A merl started again on the review of `dir` against `base` (default: the one it finds), on
 /// `new`.
 fn review_start(dir: &Path, base: Option<&str>) -> App {
