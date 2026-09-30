@@ -1183,3 +1183,26 @@ fn jvm_function_cuts_at_a_character() {
         Some("")
     );
 }
+
+/// #377: a `let` holds what a call or a literal gives only when that is the whole expression; a
+/// `?` or a method behind it hands out something else.
+#[test]
+fn rust_holds_reads_a_call_only_as_the_whole_expression() {
+    let holds = |line: &str| rust_holds(&[line], 0, "td");
+    assert_eq!(
+        holds("    let td = tmpdir();"),
+        Some(RustHolds::Call(vec!["tmpdir".into()]))
+    );
+    assert_eq!(holds("    let td = tmpdir()?;"), None);
+    assert_eq!(holds("    let td = Dir::new().unwrap();"), None);
+    assert_eq!(holds("    let td = Dir { n: 1 }.path();"), None);
+}
+
+/// #543: a name in front of a bracket that ends in a combining mark is cut at a character.
+#[test]
+fn rust_attribute_reads_past_a_call_ending_in_a_combining_mark() {
+    let lines = ["    let v = cafe\u{301}(1, x);".to_owned()];
+    let x = lines[0].find('x').unwrap();
+    assert!(rust_attribute(&lines, 0, x, x + 1).is_none());
+    assert!(!rust_attribute_path(&lines, 0, x));
+}

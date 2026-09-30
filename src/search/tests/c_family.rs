@@ -1058,3 +1058,22 @@ fn swift_receiver_types_are_read_off_their_lines() {
     );
     assert_eq!(swift_expr("a + b"), None);
 }
+
+/// #543: a non-ASCII character in a C function's head stays whole when its brackets are
+/// flattened, so the parameter is still read.
+#[test]
+fn c_bindings_read_a_head_with_non_ascii_names() {
+    let text = "int (r *R\u{e9}po) M\u{e9}thode(int x)\n{\n    return x;\n}\n";
+    assert_eq!(c_bindings_at(text, 3, "x").first().map(|b| b.0), Some(1));
+}
+
+/// #543: a PHP name behind a non-ASCII character starts after that character.
+#[test]
+fn php_namespace_patterns_cut_after_a_non_ascii_character() {
+    let text = "<?php\nnamespace App;\n";
+    let line = "    new \u{a9}Ns\\Bar();";
+    let start = line.find("Ns").unwrap();
+    let mut patterns = def_patterns(Kind::Php, "Ns");
+    php_namespace_patterns(&mut patterns, text, line, start..start + 2);
+    assert_eq!(patterns, [r"^\s*namespace\s+App\\Ns\s*[;{]"]);
+}
