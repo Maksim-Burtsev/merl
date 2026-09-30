@@ -1048,8 +1048,7 @@ impl App {
             return;
         }
         // A member of a JavaScript or DOM global that no scope, import or declaration of the
-        // project binds, `JSON.parse`, is declared in the `.d.ts` files outside the project,
-        // TypeScript's lib and `@types/node`: the project's members are never it (#341).
+        // project binds, `JSON.parse`, is [`Self::js_global_members`], never a class's (#341).
         if kind == Kind::TsJs
             && locals.is_empty()
             && let [global] = chain.as_slice()
@@ -1064,24 +1063,7 @@ impl App {
                 )
                 .is_empty()
         {
-            let files: Vec<PathBuf> = (self.external_files(kind).iter())
-                .filter(|f| {
-                    let f = f.to_string_lossy();
-                    f.ends_with(".d.ts")
-                        && (f.contains("typescript/lib/lib.") || f.contains("@types/node/"))
-                })
-                .cloned()
-                .collect();
-            let mut patterns = search::def_patterns(kind, &word);
-            patterns.extend(search::member_or_signature(kind, &word).unwrap_or_default());
-            let found = self
-                .external_grep(kind, &files, &patterns.join("|"))
-                .into_iter()
-                .map(|hit| Candidate {
-                    hit,
-                    reason: Reason::ByName,
-                })
-                .collect();
+            let found = self.js_global_members(&here, &word, members.as_deref(), &pattern);
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }

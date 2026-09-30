@@ -140,7 +140,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exports `new Environment()` as its default, lands on the field of `Environment`, `via env:
   Environment`, and `QUOTE_SETTINGS.backtick` on the key of a `const` literal of the file itself.
   A member of a JavaScript global, `JSON.parse`, is looked for in TypeScript's lib and
-  `@types/node` alone, never among the project's methods. They said "no definition", and
+  `@types/node` and in what the project declares global (`window.dataLayer` in a `declare
+  global`), never among the project's methods. They said "no definition", and
   `JSON.parse` jumped to a project method called `parse`. (#341)
 - `d` in TypeScript and JavaScript on a name imported from a barrel of the project that hands it
   on from a package, `export { x } from "lodash"`, lands on `x` in the installed package, as an

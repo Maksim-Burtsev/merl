@@ -230,6 +230,11 @@ impl App {
         // another value: neither declares. A member with no value, `ZOOMED,`, only directly
         // inside an `enum`, where no array or call's arguments are, or a literal's shorthand.
         let member = kind == Kind::TsJs && inside.len() > 1;
+        // What the declaration patterns find is kept as on master, `get(url) {` in `const api =
+        // Object.freeze({`: the rules above sort only the hits of the patterns added here.
+        let declarations = member
+            .then(|| Regex::new(&patterns.join("|")).ok())
+            .flatten();
         let bare = format!(r"^\s+{}\s*,?\s*$", regex::escape(name));
         if member {
             patterns.extend(search::field_patterns(kind, name).unwrap_or_default());
@@ -247,9 +252,10 @@ impl App {
                 let enumed = OWNER_ENUM.is_match(owner);
                 let literal = OWNER_LITERAL.is_match(owner);
                 let value = OWNER_VALUE.is_match(owner);
+                let added = member && !declarations.as_ref().is_some_and(|d| d.is_match(&h.text));
                 search::qualified(kind, &text, h.line, name) == within
-                    && (!member || !value || literal)
-                    && (!member || !bare.is_match(&h.text) || enumed || literal)
+                    && (!added || !value || literal)
+                    && (!added || !bare.is_match(&h.text) || enumed || literal)
             })
         });
         // `export { Hono as HonoBase }`: the module declares it under another name. A default

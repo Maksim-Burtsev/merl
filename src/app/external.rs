@@ -288,6 +288,47 @@ impl App {
         }
     }
 
+    /// Where `word`, a member of a JavaScript or DOM global, `JSON.parse`, is declared (#341):
+    /// in the `.d.ts` files outside the project, TypeScript's lib and `@types/node`, and in what
+    /// the project declares into the global scope, `interface Window { dataLayer }` or `var
+    /// appConfig` in a `declare global` ([`search::ts_global_scope`]). The project's hits are
+    /// master's search by name, `members` then `pattern`, first.
+    pub(super) fn js_global_members(
+        &mut self,
+        here: &Path,
+        word: &str,
+        members: Option<&str>,
+        pattern: &str,
+    ) -> Vec<Candidate> {
+        let kind = Kind::TsJs;
+        let files: Vec<PathBuf> = (self.external_files(kind).iter())
+            .filter(|f| {
+                let f = f.to_string_lossy();
+                f.ends_with(".d.ts")
+                    && (f.contains("typescript/lib/lib.") || f.contains("@types/node/"))
+            })
+            .cloned()
+            .collect();
+        let mut patterns = search::def_patterns(kind, word);
+        patterns.extend(search::member_or_signature(kind, word).unwrap_or_default());
+        let mut found = members
+            .map(|m| self.members_by_name(kind, here, word, m))
+            .filter(|hits| !hits.is_empty())
+            .unwrap_or_else(|| self.project_definitions(kind, here, word, pattern));
+        found.retain(|h| {
+            self.text_of(&h.path)
+                .is_some_and(|text| search::ts_global_scope(&text, h.line))
+        });
+        found.extend(self.external_grep(kind, &files, &patterns.join("|")));
+        found
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            })
+            .collect()
+    }
+
     /// `pattern` over `files` outside the project, standard library first. The paths are
     /// absolute: `root.join` leaves them alone, so a hit opens where it is.
     pub(super) fn external_grep(&self, kind: Kind, files: &[PathBuf], pattern: &str) -> Vec<Hit> {
