@@ -70,6 +70,15 @@ gets `agent-ok` only with a `## Proposal` in its body that the owner has picked 
 be built twice. A visible change the owner takes as an experiment ships behind a hidden setting,
 off by default.
 
+## Explaining to the owner
+
+The owner judges merl by what they press and what they see. An explanation of a bug, a fix or
+an idea is that walk-through in a few lines: the keys, the screen before, the screen after, and
+whether anything visible changes. Code, file paths and research come only when asked for. A
+choice comes as options with a recommendation, and a look comes as a picture
+(`.claude/skills/proposal/SKILL.md`). Sorting issues with the owner:
+`.claude/skills/groom/SKILL.md`.
+
 ## Working on an issue
 
 A brief can be as short as "Work on #N". It is done when the PR, in the shape below, is merged
