@@ -15,3 +15,22 @@ export const keyed = (crates: number[]) => crates.map((n) => ({ crate: (x: numbe
 //                                                                                     ^ d: shop/doubles.ts:3
 export const typed = (crates: number[]) => crates.map((crate): number => crate + 1);
 //                                                                       ^ d: shop/doubles.ts:16
+// A parameter list in a type is no arrow's: the name used beside it is the module's, after an
+// annotation, a return type and a type argument.
+declare function use(n: number): void;
+declare const lucky: boolean;
+export class Panel {
+  onSave: (crate: number) => void = () => use(crate);
+//                                            ^ d: shop/doubles.ts:3
+}
+export const onPick: (crate: number) => number = (x) => x + crate;
+//                                                          ^ d: shop/doubles.ts:3
+export function saver(): (crate: number) => void { return () => use(crate); }
+//                                                                  ^ d: shop/doubles.ts:3
+export const savers = new Array<(crate: number) => void>(crate);
+//                                                       ^ d: shop/doubles.ts:3
+// An arrow that is one branch of a ternary ends at its `:`; a ternary inside the body is the body's.
+export const picked = lucky ? (crate: number) => crate : crate;
+//                                                       ^ d: shop/doubles.ts:3
+export const chosen = (crates: number[]) => crates.map(crate => lucky ? 0 : crate);
+//                                                                          ^ d: shop/doubles.ts:35
