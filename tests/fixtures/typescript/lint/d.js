@@ -13,3 +13,9 @@ function walk(listener, sourceCode, painter) {
 }
 
 module.exports = { walk };
+
+// A method whose parameter's type literal holds `;` is a declaration (#528).
+function sketch(easel) {
+  return easel.stroke({ a: 1, b: 2 });
+  //           ^ d: lint/shapes.ts:17
+}

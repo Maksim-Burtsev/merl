@@ -346,6 +346,14 @@ impl App {
                 .collect()
         };
         let mut locals = locals_at(&text, self.line + 1);
+        // A Go parameter read in a body on its function's own line is that parameter, whatever
+        // the scopes around it bind (#524).
+        let go_own = kind == Kind::Go
+            && locals.contains(&(self.line + 1))
+            && search::go_binds_here(self.line_str(), &word, range.start);
+        if go_own {
+            locals = vec![self.line + 1];
+        }
         // No scope around the cursor binds it: the module's scope is the whole file, and its
         // declarations below the cursor count too (#337). One on the cursor's line leaves the
         // namesakes to the rules below, as on a declaration anywhere.
@@ -354,6 +362,15 @@ impl App {
             if !module.contains(&(self.line + 1)) {
                 locals = module;
             }
+        }
+        // An arrow function on the cursor's line whose body holds the cursor binds the word
+        // there, whatever the scopes around it declare (#531).
+        let own_arrow = kind == Kind::TsJs
+            && !dotted
+            && locals.contains(&(self.line + 1))
+            && search::ts_arrow_binds(self.line_str(), &word, range.start);
+        if own_arrow {
+            locals = vec![self.line + 1];
         }
         if !locals.is_empty() {
             imports.retain(|(name, _)| name != first);
@@ -381,7 +398,8 @@ impl App {
         // name bound earlier on the cursor's own line, `fun f(x: Int) = x`, is bound there
         // (#376); behind a `::` the word is a member, whatever the qualifier is. A C# use past its
         // declaration on the same line, a lambda's parameter inside that lambda, is bound there
-        // too (#345). A Rust local the cursor's own line binds is one too: a closure `|w| w`, an
+        // too (#345), and so is a Go parameter used in a body on its function's line (#524). A
+        // Rust local the cursor's own line binds is one too: a closure `|w| w`, an
         // arm, the parameter or the `let` itself (#353).
         let on_itself = match kind {
             Kind::C => search::c_bindings_at(&text, self.line + 1, first)
@@ -392,13 +410,14 @@ impl App {
         let same_line = kind == Kind::Jvm
             && locals == [self.line + 1]
             && whole_at(self.line_str(), &word, "").is_some_and(|at| at < range.start);
-        let own_line = kind == Kind::CSharp
-            && locals == [self.line + 1]
-            && search::cs_binds_here(self.line_str(), &word, range.start);
+        let own_line = go_own
+            || (kind == Kind::CSharp
+                && locals == [self.line + 1]
+                && search::cs_binds_here(self.line_str(), &word, range.start));
         if !dotted
             && !before.ends_with("::")
             && !locals.is_empty()
-            && (!on_itself || same_line || own_line || kind == Kind::Rust)
+            && (!on_itself || same_line || own_line || own_arrow || kind == Kind::Rust)
         {
             let found = locals
                 .iter()
@@ -1226,11 +1245,44 @@ impl App {
                     self.project_definitions(kind, &here, &word, &pattern)
                 }
             });
+        // A bare Python name never calls a method (#522): a `def` in a class is reached through a
+        // value or the class, or seen bare from that class's own body. On a declaration of the
+        // name its namesakes stay.
+        let mut hits = hits;
+        if kind == Kind::Python
+            && !dotted
+            && chain.is_empty()
+            && !declares_here
+            && !search::python_class_binds(&text, self.line + 1, &word)
+        {
+            let all = hits.len();
+            let mut kept = hits.clone();
+            kept.retain(|h| {
+                let d = h.text.trim_start();
+                !(d.starts_with("def ") || d.starts_with("async def "))
+                    || !self
+                        .text_of(&h.path)
+                        .is_some_and(|t| search::python_method(&t, h.line))
+            });
+            // The one row left when its rivals went is jumped to, so the name must reach it
+            // from the cursor: at module level, or in a function around the cursor. Another
+            // function's nested `def` is no more the answer than the methods were, and the
+            // picker stays as it was.
+            let around = python_functions(&text, self.line + 1);
+            let unreachable = |h: &Hit| {
+                let inside = self
+                    .text_of(&h.path)
+                    .and_then(|t| python_functions(&t, h.line).first().copied());
+                inside.is_some_and(|f| h.path != here || !around.contains(&f))
+            };
+            if !matches!(kept.as_slice(), [h] if all > 1 && unreachable(h)) {
+                hits = kept;
+            }
+        }
         // A Lua `local` inside a block is seen by that block alone, where the bindings above
         // found it already: anywhere else, and behind a dot, it is no candidate (#461). What is
         // left was a namesake beside it on master, and is offered, never jumped to. The cursor's
         // own line stays, standing on a declaration.
-        let mut hits = hits;
         if ruby_local && !dotted && chain.is_empty() {
             hits.extend(
                 search::ruby_locals(&text, self.line + 1, &word)
@@ -1284,6 +1336,30 @@ impl App {
         // The cursor's own line alone is offered rather than jumped to when others went: the
         // word may be a use on the line of a declaration of its name (#317).
         if kind == Kind::Swift {
+            // On the name a `for`, an `if let` or a closure's parameter declares on the cursor's
+            // own line, the word is at a declaration, as on a `let` (#525). That is the occurrence
+            // the line no longer binds the name without: a read in front of it, `cache` in
+            // `if cache.isEmpty, let cache = load() {`, is looked up as on any other line.
+            let line = self.line_str();
+            let own = Hit {
+                path: here.clone(),
+                line: self.line + 1,
+                col: 0,
+                text: line.to_owned(),
+            };
+            if !dotted
+                && line.get(range.clone()) == Some(word.as_str())
+                && search::swift_binds_on(line, &word)
+                && !search::swift_binds_on(
+                    &format!("{}_{}", &line[..range.start], &line[range.end..]),
+                    &word,
+                )
+                && !hits
+                    .iter()
+                    .any(|h| h.path == own.path && h.line == own.line)
+            {
+                hits.push(own);
+            }
             let all = hits.len();
             let lines: Vec<&str> = text.lines().collect();
             let literal = search::literal_lines(kind, &text);
@@ -2510,7 +2586,7 @@ impl App {
             && found
                 .iter()
                 .any(|c| c.hit.line != self.line + 1 || c.hit.path != here)
-            && self.on_declared_name(kind, word);
+            && self.on_declared_name(kind, word, false);
         // Off the name of the line's declaration (#317), a bare word whose lone namesake nothing
         // proves and is declared as this line declares it, `let courier` of another function, is
         // as likely another scope's copy as what the word means: offered, as before, never
@@ -2612,8 +2688,9 @@ impl App {
     /// method looked up as on any other line. The declared one is the occurrence of `word` the
     /// line no longer reads as a declaration without; a line no pattern reads (a parameter)
     /// declares its first. A word the line does not spell as is (a Ruby setter) is on it, and
-    /// so is another occurrence of a shape #317 does not name (see below).
-    fn on_declared_name(&self, kind: Kind, word: &str) -> bool {
+    /// so is another occurrence of a shape #317 does not name (see below), unless `exact`: what
+    /// implements a member is asked on its declared name alone (#517).
+    pub(super) fn on_declared_name(&self, kind: Kind, word: &str, exact: bool) -> bool {
         let line = self.line_str();
         let Some((r, _)) = search::definition_word(Some(kind), line, self.col) else {
             return true;
@@ -2657,6 +2734,9 @@ impl App {
         let first = declared.first().copied().unwrap_or(at[0]);
         if declared.contains(&r.start) || (declared.is_empty() && first == r.start) {
             return true;
+        }
+        if exact {
+            return false;
         }
         // Off the declared name, only the shapes #317 is about are looked up as on any other
         // line: a word in front of it (the type of C#'s `Courier Courier`), a member
@@ -3137,6 +3217,31 @@ impl App {
             .flatten()
             .collect()
     }
+}
+
+/// The `def` lines, 1-based and innermost first, of the Python functions 1-based `line` sits
+/// in, told by indentation: a name bound in one of them is seen from `line`, and from nowhere
+/// outside it.
+fn python_functions(text: &str, line: usize) -> Vec<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = search::literal_lines(Kind::Python, text);
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return Vec::new();
+    };
+    let (mut depth, mut out) = (indent(lines[at]), Vec::new());
+    for i in (0..at).rev() {
+        let t = lines[i].trim_start();
+        if t.is_empty() || t.starts_with(['#', ')', ']']) || literal[i] || indent(lines[i]) >= depth
+        {
+            continue;
+        }
+        depth = indent(lines[i]);
+        if t.starts_with("def ") || t.starts_with("async def ") {
+            out.push(i + 1);
+        }
+    }
+    out
 }
 
 /// What the status line says after `d` on `word`: `word → Target.word (reason)` for a jump,

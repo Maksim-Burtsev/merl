@@ -78,6 +78,41 @@ fn enter_on_a_broken_theme_keeps_the_picker_and_saves_nothing() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #516: a theme file merl may not read, and a config it cannot write, say why in a few words
+/// after the path, never with the OS text's `(os error N)`.
+#[test]
+#[cfg(unix)]
+fn a_theme_that_cannot_be_read_or_saved_says_why_in_a_few_words() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = std::env::temp_dir().join(format!("merl-theme-io-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let locked = dir.join("zz-locked.tmTheme");
+    std::fs::write(&locked, "").unwrap();
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+    // The config's path is a folder: it cannot be read, so the theme is not saved.
+    let config = dir.join("config.toml");
+    std::fs::create_dir_all(&config).unwrap();
+    let mut a = app("x\n");
+    (a.config, a.theme_dir) = (Some(config.clone()), Some(dir.clone()));
+    press(&mut a, KeyCode::Char('T'), KeyModifiers::NONE);
+    typed(&mut a, "zz-locked");
+    a.picker.as_mut().unwrap().settle();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    // As root every file is readable, and the empty theme fails to parse instead.
+    if std::fs::read(&locked).is_err() {
+        let want = format!("{}: permission denied", locked.display());
+        assert_eq!(a.message, want);
+    }
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('T'), KeyModifiers::NONE);
+    a.picker.as_mut().unwrap().settle();
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(a.message, format!("{}: is a directory", config.display()));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// A repository class, a fake of it in the tests and a service that calls both of its methods:
 /// the project of #236's table, cut down.
 fn orders_app(tag: &str) -> (PathBuf, App) {
