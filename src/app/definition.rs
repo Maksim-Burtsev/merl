@@ -1364,6 +1364,7 @@ impl App {
                 line: self.line + 1,
                 col: 0,
                 text: line.to_owned(),
+                deleted: None,
             };
             if !dotted
                 && line.get(range.clone()) == Some(word.as_str())
