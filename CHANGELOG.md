@@ -580,6 +580,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   call, an `@spec` or a module attribute on its own module's declaration first. (#460)
 - `d` in Lua follows `require` to the module's file and reads `mod.name`, `mod.T.name` and
   `T.name` in the table it names, instead of offering every function of that name. (#462)
+- `d` in TypeScript and JavaScript on a name inside an arrow function written on one line,
+  `items.map(item => item * 2)`, lands on the arrow's parameter, `(local)`. It jumped to a
+  module-level `const` of the same name. (#531)
 
 ## [0.7.0] - 2026-09-25
 
