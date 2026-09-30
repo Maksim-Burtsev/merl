@@ -750,6 +750,8 @@ impl App {
         let mut own_module = false;
         // The import names a module of the project that was read.
         let mut project_read = false;
+        // The import names a value a module outside holds, whose members are not read (#560).
+        let mut value = false;
         let mut found = match import {
             Some(path) => {
                 let project = self.imported_definitions(kind, &here, &word, &chain, &path);
@@ -765,18 +767,24 @@ impl App {
                     self.show_definitions(kind, &word, &here, found, None);
                     return;
                 }
-                // `User.objects` behind an import from outside, `User` a name in the module
-                // (#342): a member of `User` there, never a top-level `objects` anywhere.
-                if project.is_none()
-                    && kind == Kind::Python
-                    && dotted
-                    && chain.len() == 1
-                    && let Some(found) = self.outside_class_member(&word, &path)
-                {
-                    self.show_definitions(kind, &word, &here, found, None);
-                    return;
+                // `User.objects` behind an import from outside, `User` a class of the module
+                // (#342): a member of `User` there, never a top-level `objects` anywhere. A value
+                // the module holds, Django's `settings` (#560): no namesake outside is its member,
+                // the project's search by name answers, as Django reads the project's settings.
+                if project.is_none() && kind == Kind::Python && dotted && chain.len() == 1 {
+                    match self.outside_class_member(&word, &path) {
+                        Some(Some(found)) => {
+                            self.show_definitions(kind, &word, &here, found, None);
+                            return;
+                        }
+                        Some(None) => value = true,
+                        None => {}
+                    }
                 }
                 let mut found = project.unwrap_or_else(|| {
+                    if value {
+                        return Vec::new();
+                    }
                     // A workspace package linked in is the project's own: the search by
                     // name in the project comes first, the one outside after it (below).
                     let found =
@@ -1484,6 +1492,17 @@ impl App {
                 reason: Reason::ByName,
             })
             .collect();
+        // A member of a value outside is no method or field of a project class, nor a function:
+        // only a module-level `NAME = …` of the project, which is what Django's `settings` reads
+        // (#560). ponytail: one under an `if` at module level goes unseen, a miss.
+        if value {
+            found.retain(|c| {
+                c.hit.text.strip_prefix(word.as_str()).is_some_and(|rest| {
+                    let rest = rest.trim_start();
+                    rest.starts_with(':') || rest.starts_with('=') && !rest.starts_with("==")
+                })
+            });
+        }
         // A Swift `extension X` declares no `X` (#371). With the type in the project the
         // extensions are no candidates; with only extensions, `X` is declared outside: in a
         // dependency, else in Foundation or the standard library, which ship no source, and the
@@ -1534,6 +1553,7 @@ impl App {
             );
         } else if found.is_empty()
             && !outside
+            && !value
             && !matches!(
                 chain.first().map(String::as_str),
                 Some("self" | "cls" | "this")
@@ -1791,11 +1811,16 @@ impl App {
     /// resolves to a module only without its last part, the name the import takes
     /// (#342): the declarations of `Name.word` in that module, `Name` as the module calls it. An
     /// empty list is a member the lookup does not find there, which no namesake elsewhere
-    /// answers for. `None` leaves it to the lookup by import: a relative import, a name that is a
-    /// module itself, a module not found, a name the module neither declares a class of nor
-    /// imports (#560): Django's `settings = LazySettings()`, whose `__getattr__` reads the
-    /// project's settings module, or a name a module `__getattr__` makes up.
-    fn outside_class_member(&mut self, word: &str, path: &[String]) -> Option<Vec<Candidate>> {
+    /// answers for. `Some(None)` is a name the module neither declares a class of nor imports
+    /// (#560): a value it holds, such as Django's `settings = LazySettings()`, whose
+    /// `__getattr__` reads the project's settings module, or a name a module `__getattr__` makes
+    /// up; nothing outside is read for its members. `None` leaves it to the lookup by import: a
+    /// relative import, a name that is a module itself, a module not found.
+    fn outside_class_member(
+        &mut self,
+        word: &str,
+        path: &[String],
+    ) -> Option<Option<Vec<Candidate>>> {
         let (name, module) = path.split_last()?;
         if module.is_empty() || path[0].starts_with('.') {
             return None;
@@ -1806,21 +1831,22 @@ impl App {
         let file = self.external_module(module)?;
         let kind = Kind::Python;
         let text = std::fs::read_to_string(&file).ok()?;
-        // A class the module declares, or a name it imports (a class re-exported, as
-        // `django.test` does `TestCase`); an assignment or nothing at all is left to the search.
-        let class = text.lines().any(|l| {
-            !l.starts_with(char::is_whitespace)
-                && search::type_name(kind, l).as_deref() == Some(name)
-        });
-        if !class && bound(&search::imports(kind, &text), name).is_none() {
-            return None;
+        // A class the module declares, under an `if` or a `try` too, or a name it imports, `*`
+        // included: a class re-exported, as `django.test` does `TestCase`.
+        let imports = search::imports(kind, &text);
+        let class = text
+            .lines()
+            .any(|l| search::type_name(kind, l).as_deref() == Some(name))
+            || imports.iter().any(|(n, _)| n == name || n == "*");
+        if !class {
+            return Some(None);
         }
         let mut patterns = search::def_patterns(kind, word);
         patterns.extend(search::field_patterns(kind, word).unwrap_or_default());
         let within = Some(format!("{name}.{word}"));
         let hits = self.external_grep(kind, std::slice::from_ref(&file), &patterns.join("|"));
         let reason = Reason::Import(module.join("."));
-        Some(
+        Some(Some(
             hits.into_iter()
                 .filter(|h| search::qualified(kind, &text, h.line, word) == within)
                 .map(|hit| Candidate {
@@ -1828,7 +1854,7 @@ impl App {
                     reason: reason.clone(),
                 })
                 .collect(),
-        )
+        ))
     }
 
     /// The declarations of `word` by name (`pattern`, and the fields), in `ty` and the project

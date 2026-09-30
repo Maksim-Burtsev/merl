@@ -1122,6 +1122,15 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 "django/conf/__init__.py",
                 "class LazySettings:\n    def __getattr__(self, name):\n        pass\n\n\nsettings = LazySettings()\n",
             ),
+            // Namesakes outside, in the module's package and elsewhere, are no setting of the
+            // project.
+            ("django/conf/global_settings.py", "ORIGINALS_DIR = None\n"),
+            ("otherlib/consts.py", "ORIGINALS_DIR = 1\n"),
+            // A class declared under an `if` is a class of the module all the same.
+            (
+                "condpkg/models.py",
+                "if True:\n    class Thing:\n        objects = None\n",
+            ),
             (
                 "anyio/tasks.py",
                 "class TaskHandle:\n    def return_value(self):\n        pass\n\n    def captured_queries(self):\n        pass\n",
@@ -1148,10 +1157,21 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 "app/mocks.py",
                 "from unittest import mock\n\n\ndef use(m: mock.Mock) -> None:\n    m.return_value = None\n    m.captured_queries()\n",
             ),
-            ("app/settings.py", "ORIGINALS_DIR = \"originals\"\n"),
+            (
+                "app/settings.py",
+                "ORIGINALS_DIR = \"originals\"\nclient = None\n",
+            ),
+            (
+                "app/consumers.py",
+                "class Consumer:\n    def connect(self):\n        pass\n",
+            ),
+            (
+                "app/things.py",
+                "from condpkg.models import Thing\nfrom django.test import TestCase\n\n\ndef things():\n    return Thing.objects, TestCase.client\n",
+            ),
             (
                 "app/test_files.py",
-                "from django.conf import settings\n\n\ndef originals():\n    return settings.ORIGINALS_DIR\n",
+                "from django.conf import settings\n\n\ndef originals():\n    settings.connect()\n    return settings.ORIGINALS_DIR\n",
             ),
             // A subclass that sets the member stays a candidate.
             (
@@ -1184,6 +1204,26 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             "app/test_files.py",
             "settings.ORIGINALS_DIR",
             jump("ORIGINALS_DIR: by name, 1 match", "app/settings.py:1"),
+        ),
+        // Only a module-level assignment of the project: never a method of a project class.
+        (
+            "app/test_files.py",
+            "settings.connect",
+            jump("no definition for connect", "app/test_files.py:5"),
+        ),
+        (
+            "app/things.py",
+            "Thing.objects",
+            jump(
+                "objects \u{2192} Thing.objects (via import condpkg.models)",
+                &format!("{}:3", outside(&site, "condpkg/models.py")),
+            ),
+        ),
+        // A class the module re-exports by an import is read no further than that module.
+        (
+            "app/things.py",
+            "TestCase.client",
+            jump("no definition for client", "app/things.py:6"),
         ),
         (
             "app/mocks.py",
