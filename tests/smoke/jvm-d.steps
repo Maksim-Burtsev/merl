@@ -23,3 +23,19 @@ key /
 type trimmed)
 key Enter d
 wait trimmed → ParcelList.refresh.trimmed (local)
+# An import of the project leads to its package's file, not to a namesake of another package
+# (#372), and a record's component answers its accessor's call (#367).
+key o
+type Scale
+key Enter
+wait web/android/src/main/java/courier/app/Scale.java  1:1
+key /
+type Parcel parcel
+key Enter d
+wait Parcel: via import web/android/src/main/java/courier/app/scan/Parcel.java
+key [
+wait web/android/src/main/java/courier/app/Scale.java
+key /
+type grams(
+key Enter d
+wait web/android/src/main/java/courier/app/scan/Parcel.java  6:

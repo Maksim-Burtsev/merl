@@ -370,6 +370,8 @@ fn members_of(lines: &[&str], literal: &[bool], k: usize, name: &str, re: &Regex
     static COMPANION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(jvm_mods!(), r"companion\s+object\b")).unwrap()
     });
+    static RECORD: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(concat!(jvm_mods!(), r"record\s+\w+")).unwrap());
     // A constructor is no member called like its class: the name is the type's.
     if jvm_type_name(lines[k]).as_deref() == Some(name) {
         return Vec::new();
@@ -401,6 +403,17 @@ fn members_of(lines: &[&str], literal: &[bool], k: usize, name: &str, re: &Regex
         && PROPERTY.captures_iter(lines[k]).any(|c| &c[1] == name)
     {
         out.push(k + 1);
+    }
+    // A Java record's components, on its header's line or on the lines it wraps over (#367).
+    if RECORD.is_match(lines[k]) {
+        for (i, l) in lines.iter().enumerate().skip(k).take(40) {
+            if re.is_match(l) {
+                out.push(i + 1);
+            }
+            if l.contains('{') {
+                break;
+            }
+        }
     }
     let Some(level) = level else {
         return out;
@@ -460,4 +473,36 @@ pub fn jvm_bases(text: &str, decl: usize) -> Vec<String> {
         .filter(|b| b.starts_with(|c: char| c.is_ascii_alphabetic()))
         .map(str::to_owned)
         .collect()
+}
+
+/// The names the `import` lines of Java or Kotlin `text` bind, each with the dotted path it
+/// names (#372): `import app.a.User;` binds `User` to `[app, a, User]`, `import static a.C.m;`
+/// binds `m` to `[a, C, m]`, Kotlin's `import a.C as D` binds `D` to `[a, C]`, and a wildcard,
+/// static or not, binds `*` to its path with `*` last.
+pub fn jvm_imports(text: &str) -> Vec<(String, Vec<String>)> {
+    static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*import\s+(?:static\s+)?([\w.]*\w)(\.\*)?(?:\s+as\s+([A-Za-z_]\w*))?\s*;?\s*(?://.*)?$").unwrap()
+    });
+    text.lines()
+        .filter_map(|l| IMPORT.captures(l))
+        .map(|c| {
+            let mut path: Vec<String> = c[1].split('.').map(str::to_owned).collect();
+            let name = match (c.get(2), c.get(3)) {
+                (Some(_), _) => "*".to_owned(),
+                (None, Some(alias)) => alias.as_str().to_owned(),
+                (None, None) => path.last().cloned().unwrap_or_default(),
+            };
+            if name == "*" {
+                path.push(name.clone());
+            }
+            (name, path)
+        })
+        .collect()
+}
+
+/// The package the `package` line of Java or Kotlin `text` declares (#372); `None` without one.
+pub fn jvm_package(text: &str) -> Option<String> {
+    static PACKAGE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"(?m)^[ \t]*package\s+([\w.]*\w)").unwrap());
+    PACKAGE.captures(text).map(|c| c[1].to_owned())
 }

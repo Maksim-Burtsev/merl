@@ -47,6 +47,9 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     static RB_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*def\s+(?:(?:self|[A-Z]\w*)\.)?([A-Za-z_]\w*[?!=]?)").unwrap()
     });
+    static COMPANION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(jvm_mods!(), r"companion\s+object\s*(?:[:{]|$)")).unwrap()
+    });
     if !nests(Some(kind)) {
         return None;
     }
@@ -151,10 +154,17 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         if depth == 0 {
             break;
         }
-        if steps_over(Some(kind), l.trim_start()) || indent(l) >= depth {
+        // A Java or Kotlin class header wrapped over lines closes on `) : Base {` (#523): what
+        // it opens is named on the line the bracket opened on, further up.
+        let tail = kind == Kind::Jvm && l.trim_start().starts_with(')');
+        if steps_over(Some(kind), l.trim_start()) || tail || indent(l) >= depth {
             continue;
         }
         depth = indent(l);
+        // A `companion object` with no name holds its class's members (#523): `Repo.DEFAULT`.
+        if kind == Kind::Jvm && COMPANION.is_match(l) {
+            continue;
+        }
         // `more = …` under `const fs = …,` is declared where that statement is (#328).
         if kind == Kind::TsJs
             && ts_declarators(&lines, j).is_some_and(|d| d.iter().any(|(at, _)| *at == line - 1))

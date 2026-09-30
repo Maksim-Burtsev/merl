@@ -687,3 +687,22 @@ fn a_word_in_a_python_import_path_is_its_module() {
     assert_eq!(module(line, "f"), None);
     assert_eq!(module("x = json.dumps", "json"), None);
 }
+
+#[test]
+fn java_and_kotlin_imports_bind_their_names_to_paths() {
+    let text = "package app.c;\n\nimport app.a.User;\nimport java.util.*;\nimport static a.b.Queries.isNull;\nimport static a.b.Queries.*;\nimport app.model.Topic as Model\nimport app.ui.fn // a function\n";
+    let path = |p: &str| p.split('.').map(str::to_owned).collect::<Vec<_>>();
+    assert_eq!(
+        jvm_imports(text),
+        [
+            ("User".to_owned(), path("app.a.User")),
+            ("*".to_owned(), path("java.util.*")),
+            ("isNull".to_owned(), path("a.b.Queries.isNull")),
+            ("*".to_owned(), path("a.b.Queries.*")),
+            ("Model".to_owned(), path("app.model.Topic")),
+            ("fn".to_owned(), path("app.ui.fn")),
+        ]
+    );
+    assert_eq!(jvm_package(text).as_deref(), Some("app.c"));
+    assert_eq!(jvm_package("import a.B\n"), None);
+}
