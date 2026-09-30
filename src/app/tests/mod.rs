@@ -16,6 +16,7 @@ mod missed;
 mod navigate;
 mod navigate_binding;
 mod navigate_call;
+mod navigate_csharp;
 mod navigate_field;
 mod navigate_go;
 mod navigate_python;

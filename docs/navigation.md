@@ -214,6 +214,23 @@ What `d` does not claim, in Python, TypeScript, Go, Java and Kotlin:
   has rather than inheriting another's: Zig has none at all, since a `\\` string ends with its
   line, so the markdown a `\\` block holds is read as the code it sits in.
 
+In C# (#352) `d` reads the type C# writes: on `x.word`, `x.f.word` and chains of up to six
+names, `x` is `this`, `base`, a local, a parameter (a primary constructor's too) or a field or
+property of the type around the cursor, and its type comes from `var x = new T(…)`, `T x = …`,
+`T x;`, a field `T _x;`, a property `T X { get; }` or `T X => …`, `foreach (T x in …)`, `catch (T x)`,
+`out T x`, a pattern `is T x`, a cast `(T)y` or `y as T`, or a call, one hop through the return
+type of a method the project declares once (`Task<T>` and `ValueTask<T>` under `await` read as
+`T`). The member is looked for in `T`, then in the bases and interfaces its header names. On
+`Name` of an object initializer, `new T { Name = … }`, `new T(…) { … }` or a target-typed
+`new() { … }` (`T x = new()`, `return new()` in a method returning `T`, `T X { get; } = new()`),
+it is looked for in `T` the same way. A type the project does not declare is the framework's,
+and so is its member: `d` says `no definition … in the project`, unless the project declares an
+extension method of it, `static R M(this T x)`, which it opens; so does a member the project's
+type lacks when a base it may inherit from is not the project's. `dynamic`, a type parameter, a
+type declared more than once, a `partial` type (a source generator may write its other part), an
+anonymous type, a collection's or a dictionary's initializer and a `with` prove nothing, and
+the search by name answers, as before.
+
 On `x.word`, `x.f.word` and longer chains in Python, TypeScript, Go, Rust and Swift (and PHP, below), `d` first looks
 for the type of the receiver (Swift: #384, rules at the end of this list). `x` is `self` or `cls` in a method, `this` in a class, a Go method's
 receiver, a parameter, a local or a module-level variable, and each name after it is a field of
