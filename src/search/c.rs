@@ -764,3 +764,188 @@ pub fn c_method_class(text: &str, line: usize, name: &str) -> Option<String> {
     let outer = c_opener(code.as_bytes(), c_head_start(&code, open))?;
     c_struct_head(c_back_to_stop(&code, outer).0).filter(|n| !n.is_empty())
 }
+
+// ---- enum constants and member declarations (#373) ---------------------------------------------
+/// One enum constant: a name and the value it may be given.
+const C_ENUMERATOR: &str = r"[A-Za-z_]\w*\s*(?:=[^,;{}]*)?";
+/// A line of enum constants, `NAME,`, `NAME = expr,`, `A, B, C,` or the last one without a comma,
+/// with `word` among them (or any name, for `None`). A `}` may close the body after them.
+pub fn c_enumerators(word: Option<&str>) -> String {
+    let w = word.map_or_else(|| r"[A-Za-z_]\w*".to_owned(), regex::escape);
+    format!(
+        r"^\s*(?:{C_ENUMERATOR},\s*)*{w}\s*(?:=[^,;{{}}]*)?(?:,\s*{C_ENUMERATOR})*,?\s*(?:\}}[^{{]*)?(?:(?://|/\*).*)?$"
+    )
+}
+/// `enum X { A, B };` and `typedef enum { A, B } X;`: an enum whose constants open on its own
+/// line, `word` among them.
+pub fn c_enum_line(word: &str) -> String {
+    format!(
+        r"^\s*(?:typedef\s+)?enum\b[^{{;=()]*\{{\s*(?:{C_ENUMERATOR},\s*)*{}\s*(?:=[^,;{{}}]*)?\s*(?:[,}}]|$)",
+        regex::escape(word)
+    )
+}
+/// A member function declared with no body, `word` its name (or any name, for `None`): `T
+/// name(params) const;`, `virtual … = 0;`, `… override;`, `= default;`, or the first line of a
+/// parameter list that wraps. Indented, behind at least a return type or a keyword, and no `//`
+/// comment reading `Users of Env (including`; in a function body the same line is a local
+/// object, `Slice key(k, n);`, which [`c_body_head`] tells apart.
+pub fn c_member_decl(word: Option<&str>) -> String {
+    let w = word.map_or_else(|| r"~?[A-Za-z_]\w*".to_owned(), regex::escape);
+    format!(
+        r"^\s+[^;(){{}}=#/]*[\w>][\s*&]+{w}\s*\((?:[^(){{}};]|\([^(){{}};]*\))*(?:\)[^{{}};]*;)?\s*(?:(?://|/\*).*)?$"
+    )
+}
+/// What opens the body 1-based `line` of a C or C++ file stands directly in: the code in front of
+/// the innermost `{` not closed above the line, back to the `;`, `{` or `}` before it, over a few
+/// lines (`enum Order\n{`, a base list that wraps). `None` at file scope.
+pub fn c_body_head<S: AsRef<str>>(lines: &[S], line: usize) -> Option<String> {
+    c_opener_line(lines, line).map(|(_, head)| head)
+}
+/// [`c_body_head`], with the 1-based line its `{` stands on.
+///
+/// ponytail: reads line by line, so a brace in a block comment counts; `c_code` over the whole
+/// file per hit would cost more than the rare comment is worth.
+fn c_opener_line<S: AsRef<str>>(lines: &[S], line: usize) -> Option<(usize, String)> {
+    let code_of = |l: &str| -> String {
+        let mut s = vec![b' '; l.len()];
+        if !l.trim_start().starts_with('#') {
+            // A comment's first byte comes as 0, and reads as a blank here.
+            for (i, c) in super::code(super::Kind::C, l).filter(|&(_, c)| c != 0) {
+                s[i] = c;
+            }
+        }
+        String::from_utf8_lossy(&s).into_owned()
+    };
+    let mut depth = 0usize;
+    let mut open = None;
+    'up: for k in (0..line.checked_sub(1)?.min(lines.len())).rev() {
+        let l = code_of(lines[k].as_ref());
+        for (i, c) in l.bytes().enumerate().rev() {
+            match c {
+                b'}' => depth += 1,
+                b'{' if depth == 0 => {
+                    open = Some((k, i));
+                    break 'up;
+                }
+                b'{' => depth -= 1,
+                _ => {}
+            }
+        }
+    }
+    let (k, i) = open?;
+    let mut head = code_of(lines[k].as_ref())[..i].to_owned();
+    // Up past comments and directives, to a blank line at most: redis puts a `/* … */` over
+    // its `typedef enum {`.
+    for j in (k.saturating_sub(8)..=k).rev() {
+        let t = lines[j].as_ref().trim_start();
+        if j < k {
+            if t.is_empty() {
+                break;
+            }
+            if t.starts_with(['*', '#']) || t.starts_with("/*") || t.starts_with("//") {
+                continue;
+            }
+            head = format!("{} {head}", code_of(lines[j].as_ref()));
+        }
+        if let Some(s) = head.rfind([';', '{', '}']) {
+            head = head[s + 1..].to_owned();
+            break;
+        }
+    }
+    Some((k + 1, head.trim().to_owned()))
+}
+/// The classes and namespaces 1-based `line` of a C++ file stands in, outermost first, when the
+/// innermost is a class or struct: `["leveldb", "Iterator"]`. An unnamed one reads `""`; a
+/// function or a block on the way ends the walk.
+fn c_scopes<S: AsRef<str>>(lines: &[S], line: usize) -> Vec<String> {
+    static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:inline\s+)?namespace\s*((?:\w+\s*::\s*)*\w+)?\s*$").unwrap()
+    });
+    let mut chain = Vec::new();
+    let mut at = line;
+    while let Some((open, head)) = c_opener_line(lines, at) {
+        match (c_struct_head(&head), NAMESPACE.captures(&head)) {
+            (Some(name), _) => chain.push(name),
+            (None, Some(c)) if !chain.is_empty() => {
+                let path = c.get(1).map_or("", |m| m.as_str());
+                chain.extend(path.rsplit("::").map(|p| p.trim().to_owned()));
+            }
+            _ => break,
+        }
+        at = open;
+    }
+    chain.reverse();
+    chain
+}
+/// Whether `head`, what opens a body ([`c_body_head`]), opens an enum's.
+pub fn c_enum_head(head: &str) -> bool {
+    static ENUM: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:typedef\s+)?enum\b(?:\s+(?:class|struct)\b)?[^(){}=;]*$").unwrap()
+    });
+    ENUM.is_match(head)
+}
+/// The class or struct whose body 1-based `line` of `lines` stands directly in, by name (`""` for
+/// an anonymous one).
+pub fn c_class_around<S: AsRef<str>>(lines: &[S], line: usize) -> Option<String> {
+    c_struct_head(&c_body_head(lines, line)?)
+}
+/// Whether 1-based `line` of a C or C++ file, which a declaration pattern matched as `text`,
+/// declares where it sits (#373): a line of enum constants only inside an enum's body, a member
+/// function declared with no body only directly inside a class or struct. Any other line is left
+/// to its pattern.
+pub fn c_declares_where<'a, S: AsRef<str> + 'a>(
+    line: usize,
+    text: &str,
+    lines: impl FnOnce() -> &'a [S],
+) -> bool {
+    static ENUMERATORS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(&c_enumerators(None)).unwrap());
+    static MEMBER: LazyLock<Regex> = LazyLock::new(|| Regex::new(&c_member_decl(None)).unwrap());
+    if ENUMERATORS.is_match(text) {
+        return c_body_head(lines(), line).is_some_and(|h| c_enum_head(&h));
+    }
+    let t = text.trim_start();
+    if MEMBER.is_match(text) && !t.starts_with("typedef") && !t.starts_with("friend") {
+        return c_class_around(lines(), line).is_some();
+    }
+    true
+}
+/// The classes and namespaces around the member function `word` declared with no body directly
+/// in a class body ([`c_member_decl`]) on 1-based `line` of `text`, outermost first, its class
+/// last; `None` for any other line.
+pub fn c_member_class(text: &str, line: usize, word: &str) -> Option<Vec<String>> {
+    let decl = Regex::new(&c_member_decl(Some(word))).expect("an escaped name keeps it valid");
+    let lines: Vec<&str> = text.lines().collect();
+    if !decl.is_match(lines.get(line.checked_sub(1)?)?) {
+        return None;
+    }
+    Some(c_scopes(&lines, line)).filter(|s| s.last().is_some_and(|c| !c.is_empty()))
+}
+/// Whether `text` defines out of line the member `word` of the class `scopes` ends with
+/// ([`c_member_class`]): `R X::word(`, what qualifies `X` being the scopes around it, as far as it
+/// goes (`leveldb::Iterator::Valid(`), so `SkipList<K>::Iterator::Valid(` is another class's.
+pub fn c_defines_member(text: &str, scopes: &[String], word: &str) -> bool {
+    static TEMPLATE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^;()]*>").unwrap());
+    let Ok(re) = Regex::new(&format!(
+        r"((?:\w+\s*(?:<[^;()]*>)?\s*::\s*)+)~?{}\s*\(",
+        regex::escape(word)
+    )) else {
+        return false;
+    };
+    re.captures_iter(text).any(|c| {
+        let path = TEMPLATE.replace_all(&c[1], "");
+        let written: Vec<&str> = path
+            .split("::")
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+            .collect();
+        // The qualifier starts where a name does, not inside `a::b` or `x.y`.
+        let at = c.get(1).map_or(0, |m| m.start());
+        !text[..at].ends_with(|ch: char| ch == ':' || ch.is_alphanumeric() || ch == '_')
+            && written.len() <= scopes.len()
+            && scopes[scopes.len() - written.len()..]
+                .iter()
+                .zip(&written)
+                .all(|(s, w)| s == w)
+    })
+}

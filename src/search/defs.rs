@@ -385,9 +385,10 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         }
         // C and C++ have no statements at the top level, so a line in column zero that is shaped
         // like a declaration is one — a definition, a prototype and a signature that wraps alike.
-        // Indented, only a line that opens a body can be told from a call. An enum constant has no
-        // rule: `NAME,` in an `enum` body and in an initializer list are the same line, and C
-        // writes tables of callbacks that way everywhere.
+        // Indented, only a line that opens a body can be told from a call, or a line that the
+        // body around it tells (#373): `NAME,` declares an enum constant in an `enum` body and
+        // nothing in an initializer list, and `T name(…);` a member in a class body and a local
+        // object in a function's. [`declares_where`] reads the opener of that body.
         Kind::C => {
             let (mods, macros) = (c_mods!(), c_mods!(macros));
             vec![
@@ -419,6 +420,12 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 // assignment inside a function body is not one; no angle brackets, or a
                 // `template <typename T = U>` head would read as a declaration of `T`.
                 format!(r"^\w[^;(){{}}=<>]*[\s*&]{w}\s*(?:\[[^\]]*\])*\s*(?:=[^=]|;)"),
+                // An enum constant, on a line of its own or in a one-line `enum X { A, B };`,
+                // and a member function declared with no body (#373). Callers index the rules
+                // above, so these stay last.
+                c_enumerators(Some(word)),
+                c_enum_line(word),
+                c_member_decl(Some(word)),
             ]
         }
         // C# writes its modifiers and its attributes in front of everything and its type before
@@ -1140,8 +1147,9 @@ fn terraform_patterns(address: &str) -> Vec<String> {
 /// as every other attribute is inside its block, and an indented GraphQL line is a field or an
 /// enum value directly inside a type and a selection anywhere else. An indented Go line that is
 /// no `W :=` is a member of a grouped `const (`, `var (` or `type (` only directly inside one at
-/// column 0: a struct's field and a line inside a function are not. `lines` reads the file, and
-/// only for those.
+/// column 0: a struct's field and a line inside a function are not. A C line of enum constants
+/// or a C++ member function with no body declares only in an enum's or a class's body (#373).
+/// `lines` reads the file, and only for those.
 pub fn declares_where<'a, S: AsRef<str> + 'a>(
     kind: Kind,
     word: &str,
@@ -1164,6 +1172,7 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
             }
         }
         Kind::Jvm if record_component(line_text) => in_record_header(lines(), line),
+        Kind::C => c_declares_where(line, line_text, lines),
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
 }

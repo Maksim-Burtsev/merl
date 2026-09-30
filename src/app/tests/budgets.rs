@@ -53,9 +53,10 @@ const S_DONE: u64 = 2_000;
 const D_OPEN: u64 = 500;
 /// A query typed in `D`: past the cap it greps the project again [940 ms].
 const D_QUERY: u64 = 3_000;
-/// The first `d` on a fresh merl in paperless-ngx, `title` in a test: a picker of 23
-/// declarations read out of the project and its dependencies [1,170 ms; the #308 bench saw
-/// 3.5 s with the disk cache cold, and a run at load 20 took 5.2 s].
+/// The first `d` on a fresh merl in paperless-ngx, `info` of `logger.info`: a picker of 115
+/// declarations read out of the project and its dependencies [1,390 ms at load 25; `title=` in a
+/// test, its cursor until #315, took 1,170 ms, the #308 bench saw 3.5 s with the disk cache
+/// cold, and a run at load 20 took 5.2 s].
 const D_FIRST: u64 = 4_000;
 /// The slowest of the next seven `d` presses there [860 ms].
 const D_NEXT: u64 = 3_000;
@@ -68,7 +69,9 @@ const D_FINDS_NOTHING: usize = 1;
 /// `d` cursors in paperless-ngx (`file`, 1-based line, byte column), from the #308 bench's
 /// slowest Python presses and three quick ones.
 const D_CURSORS: &[(&str, usize, usize)] = &[
-    ("src/documents/tests/test_workflows.py", 3068, 12),
+    // The first press reads the dependencies cold. `title=` in test_workflows.py was the first
+    // cursor until #315 made a named argument answer `argument label` without a search.
+    ("src/paperless/parsers/registry.py", 287, 19),
     // The one `d` here that finds nothing, today (`returned_account1`): it times the search that
     // ends in a miss. Every other press must jump or open a picker, or it timed nothing.
     ("src/paperless_mail/tests/test_api.py", 176, 8),
@@ -77,7 +80,8 @@ const D_CURSORS: &[(&str, usize, usize)] = &[
         117,
         27,
     ),
-    ("src/paperless/parsers/registry.py", 287, 19),
+    // `Document` of `Document.objects.create(`, over the `title=` line.
+    ("src/documents/tests/test_workflows.py", 3067, 14),
     ("src/documents/tests/test_file_handling.py", 313, 35),
     ("src/paperless/parsers/tesseract.py", 516, 32),
     ("src/documents/filters.py", 672, 26),

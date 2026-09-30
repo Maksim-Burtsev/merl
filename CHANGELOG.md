@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` in C and C++ knows enum constants and the member functions a class only declares. `return
+  GREEN;` lands on `GREEN` in its `enum`, where it said `no definition for GREEN`, and a constant
+  in an initializer list is still no declaration. `it->Valid()` offers the interface's `virtual
+  bool Valid() const = 0;` beside the overrides, and on an out-of-line `Status
+  VersionSet::Recover(…) {` it lands on the declaration in `class VersionSet` instead of offering
+  another class's `Recover`. A member declared in its class and defined out of line stays one
+  row, the definition. (#373)
 - In `--review`, `s`, `D`, `u` and `d` find the code the branch deleted as well as the files on
   disk. A deleted line in their lists is a row like any other, told apart by the gutter's `▎`
   in red, as an added one is by its green, and Enter lands on it. `d` on a deleted line reads
@@ -616,9 +623,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in Python no longer jumps to a namesake that cannot be the answer. `self.client` in a
   subclass of Django's `TestCase` offers only what project subclasses of the class set, and
   says `no definition` without one, where it jumped to any project class's `client`.
-  `User.objects` with `User` imported from a dependency is a member of `User` there, never a
-  module-level `objects` of another package. The one method of a name found outside the project
-  is offered rather than jumped to when a field of that name is declared outside too:
+  `User.objects` with `User` a class imported from a dependency is a member of `User` there,
+  never a module-level `objects` of another package. The one method of a name found outside the
+  project is offered rather than jumped to when a field of that name is declared outside too:
   `m.return_value` on a `mock.Mock` jumped to anyio's `TaskHandle.return_value`. (#342)
 - `d` in Swift on a type the project declares lands on its `class`, `struct` or `enum`, where it
   listed every `extension` of it beside the type (a picker of 24 for Alamofire's `AFError`). A

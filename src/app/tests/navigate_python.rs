@@ -1116,6 +1116,27 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 "class AbstractUser:\n    objects = None\n\n\nclass User(AbstractUser):\n    pass\n",
             ),
             ("nltk/chomsky.py", "objects = \"text\"\n"),
+            // Django's `settings` is an instance whose `__getattr__` reads the project's
+            // settings module (#560): its members are nowhere in `django/conf`.
+            (
+                "django/conf/__init__.py",
+                "class LazySettings:\n    def __getattr__(self, name):\n        pass\n\n\nsettings = LazySettings()\n",
+            ),
+            // Namesakes outside, in the module's package and elsewhere, are no setting of the
+            // project.
+            (
+                "django/conf/global_settings.py",
+                "ORIGINALS_DIR = None\nAUTH_USER_MODEL = \"auth.User\"\n",
+            ),
+            (
+                "otherlib/consts.py",
+                "ORIGINALS_DIR = 1\nAUTH_USER_MODEL = 1\n",
+            ),
+            // A class declared under an `if` is a class of the module all the same.
+            (
+                "condpkg/models.py",
+                "if True:\n    class Thing:\n        objects = None\n",
+            ),
             (
                 "anyio/tasks.py",
                 "class TaskHandle:\n    def return_value(self):\n        pass\n\n    def captured_queries(self):\n        pass\n",
@@ -1142,6 +1163,22 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 "app/mocks.py",
                 "from unittest import mock\n\n\ndef use(m: mock.Mock) -> None:\n    m.return_value = None\n    m.captured_queries()\n",
             ),
+            (
+                "app/settings.py",
+                "ORIGINALS_DIR = \"originals\"\nclient = None\n",
+            ),
+            (
+                "app/consumers.py",
+                "class Consumer:\n    def connect(self):\n        pass\n",
+            ),
+            (
+                "app/things.py",
+                "from condpkg.models import Thing\nfrom django.test import TestCase\n\n\ndef things():\n    return Thing.objects, TestCase.client\n",
+            ),
+            (
+                "app/test_files.py",
+                "from django.conf import settings\n\n\ndef originals():\n    settings.connect()\n    return settings.ORIGINALS_DIR, settings.AUTH_USER_MODEL\n",
+            ),
             // A subclass that sets the member stays a candidate.
             (
                 "app/test_api.py",
@@ -1166,6 +1203,42 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             "app/users.py",
             "User.objects",
             jump("no definition for objects", "app/users.py:5"),
+        ),
+        // Not a class of the module: what it holds is not read, the search by name answers
+        // (#560).
+        (
+            "app/test_files.py",
+            "settings.ORIGINALS_DIR",
+            jump("ORIGINALS_DIR: by name, 1 match", "app/settings.py:1"),
+        ),
+        // What the project does not set is Django's default, never a namesake elsewhere.
+        (
+            "app/test_files.py",
+            "settings.AUTH_USER_MODEL",
+            jump(
+                "AUTH_USER_MODEL: via import django.conf",
+                &format!("{}:2", outside(&site, "django/conf/global_settings.py")),
+            ),
+        ),
+        // Only a module-level assignment of the project: never a method of a project class.
+        (
+            "app/test_files.py",
+            "settings.connect",
+            jump("no definition for connect", "app/test_files.py:5"),
+        ),
+        (
+            "app/things.py",
+            "Thing.objects",
+            jump(
+                "objects \u{2192} Thing.objects (via import condpkg.models)",
+                &format!("{}:3", outside(&site, "condpkg/models.py")),
+            ),
+        ),
+        // A class the module re-exports by an import is read no further than that module.
+        (
+            "app/things.py",
+            "TestCase.client",
+            jump("no definition for client", "app/things.py:6"),
         ),
         (
             "app/mocks.py",
