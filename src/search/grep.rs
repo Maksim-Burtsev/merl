@@ -3,6 +3,8 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+
+use crate::git::TextLine;
 use grep_matcher::Matcher;
 use grep_regex::{RegexMatcher, RegexMatcherBuilder};
 use grep_searcher::{BinaryDetection, Searcher, SearcherBuilder, Sink, SinkMatch};
@@ -20,6 +22,16 @@ pub struct Hit {
     /// line found some other way.
     pub col: usize,
     pub text: String,
+    /// A line the branch under review deleted (#440): where the review draws it. `line` is then
+    /// its number in the file at the base.
+    pub deleted: Option<TextLine>,
+}
+
+impl Hit {
+    /// The line of the text the hit is on, as a review orders them.
+    pub fn place(&self) -> TextLine {
+        self.deleted.unwrap_or(TextLine::File(self.line - 1))
+    }
 }
 /// Greps `pattern` over `files` (paths relative to `root`).
 ///
@@ -113,6 +125,7 @@ impl Sink for Collect<'_> {
                 line: m.line_number().unwrap_or(0) as usize,
                 col: col.map_or(0, |m| m.start()),
                 text: text.to_string(),
+                deleted: None,
             });
         }
         Ok(self.hits.len() < MAX_HITS)

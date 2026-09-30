@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- In `--review`, `s`, `D`, `u` and `d` find the code the branch deleted as well as the files on
+  disk. A deleted line in their lists is a row like any other, told apart by the gutter's `▎`
+  in red, as an added one is by its green, and Enter lands on it. `d` on a deleted line reads
+  the code as the base had it: it opens the function the call called, on its red lines when the
+  branch deleted or rewrote it, on its line now when the branch kept or only moved it, and `[`
+  goes back. On any other line `d` looks in the branch's code first and opens a deleted
+  definition only when the branch has none. (#440)
 - `d` in Go follows a table test: in `for _, tc := range []struct {…}{…}` and in a range over
   `tests := []struct {…}{…}`, `tc.name` lands on the field of the struct written in place,
   `name → struct{…}.name (via tc: struct{…})`, and so does the key `name:` of an element of

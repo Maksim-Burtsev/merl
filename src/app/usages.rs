@@ -13,16 +13,17 @@ impl App {
         // first, and on `x.name = v` the setter `name=` declared by `attr_writer :name` does. So
         // is an Elixir one, whose `?` or `!` is the name's too (#459).
         // On a Ruby `@x` or `@@x` the word keeps its sigil, so that `@x =` declares it (#383).
-        let Some(read) = (match self.kind() {
-            k @ Some(Kind::Ruby | Kind::Elixir) => self.definition_word(k).map(|(r, w)| {
-                let lead = &self.line_str()[..r.start];
+        // On a line the branch deleted, the word is read there (#440).
+        let Some(read) = self.on_drawn(|a| match a.kind() {
+            k @ Some(Kind::Ruby | Kind::Elixir) => a.definition_word(k).map(|(r, w)| {
+                let lead = &a.line_str()[..r.start];
                 let sigil = lead.len() - lead.trim_end_matches('@').len();
                 match k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
                     true => format!("{}{w}", &lead[lead.len() - sigil..]),
                     false => w,
                 }
             }),
-            _ => self.word_under(extra),
+            _ => a.word_under(extra),
         }) else {
             self.message = "no word under the cursor".into();
             return;
@@ -113,10 +114,23 @@ impl App {
         let ivar = word.starts_with('@').then_some(word);
         let word = word.trim_start_matches('@');
         let text = word.strip_suffix('=').unwrap_or(word);
-        let hits = self
+        let mut hits = self
             .grep(&regex::escape(text), true, false, |_| true)
             .unwrap_or_default();
         let cut = hits.len() >= search::MAX_HITS;
+        // In a review, the lines the branch deleted too (#440), where the word stands whole as the
+        // grep reads a word.
+        // A word past the matcher's size limit finds none, as the grep's does.
+        let deleted = self.deleted_lines();
+        if !deleted.is_empty()
+            && let Ok(whole) = Regex::new(&format!(r"(?:^|\W)({})(?:$|\W)", regex::escape(text)))
+        {
+            hits.extend(deleted_hits(
+                &deleted,
+                |_| true,
+                |t| whole.captures(t).and_then(|c| c.get(1)).map(|m| m.start()),
+            ));
+        }
         let hits = hits.into_iter().filter(|h| {
             let extra = search::word_chars(search::kind_of(&h.path), false);
             extra.is_empty() || whole_at(&h.text, text, extra).is_some()
@@ -125,8 +139,9 @@ impl App {
         // ones apply is the hit file's own kind: one regex per kind met, built once. A Rust `let`
         // declares its local here too, though `d` reads it by scope and never by name (#353).
         let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
-        let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
-        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
+        // A deleted line is read in the file at the base, apart from the file on disk.
+        let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
+        let mut lines: HashMap<(PathBuf, bool), Vec<String>> = HashMap::new();
         let mut marked: Vec<_> = hits
             .map(|h| {
                 let kind = search::kind_of(&h.path);
@@ -148,9 +163,9 @@ impl App {
                 // `d` reads them too; only a file with a match is read.
                 let declares = re.as_ref().is_some_and(|re| re.is_match(&h.text))
                     && !literal
-                        .entry(h.path.clone())
+                        .entry((h.path.clone(), h.deleted.is_some()))
                         .or_insert_with(|| {
-                            kind.zip(self.text_of(&h.path))
+                            kind.zip(self.hit_text(&h))
                                 .map_or_else(Vec::new, |(k, t)| search::literal_lines(k, &t))
                         })
                         .get(h.line - 1)
@@ -158,11 +173,13 @@ impl App {
                         .unwrap_or(false)
                     && kind.is_some_and(|k| {
                         search::declares_where(k, word, h.line, &h.text, || {
-                            lines.entry(h.path.clone()).or_insert_with(|| {
-                                self.text_of(&h.path).map_or_else(Vec::new, |t| {
-                                    t.lines().map(str::to_owned).collect()
+                            lines
+                                .entry((h.path.clone(), h.deleted.is_some()))
+                                .or_insert_with(|| {
+                                    self.hit_text(&h).map_or_else(Vec::new, |t| {
+                                        t.lines().map(str::to_owned).collect()
+                                    })
                                 })
-                            })
                         })
                     });
                 (kind, declares, h)
@@ -190,7 +207,7 @@ impl App {
             .collect();
         ranked.sort_by(|(a, x), (b, y)| {
             a.cmp(b)
-                .then_with(|| (&x.path, x.line).cmp(&(&y.path, y.line)))
+                .then_with(|| (&x.path, x.place()).cmp(&(&y.path, y.place())))
         });
         let ranked = ranked.into_iter().map(|((tier, _), h)| (tier, h)).collect();
         (ranked, cut)

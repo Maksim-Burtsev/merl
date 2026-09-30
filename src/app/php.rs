@@ -93,6 +93,7 @@ impl App {
         let own: Vec<Hit> = search::php_class_members(&lines, class, re)
             .into_iter()
             .map(|i| Hit {
+                deleted: None,
                 path: path.to_path_buf(),
                 line: i + 1,
                 col: 0,
@@ -202,6 +203,7 @@ impl App {
                 search::php_class_members(&lines, class, re)
                     .into_iter()
                     .map(|i| Hit {
+                        deleted: None,
                         path: path.clone(),
                         line: i + 1,
                         col: 0,

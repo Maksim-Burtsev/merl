@@ -1375,6 +1375,7 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
 fn deleted_lines_are_lines_of_the_text() {
     use TextLine::{Deleted, File};
     let (dir, mut a) = review_app("onetext");
+    use_roots(&mut a, Kind::Rust, &[]);
     let key = |a: &mut App, c| press(a, c, KeyModifiers::NONE);
     // src/a.rs reads a, [b], B, c, d, e, [f], F: `b` and `f` are deleted.
     a.jump_to(&dir.join("src/a.rs"), 1);
@@ -1444,10 +1445,13 @@ fn deleted_lines_are_lines_of_the_text() {
     key(&mut a, KeyCode::Esc);
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
 
-    // `d` and `u` wait for #440 on a deleted line.
+    // `d` reads the word on a deleted line (#440): nothing declares `b`.
     key(&mut a, KeyCode::Up);
     key(&mut a, KeyCode::Char('d'));
-    assert_eq!((a.at(), a.message.as_str()), (Deleted(1, 0), "deleted"));
+    assert_eq!(
+        (a.at(), a.message.as_str()),
+        (Deleted(1, 0), "no definition for b")
+    );
 
     // The lines deleted at the end of a file are lines too: `tail` reads t1, [t2], [t3].
     a.jump_to(&dir.join("tail"), 1);
@@ -1459,12 +1463,14 @@ fn deleted_lines_are_lines_of_the_text() {
 }
 
 /// #439, each way into a deleted line on its own: a selection inside one line of a file with
-/// deleted lines is copied and typed over as anywhere; paste, `u` and F12 refuse a deleted line;
-/// Esc from `/` and `N` come back to one; a reload finds the deleted line the cursor was on.
+/// deleted lines is copied and typed over as anywhere; paste refuses a deleted line, `u` and F12
+/// read it (#440); Esc from `/` and `N` come back to one; a reload finds the deleted line the
+/// cursor was on.
 #[test]
 fn a_deleted_line_is_refused_and_returned_to_every_way() {
     use TextLine::{Deleted, File};
     let (dir, mut a) = review_app("onetext-ways");
+    use_roots(&mut a, Kind::Rust, &[]);
     let key = |a: &mut App, c| press(a, c, KeyModifiers::NONE);
     let shift = |a: &mut App, c| press(a, c, KeyModifiers::SHIFT);
     a.jump_to(&dir.join("src/a.rs"), 1);
@@ -1488,15 +1494,21 @@ fn a_deleted_line_is_refused_and_returned_to_every_way() {
     key(&mut a, KeyCode::Esc);
     key(&mut a, KeyCode::Esc);
 
-    // `u` and F12 wait for #440 on a deleted line.
+    // `u` and F12 read the word on a deleted line (#440): `b` is only there.
     a.jump_to(&dir.join("src/a.rs"), 2);
     key(&mut a, KeyCode::Up);
     assert_eq!(a.at(), Deleted(1, 0));
-    for k in [KeyCode::Char('u'), KeyCode::F(12)] {
-        a.message.clear();
-        key(&mut a, k);
-        assert_eq!((a.message.as_str(), a.picker.is_none()), ("deleted", true));
-    }
+    key(&mut a, KeyCode::Char('u'));
+    let p = a.picker.as_mut().expect("the uses of b");
+    p.settle();
+    let rows: Vec<String> = p.window(9).0.iter().map(|r| r.item.label.clone()).collect();
+    assert_eq!(rows, ["src/a.rs:2: b"]);
+    key(&mut a, KeyCode::Esc);
+    key(&mut a, KeyCode::F(12));
+    assert_eq!(
+        (a.message.as_str(), a.picker.is_none()),
+        ("no definition for b", true)
+    );
 
     // Esc from `/` puts the cursor back on the deleted line it started from.
     key(&mut a, KeyCode::Char('/'));

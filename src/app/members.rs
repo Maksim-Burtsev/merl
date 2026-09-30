@@ -226,6 +226,7 @@ impl App {
             line,
             col: 0,
             text: text.lines().nth(line - 1).unwrap_or_default().to_owned(),
+            deleted: None,
         })
     }
 
@@ -265,6 +266,7 @@ impl App {
                         path: path.clone(),
                         line,
                         col: 0,
+                        deleted: None,
                     });
                 }
             }
@@ -368,6 +370,7 @@ impl App {
                 let text = self.text_of(&path)?;
                 let at = search::member_decl(kind, &text, decl, word)?;
                 Some(Hit {
+                    deleted: None,
                     text: text.lines().nth(at - 1).unwrap_or_default().to_owned(),
                     path,
                     line: at,

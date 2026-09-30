@@ -528,6 +528,7 @@ fn a_jump_says_how_the_target_was_found() {
                 line: 1,
                 col: 0,
                 text: String::new(),
+                deleted: None,
             },
             reason,
         }]

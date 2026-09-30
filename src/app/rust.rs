@@ -58,6 +58,7 @@ impl App {
                     path: here.to_path_buf(),
                     line: self.line + 1,
                     col: 0,
+                    deleted: None,
                     text: self.line_str().to_owned(),
                 },
                 reason: Reason::ByName,
@@ -219,6 +220,7 @@ impl App {
             .into_iter()
             .map(|line| Candidate {
                 hit: Hit {
+                    deleted: None,
                     path: here.to_path_buf(),
                     line,
                     col: 0,

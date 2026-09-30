@@ -6,6 +6,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
 
@@ -50,6 +51,26 @@ impl PartialOrd for TextLine {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
+}
+
+/// A line the branch deleted (#440): the file the review lists it under, its 1-based number in
+/// the file at the base, the line of the text the review draws it as, and what it said. In a file
+/// the branch deleted, whose text is the base's, that is a line of the file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeletedLine {
+    pub path: PathBuf,
+    pub line: usize,
+    pub at: TextLine,
+    pub text: String,
+}
+
+/// A run of lines the branch added (#440): the file, the 1-based number of its first line, and
+/// how many follow. `d` finds a definition the branch moved unchanged in one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AddedRun {
+    pub path: PathBuf,
+    pub line: usize,
+    pub len: usize,
 }
 
 /// What one file's diff looks like from the editor: marks per 0-based line, and, in review
@@ -217,6 +238,11 @@ pub struct Review {
     /// working tree lines up with the numbers.
     pub merge_base: String,
     pub files: Vec<ReviewFile>,
+    /// Every line the branch deleted, file by file in the panel's order: the second source `s`,
+    /// `D`, `u` and `d` search besides the files on disk (#440).
+    pub deleted: Arc<Vec<DeletedLine>>,
+    /// Every run of lines the branch added, read from the same patch (#440).
+    pub added: Arc<Vec<AddedRun>>,
     /// What opening found about the branch against `origin` (`diverged from origin/feat`), for
     /// the status bar; `App::start_review` takes it, so it is said once.
     pub note: Option<String>,
@@ -313,11 +339,31 @@ impl Review {
         }
         // The panel's order, so `c` walks the files top to bottom.
         files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false));
+        // The prefixes are spelled out: a user's `diff.noprefix` would read the patch otherwise.
+        // Renames are left to the user's `diff.renames`, as in the listing above, so every part
+        // is keyed by a path the panel has. Names keep their letters.
+        let patch = git(&[
+            "-c",
+            "core.quotePath=false",
+            "diff",
+            "-U0",
+            "--no-color",
+            "--no-ext-diff",
+            "--ignore-submodules",
+            "--inter-hunk-context=0",
+            "--src-prefix=a/",
+            "--dst-prefix=b/",
+            &merge_base,
+        ])?;
+        let (deleted, added) = changed_lines(root, &patch, &files);
+        let (deleted, added) = (Arc::new(deleted), Arc::new(added));
         Ok(Self {
             branch,
             base,
             merge_base,
             files,
+            deleted,
+            added,
             note: None,
         })
     }
@@ -374,6 +420,231 @@ impl Review {
         }
         Ok(out.stdout)
     }
+
+    /// The project as the base had it, for `d` on a deleted line (#440), in this worktree's own
+    /// git directory, which no other worktree reads or cleans: a file the branch left alone is a
+    /// copy of the one on disk (a clone that costs nothing where the file system has them, as
+    /// APFS and btrfs do), and only the ones it changed, renamed or deleted are read from git.
+    /// The folders git ignores (`.venv`, `node_modules`) are links to the real ones, so a lookup
+    /// reaches the dependencies it reaches on disk. Built again when the branch's files change.
+    pub fn base_tree(&self, root: &Path) -> Result<PathBuf> {
+        let (git_dir, _) = dirs(root).context("no git directory")?;
+        // An untracked file the base has (`git rm --cached`) is not the base's either.
+        let changed: std::collections::HashSet<&Path> = (self.files.iter())
+            .map(|f| f.old.as_deref().unwrap_or(&f.path))
+            .collect();
+        let mut stamp: Vec<String> = changed.iter().map(|p| p.display().to_string()).collect();
+        stamp.sort();
+        stamp.insert(0, self.merge_base.clone());
+        let stamp = stamp.join("\n");
+        let parent = git_dir.join("merl").join("base");
+        let dir = parent.join(&self.merge_base);
+        if std::fs::read_to_string(dir.join(".merl-stamp")).is_ok_and(|s| s == stamp) {
+            return Ok(dir);
+        }
+        let tmp = parent.join(format!(".{}-{}", self.merge_base, std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp)?;
+        let listing = git(
+            root,
+            &["ls-tree", "-r", "-z", "--full-tree", &self.merge_base],
+        )?;
+        let mut from_git = Vec::new();
+        for entry in listing.split('\0').filter(|e| !e.is_empty()) {
+            let Some((meta, path)) = entry.split_once('\t') else {
+                continue;
+            };
+            let (mode, path) = (meta.split(' ').next().unwrap_or(""), Path::new(path));
+            let dst = tmp.join(path);
+            if let Some(d) = dst.parent() {
+                std::fs::create_dir_all(d)?;
+            }
+            // A submodule is another repository; a link is written from git as it is.
+            match mode {
+                "160000" => continue,
+                "120000" => from_git.push((path.to_path_buf(), true)),
+                _ if changed.contains(path) => from_git.push((path.to_path_buf(), false)),
+                // ponytail: a plain copy where the file system cannot clone, once per review of a
+                // branch; hard links would be free but follow an edit made in place.
+                _ => {
+                    if std::fs::copy(root.join(path), &dst).is_err() {
+                        from_git.push((path.to_path_buf(), false));
+                    }
+                }
+            }
+        }
+        for (path, link) in from_git {
+            let spec = format!("{}:{}", self.merge_base, path.display());
+            let out = Command::new("git")
+                .arg("-C")
+                .arg(root)
+                .args(["cat-file", "blob", &spec])
+                .output()?;
+            #[cfg(unix)]
+            if link {
+                let target = String::from_utf8_lossy(&out.stdout).into_owned();
+                let _ = std::os::unix::fs::symlink(target, tmp.join(&path));
+                continue;
+            }
+            std::fs::write(tmp.join(&path), out.stdout)?;
+        }
+        #[cfg(unix)]
+        {
+            let ignored = git(
+                root,
+                &[
+                    "ls-files",
+                    "-z",
+                    "--others",
+                    "--ignored",
+                    "--exclude-standard",
+                    "--directory",
+                ],
+            )
+            .unwrap_or_default();
+            for d in ignored.split('\0').filter(|d| d.ends_with('/')) {
+                let d = Path::new(d.trim_end_matches('/'));
+                let dst = tmp.join(d);
+                if dst.parent().is_some_and(Path::exists) && !dst.exists() {
+                    let _ = std::os::unix::fs::symlink(root.join(d), dst);
+                }
+            }
+        }
+        std::fs::write(tmp.join(".merl-stamp"), &stamp)?;
+        // One base at a time in this worktree: another branch's is built again when reviewed.
+        if let Ok(old) = std::fs::read_dir(&parent) {
+            for e in old.flatten().filter(|e| e.path() != tmp) {
+                let _ = std::fs::remove_dir_all(e.path());
+            }
+        }
+        if std::fs::rename(&tmp, &dir).is_err() {
+            let _ = std::fs::remove_dir_all(&tmp);
+        }
+        Ok(dir)
+    }
+}
+
+/// The lines `patch`, the branch's whole diff, deletes from `files`, in their order, and the runs
+/// of lines it adds. Each file's part is read as [`diff`] reads one file, so a line is keyed as
+/// the review draws it. An untracked file deleted nothing, and all of it is added.
+fn changed_lines(
+    root: &Path,
+    patch: &str,
+    files: &[ReviewFile],
+) -> (Vec<DeletedLine>, Vec<AddedRun>) {
+    let mut parts: HashMap<PathBuf, String> = HashMap::new();
+    let (mut name, mut part, mut header) = (None::<PathBuf>, String::new(), true);
+    let mut done = |name: Option<PathBuf>, part: &mut String| {
+        if let Some(name) = name {
+            parts.insert(name, std::mem::take(part));
+        }
+        part.clear();
+    };
+    for line in patch.lines() {
+        if line.starts_with("diff --git ") {
+            done(name.take(), &mut part);
+            header = true;
+            continue;
+        }
+        // `--- a/x` names the file only above the first hunk: below it, a deleted `-- x`.
+        if header {
+            header = !line.starts_with("@@ ");
+            let named = |prefix: &str| {
+                let n = unquote(line.strip_prefix(prefix)?.trim_end_matches('\t'));
+                let n = n.strip_prefix("a/").or_else(|| n.strip_prefix("b/"))?;
+                Some(PathBuf::from(n))
+            };
+            // The name on disk, the base's for a file the branch deleted.
+            if let Some(n) = named("+++ ").or_else(|| named("--- ").filter(|_| name.is_none())) {
+                name = Some(n);
+            }
+        }
+        part.push_str(line);
+        part.push('\n');
+    }
+    done(name, &mut part);
+    let (mut out, mut added) = (Vec::new(), Vec::new());
+    for f in files {
+        if f.untracked {
+            let len = count_lines(&root.join(&f.path)).map_or(0, |(_, n)| n);
+            added.push(AddedRun {
+                path: f.path.clone(),
+                line: 1,
+                len,
+            });
+            continue;
+        }
+        let Some(diff) = parts.get(&f.path).map(|p| parse(p, true)) else {
+            continue;
+        };
+        let mut lines: Vec<usize> = (diff.marks.iter())
+            .filter(|(_, m)| matches!(m, Mark::Added | Mark::Changed))
+            .map(|(&l, _)| l)
+            .collect();
+        lines.sort_unstable();
+        for l in lines {
+            match added.last_mut() {
+                Some(AddedRun { path, line, len }) if *path == f.path && *line + *len == l + 1 => {
+                    *len += 1;
+                }
+                _ => added.push(AddedRun {
+                    path: f.path.clone(),
+                    line: l + 1,
+                    len: 1,
+                }),
+            }
+        }
+        for (&k, ghosts) in &diff.ghosts {
+            let from = diff.ghost_from.get(&k).copied().unwrap_or(0);
+            out.extend(ghosts.iter().enumerate().map(|(i, text)| DeletedLine {
+                path: f.path.clone(),
+                line: from + i + 1,
+                at: match f.status {
+                    'D' => TextLine::File(from + i),
+                    _ => TextLine::Deleted(k, i),
+                },
+                text: text.clone(),
+            }));
+        }
+    }
+    (out, added)
+}
+
+/// A name as git writes it in a patch: as it is, or in C quotes when it holds a `"`, a `\` or a
+/// control character.
+fn unquote(s: &str) -> String {
+    let Some(inner) = s.strip_prefix('"').and_then(|s| s.strip_suffix('"')) else {
+        return s.to_string();
+    };
+    let b = inner.as_bytes();
+    let (mut out, mut i) = (Vec::new(), 0);
+    while i < b.len() {
+        if b[i] != b'\\' || i + 1 == b.len() {
+            out.push(b[i]);
+            i += 1;
+            continue;
+        }
+        i += 2;
+        out.push(match b[i - 1] {
+            b'n' => b'\n',
+            b't' => b'\t',
+            b'r' => b'\r',
+            b'a' => 7,
+            b'b' => 8,
+            b'v' => 11,
+            b'f' => 12,
+            // Three octal digits, a byte of a name that is not UTF-8.
+            b'0'..=b'7' => {
+                let end = (i + 2).min(b.len());
+                let digits = std::str::from_utf8(&b[i - 1..end]).unwrap_or("");
+                let n = u8::from_str_radix(digits, 8).unwrap_or(b'?');
+                i = end;
+                n
+            }
+            c => c,
+        });
+    }
+    String::from_utf8_lossy(&out).into_owned()
 }
 
 fn git(root: &Path, args: &[&str]) -> Result<String> {
@@ -875,6 +1146,12 @@ mod tests {
     }
 
     #[test]
+    fn a_quoted_name_in_a_patch_reads_as_the_name_on_disk() {
+        assert_eq!(unquote("a/plain.rs"), "a/plain.rs");
+        assert_eq!(unquote(r#""a/x\"y\t\303\244""#), "a/x\"y\t\u{e4}");
+    }
+
+    #[test]
     fn a_review_lists_the_branch_files_against_the_merge_base() {
         let dir = std::env::temp_dir().join(format!("merl-review-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -939,6 +1216,21 @@ mod tests {
             r.files
                 .iter()
                 .all(|f| f.status == 'D' || dir.join(&f.path).exists())
+        );
+        // The deleted lines (#440), keyed as the review draws them: under the new name of a
+        // rename, and in a file the branch deleted, whose text is the base's, as its lines.
+        let deleted: Vec<_> = r
+            .deleted
+            .iter()
+            .map(|d| (d.path.to_str().unwrap(), d.line, d.at, d.text.as_str()))
+            .collect();
+        assert_eq!(
+            deleted,
+            [
+                ("src/a.rs", 2, TextLine::Deleted(1, 0), "b"),
+                ("src/moved.rs", 10, TextLine::Deleted(9, 0), "m10"),
+                ("gone", 1, TextLine::File(0), "x"),
+            ]
         );
         // The rename diffs against its old name: one hunk, not a whole new file.
         let moved = &r.files[1];

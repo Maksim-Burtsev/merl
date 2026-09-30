@@ -57,11 +57,20 @@ impl App {
     /// definition": `u` lists the uses.
     pub(super) fn goto_definition(&mut self) {
         let kind = self.kind();
-        // Markdown declares nothing: `d` follows the link under the cursor (#421).
+        // Markdown declares nothing: `d` follows the link under the cursor (#421), on a deleted
+        // line too, where it reads the line as the review draws it.
         if kind == Some(Kind::Markdown)
             && let Some(here) = self.rel_current()
         {
             self.follow_markdown(&here);
+            return;
+        }
+        // Base code, a deleted line or a deleted file's, is looked up in the project as the base
+        // had it (#440).
+        if self.probe.is_none()
+            && let Some((path, line)) = self.base_place()
+        {
+            self.definition_at_base(path, line);
             return;
         }
         // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included.
@@ -139,6 +148,7 @@ impl App {
                 .into_iter()
                 .map(|line| Candidate {
                     hit: Hit {
+                        deleted: None,
                         path: here.clone(),
                         line,
                         col: 0,
@@ -189,6 +199,7 @@ impl App {
                 .into_iter()
                 .map(|line| Candidate {
                     hit: Hit {
+                        deleted: None,
                         path: here.clone(),
                         line,
                         col: 0,
@@ -423,6 +434,7 @@ impl App {
                 .iter()
                 .map(|&line| Candidate {
                     hit: Hit {
+                        deleted: None,
                         path: here.clone(),
                         line,
                         col: 0,
@@ -496,6 +508,7 @@ impl App {
                 .is_empty()
         {
             let hit = Hit {
+                deleted: None,
                 path: here.clone(),
                 line,
                 col: 0,
@@ -722,6 +735,7 @@ impl App {
             && let Some(line) = search::ts_import_line(&text, first)
         {
             let hit = Hit {
+                deleted: None,
                 path: here.clone(),
                 line,
                 col: 0,
@@ -852,6 +866,7 @@ impl App {
                 })
                 .map(|(i, l)| Candidate {
                     hit: Hit {
+                        deleted: None,
                         path: here.clone(),
                         line: i + 1,
                         col: 0,
@@ -1135,6 +1150,7 @@ impl App {
                     .into_iter()
                     .map(|line| Candidate {
                         hit: Hit {
+                            deleted: None,
                             path: here.clone(),
                             line,
                             col: 0,
@@ -1161,6 +1177,7 @@ impl App {
                     let text = self.text_of(&h.path)?;
                     let (line, col) = search::enum_member(kind, &text, h.line, &word)?;
                     let hit = Hit {
+                        deleted: None,
                         text: text.lines().nth(line - 1)?.to_owned(),
                         path: h.path,
                         line,
@@ -1288,6 +1305,7 @@ impl App {
                 search::ruby_locals(&text, self.line + 1, &word)
                     .into_iter()
                     .map(|line| Hit {
+                        deleted: None,
                         path: here.clone(),
                         line,
                         col: 0,
@@ -1346,6 +1364,7 @@ impl App {
                 line: self.line + 1,
                 col: 0,
                 text: line.to_owned(),
+                deleted: None,
             };
             if !dotted
                 && line.get(range.clone()) == Some(word.as_str())
@@ -1565,6 +1584,11 @@ impl App {
                 })
                 .collect();
         }
+        // Nothing in the branch by name: the definitions the branch deleted are the answer (#440).
+        // A rule that answered earlier, "none" included, keeps its answer.
+        if found.is_empty() && self.probe.is_none() {
+            found = self.deleted_definitions(kind, &word, &here);
+        }
         // Ruby's core and gems are not read (#390): the one namesake the project declares of
         // `x.each` or `logger.info` proves nothing, and is offered rather than jumped to.
         self.offer_only |= kind == Kind::Ruby && on_value && self.external_files(kind).is_empty();
@@ -1599,6 +1623,7 @@ impl App {
             // `new self(…)`: the class the cursor is in.
             Some(decl) => vec![Candidate {
                 hit: Hit {
+                    deleted: None,
                     path: here.to_path_buf(),
                     line: decl,
                     col: 0,
@@ -1681,6 +1706,7 @@ impl App {
                     .unwrap_or_default();
                 out.push(Candidate {
                     hit: Hit {
+                        deleted: None,
                         path,
                         line,
                         col: 0,
@@ -1933,6 +1959,7 @@ impl App {
         let lines: Vec<&str> = text.lines().collect();
         let candidate = |path: &Path, lines: &[&str], line: usize, reason: Reason| Candidate {
             hit: Hit {
+                deleted: None,
                 path: path.to_path_buf(),
                 line,
                 col: 0,
@@ -2158,6 +2185,7 @@ impl App {
             .into_iter()
             .map(|line| Candidate {
                 hit: Hit {
+                    deleted: None,
                     path: path.clone(),
                     line,
                     col: 0,
@@ -2175,6 +2203,7 @@ impl App {
             .map(|path| Candidate {
                 reason: Reason::Module(path.display().to_string()),
                 hit: Hit {
+                    deleted: None,
                     text: self.text_of(&path).map_or_else(String::new, |t| {
                         t.lines().next().unwrap_or_default().to_owned()
                     }),
@@ -2298,6 +2327,7 @@ impl App {
             .filter(|(name, _)| name == word)
             .map(|(_, line)| Candidate {
                 hit: Hit {
+                    deleted: None,
                     path: decl.path.clone(),
                     line,
                     col: 0,
@@ -2617,7 +2647,7 @@ impl App {
                 // A module's first line declares nothing of the word, and a label's reason names
                 // what declares the parameter or the field already.
                 let target = self
-                    .text_of(&one.hit.path)
+                    .hit_text(&one.hit)
                     .filter(|_| !matches!(one.reason, Reason::Module(_) | Reason::Label(_)))
                     .and_then(|text| search::qualified(kind, &text, one.hit.line, word));
                 let status = resolution(word, target.as_deref(), &found, broke, false);
@@ -2626,7 +2656,11 @@ impl App {
                 // implements the declaration it just landed on (#68, step 6). A row of the
                 // picker below lands there too, the word read by the rules `d` read it with.
                 let extra = search::word_chars(Some(kind), true);
-                self.jump_to_col(&path, one.hit.line, word_col(&one.hit.text, word, extra));
+                let col = word_col(&one.hit.text, word, extra);
+                match one.hit.deleted {
+                    Some(_) => self.jump_to_deleted(&path, one.hit.line, col),
+                    None => self.jump_to_col(&path, one.hit.line, col),
+                }
                 // A refused jump (edits that cannot be saved) leaves its own reason, not a
                 // resolution nobody followed.
                 if self.buf.path.as_deref() == Some(path.as_path()) {
@@ -3056,6 +3090,7 @@ impl App {
         {
             let line = *line;
             hits = vec![Hit {
+                deleted: None,
                 text: self
                     .text_of(file)
                     .and_then(|t| t.lines().nth(line - 1).map(str::to_owned))

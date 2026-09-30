@@ -448,9 +448,8 @@ impl App {
             n: 1,
             from: (self.buf.path.clone()?, self.at()),
             here: self.rel_current(),
-            // The preview has no word under the cursor for `d` or `u` to read, nor a line the
-            // branch deleted, where they say `deleted` (#439).
-            word: (!self.previewing() && self.deleted.is_none())
+            // The preview has no word under the cursor for `d` or `u` to read.
+            word: (!self.previewing())
                 .then(|| self.word_under(search::word_chars(self.kind(), false)))
                 .flatten(),
             query: String::new(),
@@ -505,9 +504,17 @@ impl App {
         let (hits, _) = self.usage_hits(word, trip.here.as_deref());
         let row = hits
             .iter()
-            .position(|(_, h)| h.path == landed && h.line == self.line + 1)?;
+            .position(|(_, h)| h.path == landed && h.place() == self.at())?;
+        // From base code `d` answers as the base had it, and a deleted declaration is where it
+        // lands only when the branch has none (#440): neither is a place `d` is proven to reach
+        // from the branch's `u` list.
+        let from_base = matches!(trip.from.1, TextLine::Deleted(..))
+            || (self.review.as_ref())
+                .zip(trip.here.as_deref())
+                .and_then(|(r, here)| r.file(here))
+                .is_some_and(|f| f.status == 'D');
         match hits[row].0 {
-            Tier::Declaration => Some((1, "d")),
+            Tier::Declaration if !from_base && hits[row].1.deleted.is_none() => Some((1, "d")),
             _ if trip.kind == PickerKind::Search => Some((row + 2, "u")),
             _ => None,
         }

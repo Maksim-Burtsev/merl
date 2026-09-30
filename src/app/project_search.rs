@@ -48,7 +48,15 @@ impl App {
             // With unsaved edits the open file is searched as it is on screen, so a hit's line
             // is a line of the buffer the jump lands in.
             unsaved: self.dirty.then(|| self.buf.to_bytes()),
+            deleted: self.deleted_lines(),
         }
+    }
+
+    /// In a review, every line the branch deleted (#440); outside one, none.
+    pub(super) fn deleted_lines(&self) -> Arc<Vec<git::DeletedLine>> {
+        self.review
+            .as_ref()
+            .map_or_else(Default::default, |r| r.deleted.clone())
     }
 
     /// The word under the cursor, with `extra` characters counting as part of it.
@@ -66,7 +74,7 @@ impl App {
     pub(crate) fn hit_items(hits: Vec<Hit>) -> Vec<PickItem> {
         hits.into_iter()
             .map(|h| {
-                let label = format!("{}:{}: ", h.path.display(), h.line);
+                let label = format!("{}: ", at_label(&h.path, h.line));
                 let code_at = Some(label.len());
                 PickItem {
                     col: h.col,
@@ -74,6 +82,7 @@ impl App {
                     path: h.path,
                     line: h.line,
                     code_at,
+                    deleted: h.deleted.is_some(),
                 }
             })
             .collect()
@@ -145,7 +154,7 @@ impl App {
     pub(super) fn search_jump(&mut self, item: PickItem) {
         self.picker = None;
         self.mode = Mode::Normal;
-        self.jump_to_col(&self.root.join(&item.path), item.line, item.col);
+        self.jump_to_item(&item);
     }
 
     /// The rows of grep number `seq`. An answer to anything but the query on screen is dropped.
@@ -169,7 +178,10 @@ impl App {
             .and_then(|cur| {
                 items
                     .iter()
-                    .position(|it| (&it.path, it.line) == (&cur.path, cur.line))
+                    // A deleted line keeps the base's number: its 12 is not the file's 12 (#440).
+                    .position(|it| {
+                        (&it.path, it.line, it.deleted) == (&cur.path, cur.line, cur.deleted)
+                    })
             })
             .unwrap_or(0);
         let mut new = Picker::new(old.title.clone(), items, false);
@@ -205,4 +217,10 @@ impl App {
         self.picker = Some(new);
         true
     }
+}
+
+/// `path:line`; a line the branch deleted is numbered as the file had it at the base, and only
+/// its mark's colour tells it apart in a list (#440).
+pub(super) fn at_label(path: &Path, line: usize) -> String {
+    format!("{}:{line}", path.display())
 }

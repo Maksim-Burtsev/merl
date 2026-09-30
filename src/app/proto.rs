@@ -142,6 +142,7 @@ impl App {
                     path: file,
                     line: 1,
                     col: 0,
+                    deleted: None,
                 },
             })
             .collect()

@@ -120,6 +120,7 @@ impl App {
                             path,
                             line: line.unwrap_or(1),
                             col: 0,
+                            deleted: None,
                             text: String::new(),
                         },
                         reason: Reason::ByName,

@@ -24,6 +24,9 @@ pub struct PickItem {
     /// Byte offset in `label` where a copy of the file's line `line` (trimmed, maybe clipped)
     /// starts, so the row can be drawn with that line's syntax colours. `None`: no code text.
     pub code_at: Option<usize>,
+    /// A line the branch under review deleted (#440): `line` is its number in the file at the
+    /// base, drawn red, and Enter lands on it.
+    pub deleted: bool,
 }
 
 /// One rendered row: the item plus the char indices of its label that matched the query.
@@ -265,6 +268,7 @@ mod tests {
                 path: PathBuf::from(l),
                 line: 0,
                 col: 0,
+                deleted: false,
             })
             .collect();
         let mut p = Picker::new("Files", items, true);

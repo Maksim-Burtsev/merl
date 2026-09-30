@@ -376,6 +376,41 @@ impl App {
         self.hist_note(true);
     }
 
+    /// Enter on a picker's row: its line, or the line the branch deleted a red row stands for.
+    pub(super) fn jump_to_item(&mut self, item: &PickItem) {
+        let path = self.root.join(&item.path);
+        match item.deleted {
+            true => self.jump_to_deleted(&path, item.line, item.col),
+            false => self.jump_to_col(&path, item.line, item.col),
+        }
+    }
+
+    /// [`App::jump_to_col`] onto the line the branch deleted that was line `n` of the file at the
+    /// base (#440): a red row of `s`, `D` or `u`, or the declaration `d` found deleted. The diff
+    /// of the file as it is now says where it is drawn; a line gone from it since the row was
+    /// listed gives way to the deleted line nearest to its number, and a file with none to the
+    /// file's line of that number. A file the branch deleted is the base's text, line for line.
+    pub(super) fn jump_to_deleted(&mut self, path: &Path, n: usize, col: usize) {
+        let before = (self.at(), self.col);
+        self.preview_jumped();
+        if self.open(path, 0) {
+            self.focus = Focus::Code;
+            let nearest = (self.diff.ghost_from.iter())
+                .flat_map(|(&k, &from)| {
+                    (0..self.deleted_at(k)).map(move |i| (TextLine::Deleted(k, i), from + i + 1))
+                })
+                .min_by_key(|&(_, line)| line.abs_diff(n));
+            let t = nearest.map_or(TextLine::File(n.saturating_sub(1)), |(t, _)| t);
+            let (t, col) = self.clamp_place((t, col));
+            self.set_at(t);
+            self.col = col;
+            self.sync_want_x();
+            self.center = true;
+        }
+        self.drop_selection_if_moved(before);
+        self.hist_note(true);
+    }
+
     /// `[` and `]`: walks the recorded stops.
     pub(super) fn hist_go(&mut self, delta: isize) {
         // A stop whose file is gone (an agent renamed it) is dropped, and the walk goes on.

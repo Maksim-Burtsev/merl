@@ -251,6 +251,7 @@ fn hit_picker_rows_keep_the_syntax_colours_of_their_line() {
             .next()
             .unwrap()
             .to_string(),
+        deleted: None,
     }];
     assert!(hits[0].text.starts_with("//!"), "{:?}", hits[0].text);
     app.show_picker(crate::app::PickerKind::Usages, App::hit_items(hits));
@@ -288,6 +289,7 @@ fn hit_picker_rows_keep_their_colours_past_a_tab() {
         line: 1,
         col: 0,
         text: "#define MAX\t10".into(),
+        deleted: None,
     }];
     app.show_picker(crate::app::PickerKind::Usages, App::hit_items(hits));
     app.picker.as_mut().unwrap().settle();
@@ -381,6 +383,8 @@ fn review_panel_counts_end_at_the_border() {
             untracked: false,
             generated: false,
         }],
+        deleted: Default::default(),
+        added: Default::default(),
         note: None,
     });
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -433,6 +437,8 @@ fn review_panel_cuts_a_long_name_and_keeps_the_counts() {
             untracked: false,
             generated: false,
         }],
+        deleted: Default::default(),
+        added: Default::default(),
         note: None,
     });
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -470,6 +476,8 @@ fn review_app(files: &[(&str, char, usize, usize)]) -> App {
                 generated: false,
             })
             .collect(),
+        deleted: Default::default(),
+        added: Default::default(),
         note: None,
     });
     app

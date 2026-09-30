@@ -328,6 +328,8 @@ mod tests {
             base: "main".into(),
             merge_base: String::new(),
             files: Vec::new(),
+            deleted: Default::default(),
+            added: Default::default(),
             note: None,
         };
         let stops_in: HashMap<PathBuf, usize> = stops_in
@@ -459,6 +461,8 @@ mod tests {
             base: "main".into(),
             merge_base: String::new(),
             files: vec![row("a.rs", 3, 1), row("b.rs", 2, 0)],
+            deleted: Default::default(),
+            added: Default::default(),
             note: None,
         };
         let stops_in = HashMap::from([(PathBuf::from("a.rs"), 2), (PathBuf::from("b.rs"), 1)]);

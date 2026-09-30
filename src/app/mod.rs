@@ -18,6 +18,7 @@ use crate::tree::Tree;
 use crate::tutor::{self, Tutor};
 use crate::wrap;
 
+mod at_base;
 mod c;
 mod cursor;
 mod definition;
@@ -45,8 +46,9 @@ mod usages;
 
 pub(crate) use open::error_text;
 pub use preview::Preview;
+use project_search::at_label;
 pub use search_job::SearchJob;
-use search_job::{SEARCH_PAUSE, Typed};
+use search_job::{SEARCH_PAUSE, Typed, deleted_hits};
 
 /// Longest hit text kept in a picker label; the rest is off the screen anyway.
 const MAX_LABEL_TEXT: usize = 120;
@@ -291,6 +293,9 @@ pub struct App {
     /// While `d` resolves the owner of a label (#316), where it collects the candidates it would
     /// show: the callee of a named argument, the type of a literal.
     probe: Option<Vec<Candidate>>,
+    /// The project as the base had it, for `d` on a deleted line (#440), with the stamp of the
+    /// tree it was made from.
+    base_app: Option<(String, Box<App>)>,
     /// Set by a grep of this `d` that stopped at [`search::MAX_HITS`], whatever was filtered out
     /// of it afterwards: the candidates are a lower bound, so the count says `+` and a single
     /// one is offered, not jumped to.
@@ -513,6 +518,7 @@ impl App {
             ),
             offer_only: false,
             probe: None,
+            base_app: None,
             truncated: Default::default(),
             reading: Default::default(),
             focus,
@@ -675,7 +681,7 @@ impl App {
     }
 
     /// How many lines the branch deleted above file line `k`.
-    fn deleted_at(&self, k: usize) -> usize {
+    pub(super) fn deleted_at(&self, k: usize) -> usize {
         self.diff.ghosts.get(&k).map_or(0, Vec::len)
     }
 

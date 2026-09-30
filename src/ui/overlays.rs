@@ -259,7 +259,12 @@ pub(super) fn draw_picker(
         app.review_list_marks
             && matches!(
                 app.mode,
-                Mode::Picker(PickerKind::Usages | PickerKind::Search)
+                Mode::Picker(
+                    PickerKind::Usages
+                        | PickerKind::Search
+                        | PickerKind::Definitions
+                        | PickerKind::Symbols
+                )
             )
     });
     let lines: Vec<Line> = rows
@@ -285,17 +290,30 @@ pub(super) fn draw_picker(
                     None => Span::styled("  ", style),
                 });
             }
+            // A line the branch deleted differs from the others only by its mark's colour
+            // (#440).
             if let Some(r) = marks {
-                spans.push(
-                    match review_mark(&mut picker.marks, r, &app.root, &row.item) {
-                        Some(Mark::Added) => Span::styled("\u{258e}", style.fg(Color::Green)),
-                        Some(Mark::Changed) => Span::styled("\u{258e}", style.fg(Color::Blue)),
-                        _ => Span::styled(" ", style),
+                let colour = match row.item.deleted {
+                    true => Some(Color::Red),
+                    false => match review_mark(&mut picker.marks, r, &app.root, &row.item) {
+                        Some(Mark::Added) => Some(Color::Green),
+                        Some(Mark::Changed) => Some(Color::Blue),
+                        _ => None,
                     },
-                );
+                };
+                spans.push(match colour {
+                    Some(c) => Span::styled("\u{258e}", style.fg(c)),
+                    None => Span::styled(" ", style),
+                });
             }
             let used: usize = spans.iter().map(|s| wrap::width(&s.content)).sum();
-            let code = code_hl(&mut picker.bufs, &app.root, &row.item, theme);
+            let code = code_hl(
+                &mut picker.bufs,
+                &app.root,
+                app.review.as_ref(),
+                &row.item,
+                theme,
+            );
             // A span per cluster: ratatui measures each span apart, so an emoji split from its
             // selector would be drawn one column narrower than `wrap::width` counts it.
             let mut c = 0;
@@ -350,13 +368,28 @@ fn review_mark(
 fn code_hl<'a>(
     bufs: &'a mut HashMap<PathBuf, Buffer>,
     root: &Path,
+    review: Option<&Review>,
     item: &PickItem,
     theme: &Theme,
 ) -> Option<(&'a Spans, usize)> {
     let quoted = item.label[item.code_at?..].trim_end_matches('\u{2026}');
-    let buf = bufs.entry(item.path.clone()).or_insert_with(|| {
-        Buffer::load(&root.join(&item.path)).unwrap_or_else(|_| Buffer::empty())
-    });
+    // A deleted line is coloured as the file the base had reads (#440).
+    let key = match item.deleted {
+        true => item.path.join("\0base"),
+        false => item.path.clone(),
+    };
+    let buf = bufs
+        .entry(key)
+        .or_insert_with(|| match (item.deleted, review) {
+            (true, Some(r)) => {
+                let old = r.file(&item.path).and_then(|f| f.old.clone());
+                let bytes = r
+                    .base_bytes(root, old.as_deref().unwrap_or(&item.path))
+                    .unwrap_or_default();
+                Buffer::from_bytes(root.join(&item.path), &bytes)
+            }
+            _ => Buffer::load(&root.join(&item.path)).unwrap_or_else(|_| Buffer::empty()),
+        });
     let idx = item.line.checked_sub(1)?;
     let line = buf.lines.get(idx)?;
     let off = line.len() - line.trim_start().len();
