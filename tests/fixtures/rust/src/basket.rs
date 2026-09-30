@@ -15,7 +15,7 @@ impl Basket {
         // ^ d: src/basket.rs:6
             tariff,
             coupon: Coupon,
-            // ^ d: none; want src/basket.rs:8 (#316)
+            // ^ d: src/basket.rs:8
             //      ^ d: src/pricing.rs:21
             owner: String::new(),
         }
@@ -85,7 +85,7 @@ pub fn offer(o: Offer) -> u32 {
 
 pub fn depot() -> bool {
     warehouse::depot::open()
-    //         ^ d: picker src/basket.rs:86, src/warehouse.rs:27; want src/warehouse.rs:27 (#350)
+    //         ^ d: src/warehouse.rs:27
     //                ^ d: src/warehouse.rs:28
 }
 

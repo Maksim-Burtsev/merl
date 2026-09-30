@@ -781,6 +781,23 @@ impl App {
                 }
             }
         }
+        // A Rust path's first name names the crate searched first, and in it the module the path
+        // spells (#350): a `use` of `std::fs::File` takes `File::open` to the standard library,
+        // whatever `open` the project declares.
+        if kind == Kind::Rust
+            && !dotted
+            && locals.is_empty()
+            && let Some(found) = self.rust_crate_path(&here, &text, &word, &chain, {
+                let after = self.line_str()[range.end..].trim_start();
+                match after.starts_with('!') && !after.starts_with("!=") {
+                    true => Some(true),
+                    false => after.starts_with(['(', ':']).then_some(false),
+                }
+            })
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // An import names where the word is declared: the project's module, else the one outside
         // it. Only a module of the project that does not declare it (a re-export) leaves the word
         // to the search by name.
@@ -1834,8 +1851,11 @@ impl App {
         // A callee whose receiver's type the project does not declare, or one of whose candidates
         // lies outside the project, where nothing is read, may be a library's namesake: its
         // parameter is offered, never jumped to. A typed chain that broke says so for Python.
+        // A Rust struct outside is read for its fields: a literal of it names only `pub` ones
+        // (#529).
+        let reads_outside = kind == Kind::Rust && *owner == search::Owner::Typed;
         let offer = std::mem::take(&mut self.offer_only)
-            || owners.iter().any(|c| c.hit.path.is_absolute())
+            || (!reads_outside && owners.iter().any(|c| c.hit.path.is_absolute()))
             || (owners.iter().all(|c| !c.reason.proven())
                 && name
                     .as_deref()
@@ -1852,7 +1872,9 @@ impl App {
         for c in owners {
             // Outside the project nothing is read; the line under the cursor declares nothing
             // it calls.
-            if c.hit.path.is_absolute() || (c.hit.path == here && c.hit.line == line0 + 1) {
+            if (c.hit.path.is_absolute() && !reads_outside)
+                || (c.hit.path == here && c.hit.line == line0 + 1)
+            {
                 continue;
             }
             let Some(text) = self.text_of(&c.hit.path) else {

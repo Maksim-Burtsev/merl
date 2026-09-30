@@ -417,4 +417,348 @@ impl App {
             })
             .collect()
     }
+
+    /// Where a Rust path is declared, by the crate its first name names (#350): a `use` of the
+    /// file binds that name, or it is written out (`std::fs::File::create`). `crate`, `self`
+    /// and `super` are the project's crate and module, a `[package]` or `[lib]` name of a
+    /// `Cargo.toml` of the project is that crate, `std`, `core`, `alloc` and `proc_macro` are
+    /// the sysroot's, any other name a crate of `Cargo.lock` in the registry. In the crate, the
+    /// longest module the path spells, `a::b` being `src/a/b.rs` or `src/a/b/mod.rs`, is read
+    /// first, then the files under its directory, then the whole crate (a `pub use` from
+    /// elsewhere); a name the path takes further through a type, `File::open`, is kept only
+    /// where [`search::qualified`] names it so. What `std` does not declare it hands on from
+    /// `core` or `alloc`. A primitive in front, `usize::MAX`, names an item of `core`, by name.
+    /// `None` when no crate is named or nothing is found there: the lookup goes on as before.
+    pub(super) fn rust_crate_path(
+        &mut self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        chain: &[String],
+        macro_call: Option<bool>,
+    ) -> Option<Vec<Candidate>> {
+        const PRIMITIVES: &[&str] = &[
+            "bool", "char", "str", "u8", "u16", "u32", "u64", "u128", "usize", "i8", "i16", "i32",
+            "i64", "i128", "isize", "f32", "f64",
+        ];
+        const SYSROOT: &[&str] = &["std", "core", "alloc", "proc_macro"];
+        let first = chain.first().map_or(word, String::as_str);
+        // A `use` in column zero binds the whole file; an indented one, in a function or an
+        // inline `mod`, its block: the lines below it indented as far.
+        let lines: Vec<&str> = text.lines().collect();
+        let indent = |l: &str| l.len() - l.trim_start().len();
+        let sees = |at: usize| {
+            let from = text[..at].matches('\n').count();
+            let depth = indent(lines[from]);
+            depth == 0
+                || (from < self.line
+                    && lines[from + 1..=self.line]
+                        .iter()
+                        .all(|l| l.trim().is_empty() || indent(l) >= depth))
+        };
+        let depth_at = |at: usize| indent(lines[text[..at].matches('\n').count()]);
+        let mut bound: Vec<(Vec<String>, usize)> = search::rust_uses_at(text)
+            .into_iter()
+            .filter(|(n, _, at)| n == first && sees(*at))
+            .map(|(_, p, at)| (p, depth_at(at)))
+            .collect();
+        bound.dedup();
+        // A glob `use` of a block nearer the cursor than the `use` of the name may bring in a
+        // name of its own that hides it (`use self::Strategy::*;` then `Regex(ref s) =>`): a
+        // bare name is left to the lookup after this one then.
+        let glob = Regex::new(r"(?m)^[ \t]+use\s[^;]*\*\s*;").expect("a valid pattern");
+        if let [(_, depth)] = bound.as_slice()
+            && chain.is_empty()
+            && glob
+                .find_iter(text)
+                .any(|m| sees(m.start()) && depth_at(m.start()) > *depth)
+        {
+            return None;
+        }
+        let (mut full, imported) = match bound.as_slice() {
+            [(p, depth)] if *depth == 0 || !matches!(p[0].as_str(), "self" | "super") => {
+                (p.clone(), true)
+            }
+            [] if !chain.is_empty() => (vec![first.to_owned()], false),
+            _ => return None,
+        };
+        if !chain.is_empty() {
+            full.extend(chain[1..].iter().cloned());
+            full.push(word.to_owned());
+        }
+        let (root, rest) = full.split_first()?;
+        if rest.is_empty() {
+            return None;
+        }
+        // A module of this file's own, `mod log {` or `mod log;`, is no crate `log`.
+        let own_mod = Regex::new(&format!(
+            r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+{}\b",
+            regex::escape(root)
+        ))
+        .is_ok_and(|re| re.is_match(text));
+        let kind = Kind::Rust;
+        let by = |hits: Vec<Hit>, reason: Reason| -> Vec<Candidate> {
+            hits.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect()
+        };
+        if PRIMITIVES.contains(&root.as_str()) && !imported {
+            let files = self.sysroot_crate("core")?.1;
+            let name = rest.last()?;
+            let pattern = search::def_patterns(kind, name).join("|");
+            let hits = search::grep_project(&self.root, &files, &pattern, false, false, None, None)
+                .unwrap_or_default();
+            self.note_cut(&hits);
+            let hits = self.declaring(kind, name, hits);
+            return (!hits.is_empty()).then(|| by(hits, Reason::ByName));
+        }
+        // The crate's `src/`, its files, and the module the path starts in.
+        let (src, files, base, name) = match root.as_str() {
+            "crate" | "self" | "super" => {
+                let (src, mut module) = search::rust_module_of(&self.files, here)?;
+                match root.as_str() {
+                    "crate" => module.clear(),
+                    "super" => {
+                        let supers = 1 + rest.iter().take_while(|p| *p == "super").count();
+                        module.truncate(module.len().checked_sub(supers)?);
+                    }
+                    _ => {}
+                }
+                let files: Vec<PathBuf> = self
+                    .files
+                    .iter()
+                    .filter(|f| f.starts_with(&src))
+                    .cloned()
+                    .collect();
+                (src, files, module, "crate".to_owned())
+            }
+            _ if own_mod => return None,
+            r if SYSROOT.contains(&r) => {
+                let (src, files) = self.sysroot_crate(r)?;
+                (src, files, Vec::new(), root.clone())
+            }
+            r => {
+                let (src, files) = self.workspace_crate(r).or_else(|| self.registry_crate(r))?;
+                (src, files, Vec::new(), root.clone())
+            }
+        };
+        let rest: Vec<String> = rest.iter().filter(|p| *p != "super").cloned().collect();
+        let sep = "::";
+        // A name the crate declares only somewhere else than the path says is found by name.
+        let reason = |crate_name: &str, module: Vec<String>, proven: bool| {
+            let mut shown = vec![crate_name.to_owned()];
+            shown.extend(module);
+            let spelled = shown.join(sep);
+            match (proven, imported) {
+                (false, _) => Reason::ByName,
+                (true, true) => Reason::Import(spelled),
+                (true, false) => Reason::Path(spelled),
+            }
+        };
+        let found = self.rust_in_crate(&src, &files, &base, &rest, macro_call, 0);
+        if let Some((module, hits, proven)) = found {
+            return Some(by(hits, reason(&name, module, proven)));
+        }
+        // `std` hands on what `core` and `alloc` declare: `std::sync::Arc` is `alloc`'s.
+        if root == "std" {
+            for other in ["core", "alloc"] {
+                let Some((src, files)) = self.sysroot_crate(other) else {
+                    continue;
+                };
+                if let Some((module, hits, proven)) =
+                    self.rust_in_crate(&src, &files, &[], &rest, macro_call, 0)
+                {
+                    return Some(by(hits, reason(other, module, proven)));
+                }
+            }
+        }
+        None
+    }
+
+    /// The declarations of the last name of `path` in the crate at `src` of `files`, from its
+    /// module `base`, with the module that held them and whether the path proves them: in the
+    /// longest module `path` spells, then where a `use` there takes the name from in the crate
+    /// (`pub use crate::store::Cache`), then under the module's directory; then, for a name the
+    /// path takes through a type (`Cache::new`), in the whole crate, found by name.
+    fn rust_in_crate(
+        &self,
+        src: &Path,
+        files: &[PathBuf],
+        base: &[String],
+        path: &[String],
+        macro_call: Option<bool>,
+        depth: usize,
+    ) -> Option<(Vec<String>, Vec<Hit>, bool)> {
+        let (name, parts) = path.split_last()?;
+        let mut module: Vec<String> = base.to_vec();
+        module.extend(parts.iter().cloned());
+        let file_of = |m: &[String]| -> Vec<PathBuf> {
+            let at = m.iter().fold(src.to_path_buf(), |p, n| p.join(n));
+            let wanted = match m.is_empty() {
+                true => vec![src.join("lib.rs"), src.join("main.rs")],
+                false => vec![at.with_extension("rs"), at.join("mod.rs")],
+            };
+            wanted.into_iter().filter(|f| files.contains(f)).collect()
+        };
+        let n = (base.len()..=module.len())
+            .rev()
+            .find(|&n| !file_of(&module[..n]).is_empty())?;
+        let (at, inside) = module.split_at(n);
+        let owner = (!inside.is_empty()).then(|| inside.join("::"));
+        let here = file_of(at);
+        let hits = self.rust_declared(&here, name, owner.as_deref(), macro_call);
+        if !hits.is_empty() {
+            return Some((at.to_vec(), hits, true));
+        }
+        // A `use` of the module's file that binds the first name left, the crate's own.
+        let first = inside.first().unwrap_or(name);
+        let taken = here.iter().find_map(|f| {
+            let text = self.text_of(f)?;
+            let mut bound = search::rust_uses(&text)
+                .into_iter()
+                .filter(|(n, _, top)| n == first && *top)
+                .map(|(_, p, _)| p);
+            let p = bound.next()?;
+            let to: Vec<String> = match p.first()?.as_str() {
+                "crate" => p[1..].to_vec(),
+                "super" => {
+                    let up = p.iter().take_while(|s| *s == "super").count();
+                    let kept = at.len().checked_sub(up)?;
+                    at[..kept].iter().chain(&p[up..]).cloned().collect()
+                }
+                // `self::` is dropped from what a `use` binds: a module below this one.
+                _ => at.iter().chain(&p).cloned().collect(),
+            };
+            Some(to)
+        });
+        if let Some(mut to) = taken.filter(|_| depth < 4) {
+            to.extend(inside.iter().skip(1).cloned());
+            if !inside.is_empty() {
+                to.push(name.clone());
+            }
+            if let Some(found) = self.rust_in_crate(src, files, &[], &to, macro_call, depth + 1) {
+                return Some(found);
+            }
+        }
+        let dir = at.iter().fold(src.to_path_buf(), |p, m| p.join(m));
+        let under: Vec<PathBuf> = files
+            .iter()
+            .filter(|f| f.starts_with(&dir))
+            .cloned()
+            .collect();
+        let hits = self.rust_declared(&under, name, owner.as_deref(), macro_call);
+        if !hits.is_empty() {
+            return Some((at.to_vec(), hits, true));
+        }
+        // ponytail: a name at the top of a module found nowhere else is left to the search
+        // by name; the whole crate would offer another module's namesake as proven.
+        let hits = match owner {
+            Some(_) => self.rust_declared(files, name, owner.as_deref(), macro_call),
+            None => Vec::new(),
+        };
+        (!hits.is_empty()).then(|| (at.to_vec(), hits, false))
+    }
+
+    /// The lines of `files` that declare `name` inside `owner` as [`search::qualified`] names
+    /// it (`File` for `File::open`), or at the top of their module with no `owner`. A macro
+    /// lives apart from everything else: `Some(true)` keeps the `macro_rules!` alone, `Some(false)`
+    /// all but them.
+    fn rust_declared(
+        &self,
+        files: &[PathBuf],
+        name: &str,
+        owner: Option<&str>,
+        macro_call: Option<bool>,
+    ) -> Vec<Hit> {
+        let kind = Kind::Rust;
+        let pattern = search::def_patterns(kind, name).join("|");
+        let hits = search::grep_project(&self.root, files, &pattern, false, false, None, None)
+            .unwrap_or_default();
+        self.note_cut(&hits);
+        let want = owner.map(|o| format!("{o}::{name}"));
+        let mut hits = self.declaring(kind, name, hits);
+        hits.retain(|h| {
+            macro_call.is_none_or(|m| m == h.text.trim_start().starts_with("macro_rules!"))
+                && self
+                    .text_of(&h.path)
+                    .map(|t| search::qualified(kind, &t, h.line, name))
+                    == Some(want.clone())
+        });
+        hits
+    }
+
+    /// The `src/` of the sysroot's crate `name` (`std`, `core`…) and its files.
+    fn sysroot_crate(&mut self, name: &str) -> Option<(PathBuf, Vec<PathBuf>)> {
+        let all = self.external_files(Kind::Rust);
+        let roots = self.external.get(&Kind::Rust)?.0.clone();
+        roots.iter().find_map(|r| {
+            let src = r.join(name).join("src");
+            let files: Vec<PathBuf> = all
+                .iter()
+                .filter(|f| f.starts_with(&src))
+                .cloned()
+                .collect();
+            (!files.is_empty()).then_some((src, files))
+        })
+    }
+
+    /// The `src/` of the registry crate a path calls `name`, a directory `name-1.2.3` with `_`
+    /// spelled `-`, and its files.
+    // ponytail: the first version `Cargo.lock` holds; two versions of one crate are not told apart.
+    fn registry_crate(&mut self, name: &str) -> Option<(PathBuf, Vec<PathBuf>)> {
+        let all = self.external_files(Kind::Rust);
+        let roots = self.external.get(&Kind::Rust)?.0.clone();
+        roots.iter().find_map(|r| {
+            let dir = r.file_name()?.to_string_lossy().into_owned();
+            let (i, _) = dir
+                .rmatch_indices('-')
+                .find(|(i, _)| dir[i + 1..].starts_with(|c: char| c.is_ascii_digit()))?;
+            if dir[..i].replace('-', "_") != name {
+                return None;
+            }
+            let src = r.join("src");
+            let files: Vec<PathBuf> = all
+                .iter()
+                .filter(|f| f.starts_with(&src))
+                .cloned()
+                .collect();
+            (!files.is_empty()).then_some((src, files))
+        })
+    }
+
+    /// The `src/` of the crate of the project whose `Cargo.toml` names it `name`, as its
+    /// `[package]` or its `[lib]`, with `-` read as `_`, and its files.
+    fn workspace_crate(&self, name: &str) -> Option<(PathBuf, Vec<PathBuf>)> {
+        self.files
+            .iter()
+            .filter(|f| f.file_name().is_some_and(|n| n == "Cargo.toml"))
+            .find_map(|toml| {
+                let text = self.text_of(toml)?;
+                let mut section = "";
+                let named = text.lines().any(|l| {
+                    let l = l.trim();
+                    if l.starts_with('[') {
+                        section = l;
+                        return false;
+                    }
+                    let value = l
+                        .strip_prefix("name")
+                        .map(str::trim_start)
+                        .and_then(|v| v.strip_prefix('='))
+                        .map(|v| v.trim().trim_matches('"').replace('-', "_"));
+                    matches!(section, "[package]" | "[lib]") && value.as_deref() == Some(name)
+                });
+                let src = toml.parent()?.join("src");
+                let files: Vec<PathBuf> = self
+                    .files
+                    .iter()
+                    .filter(|f| f.starts_with(&src))
+                    .cloned()
+                    .collect();
+                (named && !files.is_empty()).then_some((src, files))
+            })
+    }
 }

@@ -77,8 +77,17 @@ imports, a generic parameter, an item of a block or of an outer function, and a 
 function mentions other than as a call, `name(`, `name!` or `name::`, which may be a local. `Type::new` where the file declares
 `Type` and another crate one too looks for `Type::new` in this file first, `via Type`.
 
+A Rust path's first name, the one a `use` of the file binds or the one written out, names the
+crate looked in first: `crate`, `self` and `super` the project's crate and module, a `[package]`
+or `[lib]` name of a `Cargo.toml` of the project that crate, `std`, `core`, `alloc` and
+`proc_macro` the sysroot's, any other name a crate of `Cargo.lock`. In the crate, `k::a::b::w` is
+looked for in `src/a/b.rs` or `src/a/b/mod.rs`, then in the files under `src/a/b/`, then in the
+whole crate, and `File::open` behind `use std::fs::File` keeps only `File`'s `open`, `via import
+std::fs`; what `std` does not declare is looked for in `core` and `alloc`, and `usize::MAX` in
+`core`, by name. Only a path whose crate declares nothing of it goes on to the search by name.
+
 An import of anything else is looked for outside the project first, even when the project declares
-a word of the same name (Rust still looks in the project first). A word no import binds goes
+a word of the same name. A word no import binds goes
 outside only when the project has no definition of it. Outside means the standard library and the
 installed dependencies the toolchain on this machine knows about — `sys.path` of
 `.venv/bin/python` (or `python3`), `rustc --print sysroot` and the crates in `Cargo.lock`, `GOROOT`

@@ -133,6 +133,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   body, `lock()` in `extension Lock` or `timeout` in a subclass of `BaseTestCase`, lands on that
   type's member, its extensions' or its superclass's: `timeout → BaseTestCase.timeout (via self:
   DownloadTests)`. It offered every declaration of the name in the project. (#380)
+- `d` in Rust looks where a path's first name says, before any namesake of the project: the
+  crate a `use` names or the path spells (`crate`, `self`, `super`, a crate of the workspace, the
+  standard library, a crate of `Cargo.lock`), and in it the module the path spells. `File::open`
+  behind `use std::fs::File` lands on `File::open` in the standard library, `io` in `io::Result`
+  on its `pub mod io;`, a name `use crate::helpers::norm` brings in on `norm` in `helpers.rs`, and
+  `std::fs` on the standard library's `fs` rather than every platform's `os/*/fs.rs`. They jumped
+  to a project method of the same name or offered every namesake. (#350)
 - `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
   parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
   said `no definition` or offered namesakes from other files: `directionParams →
@@ -296,6 +303,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   namesakes offered under "at a declaration". It jumped to a lone namesake elsewhere. A name a
   `for`, an `if let` or a closure binds over an outer one of the same name answers the same way;
   it jumped to the outer one. (#533)
+- `d` on a key of a Rust struct literal, `hyperlink` in `Printer { hyperlink: 1 }` or `Self {
+  hyperlink: 1 }`, lands on the field `hyperlink` of `Printer`, the project's or a dependency's.
+  It jumped to a method `hyperlink()` of the same name, or said "no definition". (#529)
 - `d` in Swift finds a function or an enum case declared with its name in backticks, as
   ``func `default`()`` or ``case `open` ``: it said "no definition", or jumped to a namesake
   elsewhere. (#463)
