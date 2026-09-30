@@ -3,6 +3,6 @@ package locals.b;
 class Invoice {
     int sum(Line line) {
         return line.total;
-        //          ^ d: picker src/main/java/shop/pricing/Receipt.java:5
+        //          ^ d: none
     }
 }

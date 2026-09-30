@@ -560,6 +560,27 @@ impl App {
             return;
         }
         let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
+        // A Java or Kotlin receiver whose declaration writes its type (#388, #391): the member of
+        // that type, and nothing for a type outside the project. A string literal is a `String`.
+        if kind == Kind::Jvm && (dotted || before.ends_with("::")) && !own {
+            let literal = dotted && chain.is_empty() && before[..before.len() - 1].ends_with('"');
+            let found = match literal {
+                true => self.jvm_outside(&here, &word, "String").map(|hits| {
+                    hits.into_iter()
+                        .map(|hit| Candidate {
+                            hit,
+                            reason: Reason::Receiver("String".into()),
+                        })
+                        .collect()
+                }),
+                false => self.jvm_typed(&here, &text, &chain, &word),
+            };
+            if let Some(found) = found {
+                let found = self.jvm_fit_candidates(&here, &word, range.clone(), &chain, found);
+                self.show_definitions(kind, &word, &here, found, None);
+                return;
+            }
+        }
         // Java and Kotlin's `Type::m` names a member of `Type` as `Type.m` does (#362). `super::m`
         // stays the search by name, and a bare `::m` has no chain.
         let referenced = kind == Kind::Jvm
@@ -1844,6 +1865,10 @@ impl App {
         }
         // Nothing in the branch by name: the definitions the branch deleted are the answer (#440).
         // A rule that answered earlier, "none" included, keeps its answer.
+        // No method of the name: the field Lombok writes the accessor for (#381).
+        if kind == Kind::Jvm && found.is_empty() {
+            found = self.jvm_lombok(&here, &text, &chain, &word);
+        }
         if found.is_empty() && self.probe.is_none() {
             found = self.deleted_definitions(kind, &word, &here);
         }
@@ -3051,17 +3076,18 @@ impl App {
                 let path = self.root.join(&one.hit.path);
                 // A module's first line declares nothing of the word, and a label's reason names
                 // what declares the parameter or the field already.
+                let name = declared_as(kind, word, &one.hit.text);
                 let target = self
                     .hit_text(&one.hit)
                     .filter(|_| !matches!(one.reason, Reason::Module(_) | Reason::Label(_)))
-                    .and_then(|text| search::qualified(kind, &text, one.hit.line, word));
+                    .and_then(|text| search::qualified(kind, &text, one.hit.line, &name));
                 let status = resolution(word, target.as_deref(), &found, broke, false);
                 // The cursor lands on the word rather than at the start of the line, so a
                 // second `d` there asks the next question about the same name: what
                 // implements the declaration it just landed on (#68, step 6). A row of the
                 // picker below lands there too, the word read by the rules `d` read it with.
                 let extra = search::word_chars(Some(kind), true);
-                let col = word_col(&one.hit.text, word, extra);
+                let col = word_col(&one.hit.text, &name, extra);
                 match one.hit.deleted {
                     Some(_) => self.jump_to_deleted(&path, one.hit.line, col),
                     None => self.jump_to_col(&path, one.hit.line, col),
@@ -3760,6 +3786,17 @@ fn python_functions(text: &str, line: usize) -> Vec<usize> {
         }
     }
     out
+}
+
+/// The name `word` is declared by on the line `text`: itself, or for a Java Lombok accessor
+/// the field it reads, `title` for `getTitle` (#381).
+pub(super) fn declared_as(kind: Kind, word: &str, text: &str) -> String {
+    if kind != Kind::Jvm || whole_at(text, word, "").is_some() {
+        return word.to_owned();
+    }
+    search::jvm_accessor(word)
+        .and_then(|(names, _)| names.into_iter().find(|n| whole_at(text, n, "").is_some()))
+        .unwrap_or_else(|| word.to_owned())
 }
 
 /// What the status line says after `d` on `word`: `word → Target.word (reason)` for a jump,

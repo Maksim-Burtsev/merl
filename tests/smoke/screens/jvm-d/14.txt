@@ -1,4 +1,4 @@
-wait web/android/src/main/java/courier/app/Scale.java
+wait getLimit → Scale.limit (via scale: Scale)
  1 package courier.app;
  2
  3 import courier.app.scan.Parcel;
@@ -53,5 +53,5 @@ wait web/android/src/main/java/courier/app/Scale.java
 
 
 
-web/android/src/main/java/courier/app/Scale.java  7:15  [code]                                                                                                                    ? help
-cursor (x,y,shown) 17,6,1
+web/android/src/main/java/courier/app/Scale.java  12:17  [code]  getLimit → Scale.limit (via scale: Scale)
+cursor (x,y,shown) 19,11,1

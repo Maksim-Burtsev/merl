@@ -32,12 +32,12 @@ public class Basket implements Priced {
         //     ^ d: src/main/java/shop/pricing/Pricing.java:3
         //             ^ d: src/main/java/shop/pricing/Pricing.java:8
         //                      ^ d: src/main/java/shop/basket/Basket.java:19
-        //                             ^ d: picker src/main/java/shop/pricing/Coupon.java:4, src/main/java/shop/pricing/Tariff.java:5; want src/main/java/shop/pricing/Tariff.java:5 (#388)
+        //                             ^ d: src/main/java/shop/pricing/Tariff.java:5
     }
 
     public int bonus() {
         return coupon.rate() + gross();
-        //            ^ d: picker src/main/java/shop/pricing/Coupon.java:4, src/main/java/shop/pricing/Tariff.java:5; want src/main/java/shop/pricing/Coupon.java:4 (#388)
+        //            ^ d: src/main/java/shop/pricing/Coupon.java:4
         //                     ^ d: src/main/java/shop/basket/Basket.java:30
     }
 
@@ -54,8 +54,8 @@ public class Basket implements Priced {
 
     public String describe(Tariff t, Coupon c) {
         return t.describe() + c.describe();
-        //       ^ d: picker src/main/java/shop/pricing/Coupon.java:8, src/main/java/shop/pricing/Tariff.java:9; want src/main/java/shop/pricing/Tariff.java:9 (#388)
-        //                      ^ d: picker src/main/java/shop/pricing/Coupon.java:8, src/main/java/shop/pricing/Tariff.java:9; want src/main/java/shop/pricing/Coupon.java:8 (#388)
+        //       ^ d: src/main/java/shop/pricing/Tariff.java:9
+        //                      ^ d: src/main/java/shop/pricing/Coupon.java:8
     }
 
     public String ship() {
@@ -68,7 +68,7 @@ public class Basket implements Priced {
 
     public int receipt(Receipt r, Offer o) {
         return r.total() + (o == Offer.CUT ? 1 : 0);
-        //       ^ d: picker src/main/java/shop/pricing/Receipt.java:5
+        //       ^ d: src/main/java/shop/pricing/Receipt.java:5
         //                             ^ d: src/main/java/shop/pricing/Offer.java:5
     }
 

@@ -137,7 +137,7 @@ impl App {
 
     /// The Java and Kotlin files of the project by the package their `package` line declares;
     /// `None` when the grep was cut and a package may be missing.
-    fn jvm_packages(&self) -> Option<HashMap<String, Vec<PathBuf>>> {
+    pub(super) fn jvm_packages(&self) -> Option<HashMap<String, Vec<PathBuf>>> {
         let jvm = |p: &Path| search::kind_of(p) == Some(Kind::Jvm);
         let hits = self
             .grep(r"^[ \t]*package\s+[\w.]*\w", false, false, jvm)
@@ -160,7 +160,7 @@ impl App {
     /// The declarations of the last of `names` among `files`, one package's, inside the types the
     /// names before it spell (`Queries.isNull`, `Outer.Inner`): in Java the file of the first
     /// name, in Kotlin any file of the package.
-    fn jvm_declared(&self, files: &[PathBuf], names: &[String]) -> Vec<Candidate> {
+    pub(super) fn jvm_declared(&self, files: &[PathBuf], names: &[String]) -> Vec<Candidate> {
         let Some(name) = names.last() else {
             return Vec::new();
         };

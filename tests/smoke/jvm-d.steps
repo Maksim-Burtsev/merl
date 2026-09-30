@@ -39,3 +39,21 @@ key /
 type grams(
 key Enter d
 wait web/android/src/main/java/courier/app/scan/Parcel.java  6:
+# A receiver's declared type leads to its class's member, `(via sync: ParcelSync)` where d found
+# `send` by name (#391), and a Lombok getter to the field it reads, where d found nothing (#381).
+key o
+type ParcelList
+key Enter
+wait web/android/src/main/kotlin/courier/app/ParcelList.kt  1:1
+key /
+type send(
+key Enter d
+wait web/android/src/main/java/courier/app/ParcelSync.java  9:
+key o
+type Scale
+key Enter
+wait web/android/src/main/java/courier/app/Scale.java  1:1
+key /
+type getLimit
+key Enter d
+wait getLimit → Scale.limit (via scale: Scale)

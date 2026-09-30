@@ -23,6 +23,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   VersionSet::Recover(…) {` it lands on the declaration in `class VersionSet` instead of offering
   another class's `Recover`. A member declared in its class and defined out of line stays one
   row, the definition. (#373)
+- `d` in Java and Kotlin reads the type a receiver's declaration writes: on `line.total()`
+  with `Line line` (a parameter, a local, a field, `var line = new Line()`, Kotlin's
+  `newsDao: NewsDao` or `val g = Gauge()`), and on `newsDao::deleteAll`, it jumps to that type's
+  member or one of a type it extends in the project, `total → Line.total (via line: Line)`,
+  where it offered every `total` of the project. A type the project does not declare, such as
+  `ArrayList`, Spring's or Compose's, and a string literal say `no definition` instead of
+  offering or jumping to a namesake; a project's Kotlin extension on the type still counts. A
+  type parameter, a smart cast and a type the rules do not read stay by name, as before.
+  (#388, #391)
+- `d` in Java on a Lombok accessor, `user.getTitle()` of a `@Data`, `@Value`, `@Getter` or
+  `@Setter` class, lands on the field Lombok writes it for, `getTitle → User.title (via user:
+  User)`, where it said `no definition`; `User::getTitle` and the classes it extends find it the
+  same way. A receiver whose type is not read offers the fields, never jumps to one; a method
+  written by hand wins, and a `static` field or `AccessLevel.NONE` gets none. (#381)
 - In `--review`, `s`, `D`, `u` and `d` find the code the branch deleted as well as the files on
   disk. A deleted line in their lists is a row like any other, told apart by the gutter's `▎`
   in red, as an added one is by its green, and Enter lands on it. `d` on a deleted line reads

@@ -552,7 +552,10 @@ impl App {
                 let name = text
                     .as_deref()
                     .filter(|_| !matches!(c.reason, Reason::Module(_)))
-                    .and_then(|text| search::qualified(kind, text, c.hit.line, word))
+                    .and_then(|text| {
+                        let word = definition::declared_as(kind, word, &c.hit.text);
+                        search::qualified(kind, text, c.hit.line, &word)
+                    })
                     .unwrap_or_else(|| word.to_owned());
                 (name, c.reason.to_string(), c)
             })
@@ -580,7 +583,11 @@ impl App {
                 );
                 PickItem {
                     code_at: Some(head.len()),
-                    col: word_col(&c.hit.text, word, search::word_chars(Some(kind), true)),
+                    col: word_col(
+                        &c.hit.text,
+                        &definition::declared_as(kind, word, &c.hit.text),
+                        search::word_chars(Some(kind), true),
+                    ),
                     label: head + &clip(c.hit.text.trim(), MAX_LABEL_TEXT),
                     deleted: c.hit.deleted.is_some(),
                     path: c.hit.path,

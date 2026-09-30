@@ -34,7 +34,7 @@ fun checkout(basket: Basket): Int {
 fun Tariff.doubled(): Int = rate() * 2
 
 fun useExtension(t: Tariff): Int = t.doubled()
-//                                   ^ d: picker src/main/kotlin/shop/basket/Checkout.kt:34, src/main/kotlin/shop/warehouse/Warehouse.kt:20; want src/main/kotlin/shop/basket/Checkout.kt:34 (#362)
+//                                   ^ d: src/main/kotlin/shop/basket/Checkout.kt:34
 
 private fun limit(): Grams = LIMIT
 //                   ^ d: src/main/kotlin/shop/basket/Checkout.kt:8
