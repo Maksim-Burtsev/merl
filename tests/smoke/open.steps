@@ -53,7 +53,7 @@ key Up Enter
 wait app/uow.py  1:1  [code]
 key ?
 wait This help
-key Down Down Up
+key Down Up Down Down
 wait Close an overlay, leave edit mode
 key Escape o
 type notes.md

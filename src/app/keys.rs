@@ -162,9 +162,11 @@ impl App {
         let paging = matches!(key.code, KeyCode::PageUp | KeyCode::PageDown)
             || ctrl && matches!(key.code, KeyCode::Char('d' | 'u'));
         let before = (self.at(), self.col);
+        let fold = self.focus == Focus::Code && self.folded_here().is_some();
         self.action = (self.focus == Focus::Tree)
             .then(|| named("Tree: ", key))
             .flatten()
+            .or_else(|| fold.then(|| named("Fold: ", key)).flatten())
             .or_else(|| named("", key));
         match key.code {
             // The preview reads with keys of its own, and leaves those that act on the text.
@@ -174,6 +176,10 @@ impl App {
                 self.mode = Mode::Help;
                 self.help_top = 0;
             }
+            // A fold (#243) shows no text: Enter loads the diff, and the keys that read or move
+            // in the text wait for it. The walk, the panel and the pickers work as anywhere.
+            KeyCode::Enter if fold => self.unfold(),
+            _ if fold && !leaves_the_text(key) => {}
             KeyCode::Esc => {
                 if self.find_re.take().is_some() {
                     self.message = "find cleared".into();
@@ -321,6 +327,18 @@ impl App {
                 self.prompt.key(key);
             }
         }
+    }
+}
+
+/// Does `key` do something other than read or move in the open file's text: the review walk,
+/// the panel, the pickers, the history. The rest does nothing on a fold (#243).
+fn leaves_the_text(key: KeyEvent) -> bool {
+    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+    match key.code {
+        KeyCode::Char('e' | 'n') => ctrl,
+        KeyCode::Char('c' | 'C' | 'm' | 't' | 'T' | 'o' | 's' | 'D' | '[' | ']') => !ctrl,
+        KeyCode::Esc | KeyCode::Tab => true,
+        _ => false,
     }
 }
 

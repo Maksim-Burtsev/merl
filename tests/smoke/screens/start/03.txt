@@ -1,5 +1,5 @@
 wait merl exited: 0
-m                      0       0    0  never  Review: mark the file as viewed, or take the mark off
+Fold: Enter            0       0    0  never  Review: load the diff of a folded generated file
 Enter                  0       0    0  never  Edit at the cursor (Esc returns to navigation)
 Ctrl+S                 0       0    0  never  Save now (edits are saved on their own after a pause)
 Ctrl+R                 0       0    0  never  Reload from disk, dropping unsaved edits

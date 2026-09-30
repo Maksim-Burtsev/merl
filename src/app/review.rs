@@ -45,8 +45,8 @@ impl App {
     fn open_session(&mut self) {
         if let Some(r) = &self.review {
             let (repo, branch) = (self.root_name(), r.branch_or_commit(&self.root));
-            let (opened, root) = (r.clone(), self.root.clone());
-            let counting = std::thread::spawn(move || count_stops(&opened, &root));
+            let (opened, root, unfolded) = (r.clone(), self.root.clone(), self.unfolded.clone());
+            let counting = std::thread::spawn(move || count_stops(&opened, &root, &unfolded));
             let stop = self.review_stop();
             self.session = Some(Session::new(
                 Instant::now(),
@@ -78,6 +78,7 @@ impl App {
         let f = self.review.as_ref()?.file(&rel)?;
         let i = match f.status {
             _ if !f.has_hunks() => return None,
+            _ if folded(f, &self.unfolded) => 0,
             'D' => (self.line == 0).then_some(0)?,
             _ => self.diff.hunks.iter().position(|&h| h == self.at())?,
         };
@@ -138,7 +139,10 @@ impl App {
         let Some(r) = self.review.clone() else {
             return;
         };
-        let here = if dir > 0 {
+        // A fold is one stop: the walk goes on from it to the next file (#243).
+        let here = if self.folded_here().is_some() {
+            None
+        } else if dir > 0 {
             self.diff.hunks.iter().find(|&&h| h > self.at())
         } else {
             self.diff.hunks.iter().rev().find(|&&h| h < self.at())
@@ -230,6 +234,28 @@ impl App {
         Some((rel, h))
     }
 
+    /// The open file when it is a folded file of the review (#243): the code pane shows its
+    /// fold instead of the text, and `c` stops on it once.
+    pub fn folded_here(&self) -> Option<&git::ReviewFile> {
+        let rel = self.rel_current()?;
+        let f = self.review.as_ref()?.file(&rel)?;
+        folded(f, &self.unfolded).then_some(f)
+    }
+
+    /// Enter on a fold: the diff loads, the cursor on the file's first hunk, and the file stays
+    /// unfolded in this review and the next ones of the branch.
+    pub(super) fn unfold(&mut self) {
+        let Some(rel) = self.folded_here().map(|f| f.path.clone()) else {
+            return;
+        };
+        self.unfolded.insert(rel);
+        self.save_unfolded();
+        if let Some(&h) = self.diff.hunks.first() {
+            self.stand_on(h);
+        }
+        self.remember_hunk();
+    }
+
     /// `m`: the open file, or the panel's row, is viewed; again, and it is not. A key for the
     /// review's files only: anywhere else it does nothing and says nothing.
     pub(super) fn toggle_viewed(&mut self) {
@@ -297,6 +323,12 @@ impl App {
         git::dirs(&self.root).map(|(_, common)| common.join("merl/viewed"))
     }
 
+    /// Where the unfolded files are kept, beside the viewed marks and in their format, with no
+    /// hash: a file stays unfolded whatever is written into it.
+    fn unfolded_store(&self) -> Option<PathBuf> {
+        git::dirs(&self.root).map(|(_, common)| common.join("merl/unfolded"))
+    }
+
     /// The marks the review's branch left, sorted by what is on disk now; loading writes nothing.
     /// A store that cannot be found or read gives none, and the review keeps its marks in memory
     /// for the rest of the session instead of writing over it.
@@ -309,6 +341,11 @@ impl App {
             .and_then(|store| read_viewed(&store, branch, &r.base, crate::stats::today()));
         self.viewed.clear();
         self.hidden.clear();
+        // Unfolded files that cannot be read fold again: the diff is one Enter away.
+        self.unfolded = (self.unfolded_store())
+            .and_then(|store| read_viewed(&store, branch, &r.base, crate::stats::today()).ok())
+            .map(|marks| marks.into_keys().collect())
+            .unwrap_or_default();
         match read {
             Ok(marks) => self.viewed = marks,
             Err(e) => {
@@ -349,6 +386,19 @@ impl App {
         let marks = self.viewed.iter().chain(&self.hidden);
         if let Err(e) = write_viewed(&store, branch, &r.base, marks, crate::stats::today()) {
             self.message = format!("viewed marks not saved: {e:#}");
+        }
+    }
+
+    /// Writes the review's unfolded files, as [`save_viewed`](Self::save_viewed) writes the marks.
+    fn save_unfolded(&mut self) {
+        let (Some(store), Some(r), Some(branch)) =
+            (self.unfolded_store(), &self.review, &self.viewed_branch)
+        else {
+            return;
+        };
+        let files = self.unfolded.iter().map(|p| (p, &0));
+        if let Err(e) = write_viewed(&store, branch, &r.base, files, crate::stats::today()) {
+            self.message = format!("unfolded files not saved: {e:#}");
         }
     }
 
@@ -393,6 +443,9 @@ impl App {
         let r = self.review.as_ref()?;
         let rel = self.rel_current()?;
         let file = r.files.iter().position(|f| f.path == rel)?;
+        if self.folded_here().is_some() {
+            return Some(format!("folded  file {}/{}", file + 1, r.files.len()));
+        }
         let hunk = self.diff.hunks.iter().filter(|&&h| h <= self.at()).count();
         Some(format!(
             "hunk {hunk}/{}  file {}/{}",
@@ -453,17 +506,32 @@ impl App {
 }
 
 /// The stops `c` can make in each file of `r`, by path; `None` when a file failed to count.
-fn count_stops(r: &git::Review, root: &Path) -> Option<HashMap<PathBuf, usize>> {
+fn count_stops(
+    r: &git::Review,
+    root: &Path,
+    unfolded: &HashSet<PathBuf>,
+) -> Option<HashMap<PathBuf, usize>> {
     (r.files.iter())
-        .map(|f| Some((f.path.clone(), stops_in(r, root, f)?)))
+        .map(|f| Some((f.path.clone(), stops_in(r, root, f, unfolded)?)))
         .collect()
 }
 
+/// Is `f` folded: generated (#243), and its diff not loaded with Enter in this review.
+fn folded(f: &git::ReviewFile, unfolded: &HashSet<PathBuf>) -> bool {
+    f.generated && !unfolded.contains(&f.path)
+}
+
 /// The stops `c` makes in a file of the review: those of [`review_hunks`] in a file the walk
-/// stops at, none in one it passes (binary, a mode change, a pure rename, a submodule). `None`
-/// for a file with lines to read and no hunk: a `git diff` that failed.
-fn stops_in(r: &git::Review, root: &Path, f: &git::ReviewFile) -> Option<usize> {
+/// stops at, one on a fold, none in one it passes (binary, a mode change, a pure rename, a
+/// submodule). `None` for a file with lines to read and no hunk: a `git diff` that failed.
+fn stops_in(
+    r: &git::Review,
+    root: &Path,
+    f: &git::ReviewFile,
+    unfolded: &HashSet<PathBuf>,
+) -> Option<usize> {
     match f.has_hunks() {
+        true if folded(f, unfolded) => Some(1),
         true => Some(review_hunks(root, r, f).len()).filter(|&n| n > 0),
         false => Some(0),
     }

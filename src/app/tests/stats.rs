@@ -74,6 +74,12 @@ fn every_action_counts_where_it_is_pressed() {
             "Picker" => _ = press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE),
             "Help" => _ = press(&mut a, KeyCode::Char('?'), KeyModifiers::NONE),
             "Edit" => _ = press(&mut a, KeyCode::Enter, KeyModifiers::NONE),
+            "Fold" => {
+                let dir;
+                (dir, a) = review_app_with("statsfold", &[("poetry.lock", b"x\n")]);
+                a.jump_to(&dir.join("poetry.lock"), 1);
+                assert!(a.folded_here().is_some());
+            }
             _ => panic!("no scope {scope:?} for {key:?}"),
         }
         a.pressed.clear();

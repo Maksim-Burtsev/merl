@@ -15,15 +15,16 @@ wait This help
 │▸ docs                      │14  │ Review                                                                                                            │
 │▸ scripts                   │15  │   c / C                             Review: next / previous hunk, on to the next file                             │
 │▸ tests                     │16  │   m                                 Review: mark the file as viewed, or take the mark off                         │
-│▸ web                       │17  │ Editing                                                                                                           │
-│▸ worker                    │18  │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
-│  .env                      │19  │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
-│  .gitignore                │20  │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
-│  docker-compose.yml        │    │   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
-│  Dockerfile                │    │   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
-│  Makefile                  │    │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
-│  pyproject.toml            │    │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
-│  README.md                 │    │ Selection                                                                                                         │
+│▸ web                       │17  │   Fold: Enter                       Review: load the diff of a folded generated file                              │
+│▸ worker                    │18  │ Editing                                                                                                           │
+│  .env                      │19  │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
+│  .gitignore                │20  │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
+│  docker-compose.yml        │    │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
+│  Dockerfile                │    │   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
+│  Makefile                  │    │   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
+│  pyproject.toml            │    │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
+│  README.md                 │    │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
+│                            │    │ Selection                                                                                                         │
 │                            │    │   v                                 Select the word, then the line, then the paragraph                            │
 │                            │    │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
 │                            │    │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
@@ -51,7 +52,6 @@ wait This help
 │                            │    │   Help: Up / Down                   Scroll                                                                        │
 │                            │    │ General                                                                                                           │
 │                            │    │   w                                 Wrap long lines, or cut them at the edge and scroll sideways                  │
-│                            │    │   p                                 Show a Markdown file rendered, or its source again                            │
-└────────────────────────────┘    │   T                                 Pick a theme (live preview)                                                   │
+└────────────────────────────┘    │   p                                 Show a Markdown file rendered, or its source again                            │
 app/uow.py  1:1  [code]           └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                           ? help
 cursor (x,y,shown) 151,54,0

@@ -1500,3 +1500,78 @@ fn a_deleted_line_is_refused_and_returned_to_every_way() {
     assert_eq!((a.at(), a.line_str()), (Deleted(1, 1), "t3"));
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// #243: a generated file is folded, as on GitHub and GitLab. `c` stops on the fold once and
+/// goes on, ticking it; `C` comes back to it; the keys that read the text do nothing on it;
+/// Enter loads the diff, and `c` walks its hunks. It stays unfolded when the review opens again.
+#[test]
+fn a_generated_file_is_one_stop_until_enter_loads_its_diff() {
+    let (dir, _) = review_app("reviewfold");
+    let git = |args: &[&str]| {
+        let mut cmd = std::process::Command::new("git");
+        let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    let lines = |up: &[usize]| {
+        (0..9)
+            .map(|i| match up.contains(&i) {
+                true => format!("L{i}\n"),
+                false => format!("l{i}\n"),
+            })
+            .collect::<String>()
+    };
+    git(&["switch", "-q", "main"]);
+    std::fs::write(dir.join("poetry.lock"), lines(&[])).unwrap();
+    git(&["add", "poetry.lock"]);
+    git(&["commit", "-q", "-m", "lock"]);
+    git(&["switch", "-q", "feature"]);
+    git(&["merge", "-q", "main", "-m", "merge"]);
+    std::fs::write(dir.join("poetry.lock"), lines(&[1, 4, 7])).unwrap();
+    git(&["commit", "-qam", "bump"]);
+    let mut a = review_start(&dir, None);
+    let lock = dir.join("poetry.lock");
+    let key = |a: &mut App, code| press(a, code, KeyModifiers::NONE);
+    // Panel order: src/a.rs, crlf.txt, gone, new, poetry.lock, tail.
+    assert_eq!(at(&a).0, dir.join("new"));
+    key(&mut a, KeyCode::Char('c'));
+    assert_eq!(at(&a).0, lock);
+    assert!(a.folded_here().is_some());
+    assert_eq!(a.review_status().unwrap(), "folded  file 5/6");
+    key(&mut a, KeyCode::Char('c'));
+    assert_eq!(at(&a).0, dir.join("tail"), "one stop, then the next file");
+    assert!(a.viewed.contains_key(Path::new("poetry.lock")));
+    key(&mut a, KeyCode::Char('C'));
+    assert_eq!(at(&a).0, lock, "`C` comes back to the fold");
+    assert!(a.folded_here().is_some());
+    let folded_at = at(&a);
+    for code in [
+        KeyCode::Down,
+        KeyCode::PageDown,
+        KeyCode::Char('v'),
+        KeyCode::Char('d'),
+    ] {
+        key(&mut a, code);
+    }
+    assert_eq!(
+        at(&a),
+        folded_at,
+        "the keys that read the text wait for the diff"
+    );
+    assert_eq!(a.mode, Mode::Normal);
+    key(&mut a, KeyCode::Enter);
+    assert!(a.folded_here().is_none());
+    assert_eq!(
+        a.mode,
+        Mode::Normal,
+        "Enter loads the diff, it does not edit"
+    );
+    assert_eq!(at(&a), (lock.clone(), 1));
+    assert_eq!(a.review_status().unwrap(), "hunk 1/3  file 5/6");
+    key(&mut a, KeyCode::Char('c'));
+    assert_eq!(at(&a), (lock.clone(), 4));
+    // Loaded stays loaded when the branch is reviewed again.
+    let mut again = review_start(&dir, None);
+    again.jump_to(&lock, 1);
+    assert!(again.folded_here().is_none());
+    let _ = std::fs::remove_dir_all(dir);
+}
