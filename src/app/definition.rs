@@ -346,6 +346,14 @@ impl App {
                 .collect()
         };
         let mut locals = locals_at(&text, self.line + 1);
+        // A Go parameter read in a body on its function's own line is that parameter, whatever
+        // the scopes around it bind (#524).
+        let go_own = kind == Kind::Go
+            && locals.contains(&(self.line + 1))
+            && search::go_binds_here(self.line_str(), &word, range.start);
+        if go_own {
+            locals = vec![self.line + 1];
+        }
         // No scope around the cursor binds it: the module's scope is the whole file, and its
         // declarations below the cursor count too (#337). One on the cursor's line leaves the
         // namesakes to the rules below, as on a declaration anywhere.
@@ -381,7 +389,8 @@ impl App {
         // name bound earlier on the cursor's own line, `fun f(x: Int) = x`, is bound there
         // (#376); behind a `::` the word is a member, whatever the qualifier is. A C# use past its
         // declaration on the same line, a lambda's parameter inside that lambda, is bound there
-        // too (#345). A Rust local the cursor's own line binds is one too: a closure `|w| w`, an
+        // too (#345), and so is a Go parameter used in a body on its function's line (#524). A
+        // Rust local the cursor's own line binds is one too: a closure `|w| w`, an
         // arm, the parameter or the `let` itself (#353).
         let on_itself = match kind {
             Kind::C => search::c_bindings_at(&text, self.line + 1, first)
@@ -392,9 +401,10 @@ impl App {
         let same_line = kind == Kind::Jvm
             && locals == [self.line + 1]
             && whole_at(self.line_str(), &word, "").is_some_and(|at| at < range.start);
-        let own_line = kind == Kind::CSharp
-            && locals == [self.line + 1]
-            && search::cs_binds_here(self.line_str(), &word, range.start);
+        let own_line = go_own
+            || (kind == Kind::CSharp
+                && locals == [self.line + 1]
+                && search::cs_binds_here(self.line_str(), &word, range.start));
         if !dotted
             && !before.ends_with("::")
             && !locals.is_empty()

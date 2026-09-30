@@ -1722,6 +1722,23 @@ fn opener_bindings(
     }
     own
 }
+/// Whether `name` at byte `at` of a Go `line` is bound by a header on that same line whose block
+/// the cursor is in (#524): the parameter of `func cut(xs []int, n int) []int { return xs[n:] }`,
+/// as it is when the body is on lines of its own.
+pub fn go_binds_here(line: &str, name: &str, at: usize) -> bool {
+    let mut open = Vec::new();
+    for (i, c) in code(Kind::Go, &line[..at]) {
+        match c {
+            b'{' => open.push(i),
+            b'}' => {
+                open.pop();
+            }
+            _ => {}
+        }
+    }
+    open.iter()
+        .any(|&b| opener_bindings(Kind::Go, line[..=b].trim(), 0, name, &mut Vec::new()))
+}
 /// Whether what `before` ends in writes a return type: the nearest `:` in front, at its bracket
 /// depth, follows the `)` of a parameter list, `): A | B`. A `:` after a key, `onClick: e =>`,
 /// does not (#331).
