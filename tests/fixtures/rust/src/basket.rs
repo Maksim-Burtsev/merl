@@ -15,7 +15,7 @@ impl Basket {
         // ^ d: src/basket.rs:6
             tariff,
             coupon: Coupon,
-            // ^ d: none; want src/basket.rs:8 (#316)
+            // ^ d: src/basket.rs:8
             //      ^ d: src/pricing.rs:21
             owner: String::new(),
         }

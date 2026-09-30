@@ -250,6 +250,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` on a key of a Rust struct literal, `hyperlink` in `Printer { hyperlink: 1 }` or `Self {
+  hyperlink: 1 }`, lands on the field `hyperlink` of `Printer`, the project's or a dependency's.
+  It jumped to a method `hyperlink()` of the same name, or said "no definition". (#529)
 - `d` in Swift finds a function or an enum case declared with its name in backticks, as
   ``func `default`()`` or ``case `open` ``: it said "no definition", or jumped to a namesake
   elsewhere. (#463)

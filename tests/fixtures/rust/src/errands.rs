@@ -152,7 +152,7 @@ pub struct Stall {
 
 pub fn stall() -> Stall {
     Stall { helper: 1 }
-    //      ^ d: !jump
+    //      ^ d: src/errands.rs:150
 }
 
 pub fn imported() -> u32 {

@@ -1643,8 +1643,11 @@ impl App {
         // A callee whose receiver's type the project does not declare, or one of whose candidates
         // lies outside the project, where nothing is read, may be a library's namesake: its
         // parameter is offered, never jumped to. A typed chain that broke says so for Python.
+        // A Rust struct outside is read for its fields: a literal of it names only `pub` ones
+        // (#529).
+        let reads_outside = kind == Kind::Rust && *owner == search::Owner::Typed;
         let offer = std::mem::take(&mut self.offer_only)
-            || owners.iter().any(|c| c.hit.path.is_absolute())
+            || (!reads_outside && owners.iter().any(|c| c.hit.path.is_absolute()))
             || (owners.iter().all(|c| !c.reason.proven())
                 && name
                     .as_deref()
@@ -1661,7 +1664,9 @@ impl App {
         for c in owners {
             // Outside the project nothing is read; the line under the cursor declares nothing
             // it calls.
-            if c.hit.path.is_absolute() || (c.hit.path == here && c.hit.line == line0 + 1) {
+            if (c.hit.path.is_absolute() && !reads_outside)
+                || (c.hit.path == here && c.hit.line == line0 + 1)
+            {
                 continue;
             }
             let Some(text) = self.text_of(&c.hit.path) else {

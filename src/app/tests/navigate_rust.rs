@@ -470,3 +470,34 @@ fn each_reach_rule_keeps_or_drops_its_namesake() {
     std::fs::remove_dir_all(&std).unwrap();
     std::fs::remove_dir_all(&registry).unwrap();
 }
+
+/// #529: a struct literal's key lands on the field of the literal's type, the project's or a
+/// dependency's, and never on a method of the name.
+#[test]
+fn a_literal_key_is_its_struct_field_inside_and_out() {
+    let (dir, mut a) = project_app(
+        "rust-literal-key",
+        &[
+            ("Cargo.toml", "[package]\nname = \"shop\"\n"),
+            (
+                "src/lib.rs",
+                "use knobs::Opts;\n\npub struct Printer {\n    hyperlink: u32,\n}\n\nimpl Printer {\n    pub fn hyperlink(&self) -> u32 {\n        self.hyperlink\n    }\n\n    pub fn depth(&self) -> u32 {\n        0\n    }\n}\n\npub fn made() -> Printer {\n    Printer { hyperlink: 1 }\n}\n\npub fn opts() -> Opts {\n    Opts { depth: 2 }\n}\n",
+            ),
+        ],
+    );
+    let registry = external_root(
+        "rust-literal-key",
+        &[(
+            "knobs-1.0.0/src/lib.rs",
+            "pub struct Opts {\n    pub depth: u32,\n}\n",
+        )],
+    );
+    let knobs = registry.join("knobs-1.0.0");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&knobs));
+    d_on(&mut a, "src/lib.rs", "Printer { hyperlink|: 1");
+    assert_eq!(at(&a), (dir.join("src/lib.rs"), 3), "{}", a.message);
+    d_on(&mut a, "src/lib.rs", "Opts { depth|: 2");
+    assert_eq!(at(&a), (knobs.join("src/lib.rs"), 1), "{}", a.message);
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&registry).unwrap();
+}
