@@ -43,6 +43,10 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     static EX_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*def(?:p|macrop?|guardp?|delegate)?\s+([\w?!]+)").unwrap()
     });
+    // A Ruby method, `def self.m` and `def Klass.m` included, a setter's `=` in its name.
+    static RB_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*def\s+(?:(?:self|[A-Z]\w*)\.)?([A-Za-z_]\w*[?!=]?)").unwrap()
+    });
     if !nests(Some(kind)) {
         return None;
     }
@@ -117,10 +121,11 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     }
     // Any other name on a Python `def` line is a parameter (#100): `Recipes.get_one.slug`, as a
     // local of the body reads, not `Recipes.slug`, a field's name. So is one on an Elixir
-    // function's `def` line (#460).
+    // function's `def` line (#460), and on a Ruby method's (#526).
     let def = match kind {
         Kind::Python => PY_DEF.captures(target),
         Kind::Elixir => EX_DEF.captures(target),
+        Kind::Ruby => RB_DEF.captures(target),
         _ => None,
     };
     if let Some(c) = def.filter(|c| &c[1] != name) {

@@ -584,6 +584,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   answers as on a `let`: at a declaration, its namesakes elsewhere offered in a picker, and the
   line itself when it has none. It jumped to a namesake elsewhere, often a field of the same
   name. (#525)
+- `d` in Ruby on a method's parameter names it by its method in the status line,
+  `SessionsController.on_success.user (local)`, as a local of the method is named: it read
+  `SessionsController.user`, the way a field would be. (#526)
 
 ## [0.7.0] - 2026-09-25
 
