@@ -900,4 +900,74 @@ mod tests {
         );
         std::fs::remove_dir_all(&dir).unwrap();
     }
+
+    /// Files under `src/` longer than `MAX_LINES`, each at the size it may not outgrow (#544).
+    /// A listed file that shrinks lowers its number in the same change; one under the limit
+    /// leaves the list.
+    const LONG_FILES: &[(&str, usize)] = &[
+        ("src/app/definition.rs", 3392),
+        ("src/search/bindings.rs", 2485),
+    ];
+    const MAX_LINES: usize = 1500;
+
+    /// #544: a large file costs an agent context and makes parallel branches conflict at the
+    /// same spot. Test code is not counted: files under a `tests/` folder, and a file's inline
+    /// `#[cfg(test)] mod tests { … }`, which clippy keeps at its end.
+    #[test]
+    fn no_source_file_grows_past_its_size() {
+        fn walk(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
+            for entry in std::fs::read_dir(dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    if !path.ends_with("tests") {
+                        walk(&path, out);
+                    }
+                } else if path.extension().is_some_and(|e| e == "rs") {
+                    out.push(path);
+                }
+            }
+        }
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut files = Vec::new();
+        walk(&root.join("src"), &mut files);
+        let mut wrong = Vec::new();
+        for path in files {
+            let name = path
+                .strip_prefix(root)
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .replace('\\', "/");
+            let text = std::fs::read_to_string(&path).unwrap();
+            let lines: Vec<&str> = text.lines().collect();
+            let len = lines
+                .windows(2)
+                .position(|w| {
+                    w[0] == "#[cfg(test)]" && w[1].starts_with("mod ") && w[1].ends_with('{')
+                })
+                .unwrap_or(lines.len());
+            let allowed = LONG_FILES.iter().find(|(f, _)| *f == name).map(|&(_, n)| n);
+            match allowed {
+                None if len > MAX_LINES => wrong.push(format!(
+                    "{name} has {len} lines, over {MAX_LINES}: split it into modules"
+                )),
+                Some(n) if len > n => wrong.push(format!(
+                    "{name} grew from {n} to {len} lines: split it, do not raise its number in LONG_FILES"
+                )),
+                Some(_) if len <= MAX_LINES => wrong.push(format!(
+                    "{name} is down to {len} lines: take it off LONG_FILES"
+                )),
+                Some(n) if len < n => wrong.push(format!(
+                    "{name} shrank from {n} to {len} lines: lower its number in LONG_FILES to {len}"
+                )),
+                _ => {}
+            }
+        }
+        for (f, _) in LONG_FILES {
+            if !root.join(f).exists() {
+                wrong.push(format!("{f} is gone: take it off LONG_FILES"));
+            }
+        }
+        assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
+    }
 }
