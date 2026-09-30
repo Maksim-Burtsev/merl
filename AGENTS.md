@@ -58,7 +58,8 @@ carries three labels:
   time allows.
 
 A large piece of work is an `epic`: a parent issue whose sub-issues are the work. The next issue
-to take is the top of `is:open label:agent-ok label:P1 -label:epic`, the tests epic's first:
+to take is the top of `is:open label:agent-ok label:P1 -label:epic -label:in-progress`, the tests
+epic's first:
 language work finishes against the fixtures and the bench those issues build. An issue you file
 gets its three labels, the milestone if 1.0 needs it (never a `to-think` one), and its epic as
 the parent when one fits (`gh issue edit EPIC --add-sub-issue N`).
@@ -68,8 +69,11 @@ the parent when one fits (`gh issue edit EPIC --add-sub-issue N`).
 A brief can be as short as "Work on #N". It is done when the PR, in the shape below, is merged
 with its issue closed, or waits under `needs-owner` (see `## Merging`).
 
-1. Read the issue with its comments, then check that nobody built it yet: the issue is open and
-   `gh pr list --state all --search N` shows no PR for it. Parallel sessions work on this repo.
+1. Read the issue with its comments, then check that nobody has it: the issue is open, carries
+   no `in-progress` label, and `gh pr list --state all --search N` shows no PR for it. Parallel
+   sessions work on this repo. Then take it, before anything else: `gh issue edit N --add-label
+   in-progress` and a comment naming your branch. If you stop without a PR, take the label off
+   and say in a comment what is left.
 2. Branch in a worktree of your own, cut from origin: `git fetch origin && git worktree add
    ../merl-<topic> -b <branch> origin/master`. The main checkout is shared: other sessions keep
    their branches checked out there with uncommitted work, and its `master` can be days behind
