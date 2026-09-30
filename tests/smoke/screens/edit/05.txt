@@ -1,4 +1,4 @@
-wait app/models.py  12:
+wait 12▎    DISPUTED = "disputed"
  1 from dataclasses import dataclass, field
  2 from datetime import datetime, timezone
  3 from decimal import Decimal

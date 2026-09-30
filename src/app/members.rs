@@ -319,6 +319,8 @@ impl App {
         let declares = search::member_or_signature(kind, word)
             .and_then(|p| Regex::new(&p.join("|")).ok())
             .is_some_and(|re| re.is_match(self.line_str()));
+        // On the name the line declares, not on another occurrence of it there (#517).
+        let declares = declares && self.on_declared_name(kind, word, true);
         let Some(owner_line) = search::owner_decl(kind, text, line).filter(|_| declares) else {
             return Vec::new();
         };
