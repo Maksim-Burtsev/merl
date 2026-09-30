@@ -380,7 +380,13 @@ impl App {
             && !dotted
             && locals.contains(&(self.line + 1))
             && search::ts_arrow_binds(self.line_str(), &word, range.start);
-        if own_arrow {
+        // On a parameter an arrow on the cursor's line declares, the word is at a declaration
+        // (#534): that line is its binding, as a function's parameter list is, and the
+        // namesakes are left to the search by name below.
+        let arrow_param = kind == Kind::TsJs
+            && !dotted
+            && search::ts_arrow_param(self.line_str(), &word, range.start);
+        if own_arrow || arrow_param {
             locals = vec![self.line + 1];
         }
         if !locals.is_empty() {
@@ -657,6 +663,28 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // A key of an object literal the file binds to a `const`, `X.key`, is declared inside
+        // that literal (#341).
+        if kind == Kind::TsJs
+            && dotted
+            && let [name] = chain.as_slice()
+            && let [binding] = locals.as_slice()
+            && let Some(line) = search::ts_literal_key(&self.buf.lines, *binding, name, &word)
+        {
+            let hit = Hit {
+                deleted: None,
+                path: here.clone(),
+                line,
+                col: 0,
+                text: self.buf.lines[line - 1].clone(),
+            };
+            let found = vec![Candidate {
+                hit,
+                reason: Reason::Local,
+            }];
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // A receiver whose type is proven narrows the member to that type (#68, steps 2 to 4).
         let mut broke = None;
         // A chain with no name to start from may hang off a call: `make_uow().users.word` (#100).
@@ -716,6 +744,27 @@ impl App {
                 )
             })
             .flatten();
+        // A barrel of the project that hands the name on from a package, `export { x } from
+        // "lodash"`, leads into that package, as an import straight from it does (#527), when
+        // nothing of the project answers the import.
+        let import = match import {
+            Some(path)
+                if kind == Kind::TsJs
+                    && let Some(package) = self.package_behind(&here, &path, 0)
+                    && package.last().is_some_and(|t| t == first)
+                    && self
+                        .imported_definitions(kind, &here, &word, &chain, &path)
+                        .is_some_and(|f| f.is_empty()) =>
+            {
+                for (name, p) in &mut imports {
+                    if name.as_str() == first {
+                        *p = package.clone();
+                    }
+                }
+                Some(package)
+            }
+            import => import,
+        };
         // A package no `node_modules` holds, no workspace package is called and no `declare
         // module` types is not installed (#392): nothing says what it declares, and the project's namesakes are not it. The
         // import line is where the name comes from, as far as anything tells. A copy of it among
@@ -813,6 +862,44 @@ impl App {
                     && (project_read || !self.files.iter().any(|f| search::in_package(f, &p)))
             });
         if !found.is_empty() || go_qualified {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
+        // A member of a JavaScript or DOM global that no scope, import or declaration of the
+        // project binds, `JSON.parse`, is declared in the `.d.ts` files outside the project,
+        // TypeScript's lib and `@types/node`: the project's members are never it (#341).
+        if kind == Kind::TsJs
+            && locals.is_empty()
+            && let [global] = chain.as_slice()
+            && JS_GLOBALS.contains(&global.as_str())
+            && bound(&imports, global).is_none()
+            && self
+                .project_definitions(
+                    kind,
+                    &here,
+                    global,
+                    &search::def_patterns(kind, global).join("|"),
+                )
+                .is_empty()
+        {
+            let files: Vec<PathBuf> = (self.external_files(kind).iter())
+                .filter(|f| {
+                    let f = f.to_string_lossy();
+                    f.ends_with(".d.ts")
+                        && (f.contains("typescript/lib/lib.") || f.contains("@types/node/"))
+                })
+                .cloned()
+                .collect();
+            let mut patterns = search::def_patterns(kind, &word);
+            patterns.extend(search::member_or_signature(kind, &word).unwrap_or_default());
+            let found = self
+                .external_grep(kind, &files, &patterns.join("|"))
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::ByName,
+                })
+                .collect();
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
@@ -1353,6 +1440,21 @@ impl App {
         // else it is another function's local.
         // The cursor's own line alone is offered rather than jumped to when others went: the
         // word may be a use on the line of a declaration of its name (#317).
+        // The parameter itself is among its namesakes, so they are offered, never jumped to
+        // (#534).
+        if arrow_param
+            && !hits
+                .iter()
+                .any(|h| h.path == here && h.line == self.line + 1)
+        {
+            hits.push(Hit {
+                path: here.clone(),
+                line: self.line + 1,
+                col: 0,
+                text: self.line_str().to_owned(),
+                deleted: None,
+            });
+        }
         if kind == Kind::Swift {
             // On the name a `for`, an `if let` or a closure's parameter declares on the cursor's
             // own line, the word is at a declaration, as on a `let` (#525). That is the occurrence
@@ -2917,6 +3019,36 @@ impl App {
         self.imported_at(kind, here, word, chain, path, 0)
     }
 
+    /// The package a TypeScript barrel of the project hands on what the import `path` takes
+    /// (#527), as an import of it is spelled: `["lodash", "x"]` for `export { x } from "lodash"`
+    /// in the module `path` names, or in a barrel that module hands the name on from.
+    /// ponytail: four modules deep, which also ends a cycle.
+    fn package_behind(&self, here: &Path, path: &[String], depth: usize) -> Option<Vec<String>> {
+        let (taken, module) = path.split_last()?;
+        if taken == "*" || depth >= 4 {
+            return None;
+        }
+        let files = |from: &Path, module: &[String]| {
+            search::module_files(Kind::TsJs, &self.root, &self.files, from, module)
+        };
+        files(here, module).iter().find_map(|f| {
+            let text = self.text_of(f)?;
+            search::reexported(&text, taken)
+                .into_iter()
+                .find_map(|(mut module, taken)| {
+                    let outside = files(f, &module).is_empty();
+                    let package = module
+                        .first()
+                        .is_some_and(|m| !m.starts_with(['.', '~', '#']) && m != "@");
+                    module.push(taken);
+                    match outside {
+                        true => package.then_some(module),
+                        false => self.package_behind(f, &module, depth + 1),
+                    }
+                })
+        })
+    }
+
     /// What a TypeScript module exports as `word` under another name, `export { Hono as HonoBase }`:
     /// the top-level declarations of `Hono` in the module's files, which `grep` searches. What
     /// it finds of the `export` line says only which files to read, so a cut in it cuts nothing
@@ -2959,6 +3091,8 @@ impl App {
             |module: &[String]| search::module_files(kind, &self.root, &self.files, here, module);
         // What a CommonJS module bound whole hands out (#328), [`search::module_exports`].
         let mut exports = None;
+        // The qualifier and its class, when it is an instance the module exports (#341).
+        let mut instance = None;
         // The names from the module down to the word: what the import takes, then the chain.
         let tail = |mut names: Vec<String>| {
             if let Some((_, after)) = chain.split_first() {
@@ -3046,7 +3180,21 @@ impl App {
                         }
                         _ => tail(Vec::new()),
                     },
-                    // What a default export is called is known only on its own line.
+                    // An instance the module exports as its default, `export default new
+                    // Environment()`: `env.APP_NAME` is a member of its class (#341). Of any
+                    // other default export what it is called is known only on its own line.
+                    "default" if chain.len() == 1 => {
+                        match files
+                            .iter()
+                            .find_map(|f| search::default_class(&self.text_of(f)?))
+                        {
+                            Some(class) => {
+                                instance = Some(format!("{}: {class}", chain[0]));
+                                vec![class, word.to_owned()]
+                            }
+                            None => return Some(Vec::new()),
+                        }
+                    }
                     "default" if !chain.is_empty() => return Some(Vec::new()),
                     "default" => vec![word.to_owned()],
                     name => tail(vec![name.to_owned()]),
@@ -3064,16 +3212,35 @@ impl App {
             return Some(Vec::new());
         };
         let wanted = |p: &Path| files.iter().any(|f| f == p);
-        let pattern = search::def_patterns(kind, name).join("|");
+        let mut patterns = search::def_patterns(kind, name);
+        // In a TypeScript type the import names, a field, a static and an enum member declare
+        // the name too (#341): `static presetColors = …`, `Admin = "admin",`, and so does a key
+        // directly inside a `const X = {` literal, `TwentyFivePerMinute: {`. A `let` or `var`
+        // literal may be reassigned, and one behind a call or a cast (`Object.freeze({`) is
+        // another value: neither declares. A member with no value, `ZOOMED,`, only directly
+        // inside an `enum`, where no array or call's arguments are, or a literal's shorthand.
+        let member = kind == Kind::TsJs && inside.len() > 1;
+        let bare = format!(r"^\s+{}\s*,?\s*$", regex::escape(name));
+        if member {
+            patterns.extend(search::field_patterns(kind, name).unwrap_or_default());
+            patterns.push(bare.clone());
+        }
         let hits = self
-            .grep(&pattern, false, false, wanted)
+            .grep(&patterns.join("|"), false, false, wanted)
             .unwrap_or_default();
         let mut hits = self.declaring(kind, name, hits);
         let within = (inside.len() > 1).then(|| inside.join("."));
+        let bare = Regex::new(&bare).expect("an escaped name keeps the pattern valid");
         hits.retain(|h| {
-            self.text_of(&h.path)
-                .and_then(|text| search::qualified(kind, &text, h.line, name))
-                == within
+            self.text_of(&h.path).is_some_and(|text| {
+                let owner = search::owner_line(&text, h.line).unwrap_or_default();
+                let enumed = OWNER_ENUM.is_match(owner);
+                let literal = OWNER_LITERAL.is_match(owner);
+                let value = OWNER_VALUE.is_match(owner);
+                search::qualified(kind, &text, h.line, name) == within
+                    && (!member || !value || literal)
+                    && (!member || !bare.is_match(&h.text) || enumed || literal)
+            })
         });
         // `export { Hono as HonoBase }`: the module declares it under another name. A default
         // import's name is the importer's own.
@@ -3107,7 +3274,11 @@ impl App {
         {
             return Some(self.module_candidates(vec![file.clone()]));
         }
-        if hits.is_empty() && kind == Kind::TsJs && path.last().is_some_and(|t| t == "default") {
+        if hits.is_empty()
+            && kind == Kind::TsJs
+            && instance.is_none()
+            && path.last().is_some_and(|t| t == "default")
+        {
             hits = self
                 .grep(r"^export\s+default\b", false, false, wanted)
                 .unwrap_or_default();
@@ -3131,7 +3302,12 @@ impl App {
         // Name }`, `export { x as Name }`, `export * from "./x"`, each source followed as an
         // import of it. Several `export *` sources that declare it are a picker.
         // ponytail: four modules deep, which also ends a cycle.
-        if hits.is_empty() && kind == Kind::TsJs && depth < 4 && !inside.is_empty() {
+        if hits.is_empty()
+            && kind == Kind::TsJs
+            && depth < 4
+            && !inside.is_empty()
+            && instance.is_none()
+        {
             let (first, rest) = inside.split_first().expect("not empty");
             let (chain, word) = match rest.split_last() {
                 Some((word, between)) => {
@@ -3209,7 +3385,10 @@ impl App {
         Some(
             hits.into_iter()
                 .map(|hit| Candidate {
-                    reason: Reason::Import(label(&hit)),
+                    reason: match &instance {
+                        Some(typed) => Reason::Receiver(typed.clone()),
+                        None => Reason::Import(label(&hit)),
+                    },
                     hit,
                 })
                 .collect(),
@@ -3322,3 +3501,37 @@ pub(super) fn resolution(
         format!("{word}: {n} declarations{note}")
     }
 }
+
+/// The line a TypeScript enum's body opens with (#341).
+static OWNER_ENUM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:const\s+)?enum\s").unwrap()
+});
+/// The line a TypeScript value's body opens with: a `const`, `let` or `var` (#341).
+static OWNER_VALUE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:const|let|var)\s").unwrap()
+});
+/// A `const` bound to an object literal itself, `export const X = {` (#341).
+static OWNER_LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^\s*(?:export\s+)?const\s+[\w$]+\s*(?::[^=]+)?=\s*\{\s*$").unwrap()
+});
+/// The JavaScript and DOM globals whose members TypeScript's lib and `@types/node` declare (#341).
+const JS_GLOBALS: &[&str] = &[
+    "JSON",
+    "Math",
+    "Object",
+    "Array",
+    "Promise",
+    "Reflect",
+    "Number",
+    "String",
+    "Date",
+    "RegExp",
+    "Symbol",
+    "Intl",
+    "console",
+    "document",
+    "window",
+    "navigator",
+    "globalThis",
+    "process",
+];

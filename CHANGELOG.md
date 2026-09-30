@@ -100,6 +100,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` in TypeScript and JavaScript finds a member behind an imported qualifier that no
+  declaration pattern read: an enum member, `CollectionPermission.Admin` and `ImageStatus.ZOOMED`
+  with no value, a static field, `TableCell.presetColors`, and a key of an exported `const`
+  object literal, `RateLimiterStrategy.TwentyFivePerMinute`. `env.APP_NAME`, where the module
+  exports `new Environment()` as its default, lands on the field of `Environment`, `via env:
+  Environment`, and `QUOTE_SETTINGS.backtick` on the key of a `const` literal of the file itself.
+  A member of a JavaScript global, `JSON.parse`, is looked for in TypeScript's lib and
+  `@types/node` alone, never among the project's methods. They said "no definition", and
+  `JSON.parse` jumped to a project method called `parse`. (#341)
+- `d` in TypeScript and JavaScript on a name imported from a barrel of the project that hands it
+  on from a package, `export { x } from "lodash"`, lands on `x` in the installed package, as an
+  import straight from the package does, or on the import with `(not installed)`. It searched
+  the project by name. (#527)
 - `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
   parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
   said `no definition` or offered namesakes from other files: `directionParams →
@@ -250,6 +263,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` in TypeScript and JavaScript on an arrow function's parameter itself, `crate` in
+  `crates.map(crate => 0)`, offers a namesake elsewhere under "at a declaration", or stays on
+  the line when there is none. It jumped to a module-level `const` of the same name. (#534)
 - `d` in Swift finds a function or an enum case declared with its name in backticks, as
   ``func `default`()`` or ``case `open` ``: it said "no definition", or jumped to a namesake
   elsewhere. (#463)

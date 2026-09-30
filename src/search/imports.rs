@@ -390,6 +390,24 @@ pub fn default_name(line: &str) -> Option<String> {
     let name = DEFAULT.captures(line)?[1].to_owned();
     (!matches!(name.as_str(), "class" | "function" | "async" | "abstract")).then_some(name)
 }
+/// The class a TypeScript module's default export is an instance of (#341): `export default new
+/// C(…)`, or `export default name;` over `const name = new C(…)`. Any other default export, a
+/// call, an object or a function, is none.
+pub fn default_class(text: &str) -> Option<String> {
+    static NEW: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?m)^\s*export\s+default\s+new\s+([A-Za-z_$][\w$]*)\s*\(").unwrap()
+    });
+    if let Some(c) = NEW.captures(text) {
+        return Some(c[1].to_owned());
+    }
+    let name = text.lines().find_map(default_name)?;
+    let bound = Regex::new(&format!(
+        r"(?m)^\s*(?:export\s+)?const\s+{}\s*=\s*new\s+([A-Za-z_$][\w$]*)\s*\(",
+        regex::escape(&name)
+    ))
+    .ok()?;
+    Some(bound.captures(text)?[1].to_owned())
+}
 /// What a CommonJS module hands out as a whole (#328): the 1-based line of its one
 /// `module.exports = …`, and the name it assigns when that is a bare name, as `module.exports =
 /// Segment;` does. The outer `None` is a module that says nothing of `module.exports` or
