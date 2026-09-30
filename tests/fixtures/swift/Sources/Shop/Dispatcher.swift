@@ -117,3 +117,31 @@ func retry(_ review: Review, tries: Int, queue: DispatchQueue) {
         log(parcelIndex)
     }
 }
+
+// The name a header binds is the occurrence it binds, not the first on its line (#525): a read
+// in front of the binding is looked up as on any other line.
+struct Shelf {
+    var stock: [Int] = []
+    var spare: Int?
+    var pallets: [Int] = []
+
+    func refresh() {
+        if stock.isEmpty, let stock = load() {
+        // ^ d: Sources/Shop/Dispatcher.swift:124
+        //                    ^ d: picker Sources/Shop/Dispatcher.swift:124
+        //                      status: at a declaration
+            use(stock)
+        }
+        pallets.forEach { pallets in
+        // ^ d: Sources/Shop/Dispatcher.swift:126
+        //                ^ d: picker Sources/Shop/Dispatcher.swift:126
+        //                  status: at a declaration
+            use(pallets)
+        }
+        guard spare != nil, let spare = spare else { return }
+        //    ^ d: Sources/Shop/Dispatcher.swift:125
+        //                      ^ d: picker Sources/Shop/Dispatcher.swift:125
+        //                        status: at a declaration
+        //                              ^ d: Sources/Shop/Dispatcher.swift:125
+    }
+}

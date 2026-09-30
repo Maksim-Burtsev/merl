@@ -1255,13 +1255,29 @@ impl App {
             && !declares_here
             && !search::python_class_binds(&text, self.line + 1, &word)
         {
-            hits.retain(|h| {
+            let all = hits.len();
+            let mut kept = hits.clone();
+            kept.retain(|h| {
                 let d = h.text.trim_start();
                 !(d.starts_with("def ") || d.starts_with("async def "))
                     || !self
                         .text_of(&h.path)
                         .is_some_and(|t| search::python_method(&t, h.line))
             });
+            // The one row left when its rivals went is jumped to, so the name must reach it
+            // from the cursor: at module level, or in a function around the cursor. Another
+            // function's nested `def` is no more the answer than the methods were, and the
+            // picker stays as it was.
+            let around = python_functions(&text, self.line + 1);
+            let unreachable = |h: &Hit| {
+                let inside = self
+                    .text_of(&h.path)
+                    .and_then(|t| python_functions(&t, h.line).first().copied());
+                inside.is_some_and(|f| h.path != here || !around.contains(&f))
+            };
+            if !matches!(kept.as_slice(), [h] if all > 1 && unreachable(h)) {
+                hits = kept;
+            }
         }
         // A Lua `local` inside a block is seen by that block alone, where the bindings above
         // found it already: anywhere else, and behind a dot, it is no candidate (#461). What is
@@ -1321,7 +1337,9 @@ impl App {
         // word may be a use on the line of a declaration of its name (#317).
         if kind == Kind::Swift {
             // On the name a `for`, an `if let` or a closure's parameter declares on the cursor's
-            // own line, its first on the line, the word is at a declaration, as on a `let` (#525).
+            // own line, the word is at a declaration, as on a `let` (#525). That is the occurrence
+            // the line no longer binds the name without: a read in front of it, `cache` in
+            // `if cache.isEmpty, let cache = load() {`, is looked up as on any other line.
             let line = self.line_str();
             let own = Hit {
                 path: here.clone(),
@@ -1330,8 +1348,12 @@ impl App {
                 text: line.to_owned(),
             };
             if !dotted
-                && whole_at(line, &word, "") == Some(range.start)
+                && line.get(range.clone()) == Some(word.as_str())
                 && search::swift_binds_on(line, &word)
+                && !search::swift_binds_on(
+                    &format!("{}_{}", &line[..range.start], &line[range.end..]),
+                    &word,
+                )
                 && !hits
                     .iter()
                     .any(|h| h.path == own.path && h.line == own.line)
@@ -3195,6 +3217,31 @@ impl App {
             .flatten()
             .collect()
     }
+}
+
+/// The `def` lines, 1-based and innermost first, of the Python functions 1-based `line` sits
+/// in, told by indentation: a name bound in one of them is seen from `line`, and from nowhere
+/// outside it.
+fn python_functions(text: &str, line: usize) -> Vec<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = search::literal_lines(Kind::Python, text);
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return Vec::new();
+    };
+    let (mut depth, mut out) = (indent(lines[at]), Vec::new());
+    for i in (0..at).rev() {
+        let t = lines[i].trim_start();
+        if t.is_empty() || t.starts_with(['#', ')', ']']) || literal[i] || indent(lines[i]) >= depth
+        {
+            continue;
+        }
+        depth = indent(lines[i]);
+        if t.starts_with("def ") || t.starts_with("async def ") {
+            out.push(i + 1);
+        }
+    }
+    out
 }
 
 /// What the status line says after `d` on `word`: `word → Target.word (reason)` for a jump,
