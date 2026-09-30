@@ -4,8 +4,12 @@ use super::definition::resolution;
 use super::open::carried;
 use super::*;
 
+mod annotated;
+mod budgets;
 mod cursor;
+mod d_bench;
 mod edit;
+mod edit_fuzz;
 mod find;
 mod keys;
 mod missed;
@@ -17,12 +21,14 @@ mod navigate_go;
 mod navigate_python;
 mod navigate_reason;
 mod navigate_receiver;
+mod navigate_rust;
 mod navigate_syntax;
 mod open;
 mod picker;
 mod preview;
 mod project_search;
 mod review;
+mod smoke;
 mod stats;
 mod symbols;
 mod tree;
@@ -149,8 +155,8 @@ fn project_app(tag: &str, files: &[(&str, &str)]) -> (PathBuf, App) {
     let app = App::new(dir.clone(), tree, files, Buffer::empty(), None);
     (dir, app)
 }
-/// One of the #68 projects in `tests/fixtures`, with nothing outside it, so the standard
-/// library of the machine running the tests has no say in what `d` offers.
+/// One of the projects in `tests/fixtures` (#68, #307), with nothing outside it for any kind,
+/// so the standard library of the machine running the tests has no say in what `d` offers.
 fn fixture_app(name: &str) -> App {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures")
@@ -159,9 +165,7 @@ fn fixture_app(name: &str) -> App {
     let mut a = App::new(dir, tree, files, Buffer::empty(), None);
     // The fixtures are read as a plain build reads them, whatever `GOFLAGS` the tests run under.
     a.go_build = search::GoBuild::host();
-    for kind in [Kind::Python, Kind::TsJs, Kind::Go] {
-        a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
-    }
+    a.no_external();
     a
 }
 /// Presses `d` on the last word of the first line of `file` that contains `code`, or starts

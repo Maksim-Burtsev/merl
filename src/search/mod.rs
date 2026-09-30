@@ -9,11 +9,19 @@
 //! it wants (`search::def_patterns`) and not which module happens to hold it.
 
 mod bindings;
+mod c;
+mod csharp;
 mod defs;
 mod fields;
 mod grep;
 mod imports;
+mod jvm;
 mod kind;
+mod labels;
+mod links;
+mod php;
+mod ruby;
+mod rust;
 mod scope;
 mod symbols;
 mod syntax;
@@ -21,11 +29,19 @@ mod types;
 mod words;
 
 pub use bindings::*;
+pub use c::*;
+pub use csharp::*;
 pub use defs::*;
 pub use fields::*;
 pub use grep::*;
 pub use imports::*;
+pub use jvm::*;
 pub use kind::*;
+pub use labels::*;
+pub use links::*;
+pub use php::*;
+pub use ruby::*;
+pub use rust::*;
 pub use scope::*;
 pub use symbols::*;
 pub use syntax::*;

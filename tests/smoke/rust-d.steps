@@ -1,0 +1,22 @@
+# rust-d: d on a bare Rust name lands on the item the file declares, `in this file`, where it was
+# a picker of every file's namesake (#363): the payouts crate has a private `cents` in two files.
+# Inside `mod tests { use super::*; }` the file's own `cents` counts too.
+merl scripts/payouts/src/summary.rs
+wait pub fn report(
+key t /
+type cents(sum
+key Enter d
+wait cents: in this file
+key [ /
+type cents(350
+key Enter d
+wait scripts/payouts/src/summary.rs  3:4
+# A Rust local lands on its `let`, `(local)`, and a parameter on the `fn` line (#353).
+key /
+type sum))
+key Enter d
+wait sum → report::sum (local)
+key /
+type amounts.iter
+key Enter d
+wait amounts → report::amounts (local)

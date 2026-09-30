@@ -302,6 +302,37 @@ fn usages_of_a_hyphenated_name_leave_out_longer_names() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #504: in a Makefile `u` marks what `d` counts. A recipe's `GO=$(GO) cmd` sets a variable of
+/// one shell command, not make's; `+=` declares a name nothing assigns plainly, and only then.
+#[test]
+fn makefile_usages_mark_the_declarations_d_jumps_to() {
+    let (dir, mut a) = project_app(
+        "u-make",
+        &[(
+            "Makefile",
+            "GO ?= go\nCFLAGS += -Wall\nLDFLAGS = -s\nLDFLAGS += -w\n\nbuild:\n\tGO=$(GO) ./build.sh $(CFLAGS) $(LDFLAGS)\n",
+        )],
+    );
+    // On make's `$(GO)`: on the recipe's own `GO=` the line declares the shell variable of its
+    // command, for `d` and `u` alike (`makefile_usages_ask_the_rule_d_asks`).
+    let rows = |a: &mut App, word: &str| {
+        a.jump_to(&dir.join("Makefile"), 7);
+        a.col = a.line_str().find(&format!("$({word})")).unwrap() + 2;
+        press(a, KeyCode::Char('u'), KeyModifiers::NONE);
+        let rows = usage_rows(a);
+        press(a, KeyCode::Esc, KeyModifiers::NONE);
+        rows
+    };
+    let row = |mark: &str, line: usize| (mark.to_string(), format!("Makefile:{line}"));
+    assert_eq!(rows(&mut a, "GO"), [row("declaration", 1), row("", 7)]);
+    assert_eq!(rows(&mut a, "CFLAGS"), [row("declaration", 2), row("", 7)]);
+    assert_eq!(
+        rows(&mut a, "LDFLAGS"),
+        [row("declaration", 3), row("", 4), row("", 7)]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// #281: a grep that stopped at its cap stays marked as cut after the filter drops the longer
 /// names, or the hits past the cap would look absent.
 #[test]
@@ -313,5 +344,170 @@ fn a_cut_usages_list_says_so_after_the_filter() {
     picker.settle();
     assert_eq!(picker.counts().0, 1);
     assert!(picker.title.ends_with("(first 5000)"), "{}", picker.title);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #387: `u` reads a Ruby name as `d` does, its `?`, `!` or setter `=` included, so the method it
+/// asks about is the one its own `def` or `attr_writer` declares, and that row comes first.
+#[test]
+fn usages_of_a_ruby_suffixed_method_put_its_declaration_first() {
+    let (dir, mut a) = project_app(
+        "u-ruby-suffix",
+        &[
+            (
+                "app/user.rb",
+                "class User\n  attr_writer :name\n\n  def valid?\n    true\n  end\n\n  def save!\n    true\n  end\nend\n",
+            ),
+            ("app/use.rb", "user.valid?\nuser.save!\nuser.name = \"x\"\n"),
+        ],
+    );
+    for (line, word, declared) in [(1, "valid", 4), (2, "save", 8), (3, "name", 2)] {
+        usages_at(&mut a, &dir, "app/use.rb", line, word);
+        assert_eq!(
+            usage_rows(&mut a),
+            [
+                ("declaration".to_string(), format!("app/user.rb:{declared}")),
+                (String::new(), format!("app/use.rb:{line}")),
+            ],
+            "{word}"
+        );
+        assert!(
+            a.picker
+                .as_ref()
+                .unwrap()
+                .title
+                .ends_with("1 declaration, 1 in code"),
+            "{}",
+            a.picker.as_ref().unwrap().title
+        );
+        a.picker = None;
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #383: `u` on a Ruby `@total` lists every `total` as before, and marks its assignment
+/// `@total = 0` a declaration beside `def total`; on a bare `total` only the `def` declares.
+#[test]
+fn usages_of_a_ruby_ivar_mark_its_assignment() {
+    let (dir, mut a) = project_app(
+        "u-ruby-ivar",
+        &[(
+            "app/cart.rb",
+            "class Cart\n  def initialize\n    @total = 0\n  end\n\n  def total\n    @total\n  end\nend\n",
+        )],
+    );
+    usages_at(&mut a, &dir, "app/cart.rb", 7, "total");
+    let marked = |rows: Vec<(String, String)>| {
+        rows.into_iter()
+            .filter(|(m, _)| m == "declaration")
+            .map(|(_, at)| at)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        marked(usage_rows(&mut a)),
+        ["app/cart.rb:3", "app/cart.rb:6"]
+    );
+    a.picker = None;
+    usages_at(&mut a, &dir, "app/cart.rb", 6, "total");
+    assert_eq!(marked(usage_rows(&mut a)), ["app/cart.rb:6"]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #459: `u` reads an Elixir name as `d` does, its `?` or `!` included, so the `def` of `ship!`
+/// is its declaration and comes first.
+#[test]
+fn usages_of_an_elixir_suffixed_function_put_its_declaration_first() {
+    let (dir, mut a) = project_app(
+        "u-elixir-suffix",
+        &[
+            (
+                "lib/w.ex",
+                "defmodule W do\n  def full?(c), do: c\n  def ship!(c), do: c\nend\n",
+            ),
+            ("lib/use.ex", "W.full?(c)\nW.ship!(c)\n"),
+        ],
+    );
+    for (line, word, declared) in [(1, "full", 2), (2, "ship", 3)] {
+        usages_at(&mut a, &dir, "lib/use.ex", line, word);
+        assert_eq!(
+            usage_rows(&mut a),
+            [
+                ("declaration".to_string(), format!("lib/w.ex:{declared}")),
+                (String::new(), format!("lib/use.ex:{line}")),
+            ],
+            "{word}"
+        );
+        a.picker = None;
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #419: `u` asks what declares a GraphQL field as `d` does. An indented `email` is a field only
+/// directly inside a type; a selection of a query, in the file on screen or not, is a use.
+#[test]
+fn usages_in_graphql_mark_the_field_not_the_selection() {
+    let (dir, mut a) = project_app(
+        "u-graphql",
+        &[
+            ("schema.graphql", "type User {\n  email: String\n}\n"),
+            ("ops.graphql", "query Me {\n  me {\n    email\n  }\n}\n"),
+        ],
+    );
+    usages_at(&mut a, &dir, "ops.graphql", 3, "email");
+    assert_eq!(
+        usage_rows(&mut a),
+        [
+            ("declaration".to_string(), "schema.graphql:2".to_string()),
+            (String::new(), "ops.graphql:3".into()),
+        ]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Review of #515: `u` asks the rule `d` asks. A recipe's `ARCH=x86` declares the shell variable
+/// of its own command, `$${ARCH}`, for both; a recipe's `X += 1` declares nothing, even with no
+/// other line setting `X`.
+#[test]
+fn makefile_usages_ask_the_rule_d_asks() {
+    let (dir, mut a) = project_app(
+        "u-make-rule",
+        &[(
+            "Makefile",
+            "build:\n\tARCH=x86 ./b.sh $${ARCH}\n\tX += 1\n\techo $(X)\n",
+        )],
+    );
+    let row = |mark: &str, line: usize| (mark.to_string(), format!("Makefile:{line}"));
+    usages_at(&mut a, &dir, "Makefile", 2, "ARCH");
+    assert_eq!(usage_rows(&mut a), [row("declaration", 2)]);
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    usages_at(&mut a, &dir, "Makefile", 4, "X");
+    assert_eq!(usage_rows(&mut a), [row("", 3), row("", 4)]);
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    a.jump_to(&dir.join("Makefile"), 2);
+    a.col = a.line_str().rfind("ARCH").unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(at(&a), (dir.join("Makefile"), 1));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #353 took the Rust `let` out of `def_patterns`, since `d` reads a local by scope; `u` still
+/// marks a `let` of the word as its declaration, as on master.
+#[test]
+fn usages_mark_a_rust_let_as_a_declaration() {
+    let (dir, mut a) = project_app(
+        "u-rust-let",
+        &[(
+            "src/lib.rs",
+            "fn f() -> u32 {\n    let mut total = 1;\n    total + 1\n}\n",
+        )],
+    );
+    usages_at(&mut a, &dir, "src/lib.rs", 3, "total");
+    assert_eq!(
+        usage_rows(&mut a),
+        [
+            ("declaration".to_string(), "src/lib.rs:2".to_string()),
+            (String::new(), "src/lib.rs:3".into()),
+        ]
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }

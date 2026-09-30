@@ -4,20 +4,20 @@ use std::collections::HashMap;
 use std::ops::Range;
 
 use ratatui::Frame;
-use ratatui::layout::Rect;
-use ratatui::style::{Color, Style};
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use regex::Regex;
 
 use crate::app::{App, Mode};
 use crate::buffer::{Buffer, shown_str};
-use crate::git::Mark;
+use crate::git::{Mark, TextLine};
 use crate::intraline;
 use crate::theme::Theme;
 use crate::wrap;
 
-use super::expand;
+use super::tagged;
 
 pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
     let gutter_w = digits(app.buf.lines.len()) + 1;
@@ -39,7 +39,11 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     }
 
     let gutter_style = base.fg(theme.gutter_fg);
-    let find_style = Style::new().bg(theme.find_bg).fg(theme.find_fg);
+    let find_style = theme
+        .find_fg
+        .map_or(Style::new(), |fg| Style::new().fg(fg))
+        .bg(theme.find_bg);
+    let tag = Style::new().bg(theme.tag_bg).fg(theme.tag_fg);
     let hl = base.bg(theme.line_hl);
     let hl_gutter = gutter_style.bg(theme.line_hl);
     let sel = base.bg(theme.selection);
@@ -54,14 +58,20 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     // cursor line none of whose text is selected (the selection ends at its start, or begins at
     // its end and takes only the newline): a highlight close to the selection colour would pass
     // for selected (#48), so that line is highlighted in the gutter only, as in VS Code.
-    let text_hl = app.selected_bytes(app.line).is_none_or(|r| !r.is_empty());
+    let text_hl = app.selected_bytes(app.at()).is_none_or(|r| !r.is_empty());
 
     let nowrap = app.nowrap();
     // Review paints the diff as GitHub does: the deleted and the added rows on a red and a green
     // tint, the words that changed on a stronger one in `word_fg`. The tints come from the theme.
     let review = app.review.is_some();
     let ghost = base.bg(theme.del_bg);
-    let word = |bg| Style::new().bg(bg).fg(theme.word_fg);
+    // A changed word is drawn in `word_fg` alone: the syntax's bold and italic do not show through.
+    let word = |bg| {
+        Style::new()
+            .bg(bg)
+            .fg(theme.word_fg)
+            .remove_modifier(Modifier::BOLD | Modifier::ITALIC | Modifier::UNDERLINED)
+    };
     // The added line each ghost was replaced by, for the ghost's side of the changed words.
     let partner: HashMap<(usize, usize), usize> =
         app.diff.pairs.iter().map(|(&l, &g)| (g, l)).collect();
@@ -89,6 +99,14 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         // rows: the top of the view can sit inside a wrapped ghost, as it can sit on the lines
         // deleted at the end of the file, under the last line.
         for (i, raw) in app.diff.ghosts.get(&l).into_iter().flatten().enumerate() {
+            // A line like any other for the cursor, the selection and `/` (#439).
+            let line = TextLine::Deleted(l, i);
+            let cursor_line = app.at() == line;
+            let bg = match cursor_line && text_hl {
+                true => base.bg(theme.del_bg_hl),
+                false => ghost,
+            };
+            let g = if cursor_line { hl_gutter } else { gutter_style };
             let text = shown_str(raw);
             // Its syntax colours are the base file's, as long as the base says the same line.
             let at = app.diff.ghost_from.get(&l).map(|from| from + i);
@@ -102,7 +120,24 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 .get(&(l, i))
                 .map(|&n| intraline::changes(text, app.buf.shown(n)).0)
                 .unwrap_or_default();
-            let spans = with_find(syntax, &words, word(theme.del_word_bg));
+            let finds = app
+                .find_re
+                .as_ref()
+                .map_or_else(Vec::new, |re| matches(re, text));
+            let spans = with_find(
+                &with_find(syntax, &words, word(theme.del_word_bg)),
+                &finds,
+                find_style,
+            );
+            let plain = with_find(syntax, &finds, find_style);
+            let selected = app
+                .selected_bytes(line)
+                .map(|r| r.start..r.end.min(text.len()));
+            let pad_style =
+                match sel_lines.is_some_and(|(first, last)| first <= line && line < last) {
+                    true => sel,
+                    false => bg,
+                };
             let rows = ghost_wrap(raw);
             let last = rows.len() - 1;
             for (i, (r, lead)) in rows.into_iter().enumerate() {
@@ -122,15 +157,22 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                     .view_w
                     .saturating_sub(lead + wrap::width(&text[r.clone()]) + usize::from(ell));
                 let mut row = vec![
-                    Span::styled(" ".repeat(gutter_w - 1), gutter_style),
-                    Span::styled("\u{258e}", gutter_style.fg(Color::Red)),
-                    Span::styled(" ".repeat(lead), ghost),
+                    Span::styled(" ".repeat(gutter_w - 1), g),
+                    Span::styled("\u{258e}", g.fg(Color::Red)),
+                    Span::styled(" ".repeat(lead), bg),
                 ];
-                row.extend(row_spans(text, &spans, &r, ghost));
+                row.extend(selected_row(
+                    text,
+                    (&spans, &plain),
+                    &r,
+                    &selected,
+                    (bg, sel),
+                    tag,
+                ));
                 if ell {
-                    row.push(ellipsis(ghost));
+                    row.push(ellipsis(pad_style));
                 }
-                row.push(Span::styled(" ".repeat(pad), ghost));
+                row.push(Span::styled(" ".repeat(pad), pad_style));
                 lines.push(Line::from(row));
             }
         }
@@ -139,7 +181,7 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         }
         let clipped = app.buf.shown(l);
         let cut = Buffer::clips(&app.buf.lines[l]);
-        let cursor_line = l == app.line;
+        let cursor_line = app.at() == TextLine::File(l);
         let lit = cursor_line && text_hl;
         // A review tints the rows the branch added, or those of a file it deleted; the gutter
         // marks against the index outside a review get no tint.
@@ -182,9 +224,10 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             (None, false) => base,
         };
         let selected = app
-            .selected_bytes(l)
+            .selected_bytes(TextLine::File(l))
             .map(|r| r.start..r.end.min(clipped.len()));
-        let pad_selected = sel_lines.is_some_and(|(first, last)| first <= l && l < last);
+        let pad_selected = sel_lines
+            .is_some_and(|(first, last)| first <= TextLine::File(l) && TextLine::File(l) < last);
         let indent = wrap::indent(clipped, app.view_w);
         let (before, shown, cut_lead, after) = cut_unwrapped(app, &app.buf.lines[l]);
         let (before, after) = (nowrap && before, nowrap && after);
@@ -231,20 +274,14 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                     + usize::from(after)
                     + usize::from(ell),
             );
-            // The selected part of the row keeps its syntax colours on the selection background.
-            let (lo, hi) = match &selected {
-                Some(s) => (s.start.clamp(r.start, r.end), s.end.clamp(r.start, r.end)),
-                None => (r.end, r.end),
-            };
-            for (piece, style, spans) in [
-                (r.start..lo, t, &spans),
-                (lo..hi, sel, &plain),
-                (hi..r.end, t, &spans),
-            ] {
-                if !piece.is_empty() {
-                    row.extend(row_spans(clipped, spans, &piece, style));
-                }
-            }
+            row.extend(selected_row(
+                clipped,
+                (&spans, &plain),
+                &r,
+                &selected,
+                (t, sel),
+                tag,
+            ));
             let pad_style = if pad_selected { sel } else { t };
             if ell {
                 row.push(ellipsis(pad_style));
@@ -263,12 +300,8 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     }
     frame.render_widget(Paragraph::new(lines).style(base), area);
 
-    let screen_row = rows_between(
-        app,
-        (app.top_line, app.top_row),
-        (app.line, app.cursor_row()),
-    )
-    .map(|y| y + pinned);
+    let screen_row =
+        rows_between(app, (app.top_line, app.top_row), app.cursor_at()).map(|y| y + pinned);
     if let Some(y) = screen_row.filter(|y| *y < area.height as usize)
         && matches!(app.mode, Mode::Normal | Mode::Edit)
     {
@@ -277,11 +310,24 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     }
 }
 
+/// A binary file (#287), as VS Code shows one: an empty pane with one dimmed line, centred
+/// where the welcome screen's block sits, and no gutter or cursor.
+pub(super) fn draw_binary(frame: &mut Frame, theme: &Theme, area: Rect, base: Style) {
+    let [_, row] = Layout::vertical([
+        Constraint::Length(area.height.saturating_sub(1) * 2 / 5),
+        Constraint::Length(1),
+    ])
+    .areas(area);
+    let note = Line::styled("binary file, not shown", base.fg(theme.ghost_fg)).centered();
+    frame.render_widget(Paragraph::new(note).style(base), row);
+}
+
 /// The declarations enclosing the top of the view, pinned over the text (#248): the first row
 /// of each in its syntax colours, beside its line number, on a band of the cursor line's colour
 /// across the pane. The band is what tells them from the code under them at a glance.
 fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -> Vec<Line<'a>> {
     let band = base.bg(theme.line_hl);
+    let tag = Style::new().bg(theme.tag_bg).fg(theme.tag_fg);
     app.pinned(app.top_line)
         .iter()
         .map(|&p| {
@@ -308,7 +354,7 @@ fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -
                     + usize::from(after)
                     + usize::from(ell),
             );
-            row.extend(row_spans(text, syntax, &r, band));
+            row.extend(row_spans(text, syntax, &r, band, tag));
             if ell {
                 row.push(Span::styled("\u{2026}", g));
             }
@@ -348,6 +394,37 @@ fn ellipsis_in_view(app: &App, text: &str, before: bool, after: bool) -> bool {
     app.left + usize::from(before) <= end && end + usize::from(after) < app.left + app.view_w
 }
 
+/// Styled byte ranges of one line, sorted and disjoint, as [`row_spans`] reads them.
+type Spans = [(Style, Range<usize>)];
+
+/// Row `r` of `text` on the background `bg`, the part of it in `selected` on the selection's
+/// `sel`: there it keeps its syntax colours and find matches (`plain`) but not the changed words
+/// the rest of it has (`spans`).
+fn selected_row<'a>(
+    text: &'a str,
+    (spans, plain): (&Spans, &Spans),
+    r: &Range<usize>,
+    selected: &Option<Range<usize>>,
+    (bg, sel): (Style, Style),
+    tag: Style,
+) -> Vec<Span<'a>> {
+    let (lo, hi) = match selected {
+        Some(s) => (s.start.clamp(r.start, r.end), s.end.clamp(r.start, r.end)),
+        None => (r.end, r.end),
+    };
+    let mut out = Vec::new();
+    for (piece, style, spans) in [
+        (r.start..lo, bg, spans),
+        (lo..hi, sel, plain),
+        (hi..r.end, bg, spans),
+    ] {
+        if !piece.is_empty() {
+            out.extend(row_spans(text, spans, &piece, style, tag));
+        }
+    }
+    out
+}
+
 /// Cuts one wrapped row `r` of `text` into spans, taking colours from the line's highlighting
 /// and everything else from `base` (which carries the pane or cursor-line background).
 fn row_spans<'a>(
@@ -355,6 +432,7 @@ fn row_spans<'a>(
     hl: &[(Style, std::ops::Range<usize>)],
     r: &std::ops::Range<usize>,
     base: Style,
+    tag: Style,
 ) -> Vec<Span<'a>> {
     let mut out = Vec::new();
     let mut pos = r.start;
@@ -367,13 +445,13 @@ fn row_spans<'a>(
         }
         let (start, end) = (span.start.max(pos), span.end.min(r.end));
         if pos < start {
-            out.push(Span::styled(expand(&text[pos..start]), base));
+            tagged(&mut out, &text[pos..start], base, tag);
         }
-        out.push(Span::styled(expand(&text[start..end]), base.patch(*style)));
+        tagged(&mut out, &text[start..end], base.patch(*style), tag);
         pos = end;
     }
     if pos < r.end || out.is_empty() {
-        out.push(Span::styled(expand(&text[pos..r.end]), base));
+        tagged(&mut out, &text[pos..r.end], base, tag);
     }
     out
 }
@@ -387,28 +465,42 @@ fn matches(re: &Regex, text: &str) -> Vec<Range<usize>> {
 }
 
 /// Overlays `finds` (sorted, disjoint: find matches, or the words a review says changed) on the
-/// syntax spans of one line: the syntax spans are cut around them, and they are added in
-/// `style`. The result stays sorted and disjoint, which is all [`row_spans`] needs.
+/// syntax spans of one line: the text under them keeps its syntax style with `style` laid over
+/// it, so a style without a foreground keeps the syntax colours, as a VS Code find match does
+/// (#480). The result stays sorted and disjoint, which is all [`row_spans`] needs.
 pub(super) fn with_find(
     hl: &[(Style, Range<usize>)],
     finds: &[Range<usize>],
     style: Style,
 ) -> Vec<(Style, Range<usize>)> {
-    let mut out: Vec<(Style, Range<usize>)> = Vec::with_capacity(hl.len() + finds.len() * 2);
+    // The gaps the highlighter left are spans of their own, so a match over one is cut there too.
+    let mut filled = Vec::with_capacity(hl.len() * 2 + 1);
+    let mut pos = 0;
     for (st, r) in hl {
+        if pos < r.start {
+            filled.push((Style::new(), pos..r.start));
+        }
+        filled.push((*st, r.clone()));
+        pos = r.end;
+    }
+    if let Some(f) = finds.last().filter(|f| f.end > pos) {
+        filled.push((Style::new(), pos..f.end));
+    }
+    let mut out = Vec::with_capacity(filled.len() + finds.len() * 2);
+    for (st, r) in filled {
         let mut pos = r.start;
         for f in finds.iter().filter(|f| f.end > r.start && f.start < r.end) {
-            if pos < f.start {
-                out.push((*st, pos..f.start));
+            let (start, end) = (f.start.max(r.start), f.end.min(r.end));
+            if pos < start {
+                out.push((st, pos..start));
             }
-            pos = pos.max(f.end.min(r.end));
+            out.push((st.patch(style), start..end));
+            pos = end;
         }
         if pos < r.end {
-            out.push((*st, pos..r.end));
+            out.push((st, pos..r.end));
         }
     }
-    out.extend(finds.iter().map(|f| (style, f.clone())));
-    out.sort_by_key(|(_, r)| r.start);
     out
 }
 
@@ -418,21 +510,5 @@ pub(super) fn digits(n: usize) -> usize {
 
 /// Number of wrapped rows from `from` to `to`, or `None` when `to` is above `from`.
 fn rows_between(app: &App, from: (usize, usize), to: (usize, usize)) -> Option<usize> {
-    if to < from {
-        return None;
-    }
-    let mut n = 0usize;
-    let (mut l, mut r) = from;
-    while (l, r) < to {
-        r += 1;
-        if r >= app.row_count(l) {
-            l += 1;
-            r = 0;
-        }
-        n += 1;
-        if n > 10_000 {
-            return None;
-        }
-    }
-    Some(n)
+    (from <= to).then(|| app.rows_between(from, to))
 }

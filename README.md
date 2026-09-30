@@ -235,8 +235,10 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | Swift | `.build/checkouts` |
 | PHP | Composer's `vendor/` |
 | Zig | the standard library |
+| Protocol Buffers | the well-known types `protoc` installs |
 | Java, Kotlin, Ruby, C#, Lua, Elixir | |
-| Shell, SQL, Makefile, Terraform, Dockerfile, YAML | |
+| Shell, SQL, Makefile, Terraform, Dockerfile, YAML, GraphQL | |
+| Markdown | the file or the heading a link names, and a file a code span names |
 
 What each rule reads and what it refuses to guess: [docs/navigation.md](docs/navigation.md).
 
@@ -250,8 +252,23 @@ hours: no neon, and light themes that look like paper.
 
 ## Config
 
-There is none to write. `T` remembers your theme in `~/.config/merl/config.toml`, and
-`autosave_delay_ms` (1000) lives there too.
+There is none to write: every setting has a default, and `T` saves the theme you pick. To change
+the rest, edit `~/.config/merl/config.toml`.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `theme` | `"tokyonight-moon"` | The colour theme; `T` picks it and writes it here |
+| `autosave_delay_ms` | `1000` | How long after the last keystroke an edit is saved |
+| `review_panel_colours` | `true` | Review: the file panel dims the counts and adds the branch totals |
+| `review_list_marks` | `true` | Review: `u` and `s` mark the rows on lines the branch changed |
+| `review_open_files_first` | `true` | Review: `o` lists the review's files first |
+
+For example, to save sooner and keep review's rows unmarked:
+
+```toml
+autosave_delay_ms = 300
+review_list_marks = false
+```
 
 ## Terminals
 

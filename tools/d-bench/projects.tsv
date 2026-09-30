@@ -1,0 +1,14 @@
+# name	lang	url	commit	install (run in the clone; - for none)
+paperless-ngx	python	https://github.com/paperless-ngx/paperless-ngx.git	6a5d06ee26a4620e6c8452870f157998d5b35050	uv sync
+outline	ts	https://github.com/outline/outline.git	179d7dd7be2cb395d45f0151b858e14009cec9d1	-
+eslint	js	https://github.com/eslint/eslint.git	93de066d4125f8df013d40305e8009f4634a5cba	npm install --ignore-scripts --before=2026-09-29
+caddy	go	https://github.com/caddyserver/caddy.git	ea1e94b89972b83b189cbb946352abd9acec0f8c	go mod download
+ripgrep	rust	https://github.com/BurntSushi/ripgrep.git	3fce3b5bb0236da2df6d99672afb8a719642eca7	cargo fetch
+redis	c	https://github.com/redis/redis.git	8623fade2008754962316cecdba1f71ee103bdd8	-
+leveldb	cpp	https://github.com/google/leveldb.git	7ee830d02b623e8ffe0b95d59a74db1e58da04c5	-
+koel	php	https://github.com/koel/koel.git	2b4c6338f6e286d3cfc484e99be4c279b2c7b645	-
+Alamofire	swift	https://github.com/Alamofire/Alamofire.git	bda9ed57d72988a3a2ada33d824583541f86eac6	-
+halo	java	https://github.com/halo-dev/halo.git	fe77aacf894c9200ae4b4ddb0f904346813732d0	-
+nowinandroid	kotlin	https://github.com/android/nowinandroid.git	a49ed253d75e61a2b6ab80a8da677b57437b08eb	-
+eShop	csharp	https://github.com/dotnet/eShop.git	b4a40872005d4bb29e5b1fa1ff7e244143d39215	-
+mastodon	ruby	https://github.com/mastodon/mastodon.git	a4ac5f5670942265804dbb261713e1ff0109a402	-

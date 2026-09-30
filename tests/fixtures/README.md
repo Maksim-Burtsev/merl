@@ -46,8 +46,8 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   again, which must not make it `Issue`'s; Python's `Issue.summary` is a field over a method of
   `Base`. `tally` / `Serve` hold a local of a field's name (an annotated local, an object
   literal's key, a `var` block) that is no field. Python's `Encoder` extends a class outside the
-  project, so its `self.poster_id` is looked up by name and its nested `Options` is found as on
-  master; `Point` declares `offset` first in a tuple. TypeScript's `Issue` binds `close` in its
+  project, so its `self.poster_id` is no other class's namesake (#342) and its nested `Options` is
+  found as on master; `Point` declares `offset` first in a tuple. TypeScript's `Issue` binds `close` in its
   constructor, and `Issue.label` reads its fields inside `case …: {` blocks, which are no object
   literals, and inside the literal a `case …: return {` returns, which is one.
 
@@ -121,7 +121,7 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   package is `books` and `ledger` is a variable of `scopes`. `results` has a method with named
   results, a parameter and a local. After the review: `globals` also holds the locals the scope
   walk does not read (a header with a function-typed parameter, a receiver on one, a `var (`
-  block in a function, the lines above a label, a local handed on) and `globals_x_test.go`, the
+  block in a function, a local handed on; the lines above a label since #330) and `globals_x_test.go`, the
   external test package importing under a variable's name; `platform` a `Timer` whose method is
   per platform, a `Gauge` under `windows && !slow`, a `Gate` no CI host builds and a `Meter`
   under a tag of its own, the last two used from `platforms_gate.go` (`//go:build gated`);
@@ -130,3 +130,108 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.
+
+## Annotated cases (#307)
+
+Besides the `navigate_*.rs` tests above, every fixture carries cases whose answer is written in
+the fixture itself: a line comment under the probed line, with a caret under the word.
+
+```go
+return Order{Address: addr}
+//           ^ d: shop/order.go:12
+```
+
+One test, `d_answers_every_annotation_in_the_fixtures` (`src/app/tests/annotated.rs`), walks
+every directory of `tests/fixtures` as a project, finds every annotation, puts the cursor on the
+caret's column of the line above, presses `d` and compares. It reports every failure at once, as
+`fixture/file:line: want …, got …` with the status line, the answer written in the grammar below
+so it can be pasted. `cargo test annotation` runs it and the grammar's own test; it takes a
+couple of seconds.
+
+The grammar:
+
+- The comment marker is the kind's own: `//`, `#`, `--` or `;`. Nothing but whitespace stands
+  before it on the line, and nothing but spaces between it and the caret.
+- The caret's byte column is the column in the probed line, so an annotation is indented as its
+  line is (a tab under a tab in Go). The probed line is the nearest line above that is no
+  annotation or `status:` line, so several annotations stack under one line.
+- `d: FILE:LINE` is a jump there, `FILE` from the fixture's root.
+- `d: picker FILE:LINE, FILE:LINE` is a picker holding exactly these rows, in any order; `, …` at
+  the end means at least these.
+- `d: none` is nothing found (the status line starts with `no `, or names the label the word is:
+  `name: argument label`, `name: key`); `d: !jump` is anything but a jump.
+- `status: TEXT` on the line right under an annotation is optional: the status line contains TEXT.
+- A known miss records today's answer and the wanted one: `d: none; want shop/order.go:12 (#NNN)`.
+  Only the part before `; want` is checked, so the suite stays green; the wanted answer must
+  parse and name its issue. The fix of #NNN flips the annotation to the wanted answer in its own
+  PR.
+
+Line numbers count the annotation lines too, so a line added in the middle of a file moves every
+target below it: add cases at the end of a file, or in a new file.
+
+### Where the cases live
+
+The Python, TypeScript and Go projects above keep their lines, since the `navigate_*.rs` tests
+pin them, so their annotated cases are a package of their own inside them: `python/shop/`,
+`typescript/shop/`, `go/shop/` and `go/cart/`. Every other kind has a directory of its own
+(`rust/`, `jvm/`, `ruby/`, `c/`, `csharp/`, `swift/`, `php/`, `lua/`, `elixir/`, `zig/`, `shell/`,
+`sql/`, `make/`, `terraform/`, `docker/`, `yaml/`, `graphql/`, `proto/`). Each is one small shop (a `Tariff` and a `Coupon` sharing `rate` and
+`describe`, a `Courier`, `discount`, `weigh`, a basket that uses them) holding:
+
+- two types sharing a method name, an import inside the project (aliased, of a module, of a
+  package that hands the name on), a parameter that shadows an import and a local that hides a
+  module-level name;
+- a declaration-shaped line in every multi-line literal the kind has: a docstring, a raw or
+  multi-line string, a template literal, a text block, a block comment;
+- every declaration form of the kind's row of `docs/navigation.md`, each probed once;
+- the known misses of #305's sub-issues for the language, as `; want … (#N)`.
+
+The shop's names (`Tariff`, `Coupon`, `Courier`, `Basket`, `gross`, `weigh`, …) appear nowhere
+else in a fixture: a namesake would change what the `navigate_*.rs` tests find by name (a `total`
+method did).
+
+The kinds with no types keep the shop's names and bend its shape to what they have. Zig forbids a
+name that shadows another, so `zig/` has two functions' locals of one name and imports of one name
+in three files instead. `shell/` declares `describe` in two files, as two plugins would, and a
+`local` named like a function. `sql/` has a CTE named like a table, a schema-qualified and a quoted
+name, and a `$$` function body. `make/` declares a target in two `.mk` files and a double-colon rule
+twice, and sets variables only by `+=` or for one target. `terraform/` has a module whose
+`var.region` is its own, a local named like an attribute of a `tags` map, and a heredoc. `docker/`
+and `yaml/` are searched file by file, so each file probes the stages or jobs of its own and one of
+another file; `yaml/ci/` lists its GitLab stages in the block form beside jobs named after them, or
+not at all (#473). Each of these kinds also has a file that opens with a glob or a lone backtick
+above a declaration, and a heredoc or a block scalar holding a declaration-shaped line: today's
+answers there are the known misses of #436, and the globs inside quotes (`"parcels/*"`,
+`["src/**/*.rs"]`) guard what already works.
+
+`markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
+`docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
+a setext one, backticks and punctuation, an `<a id>`), code spans naming files (`mod.rs` is
+carried by two), and links in a fence, a comment and the front matter. Its annotations start
+with `#`, which Markdown reads as a heading: a `#^` right under a line is no heading but text, so
+a reference definition below one needs a blank line to start its own block.
+
+`graphql/` (#419) is a schema over two files and operations over two more: fields and enum values
+beside selections, aliases and arguments of the same names, an `extend type`, a `"""` description
+holding a type, fragment spreads and an `#import`.
+
+`proto/` lays its files out under a proto root, `proto/shop/v1/`, as buf does, with the well-known
+types a project vendors under `third_party/`: its imports name paths from those roots, never from
+the importing file. `shop.v1` and `billing.v1` each declare a `Money`, used unqualified and
+qualified by each package, `.shop.v1.` absolute and `v1.` relative among them.
+
+`elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
+`deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
+the project walk does not reach, one whose module is no path and two declaring one name (#437).
+
+### Adding a kind
+
+1. Make `tests/fixtures/<kind>/`, a small project laid out as the language lays one out (a
+   `Cargo.toml`, a `go.mod`, `src/main/java/…`), with the shop's shape above and at least 20
+   annotations.
+2. Write each answer as you know it should be. Run `cargo test annotation`; for a failure,
+   either the annotation is wrong (fix it) or `d` is: then write today's answer with
+   `; want <right answer> (#N)`, `#N` the sub-issue of #305 that covers it, or a new issue under
+   #305 when none does.
+3. No Rust code: the test finds the directory by itself, and `fixture_app` leaves every kind
+   without a standard library or dependencies, so nothing outside the fixture answers.

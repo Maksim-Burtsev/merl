@@ -33,6 +33,11 @@ fn imports_bind_names_to_module_paths() {
             ("c".into(), p(&["x", "c"])),
         ]
     );
+    // Nor after a plain `import` (#298).
+    assert_eq!(
+        imports(Kind::Python, "import a, b  # c, d\n"),
+        [("a".into(), p(&["a"])), ("b".into(), p(&["b"]))]
+    );
     let rs = "use std::fs;\nuse std::collections::{HashMap, hash_map::Entry};\nuse regex::Regex as Re;\nuse crate::buffer::Buffer;\npub(crate) use anyhow::{self, Context};\nuse std::{\n    io::Write,\n    path::Path,\n};\n";
     let got = imports(Kind::Rust, rs);
     assert_eq!(
@@ -407,6 +412,143 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
 }
 
 #[test]
+fn a_package_is_missing_when_nothing_installs_or_declares_it() {
+    let dir = std::env::temp_dir().join(format!("merl-missing-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let root = dir.join("project");
+    let files: Vec<PathBuf> = [
+        "tsconfig.json",
+        "packages/labels/package.json",
+        "web/src/app.ts",
+        "web/node_modules/installed/index.d.ts",
+        "node_modules/@types/typed/index.d.ts",
+        "node_modules/@scope/pkg/index.d.ts",
+        "types/ambient.d.ts",
+        "js/jsconfig.json",
+        "js/src/components/Button.js",
+        "base/tsconfig.json",
+        "base/src/components/Button.ts",
+    ]
+    .iter()
+    .map(PathBuf::from)
+    .collect();
+    for f in &files {
+        std::fs::create_dir_all(root.join(f).parent().unwrap()).unwrap();
+        std::fs::write(root.join(f), "").unwrap();
+    }
+    std::fs::write(
+        root.join("tsconfig.json"),
+        r#"{ "compilerOptions": { "paths": { "@server/*": ["./server/*"] } } }"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("packages/labels/package.json"),
+        r#"{ "name": "@post/labels", "version": "1.0.0" }"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("types/ambient.d.ts"),
+        "declare module 'untyped-lib' {}\ndeclare module \"*.svg\";\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("js/jsconfig.json"),
+        r#"{ "compilerOptions": { "paths": { "@components/*": ["src/components/*"] } } }"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("base/tsconfig.json"),
+        r#"{ "compilerOptions": { "baseUrl": "src" } }"#,
+    )
+    .unwrap();
+    // Above the project, as Node looks there too.
+    std::fs::create_dir_all(dir.join("node_modules/hoisted")).unwrap();
+    let missing_from = |dir: &str, spec: &str| {
+        let module: Vec<String> = spec.split('/').map(str::to_owned).collect();
+        package_missing(&root, &files, Path::new(dir), &module)
+    };
+    let missing = |spec: &str| missing_from("web/src", spec);
+    // What the project supplies: a `declare module`, an alias of `jsconfig.json`, `baseUrl`.
+    assert!(!missing("untyped-lib"));
+    assert!(!missing("icons/logo.svg"));
+    assert!(missing("untyped-lib/sub"));
+    assert!(!missing_from("js/src", "@components/Button"));
+    assert!(missing_from("js/src", "@widgets/Button"));
+    assert!(!missing_from("base/src/pages", "components/Button"));
+    assert!(missing_from("base/src/pages", "widgets/Button"));
+    assert!(missing("mobx-react"));
+    assert!(missing("@other/pkg"));
+    assert!(missing("es-toolkit/compat"));
+    for here in [
+        ".",
+        "..",
+        "@",
+        "~",
+        "#lib",
+        "node:fs",
+        "virtual:pwa",
+        "fs",
+        "@server/models",
+        "@post/labels",
+        "installed",
+        "typed",
+        "@scope/pkg",
+        "hoisted",
+    ] {
+        assert!(!missing(&format!("{here}/x")), "{here}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_ts_import_line_is_the_line_of_the_name() {
+    let text = "import a from \"a\";\n\nimport {\n  observable,\n  obs as seen,\n} from \"mobx\";\nconst req = require(\"x\");\n";
+    assert_eq!(ts_import_line(text, "a"), Some(1));
+    assert_eq!(ts_import_line(text, "seen"), Some(5));
+    assert_eq!(ts_import_line(text, "observable"), Some(4));
+    // `obs` is taken under another name, and `observable` only starts with it.
+    assert_eq!(ts_import_line(text, "obs"), None);
+    assert_eq!(ts_import_line(text, "req"), Some(7));
+    assert_eq!(ts_import_line(text, "nothing"), None);
+}
+
+#[test]
+fn a_require_binds_only_the_module_itself_or_a_name_of_it() {
+    let text = "const { a, b: c } = require(\"./m\");\nconst d = require(\"debug\")(\"app\");\nconst e = require(\"./m\").e;\nconst f = require(\"./m\").create();\nconst g = require(\"./g\"),\n  h = require(\"./h\"),\n  LIMIT = 10;\nh = require(\"./i\");\n";
+    let got = imports(Kind::TsJs, text);
+    let path = |p: &[&str]| p.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
+    assert_eq!(
+        got,
+        vec![
+            ("a".to_owned(), path(&[".", "m", "a"])),
+            ("c".to_owned(), path(&[".", "m", "b"])),
+            ("e".to_owned(), path(&[".", "m", "e"])),
+            ("g".to_owned(), path(&[".", "g", "*"])),
+            ("h".to_owned(), path(&[".", "h", "*"])),
+        ]
+    );
+    assert_eq!(ts_import_line(text, "h"), Some(6));
+}
+
+#[test]
+fn module_exports_is_one_assignment_or_nothing_known() {
+    assert_eq!(
+        module_exports("class S {}\n\nmodule.exports = S;\n"),
+        Some(Some((3, Some("S".to_owned()))))
+    );
+    assert_eq!(
+        module_exports("module.exports = {\n  a,\n};\n"),
+        Some(Some((1, None)))
+    );
+    assert_eq!(module_exports("exports.a = a;\n"), Some(None));
+    assert_eq!(
+        module_exports("module.exports = a;\nmodule.exports = b;\n"),
+        Some(None)
+    );
+    assert_eq!(module_exports("export default a;\n"), None);
+}
+
+#[test]
 fn external_files_ignore_no_gitignore_and_keep_the_kind() {
     let dir = std::env::temp_dir().join(format!("merl-ext-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -521,4 +663,27 @@ fn rust_use_files_follow_the_crate_and_super_paths() {
     for (here, text, want) in cases {
         assert_eq!(find(here, text), want, "{here}: {text}");
     }
+}
+
+/// #333. A word in the module path of a Python import line is the module up to that word; an
+/// imported name, an alias and any other line are not.
+#[test]
+fn a_word_in_a_python_import_path_is_its_module() {
+    let module = |line: &str, word: &str| {
+        let at = line.find(word).unwrap();
+        python_import_module(line, at)
+    };
+    let parts = |p: &[&str]| Some(p.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+    let line = "from app.repos import UserRepo";
+    assert_eq!(module(line, "app"), parts(&["app"]));
+    assert_eq!(module(line, "repos"), parts(&["app", "repos"]));
+    assert_eq!(module(line, "UserRepo"), None);
+    let line = "from ..x.y import (";
+    assert_eq!(module(line, "x"), parts(&["..", "x"]));
+    let line = "import a.b as c, d.e  # f";
+    assert_eq!(module(line, "b"), parts(&["a", "b"]));
+    assert_eq!(module(line, "c"), None);
+    assert_eq!(module(line, "e"), parts(&["d", "e"]));
+    assert_eq!(module(line, "f"), None);
+    assert_eq!(module("x = json.dumps", "json"), None);
 }

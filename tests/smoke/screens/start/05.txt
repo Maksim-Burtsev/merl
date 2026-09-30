@@ -1,0 +1,57 @@
+wait merl exited: 0
+
+Usage: merl [OPTIONS] [TARGET]
+
+Arguments:
+  [TARGET]  Directory, file, or FILE:LINE[:COL] to open (default: the current directory)
+
+Options:
+  -t, --theme <NAME>       Colour theme
+      --tutor              Walk through every key on a bundled sample project (ignores the target)
+  -d, --drill [<N>]        Train the keys you do not press: N tasks (default 20) on the sample project, no key named
+  -k, --keys               Print how often each key has been pressed and missed, the unused last, and exit
+      --reviews            Print your review sessions of the last 30 days, the time each took and its excursions, and exit
+  -r, --review [<BRANCH>]  Review the checked-out branch (or `--review BRANCH` to fetch it and check out what was pushed): its files in the panel, its diff over the code, c / C between
+hunks
+  -b, --base <REF>         The branch the review is against (default: origin/HEAD, then the remote's master, main or develop, then the local master or main)
+  -h, --help               Print help
+  -V, --version            Print version
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+merl exited: 0
+cursor (x,y,shown) 0,54,0

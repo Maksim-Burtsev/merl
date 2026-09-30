@@ -1,0 +1,57 @@
+wait export default function OrderPage
+┌orders──────────────────────┐ 1 import { useEffect, useState } from "react";
+│▸ .github                   │ 2 import { ApiClient } from "@/api/client";
+│▸ .venv                     │ 3 import { OrderRepo } from "@/orders/repo";
+│▸ app                       │ 4 import { OrderStore } from "@/orders/store";
+│▸ data                      │ 5 import type { Order } from "@/orders/types";
+│▸ deploy                    │ 6
+│▸ docs                      │ 7 const store = new OrderStore(new OrderRepo(new ApiClient("/api")));
+│▸ scripts                   │ 8
+│▸ tests                     │ 9 export default function OrderPage({ id }: { id: number }) {
+│▾ web                       │10   const [order, setOrder] = useState<Order | null>(null);
+│  ▸ android                 │11
+│  ▾ src                     │12   useEffect(() => {
+│    ▸ api                   │13     store.load(id).then(setOrder);
+│    ▸ components            │14   }, [id]);
+│    ▸ orders                │15
+│    ▾ routes                │16   if (!order) {
+│      ▾ orders              │17     return <p>Loading…</p>;
+│          [id].tsx          │18   }
+│          index.tsx         │19   return (
+│    package.json            │20     <section>
+│    tsconfig.json           │21       <h1>Order {order.id}</h1>
+│▸ worker                    │22       <p>
+│  .env                      │23         {order.status}, {order.total}
+│  .gitignore                │24       </p>
+│  docker-compose.yml        │25       <button onClick={() => store.cancel(order.id).then(setOrder)}>Cancel</button>
+│  Dockerfile                │26     </section>
+│  Makefile                  │27   );
+│  pyproject.toml            │28 }
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+web/src/routes/orders/[id].tsx  1:1  [code]                                                                                                                                       ? help
+cursor (x,y,shown) 33,0,1

@@ -28,8 +28,9 @@ pub fn path() -> Option<PathBuf> {
     Some(stats::path()?.with_file_name("reviews.tsv"))
 }
 
-/// The open file, the cursor's line in it, and whether the file is one of the review's.
-pub type Spot = (Option<PathBuf>, usize, bool);
+/// The open file, the cursor's line in it (a deleted one included), and whether the file is one
+/// of the review's.
+pub type Spot = (Option<PathBuf>, git::TextLine, bool);
 
 /// A stop of the review walk, as the status bar's `hunk i/n` numbers it: the file relative to
 /// the root and the hunk's place in it, from 1; the top of a deleted file is its one stop.
@@ -317,7 +318,7 @@ mod tests {
     }
 
     fn spot(file: &str, line: usize, on: bool) -> Spot {
-        (Some(PathBuf::from(file)), line, on)
+        (Some(PathBuf::from(file)), git::TextLine::File(line), on)
     }
 
     /// A session over a review whose files have these stops.

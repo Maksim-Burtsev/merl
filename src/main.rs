@@ -99,7 +99,8 @@ struct Cli {
         default_missing_value = ""
     )]
     review: Option<String>,
-    /// The branch the review is against (default: origin/HEAD, then origin/master, main, develop)
+    /// The branch the review is against (default: origin/HEAD, then the remote's master, main or
+    /// develop, then the local master or main)
     #[arg(short, long, value_name = "REF", requires = "review")]
     base: Option<String>,
 }
@@ -138,7 +139,14 @@ fn run() -> Result<()> {
     let review = match &cli.review {
         Some(branch) => {
             root = git_toplevel(&root).context("--review needs a git repository")?;
-            let branch = Some(branch.as_str()).filter(|b| !b.is_empty());
+            let mut branch = Some(branch.as_str()).filter(|b| !b.is_empty());
+            // A branch another worktree has checked out is reviewed there, as it stands:
+            // nothing is fetched, switched or reset in someone else's worktree (#396).
+            if let Some(wt) = branch.and_then(|b| git::worktree_of(&root, b)) {
+                let rel = |f: PathBuf| Some(wt.join(f.strip_prefix(&root).ok()?));
+                file = file.and_then(rel).filter(|f| f.is_file());
+                (root, branch) = (wt, None);
+            }
             let r = git::Review::open(&root, branch, cli.base.as_deref())?;
             if file.is_none() {
                 file = r.first_file(&root);
@@ -168,6 +176,8 @@ fn run() -> Result<()> {
     }
     app.autosave = Duration::from_millis(config.autosave_delay_ms);
     app.review_panel_colours = config.review_panel_colours;
+    app.review_list_marks = config.review_list_marks;
+    app.review_open_files_first = config.review_open_files_first;
     app.theme = name;
     app.config = theme::config_path();
     if cli.tutor || cli.drill.is_some() {
@@ -719,6 +729,30 @@ mod tests {
         );
         let readme = include_str!("../README.md");
         assert!(readme.contains(&wanted), "README.md should say {wanted:?}");
+    }
+
+    /// #322: the help of `--base` names the bases merl tries, in the order it tries them. A
+    /// change to either fails here until the other follows.
+    #[test]
+    fn the_help_of_base_names_the_bases_merl_tries() {
+        use clap::CommandFactory;
+        assert_eq!(
+            crate::git::BASES,
+            [
+                "origin/master",
+                "origin/main",
+                "origin/develop",
+                "master",
+                "main"
+            ]
+        );
+        let cli = super::Cli::command();
+        let base = cli.get_arguments().find(|a| a.get_id() == "base").unwrap();
+        assert_eq!(
+            base.get_help().unwrap().to_string(),
+            "The branch the review is against (default: origin/HEAD, then the remote's master, \
+             main or develop, then the local master or main)"
+        );
     }
 
     #[test]

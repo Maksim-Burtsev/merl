@@ -1,0 +1,23 @@
+// The shop of #307: every d case carries its answer in a comment under it.
+syntax = "proto3";
+
+package shop.v1;
+
+import public "shop/v1/tariff.proto";
+//                     ^ d: proto/shop/v1/tariff.proto:1
+// status: module proto/shop/v1/tariff.proto
+
+message Coupon {
+  double rate = 1;
+  //     ^ d: picker proto/shop/v1/tariff.proto:13
+  string describe = 2;
+  //     ^ d: picker proto/shop/v1/tariff.proto:15
+  oneof target {
+  //    ^ d: proto/shop/v1/coupon.proto:15
+    string tariff_id = 3;
+    Tariff.Band band = 4;
+  //^ d: proto/shop/v1/tariff.proto:10
+    //     ^ d: proto/shop/v1/tariff.proto:27
+    // status: Band → Tariff.Band (via Tariff)
+  }
+}

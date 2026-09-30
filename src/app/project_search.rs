@@ -172,21 +172,13 @@ impl App {
                     .position(|it| (&it.path, it.line) == (&cur.path, cur.line))
             })
             .unwrap_or(0);
-        // An Enter that waited for an answer with no hit is spent: the list shows the answer.
-        if std::mem::take(&mut self.search_enter) && !items.is_empty() {
-            // Not through the new picker: nucleo has not seen its items yet.
-            let from = self.review_spot();
-            self.search_jump(items.into_iter().nth(selected).expect("selected is a row"));
-            self.watch_jumped();
-            self.review_count(None, from, Some("Picker: Enter"), false);
-            tutor::check(self, None);
-            return true;
-        }
         let mut new = Picker::new(old.title.clone(), items, false);
         new.live = true;
+        new.literal = old.literal;
         new.selected = selected;
         new.query = std::mem::take(&mut old.query);
         new.bufs = std::mem::take(&mut old.bufs);
+        new.marks = std::mem::take(&mut old.marks);
         // `D` hands nucleo the query too: the grep says which declarations the name reaches,
         // nucleo ranks them and marks the letters, and the cursor goes to the best of them —
         // the same reset a keystroke under the cap does. `s` keeps the order its grep found,
@@ -197,6 +189,19 @@ impl App {
         // Matched before it is shown: nothing is pending from here on, so an empty list must
         // mean the grep found nothing, and Enter and the cursor must see the rows it found.
         new.settle();
+        // An Enter that waited for the answer opens the row an Enter after it would: the one
+        // under the cursor once nucleo has ranked the rows (#293). With no hit it is spent, and
+        // the list shows the answer.
+        if std::mem::take(&mut self.search_enter)
+            && let Some(item) = new.current().cloned()
+        {
+            let from = self.review_spot();
+            self.search_jump(item);
+            self.watch_jumped();
+            self.review_count(None, from, Some("Picker: Enter"), false);
+            tutor::check(self, None);
+            return true;
+        }
         self.picker = Some(new);
         true
     }

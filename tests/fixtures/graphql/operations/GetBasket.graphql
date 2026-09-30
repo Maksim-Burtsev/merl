@@ -1,0 +1,47 @@
+#import "./BasketParts.gql"
+#          ^ d: operations/BasketParts.gql:1
+# status: module operations/BasketParts.gql
+#import "../operations/Missing.graphql"
+#          ^ d: none
+
+query GetBasket($id: ID!) {
+  #              ^ d: none
+  basket(id: $id) {
+  # ^ d: schema/root.graphqls:9
+  #           ^ d: none
+    ...BasketParts
+    #  ^ d: operations/BasketParts.gql:1
+    courier {
+      ...CourierParts
+      #  ^ d: operations/BasketParts.gql:15
+    }
+    cheap: gross
+    # ^ d: none
+    #      ^ d: schema/root.graphqls:22
+  }
+  couriers {
+  # ^ d: schema/root.graphqls:42
+    name
+  }
+}
+
+mutation Weigh {
+  weigh(basket: "1", unit: "kg")
+  # ^ d: schema/root.graphqls:27
+  #                  ^ d: none
+}
+
+subscription OnBasket {
+  basketChanged(id: "1") {
+    id
+  }
+}
+
+query Offers {
+  offers(first: 3) {
+    ... on Coupon {
+    #      ^ d: schema/shop.graphql:32
+      describe
+    }
+  }
+}

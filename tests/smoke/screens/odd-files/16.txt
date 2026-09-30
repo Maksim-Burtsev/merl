@@ -1,0 +1,57 @@
+wait access_level = "user<202e> <2066>// Check if admin<2069> <2066>"
+┌orders──────────────────────┐1 def is_admin(user):
+│▸ .github                   │2     access_level = "user<202e> <2066>// Check if admin<2069> <2066>"
+│▸ .venv                     │3     if access_level != "user<202e> <2066>// Check if admin<2069> <2066>":
+│▸ app                       │4         return True
+│▸ data                      │5     token = "abc<200b>def"
+│▸ deploy                    │6     return False
+│▸ docs                      │
+│▾ scripts                   │
+│  ▸ payouts                 │
+│    grant_admin.py          │
+│    invoices.php            │
+│    refund_by_hand.py       │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+scripts/grant_admin.py  5:17  [code]                                                                                                                                              ? help
+cursor (x,y,shown) 48,4,1

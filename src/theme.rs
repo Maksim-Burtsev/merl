@@ -173,7 +173,11 @@ pub struct Theme {
     pub status_bg: Color,
     pub status_fg: Color,
     pub find_bg: Color,
-    pub find_fg: Color,
+    /// The theme's `findHighlightForeground`. Without one a match keeps the text's own colours
+    /// over `find_bg`, as in VS Code (#480). A theme with no `findHighlight` either gets merl's
+    /// grey tint, which the syntax colours may not read on, so the text or the background colour,
+    /// whichever reads better on it.
+    pub find_fg: Option<Color>,
     /// The theme's signature colour, painted on the chrome the user navigates by: directory
     /// names, the tree and picker frames, the file name in the status bar. Taken from the colour
     /// the theme gives function names, or the first other scope it colours, so every theme has
@@ -195,6 +199,11 @@ pub struct Theme {
     /// The text of a changed word, which GitHub draws in the plain text colour: `fg`, pushed
     /// toward white on a dark theme or black on a light one until it reads on every word tint.
     pub word_fg: Color,
+    /// A hidden char's tag (#401): a warning's amber, GitHub's attention colour over this
+    /// background, which no diff tint uses, so a tag on an added row never reads as deleted
+    /// text; and its text, as `word_fg` is found for the diff's words.
+    pub tag_bg: Color,
+    pub tag_fg: Color,
     /// The background is lighter than the text: what picks GitHub's light colours over its dark
     /// ones, for the review's diff and the Markdown preview's alerts.
     pub light: bool,
@@ -300,12 +309,20 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         .map(|percent| blend(toward, fg, percent))
         .find(|&c| words.iter().all(|&w| contrast(c, w) >= WORD_CONTRAST))
         .unwrap_or(rgb(toward));
-    // The selection is drawn over the cursor line (#62) and, in a review, over added rows, so a
-    // theme whose own selection colour sits within a few points of one of them gets one blended
-    // further from the background instead.
+    let find_bg = s.find_highlight.map_or_else(|| blend(fg, bg, 35), over_bg);
+    // Primer's attention yellow, at the strength of a changed word.
+    let tag_bg = blend(hue(0xd2, 0x99, 0x22), bg, if light { 45 } else { 40 });
+    let tag_fg = (0..=100)
+        .step_by(10)
+        .map(|percent| blend(toward, fg, percent))
+        .find(|&c| contrast(c, tag_bg) >= WORD_CONTRAST)
+        .unwrap_or(rgb(toward));
+    // The selection is drawn over the cursor line (#62) and, in a review, over added and
+    // deleted rows (#439), so a theme whose own selection colour sits within a few points of one
+    // of them gets one blended further from the background instead.
     let mut selection = s.selection.map_or_else(|| blend(fg, bg, 25), over_bg);
     for percent in [35, 45, 55, 65] {
-        if [line_hl, add_bg, add_bg_hl]
+        if [line_hl, add_bg, add_bg_hl, del_bg, del_bg_hl]
             .into_iter()
             .all(|c| apart(selection, c))
         {
@@ -325,8 +342,14 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         ghost_fg,
         status_bg: line_hl,
         status_fg: rgb(fg),
-        find_bg: s.find_highlight.map_or_else(|| blend(fg, bg, 35), over_bg),
-        find_fg: s.find_highlight_foreground.map_or_else(|| rgb(bg), over_bg),
+        find_bg,
+        find_fg: match (s.find_highlight, s.find_highlight_foreground) {
+            (_, Some(c)) => Some(over_bg(c)),
+            (Some(_), None) => None,
+            (None, None) => [rgb(fg), rgb(bg)]
+                .into_iter()
+                .max_by(|&a, &b| contrast(a, find_bg).total_cmp(&contrast(b, find_bg))),
+        },
         selection,
         del_bg,
         del_bg_hl,
@@ -336,6 +359,8 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         add_word_bg: words[1],
         add_word_bg_hl: words[2],
         word_fg,
+        tag_bg,
+        tag_fg,
         accent: rgb(accent_color(&syntect).unwrap_or(fg)),
         light,
         syntect,
@@ -448,9 +473,15 @@ pub struct Config {
     /// Edits are written this long after the last keystroke; VS Code's `files.autoSaveDelay`.
     #[serde(default = "default_autosave")]
     pub autosave_delay_ms: u64,
-    /// The review panel's coloured status letters, dim counts and branch totals (#250).
+    /// The review panel's dim counts and branch totals (#250).
     #[serde(default = "default_true")]
     pub review_panel_colours: bool,
+    /// Review: `u` and `s` mark the rows on lines the branch changed with the gutter's `▎` (#246).
+    #[serde(default = "default_true")]
+    pub review_list_marks: bool,
+    /// Review: `o` lists the review's files first, with their panel letter (#246).
+    #[serde(default = "default_true")]
+    pub review_open_files_first: bool,
 }
 
 fn default_autosave() -> u64 {
@@ -471,6 +502,8 @@ impl Default for Config {
             theme: default_theme(),
             autosave_delay_ms: default_autosave(),
             review_panel_colours: true,
+            review_list_marks: true,
+            review_open_files_first: true,
         }
     }
 }
@@ -557,6 +590,25 @@ mod tests {
                 })
                 .collect();
             assert!(colours.len() >= 3, "{name}: {colours:?}");
+        }
+    }
+
+    /// A find match reads on its tint (#480): a theme that sets `findHighlight` alone keeps the
+    /// text's own colours over it, and its plain text reads at WCAG AA; one that sets neither gets
+    /// the text or background colour, whichever reads better on merl's tint. A theme's own
+    /// `findHighlightForeground` is kept as it is.
+    #[test]
+    fn every_find_match_reads_on_its_tint() {
+        for name in names() {
+            let t = load(name).unwrap();
+            let s = &t.syntect.settings;
+            if s.find_highlight_foreground.is_some() {
+                continue;
+            }
+            assert_eq!(t.find_fg.is_none(), s.find_highlight.is_some(), "{name}");
+            let text = t.find_fg.unwrap_or(t.fg);
+            let c = contrast(text, t.find_bg);
+            assert!(c >= WORD_CONTRAST, "{name}: {c:.2}:1");
         }
     }
 
@@ -713,6 +765,12 @@ mod tests {
         let read = |text| toml::from_str::<Config>(text).unwrap().review_panel_colours;
         assert!(read(""));
         assert!(!read("review_panel_colours = false"));
+        let c = toml::from_str::<Config>("").unwrap();
+        assert!(c.review_list_marks && c.review_open_files_first);
+        let c =
+            toml::from_str::<Config>("review_list_marks = false\nreview_open_files_first = false")
+                .unwrap();
+        assert!(!c.review_list_marks && !c.review_open_files_first);
     }
 
     #[test]
@@ -799,7 +857,7 @@ mod tests {
 
     /// Review's diff colours are derived, never set per theme, so this is what keeps them working
     /// on every palette: the rows stand off what is under them, the changed words off their row,
-    /// the words' text reads on them, and a selection on an added row still shows.
+    /// the words' text reads on them, and a selection on an added or a deleted row still shows.
     #[test]
     fn diff_colours_read_in_every_theme() {
         for name in names() {
@@ -817,13 +875,40 @@ mod tests {
                     "{name}: changed text at {c:.2} on {word:?}"
                 );
             }
-            for row in [t.add_bg, t.add_bg_hl] {
+            for row in [t.add_bg, t.add_bg_hl, t.del_bg, t.del_bg_hl] {
                 assert!(
                     apart(t.selection, row),
                     "{name}: selection {:?} on {row:?}",
                     t.selection
                 );
             }
+        }
+    }
+
+    /// A hidden char's tag stands off every row it can sit on and off the red of a deleted
+    /// word, and its text reads (#401).
+    #[test]
+    fn a_tag_reads_on_every_row_in_every_theme() {
+        for name in names() {
+            let t = load(name).unwrap();
+            for under in [
+                t.bg,
+                t.line_hl,
+                t.selection,
+                t.add_bg,
+                t.add_bg_hl,
+                t.del_bg,
+                t.add_word_bg,
+                t.del_word_bg,
+            ] {
+                assert!(
+                    apart(t.tag_bg, under),
+                    "{name}: tag {:?} on {under:?}",
+                    t.tag_bg
+                );
+            }
+            let c = contrast(t.tag_fg, t.tag_bg);
+            assert!(c >= WORD_CONTRAST, "{name}: tag text at {c:.2}");
         }
     }
 

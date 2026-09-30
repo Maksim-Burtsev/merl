@@ -1,0 +1,271 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+js0000			
+js0001	lib/types/index.d.ts:274		
+js0002			
+js0003	lib/rules/keyword-spacing.js:346		
+js0004	lib/languages/js/source-code/token-store/index.js:22		
+js0005	lib/rules/no-redeclare.js:160		
+js0006	lib/rules/no-unreachable.js:244		
+js0007		builtin: the server's own stub	
+js0008			
+js0009	lib/rules/max-statements-per-line.js:188		
+js0010			
+js0011			
+js0012			
+js0013		builtin: the server's own stub	
+js0014	lib/api.js:6	module.exports is keyword-like; oracle points at file top	
+js0015			
+js0016	lib/rules/no-unused-vars.js:1004		
+js0017	lib/rules/logical-assignment-operators.js:510		
+js0018	node_modules/@eslint/core/dist/esm/types.d.ts:91	object-literal key is itself a declaration; oracle gives its contextual type	
+js0019	lib/rules/no-extra-parens.js:541		
+js0020			
+js0021	lib/types/index.d.ts:695	object-literal key is itself a declaration; oracle gives its contextual type	
+js0022	lib/shared/naming.js:95		
+js0023	lib/rules/one-var.js:112		
+js0024	lib/types/index.d.ts:340		
+js0025	lib/rules/no-unsafe-finally.js:16		
+js0026		builtin: the server's own stub	
+js0027	lib/rules/camelcase.js:201		
+js0028	lib/types/index.d.ts:171		
+js0029	lib/rules/radix.js:107		
+js0030	lib/types/index.d.ts:302;lib/types/index.d.ts:488;lib/languages/js/source-code/token-store/index.js:379		reviewed: add the TokenStore implementation beside the typing
+js0031	lib/linter/code-path-analysis/code-path-segment.js:133		
+js0032	lib/rules/no-shadow.js:528		
+js0033		builtin: the server's own stub	
+js0034		builtin: the server's own stub	
+js0035	node_modules/@eslint-community/regexpp/index.d.ts:430		
+js0036	lib/rules/no-new.js:14		
+js0037	lib/rules/newline-after-var.js:214		
+js0038	lib/rules/indent-legacy.js:177		
+js0039	lib/rules/block-spacing.js:95		
+js0040			
+js0041	lib/rules/no-unused-private-class-members.js:171		
+js0042	lib/rules/indent.js:680		
+js0043	lib/linter/linter.js:42;node_modules/@types/debug/index.d.ts:40		
+js0044	lib/rules/no-dupe-keys.js:32		
+js0045			
+js0046			
+js0047			
+js0048			
+js0049	lib/rules/quote-props.js:125		
+js0050	lib/rules/indent.js:909		
+js0051	lib/rules/no-useless-return.js:377		
+js0052			
+js0053	lib/linter/file-context.js:83		
+js0054	lib/rules/padding-line-between-statements.js:33		
+js0055	lib/rules/no-duplicate-imports.js:264		
+js0056	lib/rules/no-await-in-loop.js:12		
+js0057			
+js0058			
+js0059	lib/types/index.d.ts:310;lib/types/index.d.ts:567;lib/languages/js/source-code/token-store/index.js:416		reviewed: add the TokenStore implementation beside the typing
+js0060	lib/rules/utils/ast-utils.js:2971;lib/rules/utils/ast-utils.js:1333		
+js0061	lib/rules/quotes.js:30		
+js0062			
+js0063	lib/types/index.d.ts:306;lib/types/index.d.ts:477;lib/languages/js/source-code/token-store/index.js:397		reviewed: add the TokenStore implementation beside the typing
+js0064			
+js0065	node_modules/@eslint/core/dist/esm/types.d.ts:258;lib/linter/file-context.js:34		reviewed: add the runtime FileContext field beside the typing
+js0066		builtin: the server's own stub	
+js0067	lib/rules/no-unreachable.js:226		
+js0068			
+js0069	lib/config/config.js:452		
+js0070	lib/eslint/eslint.js:959		
+js0071	lib/rules/no-unused-labels.js:78		
+js0072		builtin: the server's own stub	
+js0073			
+js0074		builtin: the server's own stub	
+js0075	node_modules/@eslint/core/dist/esm/types.d.ts:110		
+js0076	lib/rules/array-callback-return.js:435		
+js0077			
+js0078	lib/rules/semi.js:127		
+js0079	lib/rules/implicit-arrow-linebreak.js:122		
+js0080	node_modules/@types/estree/index.d.ts:389		
+js0081	lib/rules/no-extra-parens.js:120;lib/rules/utils/ast-utils.js:1965		
+js0082		types the server fetched; not installed in the project	
+js0083			
+js0084	conf/globals.js:138		
+js0085	lib/linter/code-path-analysis/code-path-segment.js:133		
+js0086	lib/rules/quote-props.js:280		
+js0087	lib/rules/id-match.js:178		
+js0088			
+js0089			
+js0090	lib/rules/utils/ast-utils.js:2703		
+js0091	lib/rules/utils/ast-utils.js:1570		
+js0092			
+js0093	lib/linter/code-path-analysis/code-path-state.js:1413		
+js0094	lib/rules/no-loss-of-precision.js:18		
+js0095	lib/rules/semi.js:464		
+js0096	lib/types/index.d.ts:658		
+js0097		builtin: the server's own stub	
+js0098			
+js0099	lib/linter/file-report.js:31		
+js0100	lib/rules/no-console.js:127		
+js0101	lib/linter/code-path-analysis/fork-context.js:193		
+js0102	lib/shared/traverser.js:60		
+js0103	lib/linter/esquery.js:289		
+js0104		builtin: the server's own stub	
+js0105	node_modules/@eslint/core/dist/esm/types.d.ts:367	object-literal key is itself a declaration; oracle gives its contextual type	
+js0106	lib/rules/yoda.js:83		
+js0107			
+js0108			
+js0109	lib/rules/utils/ast-utils.js:67		
+js0110	node_modules/@eslint/core/dist/esm/types.d.ts:225	object-literal key is itself a declaration; oracle gives its contextual type	
+js0111	lib/eslint/eslint-helpers.js:1023		
+js0112	lib/rules/no-loss-of-precision.js:161		
+js0113	lib/eslint/eslint-helpers.js:206		
+js0114	lib/rules/no-this-before-super.js:146		
+js0115	lib/rules/max-statements-per-line.js:176		
+js0116	lib/rules/complexity.js:20		
+js0117			
+js0118	lib/rules/indent.js:987		
+js0119	lib/types/index.d.ts:340		
+js0120	node_modules/@eslint/core/dist/esm/types.d.ts:258;lib/linter/file-context.js:34		reviewed: add the runtime FileContext field beside the typing
+js0121	lib/rules/for-direction.js:47		
+js0122			
+js0123			
+js0124	lib/types/index.d.ts:153		
+js0125	lib/linter/source-code-fixer.js:49		
+js0126	lib/rules/utils/string-utils.js:8		
+js0127	lib/rules/no-import-assign.js:15		
+js0128	lib/rules/no-extra-boolean-cast.js:88		
+js0129	lib/shared/deep-merge-arrays.js:13		
+js0130	lib/rules/arrow-spacing.js:111		
+js0131	lib/rules/keyword-spacing.js:22		
+js0132			
+js0133	lib/shared/logging.js:11		
+js0134	lib/rules/indent.js:1215		
+js0135			
+js0136	node_modules/@eslint/core/dist/esm/types.d.ts:382	object-literal key is itself a declaration; oracle gives its contextual type	
+js0137	lib/config/config.js:87		
+js0138		builtin: the server's own stub	
+js0139	node_modules/@eslint/core/dist/esm/types.d.ts:367	object-literal key is itself a declaration; oracle gives its contextual type	
+js0140		builtin: the server's own stub	
+js0141	lib/languages/js/source-code/source-code.js:99		
+js0142		types the server fetched; not installed in the project	
+js0143			
+js0144	lib/api.js:12	shorthand property of a require binding: the oracle stops at the binding, merl follows the require to class ESLint (#328)	
+js0145	node_modules/@eslint/core/dist/esm/types.d.ts:279		
+js0146	conf/globals.js:83		
+js0147	lib/languages/js/source-code/token-store/filter-cursor.js:32		
+js0148			
+js0149	node_modules/@eslint/core/dist/esm/types.d.ts:367	object-literal key is itself a declaration; oracle gives its contextual type	
+js0150			
+js0151	lib/rules/lines-around-comment.js:339		
+js0152	lib/config/flat-config-schema.js:320		
+js0153			
+js0154	lib/rules/utils/ast-utils.js:1585		
+js0155	lib/rules/max-len.js:120		
+js0156	lib/rules/prefer-const.js:290		
+js0157	lib/rules/prefer-object-spread.js:152		
+js0158	node_modules/@eslint/core/dist/esm/types.d.ts:367	object-literal key is itself a declaration; oracle gives its contextual type	
+js0159			
+js0160	lib/linter/linter.js:106		
+js0161	lib/rules/indent.js:630		
+js0162	lib/rules/max-lines-per-function.js:123		
+js0163	lib/languages/js/source-code/source-code.js:462		
+js0164			
+js0165	lib/rules/prefer-regex-literals.js:366		
+js0166	lib/types/index.d.ts:101		
+js0167	lib/languages/js/source-code/source-code.js:730		
+js0168	lib/rules/newline-before-return.js:185		
+js0169	lib/rules/no-underscore-dangle.js:241		
+js0170	lib/linter/code-path-analysis/code-path-analyzer.js:756		
+js0171		builtin: the server's own stub	
+js0172	lib/rules/object-curly-spacing.js:258		
+js0173		builtin: the server's own stub	
+js0174	node_modules/@types/estree/index.d.ts:554		
+js0175	lib/rules/no-extra-parens.js:1570		
+js0176	lib/types/index.d.ts:688		
+js0177			
+js0178	lib/rules/no-use-before-define.js:19		
+js0179	lib/rules/no-useless-escape.js:120		
+js0180			
+js0181	lib/rules/new-cap.js:18		
+js0182	lib/rules/spaced-comment.js:347		
+js0183			
+js0184	lib/rules/default-param-last.js:13		
+js0185	lib/linter/code-path-analysis/code-path-state.js:1092		
+js0186	lib/rules/keyword-spacing.js:337		
+js0187	lib/rules/preserve-caught-error.js:375		
+js0188	lib/rules/no-shadow.js:34		
+js0189			
+js0190	lib/rules/require-yield.js:75		
+js0191	lib/rules/keyword-spacing.js:685		
+js0192	node_modules/@types/estree/index.d.ts:309		
+js0193	lib/eslint/eslint-helpers.js:457		
+js0194	lib/rules/complexity.js:144		
+js0195	lib/rules/utils/regular-expressions.js:11		
+js0196	lib/languages/js/source-code/token-store/index.js:23		
+js0197	lib/rules/keyword-spacing.js:26		
+js0198		builtin: the server's own stub	
+js0199	lib/types/index.d.ts:682		
+js0200	lib/rules/no-constant-condition.js:140		
+js0201	eslint.config.js:32		
+js0202	lib/linter/code-path-analysis/code-path-state.js:2204		
+js0203	lib/rules/no-useless-escape.js:54		
+js0204	lib/linter/source-code-fixer.js:11;node_modules/@types/debug/index.d.ts:40		
+js0205	lib/rules/array-element-newline.js:140	object-literal key is itself a declaration; oracle gives its contextual type	
+js0206	Makefile.js:108		
+js0207	lib/rules/semi.js:127		
+js0208	lib/rules/semi.js:297		
+js0209			
+js0210	Makefile.js:1088		
+js0211			
+js0212	lib/linter/file-report.js:67		
+js0213			
+js0214	lib/rules/indent-legacy.js:814		
+js0215	node_modules/@eslint/core/dist/esm/types.d.ts:279		
+js0216	lib/linter/code-path-analysis/code-path-segment.js:45		
+js0217			
+js0218			
+js0219	lib/shared/traverser.js:62;lib/shared/traverser.js:113;lib/shared/traverser.js:135;lib/shared/traverser.js:167		
+js0220	lib/rules/lines-around-directive.js:125		
+js0221	lib/rules/comma-dangle.js:411		
+js0222	lib/rules/no-underscore-dangle.js:109		
+js0223	lib/rules/semi-spacing.js:78		
+js0224	lib/rules/no-regex-spaces.js:20		
+js0225	lib/rules/indent-legacy.js:199		
+js0226	lib/eslint/worker.js:43		
+js0227	lib/rules/utils/ast-utils.js:2955;lib/rules/utils/ast-utils.js:1003		
+js0228	lib/rules/no-extra-parens.js:1101		
+js0229	node_modules/@types/estree/index.d.ts:389		
+js0230	node_modules/@types/estree/index.d.ts:92		
+js0231	lib/types/index.d.ts:674		
+js0232			
+js0233	lib/rules/no-extra-parens.js:892		
+js0234	lib/rules/no-unsafe-finally.js:114		
+js0235	lib/rules/no-extra-parens.js:422		
+js0236	lib/rules/no-mixed-requires.js:239		
+js0237	lib/rules/no-unused-vars.js:669		
+js0238	lib/linter/code-path-analysis/code-path-segment.js:45		
+js0239	lib/rules/object-shorthand.js:8		
+js0240			
+js0241		builtin: the server's own stub	
+js0242	lib/types/index.d.ts:294;lib/types/index.d.ts:389;lib/languages/js/source-code/token-store/index.js:343		reviewed: add the TokenStore implementation beside the typing
+js0243	lib/linter/code-path-analysis/debug-helpers.js:185		
+js0244	lib/rules/no-mixed-operators.js:22		
+js0245	lib/eslint/eslint-helpers.js:141		
+js0246			
+js0247		builtin: the server's own stub	
+js0248	lib/rules/key-spacing.js:396		
+js0249		builtin: the server's own stub	
+js0250		builtin: the server's own stub	
+js0251	lib/rules/no-extra-parens.js:638		
+js0252	lib/rules/no-extra-semi.js:87		
+js0253	lib/rules/object-shorthand.js:464		
+js0254			
+js0255	lib/linter/code-path-analysis/code-path-segment.js:45		
+js0256	lib/rules/lines-around-directive.js:141		
+js0257	lib/rules/no-unused-expressions.js:200		
+js0258			
+js0259	lib/options.js:43		
+js0260	lib/languages/js/source-code/source-code.js:283		
+js0261		builtin: the server's own stub	
+js0262			
+js0263	lib/rules/no-unused-vars.js:994		
+js0264		types the server fetched; not installed in the project	
+js0265	lib/rules/no-extra-parens.js:262		
+js0266	lib/linter/code-path-analysis/fork-context.js:164		
+js0267		builtin: the server's own stub	
+js0268	lib/types/index.d.ts:674		
+js0269		types the server fetched; not installed in the project	

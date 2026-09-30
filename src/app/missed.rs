@@ -77,8 +77,8 @@ struct Run {
 struct Trip {
     kind: PickerKind,
     n: usize,
-    /// The file and 0-based line it was opened on, and the file relative to the root.
-    from: (PathBuf, usize),
+    /// The file and the line it was opened on, and the file relative to the root.
+    from: (PathBuf, TextLine),
     here: Option<PathBuf>,
     /// The word under the cursor there.
     word: Option<String>,
@@ -95,16 +95,25 @@ struct Trip {
 struct Spot {
     line: usize,
     col: usize,
+    deleted: Option<(usize, usize)>,
     want_x: usize,
-    anchor: Option<(usize, usize)>,
+    anchor: Option<(TextLine, usize)>,
     top: (usize, usize),
     left: usize,
     center: bool,
     row: Option<usize>,
 }
 
-/// Where a run ends: the cursor and a selection's anchor, or a picker's row.
-type End = ((usize, usize), Option<(usize, usize)>);
+impl Spot {
+    /// The line the cursor stood on, a deleted one included.
+    fn at(&self) -> TextLine {
+        self.deleted
+            .map_or(TextLine::File(self.line), |(k, i)| TextLine::Deleted(k, i))
+    }
+}
+
+/// Where a run ends: the cursor and a selection's anchor, or a picker's row (as a line's).
+type End = ((TextLine, usize), Option<(TextLine, usize)>);
 
 /// The most presses a missed key may take when `spent` were: at most one in [`SHARE`], saving
 /// at least [`SAVED`]; 0 when no key can.
@@ -208,13 +217,13 @@ impl App {
     }
 
     fn judge_run(&mut self, run: Run) {
-        let from = (run.from.line, run.from.col);
+        let from = (run.from.at(), run.from.col);
         // The file changed under the run, or went: there is no same end to reach.
         let deleting = !run.text.is_empty();
         if run.mode != self.mode
             || run.path != self.buf.path
             || run.from.row.is_some() != self.picker.is_some()
-            || !deleting && (run.lines != self.buf.lines.len() || self.clamp_pos(from) != from)
+            || !deleting && (run.lines != self.buf.lines.len() || self.clamp_place(from) != from)
         {
             return;
         }
@@ -252,16 +261,24 @@ impl App {
         if self.review.is_none() || run.mode != Mode::Normal || !plain {
             return None;
         }
-        let hunks = self.walk_hunks();
-        let (from, to) = (run.from.line, self.line);
+        let hunks = &self.diff.hunks;
+        let (from, to) = (run.from.at(), self.at());
         let (&start, key) = match to.cmp(&from) {
             std::cmp::Ordering::Greater => (hunks.iter().find(|&&h| h > from)?, "c"),
             std::cmp::Ordering::Less => (hunks.iter().rev().find(|&&h| h < from)?, "C"),
             std::cmp::Ordering::Equal => return None,
         };
+        // The hunk runs on over the lines the branch deleted or added, up to the next one.
+        let changed = |t: TextLine| match t {
+            TextLine::Deleted(..) => true,
+            TextLine::File(l) => self.diff.marks.contains_key(&l),
+        };
         let mut end = start;
-        while self.diff.marks.contains_key(&(end + 1)) && !hunks.contains(&(end + 1)) {
-            end += 1;
+        while let Some(t) = self
+            .next_line(end)
+            .filter(|&t| changed(t) && !hunks.contains(&t))
+        {
+            end = t;
         }
         let hunk = start..=end;
         (hunk.contains(&to) && !hunk.contains(&from)).then_some((1, key))
@@ -348,7 +365,7 @@ impl App {
                         break;
                     }
                     // An arrow moves one line or one row at most.
-                    let apart = self.end().0.0.abs_diff(end.0.0);
+                    let apart = self.end().0.0.key().abs_diff(end.0.0.key());
                     if m + f + apart.max(1) > cap {
                         break;
                     }
@@ -418,7 +435,7 @@ impl App {
         let next = self
             .review
             .as_ref()
-            .filter(|_| !self.walk_hunks().iter().any(|&h| h > self.line))
+            .filter(|_| !self.diff.hunks.iter().any(|&h| h > self.at()))
             .and_then(|r| {
                 let back = self.hunk_left(r).map(|(rel, _)| rel);
                 back.or_else(|| {
@@ -429,10 +446,11 @@ impl App {
         Some(Trip {
             kind,
             n: 1,
-            from: (self.buf.path.clone()?, self.line),
+            from: (self.buf.path.clone()?, self.at()),
             here: self.rel_current(),
-            // The preview has no word under the cursor for `d` or `u` to read.
-            word: (!self.previewing())
+            // The preview has no word under the cursor for `d` or `u` to read, nor a line the
+            // branch deleted, where they say `deleted` (#439).
+            word: (!self.previewing() && self.deleted.is_none())
                 .then(|| self.word_under(search::word_chars(self.kind(), false)))
                 .flatten(),
             query: String::new(),
@@ -446,7 +464,7 @@ impl App {
         let Some(path) = self.buf.path.clone() else {
             return;
         };
-        if budget == 0 || (&path, self.line) == (&trip.from.0, trip.from.1) {
+        if budget == 0 || (&path, self.at()) == (&trip.from.0, trip.from.1) {
             return;
         }
         let found = match trip.kind {
@@ -499,6 +517,7 @@ impl App {
         Spot {
             line: self.line,
             col: self.col,
+            deleted: self.deleted,
             want_x: self.want_x,
             anchor: self.anchor,
             top: (self.top_line, self.top_row),
@@ -509,7 +528,8 @@ impl App {
     }
 
     fn put(&mut self, s: &Spot) {
-        (self.line, self.col, self.want_x, self.anchor) = (s.line, s.col, s.want_x, s.anchor);
+        (self.line, self.col, self.deleted) = (s.line, s.col, s.deleted);
+        (self.want_x, self.anchor) = (s.want_x, s.anchor);
         (self.top_line, self.top_row) = s.top;
         (self.left, self.center) = (s.left, s.center);
         if let (Some(p), Some(row)) = (&mut self.picker, s.row) {
@@ -519,8 +539,8 @@ impl App {
 
     fn end(&self) -> End {
         match &self.picker {
-            Some(p) => ((p.selected, 0), None),
-            None => ((self.line, self.col), self.selection().and(self.anchor)),
+            Some(p) => ((TextLine::File(p.selected), 0), None),
+            None => ((self.at(), self.col), self.selection().and(self.anchor)),
         }
     }
 }

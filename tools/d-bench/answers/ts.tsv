@@ -1,0 +1,301 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+ts0000	shared/editor/lib/markdown/serializer.ts:288		
+ts0001	app/components/FilterOptions.tsx:62		
+ts0002	app/hooks/useEditingFocus.ts:15		
+ts0003			
+ts0004	plugins/webhooks/server/tasks/DeliverWebhookTask.ts:78		
+ts0005			
+ts0006			
+ts0007		builtin: the server's own stub	
+ts0008	shared/utils/rfc6902/patch.ts:14;shared/utils/rfc6902/patch.ts:15		
+ts0009	server/routes/api/documents/documents.test.ts:1650	destructuring binding is a declaration; oracle points at the property	
+ts0010	server/scripts/reset-encrypted-data.ts:21		
+ts0011			
+ts0012	shared/types.ts:535		
+ts0013			
+ts0014	server/utils/ZipHelper.ts:16		
+ts0015	app/components/Sidebar/components/HistoryNavigation.tsx:47		
+ts0016	app/components/NudeButton.tsx:13		
+ts0017			
+ts0018	app/models/base/Model.ts:69		
+ts0019		builtin: the server's own stub	
+ts0020			
+ts0021			
+ts0022	plugins/webhooks/server/api/webhookSubscriptions.test.ts:349		
+ts0023	app/hooks/usePaginatedRequest.ts:10	destructuring binding is a declaration; oracle points at the property	
+ts0024		builtin: the server's own stub	
+ts0025	app/stores/RootStore.ts:40		
+ts0026			
+ts0027			
+ts0028			
+ts0029			
+ts0030			
+ts0031			
+ts0032			
+ts0033	server/queues/tasks/DocumentImportTask.ts:90;server/context.ts:15		
+ts0034	app/models/Revision.ts:16		
+ts0035			
+ts0036	app/components/primitives/Popover.tsx:60		
+ts0037	server/routes/api/documents/documents.test.ts:4884		
+ts0038			
+ts0039	server/queues/tasks/UploadIntegrationLogoTask.ts:46		
+ts0040			
+ts0041	app/hooks/useStores.ts:10		
+ts0042	app/scenes/Settings/components/DomainManagement.tsx:45		
+ts0043	shared/types.ts:236		
+ts0044	shared/components/Text.tsx:27		
+ts0045	server/storage/redis.ts:42		
+ts0046	shared/editor/lib/ChangesetHelper.ts:279		
+ts0047	app/models/Share.ts:33		
+ts0048			
+ts0049	shared/utils/urls.ts:37		
+ts0050	server/models/User.ts:136		
+ts0051		builtin: the server's own stub	
+ts0052			
+ts0053			
+ts0054	shared/editor/plugins/AnchorPlugin.ts:10;shared/editor/plugins/AnchorPlugin.ts:11		
+ts0055	shared/editor/components/DisabledEmbed.tsx:7		
+ts0056			
+ts0057			
+ts0058	server/test/factories.ts:125		
+ts0059		builtin: the server's own stub	
+ts0060	shared/types.ts:2		
+ts0061	server/test/TestServer.ts:196		
+ts0062	app/models/base/NavigableModel.ts:11		
+ts0063			
+ts0064			
+ts0065	server/test/factories.ts:389		
+ts0066	server/types.ts:92		
+ts0067			
+ts0068			
+ts0069			
+ts0070			
+ts0071			
+ts0072	app/components/LightboxState.ts:16		
+ts0073			
+ts0074			
+ts0075	server/models/Document.ts:309		
+ts0076	shared/types.ts:71		
+ts0077			
+ts0078	server/models/UserMembership.ts:79		
+ts0079			
+ts0080			
+ts0081	server/models/User.ts:136		
+ts0082			
+ts0083	server/tools/util.ts:63		
+ts0084			
+ts0085			
+ts0086			
+ts0087	server/test/factories.ts:211		
+ts0088	server/queues/tasks/DuplicateCollectionDocumentsTask.ts:15		
+ts0089			
+ts0090			
+ts0091		builtin: the server's own stub	
+ts0092	app/components/Table.tsx:626		
+ts0093			
+ts0094	app/components/WebsocketProvider.tsx:4	package not installed: oracle stops at the import line	
+ts0095			
+ts0096			
+ts0097			
+ts0098			
+ts0099			
+ts0100			
+ts0101			
+ts0102	server/env.ts:877		
+ts0103			
+ts0104	shared/types.ts:17		
+ts0105	server/utils/passport.ts:5	package not installed: oracle stops at the import line	
+ts0106	server/test/McpHelper.ts:118		
+ts0107	server/test/factories.ts:211		
+ts0108	shared/editor/lib/ExtensionManager.ts:1	package not installed: oracle stops at the import line	
+ts0109			
+ts0110	app/components/Icons/ArrowIcon.tsx:1		
+ts0111			
+ts0112	server/presenters/oauthClient.ts:89		
+ts0113	server/presenters/membership.ts:15		
+ts0114	server/commands/documentCollaborativeUpdater.test.ts:12		
+ts0115	shared/types.ts:559		
+ts0116	shared/types.ts:239		
+ts0117			
+ts0118	server/models/Document.ts:366		
+ts0119			
+ts0120	app/components/IconPicker/utils.ts:8		
+ts0121	server/models/UserMembership.ts:71		
+ts0122			
+ts0123			
+ts0124			
+ts0125	server/test/factories.ts:211		
+ts0126	app/models/Share.ts:12		
+ts0127			
+ts0128			
+ts0129			
+ts0130	app/components/Input.tsx:354		
+ts0131		builtin: the server's own stub	
+ts0132	shared/types.ts:272		
+ts0133			
+ts0134		builtin: the server's own stub	
+ts0135	server/models/Share.ts:237		
+ts0136			
+ts0137			
+ts0138	shared/types.ts:26		
+ts0139			
+ts0140		builtin: the server's own stub	
+ts0141	app/models/ApiKey.ts:10		
+ts0142			
+ts0143	server/models/helpers/AttachmentHelper.ts:16		
+ts0144	app/components/IconPicker/components/GridTemplate.tsx:101		
+ts0145			
+ts0146	server/models/helpers/ProsemirrorHelper.tsx:140		
+ts0147	app/components/Table.tsx:107		
+ts0148			
+ts0149			
+ts0150			
+ts0151			
+ts0152	server/utils/requestFilteringAgent/index.ts:225		
+ts0153	server/models/GroupUser.ts:41		
+ts0154	shared/editor/nodes/CheckboxList.ts:5		
+ts0155	app/scenes/Settings/Groups.tsx:7	package not installed: oracle stops at the import line	
+ts0156			
+ts0157	server/test/factories.ts:389		
+ts0158	app/components/InputSelect.tsx:222		
+ts0159	app/models/Share.ts:136		
+ts0160	app/hooks/useStores.ts:10		
+ts0161			
+ts0162			
+ts0163	app/scenes/Document/components/Comments/CommentThreadItem.tsx:112		
+ts0164	app/components/Guide.tsx:3	package not installed: oracle stops at the import line	
+ts0165			
+ts0166			
+ts0167			
+ts0168			
+ts0169	server/types.ts:92		
+ts0170	app/components/Notice.tsx:42		
+ts0171	shared/editor/nodes/ToggleBlock.ts:9		
+ts0172	server/tools/documents.test.ts:660		
+ts0173	server/storage/files/BaseStorage.ts:346		
+ts0174	app/components/ModelSelection.ts:10;app/components/ModelSelection.ts:13		
+ts0175	app/components/LightboxState.ts:10		
+ts0176	plugins/slack/server/env.ts:44		
+ts0177			
+ts0178			
+ts0179			
+ts0180	app/editor/extensions/HoverPreviews.tsx:44		
+ts0181			
+ts0182		builtin: the server's own stub	
+ts0183			
+ts0184	server/queues/processors/BacklinksProcessor.ts:15		
+ts0185			
+ts0186	shared/types.ts:530		
+ts0187			
+ts0188	shared/utils/emoji.ts:116		
+ts0189	server/test/factories.ts:211		
+ts0190	shared/editor/extensions/HeadingPrefix.ts:163		
+ts0191			
+ts0192	shared/utils/error.ts:7		
+ts0193			
+ts0194			
+ts0195	server/models/helpers/Filters.test.ts:1	package not installed: oracle stops at the import line	
+ts0196			
+ts0197			
+ts0198	server/emails/templates/GroupCommentMentionedEmail.tsx:36		
+ts0199			
+ts0200			
+ts0201			
+ts0202			
+ts0203			
+ts0204		builtin: the server's own stub	
+ts0205	app/stores/EmojiStore.ts:7		
+ts0206	server/models/FileOperation.test.ts:1	node types not installed: oracle stops at the import line	
+ts0207			
+ts0208	server/errors.ts:10		
+ts0209	server/middlewares/authentication.ts:52		
+ts0210	server/emails/templates/WelcomeEmail.tsx:25		
+ts0211			
+ts0212	shared/types.ts:126		
+ts0213			
+ts0214	server/routes/api/shares/schema.ts:127		
+ts0215	shared/types.ts:28		
+ts0216			
+ts0217		builtin: the server's own stub	
+ts0218	server/storage/redis.ts:42		
+ts0219			
+ts0220	shared/editor/plugins/UploadPlugin.ts:141		
+ts0221	app/models/base/Model.ts:69		
+ts0222	app/menus/AccountMenu.tsx:24;app/menus/AccountMenu.tsx:54		reviewed: component itself (24) as fair as its default export
+ts0223	server/test/factories.ts:545		
+ts0224	shared/utils/rfc6902/diff.ts:397		
+ts0225	server/routes/api/fileOperations/fileOperations.test.ts:262		
+ts0226			
+ts0227	server/models/Team.ts:82		
+ts0228	plugins/search-postgres/server/PostgresSearchProvider.ts:291		
+ts0229	app/editor/menus/tableCol.tsx:6		
+ts0230			
+ts0231			
+ts0232	shared/editor/queries/table.ts:7	package not installed: oracle stops at the import line	
+ts0233	server/models/AccessRequest.ts:83		
+ts0234	shared/editor/lib/listInputRule.test.ts:57		
+ts0235			
+ts0236			
+ts0237			
+ts0238			
+ts0239	shared/editor/nodes/TableRow.ts:236		
+ts0240	server/queues/tasks/base/CronTask.ts:51		
+ts0241			
+ts0242	app/hooks/useKeyDown.ts:38		
+ts0243	app/scenes/Document/components/RevisionViewer.tsx:1	package not installed: oracle stops at the import line	
+ts0244	shared/types.ts:126		
+ts0245	server/emails/templates/ShareDocumentUpdatedEmail.tsx:147		
+ts0246	app/hooks/useCurrentUser.ts:12		
+ts0247	app/actions/definitions/documents.tsx:574		
+ts0248			
+ts0249	server/models/Reaction.ts:55		
+ts0250			
+ts0251			
+ts0252	app/components/Breadcrumb.tsx:113		
+ts0253			
+ts0254	server/scripts/20220722000000-backfill-subscriptions.ts:23		
+ts0255	shared/types.ts:189;shared/types.ts:197	a type and a const of one name: the oracle answers both lines, and merl offers both in a picker once the wrapped type header is no longer dropped (#331)	
+ts0256			
+ts0257			
+ts0258	shared/components/EmojiText.tsx:5		
+ts0259			
+ts0260	shared/editor/nodes/Image.tsx:6	package not installed: oracle stops at the import line	
+ts0261	server/utils/ZipHelper.test.ts:10		
+ts0262	app/components/DocumentCard.tsx:6	package not installed: oracle stops at the import line	
+ts0263	server/routes/api/shares/schema.ts:2	package not installed: oracle stops at the import line	
+ts0264	shared/editor/lib/multiplayer.ts:77		
+ts0265			
+ts0266			
+ts0267	server/queues/tasks/base/BaseTask.ts:4		
+ts0268	app/editor/components/SuggestionsMenuItem.tsx:2	package not installed: oracle stops at the import line	
+ts0269	server/routes/api/urls/urls.ts:282		
+ts0270	app/scenes/Login/components/AuthenticationProvider.tsx:80		
+ts0271	server/models/base/IdModel.ts:3		
+ts0272			
+ts0273			
+ts0274			
+ts0275	app/stores/base/StorePersistence.ts:96		
+ts0276	server/utils/LogoutTokenStore.test.ts:60		
+ts0277			
+ts0278			
+ts0279			
+ts0280			
+ts0281			
+ts0282			
+ts0283	shared/utils/time.ts:22		
+ts0284	app/editor/extensions/deburrWithMap.ts:22		
+ts0285	server/commands/documentDuplicator.ts:69		
+ts0286	server/utils/RateLimiter.ts:196		
+ts0287			
+ts0288	server/routes/api/documents/documents.test.ts:7423		
+ts0289			
+ts0290	app/scenes/DocumentDelete.tsx:53		
+ts0291	server/models/base/IdModel.ts:21		
+ts0292	server/utils/fetch.ts:268		
+ts0293	shared/editor/commands/table.ts:962		
+ts0294			
+ts0295			
+ts0296	app/scenes/Settings/components/StickyFilters.tsx:8		
+ts0297		builtin: the server's own stub	
+ts0298	shared/utils/rfc6902/diff.ts:54		
+ts0299	app/components/Notifications/Notifications.tsx:5	package not installed: oracle stops at the import line	

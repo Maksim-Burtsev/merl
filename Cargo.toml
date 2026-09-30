@@ -21,7 +21,7 @@ ignore = "0.4"
 notify = "8"
 nucleo = "0.5"
 pulldown-cmark = { version = "0.13", default-features = false }
-ratatui = "0.30"
+ratatui = { version = "0.30", features = ["unstable-rendered-line-info"] }
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 signal-hook = "0.4"
@@ -30,3 +30,9 @@ toml = "1.1"
 two-face = "0.5"
 unicase = "2.6"
 unicode-segmentation = "1"
+
+# The tests run regex, syntect and nucleo in the dev profile, where compiling the symbol patterns
+# alone costs seconds a press of `D`: optimised dependencies take `cargo test` from ~75 s to ~10 s.
+# merl's own code stays unoptimised, so it builds and debugs as before.
+[profile.dev.package."*"]
+opt-level = 2

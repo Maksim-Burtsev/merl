@@ -220,3 +220,81 @@ fn a_symbol_query_is_literal_not_a_regex() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// Enter past the cap opens the row nucleo ranks first, whether the answer to the query was on
+/// screen when it was pressed or came after it (#293). The grep hands its rows in name order,
+/// `azebra` before `zebra`; nucleo puts `zebra`, matched from its first letter, on top.
+#[test]
+fn enter_past_the_cap_opens_the_same_row_before_and_after_the_answer() {
+    let many: String = (0..search::MAX_HITS)
+        .map(|i| format!("func a{i}() {{}}\n"))
+        .collect();
+    let (dir, mut a) = project_app(
+        "cap-enter",
+        &[
+            ("a.go", &many),
+            ("z.go", "func azebra() {}\nfunc zebra() {}\n"),
+        ],
+    );
+    let mut jump = |pending: bool| {
+        press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+        typed(&mut a, "zebra");
+        if pending {
+            press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+            a.settle_search();
+        } else {
+            a.settle_search();
+            press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        }
+        assert_eq!(a.mode, Mode::Normal, "Enter opened a row");
+        at(&a)
+    };
+    let (before, after) = (jump(true), jump(false));
+    assert_eq!(before, after);
+    assert_eq!(after, (dir.join("z.go"), 1), "zebra, not azebra");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// The query is a name, typed as it is written: nucleo's `^`, `$`, a leading `!` or `'` and
+/// `\` read nothing into it, under the cap or past it, and Enter opens the row that holds it,
+/// before the answer or after (#293).
+#[test]
+fn a_symbol_query_reads_no_pattern_syntax() {
+    let tests = "test \"costs 5$\" {}\ntest \"^up\" {}\ntest \"!bang\" {}\ntest \"'quoted\" {}\ntest \"a\\\\$\" {}\n";
+    let many: String = (0..search::MAX_HITS)
+        .map(|i| format!("func a{i}() {{}}\n"))
+        .collect();
+    for files in [
+        vec![("t.zig", tests)],
+        vec![("a.go", &many), ("t.zig", tests)],
+    ] {
+        let live = files.len() > 1;
+        let (dir, mut a) = project_app("syntax", &files);
+        for (line, query) in [
+            (0, "5$"),
+            (1, "^up"),
+            (2, "!bang"),
+            (3, "'quoted"),
+            (4, "a\\\\$"),
+        ] {
+            for pending in [true, false] {
+                press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+                typed(&mut a, query);
+                a.picker.as_mut().unwrap().settle();
+                if pending {
+                    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+                    a.settle_search();
+                } else {
+                    a.settle_search();
+                    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+                }
+                assert_eq!(
+                    (a.mode, at(&a)),
+                    (Mode::Normal, (dir.join("t.zig"), line)),
+                    "{query}, live {live}, pending {pending}"
+                );
+            }
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+}

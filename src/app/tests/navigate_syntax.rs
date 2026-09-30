@@ -1305,6 +1305,70 @@ fn a_linked_package_is_the_version_it_links() {
     std::fs::remove_dir_all(&store).unwrap();
 }
 
+/// #392: a package is not installed only when nothing in the project supplies it: an alias of a
+/// JavaScript project's `jsconfig.json`, a name under `baseUrl`, a `declare module` all do.
+#[test]
+fn what_the_project_supplies_is_no_missing_package() {
+    let (js, mut a) = project_app(
+        "supplied-js",
+        &[
+            (
+                "jsconfig.json",
+                "{ \"compilerOptions\": { \"paths\": { \"@components/*\": [\"src/components/*\"] } } }\n",
+            ),
+            ("src/components/Button.js", "export function Button() {}\n"),
+            (
+                "src/main.js",
+                "import { Button } from \"@components/Button\";\n\nButton();\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "src/main.js", "^Button");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Button: via import src/components/Button.js",
+            "src/components/Button.js:1"
+        )
+    );
+    let (ts, mut a) = project_app(
+        "supplied-ts",
+        &[
+            (
+                "tsconfig.json",
+                "{ \"compilerOptions\": { \"baseUrl\": \"src\" } }\n",
+            ),
+            ("src/components/Button.ts", "export function Button() {}\n"),
+            (
+                "types/untyped.d.ts",
+                "declare module \"untyped-lib\" {\n  export function helper(): void;\n}\n",
+            ),
+            (
+                "src/main.ts",
+                "import { Button } from \"components/Button\";\nimport { helper } from \"untyped-lib\";\n\nButton();\nhelper();\n",
+            ),
+        ],
+    );
+    for (code, want) in [
+        (
+            "^Button",
+            jump(
+                "Button: via import src/components/Button.ts",
+                "src/components/Button.ts:1",
+            ),
+        ),
+        (
+            "^helper",
+            jump("helper: by name, 1 match", "types/untyped.d.ts:2"),
+        ),
+    ] {
+        d_on(&mut a, "src/main.ts", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    std::fs::remove_dir_all(&js).unwrap();
+    std::fs::remove_dir_all(&ts).unwrap();
+}
+
 /// #141: `@/lib`, `~/lib` and `#lib` are aliases of the project's own modules, no npm scope or
 /// package: what the project does not declare is looked for outside by name, and an alias never
 /// narrows into a scoped package such as `@mui`.
@@ -1828,19 +1892,17 @@ fn an_export_under_another_name_is_followed() {
             "extends TrunkBase|",
             jump("TrunkBase: via import aliased.ts", "aliased.ts:4"),
         ),
+        // The re-export under another name is followed to the class it renames (#335).
         (
             "import { HatchBase|",
-            jump("no definition for HatchBase", "aliased_use.ts:1"),
+            jump("HatchBase: via import repos.ts", "repos.ts:5"),
         ),
         // `HatchBase` is the `UserRepository` of `repos`, not the one `aliased` declares.
         (
             "hatch.deleteUser|(2)",
-            picker(
-                "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+            jump(
+                "deleteUser \u{2192} UserRepository.deleteUser (via hatch: UserRepository)",
+                "repos.ts:10",
             ),
         ),
     ];
@@ -1960,4 +2022,30 @@ fn what_the_review_of_the_typescript_items_found() {
         )
     );
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A call statement shaped like a method header declares nothing (#343): one that passes a
+/// callback or opens with a string, and one wrapped after its `(` whose closer is `);`.
+#[test]
+fn a_call_statement_is_no_method_header() {
+    let mut a = fixture_app("typescript");
+    for (file, code) in [
+        ("lint/a.test.ts", "^  it|(\"works\""),
+        ("lint/socket.ts", "^  action|((event"),
+        ("lint/c.js", "^  isFullLineComment|("),
+    ] {
+        d_on(&mut a, file, code);
+        let word = code
+            .trim_start_matches('^')
+            .trim()
+            .split('|')
+            .next()
+            .unwrap();
+        assert!(a.picker.is_none(), "{file}: {code}");
+        assert_eq!(
+            a.message,
+            format!("no definition for {word}"),
+            "{file}: {code}"
+        );
+    }
 }

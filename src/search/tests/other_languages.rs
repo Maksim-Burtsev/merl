@@ -267,12 +267,14 @@ fn elixir_def_patterns_find_every_def_form() {
     assert_eq!(d("raw"), Vec::<usize>::new(), "a parameter");
     assert_eq!(d("block"), Vec::<usize>::new());
     assert_eq!(d("Jason"), Vec::<usize>::new());
-    assert_eq!(d("guard"), [49], "`defmacrop`, past the trailing `!`");
+    assert_eq!(d("guard!"), [49], "`defmacrop`, with its trailing `!`");
     assert_eq!(d("is_even"), [50], "`defguardp`");
-    // A name Elixir spells with a trailing `?` or `!` is found from the bare word, as
-    // Ruby's is: the cursor on `empty` in `empty?(rows)` reaches `def empty?`.
-    assert_eq!(d("empty"), [52]);
-    assert_eq!(d("put"), [53]);
+    // A trailing `?` or `!` is part of the name (#459): `empty` is not `empty?`.
+    assert_eq!(d("empty?"), [52]);
+    assert_eq!(d("put!"), [53]);
+    assert_eq!(d("empty"), Vec::<usize>::new());
+    assert_eq!(d("put"), Vec::<usize>::new());
+    assert_eq!(d("guard"), Vec::<usize>::new());
     // ExUnit's and Mix's attributes are directives too, so `d` on one has nothing to find
     // rather than a picker of every place the directive is written.
     assert_eq!(d("tag"), Vec::<usize>::new());
@@ -295,6 +297,44 @@ fn elixir_heredocs_hide_what_they_hold() {
     );
 }
 
+/// #437. The `deps/` beside each `mix.exs` from the file up to the root, nearest first: an
+/// umbrella app has none of its own and reads the umbrella's, and nothing above the root counts.
+#[test]
+fn mix_deps_are_those_beside_a_mix_exs_from_the_file_up() {
+    let dir = std::env::temp_dir().join(format!("merl-mix-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let root = dir.join("project");
+    for d in [
+        "deps",
+        "project/deps",
+        "project/apps/shop/lib",
+        "project/apps/web/deps",
+        "project/apps/web/lib",
+        "project/tools/deps",
+    ] {
+        std::fs::create_dir_all(dir.join(d)).unwrap();
+    }
+    for f in [
+        "mix.exs",
+        "project/mix.exs",
+        "project/apps/shop/mix.exs",
+        "project/apps/web/mix.exs",
+    ] {
+        std::fs::write(dir.join(f), "").unwrap();
+    }
+    assert_eq!(
+        mix_deps(&root, &root.join("apps/shop/lib")),
+        [root.join("deps")]
+    );
+    assert_eq!(
+        mix_deps(&root, &root.join("apps/web/lib")),
+        [root.join("apps/web/deps"), root.join("deps")]
+    );
+    // A `deps` with no `mix.exs` beside it is some other directory.
+    assert_eq!(mix_deps(&root, &root.join("tools")), [root.join("deps")]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 #[test]
 fn elixir_scope_roots_and_names() {
     let here = Path::new("lib/my_app/ledger.ex");
@@ -304,17 +344,59 @@ fn elixir_scope_roots_and_names() {
         Path::new("test/ledger_test.exs")
     ));
     assert!(!in_def_scope(Kind::Elixir, here, Path::new("mix.lock")));
-    // `alias` and `import` bind names, but `mix` puts the dependencies in `deps/` inside the
-    // project, so they are project files already and there is no root to leave for.
+    // `alias` and `import` bind no path, and the machine holds no Elixir source to leave for:
+    // the dependencies are the project's `deps/`, [`mix_deps`].
     assert!(imports(Kind::Elixir, EX).is_empty());
     assert!(external_roots(Kind::Elixir, Path::new("/")).is_empty());
     assert!(member_patterns(Kind::Elixir, "parse").is_none());
-    // A function is named under the module it is written in, as in every kind.
+    // A function is named under the module it is written in, as in every kind, and the
+    // module as it is written (#459).
     assert_eq!(
         qualified(Kind::Elixir, EX, 22, "normalise").as_deref(),
-        Some("Ledger.normalise")
+        Some("MyApp.Ledger.normalise")
+    );
+    assert_eq!(
+        qualified(Kind::Elixir, EX, 38, "render").as_deref(),
+        Some("Renderable.render"),
+        "a protocol is a module"
     );
     assert_eq!(qualified(Kind::Elixir, EX, 1, "Ledger"), None);
+}
+
+#[test]
+fn elixir_word_and_alias() {
+    // #459: the `?` or `!` that ends a name is the name's, the `!` of `!=` is not.
+    let word = |line, col| definition_word(Some(Kind::Elixir), line, col).map(|(_, w)| w);
+    assert_eq!(word("W.ship!(c)", 3), Some("ship!"));
+    assert_eq!(word("W.ship!(c)", 6), Some("ship!"), "on the `!` itself");
+    assert_eq!(word("if full?(c), do: c", 4), Some("full?"));
+    assert_eq!(word("a != b", 0), Some("a"));
+    assert_eq!(word("x = ship!", 5), Some("ship!"));
+    // An `alias` names the module a qualifier stands for.
+    let text = "  alias Shop.Warehouse, as: W\n  alias Shop.Pricing.{Tariff, Coupon}\n  alias Shop.Warehouse.Courier\n";
+    let un = |chain: &[&str]| {
+        elixir_unalias(text, 3, chain.iter().map(|s| s.to_string()).collect()).join(".")
+    };
+    assert_eq!(un(&["W"]), "Shop.Warehouse");
+    assert_eq!(un(&["Coupon"]), "Shop.Pricing.Coupon");
+    assert_eq!(un(&["Courier", "Inner"]), "Shop.Warehouse.Courier.Inner");
+    assert_eq!(un(&["Warehouse"]), "Warehouse", "`as: W` renames it");
+    assert_eq!(un(&["Shop", "Pricing"]), "Shop.Pricing");
+    assert_eq!(un(&[]), "");
+    // Another module's `alias`, one below the cursor, and one inside a closed `def` rename
+    // nothing.
+    let text = "defmodule A do\n  alias Plug.Conn\nend\n\ndefmodule B do\n  def f(c) do\n    alias Shop.Tariff\n    Tariff.x(c)\n  end\n  def g(c), do: Conn.assign(c)\n  alias Shop.Coupon\nend\n";
+    let un = |line, chain: &[&str]| {
+        elixir_unalias(text, line, chain.iter().map(|s| s.to_string()).collect()).join(".")
+    };
+    assert_eq!(un(9, &["Conn"]), "Conn");
+    assert_eq!(un(9, &["Tariff"]), "Tariff");
+    assert_eq!(un(9, &["Coupon"]), "Coupon");
+    assert_eq!(
+        un(7, &["Tariff"]),
+        "Shop.Tariff",
+        "inside the `def` it is seen"
+    );
 }
 
 #[test]
@@ -583,6 +665,63 @@ fn zig_symbol_names() {
     }
 }
 
+#[test]
+fn proto_symbol_names() {
+    let proto = |line| one(Kind::Proto, line);
+    for (line, name) in [
+        ("message Tariff {", Some("Tariff")),
+        ("  message Band {", Some("Band")),
+        ("enum Channel {", Some("Channel")),
+        ("service Couriers {", Some("Couriers")),
+        (
+            "  rpc Weigh(WeighRequest) returns (WeighReply);",
+            Some("Weigh"),
+        ),
+        // Once, not a second time from the shared pattern's `enum`.
+        ("  enum Kind {", Some("Kind")),
+        // A field, an enum value, a oneof and an extension stay off the list.
+        ("  string id = 1;", None),
+        ("  CHANNEL_POST = 1;", None),
+        ("  oneof target {", None),
+        ("extend google.protobuf.MessageOptions {", None),
+    ] {
+        assert_eq!(proto(line).as_deref(), name, "{line}");
+    }
+}
+
+#[test]
+fn proto_roots_are_where_protoc_installs_its_types() {
+    assert!(external_roots(Kind::Proto, Path::new("/")).iter().all(|r| {
+        [
+            "/opt/homebrew/include",
+            "/usr/local/include",
+            "/usr/include",
+        ]
+        .iter()
+        .any(|d| r == Path::new(d))
+    }),);
+    // Homebrew links `include/google` into the protobuf keg: the walk goes through the link.
+    let dir = std::env::temp_dir().join(format!("merl-ext-proto-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("keg/google/protobuf")).unwrap();
+    std::fs::create_dir_all(dir.join("include")).unwrap();
+    std::fs::write(dir.join("keg/google/protobuf/timestamp.proto"), "").unwrap();
+    std::fs::write(dir.join("keg/google/protobuf/timestamp.pb.h"), "").unwrap();
+    std::os::unix::fs::symlink(dir.join("keg/google"), dir.join("include/google")).unwrap();
+    assert_eq!(
+        external_files(Kind::Proto, &[dir.join("include")]),
+        [dir.join("include/google/protobuf/timestamp.proto")]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    // The text format is data, and declares nothing.
+    assert_eq!(kind_of(Path::new("shop/v1/user.proto")), Some(Kind::Proto));
+    assert_eq!(kind_of(Path::new("testdata/user.textproto")), None);
+    assert_eq!(kind_of(Path::new("testdata/user.pbtxt")), None);
+    // Strings end with their line: a backtick in a comment opens nothing.
+    let text = "// run `buf generate\nmessage Tariff {\n}\n";
+    assert!(literal_lines(Kind::Proto, text).iter().all(|l| !l));
+}
+
 const SH: &str = "#!/usr/bin/env bash\nset -eu\n\nexport ROOT=/srv\nlocal -i tries=3\ndeclare -r -x LIMIT=10\nreadonly NAME=app\nPATH+=:/opt/bin\nalias ll='ls -l'\n\nbuild() {\n  echo \"$ROOT\"\n}\n\nfunction deploy {\n  build\n}\n\nfunction check() {\n  [ \"$NAME\" = app ]\n}\n\nbuild \"$ROOT\"\n";
 
 #[test]
@@ -672,6 +811,53 @@ fn make_def_patterns_find_targets_and_variables() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #468. `define NAME` declares the variable `NAME`, behind `export` / `override` and with any
+/// operator GNU make allows after the name. A longer name, a `define` in a comment and an
+/// `$(call NAME)` are none.
+#[test]
+fn make_define_declares_its_variable() {
+    let make = "define discount\nendef\nexport define discount =\noverride define discount := # x\ndefine discount ?=\ndefine discount +=\ndefine discount_x\ndefine discount-x\n# define discount\nX = $(call discount,1)\n  define discount\n";
+    let (dir, files) = scratch("make-define", &[("Makefile", make)]);
+    assert_eq!(
+        defs(&dir, &files, Kind::Make, "discount"),
+        [1, 3, 4, 5, 6, 11]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #499. `+=` and a target-specific assignment, behind its modifiers, with any operator, for
+/// targets that are words or whole references, `$(SRC:.c=.o)`, and for a double-colon rule. A
+/// `:` inside a value, a substitution reference or the text of `$(error …)` and `$(info …)`, a
+/// `+=` of another name and a rule that only names the variable among its prerequisites are none.
+#[test]
+fn make_fallback_patterns_find_appends_and_target_variables() {
+    let make = "CFLAGS += -Wall\nexport CFLAGS+=-g\nrelease: CFLAGS := -O2\n$(BIN) %.o: private override CFLAGS ?= x\nt: CFLAGS=1\nt:: CFLAGS = 1\n$(SRC:.c=.o): CFLAGS += y\nOBJ = a:CFLAGS\nX := $(CFLAGS:.c=.o)\nCFLAGSX += 1\nall: CFLAGS\n$(error usage: CFLAGS=1 make)\n$(info flags: CFLAGS = $(CFLAGS))\n";
+    let (dir, files) = scratch("make-fallback", &[("Makefile", make)]);
+    let pat = make_fallback_patterns("CFLAGS").join("|");
+    let lines: Vec<usize> = grep(&dir, &files, &pat, false, false)
+        .iter()
+        .map(|h| h.line)
+        .collect();
+    assert_eq!(lines, [1, 2, 3, 4, 5, 6, 7]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #477. A line that starts with a tab is a recipe line only in a rule: after `build:` and its
+/// continued prerequisites, past blanks, comments and conditionals, until an assignment ends the
+/// rule. A tab-indented assignment in an `ifeq` before any rule, a `\` continuation of an
+/// assignment, and `x := a:b` or `$(X:.c=.o)` are no rules.
+#[test]
+fn a_makefile_recipe_line_is_one_after_a_rule() {
+    let make = "ifeq ($(OS),Windows_NT)\n\tEXE := .exe\nendif\nSRC = a.c \\\n\tb.c\nOBJ := $(SRC:.c=.o) x:y\n\tNOT := 1\nbuild: $(OBJ) \\\n  deps\n\tGO=$(GO) go build \\\nX=1\n\n# note\nifdef CI\n\tCI=1 make\nendif\nY ?= 2\n\tZ=3\n.PHONY: t\n\tW=4\n";
+    let recipe: Vec<(usize, usize)> = (1..=make.lines().count())
+        .filter_map(|n| make_recipe_command(make, n).map(|at| (n, at)))
+        .collect();
+    // Line 11 continues the command of line 10: one shell runs both.
+    assert_eq!(recipe, [(10, 10), (11, 10), (15, 15), (20, 20)]);
+    assert_eq!(make_recipe_command(make, 0), None);
+    assert_eq!(make_recipe_command(make, 99), None);
+}
+
 const TF: &str = r#"variable "region" {
   default = "eu"
 }
@@ -710,11 +896,12 @@ fn terraform_def_patterns_resolve_the_address() {
     assert_eq!(d("local.name"), [5, 7]);
     assert_eq!(def_block(Kind::Terraform, "local.name"), Some("locals"));
     assert_eq!(def_block(Kind::Terraform, "var.name"), None);
-    assert!(directly_inside(TF, 5, "locals"));
-    assert!(!directly_inside(TF, 7, "locals"), "nested in `tags`");
-    assert!(!directly_inside(TF, 11, "locals"));
-    assert!(!directly_inside(TF, 1, "locals"));
-    assert!(!directly_inside(TF, 0, "locals"));
+    let lines: Vec<&str> = TF.lines().collect();
+    assert!(directly_inside(&lines, 5, "locals"));
+    assert!(!directly_inside(&lines, 7, "locals"), "nested in `tags`");
+    assert!(!directly_inside(&lines, 11, "locals"));
+    assert!(!directly_inside(&lines, 1, "locals"));
+    assert!(!directly_inside(&lines, 0, "locals"));
     assert!(def_patterns(Kind::Terraform, "each.key").is_empty());
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -734,4 +921,247 @@ fn docker_and_yaml_def_patterns() {
     // A key with a value on its line is data, not a definition.
     assert_eq!(defs(&dir, &yaml, Kind::Yaml, "image"), Vec::<usize>::new());
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Where `d`'s patterns match each of `words` in a file `name` holding `text`: `(found,
+/// hidden)`, the lines outside a literal, which `d` finds, and those inside one, which declare
+/// nothing.
+fn literal_split(
+    kind: Kind,
+    name: &str,
+    text: &str,
+    words: &[&str],
+) -> Vec<(Vec<usize>, Vec<usize>)> {
+    let (dir, files) = scratch(name, &[(name, text)]);
+    let lit = literal_lines(kind, text);
+    let out = words
+        .iter()
+        .map(|w| {
+            defs(&dir, &files, kind, w)
+                .into_iter()
+                .partition(|n| !lit[n - 1])
+        })
+        .collect();
+    std::fs::remove_dir_all(&dir).unwrap();
+    out
+}
+
+/// #436. None of these kinds has the C family's `/* */` or backtick template, so a glob's `/*`
+/// or a lone backtick opens nothing, and the declarations below it are found. What each does
+/// write over several lines still hides the declarations it holds.
+#[test]
+fn a_glob_or_a_lone_backtick_opens_nothing_in_the_kinds_without_them() {
+    let found = |n: usize| (vec![n], vec![]);
+    let hidden = |n: usize| (vec![], vec![n]);
+    // A `#` opens a comment only where a word starts, `<<<` is a string of one line and
+    // `$((1 << bits))` a shift. A quote ends with its line: the scan cannot follow the `"…"`
+    // inside `"$( … )"`, and what `eval '…'` holds the shell declares. A heredoc's label may
+    // follow a space, a quote or a `\`, and one that starts with a digit is a shift's operand.
+    let sh = "#!/bin/sh\n# quotes the `name with one backtick, and don't\nbuild() {\n  echo \"${f##*/}\" $# $((1 << bits))\n  cat <<< 'x'\n}\nfor f in src/*; do rm -rf build/*; done\ndeploy() {\n  build\n}\necho \"$(printf \"%s isn't set\" \"$x\")\"\nspill() {\n}\ncat <<EOF\nphantom() {\nEOF\ncat <<-'TXT'\n\tspectre() {\n\tTXT\neval '\nproxy() {\n'\nn=$# && cat << 'END'\nwraith() {\nEND\necho hi # not cat <<EOF\nkept() {\n}\nx=$((\n  1 << 4\n))\ncat <<\\DOC\nghost() {\nDOC\nlast() {\n  deploy\n}\n";
+    assert_eq!(
+        literal_split(
+            Kind::Shell,
+            "run.sh",
+            sh,
+            &[
+                "build", "deploy", "spill", "phantom", "spectre", "proxy", "wraith", "kept",
+                "ghost", "last"
+            ]
+        ),
+        [
+            found(3),
+            found(8),
+            found(12),
+            hidden(15),
+            hidden(18),
+            found(21),
+            hidden(24),
+            found(27),
+            hidden(33),
+            found(35)
+        ]
+    );
+    // A Makefile has nothing that runs over lines.
+    let make = "# the `dist target\nclean:\n\trm -rf build/*\ndist: clean\n";
+    assert_eq!(
+        literal_split(Kind::Make, "Makefile", make, &["clean", "dist"]),
+        [found(2), found(4)]
+    );
+    let docker = "# syntax=docker/dockerfile:1\n# the `deps stage\nFROM node:20 AS deps\nCOPY dist/* ./\nFROM deps AS build\nRUN <<EOF\nFROM scratch AS ghost\nEOF\nCOPY <<-\"CONF\" /etc/app.conf\n\tFROM scratch AS phantom\n\tCONF\nRUN v=${TAG#v} && cat <<EOF > /x\nFROM scratch AS wraith\nEOF\nFROM build AS final\n";
+    assert_eq!(
+        literal_split(
+            Kind::Docker,
+            "Dockerfile",
+            docker,
+            &["deps", "build", "ghost", "phantom", "wraith", "final"]
+        ),
+        [
+            found(3),
+            found(5),
+            hidden(7),
+            hidden(10),
+            hidden(13),
+            found(15)
+        ]
+    );
+    // Nor has YAML: the keys of a block scalar are declarations too, as the ones dorny/paths-filter
+    // reads out of `filters: |` for `steps.changes.outputs.x`.
+    let yaml = "# quotes the `defaults with one backtick\ndefaults: &defaults\n  runs-on: ubuntu-latest\non:\n  push:\n    paths: [src/*.ts]\njobs:\n  test:\n    <<: *defaults\n    steps:\n      - run: |\n          ghost:\n\n          echo &phantom\n      - name: >-  # folded\n          &spectre\nlint:\n  - run: |\n    other:\nnote: a lone ` outside a comment\ntail:\n";
+    assert_eq!(
+        literal_split(
+            Kind::Yaml,
+            "ci.yml",
+            yaml,
+            &[
+                "defaults", "test", "ghost", "phantom", "spectre", "lint", "other", "tail"
+            ]
+        ),
+        [
+            found(2),
+            found(8),
+            found(12),
+            found(14),
+            found(16),
+            found(17),
+            found(19),
+            found(21)
+        ]
+    );
+    // Snowflake's `//` comment and a MySQL name in backticks hide their `/*` as on master.
+    let sql = "-- the `orders table, and don't\nCREATE TABLE orders (id int);\n-- load every file under data/*\nCREATE TABLE items (id int);\n/*\nCREATE TABLE ghost (id int);\n*/\nSELECT '/*', 'it''s' FROM orders; -- */ closes nothing\nCREATE TABLE after (id int);\n// load every file under @stage/data/*\nCREATE TABLE staged (id int);\nSELECT `a/*b` FROM t;\nCREATE TABLE last (id int);\n";
+    assert_eq!(
+        literal_split(
+            Kind::Sql,
+            "schema.sql",
+            sql,
+            &["orders", "items", "ghost", "after", "staged", "last"]
+        ),
+        [
+            found(2),
+            found(4),
+            hidden(6),
+            found(9),
+            found(11),
+            found(13)
+        ]
+    );
+    let tf = "# the `region variable\nvariable \"region\" {}\n# uploads files/* as they are\nvariable \"bucket\" {}\n// and keeps logs/* for a week\nvariable \"retention\" {}\nlocals {\n  policy = <<-EOF\nvariable \"ghost\" {}\n  EOF\n}\n/*\nvariable \"phantom\" {}\n*/\nvariable \"after\" {}\n";
+    assert_eq!(
+        literal_split(
+            Kind::Terraform,
+            "main.tf",
+            tf,
+            &["region", "bucket", "retention", "ghost", "phantom", "after"]
+        ),
+        [
+            found(2),
+            found(4),
+            found(6),
+            hidden(9),
+            hidden(13),
+            found(15)
+        ]
+    );
+}
+
+const GRAPHQL: &str = r#""""
+A person.
+type Ghost {
+'''
+"""
+type User implements Node @key(fields: "id") {
+  id: ID!
+  email: String!
+  posts(
+    first: Int
+  ): [Post!]!
+}
+
+extend type User {
+  karma: Int
+}
+
+enum Status {
+  ACTIVE
+  BANNED @deprecated(reason: "spam")
+}
+
+input UserInput {
+  email: String
+}
+
+scalar DateTime
+union Found = User | Post
+directive @auth(requires: Status) on FIELD_DEFINITION
+
+query GetUser($id: ID!) {
+  user(id: $id) {
+    email
+    first: posts(first: 1) {
+      id
+    }
+  }
+}
+'''
+type Late {
+  id: ID
+}
+"#;
+
+/// #419. The definitions start their line; a field, one whose arguments wrap, and an enum value
+/// are indented, directly inside a type, an interface, an input or an enum, an `extend` of one
+/// included. A selection, an alias, an argument, an `extend` line and a line of a `"""`
+/// description are none, and `'''` opens nothing.
+#[test]
+fn graphql_def_patterns_find_definitions_fields_and_enum_values() {
+    let (dir, files) = scratch("graphql", &[("schema.graphql", GRAPHQL)]);
+    let lines: Vec<&str> = GRAPHQL.lines().collect();
+    let literal = literal_lines(Kind::Graphql, GRAPHQL);
+    let d = |w| -> Vec<usize> {
+        defs(&dir, &files, Kind::Graphql, w)
+            .into_iter()
+            .filter(|&n| !literal[n - 1])
+            .filter(|&n| declares_where(Kind::Graphql, w, n, lines[n - 1], || &lines))
+            .collect()
+    };
+    assert_eq!(d("Ghost"), Vec::<usize>::new(), "inside a description");
+    assert_eq!(d("User"), [6], "not the `extend type`");
+    assert_eq!(
+        d("email"),
+        [8, 24],
+        "a field of a type and of an input, no selection"
+    );
+    assert_eq!(d("posts"), [9], "arguments wrapped");
+    assert_eq!(d("first"), Vec::<usize>::new(), "an argument, an alias");
+    assert_eq!(d("karma"), [15], "a field of an extension");
+    assert_eq!(d("ACTIVE"), [19]);
+    assert_eq!(d("BANNED"), [20]);
+    assert_eq!(d("Status"), [18]);
+    assert_eq!(d("UserInput"), [23]);
+    assert_eq!(d("DateTime"), [27]);
+    assert_eq!(d("Found"), [28]);
+    assert_eq!(d("auth"), [29]);
+    assert_eq!(d("GetUser"), [31]);
+    assert_eq!(d("user"), Vec::<usize>::new(), "a selection");
+    assert_eq!(d("Late"), [40], "`'''` is no block string");
+    assert_eq!(d("id"), [7, 41]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_graphql_import_is_the_path_under_the_cursor() {
+    let line = r#"#import "./UserParts.graphql""#;
+    assert_eq!(
+        graphql_import(line, 8),
+        Some("./UserParts.graphql"),
+        "on the quote"
+    );
+    assert_eq!(
+        graphql_import(line, 10),
+        Some("./UserParts.graphql"),
+        "on the `/`"
+    );
+    assert_eq!(graphql_import(line, 3), None, "on `import`");
+    assert_eq!(graphql_import("# import './a.gql'", 12), Some("./a.gql"));
+    assert_eq!(graphql_import(r#"  user # import "./a.gql""#, 20), None);
 }

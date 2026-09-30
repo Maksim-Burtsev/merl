@@ -6,10 +6,12 @@ use ratatui::Frame;
 use ratatui::buffer::{CellDiffOption, CellWidth};
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::Style;
+use ratatui::text::Span;
 use ratatui::widgets::Block;
 
 use crate::app::{App, Mode};
 use crate::theme::Theme;
+use crate::wrap;
 
 mod code;
 mod overlays;
@@ -17,8 +19,8 @@ mod preview;
 mod status;
 mod welcome;
 
-use code::draw_code;
-use overlays::{draw_help, draw_lesson, draw_picker, draw_tree};
+use code::{draw_binary, draw_code};
+use overlays::{draw_help, draw_picker, draw_tree, lesson_panel};
 use preview::draw_preview;
 use status::draw_status;
 use welcome::draw_welcome;
@@ -35,7 +37,14 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     frame.render_widget(Block::new().style(base), area);
 
     // The lesson panel is 0 rows tall outside `--tutor` and `--drill`, so nothing else moves.
-    let lesson_h = if app.tutor.is_some() { 3 } else { 0 };
+    // In them it takes as many rows as its text wraps to at the pane's width, never fewer than
+    // a title and two rows, so a short text does not move the code (#261).
+    let panel = lesson_panel(app, theme, area.width, base);
+    let lesson_h = panel.as_ref().map_or(0, |p| {
+        u16::try_from(p.line_count(area.width))
+            .unwrap_or(u16::MAX)
+            .max(3)
+    });
     let [main, lesson, status] = Layout::vertical([
         Constraint::Min(1),
         Constraint::Length(lesson_h),
@@ -51,13 +60,15 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     }
     if app.previewing() {
         draw_preview(frame, app, theme, code, base);
+    } else if app.buf.binary() {
+        draw_binary(frame, theme, code, base);
     } else if app.buf.path.is_some() {
         draw_code(frame, app, theme, code, base);
     } else {
         draw_welcome(frame, theme, code, base);
     }
-    if app.tutor.is_some() {
-        draw_lesson(frame, app, theme, lesson, base);
+    if let Some(panel) = panel {
+        frame.render_widget(panel, lesson);
     }
     draw_status(frame, app, theme, status);
     // Over `--tutor`'s and `--drill`'s panel an overlay would hide the task it is part of: a
@@ -83,11 +94,35 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     }
 }
 
-/// Tabs drawn as [`crate::buffer::TAB`]; a tab-free piece is borrowed as it is.
+/// Tabs drawn as [`crate::buffer::TAB`] and hidden chars as their [`wrap::tag`], as wide as
+/// [`wrap::width`] counts them; a piece with neither is borrowed as it is.
 pub(super) fn expand(s: &str) -> std::borrow::Cow<'_, str> {
-    if s.contains('\t') {
-        s.replace('\t', crate::buffer::TAB).into()
-    } else {
-        s.into()
+    if !s.contains(|c| c == '\t' || wrap::hidden(c)) {
+        return s.into();
+    }
+    let mut out = String::with_capacity(s.len() + 8);
+    for c in s.chars() {
+        match c {
+            '\t' => out.push_str(crate::buffer::TAB),
+            c if wrap::hidden(c) => out.push_str(&wrap::tag(c)),
+            c => out.push(c),
+        }
+    }
+    out.into()
+}
+
+/// `s` drawn in `style` onto `out`, each hidden char a span of its own in `tag` (#401), so it is
+/// on screen and plainly not text. An empty `s` still pushes its (empty) span.
+pub(super) fn tagged<'a>(out: &mut Vec<Span<'a>>, s: &'a str, style: Style, tag: Style) {
+    let mut pos = 0;
+    for (i, c) in s.char_indices().filter(|&(_, c)| wrap::hidden(c)) {
+        if pos < i {
+            out.push(Span::styled(expand(&s[pos..i]), style));
+        }
+        out.push(Span::styled(wrap::tag(c), tag));
+        pos = i + c.len_utf8();
+    }
+    if pos < s.len() || pos == 0 {
+        out.push(Span::styled(expand(&s[pos..]), style));
     }
 }

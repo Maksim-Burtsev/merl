@@ -105,7 +105,8 @@ const C_METHOD_SYMBOL: &str =
     r"^\s+[^;(){}=]*\w[\s*&]+(?P<name>[A-Za-z_]\w*)\s*\([^;{}]*\)[^;{}=]*\{";
 /// A type, a namespace and a C++ `using` alias. What follows the name keeps `struct dict *d;` out;
 /// a `<` is a template specialization (`struct formatter<path, Char> {`), and a lone `:` a base
-/// list, where the `::` of a `using a::b;` names an imported symbol, not a declared one. A
+/// list, where the `::` of a `using a::b;` names an imported symbol, not a declared one; a nested
+/// type defined through its outer one, `struct DBImpl::Writer {`, is listed as `Writer`. A
 /// `typedef struct name { … }` is listed from the line it closes on instead, under the name the
 /// project uses.
 const C_TYPE_SYMBOL: &str = concat!(
@@ -113,7 +114,7 @@ const C_TYPE_SYMBOL: &str = concat!(
     c_mods!(),
     r"(?:struct|class|union|enum\s+class|enum\s+struct|enum|namespace|using)\s+",
     c_mods!(macros),
-    r"(?P<name>[A-Za-z_]\w*)\s*(?:[{=<]|:[^:]|final\b|$)"
+    r"(?:\w+(?:<[^<>]*>)?::)*(?P<name>[A-Za-z_]\w*)\s*(?:[{=<]|:[^:]|final\b|$)"
 );
 /// The name a `typedef` or a `} name;` gives a type. The closing brace is in column zero: an
 /// indented one closes a nested anonymous struct, and that name is a field. A global stays off the
@@ -250,12 +251,12 @@ macro_rules! php_mods {
 pub(super) use php_mods;
 /// The PHP half of [`SYMBOLS`], first half: what the language declares with a keyword other than
 /// `function`, behind the modifiers a member carries. A namespace is listed under its last part,
-/// the one `d` finds it by. A property is a field, which no kind lists, and an `enum` case is what
-/// a type holds, as in every other kind; `define('X', …)` has no keyword before the name and is
-/// left out with them.
+/// the one `d` finds it by, and a typed constant under its name, not its type (#344). A property
+/// is a field, which no kind lists, and an `enum` case is what a type holds, as in every other
+/// kind; `define('X', …)` has no keyword before the name and is left out with them.
 const PHP_DECL_SYMBOL: &str = concat!(
     php_mods!(),
-    r"(?:(?:class|interface|trait|enum)\s+|const\s+|namespace\s+(?:[\w\\]+\\)?)",
+    r"(?:(?:class|interface|trait|enum)\s+|const\s+(?:[\w\\|&?()]+\s+)?|namespace\s+(?:[\w\\]+\\)?)",
     r"(?P<name>[A-Za-z_]\w*)"
 );
 /// The other half: a function or a method. A row of its own because a project holds far more of
@@ -395,10 +396,21 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // complement it, the way Shell's and SQL's do.
     (Some(Kind::Zig), ZIG_INLINE_FN_SYMBOL),
     (Some(Kind::Zig), ZIG_TEST_SYMBOL),
+    // Protocol Buffers by its keywords, nested messages included; a field and an enum value are
+    // the shape of a message, not symbols of the project, as a struct field is in every kind.
+    (
+        Some(Kind::Proto),
+        r"^\s*(?:message|enum|service|rpc)\s+(?P<name>[A-Za-z_]\w*)",
+    ),
     // A target: not `.PHONY`-style special targets, `%` pattern rules or `:=` / `::=`.
     (
         Some(Kind::Make),
         r"^(?P<name>[A-Za-z0-9_][\w./-]*)(\s+[\w./-]+)*\s*::?([^=:]|$)",
+    ),
+    // A `define NAME` … `endef` variable: a canned recipe, or a function for `$(call NAME)`.
+    (
+        Some(Kind::Make),
+        r"^\s*((export|override)\s+)*define\s+(?P<name>[^\s:=#+?!]+)",
     ),
     (
         Some(Kind::Terraform),
@@ -409,11 +421,19 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
         r"(?i)^\s*FROM\s+(\S+\s+)+AS\s+(?P<name>[\w.-]+)",
     ),
     (Some(Kind::Yaml), r"(^|\s)&(?P<anchor>[\w.-]+)"),
+    // GraphQL from this row only: the shared pattern knows `type`, `interface`, `union` and
+    // `enum`, and would list them twice. A directive under its name, without the `@`; no field,
+    // enum value or `extend`.
+    (
+        Some(Kind::Graphql),
+        r"^(?:(?:type|interface|input|enum|union|scalar|fragment|query|mutation|subscription)\s+|directive\s+@)(?P<name>[A-Za-z_]\w*)",
+    ),
 ];
 /// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, C#,
-/// Swift, PHP, Lua and Elixir have rows of their own in [`SYMBOLS`], written for what those
-/// languages declare and how they name it, so reading the all-language pattern over them too
-/// would list a declaration twice.
+/// Swift, PHP, Lua, Elixir, GraphQL and Protocol Buffers have rows of their own in [`SYMBOLS`],
+/// written for what those languages declare and how they name it, so reading the all-language
+/// pattern over them too would list a declaration twice. Markdown has none: a declaration in a README's code block is
+/// an example, not one of the project, and a heading is prose that `s` finds (#421).
 pub fn shared_symbols(kind: Option<Kind>) -> bool {
     !matches!(
         kind,
@@ -426,6 +446,9 @@ pub fn shared_symbols(kind: Option<Kind>) -> bool {
                 | Kind::Php
                 | Kind::Lua
                 | Kind::Elixir
+                | Kind::Markdown
+                | Kind::Graphql
+                | Kind::Proto
         )
     )
 }

@@ -1,0 +1,8 @@
+// A cut of the descriptor a custom option extends.
+syntax = "proto2";
+
+package google.protobuf;
+
+message MessageOptions {
+  extensions 1000 to max;
+}

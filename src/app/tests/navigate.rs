@@ -34,7 +34,7 @@ fn infra_definitions_stay_in_their_scope() {
 }
 
 #[test]
-fn a_field_has_no_definition_and_locals_must_be_direct() {
+fn a_rust_field_is_its_struct_line_and_locals_must_be_direct() {
     let (dir, mut a) = project_app(
         "fallback",
         &[
@@ -48,12 +48,12 @@ fn a_field_has_no_definition_and_locals_must_be_direct() {
             ),
         ],
     );
-    // A field is no declaration the Rust rules know, and `u` is the key for its uses.
+    // A Rust field is its line in the struct (#370).
     a.jump_to(&dir.join("order.rs"), 5);
     a.col = 10;
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("order.rs"), 4));
-    assert_eq!(a.message, "no definition for items");
+    assert_eq!(at(&a), (dir.join("order.rs"), 1));
+    assert_eq!(a.message, "items \u{2192} Order::items (by name, 1 match)");
     // Of the two `name =` lines, only the one directly inside `locals` is `local.name`.
     a.jump_to(&dir.join("main.tf"), 8);
     a.col = 17;
@@ -165,10 +165,11 @@ fn a_local_name_is_not_an_import_and_a_member_is_not_a_module_level_name() {
     // Behind the module's name as well: `fakelib.pick` is no method of a class in it.
     d_on(&mut a, "outside.py", "fakelib.pick");
     assert_eq!(a.message, "no definition for pick");
-    // A keyword argument names a parameter: the one variable spelled so is offered.
+    // A keyword argument names a parameter of a callee outside the project, and the variable
+    // spelled so is no answer (#315).
     d_on(&mut a, "outside.py", "    limit");
-    assert!(a.picker.is_some(), "{}", a.message);
-    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    assert!(a.picker.is_none(), "{}", a.message);
+    assert_eq!(a.message, "limit: argument label");
     // What the module does declare at its top is still found through the import.
     d_on(&mut a, "outside.py", "    make");
     assert_eq!(a.message, "make: via import fakelib.core");
@@ -209,6 +210,37 @@ fn a_declaration_inside_a_literal_is_not_one() {
     assert_eq!(
         shown(&mut a),
         jump("ghost \u{2192} Real.ghost (by name, 1 match)", "a.py:9")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #488: PHP's `#` is a line comment, so the `/*` of a glob in one opens nothing. #475: a C#
+/// verbatim string has no escapes, so `@"C:\"` ends at its second `"`. The declarations below
+/// both are found.
+#[test]
+fn a_php_hash_comment_or_a_csharp_verbatim_backslash_hides_nothing() {
+    let (dir, mut a) = project_app(
+        "hash-verbatim",
+        &[
+            (
+                "a.php",
+                "<?php\n# loads lib/*\nfunction below() { return 1; }\nfunction call() { return below(); }\n",
+            ),
+            (
+                "a.cs",
+                "class A {\n    string P = @\"C:\\\";\n    void Below() { }\n    void Call() { Below(); }\n}\n",
+            ),
+        ],
+    );
+    for kind in [Kind::Php, Kind::CSharp] {
+        a.external.insert(kind, (Vec::new(), Arc::new(Vec::new())));
+    }
+    d_on(&mut a, "a.php", "return below");
+    assert_eq!(shown(&mut a), jump("below: by name, 1 match", "a.php:3"));
+    d_on(&mut a, "a.cs", "{ Below");
+    assert_eq!(
+        shown(&mut a),
+        jump("Below \u{2192} A.Below (by name, 1 match)", "a.cs:3")
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -1078,6 +1110,362 @@ fn two_modules_an_import_may_mean_are_a_picker_of_modules() {
             ("views", "module tools/views.py", "tools/views.py:1"),
         ]
         .map(|(n, r, p)| (n.to_string(), r.to_string(), p.to_string()))
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #477. A recipe line is a shell command: `GO=$(GO) ./build.sh` sets a variable of that one
+/// command and declares nothing make knows, so `d` on `$(GO)` jumps to the `?=` above the rules,
+/// from that line too. A shell variable, `$${ARCH}`, is still declared by the command it is used
+/// in, and a tab-indented assignment inside an `ifeq` before any rule is make's own.
+#[test]
+fn a_makefile_recipe_line_declares_no_variable() {
+    let (dir, mut a) = project_app(
+        "make-recipe",
+        &[
+            (
+                "Makefile",
+                "GO ?= go\n\nbuild:\n\tGO=$(GO) ./build.sh\n\ntest:\n\t$(GO) test ./...\n",
+            ),
+            (
+                "tools.mk",
+                "ifeq ($(OS),Windows_NT)\n\tEXE := .exe\nendif\n\nall:\n\tEXE=x $(EXE)\n\tARCH=$$(uname -m); \\\n\techo $${ARCH}\n\techo $${ARCH}\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "Makefile", "\t$(GO");
+    assert_eq!(shown(&mut a), jump("GO: by name, 1 match", "Makefile:1"));
+    d_on(&mut a, "Makefile", "GO=$(GO");
+    assert_eq!(shown(&mut a), jump("GO: by name, 1 match", "Makefile:1"));
+    d_on(&mut a, "tools.mk", "echo $${ARCH");
+    assert_eq!(
+        shown(&mut a),
+        jump("ARCH → all.ARCH (by name, 1 match)", "tools.mk:7")
+    );
+    // The next command runs in a shell of its own, where nothing set `ARCH`.
+    a.jump_to(&dir.join("tools.mk"), 9);
+    a.col = 9;
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(shown(&mut a), jump("no definition for ARCH", "tools.mk:9"));
+    d_on(&mut a, "tools.mk", "x $(EXE");
+    assert_eq!(shown(&mut a), jump("EXE: by name, 1 match", "tools.mk:2"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #505. With unsaved edits the recipe filter reads the buffer the grep matched, not the disk:
+/// with the two `echo` lines cut, buffer line 2 is `DFLAGS += -Wall`, which on disk is a recipe
+/// line.
+#[test]
+fn a_makefile_recipe_line_is_judged_on_the_unsaved_buffer() {
+    let (dir, mut a) = project_app(
+        "make-recipe-dirty",
+        &[(
+            "dirty.mk",
+            "build:\n\techo hi\n\techo ho\nDFLAGS += -Wall\n\nall:\n\tcc $(DFLAGS)\n",
+        )],
+    );
+    a.jump_to(&dir.join("dirty.mk"), 2);
+    // Esc would save: the edit stays unsaved as it is until autosave.
+    a.buf.lines.drain(1..3);
+    a.dirty = true;
+    a.jump_to(&dir.join("dirty.mk"), 5);
+    a.col = a.line_str().find("DFLAGS").unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        shown(&mut a),
+        jump("DFLAGS: by name, 1 match", "dirty.mk:2")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #421. `d` on a Markdown link says why nothing opens where the fixture's annotations cannot
+/// (their answers are no places, or name a file with a space), and `D` lists nothing of a README.
+#[test]
+fn markdown_links_outside_to_a_directory_and_to_a_spaced_name() {
+    let (dir, mut a) = project_app(
+        "markdown",
+        &[
+            (
+                "docs/a.md",
+                "[site](https://example.com) [host](//example.com) [mail](mailto:me@x.org)\n\
+                 [dir](../docs/) [up](../../out.md) [spaced](<my notes.md>) [encoded](my%20notes.md)\n",
+            ),
+            ("docs/my notes.md", "# Notes\n"),
+            (
+                "README.md",
+                "# Parse\n\n```python\ndef parse(raw):\n    return raw\n```\n",
+            ),
+            ("app.py", "def serve():\n    pass\n"),
+        ],
+    );
+    for word in ["[site", "[host", "[mail", "[up"] {
+        d_on(&mut a, "docs/a.md", &format!("{word}|]"));
+        assert_eq!(a.message, "link outside the project", "{word}");
+    }
+    d_on(&mut a, "docs/a.md", "[dir|]");
+    assert_eq!(a.message, "docs/: a directory");
+    for word in ["[spaced", "[encoded"] {
+        d_on(&mut a, "docs/a.md", &format!("{word}|]"));
+        assert_eq!(
+            shown(&mut a),
+            jump("link docs/my notes.md", "docs/my notes.md:1"),
+            "{word}"
+        );
+    }
+    // A declaration in a README's code block is an example, not one of the project.
+    press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+    let picker = a.picker.as_mut().unwrap();
+    picker.settle();
+    let rows: Vec<String> = picker
+        .window(20)
+        .0
+        .into_iter()
+        .map(|r| r.item.label.clone())
+        .collect();
+    assert!(rows.iter().all(|r| !r.contains("README.md")), "{rows:?}");
+    assert!(rows.iter().any(|r| r.contains("serve")), "{rows:?}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// #359. `x->word` in C names a field: the function, the macro and the type of the name are
+/// none. With no field of the name in the project, the files outside are searched for fields
+/// only, so a system struct's field is found and its namesakes there are not.
+#[test]
+fn a_c_member_the_project_lacks_is_a_field_outside() {
+    let (dir, mut a) = project_app(
+        "c-field-outside",
+        &[(
+            "size.c",
+            "#include <sys/stat.h>\n\nlong st_size(void) { return 0; }\n\nlong size_of(struct stat *st) { return st->st_size + st->st_mode; }\n",
+        )],
+    );
+    let root = external_root(
+        "c-field-outside",
+        &[(
+            "sys/stat.h",
+            "#define st_mode st_x\nstruct st_size { int n; };\nstruct stat {\n    long st_size;\n    int st_x;\n};\nint st_mode(void);\n",
+        )],
+    );
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
+    d_on(&mut a, "size.c", "st->st_size");
+    let stat = root.join("sys/stat.h");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "st_size \u{2192} stat::st_size (by name, 1 match)",
+            &format!("{}:4", stat.display())
+        )
+    );
+    d_on(&mut a, "size.c", "st->st_mode");
+    assert_eq!(a.message, "no definition for st_mode");
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// #378. A word followed by `->` or `.` is a value: a system `struct group` is no answer for
+/// `group->gr_name`, and a parameter of the name is.
+#[test]
+fn a_c_value_is_never_a_system_struct() {
+    let (dir, mut a) = project_app(
+        "c-value-type",
+        &[(
+            "who.c",
+            "#include <grp.h>\n\nconst char *who(void) { return group->gr_name; }\n\nconst char *mine(struct group *group)\n{\n    return group->gr_name;\n}\n",
+        )],
+    );
+    let root = external_root(
+        "c-value-type",
+        &[("grp.h", "struct group {\n    char *gr_name;\n};\n")],
+    );
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
+    d_on(&mut a, "who.c", "return group");
+    assert_eq!(a.message, "no definition for group");
+    d_on(&mut a, "who.c", "    return group");
+    assert_eq!(shown(&mut a), jump("group: local", "who.c:5"));
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// PHP's `$x->name` is a member access (#348): a method for a call, a property otherwise, in the
+/// project and in `vendor/` alike, and never a local, a function or a class of the name.
+#[test]
+fn php_arrow_reaches_members_only() {
+    let other = "<?php\n\nnamespace App\\Services;\n\nclass Other\n{\n    public function run(): void\n    {\n        $where = ['a' => 1];\n        $title = 'x';\n    }\n\n    public function on(string $event): void\n    {\n    }\n}\n";
+    let repo = "<?php\n\nnamespace App\\Services;\n\nclass Repo\n{\n    public function run($join, $song, $request): void\n    {\n        $join->where('a', 'b');\n        echo $song->title;\n        $join->on('a', 'b');\n        $request->input('prompt');\n    }\n}\n";
+    let record =
+        "<?php\n\nnamespace App\\Values;\n\nclass Record\n{\n    protected string $input;\n}\n";
+    let join = "<?php\n\nnamespace Illuminate\\Database\\Query;\n\nclass JoinClause\n{\n    public function on($first, $operator = null)\n    {\n    }\n\n    public function where($column, $operator = null)\n    {\n    }\n}\n";
+    let vendored = "vendor/laravel/framework/src/Illuminate/Database/Query/JoinClause.php";
+    let files = [
+        (".gitignore", "vendor/\n"),
+        ("app/Services/Other.php", other),
+        ("app/Services/Repo.php", repo),
+        ("app/Values/Record.php", record),
+        (vendored, join),
+    ];
+    for vendor in [false, true] {
+        let (dir, mut a) = project_app("php-arrow", &files);
+        if !vendor {
+            a.no_external();
+        }
+        let mut d = |code: &str| {
+            d_on(&mut a, "app/Services/Repo.php", code);
+            shown(&mut a)
+        };
+        let none = |w: &str, line: usize| {
+            jump(
+                &format!("no definition for {w}"),
+                &format!("app/Services/Repo.php:{line}"),
+            )
+        };
+        let on = ("Other::on", "app/Services/Other.php:13");
+        let vendor_on = (
+            "JoinClause::on",
+            "laravel/framework/src/Illuminate/Database/Query/JoinClause.php:7",
+        );
+        // Not the local `$where` of another class, with `vendor/` or without.
+        let (where_, on) = match vendor {
+            true => (
+                jump(
+                    "where \u{2192} JoinClause::where (by name, 1 match)",
+                    &format!("{vendored}:11"),
+                ),
+                picker("on: by name, 2 declarations", &[on, vendor_on]),
+            ),
+            false => (
+                none("where", 9),
+                jump("on \u{2192} Other::on (by name, 1 match)", on.1),
+            ),
+        };
+        assert_eq!(d("$join->where"), where_, "vendor: {vendor}");
+        // Not the local `$title`.
+        assert_eq!(d("$song->title"), none("title", 10), "vendor: {vendor}");
+        // The project's first.
+        assert_eq!(d("$join->on"), on, "vendor: {vendor}");
+        // A call wants a method: the property `$input` is none.
+        assert_eq!(d("$request->input"), none("input", 12), "vendor: {vendor}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
+/// A walk from `$this` that leaves the project reads the parent's file in `vendor/`, the one its
+/// import names, and never another class's namesake (#356).
+#[test]
+fn php_this_walks_into_vendor_and_no_further() {
+    let crate_ = "<?php\n\nnamespace App;\n\nuse Symfony\\Component\\Console\\Command\\Command;\n\nfinal class Crate extends Command\n{\n    public function pack(): void\n    {\n        $this->run();\n        $this->seal();\n        self::SUCCESS;\n    }\n}\n";
+    let rack = "<?php\n\nnamespace App;\n\nclass Rack\n{\n    public function run(): void\n    {\n    }\n\n    public function seal(): void\n    {\n    }\n}\n";
+    let command = "<?php\n\nnamespace Symfony\\Component\\Console\\Command;\n\nclass Command\n{\n    public const SUCCESS = 0;\n\n    public function run(): int\n    {\n    }\n}\n";
+    // Another `Command.php` in another namespace: the import names the one to read.
+    let other = "<?php\n\nnamespace Other;\n\nclass Command\n{\n    public function run(): int\n    {\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "php-this-vendor",
+        &[
+            (".gitignore", "vendor/\n"),
+            ("app/Crate.php", crate_),
+            ("app/Rack.php", rack),
+            ("vendor/symfony/console/Command/Command.php", command),
+            ("vendor/other/Command.php", other),
+        ],
+    );
+    let vendored = "symfony/console/Command/Command.php";
+    let mut d = |code: &str| {
+        d_on(&mut a, "app/Crate.php", code);
+        shown(&mut a)
+    };
+    assert_eq!(
+        d("$this->run"),
+        jump(
+            "run \u{2192} Command::run (via $this: Crate)",
+            &format!("vendor/{vendored}:9")
+        )
+    );
+    assert_eq!(
+        d("self::SUCCESS"),
+        jump(
+            "SUCCESS \u{2192} Command::SUCCESS (via self: Crate)",
+            &format!("vendor/{vendored}:7")
+        )
+    );
+    // Not `Rack::seal`.
+    assert_eq!(
+        d("$this->seal"),
+        jump("no definition for seal", "app/Crate.php:12")
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Review of #515 (#317): off the declared name, a recursive call is a namesake nothing here tells
+/// from the line's own: offered, as on master. A Rust value is the local it names (#353).
+#[test]
+fn off_the_declared_name_a_value_or_a_recursion_stays_a_picker() {
+    let (dir, mut a) = project_app(
+        "d-317-shadow",
+        &[
+            (
+                "src/a.rs",
+                "fn chime(x: u32) -> u32 { x }\npub fn rebate(chime: u32) -> u32 {\n    let chime = chime + 1;\n    chime\n}\n",
+            ),
+            (
+                "src/A.kt",
+                "fun fact(n: Int): Int = if (n < 2) 1 else n * fact(n - 1)\n",
+            ),
+            ("src/B.kt", "fun fact(n: Int): Int = n\n"),
+        ],
+    );
+    // Since #353 Rust reads its locals: the right-hand `chime` is the parameter it shadows.
+    d_on(&mut a, "src/a.rs", "let chime = chime");
+    assert_eq!(
+        shown(&mut a),
+        jump("chime \u{2192} rebate::chime (local)", "src/a.rs:2")
+    );
+    d_on(&mut a, "src/A.kt", "n * fact");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "fact: at a declaration, 1 other by name",
+            &[("fact", "src/B.kt:1")]
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Review of #515 (#460): an Elixir call or capture is its module's function, never its
+/// attribute, and an attribute is nothing else. Past an `import` that lists the name, the call
+/// is looked up by name, as on master.
+#[test]
+fn an_elixir_call_is_no_attribute_and_an_import_leaves_it_to_the_search() {
+    let (dir, mut a) = project_app(
+        "d-460-call",
+        &[
+            (
+                "lib/b.ex",
+                "defmodule B do\n  def timeout, do: 1\n  def discount(n), do: n\nend\n",
+            ),
+            (
+                "lib/c.ex",
+                "defmodule C do\n  import B, only: [discount: 1]\n  @timeout 5_000\n  def run(n) do\n    timeout() + discount(n)\n  end\n  def timeout, do: @timeout\n  def all(xs), do: Enum.map(xs, &timeout/0)\n  defp discount(a, b), do: a - b\nend\n",
+            ),
+        ],
+    );
+    let mut d = |code: &str| {
+        d_on(&mut a, "lib/c.ex", code);
+        shown(&mut a)
+    };
+    assert_eq!(
+        d("    timeout|() +"),
+        jump("timeout → C.timeout (in this file)", "lib/c.ex:7")
+    );
+    assert_eq!(
+        d("do: @timeout"),
+        jump("timeout → C.timeout (in this file)", "lib/c.ex:3")
+    );
+    assert_eq!(
+        d("&timeout"),
+        jump("timeout → C.timeout (in this file)", "lib/c.ex:7")
+    );
+    assert!(
+        matches!(d("() + discount"), Shown::Picker(..)),
+        "an imported discount/1 is no jump to the local discount/2"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }

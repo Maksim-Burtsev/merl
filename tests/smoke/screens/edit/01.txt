@@ -1,0 +1,57 @@
+wait class Settings:
+┌orders──────────────────────┐ 1 """Settings, read from the environment once at startup."""
+│▸ .github                   │ 2 import os
+│▸ .venv                     │ 3 from dataclasses import dataclass
+│▾ app                       │ 4
+│    __init__.py             │ 5
+│    api.py                  │ 6 @dataclass(frozen=True)
+│    config.py               │ 7 class Settings:
+│    models.py               │ 8     database_url: str
+│    repos.py                │ 9     api_token: str
+│    service.py              │10     page_size: int = 50
+│    uow.py                  │11     refund_window_days: int = 30
+│▸ data                      │12
+│▸ deploy                    │13
+│▸ docs                      │14 def load() -> Settings:
+│▸ scripts                   │15     return Settings(
+│▸ tests                     │16         database_url=os.environ.get("DATABASE_URL", "postgresql://orders@localhost/orders"),
+│▸ web                       │17         api_token=os.environ["API_TOKEN"],
+│▸ worker                    │18         page_size=int(os.environ.get("PAGE_SIZE", "50")),
+│  .env                      │19     )
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/config.py  1:1  [code]                                                                                                                                                        ? help
+cursor (x,y,shown) 33,0,1

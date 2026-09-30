@@ -11,6 +11,9 @@ impl App {
             KeyCode::Left => self.tree.collapse(),
             KeyCode::Enter => match self.tree.selected() {
                 Some(n) if n.is_dir => self.tree.toggle(),
+                // The review panel lists what git changed, a link to a directory or a submodule
+                // among the files: there is no text to open (#449).
+                Some(n) if self.root.join(&n.path).is_dir() => {}
                 Some(n) => {
                     // A file behind a link that stays in the project opens by its own path, as
                     // Ctrl+N and the command line open it: one file, one name (#404).
@@ -96,7 +99,7 @@ impl App {
         };
         let path = self.root.join(&rel);
         if path.is_dir() {
-            self.message = format!("{} is a directory", rel.display());
+            self.say_about(&path, " is a directory");
             return;
         }
         // Before anything is created: edits that cannot be saved keep their file open.
@@ -116,7 +119,7 @@ impl App {
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(e) => {
-                self.message = format!("{}: {e}", rel.display());
+                self.say_about(&path, &format!(": {}", super::open::why_not(&e.into())));
                 return;
             }
         }

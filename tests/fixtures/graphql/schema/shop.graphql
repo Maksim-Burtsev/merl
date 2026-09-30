@@ -1,0 +1,67 @@
+# The shop of #307: every d case carries its answer in a comment under it.
+scalar Grams
+
+directive @audited(reason: String) on FIELD_DEFINITION
+
+"""
+Something with a price. A draft had:
+type Parcel {
+  rate: Float
+}
+"""
+interface Priced {
+  rate: Float!
+  describe(locale: String): String
+}
+
+interface Node {
+  id: ID!
+}
+
+type Tariff implements Priced @key(fields: "id") {
+  #                    ^ d: schema/shop.graphql:12
+  #                    status: Priced: by name, 1 match
+  id: ID!
+  rate: Float!
+  describe(locale: String): String
+  weight: Grams @audited(reason: "customs")
+  #       ^ d: schema/shop.graphql:2
+  #              ^ d: schema/shop.graphql:4
+}
+
+type Coupon implements Priced & Node {
+  #                    ^ d: schema/shop.graphql:12
+  #                             ^ d: schema/shop.graphql:17
+  """
+  The share taken off, from 0 to 1.
+  rate
+  """
+  rate: Float!
+  describe(
+    locale: String
+  ): String
+  channel: Channel
+  #        ^ d: schema/shop.graphql:47
+}
+
+enum Channel {
+  POST
+  COURIER @deprecated(reason: "merged into POST")
+  #        ^ d: none
+}
+
+union Offer = Tariff | Coupon
+#             ^ d: schema/shop.graphql:21
+#                      ^ d: schema/shop.graphql:32
+
+input CourierInput {
+  name: String!
+  channel: Channel = POST
+  #                  ^ d: schema/shop.graphql:48
+  # status: POST → Channel.POST
+}
+
+type Courier {
+  name: String!
+  channel: Channel!
+}

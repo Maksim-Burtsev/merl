@@ -115,7 +115,7 @@ fn tab_over_a_selection_of_several_lines_indents_them() {
     // The line the selection ends on at column 0 is not indented, as in VS Code.
     assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
     // The same lines are still selected, so a second Tab indents them again.
-    assert_eq!(a.selection(), Some(((0, 0), (2, 0))));
+    assert_eq!(a.file_selection(), Some(((0, 0), (2, 0))));
     press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
     assert_eq!(a.buf.lines, ["        a = 1", "        b = 2", "c = 3"]);
     // One undo step each, and the lines are never lost.
@@ -123,6 +123,11 @@ fn tab_over_a_selection_of_several_lines_indents_them() {
     assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
     assert_eq!(a.buf.lines, ["a = 1", "b = 2", "c = 3"]);
+    // Redo lands where the Tab left the cursor, at the start of `c`, not after `    b = 2`
+    // (#456).
+    press(&mut a, KeyCode::Char('y'), KeyModifiers::CONTROL);
+    assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
+    assert_eq!((a.line, a.col), (2, 0));
 }
 
 #[test]
@@ -134,10 +139,10 @@ fn tab_indents_from_the_file_own_indent_and_keeps_the_selected_text() {
     press(&mut a, KeyCode::Right, KeyModifiers::NONE);
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
     press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
-    assert_eq!(a.selection(), Some(((0, 1), (1, 2))));
+    assert_eq!(a.file_selection(), Some(((0, 1), (1, 2))));
     press(&mut a, KeyCode::Tab, KeyModifiers::NONE);
     assert_eq!(a.buf.lines, ["    a = 1", "    b = 2", "c = 3"]);
-    assert_eq!(a.selection(), Some(((0, 5), (1, 6))));
+    assert_eq!(a.file_selection(), Some(((0, 5), (1, 6))));
     // A file written with tabs is indented with a tab.
     let mut a = app("\tif x:\n\t\tpass\nend\n");
     assert!(a.buf.tabs);
@@ -176,6 +181,30 @@ fn alt_backspace_and_alt_delete_take_a_word_in_one_undo_step() {
     press(&mut a, KeyCode::Home, KeyModifiers::NONE);
     press(&mut a, KeyCode::Backspace, KeyModifiers::ALT);
     assert_eq!(a.buf.lines, vec![" мир;!next"]);
+}
+
+/// #455: Alt+Delete at the end of the file and Alt+Backspace at its start take nothing: no undo
+/// step, the file not edited, and the column Up / Down aim at stays where it was.
+#[test]
+fn an_alt_delete_with_nothing_to_take_changes_nothing() {
+    let mut a = app("abcdef\nxy");
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (1, 2));
+    press(&mut a, KeyCode::Delete, KeyModifiers::ALT);
+    press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (0, 6));
+    let mut a = app("\nabcdef");
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (0, 0));
+    press(&mut a, KeyCode::Backspace, KeyModifiers::ALT);
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (1, 6));
+    assert!(a.undo.is_empty() && !a.dirty);
 }
 
 #[test]
@@ -232,7 +261,7 @@ fn typing_replaces_the_selection_and_the_clipboard_keys_copy_or_cut() {
     press(&mut a, KeyCode::Right, KeyModifiers::NONE);
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
-    assert_eq!(a.selection(), Some(((0, 1), (1, 1))));
+    assert_eq!(a.file_selection(), Some(((0, 1), (1, 1))));
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
     assert_eq!(a.clipboard.take().as_deref(), Some("bc\nd"));
     assert_eq!(a.message, "copied 2 lines");
@@ -568,6 +597,24 @@ fn edits_that_cannot_be_saved_keep_merl_on_the_file() {
     press(&mut a, KeyCode::Down, KeyModifiers::NONE);
     assert!(!press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
     assert!(press(&mut a, KeyCode::Char('q'), KeyModifiers::NONE));
+}
+
+/// #507: a save that fails says why in a few words, as a file that does not open does (#403),
+/// not with the OS text and its `(os error N)`.
+#[test]
+#[cfg(unix)]
+fn a_save_that_fails_says_why_in_a_few_words() {
+    use std::os::unix::fs::PermissionsExt;
+    let (path, mut a) = temp_file("save-locked", "one\n");
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o444)).unwrap();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    typed(&mut a, "x");
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    // As root every file is writable, and there is nothing to assert.
+    if a.dirty {
+        assert_eq!(a.message, "save failed: permission denied");
+    }
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
 /// README: a file that changes on disk under unsaved edits is "neither reloaded nor

@@ -4,7 +4,7 @@
 # a name bound by a make( that gofmt left wrapped over three lines answers instead of a panic
 # (#178); a field read on a line with a `→` before it; fmt.Errorf into GOROOT, read-only, with
 # no toolchain fetched on the way (#183), named `fmt/errors.go` on the status line (#235). Tabs
-# are drawn four wide, as gofmt means them.
+# are drawn four wide, as gofmt means them. Last, d in the jobs' .proto beside the queue (#418).
 merl worker/main.go
 wait func main() {
 key t /
@@ -35,3 +35,33 @@ key [ /
 type Errorf
 key Enter d
 wait Errorf: via import fmt
+# The jobs' Protocol Buffers schema beside the queue (#418): d on an rpc's argument lands on its
+# message.
+key o
+type queue.proto
+key Enter
+wait worker/internal/queue/queue.proto  1:1
+key /
+type Job)
+key Enter d
+wait Job: by name, 1 match
+# A table (#330): the variable of `range []struct {…}{…}` is the struct written in place, and d on
+# its field lands in the struct's body.
+key o
+type queue.go
+key Enter
+wait worker/internal/queue/queue.go  1:1
+key /
+type worker {
+key Enter d
+wait worker → struct{…}.worker (via k: struct{…})
+# A receiver typed by the standard library (#334): ctx is a context.Context, and d on ctx.Done
+# lands on the method line of GOROOT's interface, read-only.
+key o
+type worker/main.go
+key Enter
+wait worker/main.go  1:1
+key /
+type Done()
+key Enter d
+wait Done → Context.Done (via ctx: Context)

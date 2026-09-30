@@ -102,10 +102,11 @@ fn a_go_package_level_name_is_read_in_every_file_of_the_package() {
             "defaultRepo.DeleteUser|(20",
             picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
         ),
+        // A label opens no block: the local above it is read (#330).
         (
             "globals.go",
             "defaultRepo.DeleteUser|(21",
-            picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            audit("defaultRepo: AuditLog"),
         ),
         (
             "globals.go",
@@ -613,4 +614,583 @@ fn a_second_d_on_the_declaration_a_jump_landed_on_lists_the_implementations() {
         a.message,
         "send: implementations of Notifier.send, 4 declarations"
     );
+}
+
+/// #325. A Go raw string has no escapes, so a backslash before its closing backtick is a
+/// backslash: the declarations after `` `\` ``, `` `C:\` `` and `` `{\\\}\\\\` `` are found.
+#[test]
+fn a_go_raw_string_ending_in_a_backslash_ends_there() {
+    let (dir, mut a) = project_app(
+        "go-raw-backslash",
+        &[
+            ("go.mod", "module example.com/rawstr\n"),
+            (
+                "shop/shop.go",
+                "package shop\n\nimport \"strings\"\n\nfunc slash(p string) string { return below(strings.ReplaceAll(p, `\\`, \"/\")) }\n\nfunc below(p string) string { return p }\n",
+            ),
+            (
+                "shop/drive.go",
+                "package shop\n\nfunc root() string { return drive() + volume() }\n\nfunc drive() string { return `C:\\` }\n\nfunc volume() string { return \"\" }\n",
+            ),
+            (
+                "shop/braces.go",
+                "package shop\n\nfunc pattern() string { return braces() + tail() }\n\nfunc braces() string { return `{\\\\\\}\\\\\\\\` }\n\nfunc tail() string { return \"\" }\n",
+            ),
+        ],
+    );
+    a.external
+        .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+    let mut d = |file: &str, code: &str| {
+        d_on(&mut a, file, code);
+        shown(&mut a)
+    };
+    let by_name = |word: &str, place: &str| jump(&format!("{word}: by name, 1 match"), place);
+    assert_eq!(
+        d("shop/shop.go", "return below"),
+        by_name("below", "shop/shop.go:7")
+    );
+    // On its declaration `d` says what it says on any other, as on `slash` above the string.
+    assert_eq!(
+        d("shop/shop.go", "func slash"),
+        by_name("slash", "shop/shop.go:5")
+    );
+    assert_eq!(
+        d("shop/shop.go", "func below"),
+        by_name("below", "shop/shop.go:7")
+    );
+    assert_eq!(
+        d("shop/drive.go", "+ volume"),
+        by_name("volume", "shop/drive.go:7")
+    );
+    assert_eq!(
+        d("shop/braces.go", "+ tail"),
+        by_name("tail", "shop/braces.go:7")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #476. Go's blank identifier names nothing: `d` on `_` says so without a search, and jumps to
+/// no earlier `_`. In Python `_` is a name like any other and is still found.
+#[test]
+fn the_go_blank_identifier_has_no_definition() {
+    let (dir, mut a) = project_app(
+        "go-blank",
+        &[
+            ("go.mod", "module example.com/blank\n"),
+            (
+                "main.go",
+                "package main\n\nfunc pair() (int, int) { return 1, 2 }\n\nfunc main() {\n\t_, a := pair()\n\t_, b := pair()\n\tprintln(a, b)\n}\n",
+            ),
+            ("tr.py", "_ = str\n\nprint(_(1))\n"),
+        ],
+    );
+    a.external
+        .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+    d_on(&mut a, "main.go", "\t_|, b");
+    assert_eq!(shown(&mut a), jump("no definition for _", "main.go:7"));
+    d_on(&mut a, "tr.py", "print(_");
+    assert_eq!(shown(&mut a), jump("_: local", "tr.py:1"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #326. A member of a column-0 `const (`, `var (` or `type (` block is a top-level declaration,
+/// in the project and in a package outside it; a field of a struct inside `type (` and a `var (`
+/// block inside a function are not.
+#[test]
+fn a_go_grouped_declaration_is_top_level() {
+    let (dir, mut a) = project_app(
+        "go-grouped",
+        &[
+            ("go.mod", "module example.com/grouped\n"),
+            (
+                "shop/shop.go",
+                "package shop\n\nimport \"time\"\n\nconst (\n\tsortByName = \"name\"\n\tKindA      = iota\n\tKindB\n)\n\nvar (\n\tDefaultTimeout = 5 * time.Second\n)\n\ntype (\n\tOrder struct {\n\t\tAddress string\n\t}\n)\n\nfunc sorted(s string) bool { return s == sortByName }\n\nfunc wait() time.Duration { return DefaultTimeout + time.Hour }\n\nfunc build() Order { return Order{} }\n\nfunc kind() int { return KindB }\n\nfunc local() string {\n\tvar (\n\t\tStreet = \"x\"\n\t)\n\treturn Street\n}\n\nfunc Address() string { return \"\" }\n\nfunc street() string { return Street + Address() }\n",
+            ),
+        ],
+    );
+    let goroot = external_root(
+        "go-grouped",
+        &[(
+            "src/time/time.go",
+            "package time\n\ntype Duration int64\n\nconst (\n\tNanosecond Duration = 1\n\tMinute             = 60 * Nanosecond\n\tHour               = 60 * Minute\n)\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Go, &[goroot.join("src")]);
+    let mut d = |code: &str| {
+        d_on(&mut a, "shop/shop.go", code);
+        shown(&mut a)
+    };
+    let by_name = |word: &str, place: &str| jump(&format!("{word}: by name, 1 match"), place);
+    assert_eq!(
+        d("s == sortByName"),
+        by_name("sortByName", "shop/shop.go:6")
+    );
+    assert_eq!(
+        d("return DefaultTimeout"),
+        by_name("DefaultTimeout", "shop/shop.go:12")
+    );
+    let hour = goroot.join("src/time/time.go");
+    assert_eq!(
+        d("time.Hour"),
+        jump("Hour: via import time", &format!("{}:8", hour.display()))
+    );
+    assert_eq!(d("return Order"), by_name("Order", "shop/shop.go:16"));
+    assert_eq!(d("return KindB"), by_name("KindB", "shop/shop.go:8"));
+    // The field of `Order` is no top-level `Address`, and the function's own `var (` block
+    // declares a local, not a name of the package.
+    assert_eq!(d("+ Address"), by_name("Address", "shop/shop.go:36"));
+    assert_eq!(
+        d("return Street| +"),
+        jump("no definition for Street", "shop/shop.go:38")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&goroot).unwrap();
+}
+
+/// #327. A key of a composite literal is a field of the literal's type: written in front of the
+/// `{`, or the element type of the literal around an elided `{`. A map's keys are values, and so
+/// are a slice expression's, a label and a `case`; a literal whose type is outside the project
+/// offers what the name finds.
+#[test]
+fn a_go_literal_key_is_a_field_of_the_literals_type() {
+    let (dir, mut a) = project_app(
+        "go-keys",
+        &[
+            ("go.mod", "module example.com/keys\n"),
+            (
+                "shop/shop.go",
+                "package shop\n\ntype Order struct {\n\tAddress string\n\tItems   []Item\n}\n\ntype Item struct{ Name string }\n\ntype Address struct{ Street string }\n\nfunc (a Address) Name() string { return a.Street }\n\nfunc build(addr string) Order {\n\treturn Order{\n\t\tAddress: addr,\n\t\tItems: []Item{\n\t\t\t{Name: \"a\"},\n\t\t},\n\t}\n}\n",
+            ),
+            (
+                "shop/more.go",
+                "package shop\n\nconst Street = \"s\"\n\nvar names = map[string]string{Street: \"a\"}\n\nvar nested = map[string][]Item{\"k\": {{Name: \"b\"}}}\n\nfunc cut(xs []int, Street int) []int { return xs[Street:] }\n\nfunc label(k string) int {\nStreet:\n\tfor range 3 {\n\t\tbreak Street\n\t}\n\tswitch k {\n\tcase Street:\n\t\treturn 1\n\t}\n\treturn 0\n}\n\nfunc none() Order { return Order{Missing: 1} }\n",
+            ),
+            (
+                "app/app.go",
+                "package app\n\nimport (\n\t\"sync\"\n\n\t\"example.com/keys/shop\"\n)\n\nvar pool = sync.Pool{\n\tNew: func() any { return nil },\n}\n\nfunc order() *shop.Order { return &shop.Order{Address: \"x\"} }\n",
+            ),
+            (
+                "other/other.go",
+                "package other\n\nfunc New() int { return 1 }\n",
+            ),
+        ],
+    );
+    a.external
+        .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+    let mut d = |file: &str, code: &str| {
+        d_on(&mut a, file, code);
+        shown(&mut a)
+    };
+    assert_eq!(
+        d("shop/shop.go", "\t\tAddress|: addr"),
+        jump(
+            "Address \u{2192} Order.Address (via Order{\u{2026}})",
+            "shop/shop.go:4"
+        )
+    );
+    assert_eq!(
+        d("shop/shop.go", "{Name"),
+        jump(
+            "Name \u{2192} Item.Name (via Item{\u{2026}})",
+            "shop/shop.go:8"
+        )
+    );
+    assert_eq!(
+        d("shop/more.go", "{{Name"),
+        jump(
+            "Name \u{2192} Item.Name (via Item{\u{2026}})",
+            "shop/shop.go:8"
+        )
+    );
+    assert_eq!(
+        d("app/app.go", "{Address"),
+        jump(
+            "Address \u{2192} Order.Address (via shop.Order{\u{2026}})",
+            "shop/shop.go:4"
+        )
+    );
+    // `sync.Pool` is outside the project: what the name finds is offered, never jumped to.
+    assert_eq!(
+        d("app/app.go", "\tNew"),
+        picker("New: by name, 1 match", &[("New", "other/other.go:3")])
+    );
+    // A struct without the field says so.
+    assert_eq!(
+        d("shop/more.go", "Order{Missing"),
+        jump("no definition for Missing", "shop/more.go:23")
+    );
+    // A map's keys, a slice expression, a label and a `case` are no fields.
+    let street = || jump("Street: local", "shop/more.go:3");
+    assert_eq!(d("shop/more.go", "{Street"), street());
+    assert_eq!(d("shop/more.go", "xs[Street"), street());
+    assert_eq!(d("shop/more.go", "case Street"), street());
+    assert_eq!(d("shop/more.go", "^Street"), street());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #332. A bare Go name is a local, a top-level name of the file's own package, a name of a dot
+/// import or a predeclared one, and `pkg.X` is declared in `pkg`'s directory or nowhere: no
+/// namesake of another package is offered.
+#[test]
+fn a_go_name_is_looked_up_in_its_own_package() {
+    let (dir, mut a) = project_app(
+        "go-confine",
+        &[
+            ("go.mod", "module example.com/confine\n"),
+            (
+                "shop/shop.go",
+                "package shop\n\nconst (\n\tMaxItems = 10\n)\n\ntype NetworkAddress struct{ Network string }\n\nfunc (na NetworkAddress) IsUnix() bool { return false }\n\nfunc IsUnix(n string) bool { return n == \"unix\" }\n\nfunc check(n string) bool { return IsUnix(n) }\n\nfunc Network() string { return \"\" }\n\nvar addr = NetworkAddress{Network: \"tcp\"}\n",
+            ),
+            (
+                "shop/inner_test.go",
+                "package shop\n\nfunc inner() bool { return IsUnix(\"x\") && extOnly() }\n",
+            ),
+            (
+                "shop/outer_test.go",
+                "package shop_test\n\nfunc extOnly() bool { return IsUnix(\"x\") }\n",
+            ),
+            (
+                "other/other.go",
+                "package other\n\nfunc MaxItems() int { return 3 }\n\nfunc helper() {\n\tcount := 1\n\t_ = count\n}\n",
+            ),
+            (
+                "app/app.go",
+                "package app\n\nimport \"example.com/confine/shop\"\n\nvar (\n\tcount         = 0\n\tvalidUserinfo = true\n)\n\nfunc limit() int { return shop.MaxItems }\n\nfunc total() int { return count }\n\nfunc valid() bool { return validUserinfo }\n\nfunc size(xs []int) int { return len(xs) }\n\nfunc unknown() int { return shop.Missing }\n",
+            ),
+            (
+                "dot/dot.go",
+                "package dot\n\nimport . \"example.com/confine/shop\"\n\nfunc most() int { return MaxItems }\n",
+            ),
+        ],
+    );
+    let goroot = external_root(
+        "go-confine",
+        &[
+            (
+                "src/builtin/builtin.go",
+                "package builtin\n\ntype Type int\n\nfunc len(v Type) int\n",
+            ),
+            (
+                "src/net/url/url.go",
+                "package url\n\nfunc validUserinfo(s string) bool { return true }\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Go, &[goroot.join("src")]);
+    let mut d = |file: &str, code: &str| {
+        d_on(&mut a, file, code);
+        shown(&mut a)
+    };
+    let by_name = |word: &str, place: &str| jump(&format!("{word}: by name, 1 match"), place);
+    // A bare name is never a method.
+    assert_eq!(
+        d("shop/shop.go", "return IsUnix"),
+        by_name("IsUnix", "shop/shop.go:11")
+    );
+    assert_eq!(
+        d("app/app.go", "shop.MaxItems"),
+        jump("MaxItems: via import shop/", "shop/shop.go:4")
+    );
+    assert_eq!(
+        d("app/app.go", "shop.Missing"),
+        jump("no definition for Missing", "app/app.go:18")
+    );
+    assert_eq!(
+        d("app/app.go", "return count"),
+        by_name("count", "app/app.go:6")
+    );
+    assert_eq!(
+        d("app/app.go", "return validUserinfo"),
+        by_name("validUserinfo", "app/app.go:7")
+    );
+    assert_eq!(
+        d("app/app.go", "return len"),
+        jump(
+            "len: via builtin",
+            &format!("{}:5", goroot.join("src/builtin/builtin.go").display())
+        )
+    );
+    assert_eq!(
+        d("dot/dot.go", "return MaxItems"),
+        jump("MaxItems: via import shop/", "shop/shop.go:4")
+    );
+    // An external test package shares the directory, not the names.
+    assert_eq!(
+        d("shop/inner_test.go", "return IsUnix"),
+        by_name("IsUnix", "shop/shop.go:11")
+    );
+    assert_eq!(
+        d("shop/inner_test.go", "&& extOnly"),
+        jump("no definition for extOnly", "shop/inner_test.go:3")
+    );
+    assert_eq!(
+        d("shop/outer_test.go", "return IsUnix"),
+        jump("no definition for IsUnix", "shop/outer_test.go:3")
+    );
+    // A key is the literal's field, whatever the package declares of its name.
+    assert_eq!(
+        d("shop/shop.go", "{Network"),
+        jump(
+            "Network \u{2192} NetworkAddress.Network (via NetworkAddress{\u{2026}})",
+            "shop/shop.go:7"
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&goroot).unwrap();
+}
+
+/// #330. The scope walk reads a table test: the variable of `range []struct {…}{…}` and of a
+/// range over `tests := []struct {…}{…}` is the struct written in place, and a key of one of its
+/// elements is its field. A label opens no block, and a `:=` that redeclares a name reuses the
+/// one its block declared first.
+#[test]
+fn a_go_table_test_struct_is_a_type() {
+    let (dir, mut a) = project_app(
+        "go-walk",
+        &[
+            ("go.mod", "module example.com/walk\n"),
+            (
+                "shop/shop.go",
+                "package shop\n\nimport \"strings\"\n\nfunc labelled(input string) string {\n\tvar sb strings.Builder\n\tsb.Grow(len(input))\nscan:\n\tfor i := 0; i < len(input); i++ {\n\t\tif input[i] == 'x' {\n\t\t\tcontinue scan\n\t\t}\n\t\tsb.WriteString(\"y\")\n\t}\n\treturn sb.String()\n}\n\nfunc table() {\n\tfor _, tc := range []struct {\n\t\tname  string\n\t\tcheck func(error) bool\n\t}{\n\t\t{name: \"a\"},\n\t} {\n\t\t_ = tc.name\n\t\t_ = tc.check(nil)\n\t}\n\ttests := []struct{ want int }{{want: 1}}\n\tfor _, tt := range tests {\n\t\t_ = tt.want\n\t}\n}\n\nfunc redeclared() error {\n\terr := first()\n\tif err != nil {\n\t\treturn err\n\t}\n\tn, err := second()\n\t_ = n\n\terr = first()\n\treturn err\n}\n\nfunc first() error { return nil }\n\nfunc second() (int, error) { return 0, nil }\n",
+            ),
+            (
+                "other/other.go",
+                "package other\n\nfunc helper() {\n\tsb := 1\n\t_ = sb\n\tname := \"x\"\n\t_ = name\n}\n",
+            ),
+        ],
+    );
+    a.external
+        .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+    let mut d = |code: &str| {
+        d_on(&mut a, "shop/shop.go", code);
+        shown(&mut a)
+    };
+    let sb = || jump("sb \u{2192} labelled.sb (local)", "shop/shop.go:6");
+    assert_eq!(d("\t\tsb|.WriteString"), sb());
+    assert_eq!(d("return sb|.String"), sb());
+    let field = |word: &str, place: &str| {
+        jump(
+            &format!("{word} \u{2192} struct{{\u{2026}}}.{word} (via tc: struct{{\u{2026}}})"),
+            place,
+        )
+    };
+    assert_eq!(d("tc.name"), field("name", "shop/shop.go:20"));
+    assert_eq!(d("tc.check"), field("check", "shop/shop.go:21"));
+    assert_eq!(
+        d("{name"),
+        jump(
+            "name \u{2192} struct{\u{2026}}.name (via struct{\u{2026}})",
+            "shop/shop.go:20"
+        )
+    );
+    assert_eq!(
+        d("tt.want"),
+        jump(
+            "want \u{2192} struct{\u{2026}}.want (via tt: struct{\u{2026}})",
+            "shop/shop.go:28"
+        )
+    );
+    assert_eq!(
+        d("\terr| = first"),
+        jump("err \u{2192} redeclared.err (local)", "shop/shop.go:35")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #334. A receiver whose type is declared in the standard library or a module is proven there:
+/// a struct's field and method, an interface's method line, a method of an embedded type, a
+/// type reached through one call, and a literal's key.
+#[test]
+fn a_go_type_outside_the_project_is_proven() {
+    let (dir, mut a) = project_app(
+        "go-external",
+        &[
+            (
+                "go.mod",
+                "module example.com/external\n\nrequire example.com/lib v1.0.0\n",
+            ),
+            (
+                "app/app.go",
+                "package app\n\nimport (\n\t\"context\"\n\t\"net/http\"\n\t\"net/http/httptest\"\n\t\"sync\"\n\t\"testing\"\n\n\t\"example.com/lib\"\n)\n\nfunc handle(ctx context.Context, r *http.Request, t *testing.T) string {\n\tvar wg sync.WaitGroup\n\twg.Add(1)\n\tt.Errorf(\"x\")\n\t_ = ctx.Err()\n\tsrv := httptest.NewServer(nil)\n\tsrv.Close()\n\tvar c lib.Config\n\t_ = c.Name\n\t_ = sync.Pool{New: nil}\n\treturn r.URL.Path\n}\n",
+            ),
+            (
+                "app/other.go",
+                "package app\n\ntype other struct{}\n\nfunc (o other) Add(n int) {}\n\nfunc (o other) Close() {}\n",
+            ),
+        ],
+    );
+    let root = external_root(
+        "go-external",
+        &[
+            (
+                "src/sync/waitgroup.go",
+                "package sync\n\ntype WaitGroup struct {\n\tn int\n}\n\nfunc (wg *WaitGroup) Add(delta int) {}\n",
+            ),
+            (
+                "src/sync/pool.go",
+                "package sync\n\ntype Pool struct {\n\tNew func() any\n}\n",
+            ),
+            (
+                "src/testing/testing.go",
+                "package testing\n\ntype common struct{}\n\nfunc (c *common) Errorf(format string, args ...any) {}\n\ntype T struct {\n\tcommon\n\tname string\n}\n",
+            ),
+            (
+                "src/context/context.go",
+                "package context\n\ntype Context interface {\n\tErr() error\n}\n",
+            ),
+            (
+                "src/net/http/request.go",
+                "package http\n\nimport \"net/url\"\n\ntype Request struct {\n\tURL *url.URL\n}\n",
+            ),
+            (
+                "src/net/url/url.go",
+                "package url\n\ntype URL struct {\n\tPath string\n}\n",
+            ),
+            (
+                "src/net/http/httptest/server.go",
+                "package httptest\n\ntype Server struct{}\n\nfunc NewServer(handler any) *Server { return nil }\n\nfunc (s *Server) Close() {}\n",
+            ),
+            (
+                "mod/example.com/lib@v1.0.0/lib.go",
+                "package lib\n\ntype Config struct {\n\tName string\n}\n",
+            ),
+        ],
+    );
+    use_roots(
+        &mut a,
+        Kind::Go,
+        &[root.join("src"), root.join("mod/example.com/lib@v1.0.0")],
+    );
+    let mut d = |code: &str| {
+        d_on(&mut a, "app/app.go", code);
+        shown(&mut a)
+    };
+    let at = |file: &str, line: usize| format!("{}:{line}", root.join(file).display());
+    assert_eq!(
+        d("wg.Add"),
+        jump(
+            "Add \u{2192} WaitGroup.Add (via wg: WaitGroup)",
+            &at("src/sync/waitgroup.go", 7)
+        )
+    );
+    assert_eq!(
+        d("t.Errorf"),
+        jump(
+            "Errorf \u{2192} common.Errorf (via t: T)",
+            &at("src/testing/testing.go", 5)
+        )
+    );
+    assert_eq!(
+        d("ctx.Err"),
+        jump(
+            "Err \u{2192} Context.Err (via ctx: Context)",
+            &at("src/context/context.go", 4)
+        )
+    );
+    assert_eq!(
+        d("r.URL"),
+        jump(
+            "URL \u{2192} Request.URL (via r: Request)",
+            &at("src/net/http/request.go", 6)
+        )
+    );
+    assert_eq!(
+        d("r.URL.Path"),
+        jump(
+            "Path \u{2192} URL.Path (via r.URL: URL)",
+            &at("src/net/url/url.go", 4)
+        )
+    );
+    assert_eq!(
+        d("srv.Close"),
+        jump(
+            "Close \u{2192} Server.Close (via httptest.NewServer() *Server)",
+            &at("src/net/http/httptest/server.go", 7)
+        )
+    );
+    assert_eq!(
+        d("c.Name"),
+        jump(
+            "Name \u{2192} Config.Name (via c: Config)",
+            &at("mod/example.com/lib@v1.0.0/lib.go", 4)
+        )
+    );
+    assert_eq!(
+        d("{New"),
+        jump(
+            "New \u{2192} Pool.New (via sync.Pool{\u{2026}})",
+            &at("src/sync/pool.go", 4)
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// A Go local named `from` is a local: `from ` starts an import line in Python, not in Go, so the
+/// package's `var from` in another file is not the answer (#521 review).
+#[test]
+fn a_go_local_named_from_is_the_local() {
+    let (dir, mut a) = project_app(
+        "go-local-from",
+        &[
+            ("go.mod", "module example.com/span\n"),
+            (
+                "main.go",
+                "package main\n\nimport \"time\"\n\nfunc span(to time.Time) time.Duration {\n\tfrom := time.Now()\n\treturn to.Sub(from)\n}\n",
+            ),
+            ("other.go", "package main\n\nvar from = 1\n"),
+        ],
+    );
+    a.external
+        .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+    d_on(&mut a, "main.go", "to.Sub(from");
+    assert_eq!(
+        shown(&mut a),
+        jump("from \u{2192} span.from (local)", "main.go:6")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Go's `pkg.X` ends at `pkg`'s directory only when that directory was read (#332): a chain
+/// through a package's value, and a package the lookup cannot map, such as one committed under
+/// `vendor/`, keep the search by name (#521 review).
+#[test]
+fn a_go_chain_or_a_vendored_package_keeps_the_search_by_name() {
+    let (dir, mut a) = project_app(
+        "go-chain-vendor",
+        &[
+            ("go.mod", "module example.com/app\n"),
+            (
+                "client/client.go",
+                "package client\n\ntype Client struct{}\n\nvar Default = build()\n\nfunc build() *Client { return nil }\n\nfunc (c *Client) Do() {}\n",
+            ),
+            (
+                "vendor/github.com/zzfake/errs/errs.go",
+                "package errs\n\nfunc Wrap(e error) error { return e }\n",
+            ),
+            (
+                "main.go",
+                "package main\n\nimport (\n\t\"example.com/app/client\"\n\t\"github.com/zzfake/errs\"\n)\n\nfunc main() {\n\tclient.Default.Do()\n\t_ = errs.Wrap(nil)\n}\n",
+            ),
+        ],
+    );
+    a.external
+        .insert(Kind::Go, (Vec::new(), Arc::new(Vec::new())));
+    d_on(&mut a, "main.go", "client.Default.Do");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Do \u{2192} Client.Do (by name, 1 match)",
+            "client/client.go:9"
+        )
+    );
+    d_on(&mut a, "main.go", "errs.Wrap");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Wrap: by name, 1 match",
+            "vendor/github.com/zzfake/errs/errs.go:3"
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
 }

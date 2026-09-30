@@ -111,14 +111,12 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
                 &at("gopkg.in/yaml.v3@v3.0.1/yaml.go:3"),
             ),
         ),
-        // `github.com/foo/bar` is not installed: `github.com/other/lib` only shares a prefix.
+        // `github.com/foo/bar` is not installed: `github.com/other/lib` only shares a prefix,
+        // and a Go package is its own directory or nothing (#332).
         (
             "main.go",
             "bar.Baz",
-            jump(
-                "Baz: by name, 1 match",
-                &at("github.com/other/lib@v1.0.0/lib.go:3"),
-            ),
+            jump("no definition for Baz", "main.go:15"),
         ),
         (
             "main.go",
@@ -133,40 +131,31 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
             "errors.New",
             jump("New: via import errors", &at("src/errors/errors.go:3")),
         ),
-        // Nor is a package inside the imported one: a name it lacks is looked for everywhere.
+        // Nor is a package inside the imported one: Go has no re-exports, and a name the
+        // package lacks is declared nowhere else (#332).
         (
             "main.go",
             "kit.Wire",
-            picker(
-                "Wire: by name, 2 declarations",
-                &[
-                    ("Wire", "example.com/kit@v1.0.0/inner/inner.go:3"),
-                    ("Wire", "github.com/else/thing@v1.0.0/thing.go:3"),
-                ],
-            ),
+            jump("no definition for Wire", "main.go:14"),
         ),
         // A package that is not installed: its parent directory is no proof.
         (
             "main.go",
             "pq.Open",
-            picker(
-                "Open: by name, 2 declarations",
-                &[
-                    ("Open", "src/database/sql/driver/driver.go:3"),
-                    ("Open", "src/database/sql/sql.go:3"),
-                ],
-            ),
+            jump("no definition for Open", "main.go:18"),
         ),
-        // A Rust call on a value still looks outside the project.
+        // A Rust call on a value still looks outside the project, and a trait's own method is
+        // where every call of it lands (#358).
         (
             "main.rs",
             ".into_owned",
             jump(
-                "into_owned \u{2192} ToOwned::into_owned (by name, 1 match)",
+                "into_owned \u{2192} ToOwned::into_owned (via trait ToOwned)",
                 &at("alloc/src/borrow.rs:2"),
             ),
         ),
-        // A value named like a module is found in that module, by name.
+        // A value named like a module is a value like any other (#358): the one method of the
+        // name outside the project, by name.
         (
             "main.rs",
             "path.join",
@@ -313,17 +302,9 @@ fn a_root_of_one_package_keeps_its_name() {
         a.jump_to(&path, 1);
         assert_eq!(a.rel_path(), name);
     }
+    // Go has no re-exports: a package that does not declare the name is the answer (#332).
     d_on(&mut a, "main.go", "kit.Wire");
-    assert_eq!(
-        shown(&mut a),
-        picker(
-            "Wire: by name, 2 declarations",
-            &[
-                ("Wire", "kit@v1.0.0/inner/inner.go:3"),
-                ("Wire", "thing@v1.0.0/thing.go:3"),
-            ],
-        )
-    );
+    assert_eq!(shown(&mut a), jump("no definition for Wire", "main.go:6"));
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&outside).unwrap();
 }
@@ -622,4 +603,43 @@ fn navigation_searches_the_open_file_as_it_is_on_screen() {
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     assert_eq!(a.line_str(), "fn target() {}", "{}", a.message);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #307: a well-known type the project does not vendor is found under a root outside it, as
+/// `protoc -I` finds it: the file its `import` names, and the message its package declares.
+#[test]
+fn proto_finds_an_import_and_a_type_only_under_a_root_outside() {
+    let (dir, mut a) = project_app(
+        "proto-outside",
+        &[(
+            "shop/v1/order.proto",
+            "syntax = \"proto3\";\n\npackage shop.v1;\n\nimport \"google/protobuf/timestamp.proto\";\n\nmessage Order {\n  google.protobuf.Timestamp at = 1;\n}\n",
+        )],
+    );
+    let root = external_root(
+        "proto-outside",
+        &[(
+            "google/protobuf/timestamp.proto",
+            "syntax = \"proto3\";\n\npackage google.protobuf;\n\nmessage Timestamp {\n  int64 seconds = 1;\n}\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Proto, std::slice::from_ref(&root));
+    let at = |line| {
+        format!(
+            "{}:{line}",
+            root.join("google/protobuf/timestamp.proto").display()
+        )
+    };
+    d_on(&mut a, "shop/v1/order.proto", "google/protobuf/timestamp");
+    assert_eq!(
+        shown(&mut a),
+        jump("timestamp: module google/protobuf/timestamp.proto", &at(1))
+    );
+    d_on(&mut a, "shop/v1/order.proto", "google.protobuf.Timestamp");
+    assert_eq!(
+        shown(&mut a),
+        jump("Timestamp: via google.protobuf", &at(5))
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
 }

@@ -39,21 +39,7 @@ impl App {
                 })
                 .collect());
         }
-        let (ty, links) = match head {
-            // The chain hangs off a call: `make_uow().users.word`.
-            Some((call, value, fields)) => {
-                let value = value.clone();
-                // A cast is its own link, as written: `via (repo as UserRepository)`.
-                let cast = matches!(value, search::Value::Type(_) | search::Value::Cast(..))
-                    .then(|| call.clone());
-                let (ty, link) = self
-                    .binding_type(kind, here, &text, &search::Binding { line, value }, 1)
-                    .ok_or_else(|| call.clone())?;
-                let start = (ty, link.or(cast));
-                self.follow(kind, start, call, false, fields)?
-            }
-            None => self.chain_type(kind, here, &text, line, chain, 1)?,
-        };
+        let (ty, links) = self.receiver(kind, here, chain, head)?;
         let declared = self.hierarchy(kind, &ty, 0, &mut |t| {
             let members = self.members_of(kind, t, word);
             if members.is_empty() {
@@ -84,6 +70,166 @@ impl App {
                 reason: Reason::Receiver(label.clone()),
             })
             .collect())
+    }
+
+    /// The type of the receiver `chain`, or of the call `head` it hangs off, with the links that
+    /// prove it; `Err` names the first name that is not proven.
+    fn receiver(
+        &self,
+        kind: Kind,
+        here: &Path,
+        chain: &[String],
+        head: Option<&(String, search::Value, Vec<String>)>,
+    ) -> Result<(Typed, Vec<String>), String> {
+        let text = self.buf.lines.join("\n");
+        let line = self.line + 1;
+        match head {
+            // The chain hangs off a call: `make_uow().users.word`.
+            Some((call, value, fields)) => {
+                let value = value.clone();
+                // A cast is its own link, as written: `via (repo as UserRepository)`.
+                let cast = matches!(value, search::Value::Type(_) | search::Value::Cast(..))
+                    .then(|| call.clone());
+                let (ty, link) = self
+                    .binding_type(kind, here, &text, &search::Binding { line, value }, 1)
+                    .ok_or_else(|| call.clone())?;
+                let start = (ty, link.or(cast));
+                self.follow(kind, start, call, false, fields)
+            }
+            None => self.chain_type(kind, here, &text, line, chain, 1),
+        }
+    }
+
+    /// The links that prove the Python receiver `chain` holds a builtin type (#336), as a typed
+    /// jump names them: `s: str`, `render() -> str`, `self.name: str`. Every binding of the last
+    /// name reads the same type from [`search::PYTHON_BUILTIN_TYPES`] as written, one that the
+    /// file writing it neither declares nor imports: a project class called `str` is read as
+    /// before. The names in front of it are proven as for any typed jump.
+    pub(super) fn builtin_receiver(
+        &self,
+        kind: Kind,
+        here: &Path,
+        chain: &[String],
+        head: Option<&(String, search::Value, Vec<String>)>,
+    ) -> Option<String> {
+        if kind != Kind::Python || head.is_some() {
+            return None;
+        }
+        let (last, before) = chain.split_last()?;
+        let (file, text, bindings, mut links) = match before {
+            [] => {
+                let text = self.buf.lines.join("\n");
+                let bindings = search::bindings(kind, &text, self.line + 1, last);
+                (here.to_path_buf(), text, bindings, Vec::new())
+            }
+            _ => {
+                let (ty, links) = self.receiver(kind, here, before, None).ok()?;
+                let found = self.hierarchy(kind, &ty, 0, &mut |t| {
+                    let text = self.text_of(&t.path)?;
+                    let bindings = search::field_bindings(kind, &text, t.line, last);
+                    (!bindings.is_empty()).then(|| (t.path.clone(), text, bindings))
+                })?;
+                (found.0, found.1, found.2, links)
+            }
+        };
+        let imports = search::imports(kind, &text);
+        let builtin = |written: &str| {
+            let parts = search::type_path(kind, written)?;
+            let [name] = parts.as_slice() else {
+                return None;
+            };
+            (search::PYTHON_BUILTIN_TYPES.contains(&name.as_str())
+                && bound(&imports, name).is_none()
+                && self.declaration(kind, &file, &parts).is_none())
+            .then(|| name.clone())
+        };
+        let mut found: Option<(String, Option<String>)> = None;
+        for b in &bindings {
+            let this = match &b.value {
+                search::Value::Type(t) => (builtin(t)?, None),
+                search::Value::Call(callee) => {
+                    let first = callee.split('.').next().unwrap_or(callee);
+                    if hidden(kind, &text, b.line, first) {
+                        return None;
+                    }
+                    let (t, at) = self.declared_return(kind, &file, callee)?;
+                    let written = self.text_of(&at).map(|t2| search::imports(kind, &t2));
+                    let name = builtin(&t)?;
+                    if written.is_some_and(|i| bound(&i, &name).is_some()) {
+                        return None;
+                    }
+                    let link = signature(kind, callee, &name);
+                    (name, Some(link))
+                }
+                _ => return None,
+            };
+            match &found {
+                Some((name, _)) if *name != this.0 => return None,
+                Some(_) => {}
+                None => found = Some(this),
+            }
+        }
+        let (name, call) = found?;
+        let link = call.unwrap_or_else(|| match links.first() {
+            Some(_) if before.len() == 1 => format!("{}.{last}: {name}", before[0]),
+            _ => format!("{last}: {name}"),
+        });
+        match (before.len(), links.first_mut()) {
+            (1, Some(first)) => *first = link,
+            _ => links.push(link),
+        }
+        Some(links.join(" \u{2192} "))
+    }
+
+    /// The project class a Python receiver is proven to be when what it lacks can only come from
+    /// outside the project (#342): every base up its ancestry is a project class read or a name
+    /// imported from outside, and at least one is the latter. `None` when no base is outside, or
+    /// when one cannot be read at all: a call (`six.with_metaclass(…)`), a name nothing binds, a
+    /// `*` import.
+    pub(super) fn inherited_outside(
+        &self,
+        kind: Kind,
+        here: &Path,
+        chain: &[String],
+        head: Option<&(String, search::Value, Vec<String>)>,
+    ) -> Option<Typed> {
+        if kind != Kind::Python || chain.first().is_some_and(|f| f == "super") {
+            return None;
+        }
+        let (ty, _) = self.receiver(kind, here, chain, head).ok()?;
+        self.ancestry_outside(&ty, 0)?.then_some(ty)
+    }
+
+    /// Whether a base of `ty`, or of a project class above it, is imported from outside the
+    /// project; `None` when a base cannot be read.
+    fn ancestry_outside(&self, ty: &Typed, depth: usize) -> Option<bool> {
+        let kind = Kind::Python;
+        // ponytail: eight levels up, which also ends a cycle.
+        let text = self.text_of(&ty.path).filter(|_| depth < 8)?;
+        let imports = search::imports(kind, &text);
+        let mut outside = false;
+        for base in search::bases(kind, &text, ty.line) {
+            let parts = search::type_path(kind, &base)?;
+            let (name, chain) = parts.split_last()?;
+            // What `above` reads as declaring nothing worth a jump.
+            if matches!(name.as_str(), "object" | "Generic" | "Protocol" | "ABC") {
+                continue;
+            }
+            if let Some(base) = self.type_decl(kind, &ty.path, &base) {
+                outside |= self.ancestry_outside(&base, depth + 1)?;
+                continue;
+            }
+            let path = bound(&imports, &parts[0])?;
+            if path[0].starts_with('.')
+                || self
+                    .imported_definitions(kind, &ty.path, name, chain, &path)
+                    .is_some()
+            {
+                return None;
+            }
+            outside = true;
+        }
+        Some(outside)
     }
 
     /// `word` as the class `chain` names declares it for the class itself: a method, else a line
@@ -327,6 +473,7 @@ impl App {
                 Some((ty, None))
             }
             search::Value::Call(callee) => self.call_type(kind, file, text, b.line, callee, hops),
+            search::Value::Struct(line) => Some((anonymous(file, *line), None)),
             // `cast(T, x)` writes `T`, unless the project declares the `cast` this file calls:
             // that one is a function, with whatever it returns.
             search::Value::Cast(callee, t) => {
@@ -378,13 +525,17 @@ impl App {
                         Some(element) => (element, at.clone()),
                         None => named(&written)?,
                     };
-                    let ty = self.type_decl(kind, &at, &element)?;
+                    // `tests := []struct {…}{…}`: the struct written on the line itself (#330).
+                    let (ty, link) = match kind == Kind::Go && element == "struct" {
+                        true => (anonymous(&at, c.line), None),
+                        false => (self.type_decl(kind, &at, &element)?, Some(link)),
+                    };
                     match &found {
                         Some((one, _)) if (&one.path, one.line) != (&ty.path, ty.line) => {
                             return None;
                         }
                         Some(_) => {}
-                        None => found = Some((ty, Some(link))),
+                        None => found = Some((ty, link)),
                     }
                 }
                 found
@@ -502,8 +653,7 @@ impl App {
         let receiver = |alias: &str| {
             let files = self.package_files(kind, &decl.path);
             let pattern = format!(r"^func\s+\(\s*(?:\w+\s+)?\*?{}\b", regex::escape(alias));
-            self.grep(&pattern, false, false, |p| files.iter().any(|f| f == p))
-                .is_ok_and(|hits| !hits.is_empty())
+            !self.grep_in(&pattern, &files).is_empty()
         };
         if depth < 8
             && let Some(named) = search::go_alias(kind, &decl.text)
@@ -523,6 +673,16 @@ impl App {
     }
 }
 
+/// The Go struct written in place whose body opens on 1-based `line` of `file`: `[]struct {…}`'s
+/// element, named `struct{…}` (#330).
+pub(super) fn anonymous(file: &Path, line: usize) -> Typed {
+    Typed {
+        name: "struct{\u{2026}}".to_owned(),
+        path: file.to_path_buf(),
+        line,
+    }
+}
+
 /// Whether a parameter or a local binds `name` where 1-based `line` of `text` reads it: a value
 /// then, whatever function, import or namespace of that name the file can see.
 fn hidden(kind: Kind, text: &str, line: usize, name: &str) -> bool {
@@ -530,7 +690,7 @@ fn hidden(kind: Kind, text: &str, line: usize, name: &str) -> bool {
     search::bindings(kind, text, line, name).iter().any(|b| {
         lines
             .get(b.line - 1)
-            .is_some_and(|l| !names_itself(l, name))
+            .is_some_and(|l| !names_itself(kind, l, name))
     })
 }
 

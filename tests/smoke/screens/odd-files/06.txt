@@ -1,0 +1,57 @@
+wait 1 order_id;amount;reason
+1 order_id;amount;reason
+2 1042;40.00;damaged in transit
+3 1077;12.50;never arrived
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+data/refunds-2026-08.csv  1:1  [code]  nowrap                                                                                                                                     ? help
+cursor (x,y,shown) 2,0,1

@@ -159,6 +159,12 @@ fn ctrl_n_resolves_the_links_on_the_path() {
         assert_eq!(a.message, "outside the project", "{path}");
     }
     assert_eq!(std::fs::read_dir(&outside).unwrap().count(), 0);
+    // A link to a file out there is refused as well, not opened (#448).
+    std::fs::write(outside.join("far.py"), "far = 1\n").unwrap();
+    std::os::unix::fs::symlink(outside.join("far.py"), dir.join("far.py")).unwrap();
+    new(&mut a, "far.py");
+    assert_eq!(a.message, "outside the project");
+    assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("src/a.py")));
     new(&mut a, "inside/b.py");
     let made = dir.join("src/b.py");
     assert!(made.is_file());
@@ -168,6 +174,28 @@ fn ctrl_n_resolves_the_links_on_the_path() {
         Some(Path::new("src/b.py"))
     );
     std::fs::remove_dir_all(&outside).unwrap();
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #507: a file that cannot be made is named from the root with the reason in a few words, as a
+/// file that does not open is (#403), not with the OS text and its `(os error N)`.
+#[cfg(unix)]
+#[test]
+fn ctrl_n_in_a_folder_merl_may_not_write_says_why_in_a_few_words() {
+    use std::os::unix::fs::PermissionsExt;
+    let (dir, mut a) = new_file_project("locked");
+    let locked = dir.join("locked");
+    std::fs::create_dir(&locked).unwrap();
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o555)).unwrap();
+    ctrl_n(&mut a);
+    press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+    typed(&mut a, "locked/new.txt");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    // As root every folder is writable, and there is nothing to assert.
+    if !locked.join("new.txt").exists() {
+        assert_eq!(a.message, "locked/new.txt: permission denied");
+    }
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -192,7 +220,7 @@ fn ctrl_n_on_a_fifo_does_not_read_it() {
         std::fs::remove_dir_all(&dir).unwrap();
     });
     let (message, open) = rx.recv_timeout(std::time::Duration::from_secs(60)).unwrap();
-    assert!(message.ends_with("/pipe: not a regular file"), "{message}");
+    assert_eq!(message, "pipe: not a regular file");
     assert!(open.is_some_and(|p| p.ends_with("src/a.py")));
 }
 
@@ -227,6 +255,36 @@ fn the_files_behind_a_link_to_a_directory_open_from_the_tree() {
             a.message
         );
         assert_eq!(a.buf.readonly, readonly, "{file}");
+    }
+    std::fs::remove_dir_all(&outside).unwrap();
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// #448: a link to a file that resolves outside the project opens read-only, as a file behind a
+/// directory link out does, though the walk lists it. One to a file inside stays editable.
+#[cfg(unix)]
+#[test]
+fn a_link_to_a_file_outside_the_project_opens_read_only() {
+    let (dir, _) = new_file_project("filelink");
+    let outside = dir.with_extension("outside");
+    let _ = std::fs::remove_dir_all(&outside);
+    std::fs::create_dir_all(&outside).unwrap();
+    std::fs::write(outside.join("far.py"), "far = 1\n").unwrap();
+    std::os::unix::fs::symlink(outside.join("far.py"), dir.join("out.py")).unwrap();
+    std::os::unix::fs::symlink("src/a.py", dir.join("in.py")).unwrap();
+    let (tree, files) = crate::tree::build(&dir, false);
+    let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+    for (link, readonly) in [("in.py", None), ("out.py", Some("outside the project"))] {
+        a.focus = Focus::Tree;
+        a.tree.reveal(Path::new(link));
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(
+            a.buf.path.as_deref(),
+            Some(&*dir.join(link)),
+            "{}",
+            a.message
+        );
+        assert_eq!(a.buf.readonly, readonly, "{link}");
     }
     std::fs::remove_dir_all(&outside).unwrap();
     std::fs::remove_dir_all(&dir).unwrap();

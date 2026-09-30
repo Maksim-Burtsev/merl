@@ -1,0 +1,11 @@
+/
+Esc
+Picker: Enter
+Picker: Esc
+[
+]
+d
+n
+o
+q
+t

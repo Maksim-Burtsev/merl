@@ -35,3 +35,33 @@ key Enter BSpace
 wait Files (5/
 key Enter
 wait app/models.py  1:1
+# The keys of the lists and panels (#310). In the file list PgDn / PgUp page and Up moves: Enter
+# opens the row it stands on. Tab puts the focus in the tree, on the open file: Down / Up move,
+# Right opens a directory and Left closes it, Enter opens a file. In the help Down / Up scroll.
+# N goes back to the match before, and p shows a Markdown file rendered.
+key o
+wait Files (
+key PageDown PageDown PageUp Up*12 Enter
+wait app/service.py  1:1  [code]
+key t Tab
+wait app/service.py  1:1  [tree]
+key Down Down Right
+wait orders.min.json
+key Left
+wait ▸ data
+key Up Enter
+wait app/uow.py  1:1  [code]
+key ?
+wait This help
+key Down Down Up
+wait Close an overlay, leave edit mode
+key Escape o
+type notes.md
+key Enter
+wait docs/notes.md  1:1
+key /
+type order
+key Enter n n N
+wait 2/14
+key Escape p
+wait ━━━━━━━━━━

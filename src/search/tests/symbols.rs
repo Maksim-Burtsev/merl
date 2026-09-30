@@ -285,6 +285,9 @@ fn c_symbol_names() {
             Some("formatter"),
         ),
         ("struct client;", None),
+        // A nested type defined through its outer one declares the inner name (#368).
+        ("struct DBImpl::Writer {", Some("Writer")),
+        ("struct SkipList<K, C>::Node {", Some("Node")),
         ("union value {", Some("value")),
         ("enum class Status {", Some("Status")),
         ("namespace billing {", Some("billing")),
@@ -477,6 +480,10 @@ fn php_symbol_names() {
             "    public const STATUS_OPEN = 'open';",
             Some("STATUS_OPEN"),
         ),
+        // A typed constant under its name, not its type (#344).
+        ("    private const int LIMIT = 500;", Some("LIMIT")),
+        ("    const ?string LABEL = null;", Some("LABEL")),
+        ("    public const A|B UNION = 1;", Some("UNION")),
         // A property is a field, an enum case is what a type holds, and a `define()` has no
         // keyword before the name: none of them is a symbol.
         ("    protected array $rows = [];", None),
@@ -515,6 +522,7 @@ fn the_shared_pattern_skips_the_kinds_with_rows_of_their_own() {
     assert!(!shared_symbols(Some(Kind::Php)));
     assert!(!shared_symbols(Some(Kind::Lua)));
     assert!(!shared_symbols(Some(Kind::Elixir)));
+    assert!(!shared_symbols(Some(Kind::Graphql)));
     // Shell and SQL rows complement the shared pattern instead, and it reads every other
     // file, known kind or not.
     assert!(shared_symbols(Some(Kind::Shell)));
@@ -529,6 +537,14 @@ fn infra_symbol_names() {
     assert_eq!(make("build test: deps $(SRC)").as_deref(), Some("build"));
     assert_eq!(make("deps::").as_deref(), Some("deps"));
     assert_eq!(make("build-release:").as_deref(), Some("build-release"));
+    // #468: a `define` is a variable, listed as a target is.
+    for (line, name) in [
+        ("define discount", "discount"),
+        ("export define run-tests :=", "run-tests"),
+        ("define x+=", "x"),
+    ] {
+        assert_eq!(one(Kind::Make, line).as_deref(), Some(name), "{line}");
+    }
     for not_a_target in [
         ".PHONY: build",
         "%.o: %.c",
@@ -568,4 +584,35 @@ fn infra_symbol_names() {
     assert_eq!(yaml("x-common: &common").as_deref(), Some("&common"));
     assert_eq!(yaml("  <<: *common"), None);
     assert_eq!(yaml("apiVersion: v1"), None);
+}
+
+/// #419. `D` lists GraphQL's definitions from its own row, each once, a directive without its
+/// `@`; a field, an enum value, an `extend` and an anonymous operation are no rows.
+#[test]
+fn graphql_symbol_names() {
+    for (line, name) in [
+        ("type User implements Node & Entity {", Some("User")),
+        ("type User @key(fields: \"id\") {", Some("User")),
+        ("interface Node {", Some("Node")),
+        ("input CreateUserInput {", Some("CreateUserInput")),
+        ("enum Status {", Some("Status")),
+        ("union SearchResult = User | Post", Some("SearchResult")),
+        ("scalar DateTime", Some("DateTime")),
+        (
+            "directive @auth(requires: Role) on FIELD_DEFINITION",
+            Some("auth"),
+        ),
+        ("fragment UserParts on User {", Some("UserParts")),
+        ("query GetUser($id: ID!) {", Some("GetUser")),
+        ("mutation CreateUser(", Some("CreateUser")),
+        ("subscription OnMessage {", Some("OnMessage")),
+        ("extend type Query {", None),
+        ("  email: String!", None),
+        ("  ACTIVE", None),
+        ("query {", None),
+        ("{", None),
+    ] {
+        let want: Vec<String> = name.into_iter().map(str::to_owned).collect();
+        assert_eq!(listed(Kind::Graphql, line), want, "{line}");
+    }
 }

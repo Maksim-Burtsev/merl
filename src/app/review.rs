@@ -20,7 +20,7 @@ impl App {
             if self.line == 0
                 && let Some(&h) = self.diff.hunks.first()
             {
-                self.goto_line(h + 1);
+                self.stand_on(h);
                 self.hist_note(true);
             }
         }
@@ -63,7 +63,7 @@ impl App {
     pub(super) fn review_spot(&self) -> Spot {
         let r = self.review.as_ref();
         let on = (self.rel_current()).is_some_and(|rel| r.is_some_and(|r| r.file(&rel).is_some()));
-        (self.buf.path.clone(), self.line, on)
+        (self.buf.path.clone(), self.at(), on)
     }
 
     /// The stop the cursor stands on, numbered as [`stops_in`] counts them: the hunk as the
@@ -79,7 +79,7 @@ impl App {
         let i = match f.status {
             _ if !f.has_hunks() => return None,
             'D' => (self.line == 0).then_some(0)?,
-            _ => self.walk_hunks().iter().position(|&h| h == self.line)?,
+            _ => self.diff.hunks.iter().position(|&h| h == self.at())?,
         };
         Some((rel, i + 1))
     }
@@ -132,20 +132,6 @@ impl App {
         rows
     }
 
-    /// The hunks of the open file `c` and `C` stop on: all of them, or in a generated file the
-    /// first alone, so the next `c` goes on to the next file (#243). The marks keep them all.
-    pub(super) fn walk_hunks(&self) -> &[usize] {
-        let hunks = &self.diff.hunks;
-        let generated = (self.review.as_ref())
-            .zip(self.rel_current())
-            .and_then(|(r, rel)| r.file(&rel).map(|f| f.generated));
-        &hunks[..if generated == Some(true) {
-            hunks.len().min(1)
-        } else {
-            hunks.len()
-        }]
-    }
-
     /// `c` / `C`: the next / previous hunk, crossing into the next file of the review. From a
     /// file outside it, back to the hunk they last stopped on (#239).
     pub(super) fn hunk(&mut self, dir: isize) {
@@ -153,21 +139,19 @@ impl App {
             return;
         };
         let here = if dir > 0 {
-            self.walk_hunks().iter().find(|&&h| h > self.line)
+            self.diff.hunks.iter().find(|&&h| h > self.at())
         } else {
-            self.walk_hunks().iter().rev().find(|&&h| h < self.line)
+            self.diff.hunks.iter().rev().find(|&&h| h < self.at())
         };
         if let Some(&h) = here {
             let path = self.buf.path.clone().unwrap();
-            self.jump_to(&path, h + 1);
-            self.center = true;
+            self.jump_to_hunk(&path, h);
             self.remember_hunk();
             return;
         }
         // An excursion (`d`, `u`, `s`) left the review: the way back is one key.
-        if let Some((rel, line)) = self.hunk_left(&r) {
-            self.jump_to(&self.root.join(rel), line + 1);
-            self.center = true;
+        if let Some((rel, h)) = self.hunk_left(&r) {
+            self.jump_to_hunk(&self.root.join(rel), h);
             return;
         }
         // `c` stopped on every hunk of this file and now leaves it: the file is viewed. The last
@@ -223,7 +207,7 @@ impl App {
     /// writes or deletes around it move the hunk, and only a hunk added or removed above it
     /// changes its place.
     fn remember_hunk(&mut self) {
-        let i = self.walk_hunks().iter().filter(|&&h| h < self.line).count();
+        let i = self.diff.hunks.iter().filter(|&&h| h < self.at()).count();
         self.last_hunk = self.rel_current().map(|rel| (rel, i));
     }
 
@@ -235,7 +219,7 @@ impl App {
     // ponytail: two hunks removed at or above the one left can pass an unread hunk, and a way
     // back that fell to the file's last hunk keeps the larger index, not the one it landed on;
     // recognise the hunk by its text if agents ever rewrite that much under a reader.
-    pub(super) fn hunk_left(&self, r: &git::Review) -> Option<(PathBuf, usize)> {
+    pub(super) fn hunk_left(&self, r: &git::Review) -> Option<(PathBuf, TextLine)> {
         if self.rel_current().is_some_and(|rel| r.file(&rel).is_some()) {
             return None;
         }
@@ -383,9 +367,24 @@ impl App {
         let path = self.root.join(&f.path);
         let hunks = review_hunks(&self.root, r, f);
         let h = if last { hunks.last() } else { hunks.first() };
-        self.jump_to(&path, h.map_or(1, |h| h + 1));
-        self.center = true;
+        self.jump_to_hunk(&path, h.copied().unwrap_or(TextLine::File(0)));
         self.buf.path.as_deref() == Some(&path)
+    }
+
+    /// Opens `path` on the first line of a hunk, `h`: its first deleted line when it starts
+    /// with a deletion (#439). The view is centred on it.
+    fn jump_to_hunk(&mut self, path: &Path, h: TextLine) {
+        self.jump_to(path, h.key() + 1);
+        if self.buf.path.as_deref() == Some(path) {
+            self.stand_on(h);
+        }
+        self.center = true;
+    }
+
+    /// The cursor to the start of line `h` of the open file's text, the view centred on it.
+    fn stand_on(&mut self, h: TextLine) {
+        self.set_at(self.clamp_line(h));
+        (self.col, self.want_x, self.center) = (0, 0, true);
     }
 
     /// `hunk 2/5  file 1/3` for the status bar; nothing on a file the branch did not change,
@@ -394,14 +393,10 @@ impl App {
         let r = self.review.as_ref()?;
         let rel = self.rel_current()?;
         let file = r.files.iter().position(|f| f.path == rel)?;
-        let hunk = self
-            .walk_hunks()
-            .iter()
-            .filter(|&&h| h <= self.line)
-            .count();
+        let hunk = self.diff.hunks.iter().filter(|&&h| h <= self.at()).count();
         Some(format!(
             "hunk {hunk}/{}  file {}/{}",
-            self.walk_hunks().len(),
+            self.diff.hunks.len(),
             file + 1,
             r.files.len()
         ))
@@ -474,17 +469,13 @@ fn stops_in(r: &git::Review, root: &Path, f: &git::ReviewFile) -> Option<usize> 
     }
 }
 
-/// The lines `c` stops on in a file of the review: where its hunks start, the first alone in a
-/// generated one (#243), and the top of a deleted one, which has none to step through.
-fn review_hunks(root: &Path, r: &git::Review, f: &git::ReviewFile) -> Vec<usize> {
-    let mut hunks = match f.status {
-        'D' => vec![0],
+/// The lines `c` stops on in a file of the review: where its hunks start, and the top of a
+/// deleted one, which has none to step through.
+fn review_hunks(root: &Path, r: &git::Review, f: &git::ReviewFile) -> Vec<TextLine> {
+    match f.status {
+        'D' => vec![TextLine::File(0)],
         _ => r.diff(root, &root.join(&f.path), Some(f)).hunks,
-    };
-    if f.generated {
-        hunks.truncate(1);
     }
-    hunks
 }
 
 /// A review's marks untouched for this many days are not read, and go the next time the store

@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` in Go follows a table test: in `for _, tc := range []struct {…}{…}` and in a range over
+  `tests := []struct {…}{…}`, `tc.name` lands on the field of the struct written in place,
+  `name → struct{…}.name (via tc: struct{…})`, and so does the key `name:` of an element of
+  the table. It read the loop from its `}{` line, so `tc` was not bound and `tc.name` jumped to
+  a namesake elsewhere or offered every `name` of the project. (#330)
+- `d` in Go proves a receiver whose type the standard library or a `go.mod` module declares:
+  `wg.Add` on a `sync.WaitGroup`, `t.Errorf` through the `common` a `testing.T` embeds,
+  `ctx.Err()` on the `context.Context` interface, `r.URL.Path` through `*http.Request`, `srv`
+  from `httptest.NewServer(…)`, and a key of `sync.Pool{New: …}`, each read-only in GOROOT or
+  the module cache. It offered every method of the name in GOROOT and the module cache, often
+  hundreds and often without the field, and took a third of a second or more for it. (#334)
+- The hidden characters a file can hold are on screen, in every file and in `--review`: the
+  bidirectional controls behind "Trojan Source" (U+202A–U+202E, U+2066–U+2069, U+200E, U+200F,
+  U+061C) and the zero-width U+200B, U+2060 and U+FEFF are drawn as their code, such as
+  `<202e>`, on an amber of their own that no diff uses. The cursor steps over one in a press and
+  Delete removes it; a ZWJ inside an emoji and a BOM at the start of a file stay as they are.
+  (#401)
 - `merl --reviews` prints your review sessions of the last 30 days, newest first: the branch,
   which round of it the session was, the files, hunks and lines under review, the active time
   and how much of it was on the review's files, and the excursions, the jumps with `d`, `u`, `D`,
@@ -40,12 +57,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A line longer than merl draws (20 KB: a minified bundle, a one-line JSON dump) ends in a dim
   `…` right after its last drawn character, wrapped or not, so a cut line never reads as whole.
   (#283)
+- In `--review`, `u` and `s` mark each row on a line the branch added or changed with the
+  gutter's `▎`, in its colour, and leave an untouched line's row blank, so the readers a change
+  did not reach stand out; the rows keep their order. `o` lists the review's files first, each
+  with its panel letter, then the rest of the project as before. `review_list_marks = false` and
+  `review_open_files_first = false` in `~/.config/merl/config.toml` turn either off. (#246)
+- A macOS Intel binary, `merl-x86_64-apple-darwin.tar.gz`, ships with each release. (#394)
+- `d` in Markdown (`.md`, `.markdown`, `.mdx`) follows the link under the cursor, on its text or
+  its target: `[README](../README.md#languages)` opens `README.md` at its `## Languages` heading,
+  `[below](#setup)` goes to a heading of the same file, `#L12` to a line, and a reference link
+  goes through its `[label]: target` definition. A code span naming a file of the project,
+  `` `src/search/kind.rs:30` ``, opens it; a bare name several files carry is a picker of them.
+  A missing file or heading says so, and a link in a code block or a comment is not followed.
+  `D` no longer lists the examples of a README's code blocks as declarations. (#421)
+- GraphQL: `d` in a `.graphql`, `.graphqls` or `.gql` file lands on a `type`, an `interface`, an
+  `input`, an `enum`, a `union`, a `scalar`, a `directive`, a fragment from its `...spread`, a
+  named operation, a field (`email → User.email`) and an enum value; on the path of an
+  `#import "./parts.graphql"` it opens that file. `extend type`, a selection, an alias, an
+  argument and a `$variable` are no declarations. `D` lists the types, directives, fragments and
+  named operations. (#419)
+- `d`, `u` and `D` in Protocol Buffers (`.proto`): `d` finds a `message` (a nested one too), an
+  `enum` and its values, a `service`, an `rpc`, a field and a `oneof`; `d` on the path of an
+  `import` opens that file; a type qualified by its package, `billing.v1.Money` or
+  `google.protobuf.Timestamp`, lands in that package's files, and the well-known types `protoc`
+  installs are reached, read-only. `D` lists the messages, enums, services and rpcs. (#418)
+- `d` in C and C++ on a parameter or a local lands on its declaration, `i → crc32::i (local)`,
+  and it hides every function, macro, global and system header of the name: `link` in
+  `link->node` jumped to POSIX `link()`, and a variable declared a few lines up said `no
+  definition`. The innermost block that declares the name wins, a block closed before the cursor
+  does not count, a `for (int i = …)` binds `i` in its loop, and a lambda reads on into the
+  function around it; `a && b == c`, `x & FLAG` and a declaration inside a string bind nothing.
+  In a C++ method a bare member, `return filename_;`, lands on its class's field. A value, a word
+  followed by `->` or `.`, is never a struct, a `typedef` or a `using` alias, so `group->pel`
+  no longer opens the system's `struct group`. (#378)
 
 ### Changed
 
+- `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
+  parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
+  said `no definition` or offered namesakes from other files: `directionParams →
+  SortUtils.resolve.directionParams (local)`. A name the method's class declares, a field or a
+  method, the members of its `companion object` and the properties of its primary constructor
+  included, answers `via` the class, `scheduler → Use.scheduler (via Use)`, and one the class it
+  extends declares, `via` that class, before the declarations of the name in the rest of the
+  project. Kotlin's `it` and the implicit receivers of `with` and `apply` are not read. (#376)
+- `d` in PHP on `$this->name`, `self::NAME`, `static::name()` and `parent::name()` reads the
+  class the cursor is in, the traits it uses and the classes it extends, and lands on the one
+  declaration, `open → BaseStorage::open (via $this: ImageStorage)`, where it offered every
+  declaration of the name in the project: a picker for most, and a jump to another enum's case
+  for `self::INVALID`. A parent from `vendor/` is read from its own file, and a member it does
+  not declare is `no definition` rather than a namesake of the project. (#356)
+- `d` in TypeScript and JavaScript reads fewer calls as declarations and finds more real ones.
+  A call that passes a callback, `it("works", async () => {`, or wraps after its `(` and closes
+  with `);` is no method, so `d` on it no longer says `at a declaration` over thousands of
+  namesakes, and `type NodeSpec,` in a wrapped import list is no type alias. An optional method
+  signature wrapped over lines, `onCodePathEnd?(` over `): void;`, and the fields of a class
+  whose header wraps at a type argument, `implements Base<{` over `}> {`, are found by name.
+  (#343)
+- `d` in TypeScript and JavaScript on a bare name that the file declares jumps there, `local`,
+  instead of opening a list of every namesake in the project: a `type Props`, a `function
+  report` inside a rule's `create`, a `class Config`. A declaration at the top of the file counts
+  wherever it stands, so a styled `const Container` at the bottom of a component is found from
+  above it. Several declarations of the name in one scope, such as an `interface` beside a
+  `namespace`, are a list of those alone. (#337)
+- `merl -r BRANCH` reviews a branch another worktree has checked out, an agent's say, in that
+  worktree, as `merl -r` started there would: nothing is fetched, switched or reset there, and its
+  work not committed yet is part of the review. Before, merl exited with git's `already used by
+  worktree` (#396).
+- In `merl --review` the lines the branch deleted are lines of the text, as they are on a GitLab
+  or GitHub diff page: the cursor stands on them, and every move, Up, Down, the pages, `{` and
+  `}`, Home and End, the words, goes through them as through the file's own lines, so a deletion
+  taller than the pane is read line by line and the lines deleted at the end of a file are
+  reached with Down. Shift+moves and `v` select them, Ctrl+C copies them as they were, and `/`
+  finds text in them. `c` and `C` stand on the first line of a change, its first deleted line
+  when it starts with a deletion. On a deleted line the status bar reads its number in the file
+  the branch started from, negative: `-9:5`. Nothing edits a deleted line: typing on one, or on
+  a selection that holds one, says `deleted`, and `d` and `u` there say the same for now.
+  `:12` and the gutter still count the branch's lines. For the selection to show on the red
+  tint, eight themes take a selection colour a shade further from their background, in every
+  file: rose-pine, rose-pine-moon, melange-dark, bamboo, cendre, ayu-light, jellybeans-light and
+  neomodern-light. (#439)
 - `merl --review feature` reviews `feature`: the branch goes after a space, as the base does after
   `--base`, and `--review=feature` still works. A file after a bare `--review` is now read as the
   branch: `merl --review` opens on the first hunk, and `o` opens any file.
+- `merl -r origin/feature`, the name as `git branch -a` or a merge request shows it, reviews
+  `feature` as `merl -r feature` does, where git refused to switch to a remote branch. origin
+  without that branch is an error, `merl: no branch feature on origin`, even when a local
+  `feature` exists; offline, the local branch opens with `origin/feature not fetched`. A local
+  branch literally named `origin/feature` is still that branch, and other remotes' prefixes are
+  part of a local name, as before. (#271)
 - `merl --review` paints the diff as GitHub does: the lines the branch deleted on a red tint,
   in their syntax colours instead of grey, the lines it added on a green one, and on a changed
   line the words that changed on a stronger tint, on the old line and on the new. A deleted line
@@ -59,18 +159,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it was a picker of every `new` in the project, `by name`. Only a `use` at the top of the file
   counts, and a type of the name in the file itself, a name bound twice, a binary under
   `src/bin/` or a module with no `impl` of the type stay `by name`. (#227)
+- `d` in C# on `Offer.Cut`, where `Offer` is an `enum` the project declares, lands on `Cut` in
+  the enum's body, `via Offer`, where it found nothing: one member per line or several on one,
+  with a value or an attribute. The enum has to be in a namespace the file sees, by its own
+  namespace, a `using`, a `global using` of its project or the path written out
+  (`Shop.Pricing.Offer.Cut`); a bare `Cut` still has no rule. (#466)
+- `d` on a bare name in Rust lands on the item the file declares under it, `helper: in this
+  file`, where it was a picker of every file's namesake: Rust sees another file's items only
+  through a `use` or a path. The item counts where the cursor sees it: a `fn` nested in the
+  function, the inline `mod` around the cursor or the file's top level, and the file's own items
+  inside a `mod tests { use super::*; … }`. A name the function binds before the cursor, as a
+  `let`, a parameter or a closure's, and a name a `use` imports stay as before. `Type::new` where
+  the file declares `Type` and another crate a `Type` too lands in this file's
+  `impl Type`, `via Type`. (#363)
 - `merl --review` keeps the files marked viewed from one start to the next, per branch and base,
   in the repository's git directory, so a review in a worktree has them too. A file changed since
   it was viewed, on screen or between two starts, loses its tick, as on GitLab. A file that leaves
   the review for a while, as during a rebase stopped on a conflict, has its mark back when it
   returns. A review started on a detached HEAD, outside a rebase, keeps its marks only while it
   runs. The marks of a review untouched for 30 days are forgotten. (#240)
-- The file panel of `merl --review` paints the status letter bold in the gutter's colours, `A`
-  green, `M` blue, `D` red, a rename or a copy dim; the line counts and `bin` are dim, so the
-  name reads first; and the bottom border gives the size of the branch, `3 files · +13 −1`. A
-  long name of wide characters is cut to fit instead of pushing the counts off the panel.
-  `review_panel_colours = false` in `~/.config/merl/config.toml` turns the colours, the dimming and
-  the totals off. (#250)
+- The file panel of `merl --review` dims the line counts and `bin`, so the name reads first, and
+  the bottom border gives the size of the branch, `3 files · +13 −1`. A long name of wide
+  characters is cut to fit instead of pushing the counts off the panel.
+  `review_panel_colours = false` in `~/.config/merl/config.toml` turns the dimming and the totals
+  off. (#250, #450)
 - On a file the branch did not change, the status bar of `merl --review` drops `hunk 0/0  file
   -/8` and reads as it does outside a review. (#286)
 - `c` in `merl --review` stops once in a generated file, on its first hunk, and the next `c` goes
@@ -87,9 +199,170 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Enter with `no results for …`. (#288)
 - With no file open, on the start screen and at the tutor's first lesson, the status bar no longer
   shows a cursor position: `demo/  [tree]` instead of `demo/  1:1  [tree]`. (#285)
+- `d` in Java and Kotlin on an enum constant, `Offer.CUT`, lands on the constant in the body of
+  the enum, `CUT → Offer.CUT (via Offer)`, instead of `no definition for CUT`, when the project
+  declares one type of that name and it is an `enum`. (#457)
+- A binary file (an image, a `.pyc`, a build artefact) opens on an empty pane with one centred,
+  dimmed line, `binary file, not shown`, and no line number or cursor, instead of the text
+  `binary file` as if it were the file's line 1. The status bar still says `read-only`. (#287)
+- `d` in Python on a builtin says `next: builtin, no source` and stays put: a bare `next`, `map`
+  or `ValueError` that nothing in the file binds, and a member of a value proven to be a builtin
+  type, `replace: builtin, no source (via render() -> str)`. It opened a picker of every method
+  of the name in the dependencies, or jumped to the only one, after a grep of all of them. A bare
+  name nothing binds is no longer looked for among the methods outside either: only at the top
+  of a module the file imports with `*`. (#336)
+
+- `d` on a named argument lands on the parameter it names: `Basket(tariff=…)` on `__init__`'s
+  `tariff`, `RefreshWindow(interval: 30, maximumAttempts: 1)` on the `init`'s `maximumAttempts`,
+  `new self(name: …)` on the constructor's promoted `$name`, and a key of an object passed to a
+  function, `<Tag size={2}>` or `const x: Opts = { weight: 1 }` on the key the parameter or the
+  type declares. A callee with several declarations offers their parameters in a picker. (#316)
+- `d` in Swift on a parameter, a closure's parameter, a `let` or `var` of the function you are
+  in, or a name that `if let`, `guard let`, `while let`, `for`, `catch` or a `switch` case binds
+  lands on where it is bound, `(local)`, as in Python, TypeScript and Go; a bare `catch` lands on
+  its line for the implicit `error`. It searched the project by name: a picker of other types'
+  properties and other functions' locals, or with one namesake a wrong jump, as a loop's
+  `attempt` to a struct's property `attempt`. (#366)
+- `d` in Ruby lands on a parameter, a block parameter or a local of the method you are in, as
+  `user → SessionsController.user (local)`. It offered every method's `user = …` in the project
+  or jumped to one. A call with no receiver, and `self.name`, lands on the method of the class it
+  is made in, then of the modules the class includes and of its superclasses, before a namesake
+  of another class: `track → SessionsController.track (via SessionsController)`. (#365)
+- `d` in C# on a parameter, a lambda's parameter, a `foreach`, `for`, `catch` or `using`
+  variable, an `out var`, a pattern variable or a local lands on its binding in the method you
+  are in, `options → Refunds.Register.options (local)`, as in Python, TypeScript and Go. It
+  searched the project by name, so it jumped to another method's local of the same name, or
+  offered a picker of them, and a parameter had no definition. A primary constructor's
+  parameters bind across the type's body, and a lambda's parameter only inside its lambda. (#345)
+- `d` in Rust on a parameter or a local lands on what binds it in the block around the cursor,
+  `config → Printer::hyperlink::config (local)`, where it jumped to a function of the same name or
+  offered every file's `let` of it: a `let` and its patterns, an `if let`, a `while let`, a `match`
+  arm, a `for`, a closure's parameters and the function's, wrapped over lines too. The nearest
+  binding above the cursor wins, as Rust shadows: in `let x = x.trim();` the right-hand `x` is the
+  earlier one. Another function's `let` is no longer offered for a name. (#353)
 
 ### Fixed
 
+- `d` in Swift finds a function or an enum case declared with its name in backticks, as
+  ``func `default`()`` or ``case `open` ``: it said "no definition", or jumped to a namesake
+  elsewhere. (#463)
+- `d` on a PHP `$variable` lands on its parameter or its assignment in the function you are in.
+  It searched the project by the bare name, so `$weigh` jumped to a function `weigh()` and
+  `$courier` to another method's local; a closure's `use (…)`, a `foreach` or `catch` target and a
+  destructuring count too, and at the top of a file the file's own assignments. (#464)
+- A find match keeps the text's own colours on its tint, as in VS Code. In a theme that tints
+  matches without naming their text colour (github-light, vscode-light and -dark, koda, pencil
+  and eight more) the matched letters were drawn in the background colour, 1.1:1 to 2:1 on the
+  tint, and could not be read. (#480)
+- `d` in Lua on a parameter or a `local` of the function you are in lands on it, `(local)`,
+  where it jumped to a function of the same name in another module. A `local` inside another
+  function, or behind a dot, is no longer offered, and a table key is not read as the local of
+  its name. (#461)
+- `d` in Elixir reads a name with its trailing `?` or `!`: on `ship!` it finds `def ship!` and
+  not `def ship`, and on `Jason.encode!` no longer jumps to the project's own `def encode`. A
+  qualifier behind an `alias` (`W` of `alias Shop.Warehouse, as: W`, `Tariff` of
+  `alias Shop.Pricing.{Tariff, Coupon}`) and a module written out in full, a `defprotocol`
+  included, lead to that module's function instead of a picker of every namesake, and a call
+  such as `Shop.currency()` no longer offers the module attribute `@currency`. (#459)
+- An edit key with nothing to take does nothing: Alt+Delete at the end of the file, Alt+Backspace
+  at its start, Ctrl+X on an empty only line, an empty paste. Each was an undo step that changed
+  nothing, so the next Ctrl+Z seemed to do nothing, and it cleared what Ctrl+Y would redo. (#455)
+- Ctrl+Y after undoing a Tab over several lines puts the cursor where the Tab left it. It stood at
+  the end of the last indented line. (#456)
+- In a GitLab CI file, `d` on the value of `stage:` lands on that stage in the file's `stages:`
+  list, flow or block form, and says `no definition` in a file without one. It jumped to the job
+  named after the stage, `build:` for `stage: build`, which is how most pipelines name them.
+  (#473)
+- `d` in Java and Kotlin no longer lands on a local of another function or a `private`
+  declaration of another file: `Modifier.height` jumped to a `val height` inside some function
+  elsewhere, and `isBlank(s)` to a `private static` method of another class. A local answers
+  only below it in its own block, never behind a `.` or a `::`, and a `private` declaration only
+  in its own file; when one declaration is left that way, it is offered in the list rather than
+  jumped to, since it was still found by name only. (#357)
+- `d` in Java and Kotlin reads `Type::method` as `Type.method`: `Inner::getName` jumps to the
+  `getName` of `Inner`, and `this::show` or `this.show` to the `show` of the class around the
+  cursor, where they listed every method of that name in the project. A Kotlin extension is
+  named by its receiver, so `Topic::asExternalModel` jumps to `fun Topic.asExternalModel()`
+  among the extensions of other types, and `val Topic.testTag` declares `testTag`, no longer a
+  second `Topic`. (#362)
+- `d` in PHP reads `$x->name` and `$x?->name` as the member they are: a call finds the
+  methods of that name, anything else the properties, in the project and then in `vendor/`, the
+  `@method` and `@property` tags of a class's docblock included. It searched the bare word, so
+  `$join->where(…)` on a Laravel query landed on a local `$where = […]` of an unrelated class,
+  `$request->input(…)` on a property, and `vendor/` was never read. A chain broken before its
+  arrows reads as one line, and a `.`, which concatenates in PHP, is no member access. (#348)
+- `d` in PHP finds a typed class constant, `private const int LIMIT = 500;`, where it said
+  `no definition`, and the `@property`, `@property-read`, `@property-write` and `@method` tags
+  of a class's docblock, the way Laravel declares Eloquent columns: `$song->title` lands on the
+  tag, `title → Song::title`. A `namespace …\Support;` line no longer answers `Support` in
+  `use Illuminate\Support\Facades\Route;`, nor a class called like its last part: a segment
+  of a qualified name finds only the namespace written up to it. (#344)
+- `d` in Go finds a name declared inside a grouped `const (`, `var (` or `type (` block: an
+  iota enum, `time.Hour`, `http.StatusOK`, a type of a `type (` block. It said `no definition`,
+  or jumped to a namesake elsewhere. A field of a struct inside the block, and a `var (` block
+  inside a function, still declare nothing of the package. (#326)
+- `d` in Go on a key of a composite literal, `Address` in `Order{Address: addr}`, lands on the
+  field of the literal's type, `Address → Order.Address (via Order{…})`, also for an element
+  whose type is elided (`[]Item{{Name: "a"}}`) and a type of another package. It looked the key
+  up as a bare name and jumped to a namesake type, method or function. A map's keys stay values;
+  a literal whose type is not read (an anonymous struct, a type outside the project) offers what
+  the name finds and never jumps to one. (#327)
+- `d` in Go reads the locals and parameters above a label: gofmt writes `scan:` at the left
+  margin of a function, and the scope walk took it for the function's end, so a local used
+  below it gave a namesake from elsewhere or `no definition`. And on a name that
+  `n, err := second()` declares again in its block, `d` lands on the first declaration, which
+  the `:=` reuses, where it offered both lines. (#330)
+- `d` in Go looks a bare name up where Go does: a local, a name of the file's own package, of a
+  dot import, or a predeclared one (`len` lands in GOROOT's `builtin/builtin.go`). `pkg.X` is
+  looked for in `pkg`'s directory only, since Go has no re-exports. It searched every package
+  of the project, GOROOT and the module cache, so a name it missed jumped to a namesake of
+  another package, a method or another function's local; now that is `no definition`. A
+  `package x_test` file no longer sees the names of `package x`. (#332)
+- `d` in TypeScript and JavaScript no longer offers another file's function locals: a
+  `const`, `let`, `var`, `function` or `class` inside a function, a method or a block is out of
+  sight there, in the project and in the dependencies. `Object.values(o)` jumped to a `const
+  values` inside some other function, and `node.callee` to a `const callee` of another file. A
+  method named by a string or a computed key, `"NewExpression:exit"(node) {`, binds its
+  parameters, so `node` there is the parameter. (#339)
+- `d` in TypeScript and JavaScript follows a barrel to the declaration: `import { Group } from
+  "./models"`, where `models/index.ts` says `export { default as Group } from "./Group"` or `export
+  * from "./helpers"`, lands on the class in `Group.ts`, where it fell back to the search by name
+  and opened a list of every namesake, or jumped to the wrong one. A module that imports a
+  default and exports it again, `export default Text;`, is followed to the module that declares
+  it, where `d` stopped on that line. (#335)
+- `d` in TypeScript finds a class or an interface whose type parameters prettier wrapped,
+  `class User extends Model<` over its type arguments over `> {`: it was dropped as a wrapped
+  call, so `d` said `no definition` or jumped to the one namesake left, a client-side model for
+  the server's. The return type of an arrow, `): Node => ({`, is no longer read as its
+  parameter, which hid the import of `Node`. (#331)
+- `d` in JavaScript reads a `require` as an import. A name that `const { helper } =
+  require("./m")` or `const Segment = require("./seg")` binds leads into the required module,
+  where it stopped on the `require` line; `utils.helper` behind `const utils = require("./m")`
+  finds `helper` there, `Segment.make` the `make` of the class that `module.exports = Segment`
+  hands out, and `d` on `utils` itself lands on its `module.exports =` line. A `const` continued
+  over several lines binds every name it declares, where the names after the first were found
+  nowhere. `require("debug")("app")` returns something else and stays a local. (#328)
+- `d` in Rust on `x.method()` where the type of `x` is not known lists the methods of that name
+  in the project, the standard library and the dependencies the cursor can reach, the traits'
+  first, where it jumped to a lone project namesake: `v.unwrap()` on an `Option` landed on a
+  private `unwrap` of another crate, `n.clone()` on the project's `impl Clone for Error`, and
+  `s.to_string()` said `no definition`. When every candidate is the method of one trait or an
+  `impl` of it, `d` jumps to the trait's method, `clone → Clone::clone (via trait Clone)`. (#358)
+- `d` in Python and Go follows a typed chain through a type whose module or package has a
+  line shaped like its declaration inside a docstring or a raw string: `self.tariff.rate()`
+  jumps to `Tariff.rate`. That line counted as a second declaration, so the chain broke and
+  `d` offered every `rate` of the project. (#453)
+- `d` in Ruby reads names as Ruby does. `empty?`, `save!` and the setter `name=` of `x.name = v`
+  are methods of their own, so `fetch` no longer lands on `def fetch?`. `Const.meth` is a class
+  method: `def self.meth`, a `def` in `class << self`, in an `extend self` or `module_function`
+  module, or in the `class_methods` of a concern the class includes; `Const.new` finds
+  `initialize`, and an instance method of the class, or a method of another class by name, is
+  never the answer. `class A::B` declares `B`, not `A`, `A::B` in code is a path, and a
+  superclass right of `<` is a use of the name. (#387)
+- `d` in Ruby on a method of a value, such as `logger.info` or `items.each`, offers the one
+  method of that name the project declares in a picker instead of jumping to it: the core and the
+  gems are not read, so it may be theirs, and was in most of such jumps in a real project.
+  `Const.meth`, `self.meth` and a bare call still jump. (#390)
 - In `merl --review`, `c` or `C` after a `d`, `u` or `s` into a file the branch did not touch goes
   back to the hunk you left, and the next `c` goes on from there. It opened the first file of the
   review (`C` the last), and the way back was one `[` per jump. The hunk is found again by its
@@ -149,6 +422,172 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inside tmux with its default settings, Ctrl+C and Ctrl+X copy: the text goes to a tmux paste
   buffer and, on tmux 3.2 and newer, to the terminal's clipboard. tmux's default `set-clipboard
   external` dropped the copy, and the status said `copied` while nothing was copied. (#395)
+- In SQL, `d` on a schema goes to its `CREATE SCHEMA`: `CREATE TABLE shop.tariffs` declares
+  `tariffs`, and no longer counts as a declaration of `shop`. `d` on `public` in `public.orders`
+  jumped to `CREATE TABLE public.orders`, and on a schema created once offered every object in it.
+  (#471)
+- In a shell script, `d` on a name a `local` (or a `declare` / `typeset` without `-g`) binds in
+  the function around the cursor lands on that local, and a local of another function is no
+  longer offered: it opened a picker of every function's local and the function of that name,
+  and jumped to another function's local when it was the only match. (#470)
+- In SQL, a common table expression is a declaration only inside its own statement, where it
+  wins over a table of its name: `d` on the table in the CTE's own body, or anywhere else in the
+  project, goes to the `CREATE TABLE`, and after the `AS (…)` to the CTE, instead of a picker of
+  both. (#472)
+- In Zig, `d` on a local or a parameter lands on it, `(local)`: a `const` or `var` inside a
+  function is no longer offered anywhere outside that function, and a declaration without `pub`
+  no longer from another file, so `cap` in one function stopped offering, or jumping to, the
+  `cap` of another. (#469)
+- The lesson panel of `merl --tutor` and `merl --drill` grows to its text wrapped at the pane's
+  width, and the code above gets the rows that are left. At 80 columns six lessons were cut after
+  two rows, in lesson 3 before the key it asks you to press. (#261)
+- The Linux binaries run on glibc 2.17 and newer: the x86_64 one needed 2.39 and stopped at start
+  on Ubuntu 22.04, Debian 12 and older, the aarch64 one 2.18. A release that would need more
+  now fails before the Homebrew tap moves to it. (#394)
+- `d` in Python no longer reads the words of a comment after a plain `import a, b  # c, d` as
+  imports: `d` on a name that follows a comma there went through a made-up import. (#298)
+- `d` in Go reads a raw string ending in a backslash, `` `\` `` or `` `C:\` ``, as ending at its
+  backtick. It kept the string open, and every declaration after it in the file answered
+  `no definition`. (#325)
+- `d` in shell scripts, Makefiles, Dockerfiles, YAML, SQL and Terraform: a glob such as
+  `rm -rf build/*` or a lone backtick in a comment no longer hides the rest of the file, where
+  every declaration answered `no definition`. Each reads its own comments, and the shell, a
+  Dockerfile and Terraform their heredocs. (#436)
+- A symbolic link to a file that lies outside the project opens read-only, `outside the
+  project`, as a file behind a directory link out does. It opened editable, and a save wrote the
+  file out there. A link to a file inside the project stays editable. (#448)
+- In `merl --review`, Enter on the panel row of a symbolic link to a directory opens nothing
+  and leaves the file shown and the status bar as they were. It put the raw OS error with the
+  whole path in the status bar, `…/alink: Is a directory (os error 21)`. (#449)
+- `d` in Go on the blank identifier `_` answers `no definition for _` at once. It jumped to an
+  earlier `_`, as if it were a local of that name; every `_` is a fresh discard. (#476)
+- `d` in a Makefile no longer reads an assignment inside a recipe, `GO=$(GO) ./build.sh`, as a
+  declaration of the variable: a recipe line is a shell command, and `d` on `$(GO)` jumps to the
+  `GO ?= go` make knows instead of offering both. A tab-indented assignment inside an `ifeq`
+  outside any rule still declares. (#477)
+- `d` in PHP reads `#` in PHP code as a comment, as `//` is, save `#[`, which opens an
+  attribute: a glob such as `# loads lib/*` no longer hides the rest of the file, where every
+  declaration answered `no definition`. The `#` of the HTML, CSS or JS around `<?php … ?>`
+  stays text. (#488)
+- `d` in C# reads a verbatim string ending in a backslash, `@"C:\"`, as ending at its second
+  `"`, and `@$"…"` as the verbatim string it is. It kept the string open, and every declaration
+  after it in the file answered `no definition`. (#475)
+- `d` in Rust reads a string that runs over several lines as a string, a raw `r#"…"#` included:
+  a declaration-shaped line of a test fixture or a `--help` text inside one is no declaration,
+  and `d` on a word inside a string says `no definition` at once, save on the `{name}` a format
+  string captures. A word of prose was looked up as a name: `Choose` in an error message jumped
+  to a `struct Choose`, and `to` or `with` searched every dependency for a picker of namesakes.
+  A lifetime, `'a`, opens no string. (#346)
+- `d` in Ruby reads `#` comments, heredocs (`<<~SQL`, `<<-'EOS'`), `=begin` blocks and what
+  follows `__END__` as Ruby writes them: the SQL of a migration's heredoc and the old code of a
+  `=begin` block declare nothing, and a comment holding an odd number of backticks no longer
+  hides every declaration below it in the file. Ruby was read with the C family's `//`, `/* */`
+  and backtick template, so `User#prepare!` in mastodon answered `no definition`. (#379)
+- `d` in C++ reads a raw string, `R"( … )"`, `R"sql( … )sql"` or `u8R"( … )"`, as a string: a
+  declaration-shaped line inside one, such as a banner holding `struct Basket {`, is no longer
+  offered beside the real declaration. (#465)
+- A file that will not open is named in the status bar as an open file is, from the project root,
+  with the reason in a few words: `src/locked.txt: permission denied`. It was the absolute path
+  and the OS text, `Permission denied (os error 13)`, and the path could push the reason off the
+  line; a path still too long for the pane is cut from the left. (#403)
+- `d` in Elixir reaches the dependencies in `deps/`, which `mix new` gitignores: `Jason.encode!`
+  jumps to `deps/jason/lib/jason.ex`, read-only, where it said `no definition` or landed on a
+  namesake of the project. A module's qualifier narrows the search to the dependency that
+  declares the module, so `Phoenix.LiveView.assign` finds `phoenix_live_view`, not Plug's
+  `assign`. (#437)
+- `d` in C and C++ on a type name lands on its class or struct. It offered a picker of the
+  class, every `class X;` forward declaration in other headers and every constructor, and C's
+  `typedef struct X { … } X;` as two rows; a bare `X` now lands on `} X;`, `struct X` on the
+  opening line. With the class declared once, `Status::Corruption(…)` resolves `via Status`
+  again instead of offering every `Corruption`, and `struct DBImpl::Writer {` is found as
+  `Writer`, in `d` and `D`. A forward declaration inside a class body, two classes of one name
+  and a construction, `Status(…)`, keep their pickers. (#368)
+- `d` in C and C++ on a function jumps to its definition instead of offering it beside its
+  prototype, `add: by name, 1 definition, 1 prototype`, and on a global past its `extern`
+  declaration; overloads and `#if` / `#else` variants keep their picker. A `static`, a `#define` or
+  an unnamed `namespace` of another source file is no longer offered, and a `static` of the file
+  on screen is its answer. A `#define X` under `#ifndef X` yields to any other declaration of
+  `X`: `strcasecmp` in redis jumps to the system's instead of a Windows-only header. (#364)
+- `d` in TypeScript and JavaScript on a name imported from a package that is not installed
+  (a fresh clone, a package of a monorepo not bootstrapped) lands on its import line and says
+  `via import mobx-react (not installed)`. It offered the project's namesakes as if one of them
+  were the answer, or jumped to the only one. (#392)
+- `d` in TypeScript and JavaScript on a name of a destructuring or a parameter list wrapped one
+  name per line, as prettier writes them, lands on the line of the name, on the name, instead
+  of the `const {` or `function Row({` above it, so a second `d` goes on from there. (#393)
+- `d` in Rust on `x.name` with no `()` behind it lands on the field `name: T` of a struct, one
+  row per struct, and when the project has none, on the `pub` fields of the standard library and
+  the dependencies; it landed on a method or a local of the name. A word inside an attribute is
+  the macro it names (`#[derive(Debug)]`, `#[test]`, `#[tokio::main]`) or declared nowhere
+  (`#[cfg(test)]`, `#[allow(…)]`), never a project item called the same. `Mode::Auto`, and a
+  bare `Auto` behind a `use Mode::*;`, land on the enum variant, which said `no definition` or
+  landed on a struct of its name. (#370)
+- `d` in a Makefile finds a variable set only by `CFLAGS += -Wall` or for one target,
+  `release: VERSION := 1.0`, where it answered `no definition`. A plain `CFLAGS = -O2` stays
+  the only answer where there is one. (#499)
+- `d` on a named argument, an object literal's key or a JSX attribute no longer lands on
+  whatever else is spelled so: `vm.followTopic(followedTopicId = "a")` in Kotlin jumped to another
+  file's local `followedTopicId`, `context.report({ node: lastItem })` to the enclosing function's
+  parameter `node`, `getMany(ids: …)` in PHP listed fifteen `$ids =` lines. What it names is looked
+  for in the callee or the literal's type only; when that is outside the project or not found, the
+  status line says `node: key` or `ids: argument label` and nothing opens. Python, TypeScript,
+  JavaScript, Kotlin, Swift, C#, PHP and Ruby. (#315)
+- `d` in C and C++ on `x->name` or `x.name` lands on the field `name` of a struct, union or
+  class, where it landed on a function, a `#define`, a global or a type of the same name, or
+  said `no definition`: in redis `n->data` jumped to a `#define data`, in leveldb `m->level` to
+  a method `level()`. Several fields of one name are a picker. A called `x->name(…)` is a method
+  or a function-pointer field, never a free function. When the project has no field of the name,
+  the system headers are searched for fields only, so `st.st_size` still finds `struct stat`. In
+  a C++ constructor's `: filename_(name)` the name lands on the class's own field. (#359)
+- `d` in Python on a module's name opens the module at its first line, `repos: module
+  app/repos.py`: a word in the path of an import line (`repos` in `from app.repos import
+  UserRepo`, `json` in `import json`), and a name an import binds to a module outside the
+  project (`serializers` behind `from rest_framework import serializers`, `json` in
+  `json.dumps`). It jumped to any method of the name in the dependencies, landed `json` in the
+  base interpreter's pip, or said `no definition`. (#333)
+- `d` in Python no longer jumps to a namesake that cannot be the answer. `self.client` in a
+  subclass of Django's `TestCase` offers only what project subclasses of the class set, and
+  says `no definition` without one, where it jumped to any project class's `client`.
+  `User.objects` with `User` imported from a dependency is a member of `User` there, never a
+  module-level `objects` of another package. The one method of a name found outside the project
+  is offered rather than jumped to when a field of that name is declared outside too:
+  `m.return_value` on a `mock.Mock` jumped to anyio's `TaskHandle.return_value`. (#342)
+- `d` in Swift on a type the project declares lands on its `class`, `struct` or `enum`, where it
+  listed every `extension` of it beside the type (a picker of 24 for Alamofire's `AFError`). A
+  type the project only extends, such as Foundation's `Data`, offers its extensions rather than
+  jumping into one as if it were the type. And a `let` or `var` inside a function is no longer a
+  candidate behind a `.` or in another function: `session.request` lands on the method, not in a
+  picker beside a test's `let request`. (#371)
+- `d` in Ruby no longer jumps to a local of another method. A local `name = …` is a candidate
+  only in its own method or block, and `@name = …` only for `@name`, in its own class, the class
+  reopened in another file included. Behind a dot, as in `x.name`, only a `def`, an `attr_*` or
+  an `alias` of the name answers: `uri.scheme` went to some other method's `scheme = …`, and
+  `@name = name` read as a declaration of the `name` on its right. (#383)
+- `d` in C# no longer lands on a project namesake of something the project does not declare.
+  `Task.Delay`, `HttpStatusCode.Created` and any member behind a type name the project declares
+  nowhere say `no definition`, where they jumped to a property or method of the same name; a
+  private member of another type, and a local or a local function of another method, are no
+  longer offered, so `claims.Remove(…)` stays off a private `Remove` of a test mock. (#355)
+- `d` in a Makefile finds a variable declared by `define NAME` … `endef`, behind `export` or
+  `override`, and `D` lists it. (#468)
+- `d` in a Makefile with unsaved edits no longer drops an assignment the edits moved onto a
+  line that is a recipe line on disk. (#505)
+- `u` in a Makefile marks as declarations the lines `d` counts: not an assignment inside a
+  recipe, and a `+=` or target-specific line when nothing assigns the name plainly. (#504)
+- `d` in C++ counts the qualifier written on a declaration's line: on `Drawer::Scanner` it lands
+  on the body `struct Drawer::Scanner {`, not on the forward declaration in the class, and on
+  `Tariff::describe` on the out-of-line `std::string Tariff::describe()`. (#508)
+- `d` on a word its line declares elsewhere, the call in `let total = total(order)`, looks it up
+  as on any other line instead of offering its namesakes as "at a declaration". (#317)
+- Enter in `D` on a large project opens the row the list ranks first, even when pressed before
+  the list has caught up with the query, and a name holding `$`, `^`, `!` or `'` is found as
+  typed. (#293)
+- A new file that cannot be made, and a save that fails, say why in a few words as a file that
+  does not open does, without `(os error N)`. (#507)
+- `d` in Elixir lands on a function's parameter or a local bound above the cursor, and a bare
+  call, an `@spec` or a module attribute on its own module's declaration first. (#460)
+- `d` in Lua follows `require` to the module's file and reads `mod.name`, `mod.T.name` and
+  `T.name` in the table it names, instead of offering every function of that name. (#462)
 
 ## [0.7.0] - 2026-09-25
 

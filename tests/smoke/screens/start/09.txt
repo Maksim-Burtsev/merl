@@ -1,0 +1,26 @@
+wait the call inside NoteStore.
+ 1 """Storage: every note lives in one JSON file, read and written as a
+   whole."""
+ 2
+ 3 import json
+ 4
+ 5 from config import Config, load_config
+ 6 from models import Note
+ 7
+ 8
+ 9 class NoteStore:
+10     """Reads and writes the notes of a single JSON file."""
+11
+12     def __init__(self, config: Config | None = None) -> None:
+13         self.config = config or load_config()
+14         self.notes: list[Note] = self._read()
+15
+16     def _read(self) -> list[Note]:
+17         """Load the notes from disk; a missing file means no notes yet."""
+18         if not self.config.path.exists():
+Tutor 3/22 · Next match
+The file is searched for `load_config`. `n` goes to the next match, `N` to the
+previous one; `/` again brings the query back, selected, to refine it. Press
+`n`: the call inside NoteStore.
+store.py  5:28  [code]  ✓ Find in the file  1/2
+cursor (x,y,shown) 30,5,1
