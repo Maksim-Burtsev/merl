@@ -287,8 +287,6 @@ pub struct App {
     /// While `d` resolves the owner of a label (#316), where it collects the candidates it would
     /// show: the callee of a named argument, the type of a literal.
     probe: Option<Vec<Candidate>>,
-    /// What the last `d` found, settled: the base's `App` hands it over for the review (#440).
-    last_definitions: Option<(Kind, String, Vec<Candidate>)>,
     /// The project as the base had it, for `d` on a deleted line (#440), with the stamp of the
     /// tree it was made from.
     base_app: Option<(String, Box<App>)>,
@@ -511,7 +509,6 @@ impl App {
             ),
             offer_only: false,
             probe: None,
-            last_definitions: None,
             base_app: None,
             truncated: Default::default(),
             reading: Default::default(),

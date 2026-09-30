@@ -56,21 +56,21 @@ impl App {
     /// enum variant outside Rust or a parameter has no declaration the rules know and gets "no
     /// definition": `u` lists the uses.
     pub(super) fn goto_definition(&mut self) {
-        // On a line the branch deleted, the word is looked up in the project as the base had it
-        // (#440).
-        if let Some((k, i)) = self.deleted
-            && self.review.is_some()
-            && self.probe.is_none()
-        {
-            self.definition_at_base(k, i);
-            return;
-        }
         let kind = self.kind();
-        // Markdown declares nothing: `d` follows the link under the cursor (#421).
+        // Markdown declares nothing: `d` follows the link under the cursor (#421), on a deleted
+        // line too, where it reads the line as the review draws it.
         if kind == Some(Kind::Markdown)
             && let Some(here) = self.rel_current()
         {
             self.follow_markdown(&here);
+            return;
+        }
+        // Base code, a deleted line or a deleted file's, is looked up in the project as the base
+        // had it (#440).
+        if self.probe.is_none()
+            && let Some((path, line)) = self.base_place()
+        {
+            self.definition_at_base(path, line);
             return;
         }
         // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included.
@@ -1507,6 +1507,11 @@ impl App {
                 })
                 .collect();
         }
+        // Nothing in the branch by name: the definitions the branch deleted are the answer (#440).
+        // A rule that answered earlier, "none" included, keeps its answer.
+        if found.is_empty() && self.probe.is_none() {
+            found = self.deleted_definitions(kind, &word, &here);
+        }
         // Ruby's core and gems are not read (#390): the one namesake the project declares of
         // `x.each` or `logger.info` proves nothing, and is offered rather than jumped to.
         self.offer_only |= kind == Kind::Ruby && on_value && self.external_files(kind).is_empty();
@@ -2553,11 +2558,6 @@ impl App {
         found.sort_by_cached_key(|c| search::rank(&c.hit.path, Some(here), true).0);
         // The project and the outside are each cut at MAX_HITS; the picker holds that many.
         found.truncate(search::MAX_HITS);
-        // With none in the branch, the definitions the branch deleted are the answer (#440).
-        if found.is_empty() && self.probe.is_none() {
-            found = self.deleted_definitions(kind, word, here);
-        }
-        self.last_definitions = Some((kind, word.to_owned(), found.clone()));
         if let Some(probe) = &mut self.probe {
             *probe = found;
             self.offer_only = offer_only || broke.is_some();

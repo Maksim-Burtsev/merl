@@ -505,10 +505,16 @@ impl App {
         let row = hits
             .iter()
             .position(|(_, h)| h.path == landed && h.place() == self.at())?;
+        // From base code `d` answers as the base had it, and a deleted declaration is where it
+        // lands only when the branch has none (#440): neither is a place `d` is proven to reach
+        // from the branch's `u` list.
+        let from_base = matches!(trip.from.1, TextLine::Deleted(..))
+            || (self.review.as_ref())
+                .zip(trip.here.as_deref())
+                .and_then(|(r, here)| r.file(here))
+                .is_some_and(|f| f.status == 'D');
         match hits[row].0 {
-            // `d` lands on a deleted declaration only when the branch has none (#440): not a
-            // key `d` is proven to reach.
-            Tier::Declaration if hits[row].1.deleted.is_none() => Some((1, "d")),
+            Tier::Declaration if !from_base && hits[row].1.deleted.is_none() => Some((1, "d")),
             _ if trip.kind == PickerKind::Search => Some((row + 2, "u")),
             _ => None,
         }

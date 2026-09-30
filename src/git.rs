@@ -64,6 +64,15 @@ pub struct DeletedLine {
     pub text: String,
 }
 
+/// A run of lines the branch added (#440): the file, the 1-based number of its first line, and
+/// how many follow. `d` finds a definition the branch moved unchanged in one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AddedRun {
+    pub path: PathBuf,
+    pub line: usize,
+    pub len: usize,
+}
+
 /// What one file's diff looks like from the editor: marks per 0-based line, and, in review
 /// mode, the deleted text as ghost lines keyed by the line they sit above (`lines.len()` for
 /// the end of the file) plus the first line of every hunk, for `c` / `C`.
@@ -229,6 +238,8 @@ pub struct Review {
     /// Every line the branch deleted, file by file in the panel's order: the second source `s`,
     /// `D`, `u` and `d` search besides the files on disk (#440).
     pub deleted: Arc<Vec<DeletedLine>>,
+    /// Every run of lines the branch added, read from the same patch (#440).
+    pub added: Arc<Vec<AddedRun>>,
     /// What opening found about the branch against `origin` (`diverged from origin/feat`), for
     /// the status bar; `App::start_review` takes it, so it is said once.
     pub note: Option<String>,
@@ -334,13 +345,15 @@ impl Review {
             "--dst-prefix=b/",
             &merge_base,
         ])?;
-        let deleted = Arc::new(deleted_lines(&patch, &files));
+        let (deleted, added) = changed_lines(root, &patch, &files);
+        let (deleted, added) = (Arc::new(deleted), Arc::new(added));
         Ok(Self {
             branch,
             base,
             merge_base,
             files,
             deleted,
+            added,
             note: None,
         })
     }
@@ -398,22 +411,23 @@ impl Review {
         Ok(out.stdout)
     }
 
-    /// The project as the base had it, for `d` on a deleted line (#440), in the repository's
-    /// git directory, where a hard link reaches the files: a file the branch left alone is a link
-    /// to the one on disk, and only the ones it changed, renamed or deleted are read from git.
+    /// The project as the base had it, for `d` on a deleted line (#440), in this worktree's own
+    /// git directory, which no other worktree reads or cleans: a file the branch left alone is a
+    /// copy of the one on disk (a clone that costs nothing where the file system has them, as
+    /// APFS and btrfs do), and only the ones it changed, renamed or deleted are read from git.
     /// The folders git ignores (`.venv`, `node_modules`) are links to the real ones, so a lookup
     /// reaches the dependencies it reaches on disk. Built again when the branch's files change.
     pub fn base_tree(&self, root: &Path) -> Result<PathBuf> {
-        let (_, common) = dirs(root).context("no git directory")?;
+        let (git_dir, _) = dirs(root).context("no git directory")?;
+        // An untracked file the base has (`git rm --cached`) is not the base's either.
         let changed: std::collections::HashSet<&Path> = (self.files.iter())
-            .filter(|f| !f.untracked)
             .map(|f| f.old.as_deref().unwrap_or(&f.path))
             .collect();
         let mut stamp: Vec<String> = changed.iter().map(|p| p.display().to_string()).collect();
         stamp.sort();
         stamp.insert(0, self.merge_base.clone());
         let stamp = stamp.join("\n");
-        let parent = common.join("merl").join("base");
+        let parent = git_dir.join("merl").join("base");
         let dir = parent.join(&self.merge_base);
         if std::fs::read_to_string(dir.join(".merl-stamp")).is_ok_and(|s| s == stamp) {
             return Ok(dir);
@@ -440,8 +454,10 @@ impl Review {
                 "160000" => continue,
                 "120000" => from_git.push((path.to_path_buf(), true)),
                 _ if changed.contains(path) => from_git.push((path.to_path_buf(), false)),
+                // ponytail: a plain copy where the file system cannot clone, once per review of a
+                // branch; hard links would be free but follow an edit made in place.
                 _ => {
-                    if std::fs::hard_link(root.join(path), &dst).is_err() {
+                    if std::fs::copy(root.join(path), &dst).is_err() {
                         from_git.push((path.to_path_buf(), false));
                     }
                 }
@@ -485,7 +501,7 @@ impl Review {
             }
         }
         std::fs::write(tmp.join(".merl-stamp"), &stamp)?;
-        // One base at a time: the one of another branch is built again when it is reviewed.
+        // One base at a time in this worktree: another branch's is built again when reviewed.
         if let Ok(old) = std::fs::read_dir(&parent) {
             for e in old.flatten().filter(|e| e.path() != tmp) {
                 let _ = std::fs::remove_dir_all(e.path());
@@ -498,10 +514,14 @@ impl Review {
     }
 }
 
-/// The lines `patch`, the branch's whole diff, deletes from `files`, in their order. Each file's
-/// part is read as [`diff`] reads one file, so a line is keyed as the review draws it. An
-/// untracked file deleted nothing: its row is the file on disk.
-fn deleted_lines(patch: &str, files: &[ReviewFile]) -> Vec<DeletedLine> {
+/// The lines `patch`, the branch's whole diff, deletes from `files`, in their order, and the runs
+/// of lines it adds. Each file's part is read as [`diff`] reads one file, so a line is keyed as
+/// the review draws it. An untracked file deleted nothing, and all of it is added.
+fn changed_lines(
+    root: &Path,
+    patch: &str,
+    files: &[ReviewFile],
+) -> (Vec<DeletedLine>, Vec<AddedRun>) {
     let mut parts: HashMap<PathBuf, String> = HashMap::new();
     let (mut name, mut part, mut header) = (None::<PathBuf>, String::new(), true);
     let mut done = |name: Option<PathBuf>, part: &mut String| {
@@ -533,11 +553,37 @@ fn deleted_lines(patch: &str, files: &[ReviewFile]) -> Vec<DeletedLine> {
         part.push('\n');
     }
     done(name, &mut part);
-    let mut out = Vec::new();
-    for f in files.iter().filter(|f| !f.untracked) {
+    let (mut out, mut added) = (Vec::new(), Vec::new());
+    for f in files {
+        if f.untracked {
+            let len = count_lines(&root.join(&f.path)).map_or(0, |(_, n)| n);
+            added.push(AddedRun {
+                path: f.path.clone(),
+                line: 1,
+                len,
+            });
+            continue;
+        }
         let Some(diff) = parts.get(&f.path).map(|p| parse(p, true)) else {
             continue;
         };
+        let mut lines: Vec<usize> = (diff.marks.iter())
+            .filter(|(_, m)| matches!(m, Mark::Added | Mark::Changed))
+            .map(|(&l, _)| l)
+            .collect();
+        lines.sort_unstable();
+        for l in lines {
+            match added.last_mut() {
+                Some(AddedRun { path, line, len }) if *path == f.path && *line + *len == l + 1 => {
+                    *len += 1;
+                }
+                _ => added.push(AddedRun {
+                    path: f.path.clone(),
+                    line: l + 1,
+                    len: 1,
+                }),
+            }
+        }
         for (&k, ghosts) in &diff.ghosts {
             let from = diff.ghost_from.get(&k).copied().unwrap_or(0);
             out.extend(ghosts.iter().enumerate().map(|(i, text)| DeletedLine {
@@ -551,7 +597,7 @@ fn deleted_lines(patch: &str, files: &[ReviewFile]) -> Vec<DeletedLine> {
             }));
         }
     }
-    out
+    (out, added)
 }
 
 /// A name as git writes it in a patch: as it is, or in C quotes when it holds a `"`, a `\` or a
@@ -609,25 +655,6 @@ fn git(root: &Path, args: &[&str]) -> Result<String> {
     Ok(String::from_utf8_lossy(&out.stdout)
         .trim_end_matches('\n')
         .to_string())
-}
-
-/// The branch's whole diff against `base` with no context, its names prefixed `a/` and `b/`
-/// whatever the user's `diff.noprefix` says (#440).
-pub fn branch_patch(root: &Path, base: &str) -> Result<String> {
-    git(
-        root,
-        &[
-            "-c",
-            "core.quotePath=false",
-            "diff",
-            "-U0",
-            "--no-color",
-            "--no-ext-diff",
-            "--src-prefix=a/",
-            "--dst-prefix=b/",
-            base,
-        ],
-    )
 }
 
 /// The git directory of the worktree at `root` (where `HEAD` is) and the repository's common

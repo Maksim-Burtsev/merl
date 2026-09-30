@@ -4,22 +4,43 @@
 
 use super::*;
 use search_job::deleted_hits;
-use std::cell::OnceCell;
 
 impl App {
-    /// `d` on the deleted line `i` above file line `k`. A second `App` over the base's tree
-    /// ([`git::Review::base_tree`]) presses `d` on that line as the base had it; a candidate the
-    /// branch kept is shown on its line now, a deleted one on its red line, and one the branch
-    /// moved unchanged on its live copy. The status is the lookup's own.
-    pub(super) fn definition_at_base(&mut self, k: usize, i: usize) {
-        let (Some(r), Some(rel)) = (self.review.clone(), self.rel_current()) else {
+    /// Where the cursor stands in the base's text when the line it reads is base code: a line
+    /// the branch deleted, or any line of a file the branch deleted. `None` elsewhere.
+    pub(super) fn base_place(&self) -> Option<(PathBuf, usize)> {
+        let r = self.review.as_ref()?;
+        let rel = self.rel_current()?;
+        let file = r.file(&rel);
+        let line = match (self.deleted, file) {
+            (Some((k, i)), _) => self.diff.ghost_from.get(&k).copied().unwrap_or(0) + i + 1,
+            (None, Some(f)) if f.status == 'D' => self.line + 1,
+            _ => return None,
+        };
+        Some((file.and_then(|f| f.old.clone()).unwrap_or(rel), line))
+    }
+
+    /// `d` on base code (#440). A second `App` over the base's tree
+    /// ([`git::Review::base_tree`]) presses `d` at `line` of `path` as the base had it, and its
+    /// answer, whatever it is, is shown here where the review draws it: a jump or a picker row
+    /// on a line the branch kept lands on that line now, on a line it deleted on the red line,
+    /// on a definition it moved unchanged on the live copy. The status is the lookup's own.
+    pub(super) fn definition_at_base(&mut self, path: PathBuf, line: usize) {
+        // The answer is mapped onto the files as saved: a buffer ahead of its file is saved
+        // first, and one that cannot be leaves its reason on the status bar, as a jump does.
+        if !self.flush() {
+            return;
+        }
+        let Some(r) = self.review.clone() else {
             return;
         };
-        let old = r.file(&rel).and_then(|f| f.old.clone()).unwrap_or(rel);
-        let line = self.diff.ghost_from.get(&k).copied().unwrap_or(0) + i + 1;
         let col = self.col;
-        // The dependencies and the standard library are the same at the base.
-        let external = self.external.clone();
+        // The standard library and the dependencies are the same at the base; TypeScript's
+        // `node_modules` follow the open file, and the base's `App` finds its own.
+        let external: Vec<_> = (self.external.iter())
+            .filter(|(k, _)| **k != Kind::TsJs)
+            .map(|(k, v)| (*k, v.clone()))
+            .collect();
         let Some(b) = self.base_app(&r) else {
             self.message = "no base to read".into();
             return;
@@ -27,71 +48,72 @@ impl App {
         for (kind, roots) in external {
             b.external.entry(kind).or_insert(roots);
         }
-        (b.picker, b.last_definitions) = (None, None);
+        b.picker = None;
         b.message.clear();
-        let path = b.root.join(&old);
-        b.jump_to(&path, line);
+        b.jump_to(&b.root.join(&path), line);
         b.col = col;
         let before = (b.buf.path.clone(), b.line, b.col);
         b.goto_definition();
-        let (message, title) = (b.message.clone(), b.picker.take().map(|p| p.title));
-        let jumped = before != (b.buf.path.clone(), b.line, b.col);
-        let base_root = b.root.clone();
-        let Some((kind, word, found)) = b.last_definitions.take() else {
-            self.message = message;
-            return;
-        };
-        let moves = OnceCell::new();
-        let found: Vec<Candidate> = found
-            .into_iter()
-            .map(|mut c| {
-                self.to_review(&r, &base_root, &mut c.hit);
-                if c.hit.deleted.is_some()
-                    && let Some((path, line)) =
-                        self.moved_copy(&r, &c.hit, moves.get_or_init(|| self.added_runs(&r)))
-                {
-                    (c.hit.path, c.hit.line, c.hit.deleted) = (path, line, None);
-                    c.hit.text = self
-                        .text_of(&c.hit.path)
-                        .and_then(|t| t.lines().nth(line - 1).map(str::to_owned))
-                        .unwrap_or_default();
-                }
-                c
-            })
-            .collect();
-        match (title, found.as_slice()) {
-            (Some(title), _) => {
-                let items = self.definition_items(kind, &word, found);
-                self.show_picker(PickerKind::Definitions, items);
+        let message = std::mem::take(&mut b.message);
+        let base = b.root.clone();
+        let picked = b.picker.take().map(|mut p| {
+            p.settle();
+            let kind = match b.mode {
+                Mode::Picker(kind) => kind,
+                _ => PickerKind::Definitions,
+            };
+            let items: Vec<PickItem> = p
+                .window(usize::MAX)
+                .0
+                .into_iter()
+                .map(|r| r.item.clone())
+                .collect();
+            (kind, p.title, items)
+        });
+        b.mode = Mode::Normal;
+        let jumped = (before != (b.buf.path.clone(), b.line, b.col))
+            .then(|| (b.buf.path.clone(), b.line + 1, b.col));
+        match (picked, jumped) {
+            (Some((kind, title, items)), _) => {
+                let items = items
+                    .into_iter()
+                    .map(|it| self.item_to_review(&r, &base, it))
+                    .collect();
+                self.show_picker(kind, items);
                 if let Some(p) = &mut self.picker {
                     p.title = title;
                 }
+                self.message = message;
             }
-            (None, [one]) if jumped => {
-                let path = self.root.join(&one.hit.path);
-                let col = word_col(&one.hit.text, &word, search::word_chars(Some(kind), true));
-                match one.hit.deleted {
-                    Some(_) => self.jump_to_deleted(&path, one.hit.line, col),
-                    None => self.jump_to_col(&path, one.hit.line, col),
+            (None, Some((Some(to), line, col))) => {
+                let mut hit = Hit {
+                    path: to,
+                    line,
+                    col,
+                    text: String::new(),
+                    deleted: None,
+                };
+                self.to_review(&r, &base, &mut hit);
+                let path = self.root.join(&hit.path);
+                match hit.deleted {
+                    Some(_) => self.jump_to_deleted(&path, hit.line, col),
+                    None => self.jump_to_col(&path, hit.line, col),
+                }
+                // A refused jump leaves its own reason, not a resolution nobody followed.
+                if self.buf.path.as_deref() == Some(path.as_path()) {
+                    self.message = message;
                 }
             }
-            _ => {}
+            _ => self.message = message,
         }
-        self.message = message;
     }
 
     /// The `App` over the base's tree, made on the first `d` of a review and again when the
     /// branch's files change.
     fn base_app(&mut self, r: &git::Review) -> Option<&mut App> {
         let dir = r.base_tree(&self.root).ok()?;
-        let stale = self.base_app.as_ref().is_none_or(|(stamp, _)| {
-            std::fs::read_to_string(dir.join(".merl-stamp"))
-                .ok()
-                .as_ref()
-                != Some(stamp)
-        });
-        if stale {
-            let stamp = std::fs::read_to_string(dir.join(".merl-stamp")).ok()?;
+        let stamp = std::fs::read_to_string(dir.join(".merl-stamp")).ok()?;
+        if self.base_app.as_ref().is_none_or(|(s, _)| *s != stamp) {
             let (tree, files) = crate::tree::build(&dir, false);
             let app = App::new(dir, tree, files, Buffer::empty(), None);
             self.base_app = Some((stamp, Box::new(app)));
@@ -99,23 +121,58 @@ impl App {
         self.base_app.as_mut().map(|(_, a)| a.as_mut())
     }
 
-    /// `h`, a hit in the base's tree at `base`, as the review draws it: under the file's name in
-    /// the review, on its red line when the branch deleted it, on its line now when the branch
-    /// kept it. A hit outside the project (a dependency) is where it was.
+    /// A row of the base's picker, re-addressed as the review draws it: its label names the
+    /// place it lands on now.
+    fn item_to_review(&self, r: &git::Review, base: &Path, mut it: PickItem) -> PickItem {
+        let mut hit = Hit {
+            path: it.path.clone(),
+            line: it.line,
+            col: it.col,
+            text: String::new(),
+            deleted: None,
+        };
+        self.to_review(r, base, &mut hit);
+        let rel = |p: &Path| p.strip_prefix(base).unwrap_or(p).to_path_buf();
+        let (was, now) = match it.line {
+            0 => (
+                rel(&it.path).display().to_string(),
+                hit.path.display().to_string(),
+            ),
+            _ => (
+                at_label(&rel(&it.path), it.line),
+                at_label(&hit.path, hit.line),
+            ),
+        };
+        if let Some(at) = it.label.find(&was) {
+            it.label.replace_range(at..at + was.len(), &now);
+            if let Some(code) = &mut it.code_at
+                && *code > at
+            {
+                *code = *code + now.len() - was.len();
+            }
+        }
+        (it.path, it.line, it.deleted) = (hit.path, hit.line, hit.deleted.is_some());
+        it
+    }
+
+    /// `h`, a place in the base's tree at `base`, as the review draws it: under the file's name
+    /// in the review, on its red line when the branch deleted it, on its line now when the
+    /// branch kept it, on the live copy of a definition the branch moved unchanged. A place
+    /// outside the project (a dependency) is where it was.
     fn to_review(&self, r: &git::Review, base: &Path, h: &mut Hit) {
         if let Ok(rel) = h.path.strip_prefix(base) {
             h.path = rel.to_path_buf();
         }
-        let file = (r.files.iter())
-            .find(|f| !f.untracked && f.old.as_deref().unwrap_or(&f.path) == h.path);
-        let Some(file) = file else { return };
+        let file = (r.files.iter()).find(|f| f.old.as_deref().unwrap_or(&f.path) == h.path);
+        let Some(file) = file.filter(|f| !f.untracked) else {
+            return;
+        };
         h.path = file.path.clone();
-        if let Some(d) = r
-            .deleted
-            .iter()
-            .find(|d| d.path == h.path && d.line == h.line)
-        {
-            h.deleted = Some(d.at);
+        if let Some(d) = (r.deleted.iter()).find(|d| d.path == h.path && d.line == h.line) {
+            match self.moved_copy(r, d) {
+                Some((path, line)) => (h.path, h.line) = (path, line),
+                None => h.deleted = Some(d.at),
+            }
             return;
         }
         let diff = r.diff(&self.root, &self.root.join(&file.path), Some(file));
@@ -124,74 +181,46 @@ impl App {
         }
     }
 
-    /// Where the definition the branch deleted at `h` lives now, when it was moved unchanged: an
-    /// added block holding its lines, indentation aside, three at least.
-    fn moved_copy(
-        &self,
-        r: &git::Review,
-        h: &Hit,
-        runs: &[(PathBuf, usize, Vec<String>)],
-    ) -> Option<(PathBuf, usize)> {
-        let mut block: Vec<&str> = Vec::new();
-        for d in r
-            .deleted
-            .iter()
-            .filter(|d| d.path == h.path && d.line >= h.line)
-        {
-            if d.line != h.line + block.len() {
+    /// Where the definition the branch deleted at `d` lives now, when the branch moved it
+    /// unchanged: a run the branch added holds its lines, indentation aside. The definition is
+    /// its first line and those indented under it, a closing line at its own indentation
+    /// included; three lines at least, or two blocks alike would be taken for one.
+    fn moved_copy(&self, r: &git::Review, d: &git::DeletedLine) -> Option<(PathBuf, usize)> {
+        let indent = |t: &str| t.len() - t.trim_start().len();
+        let own = indent(&d.text);
+        let mut block = vec![d.text.trim().to_owned()];
+        for next in (r.deleted.iter()).filter(|n| n.path == d.path && n.line > d.line) {
+            if next.line != d.line + block.len() {
                 break;
             }
-            block.push(d.text.trim());
+            let t = next.text.trim();
+            if !t.is_empty() && indent(&next.text) <= own {
+                // `}` or `end` closes the definition; anything else begins the next one.
+                if indent(&next.text) == own && t.starts_with(['}', ')', ']']) || t == "end" {
+                    block.push(t.to_owned());
+                }
+                break;
+            }
+            block.push(t.to_owned());
         }
-        while block.last() == Some(&"") {
+        while block.last().is_some_and(String::is_empty) {
             block.pop();
         }
         if block.len() < 3 {
             return None;
         }
-        runs.iter().find_map(|(path, first, run)| {
-            (0..=run.len().checked_sub(block.len())?)
-                .find(|&w| {
-                    run[w..w + block.len()]
-                        .iter()
-                        .map(|t| t.trim())
-                        .eq(block.iter().copied())
-                })
-                .map(|w| (path.clone(), first + w))
-        })
-    }
-
-    /// Every run of lines the branch added, file by file: the file, its first line, the lines.
-    fn added_runs(&self, r: &git::Review) -> Vec<(PathBuf, usize, Vec<String>)> {
-        let patch = git::branch_patch(&self.root, &r.merge_base).unwrap_or_default();
-        let mut runs: Vec<(PathBuf, usize, Vec<String>)> = Vec::new();
-        let (mut file, mut next) = (PathBuf::new(), 0);
-        let mut run: Option<(usize, Vec<String>)> = None;
-        let mut flush = |file: &Path, run: &mut Option<(usize, Vec<String>)>| {
-            if let Some((first, lines)) = run.take() {
-                runs.push((file.to_path_buf(), first, lines));
-            }
-        };
-        for l in patch.lines() {
-            if let Some(p) = l.strip_prefix("+++ b/") {
-                flush(&file, &mut run);
-                file = PathBuf::from(p);
-            } else if l.starts_with("@@ ") {
-                flush(&file, &mut run);
-                next = l
-                    .split(' ')
-                    .nth(2)
-                    .and_then(|s| s[1..].split(',').next()?.parse().ok())
-                    .unwrap_or(0);
-            } else if let Some(t) = l.strip_prefix('+') {
-                run.get_or_insert_with(|| (next, Vec::new()))
-                    .1
-                    .push(t.to_owned());
-                next += 1;
-            }
-        }
-        flush(&file, &mut run);
-        runs
+        (r.added.iter())
+            .filter(|a| a.len >= block.len())
+            .find_map(|a| {
+                let text = self.text_of(&a.path)?;
+                let lines: Vec<&str> = text.lines().skip(a.line - 1).take(a.len).collect();
+                let at = lines.windows(block.len()).position(|w| {
+                    w.iter()
+                        .map(|l| l.trim())
+                        .eq(block.iter().map(String::as_str))
+                })?;
+                Some((a.path.clone(), a.line + at))
+            })
     }
 
     /// The lines the branch deleted that declare `word` where a definition of it in `here` can

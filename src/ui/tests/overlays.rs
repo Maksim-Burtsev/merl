@@ -383,6 +383,7 @@ fn review_panel_counts_end_at_the_border() {
             untracked: false,
         }],
         deleted: Default::default(),
+        added: Default::default(),
         note: None,
     });
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -435,6 +436,7 @@ fn review_panel_cuts_a_long_name_and_keeps_the_counts() {
             untracked: false,
         }],
         deleted: Default::default(),
+        added: Default::default(),
         note: None,
     });
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -472,6 +474,7 @@ fn review_app(files: &[(&str, char, usize, usize)]) -> App {
             })
             .collect(),
         deleted: Default::default(),
+        added: Default::default(),
         note: None,
     });
     app

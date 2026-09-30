@@ -178,7 +178,7 @@ impl App {
             .and_then(|cur| {
                 items
                     .iter()
-                    // A deleted line's number is the base's: `a.py:-12` is not `a.py:12` (#440).
+                    // A deleted line keeps the base's number: its 12 is not the file's 12 (#440).
                     .position(|it| {
                         (&it.path, it.line, it.deleted) == (&cur.path, cur.line, cur.deleted)
                     })

@@ -458,3 +458,476 @@ fn d_on_a_deleted_call_follows_a_move_and_skips_a_namesake() {
     assert!(a.deleted.is_some());
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// A review of a branch made on a scratch repository: `base` is committed on `main`, then
+/// `branch` writes (`Some`) or deletes (`None`) files on `feature`, and its changes are committed
+/// unless `commit` is false.
+fn repo_review(
+    tag: &str,
+    base: &[(&str, &str)],
+    branch: &[(&str, Option<&str>)],
+) -> (PathBuf, App) {
+    let dir = std::env::temp_dir().join(format!("merl-440-{tag}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&dir)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "t@t"]);
+    git(&["config", "user.name", "t"]);
+    let write = |name: &str, text: &str| {
+        let p = dir.join(name);
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(p, text).unwrap();
+    };
+    for (name, text) in base {
+        write(name, text);
+    }
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "base"]);
+    git(&["switch", "-q", "-c", "feature"]);
+    for (name, text) in branch {
+        match text {
+            Some(text) => write(name, text),
+            None => std::fs::remove_file(dir.join(name)).unwrap(),
+        }
+    }
+    git(&["add", "-A"]);
+    git(&["commit", "-q", "-m", "work"]);
+    let review = git::Review::open(&dir, None, None).unwrap();
+    let (_, files) = crate::tree::build(&dir, false);
+    let mut a = App::new(dir.clone(), Tree::default(), files, Buffer::empty(), None);
+    a.start_review(review);
+    use_roots(&mut a, Kind::Python, &[]);
+    (dir, a)
+}
+
+/// `d` on a Markdown link the branch deleted follows the link, as on any line (#421).
+#[test]
+fn d_on_a_deleted_markdown_link_follows_it() {
+    let (dir, mut a) = repo_review(
+        "d-md",
+        &[
+            (
+                "README.md",
+                "# T\n\nSee [guide](docs/guide.md) here.\n\nEnd.\n",
+            ),
+            ("docs/guide.md", "# Guide\n\ntext\n"),
+        ],
+        &[("README.md", Some("# T\n\nNothing.\n\nEnd.\n"))],
+    );
+    on_deleted(&mut a, &dir.join("README.md"), "See", "docs/guide");
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        a.buf.path.as_deref(),
+        Some(&*dir.join("docs/guide.md")),
+        "{}",
+        a.message
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// A rule that answers "no definition" keeps that answer in a review: C#'s `Task.Delay` is a
+/// member of a type outside the project (#355), not the `Timer.Delay` the branch deleted.
+#[test]
+fn a_rule_that_answers_none_keeps_it_in_a_review() {
+    let timer = "class Timer\n{\n    public void Delay(int ms)\n    {\n    }\n}\n";
+    let run = "class Run\n{\n    void Go()\n    {\n        Task.Delay(5);\n    }\n}\n";
+    let (dir, mut a) = repo_review(
+        "d-cs-none",
+        &[("Timer.cs", timer), ("Run.cs", run)],
+        &[("Timer.cs", Some("class Timer\n{\n}\n"))],
+    );
+    use_roots(&mut a, Kind::CSharp, &[]);
+    a.jump_to(&dir.join("Run.cs"), 5);
+    a.col = a.line_str().find("Delay").unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.buf.path.as_deref(), a.message.as_str()),
+        (Some(&*dir.join("Run.cs")), "no definition for Delay")
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// `d` from a branch line whose word only the branch's deleted code declares opens that
+/// deleted definition, red.
+#[test]
+fn d_from_a_branch_line_opens_a_deleted_definition_when_the_branch_has_none() {
+    let (dir, mut a) = repo_review(
+        "d-fallback",
+        &[
+            ("lib.py", "def legacy_total(x):\n    return x\n"),
+            ("main.py", "def run():\n    return 1\n"),
+        ],
+        &[
+            ("lib.py", Some("X = 1\n")),
+            ("main.py", Some("def run():\n    return legacy_total(1)\n")),
+        ],
+    );
+    a.jump_to(&dir.join("main.py"), 2);
+    a.col = a.line_str().find("legacy_total").unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        a.buf.path.as_deref(),
+        Some(&*dir.join("lib.py")),
+        "{}",
+        a.message
+    );
+    assert_eq!(a.line_str(), "def legacy_total(x):");
+    assert!(a.deleted.is_some());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// With unsaved edits, `d` from a deleted line saves them first and lands on the line the
+/// definition is on now; with edits that cannot be saved the cursor stays, and the status names
+/// no resolution.
+#[test]
+fn d_from_a_deleted_line_saves_unsaved_edits_first() {
+    let (dir, mut a) = orders_review("d-unsaved");
+    let service = dir.join("app/services/orders.py");
+    on_deleted(&mut a, &service, "self.total(order_id)", "total");
+    let total = a
+        .buf
+        .lines
+        .iter()
+        .position(|l| l.contains("def total"))
+        .unwrap();
+    a.buf.lines.insert(total, String::new());
+    a.dirty = true;
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        a.line_str(),
+        "    def total(self, order_id):",
+        "{}",
+        a.message
+    );
+    assert!(!a.dirty);
+
+    on_deleted(
+        &mut a,
+        &service,
+        "get_order_with_items",
+        "get_order_with_items",
+    );
+    let from = a.at();
+    (a.dirty, a.conflict) = (true, true);
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!((a.buf.path.as_deref(), a.at()), (Some(&*service), from));
+    assert!(
+        !a.message.contains('\u{2192}'),
+        "no resolution: {}",
+        a.message
+    );
+    (a.dirty, a.conflict) = (false, false);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Each worktree keeps its own base: another worktree's review does not remove it. A file the
+/// branch left alone is a copy, so an edit made in place does not reach the base.
+#[test]
+fn each_worktree_keeps_its_own_base_and_an_edit_leaves_it_alone() {
+    let (dir, a) = repo_review(
+        "base-tree",
+        &[
+            ("svc.py", "X = 1\n"),
+            ("keep.py", "def keep():\n    pass\n"),
+        ],
+        &[("svc.py", Some("X = 2\n"))],
+    );
+    let base = a.review.as_ref().unwrap().base_tree(&dir).unwrap();
+    std::fs::write(dir.join("keep.py"), "def edited():\n    pass\n").unwrap();
+    assert_eq!(
+        std::fs::read_to_string(base.join("keep.py")).unwrap(),
+        "def keep():\n    pass\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(base.join("svc.py")).unwrap(),
+        "X = 1\n"
+    );
+    let wt = dir.with_extension("wt");
+    let _ = std::fs::remove_dir_all(&wt);
+    let git = |at: &Path, args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(at)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    git(
+        &dir,
+        &[
+            "worktree",
+            "add",
+            "-q",
+            "-b",
+            "other",
+            wt.to_str().unwrap(),
+            "main",
+        ],
+    );
+    // Another merge base: a commit of its own under the other branch.
+    std::fs::write(wt.join("svc.py"), "X = 3\n").unwrap();
+    git(&wt, &["commit", "-qam", "base 2"]);
+    git(&wt, &["branch", "base2"]);
+    std::fs::write(wt.join("svc.py"), "X = 4\n").unwrap();
+    git(&wt, &["commit", "-qam", "other"]);
+    let other = git::Review::open(&wt, None, Some("base2")).unwrap();
+    assert_ne!(other.merge_base, a.review.as_ref().unwrap().merge_base);
+    let theirs = other.base_tree(&wt).unwrap();
+    assert!(base.join("keep.py").exists() && theirs.join("svc.py").exists());
+    let _ = std::fs::remove_dir_all(&wt);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+const HELPER: &str = "def helper(x):\n    y = x + 1\n    return y\n";
+
+/// A function moved unchanged into a file whose name has a space, with the function under it
+/// deleted in the same run, still opens on its live copy.
+#[test]
+fn d_follows_a_move_into_a_spaced_name_past_the_next_deleted_function() {
+    let (dir, mut a) = repo_review(
+        "d-move-space",
+        &[
+            ("svc.py", &format!("{HELPER}def other():\n    return 0\n")),
+            (
+                "main.py",
+                "from svc import helper\n\n\ndef run():\n    helper(1)\n    return 2\n",
+            ),
+        ],
+        &[
+            ("svc.py", Some("X = 1\n")),
+            ("main.py", Some("def run():\n    return 2\n")),
+            ("my mod.py", Some(HELPER)),
+        ],
+    );
+    on_deleted(&mut a, &dir.join("main.py"), "helper(1)", "helper");
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.buf.path.as_deref(), a.at()),
+        (Some(&*dir.join("my mod.py")), File(0)),
+        "{}",
+        a.message
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Two lines alike are no move: a two-line function the branch deleted and wrote again
+/// elsewhere opens on its red lines.
+#[test]
+fn a_two_line_block_is_no_move() {
+    let short = "def helper(x):\n    return x\n";
+    let (dir, mut a) = repo_review(
+        "d-move-short",
+        &[
+            ("svc.py", short),
+            (
+                "main.py",
+                "from svc import helper\n\n\ndef run():\n    helper(1)\n    return 2\n",
+            ),
+        ],
+        &[
+            ("svc.py", Some("X = 1\n")),
+            ("main.py", Some("def run():\n    return 2\n")),
+            ("other.py", Some(short)),
+        ],
+    );
+    on_deleted(&mut a, &dir.join("main.py"), "helper(1)", "helper");
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        a.buf.path.as_deref(),
+        Some(&*dir.join("svc.py")),
+        "{}",
+        a.message
+    );
+    assert!(a.deleted.is_some());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// In a file the branch deleted, every line is the base's: `d` there answers from the base, the
+/// deleted `Repo.fetch`, not the branch's `Cache.fetch`.
+#[test]
+fn d_on_a_deleted_files_line_answers_from_the_base() {
+    let (dir, mut a) = moves_review("d-deleted-file");
+    let old = "from app.repo import Repo\n\n\ndef use(r: Repo):\n    return r.fetch(1)\n";
+    // The branch deletes a file that used `Repo.fetch`: a second commit on top of the review's.
+    std::fs::write(dir.join("app/old.py"), old).unwrap();
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&dir)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    git(&["switch", "-q", "main"]);
+    std::fs::write(dir.join("app/old.py"), old).unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "old"]);
+    git(&["switch", "-q", "feature"]);
+    git(&["rebase", "-q", "main"]);
+    git(&["rm", "-q", "app/old.py"]);
+    git(&["commit", "-q", "-m", "drop old"]);
+    let review = git::Review::open(&dir, None, None).unwrap();
+    a.start_review(review);
+    a.jump_to(&dir.join("app/old.py"), 5);
+    a.col = a.line_str().find("fetch").unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        a.buf.path.as_deref(),
+        Some(&*dir.join("app/repo.py")),
+        "{}",
+        a.message
+    );
+    assert_eq!(a.line_str(), "    def fetch(self, key):");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// In a file the branch renamed, `d` on a deleted line reads the base under the file's old name
+/// and lands under the new one; a definition below the file's last hunk lands on its line now.
+#[test]
+fn d_in_a_renamed_file_reads_the_old_name_and_counts_lines_past_the_last_hunk() {
+    let lib =
+        "import os\nimport sys\n\n\ndef a():\n    return 1\n\n\ndef target():\n    return 2\n";
+    let (dir, mut a) = repo_review(
+        "d-rename",
+        &[
+            ("lib.py", lib),
+            (
+                "run.py",
+                "from lib import target\n\n\ndef run():\n    return target()\n",
+            ),
+        ],
+        &[
+            ("lib.py", Some(&lib.replace("import sys\n", ""))),
+            ("run.py", None),
+            (
+                "start.py",
+                Some("from lib import target\n\n\ndef run():\n    return 0\n"),
+            ),
+        ],
+    );
+    let file = a
+        .review
+        .as_ref()
+        .unwrap()
+        .file(Path::new("start.py"))
+        .cloned();
+    assert_eq!(file.and_then(|f| f.old), Some(PathBuf::from("run.py")));
+    on_deleted(&mut a, &dir.join("start.py"), "target()", "target");
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.buf.path.as_deref(), a.at()),
+        (Some(&*dir.join("lib.py")), File(7)),
+        "{}",
+        a.message
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// A lookup the base answers with a picker is shown with its title, its deleted row carrying the
+/// red mark and the syntax colours of a row like any other.
+#[test]
+fn a_base_picker_keeps_its_title_and_marks_its_deleted_row() {
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    use ratatui::style::Color;
+    let (dir, mut a) = repo_review(
+        "d-picker",
+        &[
+            ("a.py", "class A:\n    def run(self):\n        return 1\n"),
+            ("b.py", "class B:\n    def run(self):\n        return 2\n"),
+            ("main.py", "def go(x):\n    return x.run()\n"),
+        ],
+        &[
+            ("a.py", Some("class A:\n    pass\n")),
+            ("main.py", Some("def go(x):\n    return x\n")),
+        ],
+    );
+    on_deleted(&mut a, &dir.join("main.py"), "x.run()", "run");
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    let p = a.picker.as_mut().expect("a picker");
+    p.settle();
+    assert_eq!(p.title, "run: by name, 2 declarations");
+    let rows: Vec<(String, bool)> = (p.window(9).0.iter())
+        .map(|r| (r.item.label.clone(), r.item.deleted))
+        .collect();
+    assert!(
+        rows.contains(&("A.run  by name  a.py:2: def run(self):".into(), true)),
+        "{rows:#?}"
+    );
+    assert!(
+        rows.contains(&("B.run  by name  b.py:2: def run(self):".into(), false)),
+        "{rows:#?}"
+    );
+    a.show_tree = false;
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut t = Terminal::new(TestBackend::new(90, 12)).unwrap();
+    t.draw(|f| crate::ui::draw(f, &mut a, &theme)).unwrap();
+    let buf = t.backend().buffer();
+    let find = |label: &str| {
+        (0..buf.area.height)
+            .find_map(|y| {
+                let text: String = (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
+                let at = text.find(label)?;
+                Some((text[..at].chars().count() as u16, y))
+            })
+            .unwrap_or_else(|| panic!("no row {label}"))
+    };
+    let (xa, ya) = find("A.run");
+    let (xb, yb) = find("B.run");
+    assert_eq!(
+        (buf[(xa - 1, ya)].symbol(), buf[(xa - 1, ya)].fg),
+        ("\u{258e}", Color::Red)
+    );
+    assert_eq!(buf[(xb - 1, yb)].symbol(), " ");
+    // `def` of the deleted row is coloured as `def` of the other.
+    let def = |x: u16, y: u16| {
+        let row: String = (x..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
+        buf[(x + row.find("def").unwrap() as u16, y)].fg
+    };
+    assert_eq!(def(xa, ya), def(xb, yb));
+    assert_ne!(def(xa, ya), buf[(xa, ya)].fg);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// From a deleted line `d` answers from the base, so `s` from there onto the branch's namesake
+/// declaration is no missed `d` (#210): `d` would have gone to the deleted `Repo.fetch`.
+#[test]
+fn s_from_a_deleted_line_to_a_live_namesake_misses_no_d() {
+    let (dir, mut a) = moves_review("missed-base");
+    on_deleted(
+        &mut a,
+        &dir.join("app/service.py"),
+        "self.repo.fetch",
+        "fetch",
+    );
+    press(&mut a, KeyCode::Char('s'), KeyModifiers::NONE);
+    typed(&mut a, "fetch");
+    a.settle_search();
+    while !a
+        .picker
+        .as_ref()
+        .unwrap()
+        .current()
+        .unwrap()
+        .label
+        .starts_with("app/cache.py")
+    {
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    }
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    a.settle_search();
+    assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("app/cache.py")));
+    assert!(!a.missed.contains_key("d"), "{:?}", a.missed);
+    let _ = std::fs::remove_dir_all(dir);
+}
