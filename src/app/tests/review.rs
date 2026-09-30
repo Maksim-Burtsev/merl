@@ -304,6 +304,33 @@ fn a_viewed_mark_that_cannot_be_saved_says_so() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// #516: a viewed store merl cannot read or write says why in a few words, never with the OS
+/// text's `(os error N)`: here the store's path is a folder.
+#[test]
+fn a_viewed_store_that_fails_says_why_in_a_few_words() {
+    let (dir, _) = review_app("viewedio");
+    let store = dir.join(".git/merl/viewed");
+    std::fs::create_dir_all(&store).unwrap();
+    let a = review_start(&dir, None);
+    assert!(
+        a.message.starts_with("viewed marks not read: ") && a.message.ends_with(": is a directory"),
+        "{}",
+        a.message
+    );
+    // A store read at the start, then turned into a folder, fails at the first mark.
+    let _ = std::fs::remove_dir_all(dir);
+    let (dir, mut a) = review_app("viewedio2");
+    std::fs::create_dir_all(dir.join(".git/merl/viewed")).unwrap();
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    assert!(
+        a.message.starts_with("viewed marks not saved: ")
+            && a.message.ends_with(": is a directory"),
+        "{}",
+        a.message
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// #240: a store that cannot be read when the review starts gives no marks and says so once;
 /// the review keeps its marks in memory and never writes over the store.
 #[test]

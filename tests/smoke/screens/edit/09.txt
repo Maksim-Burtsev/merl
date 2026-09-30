@@ -1,4 +1,4 @@
-wait "postgresql://orders@db/orders"
+wait 16▎        database_url=os.environ.get("DATABASE_URL", "postgresql://orders@db/orders")
  1 """Settings, read from the environment once at startup."""
  2 import os
  3 from dataclasses import dataclass
