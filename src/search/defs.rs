@@ -1181,6 +1181,79 @@ pub fn ts_nested_local<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
         })
         .is_some_and(|l| SCOPE.is_match(l) || AT_LOAD.is_match(l))
 }
+/// The 1-based line of `lines` that declares `key` directly inside the object literal a
+/// TypeScript or JavaScript `const name` on 1-based `line` binds (#341): `key:`, `key(`, `async
+/// key(`, `get key(` or the shorthand `key,`, on a line of its own or on the `const` line itself,
+/// `const m = { messageId: "", suggest: [] };`. A key of a nested literal, a `let` or `var`
+/// literal and one behind a call or a cast (`Object.freeze({`) are none.
+pub fn ts_literal_key<S: AsRef<str>>(
+    lines: &[S],
+    line: usize,
+    name: &str,
+    key: &str,
+) -> Option<usize> {
+    let head = lines.get(line.checked_sub(1)?)?.as_ref();
+    let open = Regex::new(&format!(
+        r"^\s*(?:export\s+)?const\s+{}\s*(?::[^=]+)?=\s*\{{",
+        regex::escape(name)
+    ))
+    .ok()?
+    .find(head)?
+    .end();
+    let k = regex::escape(key);
+    let form = Regex::new(&format!(
+        r"^(?:(?:async|get|set|static)\s+)*\*?(?:{k}|'{k}'|\x22{k}\x22)\s*(?:[:(,}}]|$)"
+    ))
+    .ok()?;
+    // The parts at the literal's own level on the `const` line, up to its closing `}`.
+    let rest = &head[open..];
+    let mut depth = 0i32;
+    let mut part = 0;
+    for (i, c) in rest.char_indices().chain([(rest.len(), ',')]) {
+        match c {
+            '{' | '[' | '(' => depth += 1,
+            '}' | ']' | ')' if depth > 0 => depth -= 1,
+            ',' | '}' if depth == 0 => {
+                if form.is_match(rest[part..i].trim()) {
+                    return Some(line);
+                }
+                if c == '}' {
+                    return None;
+                }
+                part = i + 1;
+            }
+            _ => {}
+        }
+    }
+    // Wrapped: the lines one level in, up to the one that closes the literal.
+    let outer = indent(head);
+    let mut level = None;
+    for (n, l) in lines.iter().enumerate().skip(line) {
+        let l = l.as_ref();
+        if l.trim().is_empty() {
+            continue;
+        }
+        let d = indent(l);
+        if d <= outer {
+            return None;
+        }
+        if *level.get_or_insert(d) == d && form.is_match(l.trim_start()) {
+            return Some(n + 1);
+        }
+    }
+    None
+}
+/// The first line of the block 1-based `line` of `text` sits directly inside: the nearest
+/// non-blank line above it that is indented less.
+pub fn owner_line(text: &str, line: usize) -> Option<&str> {
+    let lines: Vec<&str> = text.lines().collect();
+    let depth = indent(lines.get(line.checked_sub(1)?)?);
+    lines[..line - 1]
+        .iter()
+        .rev()
+        .find(|l| !l.trim().is_empty() && indent(l) < depth)
+        .copied()
+}
 /// Whether 1-based `line` of `lines` sits directly inside a block whose first line starts with
 /// `opener`: the nearest non-blank line above it that is indented less. `terraform fmt` indents
 /// every block, so the indentation is the nesting.

@@ -31,9 +31,9 @@ wait close → Dialog.close (via this: Dialog)
 30     dialog.close();
 31   });
 32 }
-
-
-
+33
+34 import { ParcelState } from "../orders/types";
+35 export const shippedState = ParcelState.Shipped;
 
 
 
