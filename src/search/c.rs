@@ -349,24 +349,25 @@ fn c_head_start(code: &str, open: usize) -> usize {
     }
     0
 }
-/// `s` with what its top-level brackets hold turned into spaces, the brackets and the positions
-/// kept.
+/// `s` with what its top-level brackets hold turned into spaces, the brackets and the byte
+/// positions kept: a character is blanked with as many spaces as it has bytes, and kept whole
+/// outside, so the ranges of `s` cut the result at the same characters.
 fn flat(s: &str) -> String {
     let mut depth = 0usize;
-    s.bytes()
-        .map(|c| {
-            let inside = depth > 0;
-            match c {
-                b'(' | b'[' | b'{' => depth += 1,
-                b')' | b']' | b'}' => depth = depth.saturating_sub(1),
-                _ => {}
-            }
-            match inside && depth > 0 && c != b'\n' {
-                true => ' ',
-                false => c as char,
-            }
-        })
-        .collect()
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        let inside = depth > 0;
+        match c {
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+        match inside && depth > 0 && c != '\n' {
+            true => out.push_str(&" ".repeat(c.len_utf8())),
+            false => out.push(c),
+        }
+    }
+    out
 }
 /// The byte ranges (of `s`) of its top-level `(…)` groups, brackets included.
 fn paren_groups(s: &str) -> Vec<Range<usize>> {
