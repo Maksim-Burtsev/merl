@@ -840,7 +840,7 @@ pub fn member_or_signature(kind: Kind, word: &str) -> Option<Vec<String>> {
 /// declares nothing (#374): `t.string "language"` declares one in `db/schema.rb` alone, where
 /// every `t.` line is inside a `create_table` block. A migration's is history, and
 /// `db/structure.sql` is not read.
-pub fn ruby_column_elsewhere(path: &Path, text: &str) -> bool {
+fn ruby_column_elsewhere(path: &Path, text: &str) -> bool {
     text.trim_start().starts_with("t.") && !path.ends_with("db/schema.rb")
 }
 /// A Ruby assignment of `word`, `||=` included; `==`, `=~` and `=>` are not one. The word
@@ -971,9 +971,11 @@ fn terraform_patterns(address: &str) -> Vec<String> {
 /// no `W :=` is a member of a grouped `const (`, `var (` or `type (` only directly inside one at
 /// column 0: a struct's field and a line inside a function are not. A C line of enum constants
 /// or a C++ member function with no body declares only in an enum's or a class's body (#373).
-/// `lines` reads the file, and only for those.
+/// A Ruby column declares only in `db/schema.rb` ([`ruby_column_elsewhere`]), for `u` as for `d`.
+/// `lines` reads the file `path`, and only for those.
 pub fn declares_where<'a, S: AsRef<str> + 'a>(
     kind: Kind,
+    path: &Path,
     word: &str,
     line: usize,
     line_text: &str,
@@ -995,6 +997,7 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
         }
         Kind::Jvm if record_component(line_text) => in_record_header(lines(), line),
         Kind::C => c_declares_where(line, line_text, lines),
+        Kind::Ruby if ruby_column_elsewhere(path, line_text) => false,
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
 }
