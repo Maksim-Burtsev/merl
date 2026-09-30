@@ -1792,7 +1792,9 @@ impl App {
     /// (#342): the declarations of `Name.word` in that module, `Name` as the module calls it. An
     /// empty list is a member the lookup does not find there, which no namesake elsewhere
     /// answers for. `None` leaves it to the lookup by import: a relative import, a name that is a
-    /// module itself, a module not found.
+    /// module itself, a module not found, a name the module neither declares a class of nor
+    /// imports (#560): Django's `settings = LazySettings()`, whose `__getattr__` reads the
+    /// project's settings module, or a name a module `__getattr__` makes up.
     fn outside_class_member(&mut self, word: &str, path: &[String]) -> Option<Vec<Candidate>> {
         let (name, module) = path.split_last()?;
         if module.is_empty() || path[0].starts_with('.') {
@@ -1803,11 +1805,20 @@ impl App {
         }
         let file = self.external_module(module)?;
         let kind = Kind::Python;
+        let text = std::fs::read_to_string(&file).ok()?;
+        // A class the module declares, or a name it imports (a class re-exported, as
+        // `django.test` does `TestCase`); an assignment or nothing at all is left to the search.
+        let class = text.lines().any(|l| {
+            !l.starts_with(char::is_whitespace)
+                && search::type_name(kind, l).as_deref() == Some(name)
+        });
+        if !class && bound(&search::imports(kind, &text), name).is_none() {
+            return None;
+        }
         let mut patterns = search::def_patterns(kind, word);
         patterns.extend(search::field_patterns(kind, word).unwrap_or_default());
         let within = Some(format!("{name}.{word}"));
         let hits = self.external_grep(kind, std::slice::from_ref(&file), &patterns.join("|"));
-        let text = std::fs::read_to_string(&file).ok()?;
         let reason = Reason::Import(module.join("."));
         Some(
             hits.into_iter()

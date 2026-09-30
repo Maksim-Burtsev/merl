@@ -1116,6 +1116,12 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 "class AbstractUser:\n    objects = None\n\n\nclass User(AbstractUser):\n    pass\n",
             ),
             ("nltk/chomsky.py", "objects = \"text\"\n"),
+            // Django's `settings` is an instance whose `__getattr__` reads the project's
+            // settings module (#560): its members are nowhere in `django/conf`.
+            (
+                "django/conf/__init__.py",
+                "class LazySettings:\n    def __getattr__(self, name):\n        pass\n\n\nsettings = LazySettings()\n",
+            ),
             (
                 "anyio/tasks.py",
                 "class TaskHandle:\n    def return_value(self):\n        pass\n\n    def captured_queries(self):\n        pass\n",
@@ -1142,6 +1148,11 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 "app/mocks.py",
                 "from unittest import mock\n\n\ndef use(m: mock.Mock) -> None:\n    m.return_value = None\n    m.captured_queries()\n",
             ),
+            ("app/settings.py", "ORIGINALS_DIR = \"originals\"\n"),
+            (
+                "app/test_files.py",
+                "from django.conf import settings\n\n\ndef originals():\n    return settings.ORIGINALS_DIR\n",
+            ),
             // A subclass that sets the member stays a candidate.
             (
                 "app/test_api.py",
@@ -1166,6 +1177,13 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             "app/users.py",
             "User.objects",
             jump("no definition for objects", "app/users.py:5"),
+        ),
+        // Not a class of the module: what it holds is not read, the search by name answers
+        // (#560).
+        (
+            "app/test_files.py",
+            "settings.ORIGINALS_DIR",
+            jump("ORIGINALS_DIR: by name, 1 match", "app/settings.py:1"),
         ),
         (
             "app/mocks.py",
