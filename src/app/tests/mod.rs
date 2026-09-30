@@ -23,6 +23,7 @@ mod navigate_reason;
 mod navigate_receiver;
 mod navigate_rust;
 mod navigate_syntax;
+mod no_panic;
 mod open;
 mod picker;
 mod preview;

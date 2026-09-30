@@ -250,6 +250,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` no longer crashes merl on a line where a non-ASCII character stands next to a name: in
+  Rust inside the brackets of a call whose name ends in a combining accent (`méthode(42)` as
+  macOS spells it), in PHP on a namespaced name after a `©`, and in C or C++ inside a block
+  whose header holds non-ASCII names on both sides of a bracket. It panicked, which left the
+  terminal unusable until `reset`. (#543)
 - `d` in Swift finds a function or an enum case declared with its name in backticks, as
   ``func `default`()`` or ``case `open` ``: it said "no definition", or jumped to a namesake
   elsewhere. (#463)
