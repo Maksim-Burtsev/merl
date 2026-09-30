@@ -1,0 +1,57 @@
+wait web/android/src/main/java/courier/app/Scale.java
+1 package courier.app;
+2
+3 import courier.app.scan.Parcel;
+4
+5 class Scale {
+6     int weigh(Parcel parcel) {
+7         return parcel.grams();
+8     }
+9 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/android/src/main/java/courier/app/Scale.java  6:15  [code]                                                                                                                    ? help
+cursor (x,y,shown) 16,5,1

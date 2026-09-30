@@ -314,6 +314,20 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 // an anonymous class, so a bare name before `(` is never a declaration here; a
                 // method is found by the return type in the rule below, brace or no brace.
                 format!(r"{mods_one}{w}\s*\([^;]*\)\s*(?:throws [\w.,\s]+)?\{{\s*$"),
+                // Java: a constructor whose parameters wrap, `Name(` at the end of the line or
+                // followed by parameters that end in `,` (#367).
+                format!(r"{mods_one}{w}\s*\((?:[^;()]*,)?\s*$"),
+                // Java: a record's component, on a one-line header (#367), or on a line of a
+                // header wrapped over lines, which [`declares_where`] checks.
+                format!(
+                    r"{mods}record\s+\w+\s*(?:<[^>]*>)?\s*\((?:[^)]*,)?\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*{ret}\s+{w}\s*[,)]"
+                ),
+                format!(r"{COMPONENT_HEAD}{ret}\s+{w}\s*(?:,\s*$|\)\s*(?:implements\b[^{{]*)?\{{)"),
+                // Kotlin: a property of a primary constructor on its class's line, `val` or
+                // `var` after the `(` or a `,`; a plain parameter is no property (#367).
+                format!(
+                    r"{mods}(?:enum\s+|data\s+|value\s+)?class\s+\w+[^(]*\((?:.*[(,])?\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:(?:private|public|protected|internal|override|open|final)\s+)*(?:val|var)\s+{w}\s*:"
+                ),
                 // Java: an abstract or interface method, and a field: a return type, the name,
                 // and the `(`, `;` or `=` that follows it.
                 format!(r"{mods}(?:<[^>]*>\s*)?{ret}(?:\.\.\.)?\s+{w}\s*[(;=]"),
@@ -1126,8 +1140,52 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
                     .any(|o| directly_inside(lines, line, o))
             }
         }
+        Kind::Jvm if record_component(line_text) => in_record_header(lines(), line),
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
+}
+/// The front of a line that holds one Java record component alone: its annotations (#367).
+const COMPONENT_HEAD: &str = r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*";
+/// Whether `line` is shaped as a record component on a line of its own, `Type name,` or
+/// `Type name) {`, as a wrapped method's parameter is too (#367).
+fn record_component(line: &str) -> bool {
+    static SHAPE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(&format!(
+            r"{COMPONENT_HEAD}{}\s+\w+\s*(?:,\s*$|\)\s*(?:implements\b[^{{]*)?\{{)",
+            jvm_return_type!()
+        ))
+        .unwrap()
+    });
+    SHAPE.is_match(line) && !line.trim_start().starts_with("return ")
+}
+/// Whether 1-based `line` of `lines` stands in a header that opens with `record Name(`: the
+/// lines above it up to that one are components and their annotations.
+fn in_record_header<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
+    static RECORD: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(concat!(
+            jvm_mods!(),
+            r"record\s+\w+\s*(?:<[^>]*>)?\s*\(\s*$"
+        ))
+        .unwrap()
+    });
+    let above = lines[..line.saturating_sub(1).min(lines.len())]
+        .iter()
+        .rev();
+    for l in above.take(40) {
+        let l = l.as_ref();
+        if RECORD.is_match(l) {
+            return true;
+        }
+        let t = l.trim();
+        if !(t.is_empty()
+            || t.starts_with("//")
+            || t.starts_with('@')
+            || (record_component(l) && t.ends_with(',')))
+        {
+            return false;
+        }
+    }
+    false
 }
 /// The block a definition of `word` has to sit directly inside, when its line pattern cannot
 /// tell on its own: a Terraform local is `x = ...` inside `locals { }`, and so is every other

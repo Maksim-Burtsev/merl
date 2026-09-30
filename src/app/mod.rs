@@ -25,6 +25,7 @@ mod definition;
 mod edit;
 mod external;
 mod find;
+mod jvm;
 mod keys;
 mod links;
 mod members;

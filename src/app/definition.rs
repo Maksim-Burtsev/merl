@@ -135,6 +135,15 @@ impl App {
             self.message = resolution(&word, None, &[], None, false);
             return;
         }
+        // A segment of a Java or Kotlin `import` line: a package's declares nothing, a class's is
+        // looked for in its package of the project (#372).
+        if kind == Kind::Jvm
+            && import_line(kind, self.line_str())
+            && let Some(found) = self.jvm_imported(&text, &chain, &word, range.clone(), true)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // An Elixir `alias` names the module a qualifier stands for (#459).
         let chain = match kind {
             Kind::Elixir => search::elixir_unalias(&text, self.line, chain),
@@ -474,6 +483,17 @@ impl App {
             && !before.ends_with("::")
             && locals.is_empty()
             && let Some(found) = self.jvm_members(&here, &text, &word)
+        {
+            let found = self.jvm_fit_candidates(&here, &word, range.clone(), &chain, found);
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
+        // A Java or Kotlin name read through the file's imports and packages (#372).
+        if kind == Kind::Jvm
+            && locals.is_empty()
+            && !(dotted && chain.is_empty())
+            && !names_itself(kind, self.line_str(), &word)
+            && let Some(found) = self.jvm_imported(&text, &chain, &word, range.clone(), false)
         {
             self.show_definitions(kind, &word, &here, found, None);
             return;
@@ -1407,7 +1427,17 @@ impl App {
                 && matches!(hits.as_slice(), [h] if h.path == here && h.line == self.line + 1);
         }
         let hits = match kind {
-            Kind::Jvm => self.jvm_seen(&here, hits, dotted || before.ends_with("::")),
+            Kind::Jvm => {
+                let hits = self.jvm_seen(&here, hits, dotted || before.ends_with("::"));
+                let hits = self.jvm_use_fit(&here, &word, range.clone(), &chain, hits);
+                // `values()` found its enum: no namesake left out of sight makes it a guess.
+                if matches!(word.as_str(), "values" | "valueOf")
+                    && matches!(hits.as_slice(), [h] if h.text.contains("enum "))
+                {
+                    self.offer_only = false;
+                }
+                hits
+            }
             _ => hits,
         };
         // A C or C++ type is its body, not its forward declarations and constructors (#368).

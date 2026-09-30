@@ -100,6 +100,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` in Java and Kotlin reads the `import` lines: a class the file imports from the project
+  opens in that package's file, `User: via import src/main/java/app/a/User.java`, not a picker
+  of every `User`; `import static a.b.C.*` finds `isNull` in `C`; a name imported from outside
+  the project, `Objects.equals` or Compose's `stringResource`, says `no definition` instead of
+  landing on a namesake; and on the import line a package segment such as `halo` declares
+  nothing. A capitalised name the file does not import is its own package's first, then that
+  of a wildcard import. The packages are what the files' `package` lines say. (#372)
+- `d` in Java and Kotlin reads more of the language: a constructor whose parameters wrap, a
+  record's components (`vote.group()`), and the `val`s of a one-line Kotlin primary
+  constructor (`s.height`) are declarations; a line inside a Kotlin raw string or a Java text
+  block is none. A Java call is never a variable, `values()` lands on its enum, `new Rule(a, b)`
+  on the constructor taking two arguments and an overload on the one the arguments fit; and a
+  Kotlin infix call, `alias(x) apply false`, finds only an `infix fun`. (#367)
 - `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
   parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
   said `no definition` or offered namesakes from other files: `directionParams →

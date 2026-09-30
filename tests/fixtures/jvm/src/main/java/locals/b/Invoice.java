@@ -3,7 +3,6 @@ package locals.b;
 class Invoice {
     int sum(Line line) {
         return line.total;
-        //          ^ d: none
-        // status: no definition for total
+        //          ^ d: picker src/main/java/shop/pricing/Receipt.java:5
     }
 }
