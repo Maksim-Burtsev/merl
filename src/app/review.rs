@@ -313,7 +313,7 @@ impl App {
             Ok(marks) => self.viewed = marks,
             Err(e) => {
                 self.viewed_branch = None;
-                self.message = format!("viewed marks not read: {e:#}");
+                self.message = format!("viewed marks not read: {}", super::error_text(&e));
             }
         }
         self.recheck_viewed();
@@ -348,7 +348,7 @@ impl App {
         };
         let marks = self.viewed.iter().chain(&self.hidden);
         if let Err(e) = write_viewed(&store, branch, &r.base, marks, crate::stats::today()) {
-            self.message = format!("viewed marks not saved: {e:#}");
+            self.message = format!("viewed marks not saved: {}", super::error_text(&e));
         }
     }
 

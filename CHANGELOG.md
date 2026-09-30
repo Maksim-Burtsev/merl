@@ -580,6 +580,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   call, an `@spec` or a module attribute on its own module's declaration first. (#460)
 - `d` in Lua follows `require` to the module's file and reads `mod.name`, `mod.T.name` and
   `T.name` in the table it names, instead of offering every function of that name. (#462)
+- The viewed marks of a review, a theme that cannot be read or saved, a review that cannot be
+  listed again and the drill's log say why in a few words when a file fails them, without
+  `(os error N)`. (#516)
 
 ## [0.7.0] - 2026-09-25
 

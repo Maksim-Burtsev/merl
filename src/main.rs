@@ -377,7 +377,7 @@ fn event_loop(
             // In a thread, like the marks: four git commands over the whole branch.
             let (tx, root, r) = (diff_tx.clone(), app.root.clone(), r.clone());
             std::thread::spawn(move || {
-                let fresh = r.refresh(&root).map_err(|e| format!("{e:#}"));
+                let fresh = r.refresh(&root).map_err(|e| app::error_text(&e));
                 let _ = tx.send(Msg::Review(fresh));
             });
         }
@@ -414,7 +414,7 @@ fn event_loop(
                         base.clear_hl();
                     }
                 }
-                Err(e) => app.message = format!("{e:#}"),
+                Err(e) => app.message = app::error_text(&e),
             }
             dirty = true;
         }
