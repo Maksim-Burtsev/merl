@@ -63,6 +63,9 @@ language work finishes against the fixtures and the bench those issues build. An
 gets its three labels, the milestone if 1.0 needs it (never a `to-think` one), and its epic as
 the parent when one fits (`gh issue edit EPIC --add-sub-issue N`).
 
+Several `agent-ok` issues at once, an evening queue or a night run, go as a batch:
+`.claude/skills/batch/SKILL.md`.
+
 ## Working on an issue
 
 A brief can be as short as "Work on #N". It is done when the PR, in the shape below, is merged
