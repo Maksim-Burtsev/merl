@@ -44,6 +44,7 @@ mod tree;
 mod typed;
 mod usages;
 
+pub(crate) use open::error_text;
 pub use preview::Preview;
 use project_search::at_label;
 pub use search_job::SearchJob;

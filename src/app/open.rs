@@ -515,6 +515,22 @@ fn reload_step(old: &[String], was: buffer::Format, buf: &Buffer) -> Option<Edit
     })
 }
 
+/// A status message's text for an error that may hold an I/O one (#516): what `{e:#}` says, the
+/// context naming what failed included, with the I/O error said in a few words as [`why_not`]
+/// says it, never with its `(os error N)`. Any other error, a git failure's own text or a theme
+/// that does not parse, reads as it comes.
+pub(crate) fn error_text(e: &anyhow::Error) -> String {
+    let mut text = Vec::new();
+    for cause in e.chain() {
+        if cause.is::<std::io::Error>() {
+            text.push(why_not(e));
+            break;
+        }
+        text.push(cause.to_string());
+    }
+    text.join(": ")
+}
+
 /// Why a file did not open, could not be made or saved, in a few words: the OS text without
 /// its `(os error N)` (#403, #507).
 pub(super) fn why_not(e: &anyhow::Error) -> String {

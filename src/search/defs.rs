@@ -996,9 +996,12 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
             let mods = r"^\s*(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*";
             vec![
                 // A class or object-literal method: `foo(` at the end of the line, `foo(..) {`,
-                // or an empty `foo(): void {}`. A `;` on the line means it was a call statement.
+                // or an empty `foo(): void {}`. A `;` on the line means it was a call statement,
+                // save inside a type literal, `foo({ a }: { a: A; b: B }) {` (#528).
                 // An optional one, `foo?(` over its parameters over `): void;` (#343).
-                format!(r"{mods}{w}\??\s*(?:<.*>)?\((?:[^;]*\{{\s*\}}?)?\s*$"),
+                format!(
+                    r"{mods}{w}\??\s*(?:<.*>)?\((?:(?:[^;]|:\s*\{{[^{{}}]*\}})*\{{\s*\}}?)?\s*$"
+                ),
                 // A method whose type parameters prettier wrapped: `route<` over `  T,` over
                 // `>(path: T): this {` (#100).
                 format!(r"{mods}{w}\??\s*<\s*$"),
