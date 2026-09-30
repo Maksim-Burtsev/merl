@@ -685,6 +685,22 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // A Swift receiver whose type is proven: that type's member, or on a type from outside
+        // that only the project's extensions reach, those or nothing (#384).
+        if kind == Kind::Swift
+            && dotted
+            && !chain.is_empty()
+            && chain[0] != "super"
+            && word != "init"
+            && bound(&imports, &chain[0]).is_none()
+            && let Some(found) = self.swift_typed(&here, &text, &word, &chain)
+        {
+            match found.is_empty() {
+                true => self.message = resolution(&word, None, &[], None, false),
+                false => self.show_definitions(kind, &word, &here, found, None),
+            }
+            return;
+        }
         // A receiver whose type is proven narrows the member to that type (#68, steps 2 to 4).
         let mut broke = None;
         // A chain with no name to start from may hang off a call: `make_uow().users.word` (#100).

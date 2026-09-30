@@ -21,3 +21,12 @@ key t /
 type lock() //
 key Enter d
 wait via self: Lock
+# A member on a value whose type its declaration writes lands on that type's member, where it
+# offered every member of the name in the project (#384).
+run printf 'struct Instant {\n    let value: Double\n\n    static func - (lhs: Instant, rhs: Instant) -> Double {\n        lhs.value - rhs.value\n    }\n}\n\nstruct Clock {\n    let value: Int\n}\n' > ios/Instant.swift
+merl ios/Instant.swift
+wait struct Clock
+key t /
+type value - rhs
+key Enter d
+wait value → Instant.value

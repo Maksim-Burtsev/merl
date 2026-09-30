@@ -29,9 +29,10 @@ func summarize(_ endpoint: Endpoint, stats: Stats) {
     _ = Endpoint.method("POST")
     //           ^ d: Sources/Shop/Endpoint.swift:9
     //             status: method → Endpoint.method (via Endpoint)
-    // A value's member: neither rule narrows it.
+    // A value's member: its type's, and an instance member over a `static` one (#384).
     _ = endpoint.method
-    //           ^ d: picker Sources/Shop/Endpoint.swift:9, Sources/Shop/Endpoint.swift:15
+    //           ^ d: Sources/Shop/Endpoint.swift:15
+    //             status: via endpoint: Endpoint
     _ = stats.bytes
-    //        ^ d: picker Sources/Shop/Endpoint.swift:6, Sources/Shop/Endpoint.swift:19
+    //        ^ d: Sources/Shop/Endpoint.swift:19
 }

@@ -493,13 +493,13 @@ pub fn unbroken(
     }
     None
 }
-/// A TypeScript line with `a?.b` and `a!.b` in front of byte `start` written as the plain `a.b`
+/// A TypeScript or Swift line with `a?.b` and `a!.b` in front of byte `start` written as the plain `a.b`
 /// they are for a member lookup (#100), and where `start` stands in it. A PHP line likewise with
 /// its `->` and `?->` as `.` (#348), and its own `.`, which concatenates, as a space: `$a.foo()`
 /// calls the function `foo`.
 pub fn plain_access(kind: Kind, line: &str, start: usize) -> (String, usize) {
     let before = match kind {
-        Kind::TsJs => line[..start].replace("?.", ".").replace("!.", "."),
+        Kind::TsJs | Kind::Swift => line[..start].replace("?.", ".").replace("!.", "."),
         Kind::Php => line[..start]
             .replace('.', " ")
             .replace("?->", ".")
