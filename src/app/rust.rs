@@ -761,4 +761,295 @@ impl App {
                 (named && !files.is_empty()).then_some((src, files))
             })
     }
+
+    /// `d` on `x.word` in Rust when the type of `x` is proven (#377): `self` is the type of the
+    /// `impl` around the method, a parameter or a `let` says what it holds by its written type, a
+    /// struct literal, a call of an associated function of `T` that returns `Self` or `T`, or a
+    /// call of a function the file sees declared once with its `-> T`. Each name of the chain
+    /// after it is a field of the struct before it, up to six names. The word is a method of the
+    /// last type (`call`), in the `impl T` and `impl Tr for T` blocks of its crate, else a method
+    /// with a body in a trait it implements; or its field. `Err` names the first name that is not
+    /// proven, an empty list a type without the word: both leave the word to the search by name.
+    pub(super) fn rust_typed(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        chain: &[String],
+        call: bool,
+    ) -> Result<Vec<Candidate>, String> {
+        // ponytail: six names in front of the word; a longer chain breaks at the seventh.
+        if let Some(seventh) = chain.get(6) {
+            return Err(seventh.clone());
+        }
+        let (mut ty, link) = self
+            .rust_value_type(here, text, self.line, &chain[0])
+            .ok_or_else(|| chain[0].clone())?;
+        let mut links = vec![link];
+        for (i, field) in chain.iter().enumerate().skip(1) {
+            let next = self
+                .rust_field(&ty, field)
+                .and_then(|(hit, written)| self.rust_resolve(&ty.path, &written, hit.line - 1))
+                .ok_or_else(|| field.clone())?;
+            match i {
+                1 => links[0] = format!("{}.{field}: {}", chain[0], next.name),
+                _ => links.push(format!("{field}: {}", next.name)),
+            }
+            ty = next;
+        }
+        let hits = match call {
+            true => self.rust_members(&ty, word),
+            false => self
+                .rust_field(&ty, word)
+                .map(|(hit, _)| vec![hit])
+                .unwrap_or_default(),
+        };
+        let label = links.join(" \u{2192} ");
+        Ok(hits
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Receiver(label.clone()),
+            })
+            .collect())
+    }
+
+    /// The type of the local, parameter or `self` `name` on 0-based line `at` of `text`, the text
+    /// of `file`, and the link that proves it: every binding in scope reads the same type.
+    fn rust_value_type(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+    ) -> Option<(Typed, String)> {
+        let lines: Vec<&str> = text.lines().collect();
+        if name == "self" {
+            let (written, impl_line) = search::rust_self_type(&lines, at)?;
+            let ty = self.rust_resolve(file, &written, impl_line)?;
+            let link = format!("self: {}", ty.name);
+            return Some((ty, link));
+        }
+        let bindings = search::bindings(Kind::Rust, text, at + 1, name);
+        let mut found: Option<(Typed, String)> = None;
+        for b in &bindings {
+            let at = b.line - 1;
+            let this = match search::rust_holds(&lines, at, name)? {
+                search::RustHolds::Type(w) | search::RustHolds::Literal(w) => {
+                    let ty = self.rust_resolve(file, &w, at)?;
+                    let link = format!("{name}: {}", ty.name);
+                    (ty, link)
+                }
+                search::RustHolds::Assoc(w, f) => {
+                    let ty = self.rust_resolve(file, &w, at)?;
+                    // `T::default()` is `Default`'s, which a derive declares out of sight.
+                    let returns = match <[Hit; 1]>::try_from(self.rust_members(&ty, &f)) {
+                        Ok([decl]) => {
+                            let t = self.text_of(&decl.path)?;
+                            let l: Vec<&str> = t.lines().collect();
+                            let (_, n) = search::rust_type_name(&search::rust_return_type(
+                                &l,
+                                decl.line - 1,
+                            )?)?;
+                            n == "Self" || n == ty.name
+                        }
+                        Err(none) => none.is_empty() && f == "default",
+                    };
+                    if !returns {
+                        return None;
+                    }
+                    let link = format!("{name}: {}", ty.name);
+                    (ty, link)
+                }
+                search::RustHolds::Call(parts) => {
+                    // A local closure named like a function is a value.
+                    if !search::bindings(Kind::Rust, text, at + 1, &parts[0]).is_empty() {
+                        return None;
+                    }
+                    // Declared at the top of the file or through a `use`, else an item the
+                    // line sees, as a `fn` in the test module around it (#363).
+                    let decl = match self.declaration(Kind::Rust, file, &parts) {
+                        Some(decl) => decl,
+                        None => {
+                            let [f] = parts.as_slice() else { return None };
+                            let ns = search::RustNamespace::Other;
+                            let [l] = search::rust_scope_items(text, at + 1, f, ns)[..] else {
+                                return None;
+                            };
+                            Hit {
+                                path: file.to_path_buf(),
+                                line: l,
+                                col: 0,
+                                text: lines[l - 1].to_owned(),
+                                deleted: None,
+                            }
+                        }
+                    };
+                    if !decl.text.contains("fn ") {
+                        return None;
+                    }
+                    let t = self.text_of(&decl.path)?;
+                    let l: Vec<&str> = t.lines().collect();
+                    let returns = search::rust_return_type(&l, decl.line - 1)?;
+                    let ty = self.rust_resolve(&decl.path, &returns, decl.line - 1)?;
+                    let link = format!("{}() -> {}", parts.join("::"), ty.name);
+                    (ty, link)
+                }
+            };
+            match &found {
+                Some((ty, _)) if (&ty.path, ty.line) != (&this.0.path, this.0.line) => return None,
+                Some(_) => {}
+                None => found = Some(this),
+            }
+        }
+        found
+    }
+
+    /// The `struct`, `enum` or `union` the type `written` on 0-based line `at` of `file` names:
+    /// declared once in the file, else the one a `use` of the file binds its name to, else the
+    /// project's only one. `Self` is the type of the `impl` around the line. A generic parameter,
+    /// a type outside the project and one declared twice with nothing to tell which are none.
+    fn rust_resolve(&self, file: &Path, written: &str, at: usize) -> Option<Typed> {
+        let text = self.text_of(file)?;
+        let (path, mut name) = search::rust_type_name(written)?;
+        if name == "Self" && path.is_empty() {
+            let lines: Vec<&str> = text.lines().collect();
+            let (t, _) = search::rust_self_type(&lines, at)?;
+            name = t;
+        }
+        if search::rust_generic(&text, &name) {
+            return None;
+        }
+        let imports = search::imports(Kind::Rust, &text);
+        let ours = |p: &[String]| {
+            p.first()
+                .is_some_and(|f| matches!(f.as_str(), "crate" | "self" | "super"))
+        };
+        // `io::Error` behind a `use std::io;` is no project type, whatever the project declares.
+        if let Some(first) = path.first()
+            && !ours(&path)
+            && !bound(&imports, first).is_some_and(|p| ours(&p))
+        {
+            return None;
+        }
+        let pattern = search::rust_type_decl_pattern(&name);
+        let typed = |hit: Hit| Typed {
+            name: name.clone(),
+            path: hit.path,
+            line: hit.line,
+        };
+        let decls = self
+            .grep(&pattern, false, false, |p| {
+                p.extension().is_some_and(|e| e == "rs")
+            })
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|h| {
+                self.text_of(&h.path).is_some_and(|t| {
+                    search::literal_lines(Kind::Rust, &t).get(h.line - 1) != Some(&true)
+                })
+            })
+            .collect::<Vec<_>>();
+        let mine: Vec<&Hit> = decls.iter().filter(|h| h.path == file).collect();
+        if let [one] = mine.as_slice() {
+            return Some(typed((*one).clone()));
+        }
+        if !mine.is_empty() {
+            return None;
+        }
+        if bound(&imports, &name).is_some() {
+            let hit = self.declaration(Kind::Rust, file, &[name.clone()])?;
+            return decls
+                .into_iter()
+                .find(|h| (&h.path, h.line) == (&hit.path, hit.line))
+                .map(typed);
+        }
+        <[Hit; 1]>::try_from(decls).ok().map(|[hit]| typed(hit))
+    }
+
+    /// The field `word` the struct `ty` declares, and its type as written.
+    fn rust_field(&self, ty: &Typed, word: &str) -> Option<(Hit, String)> {
+        let text = self.text_of(&ty.path)?;
+        let lines: Vec<&str> = text.lines().collect();
+        let (line, written) = search::rust_struct_field(&lines, ty.line - 1, word)?;
+        let hit = Hit {
+            path: ty.path.clone(),
+            line: line + 1,
+            col: 0,
+            text: lines[line].to_owned(),
+            deleted: None,
+        };
+        Some((hit, written))
+    }
+
+    /// The methods `word` of the type `ty`: in the `impl T` and `impl Tr for T` blocks of its
+    /// crate, else the ones with a body in the traits those `impl`s name. A crate that declares
+    /// two types of that name keeps to the file of `ty`.
+    fn rust_members(&self, ty: &Typed, word: &str) -> Vec<Hit> {
+        let crate_of = |p: &Path| {
+            p.ancestors()
+                .skip(1)
+                .find(|d| self.files.contains(&d.join("Cargo.toml")))
+                .map(Path::to_path_buf)
+        };
+        let own = crate_of(&ty.path);
+        let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
+        let files: Vec<PathBuf> = self
+            .files
+            .iter()
+            .filter(|f| rs(f) && crate_of(f) == own)
+            .cloned()
+            .collect();
+        let namesakes = self
+            .grep_in(&search::rust_type_decl_pattern(&ty.name), &files)
+            .len();
+        let files: Vec<PathBuf> = match namesakes {
+            0 | 1 => files,
+            _ => vec![ty.path.clone()],
+        };
+        let method = |hits: Vec<Hit>, owner: &dyn Fn(&search::RustOwner, &str) -> bool| {
+            hits.into_iter()
+                .filter(|h| {
+                    self.text_of(&h.path).is_some_and(|t| {
+                        let lines: Vec<&str> = t.lines().collect();
+                        search::literal_lines(Kind::Rust, &t).get(h.line - 1) != Some(&true)
+                            && search::rust_method_at(&lines, h.line)
+                                .is_some_and(|(o, _, at)| owner(&o, lines[at - 1]))
+                    })
+                })
+                .collect::<Vec<Hit>>()
+        };
+        let pattern = search::rust_method_pattern(word);
+        let found = method(self.grep_in(&pattern, &files), &|o, line| {
+            matches!(
+                o,
+                search::RustOwner::Inherent | search::RustOwner::ImplOf(_)
+            ) && search::rust_impl_type(line).is_some_and(|t| t == ty.name)
+        });
+        if !found.is_empty() {
+            return found;
+        }
+        let impls = format!(
+            r"^\s*(?:unsafe\s+)?impl\b[^{{]*\bfor\s+&?(?:\w+::)*{}\b",
+            regex::escape(&ty.name)
+        );
+        let traits: Vec<String> = self
+            .grep_in(&impls, &files)
+            .iter()
+            .filter_map(|h| search::rust_impl_trait(&h.text))
+            .collect();
+        if traits.is_empty() {
+            return Vec::new();
+        }
+        let hits = self
+            .grep(&pattern, false, false, |p| rs(p))
+            .unwrap_or_default();
+        method(
+            hits,
+            &|o, _| matches!(o, search::RustOwner::Trait(t) if traits.contains(t)),
+        )
+        .into_iter()
+        .filter(|h| !h.text.trim_end().ends_with(';'))
+        .collect()
+    }
 }

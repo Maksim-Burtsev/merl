@@ -229,7 +229,7 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
         (
             "e.describe",
             jump(
-                "describe \u{2192} Error::describe (by name, 1 match)",
+                "describe \u{2192} Error::describe (via e: Error)",
                 "src/lib.rs:14",
             ),
         ),
@@ -427,24 +427,18 @@ fn each_reach_rule_keeps_or_drops_its_namesake() {
         (
             "src/extra/sub.rs",
             "e.hidden",
-            jump(
-                "hidden \u{2192} E::hidden (by name, 1 match)",
-                "src/extra.rs:4",
-            ),
+            jump("hidden \u{2192} E::hidden (via e: E)", "src/extra.rs:4"),
         ),
         (
             "src/extra/sub.rs",
             "w.shared",
-            jump(
-                "shared \u{2192} W::shared (by name, 1 match)",
-                "src/lib.rs:26",
-            ),
+            jump("shared \u{2192} W::shared (via w: W)", "src/lib.rs:26"),
         ),
         // A crate root of `tests/` has its directory.
         (
             "tests/helper.rs",
             "t.zorb",
-            jump("zorb \u{2192} T::zorb (by name, 1 match)", "tests/it.rs:6"),
+            jump("zorb \u{2192} T::zorb (via t: T)", "tests/it.rs:6"),
         ),
     ] {
         d_on(&mut a, file, code);

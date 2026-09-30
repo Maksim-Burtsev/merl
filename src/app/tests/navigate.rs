@@ -53,7 +53,7 @@ fn a_rust_field_is_its_struct_line_and_locals_must_be_direct() {
     a.col = 10;
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("order.rs"), 1));
-    assert_eq!(a.message, "items \u{2192} Order::items (by name, 1 match)");
+    assert_eq!(a.message, "items \u{2192} Order::items (via order: Order)");
     // Of the two `name =` lines, only the one directly inside `locals` is `local.name`.
     a.jump_to(&dir.join("main.tf"), 8);
     a.col = 17;
@@ -447,7 +447,7 @@ fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
         (
             "depot.rs",
             "shed.open",
-            picker("open: by name, 2 declarations", &rs),
+            jump("open \u{2192} Shed::open (via shed: Shed)", "depot.rs:16"),
         ),
         (
             "depot.cpp",

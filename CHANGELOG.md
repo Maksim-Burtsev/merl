@@ -100,6 +100,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` in Rust on `x.word` lands on the `word` of the type `x` holds, as it does in Python,
+  TypeScript and Go: `td.path()` after `let td = tmpdir();` goes to `TempDir::path`, `via
+  tmpdir() -> TempDir`, and `self.config.capacity` to the field of `Config`, `via self.config:
+  Config`, where both offered every namesake of the project. The type comes from the `impl`
+  around `self`, a parameter's or a closure parameter's type, `let x: T`, `T { … }`, `T::new()`
+  and a function's `-> T`; `Option<T>`, a generic and a type declared twice stay the search by
+  name. (#377)
 - `d` in Rust looks where a path's first name says, before any namesake of the project: the
   crate a `use` names or the path spells (`crate`, `self`, `super`, a crate of the workspace, the
   standard library, a crate of `Cargo.lock`), and in it the module the path spells. `File::open`

@@ -27,3 +27,9 @@ key /
 type entry(amount
 key Enter d
 wait scripts/payouts/src/ledger.rs  7:
+# `x.word` lands on the word of the type `x` holds, where it offered every `line` of the crate:
+# `payout` is what `fn latest() -> Payout` returns (#377).
+key /
+type line()
+key Enter d
+wait via latest() -> Payout

@@ -202,7 +202,7 @@ What `d` does not claim, in Python, TypeScript, Go, Java and Kotlin:
   has rather than inheriting another's: Zig has none at all, since a `\\` string ends with its
   line, so the markdown a `\\` block holds is read as the code it sits in.
 
-On `x.word`, `x.f.word` and longer chains in Python, TypeScript and Go, `d` first looks for the
+On `x.word`, `x.f.word` and longer chains in Python, TypeScript, Go and Rust, `d` first looks for the
 type of the receiver. `x` is `self` or `cls` in a method, `this` in a class, a Go method's
 receiver, a parameter, a local or a module-level variable, and each name after it is a field of
 the type before it. The type comes from the declaration:
@@ -243,6 +243,24 @@ the type before it. The type comes from the declaration:
 - a TypeScript destructuring out of a chain of names, `const { repo, audit: trail } = this` or
   `= this.uow`, on one line or wrapped over several: the field's type. A default, a rest, a nested
   or an array's pattern is a binding of no readable type.
+
+In Rust (#377) `self` is the type of the `impl<…> T` or `impl<…> Tr for T` the method sits in (a
+trait's default method proves nothing), and a binding the scope walk below finds says what it
+holds: a parameter `x: T`, `x: &T`, `x: &mut T`, `x: &'a T`, `mut x: T`, a closure's `|x: T|`,
+`let x: T = …`, and a `let` whose whole value is a struct literal `T { … }`, a call of an
+associated function of `T` whose `fn` line returns `Self` or `T` (`T::new(…)`; `T::default()`
+counts when the project declares no `default` of `T`), or a call `f(…)` of a function declared
+once at the top of the file, through a `use` or where the line sees it, read by its `-> T`. `&`,
+`&mut`, lifetimes, `Box<T>`, `Rc<T>` and `Arc<T>` are stripped, and `Self` is the `impl`'s type.
+The type is the `struct`, `enum` or `union` declared once in the file, else the one a `use`
+names, else the project's only one of that name. Each name after `x` is a field of the struct
+before it. The word behind a `(` is a method in the `impl T` and `impl Tr for T` blocks of `T`'s
+crate, else one with a body in a trait those `impl`s name; without one it is a field of `T`. A
+generic parameter, `Option<T>`, `Result<T, E>`, `Vec<T>` and the standard library's other types,
+`dyn` and `impl` traits, a type outside the project or declared twice with nothing to tell which,
+and a value with `?` or a method call behind its call prove nothing: the search by name stays,
+with `(chain broke at x)` past the first name. `via tmpdir() -> TempDir`, `via dir: TempDir`,
+`via self.config: Config`.
 
 `T | None`, `Optional[T]`, `Annotated[T, …]`, `T | null` and generic arguments read as `T`.
 The innermost scope that declares `x` decides: in Python the function the cursor is in (every
