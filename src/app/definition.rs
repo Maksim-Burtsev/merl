@@ -750,8 +750,9 @@ impl App {
         let mut own_module = false;
         // The import names a module of the project that was read.
         let mut project_read = false;
-        // The import names a value a module outside holds, whose members are not read (#560).
-        let mut value = false;
+        // The module outside holding the value the import names, whose members are not read
+        // (#560).
+        let mut value: Option<Vec<String>> = None;
         let mut found = match import {
             Some(path) => {
                 let project = self.imported_definitions(kind, &here, &word, &chain, &path);
@@ -777,12 +778,12 @@ impl App {
                             self.show_definitions(kind, &word, &here, found, None);
                             return;
                         }
-                        Some(None) => value = true,
+                        Some(None) => value = Some(path[..path.len() - 1].to_vec()),
                         None => {}
                     }
                 }
                 let mut found = project.unwrap_or_else(|| {
-                    if value {
+                    if value.is_some() {
                         return Vec::new();
                     }
                     // A workspace package linked in is the project's own: the search by
@@ -1494,14 +1495,14 @@ impl App {
             .collect();
         // A member of a value outside is no method or field of a project class, nor a function:
         // only a module-level `NAME = …` of the project, which is what Django's `settings` reads
-        // (#560). ponytail: one under an `if` at module level goes unseen, a miss.
-        if value {
-            found.retain(|c| {
-                c.hit.text.strip_prefix(word.as_str()).is_some_and(|rest| {
-                    let rest = rest.trim_start();
-                    rest.starts_with(':') || rest.starts_with('=') && !rest.starts_with("==")
-                })
-            });
+        // (#560). ponytail: one under an `if` at module level goes unseen, a miss. What the
+        // project does not set, the defaults do: a module-level `NAME = …` in the package of the
+        // module, as `django/conf/global_settings.py` beside `django/conf/__init__.py`.
+        if let Some(module) = &value {
+            found.retain(|c| assigns(&c.hit.text, &word));
+            if found.is_empty() {
+                found = self.package_assignments(&word, module);
+            }
         }
         // A Swift `extension X` declares no `X` (#371). With the type in the project the
         // extensions are no candidates; with only extensions, `X` is declared outside: in a
@@ -1553,7 +1554,7 @@ impl App {
             );
         } else if found.is_empty()
             && !outside
-            && !value
+            && value.is_none()
             && !matches!(
                 chain.first().map(String::as_str),
                 Some("self" | "cls" | "this")
@@ -1855,6 +1856,28 @@ impl App {
                 })
                 .collect(),
         ))
+    }
+
+    /// The module-level assignments of `word` in the files of the Python package `module` outside
+    /// the project, `django.conf` for `django/conf/global_settings.py` (#560).
+    fn package_assignments(&mut self, word: &str, module: &[String]) -> Vec<Candidate> {
+        let kind = Kind::Python;
+        let all = self.external_files(kind);
+        let Some((_, files)) =
+            search::module_among(&all, module, None).filter(|(n, _)| *n == module.len())
+        else {
+            return Vec::new();
+        };
+        let pattern = search::def_patterns(kind, word).join("|");
+        let reason = Reason::Import(module.join("."));
+        self.external_grep(kind, &files, &pattern)
+            .into_iter()
+            .filter(|h| assigns(&h.text, word))
+            .map(|hit| Candidate {
+                hit,
+                reason: reason.clone(),
+            })
+            .collect()
     }
 
     /// The declarations of `word` by name (`pattern`, and the fields), in `ty` and the project
@@ -3358,4 +3381,12 @@ pub(super) fn resolution(
         // Each row says its own reason.
         format!("{word}: {n} declarations{note}")
     }
+}
+
+/// Whether the Python line `text` assigns `word` at module level: `NAME = …`, `NAME: T = …`.
+fn assigns(text: &str, word: &str) -> bool {
+    text.strip_prefix(word).is_some_and(|rest| {
+        let rest = rest.trim_start();
+        rest.starts_with(':') || rest.starts_with('=') && !rest.starts_with("==")
+    })
 }

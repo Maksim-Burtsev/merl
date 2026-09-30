@@ -1124,8 +1124,14 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             ),
             // Namesakes outside, in the module's package and elsewhere, are no setting of the
             // project.
-            ("django/conf/global_settings.py", "ORIGINALS_DIR = None\n"),
-            ("otherlib/consts.py", "ORIGINALS_DIR = 1\n"),
+            (
+                "django/conf/global_settings.py",
+                "ORIGINALS_DIR = None\nAUTH_USER_MODEL = \"auth.User\"\n",
+            ),
+            (
+                "otherlib/consts.py",
+                "ORIGINALS_DIR = 1\nAUTH_USER_MODEL = 1\n",
+            ),
             // A class declared under an `if` is a class of the module all the same.
             (
                 "condpkg/models.py",
@@ -1171,7 +1177,7 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             ),
             (
                 "app/test_files.py",
-                "from django.conf import settings\n\n\ndef originals():\n    settings.connect()\n    return settings.ORIGINALS_DIR\n",
+                "from django.conf import settings\n\n\ndef originals():\n    settings.connect()\n    return settings.ORIGINALS_DIR, settings.AUTH_USER_MODEL\n",
             ),
             // A subclass that sets the member stays a candidate.
             (
@@ -1204,6 +1210,15 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
             "app/test_files.py",
             "settings.ORIGINALS_DIR",
             jump("ORIGINALS_DIR: by name, 1 match", "app/settings.py:1"),
+        ),
+        // What the project does not set is Django's default, never a namesake elsewhere.
+        (
+            "app/test_files.py",
+            "settings.AUTH_USER_MODEL",
+            jump(
+                "AUTH_USER_MODEL: via import django.conf",
+                &format!("{}:2", outside(&site, "django/conf/global_settings.py")),
+            ),
         ),
         // Only a module-level assignment of the project: never a method of a project class.
         (

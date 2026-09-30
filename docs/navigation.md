@@ -381,8 +381,9 @@ search by name as it was. Likewise `User.objects` with `User` imported from a mo
 member of `User` in that module, never a top-level `objects` there or anywhere else, when the
 module declares the class `User` or imports it. A value the module holds instead, such as
 Django's `settings`, whose `__getattr__` reads the project's settings module, finds its member
-only among the project's module-level `NAME = …`: never a namesake outside the project, nor a
-method or a field of a project class. Ruby's core and gems are not read, so there a member on a value, `logger.info` or
+only among the project's module-level `NAME = …`, else among those of the module's own package
+(Django's defaults in `django/conf/global_settings.py`): never a namesake elsewhere outside the
+project, nor a method or a field of a project class. Ruby's core and gems are not read, so there a member on a value, `logger.info` or
 `x&.each`, is never jumped to: the one method of that name the project declares is offered in a
 picker of one row, `info: by name, 1 match`. `Const.meth`, `self.meth` and a bare call still jump.
 PHP reaches a member with `->` and `?->`, on the arrow's line or at the start of the next one
