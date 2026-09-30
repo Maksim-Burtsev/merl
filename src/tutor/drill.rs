@@ -320,7 +320,7 @@ pub fn check(app: &mut App, action: Option<&str>) {
     };
     app.message = match logged.and(set) {
         Ok(()) => said,
-        Err(e) => format!("{said}  {e:#}"),
+        Err(e) => format!("{said}  {}", crate::app::error_text(&e)),
     };
 }
 
@@ -540,6 +540,23 @@ mod tests {
     fn clean_up(name: &str, log: &Path) {
         let _ = std::fs::remove_dir_all(dir(name));
         let _ = std::fs::remove_file(log);
+    }
+
+    /// #516: a log merl cannot write says why in a few words after the path, never with the OS
+    /// text's `(os error N)`: here the log's path is a folder.
+    #[test]
+    fn a_log_that_cannot_be_written_says_why_in_a_few_words() {
+        let (mut a, log) = drill_app("drill-io", 2);
+        std::fs::create_dir_all(&log).unwrap();
+        let t = task("Edit: Alt+Backspace");
+        run(&mut a, t, false).unwrap();
+        press(&mut a, &"<BS>".repeat(11));
+        assert_eq!(
+            a.message,
+            format!("miss  {}: is a directory", log.display())
+        );
+        let _ = std::fs::remove_dir_all(&log);
+        clean_up("drill-io", &log);
     }
 
     /// Backspace x11 in place of Alt+Backspace: a miss, then the same task again with its key
