@@ -26,12 +26,12 @@ impl Basket {
         discount(self.tariff.rate())
         // ^ d: src/pricing.rs:55
         //            ^ d: src/basket.rs:7
-        //                   ^ d: picker src/pricing.rs:13, src/pricing.rs:24; want src/pricing.rs:13 (#377)
+        //                   ^ d: src/pricing.rs:13
     }
 
     pub fn bonus(&self) -> u32 {
         self.coupon.rate() + self.gross()
-        //          ^ d: picker src/pricing.rs:13, src/pricing.rs:24; want src/pricing.rs:24 (#377)
+        //          ^ d: src/pricing.rs:24
         //                        ^ d: src/basket.rs:24
     }
 }
@@ -45,8 +45,8 @@ impl Priced for Basket {
 
 pub fn describe_any(t: &Tariff, c: &Coupon) -> String {
     t.describe() + &c.describe()
-    //^ d: picker src/pricing.rs:16, src/pricing.rs:27; want src/pricing.rs:16 (#377)
-    //                ^ d: picker src/pricing.rs:16, src/pricing.rs:27; want src/pricing.rs:27 (#377)
+    //^ d: src/pricing.rs:16
+    //                ^ d: src/pricing.rs:27
 }
 
 pub fn restock(discount: u32) -> u32 {

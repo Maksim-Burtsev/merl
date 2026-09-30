@@ -667,11 +667,33 @@ impl App {
                 return;
             }
         }
+        // `x.word` in Rust on a receiver whose type is proven (#377): the word of that type.
+        let mut rust_broke = None;
+        if kind == Kind::Rust
+            && dotted
+            && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
+            && word != "await"
+            && chain.first().is_some_and(|f| bound(&imports, f).is_none())
+            // A tuple field, `self.0`, has no rule.
+            && chain.iter().all(|n| n.starts_with(|c: char| c.is_alphabetic() || c == '_'))
+        {
+            let after = &self.line_str()[range.end..];
+            let call = after.starts_with('(') || after.starts_with("::<");
+            match self.rust_typed(&here, &text, &word, &chain, call) {
+                Ok(found) if !found.is_empty() => {
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
+                Ok(_) => {}
+                // With one name in front of the word, `by name` already says where.
+                Err(at) => rust_broke = (chain.len() > 1).then_some(at),
+            }
+        }
         // Rust's attributes, fields and variants, which the lines below cannot tell (#370).
         if kind == Kind::Rust
             && let Some(found) = self.rust_early(&here, &text, &word, range.clone(), dotted)
         {
-            self.show_definitions(kind, &word, &here, found, None);
+            self.show_definitions(kind, &word, &here, found, rust_broke.as_deref());
             return;
         }
         // `x.word(…)` in Rust on a value whose type is not known (#358).
@@ -681,7 +703,7 @@ impl App {
             && word != "await"
         {
             let found = self.rust_methods(&here, &word);
-            self.show_definitions(kind, &word, &here, found, None);
+            self.show_definitions(kind, &word, &here, found, rust_broke.as_deref());
             return;
         }
         // On the declaration of a member of an interface, a protocol, an abstract or a base
