@@ -156,6 +156,7 @@ counts stay on your machine.
 |---|---|
 | c / C | Review: next / previous hunk, on to the next file |
 | m | Review: mark the file as viewed, or take the mark off |
+| Fold: Enter | Review: load the diff of a folded generated file |
 
 **Editing**
 

@@ -294,9 +294,16 @@ mod tests {
     /// [`POOL`] trains each of its sides, or it is listed here on purpose.
     const NOT_TAUGHT: &[&str] = &[
         // Nothing to train.
-        "Ctrl+S", "Ctrl+R", "T", "?", "q",
+        "Ctrl+S",
+        "Ctrl+R",
+        "T",
+        "?",
+        "q",
         // Review mode only: the sample project has no branch to walk yet (#158).
-        "c", "C", "m",
+        "c",
+        "C",
+        "m",
+        "Fold: Enter",
     ];
 
     /// The copy of the sample project a test works in, apart from the other tests' copies.

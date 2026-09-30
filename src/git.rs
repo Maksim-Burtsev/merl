@@ -195,6 +195,9 @@ pub struct ReviewFile {
     pub binary: bool,
     /// Not in git yet: listed as added, and its diff is the whole file.
     pub untracked: bool,
+    /// Generated as both GitHub and GitLab have it (see [`generated`]): the review folds it until
+    /// Enter loads its diff (#243).
+    pub generated: bool,
 }
 
 impl ReviewFile {
@@ -300,6 +303,13 @@ impl Review {
         {
             files.retain(|f| f.path != Path::new(path));
             files.push(untracked(root, Path::new(path)));
+        }
+        let attrs = generated_attrs(root, &files).unwrap_or_default();
+        for f in &mut files {
+            f.generated = match attrs.get(&f.path) {
+                Some(&said) => said,
+                None => generated(root, f),
+            };
         }
         // The panel's order, so `c` walks the files top to bottom.
         files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false));
@@ -445,7 +455,111 @@ fn untracked(root: &Path, path: &Path) -> ReviewFile {
         deleted: 0,
         binary,
         untracked: true,
+        generated: false,
     }
+}
+
+/// What both GitHub and GitLab fold as generated, by the file's exact name: the lock files
+/// of Linguist's `generated.rb` that go-enry's `generated.go` also has (#243). `yarn.lock`,
+/// `go.sum` and `Gemfile.lock` are in neither, and stay open.
+const GENERATED_NAMES: &[&str] = &[
+    "package-lock.json",
+    "npm-shrinkwrap.json",
+    "pnpm-lock.yaml",
+    "poetry.lock",
+    "uv.lock",
+    "pdm.lock",
+    "Pipfile.lock",
+    "Cargo.lock",
+    "Cargo.toml.orig",
+    "composer.lock",
+    "flake.lock",
+    "deno.lock",
+    "Gopkg.lock",
+    "glide.lock",
+    "MODULE.bazel.lock",
+    ".terraform.lock.hcl",
+    ".pnp.js",
+    ".pnp.cjs",
+    ".pnp.mjs",
+    ".pnp.loader.mjs",
+];
+
+/// Ends of names both forges fold: minified scripts and styles, and their source maps.
+const GENERATED_ENDS: &[&str] = &[".min.js", ".min.css", ".js.map", ".css.map"];
+
+/// Directories both forges fold whatever is in them.
+const GENERATED_DIRS: &[&str] = &["node_modules", "Godeps"];
+
+/// Is `f` generated as both forges have it, by its path or, for Go, its first 40 lines: Go's
+/// `// Code generated … DO NOT EDIT.` Certain only, no guessing by content (#243).
+fn generated(root: &Path, f: &ReviewFile) -> bool {
+    use std::io::{BufRead, BufReader};
+    let name = f.path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    let in_dir = f.path.parent().is_some_and(|dir| {
+        dir.components()
+            .any(|c| GENERATED_DIRS.contains(&&*c.as_os_str().to_string_lossy()))
+    });
+    if GENERATED_NAMES.contains(&name) || GENERATED_ENDS.iter().any(|e| name.ends_with(e)) || in_dir
+    {
+        return true;
+    }
+    let path = root.join(&f.path);
+    if !name.ends_with(".go")
+        || f.status == 'D'
+        || f.binary
+        || !std::fs::metadata(&path).is_ok_and(|m| m.is_file())
+    {
+        return false;
+    }
+    let Ok(file) = std::fs::File::open(&path) else {
+        return false;
+    };
+    (BufReader::new(file).lines().take(40).map_while(Result::ok)).any(|l| {
+        let l = l.trim_end();
+        l.starts_with("// Code generated ") && l.ends_with(" DO NOT EDIT.")
+    })
+}
+
+/// What `.gitattributes` says of `files` with `linguist-generated` or `gitlab-generated`, the
+/// attributes the forges fold a file's diff by: `true` for a path it marks generated, `false`
+/// for one it marks not generated (`-linguist-generated`, `=false`), which then stays open
+/// whatever its name.
+fn generated_attrs(root: &Path, files: &[ReviewFile]) -> Result<HashMap<PathBuf, bool>> {
+    use std::io::Write;
+    use std::process::Stdio;
+    let mut child = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["check-attr", "-z", "--stdin"])
+        .args(["linguist-generated", "gitlab-generated"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()?;
+    let mut paths = Vec::new();
+    for f in files {
+        paths.extend_from_slice(f.path.to_string_lossy().as_bytes());
+        paths.push(0);
+    }
+    // Written from a thread: a long list would fill the pipe back while git fills stdout.
+    let mut stdin = child.stdin.take().context("no stdin")?;
+    let writer = std::thread::spawn(move || stdin.write_all(&paths));
+    let out = child.wait_with_output()?;
+    writer.join().ok();
+    let out = String::from_utf8_lossy(&out.stdout);
+    let fields: Vec<&str> = out.split('\0').collect();
+    let mut said = HashMap::new();
+    for [path, _, value] in fields.as_chunks::<3>().0 {
+        let generated = match *value {
+            "set" | "true" => true,
+            "unset" | "false" => false,
+            _ => continue,
+        };
+        // Either attribute marking it generated folds it.
+        *said.entry(PathBuf::from(path)).or_insert(generated) |= generated;
+    }
+    Ok(said)
 }
 
 /// Is the file binary, and its lines as `git diff --numstat` counts them: a last line without
@@ -492,6 +606,7 @@ fn parse_name_status(out: &str) -> Vec<ReviewFile> {
             deleted: 0,
             binary: false,
             untracked: false,
+            generated: false,
         });
     }
     files
@@ -1239,5 +1354,87 @@ mod tests {
                 ("new.rs".into(), Some((3, 4)))
             ]
         );
+    }
+
+    /// #243: generated as both GitHub and GitLab have it: a name both fold, a directory both
+    /// fold, Go's header in the first 40 lines, or `.gitattributes`, which also keeps a lock
+    /// file open.
+    #[test]
+    fn generated_files_are_known_by_name_attribute_and_header() {
+        let dir = std::env::temp_dir().join(format!("merl-generated-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("gen")).unwrap();
+        let git = |args: &[&str]| {
+            let out = Command::new("git").arg("-C").arg(&dir).args(args).output();
+            assert!(out.unwrap().status.success(), "git {args:?}");
+        };
+        git(&["init", "-q", "-b", "main"]);
+        git(&["config", "user.email", "t@t"]);
+        git(&["config", "user.name", "t"]);
+        std::fs::write(dir.join("base"), "b\n").unwrap();
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "base"]);
+        git(&["switch", "-q", "-c", "feature"]);
+        let attrs = "gen/** linguist-generated\nlab.txt gitlab-generated\n\
+                     no.txt linguist-generated=false\nunset.txt -linguist-generated\n\
+                     open/poetry.lock -linguist-generated\n\
+                     open/package-lock.json linguist-generated=false\n";
+        let header = "// Code generated by protoc-gen-go. DO NOT EDIT.\n";
+        let late = format!("{}{header}", "//\n".repeat(40));
+        let within = format!("{}{header}", "//\n".repeat(39));
+        let files: &[(&str, &str, bool)] = &[
+            (".gitattributes", attrs, false),
+            ("web/package-lock.json", "{}\n", true),
+            ("Cargo.lock", "# @generated\n", true),
+            ("poetry.lock", "x\n", true),
+            ("infra/.terraform.lock.hcl", "x\n", true),
+            ("static/app.min.js", "x\n", true),
+            ("static/app.js.map", "{}\n", true),
+            ("web/node_modules/left-pad/index.js", "x\n", true),
+            ("gen/client.ts", "export {}\n", true),
+            ("lab.txt", "l\n", true),
+            ("api.pb.go", header, true),
+            ("within.go", &within, true),
+            // Neither forge folds these; the attributes keep a lock file open.
+            ("yarn.lock", "x\n", false),
+            ("go.sum", "x\n", false),
+            ("Gemfile.lock", "x\n", false),
+            ("open/poetry.lock", "x\n", false),
+            ("open/package-lock.json", "{}\n", false),
+            ("no.txt", "n\n", false),
+            ("unset.txt", "u\n", false),
+            // Near misses: another name, a header past line 40, half a header, not Go.
+            (
+                "schema.js",
+                "/**\n * @generated SignedSource<<1>>\n */\n",
+                false,
+            ),
+            ("Cargo.lock.bak", "x\n", false),
+            ("mylock.json", "x\n", false),
+            ("late.go", &late, false),
+            ("half.go", "// Code generated by hand, edit away.\n", false),
+            ("notgo.ts", header, false),
+            ("plain.rs", "fn main() {}\n", false),
+        ];
+        for (name, text, _) in files {
+            let path = dir.join(name);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, text).unwrap();
+        }
+        git(&["add", "-A", "-f"]);
+        git(&["commit", "-q", "-m", "work"]);
+        // Untracked: read the same way.
+        std::fs::write(dir.join("gen/new.ts"), "n\n").unwrap();
+        std::fs::write(dir.join("new.go"), header).unwrap();
+        let r = Review::open(&dir, None, None).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut want: Vec<_> = files.iter().map(|&(n, _, g)| (n, g)).collect();
+        want.extend([("gen/new.ts", true), ("new.go", true)]);
+        want.sort();
+        let mut got: Vec<_> = (r.files.iter())
+            .map(|f| (f.path.to_str().unwrap(), f.generated))
+            .collect();
+        got.sort();
+        assert_eq!(got, want);
     }
 }

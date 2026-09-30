@@ -14,6 +14,7 @@ use crate::theme::Theme;
 use crate::wrap;
 
 mod code;
+mod fold;
 mod overlays;
 mod preview;
 mod status;
@@ -60,6 +61,8 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     }
     if app.previewing() {
         draw_preview(frame, app, theme, code, base);
+    } else if app.folded_here().is_some() {
+        fold::draw_fold(frame, app, theme, code, base);
     } else if app.buf.binary() {
         draw_binary(frame, theme, code, base);
     } else if app.buf.path.is_some() {

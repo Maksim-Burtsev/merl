@@ -1,19 +1,19 @@
 wait Close an overlay, leave edit mode
 ┌orders──────────────────────┐ 1 f┌merl — keys (Up / Down to scroll)──────────────────────────────────────────────────────────────────────────────────┐
-│▸ .github                   │ 2  │   o / Ctrl+E                        Open a file (fuzzy)                                                           │
-│▸ .venv                     │ 3  │   Ctrl+N                            New file: type its path, Enter creates and edits it                           │
-│▾ app                       │ 4 c│   d / F12                           Go to definition of the word under the cursor, or its implementations         │
-│    __init__.py             │ 5  │   D                                 Project symbols (fuzzy)                                                       │
-│    api.py                  │ 6  │   u / Shift+F12                     Usages of the word under the cursor                                           │
-│    config.py               │ 7  │   [ / ]                             Back / forward in the jump history                                            │
-│    models.py               │ 8  │   : / Ctrl+G                        Go to line                                                                    │
-│    repos.py                │ 9  │ Search                                                                                                            │
-│    service.py              │10  │   / / Ctrl+F                        Find in the open file                                                         │
-│    uow.py                  │11  │   n / N                             Next / previous match                                                         │
-│▸ data                      │12  │   s                                 Search the project                                                            │
-│▸ deploy                    │13  │ Review                                                                                                            │
-│▸ docs                      │14  │   c / C                             Review: next / previous hunk, on to the next file                             │
-│▸ scripts                   │15  │   m                                 Review: mark the file as viewed, or take the mark off                         │
+│▸ .github                   │ 2  │   Ctrl+N                            New file: type its path, Enter creates and edits it                           │
+│▸ .venv                     │ 3  │   d / F12                           Go to definition of the word under the cursor, or its implementations         │
+│▾ app                       │ 4 c│   D                                 Project symbols (fuzzy)                                                       │
+│    __init__.py             │ 5  │   u / Shift+F12                     Usages of the word under the cursor                                           │
+│    api.py                  │ 6  │   [ / ]                             Back / forward in the jump history                                            │
+│    config.py               │ 7  │   : / Ctrl+G                        Go to line                                                                    │
+│    models.py               │ 8  │ Search                                                                                                            │
+│    repos.py                │ 9  │   / / Ctrl+F                        Find in the open file                                                         │
+│    service.py              │10  │   n / N                             Next / previous match                                                         │
+│    uow.py                  │11  │   s                                 Search the project                                                            │
+│▸ data                      │12  │ Review                                                                                                            │
+│▸ deploy                    │13  │   c / C                             Review: next / previous hunk, on to the next file                             │
+│▸ docs                      │14  │   m                                 Review: mark the file as viewed, or take the mark off                         │
+│▸ scripts                   │15  │   Fold: Enter                       Review: load the diff of a folded generated file                              │
 │▸ tests                     │16  │ Editing                                                                                                           │
 │▸ web                       │17  │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
 │▸ worker                    │18  │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │

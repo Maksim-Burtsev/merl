@@ -452,6 +452,7 @@ mod tests {
             deleted,
             binary: false,
             untracked: false,
+            generated: false,
         };
         let review = git::Review {
             branch: "feat/x".into(),

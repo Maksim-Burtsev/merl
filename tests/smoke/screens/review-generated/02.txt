@@ -1,0 +1,57 @@
+wait file 1/2
+┌deps ← origin/main──────────┐
+│  ▾ web                     │
+│    M package-lock.js… +3 −3│
+│  ▾ worker                  │
+│    M main.go          +2 −0│
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │                                                              ┌─────── generated file ───────┐
+│                            │                                                              │                              │
+│                            │                                                              │       package-lock.json      │
+│                            │                                                              │        3 hunks  +3 −3        │
+│                            │                                                              │                              │
+│                            │                                                              │       Enter  Load diff       │
+│                            │                                                              │                              │
+│                            │                                                              │         c  next file         │
+│                            │                                                              │                              │
+│                            │                                                              └──────────────────────────────┘
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 2 files · +5 −3 ───────────┘
+web/package-lock.json  [code]  folded  file 1/2                                                                                                                                   ? help
+cursor (x,y,shown) 185,54,0
