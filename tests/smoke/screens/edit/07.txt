@@ -1,4 +1,4 @@
-wait page_size: int = 50
+wait 10     page_size: int = 50
  1 """Settings, read from the environment once at startup."""
  2 import os
  3 from dataclasses import dataclass
@@ -8,7 +8,7 @@ wait page_size: int = 50
  7 class Settings:
  8     database_url: str
  9     api_token: str
-10▎    page_size: int = 50
+10     page_size: int = 50
 11     refund_window_days: int = 30
 12
 13
@@ -53,5 +53,5 @@ wait page_size: int = 50
 
 
 
-app/config.py ●  10:22  [code]                                                                                                                                                    ? help
+app/config.py  10:22  [code]                                                                                                                                                      ? help
 cursor (x,y,shown) 24,9,1
