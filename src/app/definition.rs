@@ -659,6 +659,32 @@ impl App {
         }
         // A receiver whose type is proven narrows the member to that type (#68, steps 2 to 4).
         let mut broke = None;
+        // C# writes its types everywhere: a member of an object initializer's type, or of the
+        // type a receiver is declared with; a type the project does not declare is the
+        // framework's, and so is its member (#352).
+        if kind == Kind::CSharp {
+            let answer = match dotted {
+                false => self.cs_initializer(&here, &word, &range).map(Ok),
+                true if !chain.is_empty() && bound(&imports, &chain[0]).is_none() => {
+                    Some(self.cs_typed(&here, &word, &chain))
+                }
+                true => None,
+            };
+            match answer {
+                Some(Ok(cs_typed::CsAnswer::Found(found))) => {
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
+                Some(Ok(cs_typed::CsAnswer::Outside(via))) => {
+                    self.offer_only = false;
+                    self.truncated.set(false);
+                    self.message = format!("no definition for {word} in the project (via {via})");
+                    return;
+                }
+                Some(Err(at)) => broke = (chain.len() > 1).then_some(at),
+                None => {}
+            }
+        }
         // A chain with no name to start from may hang off a call: `make_uow().users.word` (#100).
         let head = (dotted && chain.is_empty())
             .then(|| search::call_head(kind, &written, start))

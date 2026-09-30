@@ -100,6 +100,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` in C# reads the type a receiver is written with: `service.ExtractRedirectUri` after
+  `var service = new RedirectService()` jumps to `RedirectService`'s method, through fields,
+  properties, parameters, `this`, `base`, casts, patterns and an awaited call, and names the
+  links on the status line (`via _uow: Uow → Users: UserRepo`). `Checked = …` in
+  `new ScopeViewModel { … }` jumps to `ScopeViewModel.Checked`. A member of a type the project
+  does not declare, a MAUI `Label`'s `Text` or an EF `DbContext`'s `SaveChangesAsync`, says `no
+  definition` instead of offering or jumping to the project's namesakes, unless the project
+  declares an extension method for it. (#352)
 - `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
   parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
   said `no definition` or offered namesakes from other files: `directionParams →

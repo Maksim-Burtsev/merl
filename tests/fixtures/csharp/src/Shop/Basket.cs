@@ -20,10 +20,10 @@ public class Basket
     //                    ^ d: src/Shop/Pricing/Pricing.cs:42
     //                           ^ d: src/Shop/Pricing/Pricing.cs:46
     //                                    ^ d: src/Shop/Basket.cs:10
-    //                                            ^ d: picker src/Shop/Pricing/Pricing.cs:19, src/Shop/Pricing/Pricing.cs:26, src/Shop/Startup.cs:31; want src/Shop/Pricing/Pricing.cs:19 (#352)
+    //                                            ^ d: src/Shop/Pricing/Pricing.cs:19
 
     public string Label() => _coupon.Describe();
-    //                               ^ d: picker src/Shop/Pricing/Pricing.cs:20, src/Shop/Pricing/Pricing.cs:27; want src/Shop/Pricing/Pricing.cs:27 (#352)
+    //                               ^ d: src/Shop/Pricing/Pricing.cs:27
 
     public bool Overweight(int grams)
     {
@@ -76,13 +76,13 @@ public class Basket
     //                                   ^ d: src/Shop/Warehouse/Courier.cs:7
 
     public ScopeView Scope() => new ScopeView { Checked = true };
-    //                                          ^ d: picker src/Shop/Warehouse/Courier.cs:25, src/Shop/Warehouse/Courier.cs:30; want src/Shop/Warehouse/Courier.cs:25 (#352)
+    //                                          ^ d: src/Shop/Warehouse/Courier.cs:25
 
     public Address Home() => new Address { Street = "Main" };
     //     ^ d: picker src/Shop/Warehouse/Courier.cs:33, src/Shop.Api/Address.cs:3; want src/Shop/Warehouse/Courier.cs:33 (#349)
 
     public int Coupons(Coupon coupon) => coupon.Price();
-    //                                          ^ d: picker src/Shop/Pricing/Pricing.cs:9, src/Shop/Pricing/Pricing.cs:21, src/Shop/Pricing/Pricing.cs:28, src/Shop/Startup.cs:32; want src/Shop/Pricing/Pricing.cs:28 (#352)
+    //                                          ^ d: src/Shop/Pricing/Pricing.cs:28
 
     public Tier Level(bool gold) => gold ? Tier.Platinum : Tier.Diamond;
     //                                          ^ d: src/Shop/Pricing/Pricing.cs:65
