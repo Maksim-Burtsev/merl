@@ -202,8 +202,8 @@ fn params_open(line: &str) -> Option<usize> {
 pub fn jvm_function(line: &str) -> Option<String> {
     let head = line[..params_open(line)?].trim_end();
     let start = head
-        .rfind(|c: char| !(c.is_alphanumeric() || c == '_'))
-        .map_or(0, |i| i + 1);
+        .trim_end_matches(|c: char| c.is_alphanumeric() || c == '_')
+        .len();
     Some(head[start..].to_owned())
 }
 

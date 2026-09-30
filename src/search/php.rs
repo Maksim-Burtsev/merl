@@ -131,8 +131,8 @@ pub fn php_namespace_patterns(
         return;
     }
     let start = before
-        .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '\\'))
-        .map_or(0, |i| i + 1);
+        .trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '\\')
+        .len();
     let spelled = &line[start..range.end];
     let head = before.trim_start();
     let absolute =
