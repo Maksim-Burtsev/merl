@@ -43,6 +43,7 @@ mod tree;
 mod typed;
 mod usages;
 
+pub(crate) use open::error_text;
 pub use preview::Preview;
 pub use search_job::SearchJob;
 use search_job::{SEARCH_PAUSE, Typed};

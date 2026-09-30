@@ -747,19 +747,6 @@ fn swift_decl_binds(rest: &str, name: &str) -> Option<bool> {
 /// file bind no local, and a pattern the rules cannot read that names the word stops the walk:
 /// the search by name decides then.
 fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    static CATCH: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^(?:\}\s*)?catch\b\s*(.*?)\s*\{$").unwrap());
-    static CONDITION: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^(?:\}\s*)?(?:else\s+)?(?:if|while)\s").unwrap());
-    static FOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^for\s+(?:try\s+)?(?:await\s+)?(?:case\s+)?(.+?)\s+in\s").unwrap()
-    });
-    static CLOSURE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(
-            r"\{\s*(?:\[[^\]]*\]\s*)?(?:@\w+\s+)?(\([^()]*\)|[\w\s,]*?)\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin$",
-        )
-        .unwrap()
-    });
     static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(r"{}(?:func|init|subscript|set)\b", swift_mods!())).unwrap()
     });
@@ -857,42 +844,81 @@ fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         if let Some(line) = pending {
             return found(line);
         }
-        let binds = if let Some(c) = CATCH.captures(&head) {
-            match &c[1] {
-                "" => Some(name == "error"),
-                pattern => Some(rule(format!(r"\b(?:let|var)\s+{n}\b")).is_match(pattern)),
-            }
-        } else if let Some(pattern) = head.strip_prefix("case ") {
-            let pattern = pattern.strip_suffix(':').unwrap_or(pattern);
-            let mut bound = Some(false);
-            for p in split_top(Kind::Swift, pattern, b',') {
-                match swift_pattern_binds(p, false, name) {
-                    Some(true) => return found(i + 1),
-                    None => bound = None,
-                    Some(false) => {}
-                }
-            }
-            bound
-        } else if let Some(c) = FOR.captures(&text) {
-            swift_pattern_binds(&c[1], true, name)
-        } else if CONDITION.is_match(&head) {
-            swift_condition_binds(&text, name)
-        } else if let Some(c) = CLOSURE.captures(&code(end)) {
-            let params = c[1].trim().trim_start_matches('(').trim_end_matches(')');
-            Some(params.split(',').any(|p| {
-                let p = p.split(':').next().unwrap_or(p);
-                p.split_whitespace().last() == Some(name)
-            }))
-        } else {
-            Some(false)
-        };
-        match binds {
+        match swift_header_binds(&head, &text, &code(end), name) {
             None => return Vec::new(),
+            // A `case` names its line, the others the line of the header that writes the name.
+            Some(true) if head.starts_with("case ") => return found(i + 1),
             Some(true) => return found(written(i, end, &word)),
             Some(false) => {}
         }
     }
     Vec::new()
+}
+/// Whether the header of a Swift block binds `name` for the block: `head` its first line, `text`
+/// all its lines joined, `last` the line that opens the block. A `catch` (a bare one binds
+/// `error`), a `case` of a `switch`, a `for`, an `if let` or a `while let`, a closure's
+/// parameters; `None` for a pattern naming the word that the rules cannot read.
+fn swift_header_binds(head: &str, text: &str, last: &str, name: &str) -> Option<bool> {
+    static CATCH: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^(?:\}\s*)?catch\b\s*(.*?)\s*\{$").unwrap());
+    static CONDITION: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^(?:\}\s*)?(?:else\s+)?(?:if|while)\s").unwrap());
+    static FOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^for\s+(?:try\s+)?(?:await\s+)?(?:case\s+)?(.+?)\s+in\s").unwrap()
+    });
+    static CLOSURE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"\{\s*(?:\[[^\]]*\]\s*)?(?:@\w+\s+)?(\([^()]*\)|[\w\s,]*?)\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin$",
+        )
+        .unwrap()
+    });
+    if let Some(c) = CATCH.captures(head) {
+        let n = regex::escape(name);
+        return match &c[1] {
+            "" => Some(name == "error"),
+            pattern => Some(
+                Regex::new(&format!(r"\b(?:let|var)\s+{n}\b"))
+                    .expect("an escaped name keeps the pattern valid")
+                    .is_match(pattern),
+            ),
+        };
+    }
+    if let Some(pattern) = head.strip_prefix("case ") {
+        let pattern = pattern.strip_suffix(':').unwrap_or(pattern);
+        let mut bound = Some(false);
+        for p in split_top(Kind::Swift, pattern, b',') {
+            match swift_pattern_binds(p, false, name) {
+                Some(true) => return Some(true),
+                None => bound = None,
+                Some(false) => {}
+            }
+        }
+        return bound;
+    }
+    if let Some(c) = FOR.captures(text) {
+        swift_pattern_binds(&c[1], true, name)
+    } else if CONDITION.is_match(head) {
+        swift_condition_binds(text, name)
+    } else if let Some(c) = CLOSURE.captures(last) {
+        let params = c[1].trim().trim_start_matches('(').trim_end_matches(')');
+        Some(params.split(',').any(|p| {
+            let p = p.split(':').next().unwrap_or(p);
+            p.split_whitespace().last() == Some(name)
+        }))
+    } else {
+        Some(false)
+    }
+}
+/// Whether a Swift line, read on its own, binds `name` for what follows it the way no
+/// declaration pattern reads (#525): a `for`, an `if let`, a `guard let`, a closure's parameter,
+/// a `catch let`, a `case let` of a `switch`.
+pub fn swift_binds_on(line: &str, name: &str) -> bool {
+    let t = uncommented(Kind::Swift, line).trim().to_owned();
+    let binds = match t.starts_with("guard ") {
+        true => swift_condition_binds(&t, name),
+        false => swift_header_binds(&t, &t, &t, name),
+    };
+    binds == Some(true)
 }
 /// Whether the word at `range` of 1-based `line` names a keyword argument of a Python call:
 /// `recipe_yield=…` behind a `(` or a `,`, or at the start of a line that continues a call. It
@@ -1287,6 +1313,26 @@ pub fn python_class_binds(text: &str, line: usize, name: &str) -> bool {
     }
     false
 }
+/// Whether the Python `def` on 1-based `line` of `text` is a method: the nearest code line above
+/// it indented less opens a class (#522). A bare name never calls one.
+pub fn python_method(text: &str, line: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let literal = literal_lines(Kind::Python, text);
+    let depth = indent(lines[at]);
+    (0..at)
+        .rev()
+        .find(|&i| {
+            let t = lines[i].trim_start();
+            !t.is_empty()
+                && !t.starts_with(['#', ')', ']'])
+                && !literal[i]
+                && indent(lines[i]) < depth
+        })
+        .is_some_and(|i| lines[i].trim_start().starts_with("class "))
+}
 /// The 1-based line of the class the `def` on line `d` is a method of, unless it is a
 /// `@staticmethod`.
 fn python_class_of(lines: &[&str], d: usize) -> Option<usize> {
@@ -1556,6 +1602,105 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
         });
     (object || names(header, "function")).then_some(Value::Unknown)
 }
+/// Whether `name` at byte `at` of a TypeScript or JavaScript `line` stands in the body of an arrow
+/// function on that line whose parameters name it (#531): `xs.map(x => x * 2)`,
+/// `((x: T) => x.a)`. The body runs from the `=>` to the `,`, `;` or closing bracket of the
+/// arrow's own level, to an `=` there (what came before was a type, `f: (x: T) => void = …`), or
+/// to the `:` of a ternary the arrow is a branch of. The parameter itself, and a use past the
+/// body, are not in it. A parameter list in a type binds nothing: a return type, a type argument.
+pub fn ts_arrow_binds(line: &str, name: &str, at: usize) -> bool {
+    let Ok(word) = Regex::new(&format!(r"(?:^|[^\w$.]){}\b", regex::escape(name))) else {
+        return false;
+    };
+    // A string left open at the end of the line, an apostrophe in JSX text more often than not,
+    // has swallowed brackets: where the body ends is unknown.
+    // ponytail: a pair of apostrophes in JSX text still reads as a string; reading JSX text is
+    // the way out.
+    if code(Kind::TsJs, &format!("{line}\n)")).last() != Some((line.len() + 1, b')')) {
+        return false;
+    }
+    let b = line.as_bytes();
+    let bytes: Vec<(usize, u8)> = code(Kind::TsJs, line)
+        .take_while(|&(_, c)| c != 0)
+        .collect();
+    // The last bracket opened before `upto` and still open there.
+    let unclosed = |upto: usize| {
+        let mut stack = Vec::new();
+        for &(i, c) in bytes.iter().take_while(|&&(i, _)| i < upto) {
+            match c {
+                b'(' | b'[' | b'{' => stack.push(i),
+                b')' | b']' | b'}' => {
+                    stack.pop();
+                }
+                _ => {}
+            }
+        }
+        stack.last().copied()
+    };
+    // The `=>` right after the parameters, which end before `from`: a lone name's at once, a
+    // list's behind a return type, `): T =>`.
+    let arrow = |from: usize, typed: bool| {
+        let t = line[from..].trim_start();
+        let t = match t.strip_prefix(':').filter(|_| typed) {
+            Some(ty) => ty
+                .find("=>")
+                .filter(|&e| !ty[..e].contains([';', '{', '}', '(', ')']))
+                .map(|e| &ty[e..])?,
+            None => t,
+        };
+        t.starts_with("=>").then(|| line.len() - t.len())
+    };
+    word.find_iter(line)
+        .map(|m| m.end() - name.len())
+        .filter(|&decl| decl < at)
+        .any(|decl| {
+            let start = arrow(decl + name.len(), false).or_else(|| {
+                let open = unclosed(decl).filter(|&p| b[p] == b'(')?;
+                let before = line[..open].trim_end();
+                if return_type(before) || before.ends_with('<') {
+                    return None;
+                }
+                arrow(close_of(Kind::TsJs, line, open)?, true)
+            });
+            let Some(start) = start else {
+                return false;
+            };
+            // `ternary` counts the `?` of the body still waiting for their `:`.
+            let (mut depth, mut ternary) = (0i32, 0i32);
+            let end = bytes
+                .iter()
+                .skip_while(|&&(i, _)| i < start + 2)
+                .find(|&&(i, c)| match c {
+                    b'(' | b'[' | b'{' => {
+                        depth += 1;
+                        false
+                    }
+                    b')' | b']' | b'}' => {
+                        depth -= 1;
+                        depth < 0
+                    }
+                    b',' | b';' => depth == 0,
+                    b'?' if depth == 0 => {
+                        // `?.` and `??` are no ternary.
+                        let chain = b[i - 1] == b'?' || matches!(b.get(i + 1), Some(b'.' | b'?'));
+                        ternary += i32::from(!chain);
+                        false
+                    }
+                    b':' if depth == 0 => {
+                        ternary -= 1;
+                        ternary < 0
+                    }
+                    // An assignment; `=>`, a comparison and a JSX attribute, `key={x}`, are not.
+                    b'=' if depth == 0 => {
+                        !b"=<>!".contains(&b[i - 1])
+                            && !b.get(i + 1).is_some_and(|c| b"=>{\"'".contains(c))
+                    }
+                    _ => false,
+                })
+                .map_or(line.len(), |&(i, _)| i);
+            at > start && at < end
+        })
+}
 /// The bindings of `name` a block's header makes for the lines inside it: the parameters of a
 /// function, a method or an arrow, a Go receiver and named results, the variables of a loop, a
 /// `catch` or a Go `if x := …;`. Returns whether one of them is made for the block under the
@@ -1721,6 +1866,47 @@ fn opener_bindings(
         _ => {}
     }
     own
+}
+/// Whether `name` at byte `at` of a Go `line` is bound by a header on that same line whose block
+/// the cursor is in (#524): the parameter of `func cut(xs []int, n int) []int { return xs[n:] }`,
+/// as it is when the body is on lines of its own. A `func(...)` type in the signature, a
+/// parameter's or a result's, names nothing in the body.
+pub fn go_binds_here(line: &str, name: &str, at: usize) -> bool {
+    // The brackets open at the cursor, and every `func` before it that writes a type: inside a
+    // bracket closed since, a parameter list's or the results', or right behind one, `) func(`.
+    let (mut open, mut types) = (Vec::new(), Vec::new());
+    let ident = |c: &u8| c.is_ascii_alphanumeric() || *c == b'_';
+    let mut last = b' ';
+    for (i, c) in code(Kind::Go, &line[..at]) {
+        match c {
+            b'(' | b'[' | b'{' => open.push(i),
+            b')' | b']' | b'}' => {
+                open.pop();
+            }
+            b'f' if line[i..].starts_with("func")
+                && !(i > 0 && ident(&line.as_bytes()[i - 1]))
+                && !line.as_bytes().get(i + 4).is_some_and(ident) =>
+            {
+                types.push((i, open.last().copied(), matches!(last, b')' | b']')));
+            }
+            _ => {}
+        }
+        if !c.is_ascii_whitespace() {
+            last = c;
+        }
+    }
+    open.iter()
+        .filter(|&&b| line.as_bytes()[b] == b'{')
+        .any(|&b| {
+            let mut header = line[..=b].to_owned();
+            for &(f, inside, result) in types.iter().filter(|t| t.0 < b) {
+                if result || inside.is_some_and(|p| !open.contains(&p)) {
+                    // Not blanks: `)     (name T)` would read as named results.
+                    header.replace_range(f..f + 4, "type");
+                }
+            }
+            opener_bindings(Kind::Go, header.trim(), 0, name, &mut Vec::new())
+        })
 }
 /// Whether what `before` ends in writes a return type: the nearest `:` in front, at its bracket
 /// depth, follows the `)` of a parameter list, `): A | B`. A `:` after a key, `onClick: e =>`,

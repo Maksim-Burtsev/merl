@@ -132,7 +132,7 @@ pub fn check(app: &mut App, action: Option<&str>) {
     app.message = match begin(app) {
         Ok(()) => tick,
         // The next lesson goes on from where this one left off.
-        Err(e) => format!("{tick}  {e:#}"),
+        Err(e) => format!("{tick}  {}", crate::app::error_text(&e)),
     };
 }
 

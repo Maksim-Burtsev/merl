@@ -7,7 +7,7 @@ def next(steps):
 
 def advance(steps):
     return next(steps)
-    #      ^ d: picker shop/stepper.py:4, shop/warehouse.py:11
+    #      ^ d: shop/stepper.py:4
 
 
 def peek(steps):

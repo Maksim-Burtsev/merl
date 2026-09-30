@@ -37,7 +37,7 @@ class Basket:
             return text.upper()
 
         return _fmt(self.owner)
-        #      ^ d: picker shop/basket.py:36, shop/warehouse.py:14; want shop/basket.py:36 (#338)
+        #      ^ d: shop/basket.py:36
         #                ^ d: shop/basket.py:16
 
 
