@@ -1605,11 +1605,21 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
 /// Whether `name` at byte `at` of a TypeScript or JavaScript `line` stands in the body of an arrow
 /// function on that line whose parameters name it (#531): `xs.map(x => x * 2)`,
 /// `((x: T) => x.a)`. The body runs from the `=>` to the `,`, `;` or closing bracket of the
-/// arrow's own level. The parameter itself, and a use past the body, are not in it.
+/// arrow's own level, to an `=` there (what came before was a type, `f: (x: T) => void = …`), or
+/// to the `:` of a ternary the arrow is a branch of. The parameter itself, and a use past the
+/// body, are not in it. A parameter list in a type binds nothing: a return type, a type argument.
 pub fn ts_arrow_binds(line: &str, name: &str, at: usize) -> bool {
     let Ok(word) = Regex::new(&format!(r"(?:^|[^\w$.]){}\b", regex::escape(name))) else {
         return false;
     };
+    // A string left open at the end of the line, an apostrophe in JSX text more often than not,
+    // has swallowed brackets: where the body ends is unknown.
+    // ponytail: a pair of apostrophes in JSX text still reads as a string; reading JSX text is
+    // the way out.
+    if code(Kind::TsJs, &format!("{line}\n)")).last() != Some((line.len() + 1, b')')) {
+        return false;
+    }
+    let b = line.as_bytes();
     let bytes: Vec<(usize, u8)> = code(Kind::TsJs, line)
         .take_while(|&(_, c)| c != 0)
         .collect();
@@ -1645,17 +1655,22 @@ pub fn ts_arrow_binds(line: &str, name: &str, at: usize) -> bool {
         .filter(|&decl| decl < at)
         .any(|decl| {
             let start = arrow(decl + name.len(), false).or_else(|| {
-                let open = unclosed(decl).filter(|&p| line.as_bytes()[p] == b'(')?;
+                let open = unclosed(decl).filter(|&p| b[p] == b'(')?;
+                let before = line[..open].trim_end();
+                if return_type(before) || before.ends_with('<') {
+                    return None;
+                }
                 arrow(close_of(Kind::TsJs, line, open)?, true)
             });
             let Some(start) = start else {
                 return false;
             };
-            let mut depth = 0i32;
+            // `ternary` counts the `?` of the body still waiting for their `:`.
+            let (mut depth, mut ternary) = (0i32, 0i32);
             let end = bytes
                 .iter()
                 .skip_while(|&&(i, _)| i < start + 2)
-                .find(|&&(_, c)| match c {
+                .find(|&&(i, c)| match c {
                     b'(' | b'[' | b'{' => {
                         depth += 1;
                         false
@@ -1665,6 +1680,21 @@ pub fn ts_arrow_binds(line: &str, name: &str, at: usize) -> bool {
                         depth < 0
                     }
                     b',' | b';' => depth == 0,
+                    b'?' if depth == 0 => {
+                        // `?.` and `??` are no ternary.
+                        let chain = b[i - 1] == b'?' || matches!(b.get(i + 1), Some(b'.' | b'?'));
+                        ternary += i32::from(!chain);
+                        false
+                    }
+                    b':' if depth == 0 => {
+                        ternary -= 1;
+                        ternary < 0
+                    }
+                    // An assignment; `=>`, a comparison and a JSX attribute, `key={x}`, are not.
+                    b'=' if depth == 0 => {
+                        !b"=<>!".contains(&b[i - 1])
+                            && !b.get(i + 1).is_some_and(|c| b"=>{\"'".contains(c))
+                    }
                     _ => false,
                 })
                 .map_or(line.len(), |&(i, _)| i);
@@ -1839,20 +1869,44 @@ fn opener_bindings(
 }
 /// Whether `name` at byte `at` of a Go `line` is bound by a header on that same line whose block
 /// the cursor is in (#524): the parameter of `func cut(xs []int, n int) []int { return xs[n:] }`,
-/// as it is when the body is on lines of its own.
+/// as it is when the body is on lines of its own. A `func(...)` type in the signature, a
+/// parameter's or a result's, names nothing in the body.
 pub fn go_binds_here(line: &str, name: &str, at: usize) -> bool {
-    let mut open = Vec::new();
+    // The brackets open at the cursor, and every `func` before it that writes a type: inside a
+    // bracket closed since, a parameter list's or the results', or right behind one, `) func(`.
+    let (mut open, mut types) = (Vec::new(), Vec::new());
+    let ident = |c: &u8| c.is_ascii_alphanumeric() || *c == b'_';
+    let mut last = b' ';
     for (i, c) in code(Kind::Go, &line[..at]) {
         match c {
-            b'{' => open.push(i),
-            b'}' => {
+            b'(' | b'[' | b'{' => open.push(i),
+            b')' | b']' | b'}' => {
                 open.pop();
+            }
+            b'f' if line[i..].starts_with("func")
+                && !(i > 0 && ident(&line.as_bytes()[i - 1]))
+                && !line.as_bytes().get(i + 4).is_some_and(ident) =>
+            {
+                types.push((i, open.last().copied(), matches!(last, b')' | b']')));
             }
             _ => {}
         }
+        if !c.is_ascii_whitespace() {
+            last = c;
+        }
     }
     open.iter()
-        .any(|&b| opener_bindings(Kind::Go, line[..=b].trim(), 0, name, &mut Vec::new()))
+        .filter(|&&b| line.as_bytes()[b] == b'{')
+        .any(|&b| {
+            let mut header = line[..=b].to_owned();
+            for &(f, inside, result) in types.iter().filter(|t| t.0 < b) {
+                if result || inside.is_some_and(|p| !open.contains(&p)) {
+                    // Not blanks: `)     (name T)` would read as named results.
+                    header.replace_range(f..f + 4, "type");
+                }
+            }
+            opener_bindings(Kind::Go, header.trim(), 0, name, &mut Vec::new())
+        })
 }
 /// Whether what `before` ends in writes a return type: the nearest `:` in front, at its bracket
 /// depth, follows the `)` of a parameter list, `): A | B`. A `:` after a key, `onClick: e =>`,
