@@ -1,0 +1,16 @@
+# ruby-d: d in Ruby (#365). A call with no receiver lands on the method of the class it is made
+# in, before a namesake of another class; a parameter lands on its `def`, where it was a picker of
+# every method's local of that name. The file is written here, so the project keeps its files.
+merl README.md
+wait README.md  1:1
+run mkdir -p app/ruby && printf '%s\n' 'class SessionsController' '  def on_success(user)' '    track(user)' '  end' '' '  def track(user)' '    user' '  end' 'end' '' 'class AdminController' '  def show' '    user = User.find(1)' '    track(user)' '  end' '' '  def track(user)' '    nil' '  end' 'end' > app/ruby/sessions.rb
+merl app/ruby/sessions.rb
+wait class SessionsController
+key t /
+type track(
+key Enter d
+wait track → SessionsController.track (via SessionsController)
+key [ /
+type user)
+key Enter d
+wait (local)

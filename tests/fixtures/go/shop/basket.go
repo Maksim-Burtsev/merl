@@ -11,11 +11,11 @@ type Basket struct {
 func NewBasket(t Tariff) *Basket {
 	return &Basket{Tariff: t, coupon: &Coupon{}}
 	//       ^ d: shop/basket.go:5
-	//             ^ d: shop/pricing.go:23; want shop/basket.go:6 (#327)
+	//             ^ d: shop/basket.go:6
 }
 
 func (b *Basket) Gross() Money {
-//                       ^ d: none; want shop/pricing.go:20 (#326)
+//                       ^ d: shop/pricing.go:20
 	return Money(Discount(b.Tariff.Rate()))
 	//           ^ d: shop/pricing.go:35
 	//                      ^ d: shop/basket.go:6
@@ -31,7 +31,7 @@ func (b *Basket) Bonus() int {
 func DescribeAny(p interface{ Describe() string }) string {
 	return p.Describe() + Describe("x")
 	//       ^ d: picker shop/pricing.go:28, shop/pricing.go:33
-	//                    ^ d: picker shop/pricing.go:28, shop/pricing.go:33, shop/warehouse.go:15; want shop/warehouse.go:15 (#332)
+	//                    ^ d: shop/warehouse.go:15
 }
 
 func Restock(Discount int) int {
@@ -49,13 +49,13 @@ func Overweight(grams int) bool {
 
 func Currency() string {
 	return Euro + Dollar
-	//     ^ d: none; want shop/pricing.go:11 (#326)
-	//            ^ d: cart/cart.go:25; want shop/pricing.go:12 (#326)
+	//     ^ d: shop/pricing.go:11
+	//            ^ d: shop/pricing.go:12
 }
 
 func Fallback() Tariff {
 	return DefaultTariff
-	//     ^ d: none; want shop/pricing.go:16 (#326)
+	//     ^ d: shop/pricing.go:16
 }
 
 func PriceOf(p Priced) int {
@@ -72,7 +72,16 @@ scan:
 			continue scan
 		}
 		count++
-		//^ d: picker shop/basket.go:68, cart/cart.go:28, results.go:5; want shop/basket.go:68 (#330)
+		//^ d: shop/basket.go:68
 	}
 	return count
+}
+
+func Quota(quota int) int {
+outer:
+	for i := 0; i < quota; i++ {
+		continue outer
+	}
+	return quota
+	//     ^ d: shop/basket.go:80
 }

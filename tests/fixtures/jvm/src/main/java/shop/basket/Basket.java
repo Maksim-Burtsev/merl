@@ -48,7 +48,7 @@ public class Basket implements Priced {
 
     public int restock(int gross) {
         return gross + WEIGHT_LIMIT;
-        //     ^ d: src/main/java/shop/basket/Basket.java:30; want src/main/java/shop/basket/Basket.java:49 (#376)
+        //     ^ d: src/main/java/shop/basket/Basket.java:49
         //             ^ d: src/main/java/shop/basket/Basket.java:17
     }
 
@@ -63,17 +63,18 @@ public class Basket implements Priced {
         //                    ^ d: picker src/main/kotlin/shop/warehouse/Warehouse.kt:4, src/main/kotlin/shop/warehouse/Warehouse.kt:8; want src/main/kotlin/shop/warehouse/Warehouse.kt:8 (#367)
         return courier.label() + owner;
         //             ^ d: src/main/kotlin/shop/warehouse/Warehouse.kt:9
-        //                       ^ d: picker src/main/java/shop/basket/Basket.java:23, src/main/java/shop/legacy/Settings.java:6; want src/main/java/shop/basket/Basket.java:23 (#376)
+        //                       ^ d: src/main/java/shop/basket/Basket.java:23
     }
 
     public int receipt(Receipt r, Offer o) {
         return r.total() + (o == Offer.CUT ? 1 : 0);
         //       ^ d: none; want src/main/java/shop/pricing/Receipt.java:5 (#367)
-        //                             ^ d: none; want src/main/java/shop/pricing/Offer.java:5 (#457)
+        //                             ^ d: src/main/java/shop/pricing/Offer.java:5
     }
 
     public java.util.function.ToIntFunction<Tariff> rater() {
         return Tariff::rate;
-        //             ^ d: picker src/main/java/shop/pricing/Coupon.java:4, src/main/java/shop/pricing/Tariff.java:5; want src/main/java/shop/pricing/Tariff.java:5 (#362)
+        //             ^ d: src/main/java/shop/pricing/Tariff.java:5
+        // status: rate → Tariff.rate (via Tariff)
     }
 }

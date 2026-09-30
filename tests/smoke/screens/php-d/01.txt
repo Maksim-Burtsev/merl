@@ -1,0 +1,57 @@
+wait final class Receipt
+┌orders──────────────────────┐ 1 <?php
+│▸ .github                   │ 2
+│▸ .venv                     │ 3 namespace Billing;
+│▸ app                       │ 4
+│▸ data                      │ 5 abstract class Document
+│▸ deploy                    │ 6 {
+│▸ docs                      │ 7     public const PAPER = 'A4';
+│▾ scripts                   │ 8
+│  ▸ payouts                 │ 9     protected function render(string $format): string
+│    invoices.php            │10     {
+│    refund_by_hand.py       │11         return "{$format}:" . static::PAPER;
+│▸ tests                     │12     }
+│▸ web                       │13 }
+│▸ worker                    │14
+│  .env                      │15 trait Numbered
+│  .gitignore                │16 {
+│  docker-compose.yml        │17     protected function number(): string
+│  Dockerfile                │18     {
+│  Makefile                  │19         return sprintf('INV-%05d', $this->id);
+│  pyproject.toml            │20     }
+│  README.md                 │21 }
+│                            │22
+│                            │23 final class Receipt
+│                            │24 {
+│                            │25     public function render(string $format): string
+│                            │26     {
+│                            │27         return "receipt:{$format}";
+│                            │28     }
+│                            │29
+│                            │30     public function number(): string
+│                            │31     {
+│                            │32         return 'R-1';
+│                            │33     }
+│                            │34 }
+│                            │35
+│                            │36 final class Invoice extends Document
+│                            │37 {
+│                            │38     use Numbered;
+│                            │39
+│                            │40     public function __construct(private readonly int $id)
+│                            │41     {
+│                            │42     }
+│                            │43
+│                            │44     public function pdf(): string
+│                            │45     {
+│                            │46         return $this->number() . ' ' . $this->render('pdf');
+│                            │47     }
+│                            │48 }
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+scripts/invoices.php  1:1  [code]                                                                                                                                                 ? help
+cursor (x,y,shown) 33,0,1

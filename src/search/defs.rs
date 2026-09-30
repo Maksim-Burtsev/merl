@@ -1,6 +1,7 @@
 //! The line patterns `d` looks a declaration up with, per kind and per word, and the
 //! reason a candidate is offered under.
 
+use super::php::{php_constants, php_method, php_namespace_line, php_properties, php_tags};
 use super::*;
 use regex::Regex;
 use std::path::{Path, PathBuf};
@@ -28,6 +29,15 @@ pub enum Reason {
     /// The file of the module of the project an import binds the word to: `views` in `from
     /// shop import views`.
     Module(String),
+    /// An item the file on screen declares where a bare Rust name sees it: no other file's item
+    /// is in sight without a `use` or a path (#363).
+    File,
+    /// The method of the one trait every candidate of `x.word()` declares or implements
+    /// (#358): whatever `x` is, the call reaches that declaration.
+    Trait(String),
+    /// What a named argument, a literal's key or a JSX attribute names (#316): `parameter of
+    /// followTopic`, `field of Opts`.
+    Label(String),
 }
 impl Reason {
     /// Whether the reason alone picks the declaration. `by name` only says the name matched, so
@@ -45,6 +55,9 @@ impl std::fmt::Display for Reason {
             Self::Implementation(member) => write!(f, "implementations of {member}"),
             Self::Local => write!(f, "local"),
             Self::Module(file) => write!(f, "module {file}"),
+            Self::File => write!(f, "in this file"),
+            Self::Trait(name) => write!(f, "via trait {name}"),
+            Self::Label(what) => write!(f, "{what}"),
         }
     }
 }
@@ -54,6 +67,184 @@ pub struct Candidate {
     pub hit: Hit,
     pub reason: Reason,
 }
+/// Python's builtins (#336), `dir(builtins)` of 3.13 without the module's own dunders and
+/// `super`, which `d` reads as the class above: compiled into the interpreter, with no source on
+/// the machine to land on.
+pub const PYTHON_BUILTINS: &[&str] = &[
+    "ArithmeticError",
+    "AssertionError",
+    "AttributeError",
+    "BaseException",
+    "BaseExceptionGroup",
+    "BlockingIOError",
+    "BrokenPipeError",
+    "BufferError",
+    "BytesWarning",
+    "ChildProcessError",
+    "ConnectionAbortedError",
+    "ConnectionError",
+    "ConnectionRefusedError",
+    "ConnectionResetError",
+    "DeprecationWarning",
+    "EOFError",
+    "Ellipsis",
+    "EncodingWarning",
+    "EnvironmentError",
+    "Exception",
+    "ExceptionGroup",
+    "False",
+    "FileExistsError",
+    "FileNotFoundError",
+    "FloatingPointError",
+    "FutureWarning",
+    "GeneratorExit",
+    "IOError",
+    "ImportError",
+    "ImportWarning",
+    "IndentationError",
+    "IndexError",
+    "InterruptedError",
+    "IsADirectoryError",
+    "KeyError",
+    "KeyboardInterrupt",
+    "LookupError",
+    "MemoryError",
+    "ModuleNotFoundError",
+    "NameError",
+    "None",
+    "NotADirectoryError",
+    "NotImplemented",
+    "NotImplementedError",
+    "OSError",
+    "OverflowError",
+    "PendingDeprecationWarning",
+    "PermissionError",
+    "ProcessLookupError",
+    "PythonFinalizationError",
+    "RecursionError",
+    "ReferenceError",
+    "ResourceWarning",
+    "RuntimeError",
+    "RuntimeWarning",
+    "StopAsyncIteration",
+    "StopIteration",
+    "SyntaxError",
+    "SyntaxWarning",
+    "SystemError",
+    "SystemExit",
+    "TabError",
+    "TimeoutError",
+    "True",
+    "TypeError",
+    "UnboundLocalError",
+    "UnicodeDecodeError",
+    "UnicodeEncodeError",
+    "UnicodeError",
+    "UnicodeTranslateError",
+    "UnicodeWarning",
+    "UserWarning",
+    "ValueError",
+    "Warning",
+    "ZeroDivisionError",
+    "__build_class__",
+    "__debug__",
+    "__import__",
+    "abs",
+    "aiter",
+    "all",
+    "anext",
+    "any",
+    "ascii",
+    "bin",
+    "bool",
+    "breakpoint",
+    "bytearray",
+    "bytes",
+    "callable",
+    "chr",
+    "classmethod",
+    "compile",
+    "complex",
+    "copyright",
+    "credits",
+    "delattr",
+    "dict",
+    "dir",
+    "divmod",
+    "enumerate",
+    "eval",
+    "exec",
+    "exit",
+    "filter",
+    "float",
+    "format",
+    "frozenset",
+    "getattr",
+    "globals",
+    "hasattr",
+    "hash",
+    "help",
+    "hex",
+    "id",
+    "input",
+    "int",
+    "isinstance",
+    "issubclass",
+    "iter",
+    "len",
+    "license",
+    "list",
+    "locals",
+    "map",
+    "max",
+    "memoryview",
+    "min",
+    "next",
+    "object",
+    "oct",
+    "open",
+    "ord",
+    "pow",
+    "print",
+    "property",
+    "quit",
+    "range",
+    "repr",
+    "reversed",
+    "round",
+    "set",
+    "setattr",
+    "slice",
+    "sorted",
+    "staticmethod",
+    "str",
+    "sum",
+    "tuple",
+    "type",
+    "vars",
+    "zip",
+];
+/// The Python builtin types whose members `d` knows have no source (#336), as a type is written:
+/// `list[int]` is `list`, and `typing`'s `List` is not one of them.
+pub const PYTHON_BUILTIN_TYPES: &[&str] = &[
+    "str",
+    "bytes",
+    "bytearray",
+    "int",
+    "float",
+    "complex",
+    "bool",
+    "list",
+    "dict",
+    "set",
+    "frozenset",
+    "tuple",
+    "object",
+    "type",
+    "range",
+    "memoryview",
+    "slice",
+];
 /// Line patterns that declare `word` in a file of `kind`, or an empty list when there is no rule
 /// for it. In Terraform `word` is the dotted address under the cursor.
 pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
@@ -70,22 +261,32 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^type\s+{w}\b"),
             format!(r"^(var|const)\s+{w}\b"),
             format!(r"^\s*{w}\s*:="),
+            // A member of a column-0 `const (`, `var (` or `type (` block (#326): `W …`, `W = …`,
+            // `A, W T`, `W[T any] …`, a bare iota `W`. [`declares_where`] checks the opener.
+            // ASCII classes: Unicode's `\w` makes each grep build a DFA many times the size.
+            format!(
+                r"^\t(?:[A-Za-z_][A-Za-z0-9_]*[ \t]*,[ \t]*)*{w}(?:[ \t]*,[ \t]*[A-Za-z_][A-Za-z0-9_]*)*(?:[ \t]*=[^=]|[ \t]+[^ \t:=]|\[|[ \t]*$)"
+            ),
         ],
-        // `impl X` is a use of `X`, not its definition, so it is left out on purpose.
+        // `impl X` is a use of `X`, not its definition, so it is left out on purpose. A `let` is
+        // a local of its block, which [`bindings`] reads: another function's never declares the
+        // word (#353).
         Kind::Rust => {
             let vis = r#"^\s*(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*"#;
             vec![
                 format!(r"{vis}(?:fn|struct|enum|union|trait|type|const|static|mod)\s+{w}\b"),
                 format!(r"^\s*macro_rules!\s+{w}\b"),
-                format!(r"^\s*let\s+(?:mut\s+)?{w}\b"),
             ]
         }
         Kind::TsJs => {
             let pre = r"^\s*(?:(?:export|default|declare|abstract|async)\s+)*";
             let mut patterns = vec![
                 format!(
-                    r"{pre}(?:function\*?|class|interface|type|(?:const\s+)?enum|namespace|module)\s+{w}\b"
+                    r"{pre}(?:function\*?|class|interface|(?:const\s+)?enum|namespace|module)\s+{w}\b"
                 ),
+                // An alias goes on as `=` or `<`: `type NodeSpec,` in a wrapped import list is
+                // one of its names (#343).
+                format!(r"{pre}type\s+{w}\s*[=<]"),
                 // Arrow functions assigned to a name land here too.
                 format!(r"{pre}(?:const|let|var)\s+{w}\b"),
             ];
@@ -103,7 +304,11 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(
                     r"{mods}fun\s+(?:<[^>]*>\s*)?(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?{w}\s*\("
                 ),
-                format!(r"{mods}(?:val|var)\s+{w}\b"),
+                // A property, with an extension's receiver in front of its name: the receiver
+                // itself, `Topic` in `val Topic.testTag`, is no declaration (#362).
+                format!(
+                    r"{mods}(?:val|var)\s+(?:<[^>]*>\s*)?(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?{w}(?:[^\w.]|$)"
+                ),
                 // Java: a constructor, behind at least one modifier. With nothing in front,
                 // `Card(title) {` is a Kotlin call with a trailing lambda and `new Runnable() {`
                 // an anonymous class, so a bare name before `(` is never a declaration here; a
@@ -115,9 +320,9 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             ]
         }
         // Ruby declares everything on one line. A constant lives indented inside its class, so
-        // the assignment rule is not anchored at column zero as Python's is, and it takes the
-        // `@`/`@@` of an instance or class variable with it. The Rails-style DSL (`scope`,
-        // `has_many`, `define_method`) has no rule.
+        // the assignment rule is not anchored at column zero as Python's is. An instance or class
+        // variable is its own word, `@name` or `@@name`, and its assignment declares nothing else
+        // (#383). The Rails-style DSL (`scope`, `has_many`, `define_method`) has no rule.
         // `name?`, `name!` and the setter `name=` are methods of their own (#387): the word
         // carries its suffix, and a bare `name` is none of them.
         Kind::Ruby => {
@@ -135,13 +340,13 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 // the name sits in the list.
                 Some(name) => [method, vec![attr("writer", &regex::escape(name))]].concat(),
                 None if word.ends_with(['?', '!']) => method,
+                None if word.starts_with('@') => vec![ruby_assignment(word)],
                 None => [
                     method,
                     vec![
                         // `class A::B` declares `B`, not `A`.
                         format!(r"^\s*(?:class|module)\s+(?:[\w:]+::)?{w}(?:[^\w:]|$)"),
-                        // An assignment, `||=` included; `==`, `=~` and `=>` are not one.
-                        format!(r"^\s*@{{0,2}}{w}\s*(?:\|\|)?=($|[^=~>])"),
+                        ruby_assignment(word),
                         attr("reader", &w),
                     ],
                 ]
@@ -226,15 +431,16 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(
                     r"{mods}(?:class|struct|enum|protocol|actor|extension|typealias|associatedtype)\s+`?{w}\b"
                 ),
-                // A function, past its generic parameters.
-                format!(r"{mods}func\s+`?{w}\s*[(<]"),
+                // A function, past its generic parameters. A name in backticks, as a keyword
+                // has to be written, is the name (#463).
+                format!(r"{mods}func\s+`?{w}`?\s*[(<]"),
                 format!(r"{mods}(?:let|var)\s+`?{w}\b"),
                 // An enum case, alone or among several on one line, with the associated values or
                 // the raw value it can carry. A `case .open:` or a `case let .open(x):` of a
                 // `switch` is a pattern, and a `case open:` there matches against a constant, so
                 // what follows the name must not be a `:`.
                 format!(
-                    r"^\s*(?:indirect\s+)?case\s+(?:\w+(?:\([^)]*\))?\s*,\s*)*{w}\s*(?:\(|=[^=]|,|$)"
+                    r"^\s*(?:indirect\s+)?case\s+(?:`?\w+`?(?:\([^)]*\))?\s*,\s*)*`?{w}`?\s*(?:\(|=[^=]|,|$)"
                 ),
             ];
             // `init` and `subscript` are keywords, so the word under the cursor is the keyword
@@ -250,27 +456,24 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         // to a property the class declares elsewhere.
         Kind::Php => {
             let mods = php_mods!();
-            let mods_one = php_mods!("+");
+            let [property, promoted] = php_properties(&w);
+            let [property_tag, method_tag] = php_tags(&w);
+            let [constant, case] = php_constants(&w);
             vec![
-                // A function or a method; `&` returns by reference.
-                format!(r"{mods}function\s+&?\s*{w}\s*\("),
+                php_method(&w),
                 format!(r"{mods}(?:class|interface|trait|enum)\s+{w}\b"),
-                format!(r"^\s*namespace\s+(?:[\w\\]+\\)?{w}\s*[;{{]"),
-                // A constant: the `const` of a class or a file, and the `define()` of a global.
-                format!(r"{mods}const\s+{w}\b"),
+                php_namespace_line(&w),
+                constant,
+                // The `define()` of a global.
                 format!(r#"^\s*define\s*\(\s*['"]{w}['"]"#),
-                // An enum case. A `case X:` of a `switch` matches against a constant, so what
-                // follows the name must not be a `:`.
-                format!(r"^\s*case\s+{w}\s*(?:=[^=]|;|$)"),
-                // A property, with the type it can carry between its modifiers and the `$`.
-                format!(r"{mods_one}(?:\??[\w\\|]+\s+)?\${w}\b"),
-                // A constructor parameter promoted to one, wherever it sits in the list.
-                format!(
-                    r"function\s+__construct\s*\(.*\b(?:public|private|protected|readonly)\s+(?:\??[\w\\|]+\s+)?\${w}\b"
-                ),
+                case,
+                property,
+                promoted,
                 // An assignment that opens a line, `.=` and `??=` included. `==` compares, `=>`
                 // is a key in an array literal, and `$rows['x'] =` writes to an element.
                 format!(r"^\s*\${w}\s*(?:\.|\?\?|\+)?=(?:$|[^=>])"),
+                property_tag,
+                method_tag,
             ]
         }
         // Lua declares with `function` and `local`, and with nothing else: a bare `name = value`
@@ -292,10 +495,11 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         // which is which, the way a C++ overload set is offered.
         Kind::Elixir => {
             let mut patterns = vec![
-                // Every `def` form. A name can end in `?` or `!`, and a clause is written
-                // `def name(x) do`, `def name do` or `def name, do: x`.
+                // Every `def` form. A clause is written `def name(x) do`, `def name do` or
+                // `def name, do: x`. A trailing `?` or `!` is part of the word (#459), so
+                // `ship` never finds `def ship!`.
                 format!(
-                    r"^\s*def(?:p|macro|macrop|guard|guardp|delegate)?\s+{w}[!?]?\s*(?:\(|,|do\b|$)"
+                    r"^\s*def(?:p|macro|macrop|guard|guardp|delegate)?\s+{w}\s*(?:\(|,|do\b|$)"
                 ),
                 // A module or a protocol, under the namespace it is written with. The word has
                 // to be the last part: `defmodule MyApp.Repo` declares `MyApp.Repo` and nothing
@@ -363,16 +567,17 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         Kind::Sql => {
             let create = sql_create!();
             vec![
-                format!(r#"{create}(?:{SQL_NAME}\.)?(?:"{w}"|`{w}`|{w}\b)"#),
-                // A common table expression: opening the `WITH`, or continuing it after the
-                // comma that follows the previous one's closing `)`.
-                format!(r"(?i)^\s*(?:\)\s*)?(?:WITH\s+(?:RECURSIVE\s+)?|,\s*)?{w}\s+AS\s*\("),
+                // The name, not a schema: `shop.tariffs` declares `tariffs`, so no `.` may follow (#471).
+                format!(r#"{create}(?:{SQL_NAME}\.)?(?:"{w}"|`{w}`|{w}\b)(?:[^.]|$)"#),
+                sql_cte(word),
             ]
         }
-        // A target, alone or among others before the colon (`build test: deps`), or a variable.
+        // A target, alone or among others before the colon (`build test: deps`), a variable, or
+        // a multi-line one, `define NAME` … `endef`, with the operator GNU make allows after it.
         Kind::Make => vec![
             format!(r"^([^:=#\s]+\s+)*{w}(\s+[^:=#\s]+)*\s*::?([^=:]|$)"),
             format!(r"^\s*(export\s+|override\s+)?{w}\s*[:?!]{{0,3}}="),
+            format!(r"^\s*((export|override)\s+)*define\s+{w}\s*(\+=|[:?!]{{0,3}}=)?\s*(#|$)"),
         ],
         Kind::Terraform => terraform_patterns(word),
         // `FROM image AS name`, with any flags before the image. Stage names ignore case.
@@ -724,6 +929,36 @@ pub fn c_parameter(text: &str, line: usize, word: &str) -> bool {
         .and_then(|l| l.split_once('('))
         .is_some_and(|(_, params)| names(params, word))
 }
+/// GitLab CI's `stage: build` names an entry of the file's top-level `stages:` list, not a job
+/// named after its stage (#473): the 1-based lines listing `word`, in the flow form (`stages:
+/// [build, test]`) or the block form (`- build` under `stages:`), none when the file lists no
+/// such stage. `None` when `before`, the line in front of the word, is no `stage:` key.
+///
+/// ponytail: a flow list wrapped over several lines is not read.
+pub fn stage_entries(before: &str, text: &str, word: &str) -> Option<Vec<usize>> {
+    let key = regex::Regex::new(r#"^\s*stage:\s*["']?$"#).expect("a fixed pattern is valid");
+    if !key.is_match(before) {
+        return None;
+    }
+    let w = regex::escape(word);
+    let flow = regex::Regex::new(&format!(r#"^stages:\s*\[(.*,)?\s*["']?{w}["']?\s*[,\]]"#))
+        .expect("an escaped name keeps the pattern valid");
+    let entry = regex::Regex::new(&format!(r#"^\s*-\s*["']?{w}["']?\s*(#.*)?$"#))
+        .expect("an escaped name keeps the pattern valid");
+    let opens = regex::Regex::new(r"^stages:\s*(#.*)?$").expect("a fixed pattern is valid");
+    let mut found = Vec::new();
+    let mut in_block = false;
+    for (i, l) in text.lines().enumerate() {
+        // The block runs while its lines are indented, entries at the key's own column, blank or
+        // comments.
+        in_block &= l.trim().is_empty() || l.starts_with([' ', '\t', '-', '#']);
+        if in_block && entry.is_match(l) || flow.is_match(l) {
+            found.push(i + 1);
+        }
+        in_block |= opens.is_match(l);
+    }
+    Some(found)
+}
 /// [`member_patterns`] and, in Go, the method lines of an interface, which carry no receiver:
 /// every form in which a type declares a member called `word`.
 pub fn member_or_signature(kind: Kind, word: &str) -> Option<Vec<String>> {
@@ -742,6 +977,11 @@ pub fn member_or_signature(kind: Kind, word: &str) -> Option<Vec<String>> {
     }
     Some(patterns)
 }
+/// A Ruby assignment of `word`, `||=` included; `==`, `=~` and `=>` are not one. The word
+/// carries its sigil: `@name =` assigns `@name`, never `name` (#383).
+pub fn ruby_assignment(word: &str) -> String {
+    format!(r"^\s*{}\s*(?:\|\|)?=($|[^=~>])", regex::escape(word))
+}
 /// Line patterns that declare `word` as a member of a class, an interface, an object literal or
 /// a receiver type: what `x.word` can reach when `x` is a value. A local, a module-level name or a
 /// type is not a member, so those rules are left out. `None` for a kind whose members have no
@@ -757,7 +997,8 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
             vec![
                 // A class or object-literal method: `foo(` at the end of the line, `foo(..) {`,
                 // or an empty `foo(): void {}`. A `;` on the line means it was a call statement.
-                format!(r"{mods}{w}\s*(?:<.*>)?\((?:[^;]*\{{\s*\}}?)?\s*$"),
+                // An optional one, `foo?(` over its parameters over `): void;` (#343).
+                format!(r"{mods}{w}\??\s*(?:<.*>)?\((?:[^;]*\{{\s*\}}?)?\s*$"),
                 // A method whose type parameters prettier wrapped: `route<` over `  T,` over
                 // `>(path: T): this {` (#100).
                 format!(r"{mods}{w}\??\s*<\s*$"),
@@ -857,7 +1098,9 @@ fn terraform_patterns(address: &str) -> Vec<String> {
 /// patterns asks it, so `d` and `u` agree on what declares (#419). Where the line alone cannot
 /// tell, the lines above it can: a Terraform local is `x = ...` directly inside `locals { }`,
 /// as every other attribute is inside its block, and an indented GraphQL line is a field or an
-/// enum value directly inside a type and a selection anywhere else. `lines` reads the file, and
+/// enum value directly inside a type and a selection anywhere else. An indented Go line that is
+/// no `W :=` is a member of a grouped `const (`, `var (` or `type (` only directly inside one at
+/// column 0: a struct's field and a line inside a function are not. `lines` reads the file, and
 /// only for those.
 pub fn declares_where<'a, S: AsRef<str> + 'a>(
     kind: Kind,
@@ -868,6 +1111,18 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
 ) -> bool {
     match kind {
         Kind::Graphql => !line_text.starts_with([' ', '\t']) || graphql_member(lines(), line),
+        Kind::Go if line_text.starts_with([' ', '\t']) => {
+            let local = line_text
+                .trim_start()
+                .strip_prefix(word)
+                .is_some_and(|rest| rest.trim_start().starts_with(":="));
+            local || {
+                let lines = lines();
+                ["const (", "var (", "type ("]
+                    .iter()
+                    .any(|o| directly_inside(lines, line, o))
+            }
+        }
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
 }
@@ -876,6 +1131,52 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
 /// attribute.
 pub fn def_block(kind: Kind, word: &str) -> Option<&'static str> {
     (kind == Kind::Terraform && word.starts_with("local.")).then_some("locals")
+}
+/// Whether the TypeScript declaration on 1-based `line` of `lines` is a local no other file sees
+/// (#339): a `const`, `let`, `var`, `function` or `class` inside a function, a method or a block.
+/// One at indent 0, behind `export`, or directly inside a `namespace`, `module` or `declare
+/// global` body is at the top of its module, and so is one directly inside a function that runs
+/// at load: an IIFE, `(function () {`, `!function () {`, `(() => {`, or a UMD wrapper's factory,
+/// `})(this, function (exports) {`, which is how a script or a bundle publishes its functions.
+/// Members are none of these forms.
+pub fn ts_nested_local<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
+    static DECL: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(
+            r"^\s+(?:(?:async|abstract|declare)\s+)*(?:const|let|var|function\*?|class)\s",
+        )
+        .unwrap()
+    });
+    static SCOPE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(
+            r"^\s*(?:export\s+)?(?:declare\s+)?(?:namespace|module)\s|^\s*(?:export\s+)?declare\s+global\b",
+        )
+        .unwrap()
+    });
+    static AT_LOAD: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(
+            r"^\s*(?:[;!+~]\s*\(?|\(\s*|\}\)?\s*\(.*,\s*\(?)(?:async\s+)?(?:function\b|(?:\([^)]*\)|\w+)\s*=>)",
+        )
+        .unwrap()
+    });
+    let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return false;
+    };
+    let target = target.as_ref();
+    if !DECL.is_match(target) {
+        return false;
+    }
+    let depth = indent(target);
+    !lines[..line - 1]
+        .iter()
+        .map(AsRef::as_ref)
+        .rev()
+        .find(|l| {
+            let t = l.trim_start();
+            !t.is_empty()
+                && indent(l) < depth
+                && (!t.starts_with(['}', ')', ']', '/', '*']) || AT_LOAD.is_match(l))
+        })
+        .is_some_and(|l| SCOPE.is_match(l) || AT_LOAD.is_match(l))
 }
 /// Whether 1-based `line` of `lines` sits directly inside a block whose first line starts with
 /// `opener`: the nearest non-blank line above it that is indented less. `terraform fmt` indents
@@ -891,6 +1192,108 @@ pub fn directly_inside<S: AsRef<str>>(lines: &[S], line: usize, opener: &str) ->
         .rev()
         .find(|l| !l.trim().is_empty() && indent(l) < depth)
         .is_some_and(|l| l.trim_start().starts_with(opener))
+}
+/// A common table expression named `word`: opening the `WITH`, or continuing it after the
+/// comma that follows the previous one's closing `)`. The match ends on the `(` of its body.
+pub fn sql_cte(word: &str) -> String {
+    let w = regex::escape(word);
+    format!(r"(?i)^\s*(?:\)\s*)?(?:WITH\s+(?:RECURSIVE\s+)?|,\s*)?{w}\s+AS\s*\(")
+}
+/// Whether byte `col` of 1-based `line` of `text` sees the common table expression `word` that
+/// 1-based `cte` opens (#472). A CTE lives in its own statement: after its `AS (…)` up to the
+/// `;` that ends it, and inside its own body too under `WITH RECURSIVE`. A bracket or a `;` in
+/// a comment or a `'string'` counts for nothing. `None` past its body when no `;` ends the
+/// statement (a script of T-SQL batches split by `GO`, say): where its scope ends is not known.
+pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize) -> Option<bool> {
+    let start = |l: usize| -> usize { text.split_inclusive('\n').take(l - 1).map(str::len).sum() };
+    let head = Regex::new(&sql_cte(word)).expect("an escaped name keeps the pattern valid");
+    let Some(m) = text.lines().nth(cte - 1).and_then(|l| head.find(l)) else {
+        return Some(false);
+    };
+    let (open, at, b) = (start(cte) + m.end() - 1, start(line) + col, text.as_bytes());
+    // The statement's first byte, the depth inside the body, and the body's closing `)`.
+    let (mut first, mut depth, mut close, mut i) = (0, None::<usize>, None, 0);
+    let mut ended = false;
+    while i < b.len() {
+        let skip = match &b[i..] {
+            [b'-', b'-', ..] => "\n",
+            [b'/', b'*', ..] => "*/",
+            [b'\'', ..] => "'",
+            [b'(', ..] if i >= open => {
+                depth = Some(depth.map_or(1, |d| d + 1));
+                ""
+            }
+            [b')', ..] if close.is_none() => {
+                depth = depth.map(|d| d - 1);
+                if depth == Some(0) {
+                    close = Some(i);
+                }
+                ""
+            }
+            [b';', ..] if i < open => {
+                first = i + 1;
+                ""
+            }
+            [b';', ..] => {
+                ended = true;
+                break;
+            }
+            _ => "",
+        };
+        i += match skip {
+            "" => 1,
+            s => text[i + 1..].find(s).map_or(b.len(), |n| n + 1 + s.len()),
+        };
+    }
+    let recursive = Regex::new(r"(?i)\bWITH\s+RECURSIVE\b").expect("a valid pattern");
+    let from = if recursive.is_match(&text[first..open]) {
+        open
+    } else {
+        close.unwrap_or(i)
+    };
+    match at > from {
+        false => Some(false),
+        true => ended.then_some(at <= i),
+    }
+}
+/// Whether the Zig declaration on 1-based `line` of `text` can be what a name elsewhere names
+/// (#469): no function or test holds it, whose local it would be — the blocks around it, told by
+/// indentation, lead to a container (the file, a `struct`, an `enum`, a `union`, an `opaque`)
+/// before any `fn` or `test`; a block the walk cannot name (`comptime {`) is looked past. From
+/// another file (`same_file` false) it is `pub`, since each file is a struct only whose `pub`
+/// members leave it. An `export` is a symbol of the whole program, the one thing its name can
+/// mean anywhere, and stays.
+pub fn zig_visible(text: &str, line: usize, same_file: bool) -> bool {
+    static CONTAINER: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(
+            r"\b(?:struct|enum|union|opaque)\s*(?:\((?:[^()]|\([^()]*\))*\))?\s*\{\s*(?://.*)?$",
+        )
+        .unwrap()
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return false;
+    };
+    // The header of each block around the line, innermost first; `) u32 {` closes a header
+    // wrapped over the lines above it, which starts back at its indent.
+    let (mut depth, mut wrapped) = (indent(target), false);
+    for l in lines[..line - 1].iter().rev() {
+        let code = uncommented(Kind::Zig, l);
+        let t = code.trim();
+        if t.is_empty() || indent(l) > depth || (indent(l) == depth && !wrapped) {
+            continue;
+        }
+        depth = indent(l);
+        if CONTAINER.is_match(t) {
+            break;
+        }
+        if ZIG_BODY.is_match(t) {
+            return false;
+        }
+        wrapped = t.starts_with(')');
+    }
+    let open = target.trim_start();
+    same_file || open.starts_with("pub ") || open.starts_with("export ")
 }
 /// Whether 1-based `line` of `lines`, a GraphQL file, declares a field or an enum value: the
 /// nearest line above it indented less, past blanks and `#` comments, opens a `type`, an

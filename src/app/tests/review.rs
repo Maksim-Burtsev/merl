@@ -1475,7 +1475,7 @@ fn a_deleted_line_is_refused_and_returned_to_every_way() {
     let p = a.picker.as_mut().expect("the uses of b");
     p.settle();
     let rows: Vec<String> = p.window(9).0.iter().map(|r| r.item.label.clone()).collect();
-    assert_eq!(rows, ["src/a.rs:-2: b"]);
+    assert_eq!(rows, ["src/a.rs:2: b"]);
     key(&mut a, KeyCode::Esc);
     key(&mut a, KeyCode::F(12));
     assert_eq!(

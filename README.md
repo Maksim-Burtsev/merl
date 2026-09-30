@@ -252,10 +252,23 @@ hours: no neon, and light themes that look like paper.
 
 ## Config
 
-There is none to write. `T` remembers your theme in `~/.config/merl/config.toml`, and
-`autosave_delay_ms` (1000) lives there too. In a review, `review_list_marks = false` stops `u`
-and `s` marking the rows on lines the branch changed, and `review_open_files_first = false` keeps
-the review's files from the top of `o`.
+There is none to write: every setting has a default, and `T` saves the theme you pick. To change
+the rest, edit `~/.config/merl/config.toml`.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `theme` | `"tokyonight-moon"` | The colour theme; `T` picks it and writes it here |
+| `autosave_delay_ms` | `1000` | How long after the last keystroke an edit is saved |
+| `review_panel_colours` | `true` | Review: the file panel dims the counts and adds the branch totals |
+| `review_list_marks` | `true` | Review: `u` and `s` mark the rows on lines the branch changed |
+| `review_open_files_first` | `true` | Review: `o` lists the review's files first |
+
+For example, to save sooner and keep review's rows unmarked:
+
+```toml
+autosave_delay_ms = 300
+review_list_marks = false
+```
 
 ## Terminals
 

@@ -13,6 +13,6 @@ class Depot
         return $courier->name . Offer::Cut->value;
         //               ^ d: src/Warehouse/Courier.php:7
         //                             ^ d: src/Pricing/Offer.php:8
-        //      ^ d: src/Basket.php:70; want src/Warehouse/Depot.php:10 (#464)
+        //      ^ d: src/Warehouse/Depot.php:10
     }
 }

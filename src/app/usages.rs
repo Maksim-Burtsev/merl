@@ -10,17 +10,27 @@ impl App {
     pub(super) fn usages(&mut self) {
         let extra = search::word_chars(self.kind(), false);
         // A Ruby name is read as `d` reads it (#387): `valid?` lists `valid?`, its own `def`
-        // first, and on `x.name = v` the setter `name=` declared by `attr_writer :name` does.
+        // first, and on `x.name = v` the setter `name=` declared by `attr_writer :name` does. So
+        // is an Elixir one, whose `?` or `!` is the name's too (#459).
+        // On a Ruby `@x` or `@@x` the word keeps its sigil, so that `@x =` declares it (#383).
         // On a line the branch deleted, the word is read there (#440).
         let Some(read) = self.on_drawn(|a| match a.kind() {
-            Some(Kind::Ruby) => a.definition_word(Some(Kind::Ruby)).map(|(_, w)| w),
+            k @ Some(Kind::Ruby | Kind::Elixir) => a.definition_word(k).map(|(r, w)| {
+                let lead = &a.line_str()[..r.start];
+                let sigil = lead.len() - lead.trim_end_matches('@').len();
+                match k == Some(Kind::Ruby) && (1..=2).contains(&sigil) {
+                    true => format!("{}{w}", &lead[lead.len() - sigil..]),
+                    false => w,
+                }
+            }),
             _ => a.word_under(extra),
         }) else {
             self.message = "no word under the cursor".into();
             return;
         };
         let (ranked, cut) = self.usage_hits(&read, self.rel_current().as_deref());
-        let word = read.strip_suffix('=').unwrap_or(&read);
+        let word = read.trim_start_matches('@');
+        let word = word.strip_suffix('=').unwrap_or(word);
         if ranked.is_empty() {
             self.message = format!("no usages of {word}");
             return;
@@ -99,7 +109,10 @@ impl App {
         // To grep `-` ends a word, so `db-main` also finds `db-main-2`: a hit goes when its own
         // file's language counts that `-` as part of a word and no occurrence in the line stands
         // whole (#281). In code `db-main-2` is a subtraction and stays.
-        // A Ruby setter `name=` is called as `x.name = v`: the rows hold its bare name.
+        // A Ruby setter `name=` is called as `x.name = v`: the rows hold its bare name. On a Ruby
+        // `@x` they are every `x`, as on a bare `x`, and its assignment `@x =` declares it too.
+        let ivar = word.starts_with('@').then_some(word);
+        let word = word.trim_start_matches('@');
         let text = word.strip_suffix('=').unwrap_or(word);
         let mut hits = self
             .grep(&regex::escape(text), true, false, |_| true)
@@ -123,16 +136,24 @@ impl App {
             extra.is_empty() || whole_at(&h.text, text, extra).is_some()
         });
         // What tells a declaration of the word from a use of it is `def_patterns`, and which
-        // ones apply is the hit file's own kind: one regex per kind met, built once.
+        // ones apply is the hit file's own kind: one regex per kind met, built once. A Rust `let`
+        // declares its local here too, though `d` reads it by scope and never by name (#353).
         let mut rules: HashMap<Option<Kind>, Option<Regex>> = HashMap::new();
         // A deleted line is read in the file at the base, apart from the file on disk.
         let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
         let mut lines: HashMap<(PathBuf, bool), Vec<String>> = HashMap::new();
-        let mut ranked: Vec<_> = hits
+        let mut marked: Vec<_> = hits
             .map(|h| {
                 let kind = search::kind_of(&h.path);
                 let re = rules.entry(kind).or_insert_with_key(|k| {
-                    let patterns = k.map(|k| search::def_patterns(k, word)).unwrap_or_default();
+                    let mut patterns = k.map(|k| search::def_patterns(k, word)).unwrap_or_default();
+                    if let (Some(Kind::Ruby), Some(ivar)) = (k, ivar) {
+                        patterns.push(search::ruby_assignment(ivar));
+                    }
+                    if *k == Some(Kind::Rust) {
+                        let w = regex::escape(word);
+                        patterns.push(format!(r"^\s*let\s+(?:mut\s+)?{w}\b"));
+                    }
                     (!patterns.is_empty())
                         .then(|| Regex::new(&patterns.join("|")).ok())
                         .flatten()
@@ -161,8 +182,28 @@ impl App {
                                 })
                         })
                     });
-                (search::rank(&h.path, here, declares), h)
+                (kind, declares, h)
             })
+            .collect();
+        // In a Makefile `u` marks what `d` counts (#504): a recipe line declares only what
+        // `make_recipe_rule` says, and `X += …` or `release: X := 1.0` declare `X` only when no
+        // plain line among the hits does (#499).
+        let mut recipe = self.make_recipe_rule(here, word);
+        let make = Some(Kind::Make);
+        for (kind, declares, h) in &mut marked {
+            *declares &= *kind != make || recipe(h).unwrap_or(true);
+        }
+        if !marked.iter().any(|(k, d, _)| *k == make && *d) {
+            let fallback = Regex::new(&search::make_fallback_patterns(word).join("|")).ok();
+            for (kind, declares, h) in &mut marked {
+                *declares |= *kind == make
+                    && fallback.as_ref().is_some_and(|re| re.is_match(&h.text))
+                    && recipe(h).is_none();
+            }
+        }
+        let mut ranked: Vec<_> = marked
+            .into_iter()
+            .map(|(_, declares, h)| (search::rank(&h.path, here, declares), h))
             .collect();
         ranked.sort_by(|(a, x), (b, y)| {
             a.cmp(b)

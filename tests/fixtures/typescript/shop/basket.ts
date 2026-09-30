@@ -88,12 +88,22 @@ export function euro(): Currency {
 }
 
 export function heavy(p: Props): number {
-  //                     ^ d: picker shop/basket.ts:9, shop/props.ts:1; want shop/basket.ts:9 (#337)
+  //                     ^ d: shop/basket.ts:9
   return schedule({ weight: p.weight });
-  //                ^ d: none; want shop/basket.ts:96 (#315)
+  //                ^ d: shop/basket.ts:96
 }
 
 function schedule(o: { weight: number }): number {
   return Object.values(o).length;
-  //            ^ d: shop/props.ts:8; want none (#339)
+  //            ^ d: none
 }
+
+interface Satchel {
+  grams: number;
+}
+
+export const satchel: Satchel = { grams: 3 };
+//                                ^ d: shop/basket.ts:102
+export const loose = { grams: 3 };
+//                     ^ d: none
+//                     status: grams: key

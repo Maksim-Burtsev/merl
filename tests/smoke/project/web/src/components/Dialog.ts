@@ -15,3 +15,18 @@ export class Dialog {
     this.el.close();
   }
 }
+
+export function dialogOf(el: HTMLDialogElement, props: Props): Dialog {
+  return props.modal ? new Dialog(el) : new Dialog(el);
+}
+
+type Props = { modal: boolean };
+
+export function whenClosed(dialog: Dialog, done: () => void): void {
+  onClose(dialog, () => {
+    done();
+  });
+  onClose(dialog, () => {
+    dialog.close();
+  });
+}

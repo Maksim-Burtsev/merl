@@ -115,8 +115,9 @@ impl App {
                     .module(m)
                     .or_else(|| search::module_among(&all, m, package)),
             };
-            // An import of something not installed: nothing outside says what it is.
-            let Some((n, found)) = found else {
+            // An import of something not installed: nothing outside says what it is. A Go
+            // package is its own directory, never one above it (#332).
+            let Some((n, found)) = found.filter(|(n, _)| package.is_none_or(|k| *n >= k)) else {
                 return Some(Vec::new());
             };
             m.truncate(n);
@@ -130,8 +131,12 @@ impl App {
                 })
                 .collect()
         };
+        // What the patterns match, of the lines that declare the word where they sit.
+        let grep = |this: &Self, files: &[PathBuf]| {
+            this.declaring(kind, word, this.external_grep(kind, files, pattern))
+        };
         let Some(module) = module else {
-            return Some(by_name(self.external_grep(kind, &all, pattern)));
+            return Some(by_name(grep(self, &all)));
         };
         // `from lib import pick` names something at the top of a module: a method called `pick`
         // is not it, however alone it stands (the real one may be native code).
@@ -146,7 +151,7 @@ impl App {
             }
             hits
         };
-        let mut hits = at_top(self, self.external_grep(kind, &files, pattern));
+        let mut hits = at_top(self, grep(self, &files));
         // `export { parseCookie as parse }` is the import's own `parse`, as in the project.
         if hits.is_empty() && narrowed && whole {
             // The package itself is its entry, not every file in it: a chunk, a legacy module.
@@ -160,14 +165,18 @@ impl App {
         // lives in `alloc`, a package's `__init__` pulls from its submodules): look everywhere.
         // Past a copy, first where the module's other copies are, as the module's files among
         // all of them: no slower and no noisier than without the copy.
+        // Go has no re-exports: a package that does not declare the name is the answer (#332).
+        if hits.is_empty() && imported && kind == Kind::Go {
+            return Some(Vec::new());
+        }
         if hits.is_empty() && imported {
             if narrowed {
                 let others = search::module_among(&all, &named.unwrap_or_default(), package);
                 let others = others.map(|(_, files)| files).unwrap_or_default();
-                hits = at_top(self, self.external_grep(kind, &others, pattern));
+                hits = at_top(self, grep(self, &others));
             }
             if hits.is_empty() {
-                hits = at_top(self, self.external_grep(kind, &all, pattern));
+                hits = at_top(self, grep(self, &all));
             }
             return Some(by_name(hits));
         }
@@ -236,6 +245,41 @@ impl App {
         })
     }
 
+    /// The file outside the project that is the Python module `parts` (#333), matched from the
+    /// root it lies under, the deepest that holds it: `a/b/c/__init__.py`, `a/b/c.py` or
+    /// `a/b/c.pyi` from there, never a `c.py` deeper in some other package. As Python imports it,
+    /// the first root holding it wins, and in a root a package over a module beside it; `.py`
+    /// over `.pyi`, which a compiled module has alone.
+    pub(super) fn external_module(&mut self, parts: &[String]) -> Option<PathBuf> {
+        let files = self.external_files(Kind::Python);
+        let roots = self
+            .external
+            .get(&Kind::Python)
+            .map(|(roots, _)| roots.clone())
+            .unwrap_or_default();
+        let name: PathBuf = parts.iter().collect();
+        let forms = [
+            name.join("__init__.py"),
+            name.join("__init__.pyi"),
+            name.with_extension("py"),
+            name.with_extension("pyi"),
+        ];
+        files
+            .iter()
+            .filter_map(|f| {
+                let root = roots
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, r)| f.starts_with(r))
+                    .max_by_key(|(_, r)| r.components().count())?;
+                let rel = f.strip_prefix(root.1).ok()?;
+                let form = forms.iter().position(|m| rel == m)?;
+                Some(((root.0, form), f))
+            })
+            .min_by_key(|(rank, _)| *rank)
+            .map(|(_, f)| f.clone())
+    }
+
     /// A grep that came back full stopped at the cap: what `d` counts from it is a lower bound,
     /// also after a filter has made the list short (#100).
     pub(super) fn note_cut(&self, hits: &[Hit]) {
@@ -255,6 +299,18 @@ impl App {
         let mut hits = search::grep_project(&self.root, files, pattern, false, false, None, None)
             .unwrap_or_default();
         self.note_cut(&hits);
+        // A function's locals in a dependency are no one's to import (#339).
+        if kind == Kind::TsJs {
+            let mut texts: HashMap<PathBuf, Vec<String>> = HashMap::new();
+            hits.retain(|h| {
+                let lines = texts.entry(h.path.clone()).or_insert_with(|| {
+                    std::fs::read_to_string(&h.path)
+                        .map(|t| t.lines().map(str::to_owned).collect())
+                        .unwrap_or_default()
+                });
+                !search::ts_nested_local(lines, h.line)
+            });
+        }
         hits.sort_by_cached_key(|h| {
             (
                 roots.iter().position(|r| h.path.starts_with(r)),
@@ -263,6 +319,60 @@ impl App {
             )
         });
         hits
+    }
+
+    /// The methods `members` matches in the Python `files` outside, and whether a field `word`
+    /// is declared there too (#342): a class-body `word = …` or `word: T`, a `self.word = …` in a
+    /// method, read as [`search::field_rows`] reads the project's. One pass over the files for
+    /// both. Fields outside are never listed, there are too many: a few hundred candidate lines
+    /// are enough to tell whether one declares a field.
+    pub(super) fn external_methods(
+        &self,
+        files: &[PathBuf],
+        members: &str,
+        word: &str,
+    ) -> (Vec<Hit>, bool) {
+        let Some(fields) = search::field_patterns(Kind::Python, word) else {
+            return (self.external_grep(Kind::Python, files, members), false);
+        };
+        let method = Regex::new(members).expect("built-in patterns compile");
+        let pattern = format!("{members}|{}", fields.join("|"));
+        let kept = std::cell::Cell::new(0);
+        // ponytail: the first 500 field-shaped lines; a field past them goes unseen.
+        let hits = search::grep_filtered(&self.root, files, &pattern, None, None, |l| {
+            method.is_match(l) || {
+                kept.set(kept.get() + 1);
+                kept.get() <= 500
+            }
+        })
+        .unwrap_or_default();
+        let (mut methods, candidates): (Vec<Hit>, Vec<Hit>) =
+            hits.into_iter().partition(|h| method.is_match(&h.text));
+        self.note_cut(&methods);
+        let roots = self
+            .external
+            .get(&Kind::Python)
+            .map(|(roots, _)| roots.as_slice())
+            .unwrap_or_default();
+        methods.sort_by_cached_key(|h| {
+            (
+                roots.iter().position(|r| h.path.starts_with(r)),
+                h.path.clone(),
+                h.line,
+            )
+        });
+        let mut by_file: Vec<(PathBuf, Vec<usize>)> = Vec::new();
+        for h in candidates {
+            match by_file.last_mut() {
+                Some((path, lines)) if *path == h.path => lines.push(h.line),
+                _ => by_file.push((h.path, vec![h.line])),
+            }
+        }
+        let field = by_file.into_iter().any(|(path, lines)| {
+            std::fs::read_to_string(&path)
+                .is_ok_and(|t| !search::field_rows(Kind::Python, &t, &lines, word).is_empty())
+        });
+        (methods, field)
     }
 
     /// Test helper: nothing is installed outside the project, so a lookup reads no library of
@@ -463,11 +573,7 @@ impl App {
                     "{name}{}  {why}{}  {}: ",
                     pad(name_w, &name),
                     pad(why_w, &why),
-                    at_label(
-                        self.rel_to_its_root(kind, &c.hit.path),
-                        c.hit.line,
-                        c.hit.deleted.is_some()
-                    ),
+                    at_label(self.rel_to_its_root(kind, &c.hit.path), c.hit.line),
                 );
                 PickItem {
                     code_at: Some(head.len()),

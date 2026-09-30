@@ -1,0 +1,57 @@
+wait worker/internal/queue/queue.go  1:1
+ 1 // Package queue holds the jobs the worker has yet to run.
+ 2 package queue
+ 3
+ 4 import "sync"
+ 5
+ 6 // Job is one unit of work for an order.
+ 7 type Job struct {
+ 8     Kind    string
+ 9     OrderID int64
+10 }
+11
+12 // Queue is what the worker takes its jobs from.
+13 type Queue interface {
+14     Push(job Job)
+15     Pop() (Job, bool)
+16 }
+17
+18 type memQueue struct {
+19     mu   sync.Mutex
+20     jobs []Job
+21 }
+22
+23 // New returns a queue in memory, for local runs and tests.
+24 func New() *memQueue {
+25     return &memQueue{}
+26 }
+27
+28 func (q *memQueue) Push(job Job) {
+29     q.mu.Lock()
+30     defer q.mu.Unlock()
+31     q.jobs = append(q.jobs, job)
+32 }
+33
+34 func (q *memQueue) Pop() (Job, bool) {
+35     q.mu.Lock()
+36     defer q.mu.Unlock()
+37     if len(q.jobs) == 0 {
+38         return Job{}, false
+39     }
+40     job := q.jobs[0]
+41     q.jobs = q.jobs[1:]
+42     return job, true
+43 }
+44
+45 // Kinds lists the job kinds a worker runs.
+46 func Kinds() []string {
+47     var kinds []string
+48     for _, k := range []struct {
+49         name   string
+50         worker bool
+51     }{
+52         {name: "ship", worker: true},
+53         {name: "sync", worker: true},
+54         {name: "audit"},
+worker/internal/queue/queue.go  1:1  [code]                                                                                                                                       ? help
+cursor (x,y,shown) 3,0,1

@@ -143,7 +143,7 @@ js0140		builtin: the server's own stub
 js0141	lib/languages/js/source-code/source-code.js:99		
 js0142		types the server fetched; not installed in the project	
 js0143			
-js0144	lib/api.js:12		
+js0144	lib/api.js:12	shorthand property of a require binding: the oracle stops at the binding, merl follows the require to class ESLint (#328)	
 js0145	node_modules/@eslint/core/dist/esm/types.d.ts:279		
 js0146	conf/globals.js:83		
 js0147	lib/languages/js/source-code/token-store/filter-cursor.js:32		

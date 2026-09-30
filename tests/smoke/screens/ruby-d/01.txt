@@ -1,0 +1,57 @@
+wait README.md  1:1
+┌orders──────────────────────┐ 1 # orders
+│▸ .github                   │ 2
+│▸ .venv                     │ 3 The orders API (Python, `app/`), the worker that ships and syncs orders (Go, `worker/`) and the
+│▸ app                       │ 4 support team's web page (TypeScript, `web/`).
+│▸ data                      │ 5
+│▸ deploy                    │ 6     make serve     # the API on :8000, reads .env
+│▸ docs                      │ 7     make test      # Python and Go tests
+│▸ scripts                   │ 8     make worker    # the queue worker
+│▸ tests                     │ 9
+│▸ web                       │10 Deployed with the Helm chart in `deploy/helm/orders`; `docker compose up` runs it all locally.
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+README.md  1:1  [code]                                                                                                                                                            ? help
+cursor (x,y,shown) 33,0,1

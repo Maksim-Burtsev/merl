@@ -1,0 +1,19 @@
+# csharp-d: d on C# names bound in their own method (#345). A lambda's parameter and a method's
+# parameter land on their binding, `local`, and the namesake local of another method is not
+# offered. The C# file is written here, so no other scenario's tree or search sees it.
+merl
+wait Open a file (fuzzy)
+run mkdir -p billing && printf '%s\n' 'namespace Orders.Billing;' '' 'public static class Refunds' '{' '    public static void Register(IServiceCollection services, string callbackUrl)' '    {' '        services.AddAuthentication(options =>' '        {' '            options.RedirectUri = callbackUrl;' '        });' '    }' '}' '' 'public class Audit' '{' '    public void Load()' '    {' '        var options = new JsonSerializerOptions();' '    }' '}' > billing/Refunds.cs
+wait billing
+key o
+type billing/Refunds.cs
+key Enter
+wait public static class Refunds
+key /
+type options.Redirect
+key Enter d
+wait options → Refunds.Register.options (local)
+key /
+type callbackUrl;
+key Enter d
+wait callbackUrl → Refunds.Register.callbackUrl (local)

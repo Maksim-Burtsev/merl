@@ -480,6 +480,10 @@ fn php_symbol_names() {
             "    public const STATUS_OPEN = 'open';",
             Some("STATUS_OPEN"),
         ),
+        // A typed constant under its name, not its type (#344).
+        ("    private const int LIMIT = 500;", Some("LIMIT")),
+        ("    const ?string LABEL = null;", Some("LABEL")),
+        ("    public const A|B UNION = 1;", Some("UNION")),
         // A property is a field, an enum case is what a type holds, and a `define()` has no
         // keyword before the name: none of them is a symbol.
         ("    protected array $rows = [];", None),
@@ -533,6 +537,14 @@ fn infra_symbol_names() {
     assert_eq!(make("build test: deps $(SRC)").as_deref(), Some("build"));
     assert_eq!(make("deps::").as_deref(), Some("deps"));
     assert_eq!(make("build-release:").as_deref(), Some("build-release"));
+    // #468: a `define` is a variable, listed as a target is.
+    for (line, name) in [
+        ("define discount", "discount"),
+        ("export define run-tests :=", "run-tests"),
+        ("define x+=", "x"),
+    ] {
+        assert_eq!(one(Kind::Make, line).as_deref(), Some(name), "{line}");
+    }
     for not_a_target in [
         ".PHONY: build",
         "%.o: %.c",

@@ -427,17 +427,14 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
                 "repos.py:8",
             ),
         ),
-        // The list itself is no `UserRepository`.
+        // The list itself is no `UserRepository`: a builtin, with no source (#336).
         (
             "python",
             "elements.py",
             "repos.delete_user",
-            picker(
-                "delete_user: by name, 2 declarations",
-                &[
-                    ("UserRepository.delete_user", "repos.py:8"),
-                    ("AuditLog.delete_user", "repos.py:13"),
-                ],
+            jump(
+                "delete_user: builtin, no source (via repos: list)",
+                "elements.py:15",
             ),
         ),
         // A `dict` hands out its keys; a tuple target over a call is not read.

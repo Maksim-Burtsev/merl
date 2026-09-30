@@ -1,0 +1,22 @@
+# c-d: d in the worker's C checksum. A parameter and a loop's variable are the function's own,
+# `local` (#378); a field behind `->` lands on the struct's field (#359).
+# The C files are written once merl is up, so no other scenario's lists count them.
+merl README.md
+wait The orders API
+run mkdir -p worker/internal/crc
+run printf '/* The CRC-32 the queue stamps on every job, in C for the cgo build. */\n#ifndef CRC_H\n#define CRC_H\n\nstruct crc_table {\n    unsigned int entries[256];\n    int ready;\n};\n\nunsigned int crc32(struct crc_table *table, const unsigned char *buf, int len);\n\n#endif\n' > worker/internal/crc/crc.h
+run printf '#include "crc.h"\n\nstatic void crc_fill(struct crc_table *table)\n{\n    for (unsigned int n = 0; n < 256; n++) {\n        unsigned int c = n;\n        for (int k = 0; k < 8; k++)\n            c = c & 1 ? 0xedb88320 ^ (c >> 1) : c >> 1;\n        table->entries[n] = c;\n    }\n    table->ready = 1;\n}\n\nunsigned int crc32(struct crc_table *table, const unsigned char *buf, int len)\n{\n    unsigned int crc = 0xffffffff;\n    if (!table->ready)\n        crc_fill(table);\n    for (int i = 0; i < len; i++)\n        crc = table->entries[(crc ^ buf[i]) & 0xff] ^ (crc >> 8);\n    return crc ^ 0xffffffff;\n}\n' > worker/internal/crc/crc.c
+merl worker/internal/crc/crc.c
+wait crc_fill(table);
+key /
+type buf[i]
+key Enter d
+wait buf: local
+key [ /
+type i]
+key Enter d
+wait i → crc32::i (local)
+key [ /
+type entries[(
+key Enter d
+wait entries → crc_table::entries (by name, 1 match)

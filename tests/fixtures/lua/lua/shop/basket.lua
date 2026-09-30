@@ -30,27 +30,27 @@ end
 
 function Basket.restock(discount)
   return discount + WEIGHT_LIMIT
-  --     ^ d: lua/shop/pricing.lua:36; want lua/shop/basket.lua:31 (#461)
+  --     ^ d: lua/shop/basket.lua:31
   --                ^ d: lua/shop/basket.lua:5
 end
 
 function Basket.overweight(grams)
   local limit = WEIGHT_LIMIT + 20
   return warehouse.weigh(grams) > limit
-  --               ^ d: picker lua/shop/basket.lua:45, lua/shop/warehouse.lua:14; want lua/shop/warehouse.lua:14 (#461)
+  --               ^ d: lua/shop/warehouse.lua:14
   --                              ^ d: lua/shop/basket.lua:38
 end
 
 function Basket.hidden(grams)
   local weigh = warehouse.weigh(grams)
   return weigh + 1
-  --     ^ d: picker lua/shop/basket.lua:45, lua/shop/warehouse.lua:14; want lua/shop/basket.lua:45 (#461)
+  --     ^ d: lua/shop/basket.lua:45
 end
 
 function Basket.dispatch()
   local courier = warehouse.Courier.new("post")
   --                        ^ d: lua/shop/warehouse.lua:3
-  --                                ^ d: picker lua/shop/basket.lua:10, lua/shop/pricing.lua:13, lua/shop/warehouse.lua:6; want lua/shop/warehouse.lua:6 (#462)
+  --                                ^ d: lua/shop/warehouse.lua:6
   return courier:dispatch()
   --             ^ d: picker lua/shop/basket.lua:50, lua/shop/warehouse.lua:10
 end
@@ -69,7 +69,7 @@ end
 local function sign(tariff)
   return tariff:describe() .. pricing.Tariff.new(1):rate()
   --                                  ^ d: lua/shop/pricing.lua:10
-  --                                         ^ d: picker lua/shop/basket.lua:10, lua/shop/pricing.lua:13, lua/shop/warehouse.lua:6; want lua/shop/pricing.lua:13 (#462)
+  --                                         ^ d: lua/shop/pricing.lua:13
 end
 
 function Basket.label()
@@ -81,7 +81,35 @@ function Basket.probe(b)
   return Basket.gross(b) .. pricing.label()
   --     ^ d: lua/shop/basket.lua:7
   --            ^ d: lua/shop/basket.lua:15
-  --                                ^ d: picker lua/shop/basket.lua:75, lua/shop/pricing.lua:60; want lua/shop/pricing.lua:60 (#462)
+  --                                ^ d: lua/shop/pricing.lua:60
+end
+
+function Basket.tally(items)
+  local total = 0
+  for _, item in ipairs(items) do
+    total = total + item
+    --              ^ d: lua/shop/basket.lua:89
+    --                status: local
+  end
+  local function countdown(n)
+    return n > 0 and countdown(n - 1) or total
+    --               ^ d: lua/shop/basket.lua:94
+    --                                   ^ d: lua/shop/basket.lua:88
+  end
+  return countdown(total)
+  --     ^ d: lua/shop/basket.lua:94
+end
+
+function Basket.receipt(total)
+  return { total = total }
+  --       ^ d: none
+  --               ^ d: lua/shop/basket.lua:103
+end
+
+function Basket.van()
+  return warehouse.Courier:new("van")
+  --                       ^ d: lua/shop/warehouse.lua:6
+  --                         status: via import
 end
 
 return Basket

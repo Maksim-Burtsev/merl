@@ -144,19 +144,14 @@ fn a_field_is_a_target() {
             "self.repo = repo",
             jump("repo \u{2192} Issue.__init__.repo (local)", "fields.py:19"),
         ),
-        // A class whose base is not the project's: its declarations by name, fields
-        // included, and a nested class among them.
+        // A class whose base is outside the project and that does not declare the field: it
+        // comes from outside or from a subclass, and no other class's namesake is it (#342).
+        // A nested class of its own is found as before.
         (
             "python",
             "fields.py",
             "if self.poster_id",
-            picker(
-                "poster_id: by name, 2 declarations",
-                &[
-                    ("Issue.poster_id", "fields.py:16"),
-                    ("Comment.poster_id", "fields.py:40"),
-                ],
-            ),
+            jump("no definition for poster_id", "fields.py:61"),
         ),
         (
             "python",

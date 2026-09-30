@@ -6,3 +6,5 @@ export default function OrdersPage() {
     </section>
   );
 }
+
+type Props = { page?: number };

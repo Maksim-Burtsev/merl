@@ -318,3 +318,180 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
     assert_eq!(at(18, "repo"), [(17, ty("*UserRepository"))]);
     assert_eq!(at(21, "other"), [(20, Value::Unknown)]);
 }
+
+#[test]
+fn java_and_kotlin_bind_locals_parameters_and_loop_variables_in_their_block() {
+    let java = "class A {
+    int size;
+
+    int f(List<String> names,
+            Map<String, Integer> counts) {
+        int total = 0;
+        for (String name : names) {
+            try (Reader in = open(name)) {
+                total += in.read();
+            } catch (IOException e) {
+                log(e);
+            }
+            if (name instanceof String s) {
+                use(s, counts, size);
+            }
+        }
+        names.forEach((a, b) -> use(a));
+        return total;
+    }
+}
+";
+    let lines = |name: &str, at: usize| -> Vec<usize> {
+        bindings(Kind::Jvm, java, at, name)
+            .iter()
+            .map(|b| b.line)
+            .collect()
+    };
+    assert_eq!(lines("total", 9), [6], "a local of the block around");
+    assert_eq!(lines("name", 9), [7], "a loop variable");
+    assert_eq!(lines("in", 9), [8], "a resource");
+    assert_eq!(lines("e", 11), [10], "a catch parameter");
+    assert_eq!(lines("s", 14), [13], "an instanceof pattern");
+    assert_eq!(lines("counts", 14), [5], "a parameter on a wrapped header");
+    assert_eq!(lines("a", 17), [17], "a lambda's parameter");
+    assert!(lines("size", 14).is_empty(), "a field is no local");
+    assert!(lines("e", 18).is_empty(), "a block that closed is no scope");
+    assert!(lines("name", 18).is_empty(), "nor is a loop's");
+
+    let kotlin = "class B(val seed: Int) {
+    fun g(
+        items: List<Pair<Int, Int>>,
+    ): Int {
+        for ((left, right) in items) {
+            print(left)
+        }
+        val (x, y) = items.first()
+        return items.sumOf { (p, q) -> p + x }
+    }
+}
+";
+    let lines = |name: &str, at: usize| -> Vec<usize> {
+        bindings(Kind::Jvm, kotlin, at, name)
+            .iter()
+            .map(|b| b.line)
+            .collect()
+    };
+    assert_eq!(lines("right", 6), [5], "a destructured loop variable");
+    assert_eq!(
+        lines("items", 6),
+        [3],
+        "a parameter of a header its tail closes"
+    );
+    assert_eq!(lines("x", 9), [8], "a destructured local");
+    assert_eq!(lines("p", 9), [9], "a destructured lambda parameter");
+    assert!(lines("seed", 9).is_empty(), "a property is no local");
+    assert!(lines("left", 9).is_empty());
+}
+
+#[test]
+fn elixir_bindings_stop_at_their_def() {
+    let text = "\
+defmodule Shop do
+  def pay(total, fee \\\\ rate) when total > 0 do
+    {:ok, sum} = split(total)
+    case sum do
+      {:ok, part} ->
+        part + fee + sum + rate
+      other ->
+        other
+    end
+  end
+
+  def wrap(
+        first,
+        %{key: second}
+      ) do
+    first + second + key
+  end
+end
+";
+    let at = |line, name| {
+        bindings(Kind::Elixir, text, line, name)
+            .iter()
+            .map(|b| b.line)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(at(6, "total"), [2]);
+    assert_eq!(at(6, "fee"), [2]);
+    assert_eq!(at(6, "sum"), [3]);
+    assert_eq!(at(6, "part"), [5]);
+    // A default, a guard and a key bind nothing, nor does a sibling clause.
+    assert!(at(6, "rate").is_empty());
+    assert!(at(6, "other").is_empty());
+    assert_eq!(at(8, "other"), [7]);
+    // Parameters wrapped over several lines.
+    assert_eq!(at(16, "first"), [13]);
+    assert_eq!(at(16, "second"), [14]);
+    assert!(at(16, "key").is_empty());
+    // Nothing outside a `def` is a local.
+    assert!(at(12, "pay").is_empty());
+}
+
+/// Review of #515: a `for` or `with` binds the left of its `<-`, over a namesake above it; a
+/// one-line `fn x ->` binds on the cursor's own line; a pinned `^x` binds nothing.
+#[test]
+fn elixir_generators_and_one_line_fns_bind() {
+    let text = "\
+defmodule Shop do
+  def pay(xs) do
+    x = hd(xs)
+    for x <- xs do
+      x
+    end
+    with {:ok, y} <- fetch(x),
+         {:ok, z} <- fetch(y) do
+      z
+    end
+    Enum.map(xs, fn x -> x end)
+    {^x, w} = pair(x)
+    x + w
+  end
+end
+";
+    let at = |line, name| {
+        bindings(Kind::Elixir, text, line, name)
+            .iter()
+            .map(|b| b.line)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(at(5, "x"), [4]);
+    assert_eq!(at(9, "z"), [8]);
+    assert_eq!(at(11, "x"), [11]);
+    assert_eq!(at(13, "x"), [3], "a pin binds nothing");
+    assert_eq!(at(13, "w"), [12]);
+}
+
+/// Review of #515: a `for` or a `function(…)` on the cursor's own line may bind the qualifier,
+/// and then the file's `local m = require(…)` says nothing; below them it does. `require` takes
+/// its module with or without parentheses and either quote.
+#[test]
+fn a_lua_qualifier_bound_on_its_own_line_is_no_require() {
+    let text = "\
+local m = require(\"x\")
+local function go(mods)
+  for _, m in ipairs(mods) do m.run() end
+end
+local f = function(m) return m.run() end
+return m.run()
+";
+    assert_eq!(lua_local_value(text, 3, "m"), None);
+    assert_eq!(lua_local_value(text, 5, "m"), None);
+    assert_eq!(
+        lua_local_value(text, 6, "m").as_deref(),
+        Some("require(\"x\")")
+    );
+    for value in [
+        "require(\"a.b\")",
+        "require \"a.b\"",
+        "require 'a.b'",
+        "require('a.b')",
+    ] {
+        assert_eq!(lua_required(value), Some("a.b"), "{value}");
+    }
+}

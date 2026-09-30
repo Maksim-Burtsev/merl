@@ -194,4 +194,227 @@ impl App {
         }
         found
     }
+
+    /// A bare `word` at `range` of the cursor's line is the item this file declares where the
+    /// cursor sees it ([`search::rust_scope_items`], #363). A struct literal's or a pattern's
+    /// `word:` names a field, no item.
+    pub(super) fn rust_file_items(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        range: std::ops::Range<usize>,
+    ) -> Vec<Candidate> {
+        let after = self.line_str()[range.end..].trim_start();
+        if after.starts_with(':') && !after.starts_with("::") {
+            return Vec::new();
+        }
+        let ns = if after.starts_with('!') && !after.starts_with("!=") {
+            search::RustNamespace::Macro
+        } else if after.starts_with("::") {
+            search::RustNamespace::Path
+        } else {
+            search::RustNamespace::Other
+        };
+        search::rust_scope_items(text, self.line + 1, word, ns)
+            .into_iter()
+            .map(|line| Candidate {
+                hit: Hit {
+                    deleted: None,
+                    path: here.to_path_buf(),
+                    line,
+                    col: 0,
+                    text: self.buf.lines[line - 1].clone(),
+                },
+                reason: Reason::File,
+            })
+            .collect()
+    }
+
+    /// `x.word(…)` on a value whose type is not known (#358): the methods `word` of the project,
+    /// the standard library and the dependencies, each an indented `fn word` directly in an
+    /// `impl` or a `trait` ([`search::rust_method_at`]), less what the cursor cannot reach: an
+    /// inherent method without `pub` outside its module (its file and the directory below it),
+    /// a `pub(crate)` one outside its crate (the directory of its `Cargo.toml`), and a crate the
+    /// cursor's does not reach through `Cargo.lock`. The traits' own methods come first. When
+    /// every candidate is the method of one trait or of an `impl` of it, that method is where
+    /// every call lands, `via trait Tr`.
+    pub(super) fn rust_methods(&mut self, here: &Path, word: &str) -> Vec<Candidate> {
+        let kind = Kind::Rust;
+        let pattern = search::rust_method_pattern(word);
+        let mut hits = self.project_definitions(kind, here, word, &pattern);
+        let files = self.external_files(kind);
+        hits.extend(self.external_grep(kind, &files, &pattern));
+        // Behind a `.` the word is never the declaration on its own line: a one-line
+        // `fn is_empty(&self) -> bool { self.0.is_empty() }` calls another.
+        hits.retain(|h| h.path != here || h.line != self.line + 1);
+        let crate_of = |p: &Path| {
+            p.ancestors()
+                .skip(1)
+                .find(|d| self.files.contains(&d.join("Cargo.toml")))
+                .map(Path::to_path_buf)
+        };
+        let package = |dir: &Path| {
+            self.text_of(&dir.join("Cargo.toml"))
+                .and_then(|t| search::cargo_package_name(&t))
+        };
+        let own = crate_of(here);
+        let lock = std::fs::read_to_string(self.root.join("Cargo.lock")).unwrap_or_default();
+        let reach = own
+            .as_deref()
+            .and_then(package)
+            .and_then(|name| search::cargo_reach(&lock, &name));
+        // The packages the project's own `Cargo.toml`s declare: a registry copy of one of them
+        // is not the one built.
+        let workspace: Vec<String> = self
+            .files
+            .iter()
+            .filter(|f| f.file_name().is_some_and(|n| n == "Cargo.toml"))
+            .filter_map(|f| f.parent().and_then(package))
+            .collect();
+        // A crate the lock does not list, the standard library's, is always reached.
+        let reached = |h: &Hit| {
+            let name = match h.path.is_absolute() {
+                true => {
+                    let listed = h.path.ancestors().find_map(|a| {
+                        let dir = a.file_name()?.to_str()?;
+                        let dirs = reach
+                            .as_ref()
+                            .map(|(_, d)| d.as_slice())
+                            .unwrap_or_default();
+                        dirs.iter().find(|(d, _)| d == dir).map(|(_, n)| n.clone())
+                    });
+                    if listed.as_ref().is_some_and(|n| workspace.contains(n)) {
+                        return false;
+                    }
+                    listed
+                }
+                false => crate_of(&h.path).as_deref().and_then(package),
+            };
+            let Some((reached, dirs)) = &reach else {
+                return true;
+            };
+            name.is_none_or(|n| reached.contains(&n) || !dirs.iter().any(|(_, m)| *m == n))
+        };
+        // A module's private items are its own and its children's: `src/foo.rs` has `src/foo/`.
+        // A crate root has its directory: `lib.rs`, `main.rs`, `mod.rs`, `build.rs`, and a file
+        // directly in `tests/`, `benches/`, `examples/` or `src/bin/`.
+        let below = |p: &Path| {
+            let parent = p.parent().unwrap_or(Path::new(""));
+            let root_file = p
+                .file_stem()
+                .is_some_and(|s| s == "lib" || s == "main" || s == "mod" || s == "build")
+                || ["tests", "benches", "examples"]
+                    .iter()
+                    .any(|d| parent.file_name().is_some_and(|n| n == *d))
+                || parent.ends_with("src/bin");
+            let dir = match root_file {
+                true => parent.to_path_buf(),
+                false => p.with_extension(""),
+            };
+            here == p || here.starts_with(dir)
+        };
+        let roots = self
+            .external
+            .get(&kind)
+            .map(|(roots, _)| roots.clone())
+            .unwrap_or_default();
+        let mut texts: HashMap<PathBuf, String> = HashMap::new();
+        let mut rows: Vec<(Hit, search::RustOwner)> = Vec::new();
+        let mut hidden: Vec<String> = Vec::new();
+        for h in hits {
+            if !texts.contains_key(&h.path) {
+                let text = self.text_of(&h.path).unwrap_or_default();
+                texts.insert(h.path.clone(), text);
+            }
+            let lines: Vec<&str> = texts[&h.path].lines().collect();
+            let Some((owner, vis, owner_line)) = search::rust_method_at(&lines, h.line) else {
+                continue;
+            };
+            let inside = !h.path.is_absolute();
+            // Outside, a crate's tests, benches and examples are crates of their own, and a
+            // method of the standard library with no stability attribute is internal to it.
+            let rel = roots
+                .iter()
+                .find_map(|r| h.path.strip_prefix(r).ok())
+                .unwrap_or(&h.path);
+            // The standard library marks what it offers `#[stable]` or `#[unstable]`: an inherent
+            // method, or a trait, with neither is its own (compiler-builtins' `Int`, a vendored
+            // `gimli`). A method a macro writes has the attributes the macro is handed.
+            let sysroot = h
+                .path
+                .to_string_lossy()
+                .contains("rustlib/src/rust/library/");
+            let unmarked = sysroot
+                && match owner {
+                    search::RustOwner::Inherent => !search::rust_stability(&lines, h.line),
+                    search::RustOwner::Trait(_) => !search::rust_stability(&lines, owner_line),
+                    _ => false,
+                };
+            let internal = !inside
+                && (unmarked
+                    || rel.components().any(|c| {
+                        matches!(
+                            c.as_os_str().to_str(),
+                            Some("tests" | "benches" | "examples")
+                        )
+                    }));
+            let visible = !internal
+                && match (&owner, vis) {
+                    (search::RustOwner::ImplOf(_), _) => true,
+                    // A trait outside the project that is not `pub` is its crate's own.
+                    (search::RustOwner::Trait(_), search::RustVis::Pub) => true,
+                    (search::RustOwner::Trait(_), _) => inside,
+                    (_, search::RustVis::Pub) => true,
+                    (_, search::RustVis::Crate) => inside && crate_of(&h.path) == own,
+                    (search::RustOwner::Inherent, search::RustVis::Private) => {
+                        inside && below(&h.path)
+                    }
+                    (_, search::RustVis::Private) => true,
+                };
+            if let (search::RustOwner::Trait(t), false) = (&owner, visible) {
+                hidden.push(t.clone());
+            }
+            if visible && reached(&h) {
+                rows.push((h, owner));
+            }
+        }
+        // The `impl`s outside the project of a trait out of reach are as far out of reach.
+        let kept: Vec<String> = rows
+            .iter()
+            .filter_map(|(_, o)| match o {
+                search::RustOwner::Trait(t) => Some(t.clone()),
+                _ => None,
+            })
+            .collect();
+        rows.retain(|(h, o)| {
+            !matches!(o, search::RustOwner::ImplOf(t)
+                if h.path.is_absolute() && hidden.contains(t) && !kept.contains(t))
+        });
+        rows.sort_by_key(|(_, o)| !matches!(o, search::RustOwner::Trait(_)));
+        let traits: Vec<&String> = rows
+            .iter()
+            .filter_map(|(_, o)| match o {
+                search::RustOwner::Trait(t) => Some(t),
+                _ => None,
+            })
+            .collect();
+        if let [tr] = traits.as_slice()
+            && rows.iter().all(|(_, o)| {
+                matches!(o, search::RustOwner::Trait(t) | search::RustOwner::ImplOf(t) if t == *tr)
+            })
+        {
+            let reason = Reason::Trait((*tr).clone());
+            return vec![Candidate {
+                hit: rows.swap_remove(0).0,
+                reason,
+            }];
+        }
+        rows.into_iter()
+            .map(|(hit, _)| Candidate {
+                hit,
+                reason: Reason::ByName,
+            })
+            .collect()
+    }
 }

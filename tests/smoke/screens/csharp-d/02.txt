@@ -1,0 +1,57 @@
+wait billing
+┌orders──────────────────────┐
+│▸ .github                   │
+│▸ .venv                     │
+│▸ app                       │
+│▸ billing                   │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │                                                            ███╗   ███╗███████╗██████╗ ██╗
+│  pyproject.toml            │                                                            ████╗ ████║██╔════╝██╔══██╗██║
+│  README.md                 │                                                            ██╔████╔██║█████╗  ██████╔╝██║
+│                            │                                                            ██║╚██╔╝██║██╔══╝  ██╔══██╗██║
+│                            │                                                            ██║ ╚═╝ ██║███████╗██║  ██║███████╗
+│                            │                                                            ╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝
+│                            │
+│                            │                                                            o / Ctrl+E   Open a file (fuzzy)
+│                            │                                                            s            Search the project
+│                            │                                                            D            Project symbols (fuzzy)
+│                            │                                                            ?            This help
+│                            │                                                            q            Quit
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+orders/  [tree]                                                                                                                                                                   ? help
+cursor (x,y,shown) 12,18,0

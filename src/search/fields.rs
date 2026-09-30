@@ -36,13 +36,21 @@ pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<u
 ///   with one (`private name: T`), `this.name = …`, a getter `get name(): T`;
 /// - Go: a struct field `name T` or `a, name T`, and an embedded `*Name` under its type's name.
 pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Binding> {
-    static GO_FIELD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s+(\S.*)$").unwrap()
-    });
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = decl.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
     };
+    let go_field = |t: &str| go_field(t, name);
+    // A Go struct whose body closes on its own line: `type Item struct{ Name string }` (#327).
+    if kind == Kind::Go
+        && let Some(body) = go_one_line(lines[k])
+    {
+        return body
+            .split(';')
+            .filter_map(go_field)
+            .map(|value| Binding { line: decl, value })
+            .collect();
+    }
     let body = body_of(kind, &lines, k);
     let Some(base) = lines[body.clone()]
         .iter()
@@ -169,22 +177,42 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
         }
         Kind::Go if lines[k].contains("struct") => {
             for i in body.filter(|&i| indent(lines[i]) == base) {
-                let t = lines[i].split("//").next().unwrap_or("");
-                let t = t.split('`').next().unwrap_or("").trim();
-                if let Some(embedded) = go_embedded(t) {
-                    if embedded.rsplit('.').next() == Some(name) {
-                        push(i, Value::Type(t.to_owned()));
-                    }
-                } else if let Some(c) = GO_FIELD.captures(t)
-                    && c[1].split(',').any(|p| p.trim() == name)
-                {
-                    push(i, Value::Type(c[2].to_owned()));
+                if let Some(value) = go_field(lines[i]) {
+                    push(i, value);
                 }
             }
         }
         _ => {}
     }
     out
+}
+/// A Go field line, `name T`, `a, name T` or an embedded `*pkg.Name`, that declares `name`, as
+/// the type it reads.
+fn go_field(t: &str, name: &str) -> Option<Value> {
+    static GO_FIELD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s+(\S.*)$").unwrap()
+    });
+    let t = t.split("//").next().unwrap_or("");
+    let t = t.split('`').next().unwrap_or("").trim();
+    if let Some(embedded) = go_embedded(t) {
+        return (embedded.rsplit('.').next() == Some(name)).then(|| Value::Type(t.to_owned()));
+    }
+    GO_FIELD
+        .captures(t)
+        .filter(|c| c[1].split(',').any(|p| p.trim() == name))
+        .map(|c| Value::Type(c[2].to_owned()))
+}
+/// The body of the Go struct that `line` opens and closes, `Name string` of
+/// `type Item struct{ Name string }`; `None` for a body over several lines.
+fn go_one_line(line: &str) -> Option<&str> {
+    let at = line.find("struct")?;
+    let open = at + line[at..].find('{')?;
+    let close = close_of(Kind::Go, line, open)?;
+    Some(&line[open + 1..close - 1])
+}
+/// Whether the Go `line` declares the field `name` of a struct whose body it closes too (#330).
+pub(super) fn go_one_line_field(line: &str, name: &str) -> bool {
+    go_one_line(line).is_some_and(|body| body.split(';').any(|f| go_field(f, name).is_some()))
 }
 /// The type an embedded Go field names, `sync.Mutex` for `*sync.Mutex`: a line of nothing else.
 pub(super) fn go_embedded(t: &str) -> Option<&str> {
@@ -196,7 +224,7 @@ pub(super) fn go_embedded(t: &str) -> Option<&str> {
 /// The 1-based line of the type declaration 0-based line `k` of `lines` sits in, however deep:
 /// the enclosing lines, each indented less than the last, until one declares a type. `None` when
 /// the walk reaches the top level first.
-pub(super) fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usize> {
+pub fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usize> {
     let mut depth = indent(lines[k]);
     for i in (0..k).rev() {
         if depth == 0 {
@@ -208,7 +236,7 @@ pub(super) fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usi
             || t == "{"
             || comment(kind, t)
             || t.starts_with([')', ']'])
-            || (kind == Kind::TsJs && t.starts_with('>'))
+            || (kind == Kind::TsJs && (t.starts_with('>') || t.starts_with("}>")))
             || indent(lines[i]) >= depth
         {
             continue;
@@ -283,4 +311,232 @@ pub fn field_decl_at(kind: Kind, text: &str, line: usize, start: usize, name: &s
     let embedded =
         kind == Kind::Go && go_embedded(bare.split('`').next().unwrap_or("").trim()).is_some();
     first == Some(start) && !embedded && field_rows(kind, text, &[line], name) == [line]
+}
+/// The 1-based line and the byte of it where the C# `enum` declared on 1-based `decl` of `text`
+/// lists the member `word`: one per line or several on one, with a value (`Cut = 2`) or
+/// without, behind its `[Attribute]`s. `None` when the line declares no enum or the body lists
+/// no such member. In an `enum` body a bare name is a member for certain, where the same line
+/// elsewhere may be an element of a collection initialiser.
+pub fn enum_member(kind: Kind, text: &str, decl: usize, word: &str) -> Option<(usize, usize)> {
+    static ENUM: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^[^(=]*\benum\s+\w").unwrap());
+    let lines: Vec<&str> = text.lines().collect();
+    let k = decl.checked_sub(1).filter(|&k| k < lines.len())?;
+    if !ENUM.is_match(lines[k]) {
+        return None;
+    }
+    // ponytail: an enum body still open 2000 lines on is not read, as `group` reads none.
+    let rest = lines[k..lines.len().min(k + 2000)].join("\n");
+    let open = code(kind, &rest).find(|&(_, c)| c == b'{')?.0;
+    let body = &rest[open + 1..close_of(kind, &rest, open)? - 1];
+    let gap = r"(?:\s+|//[^\n]*|/\*.*?\*/)*";
+    let member = Regex::new(&format!(
+        r"(?s)^(?:{gap}\[[^\]]*\])*{gap}({}){gap}(?:=.*)?$",
+        regex::escape(word)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    split_top(kind, body, b',').into_iter().find_map(|part| {
+        let at = member.captures(part)?.get(1)?.start();
+        let pos = open + 1 + (part.as_ptr() as usize - body.as_ptr() as usize) + at;
+        let line_start = rest[..pos].rfind('\n').map_or(0, |n| n + 1);
+        Some((decl + rest[..pos].matches('\n').count(), pos - line_start))
+    })
+}
+/// The C# namespace 1-based `line` of `text` is in, the last one declared above it; empty for the
+/// global one. Blocks nested in another namespace are read under their own name only.
+pub fn cs_namespace(text: &str, line: usize) -> String {
+    static NS: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\u{feff}?\s*namespace\s+([\w.]+)").unwrap());
+    text.lines()
+        .take(line)
+        .filter_map(|l| NS.captures(l))
+        .last()
+        .map_or_else(String::new, |c| c[1].to_owned())
+}
+/// The namespaces a C# `using N;` or `global using N;` opens in `text`, and a project file's
+/// `<Using Include="N" />`: an alias and a `using static` open none.
+pub fn cs_usings(text: &str) -> Vec<String> {
+    static USING: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^\u{feff}?\s*(?:global\s+)?using\s+([\w.]+)\s*;|<Using\s+Include="([\w.]+)""#)
+            .unwrap()
+    });
+    text.lines()
+        .filter_map(|l| USING.captures(l))
+        .filter_map(|c| c.get(1).or(c.get(2)).map(|m| m.as_str().to_owned()))
+        .collect()
+}
+
+/// What a Go word followed by `:` is a key of (#327).
+#[derive(Debug, PartialEq)]
+pub enum GoKey {
+    /// No key of a composite literal: a label, a `case`, a slice expression. The word keeps the
+    /// lookup of a bare name.
+    No,
+    /// A key of a literal of the type written so: `Order`, `shop.Order`, `Order[T]`.
+    Of(String),
+    /// A key of a literal whose type the rules cannot read: an anonymous struct, an element of
+    /// a collection whose type is not written in front of it.
+    Unknown,
+    /// A key of a map or a slice literal, which is a value.
+    Value,
+    /// A key of a literal of a struct written in place, whose body opens on this 1-based line:
+    /// `struct {…}{…}`, an element of `[]struct {…}{…}` (#330).
+    Struct(usize),
+}
+/// Whether the Go word at bytes `start..end` of 1-based `line` of `text` is a key of a composite
+/// literal, and of what type (#327). The word is followed by `:` (not `:=`), has no `.` in front,
+/// and its line is no `case`, `default` or label. The bracket still open in front of it, strings
+/// and comments skipped, is a `{` whose type is written in front of it (`T{`, `&T{`, `pkg.T{`,
+/// `T[A]{`), or an element whose type is elided (`{` after `{`, `,` or `key:`), which is the
+/// element type of the literal around it, as often as it nests.
+pub fn go_key(text: &str, line: usize, start: usize, end: usize) -> GoKey {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(&l) = line.checked_sub(1).and_then(|k| lines.get(k)) else {
+        return GoKey::No;
+    };
+    let (word, t) = (&l[start..end], l.trim_start());
+    let after = l[end..].trim_start();
+    let key = after.starts_with(':')
+        && !after.starts_with(":=")
+        && !l[..start].trim_end().ends_with('.')
+        && !t.starts_with("case ")
+        && !t.starts_with("default")
+        && uncommented(Kind::Go, l).trim() != format!("{word}:")
+        && code(Kind::Go, l).any(|(i, c)| i == start && c != 0);
+    if !key {
+        return GoKey::No;
+    }
+    let literal = literal_lines(Kind::Go, text);
+    let Some((j, i, b'{')) = go_open_before(&lines, &literal, line - 1, start) else {
+        return GoKey::No;
+    };
+    match go_literal_type(&lines, &literal, j, i, 0) {
+        Some(Ok(t)) if t.starts_with('[') || t.starts_with("map[") => GoKey::Value,
+        Some(Ok(t)) if t.starts_with("struct@") => t["struct@".len()..]
+            .parse()
+            .map_or(GoKey::Unknown, GoKey::Struct),
+        Some(Ok(t)) => GoKey::Of(t.trim_start_matches('*').to_owned()),
+        Some(Err(())) => GoKey::Unknown,
+        None => GoKey::No,
+    }
+}
+/// The bracket still open in front of byte `col` of 0-based line `k`: its line, its byte and
+/// itself. Strings, comments and the lines inside a raw string or a block comment are skipped.
+fn go_open_before(
+    lines: &[&str],
+    literal: &[bool],
+    k: usize,
+    col: usize,
+) -> Option<(usize, usize, u8)> {
+    let mut depth = 0usize;
+    // ponytail: a literal still open 2000 lines up is not read.
+    for j in (k.saturating_sub(2000)..=k).rev() {
+        if j != k && literal.get(j) == Some(&true) {
+            continue;
+        }
+        let l = if j == k { &lines[j][..col] } else { lines[j] };
+        let bytes: Vec<(usize, u8)> = code(Kind::Go, l).collect();
+        for &(i, c) in bytes.iter().rev() {
+            match c {
+                b')' | b']' | b'}' => depth += 1,
+                b'(' | b'[' | b'{' if depth == 0 => return Some((j, i, c)),
+                b'(' | b'[' | b'{' => depth -= 1,
+                _ => {}
+            }
+        }
+    }
+    None
+}
+/// The type of the Go composite literal whose `{` is byte `i` of 0-based line `j`, as written:
+/// `Order`, `[]Item`, `map[string]T`, the element type for an elided `{`. `None` for a `{` that
+/// opens no literal (a block, a type's body), `Err` for a literal whose type is not written where
+/// the rules read it: `struct {…}{`, an element of a named collection type.
+fn go_literal_type(
+    lines: &[&str],
+    literal: &[bool],
+    j: usize,
+    i: usize,
+    depth: usize,
+) -> Option<Result<String, ()>> {
+    static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"(?:map\[[^\]]*\]|\[[^\]]*\]|\*)*[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?(?:\[[^\]]*\])?$",
+        )
+        .unwrap()
+    });
+    static STRUCTS: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"(?:\[[^\]]*\]|map\[[^\]]*\])+$").unwrap());
+    const KEYWORDS: [&str; 12] = [
+        "else",
+        "for",
+        "switch",
+        "select",
+        "struct",
+        "interface",
+        "func",
+        "range",
+        "go",
+        "defer",
+        "if",
+        "return",
+    ];
+    let pre = uncommented(Kind::Go, &lines[j][..i]);
+    let pre = pre.trim_end();
+    // The line in front of a `{` alone on its line.
+    let above = || {
+        lines[..j]
+            .iter()
+            .rev()
+            .map(|l| uncommented(Kind::Go, l))
+            .find(|l| !l.trim().is_empty())
+            .unwrap_or_default()
+    };
+    let elided = match pre.is_empty() {
+        true => above().trim_end().ends_with(['{', ',']),
+        false => pre.ends_with(['{', ',', ':']),
+    };
+    if elided {
+        // ponytail: eight elided levels deep.
+        let (pj, pi, b'{') = go_open_before(lines, literal, j, i)? else {
+            return None;
+        };
+        if depth == 8 {
+            return Some(Err(()));
+        }
+        return Some(
+            go_literal_type(lines, literal, pj, pi, depth + 1)?
+                .and_then(|p| element_type(Kind::Go, &p).ok_or(())),
+        );
+    }
+    // `struct {…}{`, `[]struct {…}{`: the struct written in place, `struct@LINE` for the line
+    // its body opens on (#330).
+    if pre.ends_with('}') {
+        let close = lines[j][..i].rfind('}')?;
+        let Some((sj, si, b'{')) = go_open_before(lines, literal, j, close) else {
+            return Some(Err(()));
+        };
+        let head = uncommented(Kind::Go, &lines[sj][..si]);
+        let Some(head) = head.trim_end().strip_suffix("struct") else {
+            return Some(Err(()));
+        };
+        let collection = STRUCTS.find(head.trim_end()).map_or("", |m| m.as_str());
+        return Some(Ok(format!("{collection}struct@{}", sj + 1)));
+    }
+    let written = TYPE.find(pre)?.as_str();
+    let last = written.rsplit(['.', ']', '*']).next().unwrap_or(written);
+    let last = last.split('[').next().unwrap_or(last);
+    if KEYWORDS.contains(&last) || matches!(last, "nil" | "true" | "false") {
+        return None;
+    }
+    let before = pre[..pre.len() - written.len()].trim_end();
+    let comparison = ["==", "!=", "<=", ">=", "&&"]
+        .iter()
+        .any(|op| before.ends_with(op));
+    let opens = before.is_empty()
+        || before.ends_with(['=', '(', ',', '{', ':', '[', '&'])
+        || before.ends_with("<-")
+        || before
+            .strip_suffix("return")
+            .is_some_and(|b| !b.ends_with(|c: char| c.is_alphanumeric() || c == '_'));
+    (opens && !comparison).then(|| Ok(written.to_owned()))
 }

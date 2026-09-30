@@ -5,3 +5,7 @@ pub mod pricing;
 pub mod stock;
 pub mod warehouse;
 pub mod texts;
+pub mod chores;
+pub mod errands;
+pub mod parcels;
+pub mod locals;

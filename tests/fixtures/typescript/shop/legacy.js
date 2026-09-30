@@ -9,8 +9,14 @@ class Courier {
 
 function load(grams) {
   return weigh(grams) + warehouse.weigh(grams);
-  //     ^ d: shop/legacy.js:1; want shop/warehouse.ts:11 (#328)
-  //                              ^ d: none; want shop/warehouse.ts:11 (#328)
+  //     ^ d: shop/warehouse.ts:11
+  //                              ^ d: shop/warehouse.ts:11
 }
 
 module.exports = { Courier, load };
+
+function flag(context, lastItem) {
+  context.report({ node: lastItem });
+  //               ^ d: none
+  //               status: node: key
+}

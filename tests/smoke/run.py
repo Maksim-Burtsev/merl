@@ -99,6 +99,7 @@ SCREEN_SKIPPED = {
     ("python-d", "json/__init__.py"): "the standard library of the machine's Python",
     ("python-d", "cancel: by name"): "the cancel methods of the machine's Python standard library",
     ("go-d", "Errorf: via import fmt"): "the standard library of the machine's Go",
+    ("go-d", "Done → Context.Done (via ctx: Context)"): "the standard library of the machine's Go",
     ("review", "30 days: 2 sessions"): "merl --reviews prints today's date and the time each session took",
     ("review", "merl exited: 0"): "merl --reviews prints today's date and the time each session took",
 }

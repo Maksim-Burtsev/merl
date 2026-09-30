@@ -119,7 +119,7 @@ impl App {
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(e) => {
-                self.say_about(&path, &format!(": {e}"));
+                self.say_about(&path, &format!(": {}", super::open::why_not(&e.into())));
                 return;
             }
         }

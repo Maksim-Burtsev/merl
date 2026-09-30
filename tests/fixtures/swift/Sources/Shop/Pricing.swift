@@ -83,3 +83,11 @@ public struct Parcel {
     func sealed() -> Seal { .wax }
     //               ^ d: picker Sources/Shop/Pricing.swift:82, Tests/ShopTests/ParcelTests.swift:1; want Sources/Shop/Pricing.swift:82 (#375)
 }
+
+public func `tally`(_ n: Int) -> Int {
+    n
+}
+
+public enum Mode {
+    case `open`, `fast`(Int)
+}

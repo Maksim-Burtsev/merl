@@ -1,0 +1,57 @@
+wait render → Document::render (via $this: Invoice)
+ 1 <?php
+ 2
+ 3 namespace Billing;
+ 4
+ 5 abstract class Document
+ 6 {
+ 7     public const PAPER = 'A4';
+ 8
+ 9     protected function render(string $format): string
+10     {
+11         return "{$format}:" . static::PAPER;
+12     }
+13 }
+14
+15 trait Numbered
+16 {
+17     protected function number(): string
+18     {
+19         return sprintf('INV-%05d', $this->id);
+20     }
+21 }
+22
+23 final class Receipt
+24 {
+25     public function render(string $format): string
+26     {
+27         return "receipt:{$format}";
+28     }
+29
+30     public function number(): string
+31     {
+32         return 'R-1';
+33     }
+34 }
+35
+36 final class Invoice extends Document
+37 {
+38     use Numbered;
+39
+40     public function __construct(private readonly int $id)
+41     {
+42     }
+43
+44     public function pdf(): string
+45     {
+46         return $this->number() . ' ' . $this->render('pdf');
+47     }
+48 }
+
+
+
+
+
+
+scripts/invoices.php  9:24  [code]  render → Document::render (via $this: Invoice)
+cursor (x,y,shown) 26,8,1

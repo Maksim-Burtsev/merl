@@ -43,8 +43,9 @@ private fun limit(): Grams = LIMIT
 fun track(tracker: Tracker, speed: Speed): Boolean = tracker.track(speed.name) && limit() > 0
 //                 ^ d: src/main/kotlin/shop/basket/Checkout.kt:14
 //                                 ^ d: src/main/kotlin/shop/basket/Checkout.kt:12
-//                                                           ^ d: picker src/main/kotlin/shop/basket/Checkout.kt:15; want src/main/kotlin/shop/basket/Checkout.kt:15 (#317)
-//                                                                                ^ d: picker src/main/kotlin/shop/basket/Checkout.kt:39, src/main/kotlin/shop/warehouse/Warehouse.kt:18; want src/main/kotlin/shop/basket/Checkout.kt:39 (#357)
+//                                                           ^ d: src/main/kotlin/shop/basket/Checkout.kt:15
+//                                                                                ^ d: picker src/main/kotlin/shop/basket/Checkout.kt:39
+// status: limit: by name, 1 match
 
 fun outcome(o: Outcome): Int = when (o) {
     is Outcome.Delivered -> o.grams
@@ -57,4 +58,29 @@ suspend fun deliver(grams: Grams): Int = weigh(grams)
 //                                       ^ d: picker src/main/kotlin/shop/warehouse/Warehouse.kt:5, src/main/kotlin/shop/warehouse/Warehouse.kt:12; want src/main/kotlin/shop/warehouse/Warehouse.kt:12 (#367)
 
 fun fast(speed: Speed): Boolean = speed == Speed.FAST
-//                                               ^ d: none; want src/main/kotlin/shop/basket/Checkout.kt:12 (#457)
+//                                               ^ d: src/main/kotlin/shop/basket/Checkout.kt:12
+
+enum class Lane(val days: Int) {
+    ROAD(3),
+    // A comment between the constants.
+    AIR(1) {
+        override fun toString() = "air"
+    };
+
+    fun late() = days > 2
+}
+
+fun air(): Lane = Lane.AIR
+//                     ^ d: src/main/kotlin/shop/basket/Checkout.kt:66
+
+fun hire(): String = Courier(name = "post").name
+//                           ^ d: src/main/kotlin/shop/warehouse/Warehouse.kt:8
+
+fun heavy(): Int = weigh(
+    grams = 3,
+//  ^ d: picker src/main/kotlin/shop/warehouse/Warehouse.kt:5, src/main/kotlin/shop/warehouse/Warehouse.kt:12; want src/main/kotlin/shop/warehouse/Warehouse.kt:12 (#367)
+)
+
+fun loud(): Unit = println(message = "x")
+//                         ^ d: none
+//                         status: message: argument label

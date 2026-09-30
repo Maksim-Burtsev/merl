@@ -15,7 +15,7 @@ defmodule Shop.Basket do
 
   @spec new(map) :: map
   #^ d: none
-  #     ^ d: picker lib/shop/basket.ex:19, lib/shop/warehouse.ex:5; want lib/shop/basket.ex:19 (#460)
+  #     ^ d: lib/shop/basket.ex:19
   def new(tariff) do
     %Shop.Basket{tariff: tariff, coupon: %Coupon{off: 3}}
     #     ^ d: lib/shop/basket.ex:1
@@ -52,7 +52,7 @@ defmodule Shop.Basket do
   def ship(courier) do
     if W.full?(courier), do: courier, else: W.ship!(courier)
     #    ^ d: lib/shop/warehouse.ex:13
-    #                                         ^ d: picker lib/shop/basket.ex:52, lib/shop/warehouse.ex:14; want lib/shop/warehouse.ex:14 (#459)
+    #                                         ^ d: lib/shop/warehouse.ex:14
   end
 
   def dispatch(n) do
@@ -64,7 +64,7 @@ defmodule Shop.Basket do
   end
 
   def depot, do: W.depot("north") && Shop.Warehouse.Depot.open("south")
-  #                ^ d: picker lib/shop/warehouse.ex:11; want lib/shop/warehouse.ex:11 (#317)
+  #                ^ d: lib/shop/warehouse.ex:11
   #                                                   ^ d: lib/shop/warehouse.ex:17
   #                                                         ^ d: lib/shop/warehouse.ex:18
 
@@ -72,13 +72,13 @@ defmodule Shop.Basket do
     #                              ^ d: lib/shop/pricing.ex:35
     Shop.Pricing.settle(total) + String.length(Shop.currency())
     #            ^ d: lib/shop/pricing.ex:27
-    #                                                ^ d: picker lib/shop.ex:10, lib/shop.ex:12; want lib/shop.ex:12 (#459)
+    #                                                ^ d: lib/shop.ex:12
   end
 
   def price(courier) do
     Shop.Pricing.Priced.price(courier)
     #            ^ d: lib/shop/pricing.ex:18
-    #                   ^ d: picker lib/shop/basket.ex:78, lib/shop/ledger.ex:17, lib/shop/pricing.ex:19, lib/shop/warehouse.ex:22; want lib/shop/pricing.ex:19 (#459)
+    #                   ^ d: lib/shop/pricing.ex:19
   end
 
   def show, do: Shop.Pricing.banner()
@@ -86,15 +86,26 @@ defmodule Shop.Basket do
 
   def restock(discount) do
     discount + 1
-    # ^ d: picker lib/shop/pricing.ex:22, lib/shop/pricing.ex:23; want lib/shop/basket.ex:87 (#460)
+    # ^ d: lib/shop/basket.ex:87
+    #   status: discount → Shop.Basket.restock.discount (local)
   end
 
   def weigh_all(grams) do
     weigh = W.weigh(grams)
     weigh + 1
-    # ^ d: picker lib/shop/warehouse.ex:8, lib/shop/warehouse.ex:9; want lib/shop/basket.ex:93 (#460)
+    # ^ d: lib/shop/basket.ex:94
+    #   status: weigh → Shop.Basket.weigh_all.weigh (local)
   end
 
   def encode(basket), do: Jason.encode!(basket)
   #                             ^ d: deps/jason/lib/jason.ex:2
+
+  def reship(courier), do: ship(courier)
+  #                        ^ d: lib/shop/basket.ex:52
+
+  def refund(%Shop.Basket{tariff: t}) do
+    Tariff.rate(t)
+    #           ^ d: lib/shop/basket.ex:106
+    #   status: t → Shop.Basket.refund.t (local)
+  end
 end

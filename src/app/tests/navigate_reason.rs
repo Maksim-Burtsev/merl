@@ -111,14 +111,12 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
                 &at("gopkg.in/yaml.v3@v3.0.1/yaml.go:3"),
             ),
         ),
-        // `github.com/foo/bar` is not installed: `github.com/other/lib` only shares a prefix.
+        // `github.com/foo/bar` is not installed: `github.com/other/lib` only shares a prefix,
+        // and a Go package is its own directory or nothing (#332).
         (
             "main.go",
             "bar.Baz",
-            jump(
-                "Baz: by name, 1 match",
-                &at("github.com/other/lib@v1.0.0/lib.go:3"),
-            ),
+            jump("no definition for Baz", "main.go:15"),
         ),
         (
             "main.go",
@@ -133,40 +131,31 @@ fn a_module_lookup_says_which_module_or_that_it_went_by_name() {
             "errors.New",
             jump("New: via import errors", &at("src/errors/errors.go:3")),
         ),
-        // Nor is a package inside the imported one: a name it lacks is looked for everywhere.
+        // Nor is a package inside the imported one: Go has no re-exports, and a name the
+        // package lacks is declared nowhere else (#332).
         (
             "main.go",
             "kit.Wire",
-            picker(
-                "Wire: by name, 2 declarations",
-                &[
-                    ("Wire", "example.com/kit@v1.0.0/inner/inner.go:3"),
-                    ("Wire", "github.com/else/thing@v1.0.0/thing.go:3"),
-                ],
-            ),
+            jump("no definition for Wire", "main.go:14"),
         ),
         // A package that is not installed: its parent directory is no proof.
         (
             "main.go",
             "pq.Open",
-            picker(
-                "Open: by name, 2 declarations",
-                &[
-                    ("Open", "src/database/sql/driver/driver.go:3"),
-                    ("Open", "src/database/sql/sql.go:3"),
-                ],
-            ),
+            jump("no definition for Open", "main.go:18"),
         ),
-        // A Rust call on a value still looks outside the project.
+        // A Rust call on a value still looks outside the project, and a trait's own method is
+        // where every call of it lands (#358).
         (
             "main.rs",
             ".into_owned",
             jump(
-                "into_owned \u{2192} ToOwned::into_owned (by name, 1 match)",
+                "into_owned \u{2192} ToOwned::into_owned (via trait ToOwned)",
                 &at("alloc/src/borrow.rs:2"),
             ),
         ),
-        // A value named like a module is found in that module, by name.
+        // A value named like a module is a value like any other (#358): the one method of the
+        // name outside the project, by name.
         (
             "main.rs",
             "path.join",
@@ -313,17 +302,9 @@ fn a_root_of_one_package_keeps_its_name() {
         a.jump_to(&path, 1);
         assert_eq!(a.rel_path(), name);
     }
+    // Go has no re-exports: a package that does not declare the name is the answer (#332).
     d_on(&mut a, "main.go", "kit.Wire");
-    assert_eq!(
-        shown(&mut a),
-        picker(
-            "Wire: by name, 2 declarations",
-            &[
-                ("Wire", "kit@v1.0.0/inner/inner.go:3"),
-                ("Wire", "thing@v1.0.0/thing.go:3"),
-            ],
-        )
-    );
+    assert_eq!(shown(&mut a), jump("no definition for Wire", "main.go:6"));
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&outside).unwrap();
 }

@@ -397,6 +397,105 @@ impl Review {
         }
         Ok(out.stdout)
     }
+
+    /// The project as the base had it, for `d` on a deleted line (#440), in the repository's
+    /// git directory, where a hard link reaches the files: a file the branch left alone is a link
+    /// to the one on disk, and only the ones it changed, renamed or deleted are read from git.
+    /// The folders git ignores (`.venv`, `node_modules`) are links to the real ones, so a lookup
+    /// reaches the dependencies it reaches on disk. Built again when the branch's files change.
+    pub fn base_tree(&self, root: &Path) -> Result<PathBuf> {
+        let (_, common) = dirs(root).context("no git directory")?;
+        let changed: std::collections::HashSet<&Path> = (self.files.iter())
+            .filter(|f| !f.untracked)
+            .map(|f| f.old.as_deref().unwrap_or(&f.path))
+            .collect();
+        let mut stamp: Vec<String> = changed.iter().map(|p| p.display().to_string()).collect();
+        stamp.sort();
+        stamp.insert(0, self.merge_base.clone());
+        let stamp = stamp.join("\n");
+        let parent = common.join("merl").join("base");
+        let dir = parent.join(&self.merge_base);
+        if std::fs::read_to_string(dir.join(".merl-stamp")).is_ok_and(|s| s == stamp) {
+            return Ok(dir);
+        }
+        let tmp = parent.join(format!(".{}-{}", self.merge_base, std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp)?;
+        let listing = git(
+            root,
+            &["ls-tree", "-r", "-z", "--full-tree", &self.merge_base],
+        )?;
+        let mut from_git = Vec::new();
+        for entry in listing.split('\0').filter(|e| !e.is_empty()) {
+            let Some((meta, path)) = entry.split_once('\t') else {
+                continue;
+            };
+            let (mode, path) = (meta.split(' ').next().unwrap_or(""), Path::new(path));
+            let dst = tmp.join(path);
+            if let Some(d) = dst.parent() {
+                std::fs::create_dir_all(d)?;
+            }
+            // A submodule is another repository; a link is written from git as it is.
+            match mode {
+                "160000" => continue,
+                "120000" => from_git.push((path.to_path_buf(), true)),
+                _ if changed.contains(path) => from_git.push((path.to_path_buf(), false)),
+                _ => {
+                    if std::fs::hard_link(root.join(path), &dst).is_err() {
+                        from_git.push((path.to_path_buf(), false));
+                    }
+                }
+            }
+        }
+        for (path, link) in from_git {
+            let spec = format!("{}:{}", self.merge_base, path.display());
+            let out = Command::new("git")
+                .arg("-C")
+                .arg(root)
+                .args(["cat-file", "blob", &spec])
+                .output()?;
+            #[cfg(unix)]
+            if link {
+                let target = String::from_utf8_lossy(&out.stdout).into_owned();
+                let _ = std::os::unix::fs::symlink(target, tmp.join(&path));
+                continue;
+            }
+            std::fs::write(tmp.join(&path), out.stdout)?;
+        }
+        #[cfg(unix)]
+        {
+            let ignored = git(
+                root,
+                &[
+                    "ls-files",
+                    "-z",
+                    "--others",
+                    "--ignored",
+                    "--exclude-standard",
+                    "--directory",
+                ],
+            )
+            .unwrap_or_default();
+            for d in ignored.split('\0').filter(|d| d.ends_with('/')) {
+                let d = Path::new(d.trim_end_matches('/'));
+                let dst = tmp.join(d);
+                if dst.parent().is_some_and(Path::exists) && !dst.exists() {
+                    let _ = std::os::unix::fs::symlink(root.join(d), dst);
+                }
+            }
+        }
+        std::fs::write(tmp.join(".merl-stamp"), &stamp)?;
+        // One base at a time: the one of another branch is built again when it is reviewed.
+        if let Ok(old) = std::fs::read_dir(&parent) {
+            for e in old.flatten().filter(|e| e.path() != tmp) {
+                let _ = std::fs::remove_dir_all(e.path());
+            }
+        }
+        if std::fs::rename(&tmp, &dir).is_err() {
+            let _ = std::fs::remove_dir_all(&tmp);
+        }
+        Ok(dir)
+    }
 }
 
 /// The lines `patch`, the branch's whole diff, deletes from `files`, in their order. Each file's
@@ -510,6 +609,25 @@ fn git(root: &Path, args: &[&str]) -> Result<String> {
     Ok(String::from_utf8_lossy(&out.stdout)
         .trim_end_matches('\n')
         .to_string())
+}
+
+/// The branch's whole diff against `base` with no context, its names prefixed `a/` and `b/`
+/// whatever the user's `diff.noprefix` says (#440).
+pub fn branch_patch(root: &Path, base: &str) -> Result<String> {
+    git(
+        root,
+        &[
+            "-c",
+            "core.quotePath=false",
+            "diff",
+            "-U0",
+            "--no-color",
+            "--no-ext-diff",
+            "--src-prefix=a/",
+            "--dst-prefix=b/",
+            base,
+        ],
+    )
 }
 
 /// The git directory of the worktree at `root` (where `HEAD` is) and the repository's common
@@ -711,19 +829,21 @@ fn own_commits(git: &dyn Fn(&[&str]) -> Result<String>, b: &str) -> bool {
     !git(&args).is_ok_and(|n| n == "0")
 }
 
-/// `origin/HEAD`, else the first of `origin/master`, `origin/main`, `origin/develop` that
-/// exists, else the local `master` / `main`.
+/// The bases tried in order when origin has no `HEAD`; the help of `--base` names them (#322).
+pub const BASES: [&str; 5] = [
+    "origin/master",
+    "origin/main",
+    "origin/develop",
+    "master",
+    "main",
+];
+
+/// `origin/HEAD`, else the first of [`BASES`] that exists.
 fn detect_base(git: &dyn Fn(&[&str]) -> Result<String>) -> Result<String> {
     if let Ok(b) = git(&["symbolic-ref", "-q", "--short", "refs/remotes/origin/HEAD"]) {
         return Ok(b);
     }
-    for b in [
-        "origin/master",
-        "origin/main",
-        "origin/develop",
-        "master",
-        "main",
-    ] {
+    for b in BASES {
         if git(&["rev-parse", "--verify", "-q", &format!("{b}^{{commit}}")]).is_ok() {
             return Ok(b.to_string());
         }

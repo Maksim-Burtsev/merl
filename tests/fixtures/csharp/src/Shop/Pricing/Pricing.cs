@@ -57,3 +57,11 @@ public class Weights : IComparable
 {
     int IComparable.CompareTo(object? o) => 0;
 }
+
+public enum Tier : byte
+{
+    // the first
+    [Obsolete] Basic = 1,
+    Gold = 2, Platinum,
+    Diamond
+}
