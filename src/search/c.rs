@@ -983,9 +983,15 @@ pub fn c_receiver(before: &str) -> Option<(String, bool, Vec<String>)> {
         if called {
             rest = rest[..opening(rest)?].trim_end();
         }
-        let start = rest.rfind(|c: char| !is_name(c)).map_or(0, |i| i + 1);
+        let start = rest.trim_end_matches(is_name).len();
         let name = &rest[start..];
-        if name.is_empty() || name.starts_with(|c: char| c.is_ascii_digit()) || name == "this" {
+        // A non-ASCII character in front goes on with the name (`größe`, `e\u{301}tude`): the
+        // tail read is not it.
+        if name.is_empty()
+            || name.starts_with(|c: char| c.is_ascii_digit())
+            || name == "this"
+            || rest[..start].ends_with(|c: char| !c.is_ascii())
+        {
             return None;
         }
         rest = rest[..start].trim_end();

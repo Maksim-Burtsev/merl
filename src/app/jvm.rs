@@ -266,15 +266,17 @@ const KOTLIN_KEYWORDS: &[&str] = &[
 fn arguments(lines: &[String], at: usize, open: usize) -> Option<(usize, bool)> {
     let mut depth = 0usize;
     let (mut commas, mut any, mut angle) = (0, false, false);
-    let mut quote: Option<&str> = None;
+    // Bytes, not `str`: a step of one byte lands inside a character, and every byte the count
+    // reads is ASCII.
+    let mut quote: Option<&[u8]> = None;
     for (n, line) in lines.iter().enumerate().skip(at).take(60) {
         let from = if n == at { open } else { 0 };
         let b = line.as_bytes();
         let mut i = from;
         while i < b.len() {
-            let rest = &line[i..];
+            let rest = &b[i..];
             if let Some(q) = quote {
-                if rest.starts_with('\\') {
+                if rest.starts_with(b"\\") {
                     i += 2;
                     continue;
                 }
@@ -287,15 +289,15 @@ fn arguments(lines: &[String], at: usize, open: usize) -> Option<(usize, bool)> 
                 continue;
             }
             let c = b[i];
-            if rest.starts_with("\"\"\"") {
-                quote = Some("\"\"\"");
+            if rest.starts_with(b"\"\"\"") {
+                quote = Some(b"\"\"\"");
                 i += 3;
                 continue;
             }
             match c {
-                b'"' => quote = Some("\""),
-                b'\'' => quote = Some("'"),
-                b'/' if rest.starts_with("//") => break,
+                b'"' => quote = Some(b"\""),
+                b'\'' => quote = Some(b"'"),
+                b'/' if rest.starts_with(b"//") => break,
                 b'(' | b'[' | b'{' => depth += 1,
                 b')' | b']' | b'}' => {
                     depth = depth.saturating_sub(1);
@@ -313,7 +315,7 @@ fn arguments(lines: &[String], at: usize, open: usize) -> Option<(usize, bool)> 
             i += 1;
         }
         // A string of one line ends with it; a text block goes on.
-        if quote != Some("\"\"\"") {
+        if quote != Some(b"\"\"\"") {
             quote = None;
         }
     }
@@ -512,5 +514,33 @@ impl App {
             && !keyword(&last)
             && !keyword(&next)
             && !b.ends_with(['=', ':', ',', '{', '('])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A call's arguments are counted past non-ASCII characters, in a string and out, across
+    /// lines: the count steps by bytes and never cuts a character.
+    #[test]
+    fn arguments_are_counted_past_non_ascii_characters() {
+        let lines = |ls: &[&str]| ls.iter().map(|l| l.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            arguments(&lines(&["naïve = Straße(ñ, ü)"]), 0, 16),
+            Some((2, false))
+        );
+        assert_eq!(
+            arguments(&lines(&[r#"f("ñ", 'ü')"#]), 0, 1),
+            Some((2, false))
+        );
+        assert_eq!(
+            arguments(
+                &lines(&["\tx := new(", "s = \"open", "t = ü + `x`", ")"]),
+                0,
+                9
+            ),
+            Some((1, false))
+        );
     }
 }
