@@ -44,6 +44,9 @@
   that changes what a screen draws updates them in the same PR: `MERL_UPDATE_SNAPSHOTS=1 cargo
   test snapshots`, then read `git diff tests/snapshots` as the change seen on screen. A new
   screen, overlay or panel adds its state to `STATES`.
+- No file under `src/` passes 1,500 lines of non-test code, and the ones already over it may not
+  grow: `no_source_file_grows_past_its_size` (`src/main.rs`, `LONG_FILES`). Split the file; a
+  listed file that shrinks lowers its number in the same PR.
 
 ## Issues
 
