@@ -14,7 +14,7 @@ public final class Tracker {
     func resume() {
         print(span)
         //    ^ d: Sources/Shop/Tracker.swift:3
-        //      status: span → Tracker.span (by name, 1 match)
+        //      status: span → Tracker.span (via self: Tracker)
     }
 }
 

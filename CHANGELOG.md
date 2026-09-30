@@ -126,6 +126,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   block is none. A Java call is never a variable, `values()` lands on its enum, `new Rule(a, b)`
   on the constructor taking two arguments and an overload on the one the arguments fit; and a
   Kotlin infix call, `alias(x) apply false`, finds only an `infix fun`. (#367)
+- `d` in Swift reads a member's kind from how it is written. An implicit member, `.bytes` in
+  `case let .bytes(count):` or `.post` as an argument, lands on the enum case or `static` member
+  of the name, and in a `case` pattern on a case alone; `Endpoint.method(…)` lands on the
+  `static func` and no longer offers the instance property beside it. A bare name in a type's
+  body, `lock()` in `extension Lock` or `timeout` in a subclass of `BaseTestCase`, lands on that
+  type's member, its extensions' or its superclass's: `timeout → BaseTestCase.timeout (via self:
+  DownloadTests)`. It offered every declaration of the name in the project. (#380)
 - `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
   parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
   said `no definition` or offered namesakes from other files: `directionParams →
@@ -284,6 +291,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the status reads `getTopics → Repo.getTopics` and `DEFAULT → Repo.DEFAULT`, and `Repo::m`
   and `Repo.DEFAULT` find them. The walk up to the class stopped at the `) : Base {` line and at
   `companion object`, so those members had no class in their name. (#523)
+- `d` in Swift on a function's parameter in its header, as `attempt` in
+  `func probe(_ attempt: Int) {`, answers as on any declaration: the line itself, or the
+  namesakes offered under "at a declaration". It jumped to a lone namesake elsewhere. A name a
+  `for`, an `if let` or a closure binds over an outer one of the same name answers the same way;
+  it jumped to the outer one. (#533)
 - `d` in Swift finds a function or an enum case declared with its name in backticks, as
   ``func `default`()`` or ``case `open` ``: it said "no definition", or jumped to a namesake
   elsewhere. (#463)

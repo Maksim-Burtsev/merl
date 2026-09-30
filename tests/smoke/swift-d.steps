@@ -12,3 +12,12 @@ key t /
 type attempt)
 key Enter d
 wait (local)
+# A bare name in an `extension` body is the protocol's member through `self`, where it offered
+# every declaration of the name in the project (#380).
+run printf 'protocol Lock {\n    func lock()\n}\n\nextension Lock {\n    func around() {\n        lock() // held\n    }\n}\n\nfinal class UnfairLock {\n    private let lock = 0\n}\n' > ios/Protected.swift
+merl ios/Protected.swift
+wait extension Lock
+key t /
+type lock() //
+key Enter d
+wait via self: Lock

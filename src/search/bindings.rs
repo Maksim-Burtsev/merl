@@ -648,6 +648,67 @@ pub fn swift_scope<S: AsRef<str>>(lines: &[S], literal: &[bool], line: usize) ->
     }
     (0, local.unwrap_or(false))
 }
+/// A Swift type's header (#380): its keyword (`class`, `extension`, …), the type it names, the
+/// first type its header inherits, and whether a `where` constrains it.
+pub fn swift_type_header(line: &str) -> Option<(String, String, Option<String>, bool)> {
+    static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"{}(class|struct|enum|protocol|actor|extension)\s+`?([\w.]+)`?(?:<[^>]*>)?\s*(?::\s*([\w.]+))?",
+            swift_mods!()
+        ))
+        .unwrap()
+    });
+    let t = uncommented(Kind::Swift, line);
+    if SWIFT_FUNC.is_match(&t) {
+        return None;
+    }
+    let c = HEADER.captures(&t)?;
+    Some((
+        c[1].to_owned(),
+        c[2].to_owned(),
+        c.get(3).map(|m| m.as_str().to_owned()),
+        t.contains(" where "),
+    ))
+}
+/// The 1-based line of the header of the Swift type whose body holds 1-based `line`, through
+/// the functions and closures around it; `None` at the top of a file (#380).
+pub fn swift_enclosing_type<S: AsRef<str>>(
+    lines: &[S],
+    literal: &[bool],
+    line: usize,
+) -> Option<usize> {
+    let mut at = line;
+    loop {
+        at = swift_scope(lines, literal, at).0;
+        if at == 0 {
+            return None;
+        }
+        if swift_type_header(lines[at - 1].as_ref()).is_some() {
+            return Some(at);
+        }
+    }
+}
+/// Whether a Swift line declares a `func`, a `let` or a `var` with no `static` or `class` among
+/// its modifiers, a member only a value reaches (#380).
+pub fn swift_instance_member(line: &str) -> bool {
+    swift_static_member(line) == Some(false)
+}
+/// Whether a Swift `func`, `let` or `var` line is `static` or `class`; `None` for any other line.
+pub fn swift_static_member(line: &str) -> Option<bool> {
+    static DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"({})(?:func|let|var)\s", swift_mods!())).unwrap()
+    });
+    let c = DECL.captures(line)?;
+    Some(
+        c[1].split(|ch: char| !ch.is_alphanumeric())
+            .any(|w| w == "static" || w == "class"),
+    )
+}
+/// Whether a Swift line declares an enum case.
+pub fn swift_case(line: &str) -> bool {
+    let t = line.trim_start();
+    t.starts_with("case ") || t.starts_with("indirect case ")
+}
 /// Whether a Swift line is an `extension` (#371).
 pub fn swift_extension(line: &str) -> bool {
     static EXTENSION: std::sync::LazyLock<Regex> =
@@ -747,9 +808,6 @@ fn swift_decl_binds(rest: &str, name: &str) -> Option<bool> {
 /// file bind no local, and a pattern the rules cannot read that names the word stops the walk:
 /// the search by name decides then.
 fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(&format!(r"{}(?:func|init|subscript|set)\b", swift_mods!())).unwrap()
-    });
     let literal = literal_lines(Kind::Swift, &lines.join("\n"));
     let code = |i: usize| uncommented(Kind::Swift, lines[i]).trim().to_owned();
     let found = |line: usize| {
@@ -819,21 +877,7 @@ fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             // Parameters wrapped over the lines under the header's first go on to its `{`.
             let end = (end..at).find(|&j| code(j).ends_with('{')).unwrap_or(end);
             let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
-            let mods = PARAMS.find(&text).map_or(text.len(), |m| m.end());
-            let params = text[mods..].find('(').and_then(|open| {
-                let open = mods + open;
-                close_of(Kind::Swift, &text, open).map(|close| &text[open + 1..close - 1])
-            });
-            let bound = params.is_some_and(|p| {
-                split_top(Kind::Swift, p, b',').iter().any(|p| {
-                    let names = split_top(Kind::Swift, p, b':')[0];
-                    names
-                        .split_whitespace()
-                        .last()
-                        .is_some_and(|w| w.trim_matches('`') == name)
-                })
-            });
-            return match bound {
+            return match swift_params_bind(&text, name) {
                 true => found(written(i, end, &param)),
                 false => Vec::new(),
             };
@@ -853,6 +897,28 @@ fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         }
     }
     Vec::new()
+}
+/// Whether the parameters of the `func`, `init`, `subscript` or `set` header `text` name `name`:
+/// the last word in front of a parameter's `:`, so `_ attempt: Int` and `for attempt: Int` bind
+/// `attempt`, and an argument label binds nothing.
+fn swift_params_bind(text: &str, name: &str) -> bool {
+    static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"{}(?:func|init|subscript|set)\b", swift_mods!())).unwrap()
+    });
+    let mods = PARAMS.find(text).map_or(text.len(), |m| m.end());
+    let params = text[mods..].find('(').and_then(|open| {
+        let open = mods + open;
+        close_of(Kind::Swift, text, open).map(|close| &text[open + 1..close - 1])
+    });
+    params.is_some_and(|p| {
+        split_top(Kind::Swift, p, b',').iter().any(|p| {
+            let names = split_top(Kind::Swift, p, b':')[0];
+            names
+                .split_whitespace()
+                .last()
+                .is_some_and(|w| w.trim_matches('`') == name)
+        })
+    })
 }
 /// Whether the header of a Swift block binds `name` for the block: `head` its first line, `text`
 /// all its lines joined, `last` the line that opens the block. A `catch` (a bare one binds
@@ -911,9 +977,12 @@ fn swift_header_binds(head: &str, text: &str, last: &str, name: &str) -> Option<
 }
 /// Whether a Swift line, read on its own, binds `name` for what follows it the way no
 /// declaration pattern reads (#525): a `for`, an `if let`, a `guard let`, a closure's parameter,
-/// a `catch let`, a `case let` of a `switch`.
+/// a `catch let`, a `case let` of a `switch`; and a function's parameter in its header (#533).
 pub fn swift_binds_on(line: &str, name: &str) -> bool {
     let t = uncommented(Kind::Swift, line).trim().to_owned();
+    if SWIFT_FUNC.is_match(&t) && swift_params_bind(&t, name) {
+        return true;
+    }
     let binds = match t.starts_with("guard ") {
         true => swift_condition_binds(&t, name),
         false => swift_header_binds(&t, &t, &t, name),

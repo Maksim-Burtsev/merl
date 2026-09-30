@@ -329,9 +329,24 @@ impl App {
                 || (after.starts_with('!') && !after.starts_with("!=")));
         let rust_field =
             kind == Kind::Rust && after.starts_with(':') && !after.starts_with("::") && !captured;
-        let declared = kind == Kind::Rust
-            && chain.is_empty()
-            && search::rust_let_declares(self.line_str(), range.start, &word);
+        // On the name a Swift `for`, `if let`, closure or function header declares on the
+        // cursor's own line, the word is at a declaration, as on a `let` (#525, #533): the
+        // occurrence the line no longer binds the name without. A read in front of it, `cache`
+        // in `if cache.isEmpty, let cache = load() {`, is looked up as on any other line, and an
+        // outer binding of the name is a namesake, never the answer.
+        let line = self.line_str();
+        let swift_binds_here = kind == Kind::Swift
+            && !dotted
+            && line.get(range.clone()) == Some(word.as_str())
+            && search::swift_binds_on(line, &word)
+            && !search::swift_binds_on(
+                &format!("{}_{}", &line[..range.start], &line[range.end..]),
+                &word,
+            );
+        let declared = swift_binds_here
+            || (kind == Kind::Rust
+                && chain.is_empty()
+                && search::rust_let_declares(self.line_str(), range.start, &word));
         // A TypeScript bare word is a value a `class`, `function`, `type`, `interface` or `enum`
         // of its scope declares as well as a `const` (#337); the first name of a chain is not.
         let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
@@ -702,6 +717,19 @@ impl App {
                 hit,
                 reason: Reason::Local,
             }];
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
+        // A bare Swift word in a type's body is a member of that type through the implicit
+        // `self`, or of the class it extends, before any namesake (#380).
+        if kind == Kind::Swift
+            && !dotted
+            && chain.is_empty()
+            && locals.is_empty()
+            && !declares_here
+            && !matches!(word.as_str(), "self" | "super" | "init")
+            && let Some(found) = self.swift_self_members(&here, &text, &word, &pattern)
+        {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
@@ -1178,6 +1206,19 @@ impl App {
                 }
                 false => named,
             };
+            // Swift's `Type.word` reaches a case or a `static` member: an instance member needs a
+            // value (#380). A type with only instance members of the name keeps them.
+            let named = match kind == Kind::Swift
+                && named
+                    .iter()
+                    .any(|c| !search::swift_instance_member(&c.hit.text))
+            {
+                true => named
+                    .into_iter()
+                    .filter(|c| !search::swift_instance_member(&c.hit.text))
+                    .collect(),
+                false => named,
+            };
             if !named.is_empty() {
                 self.show_definitions(kind, &word, &here, named, None);
                 return;
@@ -1403,6 +1444,33 @@ impl App {
                 hits = kept;
             }
         }
+        // A Swift implicit member, `.word` with no name in front, is an enum case or a `static`
+        // member of the type expected there, and in a `case` pattern a case alone (#380). When
+        // the project declares none of them, the answer is outside it and the rows stay.
+        if kind == Kind::Swift && dotted && chain.is_empty() && word != "init" {
+            let dot = &written[..start - 1];
+            let lead = dot.trim_end();
+            let implicit = lead.is_empty()
+                || lead.ends_with([
+                    '(', ',', '[', ':', '=', '<', '>', '&', '|', '+', '-', '*', '/', '%', '^', '~',
+                ])
+                || (lead.len() < dot.len() && lead.ends_with(['?', '!']))
+                || ["return", "case", "let", "var"]
+                    .iter()
+                    .any(|k| lead.strip_suffix(k).is_some_and(|b| !b.ends_with(is_word)));
+            let pattern = written.trim_start().starts_with("case ");
+            let kept: Vec<Hit> = hits
+                .iter()
+                .filter(|h| {
+                    search::swift_case(&h.text)
+                        || (!pattern && search::swift_static_member(&h.text) == Some(true))
+                })
+                .cloned()
+                .collect();
+            if implicit && !kept.is_empty() {
+                hits = kept;
+            }
+        }
         // A Lua `local` inside a block is seen by that block alone, where the bindings above
         // found it already: anywhere else, and behind a dot, it is no candidate (#461). What is
         // left was a namesake beside it on master, and is offered, never jumped to. The cursor's
@@ -1476,25 +1544,16 @@ impl App {
             });
         }
         if kind == Kind::Swift {
-            // On the name a `for`, an `if let` or a closure's parameter declares on the cursor's
-            // own line, the word is at a declaration, as on a `let` (#525). That is the occurrence
-            // the line no longer binds the name without: a read in front of it, `cache` in
-            // `if cache.isEmpty, let cache = load() {`, is looked up as on any other line.
-            let line = self.line_str();
+            // On the name a binding declares on the cursor's own line (`swift_binds_here`), the
+            // line joins the namesakes found by name, as a `let` line does by its pattern.
             let own = Hit {
                 path: here.clone(),
                 line: self.line + 1,
                 col: 0,
-                text: line.to_owned(),
+                text: self.line_str().to_owned(),
                 deleted: None,
             };
-            if !dotted
-                && line.get(range.clone()) == Some(word.as_str())
-                && search::swift_binds_on(line, &word)
-                && !search::swift_binds_on(
-                    &format!("{}_{}", &line[..range.start], &line[range.end..]),
-                    &word,
-                )
+            if swift_binds_here
                 && !hits
                     .iter()
                     .any(|h| h.path == own.path && h.line == own.line)
@@ -2080,6 +2139,73 @@ impl App {
             .collect();
         self.offer_only |= kept.len() == 1 && kept.len() < all && !seen_local;
         kept
+    }
+
+    /// What a bare Swift `word` names among the members of the type whose body holds the cursor
+    /// (#380): what its body and every extension of it declare, `via self: Type`; else, for a
+    /// class, what the class its header extends first declares, when the project declares that
+    /// as a class once, and so on up. `None` when none of them does, and in an extension a
+    /// `where` constrains, whose members may be another type's.
+    fn swift_self_members(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        pattern: &str,
+    ) -> Option<Vec<Candidate>> {
+        let lines: Vec<&str> = text.lines().collect();
+        let literal = search::literal_lines(Kind::Swift, text);
+        let at = search::swift_enclosing_type(&lines, &literal, self.line + 1)?;
+        let (mut keyword, own, mut base, constrained) = search::swift_type_header(lines[at - 1])?;
+        if constrained {
+            return None;
+        }
+        // A cut in a grep whose result is dropped says nothing about the list shown in the end.
+        let cut = self.truncated.get();
+        let hits = self.project_definitions(Kind::Swift, here, word, pattern);
+        let mut ty = own.clone();
+        let mut seen = HashSet::from([own.clone()]);
+        loop {
+            let full = format!("{ty}.{word}");
+            let found: Vec<Candidate> = hits
+                .iter()
+                .filter(|h| {
+                    self.text_of(&h.path)
+                        .and_then(|t| search::qualified(Kind::Swift, &t, h.line, word))
+                        .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")))
+                })
+                .map(|h| Candidate {
+                    hit: h.clone(),
+                    reason: Reason::Receiver(format!("self: {own}")),
+                })
+                .collect();
+            if !found.is_empty() {
+                return Some(found);
+            }
+            let next = match (keyword.as_str(), base) {
+                ("class", Some(next)) if seen.insert(next.clone()) => next,
+                _ => {
+                    self.truncated.set(cut);
+                    return None;
+                }
+            };
+            let classes: Vec<_> = self
+                .project_definitions(
+                    Kind::Swift,
+                    here,
+                    &next,
+                    &search::def_patterns(Kind::Swift, &next).join("|"),
+                )
+                .iter()
+                .filter_map(|h| search::swift_type_header(&h.text))
+                .filter(|(k, n, ..)| k == "class" && *n == next)
+                .collect();
+            let [(k, _, b, _)] = classes.as_slice() else {
+                self.truncated.set(cut);
+                return None;
+            };
+            (keyword, base, ty) = (k.clone(), b.clone(), next);
+        }
     }
 
     /// What a bare `word` names among the members of the Java or Kotlin classes around the
