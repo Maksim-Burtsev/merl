@@ -747,19 +747,6 @@ fn swift_decl_binds(rest: &str, name: &str) -> Option<bool> {
 /// file bind no local, and a pattern the rules cannot read that names the word stops the walk:
 /// the search by name decides then.
 fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    static CATCH: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^(?:\}\s*)?catch\b\s*(.*?)\s*\{$").unwrap());
-    static CONDITION: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^(?:\}\s*)?(?:else\s+)?(?:if|while)\s").unwrap());
-    static FOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^for\s+(?:try\s+)?(?:await\s+)?(?:case\s+)?(.+?)\s+in\s").unwrap()
-    });
-    static CLOSURE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(
-            r"\{\s*(?:\[[^\]]*\]\s*)?(?:@\w+\s+)?(\([^()]*\)|[\w\s,]*?)\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin$",
-        )
-        .unwrap()
-    });
     static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(r"{}(?:func|init|subscript|set)\b", swift_mods!())).unwrap()
     });
@@ -857,42 +844,81 @@ fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         if let Some(line) = pending {
             return found(line);
         }
-        let binds = if let Some(c) = CATCH.captures(&head) {
-            match &c[1] {
-                "" => Some(name == "error"),
-                pattern => Some(rule(format!(r"\b(?:let|var)\s+{n}\b")).is_match(pattern)),
-            }
-        } else if let Some(pattern) = head.strip_prefix("case ") {
-            let pattern = pattern.strip_suffix(':').unwrap_or(pattern);
-            let mut bound = Some(false);
-            for p in split_top(Kind::Swift, pattern, b',') {
-                match swift_pattern_binds(p, false, name) {
-                    Some(true) => return found(i + 1),
-                    None => bound = None,
-                    Some(false) => {}
-                }
-            }
-            bound
-        } else if let Some(c) = FOR.captures(&text) {
-            swift_pattern_binds(&c[1], true, name)
-        } else if CONDITION.is_match(&head) {
-            swift_condition_binds(&text, name)
-        } else if let Some(c) = CLOSURE.captures(&code(end)) {
-            let params = c[1].trim().trim_start_matches('(').trim_end_matches(')');
-            Some(params.split(',').any(|p| {
-                let p = p.split(':').next().unwrap_or(p);
-                p.split_whitespace().last() == Some(name)
-            }))
-        } else {
-            Some(false)
-        };
-        match binds {
+        match swift_header_binds(&head, &text, &code(end), name) {
             None => return Vec::new(),
+            // A `case` names its line, the others the line of the header that writes the name.
+            Some(true) if head.starts_with("case ") => return found(i + 1),
             Some(true) => return found(written(i, end, &word)),
             Some(false) => {}
         }
     }
     Vec::new()
+}
+/// Whether the header of a Swift block binds `name` for the block: `head` its first line, `text`
+/// all its lines joined, `last` the line that opens the block. A `catch` (a bare one binds
+/// `error`), a `case` of a `switch`, a `for`, an `if let` or a `while let`, a closure's
+/// parameters; `None` for a pattern naming the word that the rules cannot read.
+fn swift_header_binds(head: &str, text: &str, last: &str, name: &str) -> Option<bool> {
+    static CATCH: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^(?:\}\s*)?catch\b\s*(.*?)\s*\{$").unwrap());
+    static CONDITION: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^(?:\}\s*)?(?:else\s+)?(?:if|while)\s").unwrap());
+    static FOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^for\s+(?:try\s+)?(?:await\s+)?(?:case\s+)?(.+?)\s+in\s").unwrap()
+    });
+    static CLOSURE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"\{\s*(?:\[[^\]]*\]\s*)?(?:@\w+\s+)?(\([^()]*\)|[\w\s,]*?)\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin$",
+        )
+        .unwrap()
+    });
+    if let Some(c) = CATCH.captures(head) {
+        let n = regex::escape(name);
+        return match &c[1] {
+            "" => Some(name == "error"),
+            pattern => Some(
+                Regex::new(&format!(r"\b(?:let|var)\s+{n}\b"))
+                    .expect("an escaped name keeps the pattern valid")
+                    .is_match(pattern),
+            ),
+        };
+    }
+    if let Some(pattern) = head.strip_prefix("case ") {
+        let pattern = pattern.strip_suffix(':').unwrap_or(pattern);
+        let mut bound = Some(false);
+        for p in split_top(Kind::Swift, pattern, b',') {
+            match swift_pattern_binds(p, false, name) {
+                Some(true) => return Some(true),
+                None => bound = None,
+                Some(false) => {}
+            }
+        }
+        return bound;
+    }
+    if let Some(c) = FOR.captures(text) {
+        swift_pattern_binds(&c[1], true, name)
+    } else if CONDITION.is_match(head) {
+        swift_condition_binds(text, name)
+    } else if let Some(c) = CLOSURE.captures(last) {
+        let params = c[1].trim().trim_start_matches('(').trim_end_matches(')');
+        Some(params.split(',').any(|p| {
+            let p = p.split(':').next().unwrap_or(p);
+            p.split_whitespace().last() == Some(name)
+        }))
+    } else {
+        Some(false)
+    }
+}
+/// Whether a Swift line, read on its own, binds `name` for what follows it the way no
+/// declaration pattern reads (#525): a `for`, an `if let`, a `guard let`, a closure's parameter,
+/// a `catch let`, a `case let` of a `switch`.
+pub fn swift_binds_on(line: &str, name: &str) -> bool {
+    let t = uncommented(Kind::Swift, line).trim().to_owned();
+    let binds = match t.starts_with("guard ") {
+        true => swift_condition_binds(&t, name),
+        false => swift_header_binds(&t, &t, &t, name),
+    };
+    binds == Some(true)
 }
 /// Whether the word at `range` of 1-based `line` names a keyword argument of a Python call:
 /// `recipe_yield=…` behind a `(` or a `,`, or at the start of a line that continues a call. It

@@ -1284,6 +1284,24 @@ impl App {
         // The cursor's own line alone is offered rather than jumped to when others went: the
         // word may be a use on the line of a declaration of its name (#317).
         if kind == Kind::Swift {
+            // On the name a `for`, an `if let` or a closure's parameter declares on the cursor's
+            // own line, its first on the line, the word is at a declaration, as on a `let` (#525).
+            let line = self.line_str();
+            let own = Hit {
+                path: here.clone(),
+                line: self.line + 1,
+                col: 0,
+                text: line.to_owned(),
+            };
+            if !dotted
+                && whole_at(line, &word, "") == Some(range.start)
+                && search::swift_binds_on(line, &word)
+                && !hits
+                    .iter()
+                    .any(|h| h.path == own.path && h.line == own.line)
+            {
+                hits.push(own);
+            }
             let all = hits.len();
             let lines: Vec<&str> = text.lines().collect();
             let literal = search::literal_lines(kind, &text);

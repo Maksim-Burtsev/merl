@@ -580,6 +580,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   call, an `@spec` or a module attribute on its own module's declaration first. (#460)
 - `d` in Lua follows `require` to the module's file and reads `mod.name`, `mod.T.name` and
   `T.name` in the table it names, instead of offering every function of that name. (#462)
+- `d` in Swift on the name a `for`, an `if let`, a `guard let` or a closure's parameter declares
+  answers as on a `let`: at a declaration, its namesakes elsewhere offered in a picker, and the
+  line itself when it has none. It jumped to a namesake elsewhere, often a field of the same
+  name. (#525)
 
 ## [0.7.0] - 2026-09-25
 
