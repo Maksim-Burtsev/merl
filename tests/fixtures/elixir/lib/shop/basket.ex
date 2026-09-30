@@ -108,4 +108,12 @@ defmodule Shop.Basket do
     #           ^ d: lib/shop/basket.ex:106
     #   status: t → Shop.Basket.refund.t (local)
   end
+
+  def bill(price, qty) do
+    total = price * qty
+    total = total + 1
+    # ^ d: lib/shop/basket.ex:113
+    #         ^ d: lib/shop/basket.ex:113
+    total
+  end
 end

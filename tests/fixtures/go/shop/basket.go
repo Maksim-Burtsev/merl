@@ -85,3 +85,23 @@ outer:
 	return quota
 	//     ^ d: shop/basket.go:80
 }
+
+const Street = "s"
+
+func Cut(xs []int, Street int) []int { return xs[Street:] }
+//                                               ^ d: shop/basket.go:91
+
+func Uncut(xs []int) []int { return xs[Street:] }
+//                                     ^ d: shop/basket.go:89
+
+const Lane = "l"
+
+// A `func(...)` type in the signature names nothing in the body.
+func Each(fn func(Lane string)) { fn(Lane) }
+//                                   ^ d: shop/basket.go:97
+
+func Maker() func(Lane string) { return Each(Lane) }
+//                                           ^ d: shop/basket.go:97
+
+func Walk(Lane string, visit func(Lane string, depth int)) { visit(Lane, 0) }
+//                                                                 ^ d: shop/basket.go:106
