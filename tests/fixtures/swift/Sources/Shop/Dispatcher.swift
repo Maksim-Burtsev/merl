@@ -87,3 +87,33 @@ func aligned(lead: Int,
     lead + trail
     //     ^ d: Sources/Shop/Dispatcher.swift:86
 }
+
+// On the name a binding declares, on its own line, `d` answers as on a `let` (#525): at a
+// declaration, the namesakes `Tally` declares offered, never jumped to, and the line itself
+// when it has none. A use on the line is looked up as anywhere.
+func retry(_ review: Review, tries: Int, queue: DispatchQueue) {
+    if let fault = review.fault {
+    //     ^ d: picker Sources/Shop/Tally.swift:2
+    //       status: fault: at a declaration, 1 other by name
+    //             ^ d: Sources/Shop/Dispatcher.swift:94
+        fail(fault)
+    }
+    for attempt in 0..<tries {
+    //  ^ d: picker Sources/Shop/Tally.swift:7
+    //    status: at a declaration
+    //                 ^ d: Sources/Shop/Dispatcher.swift:94
+        log(attempt)
+    }
+    queue.async { crate in
+    //            ^ d: picker Sources/Shop/Tally.swift:8
+    //              status: at a declaration
+        use(crate)
+    }
+    guard let job = review.job else { return }
+    //        ^ d: picker Sources/Shop/Tally.swift:3
+    //          status: at a declaration
+    for parcelIndex in 0..<tries {
+    //  ^ d: Sources/Shop/Dispatcher.swift:115
+        log(parcelIndex)
+    }
+}
