@@ -213,9 +213,9 @@ impl App {
         }
         // A C or C++ member behind `->` or `.`, or in a constructor's initializer list (#359).
         if kind == Kind::C
-            && let Some(found) = self.c_early(&here, &text, &word, range.clone())
+            && let Some((found, broke)) = self.c_early(&here, &text, &word, range.clone())
         {
-            self.show_definitions(kind, &word, &here, found, None);
+            self.show_definitions(kind, &word, &here, found, broke.as_deref());
             return;
         }
         // A word in the module path of an import line names that module and nothing else

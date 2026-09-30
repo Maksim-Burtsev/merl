@@ -1,5 +1,6 @@
 # c-d: d in the worker's C checksum. A parameter and a loop's variable are the function's own,
-# `local` (#378); a field behind `->` lands on the struct's field (#359).
+# `local` (#378); a field behind `->` lands on the struct's field (#359), the one of the struct
+# its receiver is declared as (#386).
 # The C files are written once merl is up, so no other scenario's lists count them.
 merl README.md
 wait The orders API
@@ -19,7 +20,7 @@ wait i → crc32::i (local)
 key [ /
 type entries[(
 key Enter d
-wait entries → crc_table::entries (by name, 1 match)
+wait entries → crc_table::entries
 # An enum constant lands in its enum, and a call through an interface offers its pure virtual
 # beside the override (#373).
 run printf 'enum crc_mode {\n    CRC_PLAIN,\n    CRC_FAST\n};\n\nstruct Hasher {\n    virtual unsigned Sum() const = 0;\n};\n\nstruct Fast : Hasher {\n    unsigned Sum() const override { return 1; }\n};\n\nint crc_pick(Hasher *h) { return h->Sum() ? CRC_FAST : CRC_PLAIN; }\n' > worker/internal/crc/mode.cc
@@ -33,4 +34,13 @@ key [ /
 type Sum() ?
 key Enter d
 wait Sum: by name, 2 declarations
+key Escape
+# A field two structs share is the one of the struct the receiver is declared as (#386).
+run printf 'typedef struct client {\n    int flags;\n} client;\n\nstruct job {\n    int flags;\n};\n\nvoid crc_reset(client *c) { c->flags = 0; }\n' > worker/internal/crc/client.c
+merl worker/internal/crc/client.c
+wait void crc_reset
+key /
+type flags =
+key Enter d
+wait via c: client
 key Escape

@@ -1,19 +1,21 @@
-wait entries → crc_table::entries
-┌orders──────────────────────┐ 1 /* The CRC-32 the queue stamps on every job, in C for the cgo build. */
-│▸ .github                   │ 2 #ifndef CRC_H
-│▸ .venv                     │ 3 #define CRC_H
-│▸ app                       │ 4
-│▸ data                      │ 5 struct crc_table {
-│▸ deploy                    │ 6     unsigned int entries[256];
-│▸ docs                      │ 7     int ready;
-│▸ scripts                   │ 8 };
-│▸ tests                     │ 9
-│▸ web                       │10 unsigned int crc32(struct crc_table *table, const unsigned char *buf, int len);
-│▾ worker                    │11
-│  ▾ internal                │12 #endif
+wait via c: client
+┌orders──────────────────────┐1 typedef struct client {
+│▸ .github                   │2     int flags;
+│▸ .venv                     │3 } client;
+│▸ app                       │4
+│▸ data                      │5 struct job {
+│▸ deploy                    │6     int flags;
+│▸ docs                      │7 };
+│▸ scripts                   │8
+│▸ tests                     │9 void crc_reset(client *c) { c->flags = 0; }
+│▸ web                       │
+│▾ worker                    │
+│  ▾ internal                │
 │    ▾ crc                   │
+│        client.c            │
 │        crc.c               │
 │        crc.h               │
+│        mode.cc             │
 │    ▸ queue                 │
 │    go.mod                  │
 │    main.go                 │
@@ -50,8 +52,6 @@ wait entries → crc_table::entries
 │                            │
 │                            │
 │                            │
-│                            │
-│                            │
 └────────────────────────────┘
-worker/internal/crc/crc.h  6:18  [code]  entries → crc_table::entries (via table: crc_table)
-cursor (x,y,shown) 50,5,1
+worker/internal/crc/client.c  2:9  [code]  flags: via c: client
+cursor (x,y,shown) 40,1,1
