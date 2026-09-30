@@ -75,6 +75,11 @@ void invoice_free(struct invoice *inv,
 {
     free(inv);
 }
+
+static const int invoice_states[] = {
+    STATE_OPEN,
+    STATE_NONE
+};
 "#;
 
 const CPP: &str = r#"#include "invoice.h"
@@ -116,6 +121,10 @@ enum class Status {
   Open,
 };
 
+void scan(int k) {
+  Slice key(k, 2);
+}
+
 }  // namespace billing
 "#;
 
@@ -146,8 +155,8 @@ fn c_def_patterns_find_types_macros_functions_and_globals() {
     );
     assert_eq!(
         d("STATE_OPEN"),
-        Vec::<usize>::new(),
-        "an enum constant has no rule: `NAME,` is also a line of an initializer list"
+        [30],
+        "an enum constant, in its enum's body (#373)"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -174,6 +183,11 @@ fn c_def_patterns_tell_a_definition_from_a_call() {
     );
     assert_eq!(d("free"), Vec::<usize>::new(), "a call statement");
     assert_eq!(d("copy"), Vec::<usize>::new(), "a local");
+    assert_eq!(
+        d("STATE_NONE"),
+        Vec::<usize>::new(),
+        "`NAME,` in an initializer list declares nothing (#373)"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -191,9 +205,8 @@ fn cpp_def_patterns_cover_classes_methods_and_aliases() {
     );
     assert_eq!(d("total"), [20], "a method defined in the class body");
     assert_eq!(d("Row"), [24], "a `using` alias indented in a class body");
-    // The out-of-line definition. The declaration on line 22 has no rule: indented, it is
-    // the shape of a call, and the definition is what `d` is asked for anyway.
-    assert_eq!(d("append"), [30]);
+    // The declaration in the class body and the out-of-line definition (#373).
+    assert_eq!(d("append"), [22, 30]);
     assert_eq!(d("Status"), [36]);
     assert_eq!(
         d("T"),
@@ -207,7 +220,12 @@ fn cpp_def_patterns_cover_classes_methods_and_aliases() {
     );
     assert_eq!(d("check"), Vec::<usize>::new(), "a call inside `if`");
     assert_eq!(d("write"), Vec::<usize>::new(), "a qualified call");
-    assert_eq!(d("Open"), Vec::<usize>::new(), "an enum constant");
+    assert_eq!(d("Open"), [37], "an enum constant (#373)");
+    assert_eq!(
+        d("key"),
+        Vec::<usize>::new(),
+        "`Slice key(k, 2);` in a function body is a local object, no member (#373)"
+    );
     assert_eq!(d("total_"), Vec::<usize>::new(), "a field");
     std::fs::remove_dir_all(&dir).unwrap();
 }

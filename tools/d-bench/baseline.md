@@ -1,6 +1,6 @@
 # `d` bench baseline
 
-merl at `50e3c86`, 2026-09-30, release build, `vm.loadavg` { 1.98 2.19 2.71 } before the run, { 1.83 2.07 2.53 } after.
+merl at `50e3c86`, 2026-09-30, release build, `vm.loadavg` { 1.98 2.19 2.71 } before the run, { 1.83 2.07 2.53 } after. The C and C++ rows are #373's, 2026-10-01, run at `vm.loadavg` { 10.73 12.71 14.51 } before and { 6.62 10.93 13.67 } after: their times are skewed by the load.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -9,8 +9,8 @@ merl at `50e3c86`, 2026-09-30, release build, `vm.loadavg` { 1.98 2.19 2.71 } be
 | js (eslint) | 147 | 114 (78%) | 21 (14%) | 1 (1%) | 11 (7%) | 123 | 43.0 | 554.9 |
 | go (caddy) | 229 | 224 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 41 | 6.3 | 14.9 |
 | rust (ripgrep) | 231 | 148 (64%) | 74 (32%) | 2 (1%) | 7 (3%) | 69 | 7.4 | 127.7 |
-| c (redis) | 250 | 166 (66%) | 77 (31%) | 0 (0%) | 7 (3%) | 20 | 35.5 | 115.1 |
-| cpp (leveldb) | 233 | 113 (48%) | 77 (33%) | 5 (2%) | 38 (16%) | 67 | 9.5 | 95.2 |
+| c (redis) | 250 | 172 (69%) | 77 (31%) | 0 (0%) | 1 (0%) | 20 | 42.2 | 119.0 |
+| cpp (leveldb) | 233 | 118 (51%) | 96 (41%) | 2 (1%) | 17 (7%) | 67 | 15.8 | 128.1 |
 | php (koel) | 104 | 71 (68%) | 33 (32%) | 0 (0%) | 0 (0%) | 196 | 19.8 | 36.7 |
 | swift (Alamofire) | 154 | 91 (59%) | 59 (38%) | 0 (0%) | 4 (3%) | 116 | 6.2 | 9.7 |
 | java (halo) | 37 | 23 (62%) | 5 (14%) | 0 (0%) | 9 (24%) | 43 | 37.5 | 68.3 |

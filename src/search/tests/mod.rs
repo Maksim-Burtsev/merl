@@ -59,11 +59,20 @@ fn lines(hits: &[Hit]) -> Vec<(String, usize)> {
         .collect()
 }
 
-/// The lines `d`'s patterns match for `word` in `files`.
+/// The lines `d`'s patterns match for `word` in `files`; in C and C++, where they declare it
+/// ([`declares_where`], #373).
 fn defs(dir: &Path, files: &[PathBuf], kind: Kind, word: &str) -> Vec<usize> {
     let pat = def_patterns(kind, word).join("|");
     grep(dir, files, &pat, false, false)
         .iter()
+        .filter(|h| {
+            if kind != Kind::C {
+                return true;
+            }
+            let text = std::fs::read_to_string(dir.join(&h.path)).unwrap_or_default();
+            let lines: Vec<&str> = text.lines().collect();
+            declares_where(kind, word, h.line, &h.text, || &lines)
+        })
         .map(|h| h.line)
         .collect()
 }

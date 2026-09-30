@@ -42,14 +42,19 @@ impl App {
 
     /// `x->word` or `x.word`, `called` with a `(` after it. A data member is a field of a struct,
     /// union or class body ([`search::c_field_rows`]); a called one is a method whose body opens
-    /// on its line, an out-of-line `R Type::word(`, or a function-pointer field. Nothing else can
+    /// on its line, an out-of-line `R Type::word(`, a member a class body declares with no body (#373),
+    /// or a function-pointer field. Nothing else can
     /// follow `->` or `.`: no function, `#define`, type or global is offered. The files outside
     /// the project are searched the same way when the project has none: a system struct's field
     /// stays findable, and system headers' generic names do not crowd a project's own.
     pub(super) fn c_members(&mut self, here: &Path, word: &str, called: bool) -> Vec<Candidate> {
         let mut pattern = search::c_field_pattern(word);
         if called {
-            pattern = format!(r"{pattern}|{}", method_pattern(word));
+            pattern = format!(
+                r"{pattern}|{}|{}",
+                method_pattern(word),
+                search::c_member_decl(Some(word))
+            );
         }
         let hits = self.project_definitions(Kind::C, here, word, &pattern);
         let mut found = self.c_member_rows(word, hits, called);
@@ -73,6 +78,7 @@ impl App {
         let w = regex::escape(word);
         let re = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
         let method = re(method_pattern(word));
+        let declared = re(search::c_member_decl(Some(word)));
         let pointer = re(format!(r"\(\s*\*+\s*{w}\s*\)"));
         let mut rows = Vec::new();
         let mut files: Vec<(PathBuf, Vec<Hit>)> = Vec::new();
@@ -94,6 +100,13 @@ impl App {
                         rows.push((h, owner.clone()))
                     }
                     None if called && method.is_match(&h.text) => rows.push((h, String::new())),
+                    // A member declared with no body, a pure virtual among them (#373).
+                    None if called
+                        && declared.is_match(&h.text)
+                        && search::c_member_class(&text, h.line, word).is_some() =>
+                    {
+                        rows.push((h, String::new()))
+                    }
                     _ => {}
                 }
             }

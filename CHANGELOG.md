@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` in C and C++ knows enum constants and the member functions a class only declares. `return
+  GREEN;` lands on `GREEN` in its `enum`, where it said `no definition for GREEN`, and a constant
+  in an initializer list is still no declaration. `it->Valid()` offers the interface's `virtual
+  bool Valid() const = 0;` beside the overrides, and on an out-of-line `Status
+  VersionSet::Recover(…) {` it lands on the declaration in `class VersionSet` instead of offering
+  another class's `Recover`. A member declared in its class and defined out of line stays one
+  row, the definition. (#373)
 - In `--review`, `s`, `D`, `u` and `d` find the code the branch deleted as well as the files on
   disk. A deleted line in their lists is a row like any other, told apart by the gutter's `▎`
   in red, as an added one is by its green, and Enter lands on it. `d` on a deleted line reads

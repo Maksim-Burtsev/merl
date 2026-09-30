@@ -1464,6 +1464,35 @@ impl App {
                     .iter()
                     .any(|h| h.path == here && h.line == self.line + 1);
                 let hits = search::c_file_local(&word, &here, &text, hits, |p| self.text_of(p), on);
+                // On an out-of-line `R X::name(…) {`, the other end is what X's body declares of
+                // the name, overloads included, and no namesake by name (#373).
+                let line = self.line_str();
+                let declared: Vec<Option<String>> = hits
+                    .iter()
+                    .map(|h| {
+                        let scopes = self
+                            .text_of(&h.path)
+                            .filter(|_| on && before.ends_with("::"))
+                            .and_then(|t| search::c_member_class(&t, h.line, &word))?;
+                        search::c_defines_member(line, &scopes, &word)
+                            .then(|| scopes.last().cloned())
+                            .flatten()
+                    })
+                    .collect();
+                if declared.iter().any(Option::is_some) {
+                    let found = hits
+                        .into_iter()
+                        .zip(declared)
+                        .filter_map(|(hit, owner)| {
+                            Some(Candidate {
+                                hit,
+                                reason: Reason::Path(owner?),
+                            })
+                        })
+                        .collect();
+                    self.show_definitions(kind, &word, &here, found, None);
+                    return;
+                }
                 let (fallback, hits): (Vec<Hit>, Vec<Hit>) = hits.into_iter().partition(|h| {
                     self.text_of(&h.path)
                         .is_some_and(|t| search::c_fallback(&t, h.line, &word))
@@ -2651,6 +2680,29 @@ impl App {
             );
         if superclass {
             found.retain(|c| c.hit.line != self.line + 1 || c.hit.path != here);
+        }
+        // A C++ member declared in its class and defined out of line, `R X::name(`, is one row,
+        // the definition (#373). Standing on that definition, the declaration is the other end.
+        if kind == Kind::C && found.len() > 1 {
+            let classes: Vec<Option<Vec<String>>> = found
+                .iter()
+                .map(|c| {
+                    self.text_of(&c.hit.path)
+                        .and_then(|t| search::c_member_class(&t, c.hit.line, word))
+                })
+                .collect();
+            let defined = |scopes: &[String]| {
+                found.iter().any(|c| {
+                    (c.hit.line != self.line + 1 || c.hit.path != here)
+                        && search::c_defines_member(&c.hit.text, scopes, word)
+                })
+            };
+            let keep: Vec<bool> = classes
+                .iter()
+                .map(|class| class.as_deref().is_none_or(|c| !defined(c)))
+                .collect();
+            let mut keep = keep.into_iter();
+            found.retain(|_| keep.next().unwrap_or(true));
         }
         let all = found.len();
         if all > 1 {
