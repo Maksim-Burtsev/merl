@@ -5,7 +5,7 @@ let weightLimit = 30
 extension Tariff {
     func doubled() -> Int {
         rate() * 2
-        // ^ d: picker Sources/Shop/Pricing.swift:13, Sources/Shop/Pricing.swift:29; want Sources/Shop/Pricing.swift:13 (#380)
+        // ^ d: Sources/Shop/Pricing.swift:13
     }
 }
 
@@ -72,7 +72,7 @@ func offer(_ o: Offer) -> Int {
         //^ d: Sources/Shop/Pricing.swift:43
         return 0
     case let .cut(n):
-        //    ^ d: picker Sources/Shop/Basket.swift:160, Sources/Shop/Pricing.swift:44; want Sources/Shop/Pricing.swift:44 (#380)
+        //    ^ d: Sources/Shop/Pricing.swift:44
         return n
     case .bundle(let count):
         // ^ d: Sources/Shop/Pricing.swift:44
@@ -159,7 +159,7 @@ func sealed(_ p: Parcel) -> Parcel.Seal {
 
 func cut() -> Offer {
     .cut(1)
-    //^ d: picker Sources/Shop/Basket.swift:160, Sources/Shop/Pricing.swift:44; want Sources/Shop/Pricing.swift:44 (#380)
+    //^ d: Sources/Shop/Pricing.swift:44
 }
 
 func items() -> Int {

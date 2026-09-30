@@ -648,6 +648,67 @@ pub fn swift_scope<S: AsRef<str>>(lines: &[S], literal: &[bool], line: usize) ->
     }
     (0, local.unwrap_or(false))
 }
+/// A Swift type's header (#380): its keyword (`class`, `extension`, …), the type it names, the
+/// first type its header inherits, and whether a `where` constrains it.
+pub fn swift_type_header(line: &str) -> Option<(String, String, Option<String>, bool)> {
+    static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"{}(class|struct|enum|protocol|actor|extension)\s+`?([\w.]+)`?(?:<[^>]*>)?\s*(?::\s*([\w.]+))?",
+            swift_mods!()
+        ))
+        .unwrap()
+    });
+    let t = uncommented(Kind::Swift, line);
+    if SWIFT_FUNC.is_match(&t) {
+        return None;
+    }
+    let c = HEADER.captures(&t)?;
+    Some((
+        c[1].to_owned(),
+        c[2].to_owned(),
+        c.get(3).map(|m| m.as_str().to_owned()),
+        t.contains(" where "),
+    ))
+}
+/// The 1-based line of the header of the Swift type whose body holds 1-based `line`, through
+/// the functions and closures around it; `None` at the top of a file (#380).
+pub fn swift_enclosing_type<S: AsRef<str>>(
+    lines: &[S],
+    literal: &[bool],
+    line: usize,
+) -> Option<usize> {
+    let mut at = line;
+    loop {
+        at = swift_scope(lines, literal, at).0;
+        if at == 0 {
+            return None;
+        }
+        if swift_type_header(lines[at - 1].as_ref()).is_some() {
+            return Some(at);
+        }
+    }
+}
+/// Whether a Swift line declares a `func`, a `let` or a `var` with no `static` or `class` among
+/// its modifiers, a member only a value reaches (#380).
+pub fn swift_instance_member(line: &str) -> bool {
+    swift_static_member(line) == Some(false)
+}
+/// Whether a Swift `func`, `let` or `var` line is `static` or `class`; `None` for any other line.
+pub fn swift_static_member(line: &str) -> Option<bool> {
+    static DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"({})(?:func|let|var)\s", swift_mods!())).unwrap()
+    });
+    let c = DECL.captures(line)?;
+    Some(
+        c[1].split(|ch: char| !ch.is_alphanumeric())
+            .any(|w| w == "static" || w == "class"),
+    )
+}
+/// Whether a Swift line declares an enum case.
+pub fn swift_case(line: &str) -> bool {
+    let t = line.trim_start();
+    t.starts_with("case ") || t.starts_with("indirect case ")
+}
 /// Whether a Swift line is an `extension` (#371).
 pub fn swift_extension(line: &str) -> bool {
     static EXTENSION: std::sync::LazyLock<Regex> =

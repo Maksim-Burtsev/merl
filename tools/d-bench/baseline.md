@@ -1,6 +1,6 @@
 # `d` bench baseline
 
-merl at `50e3c86`, 2026-09-30, release build, `vm.loadavg` { 1.98 2.19 2.71 } before the run, { 1.83 2.07 2.53 } after.
+merl at `80888be`, 2026-10-01, release build, `vm.loadavg` { 14.70 29.66 30.15 } before the run, { 10.58 26.27 28.87 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -12,7 +12,7 @@ merl at `50e3c86`, 2026-09-30, release build, `vm.loadavg` { 1.98 2.19 2.71 } be
 | c (redis) | 250 | 166 (66%) | 77 (31%) | 0 (0%) | 7 (3%) | 20 | 35.5 | 115.1 |
 | cpp (leveldb) | 233 | 113 (48%) | 77 (33%) | 5 (2%) | 38 (16%) | 67 | 9.5 | 95.2 |
 | php (koel) | 104 | 71 (68%) | 33 (32%) | 0 (0%) | 0 (0%) | 196 | 19.8 | 36.7 |
-| swift (Alamofire) | 154 | 91 (59%) | 59 (38%) | 0 (0%) | 4 (3%) | 116 | 6.2 | 9.7 |
+| swift (Alamofire) | 154 | 105 (68%) | 45 (29%) | 0 (0%) | 4 (3%) | 116 | 9.4 | 19.6 |
 | java (halo) | 37 | 23 (62%) | 5 (14%) | 0 (0%) | 9 (24%) | 43 | 37.5 | 68.3 |
 | kotlin (nowinandroid) | 30 | 27 (90%) | 3 (10%) | 0 (0%) | 0 (0%) | 50 | 17.1 | 31.9 |
 | csharp (eShop) | 27 | 15 (56%) | 12 (44%) | 0 (0%) | 0 (0%) | 53 | 14.1 | 32.4 |

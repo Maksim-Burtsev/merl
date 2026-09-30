@@ -100,6 +100,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` in Swift reads a member's kind from how it is written. An implicit member, `.bytes` in
+  `case let .bytes(count):` or `.post` as an argument, lands on the enum case or `static` member
+  of the name, and in a `case` pattern on a case alone; `Endpoint.method(…)` lands on the
+  `static func` and no longer offers the instance property beside it. A bare name in a type's
+  body, `lock()` in `extension Lock` or `timeout` in a subclass of `BaseTestCase`, lands on that
+  type's member, its extensions' or its superclass's: `timeout → BaseTestCase.timeout (via self:
+  DownloadTests)`. It offered every declaration of the name in the project. (#380)
 - `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
   parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
   said `no definition` or offered namesakes from other files: `directionParams →
