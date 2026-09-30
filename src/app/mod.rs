@@ -26,6 +26,7 @@ mod edit;
 mod external;
 mod find;
 mod jvm;
+mod jvm_typed;
 mod keys;
 mod links;
 mod members;

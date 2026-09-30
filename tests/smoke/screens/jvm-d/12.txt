@@ -1,0 +1,57 @@
+wait web/android/src/main/java/courier/app/ParcelSync.java  9:
+ 1 package courier.app;
+ 2
+ 3 import java.util.List;
+ 4
+ 5 /** Sends the parcels scanned offline once the phone is back online. */
+ 6 public class ParcelSync {
+ 7     private final Dispatcher dispatcher = new Dispatcher();
+ 8
+ 9     public int send(List<String> parcelCodes) {
+10         parcelCodes.forEach(code -> dispatcher.run(code));
+11         return parcelCodes.size();
+12     }
+13 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/android/src/main/java/courier/app/ParcelSync.java  9:16  [code]  send → ParcelSync.send (via sync: ParcelSync)
+cursor (x,y,shown) 18,8,1
