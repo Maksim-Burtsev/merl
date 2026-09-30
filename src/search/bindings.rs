@@ -1287,6 +1287,26 @@ pub fn python_class_binds(text: &str, line: usize, name: &str) -> bool {
     }
     false
 }
+/// Whether the Python `def` on 1-based `line` of `text` is a method: the nearest code line above
+/// it indented less opens a class (#522). A bare name never calls one.
+pub fn python_method(text: &str, line: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let literal = literal_lines(Kind::Python, text);
+    let depth = indent(lines[at]);
+    (0..at)
+        .rev()
+        .find(|&i| {
+            let t = lines[i].trim_start();
+            !t.is_empty()
+                && !t.starts_with(['#', ')', ']'])
+                && !literal[i]
+                && indent(lines[i]) < depth
+        })
+        .is_some_and(|i| lines[i].trim_start().starts_with("class "))
+}
 /// The 1-based line of the class the `def` on line `d` is a method of, unless it is a
 /// `@staticmethod`.
 fn python_class_of(lines: &[&str], d: usize) -> Option<usize> {

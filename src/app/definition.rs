@@ -1236,11 +1236,28 @@ impl App {
                     self.project_definitions(kind, &here, &word, &pattern)
                 }
             });
+        // A bare Python name never calls a method (#522): a `def` in a class is reached through a
+        // value or the class, or seen bare from that class's own body. On a declaration of the
+        // name its namesakes stay.
+        let mut hits = hits;
+        if kind == Kind::Python
+            && !dotted
+            && chain.is_empty()
+            && !declares_here
+            && !search::python_class_binds(&text, self.line + 1, &word)
+        {
+            hits.retain(|h| {
+                let d = h.text.trim_start();
+                !(d.starts_with("def ") || d.starts_with("async def "))
+                    || !self
+                        .text_of(&h.path)
+                        .is_some_and(|t| search::python_method(&t, h.line))
+            });
+        }
         // A Lua `local` inside a block is seen by that block alone, where the bindings above
         // found it already: anywhere else, and behind a dot, it is no candidate (#461). What is
         // left was a namesake beside it on master, and is offered, never jumped to. The cursor's
         // own line stays, standing on a declaration.
-        let mut hits = hits;
         if ruby_local && !dotted && chain.is_empty() {
             hits.extend(
                 search::ruby_locals(&text, self.line + 1, &word)
