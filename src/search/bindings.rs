@@ -1254,13 +1254,16 @@ pub fn python_module_level(text: &str) -> String {
     }
     out
 }
-/// The binding of `name` among the parameters of the `def` on line `d`: its annotation, the class
-/// for the first parameter of a method, else unknown.
+/// The binding of `name` among the parameters of the `def` on line `d`, on the line the parameter
+/// is written on: its annotation, the class for the first parameter of a method, else unknown.
 fn python_params(lines: &[&str], d: usize, params: &str, name: &str, out: &mut Vec<Binding>) {
     for (i, p) in split_top(Kind::Python, params, b',')
         .into_iter()
         .enumerate()
     {
+        // The line the name is written on: a wrapped signature puts one on each (#338).
+        let at = p.as_ptr() as usize - params.as_ptr() as usize + p.len() - p.trim_start().len();
+        let line = d + 1 + params[..at].matches('\n').count();
         let head = split_top(Kind::Python, p, b'=')[0]
             .trim()
             .trim_start_matches('*');
@@ -1276,7 +1279,7 @@ fn python_params(lines: &[&str], d: usize, params: &str, name: &str, out: &mut V
             None if i == 0 => python_class_of(lines, d).map_or(Value::Unknown, Value::Class),
             None => Value::Unknown,
         };
-        out.push(Binding { line: d + 1, value });
+        out.push(Binding { line, value });
     }
 }
 /// Whether the body of the Python class that 1-based `line` sits in binds `name`: a `def`, a
@@ -1332,6 +1335,50 @@ pub fn python_method(text: &str, line: usize) -> bool {
                 && indent(lines[i]) < depth
         })
         .is_some_and(|i| lines[i].trim_start().starts_with("class "))
+}
+/// Whether 1-based `line` of the Python `text` is in the body of a function: walking out through
+/// the blocks around it, a `def` comes before any `class` (#338). A `def` there is a local of that
+/// function, no member, while a method of a class nested in a function is one.
+pub fn python_in_function(text: &str, line: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let literal = literal_lines(Kind::Python, text);
+    let mut depth = indent(lines[at]);
+    for i in (0..at).rev() {
+        let t = lines[i].trim_start();
+        if depth == 0 {
+            break;
+        }
+        if t.is_empty() || t.starts_with(['#', ')', ']']) || literal[i] || indent(lines[i]) >= depth
+        {
+            continue;
+        }
+        depth = indent(lines[i]);
+        if t.starts_with("def ") || t.starts_with("async def ") {
+            return true;
+        }
+        if t.starts_with("class ") {
+            return false;
+        }
+    }
+    false
+}
+/// Whether the Python `def` on 1-based `line` of `text` carries `@overload` or `@typing.overload`
+/// among its decorators (#338).
+pub fn python_overload(text: &str, line: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(d) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    lines[..d]
+        .iter()
+        .rev()
+        .map(|l| l.trim())
+        .filter(|t| !t.is_empty() && !t.starts_with('#'))
+        .take_while(|t| t.starts_with('@'))
+        .any(|t| t == "@overload" || t == "@typing.overload")
 }
 /// The 1-based line of the class the `def` on line `d` is a method of, unless it is a
 /// `@staticmethod`.

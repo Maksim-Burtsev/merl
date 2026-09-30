@@ -90,7 +90,7 @@ def ship(
     courier: Carrier,
 ) -> int:
     return weight + len(courier.name)
-    #      ^ d: shop/basket.py:88; want shop/basket.py:89 (#338)
+    #      ^ d: shop/basket.py:89
 
 
 def first(couriers: list[Carrier]) -> Carrier:
