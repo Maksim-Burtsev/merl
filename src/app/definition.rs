@@ -363,6 +363,15 @@ impl App {
                 locals = module;
             }
         }
+        // An arrow function on the cursor's line whose body holds the cursor binds the word
+        // there, whatever the scopes around it declare (#531).
+        let own_arrow = kind == Kind::TsJs
+            && !dotted
+            && locals.contains(&(self.line + 1))
+            && search::ts_arrow_binds(self.line_str(), &word, range.start);
+        if own_arrow {
+            locals = vec![self.line + 1];
+        }
         if !locals.is_empty() {
             imports.retain(|(name, _)| name != first);
         }
@@ -408,7 +417,7 @@ impl App {
         if !dotted
             && !before.ends_with("::")
             && !locals.is_empty()
-            && (!on_itself || same_line || own_line || kind == Kind::Rust)
+            && (!on_itself || same_line || own_line || own_arrow || kind == Kind::Rust)
         {
             let found = locals
                 .iter()

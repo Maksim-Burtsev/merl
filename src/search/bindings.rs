@@ -1602,6 +1602,75 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
         });
     (object || names(header, "function")).then_some(Value::Unknown)
 }
+/// Whether `name` at byte `at` of a TypeScript or JavaScript `line` stands in the body of an arrow
+/// function on that line whose parameters name it (#531): `xs.map(x => x * 2)`,
+/// `((x: T) => x.a)`. The body runs from the `=>` to the `,`, `;` or closing bracket of the
+/// arrow's own level. The parameter itself, and a use past the body, are not in it.
+pub fn ts_arrow_binds(line: &str, name: &str, at: usize) -> bool {
+    let Ok(word) = Regex::new(&format!(r"(?:^|[^\w$.]){}\b", regex::escape(name))) else {
+        return false;
+    };
+    let bytes: Vec<(usize, u8)> = code(Kind::TsJs, line)
+        .take_while(|&(_, c)| c != 0)
+        .collect();
+    // The last bracket opened before `upto` and still open there.
+    let unclosed = |upto: usize| {
+        let mut stack = Vec::new();
+        for &(i, c) in bytes.iter().take_while(|&&(i, _)| i < upto) {
+            match c {
+                b'(' | b'[' | b'{' => stack.push(i),
+                b')' | b']' | b'}' => {
+                    stack.pop();
+                }
+                _ => {}
+            }
+        }
+        stack.last().copied()
+    };
+    // The `=>` right after the parameters, which end before `from`: a lone name's at once, a
+    // list's behind a return type, `): T =>`.
+    let arrow = |from: usize, typed: bool| {
+        let t = line[from..].trim_start();
+        let t = match t.strip_prefix(':').filter(|_| typed) {
+            Some(ty) => ty
+                .find("=>")
+                .filter(|&e| !ty[..e].contains([';', '{', '}', '(', ')']))
+                .map(|e| &ty[e..])?,
+            None => t,
+        };
+        t.starts_with("=>").then(|| line.len() - t.len())
+    };
+    word.find_iter(line)
+        .map(|m| m.end() - name.len())
+        .filter(|&decl| decl < at)
+        .any(|decl| {
+            let start = arrow(decl + name.len(), false).or_else(|| {
+                let open = unclosed(decl).filter(|&p| line.as_bytes()[p] == b'(')?;
+                arrow(close_of(Kind::TsJs, line, open)?, true)
+            });
+            let Some(start) = start else {
+                return false;
+            };
+            let mut depth = 0i32;
+            let end = bytes
+                .iter()
+                .skip_while(|&&(i, _)| i < start + 2)
+                .find(|&&(_, c)| match c {
+                    b'(' | b'[' | b'{' => {
+                        depth += 1;
+                        false
+                    }
+                    b')' | b']' | b'}' => {
+                        depth -= 1;
+                        depth < 0
+                    }
+                    b',' | b';' => depth == 0,
+                    _ => false,
+                })
+                .map_or(line.len(), |&(i, _)| i);
+            at > start && at < end
+        })
+}
 /// The bindings of `name` a block's header makes for the lines inside it: the parameters of a
 /// function, a method or an arrow, a Go receiver and named results, the variables of a loop, a
 /// `catch` or a Go `if x := …;`. Returns whether one of them is made for the block under the
