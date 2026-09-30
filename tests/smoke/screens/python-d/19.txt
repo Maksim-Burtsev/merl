@@ -1,4 +1,4 @@
-wait app/api.py  9:17
+wait app/api.py  1:1
  1 import json
  2 from http import HTTPStatus
  3 from typing import cast
@@ -53,5 +53,5 @@ wait app/api.py  9:17
 
 
 
-app/api.py  9:17  [code]                                                                                                                                                          ? help
-cursor (x,y,shown) 19,8,1
+app/api.py  1:1  [code]                                                                                                                                                           ? help
+cursor (x,y,shown) 3,0,1

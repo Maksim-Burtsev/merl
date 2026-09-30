@@ -1,11 +1,4 @@
-wait app/api.py  9:17
- 1 import json
- 2 from http import HTTPStatus
- 3 from typing import cast
- 4
- 5 from app.service import OrderNotFound, OrderService
- 6
- 7
+wait page_url → page_links.page_url
  8 def order_json(order) -> str:
  9     return json.dumps(
 10         {"id": order.id, "status": order.status.value, "total": str(order.total)},
@@ -53,5 +46,12 @@ wait app/api.py  9:17
 
 
 
-app/api.py  9:17  [code]                                                                                                                                                          ? help
-cursor (x,y,shown) 19,8,1
+
+
+
+
+
+
+
+app/api.py  35:9  [code]  page_url → page_links.page_url (local)
+cursor (x,y,shown) 11,27,1

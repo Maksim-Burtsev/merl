@@ -354,6 +354,16 @@ impl App {
             Kind::TsJs => search::ts_import_lines(&text, first),
             _ => Vec::new(),
         };
+        // A Python `def` or `class` a function around the cursor binds is a local of it, one
+        // the bare name reads (#338); a module's is reached through the rules below, and the
+        // cursor's own line stands on the declaration.
+        let closure = |n: usize| {
+            kind == Kind::Python
+                && !dotted
+                && chain.is_empty()
+                && n != self.line + 1
+                && search::python_in_function(&text, n)
+        };
         let locals_at = |text: &str, line: usize| -> Vec<usize> {
             let binding: Vec<usize> = match declared {
                 true => vec![self.line + 1],
@@ -367,7 +377,8 @@ impl App {
                 .filter(|&n| {
                     let l = &self.buf.lines[n - 1];
                     !key && (dotted || word != "super" || kind == Kind::Lua)
-                        && !(import_line(kind, l) || (!bare && names_itself(kind, l, first)))
+                        && !(import_line(kind, l)
+                            || (!bare && names_itself(kind, l, first) && !closure(n)))
                         && !rust_path
                         && (!rust_field || n == self.line + 1)
                 })
@@ -2971,6 +2982,40 @@ impl App {
         }
     }
 
+    /// An `@overload` set is one function: when every candidate declares the same name in one
+    /// `.py` file and all but one are overloads, that one, the implementation, is the answer
+    /// (#338). A stub file, and a set of overloads only, has none and keeps its picker. Standing
+    /// on one of them leaves them all, as on any declaration.
+    fn python_implementation(&self, word: &str, here: &Path, found: &mut Vec<Candidate>) {
+        let [first, ..] = found.as_slice() else {
+            return;
+        };
+        let path = first.hit.path.clone();
+        if found.len() < 2
+            || path.extension().is_some_and(|e| e == "pyi")
+            || found.iter().any(|c| c.hit.path != path)
+            || (path == here && found.iter().any(|c| c.hit.line == self.line + 1))
+        {
+            return;
+        }
+        let Some(text) = self.hit_text(&first.hit) else {
+            return;
+        };
+        let name = |c: &Candidate| {
+            let t = c.hit.text.trim_start();
+            (t.starts_with("def ") || t.starts_with("async def "))
+                .then(|| search::qualified(Kind::Python, &text, c.hit.line, word))
+        };
+        let one = name(first);
+        if one.is_none() || found.iter().any(|c| name(c) != one) {
+            return;
+        }
+        let plain = |c: &Candidate| !search::python_overload(&text, c.hit.line);
+        if found.iter().filter(|c| plain(c)).count() == 1 {
+            found.retain(plain);
+        }
+    }
+
     fn show_definitions(
         &mut self,
         kind: Kind,
@@ -3069,6 +3114,9 @@ impl App {
                 .any(|c| search::declares_type(kind, &c.hit.text));
         if as_type {
             found.retain(|c| search::declares_type(kind, &c.hit.text));
+        }
+        if kind == Kind::Python {
+            self.python_implementation(word, here, &mut found);
         }
         let all = found.len();
         if all > 1 {

@@ -348,6 +348,16 @@ impl App {
         .unwrap_or_default();
         let (mut methods, candidates): (Vec<Hit>, Vec<Hit>) =
             hits.into_iter().partition(|h| method.is_match(&h.text));
+        // A `def` in a function's body is a local of it, no method (#338).
+        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
+        methods.retain(|h| {
+            let text = texts
+                .entry(h.path.clone())
+                .or_insert_with(|| std::fs::read_to_string(&h.path).ok());
+            !text
+                .as_deref()
+                .is_some_and(|t| search::python_in_function(t, h.line))
+        });
         self.note_cut(&methods);
         let roots = self
             .external

@@ -243,6 +243,9 @@ impl App {
         members: &str,
     ) -> Vec<Hit> {
         let mut hits = self.project_definitions(kind, here, word, members);
+        if kind == Kind::Python {
+            hits.retain(|h| !self.python_nested_def(h));
+        }
         let Some(fields) = search::field_patterns(kind, word) else {
             return hits;
         };
@@ -274,6 +277,15 @@ impl App {
         let current = self.rel_current();
         hits.sort_by_cached_key(|h| (current.as_ref() != Some(&h.path), h.path.clone(), h.line));
         hits
+    }
+
+    /// Whether `h` is a Python `def` in the body of a function: a local of it, no member (#338).
+    pub(super) fn python_nested_def(&self, h: &Hit) -> bool {
+        let t = h.text.trim_start();
+        (t.starts_with("def ") || t.starts_with("async def "))
+            && self
+                .hit_text(h)
+                .is_some_and(|text| search::python_in_function(&text, h.line))
     }
 
     /// What a field's own declaration offers (#104): the declarations of its name as a member of

@@ -199,6 +199,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ArtistRepository`. The class comes from a typed parameter or property, `new T(…)`, or the
   return type of `T::make()`, `$this->make()` or `make()`. It offered every property or method
   of the name in the project. (#361)
+- `d` in Python lands where one answer fits in four more places. A function declared inside
+  another and called there is that function's local, `pick → outer.pick (local)`, where `d`
+  offered every `pick` of the project. A parameter of a signature wrapped over several lines
+  lands on its own line, not on the `def`'s. A `def` nested in a function is no method, so
+  `job.run()` no longer offers it beside `Job.run`. A call of an `@overload` set lands on its
+  implementation instead of offering every stub; a `.pyi` of overloads only keeps its picker.
+  (#338)
 - `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
   parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
   said `no definition` or offered namesakes from other files: `directionParams →
