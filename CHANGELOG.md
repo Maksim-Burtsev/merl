@@ -250,6 +250,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` in TypeScript and JavaScript on an arrow function's parameter itself, `crate` in
+  `crates.map(crate => 0)`, offers a namesake elsewhere under "at a declaration", or stays on
+  the line when there is none. It jumped to a module-level `const` of the same name. (#534)
 - `d` in Swift finds a function or an enum case declared with its name in backticks, as
   ``func `default`()`` or ``case `open` ``: it said "no definition", or jumped to a namesake
   elsewhere. (#463)

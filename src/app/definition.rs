@@ -380,7 +380,13 @@ impl App {
             && !dotted
             && locals.contains(&(self.line + 1))
             && search::ts_arrow_binds(self.line_str(), &word, range.start);
-        if own_arrow {
+        // On a parameter an arrow on the cursor's line declares, the word is at a declaration
+        // (#534): that line is its binding, as a function's parameter list is, and the
+        // namesakes are left to the search by name below.
+        let arrow_param = kind == Kind::TsJs
+            && !dotted
+            && search::ts_arrow_param(self.line_str(), &word, range.start);
+        if own_arrow || arrow_param {
             locals = vec![self.line + 1];
         }
         if !locals.is_empty() {
@@ -1353,6 +1359,21 @@ impl App {
         // else it is another function's local.
         // The cursor's own line alone is offered rather than jumped to when others went: the
         // word may be a use on the line of a declaration of its name (#317).
+        // The parameter itself is among its namesakes, so they are offered, never jumped to
+        // (#534).
+        if arrow_param
+            && !hits
+                .iter()
+                .any(|h| h.path == here && h.line == self.line + 1)
+        {
+            hits.push(Hit {
+                path: here.clone(),
+                line: self.line + 1,
+                col: 0,
+                text: self.line_str().to_owned(),
+                deleted: None,
+            });
+        }
         if kind == Kind::Swift {
             // On the name a `for`, an `if let` or a closure's parameter declares on the cursor's
             // own line, the word is at a declaration, as on a `let` (#525). That is the occurrence

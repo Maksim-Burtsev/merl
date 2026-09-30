@@ -1609,15 +1609,38 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
 /// to the `:` of a ternary the arrow is a branch of. The parameter itself, and a use past the
 /// body, are not in it. A parameter list in a type binds nothing: a return type, a type argument.
 pub fn ts_arrow_binds(line: &str, name: &str, at: usize) -> bool {
+    ts_arrows(line, name)
+        .iter()
+        .any(|&(decl, start, end)| decl < at && at > start && at < end)
+}
+/// Whether `name` at byte `at` of a TypeScript or JavaScript `line` is a parameter an arrow
+/// function on that line declares (#534): `crate` in `xs.map(crate => 0)` or in
+/// `(sum, crate: number) =>`, not a default value or a type in the list.
+pub fn ts_arrow_param(line: &str, name: &str, at: usize) -> bool {
+    let before = line[..at].trim_end();
+    let after = line[at + name.len()..].trim_start();
+    // `): T =>` is a return type; a key's `:`, `{ key: x => x }`, is not.
+    let returned = before
+        .strip_suffix(':')
+        .is_some_and(|b| b.trim_end().ends_with(')'));
+    let slot = (after.starts_with("=>") && !returned)
+        || before.ends_with(['(', ','])
+        || before.ends_with("...");
+    slot && ts_arrows(line, name).iter().any(|&(decl, ..)| decl == at)
+}
+/// Each arrow function on `line` whose parameters name `name`: where the name stands in the
+/// parameters, and where the body starts (its `=>`) and ends. Nothing when the line ends inside a
+/// string, where the brackets are unknown.
+fn ts_arrows(line: &str, name: &str) -> Vec<(usize, usize, usize)> {
     let Ok(word) = Regex::new(&format!(r"(?:^|[^\w$.]){}\b", regex::escape(name))) else {
-        return false;
+        return Vec::new();
     };
     // A string left open at the end of the line, an apostrophe in JSX text more often than not,
     // has swallowed brackets: where the body ends is unknown.
     // ponytail: a pair of apostrophes in JSX text still reads as a string; reading JSX text is
     // the way out.
     if code(Kind::TsJs, &format!("{line}\n)")).last() != Some((line.len() + 1, b')')) {
-        return false;
+        return Vec::new();
     }
     let b = line.as_bytes();
     let bytes: Vec<(usize, u8)> = code(Kind::TsJs, line)
@@ -1652,8 +1675,7 @@ pub fn ts_arrow_binds(line: &str, name: &str, at: usize) -> bool {
     };
     word.find_iter(line)
         .map(|m| m.end() - name.len())
-        .filter(|&decl| decl < at)
-        .any(|decl| {
+        .filter_map(|decl| {
             let start = arrow(decl + name.len(), false).or_else(|| {
                 let open = unclosed(decl).filter(|&p| b[p] == b'(')?;
                 let before = line[..open].trim_end();
@@ -1662,9 +1684,7 @@ pub fn ts_arrow_binds(line: &str, name: &str, at: usize) -> bool {
                 }
                 arrow(close_of(Kind::TsJs, line, open)?, true)
             });
-            let Some(start) = start else {
-                return false;
-            };
+            let start = start?;
             // `ternary` counts the `?` of the body still waiting for their `:`.
             let (mut depth, mut ternary) = (0i32, 0i32);
             let end = bytes
@@ -1698,8 +1718,9 @@ pub fn ts_arrow_binds(line: &str, name: &str, at: usize) -> bool {
                     _ => false,
                 })
                 .map_or(line.len(), |&(i, _)| i);
-            at > start && at < end
+            Some((decl, start, end))
         })
+        .collect()
 }
 /// The bindings of `name` a block's header makes for the lines inside it: the parameters of a
 /// function, a method or an arrow, a Go receiver and named results, the variables of a loop, a
