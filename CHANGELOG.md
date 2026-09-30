@@ -100,6 +100,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every list you filter by typing reads the query as you write it, as `D` has since #293: in
+  `o`'s file picker, the theme list and the `d` and `u` pickers, `^`, `$`, `!`, `'` and `\` are
+  characters of the name: `!test` finds `!test.md` instead of hiding every path holding `test`,
+  and `.rs$` looks for a `$` instead of the end of the path. Spaces still separate words
+  matched in any order. (#519)
 - `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
   parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
   said `no definition` or offered namesakes from other files: `directionParams →
