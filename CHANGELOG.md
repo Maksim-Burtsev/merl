@@ -250,6 +250,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` in Kotlin names the members of a class whose header wraps over lines, `class Repo @Inject
+  constructor(` … `) : Base {`, and of its `companion object` as those of a one-line header:
+  the status reads `getTopics → Repo.getTopics` and `DEFAULT → Repo.DEFAULT`, and `Repo::m`
+  and `Repo.DEFAULT` find them. The walk up to the class stopped at the `) : Base {` line and at
+  `companion object`, so those members had no class in their name. (#523)
 - `d` in Swift finds a function or an enum case declared with its name in backticks, as
   ``func `default`()`` or ``case `open` ``: it said "no definition", or jumped to a namesake
   elsewhere. (#463)

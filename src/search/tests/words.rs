@@ -225,3 +225,11 @@ fn a_kotlin_extension_is_named_by_its_receiver() {
     assert_eq!(q(4, "testTag").as_deref(), Some("Topic.testTag"));
     assert_eq!(q(5, "plain"), None);
 }
+
+#[test]
+fn a_wrapped_kotlin_header_and_a_companion_qualify_their_members() {
+    let text = "class Repo @Inject constructor(\n    private val seed: String,\n) : Base {\n    fun topics() = 1\n\n    companion object {\n        const val DEFAULT = 1\n    }\n}\n";
+    let q = |line, name| qualified(Kind::Jvm, text, line, name);
+    assert_eq!(q(4, "topics").as_deref(), Some("Repo.topics"));
+    assert_eq!(q(7, "DEFAULT").as_deref(), Some("Repo.DEFAULT"));
+}
