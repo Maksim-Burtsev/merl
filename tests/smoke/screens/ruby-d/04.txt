@@ -53,5 +53,5 @@ wait (local)
 
 
 
-app/ruby/sessions.rb  2:18  [code]  user → SessionsController.user (local)
+app/ruby/sessions.rb  2:18  [code]  user → SessionsController.on_success.user (local)
 cursor (x,y,shown) 20,1,1

@@ -112,14 +112,14 @@ impl App {
                 // A theme that does not load is not saved: the next start would exit on it
                 // (#277). The picker stays open on the error, the one the preview shows.
                 if let Err(e) = crate::theme::load_from(self.theme_dir.as_deref(), &item.label) {
-                    self.message = format!("{e:#}");
+                    self.message = super::error_text(&e);
                     return;
                 }
                 self.theme = item.label;
                 self.message = match &self.config {
                     Some(path) => match crate::theme::save(path, &self.theme) {
                         Ok(()) => format!("theme {} saved", self.theme),
-                        Err(e) => format!("{e:#}"),
+                        Err(e) => super::error_text(&e),
                     },
                     None => format!("theme {}", self.theme),
                 };

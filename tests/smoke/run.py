@@ -81,7 +81,7 @@ HOLD = 1.2  # --gif: seconds each checkpoint stays on screen
 MARK = ".merl-smoke-report"  # in every report directory a run made, and only there
 SGR = re.compile(r"\x1b\[[0-9;]*m")
 # What differs from run to run whatever the build: the tutor's sample project is unpacked into a
-# directory named after merl's pid. Masked to the same width, so the status line keeps its shape.
+# directory named after merl's pid, 4 to 7 digits wide. `mask` writes it as a 5-digit one.
 VOLATILE = re.compile(r"(?<=merl-tutor-)\d+")
 # The `run` steps commit and push as the agent, at a fixed date: the same hashes on every run.
 AGENT = {"GIT_CONFIG_GLOBAL": "/dev/null", "GIT_AUTHOR_NAME": "agent", "GIT_COMMITTER_NAME": "agent",
@@ -166,7 +166,7 @@ class Merl(cast.Pane):
 
     def frame(self):
         capture, cursor = super().frame()
-        return VOLATILE.sub(lambda m: "N" * len(m.group()), capture), cursor
+        return mask(capture), cursor
 
     def settled(self):
         """The screen once two captures 50 ms apart agree (1 s at most)."""
@@ -866,10 +866,33 @@ SELFTEST = {
 }
 
 
+def mask(capture):
+    """The screen with each pid written `NNNNN`, as a 5-digit pid draws it: the widest run of
+    spaces after it on its line, the status bar's padding before its right-hand text, takes up
+    what a shorter or longer pid moved, so the line is the same whatever the pid's width (#518)."""
+    def line(text):
+        pids = VOLATILE.findall(text)
+        if not pids:
+            return text
+        start = VOLATILE.search(text).start()
+        tail = VOLATILE.sub("NNNNN", text)[start:]
+        pad = max(re.finditer(r" +", tail), key=lambda r: len(r.group()), default=None)
+        width = len(pad.group()) + sum(len(p) - 5 for p in pids) if pad else 0
+        if width > 0:
+            tail = tail[:pad.start()] + " " * width + tail[pad.end():]
+        return text[:start] + tail
+    return "\n".join(map(line, capture.split("\n")))
+
+
 def selftest():
     """Plays SELFTEST's scenarios on fake merls and checks each verdict: seconds, no fixture."""
     global TIMEOUT
     TIMEOUT = 2.0
+    # The tutor's pid, 4 to 7 digits: the same status line (#518).
+    bar = lambda pid, pad: f"merl-tutor-{pid}/\n\x1b[1mmerl-tutor-{pid}/  [code]\x1b[0m{' ' * pad}? help"
+    want = bar("NNNNN", 20)
+    for pid, pad in (("1234", 21), ("12345", 20), ("1234567", 18)):
+        assert mask(bar(pid, pad)) == want, f"a pid of {len(pid)} digits: {mask(bar(pid, pad))!r}"
     tmp = tempfile.mkdtemp(prefix="smoke-selftest-")
     work, out = os.path.join(tmp, "work"), os.path.join(tmp, "out")
     for d in ("orders", "home"):

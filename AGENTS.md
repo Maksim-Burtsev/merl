@@ -64,6 +64,12 @@ language work finishes against the fixtures and the bench those issues build. An
 gets its three labels, the milestone if 1.0 needs it (never a `to-think` one), and its epic as
 the parent when one fits (`gh issue edit EPIC --add-sub-issue N`).
 
+An issue's body opens with `Visible:`: `no`, or what the user will see change. A visible issue
+gets `agent-ok` only with a `## Proposal` in its body that the owner has picked from
+(`.claude/skills/proposal/SKILL.md` shapes one): what is built before the owner saw it tends to
+be built twice. A visible change the owner takes as an experiment ships behind a hidden setting,
+off by default.
+
 ## Working on an issue
 
 A brief can be as short as "Work on #N". It is done when the PR, in the shape below, is merged
@@ -181,7 +187,8 @@ run under ~15 s.
   - `needs-owner`: the options are on the table (a recommendation, a before/after screencast
     from a prototype, the owner's earlier questions answered) and the owner only has to pick.
   - `to-think`: nobody has shaped it yet; the owner thinks it through before it is worked on. An
-    agent that adds options and screencasts to one moves it to `needs-owner`.
+    agent that shapes one into a proposal (`.claude/skills/proposal/SKILL.md`) moves it to
+    `needs-owner`.
 
   Once the decision is in the issue, the label goes and `agent-ok` comes, if nothing is left to
   ask. `is:open label:needs-owner` is the owner's queue of picks, PRs included;
