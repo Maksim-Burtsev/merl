@@ -159,6 +159,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   block is none. A Java call is never a variable, `values()` lands on its enum, `new Rule(a, b)`
   on the constructor taking two arguments and an overload on the one the arguments fit; and a
   Kotlin infix call, `alias(x) apply false`, finds only an `infix fun`. (#367)
+- `d` in Swift reads the type of the value in front of the dot. `lhs.value` in `static func -
+  (lhs: Instant, rhs: Instant)` lands on `Instant.value`, `value → Instant.value (via lhs:
+  Instant)`, and so does a member on a property (`let encoder: FormEncoder`), on a local made by
+  `FormEncoder()` or by a call declaring `-> FormEncoder`, on `self.session.request`, on an
+  optional `backup?.encode(…)` and on the element of a loop over `[T]`. On a type from outside
+  that the project only extends, `URLRequest` or `Data`, it lands on the extension declaring the
+  member, or says `no definition`. It offered every member of the name in the project. A
+  protocol, `any` or `some`, a generic parameter, a tuple or a closure stays found by name. (#384)
 - `d` in Swift reads a member's kind from how it is written. An implicit member, `.bytes` in
   `case let .bytes(count):` or `.post` as an argument, lands on the enum case or `static` member
   of the name, and in a `case` pattern on a case alone; `Endpoint.method(…)` lands on the

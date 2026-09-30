@@ -989,6 +989,215 @@ pub fn swift_binds_on(line: &str, name: &str) -> bool {
     };
     binds == Some(true)
 }
+// ---- Swift's receiver types (#384) ------------------------------------------------------------
+/// What a Swift line that binds a name gives it, as written.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SwiftGiven {
+    /// An annotation: `lhs: Instant`, `let encoder: FormEncoder`, `var cache: Cache?`.
+    Type(String),
+    /// A value: `let printer = FormEncoder()`, `if let s = self.session`.
+    Value(String),
+    /// An element of the collection written: `for x in xs`.
+    Element(String),
+}
+/// What the Swift line `line` gives `name`, which it binds: a `for` over a collection, else the
+/// annotation or the value behind the name's first `:` or `=`. `None` for anything else: a
+/// pattern, a closure's parameter with no type, a `catch`.
+pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
+    let t = uncommented(Kind::Swift, line);
+    let t = t.trim();
+    let n = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let each = rule(format!(
+        r"^for\s+(?:case\s+)?(?:(?:let|var)\s+)?`?{n}`?\s+in\s+(.+?)\s*(?:where\s.*)?\{{?\s*$"
+    ));
+    if let Some(c) = each.captures(t) {
+        return Some(SwiftGiven::Element(c[1].trim().to_owned()));
+    }
+    let at = rule(format!(r"(?:^|[^\w.])`?{n}`?\s*([:=])"));
+    let c = at
+        .captures_iter(t)
+        .find(|c| !t[c.get(0).unwrap().end()..].starts_with([':', '=']))?;
+    let rest = &t[c.get(0).unwrap().end()..];
+    if &c[1] == ":" {
+        // The annotation runs to a `,`, `)`, `=` or `{` outside its own brackets.
+        let mut depth = 0i32;
+        let mut end = rest.len();
+        for (i, ch) in rest.char_indices() {
+            match ch {
+                '(' | '[' | '<' => depth += 1,
+                ')' | ']' | '>' if depth > 0 => depth -= 1,
+                ')' | ',' | '=' | '{' if depth == 0 => {
+                    end = i;
+                    break;
+                }
+                _ => {}
+            }
+        }
+        let ty = rest[..end].trim();
+        return (!ty.is_empty()).then(|| SwiftGiven::Type(ty.to_owned()));
+    }
+    // The `{` that opens an `if`'s or a `guard`'s body, not a trailing closure.
+    let rest = rest.trim();
+    let rest = match ["if ", "guard ", "while ", "} else if "]
+        .iter()
+        .any(|k| t.starts_with(k))
+    {
+        true => rest
+            .strip_suffix('{')
+            .map_or(rest, str::trim_end)
+            .trim_end_matches(" else")
+            .trim_end(),
+        false => rest,
+    };
+    let value = split_top(Kind::Swift, rest, b',')[0].trim();
+    (!value.is_empty()).then(|| SwiftGiven::Value(value.to_owned()))
+}
+/// The type a Swift annotation names, when it names one type (#384): `Instant`, `Cache?` and
+/// `T!` read as `T`, `Box<Int>` as `Box`. `None` for `any P`, `some P`, a tuple, a closure, a
+/// collection, a composition, a path, `Self` and `Any`.
+pub fn swift_type_name(written: &str) -> Option<String> {
+    let mut t = written.trim();
+    t = t.strip_prefix("inout ").unwrap_or(t).trim_start();
+    while let Some(rest) = t.strip_prefix('@') {
+        t = rest.split_once(' ')?.1.trim_start();
+    }
+    let t = t.trim_end_matches(['?', '!']);
+    let t = match t.find('<') {
+        Some(open) if t.ends_with('>') => &t[..open],
+        Some(_) => return None,
+        None => t,
+    };
+    (t.starts_with(|c: char| c.is_alphabetic() || c == '_')
+        && t.chars().all(|c| c.is_alphanumeric() || c == '_')
+        && !matches!(t, "Self" | "Any" | "AnyObject" | "any" | "some"))
+    .then(|| t.to_owned())
+}
+/// The element of the Swift collection type written as `written`: `[T]`, `[T]?`, `Array<T>`,
+/// `Set<T>`; `None` for a dictionary and anything else.
+pub fn swift_element(written: &str) -> Option<String> {
+    let t = written.trim().trim_end_matches(['?', '!']);
+    let inner = match t.strip_prefix('[').and_then(|r| r.strip_suffix(']')) {
+        Some(inner) => inner,
+        None => ["Array<", "Set<", "ContiguousArray<", "ArraySlice<"]
+            .iter()
+            .find_map(|p| t.strip_prefix(p))?
+            .strip_suffix('>')?,
+    };
+    (split_top(Kind::Swift, inner, b':').len() == 1).then(|| inner.trim().to_owned())
+}
+/// The generic parameters a Swift header line declares: `T` and `U` of `func f<T, U: P>(`.
+pub fn swift_generics(line: &str) -> Vec<String> {
+    static GENERICS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"(?:\bfunc\s+`?[^\s(<]+`?|\binit[?!]?|\bsubscript|\b(?:class|struct|enum|actor|typealias)\s+`?\w+`?)\s*<([^>]*)>",
+        )
+        .unwrap()
+    });
+    GENERICS
+        .captures(line)
+        .map(|c| {
+            c[1].split(',')
+                .filter_map(|p| p.split(':').next())
+                .map(|p| p.trim().to_owned())
+                .filter(|p| !p.is_empty())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+/// The return type the Swift function declared on 1-based `line` of `text` writes, `-> T`, over a
+/// header wrapped to its `{`.
+pub fn swift_returns(text: &str, line: usize) -> Option<String> {
+    let mut header = String::new();
+    for l in text.lines().skip(line.checked_sub(1)?).take(8) {
+        let l = uncommented(Kind::Swift, l);
+        match l.find('{') {
+            Some(open) => {
+                header.push_str(&l[..open]);
+                break;
+            }
+            None => header.push_str(&l),
+        }
+        header.push(' ');
+    }
+    // The `->` outside the parameters, which a closure parameter's type may hold too.
+    let mut depth = 0i32;
+    let arrow = header.char_indices().find_map(|(i, c)| {
+        match c {
+            '(' | '[' | '<' => depth += 1,
+            ')' | ']' => depth -= 1,
+            '>' if depth > 0 && !header[..i].ends_with('-') => depth -= 1,
+            '-' if depth == 0 && header[i..].starts_with("->") => return Some(i),
+            _ => {}
+        }
+        None
+    })?;
+    let ret = header[arrow + 2..].trim();
+    let ret = ret.split(" where ").next().unwrap_or(ret).trim();
+    (!ret.is_empty()).then(|| ret.to_owned())
+}
+/// A Swift expression as the receiver rules read it (#384).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SwiftExpr {
+    /// A call, a construction among them, of the callee as written: `FormEncoder`,
+    /// `FormEncoder.init`, `session.request`.
+    Call(String),
+    /// Names alone: `self.session`, `encoder`.
+    Chain(String),
+    /// A cast's type: `x as! Session`.
+    Cast(String),
+}
+/// What the Swift expression `e` is, when the rules read it: a call with nothing after it but a
+/// trailing closure, a chain of names, or a cast; `try`, `try?`, `try!` and `await` in front are
+/// read past.
+pub fn swift_expr(e: &str) -> Option<SwiftExpr> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*(?:<[^()]*>)?\s*([({])?").unwrap()
+    });
+    static CAST: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\sas[!?]?\s+([\w<>\[\]?]+)$").unwrap());
+    let mut e = e.trim();
+    loop {
+        let rest = ["try? ", "try! ", "try ", "await "]
+            .iter()
+            .find_map(|p| e.strip_prefix(p));
+        match rest {
+            Some(rest) => e = rest.trim_start(),
+            None => break,
+        }
+    }
+    if let Some(c) = CAST.captures(e) {
+        return Some(SwiftExpr::Cast(c[1].to_owned()));
+    }
+    let c = CALL.captures(e)?;
+    let callee = c[1].to_owned();
+    let Some(open) = c.get(2) else {
+        return (c.get(0).unwrap().end() == e.len()).then_some(SwiftExpr::Chain(callee));
+    };
+    // What closes on the line ends it, save a trailing closure; one that wraps is read as is.
+    let mut at = open.start();
+    while let Some(end) = close_of(Kind::Swift, e, at) {
+        let rest = e[end..].trim_start();
+        if rest.is_empty() {
+            break;
+        }
+        if !rest.starts_with('{') || e.as_bytes()[at] == b'{' {
+            return None;
+        }
+        at = e.len() - rest.len();
+    }
+    Some(SwiftExpr::Call(callee))
+}
+/// Whether a Swift line binds `name` in a way [`swift_given`] or the walk over the scopes may not
+/// read: behind a `let` or a `var` before any `=`, as a closure's or a `for`'s name.
+pub fn swift_may_bind(line: &str, name: &str) -> bool {
+    let n = regex::escape(name);
+    Regex::new(&format!(
+        r"\b(?:let|var)\s[^=]*\b{n}\b|\{{[^{{}}]*\b{n}\b[^{{}}]*\bin\b|\bfor\b[^{{]*\b{n}\b[^{{]*\bin\b"
+    ))
+    .expect("an escaped name keeps the pattern valid")
+    .is_match(&uncommented(Kind::Swift, line))
+}
 /// Whether the word at `range` of 1-based `line` names a keyword argument of a Python call:
 /// `recipe_yield=…` behind a `(` or a `,`, or at the start of a line that continues a call. It
 /// names a parameter of whatever is called, and no variable of that spelling.

@@ -164,7 +164,7 @@ Python `Enum` member, a TypeScript enum member with a value) or it is written be
 Java or Kotlin `Offer.CUT`, when the project declares one type `Offer` and it is an `enum`) or it
 is Rust's: `Mode::Auto` is the variant `Auto` of the `Mode` the project declares once, and a bare
 `Auto` is when a `use …::Mode::*;` of the function, else of the module, brings it in. Elsewhere
-`d` says so, and `u` lists every whole-word use of the identifier. On `x.field` the word is a member: in Python, TypeScript and Go
+`d` says so, and `u` lists every whole-word use of the identifier. On `x.field` the word is a member: in Python, TypeScript, Go and Swift
 the field of the type `x` is proven to have (below), else every method, property and field of
 that name, found by name.
 
@@ -214,8 +214,8 @@ What `d` does not claim, in Python, TypeScript, Go, Java and Kotlin:
   has rather than inheriting another's: Zig has none at all, since a `\\` string ends with its
   line, so the markdown a `\\` block holds is read as the code it sits in.
 
-On `x.word`, `x.f.word` and longer chains in Python, TypeScript and Go, `d` first looks for the
-type of the receiver. `x` is `self` or `cls` in a method, `this` in a class, a Go method's
+On `x.word`, `x.f.word` and longer chains in Python, TypeScript, Go and Swift, `d` first looks
+for the type of the receiver (Swift: #384, rules at the end of this list). `x` is `self` or `cls` in a method, `this` in a class, a Go method's
 receiver, a parameter, a local or a module-level variable, and each name after it is a field of
 the type before it. The type comes from the declaration:
 - an annotation: `repo: UserRepository`, `private repo: UserRepository` (a constructor parameter
@@ -255,6 +255,18 @@ the type before it. The type comes from the declaration:
 - a TypeScript destructuring out of a chain of names, `const { repo, audit: trail } = this` or
   `= this.uow`, on one line or wrapped over several: the field's type. A default, a rest, a nested
   or an array's pattern is a binding of no readable type.
+- Swift (#384): a parameter's annotation (`lhs: Instant`, `with convertible: URLConvertible`), a
+  local's or a property's (`let encoder: FormEncoder`), a construction `FormEncoder()`,
+  `FormEncoder.init(…)` or with a trailing closure of a type the project declares (a callee it
+  does not declare as a type may be a function, and proves nothing), the `-> Type` of the one
+  function or method called, a cast `as! T`, `self` and a bare property inside a type's body (the
+  type around the cursor), an `if let` / `guard let` of any of these, and a `for x in xs` over
+  `[T]`. `T?` and `T!` read as `T`, `a?.b` as `a.b`. The member is the type's own or its
+  extensions', then its superclass's; a value reaches an instance member over a `static` one. A
+  type the project only extends (`URLRequest`, `Data`) ends the lookup: its extensions that
+  declare the member, else `no definition`. A protocol, `any P`, `some P`, a generic parameter in
+  scope, a tuple, a closure type, a `typealias` and a type declared twice prove nothing, nor does
+  a type that declares none of the member: the search by name decides.
 
 Java and Kotlin (#388, #391) read the receiver `x` of `x.word`, `x::word` and `x.f.word` (six
 names at most, `this.f` included) the same way: `x` is a parameter, a lambda's typed parameter, a

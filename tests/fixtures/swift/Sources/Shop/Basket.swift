@@ -20,12 +20,12 @@ public struct Basket {
         //          ^ d: Sources/Shop/Pricing.swift:51
         discount(tariff.rate())
         // ^ d: Sources/Shop/Pricing.swift:60
-        //              ^ d: picker Sources/Shop/Pricing.swift:13, Sources/Shop/Pricing.swift:29; want Sources/Shop/Pricing.swift:13 (#384)
+        //              ^ d: Sources/Shop/Pricing.swift:13
     }
 
     func bonus() -> Int {
         (coupon?.rate() ?? 0) + gross()
-        //       ^ d: picker Sources/Shop/Pricing.swift:13, Sources/Shop/Pricing.swift:29; want Sources/Shop/Pricing.swift:29 (#384)
+        //       ^ d: Sources/Shop/Pricing.swift:29
         //                      ^ d: Sources/Shop/Basket.swift:19
     }
 }
@@ -41,8 +41,8 @@ extension Basket: Priced {
 
 func describeAny(_ t: Tariff, _ c: Coupon) -> String {
     t.describe() + c.describe()
-    //^ d: picker Sources/Shop/Pricing.swift:16, Sources/Shop/Pricing.swift:32; want Sources/Shop/Pricing.swift:16 (#384)
-    //               ^ d: picker Sources/Shop/Pricing.swift:16, Sources/Shop/Pricing.swift:32; want Sources/Shop/Pricing.swift:32 (#384)
+    //^ d: Sources/Shop/Pricing.swift:16
+    //               ^ d: Sources/Shop/Pricing.swift:32
 }
 
 func restock(weigh: Int) -> Int {
@@ -103,13 +103,13 @@ func pay(_ b: Basket) -> Int {
 
 func code(_ c: Coupon) -> String {
     c.code + "x".parcel
-    //^ d: picker Sources/Shop/Basket.swift:104, Sources/Shop/Pricing.swift:22; want Sources/Shop/Pricing.swift:22 (#384)
+    //^ d: Sources/Shop/Pricing.swift:22
     //           ^ d: Sources/Warehouse/Warehouse.swift:19
 }
 
 func entries(_ l: Ledger) async -> Int {
     await l.entries.count
-    //      ^ d: picker Sources/Shop/Basket.swift:110, Sources/Shop/Pricing.swift:54; want Sources/Shop/Pricing.swift:54 (#384)
+    //      ^ d: Sources/Shop/Pricing.swift:54
 }
 
 func handle(_ o: Offer?, items: [Int]) {

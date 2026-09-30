@@ -984,3 +984,77 @@ fn a_cpp_alias_of_a_qualified_type_is_no_member_of_it() {
         Some("Refund::Refund")
     );
 }
+
+#[test]
+fn swift_receiver_types_are_read_off_their_lines() {
+    use SwiftGiven::*;
+    let given = |l: &str, n: &str| swift_given(l, n);
+    assert_eq!(
+        given(
+            "    static func - (lhs: Instant, rhs: Instant) -> Double {",
+            "rhs"
+        ),
+        Some(Type("Instant".into()))
+    );
+    assert_eq!(
+        given("    let encoder: FormEncoder = FormEncoder()", "encoder"),
+        Some(Type("FormEncoder".into()))
+    );
+    assert_eq!(
+        given("        let printer = FormEncoder()", "printer"),
+        Some(Value("FormEncoder()".into()))
+    );
+    assert_eq!(
+        given("    guard let s = self.session else {", "s"),
+        Some(Value("self.session".into()))
+    );
+    assert_eq!(
+        given("        for p in printers where p.ok {", "p"),
+        Some(Element("printers".into()))
+    );
+    assert_eq!(given("    case let .bytes(count):", "count"), None);
+    assert_eq!(given("        items.map { item in", "item"), None);
+
+    assert_eq!(swift_type_name("Cache?").as_deref(), Some("Cache"));
+    assert_eq!(swift_type_name("inout Box<Int>").as_deref(), Some("Box"));
+    for refused in [
+        "any P", "some P", "(A, B)", "() -> A", "[A]", "A & B", "Mod.A", "Self",
+    ] {
+        assert_eq!(swift_type_name(refused), None, "{refused}");
+    }
+    assert_eq!(
+        swift_element("[JSONPrinter]?").as_deref(),
+        Some("JSONPrinter")
+    );
+    assert_eq!(swift_element("Set<Tag>").as_deref(), Some("Tag"));
+    assert_eq!(swift_element("[String: Tag]"), None);
+    assert_eq!(swift_generics("func f<T, U: P>(_ t: T) -> U {"), ["T", "U"]);
+
+    let wrapped = "func make(\n    _ build: (Int) -> Int\n) async throws -> Session where A: B {\n";
+    assert_eq!(swift_returns(wrapped, 1).as_deref(), Some("Session"));
+    assert_eq!(swift_returns("func run() {\n", 1), None);
+
+    assert_eq!(
+        swift_expr("try? makeEncoder()"),
+        Some(SwiftExpr::Call("makeEncoder".into()))
+    );
+    assert_eq!(
+        swift_expr("Wire { $0 }"),
+        Some(SwiftExpr::Call("Wire".into()))
+    );
+    assert_eq!(
+        swift_expr("Wire(a) { $0 }"),
+        Some(SwiftExpr::Call("Wire".into()))
+    );
+    assert_eq!(swift_expr("Wire(a,"), Some(SwiftExpr::Call("Wire".into())));
+    assert_eq!(swift_expr("Wire().encoder"), None);
+    assert_eq!(
+        swift_expr("self.wire"),
+        Some(SwiftExpr::Chain("self.wire".into()))
+    );
+    assert_eq!(
+        swift_expr("found as! Wire"),
+        Some(SwiftExpr::Cast("Wire".into()))
+    );
+    assert_eq!(swift_expr("a + b"), None);
+}
