@@ -97,6 +97,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   In a C++ method a bare member, `return filename_;`, lands on its class's field. A value, a word
   followed by `->` or `.`, is never a struct, a `typedef` or a `using` alias, so `group->pel`
   no longer opens the system's `struct group`. (#378)
+- `d` in Ruby reads the Rails DSL: `has_many :followers`, `belongs_to`, `scope :recent`,
+  attachments, `attribute`, `enum` and `delegate :email, to: :user` declare the name, and a column
+  of `db/schema.rb` is found under its table, `collections.language`. `Account.recent` lands on
+  its `scope`, one of a concern's `included do` too; `x.followers` offers the declaration. They
+  said "no definition". (#374)
 
 ### Changed
 
@@ -677,6 +682,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in TypeScript finds a method whose parameter is typed by an inline type literal,
   `paint({ a }: { a: number; b: number }) {`: the `;` inside it read as the end of a call, so
   `d` on `paint` elsewhere said "no definition". (#528)
+- `d` in Ruby on a method written `def User.build` inside `class User` names it `User.build` in
+  the status line, and its parameter `User.build.arg`: the class was named twice,
+  `User.User.build`. (#535)
 
 ## [0.7.0] - 2026-09-25
 

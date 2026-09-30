@@ -111,6 +111,36 @@ fn qualified_names_come_from_the_declarations_around() {
         q(Kind::Ruby, rb, 13, "blank").as_deref(),
         Some("Invoice.blank")
     );
+    // #535: an owner written into the `def` that is the class around it is not named twice, nor
+    // is it for a parameter; another owner is still read inside that class.
+    let rb = "module Shop\n  class User\n    def User.build(arg)\n    end\n    def Other.make\n    end\n  end\nend\n";
+    assert_eq!(
+        q(Kind::Ruby, rb, 3, "build").as_deref(),
+        Some("Shop.User.build")
+    );
+    assert_eq!(
+        q(Kind::Ruby, rb, 3, "arg").as_deref(),
+        Some("Shop.User.build.arg")
+    );
+    assert_eq!(
+        q(Kind::Ruby, rb, 5, "make").as_deref(),
+        Some("Shop.User.Other.make")
+    );
+    // #374: a column of `db/schema.rb` is its table's, and a DSL line its class's.
+    let schema = "ActiveRecord::Schema[7.1].define(version: 1) do\n  create_table \"collections\", force: :cascade do |t|\n    t.string \"language\"\n  end\n  create_table :drafts do |t|\n    t.text :summary\n  end\nend\n";
+    assert_eq!(
+        q(Kind::Ruby, schema, 3, "language").as_deref(),
+        Some("collections.language")
+    );
+    assert_eq!(
+        q(Kind::Ruby, schema, 6, "summary").as_deref(),
+        Some("drafts.summary")
+    );
+    let rb = "class Account < ApplicationRecord\n  has_many :followers\nend\n";
+    assert_eq!(
+        q(Kind::Ruby, rb, 2, "followers").as_deref(),
+        Some("Account.followers")
+    );
 }
 
 /// #100. A `var (` block declares what stands at its own level; a function may declare a

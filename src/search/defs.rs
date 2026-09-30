@@ -336,15 +336,22 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         // Ruby declares everything on one line. A constant lives indented inside its class, so
         // the assignment rule is not anchored at column zero as Python's is. An instance or class
         // variable is its own word, `@name` or `@@name`, and its assignment declares nothing else
-        // (#383). The Rails-style DSL (`scope`, `has_many`, `define_method`) has no rule.
-        // `name?`, `name!` and the setter `name=` are methods of their own (#387): the word
-        // carries its suffix, and a bare `name` is none of them.
+        // (#383). The Rails DSL declares the name it is given (#374); `define_method` has no
+        // rule. `name?`, `name!` and the setter `name=` are methods of their own (#387): the
+        // word carries its suffix, and a bare `name` is none of them.
         Kind::Ruby => {
             let end = r"(?:[^\w?!=]|$)";
+            // `delegate :a, :b, to: :x` declares `a` and `b`, on a line of its own that closes
+            // it: `prefix:` renames them (`user_email`), and a `delegate` wrapped over lines may
+            // say so on a line below.
+            let option = r"(?:(?:to|allow_nil|private):|prefix:\s*false\b)[^,#]*";
             let method = vec![
                 // A method: `def name`, `def self.name`, `def Klass.name`.
                 format!(r"^\s*def\s+(?:self\.|[A-Z]\w*\.)?{w}{end}"),
                 format!(r"^\s*alias(?:_method)?\s+:?{w}{end}"),
+                format!(
+                    r"^\s*delegate\s*\(?\s*(?::[\w?!]+\s*,\s*)*:{w}\s*,\s*(?::[\w?!]+\s*,\s*)*{option}(?:,\s*{option})*(?:#.*)?$"
+                ),
             ];
             let attr = |which: &str, name: &str| {
                 format!(r"^\s*attr_(?:accessor|{which})\s+(?:[:\w]+\s*,\s*)*:{name}\b")
@@ -362,6 +369,15 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                         format!(r"^\s*(?:class|module)\s+(?:[\w:]+::)?{w}(?:[^\w:]|$)"),
                         ruby_assignment(word),
                         attr("reader", &w),
+                        // An association, a scope, an attachment, an attribute or an enum.
+                        format!(
+                            r"^\s*(?:has_many|has_one|belongs_to|has_and_belongs_to_many|scope|has_one_attached|has_many_attached|has_attached_file|attribute|alias_attribute|enum)\s*\(?\s*:{w}{end}"
+                        ),
+                        format!(r"^\s*enum\s*\(?\s*{w}:"),
+                        // Every name after the store's.
+                        format!(r"^\s*store_accessor\s*\(?\s*:\w+\s*(?:,\s*:\w+\s*)*,\s*:{w}{end}"),
+                        // A column, `t.string "language"`: [`ruby_column`] says where it counts.
+                        format!(r#"^\s*t\.\w+\s*\(?\s*(?:"{w}"|:{w}{end})"#),
                     ],
                 ]
                 .concat(),
@@ -990,6 +1006,13 @@ pub fn member_or_signature(kind: Kind, word: &str) -> Option<Vec<String>> {
         ));
     }
     Some(patterns)
+}
+/// Whether the Ruby line `text` of the file `path` is a column outside `db/schema.rb`, which
+/// declares nothing (#374): `t.string "language"` declares one in `db/schema.rb` alone, where
+/// every `t.` line is inside a `create_table` block. A migration's is history, and
+/// `db/structure.sql` is not read.
+pub fn ruby_column_elsewhere(path: &Path, text: &str) -> bool {
+    text.trim_start().starts_with("t.") && !path.ends_with("db/schema.rb")
 }
 /// A Ruby assignment of `word`, `||=` included; `==`, `=~` and `=>` are not one. The word
 /// carries its sigil: `@name =` assigns `@name`, never `name` (#383).
