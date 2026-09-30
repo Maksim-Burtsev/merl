@@ -138,8 +138,15 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     // Ruby writes the namespace into the line (#387): `class A::B` is `B` inside `A`, and
     // `def Klass.m` is `m` of `Klass`.
     let ruby = kind == Kind::Ruby;
+    // An owner written into a `def` that is the class around it is that class, not one inside
+    // it (#535): `def User.build` in `class User` is `User.build`.
+    let mut def_owner = None;
     if ruby {
-        names.extend(ruby_namespace(target));
+        let spelled = ruby_namespace(target);
+        if target.trim_start().starts_with("def") {
+            def_owner = spelled.first().cloned();
+        }
+        names.extend(spelled);
     }
     // C++ writes it in front of an out-of-line body (#508): `struct Drawer::Scanner {` is
     // `Scanner` inside `Drawer`, and `std::string Tariff::describe()` is `describe` of `Tariff`.
@@ -182,6 +189,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             break;
         }
         match named {
+            Some(n) if def_owner.take().is_some_and(|o| o == n) => {}
             Some(n) => {
                 if cpp {
                     names.push(n.clone());

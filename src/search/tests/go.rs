@@ -111,6 +111,21 @@ fn qualified_names_come_from_the_declarations_around() {
         q(Kind::Ruby, rb, 13, "blank").as_deref(),
         Some("Invoice.blank")
     );
+    // #535: an owner written into the `def` that is the class around it is not named twice, nor
+    // is it for a parameter; another owner is still read inside that class.
+    let rb = "module Shop\n  class User\n    def User.build(arg)\n    end\n    def Other.make\n    end\n  end\nend\n";
+    assert_eq!(
+        q(Kind::Ruby, rb, 3, "build").as_deref(),
+        Some("Shop.User.build")
+    );
+    assert_eq!(
+        q(Kind::Ruby, rb, 3, "arg").as_deref(),
+        Some("Shop.User.build.arg")
+    );
+    assert_eq!(
+        q(Kind::Ruby, rb, 5, "make").as_deref(),
+        Some("Shop.User.Other.make")
+    );
 }
 
 /// #100. A `var (` block declares what stands at its own level; a function may declare a

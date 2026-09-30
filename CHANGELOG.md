@@ -621,6 +621,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in TypeScript finds a method whose parameter is typed by an inline type literal,
   `paint({ a }: { a: number; b: number }) {`: the `;` inside it read as the end of a call, so
   `d` on `paint` elsewhere said "no definition". (#528)
+- `d` in Ruby on a method written `def User.build` inside `class User` names it `User.build` in
+  the status line, and its parameter `User.build.arg`: the class was named twice,
+  `User.User.build`. (#535)
 
 ## [0.7.0] - 2026-09-25
 

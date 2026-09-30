@@ -21,4 +21,11 @@ class RefundsController < BaseController
     #^ d: app/refunds_controller.rb:19
     # status: RefundsController.refund_all.orders (local)
   end
+
+  # An owner written into the `def` is the class around it, not a second one (#535).
+  def RefundsController.refund_one(order)
+    order
+    #^ d: app/refunds_controller.rb:26
+    # status: order → RefundsController.refund_one.order (local)
+  end
 end
