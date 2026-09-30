@@ -44,3 +44,16 @@ func restock() -> Int {
     }
     return refill()
 }
+
+// A nested function reads its outer function's locals, which the walk over the blocks does not
+// see: no proof of no local, so no jump to the type's namesake member (#380).
+extension Tracker {
+    func cruise() -> Double {
+        let span = 5.0
+        func drift() -> Double {
+            span
+            // ^ d: picker Sources/Shop/Tracker.swift:3, Sources/Shop/Tracker.swift:52
+        }
+        return drift()
+    }
+}

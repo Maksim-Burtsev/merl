@@ -36,3 +36,20 @@ func summarize(_ endpoint: Endpoint, stats: Stats) {
     _ = stats.bytes
     //        ^ d: Sources/Shop/Endpoint.swift:19
 }
+
+// In a `case` pattern an implicit member is an enum case alone, never a `static` namesake (#380).
+enum Gear {
+    case overdrive
+}
+
+struct Ratio {
+    static let overdrive = 1
+}
+
+func shift(_ gear: Gear) -> Int {
+    switch gear {
+    case .overdrive:
+    //    ^ d: Sources/Shop/Endpoint.swift:42
+        return 1
+    }
+}

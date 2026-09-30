@@ -250,13 +250,26 @@ fn swift_decl_binds(rest: &str, name: &str) -> Option<bool> {
 /// file bind no local, and a pattern the rules cannot read that names the word stops the walk:
 /// the search by name decides then.
 pub(super) fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    swift_walk(lines, at, name).unwrap_or_default()
+}
+/// Whether the walk of [`swift_bindings`] from 1-based `line` proves that no local of the
+/// enclosing function or type names `name`: it reached a type's body, or the parameters of a
+/// function right inside one, and found no binding. A walk that stopped proves nothing (#380).
+pub fn swift_no_local(text: &str, line: usize, name: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    line.checked_sub(1)
+        .filter(|&at| at < lines.len())
+        .is_some_and(|at| swift_walk(&lines, at, name).is_some_and(|b| b.is_empty()))
+}
+/// The walk of [`swift_bindings`]: `None` where it stopped, where the search by name decides.
+fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
     let literal = literal_lines(Kind::Swift, &lines.join("\n"));
     let code = |i: usize| uncommented(Kind::Swift, lines[i]).trim().to_owned();
     let found = |line: usize| {
-        vec![Binding {
+        Some(vec![Binding {
             line,
             value: Value::Unknown,
-        }]
+        }])
     };
     // The 1-based line of `start..=end` that writes the name, or `start`'s.
     let written = |start: usize, end: usize, re: &Regex| {
@@ -300,7 +313,7 @@ pub(super) fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
                 (Some(false), 0)
             };
             match binds {
-                None => return Vec::new(),
+                None => return None,
                 Some(true) => pending = Some(line),
                 Some(false) => {}
             }
@@ -319,26 +332,33 @@ pub(super) fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
             // Parameters wrapped over the lines under the header's first go on to its `{`.
             let end = (end..at).find(|&j| code(j).ends_with('{')).unwrap_or(end);
             let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
-            return match swift_params_bind(&text, name) {
-                true => found(written(i, end, &param)),
-                false => Vec::new(),
-            };
+            if swift_params_bind(&text, name) {
+                return found(written(i, end, &param));
+            }
+            // The walk does not go past a function: its locals are proven none only when a
+            // type's body holds it, and a nested function's outer locals stay unseen.
+            let typed = (0..i)
+                .rev()
+                .find(|&j| swift_code(lines, &literal, j) && indent(lines[j]) < indent(lines[i]))
+                .map(|j| code(swift_header_start(lines, &literal, j)))
+                .is_some_and(|h| !SWIFT_FUNC.is_match(&h) && SWIFT_TYPE.is_match(&h));
+            return typed.then(Vec::new);
         }
         if SWIFT_TYPE.is_match(&head) {
-            return Vec::new();
+            return Some(Vec::new());
         }
         if let Some(line) = pending {
             return found(line);
         }
         match swift_header_binds(&head, &text, &code(end), name) {
-            None => return Vec::new(),
+            None => return None,
             // A `case` names its line, the others the line of the header that writes the name.
             Some(true) if head.starts_with("case ") => return found(i + 1),
             Some(true) => return found(written(i, end, &word)),
             Some(false) => {}
         }
     }
-    Vec::new()
+    None
 }
 /// Whether the parameters of the `func`, `init`, `subscript` or `set` header `text` name `name`:
 /// the last word in front of a parameter's `:`, so `_ attempt: Int` and `for attempt: Int` bind
