@@ -596,6 +596,72 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
     }
 }
 
+/// #517. Implementations answer only on the name a member's line declares: another occurrence
+/// of the word on that line, a namesake its one-line body calls, a parameter or a type its
+/// signature names, is looked up as on any other line.
+#[test]
+fn implementations_answer_only_on_the_declared_name() {
+    let (dir, mut a) = project_app(
+        "d-517-impls",
+        &[
+            (
+                "jobs.py",
+                "class BaseJob:\n    def run(self): return run()\n\n\nclass ImportJob(BaseJob):\n    def run(self): pass\n\n\ndef run(): pass\n",
+            ),
+            (
+                "jobs.ts",
+                "export class BaseJob {\n  run(run: () => void) {\n    run();\n  }\n}\n\nexport class ImportJob extends BaseJob {\n  run(run: () => void) {}\n}\n",
+            ),
+            ("go.mod", "module example.com/jobs\n"),
+            (
+                "jobs.go",
+                "package jobs\n\ntype Send string\n\ntype Notifier interface {\n\tSend(msg Send) error\n}\n\ntype Email struct{}\n\nfunc (e Email) Send(msg Send) error { return nil }\n",
+            ),
+        ],
+    );
+    // Off the declared name, the search by name answers, as on a line nothing implements.
+    let cases = [
+        (
+            "jobs.py",
+            "def run",
+            "return run",
+            picker(
+                "run: at a declaration, 2 others by name",
+                &[("ImportJob.run", "jobs.py:6"), ("run", "jobs.py:9")],
+            ),
+        ),
+        (
+            "jobs.ts",
+            "^  run",
+            "(run",
+            picker(
+                "run: at a declaration, 1 other by name",
+                &[("ImportJob.run", "jobs.ts:8")],
+            ),
+        ),
+        (
+            "jobs.go",
+            "\tSend",
+            "(msg Send",
+            picker(
+                "Send: at a declaration, 2 others by name",
+                &[("Send", "jobs.go:3"), ("Email.Send", "jobs.go:11")],
+            ),
+        ),
+    ];
+    for (file, declared, other, want) in cases {
+        d_on(&mut a, file, declared);
+        assert!(
+            a.message.contains("implementations of"),
+            "{file}: {declared}: {}",
+            a.message
+        );
+        d_on(&mut a, file, other);
+        assert_eq!(shown(&mut a), want, "{file}: {other}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// The two presses #68 step 6 is reached by: `d` on a call of an interface method lands on
 /// the declaration with the cursor on its name, and a second `d` there lists what implements
 /// it. A jump that left the cursor at the start of the line would answer nothing.

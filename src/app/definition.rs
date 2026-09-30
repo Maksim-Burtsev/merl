@@ -2537,7 +2537,7 @@ impl App {
             && found
                 .iter()
                 .any(|c| c.hit.line != self.line + 1 || c.hit.path != here)
-            && self.on_declared_name(kind, word);
+            && self.on_declared_name(kind, word, false);
         // Off the name of the line's declaration (#317), a bare word whose lone namesake nothing
         // proves and is declared as this line declares it, `let courier` of another function, is
         // as likely another scope's copy as what the word means: offered, as before, never
@@ -2639,8 +2639,9 @@ impl App {
     /// method looked up as on any other line. The declared one is the occurrence of `word` the
     /// line no longer reads as a declaration without; a line no pattern reads (a parameter)
     /// declares its first. A word the line does not spell as is (a Ruby setter) is on it, and
-    /// so is another occurrence of a shape #317 does not name (see below).
-    fn on_declared_name(&self, kind: Kind, word: &str) -> bool {
+    /// so is another occurrence of a shape #317 does not name (see below), unless `exact`: what
+    /// implements a member is asked on its declared name alone (#517).
+    pub(super) fn on_declared_name(&self, kind: Kind, word: &str, exact: bool) -> bool {
         let line = self.line_str();
         let Some((r, _)) = search::definition_word(Some(kind), line, self.col) else {
             return true;
@@ -2684,6 +2685,9 @@ impl App {
         let first = declared.first().copied().unwrap_or(at[0]);
         if declared.contains(&r.start) || (declared.is_empty() && first == r.start) {
             return true;
+        }
+        if exact {
+            return false;
         }
         // Off the declared name, only the shapes #317 is about are looked up as on any other
         // line: a word in front of it (the type of C#'s `Courier Courier`), a member
