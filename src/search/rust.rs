@@ -224,8 +224,8 @@ fn frames(lines: &[String], line: usize, start: usize) -> Option<(String, Vec<Fr
             b'[' | b'(' | b'{' => {
                 let before = text[..i].trim_end();
                 let name_at = before
-                    .rfind(|c: char| !(c.is_alphanumeric() || c == '_' || c == '!'))
-                    .map_or(0, |j| j + 1);
+                    .trim_end_matches(|c: char| c.is_alphanumeric() || c == '_' || c == '!')
+                    .len();
                 stack.push(Frame {
                     open: c,
                     attr: false,

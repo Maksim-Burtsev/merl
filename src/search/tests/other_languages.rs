@@ -1165,3 +1165,12 @@ fn a_graphql_import_is_the_path_under_the_cursor() {
     assert_eq!(graphql_import("# import './a.gql'", 12), Some("./a.gql"));
     assert_eq!(graphql_import(r#"  user # import "./a.gql""#, 20), None);
 }
+
+/// #543: a name ending in a combining mark is cut at a character, not inside the mark.
+#[test]
+fn jvm_function_cuts_at_a_character() {
+    assert_eq!(
+        jvm_function("void nam\u{301}(int x) {").as_deref(),
+        Some("")
+    );
+}
