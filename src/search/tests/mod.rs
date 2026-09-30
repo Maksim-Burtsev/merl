@@ -71,7 +71,7 @@ fn defs(dir: &Path, files: &[PathBuf], kind: Kind, word: &str) -> Vec<usize> {
             }
             let text = std::fs::read_to_string(dir.join(&h.path)).unwrap_or_default();
             let lines: Vec<&str> = text.lines().collect();
-            declares_where(kind, word, h.line, &h.text, || &lines)
+            declares_where(kind, &h.path, word, h.line, &h.text, || &lines)
         })
         .map(|h| h.line)
         .collect()

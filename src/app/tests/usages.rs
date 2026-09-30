@@ -511,3 +511,35 @@ fn usages_mark_a_rust_let_as_a_declaration() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// Review of #374: a Rails column declares only in `db/schema.rb`, for `u` as for `d` (#504); a
+/// migration's `t.string :language` is history, a use.
+#[test]
+fn usages_mark_a_rails_column_only_in_the_schema() {
+    let (dir, mut a) = project_app(
+        "u-rails-column",
+        &[
+            (
+                "db/schema.rb",
+                "ActiveRecord::Schema[7.1].define(version: 1) do\n  create_table \"posts\" do |t|\n    t.string \"language\"\n  end\nend\n",
+            ),
+            (
+                "db/migrate/1_add_language.rb",
+                "class AddLanguage < ActiveRecord::Migration[7.1]\n  def change\n    create_table :drafts do |t|\n      t.string :language\n    end\n  end\nend\n",
+            ),
+            (
+                "app/post.rb",
+                "class Post\n  def show\n    language\n  end\nend\n",
+            ),
+        ],
+    );
+    usages_at(&mut a, &dir, "app/post.rb", 3, "language");
+    let rows = usage_rows(&mut a);
+    let marked: Vec<_> = rows.iter().filter(|(m, _)| m == "declaration").collect();
+    assert_eq!(
+        marked,
+        [&("declaration".to_string(), "db/schema.rb:3".to_string())],
+        "{rows:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

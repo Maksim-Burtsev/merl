@@ -3028,13 +3028,12 @@ impl App {
         // One file holds thousands of GraphQL `id` fields, so each file is split once.
         let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
         hits.retain(|h| {
-            !(kind == Kind::Ruby && search::ruby_column_elsewhere(&h.path, &h.text))
-                && search::declares_where(kind, word, h.line, &h.text, || {
-                    lines.entry(h.path.clone()).or_insert_with(|| {
-                        self.text_of(&h.path)
-                            .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
-                    })
+            search::declares_where(kind, &h.path, word, h.line, &h.text, || {
+                lines.entry(h.path.clone()).or_insert_with(|| {
+                    self.text_of(&h.path)
+                        .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
                 })
+            })
         });
         hits
     }

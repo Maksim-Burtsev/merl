@@ -1121,7 +1121,16 @@ fn graphql_def_patterns_find_definitions_fields_and_enum_values() {
         defs(&dir, &files, Kind::Graphql, w)
             .into_iter()
             .filter(|&n| !literal[n - 1])
-            .filter(|&n| declares_where(Kind::Graphql, w, n, lines[n - 1], || &lines))
+            .filter(|&n| {
+                declares_where(
+                    Kind::Graphql,
+                    Path::new("schema.graphql"),
+                    w,
+                    n,
+                    lines[n - 1],
+                    || &lines,
+                )
+            })
             .collect()
     };
     assert_eq!(d("Ghost"), Vec::<usize>::new(), "inside a description");
