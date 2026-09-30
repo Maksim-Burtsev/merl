@@ -1077,3 +1077,17 @@ fn php_namespace_patterns_cut_after_a_non_ascii_character() {
     php_namespace_patterns(&mut patterns, text, line, start..start + 2);
     assert_eq!(patterns, [r"^\s*namespace\s+App\\Ns\s*[;{]"]);
 }
+
+/// A receiver's name is cut at a character, and a name a non-ASCII character goes on with is not
+/// read: `größe` is not `e`.
+#[test]
+fn c_receiver_cuts_at_a_character() {
+    assert_eq!(c_receiver("café."), None);
+    assert_eq!(c_receiver("cafe\u{301} = e\u{301}tude."), None);
+    assert_eq!(c_receiver("x = \"🇫🇷\" + 👨‍👩‍👧."), None);
+    assert_eq!(c_receiver("$ßar->"), None);
+    assert_eq!(
+        c_receiver("ß = bar->"),
+        Some(("bar".to_owned(), false, vec![]))
+    );
+}
