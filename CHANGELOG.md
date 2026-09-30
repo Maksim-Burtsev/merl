@@ -152,6 +152,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on its `pub mod io;`, a name `use crate::helpers::norm` brings in on `norm` in `helpers.rs`, and
   `std::fs` on the standard library's `fs` rather than every platform's `os/*/fs.rs`. They jumped
   to a project method of the same name or offered every namesake. (#350)
+- Every list you filter by typing reads the query as you write it, as `D` has since #293: in
+  `o`'s file picker, the theme list and the `d` and `u` pickers, `^`, `$`, `!`, `'` and `\` are
+  characters of the name: `!test` finds `!test.md` instead of hiding every path holding `test`,
+  and `.rs$` looks for a `$` instead of the end of the path. Spaces still separate words
+  matched in any order. (#519)
 - `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
   parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
   said `no definition` or offered namesakes from other files: `directionParams →
@@ -323,6 +328,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   macOS spells it), in PHP on a namespaced name after a `©`, and in C or C++ inside a block
   whose header holds non-ASCII names on both sides of a bracket. It panicked, which left the
   terminal unusable until `reset`. (#543)
+- `d` in Go on a parameter's type named like the method it belongs to, the second `Send` of
+  `Send(msg Send) error`, jumps to `type Send`. It offered a picker of `type Send` and every
+  method `Send` beside it. (#536)
 - `d` in Swift finds a function or an enum case declared with its name in backticks, as
   ``func `default`()`` or ``case `open` ``: it said "no definition", or jumped to a namesake
   elsewhere. (#463)

@@ -186,7 +186,6 @@ impl App {
             .unwrap_or(0);
         let mut new = Picker::new(old.title.clone(), items, false);
         new.live = true;
-        new.literal = old.literal;
         new.selected = selected;
         new.query = std::mem::take(&mut old.query);
         new.bufs = std::mem::take(&mut old.bufs);
