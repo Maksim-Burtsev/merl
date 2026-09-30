@@ -320,9 +320,24 @@ impl App {
                 || (after.starts_with('!') && !after.starts_with("!=")));
         let rust_field =
             kind == Kind::Rust && after.starts_with(':') && !after.starts_with("::") && !captured;
-        let declared = kind == Kind::Rust
-            && chain.is_empty()
-            && search::rust_let_declares(self.line_str(), range.start, &word);
+        // On the name a Swift `for`, `if let`, closure or function header declares on the
+        // cursor's own line, the word is at a declaration, as on a `let` (#525, #533): the
+        // occurrence the line no longer binds the name without. A read in front of it, `cache`
+        // in `if cache.isEmpty, let cache = load() {`, is looked up as on any other line, and an
+        // outer binding of the name is a namesake, never the answer.
+        let line = self.line_str();
+        let swift_binds_here = kind == Kind::Swift
+            && !dotted
+            && line.get(range.clone()) == Some(word.as_str())
+            && search::swift_binds_on(line, &word)
+            && !search::swift_binds_on(
+                &format!("{}_{}", &line[..range.start], &line[range.end..]),
+                &word,
+            );
+        let declared = swift_binds_here
+            || (kind == Kind::Rust
+                && chain.is_empty()
+                && search::rust_let_declares(self.line_str(), range.start, &word));
         // A TypeScript bare word is a value a `class`, `function`, `type`, `interface` or `enum`
         // of its scope declares as well as a `const` (#337); the first name of a chain is not.
         let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
@@ -1354,25 +1369,16 @@ impl App {
         // The cursor's own line alone is offered rather than jumped to when others went: the
         // word may be a use on the line of a declaration of its name (#317).
         if kind == Kind::Swift {
-            // On the name a `for`, an `if let` or a closure's parameter declares on the cursor's
-            // own line, the word is at a declaration, as on a `let` (#525). That is the occurrence
-            // the line no longer binds the name without: a read in front of it, `cache` in
-            // `if cache.isEmpty, let cache = load() {`, is looked up as on any other line.
-            let line = self.line_str();
+            // On the name a binding declares on the cursor's own line (`swift_binds_here`), the
+            // line joins the namesakes found by name, as a `let` line does by its pattern.
             let own = Hit {
                 path: here.clone(),
                 line: self.line + 1,
                 col: 0,
-                text: line.to_owned(),
+                text: self.line_str().to_owned(),
                 deleted: None,
             };
-            if !dotted
-                && line.get(range.clone()) == Some(word.as_str())
-                && search::swift_binds_on(line, &word)
-                && !search::swift_binds_on(
-                    &format!("{}_{}", &line[..range.start], &line[range.end..]),
-                    &word,
-                )
+            if swift_binds_here
                 && !hits
                     .iter()
                     .any(|h| h.path == own.path && h.line == own.line)

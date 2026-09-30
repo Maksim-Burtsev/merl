@@ -250,6 +250,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `d` in Swift on a function's parameter in its header, as `attempt` in
+  `func probe(_ attempt: Int) {`, answers as on any declaration: the line itself, or the
+  namesakes offered under "at a declaration". It jumped to a lone namesake elsewhere. A name a
+  `for`, an `if let` or a closure binds over an outer one of the same name answers the same way;
+  it jumped to the outer one. (#533)
 - `d` in Swift finds a function or an enum case declared with its name in backticks, as
   ``func `default`()`` or ``case `open` ``: it said "no definition", or jumped to a namesake
   elsewhere. (#463)
