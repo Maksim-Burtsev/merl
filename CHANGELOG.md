@@ -583,6 +583,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in TypeScript and JavaScript on a name inside an arrow function written on one line,
   `items.map(item => item * 2)`, lands on the arrow's parameter, `(local)`. It jumped to a
   module-level `const` of the same name. (#531)
+- `d` in TypeScript finds a method whose parameter is typed by an inline type literal,
+  `paint({ a }: { a: number; b: number }) {`: the `;` inside it read as the end of a call, so
+  `d` on `paint` elsewhere said "no definition". (#528)
 
 ## [0.7.0] - 2026-09-25
 
