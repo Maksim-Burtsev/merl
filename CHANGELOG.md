@@ -580,6 +580,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   call, an `@spec` or a module attribute on its own module's declaration first. (#460)
 - `d` in Lua follows `require` to the module's file and reads `mod.name`, `mod.T.name` and
   `T.name` in the table it names, instead of offering every function of that name. (#462)
+- `d` in Go on a parameter used in a body written on its function's own line, `func cut(xs
+  []int, n int) []int { return xs[n:] }`, lands on the parameter. It jumped to a package-level
+  constant or variable of the same name. (#524)
+- `d` in Python on a bare call, `next(steps)`, never offers a method of that name: a `def` in a
+  class is reached through a value or the class. Where the file declares a module-level `def
+  next`, `d` jumps there instead of offering it beside `Courier.next`. (#522)
+- `d` offers what implements a member only on the name its line declares. On another
+  occurrence of the word on that line, such as a function its one-line body calls, a parameter
+  of the same name or a Go type in its signature, it offered the implementations too; it now
+  looks that word up as on any other line. (#517)
+- `d` in Swift on the name a `for`, an `if let`, a `guard let` or a closure's parameter declares
+  answers as on a `let`: at a declaration, its namesakes elsewhere offered in a picker, and the
+  line itself when it has none. It jumped to a namesake elsewhere, often a field of the same
+  name. (#525)
+- `d` in Ruby on a method's parameter names it by its method in the status line,
+  `SessionsController.on_success.user (local)`, as a local of the method is named: it read
+  `SessionsController.user`, the way a field would be. (#526)
+- The viewed marks of a review, a theme that cannot be read or saved, a review that cannot be
+  listed again and the drill's log say why in a few words when a file fails them, without
+  `(os error N)`. (#516)
+- `d` in TypeScript and JavaScript on a name inside an arrow function written on one line,
+  `items.map(item => item * 2)`, lands on the arrow's parameter, `(local)`. It jumped to a
+  module-level `const` of the same name. (#531)
+- `d` in TypeScript finds a method whose parameter is typed by an inline type literal,
+  `paint({ a }: { a: number; b: number }) {`: the `;` inside it read as the end of a call, so
+  `d` on `paint` elsewhere said "no definition". (#528)
 
 ## [0.7.0] - 2026-09-25
 

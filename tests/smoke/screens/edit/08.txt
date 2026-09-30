@@ -1,4 +1,4 @@
-wait page_size: int = 100
+wait 10▎    page_size: int = 100
  1 """Settings, read from the environment once at startup."""
  2 import os
  3 from dataclasses import dataclass
@@ -53,5 +53,5 @@ wait page_size: int = 100
 
 
 
-app/config.py ●  10:25  [code]                                                                                                                                                    ? help
+app/config.py  10:25  [code]                                                                                                                                                      ? help
 cursor (x,y,shown) 27,9,1
