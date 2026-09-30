@@ -722,6 +722,27 @@ impl App {
                 )
             })
             .flatten();
+        // A barrel of the project that hands the name on from a package, `export { x } from
+        // "lodash"`, leads into that package, as an import straight from it does (#527), when
+        // nothing of the project answers the import.
+        let import = match import {
+            Some(path)
+                if kind == Kind::TsJs
+                    && let Some(package) = self.package_behind(&here, &path, 0)
+                    && package.last().is_some_and(|t| t == first)
+                    && self
+                        .imported_definitions(kind, &here, &word, &chain, &path)
+                        .is_some_and(|f| f.is_empty()) =>
+            {
+                for (name, p) in &mut imports {
+                    if name.as_str() == first {
+                        *p = package.clone();
+                    }
+                }
+                Some(package)
+            }
+            import => import,
+        };
         // A package no `node_modules` holds, no workspace package is called and no `declare
         // module` types is not installed (#392): nothing says what it declares, and the project's namesakes are not it. The
         // import line is where the name comes from, as far as anything tells. A copy of it among
@@ -2936,6 +2957,36 @@ impl App {
         path: &[String],
     ) -> Option<Vec<Candidate>> {
         self.imported_at(kind, here, word, chain, path, 0)
+    }
+
+    /// The package a TypeScript barrel of the project hands on what the import `path` takes
+    /// (#527), as an import of it is spelled: `["lodash", "x"]` for `export { x } from "lodash"`
+    /// in the module `path` names, or in a barrel that module hands the name on from.
+    /// ponytail: four modules deep, which also ends a cycle.
+    fn package_behind(&self, here: &Path, path: &[String], depth: usize) -> Option<Vec<String>> {
+        let (taken, module) = path.split_last()?;
+        if taken == "*" || depth >= 4 {
+            return None;
+        }
+        let files = |from: &Path, module: &[String]| {
+            search::module_files(Kind::TsJs, &self.root, &self.files, from, module)
+        };
+        files(here, module).iter().find_map(|f| {
+            let text = self.text_of(f)?;
+            search::reexported(&text, taken)
+                .into_iter()
+                .find_map(|(mut module, taken)| {
+                    let outside = files(f, &module).is_empty();
+                    let package = module
+                        .first()
+                        .is_some_and(|m| !m.starts_with(['.', '~', '#']) && m != "@");
+                    module.push(taken);
+                    match outside {
+                        true => package.then_some(module),
+                        false => self.package_behind(f, &module, depth + 1),
+                    }
+                })
+        })
     }
 
     /// What a TypeScript module exports as `word` under another name, `export { Hono as HonoBase }`:

@@ -100,6 +100,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` in TypeScript and JavaScript on a name imported from a barrel of the project that hands it
+  on from a package, `export { x } from "lodash"`, lands on `x` in the installed package, as an
+  import straight from the package does, or on the import with `(not installed)`. It searched
+  the project by name. (#527)
 - `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
   parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
   said `no definition` or offered namesakes from other files: `directionParams →

@@ -441,10 +441,13 @@ impl App {
     /// needs a restart.
     pub(super) fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
         // TypeScript's roots depend on where the open file is (#100). Each `node_modules` is
-        // walked once; one inside another already listed adds no file of its own.
+        // walked once; one inside another already listed adds no file of its own. They are
+        // inside the project, so a test's `no_external`, which lists no root, does not hide
+        // them either; roots a test lists are kept.
         let here = self.buf.path.as_ref().and_then(|p| p.parent());
         if let Some(here) = here.filter(|_| kind == Kind::TsJs)
-            && (self.node_modules_of.is_some() || !self.external.contains_key(&kind))
+            && (self.node_modules_of.is_some()
+                || self.external.get(&kind).is_none_or(|(r, _)| r.is_empty()))
             && self.node_modules_of.as_deref() != Some(here)
         {
             let roots = search::node_modules(&self.root, here);
