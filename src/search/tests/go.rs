@@ -126,6 +126,21 @@ fn qualified_names_come_from_the_declarations_around() {
         q(Kind::Ruby, rb, 5, "make").as_deref(),
         Some("Shop.User.Other.make")
     );
+    // #374: a column of `db/schema.rb` is its table's, and a DSL line its class's.
+    let schema = "ActiveRecord::Schema[7.1].define(version: 1) do\n  create_table \"collections\", force: :cascade do |t|\n    t.string \"language\"\n  end\n  create_table :drafts do |t|\n    t.text :summary\n  end\nend\n";
+    assert_eq!(
+        q(Kind::Ruby, schema, 3, "language").as_deref(),
+        Some("collections.language")
+    );
+    assert_eq!(
+        q(Kind::Ruby, schema, 6, "summary").as_deref(),
+        Some("drafts.summary")
+    );
+    let rb = "class Account < ApplicationRecord\n  has_many :followers\nend\n";
+    assert_eq!(
+        q(Kind::Ruby, rb, 2, "followers").as_deref(),
+        Some("Account.followers")
+    );
 }
 
 /// #100. A `var (` block declares what stands at its own level; a function may declare a

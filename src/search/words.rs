@@ -47,6 +47,12 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     static RB_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*def\s+(?:(?:self|[A-Z]\w*)\.)?([A-Za-z_]\w*[?!=]?)").unwrap()
     });
+    static COLUMN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^\s*t\.\w+\s*\(?\s*(?:"(\w+)"|:(\w+))"#).unwrap()
+    });
+    static TABLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^\s*create_table\s*\(?\s*(?:"(\w+)"|:(\w+))"#).unwrap()
+    });
     if !nests(Some(kind)) {
         return None;
     }
@@ -118,6 +124,16 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     {
         let owner = qualified(kind, text, line, &m).unwrap_or(m);
         return Some(format!("{owner}{sep}{name}"));
+    }
+    // A column of `db/schema.rb` is its table's (#374): `collections.language`.
+    if kind == Kind::Ruby
+        && COLUMN
+            .captures(target)
+            .is_some_and(|c| c.get(1).or(c.get(2)).is_some_and(|m| m.as_str() == name))
+        && let Some(table) = owner_line(&lines, line - 1).and_then(|o| TABLE.captures(lines[o]))
+    {
+        let table = table.get(1).or(table.get(2)).map_or("", |m| m.as_str());
+        return Some(format!("{table}{sep}{name}"));
     }
     // Any other name on a Python `def` line is a parameter (#100): `Recipes.get_one.slug`, as a
     // local of the body reads, not `Recipes.slug`, a field's name. So is one on an Elixir
@@ -621,11 +637,12 @@ fn owner_line(lines: &[&str], at: usize) -> Option<usize> {
         .find(|&i| !aside(lines[i].trim_start()) && indent(lines[i]) < depth)
 }
 /// Whether the Ruby method declared on 1-based `line` of `text` is a class method (#387):
-/// `def self.m`, `def Const.m`, a `def` inside `class << self`, or one of a module that is
-/// `extend self` or `module_function`.
+/// `def self.m`, `def Const.m`, a `scope :m` (#374), a `def` inside `class << self`, or one of a
+/// module that is `extend self` or `module_function`.
 pub fn ruby_singleton(text: &str, line: usize) -> bool {
-    static ON: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*def\s+(?:self|[A-Z]\w*)\.").unwrap());
+    static ON: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:def\s+(?:self|[A-Z]\w*)\.|scope\s*\(?\s*:)").unwrap()
+    });
     static MODULE_WIDE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:extend\s+self|module_function)\s*(?:#|$)").unwrap()
     });
@@ -651,7 +668,8 @@ pub fn ruby_singleton(text: &str, line: usize) -> bool {
 }
 /// Where the ActiveSupport concern `module` keeps the class methods it gives the class that
 /// includes it (#387): whether the Ruby method on 1-based `line` of `text` is inside its
-/// `class_methods do` block or its `module ClassMethods`.
+/// `class_methods do` block or its `module ClassMethods`, or is a `scope` of its `included do`
+/// block (#374).
 pub fn ruby_concern_class_method(text: &str, line: usize, module: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(owner) = line.checked_sub(1).and_then(|i| owner_line(&lines, i)) else {
@@ -663,8 +681,12 @@ pub fn ruby_concern_class_method(text: &str, line: usize, module: &str) -> bool 
             q == format!("{module}.{block}") || q.ends_with(&format!(".{module}.{block}"))
         })
     };
+    let scope = ["scope ", "scope("]
+        .iter()
+        .any(|s| lines[line - 1].trim_start().starts_with(s));
     (head.starts_with("class_methods do") && inside("class_methods"))
         || (head.starts_with("module ClassMethods") && inside("ClassMethods"))
+        || (scope && head.starts_with("included do") && inside("included"))
 }
 /// The run of `[A-Za-z0-9_]` and `extra` characters at byte offset `col`, or the one that ends
 /// there when the cursor sits right after a word. `extra` characters do not start or end a word.
