@@ -580,6 +580,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   call, an `@spec` or a module attribute on its own module's declaration first. (#460)
 - `d` in Lua follows `require` to the module's file and reads `mod.name`, `mod.T.name` and
   `T.name` in the table it names, instead of offering every function of that name. (#462)
+- `d` offers what implements a member only on the name its line declares. On another
+  occurrence of the word on that line, such as a function its one-line body calls, a parameter
+  of the same name or a Go type in its signature, it offered the implementations too; it now
+  looks that word up as on any other line. (#517)
 
 ## [0.7.0] - 2026-09-25
 
