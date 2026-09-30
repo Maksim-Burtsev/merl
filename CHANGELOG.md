@@ -100,6 +100,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `d` in Rust looks where a path's first name says, before any namesake of the project: the
+  crate a `use` names or the path spells (`crate`, `self`, `super`, a crate of the workspace, the
+  standard library, a crate of `Cargo.lock`), and in it the module the path spells. `File::open`
+  behind `use std::fs::File` lands on `File::open` in the standard library, `io` in `io::Result`
+  on its `pub mod io;`, a name `use crate::helpers::norm` brings in on `norm` in `helpers.rs`, and
+  `std::fs` on the standard library's `fs` rather than every platform's `os/*/fs.rs`. They jumped
+  to a project method of the same name or offered every namesake. (#350)
 - `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
   parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
   said `no definition` or offered namesakes from other files: `directionParams →

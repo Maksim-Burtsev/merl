@@ -1,6 +1,6 @@
 # `d` bench baseline
 
-merl at `50e3c86`, 2026-09-30, release build, `vm.loadavg` { 1.98 2.19 2.71 } before the run, { 1.83 2.07 2.53 } after.
+merl at `c09a193`, 2026-10-01, release build, `vm.loadavg` { 18.14 21.43 25.11 } before the run, { 18.14 21.43 25.11 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -8,7 +8,7 @@ merl at `50e3c86`, 2026-09-30, release build, `vm.loadavg` { 1.98 2.19 2.71 } be
 | ts (outline) | 122 | 102 (84%) | 8 (7%) | 1 (1%) | 11 (9%) | 178 | 50.0 | 119.2 |
 | js (eslint) | 147 | 114 (78%) | 21 (14%) | 1 (1%) | 11 (7%) | 123 | 43.0 | 554.9 |
 | go (caddy) | 229 | 224 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 41 | 6.3 | 14.9 |
-| rust (ripgrep) | 231 | 148 (64%) | 74 (32%) | 2 (1%) | 7 (3%) | 69 | 7.4 | 127.7 |
+| rust (ripgrep) | 231 | 161 (70%) | 66 (29%) | 0 (0%) | 4 (2%) | 69 | 7.9 | 145.1 |
 | c (redis) | 250 | 166 (66%) | 77 (31%) | 0 (0%) | 7 (3%) | 20 | 35.5 | 115.1 |
 | cpp (leveldb) | 233 | 113 (48%) | 77 (33%) | 5 (2%) | 38 (16%) | 67 | 9.5 | 95.2 |
 | php (koel) | 104 | 71 (68%) | 33 (32%) | 0 (0%) | 0 (0%) | 196 | 19.8 | 36.7 |

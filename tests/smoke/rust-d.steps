@@ -20,3 +20,10 @@ key /
 type amounts.iter
 key Enter d
 wait amounts → report::amounts (local)
+# A name a `use` brings in is looked for in the module the `use` names, `via import` (#350).
+merl scripts/payouts/src/main.rs
+wait fn main()
+key /
+type entry(amount
+key Enter d
+wait scripts/payouts/src/ledger.rs  7:

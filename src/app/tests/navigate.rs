@@ -473,10 +473,10 @@ fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// #227. A Rust type the project declares twice is proven by the file of the module a
-/// `use crate::…` or `use super::…` at the top of the file takes it from. A binary's crate, a
-/// second `use` of the name, a type of the name in the file itself, a module that only hands the type on and a module with
-/// no file of its own stay by name.
+/// #227, #350. A Rust type the project declares twice is proven by the module a `use crate::…`
+/// or `use super::…` takes it from, through the `pub use` of a module that hands it on; a `use`
+/// in another function and a type of an inline `mod` are out of sight. A binary's crate and a
+/// module with no file of its own stay by name.
 #[test]
 fn a_use_of_the_crate_says_which_of_two_types_it_is() {
     let cache = |name: &str| {
@@ -559,7 +559,7 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
             "src/main.rs",
             "Cache::new",
             jump(
-                "new \u{2192} Cache::new (via import src/store.rs)",
+                "new \u{2192} Cache::new (via import crate::store)",
                 "src/store.rs:4",
             ),
         ),
@@ -567,7 +567,7 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
             "src/net/client.rs",
             "Cache::new",
             jump(
-                "new \u{2192} Cache::new (via import src/net/cache.rs)",
+                "new \u{2192} Cache::new (via import crate::net::cache)",
                 "src/net/cache.rs:4",
             ),
         ),
@@ -575,7 +575,7 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
             "src/app/mod.rs",
             "Cache::new",
             jump(
-                "new \u{2192} Cache::new (via import src/store.rs)",
+                "new \u{2192} Cache::new (via import crate::store)",
                 "src/store.rs:4",
             ),
         ),
@@ -583,7 +583,7 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
             "src/app/grouped.rs",
             "Cache::new",
             jump(
-                "new \u{2192} Cache::new (via import src/net/cache.rs)",
+                "new \u{2192} Cache::new (via import crate::net::cache)",
                 "src/net/cache.rs:4",
             ),
         ),
@@ -595,24 +595,33 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
         (
             "src/twice.rs",
             "Cache::new",
-            picker("new: by name, 3 declarations", &three),
+            jump(
+                "new \u{2192} Cache::new (via import crate::store)",
+                "src/store.rs:4",
+            ),
         ),
         (
             "src/own.rs",
             "Cache::new",
-            picker("new: by name, 3 declarations", &three),
+            jump(
+                "new \u{2192} Cache::new (via import crate::store)",
+                "src/store.rs:4",
+            ),
         ),
         (
             "src/aisle.rs",
             "Cache::new",
-            picker("new: by name, 3 declarations", &three),
+            jump(
+                "new \u{2192} Cache::new (via import crate::store)",
+                "src/store.rs:4",
+            ),
         ),
         // A module that hands `Cache` on and implements it.
         (
             "src/till.rs",
             "Cache::fresh",
             jump(
-                "fresh \u{2192} Cache::fresh (via import src/counter.rs)",
+                "fresh \u{2192} Cache::fresh (via import crate::counter)",
                 "src/counter.rs:4",
             ),
         ),
@@ -620,7 +629,10 @@ fn a_use_of_the_crate_says_which_of_two_types_it_is() {
         (
             "src/stall.rs",
             "Cache::new",
-            picker("new: by name, 3 declarations", &three),
+            jump(
+                "new \u{2192} Cache::new (via import crate::store)",
+                "src/store.rs:4",
+            ),
         ),
         (
             "src/far.rs",

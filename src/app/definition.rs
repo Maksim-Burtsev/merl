@@ -705,6 +705,23 @@ impl App {
                 }
             }
         }
+        // A Rust path's first name names the crate searched first, and in it the module the path
+        // spells (#350): a `use` of `std::fs::File` takes `File::open` to the standard library,
+        // whatever `open` the project declares.
+        if kind == Kind::Rust
+            && !dotted
+            && locals.is_empty()
+            && let Some(found) = self.rust_crate_path(&here, &text, &word, &chain, {
+                let after = self.line_str()[range.end..].trim_start();
+                match after.starts_with('!') && !after.starts_with("!=") {
+                    true => Some(true),
+                    false => after.starts_with(['(', ':']).then_some(false),
+                }
+            })
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // An import names where the word is declared: the project's module, else the one outside
         // it. Only a module of the project that does not declare it (a re-export) leaves the word
         // to the search by name.
