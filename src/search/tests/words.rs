@@ -26,6 +26,9 @@ fn kinds_come_from_the_file_name() {
         ("ledger.hpp", Some(Kind::C)),
         ("ledger.hh", Some(Kind::C)),
         ("ledger.hxx", Some(Kind::C)),
+        // Objective-C and Objective-C++ (#417).
+        ("Ledger.m", Some(Kind::C)),
+        ("Ledger.mm", Some(Kind::C)),
         ("Invoice.cs", Some(Kind::CSharp)),
         ("build.csx", Some(Kind::CSharp)),
         ("Session.swift", Some(Kind::Swift)),

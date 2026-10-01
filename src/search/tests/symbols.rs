@@ -316,6 +316,24 @@ fn c_symbol_names() {
         ("#define LRU_BITS 24", Some("LRU_BITS")),
         ("#  define FMT_THROW(x) throw x", Some("FMT_THROW")),
         ("#ifndef INVOICE_H", None),
+        // Objective-C (#417): a class and a protocol, not a category, an extension, an
+        // `@implementation` or a forward declaration; a method from the line of its definition,
+        // under the first part of its selector; no property.
+        ("@interface Repo : NSObject <Store>", Some("Repo")),
+        ("@interface Root", Some("Root")),
+        ("@protocol Store <NSObject>", Some("Store")),
+        ("@interface NSString (Slug)", None),
+        ("@interface Repo ()", None),
+        ("@implementation Repo", None),
+        ("@class Repo;", None),
+        ("@protocol Store;", None),
+        (
+            "- (User *)findUser:(NSString *)name inContext:(Context *)ctx {",
+            Some("findUser"),
+        ),
+        ("+ (instancetype)shared", Some("shared")),
+        ("- (User *)findUser:(NSString *)name;", None),
+        ("@property (nonatomic, copy) NSString *baseURL;", None),
     ] {
         assert_eq!(c(line).as_deref(), name, "{line}");
     }

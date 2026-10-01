@@ -260,11 +260,14 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"^\w[^;(){{}}=<>]*[\s*&]{w}\s*(?:\[[^\]]*\])*\s*(?:=[^=]|;)"),
                 // An enum constant, on a line of its own or in a one-line `enum X { A, B };`,
                 // and a member function declared with no body (#373). Callers index the rules
-                // above, so these stay last.
+                // above, so these stay last, Objective-C's after them (#417).
                 c_enumerators(Some(word)),
                 c_enum_line(word),
                 c_member_decl(Some(word)),
             ]
+            .into_iter()
+            .chain(objc_patterns(word))
+            .collect()
         }
         // C# writes its modifiers and its attributes in front of everything and its type before
         // the name, as Java does, so a member is told from a call by that type: a primitive,
@@ -459,6 +462,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^\s*((export|override)\s+)*define\s+{w}\s*(\+=|[:?!]{{0,3}}=)?\s*(#|$)"),
         ],
         Kind::Terraform => terraform_patterns(word),
+        Kind::PowerShell => powershell_patterns(word),
         // `FROM image AS name`, with any flags before the image. Stage names ignore case.
         Kind::Docker => vec![format!(r"(?i)^\s*FROM\s+(\S+\s+)+AS\s+{w}\s*$")],
         // An anchor, or a key that opens a block: compose services, CI jobs, GitLab's `.hidden`
@@ -485,6 +489,21 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         Kind::Css => css_patterns(word),
         // An HTML file declares an id, which `d` reads from the attribute under the cursor.
         Kind::Html => Vec::new(),
+    }
+}
+/// [`def_patterns`] cut to what the word at `range` of `line` can be: a PHP namespace's
+/// ([`php_namespace_patterns`]), a PowerShell variable's or not ([`powershell_sigil`]).
+pub fn narrow_patterns(
+    kind: Kind,
+    p: &mut Vec<String>,
+    text: &str,
+    line: &str,
+    r: std::ops::Range<usize>,
+) {
+    match kind {
+        Kind::Php => php_namespace_patterns(p, text, line, r),
+        Kind::PowerShell => powershell_sigil(p, &line[..r.start], &line[r.end..]),
+        _ => {}
     }
 }
 /// Of the C and C++ candidates for `word` found by name, the ones that are the type itself
@@ -581,10 +600,10 @@ fn in_class_body(text: &str, line: usize) -> bool {
         .is_some_and(|l| CLASS.is_match(l))
 }
 /// Of the C and C++ candidates for `word` found by name, the ones the file `here` can see (#364).
-/// A source file (`.c`, `.cc`, `.cpp`, `.cxx`) is compiled alone, so what another one declares
-/// `static` at file scope, with `#define` or inside an unnamed `namespace {` is visible in no
-/// other file: those rows go, unless `here` `#include`s that file or that file `#include`s
-/// `here`. A header's rows stay, as do types (an opaque struct's body lives in one source
+/// A source file (`.c`, `.cc`, `.cpp`, `.cxx`, `.m`, `.mm`) is compiled alone, so what another
+/// one declares `static` at file scope, with `#define` or inside an unnamed `namespace {` is
+/// visible in no other file: those rows go, unless `here` `#include`s that file or that file
+/// `#include`s `here`. A header's rows stay, as do types (an opaque struct's body lives in one source
 /// file). In `here` itself a file-scope `static` hides every other declaration of the name, so
 /// it is the answer — unless the cursor stands `on` a candidate, where the others are offered as
 /// namesakes.
@@ -622,7 +641,7 @@ pub fn c_file_local(
     let source = |p: &Path| {
         p.extension()
             .and_then(|e| e.to_str())
-            .is_some_and(|e| matches!(e, "c" | "cc" | "cpp" | "cxx"))
+            .is_some_and(|e| matches!(e, "c" | "cc" | "cpp" | "cxx" | "m" | "mm"))
     };
     // The X-macro idiom: a source file that `#define`s a name and then `#include`s `here` hands
     // it what it declares. A quoted include is looked up next to the file first, so a namesake
@@ -962,6 +981,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Zig
         | Kind::Proto
         | Kind::Shell
+        | Kind::PowerShell
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -1057,6 +1077,7 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
         Kind::Jvm if record_component(line_text) => in_record_header(lines(), line),
         Kind::C => c_declares_where(line, line_text, lines),
         Kind::Ruby if ruby_column_elsewhere(path, line_text) => false,
+        Kind::PowerShell => powershell_declares(lines(), line, line_text),
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
 }
@@ -1399,78 +1420,6 @@ pub fn graphql_member<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
         .is_some_and(|l| OPENER.is_match(l))
 }
 
-/// Line patterns that set the Makefile variable `word` only in addition or for some targets:
-/// `X += …`, which make reads as `=` on a variable nothing set before, and a target-specific
-/// `release: X := 1.0`, behind `override`, `export` or `private`. Its targets are words and
-/// whole references, `$(SRC:.c=.o)`, so the text of `$(error usage: X=1)` is none. `d` falls
-/// back to them only when no line of [`def_patterns`] declares the word (#499).
-pub fn make_fallback_patterns(word: &str) -> Vec<String> {
-    let w = regex::escape(word);
-    let target = r"(?:[^\s:=#$(){}]+|\$[({][^)}]*[)}])+";
-    vec![
-        format!(r"^\s*(export\s+|override\s+)?{w}\s*\+="),
-        format!(
-            r"^{target}(?:\s+{target})*\s*::?\s*((export|override|private)\s+)*{w}\s*(\+|[:?!]{{0,3}})="
-        ),
-    ]
-}
-/// When 1-based `line` of a Makefile is a recipe line, a shell command that declares nothing
-/// make knows, the line its command starts on: a line that starts with a tab after a rule, until
-/// a line that is neither a recipe line, a blank, a comment nor a conditional ends the rule, as
-/// GNU make reads it, and the lines a `\` continues it over, which one shell runs. A tab-indented
-/// assignment inside an `ifeq` before any rule is make's own, and so is the continuation of one.
-pub fn make_recipe_command(text: &str, line: usize) -> Option<usize> {
-    let mut in_rule = false;
-    // The previous line ended in `\`: where the command it belongs to starts, if it is a recipe.
-    let mut continues = None;
-    for (i, l) in text.lines().take(line).enumerate() {
-        let recipe = match continues {
-            Some(recipe) => recipe,
-            None if l.starts_with('\t') => in_rule.then_some(i + 1),
-            None => {
-                let t = l.trim_start();
-                let conditional = ["ifeq", "ifneq", "ifdef", "ifndef", "else", "endif"]
-                    .iter()
-                    .any(|d| {
-                        t.strip_prefix(d)
-                            .is_some_and(|r| r.is_empty() || r.starts_with([' ', '\t', '(']))
-                    });
-                if !t.is_empty() && !t.starts_with('#') && !conditional {
-                    in_rule = starts_rule(t);
-                }
-                None
-            }
-        };
-        if i + 1 == line {
-            return recipe;
-        }
-        continues = l.ends_with('\\').then_some(recipe);
-    }
-    None
-}
-/// Whether a Makefile line outside a recipe is a rule, `targets: prerequisites`, and not an
-/// assignment, `x = a:b` or `x := y`: its first `:` outside a `$(…)` comes before any `=` and is
-/// not the start of `:=` or `::=`.
-fn starts_rule(line: &str) -> bool {
-    let mut depth = 0usize;
-    let mut chars = line.char_indices().peekable();
-    while let Some((i, c)) = chars.next() {
-        match c {
-            '$' if matches!(chars.peek(), Some((_, '(' | '{'))) => {
-                chars.next();
-                depth += 1;
-            }
-            ')' | '}' if depth > 0 => depth -= 1,
-            '=' if depth == 0 => return false,
-            ':' if depth == 0 => {
-                let rest = line[i..].trim_start_matches(':');
-                return !rest.starts_with('=');
-            }
-            _ => {}
-        }
-    }
-    false
-}
 /// A grep for the line that names one of `names` as a base: `class X(Base)` in Python,
 /// `class X extends Base`, `class X implements Base` and `interface I extends Base` in
 /// TypeScript, where the clause may also stand on a line of its own under a wrapped header —

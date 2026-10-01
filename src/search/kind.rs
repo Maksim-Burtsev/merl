@@ -12,7 +12,7 @@ pub enum Kind {
     TsJs,
     Jvm,
     Ruby,
-    /// C and C++ together, headers included.
+    /// C, C++, Objective-C and Objective-C++ together, headers included.
     C,
     CSharp,
     Swift,
@@ -23,6 +23,8 @@ pub enum Kind {
     /// Protocol Buffers: `.proto` schemas, never the `.textproto` data they describe.
     Proto,
     Shell,
+    /// PowerShell scripts and modules; names ignore case in `d`, as the language does (#420).
+    PowerShell,
     Sql,
     Make,
     Terraform,
@@ -59,8 +61,10 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "java" | "kt" | "kts") => Kind::Jvm,
         (_, "rb" | "rake" | "gemspec" | "podspec" | "rbi" | "ru") => Kind::Ruby,
         // C and C++ are one kind: a header declares what a `.c` or a `.cc` defines, and either
-        // language reads the other's headers, so they have to search each other.
-        (_, "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx") => Kind::C,
+        // language reads the other's headers, so they have to search each other. Objective-C
+        // (`.m`) and Objective-C++ (`.mm`) too: C with messages, reading C headers and read from
+        // them, and an Objective-C project's `.h` is this kind's already (#417).
+        (_, "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx" | "m" | "mm") => Kind::C,
         // `.csx` is a C# script: the same language, run by `dotnet script`.
         (_, "cs" | "csx") => Kind::CSharp,
         (_, "swift") => Kind::Swift,
@@ -87,6 +91,8 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
             | ".profile",
             _,
         ) => Kind::Shell,
+        // A module manifest declares nothing, but `d` from its `FunctionsToExport` finds them.
+        (_, "ps1" | "psm1" | "psd1") => Kind::PowerShell,
         (_, "sql" | "psql" | "pgsql" | "mysql" | "ddl" | "dml") => Kind::Sql,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,
@@ -117,9 +123,16 @@ fn cpp_library(path: &Path) -> bool {
 pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
     match kind {
         Some(Kind::Terraform) if address => "-.",
-        Some(Kind::Make | Kind::Terraform | Kind::Docker | Kind::Yaml | Kind::Css | Kind::Html) => {
-            "-"
-        }
+        // `Get-ShopUser` is one PowerShell name, for `d` and `u` alike (#420).
+        Some(
+            Kind::Make
+            | Kind::Terraform
+            | Kind::Docker
+            | Kind::Yaml
+            | Kind::PowerShell
+            | Kind::Css
+            | Kind::Html,
+        ) => "-",
         _ => "",
     }
 }

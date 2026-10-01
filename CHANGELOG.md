@@ -16,6 +16,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   variables and mixins, and keyframes are found too, a `@use` namespace narrowing them to its
   module, and the path of a `<link href>`, a `<script src>` and an `@import` or `@use` opens
   its file. `D` lists the mixins, functions, placeholders and keyframes. (#415)
+- `d` and `D` in Objective-C. A `.m` or `.mm` file joins C and C++, where it said `no rules for
+  .m`, and a header reads `@interface`, `@protocol`, methods by any part of their selector,
+  `@property` and `NS_ENUM`: `d` on `findUserWithID` in `[repo findUserWithID:@"42"]` offers the
+  header's declaration beside the `.m` file's definition, `self.repository.baseURL` lands on the
+  `@property`, and `NSString` on Foundation's `@interface NSString`, read-only, from the SDK's
+  frameworks. `D` lists classes, protocols and methods. A C or C++ file reads no framework.
+  (#417)
+- `d`, `u` and `D` in PowerShell (`.ps1`, `.psm1`, `.psd1`), where `d` said `no rules for
+  .ps1`. `d` on `get-shopuser` lands on `function Get-ShopUser`, as names ignore case; on `$Id`
+  under a `param(` block it says `Id: local`; on `$script:BaseUri` it finds the assignment; on
+  the path of `Import-Module ./Shop/Users.psm1` or a dot-source it opens the file. Classes,
+  enums, filters and aliases are found too, and outside the project the module directories of
+  `PSModulePath`. `u` and `d` read `Get-ShopUser` as one name, and `D` lists it whole. (#420)
 - `d` in Ruby looks outside the project: in the gems `Gemfile.lock` names, at their locked
   versions, in the standard library, and in the core's RBS signatures. `throttle` in a
   `Rack::Attack` initializer lands on rack-attack's `def throttle`, read-only, where it said `no
@@ -223,6 +236,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in Ruby on a method written `def User.build` inside `class User` names it `User.build` in
   the status line, and its parameter `User.build.arg`: the class was named twice,
   `User.User.build`. (#535)
+- `d` in C# on a constant after `is`, `Max` in `x is Max` with a `const int Max`, lands on the
+  constant when no type of that name is in sight. It said `no definition for Max`. (#581)
 
 ## [0.8.0] - 2026-10-01
 

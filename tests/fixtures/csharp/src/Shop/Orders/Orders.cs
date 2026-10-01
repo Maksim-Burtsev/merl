@@ -114,3 +114,11 @@ public class Tally
 
     public Tally(int start) { }
 }
+
+public class Gauge
+{
+    public const int Max = 10;
+
+    public bool Full(int n) => n is Max;
+    //                              ^ d: src/Shop/Orders/Orders.cs:120
+}

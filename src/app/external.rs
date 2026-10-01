@@ -25,6 +25,7 @@ impl App {
         narrow: bool,
     ) -> Option<Vec<Candidate>> {
         let mut patterns = search::def_patterns(kind, word);
+        self.powershell_spelling(kind, word, &mut patterns);
         // A Ruby local is seen from its own method alone, never found by name (#383): outside
         // the project only a constant's assignment declares.
         if kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_') {
@@ -342,6 +343,19 @@ impl App {
             .collect()
     }
 
+    /// PowerShell's patterns for `word` cut to what its spelling under the cursor allows
+    /// ([`search::powershell_sigil`]), as `d` cuts them in the project (#420): `$Error` outside
+    /// is no enum member `Error`.
+    pub(super) fn powershell_spelling(&self, kind: Kind, word: &str, patterns: &mut Vec<String>) {
+        let line = self.line_str();
+        if kind == Kind::PowerShell
+            && let Some((r, w)) = search::definition_word(Some(kind), line, self.col)
+            && w == word
+        {
+            search::powershell_sigil(patterns, &line[..r.start], &line[r.end..]);
+        }
+    }
+
     /// `pattern` over `files` outside the project, standard library first. The paths are
     /// absolute: `root.join` leaves them alone, so a hit opens where it is.
     pub(super) fn external_grep(&self, kind: Kind, files: &[PathBuf], pattern: &str) -> Vec<Hit> {
@@ -461,6 +475,7 @@ impl App {
             | Kind::Zig
             | Kind::Proto
             | Kind::Shell
+            | Kind::PowerShell
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
@@ -487,6 +502,7 @@ impl App {
             Kind::Zig,
             Kind::Proto,
             Kind::Shell,
+            Kind::PowerShell,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,
@@ -556,21 +572,63 @@ impl App {
                 files
             }
         };
-        // A `.c` file cannot include a C++ header: no `c++/` directory is its (#382).
-        match kind == Kind::C && self.c_source() {
-            true => Arc::new(
-                (files.iter())
-                    .filter(|f| !f.components().any(|c| c.as_os_str() == "c++"))
-                    .cloned()
-                    .collect(),
-            ),
-            false => files,
+        if kind != Kind::C {
+            return files;
         }
+        // A `.c` file cannot include a C++ header: no `c++/` directory is its (#382). Only an
+        // Objective-C file reads the frameworks and `Pods/` (#417): any other keeps the files
+        // it had before them.
+        let key = (self.c_source(), self.objc_file());
+        if let Some((from, kept)) = self.c_files.get(&key)
+            && Arc::ptr_eq(from, &files)
+        {
+            return kept.clone();
+        }
+        let away: Vec<&PathBuf> = match self.external.get(&kind) {
+            Some((roots, _)) if !key.1 => roots.iter().filter(|r| search::objc_root(r)).collect(),
+            _ => Vec::new(),
+        };
+        let kept: Arc<Vec<PathBuf>> = Arc::new(
+            (files.iter())
+                .filter(|f| !key.0 || !f.components().any(|c| c.as_os_str() == "c++"))
+                .filter(|f| !away.iter().any(|r| f.starts_with(r)))
+                .cloned()
+                .collect(),
+        );
+        self.c_files.insert(key, (files, kept.clone()));
+        kept
     }
 
-    /// Whether the open file is C source, `.c`, which reads no C++ header.
+    /// Whether the open file is C source, `.c`, or Objective-C's `.m` (#417), which read no C++
+    /// header; `.mm` does.
     pub(super) fn c_source(&self) -> bool {
-        (self.buf.path.as_deref()).is_some_and(|p| p.extension().is_some_and(|e| e == "c"))
+        (self.buf.path.as_deref())
+            .is_some_and(|p| p.extension().is_some_and(|e| e == "c" || e == "m"))
+    }
+
+    /// Whether the open file is Objective-C ([`search::objc_file`]).
+    pub(super) fn objc_file(&self) -> bool {
+        (self.buf.path.as_deref())
+            .is_some_and(|p| search::objc_file(p, || self.buf.lines.join("\n")))
+    }
+
+    /// Of `hits` of the [`search::def_patterns`] of `word`, the lines that declare it where they
+    /// sit ([`search::declares_where`]). An Objective-C line declares for an Objective-C file
+    /// alone: a C++ `load` is no `+ (void)load;` of `objc/NSObject.h` (#417).
+    pub(super) fn declaring(&self, kind: Kind, word: &str, mut hits: Vec<Hit>) -> Vec<Hit> {
+        // One file holds thousands of GraphQL `id` fields, so each file is split once.
+        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
+        let objc_only = (kind == Kind::C && !self.objc_file()).then(|| search::objc_only(word));
+        hits.retain(|h| {
+            objc_only.as_ref().is_none_or(|only| !only(&h.text))
+                && search::declares_where(kind, &h.path, word, h.line, &h.text, || {
+                    lines.entry(h.path.clone()).or_insert_with(|| {
+                        self.text_of(&h.path)
+                            .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
+                    })
+                })
+        });
+        hits
     }
 
     /// The text of `path` as the search read it: the open file as it is on screen.
