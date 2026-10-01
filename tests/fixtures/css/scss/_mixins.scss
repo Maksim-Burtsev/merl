@@ -1,0 +1,9 @@
+@mixin button-variant($bg) {
+  background: $bg;
+}
+@function tint-color($c, $w) {
+  @return mix(white, $c, $w);
+}
+%message-shared {
+  border: 1px solid;
+}

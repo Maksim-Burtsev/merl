@@ -35,6 +35,12 @@ pub enum Kind {
     /// `d` follows a link or a path in a code span to the file or the heading it names (#421).
     Markdown,
     Graphql,
+    /// CSS, SCSS, Sass and Less: a class is styled in any of them, so one kind searches them all
+    /// (#415).
+    Css,
+    /// `d` follows a class, an id or a path of an HTML file to the rule or the file it names
+    /// (#415); an inline `<script>` is not read as JavaScript.
+    Html,
 }
 /// The kind of a file open on screen: [`kind_of`], and an RBS signature, `hash.rbs` of Ruby's
 /// core that `d` opened (#369), read as Ruby. The search never takes a `.rbs` for the project's.
@@ -102,6 +108,8 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "md" | "markdown" | "mdx") => Kind::Markdown,
         // `.graphqls` is a schema by convention, `.gql` the short form of either.
         (_, "graphql" | "graphqls" | "gql") => Kind::Graphql,
+        (_, "css" | "scss" | "sass" | "less") => Kind::Css,
+        (_, "html" | "htm") => Kind::Html,
         (_, "dockerignore") => return None,
         ("Dockerfile" | "Containerfile", _) | (_, "dockerfile" | "Dockerfile") => Kind::Docker,
         _ if name.starts_with("Dockerfile.") || name.starts_with("Containerfile.") => Kind::Docker,
@@ -129,7 +137,15 @@ pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
     match kind {
         Some(Kind::Terraform) if address => "-.",
         // `Get-ShopUser` is one PowerShell name, for `d` and `u` alike (#420).
-        Some(Kind::Make | Kind::Terraform | Kind::Docker | Kind::Yaml | Kind::PowerShell) => "-",
+        Some(
+            Kind::Make
+            | Kind::Terraform
+            | Kind::Docker
+            | Kind::Yaml
+            | Kind::PowerShell
+            | Kind::Css
+            | Kind::Html,
+        ) => "-",
         _ => "",
     }
 }

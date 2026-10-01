@@ -134,7 +134,7 @@ impl App {
     }
 
     /// Opens `path` at `line` and says `status`, unless the jump was refused and said why.
-    fn open_link(&mut self, path: &Path, line: usize, status: String) {
+    pub(super) fn open_link(&mut self, path: &Path, line: usize, status: String) {
         self.jump_to(path, line);
         if self.buf.path.as_deref() == Some(path) {
             self.message = status;
@@ -144,7 +144,7 @@ impl App {
 
 /// `p` from `dir`, both inside the project, as a path from its root; a leading `/` is the root.
 /// `None` when it climbs out of the project.
-fn in_project(dir: &Path, p: &str) -> Option<PathBuf> {
+pub(super) fn in_project(dir: &Path, p: &str) -> Option<PathBuf> {
     let joined = match p.strip_prefix('/') {
         Some(from_root) => PathBuf::from(from_root),
         None => dir.join(p),

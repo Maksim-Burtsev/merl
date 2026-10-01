@@ -1,0 +1,8 @@
+.page-list {
+  display: grid;
+  gap: 8px;
+}
+
+.page-list > .page-card:hover {
+  outline: 1px solid var(--accent);
+}

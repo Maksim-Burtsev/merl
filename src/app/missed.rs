@@ -450,7 +450,10 @@ impl App {
             here: self.rel_current(),
             // The preview has no word under the cursor for `d` or `u` to read.
             word: (!self.previewing())
-                .then(|| self.word_under(search::word_chars(self.kind(), false)))
+                .then(|| {
+                    (self.css_word())
+                        .or_else(|| self.word_under(search::word_chars(self.kind(), false)))
+                })
                 .flatten(),
             query: String::new(),
             stops,
