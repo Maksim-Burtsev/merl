@@ -187,6 +187,11 @@ fn jvm_symbol_names() {
         // `companion object` names nothing, and a call is not a declaration.
         ("    companion object {", None),
         ("    return compute(items);", None),
+        // A Kotlin test named in backticks is no symbol called after its first word (#416).
+        (
+            "    fun `returns empty list when nothing is cached`() {",
+            None,
+        ),
         ("    Map<String, Integer> rows = compute(items);", None),
         ("    System.out.println(x);", None),
         ("    } catch (IOException e) {", None),

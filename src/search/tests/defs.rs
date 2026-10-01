@@ -519,6 +519,8 @@ fn scala_declares_and_refuses() {
         ("paid", "class Invoice(val id: Long, var paid: Boolean)"),
         ("age", "case class User(name: String, age: Int)"),
         ("type", "  val `type` = 1"),
+        ("x", "implicit class RichInt(val x: Int)"),
+        ("x", "class Box(private[shop] val x: Int)"),
     ] {
         assert!(declares(word, line), "{word} is declared by {line}");
     }
@@ -543,9 +545,38 @@ fn scala_declares_and_refuses() {
         ("name", "  name: String,"),
         ("name", "class Invoice(name: String)"),
         ("plus", "  def +(other: Money): Money = this"),
+        ("this", "  def this(x: Int) = this(x, 0)"),
     ] {
         assert!(!declares(word, line), "{word} is not declared by {line}");
     }
+}
+
+/// #416. What Scala added to the scope walk leaves Java and Kotlin alone: a variable called
+/// `trait` opens no type, a named Kotlin `object` does, and `package object` is no package.
+#[test]
+fn scala_scopes_and_packages() {
+    let kt = "fun f(trait: List<Int>) {\n    trait.let {\n        val count = it.size\n    }\n}\n";
+    assert!(
+        jvm_local_block(kt, 3).is_some(),
+        "a lambda's local stays a local"
+    );
+    let obj = "object Config {\n    val limit = 3\n}\n";
+    assert_eq!(
+        jvm_local_block(obj, 2),
+        None,
+        "an object's member is no local"
+    );
+    assert_eq!(jvm_package("package object shop {\n  val x = 1\n}\n"), None);
+    assert_eq!(
+        jvm_package("package ledger\n\npackage object teller {\n"),
+        Some("ledger".into())
+    );
+    assert_eq!(jvm_package("package a.`fun`.b\n"), Some("a".into()));
+    assert!(scala_type_parameter("  def f[A: Ordering](a: A) = a", "A"));
+    assert!(scala_type_parameter("trait Repo[F[_]]:", "F"));
+    assert!(!scala_type_parameter("  val xs = arr[Item]", "Item"));
+    let ext = "extension (s: String)\n  def shout: String = s\n";
+    assert_eq!(jvm_receiver_at(ext, 2, "shout"), Some("String".into()));
 }
 
 const RB: &str = r#"module Billing

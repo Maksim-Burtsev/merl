@@ -137,11 +137,11 @@ impl App {
             return;
         }
         // A segment of a Java or Kotlin `import` line: a package's declares nothing, a class's is
-        // looked for in its package of the project (#372). A Scala import's `{…}` selectors are
-        // looked for by name (#416).
+        // looked for in its package of the project (#372). A name inside a Scala import's `{…}`
+        // selectors is looked for by name (#416).
         if kind == Kind::Jvm
             && import_line(kind, self.line_str())
-            && !self.line_str().contains('{')
+            && !self.line_str()[..range.start].contains('{')
             && let Some(found) = self.jvm_imported(&text, &chain, &word, range.clone(), true)
         {
             self.show_definitions(kind, &word, &here, found, None);
@@ -2094,7 +2094,7 @@ impl App {
         if found.is_empty()
             && let Some(&decl) = inner
         {
-            for base in search::jvm_bases(text, decl) {
+            for base in search::jvm_bases(text, decl, search::scala(here)) {
                 let pattern = search::def_patterns(Kind::Jvm, &base).join("|");
                 let cut = self.truncated.get();
                 let declared: Vec<Hit> = self

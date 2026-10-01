@@ -67,3 +67,21 @@ class Uses(pair: (Int, Int)) extends Figure with Vault[List]:
   def stated(st: Statement, xs: List[Voucher]): Long = st.sum(xs)
   //             ^ d: src/main/java/ledger/Statement.java:3
   //                                                      ^ d: src/main/java/ledger/Statement.java:9
+  def again(xs: List[Voucher]): Int = xs.size
+  //                                  ^ d: src/main/scala/ledger/Uses.scala:70
+  def both(a: Int)(b: Int): Int = a + b
+  //                                  ^ d: src/main/scala/ledger/Uses.scala:72
+  def shouted(s: String): String = s.slugify
+  //                                 ^ d: src/main/scala/ledger/Kinds.scala:41
+  def grown(n: Int): Int = n.twofold
+  //                         ^ d: src/main/scala/ledger/Kinds.scala:62
+  def described[A](a: A): Long = a.ticket
+  //                               ^ d: src/main/scala/ledger/Kinds.scala:10
+  def refresh(): Unit = reload()
+  //                    ^ d: src/main/scala/ledger/Kinds.scala:19
+  // status: via Vault
+  def bumped(xs: List[Int]): List[Int] = xs.map(quota => quota + 1)
+  //                                                     ^ d: src/main/scala/ledger/Uses.scala:83
+  def picked(v: Option[Voucher]): Long = v match
+    case Some(clicks) => clicks.amount
+    //                   ^ d: src/main/scala/ledger/Uses.scala:86

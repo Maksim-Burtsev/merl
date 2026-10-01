@@ -90,7 +90,7 @@ const JVM_DECL_SYMBOL: &str = concat!(
     r"(?:class|interface|enum|record|typealias|@interface|object|trait|type|package\s+object",
     r"|fun\s+interface|fun|const\s+(?:val|var))\s+(?:<[^>]*>\s*)?",
     r"(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?",
-    r"`?(?P<name>[A-Za-z_]\w*)"
+    r"(?P<name>[A-Za-z_]\w*)"
 );
 /// A Scala `given` with a name (#416), beside the declarations of [`JVM_DECL_SYMBOL`]; an
 /// anonymous one names its type, which it does not declare.

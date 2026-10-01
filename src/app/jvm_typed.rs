@@ -78,7 +78,8 @@ impl App {
                 if hits.is_empty() {
                     hits = self.jvm_extensions(here, word);
                     hits.retain(|h| {
-                        search::jvm_receiver(&h.text, word).is_some_and(|r| names.contains(&r))
+                        self.jvm_receiver_of(h, word)
+                            .is_some_and(|r| names.contains(&r))
                     });
                 }
                 if hits.is_empty() {
@@ -105,18 +106,27 @@ impl App {
         let extensions = self.jvm_extensions(here, word);
         let (on, off): (Vec<Hit>, Vec<Hit>) = extensions
             .into_iter()
-            .partition(|h| search::jvm_receiver(&h.text, word).as_deref() == Some(name));
+            .partition(|h| self.jvm_receiver_of(h, word).as_deref() == Some(name));
         (off.is_empty() || !on.is_empty()).then_some(on)
     }
 
-    /// The Kotlin extensions `fun T.word` and `val T.word` the project declares, on any `T`.
+    /// The Kotlin extensions `fun T.word` and `val T.word` the project declares, on any `T`, and
+    /// Scala's `extension (s: T)` methods (#416).
     fn jvm_extensions(&self, here: &Path, word: &str) -> Vec<Hit> {
         let pattern = search::def_patterns(Kind::Jvm, word).join("|");
         let cut = self.truncated.get();
         let mut hits = self.project_definitions(Kind::Jvm, here, word, &pattern);
         self.truncated.set(cut);
-        hits.retain(|h| search::jvm_receiver(&h.text, word).is_some());
+        hits.retain(|h| self.jvm_receiver_of(h, word).is_some());
         hits
+    }
+
+    /// The receiver type the extension `hit` declares `word` for ([`search::jvm_receiver_at`]).
+    fn jvm_receiver_of(&self, hit: &Hit, word: &str) -> Option<String> {
+        search::jvm_receiver(&hit.text, word).or_else(|| {
+            let text = self.text_of(&hit.path)?;
+            search::jvm_receiver_at(&text, hit.line, word)
+        })
     }
 
     /// The type every declaration in scope of the value `name` at 1-based `line` of `text`, the
@@ -271,7 +281,7 @@ impl App {
                 .collect();
         }
         let mut out = Vec::new();
-        for base in search::jvm_bases(&text, decl.line) {
+        for base in search::jvm_bases(&text, decl.line, search::scala(&decl.path)) {
             if let JvmType::Project(b) = self.jvm_type_at(&decl.path, &text, &base) {
                 out.extend(self.jvm_hierarchy_member(&b, word, depth + 1, names));
             }
@@ -284,7 +294,9 @@ impl App {
     /// package's); outside the project when an import names a package the project does not
     /// have, or nothing in the project declares the name at all.
     pub(super) fn jvm_type_at(&self, file: &Path, text: &str, written: &str) -> JvmType {
-        if search::jvm_type_parameter(text, written) {
+        if search::jvm_type_parameter(text, written)
+            || (search::scala(file) && search::scala_type_parameter(text, written))
+        {
             return JvmType::Unknown;
         }
         let is_type = |h: &Hit| search::jvm_type_name(&h.text).as_deref() == Some(written);

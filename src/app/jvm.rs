@@ -29,6 +29,7 @@ impl App {
     pub(super) fn jvm_seen(&mut self, here: &Path, hits: Vec<Hit>, behind: bool) -> Vec<Hit> {
         let mut all = hits.len();
         let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
+        let mut literals: HashMap<PathBuf, Vec<bool>> = HashMap::new();
         let mut seen_local = false;
         let kept: Vec<Hit> = hits
             .into_iter()
@@ -54,12 +55,14 @@ impl App {
                         seen_local |= seen;
                         // A line of a text block or a raw string is no local left out of sight,
                         // only no declaration (#416): it makes no jump an offer.
-                        let literal = text.as_deref().is_some_and(|t| {
-                            search::literal_lines(Kind::Jvm, t)
-                                .get(h.line - 1)
-                                .copied()
-                                .unwrap_or(false)
-                        });
+                        let literal = literals
+                            .entry(h.path.clone())
+                            .or_insert_with(|| {
+                                search::literal_lines(Kind::Jvm, text.as_deref().unwrap_or(""))
+                            })
+                            .get(h.line - 1)
+                            .copied()
+                            .unwrap_or(false);
                         all -= usize::from(!seen && literal);
                         seen
                     }

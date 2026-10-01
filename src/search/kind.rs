@@ -99,6 +99,12 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         _ => return None,
     })
 }
+/// Whether `path` is a Scala file of the Jvm kind (#416): what Scala writes differently from
+/// Java and Kotlin, a body with no brace or a type parameter in `[…]`, is read only there.
+pub fn scala(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| matches!(e.to_str(), Some("scala" | "sc" | "sbt" | "mill")))
+}
 /// Whether `path` is under a `c++/<dir>/` directory, where a C++ standard library keeps its
 /// headers.
 fn cpp_library(path: &Path) -> bool {

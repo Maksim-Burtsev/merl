@@ -57,3 +57,12 @@ object Wording:
   case class Voucher(id: Long)
   """
   val `type` = 1
+
+extension (n: Int)
+  def twofold: Int = n * 2
+
+object Market:
+  class Paid extends Bill(1, true)
+  def look = ticket
+  //         ^ d: src/main/scala/ledger/Kinds.scala:10
+  // status: by name, 1 match
