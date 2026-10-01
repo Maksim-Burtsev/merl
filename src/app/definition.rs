@@ -425,7 +425,7 @@ impl App {
         if go_own {
             locals = vec![self.line + 1];
         }
-        if (bare || self.on_template(&here)) && locals.is_empty() {
+        if (bare || self.script_scope(&here, Some(first)).is_some()) && locals.is_empty() {
             let module = locals_at(&format!("{text}\n0"), self.buf.lines.len() + 1);
             if !module.contains(&(self.line + 1)) {
                 locals = module;

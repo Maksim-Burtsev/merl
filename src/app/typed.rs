@@ -11,7 +11,7 @@ impl App {
         chain: &[String],
         head: Option<&(String, search::Value, Vec<String>)>,
     ) -> Result<Vec<Candidate>, String> {
-        let (text, line) = self.scope(here);
+        let (text, line) = self.scope(here, chain.first())?;
         // `super().m()` / `super.m()` is `self` / `this` with the walk started one level up.
         if chain.first().is_some_and(|f| f == "super") {
             let [_] = chain else {
@@ -63,14 +63,13 @@ impl App {
             .collect())
     }
 
-    fn scope(&self, here: &Path) -> (String, usize) {
-        let text = self.buf.lines.join("\n");
+    fn scope(&self, here: &Path, first: Option<&String>) -> Result<(String, usize), String> {
+        if let Some(scope) = self.script_scope(here, first.map(String::as_str)) {
+            return Ok(scope);
+        }
         match self.on_template(here) {
-            true => {
-                let script = search::script_text(here, &text, None);
-                (format!("{script}\n0"), self.buf.lines.len() + 1)
-            }
-            false => (text, self.line + 1),
+            true => Err(first.cloned().unwrap_or_default()),
+            false => Ok((self.buf.lines.join("\n"), self.line + 1)),
         }
     }
 
@@ -81,7 +80,7 @@ impl App {
         chain: &[String],
         head: Option<&(String, search::Value, Vec<String>)>,
     ) -> Result<(Typed, Vec<String>), String> {
-        let (text, line) = self.scope(here);
+        let (text, line) = self.scope(here, chain.first())?;
         match head {
             // The chain hangs off a call: `make_uow().users.word`.
             Some((call, value, fields)) => {

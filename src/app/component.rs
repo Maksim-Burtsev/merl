@@ -9,6 +9,18 @@ impl App {
         code.is_some_and(|c| c.get(self.line) == Some(&false))
     }
 
+    pub(super) fn script_end(&self, here: &Path) -> (String, usize) {
+        let script = search::script_text(here, &self.buf.lines.join("\n"), None).into_owned();
+        (format!("{script}\n0"), self.buf.lines.len() + 1)
+    }
+
+    pub(super) fn script_scope(&self, here: &Path, first: Option<&str>) -> Option<(String, usize)> {
+        let code = search::script_lines(here, &self.buf.lines.join("\n"))?;
+        let shadowed =
+            first.is_some_and(|f| !search::template_binds(&self.buf.lines, &code, f).is_empty());
+        (code.get(self.line) == Some(&false) && !shadowed).then(|| self.script_end(here))
+    }
+
     /// `d` on a line of a component outside its script. A `<style>` block declares and names no
     /// code. A name the template binds is a local of the file, beside the script's own binding
     /// of it. A component's tag no import binds is the component file of its name, or the
@@ -34,9 +46,9 @@ impl App {
         let script = search::script_text(here, &raw, None);
         // What the script binds at its top level: what a template name reads, as from the end
         // of the file.
-        let end = self.buf.lines.len() + 1;
+        let (past_end, end) = self.script_end(here);
         let script_binds = |name: &str| -> Vec<usize> {
-            (search::bindings(Kind::TsJs, &format!("{script}\n0"), end, name).iter())
+            (search::bindings(Kind::TsJs, &past_end, end, name).iter())
                 .map(|b| b.line)
                 .collect()
         };
