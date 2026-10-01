@@ -39,7 +39,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
 /// machine, for a file of `kind`; empty when the toolchain is not installed. Each is asked the
 /// way it answers itself: the project's `.venv`, or `sys.path` of the `python3` on the PATH,
 /// `rustc --print sysroot` plus the registry crates `Cargo.lock` names, `GOROOT` plus the `go.mod`
-/// requirements in the module cache, `node_modules`. `pip install -e` and vendored code inside
+/// requirements in the module cache, `node_modules`, the gems `Gemfile.lock` names. `pip install -e` and vendored code inside
 /// `root` are project files already, so `root` itself is never returned.
 ///
 /// Nothing the project ships is run (#183). A toolchain runs from `/`, where no
@@ -197,8 +197,22 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // not there: the toolchain ships it compiled, with `.swiftinterface` stubs beside it and
         // no `.swift` file to read.
         Kind::Swift => vec![root.join(".build/checkouts")],
-        // Java, Kotlin and Ruby have no roots yet: the JDK and Gradle caches, and a gem path,
-        // are their own lookups. C# has nothing to point at: a NuGet package is compiled
+        // The gems `Gemfile.lock` names, the standard library and the core's signatures (#369).
+        // The `ruby` on the PATH is asked once a session: it answers the same every time.
+        Kind::Ruby => {
+            static ASKED: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+            let env: Vec<PathBuf> = ["GEM_HOME", "GEM_PATH"]
+                .into_iter()
+                .filter_map(std::env::var_os)
+                .flat_map(|v| std::env::split_paths(&v).collect::<Vec<_>>())
+                .collect();
+            let script = "puts RbConfig::CONFIG['rubylibdir'], Gem.path";
+            ruby_roots(root, &home, &env, || {
+                ASKED.get_or_init(|| run("ruby", &["-e", script])).clone()
+            })
+        }
+        // Java and Kotlin have no roots yet: the JDK and Gradle caches are their own lookups.
+        // C# has nothing to point at: a NuGet package is compiled
         // assemblies, and the runtime's own source is not on the machine at all. Lua has no root
         // to ask for either: `package.path` is whatever the interpreter embedding it was built
         // with, and a Neovim or a LuaRocks tree is not a standard library any project can be
@@ -207,7 +221,6 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // depend on the open file: [`mix_deps`]. `d` stays inside the project for all of them,
         // as for the rest.
         Kind::Jvm
-        | Kind::Ruby
         | Kind::CSharp
         | Kind::Lua
         | Kind::Elixir
@@ -630,7 +643,7 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
                     true => c_spelled(e.path(), &real),
                     false => e.into_path(),
                 })
-                .filter(|p| p.is_file() && kind_of(p) == Some(kind))
+                .filter(|p| p.is_file() && (kind_of(p) == Some(kind) || core_signature(kind, p)))
                 .filter(|p| !(go && p.to_string_lossy().ends_with("_test.go"))),
         );
     }
@@ -674,6 +687,19 @@ pub fn real_dirs(dirs: &[PathBuf]) -> Vec<(PathBuf, PathBuf)> {
     (dirs.iter())
         .filter_map(|d| Some((d.clone(), d.canonicalize().ok()?)))
         .collect()
+}
+/// Whether `path` is one of the RBS signatures of Ruby's core, `core/*.rbs` of the `rbs` gem
+/// (#369): the classes written in C have no other source. Elsewhere a `.rbs` repeats a `.rb`
+/// beside it, so it is no file of any kind, the project's own `sig/` included.
+fn core_signature(kind: Kind, path: &Path) -> bool {
+    kind == Kind::Ruby
+        && path.extension().is_some_and(|e| e == "rbs")
+        && path.ancestors().any(|a| {
+            a.ends_with("core")
+                && a.parent()
+                    .and_then(Path::file_name)
+                    .is_some_and(|n| n.to_string_lossy().starts_with("rbs-"))
+        })
 }
 /// The files a reader is shown last: tests, mocks, fixtures, generated code and vendored copies
 /// (#81). A row ending in `/` is a directory anywhere in the path; the rest match the file name,

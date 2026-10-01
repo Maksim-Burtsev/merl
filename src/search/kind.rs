@@ -32,6 +32,14 @@ pub enum Kind {
     Markdown,
     Graphql,
 }
+/// The kind of a file open on screen: [`kind_of`], and an RBS signature, `hash.rbs` of Ruby's
+/// core that `d` opened (#369), read as Ruby. The search never takes a `.rbs` for the project's.
+pub fn opened_kind(path: &Path) -> Option<Kind> {
+    match path.extension() {
+        Some(e) if e == "rbs" => Some(Kind::Ruby),
+        _ => kind_of(path),
+    }
+}
 pub fn kind_of(path: &Path) -> Option<Kind> {
     let name = path.file_name()?.to_str()?;
     let ext = name.rsplit_once('.').map_or("", |(_, ext)| ext);

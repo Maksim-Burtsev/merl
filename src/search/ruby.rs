@@ -1,5 +1,7 @@
-//! Ruby's scopes for `d`, read by indentation as rubocop lays code out (#383).
+//! Ruby for `d`: its scopes, read by indentation as rubocop lays code out (#383), and where the
+//! gems, the standard library and the core's signatures live outside the project (#369).
 
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use regex::Regex;
@@ -326,4 +328,158 @@ pub fn ruby_self_is_class(text: &str, line: usize) -> bool {
         Some(_) => true,
         None => false,
     }
+}
+
+/// Where Ruby's code outside the project at `root` lives (#369): the core's RBS signatures, the
+/// standard library and the gems `Gemfile.lock` names, in that order. Nothing the project ships
+/// is run (#183): `bundle` would evaluate its `Gemfile`, so the lockfile is read instead.
+///
+/// - The gems are the `specs:` of its `GEM` and `GIT` sections, at the versions it locks (a
+///   `PATH` gem is in the project already): `gems/<name>-<version>` and
+///   `bundler/gems/<repository>-<revision>` of the first gem directory that has them (their
+///   `lib` when there is one), which are
+///   the project's `BUNDLE_PATH` from `.bundle/config`, then `gem_env` (`GEM_HOME`, `GEM_PATH`),
+///   then the Ruby's own.
+/// - The Ruby is the one `.ruby-version` names under rbenv, mise, asdf or chruby in `home`, else
+///   what `ask` says of the `ruby` on the PATH: its `rubylibdir`, then its gem path.
+/// - The standard library is that Ruby's `lib/ruby/<abi>`, and the core is the `core/` of the
+///   newest `rbs` gem found, signatures of what is written in C.
+///
+/// Empty when no gem the lockfile names is installed, or there is no lockfile: `d` stays in the
+/// project then.
+pub fn ruby_roots(
+    root: &Path,
+    home: &Path,
+    gem_env: &[PathBuf],
+    ask: impl FnOnce() -> Option<String>,
+) -> Vec<PathBuf> {
+    let lock = std::fs::read_to_string(root.join("Gemfile.lock")).unwrap_or_default();
+    let mut gems: Vec<PathBuf> = Vec::new();
+    let (mut section, mut remote, mut revision) = ("", "", "");
+    for line in lock.lines() {
+        if !line.starts_with(' ') {
+            section = line.trim();
+        } else if let Some(r) = line.strip_prefix("  remote: ") {
+            remote = r.trim();
+        } else if let Some(r) = line.strip_prefix("  revision: ") {
+            revision = r.trim();
+        } else if let Some(spec) = line.strip_prefix("    ").filter(|s| !s.starts_with(' '))
+            && let Some((name, version)) = spec
+                .trim_end()
+                .strip_suffix(')')
+                .and_then(|s| s.split_once(" ("))
+        {
+            let dir = match section {
+                "GEM" => Path::new("gems").join(format!("{name}-{version}")),
+                // Bundler checks a repository out once, under its name and short revision.
+                "GIT" => {
+                    let repo = remote
+                        .trim_end_matches('/')
+                        .rsplit('/')
+                        .next()
+                        .unwrap_or("");
+                    let repo = repo.trim_end_matches(".git");
+                    let short = revision.get(..12).unwrap_or(revision);
+                    Path::new("bundler/gems").join(format!("{repo}-{short}"))
+                }
+                _ => continue,
+            };
+            if !gems.contains(&dir) {
+                gems.push(dir);
+            }
+        }
+    }
+    if gems.is_empty() {
+        return Vec::new();
+    }
+    let subdirs = |dir: &Path| -> Vec<PathBuf> {
+        let mut found: Vec<PathBuf> = std::fs::read_dir(dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.is_dir())
+            .collect();
+        found.sort();
+        found
+    };
+    // `abi` directories are named after a version: `3.3.0`.
+    let abis = |dir: &Path| -> Vec<PathBuf> {
+        subdirs(dir)
+            .into_iter()
+            .filter(|p| {
+                p.file_name().is_some_and(|n| {
+                    n.to_string_lossy()
+                        .starts_with(|c: char| c.is_ascii_digit())
+                })
+            })
+            .collect()
+    };
+    let config = std::fs::read_to_string(root.join(".bundle/config")).unwrap_or_default();
+    // `../bundle` is read without its `..`, so a gem there is named from its own root.
+    let bundle = config.lines().find_map(|l| {
+        let value = l
+            .strip_prefix("BUNDLE_PATH:")?
+            .trim()
+            .trim_matches(['"', '\'']);
+        let mut path = PathBuf::new();
+        for part in root.join(value).join("ruby").components() {
+            match part {
+                std::path::Component::ParentDir => _ = path.pop(),
+                part => path.push(part),
+            }
+        }
+        Some(path)
+    });
+    let mut homes: Vec<PathBuf> = bundle.iter().flat_map(|b| abis(b)).collect();
+    homes.extend(gem_env.iter().cloned());
+    let version = std::fs::read_to_string(root.join(".ruby-version")).unwrap_or_default();
+    let version = version.lines().next().unwrap_or("").trim();
+    let version = version.strip_prefix("ruby-").unwrap_or(version);
+    let prefix = [
+        home.join(".rbenv/versions").join(version),
+        home.join(".local/share/mise/installs/ruby").join(version),
+        home.join(".asdf/installs/ruby").join(version),
+        home.join(".rubies").join(format!("ruby-{version}")),
+    ]
+    .into_iter()
+    .find(|p| !version.is_empty() && p.is_dir());
+    let stdlib: Vec<PathBuf> = match prefix {
+        Some(prefix) => {
+            let lib = prefix.join("lib/ruby");
+            homes.extend(abis(&lib.join("gems")));
+            abis(&lib)
+        }
+        None => {
+            let said = ask().unwrap_or_default();
+            let mut said = said.lines().map(PathBuf::from);
+            let stdlib = said.next().into_iter().collect();
+            homes.extend(said);
+            stdlib
+        }
+    };
+    // A gem is required from its `lib`: its `spec/` and `test/` declare helpers of its own.
+    let found: Vec<PathBuf> = gems
+        .iter()
+        .filter_map(|g| homes.iter().map(|h| h.join(g)).find(|d| d.is_dir()))
+        .map(|d| match d.join("lib") {
+            lib if lib.is_dir() => lib,
+            _ => d,
+        })
+        .collect();
+    if found.is_empty() {
+        return Vec::new();
+    }
+    // `rbs-3.10.0` is newer than `rbs-3.9.1`.
+    let rbs_version = |p: &PathBuf| -> Option<Vec<u64>> {
+        let name = p.file_name()?.to_str()?.strip_prefix("rbs-")?;
+        name.split('.').map(|n| n.parse().ok()).collect()
+    };
+    let core = homes
+        .iter()
+        .flat_map(|h| subdirs(&h.join("gems")))
+        .filter_map(|p| Some((rbs_version(&p)?, p)))
+        .max()
+        .map(|(_, p)| p.join("core"));
+    core.into_iter().chain(stdlib).chain(found).collect()
 }

@@ -65,7 +65,7 @@ impl App {
     }
 
     pub(super) fn kind(&self) -> Option<Kind> {
-        self.buf.path.as_deref().and_then(search::kind_of)
+        self.buf.path.as_deref().and_then(search::opened_kind)
     }
 
     /// `rel/path:line: text` rows for a result picker, each landing on its hit's column. The text

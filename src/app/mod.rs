@@ -631,7 +631,7 @@ impl App {
     /// else to the standard library or dependency root it came from, as the `d` picker shows it
     /// (#235).
     pub fn rel_path_of(&self, path: &Path) -> String {
-        match (path.strip_prefix(&self.root), search::kind_of(path)) {
+        match (path.strip_prefix(&self.root), search::opened_kind(path)) {
             (Ok(rel), _) => rel,
             (Err(_), Some(kind)) => self.rel_to_its_root(kind, path),
             (Err(_), None) => path,
