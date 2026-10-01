@@ -317,34 +317,61 @@ pub(super) fn draw_picker(
             // A span per cluster: ratatui measures each span apart, so an emoji split from its
             // selector would be drawn one column narrower than `wrap::width` counts it.
             let mut c = 0;
-            spans.extend(label.grapheme_indices(true).map(|(b, g)| {
-                // The matcher numbers chars; a cluster is bold when any of its chars matched.
-                let chars = c..c + g.chars().count() as u32;
-                c = chars.end;
-                let mut style = style;
-                if let (Some((hl, off)), Some(at)) = (&code, row.item.code_at)
-                    && b >= at
-                    && let Some((s, _)) = hl.iter().find(|(_, r)| r.contains(&(b - at + off)))
-                {
-                    style = style.patch(*s);
-                }
-                if chars
-                    .into_iter()
-                    .any(|k| row.matched.binary_search(&k).is_ok())
-                {
-                    style = style.add_modifier(Modifier::BOLD);
-                }
-                // Quoted code keeps its tabs, as the buffer does; `expand` draws them.
-                Span::styled(expand(g).into_owned(), style)
-            }));
+            let cells: Vec<Span> = label
+                .grapheme_indices(true)
+                .map(|(b, g)| {
+                    // The matcher numbers chars; a cluster is bold when any of its chars matched.
+                    let chars = c..c + g.chars().count() as u32;
+                    c = chars.end;
+                    let mut style = style;
+                    if let (Some((hl, off)), Some(at)) = (&code, row.item.code_at)
+                        && b >= at
+                        && let Some((s, _)) = hl.iter().find(|(_, r)| r.contains(&(b - at + off)))
+                    {
+                        style = style.patch(*s);
+                    }
+                    if chars
+                        .into_iter()
+                        .any(|k| row.matched.binary_search(&k).is_ok())
+                    {
+                        style = style.add_modifier(Modifier::BOLD);
+                    }
+                    // Quoted code keeps its tabs, as the buffer does; `expand` draws them.
+                    Span::styled(expand(g).into_owned(), style)
+                })
+                .collect();
+            let cells = fit(cells, width.saturating_sub(used), style.fg(theme.gutter_fg));
+            let drawn: usize = cells.iter().map(|s| wrap::width(&s.content)).sum();
+            spans.extend(cells);
             spans.push(Span::styled(
-                " ".repeat(width.saturating_sub(used + wrap::width(label))),
+                " ".repeat(width.saturating_sub(used + drawn)),
                 style,
             ));
             Line::from(spans)
         })
         .collect();
     frame.render_widget(Paragraph::new(lines).style(base), list);
+}
+
+/// A picker row's label, a cell a cluster, cut to `room` columns: a label too wide keeps what
+/// leaves one column free and ends there in a dim `…`, as a long line does in the code view
+/// (#283), instead of stopping mid-word at the picker's border (#479).
+fn fit(mut cells: Vec<Span<'static>>, room: usize, dim: Style) -> Vec<Span<'static>> {
+    let cols: Vec<usize> = cells.iter().map(|s| wrap::width(&s.content)).collect();
+    if cols.iter().sum::<usize>() <= room {
+        return cells;
+    }
+    let mut used = 0;
+    let keep = cols
+        .iter()
+        .take_while(|&&w| {
+            used += w;
+            used < room
+        })
+        .count();
+    cells.truncate(keep);
+    cells.push(Span::styled("\u{2026}", dim));
+    cells
 }
 
 /// Review: the gutter mark of the line an item points at, from the diff of its file against
