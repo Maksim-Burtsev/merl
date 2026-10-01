@@ -220,8 +220,10 @@ impl App {
             if matches!(name.as_str(), "object" | "Generic" | "Protocol" | "ABC") {
                 continue;
             }
+            // A class outside the project read as one (#340) is outside all the same: what its
+            // ancestry lacks may come from a project subclass, never from a namesake.
             if let Some(base) = self.type_decl(kind, &ty.path, &base) {
-                outside |= self.ancestry_outside(&base, depth + 1)?;
+                outside |= base.path.is_absolute() || self.ancestry_outside(&base, depth + 1)?;
                 continue;
             }
             let path = bound(&imports, &parts[0])?;

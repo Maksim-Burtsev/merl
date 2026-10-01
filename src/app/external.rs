@@ -181,7 +181,8 @@ impl App {
         // all of them: no slower and no noisier than without the copy.
         // A Python module outside that does not declare the name may import it (#329): its
         // imports are followed, as the project's are. Only when they lead nowhere is it looked
-        // for everywhere, and then offered, never jumped to.
+        // for everywhere, and what that finds is offered, never jumped to.
+        let mut walked = false;
         if hits.is_empty()
             && imported
             && kind == Kind::Python
@@ -197,7 +198,7 @@ impl App {
                 if !found.is_empty() {
                     return Some(found);
                 }
-                self.offer_only = true;
+                walked = true;
             }
         }
         // Go has no re-exports: a package that does not declare the name is the answer (#332).
@@ -213,6 +214,7 @@ impl App {
             if hits.is_empty() {
                 hits = at_top(self, grep(self, &all));
             }
+            self.offer_only |= walked && !hits.is_empty();
             return Some(by_name(hits));
         }
         let sep = match kind {
@@ -289,9 +291,14 @@ impl App {
         all: &[PathBuf],
         module: &[String],
     ) -> Option<(usize, Vec<PathBuf>)> {
+        let roots = self
+            .external
+            .get(&Kind::Python)
+            .map(|(roots, _)| roots.as_slice())
+            .unwrap_or_default();
         let rels: Vec<(&Path, &PathBuf)> = all
             .iter()
-            .map(|f| (self.rel_to_its_root(Kind::Python, f), f))
+            .filter_map(|f| Some((python_rel(roots, f)?.1, f)))
             .collect();
         (1..=module.len()).rev().find_map(|n| {
             let name: PathBuf = module[..n].iter().collect();
@@ -330,14 +337,9 @@ impl App {
         files
             .iter()
             .filter_map(|f| {
-                let root = roots
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, r)| f.starts_with(r))
-                    .max_by_key(|(_, r)| r.components().count())?;
-                let rel = f.strip_prefix(root.1).ok()?;
+                let (root, rel) = python_rel(roots, f)?;
                 let form = forms.iter().position(|m| rel == m)?;
-                Some(((root.0, form), f))
+                Some(((root, form), f))
             })
             .min_by_key(|(rank, _)| *rank)
             .map(|(_, f)| f.clone())
@@ -744,6 +746,15 @@ impl App {
             None => "no rules for this file".into(),
         }
     }
+}
+
+/// The Python file `f` relative to the root it lies under, the deepest that holds it, as Python
+/// imports it (#329), with that root's place in `roots`.
+fn python_rel<'a>(roots: &[PathBuf], f: &'a Path) -> Option<(usize, &'a Path)> {
+    let (i, root) = (roots.iter().enumerate())
+        .filter(|(_, r)| f.starts_with(r))
+        .max_by_key(|(_, r)| r.components().count())?;
+    Some((i, f.strip_prefix(root).ok()?))
 }
 
 /// How many directories at the end of `root` name its package. A root named with a version is

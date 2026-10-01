@@ -100,6 +100,25 @@ fn python_base_packages_are_the_venvs_only_when_it_says_so() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #329. A root inside another, whatever it is called, lists each of its files once, in its own
+/// place in the order.
+#[test]
+fn a_root_inside_another_is_walked_once() {
+    let (dir, _) = scratch(
+        "nested-roots",
+        &[("json/__init__.py", ""), ("vendor/foo/__init__.py", "")],
+    );
+    let roots = [dir.clone(), dir.join("vendor")];
+    assert_eq!(
+        external_files(Kind::Python, &roots),
+        [
+            dir.join("json/__init__.py"),
+            dir.join("vendor/foo/__init__.py")
+        ]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// A toolchain is asked from outside the project, so no file of it picks the toolchain: a
 /// `rust-toolchain.toml` whose `path` is a `rustc` of its own is not run under rustup, and a
 /// `go.mod` asking for a Go that does not exist neither sends Go to download it nor leaves `d`

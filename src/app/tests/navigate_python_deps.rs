@@ -281,3 +281,198 @@ fn a_class_declared_in_a_dependency_is_read() {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
+
+/// #329, #340. The walk outside keeps its limits: a name the module binds otherwise is not
+/// followed, and what the search by name then finds is offered, while a project answer later in
+/// the same press still jumps; a cycle ends; two sources are both offered; a relative import of a
+/// module that is no package is read against its own package; a versioned root holds modules
+/// too. A dependency's imports are its own, a class declared twice or a value proves nothing.
+#[test]
+fn the_walk_outside_keeps_its_limits() {
+    let std = external_root(
+        "py-limits-std",
+        &[
+            ("implx.py", "def thing():\n    pass\n"),
+            (
+                "pkgx/__init__.py",
+                "from implx import thing\nfor thing in range(1):\n    pass\n",
+            ),
+            ("cyc_a/__init__.py", "from cyc_b import cyx\n"),
+            ("cyc_b/__init__.py", "from cyc_a import cyx\n"),
+            (
+                "twin/__init__.py",
+                "try:\n    from fastimpl import twinned\nexcept ImportError:\n    from slowimpl import twinned\n",
+            ),
+            ("fastimpl.py", "def twinned():\n    pass\n"),
+            ("slowimpl.py", "def twinned():\n    pass\n"),
+            ("rel/__init__.py", ""),
+            ("rel/mid.py", "from .deep import deeply\n"),
+            ("rel/deep.py", "def deeply():\n    pass\n"),
+            ("extlib/__init__.py", "VERSION = 1\n"),
+            (
+                "pathlibx.py",
+                "import sys\nif sys.version_info >= (3, 12):\n    class PathX:\n        def write_all(self, data):\n            pass\nelse:\n    class PathX:\n        def write_all(self, data):\n            pass\n",
+            ),
+            ("pkgmark/__init__.py", "mark = object()\n"),
+            ("dep/__init__.py", ""),
+            (
+                "dep/base.py",
+                "from helpers import Base\n\n\nclass Thing(Base):\n    pass\n",
+            ),
+            (
+                "helpers.py",
+                "class Base:\n    def ping(self):\n        pass\n",
+            ),
+            ("relbase/__init__.py", ""),
+            (
+                "relbase/core.py",
+                "from .parent import Parent\n\n\nclass Child(Parent):\n    pass\n",
+            ),
+            (
+                "relbase/parent.py",
+                "class Parent:\n    def hello(self):\n        pass\n",
+            ),
+            (
+                "eggs/foo-1.0-py3.11.egg/eggfoo/__init__.py",
+                "def bar():\n    pass\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "py-limits",
+        &[
+            (
+                "helpers.py",
+                "class Base:\n    def ping(self):\n        pass\n",
+            ),
+            ("app/util.py", "def helper():\n    pass\n"),
+            (
+                "app/limits.py",
+                "import pkgx\nimport cyc_a\nimport twin\nfrom rel import mid\nfrom extlib import helper\nfrom pathlibx import PathX\nfrom pkgmark import mark\nfrom dep.base import Thing\nfrom relbase.core import Child\nfrom eggfoo import bar\n\n\ndef use(p: PathX, m: mark, t: Thing, c: Child):\n    pkgx.thing()\n    cyc_a.cyx()\n    twin.twinned()\n    mid.deeply()\n    helper()\n    p.write_all(b\"\")\n    m.skip()\n    t.ping()\n    c.hello()\n    bar()\n",
+            ),
+        ],
+    );
+    let egg = std.join("eggs/foo-1.0-py3.11.egg");
+    use_roots(&mut a, Kind::Python, &[std.clone(), egg.clone()]);
+    let at = |root: &Path, file: &str, line: usize| format!("{}:{line}", root.join(file).display());
+    let file = "app/limits.py";
+    for (code, want) in [
+        (
+            "pkgx.thing",
+            Shown::Picker(
+                "thing: by name, 1 match".into(),
+                vec![("thing".into(), "by name".into(), "implx.py:1".into())],
+            ),
+        ),
+        (
+            "cyc_a.cyx",
+            jump("no definition for cyx", "app/limits.py:15"),
+        ),
+        (
+            "twin.twinned",
+            Shown::Picker(
+                "twinned: 2 declarations".into(),
+                vec![
+                    (
+                        "twinned".into(),
+                        "via import fastimpl".into(),
+                        "fastimpl.py:1".into(),
+                    ),
+                    (
+                        "twinned".into(),
+                        "via import slowimpl".into(),
+                        "slowimpl.py:1".into(),
+                    ),
+                ],
+            ),
+        ),
+        (
+            "mid.deeply",
+            jump("deeply: via import rel.deep", &at(&std, "rel/deep.py", 1)),
+        ),
+        (
+            "^    t.ping",
+            jump(
+                "ping \u{2192} Base.ping (via t: Thing)",
+                &at(&std, "helpers.py", 2),
+            ),
+        ),
+        (
+            "c.hello",
+            jump(
+                "hello \u{2192} Parent.hello (via c: Child)",
+                &at(&std, "relbase/parent.py", 2),
+            ),
+        ),
+        (
+            "^    bar",
+            jump("bar: via import eggfoo", &at(&egg, "eggfoo/__init__.py", 1)),
+        ),
+    ] {
+        d_on(&mut a, file, code);
+        assert_eq!(shown(&mut a), want, "{code}");
+    }
+    // The import outside led nowhere and found nothing by name: the project's one `helper` is
+    // still jumped to.
+    d_on(&mut a, file, "^    helper");
+    let Shown::Jump(_, place) = shown(&mut a) else {
+        panic!("a jump");
+    };
+    assert_eq!(place, "app/util.py:1");
+    for code in ["p.write_all", "m.skip"] {
+        d_on(&mut a, file, code);
+        let message = a.message.clone();
+        shown(&mut a);
+        assert!(!message.contains("(via "), "{code}: {message}");
+    }
+    for d in [dir, std] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+/// #340. The first typed `d` of a session reads the classes outside from the project's `.venv`,
+/// walked then, with no lookup outside before it.
+#[test]
+fn the_first_typed_d_walks_the_venv() {
+    let base = external_root(
+        "py-first-base",
+        &[
+            ("bin/python3.99", ""),
+            (
+                "lib/python3.99/unittest/__init__.py",
+                "from .case import TestCase\n",
+            ),
+            (
+                "lib/python3.99/unittest/case.py",
+                "class TestCase(object):\n    def assertEqual(self, first, second, msg=None):\n        pass\n",
+            ),
+        ],
+    );
+    let cfg = format!("home = {}\n", base.join("bin").display());
+    let (dir, mut a) = project_app(
+        "py-first",
+        &[
+            (".venv/pyvenv.cfg", cfg.as_str()),
+            (".venv/lib/python3.99/site-packages/.keep", ""),
+            (
+                "app/t.py",
+                "import unittest\n\n\nclass T(unittest.TestCase):\n    def test(self):\n        self.assertEqual(1, 1)\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "app/t.py", "self.assertEqual");
+    let case = base
+        .canonicalize()
+        .unwrap()
+        .join("lib/python3.99/unittest/case.py");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "assertEqual \u{2192} TestCase.assertEqual (via self: T)",
+            &format!("{}:2", case.display())
+        )
+    );
+    for d in [dir, base] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}

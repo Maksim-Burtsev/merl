@@ -1185,6 +1185,17 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 "app/test_api.py",
                 "from django.test import TestCase\n\n\nclass ApiCase(TestCase):\n    def test_post(self) -> None:\n        self.client.post(\"/\")\n\n\nclass SignedCase(ApiCase):\n    def setUp(self) -> None:\n        self.client = None\n",
             ),
+            // A base that cannot be read (#342): a subclass that sets the member stays a
+            // candidate, and a type outside that cannot be read leaves one method outside with a
+            // field of the name offered, not jumped to.
+            (
+                "app/test_native.py",
+                "from fastbase import Base\n\n\nclass NativeCase(Base):\n    def test_post(self) -> None:\n        self.client.post(\"/\")\n\n\nclass SignedNative(NativeCase):\n    def setUp(self) -> None:\n        self.client = None\n",
+            ),
+            (
+                "app/mocks_native.py",
+                "from unittest import mock\n\n\ndef use(m: mock.NativeMock) -> None:\n    m.return_value = None\n",
+            ),
             // A base written as a call cannot be read: today's search by name.
             (
                 "app/test_six.py",
@@ -1204,10 +1215,14 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 &format!("{}:5", outside(&site, "django/test/testcases.py")),
             ),
         ),
+        // Its bases outside are read too (#340).
         (
             "app/users.py",
             "User.objects",
-            jump("no definition for objects", "app/users.py:5"),
+            jump(
+                "objects \u{2192} AbstractUser.objects (via import django.contrib.auth.models)",
+                &format!("{}:2", outside(&site, "django/contrib/auth/models.py")),
+            ),
         ),
         // Not a class of the module: what it holds is not read, the search by name answers
         // (#560).
@@ -1239,11 +1254,14 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
                 &format!("{}:3", outside(&site, "condpkg/models.py")),
             ),
         ),
-        // A class the module re-exports by an import is read no further than that module.
+        // A class the module re-exports by an import is followed there, bases and all (#340).
         (
             "app/things.py",
             "TestCase.client",
-            jump("no definition for client", "app/things.py:6"),
+            jump(
+                "client \u{2192} SimpleTestCase.client (via import django.test)",
+                &format!("{}:5", outside(&site, "django/test/testcases.py")),
+            ),
         ),
         (
             "app/mocks.py",
@@ -1256,10 +1274,8 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
         (
             "app/mocks.py",
             "m.captured_queries",
-            jump(
-                "captured_queries \u{2192} TaskHandle.captured_queries (by name, 1 match)",
-                &format!("{}:5", outside(&site, "anyio/tasks.py")),
-            ),
+            // `Mock` is read (#340) and declares none: no namesake in another package.
+            jump("no definition for captured_queries", "app/mocks.py:6"),
         ),
         (
             "app/test_api.py",
@@ -1273,6 +1289,26 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
         d_on(&mut a, file, code);
         assert_eq!(shown(&mut a), want, "{file}: {code}");
     }
+    d_on(&mut a, "app/test_native.py", "self.client|.post");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "client \u{2192} SignedNative.client (by name, 1 match)",
+            "app/test_native.py:11"
+        )
+    );
+    d_on(&mut a, "app/mocks_native.py", "m.return_value");
+    assert_eq!(
+        shown(&mut a),
+        Shown::Picker(
+            "return_value: by name, 1+ declarations".into(),
+            vec![(
+                "TaskHandle.return_value".into(),
+                "by name".into(),
+                "anyio/tasks.py:2".into(),
+            )],
+        )
+    );
     d_on(&mut a, "app/test_six.py", "self.client");
     let Shown::Picker(_, rows) = shown(&mut a) else {
         panic!("a picker");

@@ -64,10 +64,25 @@ impl App {
         patterns.extend(search::field_patterns(kind, word).unwrap_or_default());
         let within = Some(format!("{name}.{word}"));
         let hits = self.external_grep(kind, std::slice::from_ref(&file), &patterns.join("|"));
+        let mut hits: Vec<Hit> = (hits.into_iter())
+            .filter(|h| search::qualified(kind, &text, h.line, word) == within)
+            .collect();
+        // What the class does not declare itself, its bases may (#340), read as the typed walk
+        // reads them: `User.objects` is `AbstractUser`'s.
+        if hits.is_empty()
+            && let Some(class) = self.outside_class(Path::new(""), path, std::slice::from_ref(name))
+            && let Some(declared) = search::type_name(kind, &class.text)
+        {
+            let ty = Typed {
+                name: declared,
+                path: class.path,
+                line: class.line,
+            };
+            hits = self.above(kind, &ty, word, 0).unwrap_or_default();
+        }
         let reason = Reason::Import(module.join("."));
         Some(Some(
             hits.into_iter()
-                .filter(|h| search::qualified(kind, &text, h.line, word) == within)
                 .map(|hit| Candidate {
                     hit,
                     reason: reason.clone(),
