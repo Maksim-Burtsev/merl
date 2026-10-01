@@ -340,7 +340,30 @@ pub(super) fn draw_picker(
                     Span::styled(expand(g).into_owned(), style)
                 })
                 .collect();
-            let cells = fit(cells, width.saturating_sub(used), style.fg(theme.gutter_fg));
+            // The word the row was found by: where Enter puts the cursor (the name `u` and `d`
+            // looked up, the start of what `s` found), to the end of the word there.
+            let word = code
+                .as_ref()
+                .zip(row.item.code_at)
+                .and_then(|((_, off), at)| {
+                    let start = at + row.item.col.checked_sub(*off)?;
+                    let rest = label.get(start..)?;
+                    let first = rest.chars().next()?.len_utf8();
+                    let len = rest.find(|c| !crate::app::is_word(c)).unwrap_or(rest.len());
+                    let cluster = |b| {
+                        label
+                            .grapheme_indices(true)
+                            .take_while(|(i, _)| *i < b)
+                            .count()
+                    };
+                    Some((cluster(at), cluster(start), cluster(start + len.max(first))))
+                });
+            let cells = fit(
+                cells,
+                width.saturating_sub(used),
+                style.fg(theme.gutter_fg),
+                word,
+            );
             let drawn: usize = cells.iter().map(|s| wrap::width(&s.content)).sum();
             spans.extend(cells);
             spans.push(Span::styled(
@@ -353,13 +376,42 @@ pub(super) fn draw_picker(
     frame.render_widget(Paragraph::new(lines).style(base), list);
 }
 
+/// The columns of quoted code a row keeps after the word it was found by, when that word had
+/// to be brought into view.
+const AFTER_WORD: usize = 8;
+
 /// A picker row's label, a cell a cluster, cut to `room` columns: a label too wide keeps what
 /// leaves one column free and ends there in a dim `…`, as a long line does in the code view
 /// (#283), instead of stopping mid-word at the picker's border (#479).
-fn fit(mut cells: Vec<Span<'static>>, room: usize, dim: Style) -> Vec<Span<'static>> {
+///
+/// `word` is the row's quoted code and the word in it the row was found by, as cluster indices
+/// `(code, start, end)`. When that word would be cut, the code gives up its start instead, a dim
+/// `…` in its place, until the word ends [`AFTER_WORD`] columns before the border, as VS Code's
+/// search results keep a match in a long line. The `path:line:` before the code is never cut.
+fn fit(
+    mut cells: Vec<Span<'static>>,
+    room: usize,
+    dim: Style,
+    word: Option<(usize, usize, usize)>,
+) -> Vec<Span<'static>> {
     let cols: Vec<usize> = cells.iter().map(|s| wrap::width(&s.content)).collect();
     if cols.iter().sum::<usize>() <= room {
         return cells;
+    }
+    let col = |i: usize| cols[..i].iter().sum::<usize>();
+    if let Some((code, start, end)) = word
+        && col(end) >= room
+    {
+        // The new `…` takes one of the columns given back.
+        let need = (col(end) + 1).saturating_sub(room.saturating_sub(1 + AFTER_WORD));
+        let mut cut = code;
+        while cut < start && col(cut) - col(code) < need {
+            cut += 1;
+        }
+        if cut > code {
+            cells.splice(code..cut, [Span::styled("\u{2026}", dim)]);
+            return fit(cells, room, dim, None);
+        }
     }
     let mut used = 0;
     let keep = cols

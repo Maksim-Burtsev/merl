@@ -11,7 +11,7 @@ merl snapshot: usages
 │  notes│declaration  config.py:18: def load_config(path: Path | None …│
 │  PLAN.│             cli.py:6: from config import load_config         │
 │  store│             cli.py:30: store = NoteStore(load_config())      │
-│       │             store.py:5: from config import Config, load_conf…│
+│       │             store.py:5: … import Config, load_config         │
 │       │             store.py:13: self.config = config or load_config…│e) ->
 │       │                                                              │
 │       │                                                              │le,
@@ -37,7 +37,7 @@ aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeammmmmmmmmmmmmmmmmmmmmmmmmmmnnnmooooooooooopqqqqrmmmmmmrmssssmtaeeeeeeee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeuuuueeeeeeeeuuuuuueeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeefeaaaaaaaaagaaaaaaaaaaagggeeeeeeaeeeeeeee
-aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeuuuueeeeeeeeuuuuuueeeeeeefeeeeeeeeeecaeeeeeeee
+aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeceuuuuuueeeeeeefeeeeeeeeeeeeeeeeeeeeeaeeeeeeee
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeevvvvfeeeeeeefeeeeeeeejjeaaaaaaaaaaacaspmrrmmm
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeammmmmmmm
 aeeeeeeeaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeealllleeee
@@ -88,7 +88,7 @@ adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddadddddddd
 adddddddajjjjjjjjjjjjjjjjjjjjjjjjjjjkkkjllllllllllljjjjjjjjjjjjkjmmmmjnadddddddd
 adddddddadddddddddddddddddddddddeeeeddddddddeeeeeedddddddddddddddddddddadddddddd
 adddddddaddddddddddddddddddddddddddddddedddddddddddddddddddddddddddddddadddddddd
-adddddddadddddddddddddddddddddddddeeeeddddddddeeeeeeddddddddddddddddddcadddddddd
+adddddddadddddddddddddddddddddddddcdeeeeeedddddddddddddddddddddddddddddadddddddd
 adddddddaddddddddddddddddddddddddddddddddddddddeddddddddeeddddddddddddcamjjjjjjj
 adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddajjjjjjjj
 adddddddaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddaiiiidddd

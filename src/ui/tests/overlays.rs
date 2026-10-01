@@ -313,11 +313,7 @@ fn hit_picker_rows_keep_their_colours_past_a_tab() {
 /// The rows of a usages picker over `lines` of `a.rs`, drawn at `width` columns, each hit on
 /// the first `hit` of its line.
 fn hit_rows(lines: &[&str], hit: &str, width: u16) -> (Terminal<TestBackend>, Vec<String>) {
-    let dir = std::env::temp_dir().join(format!(
-        "merl-row-cut-{}-{width}-{}",
-        std::process::id(),
-        lines.len()
-    ));
+    let dir = std::env::temp_dir().join(format!("merl-row-cut-{}-{hit}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("a.rs"), lines.join("\n") + "\n").unwrap();
     let mut app = App::new(
@@ -359,8 +355,8 @@ fn hit_rows(lines: &[&str], hit: &str, width: u16) -> (Terminal<TestBackend>, Ve
 #[test]
 fn a_picker_row_too_wide_ends_in_a_dim_ellipsis() {
     let long = "let total = orders.iter().map(|o| o.price * o.quantity).sum::<u64>() + shipping;";
-    let (terminal, rows) = hit_rows(&["let x = shipping;", long], "shipping", 60);
-    assert_eq!(rows[0], "a.rs:1: let x = shipping;");
+    let (terminal, rows) = hit_rows(&["let total = 1;", long], "total", 60);
+    assert_eq!(rows[0], "a.rs:1: let total = 1;");
     assert!(rows[1].ends_with('…'), "{:?}", rows[1]);
     let inner = rows[1].chars().count();
     assert_eq!(
@@ -373,6 +369,23 @@ fn a_picker_row_too_wide_ends_in_a_dim_ellipsis() {
         dots.fg,
         crate::theme::load(crate::theme::DEFAULT).unwrap().gutter_fg
     );
+}
+
+/// #479: when the word a row was found by would fall past the border, the quoted code gives up
+/// its start instead, a dim `…` right after `path:line:`, so the word stays in view.
+#[test]
+fn a_picker_row_keeps_the_word_it_was_found_by_in_view() {
+    let long = "let total = orders.iter().map(|o| o.price * o.quantity).sum::<u64>() + shipping_fee(order, &rates, Currency::Eur);";
+    let (terminal, rows) = hit_rows(&["let x = shipping_fee(o);", long], "shipping_fee", 60);
+    assert_eq!(rows[0], "a.rs:1: let x = shipping_fee(o);");
+    assert!(rows[1].starts_with("a.rs:2: …"), "{:?}", rows[1]);
+    assert!(rows[1].contains("shipping_fee("), "{:?}", rows[1]);
+    assert!(rows[1].ends_with('…'), "{:?}", rows[1]);
+    // Eight columns of code after the word, then the `…` in the last column.
+    let after = rows[1].split("shipping_fee").nth(1).unwrap();
+    assert_eq!(after.chars().count(), 8 + 1, "{:?}", rows[1]);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    assert_eq!(cell(&terminal, "…").fg, theme.gutter_fg);
 }
 
 /// The tree pane and the status bar frame the overlay; the overlay itself is the border,
