@@ -770,6 +770,46 @@ pub fn cs_extended(line: &str) -> Option<String> {
 /// (`Dictionary<int, Buyer>`) or a base in a type's header. `Name.` is not one: C# may mean a
 /// property of the same name there ("Color Color").
 pub fn cs_type_position(line: &str, start: usize, end: usize) -> bool {
+    let (before, after) = (&line[..start], &line[end..]);
+    if before.ends_with('.') || after.trim_start().starts_with('.') {
+        return false;
+    }
+    if cs_named_after(after) {
+        return true;
+    }
+    let b = before.trim_end();
+    let ident = |c: char| c.is_alphanumeric() || c == '_';
+    let keyword = |s: &str, k: &str| s.strip_suffix(k).is_some_and(|r| !r.ends_with(ident));
+    if ["new", "is", "as"].iter().any(|k| keyword(b, k)) {
+        return true;
+    }
+    if let Some(pre) = before.strip_suffix('(').map(str::trim_end) {
+        if keyword(pre, "typeof") {
+            return true;
+        }
+        // A cast: `(T)` with no call or keyword in front of its bracket, a value after it.
+        let cast_after = Regex::new(concat!(
+            r"^",
+            cs_generics!(),
+            r#"\??(?:\[[,\s]*\])*\s*\)\s*[\w@($"]"#
+        ))
+        .is_ok_and(|re| re.is_match(after))
+            // `(Items) is null`: a keyword after the bracket, not a value being cast.
+            && !Regex::new(r"^[^)]*\)\s*(?:is|as|switch|with|and|or|when)\b")
+                .is_ok_and(|re| re.is_match(after));
+        let opens = !pre.ends_with([')', ']', '>'])
+            && (!pre.ends_with(ident)
+                || ["return", "await", "throw"].iter().any(|k| keyword(pre, k)));
+        if cast_after && opens {
+            return true;
+        }
+    }
+    cs_generic_argument(before, after) || cs_base_listed(line, before)
+}
+
+/// Whether a name follows the C# type that `after` continues, past its generic arguments, a `?`
+/// and `[]`: `Buyer buyer`, `Buyer Update(`, save a contextual keyword (`x is T or U`).
+fn cs_named_after(after: &str) -> bool {
     static FOLLOWED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
             "^",
@@ -802,44 +842,19 @@ pub fn cs_type_position(line: &str, start: usize, end: usize) -> bool {
         "let",
         "from",
     ];
-    let (before, after) = (&line[..start], &line[end..]);
-    if before.ends_with('.') || after.trim_start().starts_with('.') {
-        return false;
-    }
-    if FOLLOWED
+    FOLLOWED
         .captures(after)
         .is_some_and(|c| !CONTEXTUAL.contains(&&c[1]))
-    {
-        return true;
-    }
-    let b = before.trim_end();
-    let ident = |c: char| c.is_alphanumeric() || c == '_';
-    let keyword = |s: &str, k: &str| s.strip_suffix(k).is_some_and(|r| !r.ends_with(ident));
-    if ["new", "is", "as"].iter().any(|k| keyword(b, k)) {
-        return true;
-    }
-    if let Some(pre) = before.strip_suffix('(').map(str::trim_end) {
-        if keyword(pre, "typeof") {
-            return true;
-        }
-        // A cast: `(T)` with no call or keyword in front of its bracket, a value after it.
-        let cast_after = Regex::new(concat!(
-            r"^",
-            cs_generics!(),
-            r#"\??(?:\[[,\s]*\])*\s*\)\s*[\w@($"]"#
-        ))
-        .is_ok_and(|re| re.is_match(after))
-            // `(Items) is null`: a keyword after the bracket, not a value being cast.
-            && !Regex::new(r"^[^)]*\)\s*(?:is|as|switch|with|and|or|when)\b")
-                .is_ok_and(|re| re.is_match(after));
-        let opens = !pre.ends_with([')', ']', '>'])
-            && (!pre.ends_with(ident)
-                || ["return", "await", "throw"].iter().any(|k| keyword(pre, k)));
-        if cast_after && opens {
-            return true;
-        }
-    }
-    cs_generic_argument(before, after) || cs_base_listed(line, before)
+}
+
+/// Whether a C# constant pattern may stand at bytes `start..end` of `line` (#581): right after
+/// `is`, as `x is Max`, where a type may stand too. Not `x is Max m`, nor `x is List<int>`.
+pub fn cs_constant_may_stand(line: &str, start: usize, end: usize) -> bool {
+    let after = &line[end..];
+    let is = line[..start].trim_end().strip_suffix("is");
+    is.is_some_and(|b| !b.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
+        && !after.starts_with(['<', '['])
+        && !cs_named_after(after)
 }
 
 /// Whether the word between `before` and `after` is inside a generic argument list: a `<` right

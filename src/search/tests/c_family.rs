@@ -1302,6 +1302,23 @@ fn csharp_type_positions_namespace_segments_and_arity() {
     ] {
         assert!(!at(line, word), "{line} / {word}");
     }
+    // #581: after `is` a constant pattern may stand as well as a type, save with a designation
+    // or generic arguments, which only a type takes.
+    let constant = |line: &str, word: &str| {
+        let start = line.find(word).unwrap();
+        cs_constant_may_stand(line, start, start + word.len())
+    };
+    assert!(constant("    if (n is Max) return;", "Max"));
+    assert!(constant("    bool full = n is Max;", "Max"));
+    for line in [
+        "    if (n is Max m) return;",
+        "    if (n is Max<int>) return;",
+        "    var m = n as Max;",
+        "    var m = new Max();",
+        "    Axis Max;",
+    ] {
+        assert!(!constant(line, "Max"), "{line}");
+    }
     let prefix = |line: &str, word: &str| {
         let start = line.find(word).unwrap();
         cs_namespace_prefix(line, start, start + word.len())

@@ -517,8 +517,7 @@ impl App {
         if !search::cs_type_position(line, range.start, range.end) {
             return false;
         }
-        let is = line[..range.start].trim_end().strip_suffix("is");
-        if is.is_none_or(|b| b.ends_with(|c: char| c.is_alphanumeric() || c == '_')) {
+        if !search::cs_constant_may_stand(line, range.start, range.end) {
             return true;
         }
         let patterns = search::def_patterns(Kind::CSharp, word);
