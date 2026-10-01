@@ -292,6 +292,8 @@ pub struct App {
     /// together for: a workspace has one per package, and each file sees those above it.
     node_modules: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
     node_modules_of: Option<PathBuf>,
+    /// The headers each C or C++ file includes, resolved, for a `.c` file or not (#382).
+    c_includes: HashMap<(PathBuf, bool), Arc<Vec<PathBuf>>>,
     /// What `go build` compiles here, which picks among a Go declaration's twins.
     go_build: search::GoBuild,
     /// The candidates of this `d` are to be offered, not jumped to, however few: the word is a
@@ -519,6 +521,7 @@ impl App {
             external: HashMap::new(),
             node_modules: HashMap::new(),
             node_modules_of: None,
+            c_includes: HashMap::new(),
             go_build: search::GoBuild::host().env(
                 std::env::var("CGO_ENABLED").ok().as_deref(),
                 std::env::var("GOFLAGS").ok().as_deref(),

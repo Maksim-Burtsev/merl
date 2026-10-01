@@ -613,6 +613,7 @@ pub fn in_copy(path: &Path, copy: &[PathBuf]) -> bool {
 /// dependency.
 pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
     let go = kind == Kind::Go;
+    let real = real_dirs(dirs);
     let mut files = Vec::new();
     for dir in dirs {
         // Homebrew's Rust ships the sysroot `library` with a copy of itself inside; every
@@ -638,12 +639,54 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
             .build();
         files.extend(
             walk.filter_map(Result::ok)
-                .map(ignore::DirEntry::into_path)
+                .map(|e| match kind == Kind::C && e.path_is_symlink() {
+                    true => c_spelled(e.path(), &real),
+                    false => e.into_path(),
+                })
                 .filter(|p| p.is_file() && (kind_of(p) == Some(kind) || core_signature(kind, p)))
                 .filter(|p| !(go && p.to_string_lossy().ends_with("_test.go"))),
         );
     }
+    // A header linked under another name is one file, listed once (#382).
+    if kind == Kind::C {
+        let mut seen = std::collections::HashSet::new();
+        files.retain(|f| seen.insert(f.clone()));
+    }
     files
+}
+/// The C++ standard library directories under `roots`, `c++/v1` and `c++/<version>`, which a
+/// compiler searches for an `#include <…>` of a C++ file before the roots themselves.
+pub fn cpp_dirs(roots: &[PathBuf]) -> Vec<PathBuf> {
+    roots
+        .iter()
+        .flat_map(|r| {
+            std::fs::read_dir(r.join("c++"))
+                .into_iter()
+                .flatten()
+                .flatten()
+        })
+        .map(|e| e.path())
+        .filter(|d| d.is_dir())
+        .collect()
+}
+/// `path`, a file under one of `dirs`, as the walk of `dirs` spells it: through its links, under
+/// the directory its target lies in when that is one of `dirs`, so a header linked under a second
+/// name (`pthread.h` to `pthread/pthread.h`) is that header (#382). A link out of them keeps its
+/// own name: Homebrew's `include/` is links into its kegs.
+/// `dirs` are [`real_dirs`].
+pub fn c_spelled(path: &Path, dirs: &[(PathBuf, PathBuf)]) -> PathBuf {
+    let Ok(real) = path.canonicalize() else {
+        return path.to_path_buf();
+    };
+    dirs.iter()
+        .find_map(|(d, r)| Some(d.join(real.strip_prefix(r).ok()?)))
+        .unwrap_or_else(|| path.to_path_buf())
+}
+/// Each of `dirs` with the directory it is once its links are followed.
+pub fn real_dirs(dirs: &[PathBuf]) -> Vec<(PathBuf, PathBuf)> {
+    (dirs.iter())
+        .filter_map(|d| Some((d.clone(), d.canonicalize().ok()?)))
+        .collect()
 }
 /// Whether `path` is one of the RBS signatures of Ruby's core, `core/*.rbs` of the `rbs` gem
 /// (#369): the classes written in C have no other source. Elsewhere a `.rbs` repeats a `.rb`

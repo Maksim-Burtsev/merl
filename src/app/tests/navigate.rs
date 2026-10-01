@@ -1298,6 +1298,226 @@ fn a_c_value_is_never_a_system_struct() {
     std::fs::remove_dir_all(&root).unwrap();
 }
 
+/// #382. Outside the project a C or C++ word is looked for in the headers the file includes
+/// first, and a header linked under a second name is one row. libc++'s headers have no extension
+/// and are read, never for a `.c` file; a class behind `_LIBCPP_` macros and a function behind a
+/// reserved-name macro call are declarations.
+#[test]
+fn c_outside_reads_what_the_file_includes() {
+    let (dir, mut a) = project_app(
+        "c-includes",
+        &[
+            (
+                "main.c",
+                "#include <pthread.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include \"a.h\"\n\nint same(pthread_t a, pthread_t b) { return pthread_equal(a, b); }\nint p(void) { return printf(\"x\"); }\nvoid *x(void) { return malloc(1); }\nint s(void) { return shared(); }\nint z(void) { return mutex_init(); }\n",
+            ),
+            (
+                "other.c",
+                "int q(void) { return printf(\"y\"); }\nint t(void) { return shared(); }\nint e(void) { return pthread_equal(0, 0); }\n",
+            ),
+            ("a.h", "int shared(void);\n"),
+            ("b.h", "int shared(void);\n"),
+            (
+                "m.cc",
+                "#include <mutex>\nstd::mutex m;\nint y(void) { return mutex_init(); }\n",
+            ),
+        ],
+    );
+    let root = external_root(
+        "c-includes",
+        &[
+            (
+                "pthread/pthread.h",
+                "int pthread_equal(pthread_t, pthread_t);\n",
+            ),
+            ("stdio.h", "int printf(const char *, ...);\n"),
+            ("libintl.h", "int printf(const char *, ...);\n"),
+            (
+                "stdlib.h",
+                "void * __sized_by_or_null(__size) malloc(size_t __size);\n",
+            ),
+            (
+                "c++/v1/mutex",
+                "#include <__mutex/mutex.h>\n#include <__cxx03/mutex>\nint mutex_init(void);\n",
+            ),
+            ("c++/v1/__cxx03/mutex", "class mutex {\n};\n"),
+            (
+                "c++/v1/__mutex/mutex.h",
+                "class _LIBCPP_EXPORTED_FROM_ABI _LIBCPP_CAPABILITY(\"mutex\") mutex {\npublic:\n    mutex() = default;\n};\n",
+            ),
+        ],
+    );
+    std::os::unix::fs::symlink("pthread/pthread.h", root.join("pthread.h")).unwrap();
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
+    let at = |f: &str, n: usize| format!("{}:{n}", root.join(f).display());
+    d_on(&mut a, "main.c", "return pthread_equal");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "pthread_equal: by name, 1 match",
+            &at("pthread/pthread.h", 1)
+        )
+    );
+    d_on(&mut a, "main.c", "return printf");
+    assert_eq!(
+        shown(&mut a),
+        jump("printf: by name, 1 match", &at("stdio.h", 1))
+    );
+    d_on(&mut a, "main.c", "return malloc");
+    assert_eq!(
+        shown(&mut a),
+        jump("malloc: by name, 1 match", &at("stdlib.h", 1))
+    );
+    d_on(&mut a, "main.c", "return shared");
+    assert_eq!(shown(&mut a), jump("shared: by name, 1 match", "a.h:1"));
+    // A `.c` file reads nothing under `c++/`.
+    d_on(&mut a, "main.c", "return mutex_init");
+    assert_eq!(a.message, "no definition for mutex_init");
+    d_on(&mut a, "m.cc", "std::mutex");
+    assert_eq!(
+        shown(&mut a),
+        jump("mutex: by name, 1 match", &at("c++/v1/__mutex/mutex.h", 1))
+    );
+    d_on(&mut a, "m.cc", "return mutex_init");
+    assert_eq!(
+        shown(&mut a),
+        jump("mutex_init: by name, 1 match", &at("c++/v1/mutex", 3))
+    );
+    assert_eq!(search::kind_of(&root.join("c++/v1/mutex")), Some(Kind::C));
+    // A file that includes none keeps every declaration, a header linked twice as one.
+    d_on(&mut a, "other.c", "return pthread_equal");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "pthread_equal: by name, 1 match",
+            &at("pthread/pthread.h", 1)
+        )
+    );
+    d_on(&mut a, "other.c", "return printf");
+    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    d_on(&mut a, "other.c", "return shared");
+    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// #382, the review of its PR: what the include graph decides inside the project and for a
+/// member outside, and the lookups the new rules must leave as master answered them.
+#[test]
+fn c_includes_narrow_no_further_than_they_should() {
+    let (dir, mut a) = project_app(
+        "c-includes-review",
+        &[
+            (
+                "a.c",
+                "#include <len.h>\nstatic struct _Ctx ctx;\nint get(void) { return use(&ctx); }\nint n(void) { return get()->len; }\n",
+            ),
+            ("b.c", "static struct _Ctx ctx;\n"),
+            ("types.h", "extern struct _Config config;\n"),
+            (
+                "config.c",
+                "#include \"types.h\"\nstruct _Config config;\nint v(void) { return config.verbose; }\n",
+            ),
+            (
+                "box.hpp",
+                "class Box {\n    typedef enum { Red, Green } Color;\n    Color c;\n};\n",
+            ),
+            ("fwd.h", "struct conn;\n"),
+            ("conn.h", "struct conn {\n    int fd;\n};\n"),
+            (
+                "x.c",
+                "#include \"fwd.h\"\n#include \"calc.h\"\nint f(struct conn *c);\nint k(void) { return calc(); }\n",
+            ),
+            ("calc.h", "int calc(void);\n"),
+            ("impl.h", "static inline int calc(void) { return 1; }\n"),
+            ("foo.h", "void Bar();\n"),
+            (
+                "foo.cc",
+                "namespace {\n#define CHECK(x) do { \\\n    if (!(x)) return; \\\n  } while (0)\nvoid helper() {}\n}\n\nvoid Bar() {\n}\n",
+            ),
+            ("bar.cc", "#include \"foo.h\"\nvoid go() { Bar(); }\n"),
+            ("x/u.h", "int util(void);\n"),
+            ("y/u.h", "int util(void);\n"),
+            (
+                "x/main.c",
+                "#include \"u.h\"\nint m(void) { return util(); }\n",
+            ),
+            (
+                "h1.h",
+                "#include \"h2.h\"\nint shared7(void);\nint h(void) { return shared7(); }\n",
+            ),
+            ("h2.h", "int shared7(void);\n"),
+            ("h3.h", "int shared7(void);\n"),
+            ("dep/internal/assert.h", "void assert_fail(void);\n"),
+            ("dep/other.h", "void assert_fail(void);\n"),
+            (
+                "s.c",
+                "#include <assert.h>\nvoid t(void) { assert_fail(); }\n",
+            ),
+            (
+                "e.c",
+                "#include \"e.h\"\nint g(void) { return edited(); }\n",
+            ),
+            ("e.h", "#include \"e1.h\"\n"),
+            ("e1.h", "int edited(void);\n"),
+            ("e2.h", "int edited(void);\n"),
+        ],
+    );
+    let root = external_root(
+        "c-includes-review",
+        &[
+            ("len.h", "struct small {\n    int len;\n};\n"),
+            ("far.h", "struct big {\n    int len;\n};\n"),
+            ("assert.h", "#define assert(e) ((void)0)\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
+    let place = |s: Shown| match s {
+        Shown::Jump(_, place) => place,
+        picker => format!("{picker:?}"),
+    };
+    // A `_Name` tag is no macro: the variable is a file's own static, and a value.
+    d_on(&mut a, "a.c", "return use(&ctx");
+    assert_eq!(shown(&mut a), jump("ctx: by name, 1 match", "a.c:2"));
+    d_on(&mut a, "config.c", "return config");
+    assert_eq!(place(shown(&mut a)), "config.c:2");
+    // An indented one-line typedef declares its name.
+    d_on(&mut a, "box.hpp", "    Color");
+    assert_eq!(place(shown(&mut a)), "box.hpp:2");
+    // A forward declaration the file reaches yields to the body it does not.
+    d_on(&mut a, "x.c", "struct conn");
+    assert_eq!(place(shown(&mut a)), "conn.h:1");
+    // And a prototype it reaches to the definition it does not.
+    d_on(&mut a, "x.c", "return calc");
+    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    // A macro's braces inside `namespace {` close nothing of the namespace's.
+    d_on(&mut a, "bar.cc", "{ Bar");
+    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    // `"u.h"` is the one beside the file.
+    d_on(&mut a, "x/main.c", "return util");
+    assert_eq!(place(shown(&mut a)), "x/u.h:1");
+    // The open header keeps its own declaration beside the one it includes.
+    d_on(&mut a, "h1.h", "return shared7");
+    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    // `<assert.h>` is the system's, not a project file of that name deep in a dependency.
+    d_on(&mut a, "s.c", "{ assert_fail");
+    assert!(matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2));
+    // A member outside: the struct of a header the file includes.
+    d_on(&mut a, "a.c", "get()->len");
+    assert_eq!(
+        place(shown(&mut a)),
+        format!("{}:2", root.join("len.h").display())
+    );
+    // A header's includes edited in the session are read again.
+    d_on(&mut a, "e.c", "return edited");
+    assert_eq!(place(shown(&mut a)), "e1.h:1");
+    std::fs::write(dir.join("e.h"), "#include \"e2.h\"\n").unwrap();
+    d_on(&mut a, "e.c", "return edited");
+    assert_eq!(place(shown(&mut a)), "e2.h:1");
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
 /// PHP's `$x->name` is a member access (#348): a method for a call, a property otherwise, in the
 /// project and in `vendor/` alike, and never a local, a function or a class of the name.
 #[test]

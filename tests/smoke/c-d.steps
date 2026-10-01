@@ -44,3 +44,13 @@ type flags =
 key Enter d
 wait via c: client
 key Escape
+# A system function lands on the system's declaration, one row: the headers the file includes
+# are searched first, and a header linked under two names is one file (#382).
+run printf '#include <stdio.h>\n\nvoid crc_log(void) { printf("crc"); }\n' > worker/internal/crc/log.c
+merl worker/internal/crc/log.c
+wait void crc_log
+key /
+type printf(
+key Enter d
+wait printf: by name
+key Escape

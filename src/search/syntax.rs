@@ -41,7 +41,26 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     if kind == Kind::Markdown {
         return markdown_literal_lines(text);
     }
-    scan(kind, text, usize::MAX).0
+    let mut out = scan(kind, text, usize::MAX).0;
+    // The body of a multi-line C `#define` declares nothing (#382): a `typedef ret name##_t
+    // args;` there names a macro's parameter. The `#define` line itself declares the macro.
+    if kind == Kind::C {
+        let mut define = false;
+        for (i, l) in text.lines().enumerate() {
+            let open = define;
+            if !open {
+                define = !out.get(i).copied().unwrap_or(false)
+                    && l.trim_start()
+                        .strip_prefix('#')
+                        .is_some_and(|d| d.trim_start().starts_with("define"));
+            }
+            if open && let Some(hidden) = out.get_mut(i) {
+                *hidden = true;
+            }
+            define &= l.trim_end().ends_with('\\');
+        }
+    }
+    out
 }
 /// Whether byte `at` of `text` stands inside a Rust string literal, between its quotes: nothing
 /// there names code (#346). Other kinds say no: a string there may name a type or a module.

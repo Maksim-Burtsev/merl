@@ -92,8 +92,17 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "dockerignore") => return None,
         ("Dockerfile" | "Containerfile", _) | (_, "dockerfile" | "Dockerfile") => Kind::Docker,
         _ if name.starts_with("Dockerfile.") || name.starts_with("Containerfile.") => Kind::Docker,
+        // libc++'s and libstdc++'s own headers have no extension: `c++/v1/string`,
+        // `c++/13/vector` (#382).
+        _ if !name.contains('.') && cpp_library(path) => Kind::C,
         _ => return None,
     })
+}
+/// Whether `path` is under a `c++/<dir>/` directory, where a C++ standard library keeps its
+/// headers.
+fn cpp_library(path: &Path) -> bool {
+    let mut parts = path.parent().into_iter().flat_map(Path::components);
+    parts.any(|c| c.as_os_str() == "c++") && parts.next().is_some()
 }
 /// Characters that belong to a name besides `[A-Za-z0-9_]`. Targets, services and Terraform
 /// labels are often `kebab-case`; `d` in Terraform reads the whole dotted `var.region` address.
