@@ -6,6 +6,7 @@ Help: Down
 Help: Up
 N
 Picker: Enter
+Picker: Esc
 Picker: PgDn
 Picker: PgUp
 Picker: Up
