@@ -243,6 +243,10 @@ Only when the owner asks for one, and with nothing open under `release-blocker`.
    - One line per changelog entry of the version, in the changelog's order: what you can do or
      what changed, the key or flag in backticks, the issue in parentheses. Up to ~12 words; no
      prose, no second sentence.
+   - Under `#### Better` and `#### Fixed`, the `d` lines leave the list for a folded block at the
+     end of their section, sorted so each language's lines stand together:
+     `<details><summary>N more <code>d</code> fixes, by language</summary>` (`improvements`
+     under Better). The owner asked for it on 0.8.0, whose 88 fixes were 63 `d` lines.
    - Last line, with the anchor GitHub builds from the version's heading (`## [0.8.0] -
      2026-09-27` is `#080---2026-09-27`); open the link to check it lands on the section:
      `` [Full changelog](https://github.com/Maksim-Burtsev/merl/blob/master/CHANGELOG.md#080---2026-09-27) · `brew upgrade merl` ``
