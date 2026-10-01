@@ -273,6 +273,7 @@ impl App {
             return false;
         }
         self.buf.lines.splice(from.0..=to.0, new.iter().cloned());
+        self.shift_collapsed(from.0, old.len(), new.len());
         self.go((from.0 + last, col));
         let edit = Edit {
             line: from.0,
@@ -318,6 +319,7 @@ impl App {
         self.buf
             .lines
             .splice(edit.line..edit.line + from.len(), to.iter().cloned());
+        self.shift_collapsed(edit.line, from.len(), to.len());
         self.go(at);
         if let Some((was, is)) = edit.format {
             self.buf.set_format(if back { was } else { is });

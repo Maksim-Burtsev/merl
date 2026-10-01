@@ -263,8 +263,8 @@ impl App {
     pub(super) fn paragraph(&mut self, dir: isize) {
         let blank = |t: TextLine| self.text(t).trim().is_empty();
         let step = |t: TextLine| match dir < 0 {
-            true => self.prev_line(t),
-            false => self.next_line(t),
+            true => self.prev_shown(t),
+            false => self.next_shown(t),
         };
         let mut t = self.at();
         while let Some(s) = step(t).filter(|_| blank(t)) {
@@ -290,7 +290,8 @@ impl App {
         n + hi.1 - row
     }
 
-    /// Walks `n` wrapped rows forwards from `(line, row)`, stopping at the end of the file.
+    /// Walks `n` wrapped rows forwards from `(line, row)`, over the lines a fold hides,
+    /// stopping at the end of the file.
     pub(super) fn forward_rows(
         &self,
         (mut line, mut row): (usize, usize),
@@ -301,8 +302,8 @@ impl App {
         for _ in 0..n {
             if row + 1 < count {
                 row += 1;
-            } else if line < last {
-                (line, row) = (line + 1, 0);
+            } else if let Some(next) = (line + 1..=last).find(|&l| !self.hidden(l)) {
+                (line, row) = (next, 0);
                 count = self.row_count(line);
             } else {
                 break;
@@ -314,7 +315,7 @@ impl App {
     pub(super) fn left(&mut self) {
         if self.col > 0 {
             self.col = prev_char(self.line_str(), self.col);
-        } else if let Some(t) = self.prev_line(self.at()) {
+        } else if let Some(t) = self.prev_shown(self.at()) {
             self.set_at(t);
             self.col = self.shown_len();
         }
@@ -324,7 +325,7 @@ impl App {
     pub(super) fn right(&mut self) {
         if self.col < self.shown_len() {
             self.col = next_char(self.line_str(), self.col);
-        } else if let Some(t) = self.next_line(self.at()) {
+        } else if let Some(t) = self.next_shown(self.at()) {
             self.set_at(t);
             self.col = 0;
         }
@@ -334,7 +335,7 @@ impl App {
     pub(super) fn word_right(&mut self) {
         if self.col < self.shown_len() {
             self.col = word_end(shown_str(self.line_str()), self.col);
-        } else if let Some(t) = self.next_line(self.at()) {
+        } else if let Some(t) = self.next_shown(self.at()) {
             self.set_at(t);
             self.col = 0;
         }
@@ -344,7 +345,7 @@ impl App {
     pub(super) fn word_left(&mut self) {
         if self.col > 0 {
             self.col = word_start(self.line_str(), self.col);
-        } else if let Some(t) = self.prev_line(self.at()) {
+        } else if let Some(t) = self.prev_shown(self.at()) {
             self.set_at(t);
             self.col = self.shown_len();
         }

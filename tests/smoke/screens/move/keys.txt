@@ -2,6 +2,7 @@
 Alt+Left
 Alt+Right
 Alt+Shift+Left
+Arrows
 Ctrl+D
 Ctrl+End
 Ctrl+Home
@@ -14,6 +15,7 @@ Home
 Shift+Left
 Shift+Right
 Shift+Up
+f
 q
 t
 v

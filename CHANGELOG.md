@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `f` folds the function the cursor is in into its first line, which ends in `⋯` and the
+  bracket or `end` that closes it: `def get(self, order_id: int) -> Order: ⋯`, `fn main() {⋯}`.
+  On a line that opens a block (an `if`, a loop) `f` folds that block; `f` on the folded line
+  unfolds it. Up and Down step over a fold, and anything that lands inside one opens it: `:`,
+  `/`, `n`, `d`, `u`, `s`, `[`. A fold stays with its file across jumps and moves with the
+  lines written above it. (#598)
 - `d`, `u` and `D` in Dart (`.dart`, Flutter included), where `d` said `no rules for .dart`.
   `d` on `formatPrice` lands on `String formatPrice(int cents) =>` in the project; on `get` of
   `http.get` behind `import 'package:http/http.dart' as http` it opens the `http` package's

@@ -20,6 +20,7 @@ use crate::wrap;
 
 mod at_base;
 mod c;
+mod collapse;
 mod component;
 mod cs_typed;
 mod cursor;
@@ -213,6 +214,11 @@ pub const KEYS: &[(&str, &str, &str)] = &[
         "Show a Markdown file rendered, or its source again",
         "General",
     ),
+    (
+        "f",
+        "Fold the function or block at the cursor into its first line, or unfold it",
+        "General",
+    ),
     ("T", "Pick a theme (live preview)", "General"),
     (
         "Esc",
@@ -357,6 +363,11 @@ pub struct App {
     /// Display columns scrolled off to the left while the file is not wrapped; follows the
     /// cursor in `clamp_scroll`.
     pub left: usize,
+    /// `f`: the folds of the open file, as (first line, last hidden line), sorted.
+    pub collapsed: Vec<(usize, usize)>,
+    /// The folds of each file left with some, as their first lines and what those said: coming
+    /// back opens the ones whose line says something else now.
+    collapsed_stash: HashMap<PathBuf, Vec<(usize, String)>>,
     /// Files `w` was pressed on: their wrapping is the opposite of what their kind gets.
     wrap_toggled: HashSet<PathBuf>,
     /// Markdown files `p` shows rendered, until `p` again or merl quits.
@@ -561,6 +572,8 @@ impl App {
             top_line: 0,
             top_row: 0,
             left: 0,
+            collapsed: Vec::new(),
+            collapsed_stash: HashMap::new(),
             wrap_toggled: HashSet::new(),
             previewed: HashSet::new(),
             preview: None,
@@ -733,6 +746,18 @@ impl App {
         }
     }
 
+    /// [`App::next_line`] over the lines a fold hides.
+    pub(super) fn next_shown(&self, t: TextLine) -> Option<TextLine> {
+        std::iter::successors(self.next_line(t), |&t| self.next_line(t))
+            .find(|t| !self.hidden(t.key()))
+    }
+
+    /// [`App::prev_line`] over the lines a fold hides.
+    pub(super) fn prev_shown(&self, t: TextLine) -> Option<TextLine> {
+        std::iter::successors(self.prev_line(t), |&t| self.prev_line(t))
+            .find(|t| !self.hidden(t.key()))
+    }
+
     /// The first line of the text: the lines deleted above the file's first, if any.
     pub(super) fn first_line(&self) -> TextLine {
         match self.deleted_at(0) {
@@ -814,9 +839,12 @@ impl App {
     }
 
     /// Screen rows of line `l`: its ghosts (review mode, drawn above the text) and then its
-    /// wrapped rows. A `(line, row)` pair counts rows from the first ghost; `lines.len()` has
-    /// the ghosts deleted at the end of the file only.
+    /// wrapped rows, none at all inside a fold. A `(line, row)` pair counts rows from the first
+    /// ghost; `lines.len()` has the ghosts deleted at the end of the file only.
     pub fn row_count(&self, l: usize) -> usize {
+        if self.hidden(l) {
+            return 0;
+        }
         let text = match l < self.buf.lines.len() {
             true => self.rows(l).len(),
             false => 0,

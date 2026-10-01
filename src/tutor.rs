@@ -74,6 +74,7 @@ pub const TUTOR: &[&str] = &[
     "Ctrl+Z",
     "w",
     "p",
+    "f",
     "Picker: Esc",
     "Esc",
 ];

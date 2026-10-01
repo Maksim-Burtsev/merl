@@ -9,6 +9,7 @@ const MAX_PINNED: usize = 2;
 impl App {
     /// Scrolls the minimum amount that puts the cursor back on screen.
     pub fn clamp_scroll(&mut self) {
+        self.reveal_cursor();
         // A wider or narrower pane wraps the top line into other rows (#412).
         self.clamp_top();
         self.clamp_left();
@@ -96,6 +97,12 @@ impl App {
         let end = self.buf.lines.len();
         if self.top_line != end || self.top_row >= self.ghost_rows(end) {
             self.top_line = self.top_line.min(end - 1);
+            // A fold closed over the top line: the view starts at the fold's first line.
+            if let Some(&(h, _)) =
+                (self.collapsed.iter()).find(|&&(h, e)| h < self.top_line && self.top_line <= e)
+            {
+                (self.top_line, self.top_row) = (h, 0);
+            }
             self.top_row = self.top_row.min(self.row_count(self.top_line) - 1);
         }
     }
@@ -108,7 +115,8 @@ impl App {
         (self.top_line, self.top_row) = self.back_rows(cur, (self.view_h - pins) / 2);
     }
 
-    /// Walks `n` wrapped rows backwards from `(line, row)`, stopping at the top of the file.
+    /// Walks `n` wrapped rows backwards from `(line, row)`, over the lines a fold hides,
+    /// stopping at the top of the file.
     pub(super) fn back_rows(
         &self,
         (mut line, mut row): (usize, usize),
@@ -118,7 +126,8 @@ impl App {
             if row > 0 {
                 row -= 1;
             } else if line > 0 {
-                line -= 1;
+                // Line 0 is never hidden: a fold hides the lines under its first.
+                line = (0..line).rev().find(|&l| !self.hidden(l)).unwrap_or(0);
                 row = self.row_count(line) - 1;
             } else {
                 break;

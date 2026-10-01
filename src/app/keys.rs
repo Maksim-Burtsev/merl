@@ -21,6 +21,7 @@ impl App {
         }
         let from = (work && self.session.is_some()).then(|| self.review_spot());
         let quit = self.key_inner(key);
+        self.reveal_cursor();
         let action = self.action.take();
         if let Some(from) = from {
             self.review_count(Some(at), from, action, quit);
@@ -229,6 +230,7 @@ impl App {
             }
             KeyCode::Char('T') => self.open_themes_picker(),
             KeyCode::Char('w') => self.toggle_wrap(),
+            KeyCode::Char('f') if !ctrl && self.focus == Focus::Code => self.toggle_collapse(),
             KeyCode::Char('p') => self.toggle_preview(),
             KeyCode::Tab if self.show_tree => {
                 self.focus = match self.focus {

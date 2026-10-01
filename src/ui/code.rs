@@ -19,6 +19,9 @@ use crate::wrap;
 
 use super::tagged;
 
+/// What stands for the lines a fold hides, after its first line.
+const FOLDED: &str = " \u{22ef} ";
+
 pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
     let gutter_w = digits(app.buf.lines.len()) + 1;
     app.view_w = (area.width as usize).saturating_sub(gutter_w).max(1);
@@ -95,6 +98,11 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     let mut l = app.top_line;
     let mut skip = app.top_row;
     while lines.len() < area.height as usize && l <= app.buf.lines.len() {
+        // Inside a fold: no row, its ghosts included. The top is never in one.
+        if app.hidden(l) {
+            l += 1;
+            continue;
+        }
         // Review: the lines the branch deleted here, above the text, unnumbered. `skip` counts
         // rows: the top of the view can sit inside a wrapped ghost, as it can sit on the lines
         // deleted at the end of the file, under the last line.
@@ -233,6 +241,16 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         let (before, after) = (nowrap && before, nowrap && after);
         let rows = if nowrap { vec![shown] } else { app.rows(l) };
         let last = rows.len() - 1;
+        // A folded line ends in `⋯` and the bracket or `end` that closes what it hides.
+        // A folded line ends in `⋯` and the bracket or `end` that closes what it hides.
+        let folded = app.collapsed_tail(l).map(|tail| {
+            let gap = if clipped.ends_with(['{', '(', '[']) {
+                ""
+            } else {
+                " "
+            };
+            (gap, tail)
+        });
         for (i, r) in rows.into_iter().enumerate() {
             let ell =
                 cut && i == last && (!nowrap || ellipsis_in_view(app, clipped, before, after));
@@ -268,11 +286,15 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             if lead > 0 {
                 row.push(Span::styled(" ".repeat(lead), t));
             }
+            let fold = folded.as_ref().filter(|_| i == last);
             let pad = app.view_w.saturating_sub(
                 lead + wrap::width(&clipped[r.clone()])
                     + usize::from(before)
                     + usize::from(after)
-                    + usize::from(ell),
+                    + usize::from(ell)
+                    + fold.map_or(0, |(gap, tail)| {
+                        gap.len() + wrap::width(FOLDED) + wrap::width(tail)
+                    }),
             );
             row.extend(selected_row(
                 clipped,
@@ -285,6 +307,18 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             let pad_style = if pad_selected { sel } else { t };
             if ell {
                 row.push(ellipsis(pad_style));
+            }
+            if let Some((gap, tail)) = fold {
+                // A chip, as VS Code draws its `⋯`: on the cursor line's band, or on the selection
+                // colour on the cursor line, which has the band already.
+                let chip = if cursor_line {
+                    theme.selection
+                } else {
+                    theme.line_hl
+                };
+                row.push(Span::styled(*gap, t));
+                row.push(Span::styled(FOLDED, t.bg(chip).fg(theme.fg)));
+                row.push(Span::styled(*tail, t));
             }
             if cursor_line || pad_selected || after || tint.is_some() {
                 // Pad so the line background reaches the right edge of the pane.
