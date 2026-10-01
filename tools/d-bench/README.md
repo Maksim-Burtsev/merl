@@ -1,7 +1,7 @@
 # `d` bench
 
-How often `d` lands where a language server would, per language, in 13 real projects pinned to a
-commit: 2,870 cursors, each with an answer recorded once and reviewed, and the table master
+How often `d` lands where a language server would, per language, in 14 real projects pinned to a
+commit: 3,140 cursors, each with an answer recorded once and reviewed, and the table master
 scores on them (`baseline.md`). A `d` change runs it and shows no language worse than master
 (`AGENTS.md`, `## Changing d`).
 
@@ -65,7 +65,12 @@ tools/d-bench/record.py oracle php              # -> answers/php.tsv, resumes wh
 sourcekit-lsp come from the Xcode command-line tools. clangd needs a `compile_commands.json`: for
 redis one was written for `src/*.c` (flags `-std=gnu11 -Isrc -Ideps/hiredis -Ideps/linenoise
 -Ideps/lua/src -Ideps/hdr_histogram -Ideps/fpconv -Ideps/xxhash -Ideps/tre -Isrc/modules`), for
-leveldb CMake wrote it (`cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON`). Java, Kotlin, C#
+leveldb CMake wrote it (`cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON`), for SDWebImage
+one was written for `SDWebImage/Core/*.m` and `SDWebImage/Private/*.m` (flags `-x objective-c
+-fobjc-arc -fmodules -isysroot $(xcrun --show-sdk-path) -ISDWebImage/Core -ISDWebImage/Private
+-ISDWebImage/include`), its cursors sampled with `--exclude
+Examples,Tests,WebImage,Docs,Scripts,SDWebImageMapKit,include` (`include/` links back into
+`Core/`). Java, Kotlin, C#
 and Ruby had no server on the recording machine: an agent judged their cursors by reading the
 code, and a definition outside the project (the JDK, a gem) is `no-answer` there.
 
