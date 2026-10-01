@@ -1606,8 +1606,6 @@ fn a_binary_file_is_an_empty_pane_with_a_centred_note() {
     assert_eq!(buf[(x, 3)].fg, theme.ghost_fg);
 }
 
-/// A folded line ends in `⋯` and the `}` that closes it, and the lines a fold pulls up from
-/// below the first screen come in their syntax colours (#598).
 #[test]
 fn a_fold_draws_its_tail_and_the_lines_under_it_in_colour() {
     let body: String = (0..30).map(|i| format!("    let x{i} = {i};\n")).collect();
@@ -1628,7 +1626,6 @@ fn a_fold_draws_its_tail_and_the_lines_under_it_in_colour() {
         rows(&terminal)[..2],
         ["1 fn f() { \u{22ef} }", "33 fn g() {}"]
     );
-    // `fn` of line 33 in the keyword colour, not the plain text one.
     let buf = terminal.backend().buffer();
     assert_ne!(
         buf[(3, 1)].fg,

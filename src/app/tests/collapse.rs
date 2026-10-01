@@ -1,5 +1,3 @@
-//! `f`: folding a function or a block into its first line.
-
 use super::*;
 use crate::app::collapse::block_end;
 
@@ -7,8 +5,6 @@ fn lines(text: &str) -> Vec<String> {
     text.lines().map(String::from).collect()
 }
 
-/// An app on `text` in a file of the test's own with the extension `ext`, so the file's kind
-/// picks its declarations.
 fn app_as(ext: &str, text: &str) -> App {
     let mut a = app(text);
     let path = a.buf.path.clone().unwrap().with_extension(ext);
@@ -66,7 +62,6 @@ fn f_folds_the_function_on_its_line_and_unfolds_it_again() {
     a.go((1, 4));
     key(&mut a, KeyCode::Char('f'));
     assert_eq!(a.collapsed, vec![(1, 4)]);
-    // Down steps over the hidden body, Up comes back to the folded line.
     key(&mut a, KeyCode::Down);
     assert_eq!(a.line, 5);
     key(&mut a, KeyCode::Up);
@@ -82,7 +77,6 @@ fn f_inside_a_body_folds_the_function_around_it() {
     key(&mut a, KeyCode::Char('f'));
     assert_eq!(a.collapsed, vec![(1, 4)], "`read`, not the `if`");
     assert_eq!(a.line, 1);
-    // A call wrapped onto the next lines opens no block of its own for `f`.
     let mut a = app_as("py", "def send(self):\n    self.post(\n        1,\n    )\n");
     a.go((1, 4));
     key(&mut a, KeyCode::Char('f'));
@@ -111,7 +105,6 @@ fn a_fold_moves_with_the_lines_typed_above_it() {
     key(&mut a, KeyCode::Enter);
     key(&mut a, KeyCode::Enter);
     assert_eq!(a.collapsed, vec![(7, 8)]);
-    // Typing on the folded line itself opens it.
     a.go((7, 0));
     key(&mut a, KeyCode::Char('x'));
     assert!(a.collapsed.is_empty());
@@ -233,7 +226,6 @@ fn a_find_that_passes_through_a_fold_and_is_cancelled_leaves_it_folded() {
     assert_eq!(a.line, 3, "the match shows, inside the fold");
     key(&mut a, KeyCode::Esc);
     assert_eq!((a.line, a.collapsed.clone()), (0, vec![(1, 4)]));
-    // Confirmed with Enter, the find leaves the cursor there and the fold open.
     key(&mut a, KeyCode::Char('/'));
     for c in "return 1".chars() {
         key(&mut a, KeyCode::Char(c));
@@ -260,4 +252,12 @@ fn f_works_on_a_markdown_source_shown_again_after_its_preview() {
     a.go((0, 0));
     key(&mut a, KeyCode::Char('f'));
     assert_eq!(a.collapsed, vec![(0, 1)]);
+}
+
+#[test]
+fn f_on_a_blank_line_folds_the_block_above_it() {
+    let mut a = app_as("py", PY);
+    a.go((5, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, vec![(1, 4)], "`read`, not the class");
 }

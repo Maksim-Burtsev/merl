@@ -290,8 +290,6 @@ impl App {
         n + hi.1 - row
     }
 
-    /// Walks `n` wrapped rows forwards from `(line, row)`, over the lines a fold hides,
-    /// stopping at the end of the file.
     pub(super) fn forward_rows(
         &self,
         (mut line, mut row): (usize, usize),

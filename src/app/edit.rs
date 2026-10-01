@@ -98,8 +98,6 @@ impl App {
             self.message = "deleted".into();
             return true;
         }
-        // Backspace or Delete that would join the line with one a fold hides opens the fold
-        // instead: the text a key changes is on screen first.
         let beside = match code {
             KeyCode::Backspace if self.col == 0 => self.line.checked_sub(1),
             KeyCode::Delete if self.col == self.line_str().len() => Some(self.line + 1),

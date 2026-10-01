@@ -19,7 +19,6 @@ use crate::wrap;
 
 use super::tagged;
 
-/// What stands for the lines a fold hides, after its first line.
 const FOLDED: &str = " \u{22ef} ";
 
 pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
@@ -27,8 +26,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     app.view_w = (area.width as usize).saturating_sub(gutter_w).max(1);
     app.view_h = area.height as usize;
     app.clamp_scroll();
-    // Wrapping only ever costs rows, so this covers every visible line but those a fold pulls
-    // up from below.
     let bottom = (app.top_line + app.view_h).max(app.bottom_line() + 1);
     app.buf.highlight_to(bottom, theme);
     // Review: the ghosts on screen take their colours from the base file, highlighted as far as
@@ -96,7 +93,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     let mut l = app.top_line;
     let mut skip = app.top_row;
     while lines.len() < area.height as usize && l <= app.buf.lines.len() {
-        // Inside a fold: no row, its ghosts included. The top is never in one.
         if app.hidden(l) {
             l += 1;
             continue;
@@ -239,8 +235,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         let (before, after) = (nowrap && before, nowrap && after);
         let rows = if nowrap { vec![shown] } else { app.rows(l) };
         let last = rows.len() - 1;
-        // A folded line ends in `⋯` and the bracket or `end` that closes what it hides.
-        // A folded line ends in `⋯` and the bracket or `end` that closes what it hides.
         let folded = app.collapsed_tail(l).map(|tail| {
             let gap = if clipped.ends_with(['{', '(', '[']) {
                 ""
@@ -307,8 +301,6 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 row.push(ellipsis(pad_style));
             }
             if let Some((gap, tail)) = fold {
-                // A chip, as VS Code draws its `⋯`: on the cursor line's band, or on the selection
-                // colour on the cursor line, which has the band already.
                 let chip = if cursor_line {
                     theme.selection
                 } else {

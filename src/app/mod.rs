@@ -364,10 +364,7 @@ pub struct App {
     /// Display columns scrolled off to the left while the file is not wrapped; follows the
     /// cursor in `clamp_scroll`.
     pub left: usize,
-    /// `f`: the folds of the open file, as (first line, last hidden line), sorted.
     pub collapsed: Vec<(usize, usize)>,
-    /// The folds of each file left with some, as their first lines and what those said: coming
-    /// back opens the ones whose line says something else now.
     collapsed_stash: HashMap<PathBuf, Vec<(usize, String)>>,
     /// Files `w` was pressed on: their wrapping is the opposite of what their kind gets.
     wrap_toggled: HashSet<PathBuf>,
@@ -747,13 +744,11 @@ impl App {
         }
     }
 
-    /// [`App::next_line`] over the lines a fold hides.
     pub(super) fn next_shown(&self, t: TextLine) -> Option<TextLine> {
         std::iter::successors(self.next_line(t), |&t| self.next_line(t))
             .find(|t| !self.hidden(t.key()))
     }
 
-    /// [`App::prev_line`] over the lines a fold hides.
     pub(super) fn prev_shown(&self, t: TextLine) -> Option<TextLine> {
         std::iter::successors(self.prev_line(t), |&t| self.prev_line(t))
             .find(|t| !self.hidden(t.key()))
@@ -839,9 +834,6 @@ impl App {
         })
     }
 
-    /// Screen rows of line `l`: its ghosts (review mode, drawn above the text) and then its
-    /// wrapped rows, none at all inside a fold. A `(line, row)` pair counts rows from the first
-    /// ghost; `lines.len()` has the ghosts deleted at the end of the file only.
     pub fn row_count(&self, l: usize) -> usize {
         if self.hidden(l) {
             return 0;
