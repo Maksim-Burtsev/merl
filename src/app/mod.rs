@@ -20,6 +20,7 @@ use crate::wrap;
 
 mod at_base;
 mod c;
+mod component;
 mod cs_typed;
 mod cursor;
 mod definition;

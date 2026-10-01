@@ -229,7 +229,7 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | Language | `d` also reaches |
 |---|---|
 | Python | the standard library and the `.venv` |
-| TypeScript, JavaScript | `node_modules` |
+| TypeScript, JavaScript, Vue, Svelte, Astro | `node_modules` |
 | Go | GOROOT and the modules in `go.mod` |
 | Rust | the sysroot and the crates in `Cargo.lock` |
 | C, C++, Objective-C | the system headers, and from Objective-C the SDK's frameworks and CocoaPods' `Pods/` |

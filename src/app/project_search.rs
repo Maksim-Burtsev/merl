@@ -133,10 +133,11 @@ impl App {
         } else {
             regex::escape(&query)
         };
-        Some(SearchJob {
-            symbols,
-            ..self.grep_job(self.search_seq, &pattern, |_| true)
-        })
+        let mut job = self.grep_job(self.search_seq, &pattern, |_| true);
+        if symbols {
+            job.deleted = self.symbol_deleted();
+        }
+        Some(SearchJob { symbols, ..job })
     }
 
     /// Test helper: the pending grep, run here, and its rows in the picker.

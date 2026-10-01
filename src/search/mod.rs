@@ -10,6 +10,7 @@
 
 mod bindings;
 mod c;
+mod component;
 mod csharp;
 mod csproj;
 mod defs;
@@ -38,6 +39,7 @@ mod words;
 
 pub use bindings::*;
 pub use c::*;
+pub use component::*;
 pub use csharp::*;
 pub use csproj::*;
 pub use defs::*;
