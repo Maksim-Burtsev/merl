@@ -66,6 +66,10 @@ pub fn attr_at(line: &str, col: usize, jsx: bool) -> Option<(Attr, Range<usize>)
         }
         return (start < end).then_some((attr, start..end));
     }
+    // Svelte's directive: a `"class:x"` in a TypeScript string is no attribute.
+    if jsx {
+        return None;
+    }
     SVELTE
         .captures_iter(line)
         .filter_map(|c| c.get(1))
@@ -569,13 +573,22 @@ pub fn html_literal_lines(text: &str) -> Vec<bool> {
 }
 
 /// The lines of a stylesheet that declare `word`, as `u` marks them: a custom property's
-/// `--word:`, a variable, a mixin, a function, a placeholder, a keyframes name, a rule whose
-/// selector writes the class or the id.
+/// `--word:`, a variable, a mixin, a function, a placeholder, a keyframes name, and a selector
+/// that writes the class or the id, which [`css_declares`] then holds to what its rule styles.
 pub fn css_patterns(word: &str) -> Vec<String> {
+    let w = regex::escape(word);
+    let mut out = named_patterns(word);
+    if !word.starts_with("--") {
+        out.push(format!(r"[.#]{w}(?:[^\w;-][^;]*)?[{{,]\s*$"));
+    }
+    out
+}
+
+/// [`css_patterns`] but the selector.
+fn named_patterns(word: &str) -> Vec<String> {
     if word.starts_with("--") {
         return sheet_patterns(&Sheet::Custom(word.to_owned()));
     }
-    let w = regex::escape(word);
     let n = word.to_owned();
     [
         Sheet::Var(None, n.clone()),
@@ -587,8 +600,23 @@ pub fn css_patterns(word: &str) -> Vec<String> {
     ]
     .iter()
     .flat_map(sheet_patterns)
-    .chain([format!(r"[.#]{w}(?:[^\w;-][^;]*)?[{{,]\s*$")])
     .collect()
+}
+
+/// Whether 1-based `line` of a stylesheet, which one of [`css_patterns`] matched, declares
+/// `word`: a selector only when its rule styles the class or the id, as `d` reads it; any other
+/// declaration line as it stands. `text` reads the file, and only for a selector.
+pub fn css_declares(
+    word: &str,
+    line: usize,
+    line_text: &str,
+    text: impl FnOnce() -> String,
+) -> bool {
+    let named = Regex::new(&named_patterns(word).join("|")).is_ok_and(|re| re.is_match(line_text));
+    named
+        || rules(&text())
+            .iter()
+            .any(|r| r.line == line && r.classes.iter().chain(&r.ids).any(|n| n == word))
 }
 
 /// `line` of a stylesheet without its comments: a `/* … */` on it, and what follows a `//` outside

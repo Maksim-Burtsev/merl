@@ -3,7 +3,7 @@
 }
 .btn-primary {
   color: var(--brand);
-  //         ^ d: picker src/styles.css:2, src/styles.css:41
+  //         ^ d: picker src/styles.css:2, src/styles.css:42
   // status: --brand: by name, 2 declarations
   border-color: var(--edge, #000);
   //                  ^ d: src/styles.css:37
@@ -38,6 +38,7 @@ a.btn-ghost.active {
   syntax: '<color>';
 }
 .theme-dark {
+//^ d: src/styles.css:40
   --brand: #0f9;
 }
 @import url("base.css");

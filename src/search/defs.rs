@@ -1062,6 +1062,13 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
 ) -> bool {
     match kind {
         Kind::Graphql => !line_text.starts_with([' ', '\t']) || graphql_member(lines(), line),
+        Kind::Css => css_declares(word, line, line_text, || {
+            lines()
+                .iter()
+                .map(AsRef::as_ref)
+                .collect::<Vec<&str>>()
+                .join("\n")
+        }),
         Kind::Go if line_text.starts_with([' ', '\t']) => {
             let local = line_text
                 .trim_start()

@@ -41,9 +41,18 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     if kind == Kind::Markdown {
         return markdown_literal_lines(text);
     }
-    // HTML's is the `<!-- … -->` comment (#415).
+    // HTML's is the `<!-- … -->` comment (#415). A stylesheet a `<style>` block of markup holds
+    // is lexed alone, the rest of the file blank: a `/*` in a template is no comment of it.
     if kind == Kind::Html {
         return html_literal_lines(text);
+    }
+    if kind == Kind::Css && text.contains("<style") {
+        let html = html_literal_lines(text);
+        let mut out = scan(kind, &style_blocks(text), usize::MAX).0;
+        for (o, h) in out.iter_mut().zip(html) {
+            *o |= h;
+        }
+        return out;
     }
     let mut out = scan(kind, text, usize::MAX).0;
     // The body of a multi-line C `#define` declares nothing (#382): a `typedef ret name##_t

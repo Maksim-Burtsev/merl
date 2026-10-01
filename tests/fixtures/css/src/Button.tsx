@@ -16,3 +16,16 @@ export function plain() {
   return primary
   //      ^ d: src/Button.tsx:15
 }
+export const active = 2
+const m = "class:active"
+//               ^ d: src/Button.tsx:19
+export const Wrapped = () => (
+  <main
+    id="main"
+    //   ^ d: src/styles.css:31
+    disabled className="btn-primary"
+    //                   ^ d: src/styles.css:4
+  >x</main>
+)
+export const Card = () => <p className="vcard">c</p>
+//                                       ^ d: src/Card.vue:7

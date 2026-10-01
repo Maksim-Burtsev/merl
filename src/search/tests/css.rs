@@ -163,3 +163,32 @@ fn style_blocks_keep_their_lines_and_blank_the_rest() {
         [false, false, true, false]
     );
 }
+
+#[test]
+fn d_lists_a_stylesheets_mixins_functions_placeholders_and_keyframes() {
+    for (line, want) in [
+        ("@mixin button-variant($bg) {", Some("button-variant")),
+        ("@function tint-color($c) {", Some("tint-color")),
+        ("%message-shared {", Some("message-shared")),
+        ("@keyframes spin {", Some("spin")),
+        ("@-webkit-keyframes spin {", Some("spin")),
+        (".btn-primary {", None),
+        ("  --brand: #0a7;", None),
+        ("$primary: #0d6efd;", None),
+    ] {
+        let want: Vec<String> = want.into_iter().map(str::to_owned).collect();
+        assert_eq!(listed(Kind::Css, line), want, "{line}");
+    }
+    assert!(!shared_symbols(Some(Kind::Css)));
+    assert!(shared_symbols(Some(Kind::Html)));
+}
+
+#[test]
+fn a_style_block_is_lexed_alone_in_its_markup() {
+    let vue =
+        "<p>src/*.ts</p>\n<style>\n.a {}\n/* x\n*/\n</style>\n<!--\n<style>.b {}</style>\n-->\n";
+    let literal = literal_lines(Kind::Css, vue);
+    assert!(!literal[2], ".a after a glob in the template");
+    assert!(literal[4], "inside the block's own comment");
+    assert!(literal[7], "inside an HTML comment");
+}

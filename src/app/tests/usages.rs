@@ -554,7 +554,7 @@ fn usages_of_a_class_and_a_custom_property_read_them_whole() {
         &[
             (
                 "src/styles.css",
-                ":root {\n  --brand: #0a7;\n}\n.btn-primary {\n  color: var(--brand);\n}\n.btn {\n}\n",
+                ":root {\n  --brand: #0a7;\n}\n.btn-primary {\n  color: var(--brand);\n}\n.btn {\n}\n.btn-primary .icon {\n}\n",
             ),
             (
                 "src/Button.tsx",
@@ -569,6 +569,8 @@ fn usages_of_a_class_and_a_custom_property_read_them_whole() {
             ("declaration".to_string(), "src/styles.css:4".to_string()),
             (String::new(), "src/Button.tsx:1".into()),
             (String::new(), "src/Button.tsx:3".into()),
+            // It styles `.icon`, so `d` does not offer it, and neither is it marked.
+            (String::new(), "src/styles.css:9".into()),
         ]
     );
     a.picker = None;

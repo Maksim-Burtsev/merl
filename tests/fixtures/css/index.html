@@ -7,7 +7,7 @@
 <a href="#main">skip</a>
 #          ^ d: index.html:16
 <a href="/base.css">base</a>
-#           ^ d: src/base.css:1
+#           ^ d: picker src/base.css:1, vendor/base.css:1
 <a href="https://example.com/">out</a>
 #            ^ d: none
 # status: no file in the project: a URL
@@ -23,3 +23,8 @@
 #           ^ d: index.html:20
 <p>A paragraph about btn-primary</p>
 #                        ^ d: none
+<link rel="stylesheet" href="src/base.css?v=2">
+#                               ^ d: src/base.css:1
+<a href="#nowhere">x</a>
+#          ^ d: none
+# status: no id #nowhere in index.html

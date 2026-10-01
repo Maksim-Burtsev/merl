@@ -198,7 +198,7 @@ impl App {
         self.show_definitions(Kind::Css, word, here, found, None);
     }
 
-    /// The lines of `path` (from the root, or outside the project) that `re` matches; in a
+    /// The lines of `path`, from the root, that `re` matches; in a
     /// `<style>` block only, when `blocks`.
     fn matching_lines(&self, path: &Path, re: &Regex, blocks: bool) -> Vec<Hit> {
         let Some(text) = self.text_of(path) else {
@@ -244,11 +244,11 @@ impl App {
             .find(|rel| self.root.join(rel).is_file());
         beside.or_else(|| {
             dir.ancestors().find_map(|d| {
-                let modules = self.root.join(d).join("node_modules");
+                let modules = d.join("node_modules");
                 candidates
                     .iter()
                     .map(|c| modules.join(c))
-                    .find(|p| p.is_file())
+                    .find(|p| self.root.join(p).is_file())
             })
         })
     }
