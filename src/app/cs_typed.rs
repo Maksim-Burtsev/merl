@@ -507,7 +507,12 @@ impl App {
     /// Whether the bare C# `word` at `range` of the cursor's line is looked up as a type alone
     /// (#360). After `is` a constant pattern may stand too, `x is Max` with a `const int Max`
     /// (#581): a type of the name in sight still wins, and with none it is the search by name.
-    pub(super) fn cs_types_only(&self, here: &Path, word: &str, range: std::ops::Range<usize>) -> bool {
+    pub(super) fn cs_types_only(
+        &self,
+        here: &Path,
+        word: &str,
+        range: std::ops::Range<usize>,
+    ) -> bool {
         let line = self.line_str();
         if !search::cs_type_position(line, range.start, range.end) {
             return false;
