@@ -1975,3 +1975,86 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
     );
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// #417. An Objective-C file reads the SDK's frameworks, `<Foundation/NSString.h>` being
+/// `Foundation.framework/Headers/NSString.h`, and an imported one first: Kit's namesake is not
+/// what Foundation's import reaches. A C file and a header with no Objective-C in it read none of
+/// them, and a system header linked into a framework stays the C file's; a header with an
+/// `#import` does read them.
+#[test]
+fn objc_reads_the_frameworks_and_c_does_not() {
+    let (dir, mut a) = project_app(
+        "objc-frameworks",
+        &[
+            (
+                "Shop.m",
+                "#import <Foundation/Foundation.h>\n\nNSString *shop_name(void) { return nil; }\n",
+            ),
+            (
+                "Shop.h",
+                "#import <Foundation/Foundation.h>\n\nNSString *shop_title(void);\n",
+            ),
+            ("plain.h", "NSString *plain_title(void);\n"),
+            (
+                "shop.c",
+                "#include <stdio.h>\n#include <tcl.h>\n\nNSString *c_name(void) { return 0; }\nint c_init(void) { return Tcl_Init(); }\n",
+            ),
+        ],
+    );
+    let root = external_root(
+        "objc-frameworks",
+        &[
+            ("include/stdio.h", "int printf(const char *f, ...);\n"),
+            (
+                "System/Library/Frameworks/Foundation.framework/Headers/Foundation.h",
+                "#import <Foundation/NSString.h>\n",
+            ),
+            (
+                "System/Library/Frameworks/Foundation.framework/Headers/NSString.h",
+                "@interface NSString : NSObject\n@end\n",
+            ),
+            (
+                "System/Library/Frameworks/Kit.framework/Headers/Kit.h",
+                "@interface NSString : NSObject\n@end\n",
+            ),
+            (
+                "System/Library/Frameworks/Tcl.framework/Headers/tcl.h",
+                "int Tcl_Init(void);\n",
+            ),
+        ],
+    );
+    let frameworks = root.join("System/Library/Frameworks");
+    // The SDK's `usr/include/tcl.h` is a link into `Tcl.framework`: a C file keeps it.
+    std::os::unix::fs::symlink(
+        frameworks.join("Tcl.framework/Headers/tcl.h"),
+        root.join("include/tcl.h"),
+    )
+    .unwrap();
+    use_roots(&mut a, Kind::C, &[root.join("include"), frameworks.clone()]);
+    let nsstring = frameworks.join("Foundation.framework/Headers/NSString.h");
+    for file in ["Shop.m", "Shop.h"] {
+        d_on(&mut a, file, "NSString");
+        assert_eq!(
+            shown(&mut a),
+            jump(
+                "NSString: by name, 1 match",
+                &format!("{}:1", nsstring.display())
+            ),
+            "{file}"
+        );
+    }
+    for file in ["shop.c", "plain.h"] {
+        d_on(&mut a, file, "NSString");
+        assert_eq!(a.message, "no definition for NSString", "{file}");
+    }
+    d_on(&mut a, "shop.c", "Tcl_Init");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Tcl_Init: by name, 1 match",
+            &format!("{}:1", root.join("include/tcl.h").display())
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}

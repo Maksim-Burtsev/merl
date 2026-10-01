@@ -262,11 +262,14 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 format!(r"^\w[^;(){{}}=<>]*[\s*&]{w}\s*(?:\[[^\]]*\])*\s*(?:=[^=]|;)"),
                 // An enum constant, on a line of its own or in a one-line `enum X { A, B };`,
                 // and a member function declared with no body (#373). Callers index the rules
-                // above, so these stay last.
+                // above, so these stay last, Objective-C's after them (#417).
                 c_enumerators(Some(word)),
                 c_enum_line(word),
                 c_member_decl(Some(word)),
             ]
+            .into_iter()
+            .chain(objc_patterns(word))
+            .collect()
         }
         // C# writes its modifiers and its attributes in front of everything and its type before
         // the name, as Java does, so a member is told from a call by that type: a primitive,
@@ -595,10 +598,10 @@ fn in_class_body(text: &str, line: usize) -> bool {
         .is_some_and(|l| CLASS.is_match(l))
 }
 /// Of the C and C++ candidates for `word` found by name, the ones the file `here` can see (#364).
-/// A source file (`.c`, `.cc`, `.cpp`, `.cxx`) is compiled alone, so what another one declares
-/// `static` at file scope, with `#define` or inside an unnamed `namespace {` is visible in no
-/// other file: those rows go, unless `here` `#include`s that file or that file `#include`s
-/// `here`. A header's rows stay, as do types (an opaque struct's body lives in one source
+/// A source file (`.c`, `.cc`, `.cpp`, `.cxx`, `.m`, `.mm`) is compiled alone, so what another
+/// one declares `static` at file scope, with `#define` or inside an unnamed `namespace {` is
+/// visible in no other file: those rows go, unless `here` `#include`s that file or that file
+/// `#include`s `here`. A header's rows stay, as do types (an opaque struct's body lives in one source
 /// file). In `here` itself a file-scope `static` hides every other declaration of the name, so
 /// it is the answer — unless the cursor stands `on` a candidate, where the others are offered as
 /// namesakes.
@@ -636,7 +639,7 @@ pub fn c_file_local(
     let source = |p: &Path| {
         p.extension()
             .and_then(|e| e.to_str())
-            .is_some_and(|e| matches!(e, "c" | "cc" | "cpp" | "cxx"))
+            .is_some_and(|e| matches!(e, "c" | "cc" | "cpp" | "cxx" | "m" | "mm"))
     };
     // The X-macro idiom: a source file that `#define`s a name and then `#include`s `here` hands
     // it what it declares. A quoted include is looked up next to the file first, so a namesake
