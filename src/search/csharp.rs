@@ -43,7 +43,7 @@ pub fn cs_place(text: &str, line: usize, word: &str) -> CsPlace {
     let Some(target) = line.checked_sub(1).and_then(|k| lines.get(k)) else {
         return CsPlace::Top;
     };
-    let namespace = |l: &str| l.trim_start().starts_with("namespace ");
+    let namespace = cs_namespace_line;
     let Some(first) = cs_enclosing(&lines, line - 1) else {
         return CsPlace::Top;
     };
@@ -69,6 +69,12 @@ pub fn cs_place(text: &str, line: usize, word: &str) -> CsPlace {
         from: member + 1,
         to: cs_block_end(&lines, member) + 1,
     }
+}
+
+/// Whether `line` opens a namespace, past the byte order mark a file's first line may carry.
+pub(super) fn cs_namespace_line(line: &str) -> bool {
+    line.trim_start_matches(['\u{feff}', ' ', '\t'])
+        .starts_with("namespace ")
 }
 
 /// Whether a member line reads as private: `private` (not `private protected`), or no access
@@ -573,7 +579,7 @@ pub fn cs_owner(text: &str, line: usize) -> Option<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let mut k = line.checked_sub(1).filter(|&k| k < lines.len())?;
     while let Some(e) = cs_enclosing(&lines, k) {
-        if lines[e].trim_start().starts_with("namespace ") {
+        if cs_namespace_line(lines[e]) {
             return None;
         }
         if cs_type_decl(lines[e]).is_some() {
@@ -755,4 +761,221 @@ pub fn cs_extended(line: &str) -> Option<String> {
         Regex::new(&format!(r"\(\s*this\s+({CS_TYPE})\s+@?\w+")).unwrap()
     });
     Some(THIS.captures(line)?[1].to_owned())
+}
+
+/// Whether the C# word at bytes `start..end` of `line` stands where only a type can (#360): an
+/// identifier follows it, past its generic arguments, a `?` written against it and `[]`
+/// (`Buyer buyer`, `Buyer Update(`, `Buyer[] all`), save a contextual keyword (`x is T`); `new`,
+/// `typeof(`, `is` or `as` precedes it; or it is a cast `(T)x`, a generic argument
+/// (`Dictionary<int, Buyer>`) or a base in a type's header. `Name.` is not one: C# may mean a
+/// property of the same name there ("Color Color").
+pub fn cs_type_position(line: &str, start: usize, end: usize) -> bool {
+    static FOLLOWED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(
+            "^",
+            cs_generics!(),
+            r"\??(?:\[[,\s]*\])*\??\s+@?([A-Za-z_]\w*)"
+        ))
+        .unwrap()
+    });
+    const CONTEXTUAL: &[&str] = &[
+        "is",
+        "as",
+        "in",
+        "and",
+        "or",
+        "not",
+        "when",
+        "with",
+        "switch",
+        "by",
+        "on",
+        "equals",
+        "into",
+        "ascending",
+        "descending",
+        "select",
+        "where",
+        "orderby",
+        "group",
+        "join",
+        "let",
+        "from",
+    ];
+    let (before, after) = (&line[..start], &line[end..]);
+    if before.ends_with('.') || after.trim_start().starts_with('.') {
+        return false;
+    }
+    if FOLLOWED
+        .captures(after)
+        .is_some_and(|c| !CONTEXTUAL.contains(&&c[1]))
+    {
+        return true;
+    }
+    let b = before.trim_end();
+    let ident = |c: char| c.is_alphanumeric() || c == '_';
+    let keyword = |s: &str, k: &str| s.strip_suffix(k).is_some_and(|r| !r.ends_with(ident));
+    if ["new", "is", "as"].iter().any(|k| keyword(b, k)) {
+        return true;
+    }
+    if let Some(pre) = before.strip_suffix('(').map(str::trim_end) {
+        if keyword(pre, "typeof") {
+            return true;
+        }
+        // A cast: `(T)` with no call or keyword in front of its bracket, a value after it.
+        let cast_after = Regex::new(concat!(
+            r"^",
+            cs_generics!(),
+            r#"\??(?:\[[,\s]*\])*\s*\)\s*[\w@($"]"#
+        ))
+        .is_ok_and(|re| re.is_match(after))
+            // `(Items) is null`: a keyword after the bracket, not a value being cast.
+            && !Regex::new(r"^[^)]*\)\s*(?:is|as|switch|with|and|or|when)\b")
+                .is_ok_and(|re| re.is_match(after));
+        let opens = !pre.ends_with([')', ']', '>'])
+            && (!pre.ends_with(ident)
+                || ["return", "await", "throw"].iter().any(|k| keyword(pre, k)));
+        if cast_after && opens {
+            return true;
+        }
+    }
+    cs_generic_argument(before, after) || cs_base_listed(line, before)
+}
+
+/// Whether the word between `before` and `after` is inside a generic argument list: a `<` right
+/// after a name, closed by a `>` on the line, with nothing but names, `,`, `.`, `?`, `[]` and
+/// nested lists in between. A `<` after a space is a comparison.
+fn cs_generic_argument(before: &str, after: &str) -> bool {
+    let typeish = |c: char| c.is_alphanumeric() || " \t_.,?[]@".contains(c);
+    let mut depth = 0;
+    let mut open = None;
+    for (i, c) in before.char_indices().rev() {
+        match c {
+            '>' => depth += 1,
+            '<' if depth == 0 => {
+                open = Some(i);
+                break;
+            }
+            '<' => depth -= 1,
+            c if typeish(c) => {}
+            _ => return false,
+        }
+    }
+    let Some(open) = open else {
+        return false;
+    };
+    if !before[..open].ends_with(|c: char| c.is_alphanumeric() || c == '_') {
+        return false;
+    }
+    let mut depth = 0;
+    for c in after.chars() {
+        match c {
+            '<' => depth += 1,
+            '>' if depth == 0 => return true,
+            '>' => depth -= 1,
+            c if typeish(c) => {}
+            _ => return false,
+        }
+    }
+    false
+}
+
+/// Whether the word after `before` is a base in the type header `line` declares: right after the
+/// `:` of its base list or a `,` of it, outside any bracket.
+fn cs_base_listed(line: &str, before: &str) -> bool {
+    if cs_type_decl(line).is_none() || !before.trim_end().ends_with([':', ',']) {
+        return false;
+    }
+    let mut depth = 0i32;
+    let mut colon = false;
+    for c in before.chars() {
+        match c {
+            '(' | '<' | '[' => depth += 1,
+            ')' | '>' | ']' => depth -= 1,
+            ':' if depth == 0 => colon = true,
+            _ => {}
+        }
+    }
+    colon && depth == 0
+}
+
+/// The namespace a C# word at bytes `start..end` of `line` is a segment of (#360), up to and
+/// including it, and whether the line says so for certain: on a `using`, `global using` or
+/// `namespace` line (`true`), and in a `global::A.B` path (`false`, where the last name may be a
+/// type). An alias's `using X = …` and a `using static` name a type, and are none.
+pub fn cs_namespace_prefix(line: &str, start: usize, end: usize) -> Option<(String, bool)> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\u{feff}?\s*(?:(?:global\s+)?using|namespace)\s+([\w.\s]*)$").unwrap()
+    });
+    let dotted = |s: &str| -> String { s.chars().filter(|c| !c.is_whitespace()).collect() };
+    let rest = line[end..].trim_start();
+    if let Some(c) = HEAD.captures(&line[..start])
+        && !c[0].contains("static ")
+        && (rest.starts_with(['.', ';', '{']) || rest.is_empty())
+    {
+        return Some((dotted(&format!("{}{}", &c[1], &line[start..end])), true));
+    }
+    let at = line[..start].rfind("global::")?;
+    let path = &line[at + "global::".len()..start];
+    path.chars()
+        .all(|c| c.is_alphanumeric() || c == '_' || c == '.')
+        .then(|| (format!("{path}{}", &line[start..end]), false))
+}
+
+/// How many arguments the call of the C# word ending at byte `end` of 0-based `line` passes: the
+/// top-level commas between its brackets, over the lines it wraps onto (#360). `None` off a call,
+/// or when the list is not read to its closing bracket, or reads two ways (a `<` that may be a
+/// comparison or a generic argument list).
+pub fn cs_arguments<S: AsRef<str>>(lines: &[S], line: usize, end: usize) -> Option<usize> {
+    let text = lines.get(line)?.as_ref();
+    let after = &text[end..];
+    let generics = Regex::new(concat!("^", cs_generics!(), r"\s*\(")).ok()?;
+    let open = end + generics.find(after)?.end() - 1;
+    let rows: Vec<&str> = lines.iter().map(AsRef::as_ref).collect();
+    let (inner, _, _) = group(Kind::CSharp, &rows, line, open)?;
+    cs_count(&inner)
+}
+
+/// How many arguments a C# method declared on 1-based `line` of `text` as `word` takes: the
+/// fewest, the most (`None` past a `params` array), and whether the first is an extension's
+/// `this`. `None` for a line declaring no method of the name, or a list not read.
+pub fn cs_parameters(text: &str, line: usize, word: &str) -> Option<(usize, Option<usize>, bool)> {
+    let rows: Vec<&str> = text.lines().collect();
+    let l = *rows.get(line.checked_sub(1)?)?;
+    if cs_type_decl(l).is_some() || Regex::new(r"\bdelegate\b").ok()?.is_match(l) {
+        return None;
+    }
+    let head = Regex::new(&format!(
+        concat!(r"\b{}\s*", cs_generics!(), r"\s*\("),
+        regex::escape(word)
+    ))
+    .ok()?;
+    let open = head.find(l)?.end() - 1;
+    let (inner, _, _) = group(Kind::CSharp, &rows, line - 1, open)?;
+    // A declaration compares nothing, so every `<` opens a generic argument list.
+    let parts = cs_split(&inner);
+    let total = if inner.trim().is_empty() {
+        0
+    } else {
+        parts.len()
+    };
+    let params = parts.iter().any(|p| p.trim_start().starts_with("params "));
+    let optional = parts
+        .iter()
+        .filter(|p| p.contains('=') || p.trim_start().starts_with("params "))
+        .count();
+    let this = parts
+        .first()
+        .is_some_and(|p| p.trim_start().starts_with("this "));
+    Some((total - optional, (!params).then_some(total), this))
+}
+
+/// The items of a C# call's `inner` text, cut at its top-level commas; `None` when a `<` makes it
+/// read two ways, a comparison or a generic argument list.
+fn cs_count(inner: &str) -> Option<usize> {
+    if inner.trim().is_empty() {
+        return Some(0);
+    }
+    let n = split_top(Kind::CSharp, inner, b',').len();
+    (cs_split(inner).len() == n).then_some(n)
 }

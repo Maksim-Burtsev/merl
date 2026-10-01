@@ -145,6 +145,13 @@ impl App {
             self.show_definitions(kind, &word, &here, found, None);
             return;
         }
+        // A segment of a C# `using` or `namespace` line names a namespace, and nothing else (#360).
+        if kind == Kind::CSharp
+            && let Some(found) = self.cs_namespace_segment(&here, &range)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
         // An Elixir `alias` names the module a qualifier stands for (#459).
         let chain = match kind {
             Kind::Elixir => search::elixir_unalias(&text, self.line, chain),
@@ -616,6 +623,19 @@ impl App {
                 .map(|m| m.join("|")),
         };
         let mut patterns = search::def_patterns(kind, &word);
+        // Where only a C# type can stand, only a type's rules count (#360): a type, a delegate, an
+        // alias, and no constructor, property or namespace of the name.
+        let cs_type = kind == Kind::CSharp
+            && !dotted
+            && chain.is_empty()
+            && search::cs_type_position(self.line_str(), range.start, range.end);
+        if cs_type {
+            patterns = vec![
+                patterns[0].clone(),
+                patterns[1].clone(),
+                patterns[3].clone(),
+            ];
+        }
         // A Ruby local is seen from its own method or block alone, and a value has none: its
         // assignments are this file's where the cursor sees them, below, never a search by name
         // (#383). A constant is the project's.
@@ -787,6 +807,7 @@ impl App {
         }
         // A receiver whose type is proven narrows the member to that type (#68, steps 2 to 4).
         let mut broke = None;
+        let mut cs_walked = None;
         // C# writes its types everywhere: a member of an object initializer's type, or of the
         // type a receiver is declared with; a type the project does not declare is the
         // framework's, and so is its member (#352).
@@ -811,6 +832,16 @@ impl App {
                 }
                 Some(Err(at)) => broke = (chain.len() > 1).then_some(at),
                 None => {}
+            }
+            // A bare name is the type's around it first, as C# resolves it (#360).
+            if !dotted && chain.is_empty() && locals.is_empty() && !before.ends_with("::") {
+                match self.cs_class_first(&here, &word, cs_type) {
+                    Ok(found) => {
+                        self.show_definitions(kind, &word, &here, found, None);
+                        return;
+                    }
+                    Err(walked) => cs_walked = walked.filter(|_| !declares_here),
+                }
             }
         }
         // A chain with no name to start from may hang off a call: `make_uow().users.word` (#100).
@@ -1394,73 +1425,14 @@ impl App {
             }
         }
         // A C# `Offer.Cut` whose qualifier is an `enum` of the project is a member its body
-        // lists (#466). A bare `Cut` has no rule: in C# only a `using static` brings it in.
-        // The enum's namespace has to be one this file sees, or a namesake the SDK brings in
-        // (MAUI's `PermissionStatus`) would pass for the project's.
-        if kind == Kind::CSharp && pathed && locals.is_empty() {
-            let owner = &chain[chain.len() - 1];
-            let owners = search::def_patterns(kind, owner).join("|");
-            let members: Vec<(Candidate, String)> = self
-                .project_definitions(kind, &here, owner, &owners)
-                .into_iter()
-                .filter_map(|h| {
-                    let text = self.text_of(&h.path)?;
-                    let (line, col) = search::enum_member(kind, &text, h.line, &word)?;
-                    let hit = Hit {
-                        deleted: None,
-                        text: text.lines().nth(line - 1)?.to_owned(),
-                        path: h.path,
-                        line,
-                        col,
-                    };
-                    let reason = Reason::Path(path.clone());
-                    Some((Candidate { hit, reason }, search::cs_namespace(&text, line)))
-                })
-                .collect();
-            let prefix = chain[..chain.len() - 1].join(".");
-            let inside = search::cs_namespace(&text, self.line + 1);
-            let mut opened = search::cs_usings(&text);
-            if !members.is_empty() {
-                // `global using` in any file of the `.csproj` this file is in, `<Using Include>` in
-                // that `.csproj`: a solution's other projects open their own.
-                let csproj = |d: &Path| {
-                    self.files.iter().any(|f| {
-                        f.parent() == Some(d) && f.extension().is_some_and(|e| e == "csproj")
-                    })
-                };
-                let project = here
-                    .ancestors()
-                    .skip(1)
-                    .find(|d| csproj(d))
-                    .unwrap_or(Path::new(""));
-                let global = r#"^\u{feff}?\s*global\s+using\s+[\w.]+\s*;|<Using\s+Include=""#;
-                let files = |p: &Path| {
-                    p.starts_with(project)
-                        && p.extension().is_some_and(|e| e == "cs" || e == "csproj")
-                };
-                for h in self.grep(global, false, false, files).unwrap_or_default() {
-                    opened.extend(search::cs_usings(&h.text));
-                }
-            }
-            let sees = |ns: &String| match prefix.as_str() {
-                "" => {
-                    ns.is_empty()
-                        || inside == *ns
-                        || inside.starts_with(&format!("{ns}."))
-                        || opened.contains(ns)
-                }
-                p => ns == p || ns.ends_with(&format!(".{p}")),
-            };
-            let named: Vec<Candidate> = members
-                .into_iter()
-                .filter(|(_, ns)| sees(ns))
-                .map(|(c, _)| c)
-                .collect();
-            if !named.is_empty() {
-                self.show_definitions(kind, &word, &here, named, None);
-                return;
-            }
-            self.truncated.set(false);
+        // lists (#466).
+        if kind == Kind::CSharp
+            && pathed
+            && locals.is_empty()
+            && let Some(found) = self.cs_enum_member(&here, &text, &chain, &word, &path)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
         }
         // A C# `Task.Delay` whose first name the project declares nowhere, in no form, is a
         // member of a type outside it (#355): NuGet ships assemblies, so nothing names what the
@@ -1573,30 +1545,10 @@ impl App {
                     }),
             );
         }
-        // A C# private member is reachable from its own type alone, a part of it this file
-        // declares included, and a local from its own method alone, never behind a dot (#355).
+        // What a C# name reaches of its namesakes (#355, #360).
         if kind == Kind::CSharp {
-            let mine: Vec<String> = self
-                .buf
-                .lines
-                .iter()
-                .filter_map(|l| search::cs_type_decl(l).map(|(_, name)| name))
-                .collect();
-            hits.retain(|h| {
-                let place = self.text_of(&h.path).map_or(search::CsPlace::Top, |t| {
-                    search::cs_place(&t, h.line, &word)
-                });
-                match place {
-                    search::CsPlace::Member {
-                        owner,
-                        private: true,
-                    } => mine.contains(&owner),
-                    search::CsPlace::Local { from, to } => {
-                        !dotted && h.path == here && (from..=to).contains(&(self.line + 1))
-                    }
-                    _ => true,
-                }
-            });
+            let chain = dotted.then_some(chain.as_slice());
+            hits = self.cs_reachable(&here, &word, chain, cs_walked.as_deref(), hits);
         }
         if kind == Kind::Lua {
             let at = |h: &Hit| h.path == here && h.line == self.line + 1;
@@ -2425,27 +2377,6 @@ impl App {
             .collect()
     }
 
-    /// Whether the C# project declares `name` in any form (#355): a rule of `d` matches it, or a
-    /// `namespace` line has it as one of its parts.
-    fn cs_declares(&self, here: &Path, name: &str) -> bool {
-        let cut = self.truncated.get();
-        let n = regex::escape(name);
-        let pattern = search::def_patterns(Kind::CSharp, name).join("|");
-        let declared = !self
-            .project_definitions(Kind::CSharp, here, name, &pattern)
-            .is_empty()
-            || self
-                .grep(
-                    &format!(r"^\s*namespace\s+(?:[\w.]+\.)?{n}\b"),
-                    false,
-                    false,
-                    |p| search::in_def_scope(Kind::CSharp, here, p),
-                )
-                .is_ok_and(|hits| !hits.is_empty());
-        self.truncated.set(cut);
-        declared
-    }
-
     /// `word` as a constant of the Java or Kotlin enum `owner`, when the project declares one type
     /// of that name and it is an `enum` (#457), and this file sees it: it is in the enum's package,
     /// or imports the enum or its whole package (`.*`). `import java.util.concurrent.TimeUnit`, or
@@ -2897,9 +2828,10 @@ impl App {
     /// `pattern` over the project files where a definition of a word in `here`, a file of
     /// `kind`, can live, a cut noted.
     pub(super) fn project_grep(&self, kind: Kind, here: &Path, pattern: &str) -> Vec<Hit> {
+        let sight = self.cs_sight(kind, here);
         let hits = self
             .grep(pattern, false, false, |p| {
-                search::in_def_scope(kind, here, p)
+                search::in_def_scope(kind, here, p) && sight.as_ref().is_none_or(|s| s.sees(p))
             })
             .unwrap_or_default();
         self.note_cut(&hits);

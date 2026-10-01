@@ -902,9 +902,7 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
             }
             // Past a C# type's header the walk is out of its body; past a member's, in it.
             if kind == Kind::CSharp {
-                if cs_type_decl(lines[i]).is_some()
-                    || lines[i].trim_start().starts_with("namespace ")
-                {
+                if cs_type_decl(lines[i]).is_some() || cs_namespace_line(lines[i]) {
                     break;
                 }
                 members |= in_type(i);

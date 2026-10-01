@@ -1,0 +1,57 @@
+wait Address: by name, 1 match
+┌orders──────────────────────┐1 namespace Shop.App;
+│▸ .github                   │2 public class Address { }
+│▸ .venv                     │
+│▸ app                       │
+│▾ billing                   │
+│    Outbox.cs               │
+│    Refunds.cs              │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ shop.api                  │
+│▾ shop.app                  │
+│    Address.cs              │
+│    Page.cs                 │
+│    Shop.App.csproj         │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+shop.app/Address.cs  2:14  [code]  Address: by name, 1 match
+cursor (x,y,shown) 45,1,1
