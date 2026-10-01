@@ -45,7 +45,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     });
     // A Ruby method, `def self.m` and `def Klass.m` included, a setter's `=` in its name.
     static RB_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*def\s+(?:(?:self|[A-Z]\w*)\.)?([A-Za-z_]\w*[?!=]?)").unwrap()
+        Regex::new(r"^\s*def\s+(?:(?:self\??|[A-Z]\w*)\.)?([A-Za-z_]\w*[?!=]?)").unwrap()
     });
     static COMPANION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(jvm_mods!(), r"companion\s+object\s*(?:[:{]|$)")).unwrap()
@@ -653,11 +653,15 @@ fn owner_line(lines: &[&str], at: usize) -> Option<usize> {
         .find(|&i| !aside(lines[i].trim_start()) && indent(lines[i]) < depth)
 }
 /// Whether the Ruby method declared on 1-based `line` of `text` is a class method (#387):
-/// `def self.m`, `def Const.m`, a `scope :m` (#374), a `def` inside `class << self`, or one of a
-/// module that is `extend self` or `module_function`.
+/// `def self.m`, `def Const.m`, a `scope :m` (#374), a class-level accessor such as
+/// `mattr_accessor :m` (#369), a `def` inside `class << self`, or one of a module that is
+/// `extend self` or `module_function`.
 pub fn ruby_singleton(text: &str, line: usize) -> bool {
     static ON: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:def\s+(?:self|[A-Z]\w*)\.|scope\s*\(?\s*:)").unwrap()
+        Regex::new(
+            r"^\s*(?:def\s+(?:self|[A-Z]\w*)\.|scope\s*\(?\s*:|(?:[mc]attr_\w+|config_accessor)\s)",
+        )
+        .unwrap()
     });
     static MODULE_WIDE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:extend\s+self|module_function)\s*(?:#|$)").unwrap()

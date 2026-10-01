@@ -24,7 +24,14 @@ impl App {
         imports: &[(String, Vec<String>)],
         narrow: bool,
     ) -> Option<Vec<Candidate>> {
-        let pattern = &search::def_patterns(kind, word).join("|");
+        let mut patterns = search::def_patterns(kind, word);
+        // A Ruby local is seen from its own method alone, never found by name (#383): outside
+        // the project only a constant's assignment declares.
+        if kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_') {
+            let assignment = search::ruby_assignment(word);
+            patterns.retain(|p| *p != assignment);
+        }
+        let pattern = &patterns.join("|");
         let mut bound_path = bound(imports, chain.first().map_or(word, String::as_str));
         // What a TypeScript import takes (a name, `default`, `*`) is no part of a file's path.
         let taken = match kind {
@@ -95,8 +102,9 @@ impl App {
         }
         let mut module = match chain.first() {
             // A C++ `std::` or `detail::` qualifier names a namespace, and no directory of the
-            // system headers is called that, so narrowing by it would find nothing at all.
-            Some(_) if kind == Kind::C => None,
+            // system headers is called that, so narrowing by it would find nothing at all. Ruby's
+            // `require` binds no name and a constant is no path: `I18n` is in `i18n.rb` (#369).
+            Some(_) if matches!(kind, Kind::C | Kind::Ruby) => None,
             Some(first) => {
                 let mut p = bound_path.unwrap_or_else(|| vec![first.clone()]);
                 p.extend(chain[1..].iter().cloned());
@@ -663,8 +671,9 @@ impl App {
 /// one package, and its own name counts: Cargo gives each crate a directory of its own,
 /// `serde-1.0.200`, and Go each module, `gin@v1.9.1`. A Go module whose path ends in its major
 /// version, `github.com/jackc/pgx/v5`, is `v5@v5.5.0` on disk, so the directory before it counts
-/// too. The other roots hold many packages and have no version in their name: a standard library
-/// (`python3.13`, `src`, `library`), `site-packages`, `node_modules`.
+/// too, as a gem's directory counts before its `lib`. The other roots hold many packages and
+/// have no version in their name: a standard library (`python3.13`, `src`, `library`),
+/// `site-packages`, `node_modules`.
 fn package_dirs(root: &Path) -> usize {
     let name = root.file_name().unwrap_or_default().to_string_lossy();
     let versioned = |sep: &str| {
@@ -674,6 +683,13 @@ fn package_dirs(root: &Path) -> usize {
             rest.len() < v.len() && rest.starts_with('.')
         })
     };
+    // A gem's `lib` is the gem's (#369): `rack-attack-6.7.0/lib`.
+    if name == "lib" {
+        return root.parent().map_or(0, |gem| match package_dirs(gem) {
+            0 => 0,
+            n => n + 1,
+        });
+    }
     if !versioned("-") && !versioned("@v") {
         return 0;
     }
