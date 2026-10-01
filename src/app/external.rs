@@ -479,6 +479,7 @@ impl App {
             | Kind::Shell
             | Kind::PowerShell
             | Kind::Dart
+            | Kind::Cmake
             | Kind::Sql
             | Kind::Make
             | Kind::Terraform
@@ -507,6 +508,7 @@ impl App {
             Kind::Shell,
             Kind::PowerShell,
             Kind::Dart,
+            Kind::Cmake,
             Kind::Sql,
             Kind::Make,
             Kind::Terraform,

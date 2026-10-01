@@ -474,6 +474,27 @@ impl App {
             .collect()
     }
 
+    pub(super) fn import_files(
+        &mut self,
+        kind: Kind,
+        here: &Path,
+        module: &[String],
+    ) -> Vec<PathBuf> {
+        let Some((command, arg)) = (kind == Kind::Cmake)
+            .then(|| search::cmake_import(self.line_str(), self.col))
+            .flatten()
+        else {
+            return search::module_files(kind, &self.root, &self.files, here, module);
+        };
+        let dir = here.parent().unwrap_or(Path::new(""));
+        let found = search::cmake_files(&command, &arg, dir, &self.files);
+        if !found.is_empty() || command == "add_subdirectory" || arg.contains('/') {
+            return found;
+        }
+        let outside = self.external_files(kind);
+        search::cmake_files(&command, &arg, dir, &outside)
+    }
+
     /// The first line of each of `files`, a module a name or a path leads to as a whole.
     pub(super) fn module_candidates(&self, files: Vec<PathBuf>) -> Vec<Candidate> {
         files

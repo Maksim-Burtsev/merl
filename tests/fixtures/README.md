@@ -234,6 +234,12 @@ types a project vendors under `third_party/`: its imports name paths from those 
 the importing file. `shop.v1` and `billing.v1` each declare a `Money`, used unqualified and
 qualified by each package, `.shop.v1.` absolute and `v1.` relative among them.
 
+`cmake/` (#432) has a project's `CMakeLists.txt` over an `app/` it adds as a subdirectory and the
+helpers, warnings and `Find` module it includes from `cmake/`: a function called in another case,
+a target made through `${name}`, an alias and an imported target, a generator expression, each
+refusal of the issue, and declaration-shaped lines in a bracket comment of each level, a bracket
+argument and a quoted argument over lines.
+
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
 the project walk does not reach, one whose module is no path and two declaring one name (#437).

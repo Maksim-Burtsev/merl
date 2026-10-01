@@ -146,7 +146,12 @@ a Flutter app's `app/` is), each under its `rootUri` — the pub cache's
 `~/.pub-cache/hosted/pub.dev/<name>-<version>/lib/`, the Flutter SDK's for `flutter` and
 `sky_engine` — read as JSON with nothing run, and the `lib/` of the SDK of the `dart` on the PATH,
 links followed, or in a Flutter install the `bin/cache/dart-sdk` beside it; no `pub get` yet, no
-packages. A plain `import` binds no name, as Swift's does, so nothing narrows the search; a prefix
+packages. CMake has its own modules, as source: the `Modules` directory beside the `cmake` on the
+PATH, links followed (`<prefix>/share/cmake/Modules` from Homebrew, `<prefix>/share/cmake-X.Y/Modules`
+on a Linux distribution), and the packages' config files under `lib/cmake` of `/opt/homebrew`,
+`/usr/local` and `/usr`, and `/usr/lib/<triplet>/cmake` on Linux, links followed. An `include`
+binds no name, so nothing narrows the search: `d` on `FetchContent_Declare` lands on its
+`function(` in `Modules/FetchContent.cmake`, read-only. A plain `import` binds no name, as Swift's does, so nothing narrows the search; a prefix
 of `import '…' as p` and a name of `import '…' show A` are looked for in the file the import names
 first — `package:<name>/x.dart` is the project's own `lib/x.dart` when `<name>` is the `name:` of
 the nearest `pubspec.yaml` above the file, else that package's `lib/x.dart`, `dart:async` the SDK's
@@ -598,6 +603,7 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
 | PowerShell | `function` and `filter`, behind a scope (`function global:Get-ShopUser`), under the whole `Verb-Noun` name; `class` and `enum`; inside a class a property (`[string] $Name`, `hidden [int]$Count = 0`), a method (`[decimal] Total() {`, `static [Invoice] Parse(…) {`) and a constructor (`Invoice([string] $id) {`); an enum member on a line directly inside an `enum`; an assignment that opens a line (`$Config = @{`, `$script:Cache = @{}`, `[string]$Name = 'x'`, `$Count += 1`); `Set-Alias` and `New-Alias`. Names ignore case, as PowerShell does. A `$variable` is only a variable or a property, a bare word never one (`$tariff` declares no `Tariff`), and a constructor counts only where its class is built (`[Tariff]::new(`). A parameter of a `param(` block in the blocks around the cursor, a function's, a script block's or the script's, or of a `function Name($a)` header, is `local` and never looked for in another file. A call, a named argument, a hashtable key, a property or element write, a comparison and splatting declare nothing; nor does a line in comment-based help (`<# … #>`) or a here-string. `d` on the path of a dot-source (`. $PSScriptRoot/helpers.ps1`), an `Import-Module ./Shop/Users.psm1` or a `using module` opens that file. | every `.ps1`, `.psm1` and `.psd1` file |
 | Dart | `class` behind `abstract`, `sealed`, `base`, `final`, `interface` and `mixin`; `mixin`, a named `extension … on`, `extension type`, `enum` and `typedef`, the new form and the old (`typedef void Callback(int code);`); in column zero, where Dart has declarations and directives only, a function (`String formatPrice(int cents) =>`, `main() {`); indented, a method told from a call by the return type before its name — a primitive (`void`, `int`, `double`, `num`, `bool`, `dynamic`) or a name with a capital, with its generics and `?` — as Java's is; a getter and a setter; a constructor directly inside its class, an enum or an extension type, behind `const`, `factory` or `external` or with parameters that open with `this.`, `super.`, `{`, `[` or a type and a name, or followed by the `:` of an initializer list — `User.fromJson` under the name after the dot, the class's own `User(` only where the class is built, `User(…)`; a variable or a field behind `final`, `const`, `var` or `late` (`static`, `external` and `covariant` too), with or without its type, or with a type alone (`String? label;`), outside a parameter list wrapped over lines; an `enum` value on the `enum` line or on a line directly inside the `enum`. A call statement (`Navigator.push(context, route);`, `return Foo(x);`, `throw StateError('x');`), a named constructor's call with no arguments (`User.empty();`, the shape of a declaration with none), a method with no return type (`build(context) {`), an unnamed `extension on String`, a parameter and a pattern of a `switch` declare nothing, nor does a line inside a `'''` or `"""` string or a `/* */` comment. `$` is part of a name, at its start too (`_$UserFromJson`, `$UserCopyWith`), save in a string, where `'$name'` interpolates `name`. | every `.dart` file |
+| CMake | `function(name …)` and `macro(name …)`, whose name ignores case as every command's does, in the definition (`FUNCTION(`) and in a call (`SHOP_ADD_LIBRARY(…)` calls `shop_add_library`); a variable of `set(NAME …)`, a cache entry included, and of `option(NAME …)`; a target of `add_library`, `add_executable` and `add_custom_target`, an alias (`add_library(Shop::core ALIAS shop_core)`) and an imported one (`add_library(Foo::foo UNKNOWN IMPORTED)`) included, for a use in `target_link_libraries`, `add_dependencies` or a generator expression (`$<TARGET_FILE:shop_app>`). A variable and a target keep their case. A call, a variable's use (`${X}`, `if(X)`), a target's use, a keyword (`PRIVATE`, `STATIC`), `set_target_properties(` and `set_property(`, `list(APPEND X …)`, `unset(X)`, `set(ENV{X} …)` and `endfunction(name)` declare nothing, nor does a line inside a bracket argument (`[[…]]`, `[=[…]=]`), a bracket comment (`#[[…]]`, `#[==[…]==]`) or a quoted argument over lines; a target a function creates through `${name}` has no line that spells it, and `d` finds none. `d` on the argument of `include(ShopHelpers)` opens the project's `ShopHelpers.cmake`, else CMake's own module of that name; `include(cmake/warnings.cmake)` is a path from the file's directory; `add_subdirectory(app)` opens `app/CMakeLists.txt`; `find_package(Boost)` opens `FindBoost.cmake`, `BoostConfig.cmake` or `boost-config.cmake`, the project's or else one outside it. | every `.cmake` file and `CMakeLists.txt` |
 | SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns have no rule. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable, outside a recipe; a variable set only by `+=` or for one target (`release: VERSION := 1.0`), when nothing assigns it plainly | every Makefile |
 | Terraform | the block behind `var.x`, `module.x`, `local.x`, `data.T.N`, `T.N`; a bare name, as in `.tfvars`, is any block with that label | `.tf` files in the same directory |
@@ -628,6 +634,9 @@ block names nothing.
 In Makefiles, Terraform, Dockerfiles, YAML, PowerShell, HTML and stylesheets a `-` is part of the
 word under the cursor, and so it is inside a `class`, `className` or `id` value of any file; `d` in
 Terraform reads the whole dotted address, so it works from anywhere in `aws_s3_bucket.logs.id`.
+In CMake a `-` and a `.` are part of a target's name (`shop-core`, `shop.cli`), and `::` joins the
+parts of an alias or an imported target, so `d` and `u` read `Shop::core` whole from either part;
+a single `:`, as in `$<TARGET_FILE:shop_app>`, joins nothing.
 Markdown reads a link or a code span whole around the cursor, not as a word.
 
 ## `D`: project symbols
@@ -645,7 +654,7 @@ above knows four of those words and would list them twice; a stylesheet's `@mixi
 `%placeholder` and `@keyframes`, under their names, and none of its selectors, custom properties
 or variables, which Bootstrap alone has thousands of; recomputed on each press. Zig adds a function behind `inline` or `noinline` and a
 `test`, under the description it is written with, which that regex has no word for. Java, Kotlin,
-Scala, Ruby, C, C++, C#, Swift, PHP, Lua, Elixir, Protocol Buffers, PowerShell and Dart are read from rules of their
+Scala, Ruby, C, C++, C#, Swift, PHP, Lua, Elixir, Protocol Buffers, PowerShell, Dart and CMake are read from rules of their
 own instead of that regex — Java's types and its methods, told from a call by the return type before
 the name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and
 `const val`; Scala's types, `trait`s, `object`s, `type`s and named `given`s, and its `def`s in a
@@ -663,7 +672,10 @@ included; PowerShell's `function` and `filter` under the whole `Verb-Noun` name,
 would cut at its `-`, and its `class` and `enum`; Dart's types (`class` behind its modifiers,
 `mixin`, a named `extension`, `extension type`, `enum`, `typedef`) in one row, its functions and
 methods, told from a call by the type before the name, in a second and its getters and setters in a
-third, which that regex would read as `class` for `abstract interface class Repo` — so none of them is listed twice or
+third, which that regex would read as `class` for `abstract interface class Repo`; CMake's
+`function` and `macro`, whose name stands inside the parentheses where that regex does not look,
+and the targets of `add_library` (not an alias), `add_executable` and `add_custom_target` under
+their names, no variable — so none of them is listed twice or
 under a modifier or a receiver. A C prototype is not listed, since every function of a header would
 be there twice, and a `typedef struct x { … } y;` is listed once, under the `y` the project writes.
 TypeScript's class methods, with neither a keyword nor a type in front, are not listed: the regex
