@@ -242,6 +242,7 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | Java, Kotlin, Scala, Ruby, C#, Lua, Elixir | |
 | Shell, SQL, Makefile, Terraform, Dockerfile, YAML, GraphQL | |
 | Markdown | the file or the heading a link names, and a file a code span names |
+| HTML, CSS, SCSS, Less | the rule a class or an id of HTML, JSX, Vue or Svelte names, the file a path names, a package's stylesheet in `node_modules` |
 
 What each rule reads and what it refuses to guess: [docs/navigation.md](docs/navigation.md).
 
