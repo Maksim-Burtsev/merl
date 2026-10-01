@@ -7,14 +7,46 @@ use regex::Regex;
 
 use super::*;
 
+/// The pieces of Dart's grammar both `d`'s patterns and `D`'s rows read, as macros so the
+/// rows can be `concat!`ed from them: one spelling of what a Dart type is.
+macro_rules! dart_generics {
+    () => {
+        r"(?:<[^<>]*(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>[^<>]*)*>)?"
+    };
+}
 /// The annotations in front of a declaration written on its line: `@override String f()`.
-const ANNOTATIONS: &str = r"(?:@[\w$.]+(?:\([^)]*\))?\s+)*";
+macro_rules! dart_annotations {
+    () => {
+        r"(?:@[\w$.]+(?:\([^)]*\))?\s+)*"
+    };
+}
+/// The modifiers in front of a member.
+macro_rules! dart_mods {
+    () => {
+        r"(?:(?:static|external|abstract|override)\s+)*"
+    };
+}
 /// A type a declaration is told from a statement by: a primitive, or a name with a capital,
-/// behind a library prefix or not, with its generics nested two deep and its `?`. `return`,
+/// behind a library prefix or not, with its generics nested three deep and its `?`. `return`,
 /// `await`, `throw`, `yield` and `case` are none.
-const TYPE: &str = r"(?:[\w$]+\.)?(?:void|int|double|num|bool|dynamic|[\w$]*[A-Z][\w$]*)(?:<[^<>]*(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>[^<>]*)*>)?\??";
+macro_rules! dart_type {
+    () => {
+        concat!(
+            r"(?:[\w$]+\.)?(?:void|int|double|num|bool|dynamic|[\w$]*[A-Z][\w$]*)",
+            dart_generics!(),
+            r"\??"
+        )
+    };
+}
 /// Any type a keyword already tells, lowercase too: `final int x`, `late final db.Database d`.
-const ANY_TYPE: &str = r"[\w$.]+(?:<[^<>]*(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>[^<>]*)*>)?\??";
+macro_rules! dart_any_type {
+    () => {
+        concat!(r"[\w$.]+", dart_generics!(), r"\??")
+    };
+}
+const ANNOTATIONS: &str = dart_annotations!();
+const TYPE: &str = dart_type!();
+const ANY_TYPE: &str = dart_any_type!();
 /// What may follow a name that ends it: a `$` belongs to the name, as `_$UserFromJson` shows.
 const END: &str = r"(?:[^\w$]|$)";
 
@@ -24,7 +56,8 @@ const END: &str = r"(?:[^\w$]|$)";
 /// `enum` value on the `enum` line and one on a line of its own.
 pub fn dart_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);
-    let mods = r"(?:(?:static|external|abstract|override)\s+)*";
+    let mods = dart_mods!();
+    let generics = dart_generics!();
     // The parameters a constructor declaration opens with, where a call's arguments are
     // expressions: `this.`, `super.`, a `{` or `[` of optional ones, a type and a name; or the
     // `:` of an initializer list after them.
@@ -35,7 +68,7 @@ pub fn dart_patterns(word: &str) -> Vec<String> {
         // `class` behind its modifiers, `mixin`, `enum`, a named `extension … on`, an
         // `extension type`, a `typedef` new (`= …`) and old (`void Callback(int code)`).
         format!(
-            r"^\s*{ANNOTATIONS}(?:(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|mixin|enum)\s+{w}{END}|extension\s+{w}\s*(?:<[^>]*>)?\s+on\s|extension\s+type\s+(?:const\s+)?{w}\s*[<(.]|typedef\s+(?:[^=;(]*\s)?{w}\s*(?:<[^>]*>)?\s*[=(])"
+            r"^\s*{ANNOTATIONS}(?:(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|mixin|enum)\s+{w}{END}|extension\s+{w}\s*{generics}\s+on\s|extension\s+type\s+(?:const\s+)?{w}\s*[<(.]|typedef\s+(?:[^=;(]*\s)?{w}\s*(?:<[^>]*>)?\s*[=(])"
         ),
         // In column zero Dart has declarations and directives only, so a name before its `(`
         // there is a function: `main() {`, `T first<T>(…)`.
@@ -69,6 +102,12 @@ pub fn dart_declares<S: AsRef<str>>(lines: &[S], line: usize, line_text: &str) -
         ))
         .unwrap()
     });
+    static ANNOTATION: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:@[\w$.]+(?:\([^)]*\))?\s*)+$").unwrap());
+    static ENUM: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(&format!(r"^\s*{ANNOTATIONS}enum\s")).unwrap());
+    // The nearest line above indented less, past comments and annotations on lines of their
+    // own; `@immutable class User {` is the class itself.
     let owner = || {
         let depth = indent(line_text);
         lines[..line.saturating_sub(1).min(lines.len())]
@@ -77,7 +116,10 @@ pub fn dart_declares<S: AsRef<str>>(lines: &[S], line: usize, line_text: &str) -
             .rev()
             .find(|l| {
                 let t = l.trim_start();
-                !t.is_empty() && !t.starts_with("//") && !t.starts_with('@') && indent(l) < depth
+                !t.is_empty()
+                    && !t.starts_with("//")
+                    && !ANNOTATION.is_match(t)
+                    && indent(l) < depth
             })
             .map(str::to_owned)
     };
@@ -99,7 +141,7 @@ pub fn dart_declares<S: AsRef<str>>(lines: &[S], line: usize, line_text: &str) -
     if shape(6) {
         return true;
     }
-    owner().is_some_and(|o| o.trim_start().starts_with("enum "))
+    owner().is_some_and(|o| ENUM.is_match(&o))
 }
 
 /// [`dart_patterns`] for any name, to tell which shape a line has.
@@ -124,10 +166,10 @@ pub fn dart_narrow(patterns: &mut Vec<String>, line: &str, r: std::ops::Range<us
     }
 }
 
-/// What a Dart file's imports bind: the prefix of `import '…' as p;` and each name of `import
-/// '…' show A, B;`, with the URI as written. A plain `import` binds no name, as Swift's makes a
-/// whole module visible.
-pub fn dart_imports(text: &str) -> Vec<(String, String)> {
+/// What a Dart file's imports bind: the prefix of `import '…' as p;` (`true`) and each name of
+/// `import '…' show A, B;` (`false`), with the URI as written. A plain `import` binds no name, as
+/// Swift's makes a whole module visible.
+pub fn dart_imports(text: &str) -> Vec<(String, String, bool)> {
     static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"(?m)^\s*import\s+(?:'([^']*)'|"([^"]*)")([^;]*);"#).unwrap()
     });
@@ -140,11 +182,11 @@ pub fn dart_imports(text: &str) -> Vec<(String, String)> {
         let uri = c.get(1).or_else(|| c.get(2)).map_or("", |m| m.as_str());
         let rest = &c[3];
         if let Some(p) = PREFIX.captures(rest) {
-            out.push((p[1].to_owned(), uri.to_owned()));
+            out.push((p[1].to_owned(), uri.to_owned(), true));
         } else if let Some(s) = SHOW.captures(rest) {
             // `show A, B hide C` ends the list at the next keyword.
             for name in s[1].split(',').filter_map(|n| n.split_whitespace().next()) {
-                out.push((name.to_owned(), uri.to_owned()));
+                out.push((name.to_owned(), uri.to_owned(), false));
             }
         }
     }
@@ -258,13 +300,18 @@ fn unescape(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// The SDK of the `dart` on the PATH, symlinks followed: the directory above its `bin/`, or in a
-/// Flutter install, where `bin/dart` sits beside `bin/cache/dart-sdk`, that one.
+/// The SDK of the `dart` on the PATH: [`dart_sdk_of`].
 pub fn dart_sdk() -> Option<PathBuf> {
     let path = std::env::var_os("PATH")?;
     let dart = std::env::split_paths(&path)
         .map(|d| d.join("dart"))
         .find(|p| p.is_file())?;
+    dart_sdk_of(&dart)
+}
+
+/// The SDK a `dart` executable belongs to, symlinks followed: the directory above its `bin/`,
+/// or in a Flutter install, where `bin/dart` sits beside `bin/cache/dart-sdk`, that one.
+pub(super) fn dart_sdk_of(dart: &Path) -> Option<PathBuf> {
     let bin = std::fs::canonicalize(dart).ok()?.parent()?.to_path_buf();
     let flutter = bin.join("cache/dart-sdk");
     match flutter.is_dir() {
@@ -278,8 +325,9 @@ pub fn dart_sdk() -> Option<PathBuf> {
 /// directories down, as a Flutter app's `app/` is) lists outside `root`, and the SDK's `lib/`.
 /// No `pub get` yet, no packages.
 pub(super) fn dart_roots(root: &Path, sdk: Option<PathBuf>) -> Vec<PathBuf> {
+    // Sorted, so the roots come in the same order on every machine.
     let children = |d: &Path| -> Vec<PathBuf> {
-        std::fs::read_dir(d)
+        let mut dirs: Vec<PathBuf> = std::fs::read_dir(d)
             .into_iter()
             .flatten()
             .filter_map(Result::ok)
@@ -290,7 +338,9 @@ pub(super) fn dart_roots(root: &Path, sdk: Option<PathBuf>) -> Vec<PathBuf> {
                         .file_name()
                         .is_some_and(|n| n.to_string_lossy().starts_with('.'))
             })
-            .collect()
+            .collect();
+        dirs.sort();
+        dirs
     };
     let mut dirs = vec![root.to_path_buf()];
     for d in children(root) {
@@ -311,23 +361,31 @@ pub(super) fn dart_roots(root: &Path, sdk: Option<PathBuf>) -> Vec<PathBuf> {
 /// an `enum`, a named `extension`, an `extension type`, a `typedef`. An unnamed `extension on X`
 /// names nothing.
 pub(super) const DART_TYPE_SYMBOL: &str = concat!(
-    r"^\s*(?:@[\w$.]+(?:\([^)]*\))?\s+)*",
+    r"^\s*",
+    dart_annotations!(),
     r"(?:(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|mixin|enum)\s+",
     r"|extension\s+(?:type\s+(?:const\s+)?)?|typedef\s+(?:[^=;(]*\s)?)",
-    r"(?P<name>[A-Za-z_$][\w$]*)\s*(?:<[^>]*>)?\s*",
-    r"(?:[({=.:;]|on\s|extends\b|with\b|implements\b|$)"
+    r"(?P<name>[A-Za-z_$][\w$]*)\s*",
+    dart_generics!(),
+    r"\s*(?:[({=.:;]|on\s|extends\b|with\b|implements\b|$)"
 );
 /// Second row: a function in column zero and an indented method, by the type before its name.
 pub(super) const DART_FUNCTION_SYMBOL: &str = concat!(
-    r"^(?:(?:external\s+)?(?:[\w$.]+(?:<[^()]*>)?\??\s+)?",
-    r"|\s+(?:@[\w$.]+(?:\([^)]*\))?\s+)*(?:(?:static|external|abstract|override)\s+)*",
-    r"(?:[\w$]*\.)?(?:void|int|double|num|bool|dynamic|[\w$]*[A-Z][\w$]*)(?:<[^()]*>)?\??\s+",
-    r"(?:operator\s*)?)",
-    r"(?P<name>[A-Za-z_$][\w$]*)\s*(?:<[^()]*>)?\s*\("
+    r"^(?:(?:external\s+)?(?:",
+    dart_any_type!(),
+    r"\s+)?|\s+",
+    dart_annotations!(),
+    dart_mods!(),
+    dart_type!(),
+    r"\s+(?:operator\s*)?)(?P<name>[A-Za-z_$][\w$]*)\s*(?:<[^()]*>)?\s*\("
 );
 /// Third row: a getter and a setter. Their own row, since a getter ends where a method goes on
-/// with its `(`, and one pattern for both would read a field.
+/// with its `(`, and one pattern for both would read a field. A getter's body may be `async`.
 pub(super) const DART_ACCESSOR_SYMBOL: &str = concat!(
-    r"^\s*(?:@[\w$.]+(?:\([^)]*\))?\s+)*(?:(?:static|external|abstract|override)\s+)*",
-    r"(?:[\w$.]+(?:<[^()]*>)?\??\s+)?(?:get|set)\s+(?P<name>[A-Za-z_$][\w$]*)\s*(?:=>|\{|\(|;|$)"
+    r"^\s*",
+    dart_annotations!(),
+    dart_mods!(),
+    r"(?:",
+    dart_any_type!(),
+    r"\s+)?(?:get|set)\s+(?P<name>[A-Za-z_$][\w$]*)\s*(?:=>|\{|\(|;|async\b|sync\*|$)"
 );

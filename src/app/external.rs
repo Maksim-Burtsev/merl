@@ -25,7 +25,7 @@ impl App {
         narrow: bool,
     ) -> Option<Vec<Candidate>> {
         let mut patterns = search::def_patterns(kind, word);
-        self.powershell_spelling(kind, word, &mut patterns);
+        self.spelling_cut(kind, word, &mut patterns);
         // A Ruby local is seen from its own method alone, never found by name (#383): outside
         // the project only a constant's assignment declares.
         if kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_') {
@@ -105,7 +105,8 @@ impl App {
             // A C++ `std::` or `detail::` qualifier names a namespace, and no directory of the
             // system headers is called that, so narrowing by it would find nothing at all. Ruby's
             // `require` binds no name and a constant is no path: `I18n` is in `i18n.rb` (#369).
-            Some(_) if matches!(kind, Kind::C | Kind::Ruby) => None,
+            // A Dart qualifier is a prefix, a class or a value, never a directory (#414).
+            Some(_) if matches!(kind, Kind::C | Kind::Ruby | Kind::Dart) => None,
             Some(first) => {
                 let mut p = bound_path.unwrap_or_else(|| vec![first.clone()]);
                 p.extend(chain[1..].iter().cloned());
@@ -343,16 +344,17 @@ impl App {
             .collect()
     }
 
-    /// PowerShell's patterns for `word` cut to what its spelling under the cursor allows
-    /// ([`search::powershell_sigil`]), as `d` cuts them in the project (#420): `$Error` outside
-    /// is no enum member `Error`.
-    pub(super) fn powershell_spelling(&self, kind: Kind, word: &str, patterns: &mut Vec<String>) {
+    /// The patterns for `word` cut to what its spelling under the cursor allows
+    /// ([`search::narrow_patterns`]), as `d` cuts them in the project: PowerShell's sigil
+    /// (#420), so `$Error` outside is no enum member `Error`, and Dart's constructor only where
+    /// its class is built (#414), so `Future` in a type is the class alone.
+    pub(super) fn spelling_cut(&self, kind: Kind, word: &str, patterns: &mut Vec<String>) {
         let line = self.line_str();
-        if kind == Kind::PowerShell
-            && let Some((r, w)) = search::definition_word(Some(kind), line, self.col)
+        if matches!(kind, Kind::PowerShell | Kind::Dart)
+            && let Some((r, w)) = self.word_here(Some(kind))
             && w == word
         {
-            search::powershell_sigil(patterns, &line[..r.start], &line[r.end..]);
+            search::narrow_patterns(kind, patterns, "", line, r);
         }
     }
 

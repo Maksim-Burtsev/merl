@@ -127,8 +127,6 @@ pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
         Some(Kind::Terraform) if address => "-.",
         // `Get-ShopUser` is one PowerShell name, for `d` and `u` alike (#420).
         Some(Kind::Make | Kind::Terraform | Kind::Docker | Kind::Yaml | Kind::PowerShell) => "-",
-        // What `json_serializable` and `freezed` generate, `_$UserFromJson`, is one name (#414).
-        Some(Kind::Dart) => "$",
         _ => "",
     }
 }

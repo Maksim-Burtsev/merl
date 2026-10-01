@@ -11,7 +11,7 @@ impl App {
         &self,
         kind: Option<Kind>,
     ) -> Option<(std::ops::Range<usize>, String)> {
-        let (range, word) = search::definition_word(kind, self.line_str(), self.col)?;
+        let (range, word) = self.word_here(kind)?;
         let mut word = word.to_owned();
         let (written, start) = self.written(kind, range.start);
         let before = &written[..start];
@@ -186,7 +186,7 @@ impl App {
         }
         // A Dart name an import binds with `as` or `show` is looked for in that file (#414).
         if kind == Kind::Dart
-            && let Some(found) = self.dart_imported(&here, &text, &chain, &word)
+            && let Some(found) = self.dart_imported(&here, &text, before, &chain, &word)
         {
             self.show_definitions(kind, &word, &here, found, None);
             return;

@@ -2,6 +2,8 @@ import 'package:shop/money.dart';
 import 'coupon.dart' as c;
 import 'courier.dart' show weigh;
 import 'pricing.dart';
+import 'pricing.dart' show Tariff;
+import 'courier.dart' as k;
 
 /// The basket probes `d` on every form of `lib/pricing.dart` (#414).
 class Basket {
@@ -14,11 +16,21 @@ class Basket {
     //            ^ d: lib/money.dart:1
     // status: formatPrice: by name, 1 match
     final cut = c.discount(42) + tariff.discount(1);
-    //            ^ d: lib/coupon.dart:9
+    //            ^ d: lib/coupon.dart:11
     // status: via import coupon.dart
     final coupon = c.Coupon(0.5);
     //               ^ d: lib/coupon.dart:1
     // status: via import coupon.dart
+    final parsed = c.Coupon.parse('1');
+    //                      ^ d: lib/coupon.dart:8
+    // status: via import coupon.dart
+    // `courier.dart` only hands `first` on: the search by name answers.
+    k.first([1]);
+    //^ d: lib/pricing.dart:64
+    // status: by name
+    // A member hanging off a call is no name an import binds.
+    Tariff.parse('1').weigh(500);
+    //                ^ d: !jump
     final kg = weigh(500);
     //         ^ d: lib/courier.dart:3
     // status: via import courier.dart
@@ -59,6 +71,7 @@ class Basket {
     print([tariff.describe(), Tariff.parse('1'), tariff.title]);
     //            ^ d: picker lib/pricing.dart:55, lib/coupon.dart:6
     //                               ^ d: lib/pricing.dart:56
+    // status: via import pricing.dart
     //                                                  ^ d: picker lib/pricing.dart:57, lib/pricing.dart:58
     print([first([1]), main(), _$TariffFromJson({}), $TariffCopyWith()]);
     //     ^ d: lib/pricing.dart:64
