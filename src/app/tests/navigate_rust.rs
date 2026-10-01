@@ -229,7 +229,7 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
         (
             "e.describe",
             jump(
-                "describe \u{2192} Error::describe (by name, 1 match)",
+                "describe \u{2192} Error::describe (via e: Error)",
                 "src/lib.rs:14",
             ),
         ),
@@ -427,24 +427,18 @@ fn each_reach_rule_keeps_or_drops_its_namesake() {
         (
             "src/extra/sub.rs",
             "e.hidden",
-            jump(
-                "hidden \u{2192} E::hidden (by name, 1 match)",
-                "src/extra.rs:4",
-            ),
+            jump("hidden \u{2192} E::hidden (via e: E)", "src/extra.rs:4"),
         ),
         (
             "src/extra/sub.rs",
             "w.shared",
-            jump(
-                "shared \u{2192} W::shared (by name, 1 match)",
-                "src/lib.rs:26",
-            ),
+            jump("shared \u{2192} W::shared (via w: W)", "src/lib.rs:26"),
         ),
         // A crate root of `tests/` has its directory.
         (
             "tests/helper.rs",
             "t.zorb",
-            jump("zorb \u{2192} T::zorb (by name, 1 match)", "tests/it.rs:6"),
+            jump("zorb \u{2192} T::zorb (via t: T)", "tests/it.rs:6"),
         ),
     ] {
         d_on(&mut a, file, code);
@@ -469,4 +463,177 @@ fn each_reach_rule_keeps_or_drops_its_namesake() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
     std::fs::remove_dir_all(&registry).unwrap();
+}
+
+/// #529: a struct literal's key lands on the field of the literal's type, the project's or a
+/// dependency's, and never on a method of the name.
+#[test]
+fn a_literal_key_is_its_struct_field_inside_and_out() {
+    let (dir, mut a) = project_app(
+        "rust-literal-key",
+        &[
+            ("Cargo.toml", "[package]\nname = \"shop\"\n"),
+            (
+                "src/lib.rs",
+                "use knobs::Opts;\n\npub struct Printer {\n    hyperlink: u32,\n}\n\nimpl Printer {\n    pub fn hyperlink(&self) -> u32 {\n        self.hyperlink\n    }\n\n    pub fn depth(&self) -> u32 {\n        0\n    }\n}\n\npub fn made() -> Printer {\n    Printer { hyperlink: 1 }\n}\n\npub fn opts() -> Opts {\n    Opts { depth: 2 }\n}\n",
+            ),
+        ],
+    );
+    let registry = external_root(
+        "rust-literal-key",
+        &[(
+            "knobs-1.0.0/src/lib.rs",
+            "pub struct Opts {\n    pub depth: u32,\n}\n",
+        )],
+    );
+    let knobs = registry.join("knobs-1.0.0");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&knobs));
+    d_on(&mut a, "src/lib.rs", "Printer { hyperlink|: 1");
+    assert_eq!(at(&a), (dir.join("src/lib.rs"), 3), "{}", a.message);
+    d_on(&mut a, "src/lib.rs", "Opts { depth|: 2");
+    assert_eq!(at(&a), (knobs.join("src/lib.rs"), 1), "{}", a.message);
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&registry).unwrap();
+}
+
+/// #350: the first name of a path names the crate searched first, a `use` of the file or the
+/// path written out, and in it the module the path spells; a project namesake found by name is
+/// no answer then.
+#[test]
+fn a_path_is_looked_up_in_the_crate_its_first_name_names() {
+    let (dir, mut a) = project_app(
+        "rust-crate-path",
+        &[
+            ("Cargo.toml", "[package]\nname = \"shop\"\n"),
+            (
+                "src/lib.rs",
+                "mod helpers;\nmod other;\n\nuse std::fs::File;\nuse std::io;\nuse crate::helpers::norm;\nuse grep_matcher::Match;\nuse std::error::Error as StdError;\n\npub struct Mmap;\n\nimpl Mmap {\n    pub fn open(&self) {}\n}\n\npub struct CommandError;\n\nimpl CommandError {\n    pub(crate) fn io(_e: io::Error) -> CommandError {\n        CommandError\n    }\n}\n\npub fn read(p: &str) -> io::Result<File> {\n    File::open(p)\n}\n\npub fn g() -> u32 {\n    norm(1)\n}\n\npub fn made(m: Match) -> std::fs::File {\n    std::fs::File::create(\"x\")\n}\n\npub fn shared() -> std::sync::Arc<u32> {\n    todo!()\n}\n\npub fn most() -> usize {\n    usize::MAX\n}\n\npub fn map() {\n    memmap2::Mmap::map()\n}\n\npub fn boxed(e: Box<dyn StdError>) {}\n\npub enum Kind {\n    Match(u32),\n}\n\npub fn pick(k: Kind) -> u32 {\n    use self::Kind::*;\n    match k {\n        Match(n) => n,\n    }\n}\n",
+            ),
+            ("src/helpers.rs", "pub fn norm(x: u32) -> u32 {\n    x\n}\n"),
+            (
+                "src/other.rs",
+                "fn norm(y: u8) -> u8 {\n    y\n}\n\npub struct Match;\n\npub fn create() {}\n",
+            ),
+            (
+                "crates/matcher/Cargo.toml",
+                "[package]\nname = \"grep-matcher\"\n",
+            ),
+            ("crates/matcher/src/lib.rs", "pub struct Match;\n"),
+        ],
+    );
+    let std = external_root(
+        "rust-crate-path",
+        &[
+            (
+                "library/std/src/lib.rs",
+                "pub mod fs;\npub mod io;\npub mod os;\npub mod sync;\npub mod error;\n",
+            ),
+            (
+                "library/std/src/fs.rs",
+                "pub struct File;\n\nimpl File {\n    pub fn open(p: &str) {}\n    pub fn create(p: &str) {}\n}\n\npub struct OpenOptions;\n\nimpl OpenOptions {\n    pub fn open(&self) {}\n}\n",
+            ),
+            (
+                "library/std/src/io/mod.rs",
+                "mod error;\npub use self::error::{Error, Result};\n",
+            ),
+            (
+                "library/std/src/io/error.rs",
+                "pub type Result<T> = core::result::Result<T, Error>;\n\npub struct Error;\n",
+            ),
+            ("library/std/src/os/aix/fs.rs", "pub fn create() {}\n"),
+            (
+                "library/std/src/sync/mod.rs",
+                "pub use alloc_crate::sync::Arc;\n",
+            ),
+            ("library/std/src/error.rs", "pub use core::error::Error;\n"),
+            ("library/core/src/error.rs", "pub trait Error {}\n"),
+            ("library/alloc/src/sync.rs", "pub struct Arc<T>(T);\n"),
+            (
+                "library/core/src/num/uint_macros.rs",
+                "macro_rules! uint_impl {\n    () => {\n        pub const MAX: Self = 0;\n    };\n}\n",
+            ),
+            (
+                "registry/memmap2-0.9.0/src/lib.rs",
+                "pub struct Mmap;\n\nimpl Mmap {\n    pub fn map() {}\n}\n",
+            ),
+        ],
+    );
+    let library = std.join("library");
+    let memmap = std.join("registry/memmap2-0.9.0");
+    use_roots(&mut a, Kind::Rust, &[library.clone(), memmap.clone()]);
+    let lib = |p: &str| library.join(p);
+    for (code, place, status) in [
+        (
+            "File::open|(p)",
+            lib("std/src/fs.rs"),
+            4,
+            "via import std::fs",
+        ),
+        ("-> io|::Result", lib("std/src/lib.rs"), 2, "via import std"),
+        (
+            "    norm|(1)",
+            dir.join("src/helpers.rs"),
+            1,
+            "via import crate::helpers",
+        ),
+        (
+            "_e: io::Error",
+            lib("std/src/io/error.rs"),
+            3,
+            "via import std::io",
+        ),
+        (
+            "m: Match",
+            dir.join("crates/matcher/src/lib.rs"),
+            1,
+            "via import grep_matcher",
+        ),
+        ("-> std::fs|::File", lib("std/src/lib.rs"), 1, "via std"),
+        (
+            "std::fs::File::create",
+            lib("std/src/fs.rs"),
+            5,
+            "via std::fs",
+        ),
+        (
+            "std::sync::Arc",
+            lib("alloc/src/sync.rs"),
+            1,
+            "via alloc::sync",
+        ),
+        (
+            "usize::MAX",
+            lib("core/src/num/uint_macros.rs"),
+            3,
+            "by name",
+        ),
+        // A glob `use` of the block hides the file's `use` of the name.
+        (
+            "        Match|(n)",
+            dir.join("src/lib.rs"),
+            51,
+            "Kind::Match",
+        ),
+        (
+            "dyn StdError",
+            lib("core/src/error.rs"),
+            1,
+            "via import core::error",
+        ),
+        (
+            "memmap2::Mmap::map",
+            memmap.join("src/lib.rs"),
+            4,
+            "via memmap2",
+        ),
+    ]
+    .map(|(c, p, l, s)| (c, (p, l), s))
+    {
+        d_on(&mut a, "src/lib.rs", code);
+        let (path, line) = at(&a);
+        assert_eq!((path, line + 1), place, "{code}: {}", a.message);
+        assert!(a.message.contains(status), "{code}: {}", a.message);
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
 }

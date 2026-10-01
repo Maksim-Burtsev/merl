@@ -66,3 +66,12 @@ key /
 type next(
 key Enter d
 wait next: builtin, no source
+# A function a function declares is its local: d on its call lands on it as `(local)` (#338).
+key o
+type api.py
+key Enter
+wait app/api.py  1:1
+key /
+type page_url(n) for
+key Enter d
+wait page_url → page_links.page_url

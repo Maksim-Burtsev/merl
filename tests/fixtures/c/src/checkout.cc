@@ -31,14 +31,14 @@ std::string label(const Tariff& t) {
 }
 
 int charge(Priced* p) { return p->price(); }
-//                                ^ d: src/checkout.cc:10; want include/shop/offers.hh:26 (#373)
+//                                ^ d: picker src/checkout.cc:10, include/shop/offers.hh:26; want include/shop/offers.hh:26 (#389)
 
 void wipe(std::vector<int>* v) { v->clear(); }
 //                                  ^ d: include/shop/offers.hh:43; want none (#389)
 
 Offer pick() { return Offer::Cut; }
 //^ d: include/shop/offers.hh:29
-//                           ^ d: none; want include/shop/offers.hh:29 (#373)
+//                           ^ d: include/shop/offers.hh:29
 
 Box<int> boxed;
 //^ d: picker include/shop/offers.hh:32, include/shop/offers.hh:37

@@ -202,8 +202,8 @@ fn params_open(line: &str) -> Option<usize> {
 pub fn jvm_function(line: &str) -> Option<String> {
     let head = line[..params_open(line)?].trim_end();
     let start = head
-        .rfind(|c: char| !(c.is_alphanumeric() || c == '_'))
-        .map_or(0, |i| i + 1);
+        .trim_end_matches(|c: char| c.is_alphanumeric() || c == '_')
+        .len();
     Some(head[start..].to_owned())
 }
 
@@ -370,6 +370,8 @@ fn members_of(lines: &[&str], literal: &[bool], k: usize, name: &str, re: &Regex
     static COMPANION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(jvm_mods!(), r"companion\s+object\b")).unwrap()
     });
+    static RECORD: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(concat!(jvm_mods!(), r"record\s+\w+")).unwrap());
     // A constructor is no member called like its class: the name is the type's.
     if jvm_type_name(lines[k]).as_deref() == Some(name) {
         return Vec::new();
@@ -401,6 +403,17 @@ fn members_of(lines: &[&str], literal: &[bool], k: usize, name: &str, re: &Regex
         && PROPERTY.captures_iter(lines[k]).any(|c| &c[1] == name)
     {
         out.push(k + 1);
+    }
+    // A Java record's components, on its header's line or on the lines it wraps over (#367).
+    if RECORD.is_match(lines[k]) {
+        for (i, l) in lines.iter().enumerate().skip(k).take(40) {
+            if re.is_match(l) {
+                out.push(i + 1);
+            }
+            if l.contains('{') {
+                break;
+            }
+        }
     }
     let Some(level) = level else {
         return out;
@@ -460,4 +473,192 @@ pub fn jvm_bases(text: &str, decl: usize) -> Vec<String> {
         .filter(|b| b.starts_with(|c: char| c.is_ascii_alphabetic()))
         .map(str::to_owned)
         .collect()
+}
+
+/// The names the `import` lines of Java or Kotlin `text` bind, each with the dotted path it
+/// names (#372): `import app.a.User;` binds `User` to `[app, a, User]`, `import static a.C.m;`
+/// binds `m` to `[a, C, m]`, Kotlin's `import a.C as D` binds `D` to `[a, C]`, and a wildcard,
+/// static or not, binds `*` to its path with `*` last.
+pub fn jvm_imports(text: &str) -> Vec<(String, Vec<String>)> {
+    static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*import\s+(?:static\s+)?([\w.]*\w)(\.\*)?(?:\s+as\s+([A-Za-z_]\w*))?\s*;?\s*(?://.*)?$").unwrap()
+    });
+    text.lines()
+        .filter_map(|l| IMPORT.captures(l))
+        .map(|c| {
+            let mut path: Vec<String> = c[1].split('.').map(str::to_owned).collect();
+            let name = match (c.get(2), c.get(3)) {
+                (Some(_), _) => "*".to_owned(),
+                (None, Some(alias)) => alias.as_str().to_owned(),
+                (None, None) => path.last().cloned().unwrap_or_default(),
+            };
+            if name == "*" {
+                path.push(name.clone());
+            }
+            (name, path)
+        })
+        .collect()
+}
+
+/// The package the `package` line of Java or Kotlin `text` declares (#372); `None` without one.
+pub fn jvm_package(text: &str) -> Option<String> {
+    static PACKAGE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"(?m)^[ \t]*package\s+([\w.]*\w)").unwrap());
+    PACKAGE.captures(text).map(|c| c[1].to_owned())
+}
+
+// ---- the receiver's type (#388, #391) and Lombok's accessors (#381) ----------------------------
+
+/// The type the Java or Kotlin declaration of `name` on `line` writes for it, generic arguments
+/// and a `?` dropped (#388, #391): Java's `Line line`, `var line = new Line(…)`; Kotlin's
+/// `line: Line`, `val line = Line(…)`. `None` for any other form, an array, a delegated Kotlin
+/// property (`by lazy`) and a type written with a dot.
+pub fn jvm_declared_type(line: &str, name: &str, kotlin: bool) -> Option<String> {
+    let n = regex::escape(name);
+    let code = uncommented(Kind::Jvm, line);
+    let generic = r"(?:<(?:[^<>]|<(?:[^<>]|<[^<>]*>)*>)*>)?";
+    let rules: Vec<String> = match kotlin {
+        true => {
+            if Regex::new(&format!(r"\b{n}\b[^=]*\bby\b")).is_ok_and(|re| re.is_match(&code)) {
+                return None;
+            }
+            vec![
+                format!(r"(?:^|[^\w.]){n}\s*:\s*([A-Z]\w*){generic}\??\s*(?:[=,)]|$|\{{)"),
+                format!(r"\b(?:val|var)\s+{n}\s*=\s*([A-Z]\w*){generic}\s*\("),
+            ]
+        }
+        false => vec![
+            format!(r"(?:^|[\s(,<])([A-Z]\w*){generic}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|$)"),
+            format!(r"\bvar\s+{n}\s*=\s*new\s+([A-Z]\w*){generic}\s*\("),
+        ],
+    };
+    rules.iter().find_map(|r| {
+        let re = Regex::new(r).ok()?;
+        let c = re.captures(&code)?;
+        // `Outer.Inner x` and `a.b.Line x`: the capture starts after a dot.
+        let at = c.get(1)?.start();
+        (!code[..at].ends_with('.')).then(|| c[1].to_owned())
+    })
+}
+
+/// Whether Java or Kotlin `text` declares `name` as a type parameter: `class Box<T>`, `fun <T>`,
+/// `<T extends Base> T pick(`.
+pub fn jvm_type_parameter(text: &str, name: &str) -> bool {
+    static LIST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:\b(?:class|interface|record)\s+[A-Za-z_]\w*\s*|\bfun\s*|(?:^|[\s(,])\s*)<([^<>]*(?:<[^<>]*>[^<>]*)*)>").unwrap()
+    });
+    LIST.captures_iter(text).any(|c| {
+        split_top(Kind::Jvm, &c[1], b',').iter().any(|e| {
+            e.split_whitespace()
+                .find(|w| !matches!(*w, "in" | "out" | "reified"))
+                .is_some_and(|w| w.trim_end_matches(':') == name)
+        })
+    })
+}
+
+/// The fields a Lombok accessor `word` may read, and whether it is a setter (#381): `title` for
+/// `getTitle` and `setTitle`, `active` or `isActive` for `isActive`. `None` for any other name.
+pub fn jvm_accessor(word: &str) -> Option<(Vec<String>, bool)> {
+    [("get", false), ("is", false), ("set", true)]
+        .into_iter()
+        .find_map(|(prefix, setter)| {
+            let rest = word.strip_prefix(prefix)?;
+            let mut chars = rest.chars();
+            let first = chars.next().filter(char::is_ascii_uppercase)?;
+            let mut names = vec![format!("{}{}", first.to_ascii_lowercase(), chars.as_str())];
+            if prefix == "is" {
+                names.push(word.to_owned());
+            }
+            Some((names, setter))
+        })
+}
+
+/// The 1-based lines of the fields of the type declared on 1-based `decl` of Java `text` that
+/// Lombok writes the accessor `word` for (#381): the file imports `lombok.`, and the field
+/// carries `@Getter` (for `get` and `is`) or `@Setter` (for `set`), or the type carries `@Data`,
+/// `@Value` or `@Getter`, or `@Data` or `@Setter`. A `static` field, and one marked
+/// `AccessLevel.NONE`, gets none.
+pub fn jvm_lombok_fields(text: &str, decl: usize, word: &str) -> Vec<usize> {
+    let Some((names, setter)) = jvm_accessor(word) else {
+        return Vec::new();
+    };
+    if !text
+        .lines()
+        .any(|l| l.trim_start().starts_with("import lombok."))
+    {
+        return Vec::new();
+    }
+    let lines: Vec<&str> = text.lines().collect();
+    // A line and the annotations stacked on the lines above it.
+    let annotated = |at: usize| {
+        let mut out = String::from(lines[at]);
+        for l in lines[..at].iter().rev() {
+            match l.trim_start().starts_with('@') {
+                true => out.push_str(l),
+                false => break,
+            }
+        }
+        out
+    };
+    let (own, class) = match setter {
+        true => ("Setter", "Data|Setter"),
+        false => ("Getter", "Data|Value|Getter"),
+    };
+    let own_re = Regex::new(&format!(r"@(?:lombok\.)?{own}\b")).expect("a fixed pattern");
+    let class_re = Regex::new(&format!(r"@(?:lombok\.)?(?:{class})\b")).expect("a fixed pattern");
+    let none_re =
+        Regex::new(&format!(r"@(?:lombok\.)?{own}\s*\([^)]*\bNONE\b")).expect("a fixed pattern");
+    static ANNOTATIONS: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s*)*").unwrap());
+    let type_annotated = decl
+        .checked_sub(1)
+        .is_some_and(|k| k < lines.len() && class_re.is_match(&annotated(k)));
+    let mut out: Vec<usize> = names
+        .iter()
+        .flat_map(|n| jvm_members_of(text, decl, n))
+        .filter(|&l| {
+            let code = uncommented(Kind::Jvm, lines[l - 1]);
+            let code = ANNOTATIONS.replace(&code, "");
+            let head = code.split('=').next().unwrap_or("");
+            let field = !head.contains('(')
+                && code.contains(';')
+                && !head.split_whitespace().any(|w| w == "static");
+            let own = annotated(l - 1);
+            field && !none_re.is_match(&own) && (own_re.is_match(&own) || type_annotated)
+        })
+        .collect();
+    out.sort_unstable();
+    out.dedup();
+    out
+}
+
+/// The call a Java `var` or a Kotlin `val`/`var` named `name` on `line` is assigned from, when
+/// the whole value is one call of a lowercase name, `var status = plugin.statusNonNull();`: the
+/// receiver in front of it, if any, and the method (#388, #391).
+pub fn jvm_assigned_call(line: &str, name: &str) -> Option<(Option<String>, String)> {
+    let re = Regex::new(&format!(
+        r"\b(?:var|val)\s+{}\s*=\s*(?:([a-z]\w*)\.)?([a-z]\w*)\s*\([^()]*\)\s*;?\s*$",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let code = uncommented(Kind::Jvm, line);
+    let c = re.captures(code.trim_end())?;
+    Some((c.get(1).map(|m| m.as_str().to_owned()), c[2].to_owned()))
+}
+
+/// The type the Java or Kotlin method `name` declared on `line` returns, as
+/// [`jvm_declared_type`] reads one: `PluginStatus` for `public PluginStatus statusNonNull() {`
+/// and `fun status(): Status`.
+pub fn jvm_return_type(line: &str, name: &str, kotlin: bool) -> Option<String> {
+    let n = regex::escape(name);
+    let generic = r"(?:<(?:[^<>]|<(?:[^<>]|<[^<>]*>)*>)*>)?";
+    let rule = match kotlin {
+        true => format!(r"\bfun\s+(?:<[^>]*>\s*)?{n}\s*\([^)]*\)\s*:\s*([A-Z]\w*){generic}\??"),
+        false => format!(r"(?:^|\s)([A-Z]\w*){generic}\s+{n}\s*\("),
+    };
+    let code = uncommented(Kind::Jvm, line);
+    Regex::new(&rule)
+        .ok()?
+        .captures(&code)
+        .map(|c| c[1].to_owned())
 }

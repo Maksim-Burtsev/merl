@@ -1,0 +1,57 @@
+wait CRC_FAST → crc_mode::CRC_FAST
+┌orders──────────────────────┐ 1 enum crc_mode {
+│▸ .github                   │ 2     CRC_PLAIN,
+│▸ .venv                     │ 3     CRC_FAST
+│▸ app                       │ 4 };
+│▸ data                      │ 5
+│▸ deploy                    │ 6 struct Hasher {
+│▸ docs                      │ 7     virtual unsigned Sum() const = 0;
+│▸ scripts                   │ 8 };
+│▸ tests                     │ 9
+│▸ web                       │10 struct Fast : Hasher {
+│▾ worker                    │11     unsigned Sum() const override { return 1; }
+│  ▾ internal                │12 };
+│    ▾ crc                   │13
+│        crc.c               │14 int crc_pick(Hasher *h) { return h->Sum() ? CRC_FAST : CRC_PLAIN; }
+│        crc.h               │
+│        mode.cc             │
+│    ▸ queue                 │
+│    go.mod                  │
+│    main.go                 │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+worker/internal/crc/mode.cc  3:5  [code]  CRC_FAST → crc_mode::CRC_FAST (by name, 1 match)
+cursor (x,y,shown) 37,2,1

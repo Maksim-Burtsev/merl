@@ -1121,7 +1121,16 @@ fn graphql_def_patterns_find_definitions_fields_and_enum_values() {
         defs(&dir, &files, Kind::Graphql, w)
             .into_iter()
             .filter(|&n| !literal[n - 1])
-            .filter(|&n| declares_where(Kind::Graphql, w, n, lines[n - 1], || &lines))
+            .filter(|&n| {
+                declares_where(
+                    Kind::Graphql,
+                    Path::new("schema.graphql"),
+                    w,
+                    n,
+                    lines[n - 1],
+                    || &lines,
+                )
+            })
             .collect()
     };
     assert_eq!(d("Ghost"), Vec::<usize>::new(), "inside a description");
@@ -1164,4 +1173,36 @@ fn a_graphql_import_is_the_path_under_the_cursor() {
     assert_eq!(graphql_import(line, 3), None, "on `import`");
     assert_eq!(graphql_import("# import './a.gql'", 12), Some("./a.gql"));
     assert_eq!(graphql_import(r#"  user # import "./a.gql""#, 20), None);
+}
+
+/// #543: a name ending in a combining mark is cut at a character, not inside the mark.
+#[test]
+fn jvm_function_cuts_at_a_character() {
+    assert_eq!(
+        jvm_function("void nam\u{301}(int x) {").as_deref(),
+        Some("")
+    );
+}
+
+/// #377: a `let` holds what a call or a literal gives only when that is the whole expression; a
+/// `?` or a method behind it hands out something else.
+#[test]
+fn rust_holds_reads_a_call_only_as_the_whole_expression() {
+    let holds = |line: &str| rust_holds(&[line], 0, "td");
+    assert_eq!(
+        holds("    let td = tmpdir();"),
+        Some(RustHolds::Call(vec!["tmpdir".into()]))
+    );
+    assert_eq!(holds("    let td = tmpdir()?;"), None);
+    assert_eq!(holds("    let td = Dir::new().unwrap();"), None);
+    assert_eq!(holds("    let td = Dir { n: 1 }.path();"), None);
+}
+
+/// #543: a name in front of a bracket that ends in a combining mark is cut at a character.
+#[test]
+fn rust_attribute_reads_past_a_call_ending_in_a_combining_mark() {
+    let lines = ["    let v = cafe\u{301}(1, x);".to_owned()];
+    let x = lines[0].find('x').unwrap();
+    assert!(rust_attribute(&lines, 0, x, x + 1).is_none());
+    assert!(!rust_attribute_path(&lines, 0, x));
 }

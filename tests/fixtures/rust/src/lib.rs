@@ -9,3 +9,4 @@ pub mod chores;
 pub mod errands;
 pub mod parcels;
 pub mod locals;
+pub mod receivers;

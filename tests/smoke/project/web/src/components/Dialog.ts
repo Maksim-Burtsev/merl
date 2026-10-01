@@ -30,3 +30,6 @@ export function whenClosed(dialog: Dialog, done: () => void): void {
     dialog.close();
   });
 }
+
+import { ParcelState } from "../orders/types";
+export const shippedState = ParcelState.Shipped;
