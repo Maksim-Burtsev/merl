@@ -5,8 +5,8 @@
 //! and of [`ODD`] under every kind, and `D` once per file (it reads no cursor). What each key
 //! answers is the annotations' and the bench's business: here only a panic fails.
 //!
-//! It takes half an hour in a debug build, so it is `#[ignore]`d and CI runs it in release:
-//! `cargo test --release no_panic -- --ignored`.
+//! It takes half an hour in a debug build and 19 minutes in release, so it is `#[ignore]`d and
+//! only a release PR's CI runs it: `cargo test --release no_panic -- --ignored`.
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
