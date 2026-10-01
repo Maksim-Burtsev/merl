@@ -630,11 +630,7 @@ impl App {
             && chain.is_empty()
             && self.cs_types_only(&here, &word, range.clone());
         if cs_type {
-            patterns = vec![
-                patterns[0].clone(),
-                patterns[1].clone(),
-                patterns[3].clone(),
-            ];
+            patterns = search::cs_type_patterns(&word);
         }
         // A Ruby local is seen from its own method or block alone, and a value has none: its
         // assignments are this file's where the cursor sees them, below, never a search by name

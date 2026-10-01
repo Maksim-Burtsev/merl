@@ -847,6 +847,13 @@ fn cs_named_after(after: &str) -> bool {
         .is_some_and(|c| !CONTEXTUAL.contains(&&c[1]))
 }
 
+/// The rules of `def_patterns` a C# type position keeps (#360): a type, a delegate and a `using`
+/// alias, and no constructor, property or namespace of the name.
+pub fn cs_type_patterns(word: &str) -> Vec<String> {
+    let all = def_patterns(Kind::CSharp, word);
+    vec![all[0].clone(), all[1].clone(), all[3].clone()]
+}
+
 /// Whether a C# constant pattern may stand at bytes `start..end` of `line` (#581): right after
 /// `is`, as `x is Max`, where a type may stand too. Not `x is Max m`, nor `x is List<int>`.
 pub fn cs_constant_may_stand(line: &str, start: usize, end: usize) -> bool {

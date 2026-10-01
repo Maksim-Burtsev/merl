@@ -520,11 +520,19 @@ impl App {
         if !search::cs_constant_may_stand(line, range.start, range.end) {
             return true;
         }
-        let patterns = search::def_patterns(Kind::CSharp, word);
-        let types = [&patterns[0], &patterns[1], &patterns[3]].map(String::as_str);
+        // As the lookup by type does: the types around first, then the project's, as far as the
+        // walk lets them reach.
         let cut = self.truncated.get();
-        let hits = self.project_definitions(Kind::CSharp, here, word, &types.join("|"));
-        let found = !self.cs_reachable(here, word, None, None, hits).is_empty();
+        let found = match self.cs_class_first(here, word, true) {
+            Ok(found) => !found.is_empty(),
+            Err(walked) => {
+                let types = search::cs_type_patterns(word).join("|");
+                let hits = self.project_definitions(Kind::CSharp, here, word, &types);
+                !self
+                    .cs_reachable(here, word, None, walked.as_deref(), hits)
+                    .is_empty()
+            }
+        };
         self.truncated.set(cut);
         found
     }
