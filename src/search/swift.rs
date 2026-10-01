@@ -29,6 +29,13 @@ static SWIFT_TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
 static SWIFT_DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(r"{}(?:let|var)\s+(.*)$", swift_mods!())).unwrap()
 });
+static SWIFT_LOCAL_DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(&format!(
+        r"{}(?:func|class|struct|enum|actor|typealias)\s+`?(\w+)",
+        swift_mods!()
+    ))
+    .unwrap()
+});
 /// Whether 0-based line `i` of Swift `lines` is something the walk over the blocks reads: code,
 /// no comment, no `#if`, no line of a multi-line string.
 fn swift_code<S: AsRef<str>>(lines: &[S], literal: &[bool], i: usize) -> bool {
@@ -64,6 +71,11 @@ fn swift_header_start<S: AsRef<str>>(lines: &[S], literal: &[bool], mut i: usize
         }
         i = j;
     }
+}
+pub fn swift_local_decl(line: &str, name: &str) -> bool {
+    SWIFT_LOCAL_DECL
+        .captures(&uncommented(Kind::Swift, line))
+        .is_some_and(|c| &c[1] == name)
 }
 /// Where 1-based `line` of a Swift file sits, told by indentation (#371): the 1-based line of the
 /// nearest `func`, `init`, `subscript`, `deinit` or accessor around it, or of a type's header when
@@ -244,13 +256,6 @@ fn swift_decl_binds(rest: &str, name: &str) -> Option<bool> {
     }
     bound
 }
-/// Swift's locals (#366), walked outward from the cursor over the blocks around it, told by
-/// indentation: a `let`, a `var` or a `guard` statement above the cursor in each block; what the
-/// block's header binds — an `if let`, a `while let`, a `for`, a `catch` (a bare one binds
-/// `error`), a closure's parameters, a `case` of a `switch`, the parameters of a `func`, `init` or
-/// `subscript`, and on out past a nested function's header (#564). The innermost wins. A type's body and the top of the
-/// file bind no local, and a pattern the rules cannot read that names the word stops the walk:
-/// the search by name decides then.
 pub(super) fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     swift_walk(lines, at, name).unwrap_or_default()
 }
@@ -264,7 +269,6 @@ pub fn swift_no_local(text: &str, line: usize, name: &str) -> bool {
         .filter(|&at| at < lines.len())
         .is_some_and(|at| swift_walk(&lines, at, name).is_some_and(|b| b.is_empty()))
 }
-/// The walk of [`swift_bindings`]: `None` where it stopped, where the search by name decides.
 fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
     let literal = literal_lines(Kind::Swift, &lines.join("\n"));
     let code = |i: usize| uncommented(Kind::Swift, lines[i]).trim().to_owned();
@@ -290,6 +294,18 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
     // A generic parameter of a type, `func`, `init`, `subscript` or `typealias` header binds its
     // name for the declaration (#375): `func f<T>(_ x: T)` on the cursor's own line too.
     let generic = |text: &str| swift_generics(text).iter().any(|g| g == name);
+    let decls = |open: usize, depth: usize| {
+        let lines: Vec<usize> = (open + 1..lines.len())
+            .filter(|&j| swift_code(lines, &literal, j))
+            .take_while(|&j| indent(lines[j]) >= depth)
+            .filter(|&j| indent(lines[j]) == depth && swift_local_decl(lines[j], name))
+            .collect();
+        let bindings = lines.iter().map(|&j| Binding {
+            line: j + 1,
+            value: Value::Unknown,
+        });
+        Some(bindings.collect::<Vec<_>>()).filter(|b| !b.is_empty() && !lines.contains(&at))
+    };
     if generic(&code(at)) {
         return found(at + 1);
     }
@@ -300,9 +316,6 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
     // Past the header of a function right inside a type, the type's header is all that is
     // left to read: its members are no statements, its generic parameters bind.
     let mut typed = false;
-    // Past a function inside another function, a closure or an accessor, the walk still finds
-    // their bindings, but proves no local: they may declare a local `func` or type it does not
-    // read (#564).
     let mut unproven = false;
     let mut i = at;
     while i > 0 && depth > 0 {
@@ -335,9 +348,10 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             }
             continue;
         }
-        // The header of a block around the cursor, over the lines it wraps.
+        let body = depth;
         depth = indent(lines[i]);
         let end = i;
+        let local = decls(end, body);
         i = swift_header_start(lines, &literal, i);
         let head = code(i);
         let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
@@ -350,6 +364,9 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         if SWIFT_FUNC.is_match(&head) {
             if let Some(line) = pending {
                 return found(line);
+            }
+            if local.is_some() {
+                return local;
             }
             // Parameters wrapped over the lines under the header's first go on to its `{`.
             let end = (end..at).find(|&j| code(j).ends_with('{')).unwrap_or(end);
@@ -380,6 +397,9 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         }
         if let Some(line) = pending {
             return found(line);
+        }
+        if local.is_some() && !head.starts_with("where ") {
+            return local;
         }
         match swift_header_binds(&head, &text, &code(end), name) {
             None => return None,

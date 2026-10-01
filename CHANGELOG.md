@@ -194,7 +194,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `AlbumResource::toArray()` on the `AlbumResource` of the file's own namespace, where both
   offered every declaration of the name. A class outside the map is read in `vendor/` first:
   `Arr::get()` behind `use Illuminate\Support\Arr;` lands on Laravel's `get`, not on the
-  project's own. (#351)
+  project's own. In a monorepo a package's file reads the root `composer.json`'s map too, a
+  name in a file of several `namespace` blocks resolves in its own block, and `<?php namespace
+  X;` on one line counts as the file's namespace. (#351, #579)
 - `d` in PHP proves the class of the receiver in front of `->`: `$event->podcast` in
   `handle(UserUnsubscribed $event)` lands on the `podcast` of `UserUnsubscribed`, `(via $event:
   UserUnsubscribed)`, and `$this->artistRepository->getRecentlyAdded()` on the method of
@@ -284,6 +286,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `User.User.build`. (#535)
 - `d` in C# on a constant after `is`, `Max` in `x is Max` with a `const int Max`, lands on the
   constant when no type of that name is in sight. It said `no definition for Max`. (#581)
+- `d` in Swift on a call of a local function or type, `vent()` under `func vent() {}` declared
+  inside the method, lands on that local declaration, `(local)`, from the method's body and from
+  a function nested in it, whether it is declared above the call or below; two local overloads
+  are offered together. It jumped to the type's member of the same name through `self`, or
+  offered both. (#577)
 
 ## [0.8.0] - 2026-10-01
 
