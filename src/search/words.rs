@@ -604,8 +604,12 @@ pub fn call_head(
 /// name with its `#`, on the `#` as on the name (#100): `#addRoute` is no `addRoute`.
 pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Range<usize>, &str)> {
     let extra = word_chars(kind, true);
-    let hash = |i: usize| kind == Some(Kind::TsJs) && line.as_bytes().get(i) == Some(&b'#');
-    // On the `#`, the word is the one right behind it.
+    // On TypeScript's `#` and on a Dart `$`, the word is the one right behind it.
+    let hash = |i: usize| match kind {
+        Some(Kind::TsJs) => line.as_bytes().get(i) == Some(&b'#'),
+        Some(Kind::Dart) => line.as_bytes().get(i) == Some(&b'$'),
+        _ => false,
+    };
     let (range, _) = word_at(line, if hash(col) { col + 1 } else { col }, extra)?;
     // A private name stands behind a `.` or starts a member's line, behind its modifiers. An
     // issue number in a comment, a CSS id or a hash route in a string is no such name.
@@ -627,6 +631,10 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
         Some(i) => i,
         None => range.start,
     };
+    if kind == Some(Kind::Dart) {
+        let r = dart_name(line, range);
+        return Some((r.clone(), &line[r]));
+    }
     // A Ruby method (#387) and an Elixir function (#459) take their `?` or `!` with them:
     // `empty?` is no `empty`, `ship!` no `ship`. The `!` of a `!=` is the operator's, as in Ruby
     // are `!~` and an instance or global variable, which has no suffix.
@@ -643,6 +651,28 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
         end += 1;
     }
     Some((start..end, &line[start..end]))
+}
+/// The Dart name around `r` of `line` (#414): a `$` outside a string is part of it, at its start
+/// too (`_$UserFromJson`, `$UserCopyWith`), and in a string it interpolates, so `'$a$b'` holds
+/// `a` and `b`. The caller reads a line inside a `'''` string as a string.
+pub fn dart_name(line: &str, r: Range<usize>) -> Range<usize> {
+    let b = line.as_bytes();
+    let code: std::collections::HashSet<usize> = code(Kind::Dart, line).map(|(i, _)| i).collect();
+    let part = |i: usize| {
+        b[i].is_ascii_alphanumeric() || b[i] == b'_' || (b[i] == b'$' && code.contains(&i))
+    };
+    let (mut start, mut end) = (r.start, r.end);
+    while start > 0 && part(start - 1) {
+        start -= 1;
+    }
+    while end < b.len() && part(end) {
+        end += 1;
+    }
+    // A `$` that ends the run starts nothing after it.
+    while start < end && b[end - 1] == b'$' {
+        end -= 1;
+    }
+    start..end
 }
 /// The line 0-based `at` of `lines` stands directly inside: the nearest one above it indented
 /// less that is no blank line or comment.

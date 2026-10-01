@@ -217,6 +217,19 @@ impl App {
         self.picker = Some(new);
         true
     }
+
+    /// `pattern` over the project files where a definition of a word in `here`, a file of
+    /// `kind`, can live, a cut noted.
+    pub(super) fn project_grep(&self, kind: Kind, here: &Path, pattern: &str) -> Vec<Hit> {
+        let sight = self.cs_sight(kind, here);
+        let hits = self
+            .grep(pattern, false, false, |p| {
+                search::in_def_scope(kind, here, p) && sight.as_ref().is_none_or(|s| s.sees(p))
+            })
+            .unwrap_or_default();
+        self.note_cut(&hits);
+        hits
+    }
 }
 
 /// `path:line`; a line the branch deleted is numbered as the file had it at the base, and only

@@ -11,7 +11,7 @@ impl App {
         &self,
         kind: Option<Kind>,
     ) -> Option<(std::ops::Range<usize>, String)> {
-        let (range, word) = search::definition_word(kind, self.line_str(), self.col)?;
+        let (range, word) = self.word_here(kind)?;
         let mut word = word.to_owned();
         let (written, start) = self.written(kind, range.start);
         let before = &written[..start];
@@ -184,6 +184,13 @@ impl App {
         // An import's path, and a name its package qualifies (#418).
         if kind == Kind::Proto
             && let Some(found) = self.proto_definitions(&text, &written[..start], &word)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
+        // A Dart name an import binds with `as` or `show` is looked for in that file (#414).
+        if kind == Kind::Dart
+            && let Some(found) = self.dart_imported(&here, &text, before, &chain, &word)
         {
             self.show_definitions(kind, &word, &here, found, None);
             return;
@@ -2723,19 +2730,6 @@ impl App {
                 false => !known || !seen,
             });
         }
-        hits
-    }
-
-    /// `pattern` over the project files where a definition of a word in `here`, a file of
-    /// `kind`, can live, a cut noted.
-    pub(super) fn project_grep(&self, kind: Kind, here: &Path, pattern: &str) -> Vec<Hit> {
-        let sight = self.cs_sight(kind, here);
-        let hits = self
-            .grep(pattern, false, false, |p| {
-                search::in_def_scope(kind, here, p) && sight.as_ref().is_none_or(|s| s.sees(p))
-            })
-            .unwrap_or_default();
-        self.note_cut(&hits);
         hits
     }
 }

@@ -23,6 +23,7 @@ mod c;
 mod component;
 mod cs_typed;
 mod cursor;
+mod dart;
 mod definition;
 mod edit;
 mod external;
