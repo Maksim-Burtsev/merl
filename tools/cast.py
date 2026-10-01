@@ -30,6 +30,7 @@ import argparse, os, re, shlex, shutil, subprocess, sys, tempfile, threading, ti
 from PIL import Image, ImageDraw, ImageFont
 
 FONT = "/System/Library/Fonts/Menlo.ttc"  # index 0 regular, 1 bold, 2 italic, 3 bold-italic
+FONT_SIZE = 18  # the screencasts' and tools/shot.py's, so every picture reads in one size
 # The terminal's own colours, as the owner's Ghostty draws them with its TokyoNight Moon theme:
 # the default foreground and background, then the 16 ANSI colours. merl paints its theme in
 # 24-bit colour, but the gutter marks and the review panel's letters are basic colours whose
@@ -281,7 +282,7 @@ def main():
     p.add_argument("-o", "--out", help="the GIF to write")
     p.add_argument("--project", default=".", help="directory merl runs in (default: .)")
     p.add_argument("--size", default="90x20", help="pane in cells (default: 90x20)")
-    p.add_argument("--font-size", type=int, default=18)
+    p.add_argument("--font-size", type=int, default=FONT_SIZE)
     p.add_argument("--fps", type=float, default=10)
     p.add_argument("--key-delay", type=float, default=0.12, help="pause after each keystroke")
     p.add_argument("--tail", type=float, default=1.2, help="seconds held on the last frame")
