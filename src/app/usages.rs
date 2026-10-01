@@ -168,8 +168,9 @@ impl App {
                     && !literal
                         .entry((h.path.clone(), h.deleted.is_some()))
                         .or_insert_with(|| {
-                            kind.zip(self.hit_text(&h))
-                                .map_or_else(Vec::new, |(k, t)| search::literal_lines(k, &t))
+                            kind.zip(self.hit_text(&h)).map_or_else(Vec::new, |(k, t)| {
+                                search::hidden_lines(k, &h.path, &t)
+                            })
                         })
                         .get(h.line - 1)
                         .copied()

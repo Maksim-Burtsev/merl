@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d`, `u` and `D` in Vue, Svelte and Astro components (`.vue`, `.svelte`, `.astro`), where `d`
+  said `no rules for .vue`. Inside a component's `<script>` block (Astro: its frontmatter) every
+  TypeScript rule applies: `d` on `formatName` lands on `src/names.ts`, `via import`. From a
+  `.ts` file, `d` on `UserCard` of `import UserCard from './UserCard.vue'` opens the component,
+  where it said `no definition for UserCard`. In the template, `{{ label }}` lands on the
+  script's `const label`, an `item` of `v-for` or `{#each}` on that line (`item: local`), and a
+  `<user-card>` tag no import binds on `UserCard.vue`. The template and the `<style>` block
+  declare nothing, and `D` lists the script only. `.astro` is highlighted as TSX. (#413)
 - `d`, `u` and `D` in PowerShell (`.ps1`, `.psm1`, `.psd1`), where `d` said `no rules for
   .ps1`. `d` on `get-shopuser` lands on `function Get-ShopUser`, as names ignore case; on `$Id`
   under a `param(` block it says `Id: local`; on `$script:BaseUri` it finds the assignment; on

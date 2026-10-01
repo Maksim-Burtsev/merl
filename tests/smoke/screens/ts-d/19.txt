@@ -1,0 +1,57 @@
+wait web/src/routes/orders/index.tsx  1:1
+ 1 import StatusPill from "@/components/StatusPill.vue";
+ 2
+ 3 export default function OrdersPage() {
+ 4   return (
+ 5     <section>
+ 6       <h1>Orders</h1>
+ 7       <p>Pick an order to see its status.</p>
+ 8       <StatusPill />
+ 9     </section>
+10   );
+11 }
+12
+13 type Props = { page?: number };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/src/routes/orders/index.tsx  1:1  [code]                                                                                                                                      ? help
+cursor (x,y,shown) 3,0,1

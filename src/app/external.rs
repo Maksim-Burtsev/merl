@@ -585,12 +585,19 @@ impl App {
         (self.buf.path.as_deref()).is_some_and(|p| p.extension().is_some_and(|e| e == "c"))
     }
 
-    /// The text of `path` as the search read it: the open file as it is on screen.
+    /// The text of `path` as the search read it: the open file as it is on screen. A
+    /// component's lines outside its script are blank (#413).
     pub(super) fn text_of(&self, path: &Path) -> Option<String> {
-        if self.rel_current().as_deref() == Some(path) {
-            Some(self.buf.lines.join("\n"))
-        } else {
-            std::fs::read_to_string(self.root.join(path)).ok()
+        let text = self.file_text(path)?;
+        Some(search::script_text(path, &text, None).into_owned())
+    }
+
+    /// The text of `path` as it is, a component's template included: the open file as it is on
+    /// screen.
+    pub(super) fn file_text(&self, path: &Path) -> Option<String> {
+        match self.rel_current().as_deref() == Some(path) {
+            true => Some(self.buf.lines.join("\n")),
+            false => std::fs::read_to_string(self.root.join(path)).ok(),
         }
     }
 
@@ -603,7 +610,7 @@ impl App {
         let r = self.review.as_ref()?;
         let from = r.file(&h.path).and_then(|f| f.old.as_deref());
         let bytes = r.base_bytes(&self.root, from.unwrap_or(&h.path)).ok()?;
-        Some(String::from_utf8_lossy(&bytes).into_owned())
+        Some(search::script_text(&h.path, &String::from_utf8_lossy(&bytes), None).into_owned())
     }
 
     /// `path` relative to the standard library or dependency root of `kind` it is under,

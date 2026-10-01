@@ -50,6 +50,9 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "go") => Kind::Go,
         (_, "rs") => Kind::Rust,
         (_, "ts" | "tsx" | "mts" | "cts" | "js" | "jsx" | "mjs" | "cjs") => Kind::TsJs,
+        // A component's script calls `.ts` modules and they import components, so the two
+        // search each other; only the script's lines are code (`script_lines`, #413).
+        (_, "vue" | "svelte" | "astro") => Kind::TsJs,
         // Java and Kotlin are one kind: they call each other inside the same project, so `d` in
         // a `.kt` file has to find the `.java` class it uses, as `.tsx` finds `.ts`.
         (_, "java" | "kt" | "kts") => Kind::Jvm,

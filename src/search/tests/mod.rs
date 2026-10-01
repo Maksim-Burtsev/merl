@@ -6,6 +6,7 @@ use super::*;
 
 mod bindings;
 mod c_family;
+mod component;
 mod defs;
 mod fields;
 mod go;

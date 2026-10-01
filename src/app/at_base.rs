@@ -252,7 +252,7 @@ impl App {
             .filter(|h| {
                 let (lines, literal) = base.entry(h.path.clone()).or_insert_with(|| {
                     let text = self.hit_text(h).unwrap_or_default();
-                    let literal = search::literal_lines(kind, &text);
+                    let literal = search::hidden_lines(kind, &h.path, &text);
                     (text.lines().map(str::to_owned).collect(), literal)
                 });
                 !literal.get(h.line - 1).copied().unwrap_or(false)
