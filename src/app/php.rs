@@ -178,8 +178,10 @@ impl App {
             .into_iter()
             .filter_map(|h| {
                 let t = self.text_of(&h.path)?;
+                // A header inside a `/* */` block or a heredoc declares nothing (#361).
+                let code = search::literal_lines(kind, &t).get(h.line - 1) != Some(&true);
                 let fits = full.as_ref().is_none_or(|f| namespaced(&t) == *f);
-                fits.then_some((h.path, t, h.line - 1))
+                (code && fits).then_some((h.path, t, h.line - 1))
             })
             .collect();
         (full, matching)

@@ -36,7 +36,7 @@ final class Basket
     public function bonus(): int
     {
         return $this->coupon->rate() + $this->gross();
-        //                    ^ d: picker src/Pricing/Coupon.php:15, src/Pricing/Priced.php:7, src/Pricing/Tariff.php:19, src/Pricing/Voucher.php:16; want src/Pricing/Coupon.php:15 (#361)
+        //                    ^ d: src/Pricing/Coupon.php:15
         //                                    ^ d: src/Basket.php:28
     }
 
@@ -44,7 +44,7 @@ final class Basket
     {
         return $t->describe() . $c->describe();
         //         ^ d: picker src/Pricing/Coupon.php:20, src/Pricing/Tariff.php:25; want src/Pricing/Tariff.php:25 (#361)
-        //                          ^ d: picker src/Pricing/Coupon.php:20, src/Pricing/Tariff.php:25; want src/Pricing/Coupon.php:20 (#361)
+        //                          ^ d: src/Pricing/Coupon.php:20
     }
 
     public function restock(int $weigh): int
@@ -108,7 +108,7 @@ final class Basket
     {
         return $this->coupon->code . $this->coupon->bonus() . $this->coupon->stamps;
         //                    ^ d: src/Pricing/Coupon.php:6
-        //                                          ^ d: picker src/Basket.php:36, src/Pricing/Coupon.php:7; want src/Pricing/Coupon.php:7 (#361)
+        //                                          ^ d: src/Pricing/Coupon.php:7
         //                                                                   ^ d: src/Pricing/Stamps.php:7
     }
 
