@@ -377,15 +377,11 @@ impl App {
             Kind::TsJs => search::ts_import_lines(&text, first),
             _ => Vec::new(),
         };
-        // A Python `def` or `class` a function around the cursor binds is a local of it, one
-        // the bare name reads (#338); a module's is reached through the rules below, and the
-        // cursor's own line stands on the declaration.
         let closure = |n: usize| {
-            kind == Kind::Python
+            (kind == Kind::Swift || kind == Kind::Python && search::python_in_function(&text, n))
                 && !dotted
                 && chain.is_empty()
                 && n != self.line + 1
-                && search::python_in_function(&text, n)
         };
         let locals_at = |text: &str, line: usize| -> Vec<usize> {
             let binding: Vec<usize> = match declared {

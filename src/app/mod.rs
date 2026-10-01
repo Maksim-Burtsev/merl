@@ -950,9 +950,6 @@ pub(crate) fn prev_char(s: &str, i: usize) -> usize {
         .map_or(0, |g| i - g.len())
 }
 
-/// Whether a line `search::bindings` gave for `name` is an import, or the declaration of a class,
-/// a function or a namespace of that name: what a value of the name would hide, and no value
-/// itself. `Outer.Inner` reads a declaration, not a member.
 fn names_itself(kind: Kind, line: &str, name: &str) -> bool {
     let t = line.trim_start();
     let t = t.strip_prefix("export ").unwrap_or(t);
@@ -974,7 +971,9 @@ fn names_itself(kind: Kind, line: &str, name: &str) -> bool {
         rest.strip_prefix(name)
             .is_some_and(|after| !after.starts_with(is_word))
     });
-    declares || import_line(kind, line)
+    declares
+        || import_line(kind, line)
+        || kind == Kind::Swift && search::swift_local_decl(line, name)
 }
 
 /// Whether `line` is an import in a language whose imports start with a word: `from ` only in
