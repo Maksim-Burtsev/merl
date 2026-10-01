@@ -168,15 +168,19 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             // say so on a line below.
             let option = r"(?:(?:to|allow_nil|private):|prefix:\s*false\b)[^,#]*";
             let method = vec![
-                // A method: `def name`, `def self.name`, `def Klass.name`.
-                format!(r"^\s*def\s+(?:self\.|[A-Z]\w*\.)?{w}{end}"),
+                // A method: `def name`, `def self.name`, `def Klass.name`, and in the core's RBS
+                // signatures `def name: …` and `def self?.name: …` (#369).
+                format!(r"^\s*def\s+(?:self\??\.|[A-Z]\w*\.)?{w}{end}"),
                 format!(r"^\s*alias(?:_method)?\s+:?{w}{end}"),
                 format!(
                     r"^\s*delegate\s*\(?\s*(?::[\w?!]+\s*,\s*)*:{w}\s*,\s*(?::[\w?!]+\s*,\s*)*{option}(?:,\s*{option})*(?:#.*)?$"
                 ),
             ];
+            // Rails' class-level accessors too, `mattr_accessor` and the like (#369).
             let attr = |which: &str, name: &str| {
-                format!(r"^\s*attr_(?:accessor|{which})\s+(?:[:\w]+\s*,\s*)*:{name}\b")
+                format!(
+                    r"^\s*(?:[mc]?attr_(?:accessor|{which})|config_accessor)\s+(?:[:\w]+\s*,\s*)*:{name}\b"
+                )
             };
             match word.strip_suffix('=') {
                 // The reader and writer methods a class declares for its attributes, wherever

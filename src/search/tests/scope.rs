@@ -78,3 +78,85 @@ fn definition_scope_follows_the_kind() {
         Path::new("notes.md")
     ));
 }
+
+/// #369: Ruby's roots come from `Gemfile.lock`, `.bundle/config` and `.ruby-version`, read and
+/// never run: the gems at the versions it locks, a `GIT` gem's checkout, the Ruby a version
+/// manager in `HOME` installed, with its standard library and the newest `rbs` gem's `core/`.
+#[test]
+fn ruby_roots_are_the_locked_gems_of_the_ruby_the_project_names() {
+    let tmp = std::env::temp_dir().join(format!("merl-ruby-roots-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&tmp);
+    let (root, home) = (tmp.join("app"), tmp.join("home"));
+    let write = |path: &Path, text: &str| {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    };
+    write(
+        &root.join("Gemfile.lock"),
+        "GIT\n  remote: https://github.com/heartcombo/devise.git\n  revision: 0123456789abcdef0123\n  specs:\n    devise (4.9.4)\n      bcrypt (~> 3.0)\n\nPATH\n  remote: engines/local\n  specs:\n    local (0.1.0)\n\nGEM\n  remote: https://rubygems.org/\n  specs:\n    rack (3.1.0)\n    rack-attack (6.7.0)\n      rack (>= 1.0, < 4)\n    nokogiri (1.16.0-arm64-darwin)\n    missing (1.0.0)\n\nPLATFORMS\n  ruby\n\nDEPENDENCIES\n  rack-attack\n",
+    );
+    write(&root.join(".ruby-version"), "ruby-3.3.0\n");
+    write(
+        &root.join(".bundle/config"),
+        "---\nBUNDLE_PATH: \"vendor/bundle\"\n",
+    );
+    let bundle = root.join("vendor/bundle/ruby/3.3.0");
+    let ruby = home.join(".rbenv/versions/3.3.0/lib/ruby");
+    let gems = ruby.join("gems/3.3.0");
+    for dir in [
+        bundle.join("gems/rack-attack-6.7.0"),
+        // A version the lockfile does not name is not read.
+        gems.join("gems/rack-attack-6.6.0"),
+        gems.join("gems/rack-attack-6.7.0"),
+        gems.join("gems/rack-3.1.0/lib"),
+        gems.join("gems/nokogiri-1.16.0-arm64-darwin"),
+        gems.join("bundler/gems/devise-0123456789ab"),
+        gems.join("gems/rbs-3.9.1/core"),
+        gems.join("gems/rbs-3.10.0/core"),
+        ruby.join("3.3.0"),
+    ] {
+        std::fs::create_dir_all(dir).unwrap();
+    }
+    let asked = std::cell::Cell::new(false);
+    let ask = || {
+        asked.set(true);
+        None
+    };
+    assert_eq!(
+        ruby_roots(&root, &home, &[], ask),
+        vec![
+            gems.join("gems/rbs-3.10.0/core"),
+            ruby.join("3.3.0"),
+            gems.join("bundler/gems/devise-0123456789ab"),
+            // A gem is read from its `lib`, when it has one.
+            gems.join("gems/rack-3.1.0/lib"),
+            // `BUNDLE_PATH` comes before the Ruby's own gems.
+            bundle.join("gems/rack-attack-6.7.0"),
+            gems.join("gems/nokogiri-1.16.0-arm64-darwin"),
+        ]
+    );
+    assert!(!asked.get(), "a version manager's Ruby needs no `ruby` run");
+    // Without that Ruby the one on the PATH is asked: its standard library, then its gem path.
+    std::fs::remove_dir_all(home.join(".rbenv")).unwrap();
+    let path = tmp.join("gem-path");
+    let said = format!("{}\n{}\n", tmp.join("lib").display(), path.display());
+    std::fs::create_dir_all(path.join("gems/rack-3.1.0")).unwrap();
+    let roots = ruby_roots(&root, &home, &[], || Some(said));
+    assert_eq!(
+        roots,
+        vec![
+            tmp.join("lib"),
+            path.join("gems/rack-3.1.0"),
+            bundle.join("gems/rack-attack-6.7.0"),
+        ]
+    );
+    // A `BUNDLE_PATH` beside the project is read without its `..`.
+    let beside = tmp.join("bundle/ruby/3.3.0/gems/rack-attack-6.7.0");
+    std::fs::create_dir_all(&beside).unwrap();
+    write(&root.join(".bundle/config"), "BUNDLE_PATH: '../bundle'\n");
+    assert_eq!(ruby_roots(&root, &home, &[], || None).last(), Some(&beside));
+    // No lockfile: nothing outside, and nothing is asked.
+    std::fs::remove_file(root.join("Gemfile.lock")).unwrap();
+    assert!(ruby_roots(&root, &home, &[], || panic!("asked")).is_empty());
+    std::fs::remove_dir_all(&tmp).unwrap();
+}

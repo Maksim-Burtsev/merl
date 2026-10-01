@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` in Ruby looks outside the project: in the gems `Gemfile.lock` names, at their locked
+  versions, in the standard library, and in the core's RBS signatures. `throttle` in a
+  `Rack::Attack` initializer lands on rack-attack's `def throttle`, read-only, where it said `no
+  definition for throttle`, and `Account.find` reaches ActiveRecord's. The gems are found in the
+  project's `BUNDLE_PATH`, `GEM_HOME`, or the Ruby `.ruby-version` names under rbenv, mise, asdf
+  or chruby; nothing of the project is run. `mattr_accessor` and `cattr_accessor` declare their
+  names as `attr_accessor` does. (#369)
 - `d` in C knows the struct of a receiver from its declaration. In `void f(client *c)`,
   `c->flags` lands on the `flags` of `client`, saying `via c: client`, where it offered every
   `flags` of the project. The type comes from a parameter or a local, a

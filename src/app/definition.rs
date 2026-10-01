@@ -1346,23 +1346,9 @@ impl App {
                 }
             }
             if class_method {
-                let found: Vec<Candidate> = concerns
-                    .map(|hits| self.concern_class_methods(kind, &here, &chain, hits))
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|hit| Candidate {
-                        hit,
-                        reason: Reason::Path(path.clone()),
-                    })
-                    .collect();
-                // Nothing of the class declares it: a class method from outside the project
-                // (ActiveRecord's `find`), or `Class#new` itself.
-                let asked = if found.is_empty() && word == "initialize" {
-                    "new"
-                } else {
-                    &word
-                };
-                self.show_definitions(kind, asked, &here, found, None);
+                let (asked, found) =
+                    self.ruby_class_method_elsewhere(&here, &chain, &word, &pattern, concerns);
+                self.show_definitions(kind, &asked, &here, found, None);
                 return;
             }
             // A cut in a grep whose result is dropped says nothing about the list below.
@@ -1862,9 +1848,10 @@ impl App {
         if found.is_empty() && self.probe.is_none() {
             found = self.deleted_definitions(kind, &word, &here);
         }
-        // Ruby's core and gems are not read (#390): the one namesake the project declares of
-        // `x.each` or `logger.info` proves nothing, and is offered rather than jumped to.
-        self.offer_only |= kind == Kind::Ruby && on_value && self.external_files(kind).is_empty();
+        // A Ruby value's member: what Ruby's core and the gems declare of the name too (#369).
+        if kind == Kind::Ruby && on_value {
+            self.ruby_member_outside(&word, &pattern, &mut found);
+        }
         self.show_definitions(kind, &word, &here, found, broke.as_deref());
         // The status of the one definition says what was set aside: `1 definition, 1 prototype`.
         if let Some(note) = aside {

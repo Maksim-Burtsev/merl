@@ -53,6 +53,75 @@ impl App {
             .collect()
     }
 
+    /// What the Ruby `Const.word` answers when no declaration of the class `chain` spells it
+    /// (#387), with the word asked for: a class method a concern the class includes gives it, of
+    /// `hits`, the project's declarations of the name; else, by name, what Ruby's core and the
+    /// gems declare (#369), ActiveRecord's `find`. `Const.new` with no `initialize` of the class's
+    /// own is `Class#new` itself, asked for as `new`.
+    pub(super) fn ruby_class_method_elsewhere(
+        &mut self,
+        here: &Path,
+        chain: &[String],
+        word: &str,
+        pattern: &str,
+        hits: Option<Vec<Hit>>,
+    ) -> (String, Vec<Candidate>) {
+        let path = chain.join(".");
+        let found: Vec<Candidate> = hits
+            .map(|hits| self.concern_class_methods(Kind::Ruby, here, chain, hits))
+            .unwrap_or_default()
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Path(path.clone()),
+            })
+            .collect();
+        match (found.is_empty(), word == "initialize") {
+            (true, true) => ("new".to_owned(), found),
+            (true, false) => (word.to_owned(), self.ruby_outside(word, pattern)),
+            (false, _) => (word.to_owned(), found),
+        }
+    }
+
+    /// `x.word` on a Ruby value of no known type, `found` the candidates so far: what Ruby's core
+    /// and the gems declare of the name joins them (#369), so the project's one namesake is no
+    /// longer alone. Without the core's signatures `x.each` may be a method nobody read, and the
+    /// project's one namesake proves nothing: it is offered rather than jumped to (#390).
+    pub(super) fn ruby_member_outside(
+        &mut self,
+        word: &str,
+        pattern: &str,
+        found: &mut Vec<Candidate>,
+    ) {
+        let core = self
+            .external_files(Kind::Ruby)
+            .iter()
+            .any(|f| f.extension().is_some_and(|e| e == "rbs"));
+        self.offer_only |= !core;
+        for c in self.ruby_outside(word, pattern) {
+            if !found
+                .iter()
+                .any(|f| f.hit.path == c.hit.path && f.hit.line == c.hit.line)
+            {
+                found.push(c);
+            }
+        }
+    }
+
+    /// The declarations of `word` that `pattern` finds outside the project, in Ruby's core, its
+    /// standard library and the gems, by name (#369).
+    fn ruby_outside(&mut self, word: &str, pattern: &str) -> Vec<Candidate> {
+        let files = self.external_files(Kind::Ruby);
+        let hits = self.external_grep(Kind::Ruby, &files, pattern);
+        self.declaring(Kind::Ruby, word, hits)
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            })
+            .collect()
+    }
+
     /// The methods named `word` a Ruby `self` at the cursor answers to (#365): those its class
     /// declares, in any file that opens it, then those of the modules it `include`s (or, when
     /// `self` is the class, `extend`s), then its superclass's, walked up. When `self` is the

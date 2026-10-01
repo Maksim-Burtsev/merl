@@ -1,0 +1,57 @@
+wait read-only
+1 module Rack
+2   class Attack
+3     def self.throttle(name, options)
+4     end
+5   end
+6 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+rack-attack-6.7.0/lib/rack/attack.rb  3:14  [code]  read-only  throttle → Rack.Attack.throttle (by name, 1 match)
+cursor (x,y,shown) 15,2,1
