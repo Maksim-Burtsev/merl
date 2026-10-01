@@ -15,7 +15,9 @@ wait public class ParcelSync {
 │        ▾ java              │
 │          ▾ courier         │
 │            ▾ app           │
+│              ▸ scan        │
 │                ParcelSync.j│
+│                Scale.java  │
 │        ▸ kotlin            │
 │  ▸ src                     │
 │    package.json            │
@@ -28,8 +30,6 @@ wait public class ParcelSync {
 │  Makefile                  │
 │  pyproject.toml            │
 │  README.md                 │
-│                            │
-│                            │
 │                            │
 │                            │
 │                            │

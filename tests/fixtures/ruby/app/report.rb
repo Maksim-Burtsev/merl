@@ -1,7 +1,7 @@
 class Report
   def targets
     Account.remote.where(id: 1)
-    #       ^ d: none; want app/account.rb:4 (#374)
+    #       ^ d: app/account.rb:4
   end
 
   def remotes(account)

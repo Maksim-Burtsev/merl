@@ -10,7 +10,7 @@ wait Files (
  9     PAID = "paid"
 10     SHIPPED = "shipped"
 11     CANCELLED = "cancelled"
-12     REFUNDED = "┌Files (49/49)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+12     REFUNDED = "┌Files (52/52)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 13                 │>                                                                                                                                                 │
 14                 │.github/workflows/ci.yml                                                                                                                          │
 15 @dataclass      │app/__init__.py                                                                                                                                   │
@@ -35,13 +35,13 @@ wait Files (
                    │scripts/invoices.php                                                                                                                              │
                    │scripts/refund_by_hand.py                                                                                                                         │
                    │tests/test_service.py                                                                                                                             │
+                   │web/android/src/main/java/courier/app/scan/Parcel.java                                                                                            │
                    │web/android/src/main/java/courier/app/ParcelSync.java                                                                                             │
+                   │web/android/src/main/java/courier/app/Scale.java                                                                                                  │
+                   │web/android/src/main/kotlin/courier/app/ship/Parcel.kt                                                                                            │
                    │web/android/src/main/kotlin/courier/app/ParcelList.kt                                                                                             │
                    │web/src/api/client.ts                                                                                                                             │
                    │web/src/components/Dialog.ts                                                                                                                      │
-                   │web/src/orders/GetShipment.graphql                                                                                                                │
-                   │web/src/orders/repo.ts                                                                                                                            │
-                   │web/src/orders/shipment.graphql                                                                                                                   │
                    └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
 

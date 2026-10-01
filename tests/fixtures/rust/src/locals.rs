@@ -114,7 +114,7 @@ pub fn callback(items: Vec<u32>) -> Vec<u32> {
 
 pub fn literal(hyperlink: u32) -> Printer {
     Printer { hyperlink: hyperlink + 1 }
-    //        ^ d: src/locals.rs:12; want src/locals.rs:8 (#316)
+    //        ^ d: src/locals.rs:8
     //                   ^ d: src/locals.rs:115
 }
 
@@ -136,4 +136,17 @@ pub fn outside(stem: u32) -> u32 {
 
 fn stem() -> u32 {
     0
+}
+
+impl Printer {
+    pub fn fresh() -> Self {
+        Self { hyperlink: 0 }
+        //     ^ d: src/locals.rs:8
+    }
+}
+
+pub fn unpacked(p: Printer) -> u32 {
+    let Printer { hyperlink: h } = p;
+    //            ^ d: src/locals.rs:8
+    h
 }

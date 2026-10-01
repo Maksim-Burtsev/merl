@@ -81,7 +81,7 @@ func settle() -> Int {
 public struct Parcel {
     enum Seal { case wax }
     func sealed() -> Seal { .wax }
-    //               ^ d: picker Sources/Shop/Pricing.swift:82, Tests/ShopTests/ParcelTests.swift:1; want Sources/Shop/Pricing.swift:82 (#375)
+    //               ^ d: Sources/Shop/Pricing.swift:82
 }
 
 public func `tally`(_ n: Int) -> Int {

@@ -1,0 +1,57 @@
+wait Shipped → ParcelState.Shipped (via import web/src/orders/types.ts)
+ 1 export type OrderStatus = "pending" | "paid" | "shipped" | "cancelled" | "refunded";
+ 2
+ 3 export interface Order {
+ 4   id: number;
+ 5   status: OrderStatus;
+ 6   total: string;
+ 7 }
+ 8
+ 9 export enum ParcelState {
+10   Packed = "packed",
+11   Shipped = "shipped",
+12 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/src/orders/types.ts  11:3  [code]  Shipped → ParcelState.Shipped (via import web/src/orders/types.ts)
+cursor (x,y,shown) 5,10,1

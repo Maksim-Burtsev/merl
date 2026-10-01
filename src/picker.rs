@@ -51,8 +51,6 @@ pub struct Picker {
     /// The query is not a fuzzy filter over the items: a key that changes it returns
     /// [`Pick::Typed`] and the list stays as it is. `s` greps for it instead.
     pub live: bool,
-    /// The query is a name as it is written, not nucleo's pattern syntax: `D` (#293).
-    pub literal: bool,
     pub selected: usize,
     pub title: String,
     /// List height of the last drawn frame, so PgUp/PgDn know how far a page is.
@@ -88,7 +86,6 @@ impl Picker {
             matcher: Matcher::new(Config::DEFAULT),
             query: LineEdit::default(),
             live: false,
-            literal: false,
             selected: 0,
             title: title.into(),
             page: 10,
@@ -177,14 +174,17 @@ impl Picker {
         }
     }
 
-    /// Hands the query to nucleo. `append`: the new pattern extends the old one, so nucleo can
-    /// refine the previous result set instead of rescoring everything.
+    /// Hands the query to nucleo, read as it is written in every list (#293, #519): none of
+    /// nucleo's pattern syntax, spaces still separating words matched in any order. `append`:
+    /// the new pattern extends the old one, so nucleo can refine the previous result set instead
+    /// of rescoring everything.
     pub(crate) fn requery(&mut self, append: bool) {
-        let query = self.query.to_string();
-        let query = match self.literal {
-            true => query.split(' ').map(escape).collect::<Vec<_>>().join(" "),
-            false => query,
-        };
+        let mut words: Vec<&str> = self.query.split(' ').collect();
+        // A `\` ending a word would escape the space behind it: that word goes last, as the
+        // order of the words matches nothing.
+        // ponytail: a second such word still joins the next; nobody types two.
+        words.sort_by_key(|w| w.ends_with('\\'));
+        let query = words.into_iter().map(escape).collect::<Vec<_>>().join(" ");
         self.nucleo.pattern.reparse(
             0,
             &query,
@@ -240,12 +240,17 @@ impl Picker {
 }
 
 /// One word of a query, escaped so nucleo reads it as the characters typed: a leading `!`, `^`
-/// or `'` and a trailing `$` are its pattern syntax otherwise.
-/// ponytail: a word opening with `\!`, `\^` or `\'` still loses its backslash, as nucleo has no
-/// spelling for it; no declaration name starts with a backslash.
+/// or `'` and a trailing `$` are its pattern syntax otherwise. nucleo drops the `\` of a leading
+/// `\!`, `\^` or `\'` whatever comes before it, so such a word is matched as a substring (`'`),
+/// which keeps it.
 fn escape(word: &str) -> String {
     let lead = if word.starts_with(['!', '^', '\'']) {
         "\\"
+    } else if word
+        .strip_prefix('\\')
+        .is_some_and(|w| w.starts_with(['!', '^', '\'']))
+    {
+        "'"
     } else {
         ""
     };

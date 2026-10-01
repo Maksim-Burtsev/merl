@@ -152,13 +152,13 @@ pub struct Stall {
 
 pub fn stall() -> Stall {
     Stall { helper: 1 }
-    //      ^ d: !jump
+    //      ^ d: src/errands.rs:150
 }
 
 pub fn imported() -> u32 {
     use crate::chores::tally;
     tally()
-    // ^ d: picker src/errands.rs:121, src/errands.rs:126, src/chores.rs:20, src/chores.rs:24; want src/chores.rs:20 (#350)
+    // ^ d: src/chores.rs:20
 }
 
 mod apart {
@@ -227,6 +227,6 @@ mod picked {
     #[test]
     fn picks() {
         assert_eq!(tally(), 1);
-        //         ^ d: picker src/errands.rs:121, src/errands.rs:126, src/chores.rs:20, src/chores.rs:24; want src/chores.rs:20 (#350)
+        //         ^ d: src/chores.rs:20
     }
 }

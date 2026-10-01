@@ -7,4 +7,8 @@ class Account < ApplicationRecord
   def remote?
     domain.present?
   end
+
+  include Suspensions
+  scope :without_suspended, -> { where(suspended_at: nil) }
+  delegate :email, to: :user
 end

@@ -597,3 +597,44 @@ fn a_stop_that_does_not_open_for_another_reason_leaves_the_history_alone() {
     assert_eq!(a.message, "a.rs: is a directory");
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #519: `o` reads the query as it is written, as `D` does (#293): `$`, a leading `!`, `^` or
+/// `'` and `\` are the characters of a file's name, not nucleo's pattern syntax.
+#[test]
+fn the_file_picker_reads_no_pattern_syntax() {
+    let (dir, mut a) = project_app(
+        "o-literal",
+        &[
+            ("a$b.txt", "x\n"),
+            ("ab.txt", "x\n"),
+            ("!test.md", "x\n"),
+            ("src/test_plan.md", "x\n"),
+            ("^up.txt", "x\n"),
+            ("'draft'.md", "x\n"),
+            ("cost$", "x\n"),
+            ("win\\dir.txt", "x\n"),
+            ("!bang.txt", "x\n"),
+            ("\\!bang.txt", "x\n"),
+        ],
+    );
+    let mut rows = |query: &str| {
+        press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+        typed(&mut a, query);
+        let p = a.picker.as_mut().unwrap();
+        p.settle();
+        let mut rows: Vec<String> = p.window(50).0.into_iter().map(|r| r.item.label).collect();
+        rows.sort();
+        press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+        rows
+    };
+    assert_eq!(rows("a$b.txt"), ["a$b.txt"]);
+    assert_eq!(rows("!test"), ["!test.md"]);
+    assert_eq!(rows("test"), ["!test.md", "src/test_plan.md"]);
+    assert_eq!(rows("^up"), ["^up.txt"]);
+    assert_eq!(rows("'draft'"), ["'draft'.md"]);
+    assert_eq!(rows("cost$"), ["cost$"]);
+    assert_eq!(rows("win\\ dir"), ["win\\dir.txt"]);
+    assert_eq!(rows("\\dir"), ["win\\dir.txt"]);
+    assert_eq!(rows("\\!bang"), ["\\!bang.txt"]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}

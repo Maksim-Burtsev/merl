@@ -17,3 +17,19 @@ key /
 type callbackUrl;
 key Enter d
 wait callbackUrl → Refunds.Register.callbackUrl (local)
+# #352: a member of a typed receiver lands in its type, not on a namesake, and a member of a
+# type the project does not declare has no definition in it.
+run printf '%s\n' 'public class Mailer' '{' '    public void Send(string to) { }' '}' '' 'public class Fax' '{' '    public void Send(string to) { }' '    public void AppendLine(int n) { }' '}' '' 'public class Outbox' '{' '    public void Flush()' '    {' '        var mailer = new Mailer();' '        mailer.Send("ops");' '        var sb = new StringBuilder();' '        sb.AppendLine("sent");' '    }' '}' > billing/Outbox.cs
+wait Outbox.cs
+key o
+type billing/Outbox.cs
+key Enter
+wait public class Outbox
+key /
+type Send("
+key Enter d
+wait Send → Mailer.Send (via mailer: Mailer)
+key /
+type AppendLine("
+key Enter d
+wait no definition for AppendLine in the project (via sb: StringBuilder)

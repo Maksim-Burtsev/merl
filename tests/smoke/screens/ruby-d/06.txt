@@ -1,0 +1,57 @@
+wait recent → Account.recent
+1 class Feed
+2   def call
+3     Account.recent
+4   end
+5 end
+6
+7 class Account < ApplicationRecord
+8   scope :recent, -> { all }
+9 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+app/ruby/feed.rb  8:10  [code]  recent → Account.recent (via Account)
+cursor (x,y,shown) 11,7,1

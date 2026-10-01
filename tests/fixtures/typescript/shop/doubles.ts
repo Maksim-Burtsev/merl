@@ -34,3 +34,11 @@ export const picked = lucky ? (crate: number) => crate : crate;
 //                                                       ^ d: shop/doubles.ts:3
 export const chosen = (crates: number[]) => crates.map(crate => lucky ? 0 : crate);
 //                                                                          ^ d: shop/doubles.ts:35
+// On the parameter itself the word is at a declaration: the module's namesake is offered (#534).
+export const probe = (crates: number[]) => crates.map(crate => 0);
+//                                                    ^ d: picker shop/doubles.ts:3
+//                                                    status: crate: at a declaration, 1 other by name
+export const probed = (crates: number[]) => crates.reduce((sum, crate: number) => sum, 0);
+//                                                              ^ d: picker shop/doubles.ts:3
+export const lone = (bins: number[]) => bins.map((bin) => 0);
+//                                                ^ d: shop/doubles.ts:43

@@ -390,6 +390,24 @@ pub fn default_name(line: &str) -> Option<String> {
     let name = DEFAULT.captures(line)?[1].to_owned();
     (!matches!(name.as_str(), "class" | "function" | "async" | "abstract")).then_some(name)
 }
+/// The class a TypeScript module's default export is an instance of (#341): `export default new
+/// C(…)`, or `export default name;` over `const name = new C(…)`. Any other default export, a
+/// call, an object or a function, is none.
+pub fn default_class(text: &str) -> Option<String> {
+    static NEW: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?m)^\s*export\s+default\s+new\s+([A-Za-z_$][\w$]*)\s*\(").unwrap()
+    });
+    if let Some(c) = NEW.captures(text) {
+        return Some(c[1].to_owned());
+    }
+    let name = text.lines().find_map(default_name)?;
+    let bound = Regex::new(&format!(
+        r"(?m)^\s*(?:export\s+)?const\s+{}\s*=\s*new\s+([A-Za-z_$][\w$]*)\s*\(",
+        regex::escape(&name)
+    ))
+    .ok()?;
+    Some(bound.captures(text)?[1].to_owned())
+}
 /// What a CommonJS module hands out as a whole (#328): the 1-based line of its one
 /// `module.exports = …`, and the name it assigns when that is a bare name, as `module.exports =
 /// Segment;` does. The outer `None` is a module that says nothing of `module.exports` or
@@ -583,7 +601,14 @@ pub fn go_import_line(text: &str, name: &str) -> Option<usize> {
 /// What every `use` of the Rust file `text` binds, as [`imports`] reads it, with the in-crate
 /// `crate::` and `super::` paths kept, and whether the `use` starts in column zero: at the top
 /// of the file, not in a function or an inline `mod`.
-fn rust_uses(text: &str) -> Vec<(String, Vec<String>, bool)> {
+pub fn rust_uses(text: &str) -> Vec<(String, Vec<String>, bool)> {
+    rust_uses_at(text)
+        .into_iter()
+        .map(|(name, path, at)| (name, path, at == 0 || text[..at].ends_with('\n')))
+        .collect()
+}
+/// [`rust_uses`], with the byte of `text` each `use` starts at.
+pub fn rust_uses_at(text: &str) -> Vec<(String, Vec<String>, usize)> {
     static USE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?ms)^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([^;]+);").unwrap()
     });
@@ -592,10 +617,9 @@ fn rust_uses(text: &str) -> Vec<(String, Vec<String>, bool)> {
         let at = c
             .get(0)
             .map_or(0, |m| m.end() - m.as_str().trim_start().len());
-        let top = at == 0 || text[..at].ends_with('\n');
         let mut bound = Vec::new();
         use_tree(&c[1], &[], &mut bound);
-        out.extend(bound.into_iter().map(|(name, path)| (name, path, top)));
+        out.extend(bound.into_iter().map(|(name, path)| (name, path, at)));
     }
     out
 }
@@ -611,28 +635,9 @@ pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) ->
     let (Some((_, path, true)), None) = (bound.next(), bound.next()) else {
         return Vec::new();
     };
-    let Some(src) = here.ancestors().skip(1).find(|d| {
-        d.file_name().is_some_and(|n| n == "src")
-            && files.contains(&d.parent().unwrap_or(Path::new("")).join("Cargo.toml"))
-    }) else {
+    let Some((src, mut module)) = rust_module_of(files, here) else {
         return Vec::new();
     };
-    let Ok(inside) = here.strip_prefix(src) else {
-        return Vec::new();
-    };
-    let mut module: Vec<String> = inside
-        .with_extension("")
-        .iter()
-        .map(|p| p.to_string_lossy().into_owned())
-        .collect();
-    if module.first().is_some_and(|m| m == "bin") {
-        return Vec::new();
-    }
-    if matches!(module.as_slice(), [m] if m == "lib" || m == "main")
-        || module.last().is_some_and(|m| m == "mod")
-    {
-        module.pop();
-    }
     let Some((_, parts)) = path.split_last() else {
         return Vec::new();
     };
@@ -652,12 +657,37 @@ pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) ->
         _ => return Vec::new(),
     };
     module.extend(parts.iter().cloned());
-    let at = module.iter().fold(src.to_path_buf(), |p, m| p.join(m));
+    let at = module.iter().fold(src.clone(), |p, m| p.join(m));
     let wanted = match module.is_empty() {
         true => vec![src.join("lib.rs"), src.join("main.rs")],
         false => vec![at.with_extension("rs"), at.join("mod.rs")],
     };
     wanted.into_iter().filter(|f| files.contains(f)).collect()
+}
+/// The `src/` of the crate the Rust file `here` is in, and the module `here` is in it:
+/// `src/a/b.rs` and `src/a/b/mod.rs` are `[a, b]`, `lib.rs` and `main.rs` the crate's root, `[]`.
+/// `None` outside the `src/` of a `Cargo.toml`, and in a binary under `src/bin/`, a crate of its
+/// own.
+pub fn rust_module_of(files: &[PathBuf], here: &Path) -> Option<(PathBuf, Vec<String>)> {
+    let src = here.ancestors().skip(1).find(|d| {
+        d.file_name().is_some_and(|n| n == "src")
+            && files.contains(&d.parent().unwrap_or(Path::new("")).join("Cargo.toml"))
+    })?;
+    let inside = here.strip_prefix(src).ok()?;
+    let mut module: Vec<String> = inside
+        .with_extension("")
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect();
+    if module.first().is_some_and(|m| m == "bin") {
+        return None;
+    }
+    if matches!(module.as_slice(), [m] if m == "lib" || m == "main")
+        || module.last().is_some_and(|m| m == "mod")
+    {
+        module.pop();
+    }
+    Some((src.to_path_buf(), module))
 }
 /// One `use` tree: `a::b::{c, d as e, f::*}` binds `c`, `e` and every name of `f`.
 fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<(String, Vec<String>)>) {

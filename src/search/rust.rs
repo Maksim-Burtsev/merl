@@ -224,8 +224,8 @@ fn frames(lines: &[String], line: usize, start: usize) -> Option<(String, Vec<Fr
             b'[' | b'(' | b'{' => {
                 let before = text[..i].trim_end();
                 let name_at = before
-                    .rfind(|c: char| !(c.is_alphanumeric() || c == '_' || c == '!'))
-                    .map_or(0, |j| j + 1);
+                    .trim_end_matches(|c: char| c.is_alphanumeric() || c == '_' || c == '!')
+                    .len();
                 stack.push(Frame {
                     open: c,
                     attr: false,
@@ -1024,4 +1024,308 @@ pub fn rust_stability(lines: &[&str], line: usize) -> bool {
         .map(|l| l.trim())
         .take_while(|t| t.starts_with("//") || !(t.is_empty() || t.ends_with(['{', '}', ';'])))
         .any(|t| t.starts_with("#[stable(") || t.starts_with("#[unstable("))
+}
+// ---- the type of a receiver (#377) ----------------------------------------------------------
+/// The Rust type written at the start of `s`, up to the `,`, `)`, `|`, `=`, `{`, `;` or `where`
+/// that ends it outside brackets.
+fn type_at(s: &str) -> &str {
+    let b = s.as_bytes();
+    let mut depth = 0i32;
+    for (i, &c) in b.iter().enumerate() {
+        match c {
+            b'<' | b'(' | b'[' => depth += 1,
+            b'>' if i > 0 && b[i - 1] == b'-' => {}
+            b'>' | b')' | b']' if depth > 0 => depth -= 1,
+            b',' | b')' | b'|' | b'=' | b'{' | b';' | b']' | b'}' if depth == 0 => {
+                return s[..i].trim();
+            }
+            _ if depth == 0 && s[i..].starts_with(" where") => return s[..i].trim(),
+            _ => {}
+        }
+    }
+    s.trim()
+}
+/// The name of the type whose methods and fields a value written as `written` has, and the path
+/// it is spelled behind (`crate::a::`): `&`, `&mut`, lifetimes, `mut`, `Box<T>`, `Rc<T>` and
+/// `Arc<T>` are stripped, since a method call derefs through them, and a type's own arguments
+/// dropped. `None` for what the project cannot declare the methods of: a primitive, a tuple, a
+/// slice, a `dyn` or `impl` trait, a function, and the standard library's own types.
+pub fn rust_type_name(written: &str) -> Option<(Vec<String>, String)> {
+    const STD: &[&str] = &[
+        "Option",
+        "Result",
+        "Vec",
+        "VecDeque",
+        "HashMap",
+        "HashSet",
+        "BTreeMap",
+        "BTreeSet",
+        "BinaryHeap",
+        "LinkedList",
+        "String",
+        "Cow",
+        "Cell",
+        "RefCell",
+        "Mutex",
+        "RwLock",
+        "Weak",
+        "Pin",
+        "PathBuf",
+        "Path",
+        "OsString",
+        "OsStr",
+        "Duration",
+        "Instant",
+    ];
+    static PATH: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^((?:[A-Za-z_]\w*::)*)([A-Za-z_]\w*)\s*(?:<(.*)>)?$").unwrap()
+    });
+    static LIFETIME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^'\w+\s+").unwrap());
+    let mut t = written.trim();
+    loop {
+        let before = t;
+        t = t.trim_start_matches('&').trim_start();
+        t = LIFETIME.find(t).map_or(t, |m| &t[m.end()..]);
+        t = t.strip_prefix("mut ").unwrap_or(t).trim_start();
+        let c = PATH.captures(t)?;
+        let name = c.get(2)?.as_str();
+        if matches!(name, "Box" | "Rc" | "Arc")
+            && let Some(inner) = c.get(3)
+        {
+            t = inner.as_str().trim();
+        }
+        if t == before {
+            break;
+        }
+    }
+    let c = PATH.captures(t)?;
+    let name = c[2].to_owned();
+    if !name.starts_with(|c: char| c.is_ascii_uppercase()) || STD.contains(&name.as_str()) {
+        return None;
+    }
+    let path = c[1]
+        .split("::")
+        .filter(|p| !p.is_empty())
+        .map(str::to_owned)
+        .collect();
+    Some((path, name))
+}
+/// The type an `impl` header on `line` is for: `T` of `impl<…> T` and of `impl<…> Tr for T`.
+pub fn rust_impl_type(line: &str) -> Option<String> {
+    static IMPL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").unwrap()
+    });
+    IMPL.captures(line).map(|c| c[1].to_owned())
+}
+/// The trait an `impl<…> Tr for T` header on `line` implements.
+pub fn rust_impl_trait(line: &str) -> Option<String> {
+    static FOR: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").unwrap()
+    });
+    FOR.captures(line).map(|c| c[1].to_owned())
+}
+/// The type of `self` on 0-based line `at` of `lines`: the `impl` the method around it sits in,
+/// with its 0-based line. `None` in a trait's default method, where `self` is any implementor,
+/// and outside an `impl`.
+pub fn rust_self_type(lines: &[&str], at: usize) -> Option<(String, usize)> {
+    static TRAIT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s").unwrap()
+    });
+    let mut depth = indent(lines.get(at)?);
+    for i in (0..at).rev() {
+        let t = lines[i].trim();
+        if depth == 0 {
+            break;
+        }
+        if t.is_empty()
+            || comment(Kind::Rust, t)
+            || t.starts_with(['#', '{', '}', ')', '>'])
+            || t.starts_with("where")
+            || indent(lines[i]) >= depth
+        {
+            continue;
+        }
+        depth = indent(lines[i]);
+        if TRAIT.is_match(lines[i]) {
+            return None;
+        }
+        if let Some(ty) = rust_impl_type(lines[i]) {
+            return Some((ty, i));
+        }
+    }
+    None
+}
+/// Whether an item of the Rust `text` takes a generic parameter `name`: a `fn`, an `impl`, a
+/// `struct`, an `enum`, a `trait` or a `type` with `name` among its `<…>`.
+pub fn rust_generic(text: &str, name: &str) -> bool {
+    Regex::new(&format!(
+        r"\b(?:fn\s+\w+|impl|struct\s+\w+|enum\s+\w+|union\s+\w+|trait\s+\w+|type\s+\w+)\s*<[^>{{;]*\b{}\b",
+        regex::escape(name)
+    ))
+    .is_ok_and(|re| re.is_match(text))
+}
+/// What the binding of `name` on 0-based line `at` of `lines` says it holds (#377).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RustHolds {
+    /// A type as written: `x: &T`, `|x: T|`, `let x: T = …`.
+    Type(String),
+    /// A struct literal of the type written: `let x = T { … }`.
+    Literal(String),
+    /// A call of an associated function of the type written: `let x = T::new(…)`.
+    Assoc(String, String),
+    /// A call of the function the path names: `let x = tmpdir()`.
+    Call(Vec<String>),
+}
+/// What the Rust binding of `name` on 0-based line `at` of `lines`, a line [`rust_bindings`]
+/// gave, says it holds: a parameter's or a `let`'s written type, or the expression a `let`
+/// assigns when it is a struct literal or a call and nothing else (no `?`, no method behind it).
+/// `None` for anything else: a pattern, a `for`, an arm, a closure parameter with no type.
+pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
+    static LITERAL: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^(?:[A-Za-z_]\w*::)*([A-Z]\w*)\s*\{").unwrap());
+    static ASSOC: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^((?:[A-Za-z_]\w*::)*[A-Z]\w*)(?:::<[^()]*>)?::([a-z_]\w*)\s*\(").unwrap()
+    });
+    static CALL: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^((?:[a-z_]\w*::)*[a-z_]\w*)\s*\(").unwrap());
+    let n = regex::escape(name);
+    let line = uncommented(Kind::Rust, lines.get(at)?);
+    let t = line.trim();
+    if t.starts_with("let ") {
+        let head = Regex::new(&format!(r"^let\s+(?:mut\s+)?{n}\s*(:[^:]|=[^=])"))
+            .expect("an escaped name keeps the pattern valid");
+        let c = head.captures(t)?;
+        let rest = &t[c.get(1)?.start() + 1..];
+        if c[1].starts_with(':') {
+            return Some(RustHolds::Type(type_at(rest).to_owned()));
+        }
+        // The statement, to its `;`.
+        let mut statement = rest.to_owned();
+        let mut i = at;
+        while !statement.trim_end().ends_with(';') {
+            i += 1;
+            if i >= lines.len() || i > at + 40 {
+                return None;
+            }
+            statement.push(' ');
+            statement.push_str(uncommented(Kind::Rust, lines[i]).trim());
+        }
+        let e = statement.trim().trim_end_matches(';').trim_end();
+        // The bracket a match opens closes at the end of the expression.
+        let whole = |open: usize| {
+            let mut depth = 0i32;
+            for (i, c) in e.char_indices().skip_while(|&(i, _)| i < open) {
+                match c {
+                    '(' | '{' | '[' => depth += 1,
+                    ')' | '}' | ']' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            return i + 1 == e.len();
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            false
+        };
+        if let Some(c) = LITERAL.captures(e) {
+            let open = c.get(0)?.end() - 1;
+            return whole(open).then(|| RustHolds::Literal(e[..open].trim().to_owned()));
+        }
+        if let Some(c) = ASSOC.captures(e) {
+            let open = c.get(0)?.end() - 1;
+            return whole(open).then(|| RustHolds::Assoc(c[1].to_owned(), c[2].to_owned()));
+        }
+        if let Some(c) = CALL.captures(e) {
+            let open = c.get(0)?.end() - 1;
+            let path = c[1].split("::").map(str::to_owned).collect();
+            return whole(open).then_some(RustHolds::Call(path));
+        }
+        return None;
+    }
+    // A closure's typed parameter, `|dir: Dir, mut cmd: TestCommand|`.
+    let closure = Regex::new(&format!(
+        r"\|(?:[^|]*?[\s(,])?(?:mut\s+)?{n}\s*:([^:][^|]*)\|"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    if let Some(c) = closure.captures(&line) {
+        return Some(RustHolds::Type(type_at(&c[1]).to_owned()));
+    }
+    // A function's parameter, on the `fn` line or on a line of its wrapped list.
+    let param = Regex::new(&format!(r"(?:^|[(,])\s*(?:mut\s+)?{n}\s*:([^:].*)"))
+        .expect("an escaped name keeps the pattern valid");
+    let signature = FN_LINE.is_match(&line)
+        || (0..at)
+            .rev()
+            .map(|i| lines[i])
+            .take_while(|l| !l.trim_end().ends_with(['{', '}', ';']))
+            .any(|l| FN_LINE.is_match(l));
+    if signature && let Some(c) = param.captures(&line) {
+        return Some(RustHolds::Type(type_at(&c[1]).to_owned()));
+    }
+    None
+}
+/// The return type of the Rust function whose `fn` is on 0-based line `f` of `lines`, as
+/// written behind its `->`.
+pub fn rust_return_type(lines: &[&str], f: usize) -> Option<String> {
+    let mut signature = String::new();
+    for l in lines.iter().skip(f).take(30) {
+        let l = uncommented(Kind::Rust, l);
+        signature.push(' ');
+        signature.push_str(l.trim());
+        if l.contains('{') || l.trim_end().ends_with(';') {
+            break;
+        }
+    }
+    // The `->` after the parameters: the last one outside brackets.
+    let b = signature.as_bytes();
+    let mut depth = 0i32;
+    let mut arrow = None;
+    for (i, &c) in b.iter().enumerate() {
+        match c {
+            b'(' | b'[' => depth += 1,
+            b')' | b']' => depth -= 1,
+            b'{' | b';' if depth == 0 => break,
+            b'-' if depth == 0 && b.get(i + 1) == Some(&b'>') => arrow = Some(i + 2),
+            _ => {}
+        }
+    }
+    let t = type_at(&signature[arrow?..]);
+    (!t.is_empty()).then(|| t.to_owned())
+}
+/// The field `word` directly in the `struct` or `union` declared on 0-based line `decl` of
+/// `lines`: its 0-based line and its type as written.
+pub fn rust_struct_field(lines: &[&str], decl: usize, word: &str) -> Option<(usize, String)> {
+    if !STRUCT.is_match(lines.get(decl)?) {
+        return None;
+    }
+    let field = Regex::new(&format!(
+        r"^\s+(?:pub(?:\([^)]*\))?\s+)?{}\s*:([^:].*)",
+        regex::escape(word)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let base = indent(lines[decl]);
+    for (i, l) in lines.iter().enumerate().skip(decl + 1) {
+        let t = l.trim();
+        if !t.is_empty()
+            && indent(l) <= base
+            && !t.starts_with(['{', '#', '/'])
+            && !t.starts_with("where")
+        {
+            break;
+        }
+        if let Some(c) = field.captures(l)
+            && rust_parent(lines, i) == Some(decl)
+        {
+            return Some((i, type_at(&c[1]).to_owned()));
+        }
+    }
+    None
+}
+/// The line pattern of a Rust `struct`, `enum` or `union` called `name`.
+pub fn rust_type_decl_pattern(name: &str) -> String {
+    format!(
+        r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum|union)\s+{}\b",
+        regex::escape(name)
+    )
 }

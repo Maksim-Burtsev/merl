@@ -705,3 +705,348 @@ fn declared_name(kind: Kind, decl: &str, parts: &[String]) -> String {
         .or_else(|| parts.last().cloned())
         .unwrap_or_default()
 }
+
+/// A Swift type a receiver is proven to be (#384): its name as written, the name
+/// [`search::qualified`] gives its members' owner, and for a type the project declares its
+/// keyword and the first type its header inherits. A type the project only extends has no
+/// keyword.
+struct SwiftType {
+    name: String,
+    owner: String,
+    keyword: Option<String>,
+    base: Option<String>,
+}
+
+impl App {
+    /// The declarations of `word` on the Swift receiver `chain` whose type is proven (#384): a
+    /// parameter's or a property's annotation, a construction of a type the project declares, a
+    /// call's `-> Type`, `self`, a loop over `[Type]`, up to six names long. The member is the
+    /// type's own, its extensions', then its superclasses'. On a type the project only extends,
+    /// the extensions that declare it, or an empty list for "no definition". `None` when a link
+    /// is not proven, or the type declares nothing of the name: the search by name decides.
+    pub(super) fn swift_typed(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        chain: &[String],
+    ) -> Option<Vec<Candidate>> {
+        let cut = self.truncated.get();
+        let found = (|| {
+            let (written, links) = self.swift_chain(here, here, text, self.line + 1, chain, 1)?;
+            let ty = self.swift_type(here, &written)?;
+            let mut rows = self.swift_member_rows(here, &ty, word)?;
+            // A value reaches the instance members; a `static` one needs the type.
+            if rows
+                .iter()
+                .any(|h| search::swift_static_member(&h.text) == Some(false))
+            {
+                rows.retain(|h| search::swift_static_member(&h.text) != Some(true));
+            }
+            let label = links.join(" \u{2192} ");
+            Some(
+                rows.into_iter()
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Receiver(label.clone()),
+                    })
+                    .collect(),
+            )
+        })();
+        // A cut in a grep whose result is dropped says nothing about the list shown in the end.
+        self.truncated.set(cut);
+        found
+    }
+
+    /// The type written for the last of `names` on 1-based `line` of `text`, the text of `file`,
+    /// as written, and the links that prove it.
+    fn swift_chain(
+        &self,
+        here: &Path,
+        file: &Path,
+        text: &str,
+        line: usize,
+        names: &[String],
+        hops: usize,
+    ) -> Option<(String, Vec<String>)> {
+        let (mut written, link) = self.swift_value(here, file, text, line, &names[0], hops)?;
+        let shown = |w: &str| search::swift_type_name(w).unwrap_or_else(|| w.to_owned());
+        let mut links = vec![link.unwrap_or_else(|| format!("{}: {}", names[0], shown(&written)))];
+        for (i, field) in names[1..].iter().enumerate() {
+            // ponytail: six names in front of the word, as the other languages read.
+            if i == 5 {
+                return None;
+            }
+            let ty = self.swift_type(here, &written)?;
+            let (next, link) = self.swift_field(here, &ty, field, hops)?;
+            let link = link.unwrap_or_else(|| match i == 0 && names[0] == "self" {
+                true => format!("self.{field}: {}", shown(&next)),
+                false => format!("{field}: {}", shown(&next)),
+            });
+            match i == 0 && names[0] == "self" {
+                true => links[0] = link,
+                false => links.push(link),
+            }
+            written = next;
+        }
+        Some((written, links))
+    }
+
+    /// The type `name` holds on 1-based `line` of `text`, the text of `file`, as written, with
+    /// the signature of the call it came from: `self` is the type around the line; a local or a
+    /// parameter what its one binding gives it; else a property of the type around the line,
+    /// when nothing in its function may bind the name unread.
+    fn swift_value(
+        &self,
+        here: &Path,
+        file: &Path,
+        text: &str,
+        line: usize,
+        name: &str,
+        hops: usize,
+    ) -> Option<(String, Option<String>)> {
+        let lines: Vec<&str> = text.lines().collect();
+        let literal = search::literal_lines(Kind::Swift, text);
+        let around = search::swift_enclosing_type(&lines, &literal, line);
+        if name == "self" {
+            let (_, own, ..) = search::swift_type_header(lines[around? - 1])?;
+            return Some((own, None));
+        }
+        match search::bindings(Kind::Swift, text, line, name).as_slice() {
+            [b] => {
+                let given = search::swift_given(lines.get(b.line - 1)?, name)?;
+                self.swift_given_type(here, file, text, b.line, given, hops)
+            }
+            [] => {
+                let at = around?;
+                // The lines of the function under the type, down to `line`.
+                let mut top = search::swift_scope(&lines, &literal, line).0;
+                while top > at {
+                    match search::swift_scope(&lines, &literal, top).0 {
+                        up if up > at => top = up,
+                        _ => break,
+                    }
+                }
+                if top == 0 || (top..line).any(|l| search::swift_may_bind(lines[l - 1], name)) {
+                    return None;
+                }
+                let (_, own, ..) = search::swift_type_header(lines[at - 1])?;
+                let ty = self.swift_type(here, &own)?;
+                self.swift_field(here, &ty, name, hops)
+            }
+            _ => None,
+        }
+    }
+
+    /// What `given` on 1-based `line` of `file` reads as a type, as written. A type named by a
+    /// generic parameter in scope there is no type the project declares.
+    fn swift_given_type(
+        &self,
+        here: &Path,
+        file: &Path,
+        text: &str,
+        line: usize,
+        given: search::SwiftGiven,
+        hops: usize,
+    ) -> Option<(String, Option<String>)> {
+        let (written, link) = match given {
+            search::SwiftGiven::Type(t) => (t, None),
+            search::SwiftGiven::Value(e) => self.swift_expr(here, file, text, line, &e, hops)?,
+            search::SwiftGiven::Element(e) => {
+                let (w, link) = self.swift_expr(here, file, text, line, &e, hops)?;
+                (search::swift_element(&w)?, link)
+            }
+        };
+        let name = search::swift_type_name(&written)
+            .or_else(|| search::swift_element(&written))
+            .unwrap_or_default();
+        let lines: Vec<&str> = text.lines().collect();
+        let literal = search::literal_lines(Kind::Swift, text);
+        let mut at = line;
+        while at > 0 {
+            if search::swift_generics(lines[at - 1]).contains(&name) {
+                return None;
+            }
+            at = search::swift_scope(&lines, &literal, at).0;
+        }
+        Some((written, link))
+    }
+
+    /// The type the Swift expression `e` on 1-based `line` of `file` gives, as written: a
+    /// construction of a type the project declares, the `-> Type` of the one function or method
+    /// called, a cast, or the chain of names it is.
+    fn swift_expr(
+        &self,
+        here: &Path,
+        file: &Path,
+        text: &str,
+        line: usize,
+        e: &str,
+        hops: usize,
+    ) -> Option<(String, Option<String>)> {
+        let callee = match search::swift_expr(e)? {
+            search::SwiftExpr::Cast(t) => return Some((t, None)),
+            search::SwiftExpr::Chain(c) => {
+                let names: Vec<String> = c.split('.').map(str::to_owned).collect();
+                let (w, _) =
+                    self.swift_chain(here, file, text, line, &names, hops.checked_sub(1)?)?;
+                return Some((w, None));
+            }
+            search::SwiftExpr::Call(callee) => callee,
+        };
+        let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
+        // `Type(…)`, `Type.init(…)`: a type the project declares, or nothing a call reads.
+        if let [ty] | [ty, _] = parts.as_slice()
+            && (parts.len() == 1 || parts[1] == "init")
+            && let Some(t) = self.swift_type(here, ty)
+        {
+            return t.keyword.is_some().then_some((t.name, None));
+        }
+        let (method, receiver) = parts.split_last()?;
+        let (decl, owner) = match receiver {
+            // A function of the file's module, which no local or parameter hides.
+            [] => {
+                if !search::bindings(Kind::Swift, text, line, method).is_empty() {
+                    return None;
+                }
+                let pattern = search::def_patterns(Kind::Swift, method).join("|");
+                let funcs: Vec<Hit> = self
+                    .project_definitions(Kind::Swift, here, method, &pattern)
+                    .into_iter()
+                    .filter(|h| {
+                        h.text.contains("func ")
+                            && self.text_of(&h.path).is_some_and(|t| {
+                                search::qualified(Kind::Swift, &t, h.line, method)
+                                    .is_none_or(|q| q == *method)
+                            })
+                    })
+                    .collect();
+                let [decl] = <[Hit; 1]>::try_from(funcs).ok()?;
+                (decl, None)
+            }
+            _ => {
+                let (w, _) =
+                    self.swift_chain(here, file, text, line, receiver, hops.checked_sub(1)?)?;
+                let ty = self.swift_type(here, &w)?;
+                let rows = self.swift_member_rows(here, &ty, method)?;
+                let [decl] = <[Hit; 1]>::try_from(rows).ok()?;
+                (decl, Some(ty.name))
+            }
+        };
+        if !decl.text.contains("func ") {
+            return None;
+        }
+        let returns = search::swift_returns(&self.text_of(&decl.path)?, decl.line)?;
+        let returns = match (returns.as_str(), owner) {
+            ("Self", Some(owner)) => owner,
+            _ => returns,
+        };
+        let link = format!("{callee}() -> {returns}");
+        Some((returns, Some(link)))
+    }
+
+    /// The property `name` of `ty`, or of what it extends, as written, with the signature of the
+    /// call it came from: one `let` or `var` line.
+    fn swift_field(
+        &self,
+        here: &Path,
+        ty: &SwiftType,
+        name: &str,
+        hops: usize,
+    ) -> Option<(String, Option<String>)> {
+        let rows = self.swift_member_rows(here, ty, name)?;
+        let [row] = <[Hit; 1]>::try_from(rows).ok()?;
+        if search::swift_static_member(&row.text).is_none() || row.text.contains("func ") {
+            return None;
+        }
+        let text = self.text_of(&row.path)?;
+        let given = search::swift_given(&row.text, name)?;
+        self.swift_given_type(here, &row.path, &text, row.line, given, hops)
+    }
+
+    /// The Swift type written as `written`: the one the project declares by that name, not a
+    /// protocol or an alias; or, when it declares none and extends it, a type from outside.
+    fn swift_type(&self, here: &Path, written: &str) -> Option<SwiftType> {
+        let name = search::swift_type_name(written)?;
+        let pattern = search::def_patterns(Kind::Swift, &name).join("|");
+        let mut decls = Vec::new();
+        let mut extended = false;
+        for h in self.project_definitions(Kind::Swift, here, &name, &pattern) {
+            if !self.in_code(Kind::Swift, &h) {
+                continue;
+            }
+            match search::swift_type_header(&h.text) {
+                Some((k, n, ..)) if k == "extension" => extended |= n == name,
+                Some((k, n, b, _)) if n == name => decls.push((h, k, b)),
+                Some(_) => {}
+                // `typealias Name`, `associatedtype Name`: no type of its own.
+                None if !h.text.contains("func ")
+                    && search::swift_static_member(&h.text).is_none()
+                    && !search::swift_case(&h.text) =>
+                {
+                    return None;
+                }
+                None => {}
+            }
+        }
+        match decls.as_slice() {
+            [] if extended => Some(SwiftType {
+                owner: name.clone(),
+                name,
+                keyword: None,
+                base: None,
+            }),
+            [(h, k, b)] if k != "protocol" => {
+                let text = self.text_of(&h.path)?;
+                Some(SwiftType {
+                    owner: search::qualified(Kind::Swift, &text, h.line, &name)
+                        .unwrap_or(name.clone()),
+                    name,
+                    keyword: Some(k.clone()),
+                    base: b.clone(),
+                })
+            }
+            _ => None,
+        }
+    }
+
+    /// The project's declarations of `word` as a member of `ty`: its body's and its extensions',
+    /// else, for a class, those of the class it extends, and so on up. `None` when none declares
+    /// it and `ty` is declared in the project, whose protocols or bases outside may; an empty
+    /// list for a type from outside.
+    fn swift_member_rows(&self, here: &Path, ty: &SwiftType, word: &str) -> Option<Vec<Hit>> {
+        let pattern = search::def_patterns(Kind::Swift, word).join("|");
+        let hits = self.project_definitions(Kind::Swift, here, word, &pattern);
+        let mut owner = ty.owner.clone();
+        let (mut keyword, mut base) = (ty.keyword.clone(), ty.base.clone());
+        let mut seen = HashSet::from([owner.clone()]);
+        loop {
+            let full = format!("{owner}.{word}");
+            let rows: Vec<Hit> = hits
+                .iter()
+                .filter(|h| {
+                    self.text_of(&h.path)
+                        .and_then(|t| search::qualified(Kind::Swift, &t, h.line, word))
+                        .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")))
+                        && !search::swift_extension(&h.text)
+                        && self.in_code(Kind::Swift, h)
+                })
+                .cloned()
+                .collect();
+            if !rows.is_empty() {
+                return Some(rows);
+            }
+            match (keyword.as_deref(), base) {
+                (None, _) => return Some(Vec::new()),
+                (Some("class"), Some(next)) if seen.insert(next.clone()) => {
+                    let up = self.swift_type(here, &next)?;
+                    if up.keyword.as_deref() != Some("class") {
+                        return None;
+                    }
+                    (owner, keyword, base) = (up.owner, up.keyword, up.base);
+                }
+                _ => return None,
+            }
+        }
+    }
+}
