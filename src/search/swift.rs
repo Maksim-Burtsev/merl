@@ -245,16 +245,16 @@ fn swift_decl_binds(rest: &str, name: &str) -> Option<bool> {
 /// Swift's locals (#366), walked outward from the cursor over the blocks around it, told by
 /// indentation: a `let`, a `var` or a `guard` statement above the cursor in each block; what the
 /// block's header binds — an `if let`, a `while let`, a `for`, a `catch` (a bare one binds
-/// `error`), a closure's parameters, a `case` of a `switch`; and last the parameters of the
-/// enclosing `func`, `init` or `subscript`. The innermost wins. A type's body and the top of the
+/// `error`), a closure's parameters, a `case` of a `switch`, the parameters of a `func`, `init` or
+/// `subscript`, and on out past a nested function's header (#564). The innermost wins. A type's body and the top of the
 /// file bind no local, and a pattern the rules cannot read that names the word stops the walk:
 /// the search by name decides then.
 pub(super) fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     swift_walk(lines, at, name).unwrap_or_default()
 }
 /// Whether the walk of [`swift_bindings`] from 1-based `line` proves that no local of the
-/// enclosing function or type names `name`: it reached a type's body, or the parameters of a
-/// function right inside one, and found no binding. A walk that stopped proves nothing (#380).
+/// enclosing functions names `name`: it reached a type's body and found no binding. A walk that
+/// stopped proves nothing (#380).
 pub fn swift_no_local(text: &str, line: usize, name: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     line.checked_sub(1)
@@ -335,14 +335,9 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             if swift_params_bind(&text, name) {
                 return found(written(i, end, &param));
             }
-            // The walk does not go past a function: its locals are proven none only when a
-            // type's body holds it, and a nested function's outer locals stay unseen.
-            let typed = (0..i)
-                .rev()
-                .find(|&j| swift_code(lines, &literal, j) && indent(lines[j]) < indent(lines[i]))
-                .map(|j| code(swift_header_start(lines, &literal, j)))
-                .is_some_and(|h| !SWIFT_FUNC.is_match(&h) && SWIFT_TYPE.is_match(&h));
-            return typed.then(Vec::new);
+            // A nested function reads the bindings of the function around it above its header,
+            // as a closure does (#564): the walk goes on out, and a type's body stops it.
+            continue;
         }
         if SWIFT_TYPE.is_match(&head) {
             return Some(Vec::new());
