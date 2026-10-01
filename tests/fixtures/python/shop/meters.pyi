@@ -1,0 +1,6 @@
+from typing import overload
+
+@overload
+def reading(key: str) -> int: ...
+@overload
+def reading(key: bytes) -> int: ...

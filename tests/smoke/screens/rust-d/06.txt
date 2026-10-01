@@ -1,0 +1,57 @@
+wait fn main()
+┌orders──────────────────────┐ 1 mod ledger;
+│▸ .github                   │ 2 mod summary;
+│▸ .venv                     │ 3
+│▸ app                       │ 4 fn main() {
+│▸ data                      │ 5     println!("{}", summary::report(&[1250, 480, 3099]));
+│▸ deploy                    │ 6 }
+│▸ docs                      │ 7
+│▾ scripts                   │ 8 pub fn statement(amount: u64) -> String {
+│  ▾ payouts                 │ 9     use crate::ledger::entry;
+│    ▾ src                   │10     entry(amount)
+│        ledger.rs           │11 }
+│        main.rs             │
+│        summary.rs          │
+│      Cargo.toml            │
+│    invoices.php            │
+│    refund_by_hand.py       │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+scripts/payouts/src/main.rs  1:1  [code]                                                                                                                                          ? help
+cursor (x,y,shown) 33,0,1

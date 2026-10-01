@@ -99,9 +99,9 @@ import os.path, store.sessions as sessions
 "#;
     let at = |line, name| bound_at(Kind::Python, text, line, name);
     // A parameter over a multi-line signature hides the module's `repo` above.
-    assert_eq!(at(14, "repo"), [(9, ty("UserRepository"))]);
+    assert_eq!(at(14, "repo"), [(11, ty("UserRepository"))]);
     assert_eq!(at(1, "repo"), [(3, Value::Call("UserRepository".into()))]);
-    assert_eq!(at(14, "cache"), [(9, ty("\"Cache | None\""))]);
+    assert_eq!(at(14, "cache"), [(12, ty("\"Cache | None\""))]);
     assert_eq!(at(14, "local"), [(15, ty("Optional[Repo]"))]);
     assert_eq!(at(24, "self"), [(21, Value::Class(6))]);
     // A static method's first parameter is no `self`, and an unannotated one is unknown.
@@ -149,13 +149,13 @@ def delete(
 "
     );
     let at = |line, name| bound_at(Kind::Python, &py, line, name);
-    assert_eq!(at(6, "self"), [(2, Value::Class(1))]);
+    assert_eq!(at(6, "self"), [(3, Value::Class(1))]);
     assert_eq!(at(6, "repo"), [(5, ty("Repo"))]);
-    assert_eq!(at(85, "repo"), [(9, ty("Repo"))]);
+    assert_eq!(at(85, "repo"), [(83, ty("Repo"))]);
     assert_eq!(
         at(85, "path"),
         [(
-            9,
+            10,
             ty(
                 "Annotated[str, Doc(\"\"\"\n        The path (see the docs, it's here.\n    \"\"\")]"
             )

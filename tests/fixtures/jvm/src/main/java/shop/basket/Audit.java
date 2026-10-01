@@ -22,7 +22,7 @@ public class Audit {
 
     public static Audit of(Receipt r) {
         return new Audit(r);
-        //         ^ d: picker src/main/java/shop/basket/Audit.java:11, src/main/java/shop/basket/Audit.java:19
+        //         ^ d: src/main/java/shop/basket/Audit.java:19
     }
 
     Offer offer() {
@@ -42,7 +42,7 @@ public class Audit {
     }
 
     Basket basket() {
-    // ^ d: picker src/main/java/shop/basket/Basket.java:15, src/main/java/shop/basket/Basket.java:25; want src/main/java/shop/basket/Basket.java:15 (#367)
+    // ^ d: src/main/java/shop/basket/Basket.java:15
         return null;
     }
 }

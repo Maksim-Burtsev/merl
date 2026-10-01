@@ -1,0 +1,57 @@
+wait web/android/src/main/java/courier/app/Scale.java
+ 1 package courier.app;
+ 2
+ 3 import courier.app.scan.Parcel;
+ 4 import lombok.Getter;
+ 5
+ 6 class Scale {
+ 7     int weigh(Parcel parcel) {
+ 8         return parcel.grams();
+ 9     }
+10
+11     @Getter
+12     private int limit = 30;
+13
+14     boolean fits(Scale scale, Parcel parcel) {
+15         return parcel.grams() <= scale.getLimit();
+16     }
+17 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/android/src/main/java/courier/app/Scale.java  7:15  [code]                                                                                                                    ? help
+cursor (x,y,shown) 17,6,1

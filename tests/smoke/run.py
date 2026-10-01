@@ -124,16 +124,21 @@ class Merl(cast.Pane):
     """cast.Pane with a pane that stays when merl dies (its last screen and exit status kept),
     stderr appended to a file, and merl restartable in place."""
 
-    def __init__(self, binary, args, home, project, size, err):
+    def __init__(self, binary, home, size, err):
         self.sock, self.home, self.binary, self.err = "smoke%d" % os.getpid(), home, binary, err
         self.size = size
+        # where tmux puts it, known before the server starts: a signal can end the play inside start()
+        self.socket = os.path.join(os.environ.get("TMUX_TMPDIR") or "/tmp", f"tmux-{os.getuid()}", self.sock)
+
+    def start(self, args, project):
+        """merl in a new server; apart from __init__, so that the play holds the pane, and closes
+        it, whenever a signal stops it: under load one lands here often enough (#537)."""
         options = [("remain-on-exit", "on"), ("status", "off"), ("default-shell", "/bin/sh"),
                    ("remain-on-exit-format", "merl exited: #{pane_dead_status}")]
         self.tmux("start-server", *[w for o in options for w in (";", "set", "-g", *o)],
                   ";", "set", "-s", "set-clipboard", "on",  # OSC 52 into a tmux buffer
-                  ";", "new-session", "-d", "-x", str(size[0]), "-y", str(size[1]), "-c", project,
+                  ";", "new-session", "-d", "-x", str(self.size[0]), "-y", str(self.size[1]), "-c", project,
                   self.command(args))
-        self.socket = self.tmux("display", "-p", "#{socket_path}").strip()
 
     def tmux(self, *args):
         """cast.Pane's, raising instead of exiting: a tmux failure is the scenario's ERROR."""
@@ -189,7 +194,13 @@ class Merl(cast.Pane):
         return self.dead()
 
     def close(self):  # cast.Pane's would delete HOME, which the next play copies afresh anyway
-        subprocess.run(["tmux", "-L", self.sock, "kill-server"], capture_output=True)
+        tmux = ["tmux", "-L", self.sock, "-f", "/dev/null"]
+        subprocess.run([*tmux, "kill-server"], capture_output=True)
+        # kill-server returns before the server has gone, and the next play starts one on the same
+        # socket: wait for it, as a loaded machine can take a while (#537)
+        end = time.monotonic() + 5
+        while subprocess.run([*tmux, "ls"], capture_output=True).returncode == 0 and time.monotonic() < end:
+            time.sleep(POLL)
         if os.path.exists(self.socket):  # tmux 3.7 leaves the socket file behind
             os.unlink(self.socket)
 
@@ -309,7 +320,8 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None):
                 break
             if verb == "merl":
                 if pane is None:
-                    pane = Merl(binary, shlex.split(arg), home, cwd, size, err)
+                    pane = Merl(binary, home, size, err)
+                    pane.start(shlex.split(arg), cwd)
                 else:
                     before = pane.frame()
                     if (s := pane.quit()) != 0:
@@ -836,17 +848,21 @@ while IFS= read -rsn1 c; do
   esac
 done
 """
+# `key e`, then the fake's death waited for: a `key` step returns before the fake has read the key,
+# and under load the next step would still find it alive (#537).
+DIE = ("run $SMOKE_TMUX send-keys -t 0 e; for _ in $(seq 500); do"
+       " $SMOKE_TMUX display -p -t 0 '#{pane_dead}' | grep -q 1 && exit 0; sleep 0.02; done; exit 1\n")
 # name: (steps, new merl's start, `d` and `q`, the old one's, the verdict, a text the report must hold)
 SELFTEST = {
     "pass": ("merl\nwait ready\nkey d\nwait done\n", {}, {}, "PASS", ""),
     "signal": ("merl\nwait ready\nkey a\nwait done\n", {}, {}, "CRASH", "CRASH SIGABRT at"),
     "exit": ("merl\nwait ready\nkey e\nwait done\n", {}, {}, "EXIT", "EXIT 3 at"),
-    "fail": ("merl\nwait ready\nwait never\n", {}, {}, "FAIL", "FAIL at"),
+    "fail": ("merl\nwait ready\nwait never\n", {}, {}, "FAIL", "FAIL at fail.steps:3"),
     "hung": ("merl\nwait ready\n", {"q": ":"}, {}, "HUNG", "HUNG on q"),
     "run": ("merl\nwait ready\nrun test -e nowhere\n", {}, {}, "RUN", "RUN 1 at"),
     # dead on a key no wait follows: the death, not the q after it, with the screen at its size
-    "end": ("merl\nwait ready\nsize 60x10\nkey e\n", {}, {}, "EXIT", "EXIT 3 after its last step"),
-    "restart": ("merl\nwait ready\nkey e\nmerl\nwait ready\n", {}, {}, "EXIT", "EXIT 3 before"),
+    "end": ("merl\nwait ready\nsize 60x10\n" + DIE, {}, {}, "EXIT", "EXIT 3 after its last step"),
+    "restart": ("merl\nwait ready\n" + DIE + "merl\nwait ready\n", {}, {}, "EXIT", "EXIT 3 before"),
     # quit on purpose and waited for: a pass, with a step and a restart after it; another status fails
     "quit": ("merl\nwait ready\nkey q\nwait merl exited: 0\nrun true\nmerl\nwait ready\n", {}, {}, "PASS", ""),
     "quit-3": ("merl\nwait ready\nkey e\nwait merl exited: 0\n", {}, {}, "EXIT", "EXIT 3 at"),
@@ -862,7 +878,8 @@ SELFTEST = {
     "diff-red": ("merl\nwait ready\nkey d\nwait done\n", {"d": "printf '\\033[31m';"}, {}, "DIFF", "#cd0000"),
     "diff-blue": ("merl\nwait ready\nkey d\nwait done\n", {"d": "printf '\\033[34m';"}, {}, "DIFF", "#0000ee"),
     # tmux gone under a play: the runner's ERROR, and the run goes on
-    "error": ("merl\nwait ready\nrun $SMOKE_TMUX kill-server\nwait ready\n", {}, {}, "ERROR", "tmux capture-pane"),
+    "error": ("merl\nwait ready\nrun $SMOKE_TMUX kill-server; for _ in $(seq 500); do"
+              " $SMOKE_TMUX ls || exit 0; sleep 0.02; done; exit 1\nwait ready\n", {}, {}, "ERROR", "tmux capture-pane"),
 }
 
 
@@ -885,9 +902,9 @@ def mask(capture):
 
 
 def selftest():
-    """Plays SELFTEST's scenarios on fake merls and checks each verdict: seconds, no fixture."""
-    global TIMEOUT
-    TIMEOUT = 2.0
+    """Plays SELFTEST's scenarios on fake merls and checks each verdict: under a minute, no
+    fixture. Its waits get the runner's TIMEOUT, as a scenario's do: a shorter one fails a fake
+    that is slow to start on a loaded machine (#537), and only `fail` waits it out."""
     # The tutor's pid, 4 to 7 digits: the same status line (#518).
     bar = lambda pid, pad: f"merl-tutor-{pid}/\n\x1b[1mmerl-tutor-{pid}/  [code]\x1b[0m{' ' * pad}? help"
     want = bar("NNNNN", 20)

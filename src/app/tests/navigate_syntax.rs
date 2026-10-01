@@ -1420,12 +1420,12 @@ fn an_alias_is_the_projects_own() {
     for (code, want) in [
         (
             "^clsx",
-            jump("clsx: by name, 1 match", "node_modules/clsx/clsx.d.ts:1"),
+            jump("clsx: via import clsx", "node_modules/clsx/clsx.d.ts:1"),
         ),
         (
             "^twMerge",
             jump(
-                "twMerge: by name, 1 match",
+                "twMerge: via import tailwind-merge",
                 "node_modules/tailwind-merge/index.d.ts:1",
             ),
         ),
@@ -1440,11 +1440,12 @@ fn an_alias_is_the_projects_own() {
         d_on(&mut a, "src/main.ts", code);
         assert_eq!(shown(&mut a), want, "{code}");
     }
-    // A named alias is no scope either: its barrel hands `clsx` on, found by name.
+    // A named alias is no scope either: its barrel hands `clsx` on from the package, which is
+    // followed there (#527).
     d_on(&mut a, "src/other.ts", "^clsx");
     assert_eq!(
         shown(&mut a),
-        jump("clsx: by name, 1 match", "node_modules/clsx/clsx.d.ts:1")
+        jump("clsx: via import clsx", "node_modules/clsx/clsx.d.ts:1")
     );
     std::fs::remove_dir_all(&dir).unwrap();
     // No tsconfig says what `@/` is: the project's `Button`, and not `@mui`'s.

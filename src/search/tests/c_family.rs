@@ -75,6 +75,11 @@ void invoice_free(struct invoice *inv,
 {
     free(inv);
 }
+
+static const int invoice_states[] = {
+    STATE_OPEN,
+    STATE_NONE
+};
 "#;
 
 const CPP: &str = r#"#include "invoice.h"
@@ -116,6 +121,10 @@ enum class Status {
   Open,
 };
 
+void scan(int k) {
+  Slice key(k, 2);
+}
+
 }  // namespace billing
 "#;
 
@@ -146,8 +155,8 @@ fn c_def_patterns_find_types_macros_functions_and_globals() {
     );
     assert_eq!(
         d("STATE_OPEN"),
-        Vec::<usize>::new(),
-        "an enum constant has no rule: `NAME,` is also a line of an initializer list"
+        [30],
+        "an enum constant, in its enum's body (#373)"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -174,6 +183,11 @@ fn c_def_patterns_tell_a_definition_from_a_call() {
     );
     assert_eq!(d("free"), Vec::<usize>::new(), "a call statement");
     assert_eq!(d("copy"), Vec::<usize>::new(), "a local");
+    assert_eq!(
+        d("STATE_NONE"),
+        Vec::<usize>::new(),
+        "`NAME,` in an initializer list declares nothing (#373)"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -191,9 +205,8 @@ fn cpp_def_patterns_cover_classes_methods_and_aliases() {
     );
     assert_eq!(d("total"), [20], "a method defined in the class body");
     assert_eq!(d("Row"), [24], "a `using` alias indented in a class body");
-    // The out-of-line definition. The declaration on line 22 has no rule: indented, it is
-    // the shape of a call, and the definition is what `d` is asked for anyway.
-    assert_eq!(d("append"), [30]);
+    // The declaration in the class body and the out-of-line definition (#373).
+    assert_eq!(d("append"), [22, 30]);
     assert_eq!(d("Status"), [36]);
     assert_eq!(
         d("T"),
@@ -207,7 +220,12 @@ fn cpp_def_patterns_cover_classes_methods_and_aliases() {
     );
     assert_eq!(d("check"), Vec::<usize>::new(), "a call inside `if`");
     assert_eq!(d("write"), Vec::<usize>::new(), "a qualified call");
-    assert_eq!(d("Open"), Vec::<usize>::new(), "an enum constant");
+    assert_eq!(d("Open"), [37], "an enum constant (#373)");
+    assert_eq!(
+        d("key"),
+        Vec::<usize>::new(),
+        "`Slice key(k, 2);` in a function body is a local object, no member (#373)"
+    );
     assert_eq!(d("total_"), Vec::<usize>::new(), "a field");
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -964,5 +982,112 @@ fn a_cpp_alias_of_a_qualified_type_is_no_member_of_it() {
     assert_eq!(
         qualified(Kind::C, text, 3, "Refund").as_deref(),
         Some("Refund::Refund")
+    );
+}
+
+#[test]
+fn swift_receiver_types_are_read_off_their_lines() {
+    use SwiftGiven::*;
+    let given = |l: &str, n: &str| swift_given(l, n);
+    assert_eq!(
+        given(
+            "    static func - (lhs: Instant, rhs: Instant) -> Double {",
+            "rhs"
+        ),
+        Some(Type("Instant".into()))
+    );
+    assert_eq!(
+        given("    let encoder: FormEncoder = FormEncoder()", "encoder"),
+        Some(Type("FormEncoder".into()))
+    );
+    assert_eq!(
+        given("        let printer = FormEncoder()", "printer"),
+        Some(Value("FormEncoder()".into()))
+    );
+    assert_eq!(
+        given("    guard let s = self.session else {", "s"),
+        Some(Value("self.session".into()))
+    );
+    assert_eq!(
+        given("        for p in printers where p.ok {", "p"),
+        Some(Element("printers".into()))
+    );
+    assert_eq!(given("    case let .bytes(count):", "count"), None);
+    assert_eq!(given("        items.map { item in", "item"), None);
+
+    assert_eq!(swift_type_name("Cache?").as_deref(), Some("Cache"));
+    assert_eq!(swift_type_name("inout Box<Int>").as_deref(), Some("Box"));
+    for refused in [
+        "any P", "some P", "(A, B)", "() -> A", "[A]", "A & B", "Mod.A", "Self",
+    ] {
+        assert_eq!(swift_type_name(refused), None, "{refused}");
+    }
+    assert_eq!(
+        swift_element("[JSONPrinter]?").as_deref(),
+        Some("JSONPrinter")
+    );
+    assert_eq!(swift_element("Set<Tag>").as_deref(), Some("Tag"));
+    assert_eq!(swift_element("[String: Tag]"), None);
+    assert_eq!(swift_generics("func f<T, U: P>(_ t: T) -> U {"), ["T", "U"]);
+
+    let wrapped = "func make(\n    _ build: (Int) -> Int\n) async throws -> Session where A: B {\n";
+    assert_eq!(swift_returns(wrapped, 1).as_deref(), Some("Session"));
+    assert_eq!(swift_returns("func run() {\n", 1), None);
+
+    assert_eq!(
+        swift_expr("try? makeEncoder()"),
+        Some(SwiftExpr::Call("makeEncoder".into()))
+    );
+    assert_eq!(
+        swift_expr("Wire { $0 }"),
+        Some(SwiftExpr::Call("Wire".into()))
+    );
+    assert_eq!(
+        swift_expr("Wire(a) { $0 }"),
+        Some(SwiftExpr::Call("Wire".into()))
+    );
+    assert_eq!(swift_expr("Wire(a,"), Some(SwiftExpr::Call("Wire".into())));
+    assert_eq!(swift_expr("Wire().encoder"), None);
+    assert_eq!(
+        swift_expr("self.wire"),
+        Some(SwiftExpr::Chain("self.wire".into()))
+    );
+    assert_eq!(
+        swift_expr("found as! Wire"),
+        Some(SwiftExpr::Cast("Wire".into()))
+    );
+    assert_eq!(swift_expr("a + b"), None);
+}
+
+/// #543: a non-ASCII character in a C function's head stays whole when its brackets are
+/// flattened, so the parameter is still read.
+#[test]
+fn c_bindings_read_a_head_with_non_ascii_names() {
+    let text = "int (r *R\u{e9}po) M\u{e9}thode(int x)\n{\n    return x;\n}\n";
+    assert_eq!(c_bindings_at(text, 3, "x").first().map(|b| b.0), Some(1));
+}
+
+/// #543: a PHP name behind a non-ASCII character starts after that character.
+#[test]
+fn php_namespace_patterns_cut_after_a_non_ascii_character() {
+    let text = "<?php\nnamespace App;\n";
+    let line = "    new \u{a9}Ns\\Bar();";
+    let start = line.find("Ns").unwrap();
+    let mut patterns = def_patterns(Kind::Php, "Ns");
+    php_namespace_patterns(&mut patterns, text, line, start..start + 2);
+    assert_eq!(patterns, [r"^\s*namespace\s+App\\Ns\s*[;{]"]);
+}
+
+/// A receiver's name is cut at a character, and a name a non-ASCII character goes on with is not
+/// read: `größe` is not `e`.
+#[test]
+fn c_receiver_cuts_at_a_character() {
+    assert_eq!(c_receiver("café."), None);
+    assert_eq!(c_receiver("cafe\u{301} = e\u{301}tude."), None);
+    assert_eq!(c_receiver("x = \"🇫🇷\" + 👨‍👩‍👧."), None);
+    assert_eq!(c_receiver("$ßar->"), None);
+    assert_eq!(
+        c_receiver("ß = bar->"),
+        Some(("bar".to_owned(), false, vec![]))
     );
 }

@@ -14,3 +14,11 @@ key [ /
 type user)
 key Enter d
 wait (local)
+# A Rails `scope` is a class method of its model (#374): `Account.recent` lands on it.
+run printf '%s\n' 'class Feed' '  def call' '    Account.recent' '  end' 'end' '' 'class Account < ApplicationRecord' '  scope :recent, -> { all }' 'end' > app/ruby/feed.rb
+merl app/ruby/feed.rb
+wait class Feed
+key t /
+type recent
+key Enter d
+wait recent → Account.recent

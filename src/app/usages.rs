@@ -172,7 +172,7 @@ impl App {
                         .copied()
                         .unwrap_or(false)
                     && kind.is_some_and(|k| {
-                        search::declares_where(k, word, h.line, &h.text, || {
+                        search::declares_where(k, &h.path, word, h.line, &h.text, || {
                             lines
                                 .entry((h.path.clone(), h.deleted.is_some()))
                                 .or_insert_with(|| {

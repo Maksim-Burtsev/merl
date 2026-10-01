@@ -288,6 +288,47 @@ impl App {
         }
     }
 
+    /// Where `word`, a member of a JavaScript or DOM global, `JSON.parse`, is declared (#341):
+    /// in the `.d.ts` files outside the project, TypeScript's lib and `@types/node`, and in what
+    /// the project declares into the global scope, `interface Window { dataLayer }` or `var
+    /// appConfig` in a `declare global` ([`search::ts_global_scope`]). The project's hits are
+    /// master's search by name, `members` then `pattern`, first.
+    pub(super) fn js_global_members(
+        &mut self,
+        here: &Path,
+        word: &str,
+        members: Option<&str>,
+        pattern: &str,
+    ) -> Vec<Candidate> {
+        let kind = Kind::TsJs;
+        let files: Vec<PathBuf> = (self.external_files(kind).iter())
+            .filter(|f| {
+                let f = f.to_string_lossy();
+                f.ends_with(".d.ts")
+                    && (f.contains("typescript/lib/lib.") || f.contains("@types/node/"))
+            })
+            .cloned()
+            .collect();
+        let mut patterns = search::def_patterns(kind, word);
+        patterns.extend(search::member_or_signature(kind, word).unwrap_or_default());
+        let mut found = members
+            .map(|m| self.members_by_name(kind, here, word, m))
+            .filter(|hits| !hits.is_empty())
+            .unwrap_or_else(|| self.project_definitions(kind, here, word, pattern));
+        found.retain(|h| {
+            self.text_of(&h.path)
+                .is_some_and(|text| search::ts_global_scope(&text, h.line))
+        });
+        found.extend(self.external_grep(kind, &files, &patterns.join("|")));
+        found
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            })
+            .collect()
+    }
+
     /// `pattern` over `files` outside the project, standard library first. The paths are
     /// absolute: `root.join` leaves them alone, so a hit opens where it is.
     pub(super) fn external_grep(&self, kind: Kind, files: &[PathBuf], pattern: &str) -> Vec<Hit> {
@@ -348,6 +389,16 @@ impl App {
         .unwrap_or_default();
         let (mut methods, candidates): (Vec<Hit>, Vec<Hit>) =
             hits.into_iter().partition(|h| method.is_match(&h.text));
+        // A `def` in a function's body is a local of it, no method (#338).
+        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
+        methods.retain(|h| {
+            let text = texts
+                .entry(h.path.clone())
+                .or_insert_with(|| std::fs::read_to_string(&h.path).ok());
+            !text
+                .as_deref()
+                .is_some_and(|t| search::python_in_function(t, h.line))
+        });
         self.note_cut(&methods);
         let roots = self
             .external
@@ -441,10 +492,13 @@ impl App {
     /// needs a restart.
     pub(super) fn external_files(&mut self, kind: Kind) -> Arc<Vec<PathBuf>> {
         // TypeScript's roots depend on where the open file is (#100). Each `node_modules` is
-        // walked once; one inside another already listed adds no file of its own.
+        // walked once; one inside another already listed adds no file of its own. They are
+        // inside the project, so a test's `no_external`, which lists no root, does not hide
+        // them either; roots a test lists are kept.
         let here = self.buf.path.as_ref().and_then(|p| p.parent());
         if let Some(here) = here.filter(|_| kind == Kind::TsJs)
-            && (self.node_modules_of.is_some() || !self.external.contains_key(&kind))
+            && (self.node_modules_of.is_some()
+                || self.external.get(&kind).is_none_or(|(r, _)| r.is_empty()))
             && self.node_modules_of.as_deref() != Some(here)
         {
             let roots = search::node_modules(&self.root, here);
@@ -549,7 +603,10 @@ impl App {
                 let name = text
                     .as_deref()
                     .filter(|_| !matches!(c.reason, Reason::Module(_)))
-                    .and_then(|text| search::qualified(kind, text, c.hit.line, word))
+                    .and_then(|text| {
+                        let word = definition::declared_as(kind, word, &c.hit.text);
+                        search::qualified(kind, text, c.hit.line, &word)
+                    })
                     .unwrap_or_else(|| word.to_owned());
                 (name, c.reason.to_string(), c)
             })
@@ -577,7 +634,11 @@ impl App {
                 );
                 PickItem {
                     code_at: Some(head.len()),
-                    col: word_col(&c.hit.text, word, search::word_chars(Some(kind), true)),
+                    col: word_col(
+                        &c.hit.text,
+                        &definition::declared_as(kind, word, &c.hit.text),
+                        search::word_chars(Some(kind), true),
+                    ),
                     label: head + &clip(c.hit.text.trim(), MAX_LABEL_TEXT),
                     deleted: c.hit.deleted.is_some(),
                     path: c.hit.path,

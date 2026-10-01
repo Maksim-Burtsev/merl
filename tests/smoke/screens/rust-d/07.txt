@@ -1,0 +1,57 @@
+wait scripts/payouts/src/ledger.rs  7:
+┌orders──────────────────────┐ 1 //! A payout as the bank statement prints it.
+│▸ .github                   │ 2
+│▸ .venv                     │ 3 fn cents(amount: u64) -> String {
+│▸ app                       │ 4     format!("{}.{:02}", amount / 100, amount % 100)
+│▸ data                      │ 5 }
+│▸ deploy                    │ 6
+│▸ docs                      │ 7 pub fn entry(amount: u64) -> String {
+│▾ scripts                   │ 8     cents(amount)
+│  ▾ payouts                 │ 9 }
+│    ▾ src                   │10
+│        ledger.rs           │11 pub struct Payout {
+│        main.rs             │12     pub amount: u64,
+│        summary.rs          │13 }
+│      Cargo.toml            │14
+│    invoices.php            │15 impl Payout {
+│    refund_by_hand.py       │16     pub fn line(&self) -> String {
+│▸ tests                     │17         entry(self.amount)
+│▸ web                       │18     }
+│▸ worker                    │19 }
+│  .env                      │20
+│  .gitignore                │21 pub struct Refund;
+│  docker-compose.yml        │22
+│  Dockerfile                │23 impl Refund {
+│  Makefile                  │24     pub fn line(&self) -> String {
+│  pyproject.toml            │25         String::from("refund")
+│  README.md                 │26     }
+│                            │27 }
+│                            │28
+│                            │29 pub fn latest() -> Payout {
+│                            │30     Payout { amount: 1250 }
+│                            │31 }
+│                            │32
+│                            │33 pub fn print_latest() -> String {
+│                            │34     let payout = latest();
+│                            │35     payout.line()
+│                            │36 }
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+scripts/payouts/src/ledger.rs  7:8  [code]  entry: via import crate::ledger
+cursor (x,y,shown) 40,6,1

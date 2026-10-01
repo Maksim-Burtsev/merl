@@ -1,4 +1,4 @@
-wait entries → crc_table::entries (by name, 1 match)
+wait entries → crc_table::entries
 ┌orders──────────────────────┐ 1 /* The CRC-32 the queue stamps on every job, in C for the cgo build. */
 │▸ .github                   │ 2 #ifndef CRC_H
 │▸ .venv                     │ 3 #define CRC_H
@@ -53,5 +53,5 @@ wait entries → crc_table::entries (by name, 1 match)
 │                            │
 │                            │
 └────────────────────────────┘
-worker/internal/crc/crc.h  6:18  [code]  entries → crc_table::entries (by name, 1 match)
+worker/internal/crc/crc.h  6:18  [code]  entries → crc_table::entries (via table: crc_table)
 cursor (x,y,shown) 50,5,1

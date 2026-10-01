@@ -7,10 +7,158 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `d` in C knows the struct of a receiver from its declaration. In `void f(client *c)`,
+  `c->flags` lands on the `flags` of `client`, saying `via c: client`, where it offered every
+  `flags` of the project. The type comes from a parameter or a local, a
+  declaration at file scope or a global a header declares once (`extern struct redisServer
+  server;`), or a function's return type (`lookupClient(x)->flags`), and is followed through a
+  chain, `c->bstate.btype` and `c->argv[j]->ptr` included. A receiver not read offers the fields
+  of the name as before, and a longer chain says where it broke. (#386)
+- `d` in C and C++ knows enum constants and the member functions a class only declares. `return
+  GREEN;` lands on `GREEN` in its `enum`, where it said `no definition for GREEN`, and a constant
+  in an initializer list is still no declaration. `it->Valid()` offers the interface's `virtual
+  bool Valid() const = 0;` beside the overrides, and on an out-of-line `Status
+  VersionSet::Recover(…) {` it lands on the declaration in `class VersionSet` instead of offering
+  another class's `Recover`. A member declared in its class and defined out of line stays one
+  row, the definition. (#373)
+- `d` in Java and Kotlin reads the type a receiver's declaration writes: on `line.total()`
+  with `Line line` (a parameter, a local, a field, `var line = new Line()`, Kotlin's
+  `newsDao: NewsDao` or `val g = Gauge()`), and on `newsDao::deleteAll`, it jumps to that type's
+  member or one of a type it extends in the project, `total → Line.total (via line: Line)`,
+  where it offered every `total` of the project. A type the project does not declare, such as
+  `ArrayList`, Spring's or Compose's, and a string literal say `no definition` instead of
+  offering or jumping to a namesake; a project's Kotlin extension on the type still counts. A
+  type parameter, a smart cast and a type the rules do not read stay by name, as before.
+  (#388, #391)
+- `d` in Java on a Lombok accessor, `user.getTitle()` of a `@Data`, `@Value`, `@Getter` or
+  `@Setter` class, lands on the field Lombok writes it for, `getTitle → User.title (via user:
+  User)`, where it said `no definition`; `User::getTitle` and the classes it extends find it the
+  same way. A receiver whose type is not read offers the fields, never jumps to one; a method
+  written by hand wins, and a `static` field or `AccessLevel.NONE` gets none. (#381)
+- `d` in Ruby reads the Rails DSL: `has_many :followers`, `belongs_to`, `scope :recent`,
+  attachments, `attribute`, `enum` and `delegate :email, to: :user` declare the name, and a column
+  of `db/schema.rb` is found under its table, `collections.language`. `Account.recent` lands on
+  its `scope`, one of a concern's `included do` too; `x.followers` offers the declaration. They
+  said "no definition". (#374)
+
 ### Changed
 
 - The `?` overlay on a screen narrower than 118 columns wraps an action too long for its row
   onto the next row, under its own column, instead of cutting it at the border (#458).
+- `d` in TypeScript and JavaScript finds a member behind an imported qualifier that no
+  declaration pattern read: an enum member, `CollectionPermission.Admin` and `ImageStatus.ZOOMED`
+  with no value, a static field, `TableCell.presetColors`, and a key of an exported `const`
+  object literal, `RateLimiterStrategy.TwentyFivePerMinute`. `env.APP_NAME`, where the module
+  exports `new Environment()` as its default, lands on the field of `Environment`, `via env:
+  Environment`, and `QUOTE_SETTINGS.backtick` on the key of a `const` literal of the file itself.
+  A member of a JavaScript global, `JSON.parse`, is looked for in TypeScript's lib and
+  `@types/node` and in what the project declares global (`window.dataLayer` in a `declare
+  global`), never among the project's methods. They said "no definition", and
+  `JSON.parse` jumped to a project method called `parse`. (#341)
+- `d` in TypeScript and JavaScript on a name imported from a barrel of the project that hands it
+  on from a package, `export { x } from "lodash"`, lands on `x` in the installed package, as an
+  import straight from the package does, or on the import with `(not installed)`. It searched
+  the project by name. (#527)
+- `d` in Java and Kotlin reads the `import` lines: a class the file imports from the project
+  opens in that package's file, `User: via import src/main/java/app/a/User.java`, not a picker
+  of every `User`; `import static a.b.C.*` finds `isNull` in `C`; a name imported from outside
+  the project, `Objects.equals` or Compose's `stringResource`, says `no definition` instead of
+  landing on a namesake; and on the import line a package segment such as `halo` declares
+  nothing. A capitalised name the file does not import is its own package's first, then that
+  of a wildcard import. The packages are what the files' `package` lines say. (#372)
+- `d` in Java and Kotlin reads more of the language: a constructor whose parameters wrap, a
+  record's components (`vote.group()`), and the `val`s of a one-line Kotlin primary
+  constructor (`s.height`) are declarations; a line inside a Kotlin raw string or a Java text
+  block is none. A Java call is never a variable, `values()` lands on its enum, `new Rule(a, b)`
+  on the constructor taking two arguments and an overload on the one the arguments fit; and a
+  Kotlin infix call, `alias(x) apply false`, finds only an `infix fun`. (#367)
+- `d` in Swift reads the type of the value in front of the dot. `lhs.value` in `static func -
+  (lhs: Instant, rhs: Instant)` lands on `Instant.value`, `value → Instant.value (via lhs:
+  Instant)`, and so does a member on a property (`let encoder: FormEncoder`), on a local made by
+  `FormEncoder()` or by a call declaring `-> FormEncoder`, on `self.session.request`, on an
+  optional `backup?.encode(…)` and on the element of a loop over `[T]`. On a type from outside
+  that the project only extends, `URLRequest` or `Data`, it lands on the extension declaring the
+  member, or says `no definition`. It offered every member of the name in the project. A
+  protocol, `any` or `some`, a generic parameter, a tuple or a closure stays found by name. (#384)
+- `d` in Swift reads a member's kind from how it is written. An implicit member, `.bytes` in
+  `case let .bytes(count):` or `.post` as an argument, lands on the enum case or `static` member
+  of the name, and in a `case` pattern on a case alone; `Endpoint.method(…)` lands on the
+  `static func` and no longer offers the instance property beside it. A bare name in a type's
+  body, `lock()` in `extension Lock` or `timeout` in a subclass of `BaseTestCase`, lands on that
+  type's member, its extensions' or its superclass's: `timeout → BaseTestCase.timeout (via self:
+  DownloadTests)`. It offered every declaration of the name in the project. (#380)
+- `d` in Rust on `x.word` lands on the `word` of the type `x` holds, as it does in Python,
+  TypeScript and Go: `td.path()` after `let td = tmpdir();` goes to `TempDir::path`, `via
+  tmpdir() -> TempDir`, and `self.config.capacity` to the field of `Config`, `via self.config:
+  Config`, where both offered every namesake of the project. The type comes from the `impl`
+  around `self`, a parameter's or a closure parameter's type, `let x: T`, `T { … }`, `T::new()`
+  and a function's `-> T`; `Option<T>`, a generic and a type declared twice stay the search by
+  name. (#377)
+- `d` in Rust looks where a path's first name says, before any namesake of the project: the
+  crate a `use` names or the path spells (`crate`, `self`, `super`, a crate of the workspace, the
+  standard library, a crate of `Cargo.lock`), and in it the module the path spells. `File::open`
+  behind `use std::fs::File` lands on `File::open` in the standard library, `io` in `io::Result`
+  on its `pub mod io;`, a name `use crate::helpers::norm` brings in on `norm` in `helpers.rs`, and
+  `std::fs` on the standard library's `fs` rather than every platform's `os/*/fs.rs`. They jumped
+  to a project method of the same name or offered every namesake. (#350)
+- Every list you filter by typing reads the query as you write it, as `D` has since #293: in
+  `o`'s file picker, the theme list and the `d` and `u` pickers, `^`, `$`, `!`, `'` and `\` are
+  characters of the name: `!test` finds `!test.md` instead of hiding every path holding `test`,
+  and `.rs$` looks for a `$` instead of the end of the path. Spaces still separate words
+  matched in any order. (#519)
+- `d` in PHP proves the class of the receiver in front of `->`: `$event->podcast` in
+  `handle(UserUnsubscribed $event)` lands on the `podcast` of `UserUnsubscribed`, `(via $event:
+  UserUnsubscribed)`, and `$this->artistRepository->getRecentlyAdded()` on the method of
+  `ArtistRepository`. The class comes from a typed parameter or property, `new T(…)`, or the
+  return type of `T::make()`, `$this->make()` or `make()`. It offered every property or method
+  of the name in the project. (#361)
+- `d` in Python lands where one answer fits in four more places. A function declared inside
+  another and called there is that function's local, `pick → outer.pick (local)`, where `d`
+  offered every `pick` of the project. A parameter of a signature wrapped over several lines
+  lands on its own line, not on the `def`'s. A `def` nested in a function is no method, so
+  `job.run()` no longer offers it beside `Job.run`. A call of an `@overload` set lands on its
+  implementation instead of offering every stub; a `.pyi` of overloads only keeps its picker.
+  (#338)
+- `d` in C# reads the type a receiver is written with: `service.ExtractRedirectUri` after
+  `var service = new RedirectService()` jumps to `RedirectService`'s method, through fields,
+  properties, parameters, `this`, `base`, casts, patterns and an awaited call, and names the
+  links on the status line (`via _uow: Uow → Users: UserRepo`). `Checked = …` in
+  `new ScopeViewModel { … }` jumps to `ScopeViewModel.Checked`. A member of a type the project
+  does not declare, a MAUI `Label`'s `Text` or an EF `DbContext`'s `SaveChangesAsync`, says `no
+  definition` instead of offering or jumping to the project's namesakes, unless the project
+  declares an extension method for it. (#352)
+
+### Fixed
+
+- `d` in TypeScript and JavaScript on an arrow function's parameter itself, `crate` in
+  `crates.map(crate => 0)`, offers a namesake elsewhere under "at a declaration", or stays on
+  the line when there is none. It jumped to a module-level `const` of the same name. (#534)
+- `d` in Kotlin names the members of a class whose header wraps over lines, `class Repo @Inject
+  constructor(` … `) : Base {`, and of its `companion object` as those of a one-line header:
+  the status reads `getTopics → Repo.getTopics` and `DEFAULT → Repo.DEFAULT`, and `Repo::m`
+  and `Repo.DEFAULT` find them. The walk up to the class stopped at the `) : Base {` line and at
+  `companion object`, so those members had no class in their name. (#523)
+- `d` in Swift on a function's parameter in its header, as `attempt` in
+  `func probe(_ attempt: Int) {`, answers as on any declaration: the line itself, or the
+  namesakes offered under "at a declaration". It jumped to a lone namesake elsewhere. A name a
+  `for`, an `if let` or a closure binds over an outer one of the same name answers the same way;
+  it jumped to the outer one. (#533)
+- `d` on a key of a Rust struct literal, `hyperlink` in `Printer { hyperlink: 1 }` or `Self {
+  hyperlink: 1 }`, lands on the field `hyperlink` of `Printer`, the project's or a dependency's.
+  It jumped to a method `hyperlink()` of the same name, or said "no definition". (#529)
+- `d` no longer crashes merl on a line where a non-ASCII character stands next to a name: in
+  Rust inside the brackets of a call whose name ends in a combining accent (`méthode(42)` as
+  macOS spells it), in PHP on a namespaced name after a `©`, and in C or C++ inside a block
+  whose header holds non-ASCII names on both sides of a bracket. It panicked, which left the
+  terminal unusable until `reset`. (#543)
+- `d` in Go on a parameter's type named like the method it belongs to, the second `Send` of
+  `Send(msg Send) error`, jumps to `type Send`. It offered a picker of `type Send` and every
+  method `Send` beside it. (#536)
+- `d` in Ruby on a method written `def User.build` inside `class User` names it `User.build` in
+  the status line, and its parameter `User.build.arg`: the class was named twice,
+  `User.User.build`. (#535)
 
 ## [0.8.0] - 2026-10-01
 

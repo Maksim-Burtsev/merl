@@ -1,0 +1,57 @@
+wait send_receipt
+┌orders──────────────────────┐23 final class Receipt
+│▸ .github                   │25     public function render(string $format): string
+│▸ .venv                     │26     {
+│▸ app                       │27         return "receipt:{$format}";
+│▸ data                      │28     }
+│▸ deploy                    │29
+│▸ docs                      │30     public function number(): string
+│▾ scripts                   │31     {
+│  ▸ payouts                 │32         return 'R-1';
+│    invoices.php            │33     }
+│    refund_by_hand.py       │34 }
+│▸ tests                     │35
+│▸ web                       │36 final class Invoice extends Document
+│▸ worker                    │37 {
+│  .env                      │38     use Numbered;
+│  .gitignore                │39
+│  docker-compose.yml        │40     public function __construct(private readonly int $id)
+│  Dockerfile                │41     {
+│  Makefile                  │42     }
+│  pyproject.toml            │43
+│  README.md                 │44     public function pdf(): string
+│                            │45     {
+│                            │46         return $this->number() . ' ' . $this->render('pdf');
+│                            │47     }
+│                            │48 }
+│                            │49
+│                            │50 function send_receipt(Receipt $receipt): string
+│                            │51 {
+│                            │52     return $receipt->number();
+│                            │53 }
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+scripts/invoices.php  52:24  [code]                                                                                                                                               ? help
+cursor (x,y,shown) 56,28,1

@@ -1,0 +1,57 @@
+wait void crc_reset
+┌orders──────────────────────┐1 typedef struct client {
+│▸ .github                   │2     int flags;
+│▸ .venv                     │3 } client;
+│▸ app                       │4
+│▸ data                      │5 struct job {
+│▸ deploy                    │6     int flags;
+│▸ docs                      │7 };
+│▸ scripts                   │8
+│▸ tests                     │9 void crc_reset(client *c) { c->flags = 0; }
+│▸ web                       │
+│▾ worker                    │
+│  ▾ internal                │
+│    ▾ crc                   │
+│        client.c            │
+│        crc.c               │
+│        crc.h               │
+│        mode.cc             │
+│    ▸ queue                 │
+│    go.mod                  │
+│    main.go                 │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+worker/internal/crc/client.c  1:1  [code]                                                                                                                                         ? help
+cursor (x,y,shown) 32,0,1
