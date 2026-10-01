@@ -45,6 +45,7 @@ mod ruby;
 mod rust;
 mod scroll;
 mod search_job;
+mod swift;
 mod symbols;
 mod tree;
 mod typed;

@@ -1,6 +1,8 @@
 //! Swift's scopes (#371, #366): the blocks and type bodies around a line, and the names a
 //! line binds.
 
+use std::path::{Path, PathBuf};
+
 use regex::Regex;
 
 use super::*;
@@ -245,8 +247,8 @@ fn swift_decl_binds(rest: &str, name: &str) -> Option<bool> {
 /// Swift's locals (#366), walked outward from the cursor over the blocks around it, told by
 /// indentation: a `let`, a `var` or a `guard` statement above the cursor in each block; what the
 /// block's header binds — an `if let`, a `while let`, a `for`, a `catch` (a bare one binds
-/// `error`), a closure's parameters, a `case` of a `switch`; and last the parameters of the
-/// enclosing `func`, `init` or `subscript`. The innermost wins. A type's body and the top of the
+/// `error`), a closure's parameters, a `case` of a `switch`, the parameters of a `func`, `init` or
+/// `subscript`, and on out past a nested function's header (#564). The innermost wins. A type's body and the top of the
 /// file bind no local, and a pattern the rules cannot read that names the word stops the walk:
 /// the search by name decides then.
 pub(super) fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
@@ -254,7 +256,8 @@ pub(super) fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
 }
 /// Whether the walk of [`swift_bindings`] from 1-based `line` proves that no local of the
 /// enclosing function or type names `name`: it reached a type's body, or the parameters of a
-/// function right inside one, and found no binding. A walk that stopped proves nothing (#380).
+/// function right inside one, and found no binding. A walk that stopped proves nothing (#380), and
+/// so does one that went past a function inside another (#564).
 pub fn swift_no_local(text: &str, line: usize, name: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     line.checked_sub(1)
@@ -284,10 +287,23 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         rule(format!(r"(?:^|[^\w.]){n}\b")),
         rule(format!(r"\b{n}\s*:")),
     );
+    // A generic parameter of a type, `func`, `init`, `subscript` or `typealias` header binds its
+    // name for the declaration (#375): `func f<T>(_ x: T)` on the cursor's own line too.
+    let generic = |text: &str| swift_generics(text).iter().any(|g| g == name);
+    if generic(&code(at)) {
+        return found(at + 1);
+    }
     let mut depth = indent(lines[at]);
     // The nearest binding among the statements of the block the walk is in: it counts once the
     // block's header says the block is no type's body.
     let mut pending = None;
+    // Past the header of a function right inside a type, the type's header is all that is
+    // left to read: its members are no statements, its generic parameters bind.
+    let mut typed = false;
+    // Past a function inside another function, a closure or an accessor, the walk still finds
+    // their bindings, but proves no local: they may declare a local `func` or type it does not
+    // read (#564).
+    let mut unproven = false;
     let mut i = at;
     while i > 0 && depth > 0 {
         i -= 1;
@@ -296,7 +312,7 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         }
         let t = code(i);
         if indent(lines[i]) == depth {
-            if pending.is_some() {
+            if pending.is_some() || typed {
                 continue;
             }
             let (binds, line) = if let Some(c) = SWIFT_DECL.captures(&t) {
@@ -325,6 +341,12 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         i = swift_header_start(lines, &literal, i);
         let head = code(i);
         let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
+        if typed {
+            return match generic(&text) {
+                true => found(i + 1),
+                false => (!unproven).then(Vec::new),
+            };
+        }
         if SWIFT_FUNC.is_match(&head) {
             if let Some(line) = pending {
                 return found(line);
@@ -335,17 +357,26 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             if swift_params_bind(&text, name) {
                 return found(written(i, end, &param));
             }
-            // The walk does not go past a function: its locals are proven none only when a
-            // type's body holds it, and a nested function's outer locals stay unseen.
-            let typed = (0..i)
+            if generic(&text) {
+                return found(i + 1);
+            }
+            // A nested function reads the bindings of the function around it above its header,
+            // as a closure does (#564): the walk goes on out, and a type's body stops it.
+            typed = (0..i)
                 .rev()
                 .find(|&j| swift_code(lines, &literal, j) && indent(lines[j]) < indent(lines[i]))
                 .map(|j| code(swift_header_start(lines, &literal, j)))
                 .is_some_and(|h| !SWIFT_FUNC.is_match(&h) && SWIFT_TYPE.is_match(&h));
-            return typed.then(Vec::new);
+            unproven |= !typed;
+            continue;
         }
+        // A type's generic parameters bind inside it; an outer type's, which a member of this one
+        // may shadow, are left to the search by name.
         if SWIFT_TYPE.is_match(&head) {
-            return Some(Vec::new());
+            return match generic(&text) {
+                true => found(i + 1),
+                false => (!unproven).then(Vec::new),
+            };
         }
         if let Some(line) = pending {
             return found(line);
@@ -450,6 +481,141 @@ pub fn swift_binds_on(line: &str, name: &str) -> bool {
         false => swift_header_binds(&t, &t, &t, name),
     };
     binds == Some(true)
+}
+// ---- What the compiler sees from the cursor (#375) --------------------------------------------
+/// A line of [`swift_type_decl`].
+static SWIFT_TYPE_DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(&format!(
+        r"{}(?:class|struct|enum|actor|protocol|typealias)\s+`?\w",
+        swift_mods!()
+    ))
+    .unwrap()
+});
+/// Whether a Swift declaration line is `private` or `fileprivate`, seen in its own file alone;
+/// `private(set)` limits the setter only.
+pub fn swift_file_private(line: &str) -> bool {
+    static DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"({})(?:func|let|var|class|struct|enum|actor|protocol|typealias|init|subscript)\b",
+            swift_mods!()
+        ))
+        .unwrap()
+    });
+    DECL.captures(&uncommented(Kind::Swift, line))
+        .is_some_and(|c| {
+            c[1].split_whitespace()
+                .any(|w| w == "private" || w == "fileprivate")
+        })
+}
+/// The directories of the test targets of the Swift project at `root`, relative to it: the
+/// `path:` of each `.testTarget(` of its `Package.swift`, else `Tests/<name>`; with no
+/// `Package.swift` (an Xcode project), `Tests`. The manifest is read, never run.
+pub fn swift_test_dirs(root: &Path) -> Vec<PathBuf> {
+    let Ok(manifest) = std::fs::read_to_string(root.join("Package.swift")) else {
+        return vec![PathBuf::from("Tests")];
+    };
+    static FIELD: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r#"\b(name|path)\s*:\s*"([^"]*)""#).unwrap());
+    manifest
+        .match_indices(".testTarget(")
+        .filter_map(|(at, m)| {
+            let open = at + m.len() - 1;
+            let args = &manifest[open..close_of(Kind::Swift, &manifest, open)?];
+            let field = |key: &str| {
+                FIELD
+                    .captures_iter(args)
+                    .find(|c| &c[1] == key)
+                    .map(|c| c[2].trim_start_matches("./").to_owned())
+            };
+            match field("path") {
+                Some(path) => Some(PathBuf::from(path)),
+                None => field("name").map(|n| Path::new("Tests").join(n)),
+            }
+        })
+        .collect()
+}
+/// Whether a Swift line declares a type: a `class`, `struct`, `enum`, `actor`, `protocol` or
+/// `typealias`, no `extension`.
+pub fn swift_type_decl(line: &str) -> bool {
+    SWIFT_TYPE_DECL.is_match(&uncommented(Kind::Swift, line))
+}
+/// Where a Swift type is declared, when that limits who sees it bare.
+#[derive(Debug, PartialEq, Eq)]
+pub enum SwiftTypePlace {
+    /// In the body of the function whose header is on this 1-based line: nothing else sees it.
+    Function(usize),
+    /// In the body of the type of this name, `B` for `extension A.B`: a nested type.
+    Nested(String),
+}
+/// Where the type declared on 1-based `line` of a Swift file's `text` sits; `None` for a type at
+/// the top of the file, for a type in a closure there, which the rules cannot place, and for any
+/// other line.
+pub fn swift_type_place(text: &str, line: usize) -> Option<SwiftTypePlace> {
+    let lines: Vec<&str> = text.lines().collect();
+    if !swift_type_decl(lines.get(line.checked_sub(1)?)?) {
+        return None;
+    }
+    let literal = literal_lines(Kind::Swift, text);
+    let (scope, local) = swift_scope(&lines, &literal, line);
+    let header = uncommented(Kind::Swift, lines.get(scope.checked_sub(1)?)?);
+    match local {
+        true => SWIFT_FUNC
+            .is_match(&header)
+            .then_some(SwiftTypePlace::Function(scope)),
+        // Only a class, struct, enum or actor is certainly nested: a protocol's `typealias` is seen
+        // by every type that conforms to it.
+        false
+            if !swift_type_header(lines[line - 1]).is_some_and(|(k, ..)| {
+                matches!(k.as_str(), "class" | "struct" | "enum" | "actor")
+            }) =>
+        {
+            None
+        }
+        false => swift_type_header(&header).and_then(|(_, outer, ..)| {
+            Some(SwiftTypePlace::Nested(outer.rsplit('.').next()?.to_owned()))
+        }),
+    }
+}
+/// Whether 1-based `line` of Swift `lines` is inside the body of the function or type whose
+/// header is on 1-based line `header`.
+pub fn swift_within<S: AsRef<str>>(
+    lines: &[S],
+    literal: &[bool],
+    line: usize,
+    header: usize,
+) -> bool {
+    let mut at = line;
+    loop {
+        at = swift_scope(lines, literal, at).0;
+        if at == header {
+            return true;
+        }
+        if at == 0 {
+            return false;
+        }
+    }
+}
+/// Whether a bare name on 1-based `line` of Swift `lines` sees the types nested in `outer`:
+/// inside `outer`'s body, an extension of it, or a class whose header names it first, its
+/// superclass.
+pub fn swift_sees_nested<S: AsRef<str>>(
+    lines: &[S],
+    literal: &[bool],
+    line: usize,
+    outer: &str,
+) -> bool {
+    let mut at = line;
+    while let Some(header) = swift_enclosing_type(lines, literal, at) {
+        if let Some((keyword, name, base, _)) = swift_type_header(lines[header - 1].as_ref())
+            && (name.split('.').any(|n| n == outer)
+                || (keyword == "class"
+                    && base.is_some_and(|b| b.rsplit('.').next() == Some(outer))))
+        {
+            return true;
+        }
+        at = header;
+    }
+    false
 }
 // ---- Swift's receiver types (#384) ------------------------------------------------------------
 /// What a Swift line that binds a name gives it, as written.
