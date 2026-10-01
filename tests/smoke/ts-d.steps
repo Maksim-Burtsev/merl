@@ -80,3 +80,12 @@ key /
 type .total;
 key Enter Right d
 wait total → Receipt.total (via receipt: Receipt)
+# A class of a `className` lands on the rule that styles it, in a stylesheet (#415).
+key o
+type orders/index
+key Enter
+wait web/src/routes/orders/index.tsx  1:1
+key /
+type page-list
+key Enter d
+wait page-list: by name, 1 match

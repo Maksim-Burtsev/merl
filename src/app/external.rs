@@ -467,7 +467,9 @@ impl App {
             | Kind::Docker
             | Kind::Yaml
             | Kind::Markdown
-            | Kind::Graphql => kind,
+            | Kind::Graphql
+            | Kind::Css
+            | Kind::Html => kind,
         };
         for kind in [
             Kind::Python,
@@ -492,6 +494,8 @@ impl App {
             Kind::Yaml,
             Kind::Markdown,
             Kind::Graphql,
+            Kind::Css,
+            Kind::Html,
         ]
         .map(every)
         {

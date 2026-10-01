@@ -357,7 +357,9 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         | Kind::Yaml
         | Kind::Markdown
         // `#import "./parts.graphql"` pastes the file in and binds no name: [`graphql_import`].
-        | Kind::Graphql => {}
+        | Kind::Graphql
+        | Kind::Css
+        | Kind::Html => {}
     }
     out
 }
@@ -870,7 +872,9 @@ pub fn module_files(
         | Kind::Terraform
         | Kind::Docker
         | Kind::Yaml
-        | Kind::Markdown => Vec::new(),
+        | Kind::Markdown
+        | Kind::Css
+        | Kind::Html => Vec::new(),
         // The path of an `#import`, relative to the importing file.
         Kind::Graphql => lexical(&dir.join(module.join("/")))
             .filter(|f| files.contains(f))

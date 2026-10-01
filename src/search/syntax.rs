@@ -41,6 +41,10 @@ pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     if kind == Kind::Markdown {
         return markdown_literal_lines(text);
     }
+    // HTML's is the `<!-- … -->` comment (#415).
+    if kind == Kind::Html {
+        return html_literal_lines(text);
+    }
     let mut out = scan(kind, text, usize::MAX).0;
     // The body of a multi-line C `#define` declares nothing (#382): a `typedef ret name##_t
     // args;` there names a macro's parameter. The `#define` line itself declares the macro.
@@ -94,6 +98,10 @@ fn scan(kind: Kind, text: &str, at: usize) -> (Vec<bool>, bool) {
             // The C family's comments, and no backtick: a Protocol Buffers string ends with its
             // line.
             Kind::Proto => (false, false, false, true, &["//"]),
+            // `/* */` in all four stylesheet languages and `//` in SCSS, Sass and Less: one kind
+            // reads `//` in a `.css` file too, at the cost of a `/*` after a `url(//…)` on its
+            // line (#415). A string ends with its line, and a backtick is nothing.
+            Kind::Css => (false, false, false, true, &["//"]),
             // PHP's `#` is a comment as `//` is, save `#[`, which opens an attribute (#488), and
             // only in PHP's code: outside `<?php … ?>` it is the `#id` of CSS, the `#field` of
             // JS or the `&#8212;` of HTML. A line comment ends at `?>` too, as PHP ends it.

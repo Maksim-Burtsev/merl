@@ -1,0 +1,25 @@
+<!doctype html>
+<link rel="stylesheet" href="src/styles.css">
+#                               ^ d: src/styles.css:1
+# status: path src/styles.css
+<button class="btn-primary">OK</button>
+#                  ^ d: src/styles.css:4
+<a href="#main">skip</a>
+#          ^ d: index.html:16
+<a href="/base.css">base</a>
+#           ^ d: src/base.css:1
+<a href="https://example.com/">out</a>
+#            ^ d: none
+# status: no file in the project: a URL
+<a href="missing.html">gone</a>
+#           ^ d: none
+<main id="main" class="card-body-wide">
+#                         ^ d: scss/buttons.scss:23
+#         ^ d: src/styles.css:31
+<style>
+  .inline-note { color: var(--brand); }
+</style>
+<p class="inline-note">n</p>
+#           ^ d: index.html:20
+<p>A paragraph about btn-primary</p>
+#                        ^ d: none

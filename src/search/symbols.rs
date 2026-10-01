@@ -428,6 +428,12 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
         Some(Kind::Graphql),
         r"^(?:(?:type|interface|input|enum|union|scalar|fragment|query|mutation|subscription)\s+|directive\s+@)(?P<name>[A-Za-z_]\w*)",
     ),
+    // A stylesheet's mixins, functions, placeholders and keyframes under their names (#415). No
+    // selector, custom property or variable: Bootstrap alone has thousands of selectors.
+    (
+        Some(Kind::Css),
+        r"^\s*(?:@(?:mixin|function|(?:-[a-z]+-)?keyframes)\s+|%)(?P<name>[A-Za-z_-][\w-]*)",
+    ),
 ];
 /// Whether [`SYMBOL_PATTERN`] is read from a file of `kind`. Java, Kotlin, Ruby, C, C++, C#,
 /// Swift, PHP, Lua, Elixir, GraphQL and Protocol Buffers have rows of their own in [`SYMBOLS`],
@@ -449,6 +455,7 @@ pub fn shared_symbols(kind: Option<Kind>) -> bool {
                 | Kind::Markdown
                 | Kind::Graphql
                 | Kind::Proto
+                | Kind::Css
         )
     )
 }

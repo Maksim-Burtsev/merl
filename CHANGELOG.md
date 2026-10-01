@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d` in HTML, CSS, SCSS and Less. On a class in `className="btn-primary"` of a `.tsx` file, or
+  in `class="btn-primary"` of an HTML file, it lands on `.btn-primary {` in the stylesheet,
+  where it said `no definition for btn` or `no rules for .html`; `u` reads `btn-primary` whole.
+  A stylesheet's custom properties, SCSS variables, mixins, functions and placeholders, Less
+  variables and mixins, and keyframes are found too, a `@use` namespace narrowing them to its
+  module, and the path of a `<link href>`, a `<script src>` and an `@import` or `@use` opens
+  its file. `D` lists the mixins, functions, placeholders and keyframes. (#415)
 - `d` in Ruby looks outside the project: in the gems `Gemfile.lock` names, at their locked
   versions, in the standard library, and in the core's RBS signatures. `throttle` in a
   `Rack::Attack` initializer lands on rack-attack's `def throttle`, read-only, where it said `no

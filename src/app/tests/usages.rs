@@ -543,3 +543,46 @@ fn usages_mark_a_rails_column_only_in_the_schema() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #415: `u` on a class of a JSX `className` reads it whole, `-` and all, and marks the rule
+/// that styles it; on `var(--brand)` it reads the custom property with its dashes. A TypeScript
+/// `id = "x"` stays an assignment, read as TypeScript reads a word.
+#[test]
+fn usages_of_a_class_and_a_custom_property_read_them_whole() {
+    let (dir, mut a) = project_app(
+        "u-css",
+        &[
+            (
+                "src/styles.css",
+                ":root {\n  --brand: #0a7;\n}\n.btn-primary {\n  color: var(--brand);\n}\n.btn {\n}\n",
+            ),
+            (
+                "src/Button.tsx",
+                "export const B = () => <b className=\"btn-primary\">x</b>\nlet btn = 1\nlet id=\"btn-primary\"\n",
+            ),
+        ],
+    );
+    usages_at(&mut a, &dir, "src/Button.tsx", 1, "primary");
+    assert_eq!(
+        usage_rows(&mut a),
+        [
+            ("declaration".to_string(), "src/styles.css:4".to_string()),
+            (String::new(), "src/Button.tsx:1".into()),
+            (String::new(), "src/Button.tsx:3".into()),
+        ]
+    );
+    a.picker = None;
+    usages_at(&mut a, &dir, "src/styles.css", 5, "brand");
+    assert_eq!(
+        usage_rows(&mut a),
+        [
+            ("declaration".to_string(), "src/styles.css:2".to_string()),
+            (String::new(), "src/styles.css:5".into()),
+        ]
+    );
+    a.picker = None;
+    usages_at(&mut a, &dir, "src/Button.tsx", 3, "primary");
+    let title = &a.picker.as_ref().expect("a picker").title;
+    assert!(title.starts_with("Usages of primary:"), "{title}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}

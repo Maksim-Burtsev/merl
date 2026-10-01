@@ -481,6 +481,10 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^directive\s+@{w}\b"),
             format!(r"^\s+{w}\s*(?:[:(@#,]|$)"),
         ],
+        // What `u` marks as a declaration; `d` reads a stylesheet with [`sheet_at`] (#415).
+        Kind::Css => css_patterns(word),
+        // An HTML file declares an id, which `d` reads from the attribute under the cursor.
+        Kind::Html => Vec::new(),
     }
 }
 /// Of the C and C++ candidates for `word` found by name, the ones that are the type itself
@@ -964,7 +968,9 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Docker
         | Kind::Yaml
         | Kind::Markdown
-        | Kind::Graphql => return None,
+        | Kind::Graphql
+        | Kind::Css
+        | Kind::Html => return None,
     })
 }
 /// Line patterns that can declare `word` as a field, for the search by name: more than the fields,

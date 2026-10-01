@@ -1,0 +1,30 @@
+@use 'variables' as v;
+//     ^ d: scss/_variables.scss:1
+@use 'mixins';
+@use 'sass:math';
+//      ^ d: none
+// status: sass:math: builtin, no source
+@use 'pkg/scss/tokens' as t;
+//         ^ d: node_modules/pkg/scss/_tokens.scss:1
+.btn { @include mixins.button-variant(v.$primary); }
+//                     ^ d: scss/_mixins.scss:1
+// status: button-variant: via import scss/_mixins.scss
+//                                       ^ d: scss/_variables.scss:1
+// status: primary: via import scss/_variables.scss
+.btn-outline { color: mixins.tint-color(v.$primary, 10%); }
+//                              ^ d: scss/_mixins.scss:4
+.alert { @extend %message-shared; }
+//                ^ d: scss/_mixins.scss:7
+.badge { @extend .btn; }
+//                ^ d: scss/buttons.scss:9
+.card {
+  &__title { font-weight: bold; }
+  &-body {
+    &-wide { width: 100%; }
+  }
+  &.active { color: red; }
+  &:hover { color: blue; }
+  .col-#{$i} { color: t.$ink; }
+}
+.chip { color: t.$ink; }
+//                ^ d: node_modules/pkg/scss/_tokens.scss:1

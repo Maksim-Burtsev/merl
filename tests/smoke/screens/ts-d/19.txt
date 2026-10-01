@@ -1,0 +1,57 @@
+wait web/src/routes/orders/index.tsx  1:1
+ 1 export default function OrdersPage() {
+ 2   return (
+ 3     <section className="page-list">
+ 4       <h1>Orders</h1>
+ 5       <p>Pick an order to see its status.</p>
+ 6     </section>
+ 7   );
+ 8 }
+ 9
+10 type Props = { page?: number };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/src/routes/orders/index.tsx  1:1  [code]                                                                                                                                      ? help
+cursor (x,y,shown) 3,0,1
