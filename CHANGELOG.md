@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.8.0] - 2026-10-01
-
 ### Added
 
 - `d` in C knows the struct of a receiver from its declaration. In `void f(client *c)`,
@@ -39,95 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   User)`, where it said `no definition`; `User::getTitle` and the classes it extends find it the
   same way. A receiver whose type is not read offers the fields, never jumps to one; a method
   written by hand wins, and a `static` field or `AccessLevel.NONE` gets none. (#381)
-- In `--review`, `s`, `D`, `u` and `d` find the code the branch deleted as well as the files on
-  disk. A deleted line in their lists is a row like any other, told apart by the gutter's `▎`
-  in red, as an added one is by its green, and Enter lands on it. `d` on a deleted line reads
-  the code as the base had it: it opens the function the call called, on its red lines when the
-  branch deleted or rewrote it, on its line now when the branch kept or only moved it, and `[`
-  goes back. On any other line `d` looks in the branch's code first and opens a deleted
-  definition only when the branch has none. (#440)
-- `d` in Go follows a table test: in `for _, tc := range []struct {…}{…}` and in a range over
-  `tests := []struct {…}{…}`, `tc.name` lands on the field of the struct written in place,
-  `name → struct{…}.name (via tc: struct{…})`, and so does the key `name:` of an element of
-  the table. It read the loop from its `}{` line, so `tc` was not bound and `tc.name` jumped to
-  a namesake elsewhere or offered every `name` of the project. (#330)
-- `d` in Go proves a receiver whose type the standard library or a `go.mod` module declares:
-  `wg.Add` on a `sync.WaitGroup`, `t.Errorf` through the `common` a `testing.T` embeds,
-  `ctx.Err()` on the `context.Context` interface, `r.URL.Path` through `*http.Request`, `srv`
-  from `httptest.NewServer(…)`, and a key of `sync.Pool{New: …}`, each read-only in GOROOT or
-  the module cache. It offered every method of the name in GOROOT and the module cache, often
-  hundreds and often without the field, and took a third of a second or more for it. (#334)
-- The hidden characters a file can hold are on screen, in every file and in `--review`: the
-  bidirectional controls behind "Trojan Source" (U+202A–U+202E, U+2066–U+2069, U+200E, U+200F,
-  U+061C) and the zero-width U+200B, U+2060 and U+FEFF are drawn as their code, such as
-  `<202e>`, on an amber of their own that no diff uses. The cursor steps over one in a press and
-  Delete removes it; a ZWJ inside an emoji and a BOM at the start of a file stay as they are.
-  (#401)
-- `merl --reviews` prints your review sessions of the last 30 days, newest first: the branch,
-  which round of it the session was, the files, hunks and lines under review, the active time
-  and how much of it was on the review's files, and the excursions, the jumps with `d`, `u`, `D`,
-  `s` or `o` from a file of the review out of it; then the median time of a first round and of a
-  later one. merl notes every `--review` session in `~/.local/state/merl/reviews.tsv` on exit,
-  next to `keys.tsv`, and shows nothing while you review. Only the time between presses counts,
-  a gap longer than five minutes as five, so a review left open over lunch is not an hour of
-  review; a session closed with `q` and nothing else is not noted, a `git switch` during a review
-  ends its session and starts one for the branch now checked out, sessions older than 30 days
-  are dropped, and `--tutor` and `--drill` note nothing. (#242)
-- `p` shows a Markdown file rendered, in place of its source, and `p` again shows the source, at
-  the same place both ways; Enter in the preview edits the source where it stands. Headings,
-  emphasis, lists and task lists, quotes and GitHub alerts, tables in box drawing aligned as
-  their `:---:` says, code blocks in the theme's colours, rules and footnotes render; links show
-  their text, images their alt text. The preview is rendered from the open buffer, so a file an
-  agent rewrites renders again, and it reflows to the pane: a table wider than the pane narrows
-  its widest columns and wraps inside their cells instead of falling apart. Reading keys move a
-  cursor row; `/`, `v`, `d` and `u` have no word or column to act on there and do nothing. In
-  `--review` the diff stays on the source: `p` on a file of the review says `in review`. The
-  tutor has a Markdown plan and a lesson for it. (#249)
-- Short forms of the launch flags: `-r` for `--review`, `-b` for `--base`, `-t` for `--theme`,
-  `-d` for `--drill` and `-k` for `--keys`. `merl -r feature -b origin/dev` is
-  `merl --review feature --base origin/dev`. (#238)
-- Inside a long function whose first line has scrolled off, that line stays pinned on top of
-  the code with its line number, on a band of the cursor line's colour, so the screen always
-  says which function this is: in a review, where `c` drops you in the middle of one, and
-  everywhere else. A method pins its `impl` or `class` too, two lines at most; a loop or an `if`
-  pins nothing. The code starts under the band, so no line hides behind it, and the pages,
-  Ctrl+D and Ctrl+U move by the rows left under it. (#248)
-- A line longer than merl draws (20 KB: a minified bundle, a one-line JSON dump) ends in a dim
-  `…` right after its last drawn character, wrapped or not, so a cut line never reads as whole.
-  (#283)
-- In `--review`, `u` and `s` mark each row on a line the branch added or changed with the
-  gutter's `▎`, in its colour, and leave an untouched line's row blank, so the readers a change
-  did not reach stand out; the rows keep their order. `o` lists the review's files first, each
-  with its panel letter, then the rest of the project as before. `review_list_marks = false` and
-  `review_open_files_first = false` in `~/.config/merl/config.toml` turn either off. (#246)
-- A macOS Intel binary, `merl-x86_64-apple-darwin.tar.gz`, ships with each release. (#394)
-- `d` in Markdown (`.md`, `.markdown`, `.mdx`) follows the link under the cursor, on its text or
-  its target: `[README](../README.md#languages)` opens `README.md` at its `## Languages` heading,
-  `[below](#setup)` goes to a heading of the same file, `#L12` to a line, and a reference link
-  goes through its `[label]: target` definition. A code span naming a file of the project,
-  `` `src/search/kind.rs:30` ``, opens it; a bare name several files carry is a picker of them.
-  A missing file or heading says so, and a link in a code block or a comment is not followed.
-  `D` no longer lists the examples of a README's code blocks as declarations. (#421)
-- GraphQL: `d` in a `.graphql`, `.graphqls` or `.gql` file lands on a `type`, an `interface`, an
-  `input`, an `enum`, a `union`, a `scalar`, a `directive`, a fragment from its `...spread`, a
-  named operation, a field (`email → User.email`) and an enum value; on the path of an
-  `#import "./parts.graphql"` it opens that file. `extend type`, a selection, an alias, an
-  argument and a `$variable` are no declarations. `D` lists the types, directives, fragments and
-  named operations. (#419)
-- `d`, `u` and `D` in Protocol Buffers (`.proto`): `d` finds a `message` (a nested one too), an
-  `enum` and its values, a `service`, an `rpc`, a field and a `oneof`; `d` on the path of an
-  `import` opens that file; a type qualified by its package, `billing.v1.Money` or
-  `google.protobuf.Timestamp`, lands in that package's files, and the well-known types `protoc`
-  installs are reached, read-only. `D` lists the messages, enums, services and rpcs. (#418)
-- `d` in C and C++ on a parameter or a local lands on its declaration, `i → crc32::i (local)`,
-  and it hides every function, macro, global and system header of the name: `link` in
-  `link->node` jumped to POSIX `link()`, and a variable declared a few lines up said `no
-  definition`. The innermost block that declares the name wins, a block closed before the cursor
-  does not count, a `for (int i = …)` binds `i` in its loop, and a lambda reads on into the
-  function around it; `a && b == c`, `x & FLAG` and a declaration inside a string bind nothing.
-  In a C++ method a bare member, `return filename_;`, lands on its class's field. A value, a word
-  followed by `->` or `.`, is never a struct, a `typedef` or a `using` alias, so `group->pel`
-  no longer opens the system's `struct group`. (#378)
 - `d` in Ruby reads the Rails DSL: `has_many :followers`, `belongs_to`, `scope :recent`,
   attachments, `attribute`, `enum` and `delegate :email, to: :user` declare the name, and a column
   of `db/schema.rb` is found under its table, `collections.language`. `Account.recent` lands on
@@ -218,6 +127,133 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   does not declare, a MAUI `Label`'s `Text` or an EF `DbContext`'s `SaveChangesAsync`, says `no
   definition` instead of offering or jumping to the project's namesakes, unless the project
   declares an extension method for it. (#352)
+
+### Fixed
+
+- `d` in TypeScript and JavaScript on an arrow function's parameter itself, `crate` in
+  `crates.map(crate => 0)`, offers a namesake elsewhere under "at a declaration", or stays on
+  the line when there is none. It jumped to a module-level `const` of the same name. (#534)
+- `d` in Kotlin names the members of a class whose header wraps over lines, `class Repo @Inject
+  constructor(` … `) : Base {`, and of its `companion object` as those of a one-line header:
+  the status reads `getTopics → Repo.getTopics` and `DEFAULT → Repo.DEFAULT`, and `Repo::m`
+  and `Repo.DEFAULT` find them. The walk up to the class stopped at the `) : Base {` line and at
+  `companion object`, so those members had no class in their name. (#523)
+- `d` in Swift on a function's parameter in its header, as `attempt` in
+  `func probe(_ attempt: Int) {`, answers as on any declaration: the line itself, or the
+  namesakes offered under "at a declaration". It jumped to a lone namesake elsewhere. A name a
+  `for`, an `if let` or a closure binds over an outer one of the same name answers the same way;
+  it jumped to the outer one. (#533)
+- `d` on a key of a Rust struct literal, `hyperlink` in `Printer { hyperlink: 1 }` or `Self {
+  hyperlink: 1 }`, lands on the field `hyperlink` of `Printer`, the project's or a dependency's.
+  It jumped to a method `hyperlink()` of the same name, or said "no definition". (#529)
+- `d` no longer crashes merl on a line where a non-ASCII character stands next to a name: in
+  Rust inside the brackets of a call whose name ends in a combining accent (`méthode(42)` as
+  macOS spells it), in PHP on a namespaced name after a `©`, and in C or C++ inside a block
+  whose header holds non-ASCII names on both sides of a bracket. It panicked, which left the
+  terminal unusable until `reset`. (#543)
+- `d` in Go on a parameter's type named like the method it belongs to, the second `Send` of
+  `Send(msg Send) error`, jumps to `type Send`. It offered a picker of `type Send` and every
+  method `Send` beside it. (#536)
+- `d` in Ruby on a method written `def User.build` inside `class User` names it `User.build` in
+  the status line, and its parameter `User.build.arg`: the class was named twice,
+  `User.User.build`. (#535)
+
+## [0.8.0] - 2026-10-01
+
+### Added
+
+- In `--review`, `s`, `D`, `u` and `d` find the code the branch deleted as well as the files on
+  disk. A deleted line in their lists is a row like any other, told apart by the gutter's `▎`
+  in red, as an added one is by its green, and Enter lands on it. `d` on a deleted line reads
+  the code as the base had it: it opens the function the call called, on its red lines when the
+  branch deleted or rewrote it, on its line now when the branch kept or only moved it, and `[`
+  goes back. On any other line `d` looks in the branch's code first and opens a deleted
+  definition only when the branch has none. (#440)
+- `d` in Go follows a table test: in `for _, tc := range []struct {…}{…}` and in a range over
+  `tests := []struct {…}{…}`, `tc.name` lands on the field of the struct written in place,
+  `name → struct{…}.name (via tc: struct{…})`, and so does the key `name:` of an element of
+  the table. It read the loop from its `}{` line, so `tc` was not bound and `tc.name` jumped to
+  a namesake elsewhere or offered every `name` of the project. (#330)
+- `d` in Go proves a receiver whose type the standard library or a `go.mod` module declares:
+  `wg.Add` on a `sync.WaitGroup`, `t.Errorf` through the `common` a `testing.T` embeds,
+  `ctx.Err()` on the `context.Context` interface, `r.URL.Path` through `*http.Request`, `srv`
+  from `httptest.NewServer(…)`, and a key of `sync.Pool{New: …}`, each read-only in GOROOT or
+  the module cache. It offered every method of the name in GOROOT and the module cache, often
+  hundreds and often without the field, and took a third of a second or more for it. (#334)
+- The hidden characters a file can hold are on screen, in every file and in `--review`: the
+  bidirectional controls behind "Trojan Source" (U+202A–U+202E, U+2066–U+2069, U+200E, U+200F,
+  U+061C) and the zero-width U+200B, U+2060 and U+FEFF are drawn as their code, such as
+  `<202e>`, on an amber of their own that no diff uses. The cursor steps over one in a press and
+  Delete removes it; a ZWJ inside an emoji and a BOM at the start of a file stay as they are.
+  (#401)
+- `merl --reviews` prints your review sessions of the last 30 days, newest first: the branch,
+  which round of it the session was, the files, hunks and lines under review, the active time
+  and how much of it was on the review's files, and the excursions, the jumps with `d`, `u`, `D`,
+  `s` or `o` from a file of the review out of it; then the median time of a first round and of a
+  later one. merl notes every `--review` session in `~/.local/state/merl/reviews.tsv` on exit,
+  next to `keys.tsv`, and shows nothing while you review. Only the time between presses counts,
+  a gap longer than five minutes as five, so a review left open over lunch is not an hour of
+  review; a session closed with `q` and nothing else is not noted, a `git switch` during a review
+  ends its session and starts one for the branch now checked out, sessions older than 30 days
+  are dropped, and `--tutor` and `--drill` note nothing. (#242)
+- `p` shows a Markdown file rendered, in place of its source, and `p` again shows the source, at
+  the same place both ways; Enter in the preview edits the source where it stands. Headings,
+  emphasis, lists and task lists, quotes and GitHub alerts, tables in box drawing aligned as
+  their `:---:` says, code blocks in the theme's colours, rules and footnotes render; links show
+  their text, images their alt text. The preview is rendered from the open buffer, so a file an
+  agent rewrites renders again, and it reflows to the pane: a table wider than the pane narrows
+  its widest columns and wraps inside their cells instead of falling apart. Reading keys move a
+  cursor row; `/`, `v`, `d` and `u` have no word or column to act on there and do nothing. In
+  `--review` the diff stays on the source: `p` on a file of the review says `in review`. The
+  tutor has a Markdown plan and a lesson for it. (#249)
+- Short forms of the launch flags: `-r` for `--review`, `-b` for `--base`, `-t` for `--theme`,
+  `-d` for `--drill` and `-k` for `--keys`. `merl -r feature -b origin/dev` is
+  `merl --review feature --base origin/dev`. (#238)
+- Inside a long function whose first line has scrolled off, that line stays pinned on top of
+  the code with its line number, on a band of the cursor line's colour, so the screen always
+  says which function this is: in a review, where `c` drops you in the middle of one, and
+  everywhere else. A method pins its `impl` or `class` too, two lines at most; a loop or an `if`
+  pins nothing. The code starts under the band, so no line hides behind it, and the pages,
+  Ctrl+D and Ctrl+U move by the rows left under it. (#248)
+- A line longer than merl draws (20 KB: a minified bundle, a one-line JSON dump) ends in a dim
+  `…` right after its last drawn character, wrapped or not, so a cut line never reads as whole.
+  (#283)
+- In `--review`, `u` and `s` mark each row on a line the branch added or changed with the
+  gutter's `▎`, in its colour, and leave an untouched line's row blank, so the readers a change
+  did not reach stand out; the rows keep their order. `o` lists the review's files first, each
+  with its panel letter, then the rest of the project as before. `review_list_marks = false` and
+  `review_open_files_first = false` in `~/.config/merl/config.toml` turn either off. (#246)
+- A macOS Intel binary, `merl-x86_64-apple-darwin.tar.gz`, ships with each release. (#394)
+- `d` in Markdown (`.md`, `.markdown`, `.mdx`) follows the link under the cursor, on its text or
+  its target: `[README](../README.md#languages)` opens `README.md` at its `## Languages` heading,
+  `[below](#setup)` goes to a heading of the same file, `#L12` to a line, and a reference link
+  goes through its `[label]: target` definition. A code span naming a file of the project,
+  `` `src/search/kind.rs:30` ``, opens it; a bare name several files carry is a picker of them.
+  A missing file or heading says so, and a link in a code block or a comment is not followed.
+  `D` no longer lists the examples of a README's code blocks as declarations. (#421)
+- GraphQL: `d` in a `.graphql`, `.graphqls` or `.gql` file lands on a `type`, an `interface`, an
+  `input`, an `enum`, a `union`, a `scalar`, a `directive`, a fragment from its `...spread`, a
+  named operation, a field (`email → User.email`) and an enum value; on the path of an
+  `#import "./parts.graphql"` it opens that file. `extend type`, a selection, an alias, an
+  argument and a `$variable` are no declarations. `D` lists the types, directives, fragments and
+  named operations. (#419)
+- `d`, `u` and `D` in Protocol Buffers (`.proto`): `d` finds a `message` (a nested one too), an
+  `enum` and its values, a `service`, an `rpc`, a field and a `oneof`; `d` on the path of an
+  `import` opens that file; a type qualified by its package, `billing.v1.Money` or
+  `google.protobuf.Timestamp`, lands in that package's files, and the well-known types `protoc`
+  installs are reached, read-only. `D` lists the messages, enums, services and rpcs. (#418)
+- `d` in C and C++ on a parameter or a local lands on its declaration, `i → crc32::i (local)`,
+  and it hides every function, macro, global and system header of the name: `link` in
+  `link->node` jumped to POSIX `link()`, and a variable declared a few lines up said `no
+  definition`. The innermost block that declares the name wins, a block closed before the cursor
+  does not count, a `for (int i = …)` binds `i` in its loop, and a lambda reads on into the
+  function around it; `a && b == c`, `x & FLAG` and a declaration inside a string bind nothing.
+  In a C++ method a bare member, `return filename_;`, lands on its class's field. A value, a word
+  followed by `->` or `.`, is never a struct, a `typedef` or a `using` alias, so `group->pel`
+  no longer opens the system's `struct group`. (#378)
+
+### Changed
+
 - `d` in Java and Kotlin looks in the scope around the cursor first. A parameter, a lambda's
   parameter, a loop variable and a local of the blocks around it answer as `(local)`, where `d`
   said `no definition` or offered namesakes from other files: `directionParams →
@@ -367,30 +403,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `d` in TypeScript and JavaScript on an arrow function's parameter itself, `crate` in
-  `crates.map(crate => 0)`, offers a namesake elsewhere under "at a declaration", or stays on
-  the line when there is none. It jumped to a module-level `const` of the same name. (#534)
-- `d` in Kotlin names the members of a class whose header wraps over lines, `class Repo @Inject
-  constructor(` … `) : Base {`, and of its `companion object` as those of a one-line header:
-  the status reads `getTopics → Repo.getTopics` and `DEFAULT → Repo.DEFAULT`, and `Repo::m`
-  and `Repo.DEFAULT` find them. The walk up to the class stopped at the `) : Base {` line and at
-  `companion object`, so those members had no class in their name. (#523)
-- `d` in Swift on a function's parameter in its header, as `attempt` in
-  `func probe(_ attempt: Int) {`, answers as on any declaration: the line itself, or the
-  namesakes offered under "at a declaration". It jumped to a lone namesake elsewhere. A name a
-  `for`, an `if let` or a closure binds over an outer one of the same name answers the same way;
-  it jumped to the outer one. (#533)
-- `d` on a key of a Rust struct literal, `hyperlink` in `Printer { hyperlink: 1 }` or `Self {
-  hyperlink: 1 }`, lands on the field `hyperlink` of `Printer`, the project's or a dependency's.
-  It jumped to a method `hyperlink()` of the same name, or said "no definition". (#529)
-- `d` no longer crashes merl on a line where a non-ASCII character stands next to a name: in
-  Rust inside the brackets of a call whose name ends in a combining accent (`méthode(42)` as
-  macOS spells it), in PHP on a namespaced name after a `©`, and in C or C++ inside a block
-  whose header holds non-ASCII names on both sides of a bracket. It panicked, which left the
-  terminal unusable until `reset`. (#543)
-- `d` in Go on a parameter's type named like the method it belongs to, the second `Send` of
-  `Send(msg Send) error`, jumps to `type Send`. It offered a picker of `type Send` and every
-  method `Send` beside it. (#536)
 - `d` in Swift finds a function or an enum case declared with its name in backticks, as
   ``func `default`()`` or ``case `open` ``: it said "no definition", or jumped to a namesake
   elsewhere. (#463)
@@ -762,9 +774,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in TypeScript finds a method whose parameter is typed by an inline type literal,
   `paint({ a }: { a: number; b: number }) {`: the `;` inside it read as the end of a call, so
   `d` on `paint` elsewhere said "no definition". (#528)
-- `d` in Ruby on a method written `def User.build` inside `class User` names it `User.build` in
-  the status line, and its parameter `User.build.arg`: the class was named twice,
-  `User.User.build`. (#535)
 
 ## [0.7.0] - 2026-09-25
 
