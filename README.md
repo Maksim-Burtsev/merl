@@ -229,7 +229,7 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | Language | `d` also reaches |
 |---|---|
 | Python | the standard library and the `.venv` |
-| TypeScript, JavaScript | `node_modules` |
+| TypeScript, JavaScript, Vue, Svelte, Astro | `node_modules` |
 | Go | GOROOT and the modules in `go.mod` |
 | Rust | the sysroot and the crates in `Cargo.lock` |
 | C, C++, Objective-C | the system headers, and from Objective-C the SDK's frameworks and CocoaPods' `Pods/` |
@@ -238,6 +238,7 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | Zig | the standard library |
 | Protocol Buffers | the well-known types `protoc` installs |
 | PowerShell | the module directories of `PSModulePath` |
+| Dart | the pub cache and the SDK |
 | Java, Kotlin, Scala, Ruby, C#, Lua, Elixir | |
 | Shell, SQL, Makefile, Terraform, Dockerfile, YAML, GraphQL | |
 | Markdown | the file or the heading a link names, and a file a code span names |

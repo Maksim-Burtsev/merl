@@ -465,6 +465,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         ],
         Kind::Terraform => terraform_patterns(word),
         Kind::PowerShell => powershell_patterns(word),
+        Kind::Dart => dart_patterns(word),
         // `FROM image AS name`, with any flags before the image. Stage names ignore case.
         Kind::Docker => vec![format!(r"(?i)^\s*FROM\s+(\S+\s+)+AS\s+{w}\s*$")],
         // An anchor, or a key that opens a block: compose services, CI jobs, GitLab's `.hidden`
@@ -505,6 +506,7 @@ pub fn narrow_patterns(
     match kind {
         Kind::Php => php_namespace_patterns(p, text, line, r),
         Kind::PowerShell => powershell_sigil(p, &line[..r.start], &line[r.end..]),
+        Kind::Dart => dart_narrow(p, line, r),
         _ => {}
     }
 }
@@ -984,6 +986,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Proto
         | Kind::Shell
         | Kind::PowerShell
+        | Kind::Dart
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -1062,6 +1065,26 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
     line_text: &str,
     lines: impl FnOnce() -> &'a [S],
 ) -> bool {
+    // A component's line outside its script declares nothing (#413): `lines` are the script's,
+    // the rest left blank.
+    if component(path) {
+        let lines = lines();
+        let code = lines
+            .get(line - 1)
+            .is_some_and(|l| !l.as_ref().trim().is_empty());
+        return code && declares_by_kind(kind, path, word, line, line_text, || lines);
+    }
+    declares_by_kind(kind, path, word, line, line_text, lines)
+}
+/// [`declares_where`] by the rules of `kind`.
+fn declares_by_kind<'a, S: AsRef<str> + 'a>(
+    kind: Kind,
+    path: &Path,
+    word: &str,
+    line: usize,
+    line_text: &str,
+    lines: impl FnOnce() -> &'a [S],
+) -> bool {
     match kind {
         Kind::Graphql => !line_text.starts_with([' ', '\t']) || graphql_member(lines(), line),
         Kind::Css => css_declares(word, line, line_text, || {
@@ -1087,6 +1110,7 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
         Kind::C => c_declares_where(line, line_text, lines),
         Kind::Ruby if ruby_column_elsewhere(path, line_text) => false,
         Kind::PowerShell => powershell_declares(lines(), line, line_text),
+        Kind::Dart => dart_declares(lines(), line, line_text),
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
 }

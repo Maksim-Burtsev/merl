@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "moduleResolution": "Bundler",
+    // `@/` is `src/`: main.ts imports a component through it.
+    "paths": { "@/*": ["./src/*"] },
+  },
+}

@@ -8,14 +8,13 @@ use search::{Attr, Sheet};
 
 impl App {
     /// The class attribute under the cursor and its range: in an HTML file, a Vue, Svelte or
-    /// Astro template, and a JSX attribute of a JavaScript or TypeScript file. Other kinds have
-    /// no markup to read.
+    /// Astro template (TypeScript files to their kind, #413, read here by their extension), and a
+    /// JSX attribute of a JavaScript or TypeScript file. Other kinds have no markup to read.
     fn attr_here(&self, kind: Option<Kind>) -> Option<(Attr, std::ops::Range<usize>)> {
-        let markup = kind == Some(Kind::Html)
-            || (kind.is_none()
-                && (self.buf.path.as_deref())
-                    .and_then(Path::extension)
-                    .is_some_and(|e| e == "vue" || e == "svelte" || e == "astro"));
+        let component = (self.buf.path.as_deref())
+            .and_then(Path::extension)
+            .is_some_and(|e| e == "vue" || e == "svelte" || e == "astro");
+        let markup = kind == Some(Kind::Html) || component;
         if !markup && kind != Some(Kind::TsJs) {
             return None;
         }
@@ -108,7 +107,7 @@ impl App {
             .collect();
         let mut found: Vec<Candidate> = Vec::new();
         for path in files {
-            let Some(text) = self.text_of(&path).filter(|t| t.contains(piece)) else {
+            let Some(text) = self.file_text(&path).filter(|t| t.contains(piece)) else {
                 continue;
             };
             let styles = match search::styles_in(&path) {
@@ -201,7 +200,7 @@ impl App {
     /// The lines of `path`, from the root, that `re` matches; in a
     /// `<style>` block only, when `blocks`.
     fn matching_lines(&self, path: &Path, re: &Regex, blocks: bool) -> Vec<Hit> {
-        let Some(text) = self.text_of(path) else {
+        let Some(text) = self.file_text(path) else {
             return Vec::new();
         };
         let styles = match blocks {
@@ -314,7 +313,7 @@ impl App {
         let line = match fragment.filter(|f| !f.is_empty()) {
             None => 1,
             Some(f) => match self
-                .text_of(file)
+                .file_text(file)
                 .and_then(|t| search::element_with_id(&t, f))
             {
                 Some(line) => line,

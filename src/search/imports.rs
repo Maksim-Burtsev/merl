@@ -353,6 +353,8 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<(String, Vec<String>)> 
         // `Import-Module` makes every function the module exports visible and binds no name, as
         // a C `#include` does; its path is followed as [`file_import`] reads it.
         | Kind::PowerShell
+        // A Dart prefix or `show` name is [`dart_imports`]'s, which `d` reads in its own branch.
+        | Kind::Dart
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -870,6 +872,7 @@ pub fn module_files(
         | Kind::Zig
         | Kind::Proto
         | Kind::Shell
+        | Kind::Dart
         | Kind::Sql
         | Kind::Make
         | Kind::Terraform
@@ -1001,7 +1004,7 @@ fn ts_config(root: &Path, dir: &Path, spec: &str) -> (Vec<PathBuf>, Option<PathB
     (targets.into_iter().map(|(_, t)| t).collect(), url)
 }
 /// `path` with its `.` and `..` parts folded away, `None` when it climbs above where it starts.
-fn lexical(path: &Path) -> Option<PathBuf> {
+pub(super) fn lexical(path: &Path) -> Option<PathBuf> {
     let mut out = PathBuf::new();
     for c in path.components() {
         match c {

@@ -133,10 +133,11 @@ impl App {
         } else {
             regex::escape(&query)
         };
-        Some(SearchJob {
-            symbols,
-            ..self.grep_job(self.search_seq, &pattern, |_| true)
-        })
+        let mut job = self.grep_job(self.search_seq, &pattern, |_| true);
+        if symbols {
+            job.deleted = self.symbol_deleted();
+        }
+        Some(SearchJob { symbols, ..job })
     }
 
     /// Test helper: the pending grep, run here, and its rows in the picker.
@@ -215,6 +216,19 @@ impl App {
         }
         self.picker = Some(new);
         true
+    }
+
+    /// `pattern` over the project files where a definition of a word in `here`, a file of
+    /// `kind`, can live, a cut noted.
+    pub(super) fn project_grep(&self, kind: Kind, here: &Path, pattern: &str) -> Vec<Hit> {
+        let sight = self.cs_sight(kind, here);
+        let hits = self
+            .grep(pattern, false, false, |p| {
+                search::in_def_scope(kind, here, p) && sight.as_ref().is_none_or(|s| s.sees(p))
+            })
+            .unwrap_or_default();
+        self.note_cut(&hits);
+        hits
     }
 }
 

@@ -20,9 +20,11 @@ use crate::wrap;
 
 mod at_base;
 mod c;
+mod component;
 mod cs_typed;
 mod css;
 mod cursor;
+mod dart;
 mod definition;
 mod edit;
 mod external;

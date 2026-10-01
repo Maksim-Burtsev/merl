@@ -25,6 +25,8 @@ pub enum Kind {
     Shell,
     /// PowerShell scripts and modules; names ignore case in `d`, as the language does (#420).
     PowerShell,
+    /// Dart and Flutter; `$` is a name character, `_$UserFromJson` one name (#414).
+    Dart,
     Sql,
     Make,
     Terraform,
@@ -56,6 +58,9 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "go") => Kind::Go,
         (_, "rs") => Kind::Rust,
         (_, "ts" | "tsx" | "mts" | "cts" | "js" | "jsx" | "mjs" | "cjs") => Kind::TsJs,
+        // A component's script calls `.ts` modules and they import components, so the two
+        // search each other; only the script's lines are code (`script_lines`, #413).
+        (_, "vue" | "svelte" | "astro") => Kind::TsJs,
         // Java, Kotlin and Scala are one kind: they call each other inside the same project, so
         // `d` in a `.kt` file has to find the `.java` class it uses, as `.tsx` finds `.ts`. A
         // `.sc` is a Scala script, a `.sbt` and a `.mill` the build Scala's tools read (#416).
@@ -94,6 +99,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         ) => Kind::Shell,
         // A module manifest declares nothing, but `d` from its `FunctionsToExport` finds them.
         (_, "ps1" | "psm1" | "psd1") => Kind::PowerShell,
+        (_, "dart") => Kind::Dart,
         (_, "sql" | "psql" | "pgsql" | "mysql" | "ddl" | "dml") => Kind::Sql,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,

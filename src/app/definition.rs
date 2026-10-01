@@ -11,7 +11,7 @@ impl App {
         &self,
         kind: Option<Kind>,
     ) -> Option<(std::ops::Range<usize>, String)> {
-        let (range, word) = search::definition_word(kind, self.line_str(), self.col)?;
+        let (range, word) = self.word_here(kind)?;
         let mut word = word.to_owned();
         let (written, start) = self.written(kind, range.start);
         let before = &written[..start];
@@ -92,7 +92,7 @@ impl App {
             self.show_definitions(kind, &module[0], &here, found, None);
             return;
         }
-        let Some((range, word)) = self.definition_word(kind) else {
+        let Some((range, mut word)) = self.definition_word(kind) else {
             self.message = "no word".into();
             return;
         };
@@ -105,6 +105,9 @@ impl App {
             self.message = self.no_rules();
             return;
         };
+        if self.component_template(&here, &range, &mut word) {
+            return;
+        }
         // Go's blank identifier names nothing: every `_` is a fresh discard (#476). Nor has a
         // GraphQL operation's `$variable` a rule: it is a parameter, and `$id` is no field `id`.
         // A Java or Kotlin class literal, `Foo::class`, names no member `class` (#362). A
@@ -121,6 +124,7 @@ impl App {
             return;
         }
         let text = self.buf.lines.join("\n");
+        let text = search::script_text(&here, &text, Some(self.line)).into_owned();
         // Nothing in a Rust string names code, save the `{name}` a format string captures and
         // the path an attribute takes as a value, `#[serde(default = "default_port")]`: no
         // search for a word of prose (#346).
@@ -186,6 +190,13 @@ impl App {
         // An import's path, and a name its package qualifies (#418).
         if kind == Kind::Proto
             && let Some(found) = self.proto_definitions(&text, &written[..start], &word)
+        {
+            self.show_definitions(kind, &word, &here, found, None);
+            return;
+        }
+        // A Dart name an import binds with `as` or `show` is looked for in that file (#414).
+        if kind == Kind::Dart
+            && let Some(found) = self.dart_imported(&here, &text, before, &chain, &word)
         {
             self.show_definitions(kind, &word, &here, found, None);
             return;
@@ -2300,25 +2311,6 @@ impl App {
             .collect()
     }
 
-    /// The first line of each of `files`, a module a name or a path leads to as a whole.
-    pub(super) fn module_candidates(&self, files: Vec<PathBuf>) -> Vec<Candidate> {
-        files
-            .into_iter()
-            .map(|path| Candidate {
-                reason: Reason::Module(path.display().to_string()),
-                hit: Hit {
-                    deleted: None,
-                    text: self.text_of(&path).map_or_else(String::new, |t| {
-                        t.lines().next().unwrap_or_default().to_owned()
-                    }),
-                    path,
-                    line: 1,
-                    col: 0,
-                },
-            })
-            .collect()
-    }
-
     /// `word` as a constant of the Java or Kotlin enum `owner`, when the project declares one type
     /// of that name and it is an `enum` (#457), and this file sees it: it is in the enum's package,
     /// or imports the enum or its whole package (`.*`). `import java.util.concurrent.TimeUnit`, or
@@ -2410,12 +2402,10 @@ impl App {
             });
         }
         if found.len() <= 500 {
-            let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
+            let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
             found.retain(|c| {
-                let lines = literal.entry(c.hit.path.clone()).or_insert_with(|| {
-                    self.text_of(&c.hit.path)
-                        .map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
-                });
+                let lines = (literal.entry((c.hit.path.clone(), c.hit.deleted.is_some())))
+                    .or_insert_with(|| self.hidden_now(kind, &c.hit));
                 // `register<` over its type arguments over `>(1);` is a call prettier wrapped.
                 // A type's header wrapped so declares the type: `class User extends Model<`,
                 // `export interface Context<` (#331).
@@ -2429,8 +2419,10 @@ impl App {
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));
                 // A tag of a PHP class's docblock (#344) or of a JavaScript `@typedef` (#347)
                 // is a declaration inside a comment.
+                // A name a component's template binds is declared there (#413).
                 let literal = lines.get(c.hit.line - 1).copied().unwrap_or(false)
-                    && !self.doc_tag(kind, &c.hit);
+                    && !self.doc_tag(kind, &c.hit)
+                    && !(c.reason == Reason::Local && search::component(&c.hit.path));
                 !call && !literal
             });
         }
@@ -2713,19 +2705,6 @@ impl App {
                 false => !known || !seen,
             });
         }
-        hits
-    }
-
-    /// `pattern` over the project files where a definition of a word in `here`, a file of
-    /// `kind`, can live, a cut noted.
-    pub(super) fn project_grep(&self, kind: Kind, here: &Path, pattern: &str) -> Vec<Hit> {
-        let sight = self.cs_sight(kind, here);
-        let hits = self
-            .grep(pattern, false, false, |p| {
-                search::in_def_scope(kind, here, p) && sight.as_ref().is_none_or(|s| s.sees(p))
-            })
-            .unwrap_or_default();
-        self.note_cut(&hits);
         hits
     }
 }

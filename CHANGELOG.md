@@ -16,6 +16,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   variables and mixins, and keyframes are found too, a `@use` namespace narrowing them to its
   module, and the path of a `<link href>`, a `<script src>` and an `@import` or `@use` opens
   its file. `D` lists the mixins, functions, placeholders and keyframes. (#415)
+- `d`, `u` and `D` in Dart (`.dart`, Flutter included), where `d` said `no rules for .dart`.
+  `d` on `formatPrice` lands on `String formatPrice(int cents) =>` in the project; on `get` of
+  `http.get` behind `import 'package:http/http.dart' as http` it opens the `http` package's
+  `get` in the pub cache, read-only, saying `via import package:http/http.dart`. Classes behind
+  their modifiers, mixins, extensions, enums and their values, typedefs, functions, methods,
+  getters, setters, constructors (`User.fromJson`) and fields are found; a call statement is not
+  taken for a declaration. Outside the project `d` reaches the packages `pub get` lists and the
+  SDK. `D` lists `abstract interface class Repo` as `Repo`, and functions and methods too, and
+  `_$UserFromJson` is one name. (#414)
+- `d`, `u` and `D` in Vue, Svelte and Astro components (`.vue`, `.svelte`, `.astro`), where `d`
+  said `no rules for .vue`. Inside a component's `<script>` block (Astro: its frontmatter) every
+  TypeScript rule applies: `d` on `formatName` lands on `src/names.ts`, `via import`. From a
+  `.ts` file, `d` on `UserCard` of `import UserCard from './UserCard.vue'` opens the component,
+  where it said `no definition for UserCard`. In the template, `{{ label }}` lands on the
+  script's `const label`, an `item` of `v-for` or `{#each}` on that line (`item: local`), and a
+  `<user-card>` tag no import binds on `UserCard.vue`. The template and the `<style>` block
+  declare nothing, and `D` lists the script only. `.astro` is highlighted as TSX. (#413)
 - `d`, `u` and `D` in Scala. `.scala`, `.sc`, `.sbt` and `.mill` files are one kind with Java and
   Kotlin, so `d` on `Ledger.total(xs)` in a `.java` file lands on the `def total` of `object
   Ledger` in a `.scala` one, where it said `no definition for total`, and `d` in a `.scala` file

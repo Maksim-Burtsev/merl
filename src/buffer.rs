@@ -418,6 +418,9 @@ fn known_file(name: &str) -> Option<&'static str> {
         ("WORKSPACE" | "Tiltfile", _) => "Python",
         // bat's set owns `.md` and `.markdown`; MDX is Markdown with JSX in it (#421).
         (_, "mdx") => "Markdown",
+        // bat's set has no Astro grammar: TSX paints its frontmatter and its JSX-like template,
+        // leaving the bodies of `<style>` and `<script>` plain (#413).
+        (_, "astro") => "TypeScriptReact",
         // bat's Scala grammar owns `.scala`, `.sbt` and `.sc`, not Mill's build files (#416).
         (_, "mill") => "Scala",
         _ => return None,
@@ -862,6 +865,42 @@ mod tests {
     }
 
     #[test]
+    fn components_highlight_with_every_shipped_theme() {
+        // bat's own grammars for Vue and Svelte; Astro maps to TSX (#413).
+        for (file, lang, src) in [
+            (
+                "A.vue",
+                "Vue Component",
+                "<script setup lang=\"ts\">\nconst n = 1\n</script>\n<template><p>{{ n }}</p></template>\n",
+            ),
+            (
+                "B.svelte",
+                "Svelte",
+                "<script lang=\"ts\">\nlet n = 1\n</script>\n<p class=\"a\">{n}</p>\n",
+            ),
+            (
+                "C.astro",
+                "TypeScriptReact",
+                "---\nimport Card from \"./Card.astro\";\nconst title = \"x\";\n---\n<h1>{title}</h1>\n",
+            ),
+        ] {
+            for name in crate::theme::names() {
+                let theme = crate::theme::load(name).unwrap();
+                let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
+                assert_eq!(
+                    b.syntax.map(|s| s.name.as_str()),
+                    Some(lang),
+                    "{file} {name}"
+                );
+                b.highlight_to(4, &theme);
+                let colours: std::collections::HashSet<_> =
+                    b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+                assert!(colours.len() > 1, "{file} {name}: everything is one colour");
+            }
+        }
+    }
+
+    #[test]
     fn java_kotlin_and_scala_highlight_with_every_shipped_theme() {
         // bat's set owns all but `.mill` by name; that one is mapped (#416).
         for (file, lang, src) in [
@@ -1015,6 +1054,20 @@ mod tests {
                     b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
                 assert!(colours.len() > 1, "{file} {name}: everything is one colour");
             }
+        }
+    }
+
+    #[test]
+    fn dart_highlights_with_every_shipped_theme() {
+        let src = "/// doc\nclass Cart {\n  int total = 0;\n  String label() => '$total';\n}\n";
+        for name in crate::theme::names() {
+            let theme = crate::theme::load(name).unwrap();
+            let mut b = Buffer::from_bytes(PathBuf::from("cart.dart"), src.as_bytes());
+            assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Dart"), "{name}");
+            b.highlight_to(4, &theme);
+            let colours: std::collections::HashSet<_> =
+                b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
+            assert!(colours.len() > 1, "{name}: everything is one colour");
         }
     }
 

@@ -1,0 +1,57 @@
+wait ApiClient: via import web/src/api/client.ts
+ 1 export class ApiClient {
+ 2   constructor(private readonly baseUrl: string) {}
+ 3
+ 4   async get<T>(path: string): Promise<T> {
+ 5     const res = await fetch(`${this.baseUrl}${path}`);
+ 6     if (!res.ok) {
+ 7       throw new Error(`GET ${path}: ${res.status}`);
+ 8     }
+ 9     return (await res.json()) as T;
+10   }
+11
+12   async post<T>(path: string, body: unknown): Promise<T> {
+13     const res = await fetch(`${this.baseUrl}${path}`, {
+14       method: "POST",
+15       headers: { "Content-Type": "application/json" },
+16       body: JSON.stringify(body),
+17     });
+18     if (!res.ok) {
+19       throw new Error(`POST ${path}: ${res.status}`);
+20     }
+21     return (await res.json()) as T;
+22   }
+23 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/src/api/client.ts  1:14  [code]  ApiClient: via import web/src/api/client.ts
+cursor (x,y,shown) 16,0,1

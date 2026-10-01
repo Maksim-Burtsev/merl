@@ -10,9 +10,11 @@
 
 mod bindings;
 mod c;
+mod component;
 mod csharp;
 mod csproj;
 mod css;
+mod dart;
 mod defs;
 mod fields;
 mod grep;
@@ -39,9 +41,11 @@ mod words;
 
 pub use bindings::*;
 pub use c::*;
+pub use component::*;
 pub use csharp::*;
 pub use csproj::*;
 pub use css::*;
+pub use dart::*;
 pub use defs::*;
 pub use fields::*;
 pub use grep::*;
