@@ -240,6 +240,12 @@ a target made through `${name}`, an alias and an imported target, a generator ex
 refusal of the issue, and declaration-shaped lines in a bracket comment of each level, a bracket
 argument and a quoted argument over lines.
 
+`nix/` (#430) is a flake over a NixOS host that imports the shop's `lib/` through `../lib`: a
+function by name, `let` bindings named `api` in two files (each stays in its own), a parameter
+`pkgs` beside a `pkgs =` attribute of another file, a header over lines, a file and a directory
+path, each refusal of the issue, and declaration-shaped lines in indented strings (one opened
+after `//`, one holding the `'''`, `''$` and `''\` escapes), a `"…"`, a `/* */` and a `#` comment.
+
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
 the project walk does not reach, one whose module is no path and two declaring one name (#437).

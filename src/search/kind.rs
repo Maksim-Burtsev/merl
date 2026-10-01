@@ -28,6 +28,7 @@ pub enum Kind {
     /// Dart and Flutter; `$` is a name character, `_$UserFromJson` one name (#414).
     Dart,
     Cmake,
+    Nix,
     Sql,
     Make,
     Terraform,
@@ -102,6 +103,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "ps1" | "psm1" | "psd1") => Kind::PowerShell,
         (_, "dart") => Kind::Dart,
         ("CMakeLists.txt", _) | (_, "cmake") => Kind::Cmake,
+        (_, "nix") => Kind::Nix,
         (_, "sql" | "psql" | "pgsql" | "mysql" | "ddl" | "dml") => Kind::Sql,
         ("Makefile" | "makefile" | "GNUmakefile", _) | (_, "mk") => Kind::Make,
         (_, "tf" | "tfvars") => Kind::Terraform,
@@ -147,6 +149,7 @@ pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
             | Kind::Html,
         ) => "-",
         Some(Kind::Cmake) => "-.",
+        Some(Kind::Nix) => "-'",
         _ => "",
     }
 }

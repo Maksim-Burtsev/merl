@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d`, `u` and `D` in Nix, where `d` said `no rules for .nix`. `d` on `mkService` in
+  `shopLib.mkService` lands on its `mkService = { name, port ? 8080 }:` in `lib/default.nix`; on a
+  name a `let` binds or a parameter (`{ config, pkgs, ... }:`, `x:`) names, on that binding in the
+  same file, `pkgs: local`, never on another file's `pkgs =`; on a path, `./nginx.nix` or `../lib`,
+  the file or the directory's `default.nix`. `D` lists the bindings of functions, and `u` reads
+  `my-package` and `x'` as one name. (#430)
 - `d`, `u` and `D` in CMake (`CMakeLists.txt`, `.cmake`), where `d` said `no rules for .txt`.
   `d` on a call of `shop_add_library` lands on its `function(shop_add_library name)` in
   `cmake/ShopHelpers.cmake`, whatever case the call is written in; on `${SHOP_WARNINGS}` on its

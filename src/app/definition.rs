@@ -460,16 +460,6 @@ impl App {
             self.message = format!("{word}: builtin, no source");
             return;
         }
-        // The word itself is that parameter or local: its declarations in this scope are the
-        // answer, and a function of the same name elsewhere is not.
-        // In C a function on one line holds its parameter and its uses (#378). A Java or Kotlin
-        // name bound earlier on the cursor's own line, `fun f(x: Int) = x`, is bound there
-        // (#376), and so is a PowerShell one's (#420); behind a `::` the word is a member,
-        // whatever the qualifier is. A C# use past its declaration on the same line, a lambda's
-        // parameter inside that lambda, is bound there too (#345), and so is a Go parameter used
-        // in a body on its function's line (#524). A Rust local the cursor's own line binds is
-        // one too: a closure `|w| w`, an arm, the parameter or the `let` itself (#353). So is a
-        // Swift generic parameter used on its header's line, `func f<T>(_ x: T)` (#375).
         let on_itself = match kind {
             Kind::C => search::c_bindings_at(&text, self.line + 1, first)
                 .iter()
@@ -487,7 +477,11 @@ impl App {
         if !dotted
             && !before.ends_with("::")
             && !locals.is_empty()
-            && (!on_itself || same_line || own_line || own_arrow || kind == Kind::Rust)
+            && (!on_itself
+                || same_line
+                || own_line
+                || own_arrow
+                || matches!(kind, Kind::Rust | Kind::Nix))
         {
             let found = locals
                 .iter()

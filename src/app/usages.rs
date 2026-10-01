@@ -10,7 +10,7 @@ impl App {
     pub(super) fn usages(&mut self) {
         let extra = search::word_chars(self.kind(), false);
         let Some(read) = self.on_drawn(|a| match a.kind() {
-            k @ Some(Kind::Ruby | Kind::Elixir | Kind::Cmake) => {
+            k @ Some(Kind::Ruby | Kind::Elixir | Kind::Cmake | Kind::Nix) => {
                 a.definition_word(k).map(|(r, w)| {
                     let lead = &a.line_str()[..r.start];
                     let sigil = lead.len() - lead.trim_end_matches('@').len();
@@ -43,7 +43,7 @@ impl App {
             .map(|(_, h)| {
                 let row = search::word_chars(search::kind_of(&h.path), false);
                 Hit {
-                    col: word_col(&h.text, word, &format!("{extra}{row}")),
+                    col: word_col(&h.text, word, &format!("{}{row}", extra.replace('\'', ""))),
                     ..h
                 }
             })
@@ -172,15 +172,20 @@ impl App {
                         .copied()
                         .unwrap_or(false)
                     && kind.is_some_and(|k| {
-                        search::declares_where(k, &h.path, word, h.line, &h.text, || {
-                            lines
-                                .entry((h.path.clone(), h.deleted.is_some()))
-                                .or_insert_with(|| {
-                                    self.hit_text(&h).map_or_else(Vec::new, |t| {
-                                        t.lines().map(str::to_owned).collect()
-                                    })
-                                })
-                        })
+                        let key = (h.path.clone(), h.deleted.is_some());
+                        let read = || {
+                            self.hit_text(&h)
+                                .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
+                        };
+                        match k {
+                            Kind::Nix => {
+                                let file = lines.entry(key).or_insert_with(read);
+                                search::nix_declares(file, h.line, word, true)
+                            }
+                            _ => search::declares_where(k, &h.path, word, h.line, &h.text, || {
+                                lines.entry(key).or_insert_with(read)
+                            }),
+                        }
                     });
                 (kind, declares, h)
             })
