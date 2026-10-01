@@ -50,3 +50,11 @@ typedef NS_ERROR_ENUM(RepoErrorDomain, RepoError) { RepoErrorGone = 1 };
 - (void)haunt;
 @property (nonatomic) int ghostly;
 */
+
+typedef void (^Done)(NSError *error);
+typedef NSString * Mode NS_TYPED_EXTENSIBLE_ENUM;
+
+@interface Timer : NSObject
+@property (nonatomic, readonly, getter=isRunning) BOOL running;
+- (NSInteger)ticks;
+@end

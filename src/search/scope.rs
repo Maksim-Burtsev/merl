@@ -172,8 +172,8 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         // below.
         //
         // Then Objective-C's, which only an Objective-C file reads ([`objc_root`]): the SDK's
-        // frameworks, UIKit's under `iOSSupport`, and CocoaPods' `Pods/`, gitignored as
-        // `node_modules` is (#417).
+        // frameworks, UIKit's under `iOSSupport`, those an umbrella framework holds (vImage in
+        // Accelerate), and CocoaPods' `Pods/`, gitignored as `node_modules` is (#417).
         Kind::C => {
             let sdk = run("xcrun", &["--show-sdk-path"]).map(|s| PathBuf::from(s.trim()));
             let mut dirs = vec![PathBuf::from("/usr/include")];
@@ -181,8 +181,18 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             dirs.push(PathBuf::from("/usr/local/include"));
             dirs.push(PathBuf::from("/opt/homebrew/include"));
             if let Some(sdk) = &sdk {
-                dirs.push(sdk.join("System/Library/Frameworks"));
-                dirs.push(sdk.join("System/iOSSupport/System/Library/Frameworks"));
+                let top = [
+                    "System/Library/Frameworks",
+                    "System/iOSSupport/System/Library/Frameworks",
+                ]
+                .map(|d| sdk.join(d));
+                let umbrellas = (top.iter())
+                    .flat_map(|d| std::fs::read_dir(d).into_iter().flatten().flatten())
+                    .map(|e| e.path().join("Frameworks"))
+                    .filter(|d| d.is_dir())
+                    .collect::<Vec<_>>();
+                dirs.extend(top);
+                dirs.extend(umbrellas);
             }
             dirs.push(root.join("Pods"));
             dirs
@@ -629,7 +639,7 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
         let copy = dir.file_name().map(std::ffi::OsStr::to_owned);
         // Of an SDK's frameworks, each one's `Headers`, a link into `Versions/Current` that is
         // walked through, so a header is read once (#417).
-        let frameworks = kind == Kind::C && dir.ends_with("Library/Frameworks");
+        let frameworks = kind == Kind::C && objc_frameworks(dir);
         let walk = ignore::WalkBuilder::new(dir)
             .filter_entry(move |e| {
                 let unreachable = go

@@ -17,8 +17,10 @@ const METHOD: &str = r"^[-+]\s*\((?:[^()]|\([^()]*\))*\)";
 /// - a method by any part of its selector, `- (T)find:(A)a inContext:(C)c` declaring `find` and
 ///   `inContext`, its declaration and the line of its definition alike, and one that takes no
 ///   argument, `+ (instancetype)shared`;
-/// - a property, `@property (copy) NSString *name;`, a block's `(^completion)` included;
-/// - `typedef NS_ENUM(NSInteger, Status)` and its kin: the name after the comma.
+/// - a property, `@property (copy) NSString *name;`, a block's `(^completion)` included, and the
+///   getter it names;
+/// - `typedef NS_ENUM(NSInteger, Status)` and its kin: the name after the comma;
+/// - a block type, and a `typedef` an `NS_`, `CF_` or `API_` macro follows.
 pub fn objc_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);
     vec![
@@ -26,10 +28,35 @@ pub fn objc_patterns(word: &str) -> Vec<String> {
         format!(r"{METHOD}\s*(?:[^{{;]*?[\s)])?{w}\s*:"),
         format!(r"{METHOD}\s*{w}\s*(?:[;{{]|//|/\*|\b[A-Z_]{{2}}|$)"),
         objc_property(word),
+        // The getter a property names, `getter=isFinished`, which a message calls.
+        format!(r"^\s*@property\s*\([^)]*\bgetter\s*=\s*{w}\b"),
         format!(
             r"^\s*typedef\s+NS_(?:ENUM|OPTIONS|CLOSED_ENUM|ERROR_ENUM)\s*\([^,()]*,\s*{w}\s*\)"
         ),
+        // A block type, `typedef void (^Done)(NSError *error);`, and a type a macro follows,
+        // `typedef NSString * Mode NS_TYPED_EXTENSIBLE_ENUM;`.
+        format!(r"^\s*typedef\s+[^;{{]*\(\s*\^\s*{w}\s*\)"),
+        format!(r"^\s*typedef\s+[^;{{(]*[\s*]{w}\s+(?:NS|CF|API)_\w*\s*(?:\([^()]*\))?\s*;"),
     ]
+}
+
+/// What `x.word` reaches in Objective-C (#417), as a C field is what `x.word` does: a property, the
+/// getter it names, or a method that takes no argument, which dot syntax calls too
+/// (`enumerator.nextObject`).
+pub fn objc_member(word: &str) -> String {
+    let w = regex::escape(word);
+    format!(
+        r"{}|^\s*@property\s*\([^)]*\bgetter\s*=\s*{w}\b|{METHOD}\s*{w}\s*(?:[;{{]|//|/\*|\b[A-Z_]{{2}}|$)",
+        objc_property(word)
+    )
+}
+
+/// Where the head of a `for` loop, what its brackets hold, binds `name` by fast enumeration:
+/// `for (NSString *key in dict)`, `for (id<Coder>coder in coders)`.
+pub fn objc_for_in(inner: &str, name: &str) -> Option<usize> {
+    let w = regex::escape(name);
+    let re = Regex::new(&format!(r"^\s*[A-Za-z_][\w\s*<>,]*?[\s*>]({w})\s+in\b")).ok()?;
+    Some(re.captures(inner)?.get(1)?.start())
 }
 
 /// A property named `word`: what `self.word` reads, as a C field is what `x.word` does.
@@ -61,7 +88,28 @@ pub fn objc_file(path: &Path, text: impl FnOnce() -> String) -> bool {
 }
 
 /// Whether `root`, a root outside the project of the C kind, is Objective-C's alone: a
-/// `System/Library/Frameworks` of the SDK, or the project's `Pods/`.
+/// `System/Library/Frameworks` of the SDK or the `Frameworks` an umbrella framework holds
+/// (`Accelerate.framework/Frameworks`, where vImage is), or the project's `Pods/`.
 pub fn objc_root(root: &Path) -> bool {
-    root.ends_with("System/Library/Frameworks") || root.ends_with("Pods")
+    root.ends_with("Pods") || objc_frameworks(root)
+}
+
+/// Whether `root` is a directory of frameworks, each one's headers in `X.framework/Headers`.
+pub fn objc_frameworks(root: &Path) -> bool {
+    root.ends_with("Frameworks")
+        && root
+            .to_string_lossy()
+            .contains("/System/Library/Frameworks")
+}
+
+/// Where the head of a body, `head` as [`super::c_code`] reads it, names `name` as a parameter
+/// of the Objective-C method it opens: the name after a part's type, `- (void)load:(NSString
+/// *)name inContext:(Context *)ctx`. A method's parameters are its locals, as a C function's are.
+pub fn objc_parameter(head: &str, name: &str) -> Option<usize> {
+    static HEAD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?m)^[-+]\s*\(").unwrap());
+    let at = HEAD.find(head)?.start();
+    let w = regex::escape(name);
+    let re = Regex::new(&format!(r":\s*\((?:[^()]|\([^()]*\))*\)\s*({w})\b")).ok()?;
+    let m = re.captures(&head[at..])?.get(1)?;
+    Some(at + m.start())
 }

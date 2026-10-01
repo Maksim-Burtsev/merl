@@ -250,11 +250,13 @@ impl App {
     /// the project are searched the same way when the project has none: a system struct's field
     /// stays findable, and system headers' generic names do not crowd a project's own.
     pub(super) fn c_members(&mut self, here: &Path, word: &str, called: bool) -> Vec<Candidate> {
-        let mut pattern = search::c_field_pattern(word);
-        // `self.word` in Objective-C reads a property (#417), which no C line declares.
-        if !called {
-            pattern = format!("{pattern}|{}", search::objc_property(word));
-        }
+        // `self.word` in Objective-C reads a property, or calls a getter (#417), which no C
+        // line declares.
+        let mut pattern = format!(
+            "{}|{}",
+            search::c_field_pattern(word),
+            search::objc_member(word)
+        );
         if called {
             pattern = format!(
                 r"{pattern}|{}|{}",
@@ -264,6 +266,14 @@ impl App {
         }
         let hits = self.project_definitions(Kind::C, here, word, &pattern);
         let mut found = self.c_member_rows(word, hits, called);
+        // A property another `.m` file declares, in a class extension of its own, is that
+        // file's: no other file sees it (#417).
+        let property = Regex::new(&search::objc_property(word)).expect("an escaped name");
+        found.retain(|(h, _)| {
+            h.path == here
+                || !property.is_match(&h.text)
+                || !h.path.extension().is_some_and(|e| e == "m" || e == "mm")
+        });
         if found.is_empty() {
             let files = self.external_files(Kind::C);
             found = self.c_outside(
@@ -293,7 +303,7 @@ impl App {
         let method = re(method_pattern(word));
         let declared = re(search::c_member_decl(Some(word)));
         let pointer = re(format!(r"\(\s*\*+\s*{w}\s*\)"));
-        let property = re(search::objc_property(word));
+        let member = re(search::objc_member(word));
         let mut rows = Vec::new();
         let mut files: Vec<(PathBuf, Vec<Hit>)> = Vec::new();
         for h in hits {
@@ -314,7 +324,7 @@ impl App {
                         rows.push((h, owner.clone()))
                     }
                     None if called && method.is_match(&h.text) => rows.push((h, String::new())),
-                    None if !called && property.is_match(&h.text) => rows.push((h, String::new())),
+                    None if member.is_match(&h.text) => rows.push((h, String::new())),
                     // A member declared with no body, a pure virtual among them (#373).
                     None if called
                         && declared.is_match(&h.text)
@@ -370,7 +380,7 @@ impl App {
         // An Objective-C file's `<Foundation/NSString.h>` is a framework's
         // `Foundation.framework/Headers/NSString.h`, as the walk spells it (#417).
         let frameworks: Vec<&PathBuf> = (roots.iter())
-            .filter(|r| mode.1 && r.ends_with("Library/Frameworks"))
+            .filter(|r| mode.1 && search::objc_frameworks(r))
             .collect();
         let dirs: Vec<PathBuf> = match source {
             true => roots.clone(),

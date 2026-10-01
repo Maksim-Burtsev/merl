@@ -40,7 +40,7 @@ objc0037	SDWebImage/Private/SDDisplayLink.m:34
 objc0038	SDWebImage/Core/SDAnimatedImageView.m:93		
 objc0039	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/System/Library/Frameworks/AppKit.framework/Versions/C/Headers/NSImageRep.h:39		
 objc0040	SDWebImage/Core/SDWebImageDownloaderOperation.m:51		
-objc0041	SDWebImage/Core/SDWebImageDownloaderOperation.m:20		
+objc0041	SDWebImage/Core/SDWebImageDownloaderOperation.m:20	clangd names another file's completedBlock; the cursor reads the parameter of the method it stands in (line 129)	reviewed
 objc0042	SDWebImage/Core/SDImageIOAnimatedCoder.m:709		
 objc0043	SDWebImage/Private/SDmetamacros.h:138		
 objc0044	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/System/Library/Frameworks/Foundation.framework/Versions/C/Headers/NSKeyedArchiver.h:184		
@@ -83,7 +83,7 @@ objc0080	SDWebImage/Core/SDImageCoderHelper.h:61
 objc0081			
 objc0082	SDWebImage/Private/SDInternalMacros.h:67		
 objc0083	SDWebImage/Core/UIImage+Metadata.h:71		
-objc0084	SDWebImage/Core/SDWebImageCompat.h:60		
+objc0084	SDWebImage/Core/SDWebImageCompat.h:60	platform: the oracle compiled for macOS, where SDWebImageCompat.h defines UIImage as NSImage; on iOS it is UIKit's UIImage	reviewed
 objc0085	SDWebImage/Core/SDImageCodersManager.h:42		
 objc0086			
 objc0087	SDWebImage/Core/SDWebImageTransition.m:31;SDWebImage/Private/SDWebImageTransitionInternal.h:17		

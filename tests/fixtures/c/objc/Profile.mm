@@ -39,3 +39,19 @@
 //                               ^ d: none
 }
 @end
+
+@implementation Ticker
+- (void)run:(Timer *)timer with:(NSArray *)list {
+    Done done = nil; Mode mode = nil;
+//  ^ d: objc/Repo.h:54
+//                   ^ d: objc/Repo.h:55
+    BOOL on = [timer isRunning] && timer.ticks;
+//             ^ d: objc/Profile.mm:44
+//                   ^ d: objc/Repo.h:58
+//                                       ^ d: objc/Repo.h:59
+    for (Timer *t in list) {
+        [t ticks];
+//       ^ d: objc/Profile.mm:52
+    }
+}
+@end
