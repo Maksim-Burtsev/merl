@@ -141,9 +141,11 @@ impl App {
             return;
         }
         // A segment of a Java or Kotlin `import` line: a package's declares nothing, a class's is
-        // looked for in its package of the project (#372).
+        // looked for in its package of the project (#372). A name inside a Scala import's `{…}`
+        // selectors is looked for by name (#416).
         if kind == Kind::Jvm
             && import_line(kind, self.line_str())
+            && !self.line_str()[..range.start].contains('{')
             && let Some(found) = self.jvm_imported(&text, &chain, &word, range.clone(), true)
         {
             self.show_definitions(kind, &word, &here, found, None);
@@ -2052,45 +2054,6 @@ impl App {
             .collect()
     }
 
-    /// Of the Java or Kotlin declarations `hits` found by name, what the cursor can see (#357): a
-    /// local only in its own block, below it, and never `behind` a `.` or a `::`; a `private`
-    /// declaration only in its own file. When that drops some and leaves one that is no local
-    /// in sight, it is still found by name only, and offered rather than jumped to.
-    fn jvm_seen(&mut self, here: &Path, hits: Vec<Hit>, behind: bool) -> Vec<Hit> {
-        let all = hits.len();
-        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
-        let mut seen_local = false;
-        let kept: Vec<Hit> = hits
-            .into_iter()
-            .filter(|h| {
-                if h.path != here && search::jvm_private(&h.text) {
-                    return false;
-                }
-                // A declaration in column 0 is top-level, never a local.
-                if !h.text.starts_with([' ', '\t']) {
-                    return true;
-                }
-                let text = texts
-                    .entry(h.path.clone())
-                    .or_insert_with(|| self.text_of(&h.path));
-                match text
-                    .as_deref()
-                    .and_then(|t| search::jvm_local_block(t, h.line))
-                {
-                    None => true,
-                    Some(end) => {
-                        let seen =
-                            !behind && h.path == here && (h.line..=end).contains(&(self.line + 1));
-                        seen_local |= seen;
-                        seen
-                    }
-                }
-            })
-            .collect();
-        self.offer_only |= kept.len() == 1 && kept.len() < all && !seen_local;
-        kept
-    }
-
     /// What a bare `word` names among the members of the Java or Kotlin classes around the
     /// cursor (#376): what the innermost class that declares it declares, `via` its name (an
     /// anonymous class's members are `local`), else what the class the innermost one extends
@@ -2130,7 +2093,7 @@ impl App {
         if found.is_empty()
             && let Some(&decl) = inner
         {
-            for base in search::jvm_bases(text, decl) {
+            for base in search::jvm_bases(text, decl, search::scala(here)) {
                 let pattern = search::def_patterns(Kind::Jvm, &base).join("|");
                 let cut = self.truncated.get();
                 let declared: Vec<Hit> = self
