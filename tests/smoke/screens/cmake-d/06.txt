@@ -1,0 +1,57 @@
+wait ShopHelpers: module
+┌orders──────────────────────┐1 function(shop_add_library name)
+│▸ .github                   │2   add_library(${name} STATIC ${ARGN})
+│▸ .venv                     │3 endfunction()
+│▸ app                       │
+│▾ cmakeshop                 │
+│  ▾ cmake                   │
+│      ShopHelpers.cmake     │
+│    CMakeLists.txt          │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+cmakeshop/cmake/ShopHelpers.cmake  1:1  [code]  ShopHelpers: module cmakeshop/cmake/ShopHelpers.cmake
+cursor (x,y,shown) 32,0,1

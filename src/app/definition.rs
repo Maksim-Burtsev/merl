@@ -80,14 +80,12 @@ impl App {
         {
             return;
         }
-        // The path of a GraphQL `#import` is the file it pastes in, `./` and `/` included, and
-        // so is a PowerShell dot-source's or `Import-Module`'s (#420).
         if let Some(kind) = kind
             && let Some(here) = self.rel_current()
             && let Some(module) = search::file_import(kind, self.line_str(), self.col)
         {
             let module = [module];
-            let files = search::module_files(kind, &self.root, &self.files, &here, &module);
+            let files = self.import_files(kind, &here, &module);
             let found = self.module_candidates(files);
             self.show_definitions(kind, &module[0], &here, found, None);
             return;
@@ -421,10 +419,7 @@ impl App {
         if go_own {
             locals = vec![self.line + 1];
         }
-        // No scope around the cursor binds it: the module's scope is the whole file, and its
-        // declarations below the cursor count too (#337). One on the cursor's line leaves the
-        // namesakes to the rules below, as on a declaration anywhere.
-        if bare && locals.is_empty() {
+        if (bare || self.script_scope(&here, Some(first)).is_some()) && locals.is_empty() {
             let module = locals_at(&format!("{text}\n0"), self.buf.lines.len() + 1);
             if !module.contains(&(self.line + 1)) {
                 locals = module;

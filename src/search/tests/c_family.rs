@@ -1075,7 +1075,7 @@ fn php_namespace_patterns_cut_after_a_non_ascii_character() {
     let start = line.find("Ns").unwrap();
     let mut patterns = def_patterns(Kind::Php, "Ns");
     php_namespace_patterns(&mut patterns, text, line, start..start + 2);
-    assert_eq!(patterns, [r"^\s*namespace\s+App\\Ns\s*[;{]"]);
+    assert_eq!(patterns, [r"^\s*(?:<\?php\s+)?namespace\s+App\\Ns\s*[;{]"]);
 }
 
 /// A receiver's name is cut at a character, and a name a non-ASCII character goes on with is not
