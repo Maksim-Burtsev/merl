@@ -136,7 +136,11 @@ zero binds `Str` to that path, since PSR-4 spells a namespace the way the file s
 indented `use` pulls in a trait and names no file. Zig's root is the `std_dir` its own `zig env`
 reports; its dependencies live in the global package cache under hashed directory names no source
 line spells out, so they are left out, and `const std = @import("std")` narrows nothing — `std` is
-that root, not a directory inside it. Protocol Buffers has the `include` directories `protoc`
+that root, not a directory inside it. PowerShell has the module directories of `PSModulePath`,
+or without it PowerShell 7's defaults on macOS and Linux, `~/.local/share/powershell/Modules`,
+`/usr/local/share/powershell/Modules` and the `Modules` beside the `pwsh` on the PATH; the built-in
+cmdlets are compiled and have no source there, and `Import-Module` binds no name of its own, so
+nothing narrows the search. Protocol Buffers has the `include` directories `protoc`
 installs its well-known types into — `/opt/homebrew/include`, `/usr/local/include` and
 `/usr/include` — walked through the links Homebrew puts there; buf's module cache keeps
 dependencies under hashed directories no import spells, and is left out. `d` on the path of an
@@ -580,6 +584,7 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | Zig | `fn name(`, behind `pub`, `export`, `extern "c"`, `inline`, `noinline`; `const` and `var`, which is how the language declares a type (`const Ledger = struct {`, `const Status = enum {`, `const Value = union(enum) {`), an import, a constant and a local alike, `threadlocal` and `comptime` included. A struct field (`total: u32,`) has no rule, as a C field has none: it is the shape of a value in a struct literal. Neither has a `test`: a word inside its description declares nothing, so `d` can never land there — `D` lists the tests instead. | every `.zig` file |
 | Protocol Buffers | `message`, `enum`, `service` and `oneof`, a nested message included; `rpc Name(`, braces or not, `stream` arguments too; an enum value, `NAME = 1;`, with no type before the name; a field, `string id = 1;`, `repeated Order orders = 2;`, `map<string, int32> counts = 3;`, `optional`, `required` and a qualified type included. A field's type, an rpc's argument and return types and the message an `extend` adds to are uses, as a Rust `impl` is; an `option`, a `reserved` list and a name inside an import's string declare nothing. The text format (`.textproto`, `.pbtxt`) is data and has no rules. | every `.proto` file |
 | Shell | `name()` and `function name`, an assignment behind `export`/`declare`/`local`/`readonly`/`typeset` (or bare, and `+=`), `alias` | every `.sh`, `.bash`, `.zsh`, `.ksh` and shell dotfile (`.bashrc`, `.zshrc`, `.profile` and friends) |
+| PowerShell | `function` and `filter`, behind a scope (`function global:Get-ShopUser`), under the whole `Verb-Noun` name; `class` and `enum`; inside a class a property (`[string] $Name`, `hidden [int]$Count = 0`), a method (`[decimal] Total() {`, `static [Invoice] Parse(…) {`) and a constructor (`Invoice([string] $id) {`); an enum member on a line directly inside an `enum`; an assignment that opens a line (`$Config = @{`, `$script:Cache = @{}`, `[string]$Name = 'x'`, `$Count += 1`); `Set-Alias` and `New-Alias`. Names ignore case, as PowerShell does. A `$variable` is only a variable or a property, a bare word never one (`$tariff` declares no `Tariff`), and a constructor counts only where its class is built (`[Tariff]::new(`). A parameter of a `param(` block in the blocks around the cursor, a function's, a script block's or the script's, or of a `function Name($a)` header, is `local` and never looked for in another file. A call, a named argument, a hashtable key, a property or element write, a comparison and splatting declare nothing; nor does a line in comment-based help (`<# … #>`) or a here-string. `d` on the path of a dot-source (`. $PSScriptRoot/helpers.ps1`), an `Import-Module ./Shop/Users.psm1` or a `using module` opens that file. | every `.ps1`, `.psm1` and `.psd1` file |
 | SQL | `CREATE` of a table, view, index, function, procedure, trigger, type, schema, sequence, domain, extension, database, role or user, behind `OR REPLACE`, `TEMP`, `UNLOGGED`, `MATERIALIZED`, `UNIQUE` and `IF NOT EXISTS`, schema-qualified or quoted; a `WITH … AS (` common table expression. Keywords ignore case. Columns have no rule. | every `.sql`, `.psql`, `.pgsql`, `.mysql`, `.ddl` and `.dml` file |
 | Makefile, `*.mk` | a target, also one of several before the colon; a variable, outside a recipe; a variable set only by `+=` or for one target (`release: VERSION := 1.0`), when nothing assigns it plainly | every Makefile |
 | Terraform | the block behind `var.x`, `module.x`, `local.x`, `data.T.N`, `T.N`; a bare name, as in `.tfvars`, is any block with that label | `.tf` files in the same directory |
@@ -588,7 +593,7 @@ type, a class with no subclasses — and `d` goes on to the search by name below
 | Markdown (`.md`, `.markdown`, `.mdx`) | no declarations: `d` follows what the cursor stands on. A link, on its text or its target: `[text](target)`, a reference `[text][label]`, `[label][]` or `[label]` through its `[label]: target` definition (and on that line), an `<a href>`; not an image. The target is a path, percent-decoded, from the file's directory or, after a `/`, from the root; `#anchor` is the heading with that GitHub anchor (the second of a name `-1`) or an `<a id>` / `<a name>`, in that file or this one; `#L12` and `#L12-L20` are a line. A missing file or heading, a directory and a URL say so. A code span naming a file of the project, from the root or from here, opens it, at `:line` when it has one; a bare name several files carry is a picker of them. Nothing in a fenced block, an HTML comment or the front matter is followed. | the file the link names |
 | GraphQL | `type` (behind `implements` and directives), `interface`, `input`, `enum`, `union`, `scalar`, `directive @name`, `fragment` (for a `...spread`), a named `query`, `mutation` or `subscription`, each at the start of its line; a field, one whose arguments wrap included, and an enum value, on a line directly inside a `type`, an `interface`, an `input` or an `enum` (an `extend` of one too), the nearest line above indented less. `extend type X` is a use of `X`, as a Rust `impl` is; a selection or an alias in an operation, an argument, a `$variable` and a line of a `"""` description declare nothing. `d` on the path of `#import "./parts.graphql"` opens that file, relative to the importing one. | every `.graphql`, `.graphqls` and `.gql` file |
 
-In Makefiles, Terraform, Dockerfiles and YAML a `-` is part of the word under the cursor, and `d`
+In Makefiles, Terraform, Dockerfiles, YAML and PowerShell a `-` is part of the word under the cursor, and `d`
 in Terraform reads the whole dotted address, so it works from anywhere in `aws_s3_bucket.logs.id`.
 Markdown reads a link or a code span whole around the cursor, not as a word.
 
@@ -605,7 +610,7 @@ kind of file; GraphQL's `type`, `interface`, `input`, `enum`, `union`, `scalar`,
 its name, without the `@`), `fragment` and named operations, from a row of its own, since the regex
 above knows four of those words and would list them twice; recomputed on each press. Zig adds a function behind `inline` or `noinline` and a
 `test`, under the description it is written with, which that regex has no word for. Java, Kotlin,
-Ruby, C, C++, C#, Swift, PHP, Lua, Elixir and Protocol Buffers are read from rules of their
+Ruby, C, C++, C#, Swift, PHP, Lua, Elixir, Protocol Buffers and PowerShell are read from rules of their
 own instead of that regex — Java's types and its methods, told from a call by the return type before
 the name; Kotlin's `fun` (past an extension's receiver), types, `object`, `typealias` and
 `const val`; Ruby's methods, classes and modules, `def self.name` included; C and C++ functions,
@@ -618,7 +623,8 @@ extension under the type it extends; PHP's types and `const`s in one row and its
 methods in another, behind `final public static` and the rest; Lua's functions in both of the
 forms it writes them, under the name and not the table they hang off; Elixir's modules, protocols
 and every `def` form; Protocol Buffers' `message`, `enum`, `service` and `rpc`, nested messages
-included — so none of them is listed twice or
+included; PowerShell's `function` and `filter` under the whole `Verb-Noun` name, which that regex
+would cut at its `-`, and its `class` and `enum` — so none of them is listed twice or
 under a modifier or a receiver. A C prototype is not listed, since every function of a header would
 be there twice, and a `typedef struct x { … } y;` is listed once, under the `y` the project writes.
 TypeScript's class methods, with neither a keyword nor a type in front, are not listed: the regex

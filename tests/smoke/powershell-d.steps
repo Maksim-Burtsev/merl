@@ -1,0 +1,30 @@
+# powershell-d: d in PowerShell (#420). A lower-case call lands on the module's function, as
+# names ignore case; a parameter is the function's own, `local`; a scoped variable finds its
+# assignment; the path of `Import-Module` opens the module. The files are written here, not in
+# the project, which every other scenario counts the files of.
+merl
+wait Open a file (fuzzy)
+run mkdir -p ops/Shop && printf 'function Get-ShopUser {\n    param(\n        [Parameter(Mandatory)][string]$Id\n    )\n    $Uri = "$script:BaseUri/users/$Id"\n    Invoke-RestMethod -Uri $Uri\n}\n\n$script:BaseUri = "https://shop.test"\n' > ops/Shop/Users.psm1 && printf 'Import-Module ./Shop/Users.psm1\n$user = get-shopuser -Id 42\n' > ops/sync.ps1
+key q
+wait merl exited: 0
+merl ops/sync.ps1
+wait get-shopuser -Id
+key /
+type get-shopuser
+key Enter d
+wait get-shopuser: by name, 1 match
+key /
+type Id"
+key Enter d
+wait Id: local
+key /
+type BaseUri/
+key Enter d
+wait BaseUri: by name, 1 match
+merl ops/sync.ps1
+wait get-shopuser -Id
+key /
+type Users.psm1
+key Enter d
+wait Invoke-RestMethod
+key Escape

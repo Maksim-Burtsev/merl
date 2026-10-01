@@ -30,6 +30,7 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Zig
         | Kind::Proto
         | Kind::Shell
+        | Kind::PowerShell
         | Kind::Sql
         | Kind::Make
         | Kind::Graphql => kind_of(path) == Some(kind),
@@ -228,6 +229,16 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             ruby_roots(root, &home, &env, || {
                 ASKED.get_or_init(|| run("ruby", &["-e", script])).clone()
             })
+        }
+        // The module directories of `PSModulePath` (#420). Only scripts and modules count: the
+        // built-in cmdlets are compiled and have no source to find.
+        Kind::PowerShell => {
+            let pwsh = std::env::var_os("PATH").and_then(|p| {
+                std::env::split_paths(&p)
+                    .map(|d| d.join("pwsh"))
+                    .find(|p| p.is_file())
+            });
+            powershell_roots(std::env::var_os("PSModulePath"), &home, pwsh)
         }
         // Java and Kotlin have no roots yet: the JDK and Gradle caches are their own lookups.
         // C# has nothing to point at: a NuGet package is compiled

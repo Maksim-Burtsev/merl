@@ -1,0 +1,57 @@
+wait Id: local
+┌orders──────────────────────┐1 function Get-ShopUser {
+│▸ .github                   │2     param(
+│▸ .venv                     │3         [Parameter(Mandatory)][string]$Id
+│▸ app                       │4     )
+│▸ data                      │5     $Uri = "$script:BaseUri/users/$Id"
+│▸ deploy                    │6     Invoke-RestMethod -Uri $Uri
+│▸ docs                      │7 }
+│▾ ops                       │8
+│  ▾ Shop                    │9 $script:BaseUri = "https://shop.test"
+│      Users.psm1            │
+│    sync.ps1                │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+ops/Shop/Users.psm1  3:40  [code]  Id: local
+cursor (x,y,shown) 71,2,1
