@@ -706,3 +706,87 @@ fn java_and_kotlin_imports_bind_their_names_to_paths() {
     assert_eq!(jvm_package(text).as_deref(), Some("app.c"));
     assert_eq!(jvm_package("import a.B\n"), None);
 }
+
+/// #351. Where PHP reads a class name, how it resolves one, and where composer.json's PSR-4 map
+/// puts it.
+#[test]
+fn php_class_names_resolve_and_map_to_files() {
+    let at = |line: &str, word: &str| {
+        let start = line.rfind(word).unwrap();
+        php_class_at(line, start..start + word.len())
+    };
+    let class = |w: &str| Some((w.to_owned(), false));
+    let member = |w: &str| Some((w.to_owned(), true));
+    assert_eq!(at("        Song::query();", "Song"), class("Song"));
+    assert_eq!(at("        Song::query();", "query"), member("Song"));
+    assert_eq!(at("        \\A\\Song::$all;", "all"), member("\\A\\Song"));
+    assert_eq!(
+        at("        $x = new Models\\Song();", "Song"),
+        class("Models\\Song")
+    );
+    assert_eq!(
+        at("    public function f(?Song $s): Song", "Song"),
+        class("Song")
+    );
+    assert_eq!(at("    public function f(?Song $s): Song", "f"), None);
+    assert_eq!(
+        at("        private readonly Song $song,", "Song"),
+        class("Song")
+    );
+    assert_eq!(at("class A extends Base implements B, C", "C"), class("C"));
+    assert_eq!(
+        at("use App\\Models\\Song;", "Song"),
+        class("\\App\\Models\\Song")
+    );
+    // A namespace's segment, a function, a constant, `self::`, `$x::`, `Song::class`.
+    assert_eq!(at("use App\\Models\\Song;", "Models"), None);
+    assert_eq!(at("use function App\\f;", "f"), None);
+    assert_eq!(at("        return f(LIMIT);", "f"), None);
+    assert_eq!(at("        return f(LIMIT);", "LIMIT"), None);
+    assert_eq!(at("        self::query();", "query"), None);
+    assert_eq!(at("        $s::query();", "query"), None);
+    assert_eq!(at("        Song::class;", "class"), None);
+
+    let text = "<?php\nnamespace App\\Repos;\n\nuse App\\Models\\Song;\nuse App\\Models\\Album as Record;\nuse App\\Http\\{Kernel, Request};\nuse function App\\helpers\\Tag;\n";
+    let resolve = |w: &str| php_resolve(text, w);
+    assert_eq!(resolve("Song"), ("App\\Models\\Song".into(), true));
+    assert_eq!(resolve("Record"), ("App\\Models\\Album".into(), true));
+    assert_eq!(
+        resolve("Song\\Part"),
+        ("App\\Models\\Song\\Part".into(), true)
+    );
+    assert_eq!(resolve("\\Other\\Song"), ("Other\\Song".into(), false));
+    // A group `use` and `use function` bind no class: the namespace does.
+    assert_eq!(resolve("Kernel"), ("App\\Repos\\Kernel".into(), false));
+    assert_eq!(resolve("Tag"), ("App\\Repos\\Tag".into(), false));
+    assert_eq!(php_resolve("<?php\n", "Song"), ("Song".into(), false));
+
+    let dir = std::env::temp_dir().join(format!("merl-psr4-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("api")).unwrap();
+    std::fs::write(
+        dir.join("api/composer.json"),
+        r#"{"autoload": {"psr-4": {"App\\": "app/", "": "lib/"}}, "autoload-dev": {"psr-4": {"App\\Tests\\": ["tests/", "./more/"]}}}"#,
+    )
+    .unwrap();
+    let map = php_psr4(&dir, Path::new("api/app/Models"));
+    let files = [
+        "api/app/Models/Song.php",
+        "api/more/Unit.php",
+        "api/lib/Legacy.php",
+    ];
+    let file = |full: &str| php_psr4_file(&map, full, |f| files.iter().any(|g| Path::new(g) == f));
+    assert_eq!(
+        file("App\\Models\\Song"),
+        Some(Ok("api/app/Models/Song.php".into()))
+    );
+    assert_eq!(
+        file("App\\Tests\\Unit"),
+        Some(Ok("api/more/Unit.php".into()))
+    );
+    assert_eq!(file("App\\Models\\Gone"), Some(Err(())));
+    // The empty prefix covers only a name whose file is there.
+    assert_eq!(file("Legacy"), Some(Ok("api/lib/Legacy.php".into())));
+    assert_eq!(file("Illuminate\\Support\\Arr"), None);
+    assert!(php_psr4(&dir, Path::new("elsewhere")).is_empty());
+    std::fs::remove_dir_all(&dir).unwrap();
+}

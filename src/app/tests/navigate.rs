@@ -1481,3 +1481,95 @@ fn an_elixir_call_is_no_attribute_and_an_import_leaves_it_to_the_search() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #351. A PHP class name resolves as PHP resolves it, through the file's `use`, else its
+/// `namespace`, and `composer.json`'s PSR-4 map says which file declares it. A name the map does
+/// not cover is outside the project: `vendor/` first, before a namesake of the project's.
+#[test]
+fn php_names_resolve_through_use_namespace_and_psr4() {
+    let method = |ns: &str, class: &str, m: &str| {
+        format!(
+            "<?php\n\nnamespace {ns};\n\nclass {class}\n{{\n    public {m}\n    {{\n    }}\n}}\n"
+        )
+    };
+    let song = method("App\\Models", "Song", "static function query(): int");
+    let album = method("App\\Models", "Album", "static function query(): int");
+    let resource = method(
+        "App\\Http\\Resources",
+        "AlbumResource",
+        "function toArray(): array",
+    );
+    let subsonic = method(
+        "App\\Http\\Subsonic",
+        "AlbumResource",
+        "static function toArray(): array",
+    );
+    let search = "<?php\n\nnamespace App\\Http\\Subsonic;\n\nclass SearchResource\n{\n    public function toArray(): array\n    {\n        return AlbumResource::toArray();\n    }\n}\n";
+    let arr = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n    public static function get($array, $key, $default = null)\n    {\n    }\n}\n";
+    let repo = "<?php\n\nnamespace App\\Repos;\n\nuse App\\Models\\Song;\nuse Illuminate\\Support\\Arr;\n\nclass SongRepository\n{\n    public function get(int $id): void\n    {\n    }\n\n    public function all(): void\n    {\n        Song::query();\n        Arr::get([], 'x');\n    }\n}\n";
+    let vendored = "vendor/laravel/framework/src/Illuminate/Support/Arr.php";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Models/Song.php", song.as_str()),
+        ("app/Models/Album.php", album.as_str()),
+        ("app/Http/Resources/AlbumResource.php", resource.as_str()),
+        ("app/Http/Subsonic/AlbumResource.php", subsonic.as_str()),
+        ("app/Http/Subsonic/SearchResource.php", search),
+        ("app/Repos/SongRepository.php", repo),
+        (vendored, arr),
+    ];
+    for vendor in [false, true] {
+        let (dir, mut a) = project_app("php-psr4", &files);
+        if !vendor {
+            a.no_external();
+        }
+        let mut d = |file: &str, code: &str| {
+            d_on(&mut a, file, code);
+            shown(&mut a)
+        };
+        let repo = "app/Repos/SongRepository.php";
+        assert_eq!(
+            d(repo, "Song::query"),
+            jump(
+                "query \u{2192} Song::query (via import app/Models/Song.php)",
+                "app/Models/Song.php:7"
+            ),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d(repo, "    Song|::query"),
+            jump(
+                "Song: via import app/Models/Song.php",
+                "app/Models/Song.php:5"
+            ),
+            "vendor: {vendor}"
+        );
+        assert_eq!(
+            d(
+                "app/Http/Subsonic/SearchResource.php",
+                "AlbumResource::toArray"
+            ),
+            jump(
+                "toArray \u{2192} AlbumResource::toArray (via AlbumResource)",
+                "app/Http/Subsonic/AlbumResource.php:7"
+            ),
+            "vendor: {vendor}"
+        );
+        let get = match vendor {
+            true => jump(
+                "get \u{2192} Arr::get (via import Illuminate/Support/Arr)",
+                &format!("{vendored}:7"),
+            ),
+            false => jump(
+                "get \u{2192} SongRepository::get (by name, 1 match)",
+                "app/Repos/SongRepository.php:10",
+            ),
+        };
+        assert_eq!(d(repo, "Arr::get"), get, "vendor: {vendor}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}

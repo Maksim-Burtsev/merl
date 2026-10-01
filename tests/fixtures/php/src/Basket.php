@@ -18,7 +18,7 @@ final class Basket
 
     public function __construct(
         private Plan $tariff,
-        //      ^ d: none; want src/Pricing/Tariff.php:9 (#351)
+        //      ^ d: src/Pricing/Tariff.php:9
         private Coupon $coupon,
         //      ^ d: src/Pricing/Coupon.php:9
         public string $owner = '',
@@ -30,7 +30,7 @@ final class Basket
         return discount($this->tariff->rate());
         //     ^ d: src/Pricing/functions.php:8
         //                     ^ d: src/Basket.php:20
-        //                             ^ d: picker src/Pricing/Coupon.php:15, src/Pricing/Priced.php:7, src/Pricing/Tariff.php:19, src/Pricing/Voucher.php:16; want src/Pricing/Tariff.php:19 (#361)
+        //                             ^ d: src/Pricing/Tariff.php:19
     }
 
     public function bonus(): int
@@ -43,7 +43,7 @@ final class Basket
     public function describeAny(Plan $t, Coupon $c): string
     {
         return $t->describe() . $c->describe();
-        //         ^ d: picker src/Pricing/Coupon.php:20, src/Pricing/Tariff.php:25; want src/Pricing/Tariff.php:25 (#361)
+        //         ^ d: src/Pricing/Tariff.php:25
         //                          ^ d: src/Pricing/Coupon.php:20
     }
 
@@ -72,6 +72,7 @@ final class Basket
         return $courier->name . Courier::depot();
         //               ^ d: src/Warehouse/Courier.php:7
         //                               ^ d: src/Warehouse/Courier.php:11
+        //                                status: via import src/Warehouse/Courier.php
     }
 
     public function offer(Offer $o): int
@@ -94,7 +95,7 @@ final class Basket
         $label = CURRENCY;
         //       ^ d: src/Pricing/functions.php:5
         $label .= (string) $total;
-        //                  ^ d: src/Basket.php:91
+        //                  ^ d: src/Basket.php:92
         return $label;
     }
 
@@ -115,7 +116,9 @@ final class Basket
     public function tariff(): int
     {
         $plan = new Plan(base: 3);
-        //               ^ d: none; want src/Pricing/Tariff.php:15 (#351)
+        //               ^ d: src/Pricing/Tariff.php:15
+        //          ^ d: src/Pricing/Tariff.php:9
+        //           status: via import src/Pricing/Tariff.php
         return $plan->base;
         //            ^ d: src/Pricing/Tariff.php:15
     }
@@ -129,35 +132,35 @@ final class Basket
     {
         $tally = 0;
         foreach ($entries as $slot => $entry) {
-        //        ^ d: src/Basket.php:128
+        //        ^ d: src/Basket.php:131
             $tally += $entry;
-            //         ^ d: src/Basket.php:131
-          // ^ d: src/Basket.php:130
+            //         ^ d: src/Basket.php:134
+          // ^ d: src/Basket.php:133
         }
         $chooser = function (int $low) use ($tally): int {
             return min($low, $tally);
-            //          ^ d: src/Basket.php:137
-            //                ^ d: src/Basket.php:137
+            //          ^ d: src/Basket.php:140
+            //                ^ d: src/Basket.php:140
         };
         $doubled = array_map(fn($entry) => $entry * 2, $entries);
-        //                                  ^ d: src/Basket.php:142
-        //                                              ^ d: src/Basket.php:128
+        //                                  ^ d: src/Basket.php:145
+        //                                              ^ d: src/Basket.php:131
         [$low, $high] = [0, $tally];
-        //                   ^ d: src/Basket.php:130
+        //                   ^ d: src/Basket.php:133
         try {
             $chooser($low);
-          // ^ d: src/Basket.php:137
-            //        ^ d: src/Basket.php:145
+          // ^ d: src/Basket.php:140
+            //        ^ d: src/Basket.php:148
         } catch (\RuntimeException $failure) {
             return [$failure->getMessage()];
-            //       ^ d: src/Basket.php:151
+            //       ^ d: src/Basket.php:154
         }
         return [$high, $slot, $doubled, $ghost, "$tally"];
-        //       ^ d: src/Basket.php:145
-        //              ^ d: src/Basket.php:131
-        //                     ^ d: src/Basket.php:142
+        //       ^ d: src/Basket.php:148
+        //              ^ d: src/Basket.php:134
+        //                     ^ d: src/Basket.php:145
         //                               ^ d: none
-        //                                        ^ d: src/Basket.php:130
+        //                                        ^ d: src/Basket.php:133
     }
 
     public function chime(): int
@@ -168,7 +171,7 @@ final class Basket
     public function rung(): int
     {
         $chime = $this->chime();
-        //              ^ d: src/Basket.php:163
+        //              ^ d: src/Basket.php:166
         return $chime;
     }
 }

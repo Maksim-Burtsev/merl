@@ -1,0 +1,57 @@
+wait function close
+┌orders──────────────────────┐1 <?php
+│▸ .github                   │2 namespace Billing;
+│▸ .venv                     │3
+│▸ app                       │4 use Billing\Legacy\Ledger as OldLedger;
+│▸ data                      │5
+│▸ deploy                    │6 function close(): int
+│▸ docs                      │7 {
+│▾ scripts                   │8     return Ledger::total() - OldLedger::total();
+│  ▾ billing                 │9 }
+│    ▸ Legacy                │
+│      Ledger.php            │
+│      Month.php             │
+│  ▸ payouts                 │
+│    composer.json           │
+│    invoices.php            │
+│    refund_by_hand.py       │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+scripts/billing/Month.php  8:21  [code]                                                                                                                                           ? help
+cursor (x,y,shown) 52,7,1

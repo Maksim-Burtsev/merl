@@ -106,6 +106,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   characters of the name: `!test` finds `!test.md` instead of hiding every path holding `test`,
   and `.rs$` looks for a `$` instead of the end of the path. Spaces still separate words
   matched in any order. (#519)
+- `d` in PHP resolves a class name as PHP does, through the file's `use`, else its `namespace`,
+  and follows `composer.json`'s PSR-4 map to the file. `Song::query()` behind `use
+  App\Models\Song;` lands on `Song::query (via import app/Models/Song.php)`, and
+  `AlbumResource::toArray()` on the `AlbumResource` of the file's own namespace, where both
+  offered every declaration of the name. A class outside the map is read in `vendor/` first:
+  `Arr::get()` behind `use Illuminate\Support\Arr;` lands on Laravel's `get`, not on the
+  project's own. (#351)
 - `d` in PHP proves the class of the receiver in front of `->`: `$event->podcast` in
   `handle(UserUnsubscribed $event)` lands on the `podcast` of `UserUnsubscribed`, `(via $event:
   UserUnsubscribed)`, and `$this->artistRepository->getRecentlyAdded()` on the method of

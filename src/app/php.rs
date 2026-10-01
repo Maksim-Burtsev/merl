@@ -2,6 +2,7 @@
 //! class the cursor is in, of a trait it uses or of a class it extends (#356).
 
 use super::*;
+use std::ops::Range;
 
 /// A class the project declares: its file, the file's text and the 0-based line of its header.
 type PhpClass = (PathBuf, String, usize);
@@ -19,6 +20,144 @@ enum Walk {
 }
 
 impl App {
+    /// What `d` answers in PHP before the import step: `word` behind `$this->`, `self::`,
+    /// `static::` or `parent::` ([`Self::php_link`], #356; `self::$name` is a static property),
+    /// behind a receiver whose class is proven ([`Self::php_typed`], #361), and a class name or
+    /// its member ([`Self::php_named`], #351). `before` is the line up to the word as
+    /// [`App::written`] spells it, `chain` the names in front of the word. `None` goes on to the
+    /// other rules.
+    pub(super) fn php_early(
+        &mut self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        chain: &[String],
+        word: &str,
+        range: Range<usize>,
+    ) -> Option<Vec<Candidate>> {
+        let dotted = before.ends_with('.') && !before.ends_with("..");
+        let property = before.strip_suffix('$').filter(|b| b.ends_with("::"));
+        let b = property.unwrap_or(before);
+        let link = match search::qualifier(b, b.len()).as_slice() {
+            [l] if dotted && l == "this" => Some(l.clone()),
+            [l] if !dotted
+                && b.ends_with("::")
+                && matches!(l.as_str(), "self" | "static" | "parent") =>
+            {
+                Some(l.clone())
+            }
+            _ => None,
+        };
+        let access = match self.line_str()[range.end..].trim_start().starts_with('(') {
+            true => search::PhpAccess::Call,
+            false if dotted || property.is_some() => search::PhpAccess::Property,
+            false => search::PhpAccess::Constant,
+        };
+        if let Some(link) = link
+            && let Some(found) = self.php_link(here, text, &link, word, access)
+        {
+            return Some(found);
+        }
+        // `$x->word` and `$this->f->word` on a receiver whose class is proven (#361).
+        let receiver = before.strip_suffix(&format!("${}.", chain.join(".")));
+        if dotted
+            && !chain.is_empty()
+            && receiver.is_some_and(|b| !b.ends_with(|c: char| is_word(c) || c == ':' || c == '$'))
+            && let Some(found) = self.php_typed(here, text, chain, word, access)
+        {
+            return Some(found);
+        }
+        self.php_named(here, text, range, access)
+    }
+
+    /// What `d` answers on a class name, or on `Class::word`, at `range` of the cursor's line
+    /// (#351), in a project whose `composer.json` maps namespaces to directories (PSR-4): the
+    /// name resolved as PHP resolves it ([`search::php_resolve`]), and the file the map puts it
+    /// in. When that file declares the class, the answer is its header, or `word` looked up in
+    /// it as [`Self::php_walk`] does. A name the map does not cover is outside the project: the
+    /// class in `vendor/` is read first. `None` leaves the word to the other rules: no map, a
+    /// mapped file missing or declaring something else, a member found nowhere in the project,
+    /// a name outside that `vendor/` does not declare.
+    fn php_named(
+        &mut self,
+        here: &Path,
+        text: &str,
+        range: Range<usize>,
+        access: search::PhpAccess,
+    ) -> Option<Vec<Candidate>> {
+        let line = self.line_str();
+        let word = line[range.clone()].to_owned();
+        let (written, member) = search::php_class_at(line, range)?;
+        let map = search::php_psr4(&self.root, here.parent().unwrap_or(Path::new("")));
+        if map.is_empty() {
+            return None;
+        }
+        let (full, used) = search::php_resolve(text, &written);
+        let (ns, short) = match full.rsplit_once('\\') {
+            Some((ns, short)) => (ns, short),
+            None => ("", full.as_str()),
+        };
+        let path = match search::php_psr4_file(&map, &full, |f| self.files.iter().any(|p| p == f)) {
+            Some(Ok(path)) => path,
+            Some(Err(())) => return None,
+            // Outside the project: what `vendor/` declares under that path, before any namesake.
+            None => {
+                let imports = [(
+                    short.to_owned(),
+                    full.split('\\').map(str::to_owned).collect(),
+                )];
+                let (word, chain) = match member {
+                    true => (word, vec![short.to_owned()]),
+                    false => (short.to_owned(), Vec::new()),
+                };
+                let found =
+                    self.external_definitions(Kind::Php, &word, &chain, false, &imports, true)?;
+                return (!found.is_empty()).then_some(found);
+            }
+        };
+        let t = self.text_of(&path)?;
+        let lines: Vec<&str> = t.lines().collect();
+        let literal = search::literal_lines(Kind::Php, &t);
+        let class = (0..lines.len()).find(|&i| {
+            literal.get(i) != Some(&true)
+                && search::php_class_header(lines[i]).is_some_and(|(_, n, _)| n == short)
+        })?;
+        if search::php_namespace(&t).unwrap_or_default() != ns {
+            return None;
+        }
+        let reason = match used {
+            true => Reason::Import(path.display().to_string()),
+            false if member => Reason::Path(short.to_owned()),
+            false => Reason::Path(ns.to_owned()),
+        };
+        let found = match member {
+            false => vec![Hit {
+                deleted: None,
+                path: path.clone(),
+                line: class + 1,
+                col: 0,
+                text: lines[class].to_owned(),
+            }],
+            true => {
+                let re = Regex::new(&search::php_access_patterns(&word, access).join("|")).ok()?;
+                match self.php_walk(&path, &t, class, &re, 0, &mut Vec::new()) {
+                    Walk::Found(hits) => hits,
+                    Walk::Nowhere(true) => Vec::new(),
+                    Walk::Nowhere(false) | Walk::Unread => return None,
+                }
+            }
+        };
+        Some(
+            found
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect(),
+        )
+    }
+
     /// What `d` answers for `word` behind `link` (`this`, `self`, `static` or `parent`, written
     /// `$this->` or `link::`) on the cursor's line of `text`: `None` leaves the word to the search
     /// by name, as for a link the rules cannot read, a cursor in an anonymous class or in a
@@ -130,36 +269,30 @@ impl App {
         depth: usize,
         seen: &mut Vec<(PathBuf, usize)>,
     ) -> Walk {
-        let short = name.rsplit('\\').next().unwrap_or(name);
         let (full, mut matching) = self.php_class(from, text, name);
+        let short = full.rsplit('\\').next().unwrap_or(&full);
         match matching.len() {
             1 => {
                 let (path, t, line) = matching.remove(0);
                 self.php_walk(&path, &t, line, re, depth, seen)
             }
-            0 => self.php_outside(full.as_deref(), short, re),
+            0 => self.php_outside(&full, short, re),
             _ => Walk::Unread,
         }
     }
 
     /// The project's declarations of the class `name` as the file `from` (its `text`) writes
-    /// it: its `use` import, a name spelled from the root, else every one of that name (the
-    /// file's namespace is #351). Each is its file, the file's text and its 0-based line; the
-    /// full name the file gives it comes first, when it gives one.
+    /// it, resolved as PHP resolves it ([`search::php_resolve`], #351). Each is its file, the
+    /// file's text and its 0-based line; the full name comes first.
     fn php_class(
         &mut self,
         from: &Path,
         text: &str,
         name: &str,
-    ) -> (Option<String>, Vec<(PathBuf, String, usize)>) {
+    ) -> (String, Vec<(PathBuf, String, usize)>) {
         let kind = Kind::Php;
-        let short = name.rsplit('\\').next().unwrap_or(name);
-        let imports = search::imports(kind, text);
-        let full = match name.strip_prefix('\\') {
-            Some(full) => Some(full.to_owned()),
-            None if !name.contains('\\') => bound(&imports, short).map(|p| p.join("\\")),
-            None => None,
-        };
+        let (full, _) = search::php_resolve(text, name);
+        let short = full.rsplit('\\').next().unwrap_or(&full);
         let pattern = format!(
             r"^\s*(?:(?:abstract|final|readonly)\s+)*(?:class|trait|interface|enum)\s+{}\b",
             regex::escape(short)
@@ -180,11 +313,11 @@ impl App {
                 let t = self.text_of(&h.path)?;
                 // A header inside a `/* */` block or a heredoc declares nothing (#361).
                 let code = search::literal_lines(kind, &t).get(h.line - 1) != Some(&true);
-                let fits = full.as_ref().is_none_or(|f| namespaced(&t) == *f);
+                let fits = namespaced(&t) == full;
                 (code && fits).then_some((h.path, t, h.line - 1))
             })
             .collect();
-        (full, matching)
+        (full.clone(), matching)
     }
 
     /// What `d` answers for `word` behind `$x->…->` on the cursor's line of `text` (#361), `chain`
@@ -382,9 +515,9 @@ impl App {
     }
 
     /// The members `re` matches of the class `short` outside the project, in `vendor/`: its
-    /// `short.php`, narrowed to the one declaring the namespace of `full` when an import names
-    /// it. What the class inherits there is not read.
-    fn php_outside(&mut self, full: Option<&str>, short: &str, re: &Regex) -> Walk {
+    /// `short.php`, narrowed to the one declaring the namespace of `full`. What the class
+    /// inherits there is not read.
+    fn php_outside(&mut self, full: &str, short: &str, re: &Regex) -> Walk {
         let file = format!("{short}.php");
         let files: Vec<PathBuf> = self
             .external_files(Kind::Php)
@@ -402,7 +535,7 @@ impl App {
                 "" => short.to_owned(),
                 _ => format!("{ns}\\{short}"),
             };
-            if full.is_some_and(|f| f != named) {
+            if full != named {
                 continue;
             }
             let lines: Vec<&str> = t.lines().collect();
