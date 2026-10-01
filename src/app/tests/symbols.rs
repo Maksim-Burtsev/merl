@@ -69,6 +69,32 @@ fn symbols_read_each_kind_with_its_own_pattern() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// `D` lists a component's script and nothing of its template or its `<style>` (#413).
+#[test]
+fn symbols_of_a_component_are_its_script() {
+    let (dir, mut a) = project_app(
+        "symbols-component",
+        &[
+            (
+                "Card.vue",
+                "<script setup lang=\"ts\">\nfunction save() {}\n</script>\n\n<template>\n  function shout() {}\n</template>\n<style>\n.card {\n  display: flex;\n}\n</style>\n",
+            ),
+            (
+                "Hero.astro",
+                "---\nconst title = 1;\n---\n<h1>{title}</h1>\nclass Fake {}\n",
+            ),
+        ],
+    );
+    press(&mut a, KeyCode::Char('D'), KeyModifiers::NONE);
+    let picker = a.picker.as_mut().unwrap();
+    picker.settle();
+    let names: Vec<String> = (picker.window(20).0.into_iter())
+        .map(|r| r.item.label.split_whitespace().next().unwrap().to_string())
+        .collect();
+    assert_eq!(names, ["save", "title"]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// A project past the cap: `a.go` fills the list on its own, so the walk stops before
 /// `z.go` and `zebra` is behind the cut. `main.tf` is there for a name with a dot in it.
 fn capped_project(tag: &str) -> (PathBuf, App) {

@@ -86,7 +86,7 @@ impl App {
             self.show_definitions(kind, &module[0], &here, found, None);
             return;
         }
-        let Some((range, word)) = self.definition_word(kind) else {
+        let Some((range, mut word)) = self.definition_word(kind) else {
             self.message = "no word".into();
             return;
         };
@@ -99,6 +99,9 @@ impl App {
             self.message = self.no_rules();
             return;
         };
+        if self.component_template(&here, &range, &mut word) {
+            return;
+        }
         // Go's blank identifier names nothing: every `_` is a fresh discard (#476). Nor has a
         // GraphQL operation's `$variable` a rule: it is a parameter, and `$id` is no field `id`.
         // A Java or Kotlin class literal, `Foo::class`, names no member `class` (#362). A
@@ -115,6 +118,7 @@ impl App {
             return;
         }
         let text = self.buf.lines.join("\n");
+        let text = search::script_text(&here, &text, Some(self.line)).into_owned();
         // Nothing in a Rust string names code, save the `{name}` a format string captures and
         // the path an attribute takes as a value, `#[serde(default = "default_port")]`: no
         // search for a word of prose (#346).
@@ -2367,7 +2371,7 @@ impl App {
 
     /// Jumps to the one candidate, or opens the picker over several, and says how they were found
     /// and at which name of the chain in front of the word the typed lookup `broke`, if it did.
-    fn show_definitions(
+    pub(super) fn show_definitions(
         &mut self,
         kind: Kind,
         word: &str,
@@ -2392,12 +2396,10 @@ impl App {
             });
         }
         if found.len() <= 500 {
-            let mut literal: HashMap<PathBuf, Vec<bool>> = HashMap::new();
+            let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
             found.retain(|c| {
-                let lines = literal.entry(c.hit.path.clone()).or_insert_with(|| {
-                    self.text_of(&c.hit.path)
-                        .map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
-                });
+                let lines = (literal.entry((c.hit.path.clone(), c.hit.deleted.is_some())))
+                    .or_insert_with(|| self.hidden_now(kind, &c.hit));
                 // `register<` over its type arguments over `>(1);` is a call prettier wrapped.
                 // A type's header wrapped so declares the type: `class User extends Model<`,
                 // `export interface Context<` (#331).
@@ -2411,8 +2413,10 @@ impl App {
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));
                 // A tag of a PHP class's docblock (#344) or of a JavaScript `@typedef` (#347)
                 // is a declaration inside a comment.
+                // A name a component's template binds is declared there (#413).
                 let literal = lines.get(c.hit.line - 1).copied().unwrap_or(false)
-                    && !self.doc_tag(kind, &c.hit);
+                    && !self.doc_tag(kind, &c.hit)
+                    && !(c.reason == Reason::Local && search::component(&c.hit.path));
                 !call && !literal
             });
         }
@@ -2726,19 +2730,6 @@ impl App {
                 false => !known || !seen,
             });
         }
-        hits
-    }
-
-    /// `pattern` over the project files where a definition of a word in `here`, a file of
-    /// `kind`, can live, a cut noted.
-    pub(super) fn project_grep(&self, kind: Kind, here: &Path, pattern: &str) -> Vec<Hit> {
-        let sight = self.cs_sight(kind, here);
-        let hits = self
-            .grep(pattern, false, false, |p| {
-                search::in_def_scope(kind, here, p) && sight.as_ref().is_none_or(|s| s.sees(p))
-            })
-            .unwrap_or_default();
-        self.note_cut(&hits);
         hits
     }
 }

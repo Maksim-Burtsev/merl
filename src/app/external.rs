@@ -631,25 +631,79 @@ impl App {
         hits
     }
 
-    /// The text of `path` as the search read it: the open file as it is on screen.
+    /// The text of `path` as the search read it: the open file as it is on screen. A
+    /// component's lines outside its script are blank (#413).
     pub(super) fn text_of(&self, path: &Path) -> Option<String> {
-        if self.rel_current().as_deref() == Some(path) {
-            Some(self.buf.lines.join("\n"))
-        } else {
-            std::fs::read_to_string(self.root.join(path)).ok()
+        let text = self.file_text(path)?;
+        Some(search::script_text(path, &text, None).into_owned())
+    }
+
+    /// The text of `path` as it is, a component's template included: the open file as it is on
+    /// screen.
+    pub(super) fn file_text(&self, path: &Path) -> Option<String> {
+        match self.rel_current().as_deref() == Some(path) {
+            true => Some(self.buf.lines.join("\n")),
+            false => std::fs::read_to_string(self.root.join(path)).ok(),
         }
     }
 
     /// The text `h` was read from: the file as the search read it, or for a line the branch
     /// deleted, the file at the base, under the name it had there (#440).
     pub(super) fn hit_text(&self, h: &Hit) -> Option<String> {
-        if h.deleted.is_none() {
-            return self.text_of(&h.path);
+        let text = self.hit_file_text(h)?;
+        Some(search::script_text(&h.path, &text, None).into_owned())
+    }
+
+    /// [`Self::hit_text`] as it is, a component's template included.
+    fn hit_file_text(&self, h: &Hit) -> Option<String> {
+        match h.deleted {
+            None => self.file_text(&h.path),
+            Some(_) => self.base_text(&h.path),
         }
+    }
+
+    /// The text of `path` at the base of the review, under the name it had there (#440).
+    fn base_text(&self, path: &Path) -> Option<String> {
         let r = self.review.as_ref()?;
-        let from = r.file(&h.path).and_then(|f| f.old.as_deref());
-        let bytes = r.base_bytes(&self.root, from.unwrap_or(&h.path)).ok()?;
+        let from = r.file(path).and_then(|f| f.old.as_deref());
+        let bytes = r.base_bytes(&self.root, from.unwrap_or(path)).ok()?;
         Some(String::from_utf8_lossy(&bytes).into_owned())
+    }
+
+    /// [`search::hidden_lines`] of the text `h` was read from: the lines where a
+    /// declaration-shaped line declares nothing.
+    pub(super) fn hidden_of(&self, kind: Kind, h: &Hit) -> Vec<bool> {
+        (self.hit_file_text(h)).map_or_else(Vec::new, |t| search::hidden_lines(kind, &h.path, &t))
+    }
+
+    /// The lines of `h`'s file where a declaration-shaped line declares nothing, as `d` filters
+    /// its candidates: a component's from the text the hit was read from (#413), any other file's
+    /// from its text now.
+    pub(super) fn hidden_now(&self, kind: Kind, h: &Hit) -> Vec<bool> {
+        match search::component(&h.path) {
+            true => self.hidden_of(kind, h),
+            false => {
+                (self.text_of(&h.path)).map_or_else(Vec::new, |t| search::literal_lines(kind, &t))
+            }
+        }
+    }
+
+    /// The lines the branch deleted that `D` lists: a component's, only those of its script at
+    /// the base (#413).
+    pub(super) fn symbol_deleted(&self) -> Arc<Vec<git::DeletedLine>> {
+        let all = self.deleted_lines();
+        let mut code: HashMap<PathBuf, Vec<bool>> = HashMap::new();
+        let kept = (all.iter()).filter(|d| {
+            !search::component(&d.path)
+                || (code.entry(d.path.clone()))
+                    .or_insert_with(|| {
+                        let text = self.base_text(&d.path).unwrap_or_default();
+                        search::script_lines(&d.path, &text).unwrap_or_default()
+                    })
+                    .get(d.line - 1)
+                    .is_some_and(|&c| c)
+        });
+        Arc::new(kept.cloned().collect())
     }
 
     /// `path` relative to the standard library or dependency root of `kind` it is under,

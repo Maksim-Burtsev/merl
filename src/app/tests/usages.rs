@@ -543,3 +543,30 @@ fn usages_mark_a_rails_column_only_in_the_schema() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// #413: a component's template and `<style>` declare nothing, whatever they look like; its
+/// script declares as a `.ts` file does, and the template's uses are uses.
+#[test]
+fn usages_in_a_component_count_its_script_alone_as_declaring() {
+    let (dir, mut a) = project_app(
+        "u-component",
+        &[
+            ("names.ts", "export function shout() {}\n"),
+            (
+                "Card.vue",
+                "<script setup lang=\"ts\">\nimport { shout } from \"./names\";\n</script>\n<template>\n  function shout() {}\n  <p>{{ shout() }}</p>\n</template>\n",
+            ),
+        ],
+    );
+    usages_at(&mut a, &dir, "names.ts", 1, "shout");
+    let rows = usage_rows(&mut a);
+    assert_eq!(
+        rows.iter()
+            .filter(|(m, _)| m == "declaration")
+            .collect::<Vec<_>>(),
+        [&("declaration".to_string(), "names.ts:1".to_string())]
+    );
+    assert!(rows.iter().any(|(_, p)| p == "Card.vue:5"), "{rows:?}");
+    assert!(rows.iter().any(|(_, p)| p == "Card.vue:6"), "{rows:?}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}

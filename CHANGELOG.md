@@ -18,6 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   taken for a declaration. Outside the project `d` reaches the packages `pub get` lists and the
   SDK. `D` lists `abstract interface class Repo` as `Repo`, and functions and methods too, and
   `_$UserFromJson` is one name. (#414)
+- `d`, `u` and `D` in Vue, Svelte and Astro components (`.vue`, `.svelte`, `.astro`), where `d`
+  said `no rules for .vue`. Inside a component's `<script>` block (Astro: its frontmatter) every
+  TypeScript rule applies: `d` on `formatName` lands on `src/names.ts`, `via import`. From a
+  `.ts` file, `d` on `UserCard` of `import UserCard from './UserCard.vue'` opens the component,
+  where it said `no definition for UserCard`. In the template, `{{ label }}` lands on the
+  script's `const label`, an `item` of `v-for` or `{#each}` on that line (`item: local`), and a
+  `<user-card>` tag no import binds on `UserCard.vue`. The template and the `<style>` block
+  declare nothing, and `D` lists the script only. `.astro` is highlighted as TSX. (#413)
 - `d`, `u` and `D` in Scala. `.scala`, `.sc`, `.sbt` and `.mill` files are one kind with Java and
   Kotlin, so `d` on `Ledger.total(xs)` in a `.java` file lands on the `def total` of `object
   Ledger` in a `.scala` one, where it said `no definition for total`, and `d` in a `.scala` file

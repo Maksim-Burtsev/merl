@@ -1059,6 +1059,26 @@ pub fn declares_where<'a, S: AsRef<str> + 'a>(
     line_text: &str,
     lines: impl FnOnce() -> &'a [S],
 ) -> bool {
+    // A component's line outside its script declares nothing (#413): `lines` are the script's,
+    // the rest left blank.
+    if component(path) {
+        let lines = lines();
+        let code = lines
+            .get(line - 1)
+            .is_some_and(|l| !l.as_ref().trim().is_empty());
+        return code && declares_by_kind(kind, path, word, line, line_text, || lines);
+    }
+    declares_by_kind(kind, path, word, line, line_text, lines)
+}
+/// [`declares_where`] by the rules of `kind`.
+fn declares_by_kind<'a, S: AsRef<str> + 'a>(
+    kind: Kind,
+    path: &Path,
+    word: &str,
+    line: usize,
+    line_text: &str,
+    lines: impl FnOnce() -> &'a [S],
+) -> bool {
     match kind {
         Kind::Graphql => !line_text.starts_with([' ', '\t']) || graphql_member(lines(), line),
         Kind::Go if line_text.starts_with([' ', '\t']) => {
