@@ -291,10 +291,12 @@ pub fn ruby_class_parents(text: &str, line: usize) -> (Option<String>, Vec<Strin
 }
 
 /// Whether the Ruby declaration on 1-based `line` of `text` is on the class itself, not on its
-/// instances: `def self.m`, `def Const.m`, or anything directly inside `class << self`.
+/// instances: `def self.m`, `def Const.m`, a `scope :m` (#374), or anything directly inside
+/// `class << self`.
 pub fn ruby_on_class(text: &str, line: usize) -> bool {
-    static ON: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*(?:[a-z_]+\s+)?def\s+(?:self|[A-Z]\w*)\.").unwrap());
+    static ON: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:[a-z_]+\s+)?def\s+(?:self|[A-Z]\w*)\.|scope\s*\(?\s*:)").unwrap()
+    });
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
         return false;

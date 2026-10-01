@@ -1,4 +1,4 @@
-wait Search (178 hits)
+wait Search (179 hits)
  1 from app.config import Settings
  2 from app.models import Order, OrderStatus
  3 from app.repos import OrderRepo
@@ -10,7 +10,7 @@ wait Search (178 hits)
  9
 10
 11 class OrderService:
-12     def __init__┌Search (178 hits)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+12     def __init__┌Search (179 hits)─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 13         self.rep│s> Order                                                                                                                                          │
 14         self.uow│app/service.py:2: from app.models import Order, OrderStatus                                                                                       │
 15         self.set│app/service.py:3: from app.repos import OrderRepo                                                                                                 │

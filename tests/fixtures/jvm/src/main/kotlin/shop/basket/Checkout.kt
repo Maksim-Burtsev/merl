@@ -22,11 +22,11 @@ sealed class Outcome {
 
 fun checkout(basket: Basket): Int {
     val courier = Courier("post")
-    //            ^ d: picker src/main/kotlin/shop/warehouse/Warehouse.kt:4, src/main/kotlin/shop/warehouse/Warehouse.kt:8; want src/main/kotlin/shop/warehouse/Warehouse.kt:8 (#367)
+    //            ^ d: src/main/kotlin/shop/warehouse/Warehouse.kt:8
     return basket.gross() + weigh(courier.name.length) + Depot.open()
     //            ^ d: src/main/java/shop/basket/Basket.java:30
-    //                      ^ d: picker src/main/kotlin/shop/warehouse/Warehouse.kt:5, src/main/kotlin/shop/warehouse/Warehouse.kt:12; want src/main/kotlin/shop/warehouse/Warehouse.kt:12 (#367)
-    //                                    ^ d: none; want src/main/kotlin/shop/warehouse/Warehouse.kt:8 (#367)
+    //                      ^ d: src/main/kotlin/shop/warehouse/Warehouse.kt:12
+    //                                    ^ d: src/main/kotlin/shop/warehouse/Warehouse.kt:8
     //                                                     ^ d: src/main/kotlin/shop/warehouse/Warehouse.kt:14
     //                                                           ^ d: src/main/kotlin/shop/warehouse/Warehouse.kt:15
 }
@@ -34,7 +34,7 @@ fun checkout(basket: Basket): Int {
 fun Tariff.doubled(): Int = rate() * 2
 
 fun useExtension(t: Tariff): Int = t.doubled()
-//                                   ^ d: picker src/main/kotlin/shop/basket/Checkout.kt:34, src/main/kotlin/shop/warehouse/Warehouse.kt:20; want src/main/kotlin/shop/basket/Checkout.kt:34 (#362)
+//                                   ^ d: src/main/kotlin/shop/basket/Checkout.kt:34
 
 private fun limit(): Grams = LIMIT
 //                   ^ d: src/main/kotlin/shop/basket/Checkout.kt:8
@@ -55,7 +55,7 @@ fun outcome(o: Outcome): Int = when (o) {
 }
 
 suspend fun deliver(grams: Grams): Int = weigh(grams)
-//                                       ^ d: picker src/main/kotlin/shop/warehouse/Warehouse.kt:5, src/main/kotlin/shop/warehouse/Warehouse.kt:12; want src/main/kotlin/shop/warehouse/Warehouse.kt:12 (#367)
+//                                       ^ d: src/main/kotlin/shop/warehouse/Warehouse.kt:12
 
 fun fast(speed: Speed): Boolean = speed == Speed.FAST
 //                                               ^ d: src/main/kotlin/shop/basket/Checkout.kt:12
@@ -78,7 +78,7 @@ fun hire(): String = Courier(name = "post").name
 
 fun heavy(): Int = weigh(
     grams = 3,
-//  ^ d: picker src/main/kotlin/shop/warehouse/Warehouse.kt:5, src/main/kotlin/shop/warehouse/Warehouse.kt:12; want src/main/kotlin/shop/warehouse/Warehouse.kt:12 (#367)
+//  ^ d: src/main/kotlin/shop/warehouse/Warehouse.kt:12
 )
 
 fun loud(): Unit = println(message = "x")

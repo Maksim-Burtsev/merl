@@ -11,6 +11,6 @@ final class TrackerTests {
     func testB() {
         _ = tracker.poll("b")
         //          ^ d: Sources/Shop/Tracker.swift:5
-        //            status: poll → Tracker.poll (by name, 1 match)
+        //            status: poll → Tracker.poll (via tracker: Tracker)
     }
 }

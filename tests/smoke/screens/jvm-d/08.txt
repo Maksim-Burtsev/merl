@@ -1,0 +1,57 @@
+wait Parcel: via import web/android/src/main/java/courier/app/scan/Parcel.java
+1 package courier.app.scan;
+2
+3 /** A parcel as the courier scans it. */
+4 public record Parcel(
+5         String code,
+6         int grams) {}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/android/src/main/java/courier/app/scan/Parcel.java  4:15  [code]  Parcel: via import web/android/src/main/java/courier/app/scan/Parcel.java
+cursor (x,y,shown) 16,3,1

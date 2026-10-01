@@ -5,3 +5,8 @@ export interface Order {
   status: OrderStatus;
   total: string;
 }
+
+export enum ParcelState {
+  Packed = "packed",
+  Shipped = "shipped",
+}

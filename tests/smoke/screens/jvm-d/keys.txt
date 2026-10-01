@@ -1,6 +1,7 @@
 /
 Esc
 Picker: Enter
+[
 d
 o
 q

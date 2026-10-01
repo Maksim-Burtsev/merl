@@ -30,13 +30,13 @@ wait find_by_customer: by name, 3 declarations (3/3)
 29         OrderSer│                                                                                                                                                  │
 30     )           │                                                                                                                                                  │
 31     return HTTPS│                                                                                                                                                  │
-                   │                                                                                                                                                  │
-                   │                                                                                                                                                  │
-                   │                                                                                                                                                  │
-                   │                                                                                                                                                  │
-                   │                                                                                                                                                  │
-                   │                                                                                                                                                  │
-                   │                                                                                                                                                  │
+32                 │                                                                                                                                                  │
+33                 │                                                                                                                                                  │
+34 def page_links(t│                                                                                                                                                  │
+35     def page_url│                                                                                                                                                  │
+36         return f│                                                                                                                                                  │
+37                 │                                                                                                                                                  │
+38     return [page│                                                                                                                                                  │
                    │                                                                                                                                                  │
                    │                                                                                                                                                  │
                    │                                                                                                                                                  │
