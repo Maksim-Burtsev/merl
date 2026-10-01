@@ -1,0 +1,57 @@
+wait total → Ledger::total (via Ledger)
+┌orders──────────────────────┐ 1 <?php
+│▸ .github                   │ 2 namespace Billing;
+│▸ .venv                     │ 3
+│▸ app                       │ 4 class Ledger
+│▸ data                      │ 5 {
+│▸ deploy                    │ 6     public static function total(): int
+│▸ docs                      │ 7     {
+│▾ scripts                   │ 8         return 0;
+│  ▾ billing                 │ 9     }
+│    ▸ Legacy                │10 }
+│      Ledger.php            │
+│      Month.php             │
+│  ▸ payouts                 │
+│    composer.json           │
+│    invoices.php            │
+│    refund_by_hand.py       │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+scripts/billing/Ledger.php  6:28  [code]  total → Ledger::total (via Ledger)
+cursor (x,y,shown) 60,5,1

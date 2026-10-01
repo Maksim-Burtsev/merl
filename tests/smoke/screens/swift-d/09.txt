@@ -1,0 +1,57 @@
+wait typealias Handler
+┌orders──────────────────────┐1 struct StreamPublisher<Value: Sendable> {
+│▸ .github                   │2     typealias Handler = (Value) -> Void
+│▸ .venv                     │3 }
+│▸ app                       │4
+│▸ data                      │5 func encode() {
+│▸ deploy                    │6     struct Value {}
+│▸ docs                      │7     _ = Value()
+│▾ ios                       │8 }
+│    Instant.swift           │
+│    Protected.swift         │
+│    Publisher.swift         │
+│    Retry.swift             │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+ios/Publisher.swift  1:1  [code]                                                                                                                                                  ? help
+cursor (x,y,shown) 32,0,1

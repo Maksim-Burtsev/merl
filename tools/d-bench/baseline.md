@@ -1,6 +1,6 @@
 # `d` bench baseline
 
-merl at `e1b6f126`, 2026-10-01, release build, `vm.loadavg` { 8.42 7.51 11.17 } before the run, { 8.42 7.51 11.17 } after.
+merl at `2af1537`, 2026-10-01, release build, `vm.loadavg` { 1.89 2.46 3.21 } before the run, { 1.85 2.40 3.04 } after. php (koel) again at `3d72d68c` (#351), `vm.loadavg` { 18.71 18.96 28.80 }: its times are high by that load. swift (Alamofire) again at `1bde563f` (#375), `vm.loadavg` { 6.21 8.92 18.31 } before, { 11.91 9.53 17.86 } after: its times are high by that load. js (eslint) again at `fb3cf164` (#347), `vm.loadavg` { 8.42 7.51 11.17 }: its times are high by that load.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -11,8 +11,8 @@ merl at `e1b6f126`, 2026-10-01, release build, `vm.loadavg` { 8.42 7.51 11.17 } 
 | rust (ripgrep) | 231 | 183 (79%) | 44 (19%) | 0 (0%) | 4 (2%) | 69 | 7.1 | 125.0 |
 | c (redis) | 250 | 226 (90%) | 24 (10%) | 0 (0%) | 0 (0%) | 20 | 36.9 | 118.9 |
 | cpp (leveldb) | 233 | 118 (51%) | 96 (41%) | 2 (1%) | 17 (7%) | 67 | 12.7 | 100.5 |
-| php (koel) | 104 | 90 (87%) | 14 (13%) | 0 (0%) | 0 (0%) | 196 | 19.6 | 37.2 |
-| swift (Alamofire) | 154 | 113 (73%) | 37 (24%) | 0 (0%) | 4 (3%) | 116 | 12.1 | 21.1 |
+| php (koel) | 104 | 99 (95%) | 5 (5%) | 0 (0%) | 0 (0%) | 196 | 22.8 | 43.0 |
+| swift (Alamofire) | 154 | 115 (75%) | 37 (24%) | 0 (0%) | 2 (1%) | 116 | 22.0 | 48.6 |
 | java (halo) | 37 | 34 (92%) | 3 (8%) | 0 (0%) | 0 (0%) | 43 | 38.9 | 84.1 |
 | kotlin (nowinandroid) | 30 | 30 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 50 | 19.8 | 35.0 |
 | csharp (eShop) | 27 | 19 (70%) | 8 (30%) | 0 (0%) | 0 (0%) | 53 | 14.4 | 38.8 |
