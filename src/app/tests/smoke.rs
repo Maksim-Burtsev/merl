@@ -181,7 +181,9 @@ fn every_unreleased_feature_is_smoked_or_skipped_on_purpose() {
     while let Some(dir) = dirs.pop() {
         for f in std::fs::read_dir(dir).unwrap() {
             let path = f.unwrap().path();
-            let fixture = !path.starts_with(root().join("tests/smoke"));
+            // The fixtures' README cites issues in prose, some of them as known misses: no play.
+            let fixture = !path.starts_with(root().join("tests/smoke"))
+                && path.file_name().is_some_and(|n| n != "README.md");
             if path.is_dir() && fixture {
                 dirs.push(path);
             } else if fixture || path.extension().is_some_and(|e| e == "steps") {
