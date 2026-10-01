@@ -1,0 +1,8 @@
+{
+    "name": "fixtures/billing",
+    "autoload": {
+        "psr-4": {
+            "Billing\\": "src/"
+        }
+    }
+}

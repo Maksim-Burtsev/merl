@@ -244,14 +244,31 @@ pub fn php_class_traits<S: AsRef<str>>(lines: &[S], class: usize) -> Vec<String>
         .collect()
 }
 
-/// The namespace a PHP file declares, if any.
+/// A `namespace` declaration, `<?php namespace X;` on one line included (#579).
+static NAMESPACE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?m)^\s*(?:<\?php\s+)?namespace\s+([\w\\]+)\s*[;{]").unwrap());
+
+/// The namespace a PHP file declares, if any: the first one. In a file of several, read it from
+/// [`php_block`].
 pub fn php_namespace(text: &str) -> Option<&str> {
-    static NAMESPACE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?m)^\s*namespace\s+([\w\\]+)\s*[;{]").unwrap());
     NAMESPACE
         .captures(text)
         .and_then(|c| c.get(1))
         .map(|m| m.as_str())
+}
+
+/// The part of `text` the `namespace` holding its 0-based `line` covers, from that declaration to
+/// the next, with the `use` lines that go with it (#579): a name there resolves against that
+/// block alone. The whole text in a file of one namespace or none; the first block for a line
+/// above every declaration.
+pub fn php_block(text: &str, line: usize) -> &str {
+    let starts: Vec<usize> = NAMESPACE.find_iter(text).map(|m| m.start()).collect();
+    if starts.len() < 2 {
+        return text;
+    }
+    let at: usize = text.split_inclusive('\n').take(line).map(str::len).sum();
+    let i = starts.iter().rposition(|&s| s <= at).unwrap_or(0);
+    &text[starts[i]..starts.get(i + 1).copied().unwrap_or(text.len())]
 }
 
 // ---- Class names and composer.json's PSR-4 map (#351) ----------------------------------------
@@ -370,9 +387,10 @@ pub fn php_resolve(text: &str, written: &str) -> Option<(String, bool)> {
     })
 }
 
-/// The `autoload` and `autoload-dev` PSR-4 entries of the nearest `composer.json` above the
-/// directory `dir` of the project `root`, up to it (#351): each namespace prefix with its trailing
-/// `\` and the directories, relative to `root`, it maps to. The file is read, never run.
+/// The `autoload` and `autoload-dev` PSR-4 entries of every `composer.json` above the directory
+/// `dir` of the project `root`, up to it (#351): each namespace prefix with its trailing `\` and
+/// the directories, relative to `root`, it maps to. A package's own file of a monorepo comes
+/// first, and the root's maps what it does not (#579). The files are read, never run.
 pub fn php_psr4(root: &Path, dir: &Path) -> Vec<(String, Vec<PathBuf>)> {
     static MAP: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r#""psr-4"\s*:\s*\{([^}]*)\}"#).unwrap());
@@ -382,43 +400,35 @@ pub fn php_psr4(root: &Path, dir: &Path) -> Vec<(String, Vec<PathBuf>)> {
     static STRING: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r#""((?:[^"\\]|\\.)*)""#).unwrap());
     let unescape = |s: &str| s.replace("\\\\", "\\").replace("\\/", "/");
-    let Some((at, text)) = dir.ancestors().find_map(|d| {
-        let file = d.join("composer.json");
-        Some((
-            d.to_path_buf(),
-            std::fs::read_to_string(root.join(&file)).ok()?,
-        ))
-    }) else {
-        return Vec::new();
-    };
-    let dir_of = |d: &str| {
-        let d = unescape(d);
-        let d = d.trim_start_matches("./").trim_end_matches('/');
-        match d {
-            "" | "." => at.clone(),
-            d => at.join(d),
+    let mut map = Vec::new();
+    for at in dir.ancestors() {
+        let Ok(text) = std::fs::read_to_string(root.join(at).join("composer.json")) else {
+            continue;
+        };
+        let dir_of = |d: &str| {
+            let d = unescape(d);
+            let d = d.trim_start_matches("./").trim_end_matches('/');
+            match d {
+                "" | "." => at.to_path_buf(),
+                d => at.join(d),
+            }
+        };
+        for m in MAP.captures_iter(&text) {
+            for c in ENTRY.captures_iter(&m[1]) {
+                let dirs = match (c.get(2), c.get(3)) {
+                    (Some(one), _) => vec![dir_of(one.as_str())],
+                    (_, Some(list)) => STRING
+                        .captures_iter(list.as_str())
+                        .map(|s| dir_of(&s[1]))
+                        .collect(),
+                    _ => Vec::new(),
+                };
+                map.push((unescape(&c[1]).trim_start_matches('\\').to_owned(), dirs));
+            }
         }
-    };
-    let mut map: Vec<(String, Vec<PathBuf>)> = MAP
-        .captures_iter(&text)
-        .flat_map(|m| {
-            ENTRY
-                .captures_iter(&m[1])
-                .map(|c| {
-                    let dirs = match (c.get(2), c.get(3)) {
-                        (Some(one), _) => vec![dir_of(one.as_str())],
-                        (_, Some(list)) => STRING
-                            .captures_iter(list.as_str())
-                            .map(|s| dir_of(&s[1]))
-                            .collect(),
-                        _ => Vec::new(),
-                    };
-                    (unescape(&c[1]).trim_start_matches('\\').to_owned(), dirs)
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect();
-    // The longest prefix first, as Composer tries them.
+    }
+    // The longest prefix first, as Composer tries them; the sort is stable, so of one prefix the
+    // nearest file's comes first.
     map.sort_by_key(|(prefix, _)| std::cmp::Reverse(prefix.len()));
     map
 }

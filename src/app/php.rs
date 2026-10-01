@@ -93,7 +93,7 @@ impl App {
         if map.is_empty() {
             return None;
         }
-        let (full, used) = search::php_resolve(text, &written)?;
+        let (full, used) = search::php_resolve(search::php_block(text, self.line), &written)?;
         let (ns, short) = match full.rsplit_once('\\') {
             Some((ns, short)) => (ns, short),
             None => ("", full.as_str()),
@@ -131,7 +131,7 @@ impl App {
             literal.get(i) != Some(&true)
                 && search::php_class_header(lines[i]).is_some_and(|(_, n, _)| n == short)
         })?;
-        if search::php_namespace(&t).unwrap_or_default() != ns {
+        if search::php_namespace(search::php_block(&t, class)).unwrap_or_default() != ns {
             return None;
         }
         let reason = match used {
@@ -199,7 +199,14 @@ impl App {
                 let reason = Reason::Receiver(format!("parent of {name}"));
                 (
                     reason,
-                    self.php_walk_class(here, text, parent, &re, 1, &mut Vec::new()),
+                    self.php_walk_class(
+                        here,
+                        search::php_block(text, class),
+                        parent,
+                        &re,
+                        1,
+                        &mut Vec::new(),
+                    ),
                 )
             }
             _ => {
@@ -255,20 +262,21 @@ impl App {
             return Walk::Found(own);
         }
         // A trait outside the project that does not declare it says nothing of the parent.
+        let block = search::php_block(text, class);
         for t in search::php_class_traits(&lines, class) {
-            match self.php_walk_class(path, text, &t, re, depth + 1, seen) {
+            match self.php_walk_class(path, block, &t, re, depth + 1, seen) {
                 Walk::Nowhere(_) => {}
                 other => return other,
             }
         }
         match search::php_class_header(lines[class]).and_then(|(_, _, parent)| parent) {
-            Some(parent) => self.php_walk_class(path, text, parent, re, depth + 1, seen),
+            Some(parent) => self.php_walk_class(path, block, parent, re, depth + 1, seen),
             None => Walk::Nowhere(false),
         }
     }
 
-    /// [`Self::php_walk`] from the class `name`, as the file `from` (its `text`) writes it
-    /// ([`Self::php_class`]). A class the project does not declare is read in `vendor/`.
+    /// [`Self::php_walk`] from the class `name`, as the file `from` writes it in the namespace
+    /// block `text` ([`Self::php_class`]). A class the project does not declare is read in `vendor/`.
     fn php_walk_class(
         &mut self,
         from: &Path,
@@ -291,8 +299,9 @@ impl App {
         }
     }
 
-    /// The project's declarations of the class `name` as the file `from` (its `text`) writes
-    /// it, resolved as PHP resolves it ([`search::php_resolve`], #351), else, for a name a group
+    /// The project's declarations of the class `name` as the file `from` writes it, `text` the
+    /// namespace block it is written in ([`search::php_block`], #579), resolved as PHP resolves
+    /// it ([`search::php_resolve`], #351), else, for a name a group
     /// `use` binds, every one of that name. Each is its file, the file's text and its 0-based
     /// line; the full name comes first, when the file resolves it.
     fn php_class(
@@ -312,8 +321,8 @@ impl App {
         let cut = self.truncated.get();
         let declared = self.project_definitions(kind, from, short, &pattern);
         self.truncated.set(cut);
-        let namespaced = |t: &str| {
-            let ns = search::php_namespace(t).unwrap_or_default();
+        let namespaced = |t: &str, line: usize| {
+            let ns = search::php_namespace(search::php_block(t, line)).unwrap_or_default();
             match ns {
                 "" => short.to_owned(),
                 _ => format!("{ns}\\{short}"),
@@ -325,7 +334,9 @@ impl App {
                 let t = self.text_of(&h.path)?;
                 // A header inside a `/* */` block or a heredoc declares nothing (#361).
                 let code = search::literal_lines(kind, &t).get(h.line - 1) != Some(&true);
-                let fits = full.as_ref().is_none_or(|f| namespaced(&t) == *f);
+                let fits = full
+                    .as_ref()
+                    .is_none_or(|f| namespaced(&t, h.line - 1) == *f);
                 (code && fits).then_some((h.path, t, h.line - 1))
             })
             .collect();
@@ -403,7 +414,7 @@ impl App {
         if written.eq_ignore_ascii_case("self") {
             return self.php_self(path, text, at);
         }
-        let (_, mut matching) = self.php_class(path, text, written);
+        let (_, mut matching) = self.php_class(path, search::php_block(text, at), written);
         (matching.len() == 1).then(|| matching.remove(0))
     }
 

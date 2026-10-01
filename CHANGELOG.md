@@ -173,7 +173,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `AlbumResource::toArray()` on the `AlbumResource` of the file's own namespace, where both
   offered every declaration of the name. A class outside the map is read in `vendor/` first:
   `Arr::get()` behind `use Illuminate\Support\Arr;` lands on Laravel's `get`, not on the
-  project's own. (#351)
+  project's own. In a monorepo a package's file reads the root `composer.json`'s map too, a
+  name in a file of several `namespace` blocks resolves in its own block, and `<?php namespace
+  X;` on one line counts as the file's namespace. (#351, #579)
 - `d` in PHP proves the class of the receiver in front of `->`: `$event->podcast` in
   `handle(UserUnsubscribed $event)` lands on the `podcast` of `UserUnsubscribed`, `(via $event:
   UserUnsubscribed)`, and `$this->artistRepository->getRecentlyAdded()` on the method of
