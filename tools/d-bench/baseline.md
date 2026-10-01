@@ -1,6 +1,6 @@
 # `d` bench baseline
 
-merl at `2af1537`, 2026-10-01, release build, `vm.loadavg` { 1.89 2.46 3.21 } before the run, { 1.85 2.40 3.04 } after. php (koel) again at `3d72d68c` (#351), `vm.loadavg` { 18.71 18.96 28.80 }: its times are high by that load. swift (Alamofire) again at `1bde563f` (#375), `vm.loadavg` { 6.21 8.92 18.31 } before, { 11.91 9.53 17.86 } after: its times are high by that load. csharp (eShop) again at `b8e99295` (#349, #360). js (eslint) again at `fb3cf164` (#347), `vm.loadavg` { 8.42 7.51 11.17 }: its times are high by that load. c (redis) and cpp (leveldb) again at `4372bf0b` (#382), `vm.loadavg` { 18.14 9.24 7.07 }.
+merl at `2af1537`, 2026-10-01, release build, `vm.loadavg` { 1.89 2.46 3.21 } before the run, { 1.85 2.40 3.04 } after. php (koel) again at `3d72d68c` (#351), `vm.loadavg` { 18.71 18.96 28.80 }: its times are high by that load. swift (Alamofire) again at `1bde563f` (#375), `vm.loadavg` { 6.21 8.92 18.31 } before, { 11.91 9.53 17.86 } after: its times are high by that load. csharp (eShop) again at `b8e99295` (#349, #360). js (eslint) again at `fb3cf164` (#347), `vm.loadavg` { 8.42 7.51 11.17 }: its times are high by that load. c (redis) and cpp (leveldb) again at `0a54d385` (#382), `vm.loadavg` { 18.14 9.24 7.07 }.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
