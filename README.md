@@ -232,13 +232,13 @@ moment you open it. In Python, TypeScript and Go, `d` also follows the type of t
 | TypeScript, JavaScript, Vue, Svelte, Astro | `node_modules` |
 | Go | GOROOT and the modules in `go.mod` |
 | Rust | the sysroot and the crates in `Cargo.lock` |
-| C, C++ | the system headers |
+| C, C++, Objective-C | the system headers, and from Objective-C the SDK's frameworks and CocoaPods' `Pods/` |
 | Swift | `.build/checkouts` |
 | PHP | Composer's `vendor/` |
 | Zig | the standard library |
 | Protocol Buffers | the well-known types `protoc` installs |
 | PowerShell | the module directories of `PSModulePath` |
-| Java, Kotlin, Ruby, C#, Lua, Elixir | |
+| Java, Kotlin, Scala, Ruby, C#, Lua, Elixir | |
 | Shell, SQL, Makefile, Terraform, Dockerfile, YAML, GraphQL | |
 | Markdown | the file or the heading a link names, and a file a code span names |
 

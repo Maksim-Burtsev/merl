@@ -421,6 +421,8 @@ fn known_file(name: &str) -> Option<&'static str> {
         // bat's set has no Astro grammar: TSX paints its frontmatter and its JSX-like template,
         // leaving the bodies of `<style>` and `<script>` plain (#413).
         (_, "astro") => "TypeScriptReact",
+        // bat's Scala grammar owns `.scala`, `.sbt` and `.sc`, not Mill's build files (#416).
+        (_, "mill") => "Scala",
         _ => return None,
     })
 }
@@ -622,6 +624,9 @@ mod tests {
             ("ledger.hxx", "C++"),
             // Mapped by name above: bat's set gives `.h` to Objective-C.
             ("invoice.h", "C++"),
+            // bat's own grammars (#417).
+            ("Invoice.m", "Objective-C"),
+            ("Invoice.mm", "Objective-C++"),
         ] {
             for name in crate::theme::names() {
                 let theme = crate::theme::load(name).unwrap();
@@ -867,8 +872,8 @@ mod tests {
     }
 
     #[test]
-    fn java_and_kotlin_highlight_with_every_shipped_theme() {
-        // bat's set owns all three by name; none needs a mapping.
+    fn java_kotlin_and_scala_highlight_with_every_shipped_theme() {
+        // bat's set owns all but `.mill` by name; that one is mapped (#416).
         for (file, lang, src) in [
             (
                 "Invoice.java",
@@ -884,6 +889,18 @@ mod tests {
                 "build.gradle.kts",
                 "Kotlin",
                 "// doc\nplugins { kotlin(\"jvm\") version \"2.0.0\" }\n",
+            ),
+            (
+                "Ledger.scala",
+                "Scala",
+                "// doc\nobject Ledger:\n  def total(xs: List[Long]): Long = xs.sum\n",
+            ),
+            ("build.sbt", "Scala", "// doc\nlazy val core = project\n"),
+            ("run.sc", "Scala", "// doc\nval limit = 10\n"),
+            (
+                "build.mill",
+                "Scala",
+                "// doc\nobject core extends ScalaModule\n",
             ),
         ] {
             for name in crate::theme::names() {

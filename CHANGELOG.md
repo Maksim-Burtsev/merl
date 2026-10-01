@@ -17,6 +17,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   script's `const label`, an `item` of `v-for` or `{#each}` on that line (`item: local`), and a
   `<user-card>` tag no import binds on `UserCard.vue`. The template and the `<style>` block
   declare nothing, and `D` lists the script only. `.astro` is highlighted as TSX. (#413)
+- `d`, `u` and `D` in Scala. `.scala`, `.sc`, `.sbt` and `.mill` files are one kind with Java and
+  Kotlin, so `d` on `Ledger.total(xs)` in a `.java` file lands on the `def total` of `object
+  Ledger` in a `.scala` one, where it said `no definition for total`, and `d` in a `.scala` file
+  works where it said `no rules for .scala`. It finds `class`, `case class`, `trait`, `object`,
+  `enum` and its cases, `def`, `val`, `var`, `type`, a named `given` and a case class's fields,
+  behind Scala's modifiers; a match case and Java's `case RED:` declare nothing. `D` lists
+  Scala's types, `given`s and `def`s. A declaration-shaped line in a Java text block or a Kotlin
+  raw string no longer turns a jump into an offer, and in Kotlin a member of a named `object`
+  is that object's: `this.heat` inside a nested `object Kiln` lands on `Kiln.heat`, where it
+  jumped to the outer class's `heat`. (#416)
+- `d` and `D` in Objective-C. A `.m` or `.mm` file joins C and C++, where it said `no rules for
+  .m`, and a header reads `@interface`, `@protocol`, methods by any part of their selector,
+  `@property` and `NS_ENUM`: `d` on `findUserWithID` in `[repo findUserWithID:@"42"]` offers the
+  header's declaration beside the `.m` file's definition, `self.repository.baseURL` lands on the
+  `@property`, and `NSString` on Foundation's `@interface NSString`, read-only, from the SDK's
+  frameworks. `D` lists classes, protocols and methods. A C or C++ file reads no framework.
+  (#417)
 - `d`, `u` and `D` in PowerShell (`.ps1`, `.psm1`, `.psd1`), where `d` said `no rules for
   .ps1`. `d` on `get-shopuser` lands on `function Get-ShopUser`, as names ignore case; on `$Id`
   under a `param(` block it says `Id: local`; on `$script:BaseUri` it finds the assignment; on
