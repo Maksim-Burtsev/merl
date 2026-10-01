@@ -89,6 +89,22 @@ impl App {
             .is_some_and(|text| search::literal_lines(kind, &text).get(hit.line - 1) != Some(&true))
     }
 
+    /// Whether `hit`, in a comment, is a tag that declares: of a PHP class's docblock (#344), or a
+    /// `@property` of a JavaScript `@typedef {Object}` (#347).
+    pub(super) fn doc_tag(&self, kind: Kind, hit: &Hit) -> bool {
+        let Some(text) = self.text_of(&hit.path) else {
+            return false;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        match kind {
+            Kind::Php => search::php_tag_class(&lines, hit.line - 1).is_some(),
+            Kind::TsJs => {
+                search::jsdoc_file(&hit.path) && search::jsdoc_owner(&lines, hit.line - 1).is_some()
+            }
+            _ => false,
+        }
+    }
+
     /// The declarations of `name` that `file` sees without an import: at the top level, or
     /// `within` the namespaces a TypeScript path spells (`Outer.Inner`).
     pub(super) fn package_declarations(
@@ -250,7 +266,11 @@ impl App {
             return hits;
         };
         // A field is no declaration [`search::declares_where`] reads: a Go field is indented.
-        let raw = self.project_grep(kind, here, &fields.join("|"));
+        let mut raw = self.project_grep(kind, here, &fields.join("|"));
+        // A JSDoc `@property` declares a field in a JavaScript file only (#347).
+        raw.retain(|h| {
+            kind != Kind::TsJs || search::jsdoc_file(&h.path) || !h.text.contains("@prop")
+        });
         let mut by_file: Vec<(PathBuf, Vec<usize>)> = Vec::new();
         for h in raw {
             match by_file.last_mut() {

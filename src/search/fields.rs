@@ -34,12 +34,19 @@ pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<u
 ///   `@functools.cached_property`, read as its `-> T` (a setter declares nothing);
 /// - TypeScript: a member `name: T` or `name = …` behind any modifiers, a constructor parameter
 ///   with one (`private name: T`), `this.name = …`, a getter `get name(): T`;
-/// - Go: a struct field `name T` or `a, name T`, and an embedded `*Name` under its type's name.
+/// - Go: a struct field `name T` or `a, name T`, and an embedded `*Name` under its type's name;
+/// - JavaScript: a `@property {T} name` of a `@typedef {Object}` declared on `decl` (#347).
 pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = decl.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
     };
+    // A JavaScript `@typedef {Object}` declares its fields on its `@property` lines (#347).
+    if kind == Kind::TsJs
+        && let Some(fields) = jsdoc_properties(&lines, k, name)
+    {
+        return fields;
+    }
     let go_field = |t: &str| go_field(t, name);
     // A Go struct whose body closes on its own line: `type Item struct{ Name string }` (#327).
     if kind == Kind::Go
@@ -278,7 +285,11 @@ pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str) -> Vec<usi
         let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
             continue;
         };
-        let Some(decl) = enclosing_type(kind, &lines, k) else {
+        let owner = (kind == Kind::TsJs)
+            .then(|| jsdoc_owner(&lines, k))
+            .flatten()
+            .map(|i| i + 1);
+        let Some(decl) = owner.or_else(|| enclosing_type(kind, &lines, k)) else {
             continue;
         };
         let bindings = types

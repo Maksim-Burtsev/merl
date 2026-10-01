@@ -1,0 +1,57 @@
+wait total → Receipt.total (via receipt: Receipt)
+ 1 /**
+ 2  * @typedef {Object} Receipt
+ 3  * @property {string} total What the customer paid
+ 4  * @property {number} lines How many lines it has
+ 5  */
+ 6
+ 7 /** @type {Receipt} */
+ 8 const receipt = JSON.parse(localStorage.getItem("receipt"));
+ 9
+10 export const paid = receipt.total;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+web/src/orders/receipt.js  3:23  [code]  total → Receipt.total (via receipt: Receipt)
+cursor (x,y,shown) 25,2,1
