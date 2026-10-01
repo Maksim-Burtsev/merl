@@ -418,6 +418,8 @@ fn known_file(name: &str) -> Option<&'static str> {
         ("WORKSPACE" | "Tiltfile", _) => "Python",
         // bat's set owns `.md` and `.markdown`; MDX is Markdown with JSX in it (#421).
         (_, "mdx") => "Markdown",
+        // bat's Scala grammar owns `.scala`, `.sbt` and `.sc`, not Mill's build files (#416).
+        (_, "mill") => "Scala",
         _ => return None,
     })
 }
@@ -828,8 +830,8 @@ mod tests {
     }
 
     #[test]
-    fn java_and_kotlin_highlight_with_every_shipped_theme() {
-        // bat's set owns all three by name; none needs a mapping.
+    fn java_kotlin_and_scala_highlight_with_every_shipped_theme() {
+        // bat's set owns all but `.mill` by name; that one is mapped (#416).
         for (file, lang, src) in [
             (
                 "Invoice.java",
@@ -845,6 +847,18 @@ mod tests {
                 "build.gradle.kts",
                 "Kotlin",
                 "// doc\nplugins { kotlin(\"jvm\") version \"2.0.0\" }\n",
+            ),
+            (
+                "Ledger.scala",
+                "Scala",
+                "// doc\nobject Ledger:\n  def total(xs: List[Long]): Long = xs.sum\n",
+            ),
+            ("build.sbt", "Scala", "// doc\nlazy val core = project\n"),
+            ("run.sc", "Scala", "// doc\nval limit = 10\n"),
+            (
+                "build.mill",
+                "Scala",
+                "// doc\nobject core extends ScalaModule\n",
             ),
         ] {
             for name in crate::theme::names() {

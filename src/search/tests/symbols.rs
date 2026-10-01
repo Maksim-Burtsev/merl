@@ -201,6 +201,53 @@ fn jvm_symbol_names() {
     }
 }
 
+/// #416. Scala's declarations beside Java's and Kotlin's, each listed once, `def` from a row of
+/// its own; a field, a `val`, an enum case and an anonymous `given` are no symbols.
+#[test]
+fn scala_symbol_names() {
+    let scala = |line| one(Kind::Jvm, line);
+    for (line, name) in [
+        ("object Ledger:", Some("Ledger")),
+        ("case class User(name: String, age: Int)", Some("User")),
+        ("final case class Invoice(id: Long)", Some("Invoice")),
+        ("case object Empty", Some("Empty")),
+        ("sealed abstract class Shape", Some("Shape")),
+        ("implicit class RichInt(x: Int) {", Some("RichInt")),
+        ("trait Repo[F[_]]:", Some("Repo")),
+        ("sealed trait Animal", Some("Animal")),
+        ("package object shop {", Some("shop")),
+        ("private[shop] class Hidden", Some("Hidden")),
+        ("enum Color:", Some("Color")),
+        ("  type Id = Long", Some("Id")),
+        ("opaque type UserId = Long", Some("UserId")),
+        ("  type T <: Animal", Some("T")),
+        (
+            "given userOrdering: Ordering[User] = Ordering.by(_.name)",
+            Some("userOrdering"),
+        ),
+        ("given userShow: Show[User] with", Some("userShow")),
+        ("  def total(xs: List[Int]): Int =", Some("total")),
+        ("  override def toString = \"x\"", Some("toString")),
+        ("  private[shop] def load(): Unit", Some("load")),
+        ("  inline def debug(msg: String): Unit = ()", Some("debug")),
+        ("  def `type`: Int = 1", Some("type")),
+        (
+            "extension (s: String) def slug: String = s.toLowerCase",
+            Some("slug"),
+        ),
+        ("given Ordering[User] = Ordering.by(_.name)", None),
+        ("  val limit = 10", None),
+        ("  lazy val core = project", None),
+        ("  case Red, Green, Blue", None),
+        ("  case Circle(r: Double)", None),
+        ("  def +(other: Money): Money = this", None),
+        ("    Ledger.total(xs)", None),
+        ("import shop.{Invoice, Order => O}", None),
+    ] {
+        assert_eq!(scala(line).as_deref(), name, "{line}");
+    }
+}
+
 #[test]
 fn ruby_symbol_names() {
     let rb = |line| one(Kind::Ruby, line);

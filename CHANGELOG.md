@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `d`, `u` and `D` in Scala. `.scala`, `.sc`, `.sbt` and `.mill` files are one kind with Java and
+  Kotlin, so `d` on `Ledger.total(xs)` in a `.java` file lands on the `def total` of `object
+  Ledger` in a `.scala` one, where it said `no definition for total`, and `d` in a `.scala` file
+  works where it said `no rules for .scala`. It finds `class`, `case class`, `trait`, `object`,
+  `enum` and its cases, `def`, `val`, `var`, `type`, a named `given` and a case class's fields,
+  behind Scala's modifiers; a match case and Java's `case RED:` declare nothing. `D` lists
+  Scala's types, `given`s and `def`s. A declaration-shaped line in a Java text block or a Kotlin
+  raw string no longer turns a jump into an offer. (#416)
 - `d` in Ruby looks outside the project: in the gems `Gemfile.lock` names, at their locked
   versions, in the standard library, and in the core's RBS signatures. `throttle` in a
   `Rack::Attack` initializer lands on rack-attack's `def throttle`, read-only, where it said `no

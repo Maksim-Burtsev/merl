@@ -40,6 +40,32 @@ macro_rules! jvm_mods {
     };
 }
 pub(super) use jvm_mods;
+/// [`jvm_mods`] and Scala's own modifiers (#416): `implicit`, `lazy`, `case`, `transparent`,
+/// `opaque`, and an access qualified by a scope, `private[shop]`, `protected[this]`. None of them
+/// stands before a Java or a Kotlin declaration, so a rule that reads them finds nothing new
+/// there.
+macro_rules! scala_mods {
+    () => {
+        concat!(
+            r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*",
+            r"(?:(?:public|protected|private|internal|static|final|abstract|sealed|non-sealed",
+            r"|strictfp|synchronized|native|default|transient|volatile|open|data|value|inner",
+            r"|annotation|companion|enum|const|lateinit|expect|actual|suspend|override|inline",
+            r"|operator|infix|tailrec|external|reified|implicit|lazy|case|transparent|opaque",
+            r"|(?:private|protected)\[\w+\])\s+)*"
+        )
+    };
+}
+pub(super) use scala_mods;
+/// What a named Scala `given` writes after its name (#416): type parameters, `using` clauses,
+/// then the `:` of its type. An anonymous one, `given Ordering[User] = …`, writes its type where
+/// the name would stand, with no `:` after it, and declares no name.
+macro_rules! scala_given_tail {
+    () => {
+        r"\s*(?:\[[^\]]*\]\s*)?(?:\([^)]*\)\s*)*:"
+    };
+}
+pub(super) use scala_given_tail;
 
 /// A Java return type: a primitive, or a name with a capital in it. Java names its types that
 /// way, and requiring one keeps `return parse(x);` from reading as a declaration. The generics
@@ -57,12 +83,28 @@ pub(super) use jvm_return_type;
 /// `fun interface` stands before `fun`, so a Kotlin functional interface is listed under its own
 /// name; `companion object` has no name and falls out on the `\s+` before it. A `val` counts
 /// behind `const` only: the rest are fields and locals, which no kind lists.
+/// Scala's declarations share the row (#416): its modifiers, `trait`, `type` and `package
+/// object`; a Scala-only word never stands on a Java or a Kotlin line.
 const JVM_DECL_SYMBOL: &str = concat!(
-    jvm_mods!(),
-    r"(?:class|interface|enum|record|typealias|@interface|object",
+    scala_mods!(),
+    r"(?:class|interface|enum|record|typealias|@interface|object|trait|type|package\s+object",
     r"|fun\s+interface|fun|const\s+(?:val|var))\s+(?:<[^>]*>\s*)?",
     r"(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?",
-    r"(?P<name>[A-Za-z_]\w*)"
+    r"`?(?P<name>[A-Za-z_]\w*)"
+);
+/// A Scala `given` with a name (#416), beside the declarations of [`JVM_DECL_SYMBOL`]; an
+/// anonymous one names its type, which it does not declare.
+const SCALA_GIVEN_SYMBOL: &str = concat!(
+    scala_mods!(),
+    r"given\s+`?(?P<name>[A-Za-z_]\w*)`?",
+    scala_given_tail!()
+);
+/// Scala's methods, a row of their own (#416): a project holds far more of them than types, and
+/// the cap of `D` is counted per row. A Scala 3 extension's `def` stands on the `extension` line.
+const SCALA_DEF_SYMBOL: &str = concat!(
+    "(?:",
+    scala_mods!(),
+    r"|^\s*extension\b.*?\b)def\s+`?(?P<name>[A-Za-z_]\w*)"
 );
 /// The other Java half: a method, told from a call by the return type before its name. Kotlin
 /// writes its types after the name, so nothing of Kotlin's lands here twice. A field is left out,
@@ -361,10 +403,12 @@ pub const SYMBOLS: &[(Option<Kind>, &str)] = &[
     // Every `CREATE` object, with the name as written, schema and quotes included. CTEs are a
     // query's own scaffolding, not a symbol of the project, so they are left out.
     (Some(Kind::Sql), SQL_CREATE_SYMBOL),
-    // Java and Kotlin are listed from their own rows only: their modifiers, annotations and
-    // receivers are not the shared pattern's business, and a method carries no keyword at all.
+    // Java, Kotlin and Scala are listed from their own rows only: their modifiers, annotations
+    // and receivers are not the shared pattern's business, and a Java method carries no keyword.
     (Some(Kind::Jvm), JVM_DECL_SYMBOL),
     (Some(Kind::Jvm), JAVA_METHOD_SYMBOL),
+    (Some(Kind::Jvm), SCALA_GIVEN_SYMBOL),
+    (Some(Kind::Jvm), SCALA_DEF_SYMBOL),
     // Ruby likewise: `def self.parse` is `parse`, which the shared pattern would call `self`.
     (Some(Kind::Ruby), RUBY_SYMBOL),
     // C and C++ likewise: a function carries no keyword at all, and `struct dict *d;` is a use of

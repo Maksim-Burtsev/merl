@@ -6,12 +6,13 @@ use super::*;
 
 /// Whether `line` opens a type's body: a class, an interface, an enum, a record, an annotation
 /// type, a named `object` or a `companion object`, a Kotlin primary constructor `class X(`
-/// included. An anonymous `object :` or `new X() {` is no type here: what it holds is local.
+/// included, and Scala's `trait`, `case class` and `package object` (#416). An anonymous
+/// `object :` or `new X() {` is no type here: what it holds is local.
 fn opens_type(line: &str) -> bool {
     static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
-            jvm_mods!(),
-            r"(?:(?:fun\s+)?interface|class|enum|record|@interface|object\s+[A-Za-z_]|companion\s+object)\b"
+            scala_mods!(),
+            r"(?:(?:fun\s+)?interface|class|enum|record|@interface|trait|(?:package\s+)?object\s+[A-Za-z_]\w*|companion\s+object)\b"
         ))
         .unwrap()
     });
@@ -64,19 +65,24 @@ pub fn jvm_private(line: &str) -> bool {
 
 /// The receiver type a Kotlin extension on `line` declares `name` for, as written but for its
 /// type arguments and a `?`: `Topic` for `fun Topic.asExternalModel()` and `val Topic.testTag`,
-/// `List` for `fun <T> List<T>.second()` (#362). `None` for any other line.
+/// `List` for `fun <T> List<T>.second()` (#362), and the type of a Scala 3 extension's parameter
+/// for the method written on its line: `String` for `extension (s: String) def slug` (#416).
+/// `None` for any other line.
 pub fn jvm_receiver(line: &str, name: &str) -> Option<String> {
     static EXTENSION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
             jvm_mods!(),
-            r"(?:fun|val|var)\s+(?:<[^>]*>\s*)?([\w.]+)(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.([A-Za-z_]\w*)"
+            r"(?:fun|val|var)\s+(?:<[^>]*>\s*)?([\w.]+)(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.([A-Za-z_]\w*)",
+            r"|^\s*extension\s*(?:\[[^\]]*\]\s*)?\(\s*\w+\s*:\s*([\w.]+)[^)]*\).*?\bdef\s+`?([A-Za-z_]\w*)"
         ))
         .unwrap()
     });
-    EXTENSION
-        .captures(line)
-        .filter(|c| &c[2] == name)
-        .map(|c| c[1].to_owned())
+    let c = EXTENSION.captures(line)?;
+    let (receiver, declared) = match c.get(1) {
+        Some(r) => (r, &c[2]),
+        None => (c.get(3)?, &c[4]),
+    };
+    (declared == name).then(|| receiver.as_str().to_owned())
 }
 
 /// The name `this` stands for at 1-based `line` of `text`, as [`qualified`] names a class:
@@ -97,6 +103,64 @@ pub fn jvm_this_owner(text: &str, line: usize) -> Option<String> {
     }
 }
 
+/// Scala's rules of the Jvm kind (#416), behind its modifiers ([`scala_mods`]) and with the name
+/// in backticks where a keyword has to be. Each needs a word Java and Kotlin never write at the
+/// front of a declaration (`def`, `trait`, `type`, `given`, a Scala-only modifier, `case`), or
+/// reads a form whose Kotlin spelling the rules before already find, so a `.java` or a `.kt`
+/// line answers as before. Operators (`def +(…)`) have no rule, and a reserved word is a name
+/// only in backticks: `enum class` declares no `class`.
+pub(super) fn scala_patterns(word: &str) -> Vec<String> {
+    const RESERVED: &[&str] = &[
+        "class",
+        "object",
+        "trait",
+        "type",
+        "def",
+        "val",
+        "var",
+        "given",
+        "case",
+        "enum",
+        "extends",
+        "with",
+        "new",
+        "import",
+        "package",
+        "extension",
+        "this",
+        "super",
+    ];
+    let w = regex::escape(word);
+    let n = match RESERVED.contains(&word) {
+        true => format!("`{w}`"),
+        false => format!("`?{w}`?"),
+    };
+    let mods = scala_mods!();
+    // A name of the case list or the class header that is not the word, parameters and all.
+    let other = r"`?\w+`?(?:\([^)]*\))?";
+    let ann = r"(?:@[\w.]+(?:\([^)]*\))?\s+)*";
+    vec![
+        format!(r"{mods}(?:class|trait|object|enum|type|package\s+object)\s+{n}(?:[^\w`]|$)"),
+        // A method, and a Scala 3 extension's method written on the `extension` line.
+        format!(r"(?:{mods}|^\s*extension\b.*?\b)def\s+{n}(?:[^\w`]|$)"),
+        format!(r"{mods}(?:val|var)\s+{n}(?:[^\w.`]|$)"),
+        format!(r"{mods}given\s+{n}{}", scala_given_tail!()),
+        // An enum's case, alone or in a list, with its parameters or the parent it extends. What
+        // follows the names is nothing, so a match case (`case Red | Green =>`) and Java's
+        // `case RED:`, `case RED, GREEN:` and `case RED ->` are no declarations.
+        format!(
+            r"^\s*{ann}case\s+(?:{other}\s*,\s*)*{n}(?:\([^)]*\))?(?:\s*,\s*{other})*(?:\s+extends\s+[\w.\[\]]+(?:\([^)]*\))?)?\s*(?://.*)?$"
+        ),
+        // A field on its class's line: a `val` or a `var` among the parameters, and every
+        // parameter of a `case class`. One on a line of its own is a method's parameter's shape.
+        format!(
+            r"{mods}class\s+`?\w+`?[^(]*\((?:.*[(,])?\s*{ann}(?:(?:private|protected|override|final|implicit)(?:\[\w+\])?\s+)*(?:val|var)\s+{n}\s*:"
+        ),
+        format!(
+            r"^\s*{ann}(?:(?:final|sealed|private|protected)(?:\[\w+\])?\s+)*case\s+class\s+`?\w+`?[^(]*\((?:.*[(,])?\s*{ann}(?:(?:private|protected|override|final|implicit)(?:\[\w+\])?\s+)*(?:(?:val|var)\s+)?{n}\s*:"
+        ),
+    ]
+}
 // ---- the scope walk of `d` (#376) ------------------------------------------------------------
 
 /// The names one parameter or one lambda parameter of a Java or Kotlin list binds: `x` for
@@ -166,7 +230,7 @@ fn ident(s: &str) -> bool {
 }
 
 /// The byte of line `at` where the parameter list of a function or a constructor declared there
-/// opens: Kotlin's `fun` (past an extension's receiver) and `constructor`, a Java method (told by
+/// opens: Kotlin's `fun` (past an extension's receiver) and `constructor`, Scala's `def`, a Java method (told by
 /// the return type before its name) and a Java constructor. `None` for any other line, a
 /// Kotlin class's primary constructor included: what it takes is a property or an argument of
 /// its initializers, not a parameter of a body.
@@ -174,7 +238,9 @@ fn params_open(line: &str) -> Option<usize> {
     static FUN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
             r"\bfun\s+(?:<[^>]*>\s*)?(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?[A-Za-z_]\w*\s*\(",
-            r"|\bconstructor\s*\("
+            r"|\bconstructor\s*\(",
+            // Scala's method, past its type parameters (#416).
+            r"|\bdef\s+`?[A-Za-z_]\w*`?\s*(?:\[[^\]]*\]\s*)?\("
         ))
         .unwrap()
     });
@@ -341,7 +407,7 @@ fn anonymous(line: &str) -> bool {
 /// `companion object` with no name.
 pub fn jvm_type_name(line: &str) -> Option<String> {
     static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\b(?:class|interface|enum|record|object)\s+([A-Za-z_]\w*)").unwrap()
+        Regex::new(r"\b(?:class|interface|enum|record|object|trait)\s+([A-Za-z_]\w*)").unwrap()
     });
     (opens_type(line) && !anonymous(line))
         .then(|| NAME.captures(line).map(|c| c[1].to_owned()))
@@ -501,9 +567,11 @@ pub fn jvm_imports(text: &str) -> Vec<(String, Vec<String>)> {
 }
 
 /// The package the `package` line of Java or Kotlin `text` declares (#372); `None` without one.
+/// Scala's `package object shop` declares an object, no package (#416).
 pub fn jvm_package(text: &str) -> Option<String> {
-    static PACKAGE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"(?m)^[ \t]*package\s+([\w.]*\w)").unwrap());
+    static PACKAGE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?m)^[ \t]*package\s+([\w.]*\w)[ \t\r]*(?:$|[;{/])").unwrap()
+    });
     PACKAGE.captures(text).map(|c| c[1].to_owned())
 }
 

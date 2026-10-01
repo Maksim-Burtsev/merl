@@ -48,9 +48,10 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "go") => Kind::Go,
         (_, "rs") => Kind::Rust,
         (_, "ts" | "tsx" | "mts" | "cts" | "js" | "jsx" | "mjs" | "cjs") => Kind::TsJs,
-        // Java and Kotlin are one kind: they call each other inside the same project, so `d` in
-        // a `.kt` file has to find the `.java` class it uses, as `.tsx` finds `.ts`.
-        (_, "java" | "kt" | "kts") => Kind::Jvm,
+        // Java, Kotlin and Scala are one kind: they call each other inside the same project, so
+        // `d` in a `.kt` file has to find the `.java` class it uses, as `.tsx` finds `.ts`. A
+        // `.sc` is a Scala script, a `.sbt` and a `.mill` the build Scala's tools read (#416).
+        (_, "java" | "kt" | "kts" | "scala" | "sc" | "sbt" | "mill") => Kind::Jvm,
         (_, "rb" | "rake" | "gemspec" | "podspec" | "rbi" | "ru") => Kind::Ruby,
         // C and C++ are one kind: a header declares what a `.c` or a `.cc` defines, and either
         // language reads the other's headers, so they have to search each other.

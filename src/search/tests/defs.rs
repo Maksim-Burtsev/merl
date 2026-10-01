@@ -474,6 +474,80 @@ fn java_and_kotlin_find_each_other() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// #416. Scala's declarations behind its modifiers, and the lines that only use a name: a
+/// construction, a call, an import, a type, a pattern, Java's `switch` labels, an anonymous
+/// `given`, a method's parameter and a case class's on a line of its own.
+#[test]
+fn scala_declares_and_refuses() {
+    let declares = |word: &str, line: &str| {
+        Regex::new(&def_patterns(Kind::Jvm, word).join("|"))
+            .unwrap()
+            .is_match(line)
+    };
+    for (word, line) in [
+        ("Invoice", "class Invoice(val id: Long) {"),
+        ("User", "case class User(name: String)"),
+        ("Shape", "sealed abstract class Shape"),
+        ("RichInt", "implicit class RichInt(x: Int)"),
+        ("Repo", "trait Repo[F[_]]:"),
+        ("Ledger", "object Ledger:"),
+        ("Empty", "case object Empty"),
+        ("shop", "package object shop {"),
+        ("Color", "enum Color:"),
+        ("total", "  def total(xs: List[Int]): Int ="),
+        ("toString", "  override def toString = s\"x\""),
+        ("load", "  private[shop] def load()"),
+        ("load", "  protected[this] def load()"),
+        ("debug", "  inline def debug(msg: String): Unit = ()"),
+        ("slug", "extension (s: String) def slug: String ="),
+        ("limit", "  val limit = 10"),
+        ("count", "  var count = 0"),
+        ("core", "lazy val core = project"),
+        ("ec", "  implicit val ec: ExecutionContext = global"),
+        ("Id", "  type Id = Long"),
+        ("UserId", "opaque type UserId = Long"),
+        ("T", "  type T <: Animal"),
+        (
+            "userOrdering",
+            "given userOrdering: Ordering[User] = Ordering.by(_.name)",
+        ),
+        ("userOrdering", "given userOrdering: Ordering[User] with"),
+        ("Green", "  case Red, Green, Blue"),
+        ("Circle", "  case Circle(r: Double)"),
+        ("Mercury", "  case Mercury extends Planet(3.3e23)"),
+        ("id", "class Invoice(val id: Long, var paid: Boolean)"),
+        ("paid", "class Invoice(val id: Long, var paid: Boolean)"),
+        ("age", "case class User(name: String, age: Int)"),
+        ("type", "  val `type` = 1"),
+    ] {
+        assert!(declares(word, line), "{word} is declared by {line}");
+    }
+    for (word, line) in [
+        ("Invoice", "  val x = new Invoice(1)"),
+        ("Invoice", "  val x = Invoice(1)"),
+        ("total", "  Ledger.total(xs)"),
+        ("Invoice", "import shop.{Invoice, Order => O}"),
+        ("Invoice", "  def f(x: Invoice): Unit"),
+        ("Invoice", "class Paid extends Invoice(1)"),
+        ("Logging", "class Paid extends Base with Logging"),
+        ("total", "  export Ledger.total"),
+        ("Invoice", "    case Invoice(id, _) =>"),
+        ("Red", "    case Red | Green =>"),
+        ("a", "  val (a, b) = pair"),
+        ("RED", "            case RED:"),
+        ("GREEN", "            case RED, GREEN:"),
+        ("RED", "            case RED -> 1;"),
+        ("RED", "            case RED: return 1;"),
+        ("Ordering", "given Ordering[User] = Ordering.by(_.name)"),
+        ("xs", "  def total(xs: List[Int]): Int ="),
+        ("name", "  name: String,"),
+        ("name", "class Invoice(name: String)"),
+        ("plus", "  def +(other: Money): Money = this"),
+    ] {
+        assert!(!declares(word, line), "{word} is not declared by {line}");
+    }
+}
+
 const RB: &str = r#"module Billing
   LIMIT = 10
 
