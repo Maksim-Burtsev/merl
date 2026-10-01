@@ -96,4 +96,12 @@ class DeletePodcast
     {
         return new ScanInformation();
     }
+
+    public function ship(): bool
+    {
+        return Courier::depot();
+        //     ^ d: src/Radio/Courier.php:5
+        //              ^ d: src/Radio/Courier.php:7
+        //               status: via Courier
+    }
 }

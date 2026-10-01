@@ -3,6 +3,7 @@
 //! (#356).
 
 use std::ops::Range;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use regex::Regex;
@@ -251,6 +252,201 @@ pub fn php_namespace(text: &str) -> Option<&str> {
         .captures(text)
         .and_then(|c| c.get(1))
         .map(|m| m.as_str())
+}
+
+// ---- Class names and composer.json's PSR-4 map (#351) ----------------------------------------
+
+/// The class name the word at `range` of `line` belongs to, as written (`\A\B`, `B`), and
+/// whether the word is a member of it, `B::word`, rather than the name itself (#351). Only where
+/// PHP reads a class name: before `::`, after `new`, `extends`, `implements`, `instanceof`,
+/// `insteadof` and `catch (`, a type in front of a `$parameter`, a return type, and the last part
+/// of a column-0 `use` line. A function or a constant falls back to the global namespace, so no
+/// other position is read as a class.
+pub fn php_class_at(line: &str, range: Range<usize>) -> Option<(String, bool)> {
+    static AFTER: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:\b(?:new|extends|implements|instanceof|insteadof)|\bcatch\s*\(|\)\s*:\s*\??|\bimplements\s.*,)\s*$").unwrap()
+    });
+    static TYPED: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*(?:&|\.\.\.)?\s*\$\w").unwrap());
+    let name_back = |s: &str| {
+        let n = s.trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '\\');
+        (n.len(), s[n.len()..].to_owned())
+    };
+    let (before, word, after) = (
+        &line[..range.start],
+        &line[range.clone()],
+        &line[range.end..],
+    );
+    let is_class = |at: usize, written: &str| {
+        !written.trim_start_matches('\\').is_empty()
+            && !written.starts_with(|c: char| c.is_ascii_digit())
+            && !matches!(written, "self" | "static" | "parent")
+            && !line[..at].ends_with(['$', '>'])
+            && !line[..at].ends_with("::")
+    };
+    if let Some(b) = before
+        .strip_suffix("::$")
+        .or_else(|| before.strip_suffix("::"))
+    {
+        let (at, written) = name_back(b);
+        return (word != "class" && is_class(at, &written)).then_some((written, true));
+    }
+    if after.starts_with(|c: char| c == '\\' || c.is_ascii_alphanumeric() || c == '_') {
+        return None;
+    }
+    let (at, head) = name_back(before);
+    let written = format!("{head}{word}");
+    let pre = line[..at].trim_end();
+    let used = line.starts_with("use ")
+        && !line.contains('{')
+        && !["use function ", "use const "]
+            .iter()
+            .any(|u| line.starts_with(u));
+    let typed = TYPED.is_match(after)
+        && (pre.is_empty()
+            || pre.ends_with(['(', ',', '?', '|'])
+            || ["public", "protected", "private", "readonly"]
+                .iter()
+                .any(|m| pre.ends_with(m)));
+    (is_class(at, &written)
+        && (used || after.trim_start().starts_with("::") || AFTER.is_match(pre) || typed))
+        .then(|| match used && !written.starts_with('\\') {
+            true => format!("\\{written}"),
+            false => written,
+        })
+        .map(|w| (w, false))
+}
+
+/// The fully qualified name, with no leading `\`, of the class `written` names in the file
+/// `text`, as PHP resolves it, and whether a `use` bound it (#351): a leading `\` spells it in
+/// full, else the file's column-0 `use` that binds its first part (`use A\B\C;`, `use A\B\C as
+/// D;`; `use function` and `use const` bind no class), else the file's
+/// namespace in front of it. `None` for a name a group `use` binds: one clause binds several
+/// names there, and the rules do not read it.
+pub fn php_resolve(text: &str, written: &str) -> Option<(String, bool)> {
+    static USE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?m)^use\s+([\w\\\s,]+?)\s*;").unwrap());
+    static GROUP: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?m)^use\s+[^;{]*\{([^}]*)\}").unwrap());
+    if let Some(full) = written.strip_prefix('\\') {
+        return Some((full.to_owned(), false));
+    }
+    let (first, rest) = match written.split_once('\\') {
+        Some((first, rest)) => (first, Some(rest)),
+        None => (written, None),
+    };
+    let used = USE
+        .captures_iter(text)
+        .flat_map(|c| {
+            c[1].split(',')
+                .map(|item| item.trim().to_owned())
+                .collect::<Vec<_>>()
+        })
+        .filter(|item| !item.starts_with("function ") && !item.starts_with("const "))
+        .find_map(|item| {
+            let (path, alias) = match item.split_once(" as ") {
+                Some((path, alias)) => (path.trim().to_owned(), alias.trim().to_owned()),
+                None => (item.clone(), item.rsplit('\\').next()?.to_owned()),
+            };
+            (alias == first).then(|| path.trim_start_matches('\\').to_owned())
+        });
+    let grouped = || {
+        GROUP.captures_iter(text).any(|c| {
+            c[1].split(',').any(|item| {
+                let item = item.trim();
+                let alias = item.split_once(" as ").map_or(item, |(_, a)| a.trim());
+                alias.rsplit('\\').next() == Some(first)
+            })
+        })
+    };
+    let tail = rest.map_or(String::new(), |r| format!("\\{r}"));
+    Some(match used {
+        Some(path) => (format!("{path}{tail}"), true),
+        None if grouped() => return None,
+        None => match php_namespace(text) {
+            Some(ns) => (format!("{ns}\\{written}"), false),
+            None => (written.to_owned(), false),
+        },
+    })
+}
+
+/// The `autoload` and `autoload-dev` PSR-4 entries of the nearest `composer.json` above the
+/// directory `dir` of the project `root`, up to it (#351): each namespace prefix with its trailing
+/// `\` and the directories, relative to `root`, it maps to. The file is read, never run.
+pub fn php_psr4(root: &Path, dir: &Path) -> Vec<(String, Vec<PathBuf>)> {
+    static MAP: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r#""psr-4"\s*:\s*\{([^}]*)\}"#).unwrap());
+    static ENTRY: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#""((?:[^"\\]|\\.)*)"\s*:\s*(?:"((?:[^"\\]|\\.)*)"|\[([^\]]*)\])"#).unwrap()
+    });
+    static STRING: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r#""((?:[^"\\]|\\.)*)""#).unwrap());
+    let unescape = |s: &str| s.replace("\\\\", "\\").replace("\\/", "/");
+    let Some((at, text)) = dir.ancestors().find_map(|d| {
+        let file = d.join("composer.json");
+        Some((
+            d.to_path_buf(),
+            std::fs::read_to_string(root.join(&file)).ok()?,
+        ))
+    }) else {
+        return Vec::new();
+    };
+    let dir_of = |d: &str| {
+        let d = unescape(d);
+        let d = d.trim_start_matches("./").trim_end_matches('/');
+        match d {
+            "" | "." => at.clone(),
+            d => at.join(d),
+        }
+    };
+    let mut map: Vec<(String, Vec<PathBuf>)> = MAP
+        .captures_iter(&text)
+        .flat_map(|m| {
+            ENTRY
+                .captures_iter(&m[1])
+                .map(|c| {
+                    let dirs = match (c.get(2), c.get(3)) {
+                        (Some(one), _) => vec![dir_of(one.as_str())],
+                        (_, Some(list)) => STRING
+                            .captures_iter(list.as_str())
+                            .map(|s| dir_of(&s[1]))
+                            .collect(),
+                        _ => Vec::new(),
+                    };
+                    (unescape(&c[1]).trim_start_matches('\\').to_owned(), dirs)
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    // The longest prefix first, as Composer tries them.
+    map.sort_by_key(|(prefix, _)| std::cmp::Reverse(prefix.len()));
+    map
+}
+
+/// Where the PSR-4 `map` puts the class `full` (#351): `Some(Ok(file))` for the first mapped
+/// file `has` holds, `Some(Err(()))` for a name a prefix covers whose file is missing, `None` for
+/// a name the map does not cover: one outside the project. The empty prefix maps any name, so it
+/// covers only a name whose file exists under it.
+pub fn php_psr4_file(
+    map: &[(String, Vec<PathBuf>)],
+    full: &str,
+    has: impl Fn(&Path) -> bool,
+) -> Option<Result<PathBuf, ()>> {
+    let mut covered = false;
+    for (prefix, dirs) in map {
+        let Some(rest) = full.strip_prefix(prefix.as_str()) else {
+            continue;
+        };
+        covered |= !prefix.is_empty();
+        if let Some(file) = dirs
+            .iter()
+            .map(|d| d.join(format!("{}.php", rest.replace('\\', "/"))))
+            .find(|f| has(f))
+        {
+            return Some(Ok(file));
+        }
+    }
+    covered.then_some(Err(()))
 }
 
 // ---- The type of a receiver (#361) ----------------------------------------------------------
