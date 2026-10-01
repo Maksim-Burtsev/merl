@@ -47,6 +47,15 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     static RB_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*def\s+(?:(?:self|[A-Z]\w*)\.)?([A-Za-z_]\w*[?!=]?)").unwrap()
     });
+    static COMPANION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(jvm_mods!(), r"companion\s+object\s*(?:[:{]|$)")).unwrap()
+    });
+    static COLUMN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^\s*t\.\w+\s*\(?\s*(?:"(\w+)"|:(\w+))"#).unwrap()
+    });
+    static TABLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^\s*create_table\s*\(?\s*(?:"(\w+)"|:(\w+))"#).unwrap()
+    });
     if !nests(Some(kind)) {
         return None;
     }
@@ -119,6 +128,16 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         let owner = qualified(kind, text, line, &m).unwrap_or(m);
         return Some(format!("{owner}{sep}{name}"));
     }
+    // A column of `db/schema.rb` is its table's (#374): `collections.language`.
+    if kind == Kind::Ruby
+        && COLUMN
+            .captures(target)
+            .is_some_and(|c| c.get(1).or(c.get(2)).is_some_and(|m| m.as_str() == name))
+        && let Some(table) = owner_line(&lines, line - 1).and_then(|o| TABLE.captures(lines[o]))
+    {
+        let table = table.get(1).or(table.get(2)).map_or("", |m| m.as_str());
+        return Some(format!("{table}{sep}{name}"));
+    }
     // Any other name on a Python `def` line is a parameter (#100): `Recipes.get_one.slug`, as a
     // local of the body reads, not `Recipes.slug`, a field's name. So is one on an Elixir
     // function's `def` line (#460), and on a Ruby method's (#526).
@@ -138,8 +157,15 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
     // Ruby writes the namespace into the line (#387): `class A::B` is `B` inside `A`, and
     // `def Klass.m` is `m` of `Klass`.
     let ruby = kind == Kind::Ruby;
+    // An owner written into a `def` that is the class around it is that class, not one inside
+    // it (#535): `def User.build` in `class User` is `User.build`.
+    let mut def_owner = None;
     if ruby {
-        names.extend(ruby_namespace(target));
+        let spelled = ruby_namespace(target);
+        if target.trim_start().starts_with("def") {
+            def_owner = spelled.first().cloned();
+        }
+        names.extend(spelled);
     }
     // C++ writes it in front of an out-of-line body (#508): `struct Drawer::Scanner {` is
     // `Scanner` inside `Drawer`, and `std::string Tariff::describe()` is `describe` of `Tariff`.
@@ -151,10 +177,17 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
         if depth == 0 {
             break;
         }
-        if steps_over(Some(kind), l.trim_start()) || indent(l) >= depth {
+        // A Java or Kotlin class header wrapped over lines closes on `) : Base {` (#523): what
+        // it opens is named on the line the bracket opened on, further up.
+        let tail = kind == Kind::Jvm && l.trim_start().starts_with(')');
+        if steps_over(Some(kind), l.trim_start()) || tail || indent(l) >= depth {
             continue;
         }
         depth = indent(l);
+        // A `companion object` with no name holds its class's members (#523): `Repo.DEFAULT`.
+        if kind == Kind::Jvm && COMPANION.is_match(l) {
+            continue;
+        }
         // `more = …` under `const fs = …,` is declared where that statement is (#328).
         if kind == Kind::TsJs
             && ts_declarators(&lines, j).is_some_and(|d| d.iter().any(|(at, _)| *at == line - 1))
@@ -182,6 +215,7 @@ pub fn qualified(kind: Kind, text: &str, line: usize, name: &str) -> Option<Stri
             break;
         }
         match named {
+            Some(n) if def_owner.take().is_some_and(|o| o == n) => {}
             Some(n) => {
                 if cpp {
                     names.push(n.clone());
@@ -493,13 +527,13 @@ pub fn unbroken(
     }
     None
 }
-/// A TypeScript line with `a?.b` and `a!.b` in front of byte `start` written as the plain `a.b`
+/// A TypeScript or Swift line with `a?.b` and `a!.b` in front of byte `start` written as the plain `a.b`
 /// they are for a member lookup (#100), and where `start` stands in it. A PHP line likewise with
 /// its `->` and `?->` as `.` (#348), and its own `.`, which concatenates, as a space: `$a.foo()`
 /// calls the function `foo`.
 pub fn plain_access(kind: Kind, line: &str, start: usize) -> (String, usize) {
     let before = match kind {
-        Kind::TsJs => line[..start].replace("?.", ".").replace("!.", "."),
+        Kind::TsJs | Kind::Swift => line[..start].replace("?.", ".").replace("!.", "."),
         Kind::Php => line[..start]
             .replace('.', " ")
             .replace("?->", ".")
@@ -613,11 +647,12 @@ fn owner_line(lines: &[&str], at: usize) -> Option<usize> {
         .find(|&i| !aside(lines[i].trim_start()) && indent(lines[i]) < depth)
 }
 /// Whether the Ruby method declared on 1-based `line` of `text` is a class method (#387):
-/// `def self.m`, `def Const.m`, a `def` inside `class << self`, or one of a module that is
-/// `extend self` or `module_function`.
+/// `def self.m`, `def Const.m`, a `scope :m` (#374), a `def` inside `class << self`, or one of a
+/// module that is `extend self` or `module_function`.
 pub fn ruby_singleton(text: &str, line: usize) -> bool {
-    static ON: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*def\s+(?:self|[A-Z]\w*)\.").unwrap());
+    static ON: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:def\s+(?:self|[A-Z]\w*)\.|scope\s*\(?\s*:)").unwrap()
+    });
     static MODULE_WIDE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:extend\s+self|module_function)\s*(?:#|$)").unwrap()
     });
@@ -643,7 +678,8 @@ pub fn ruby_singleton(text: &str, line: usize) -> bool {
 }
 /// Where the ActiveSupport concern `module` keeps the class methods it gives the class that
 /// includes it (#387): whether the Ruby method on 1-based `line` of `text` is inside its
-/// `class_methods do` block or its `module ClassMethods`.
+/// `class_methods do` block or its `module ClassMethods`, or is a `scope` of its `included do`
+/// block (#374).
 pub fn ruby_concern_class_method(text: &str, line: usize, module: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(owner) = line.checked_sub(1).and_then(|i| owner_line(&lines, i)) else {
@@ -655,8 +691,12 @@ pub fn ruby_concern_class_method(text: &str, line: usize, module: &str) -> bool 
             q == format!("{module}.{block}") || q.ends_with(&format!(".{module}.{block}"))
         })
     };
+    let scope = ["scope ", "scope("]
+        .iter()
+        .any(|s| lines[line - 1].trim_start().starts_with(s));
     (head.starts_with("class_methods do") && inside("class_methods"))
         || (head.starts_with("module ClassMethods") && inside("ClassMethods"))
+        || (scope && head.starts_with("included do") && inside("included"))
 }
 /// The run of `[A-Za-z0-9_]` and `extra` characters at byte offset `col`, or the one that ends
 /// there when the cursor sits right after a word. `extra` characters do not start or end a word.

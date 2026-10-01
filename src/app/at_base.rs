@@ -255,7 +255,7 @@ impl App {
                     (text.lines().map(str::to_owned).collect(), literal)
                 });
                 !literal.get(h.line - 1).copied().unwrap_or(false)
-                    && search::declares_where(kind, word, h.line, &h.text, || lines)
+                    && search::declares_where(kind, &h.path, word, h.line, &h.text, || lines)
             })
             .map(|hit| Candidate {
                 hit,

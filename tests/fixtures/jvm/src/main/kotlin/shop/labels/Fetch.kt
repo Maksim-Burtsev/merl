@@ -6,8 +6,8 @@ class Api {
     fun get(url: String, timeout: Int = 0): String = url
 }
 
-// `get` is the library's `HttpClient.get`: the project's namesake is only offered.
+// `get` is the library's `HttpClient.get`, whose parameters have no source (#391).
 fun load(client: HttpClient): String {
     return client.get("x", timeout = 5)
-    //                     ^ d: picker src/main/kotlin/shop/labels/Fetch.kt:6
+    //                     ^ d: none
 }

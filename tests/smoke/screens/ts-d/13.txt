@@ -31,9 +31,9 @@ wait web/src/components/Dialog.ts  1:1
 30     dialog.close();
 31   });
 32 }
-
-
-
+33
+34 import { ParcelState } from "../orders/types";
+35 export const shippedState = ParcelState.Shipped;
 
 
 

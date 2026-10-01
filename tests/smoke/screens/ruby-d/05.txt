@@ -1,0 +1,57 @@
+wait class Feed
+┌orders──────────────────────┐1 class Feed
+│▸ .github                   │2   def call
+│▸ .venv                     │3     Account.recent
+│▾ app                       │4   end
+│  ▾ ruby                    │5 end
+│      feed.rb               │6
+│      sessions.rb           │7 class Account < ApplicationRecord
+│    __init__.py             │8   scope :recent, -> { all }
+│    api.py                  │9 end
+│    config.py               │
+│    models.py               │
+│    repos.py                │
+│    service.py              │
+│    uow.py                  │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/ruby/feed.rb  1:1  [code]                                                                                                                                                     ? help
+cursor (x,y,shown) 32,0,1

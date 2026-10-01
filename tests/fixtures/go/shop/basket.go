@@ -105,3 +105,16 @@ func Maker() func(Lane string) { return Each(Lane) }
 
 func Walk(Lane string, visit func(Lane string, depth int)) { visit(Lane, 0) }
 //                                                                 ^ d: shop/basket.go:106
+
+// A parameter's type named like the method it is a parameter of is the type (#536).
+type Parcel string
+
+type Porter interface {
+	Parcel(p Parcel) error
+	//       ^ d: shop/basket.go:110
+}
+
+type Crate struct{}
+
+func (c Crate) Parcel(p *Parcel) error { return nil }
+//                       ^ d: shop/basket.go:110

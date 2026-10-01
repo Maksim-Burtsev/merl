@@ -65,3 +65,8 @@ key /
 type onClose(
 key Enter d
 wait no definition for onClose
+# An enum member behind an import lands on the member (#341).
+key /
+type .Shipped;
+key Enter Right d
+wait Shipped → ParcelState.Shipped (via import web/src/orders/types.ts)

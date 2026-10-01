@@ -564,7 +564,7 @@ fn a_python_parameter_is_named_after_its_function() {
             "kept = slugs",
             jump(
                 "slugs \u{2192} RecipeController.get_many.slugs (local)",
-                "params.py:6",
+                "params.py:8",
             ),
         ),
         (
@@ -1373,6 +1373,38 @@ fn a_builtin_says_it_has_no_source() {
         d_on(&mut a, file, code);
         assert_eq!(shown(&mut a), want, "{file}: {code}");
     }
+    std::fs::remove_dir_all(dir).unwrap();
+    std::fs::remove_dir_all(std).unwrap();
+}
+
+/// #338. A `def` nested in a function outside the project is no method: `unittest/mock.py`
+/// nests a `def assert_not_called` in `_setup_func`, beside the method of that name. The
+/// project's cases are annotations in `tests/fixtures/python/shop/nesting.py`.
+#[test]
+fn a_python_def_nested_in_a_function_outside_is_no_method() {
+    let std = external_root(
+        "py-338",
+        &[(
+            "mock.py",
+            "def _setup_func(funcopy, mock):\n    def assert_not_called():\n        return mock.assert_not_called()\n\n    funcopy.assert_not_called = assert_not_called\n\n\nclass NonCallableMock:\n    def assert_not_called(self):\n        pass\n",
+        )],
+    );
+    let (dir, mut a) = project_app(
+        "py-338",
+        &[(
+            "app/spy.py",
+            "def check(spy):\n    spy.assert_not_called()\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&std));
+    d_on(&mut a, "app/spy.py", "spy.assert_not_called");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "assert_not_called \u{2192} NonCallableMock.assert_not_called (by name, 1 match)",
+            &format!("{}:9", std.join("mock.py").display()),
+        )
+    );
     std::fs::remove_dir_all(dir).unwrap();
     std::fs::remove_dir_all(std).unwrap();
 }

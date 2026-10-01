@@ -30,13 +30,13 @@ wait def order_json(order) -> str:
 │                            │29         OrderService, container.get("orders")
 │                            │30     )
 │                            │31     return HTTPStatus.OK, order_json(service.cancel(order_id))
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
+│                            │32
+│                            │33
+│                            │34 def page_links(total: int) -> list[str]:
+│                            │35     def page_url(n):
+│                            │36         return f"?page={n}"
+│                            │37
+│                            │38     return [page_url(n) for n in range(1, total + 1)]
 │                            │
 │                            │
 │                            │

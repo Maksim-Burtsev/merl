@@ -47,11 +47,11 @@ wait render → Document::render (via $this: Invoice)
 46         return $this->number() . ' ' . $this->render('pdf');
 47     }
 48 }
-
-
-
-
-
+49
+50 function send_receipt(Receipt $receipt): string
+51 {
+52     return $receipt->number();
+53 }
 
 scripts/invoices.php  9:24  [code]  render → Document::render (via $this: Invoice)
 cursor (x,y,shown) 26,8,1

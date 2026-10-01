@@ -9,7 +9,7 @@ public class Prefs {
 
     String copy(Prefs other) {
         return other.parentNameOf("x");
-        //           ^ d: picker src/main/java/scopes/b/Prefs.java:6
-        // status: parentNameOf: by name, 1 match
+        //           ^ d: src/main/java/scopes/b/Prefs.java:6
+        // status: parentNameOf → Prefs.parentNameOf (via other: Prefs)
     }
 }

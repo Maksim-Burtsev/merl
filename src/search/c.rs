@@ -349,24 +349,25 @@ fn c_head_start(code: &str, open: usize) -> usize {
     }
     0
 }
-/// `s` with what its top-level brackets hold turned into spaces, the brackets and the positions
-/// kept.
+/// `s` with what its top-level brackets hold turned into spaces, the brackets and the byte
+/// positions kept: a character is blanked with as many spaces as it has bytes, and kept whole
+/// outside, so the ranges of `s` cut the result at the same characters.
 fn flat(s: &str) -> String {
     let mut depth = 0usize;
-    s.bytes()
-        .map(|c| {
-            let inside = depth > 0;
-            match c {
-                b'(' | b'[' | b'{' => depth += 1,
-                b')' | b']' | b'}' => depth = depth.saturating_sub(1),
-                _ => {}
-            }
-            match inside && depth > 0 && c != b'\n' {
-                true => ' ',
-                false => c as char,
-            }
-        })
-        .collect()
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        let inside = depth > 0;
+        match c {
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+        match inside && depth > 0 && c != '\n' {
+            true => out.push_str(&" ".repeat(c.len_utf8())),
+            false => out.push(c),
+        }
+    }
+    out
 }
 /// The byte ranges (of `s`) of its top-level `(…)` groups, brackets included.
 fn paren_groups(s: &str) -> Vec<Range<usize>> {
@@ -565,17 +566,18 @@ fn parameter_at(params: &str, name: &str) -> Option<usize> {
     }
     None
 }
-/// The declarations of `name` in the statements of the block that opens at byte `open`, above
-/// `pos` and directly in it: a block closed before `pos` is not read.
-fn block_declarations(code: &str, open: usize, pos: usize, name: &str) -> Vec<usize> {
+/// The declarations of `name` in the statements of the block whose code starts at byte `from`
+/// (past its `{`, or 0 for file scope), above `pos` and directly in it: a block closed before `pos`
+/// is not read.
+fn block_declarations(code: &str, from: usize, pos: usize, name: &str) -> Vec<usize> {
     let b = code.as_bytes();
-    let (mut depth, mut start, mut out) = (0usize, open + 1, Vec::new());
+    let (mut depth, mut start, mut out) = (0usize, from, Vec::new());
     let take = |from: usize, to: usize, out: &mut Vec<usize>| {
         if let Some(j) = declared_at(&code[from..to], name, false) {
             out.push(from + j);
         }
     };
-    for (i, &c) in b.iter().enumerate().take(pos).skip(open + 1) {
+    for (i, &c) in b.iter().enumerate().take(pos).skip(from) {
         match c {
             b'(' | b'[' => depth += 1,
             b')' | b']' => depth = depth.saturating_sub(1),
@@ -705,7 +707,7 @@ pub fn c_bindings_at(text: &str, line: usize, name: &str) -> Vec<(usize, usize)>
         (line, at - starts[line - 1])
     };
     for (open, start, head) in scopes(&code, pos) {
-        let found = block_declarations(&code, open, pos, name);
+        let found = block_declarations(&code, open + 1, pos, name);
         if !found.is_empty() {
             return found.into_iter().map(place).collect();
         }
@@ -763,4 +765,475 @@ pub fn c_method_class(text: &str, line: usize, name: &str) -> Option<String> {
     }
     let outer = c_opener(code.as_bytes(), c_head_start(&code, open))?;
     c_struct_head(c_back_to_stop(&code, outer).0).filter(|n| !n.is_empty())
+}
+
+// ---- enum constants and member declarations (#373) ---------------------------------------------
+/// One enum constant: a name and the value it may be given.
+const C_ENUMERATOR: &str = r"[A-Za-z_]\w*\s*(?:=[^,;{}]*)?";
+/// A line of enum constants, `NAME,`, `NAME = expr,`, `A, B, C,` or the last one without a comma,
+/// with `word` among them (or any name, for `None`). A `}` may close the body after them.
+pub fn c_enumerators(word: Option<&str>) -> String {
+    let w = word.map_or_else(|| r"[A-Za-z_]\w*".to_owned(), regex::escape);
+    format!(
+        r"^\s*(?:{C_ENUMERATOR},\s*)*{w}\s*(?:=[^,;{{}}]*)?(?:,\s*{C_ENUMERATOR})*,?\s*(?:\}}[^{{]*)?(?:(?://|/\*).*)?$"
+    )
+}
+/// `enum X { A, B };` and `typedef enum { A, B } X;`: an enum whose constants open on its own
+/// line, `word` among them.
+pub fn c_enum_line(word: &str) -> String {
+    format!(
+        r"^\s*(?:typedef\s+)?enum\b[^{{;=()]*\{{\s*(?:{C_ENUMERATOR},\s*)*{}\s*(?:=[^,;{{}}]*)?\s*(?:[,}}]|$)",
+        regex::escape(word)
+    )
+}
+/// A member function declared with no body, `word` its name (or any name, for `None`): `T
+/// name(params) const;`, `virtual … = 0;`, `… override;`, `= default;`, or the first line of a
+/// parameter list that wraps. Indented, behind at least a return type or a keyword, and no `//`
+/// comment reading `Users of Env (including`; in a function body the same line is a local
+/// object, `Slice key(k, n);`, which [`c_body_head`] tells apart.
+pub fn c_member_decl(word: Option<&str>) -> String {
+    let w = word.map_or_else(|| r"~?[A-Za-z_]\w*".to_owned(), regex::escape);
+    format!(
+        r"^\s+[^;(){{}}=#/]*[\w>][\s*&]+{w}\s*\((?:[^(){{}};]|\([^(){{}};]*\))*(?:\)[^{{}};]*;)?\s*(?:(?://|/\*).*)?$"
+    )
+}
+/// What opens the body 1-based `line` of a C or C++ file stands directly in: the code in front of
+/// the innermost `{` not closed above the line, back to the `;`, `{` or `}` before it, over a few
+/// lines (`enum Order\n{`, a base list that wraps). `None` at file scope.
+pub fn c_body_head<S: AsRef<str>>(lines: &[S], line: usize) -> Option<String> {
+    c_opener_line(lines, line).map(|(_, head)| head)
+}
+/// [`c_body_head`], with the 1-based line its `{` stands on.
+///
+/// ponytail: reads line by line, so a brace in a block comment counts; `c_code` over the whole
+/// file per hit would cost more than the rare comment is worth.
+fn c_opener_line<S: AsRef<str>>(lines: &[S], line: usize) -> Option<(usize, String)> {
+    let code_of = |l: &str| -> String {
+        let mut s = vec![b' '; l.len()];
+        if !l.trim_start().starts_with('#') {
+            // A comment's first byte comes as 0, and reads as a blank here.
+            for (i, c) in super::code(super::Kind::C, l).filter(|&(_, c)| c != 0) {
+                s[i] = c;
+            }
+        }
+        String::from_utf8_lossy(&s).into_owned()
+    };
+    let mut depth = 0usize;
+    let mut open = None;
+    'up: for k in (0..line.checked_sub(1)?.min(lines.len())).rev() {
+        let l = code_of(lines[k].as_ref());
+        for (i, c) in l.bytes().enumerate().rev() {
+            match c {
+                b'}' => depth += 1,
+                b'{' if depth == 0 => {
+                    open = Some((k, i));
+                    break 'up;
+                }
+                b'{' => depth -= 1,
+                _ => {}
+            }
+        }
+    }
+    let (k, i) = open?;
+    let mut head = code_of(lines[k].as_ref())[..i].to_owned();
+    // Up past comments and directives, to a blank line at most: redis puts a `/* … */` over
+    // its `typedef enum {`.
+    for j in (k.saturating_sub(8)..=k).rev() {
+        let t = lines[j].as_ref().trim_start();
+        if j < k {
+            if t.is_empty() {
+                break;
+            }
+            if t.starts_with(['*', '#']) || t.starts_with("/*") || t.starts_with("//") {
+                continue;
+            }
+            head = format!("{} {head}", code_of(lines[j].as_ref()));
+        }
+        if let Some(s) = head.rfind([';', '{', '}']) {
+            head = head[s + 1..].to_owned();
+            break;
+        }
+    }
+    Some((k + 1, head.trim().to_owned()))
+}
+/// The classes and namespaces 1-based `line` of a C++ file stands in, outermost first, when the
+/// innermost is a class or struct: `["leveldb", "Iterator"]`. An unnamed one reads `""`; a
+/// function or a block on the way ends the walk.
+fn c_scopes<S: AsRef<str>>(lines: &[S], line: usize) -> Vec<String> {
+    static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:inline\s+)?namespace\s*((?:\w+\s*::\s*)*\w+)?\s*$").unwrap()
+    });
+    let mut chain = Vec::new();
+    let mut at = line;
+    while let Some((open, head)) = c_opener_line(lines, at) {
+        match (c_struct_head(&head), NAMESPACE.captures(&head)) {
+            (Some(name), _) => chain.push(name),
+            (None, Some(c)) if !chain.is_empty() => {
+                let path = c.get(1).map_or("", |m| m.as_str());
+                chain.extend(path.rsplit("::").map(|p| p.trim().to_owned()));
+            }
+            _ => break,
+        }
+        at = open;
+    }
+    chain.reverse();
+    chain
+}
+/// Whether `head`, what opens a body ([`c_body_head`]), opens an enum's.
+pub fn c_enum_head(head: &str) -> bool {
+    static ENUM: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:typedef\s+)?enum\b(?:\s+(?:class|struct)\b)?[^(){}=;]*$").unwrap()
+    });
+    ENUM.is_match(head)
+}
+/// The class or struct whose body 1-based `line` of `lines` stands directly in, by name (`""` for
+/// an anonymous one).
+pub fn c_class_around<S: AsRef<str>>(lines: &[S], line: usize) -> Option<String> {
+    c_struct_head(&c_body_head(lines, line)?)
+}
+/// Whether 1-based `line` of a C or C++ file, which a declaration pattern matched as `text`,
+/// declares where it sits (#373): a line of enum constants only inside an enum's body, a member
+/// function declared with no body only directly inside a class or struct. Any other line is left
+/// to its pattern.
+pub fn c_declares_where<'a, S: AsRef<str> + 'a>(
+    line: usize,
+    text: &str,
+    lines: impl FnOnce() -> &'a [S],
+) -> bool {
+    static ENUMERATORS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(&c_enumerators(None)).unwrap());
+    static MEMBER: LazyLock<Regex> = LazyLock::new(|| Regex::new(&c_member_decl(None)).unwrap());
+    if ENUMERATORS.is_match(text) {
+        return c_body_head(lines(), line).is_some_and(|h| c_enum_head(&h));
+    }
+    let t = text.trim_start();
+    if MEMBER.is_match(text) && !t.starts_with("typedef") && !t.starts_with("friend") {
+        return c_class_around(lines(), line).is_some();
+    }
+    true
+}
+/// The classes and namespaces around the member function `word` declared with no body directly
+/// in a class body ([`c_member_decl`]) on 1-based `line` of `text`, outermost first, its class
+/// last; `None` for any other line.
+pub fn c_member_class(text: &str, line: usize, word: &str) -> Option<Vec<String>> {
+    let decl = Regex::new(&c_member_decl(Some(word))).expect("an escaped name keeps it valid");
+    let lines: Vec<&str> = text.lines().collect();
+    if !decl.is_match(lines.get(line.checked_sub(1)?)?) {
+        return None;
+    }
+    Some(c_scopes(&lines, line)).filter(|s| s.last().is_some_and(|c| !c.is_empty()))
+}
+/// Whether `text` defines out of line the member `word` of the class `scopes` ends with
+/// ([`c_member_class`]): `R X::word(`, what qualifies `X` being the scopes around it, as far as it
+/// goes (`leveldb::Iterator::Valid(`), so `SkipList<K>::Iterator::Valid(` is another class's.
+pub fn c_defines_member(text: &str, scopes: &[String], word: &str) -> bool {
+    static TEMPLATE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^;()]*>").unwrap());
+    let Ok(re) = Regex::new(&format!(
+        r"((?:\w+\s*(?:<[^;()]*>)?\s*::\s*)+)~?{}\s*\(",
+        regex::escape(word)
+    )) else {
+        return false;
+    };
+    re.captures_iter(text).any(|c| {
+        let path = TEMPLATE.replace_all(&c[1], "");
+        let written: Vec<&str> = path
+            .split("::")
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+            .collect();
+        // The qualifier starts where a name does, not inside `a::b` or `x.y`.
+        let at = c.get(1).map_or(0, |m| m.start());
+        !text[..at].ends_with(|ch: char| ch == ':' || ch.is_alphanumeric() || ch == '_')
+            && written.len() <= scopes.len()
+            && scopes[scopes.len() - written.len()..]
+                .iter()
+                .zip(&written)
+                .all(|(s, w)| s == w)
+    })
+}
+
+// ---- the struct of a receiver (#386) -----------------------------------------------------------
+/// What a C value is declared as: a type by the last word of its name (`client` for `struct
+/// client *c`), or the struct or union body that a `} name;` closes, by the byte of its `{`.
+#[derive(Clone, Debug, PartialEq)]
+pub enum CType {
+    Name(String),
+    Body(usize),
+}
+/// The receiver in front of a C member, `before` being its line up to the member and ending in
+/// `->` or `.`: the name it starts from, whether that name is called (`lookupClient(x)->`), and
+/// the fields between it and the member. `a->b.c->` gives `a` with `b`, `c`; an index is read past
+/// (`c->argv[j]->`). `None` for a receiver that starts with anything else: a cast, a bracketed
+/// expression, a call of a call or of a field, `this`.
+pub fn c_receiver(before: &str) -> Option<(String, bool, Vec<String>)> {
+    let code = c_code(before);
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let mut rest = code.trim_end();
+    let mut fields = Vec::new();
+    loop {
+        rest = match rest.strip_suffix("->") {
+            Some(r) => r,
+            None => rest.strip_suffix('.').filter(|r| !r.ends_with('.'))?,
+        }
+        .trim_end();
+        while rest.ends_with(']') {
+            rest = rest[..opening(rest)?].trim_end();
+        }
+        let called = rest.ends_with(')');
+        if called {
+            rest = rest[..opening(rest)?].trim_end();
+        }
+        let start = rest.trim_end_matches(is_name).len();
+        let name = &rest[start..];
+        // A non-ASCII character in front goes on with the name (`größe`, `e\u{301}tude`): the
+        // tail read is not it.
+        if name.is_empty()
+            || name.starts_with(|c: char| c.is_ascii_digit())
+            || name == "this"
+            || rest[..start].ends_with(|c: char| !c.is_ascii())
+        {
+            return None;
+        }
+        rest = rest[..start].trim_end();
+        let member = rest.ends_with("->") || rest.ends_with('.') && !rest.ends_with("..");
+        match (member, called) {
+            (true, false) => fields.insert(0, name.to_owned()),
+            (false, _) => return Some((name.to_owned(), called, fields)),
+            // A call of a field is a function pointer's, whose return type is not read.
+            (true, true) => return None,
+        }
+    }
+}
+/// The byte of the bracket that opens the one `s` ends with, `None` when it does not open in `s`.
+fn opening(s: &str) -> Option<usize> {
+    let mut depth = 0usize;
+    for (i, c) in s.bytes().enumerate().rev() {
+        match c {
+            b')' | b']' => depth += 1,
+            b'(' | b'[' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+/// The words C writes in a type that name none: read past for the type's own.
+const C_TYPE_WORDS: &[&str] = &[
+    "const",
+    "volatile",
+    "struct",
+    "union",
+    "enum",
+    "unsigned",
+    "signed",
+    "static",
+    "extern",
+    "register",
+    "inline",
+    "restrict",
+    "__restrict",
+    "__restrict__",
+    "typedef",
+    "__inline",
+];
+/// What the name declared at byte `at` of `code`, a [`c_code`], is declared as: the body a `}
+/// name;` closes, else the last word of the type in front of it (`client` for `client *c`,
+/// `static const struct client *a, *c` and a parameter `client *c`). `None` for a type that is
+/// no word (a function pointer, a template), a typedef's `} name;` and no type at all.
+pub fn c_decl_type(code: &str, at: usize) -> Option<CType> {
+    let b = code.as_bytes();
+    let (mut depth, mut i) = (0usize, at);
+    let (mut first_comma, mut last_comma, mut param) = (None, None, false);
+    let stop = loop {
+        if i == 0 {
+            break None;
+        }
+        i -= 1;
+        match b[i] {
+            b')' | b']' => depth += 1,
+            b'(' | b'[' if depth > 0 => depth -= 1,
+            b'(' => {
+                param = true;
+                break Some(i);
+            }
+            b'[' => return None,
+            b',' if depth == 0 => {
+                first_comma = Some(i);
+                last_comma = last_comma.or(Some(i));
+            }
+            b';' | b'{' | b'}' if depth == 0 => break Some(i),
+            b';' | b'{' | b'}' => return None,
+            _ => {}
+        }
+    };
+    let from = stop.map_or(0, |s| s + 1);
+    let (segment, named) = match (param, first_comma) {
+        (true, _) => (&code[last_comma.map_or(from, |c| c + 1)..at], false),
+        (false, Some(c)) => (&code[from..c], true),
+        (false, None) => (&code[from..at], false),
+    };
+    // `} name;` closes a body: a value of its struct, when no typedef opens it.
+    if let Some(s) = stop.filter(|&s| b[s] == b'}' && !param && first_comma.is_none())
+        && segment
+            .trim_matches(|c: char| c.is_whitespace() || c == '*')
+            .is_empty()
+    {
+        let open = c_opener(b, s)?;
+        let head = c_back_to_stop(code, open).0.trim();
+        return (!head.starts_with("typedef") && c_struct_head(head).is_some())
+            .then_some(CType::Body(open));
+    }
+    let flat = flat(segment);
+    let typed = flat.split('=').next().unwrap_or_default();
+    if typed.contains(['(', ')', '<', '{', '}']) || typed.contains("::") {
+        return None;
+    }
+    let mut words: Vec<&str> = typed
+        .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .filter(|w| !w.is_empty() && !C_TYPE_WORDS.contains(w))
+        .collect();
+    if named {
+        words.pop();
+    }
+    words
+        .last()
+        .filter(|w| !w.starts_with(|c: char| c.is_ascii_digit()))
+        .map(|w| CType::Name((*w).to_owned()))
+}
+/// What the line of a C type's declaration says of the type `name` at byte `at` of `code`, a
+/// [`c_code`]: `struct name {` and `union name {` open its body, and so does the `typedef struct
+/// … {` whose `} name;` names it; `typedef struct TAG name;` and `typedef T name;` make it
+/// another name's. `None` for anything else: a forward declaration, an enum, a class.
+pub fn c_type_def(code: &str, at: usize) -> Option<CType> {
+    let tagged = after_word(&code[..at], &["struct", "union"]);
+    let after = at + code[at..].find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))?;
+    if tagged {
+        let open = after + code[after..].find(|c: char| !c.is_whitespace())?;
+        return (code.as_bytes()[open] == b'{').then_some(CType::Body(open));
+    }
+    let (stmt, stop) = c_back_to_stop(code, at);
+    let s = at - stmt.len();
+    if stop == b'}'
+        && stmt
+            .trim_matches(|c: char| c.is_whitespace() || c == '*')
+            .is_empty()
+    {
+        let open = c_opener(code.as_bytes(), s - 1)?;
+        let head = c_back_to_stop(code, open).0.trim();
+        return (head.starts_with("typedef") && c_struct_head(head).is_some())
+            .then_some(CType::Body(open));
+    }
+    if !stmt.trim_start().starts_with("typedef") {
+        return None;
+    }
+    c_decl_type(code, at).filter(|t| *t != CType::Name(code[at..after].to_owned()))
+}
+/// Whether `s` ends in one of `words`, whole, and whitespace.
+fn after_word(s: &str, words: &[&str]) -> bool {
+    let s = s.trim_end();
+    words.iter().any(|w| {
+        s.strip_suffix(w)
+            .is_some_and(|r| !r.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_'))
+    })
+}
+/// The byte of the member `word` of the struct or union whose body opens at byte `open` of
+/// `code`, a [`c_code`]: a field declared directly in it, or in a nested body that has no name of
+/// its own (`union { int a; };`).
+pub fn c_body_field(code: &str, open: usize, word: &str) -> Option<usize> {
+    let close = close_of_in(code, open, code.len());
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let b = code.as_bytes();
+    code[open + 1..close]
+        .match_indices(word)
+        .find_map(|(i, _)| {
+            let at = open + 1 + i;
+            let whole =
+                !code[..at].ends_with(is_name) && !code[at + word.len()..].starts_with(is_name);
+            if !whole || c_field_at(code, at, word).is_none() {
+                return None;
+            }
+            let mut o = c_opener(b, at)?;
+            while o != open {
+                let end = close_of_in(code, o, close);
+                let anonymous = c_struct_head(c_back_to_stop(code, o).0)
+                    .is_some_and(|n| n.is_empty())
+                    && code[end + 1..].trim_start().starts_with(';');
+                if !anonymous {
+                    return None;
+                }
+                o = c_opener(b, o)?;
+            }
+            Some(at)
+        })
+}
+/// The type the value `name` read on 1-based `line` of a C `text` is declared with in the file:
+/// its parameter or local ([`c_bindings_at`]), else its declaration at file scope, `} name;`
+/// included. `Ok(None)` when the file declares no such value; `Err(())` when it does with a type
+/// not read, or with two.
+pub fn c_value_type(text: &str, line: usize, name: &str) -> Result<Option<CType>, ()> {
+    let code = c_code(text);
+    let starts = line_starts(&code);
+    let mut at: Vec<usize> = c_bindings_at(text, line, name)
+        .into_iter()
+        .map(|(l, col)| starts[l - 1] + col)
+        .collect();
+    if at.is_empty() {
+        at = block_declarations(&code, 0, code.len(), name);
+        let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+        at.extend(code.match_indices(name).map(|(i, _)| i).filter(|&i| {
+            !code[..i].ends_with(is_name)
+                && !code[i + name.len()..].starts_with(is_name)
+                && code[..i]
+                    .trim_end_matches(|c: char| c.is_whitespace() || c == '*')
+                    .ends_with('}')
+                && c_opener(code.as_bytes(), i).is_none()
+                && matches!(c_decl_type(&code, i), Some(CType::Body(_)))
+        }));
+    }
+    // `static struct name { … } name;` names the tag first.
+    let mut types = at
+        .into_iter()
+        .filter(|&a| !after_word(&code[..a], &["struct", "union", "enum"]))
+        .map(|a| c_decl_type(&code, a));
+    let Some(first) = types.next() else {
+        return Ok(None);
+    };
+    match first {
+        Some(t) if types.all(|o| o.as_ref() == Some(&t)) => Ok(Some(t)),
+        _ => Err(()),
+    }
+}
+/// The bytes of 1-based `line` of `code` where the word `name` stands whole, with `then` right
+/// after it when given (`(` for a function).
+pub fn c_words_on_line(code: &str, line: usize, name: &str, then: Option<char>) -> Vec<usize> {
+    let starts = line_starts(code);
+    let Some(&from) = line.checked_sub(1).and_then(|k| starts.get(k)) else {
+        return Vec::new();
+    };
+    let to = starts.get(line).map_or(code.len(), |&s| s - 1);
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    code[from..to]
+        .match_indices(name)
+        .map(|(i, _)| from + i)
+        .filter(|&i| {
+            let after = code[i + name.len()..].trim_start();
+            !code[..i].ends_with(is_name)
+                && !code[i + name.len()..].starts_with(is_name)
+                && then.is_none_or(|c| after.starts_with(c))
+        })
+        .collect()
+}
+/// The 1-based line and byte column of byte `at` of `code`.
+pub fn c_place(code: &str, at: usize) -> (usize, usize) {
+    let line_start = code[..at].rfind('\n').map_or(0, |i| i + 1);
+    (code[..at].matches('\n').count() + 1, at - line_start)
+}
+/// The name of the struct or union whose body opens at byte `open` of `code`, `""` for an
+/// anonymous one.
+pub fn c_body_name(code: &str, open: usize) -> String {
+    c_struct_head(c_back_to_stop(code, open).0).unwrap_or_default()
 }
