@@ -1,0 +1,302 @@
+diff --git a/src/tree.rs b/src/tree.rs
+index 0f64fe51..340cdc08 100644
+--- a/src/tree.rs
++++ b/src/tree.rs
+@@ -39,6 +39,8 @@ pub struct Tree {
+     away: HashSet<PathBuf>,
+     /// Where the ignored directories are read from; empty in the review panel, which has none.
+     root: PathBuf,
++    /// Prototype #399: directories folded into the row of a lower one, set by the last draw.
++    pub folded: HashSet<usize>,
+ }
+ 
+ /// Walks `root` once and returns the tree plus the flat list of files, both sorted the same
+@@ -285,7 +287,9 @@ impl Tree {
+                 continue;
+             }
+             hidden_below = usize::MAX;
+-            out.push(i);
++            if !self.folded.contains(&i) {
++                out.push(i);
++            }
+             if n.is_dir && !n.expanded {
+                 hidden_below = n.depth;
+             }
+@@ -348,6 +352,14 @@ impl Tree {
+                     .rposition(|n| n.depth == depth - 1)
+                 {
+                     self.cursor = p;
++                    // A folded parent is drawn as part of the row above it: go on up.
++                    while self.folded.contains(&self.cursor) {
++                        let d = self.nodes[self.cursor].depth;
++                        match self.nodes[..self.cursor].iter().rposition(|n| n.depth + 1 == d) {
++                            Some(p) => self.cursor = p,
++                            None => break,
++                        }
++                    }
+                 }
+             }
+             _ => {}
+diff --git a/src/ui/mod.rs b/src/ui/mod.rs
+index c3ca27ea..d959604f 100644
+--- a/src/ui/mod.rs
++++ b/src/ui/mod.rs
+@@ -56,8 +56,9 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
+     let [tree, code] =
+         Layout::horizontal([Constraint::Length(tree_w), Constraint::Min(1)]).areas(main);
+ 
++    let mut whole = None;
+     if app.show_tree {
+-        draw_tree(frame, app, theme, tree, base);
++        whole = draw_tree(frame, app, theme, tree, base);
+     }
+     if app.previewing() {
+         draw_preview(frame, app, theme, code, base);
+@@ -73,6 +74,11 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
+     if let Some(panel) = panel {
+         frame.render_widget(panel, lesson);
+     }
++    // Prototype #399: the cursor row of the tree, drawn whole over the code beside it.
++    if let Some((at, line)) = whole {
++        frame.render_widget(ratatui::widgets::Clear, at);
++        frame.render_widget(ratatui::widgets::Paragraph::new(line).style(base), at);
++    }
+     draw_status(frame, app, theme, status);
+     // Over `--tutor`'s and `--drill`'s panel an overlay would hide the task it is part of: a
+     // task can start with the help open. The panel and the status bar stay in sight.
+diff --git a/src/ui/overlays.rs b/src/ui/overlays.rs
+index 92dd90ef..5b134620 100644
+--- a/src/ui/overlays.rs
++++ b/src/ui/overlays.rs
+@@ -69,7 +69,13 @@ pub(super) fn draw_help(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
+     );
+ }
+ 
+-pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
++pub(super) fn draw_tree(
++    frame: &mut Frame,
++    app: &mut App,
++    theme: &Theme,
++    area: Rect,
++    base: Style,
++) -> Option<(Rect, Line<'static>)> {
+     let accent = base.fg(theme.accent);
+     let title = match &app.review {
+         Some(r) => format!("{} \u{2190} {}", r.branch, r.base),
+@@ -98,22 +104,128 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
+     frame.render_widget(block, area);
+ 
+     let focused = app.focus == Focus::Tree;
+-    let visible = app.tree.visible();
+     let height = inner.height as usize;
++
++    // Prototype #399: MERL_399=a (cursor row whole), b (fold + a), c (slide), unset = master.
++    let opt = std::env::var("MERL_399").unwrap_or_default();
++    let mut width = inner.width as usize;
++    let review_on = app.review.is_some();
++    // Room a row at display depth `dd` leaves for its name.
++    // Signed: a row deep enough has less than no room, and how much less says how far to fold.
++    let room = |app: &App, i: usize, dd: usize, width: usize| -> isize {
++        let width = width as isize;
++        let dd = dd as isize;
++        let n = &app.tree.nodes[i];
++        match app.review.as_ref() {
++            Some(r) => {
++                let counts = match r.file(&n.path) {
++                    Some(f) if f.binary => 3 + 1,
++                    Some(f) => wrap::width(&format!("+{} \u{2212}{}", f.added, f.deleted)) + 1,
++                    None => 0,
++                };
++                width - (2 + 2 * dd + 2 + counts as isize)
++            }
++            None => width - (2 * dd + 2),
++        }
++    };
++    const LINE: usize = 12;
++    let need = |app: &App, i: usize| wrap::width(&app.tree.nodes[i].name()).min(LINE) as isize;
++    let nn = app.tree.nodes.len();
++    let mut shift = vec![0usize; nn];
++    let mut label: HashMap<usize, String> = HashMap::new();
++    app.tree.folded.clear();
++    if opt == "b" {
++        let end = |app: &App, i: usize| {
++            let d = app.tree.nodes[i].depth;
++            (i + 1..nn)
++                .find(|&j| app.tree.nodes[j].depth <= d)
++                .unwrap_or(nn)
++        };
++        let mut seen = vec![false; nn];
++        for i in 0..nn {
++            let n = &app.tree.nodes[i];
++            if seen[i] || !n.is_dir || n.ignored {
++                continue;
++            }
++            let mut chain = vec![i];
++            loop {
++                let c = *chain.last().unwrap();
++                let cn = &app.tree.nodes[c];
++                if !cn.expanded {
++                    break;
++                }
++                let e = end(app, c);
++                let kids: Vec<usize> = (c + 1..e)
++                    .filter(|&j| app.tree.nodes[j].depth == cn.depth + 1)
++                    .collect();
++                match kids[..] {
++                    [k] if app.tree.nodes[k].is_dir && !app.tree.nodes[k].ignored => chain.push(k),
++                    _ => break,
++                }
++            }
++            for &c in &chain {
++                seen[c] = true;
++            }
++            let k = chain.len() - 1;
++            if k == 0 {
++                continue;
++            }
++            let dk = chain[k];
++            let e = end(app, dk);
++            let s = (dk + 1..e)
++                .map(|j| {
++                    let dd = app.tree.nodes[j].depth - shift[j];
++                    ((need(app, j) - room(app, j, dd, width)).max(0) as usize).div_ceil(2)
++                })
++                .max()
++                .unwrap_or(0)
++                .min(k);
++            if s == 0 {
++                continue;
++            }
++            let names: Vec<String> = chain[k - s..].iter().map(|&c| app.tree.nodes[c].name()).collect();
++            label.insert(dk, names.join("/"));
++            for &c in &chain[k - s..k] {
++                app.tree.folded.insert(c);
++            }
++            for j in dk..e {
++                shift[j] += s;
++            }
++        }
++        // The cursor never rests on a row folded into another.
++        while app.tree.folded.contains(&app.tree.cursor) {
++            app.tree.cursor += 1;
++        }
++    }
++    let visible = app.tree.visible();
+     let at = visible
+         .iter()
+         .position(|&i| i == app.tree.cursor)
+         .unwrap_or(0);
+-    // Scroll the minimum amount that keeps the cursor row on screen.
+     app.tree_top = app.tree_top.min(at).max((at + 1).saturating_sub(height));
+-
+-    let width = inner.width as usize;
++    let dd = |i: usize| app.tree.nodes[i].depth - shift[i];
++    // C: the tree slides left, a level at a time, until the cursor row's name fits.
++    let mut slide = 0;
++    if opt == "c" && focused {
++        let c = app.tree.cursor;
++        if c < nn {
++            let d = dd(c);
++            slide = (0..=d)
++                .find(|&s| room(app, c, d - s, width) >= need(app, c))
++                .unwrap_or(d);
++        }
++    }
++    width += 2 * slide;
++    let mut whole: Option<(usize, Line)> = None;
+     let rows: Vec<Line> = visible
+         .iter()
+         .skip(app.tree_top)
+         .take(height)
+-        .map(|&i| {
++        .enumerate()
++        .map(|(row_at, &i)| {
+             let n = &app.tree.nodes[i];
++            let depth = dd(i);
++            let shown = label.get(&i).cloned().unwrap_or_else(|| n.name());
+             // Directories carry the accent: they are what the eye scans the tree by. What
+             // `.gitignore` leaves out is dim, directory or not.
+             let row = if n.ignored {
+@@ -139,7 +251,7 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
+                 (Some(_), true) => "\u{2713} ",
+             };
+             let width = width.saturating_sub(wrap::width(tick));
+-            let indent = "  ".repeat(n.depth);
++            let indent = "  ".repeat(depth);
+             let mut spans = vec![
+                 Span::styled(tick, style.fg(theme.accent)),
+                 Span::styled(indent, style),
+@@ -161,9 +273,24 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
+                     };
+                     // The counts stay; a long name gives way, with the cut marked. Before the
+                     // name: the indent, the letter and a space.
+-                    let used = 2 * n.depth + 2;
++                    let used = 2 * depth + 2;
+                     let room = width.saturating_sub(used + wrap::width(&counts) + 1);
+                     let mut name = n.name();
++                    let full = name.clone();
++                    if (opt == "a" || opt == "b")
++                        && focused
++                        && i == app.tree.cursor
++                        && wrap::width(&name) > room
++                        && room < LINE
++                    {
++                        let mut s = spans.clone();
++                        s.extend([
++                            Span::styled(f.status.to_string(), style),
++                            Span::styled(format!(" {full}  "), style),
++                            Span::styled(counts.clone(), dim),
++                        ]);
++                        whole = Some((row_at, Line::from(s)));
++                    }
+                     if wrap::width(&name) > room {
+                         let fits = wrap::cut(&name, 0, room.saturating_sub(1)).0;
+                         name = format!("{}\u{2026}", &name[fits]);
+@@ -184,7 +311,29 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
+                         (true, false) => "\u{25b8} ",
+                         (false, _) => "  ",
+                     };
+-                    spans.push(Span::styled(format!("{marker}{}", n.name()), style));
++                    let room = width.saturating_sub(wrap::width(tick) + 2 * depth + 2);
++                    let mut name = shown.clone();
++                    let cut = wrap::width(&name) > room;
++                    if (opt == "a" || opt == "b")
++                        && focused
++                        && i == app.tree.cursor
++                        && cut
++                        && (room < LINE || label.contains_key(&i))
++                    {
++                        let mut s = spans.clone();
++                        s.push(Span::styled(format!("{marker}{name} "), style));
++                        whole = Some((row_at, Line::from(s)));
++                    }
++                    // A folded row is cut from the left, at a `/`: the deepest names tell
++                    // the chains apart.
++                    if cut && label.contains_key(&i) {
++                        let parts: Vec<&str> = shown.split('/').collect();
++                        name = (1..parts.len())
++                            .map(|k| format!("\u{2026}/{}", parts[k..].join("/")))
++                            .find(|t| wrap::width(t) <= room)
++                            .unwrap_or_else(|| parts[parts.len() - 1].to_string());
++                    }
++                    spans.push(Span::styled(format!("{marker}{name}"), style));
+                 }
+             }
+             let used: usize = spans[1..].iter().map(|s| wrap::width(&s.content)).sum();
+@@ -192,7 +341,15 @@ pub(super) fn draw_tree(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
+             Line::from(spans)
+         })
+         .collect();
+-    frame.render_widget(Paragraph::new(rows).style(base), inner);
++    frame.render_widget(
++        Paragraph::new(rows).style(base).scroll((0, 2 * slide as u16)),
++        inner,
++    );
++    // A and B: the cursor row, cut short, is drawn whole over the code beside the tree.
++    let _ = review_on;
++    let (r, line) = whole?;
++    let w = (line.width() as u16).min(frame.area().width.saturating_sub(inner.x));
++    (w > inner.width).then(|| (Rect { x: inner.x, y: inner.y + r as u16, width: w, height: 1 }, line))
+ }
+ 
+ pub(super) fn draw_picker(
