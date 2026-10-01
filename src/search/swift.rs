@@ -255,8 +255,9 @@ pub(super) fn swift_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
     swift_walk(lines, at, name).unwrap_or_default()
 }
 /// Whether the walk of [`swift_bindings`] from 1-based `line` proves that no local of the
-/// enclosing functions names `name`: it reached a type's body and found no binding. A walk that
-/// stopped proves nothing (#380).
+/// enclosing function or type names `name`: it reached a type's body, or the parameters of a
+/// function right inside one, and found no binding. A walk that stopped proves nothing (#380), and
+/// so does one that went past a function inside another (#564).
 pub fn swift_no_local(text: &str, line: usize, name: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     line.checked_sub(1)
@@ -296,8 +297,13 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
     // The nearest binding among the statements of the block the walk is in: it counts once the
     // block's header says the block is no type's body.
     let mut pending = None;
-    // Past a type's header only the generic parameters of the declarations around it bind.
+    // Past the header of a function right inside a type, the type's header is all that is
+    // left to read: its members are no statements, its generic parameters bind.
     let mut typed = false;
+    // Past a function inside another function, a closure or an accessor, the walk still finds
+    // their bindings, but proves no local: they may declare a local `func` or type it does not
+    // read (#564).
+    let mut unproven = false;
     let mut i = at;
     while i > 0 && depth > 0 {
         i -= 1;
@@ -336,10 +342,10 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         let head = code(i);
         let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
         if typed {
-            if generic(&text) {
-                return found(i + 1);
-            }
-            continue;
+            return match generic(&text) {
+                true => found(i + 1),
+                false => (!unproven).then(Vec::new),
+            };
         }
         if SWIFT_FUNC.is_match(&head) {
             if let Some(line) = pending {
@@ -356,14 +362,21 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             }
             // A nested function reads the bindings of the function around it above its header,
             // as a closure does (#564): the walk goes on out, and a type's body stops it.
+            typed = (0..i)
+                .rev()
+                .find(|&j| swift_code(lines, &literal, j) && indent(lines[j]) < indent(lines[i]))
+                .map(|j| code(swift_header_start(lines, &literal, j)))
+                .is_some_and(|h| !SWIFT_FUNC.is_match(&h) && SWIFT_TYPE.is_match(&h));
+            unproven |= !typed;
             continue;
         }
+        // A type's generic parameters bind inside it; an outer type's, which a member of this one
+        // may shadow, are left to the search by name.
         if SWIFT_TYPE.is_match(&head) {
-            if generic(&text) {
-                return found(i + 1);
-            }
-            typed = true;
-            continue;
+            return match generic(&text) {
+                true => found(i + 1),
+                false => (!unproven).then(Vec::new),
+            };
         }
         if let Some(line) = pending {
             return found(line);
@@ -376,7 +389,7 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             Some(false) => {}
         }
     }
-    typed.then(Vec::new)
+    None
 }
 /// Whether the parameters of the `func`, `init`, `subscript` or `set` header `text` name `name`:
 /// the last word in front of a parameter's `:`, so `_ attempt: Int` and `for attempt: Int` bind
@@ -549,6 +562,15 @@ pub fn swift_type_place(text: &str, line: usize) -> Option<SwiftTypePlace> {
         true => SWIFT_FUNC
             .is_match(&header)
             .then_some(SwiftTypePlace::Function(scope)),
+        // Only a class, struct, enum or actor is certainly nested: a protocol's `typealias` is seen
+        // by every type that conforms to it.
+        false
+            if !swift_type_header(lines[line - 1]).is_some_and(|(k, ..)| {
+                matches!(k.as_str(), "class" | "struct" | "enum" | "actor")
+            }) =>
+        {
+            None
+        }
         false => swift_type_header(&header).and_then(|(_, outer, ..)| {
             Some(SwiftTypePlace::Nested(outer.rsplit('.').next()?.to_owned()))
         }),
