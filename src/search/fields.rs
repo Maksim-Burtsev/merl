@@ -34,12 +34,19 @@ pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<u
 ///   `@functools.cached_property`, read as its `-> T` (a setter declares nothing);
 /// - TypeScript: a member `name: T` or `name = …` behind any modifiers, a constructor parameter
 ///   with one (`private name: T`), `this.name = …`, a getter `get name(): T`;
-/// - Go: a struct field `name T` or `a, name T`, and an embedded `*Name` under its type's name.
+/// - Go: a struct field `name T` or `a, name T`, and an embedded `*Name` under its type's name;
+/// - JavaScript: a `@property {T} name` of a `@typedef {Object}` declared on `decl` (#347).
 pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = decl.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
     };
+    // A JavaScript `@typedef {Object}` declares its fields on its `@property` lines (#347).
+    if kind == Kind::TsJs
+        && let Some(fields) = jsdoc_properties(&lines, k, name)
+    {
+        return fields;
+    }
     let go_field = |t: &str| go_field(t, name);
     // A Go struct whose body closes on its own line: `type Item struct{ Name string }` (#327).
     if kind == Kind::Go
@@ -269,8 +276,10 @@ pub fn field_line(kind: Kind, text: &str, decl: usize, name: &str) -> Option<(us
 }
 /// The fields `name` the 1-based `hits` of `text` stand for: a hit that is one of the
 /// [`field_bindings`] of the type around it gives that type's [`field_line`], once, in line
-/// order. What [`field_patterns`] greps is more than the fields; this keeps the fields.
-pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str) -> Vec<usize> {
+/// order. What [`field_patterns`] greps is more than the fields; this keeps the fields. A
+/// `@property` of a `@typedef {Object}` is one only where `jsdoc` says the file reads JSDoc
+/// ([`reads_jsdoc`]).
+pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str, jsdoc: bool) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let mut types: HashMap<usize, Vec<Binding>> = HashMap::new();
     let mut out = Vec::new();
@@ -278,7 +287,11 @@ pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str) -> Vec<usi
         let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
             continue;
         };
-        let Some(decl) = enclosing_type(kind, &lines, k) else {
+        let owner = jsdoc
+            .then(|| jsdoc_owner(&lines, k))
+            .flatten()
+            .map(|i| i + 1);
+        let Some(decl) = owner.or_else(|| enclosing_type(kind, &lines, k)) else {
             continue;
         };
         let bindings = types
@@ -297,7 +310,7 @@ pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str) -> Vec<usi
 /// Whether the word `name` at byte `start` of 1-based `line` of `text` is the name a field's
 /// declaration gives it ([`field_rows`]): the first time the line spells it, as `self.repo = repo`
 /// and `this.f = this.f.bind(this)` spell it twice, and never a Go embedded struct, whose name
-/// is its type's.
+/// is its type's. A JSDoc `@property` is left to the rules as on master (#347).
 pub fn field_decl_at(kind: Kind, text: &str, line: usize, start: usize, name: &str) -> bool {
     let Some(l) = line.checked_sub(1).and_then(|k| text.lines().nth(k)) else {
         return false;
@@ -310,7 +323,7 @@ pub fn field_decl_at(kind: Kind, text: &str, line: usize, start: usize, name: &s
     let bare = l.split("//").next().unwrap_or("");
     let embedded =
         kind == Kind::Go && go_embedded(bare.split('`').next().unwrap_or("").trim()).is_some();
-    first == Some(start) && !embedded && field_rows(kind, text, &[line], name) == [line]
+    first == Some(start) && !embedded && field_rows(kind, text, &[line], name, false) == [line]
 }
 /// The 1-based line and the byte of it where the C# `enum` declared on 1-based `decl` of `text`
 /// lists the member `word`: one per line or several on one, with a value (`Cut = 2`) or

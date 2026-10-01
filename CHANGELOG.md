@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   project's `BUNDLE_PATH`, `GEM_HOME`, or the Ruby `.ruby-version` names under rbenv, mise, asdf
   or chruby; nothing of the project is run. `mattr_accessor` and `cattr_accessor` declare their
   names as `attr_accessor` does. (#369)
+- `d` in JavaScript reads the types JSDoc writes. With `/** @type {ParsedCLIOptions} */ let
+  options;`, `@param {ParsedCLIOptions} options` or a function's `@returns {CodePathState}`,
+  `options.maxWarnings` lands on the `@property` line of the `@typedef {Object}
+  ParsedCLIOptions` that declares it, saying `via options: ParsedCLIOptions`, where it jumped to
+  another type's `maxWarnings` found by name. A `@typedef {import("./options").X} X` reads the
+  type of that module, and the search by name counts a typedef's `@property` lines as fields.
+  (#347)
 - `d` in C knows the struct of a receiver from its declaration. In `void f(client *c)`,
   `c->flags` lands on the `flags` of `client`, saying `via c: client`, where it offered every
   `flags` of the project. The type comes from a parameter or a local, a

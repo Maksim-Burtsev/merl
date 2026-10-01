@@ -2472,13 +2472,10 @@ impl App {
                     && self
                         .text_of(&c.hit.path)
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line));
-                // A tag of a PHP class's docblock is a declaration inside a comment (#344).
+                // A tag of a PHP class's docblock (#344) or of a JavaScript `@typedef` (#347)
+                // is a declaration inside a comment.
                 let literal = lines.get(c.hit.line - 1).copied().unwrap_or(false)
-                    && !(kind == Kind::Php
-                        && self.text_of(&c.hit.path).is_some_and(|t| {
-                            search::php_tag_class(&t.lines().collect::<Vec<_>>(), c.hit.line - 1)
-                                .is_some()
-                        }));
+                    && !self.doc_tag(kind, &c.hit);
                 !call && !literal
             });
         }

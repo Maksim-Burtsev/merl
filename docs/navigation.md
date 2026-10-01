@@ -284,6 +284,16 @@ the type before it. The type comes from the declaration:
 - a TypeScript destructuring out of a chain of names, `const { repo, audit: trail } = this` or
   `= this.uow`, on one line or wrapped over several: the field's type. A default, a rest, a nested
   or an array's pattern is a binding of no readable type.
+- JSDoc in a `.js`, `.jsx`, `.mjs` or `.cjs` file (#347), read as the annotation it stands for:
+  `/** @type {UserRepository} */` right above a `const`, `let` or `var` or on its line,
+  `@param {UserRepository} repo` and `@returns {UserRepository}` in the block right above a
+  function or a method. A `@typedef {Object} Options` declares a type whose fields are its
+  `@property {T} name` lines, and `@typedef {import("./options").Options} Options` is the type of
+  that module, a `@typedef` there, a class or a `.d.ts` interface; a class bound by `const Repo =
+  require("./repo")` is a type too. The type in the braces is one name, `?T` and `T|null` read
+  as `T`, `T[]` and `Array<T>` hand out `T` to a loop; a union of two types, another generic, an
+  inline object or function type, `*`, `any`, a block with a blank line under it and a
+  `@typedef` its file declares twice type nothing. A `.ts` file's JSDoc is not read.
 - Swift (#384): a parameter's annotation (`lhs: Instant`, `with convertible: URLConvertible`), a
   local's or a property's (`let encoder: FormEncoder`), a construction `FormEncoder()`,
   `FormEncoder.init(…)` or with a trailing closure of a type the project declares (a callee it
@@ -488,8 +498,8 @@ and when every candidate is the method of one trait or of an `impl` of it, `d` j
 trait's, `via trait Clone`.
 So is every field of that name in the project, one row per type, on the line a proven receiver
 would land on: Python `name: T` or `name = …` in a class body and `self.name = …` in a method,
-TypeScript members and constructor parameters behind a modifier and `this.name = …`, Go struct
-fields and embedded structs. A local, the key of a dict or an object literal and a line of a `var`
+TypeScript members and constructor parameters behind a modifier and `this.name = …`, the
+`@property` lines of a JavaScript file's `@typedef {Object}`, Go struct fields and embedded structs. A local, the key of a dict or an object literal and a line of a `var`
 block are no field, and a name several types declare, such as `id`, is a picker rather than a
 jump. The field lines are searched apart from the methods, and when they fill the search the count
 says `+` and a single candidate is offered rather than jumped to. Fields outside the project are
