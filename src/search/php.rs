@@ -255,13 +255,26 @@ pub fn php_namespace(text: &str) -> Option<&str> {
 }
 
 pub fn php_block(text: &str, line: usize) -> &str {
-    let starts: Vec<usize> = NAMESPACE.find_iter(text).map(|m| m.start()).collect();
-    if starts.len() < 2 {
+    let mut lines = vec![0];
+    lines.extend(text.match_indices('\n').map(|(i, _)| i + 1));
+    let declared: Vec<usize> = NAMESPACE
+        .captures_iter(text)
+        .map(|c| lines.partition_point(|&o| o <= c.get(1).map_or(0, |m| m.start())) - 1)
+        .collect();
+    if declared.len() < 2 {
         return text;
     }
-    let at: usize = text.split_inclusive('\n').take(line).map(str::len).sum();
-    let i = starts.iter().rposition(|&s| s <= at).unwrap_or(0);
-    &text[starts[i]..starts.get(i + 1).copied().unwrap_or(text.len())]
+    let literal = super::syntax::literal_lines(Kind::Php, text);
+    let declared: Vec<usize> = declared
+        .into_iter()
+        .filter(|&l| literal.get(l) != Some(&true))
+        .collect();
+    if declared.len() < 2 {
+        return text;
+    }
+    let i = declared.iter().rposition(|&l| l <= line).unwrap_or(0);
+    let end = declared.get(i + 1).map_or(text.len(), |&l| lines[l]);
+    &text[lines[declared[i]]..end]
 }
 
 // ---- Class names and composer.json's PSR-4 map (#351) ----------------------------------------
