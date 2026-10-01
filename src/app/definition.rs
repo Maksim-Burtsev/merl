@@ -375,13 +375,13 @@ impl App {
         };
         // A Python `def` or `class` a function around the cursor binds is a local of it, one
         // the bare name reads (#338); a module's is reached through the rules below, and the
-        // cursor's own line stands on the declaration.
+        // cursor's own line stands on the declaration. A Swift `func` or type the walk binds is
+        // a function's local too: the walk reads none in a type's body or a file's top (#577).
         let closure = |n: usize| {
-            kind == Kind::Python
+            (kind == Kind::Swift || kind == Kind::Python && search::python_in_function(&text, n))
                 && !dotted
                 && chain.is_empty()
                 && n != self.line + 1
-                && search::python_in_function(&text, n)
         };
         let locals_at = |text: &str, line: usize| -> Vec<usize> {
             let binding: Vec<usize> = match declared {

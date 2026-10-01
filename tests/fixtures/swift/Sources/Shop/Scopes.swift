@@ -1,4 +1,4 @@
-// Scopes `d` must not prove empty, and declarations it must not hide (#375, #564).
+// Scopes `d` must not prove empty, and declarations it must not hide (#375, #564, #577).
 final class Valve {
     func vent() {}
     struct Seam {}
@@ -8,9 +8,9 @@ final class Valve {
         struct Seam {}
         func drift() {
             vent()
-        //  ^ d: picker Sources/Shop/Scopes.swift:3, Sources/Shop/Scopes.swift:7
+        //  ^ d: Sources/Shop/Scopes.swift:7
             _ = Seam()
-        //      ^ d: picker Sources/Shop/Scopes.swift:4, Sources/Shop/Scopes.swift:8
+        //      ^ d: Sources/Shop/Scopes.swift:8
         }
         drift()
     }
@@ -48,3 +48,29 @@ struct Strap {}
 let strap = Strap()
 //          ^ d: Sources/Shop/Scopes.swift:46
 //            status: Strap: by name, 1 match
+
+// A local `func` or type binds its name for the whole body that declares it, above the cursor and
+// below, as `swiftc` reads it: the type's namesake member through `self` is not it (#577).
+final class Damper {
+    func choke() {}
+    struct Plate {}
+
+    func clamp() {
+        func choke() {}
+        struct Plate {}
+        choke()
+        // ^ d: Sources/Shop/Scopes.swift:59
+        //   status: (local)
+        _ = Plate()
+        //  ^ d: Sources/Shop/Scopes.swift:60
+    }
+
+    func early() {
+        choke()
+        // ^ d: Sources/Shop/Scopes.swift:73
+        _ = Plate()
+        //  ^ d: Sources/Shop/Scopes.swift:74
+        func choke() {}
+        struct Plate {}
+    }
+}
