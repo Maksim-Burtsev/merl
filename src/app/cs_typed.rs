@@ -504,6 +504,27 @@ impl App {
         (certain || !found.is_empty()).then_some(found)
     }
 
+    /// Whether the bare C# `word` at `range` of the cursor's line is looked up as a type alone
+    /// (#360). After `is` a constant pattern may stand too, `x is Max` with a `const int Max`
+    /// (#581): a type of the name in sight still wins, and with none it is the search by name.
+    pub(super) fn cs_types_only(&self, here: &Path, word: &str, range: std::ops::Range<usize>) -> bool {
+        let line = self.line_str();
+        if !search::cs_type_position(line, range.start, range.end) {
+            return false;
+        }
+        let is = line[..range.start].trim_end().strip_suffix("is");
+        if is.is_none_or(|b| b.ends_with(|c: char| c.is_alphanumeric() || c == '_')) {
+            return true;
+        }
+        let patterns = search::def_patterns(Kind::CSharp, word);
+        let types = [&patterns[0], &patterns[1], &patterns[3]].map(String::as_str);
+        let cut = self.truncated.get();
+        let hits = self.project_definitions(Kind::CSharp, here, word, &types.join("|"));
+        let found = !self.cs_reachable(here, word, None, None, hits).is_empty();
+        self.truncated.set(cut);
+        found
+    }
+
     /// A bare C# `word` inside a type (#360), looked up as C# resolves a simple name: in the type
     /// around the cursor, a `partial` part of it, the bases its header names, walked up, then the
     /// same for each type around that one. Only types count where a type stands. `Err` when none
