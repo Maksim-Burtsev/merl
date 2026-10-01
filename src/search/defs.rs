@@ -488,6 +488,10 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^directive\s+@{w}\b"),
             format!(r"^\s+{w}\s*(?:[:(@#,]|$)"),
         ],
+        // What `u` marks as a declaration; `d` reads a stylesheet with [`sheet_at`] (#415).
+        Kind::Css => css_patterns(word),
+        // An HTML file declares an id, which `d` reads from the attribute under the cursor.
+        Kind::Html => Vec::new(),
     }
 }
 /// [`def_patterns`] cut to what the word at `range` of `line` can be: a PHP namespace's
@@ -989,7 +993,9 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         | Kind::Docker
         | Kind::Yaml
         | Kind::Markdown
-        | Kind::Graphql => return None,
+        | Kind::Graphql
+        | Kind::Css
+        | Kind::Html => return None,
     })
 }
 /// Line patterns that can declare `word` as a field, for the search by name: more than the fields,
@@ -1081,6 +1087,13 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
 ) -> bool {
     match kind {
         Kind::Graphql => !line_text.starts_with([' ', '\t']) || graphql_member(lines(), line),
+        Kind::Css => css_declares(word, line, line_text, || {
+            lines()
+                .iter()
+                .map(AsRef::as_ref)
+                .collect::<Vec<&str>>()
+                .join("\n")
+        }),
         Kind::Go if line_text.starts_with([' ', '\t']) => {
             let local = line_text
                 .trim_start()

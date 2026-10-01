@@ -23,7 +23,7 @@ impl App {
                     false => w,
                 }
             }),
-            _ => a.word_under(extra),
+            _ => a.css_word().or_else(|| a.word_under(extra)),
         }) else {
             self.message = "no word under the cursor".into();
             return;
@@ -214,5 +214,36 @@ impl App {
         });
         let ranked = ranked.into_iter().map(|((tier, _), h)| (tier, h)).collect();
         (ranked, cut)
+    }
+
+    /// A Makefile line a declaration pattern matched, as `d` and `u` both count it (#504): `None`
+    /// off a recipe, else whether it still declares `word`. `GO=$(GO) ./build.sh` in a recipe
+    /// sets a variable of one shell command (#477): it declares the word only for a shell
+    /// variable of the command under the cursor, `$${ARCH}`, and never for make's own `$(GO)`.
+    /// The file on screen is read as it is, which is what the grep matched (#505).
+    pub(super) fn make_recipe_rule<'a>(
+        &'a self,
+        here: Option<&Path>,
+        word: &str,
+    ) -> impl FnMut(&Hit) -> Option<bool> + 'a {
+        let line = self.line_str();
+        let shell =
+            search::definition_word(Some(Kind::Make), line, self.col).is_some_and(|(r, w)| {
+                let before = &line[..r.start];
+                let shell_ref = before.ends_with("$$(") || before.ends_with("$${");
+                let make_ref = before.ends_with("$(") || before.ends_with("${");
+                w == word && (shell_ref || !make_ref)
+            });
+        let command = search::make_recipe_command(&self.buf.lines.join("\n"), self.line + 1)
+            .filter(|_| shell);
+        let here = here.map(Path::to_path_buf);
+        let mut texts: HashMap<PathBuf, Option<String>> = HashMap::new();
+        move |h: &Hit| {
+            let text = texts
+                .entry(h.path.clone())
+                .or_insert_with(|| self.text_of(&h.path));
+            let at = search::make_recipe_command(text.as_deref()?, h.line)?;
+            Some(here.as_ref() == Some(&h.path) && Some(at) == command)
+        }
     }
 }
