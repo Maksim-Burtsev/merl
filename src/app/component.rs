@@ -4,6 +4,12 @@ use super::definition::resolution;
 use super::*;
 
 impl App {
+    /// Whether the cursor is on a line of a component outside its script.
+    pub(super) fn on_template(&self, here: &Path) -> bool {
+        let code = search::script_lines(here, &self.buf.lines.join("\n"));
+        code.is_some_and(|c| c.get(self.line) == Some(&false))
+    }
+
     /// `d` on a line of a component outside its script. A `<style>` block declares and names no
     /// code. A name the template binds is a local of the file, beside the script's own binding
     /// of it. A component's tag no import binds is the component file of its name, or the

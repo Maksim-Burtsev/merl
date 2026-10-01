@@ -19,8 +19,7 @@ impl App {
         chain: &[String],
         head: Option<&(String, search::Value, Vec<String>)>,
     ) -> Result<Vec<Candidate>, String> {
-        let text = self.buf.lines.join("\n");
-        let line = self.line + 1;
+        let (text, line) = self.scope(here);
         // `super().m()` / `super.m()` is `self` / `this` with the walk started one level up.
         if chain.first().is_some_and(|f| f == "super") {
             let [_] = chain else {
@@ -72,6 +71,20 @@ impl App {
             .collect())
     }
 
+    /// The text of the cursor's file as the scope rules read it, and the 1-based line they read
+    /// the cursor at. On a component's template, the script's top level from past its end, so
+    /// the order of the blocks never changes the answer (#594).
+    fn scope(&self, here: &Path) -> (String, usize) {
+        let text = self.buf.lines.join("\n");
+        match self.on_template(here) {
+            true => {
+                let script = search::script_text(here, &text, None);
+                (format!("{script}\n0"), self.buf.lines.len() + 1)
+            }
+            false => (text, self.line + 1),
+        }
+    }
+
     /// The type of the receiver `chain`, or of the call `head` it hangs off, with the links that
     /// prove it; `Err` names the first name that is not proven.
     fn receiver(
@@ -81,8 +94,7 @@ impl App {
         chain: &[String],
         head: Option<&(String, search::Value, Vec<String>)>,
     ) -> Result<(Typed, Vec<String>), String> {
-        let text = self.buf.lines.join("\n");
-        let line = self.line + 1;
+        let (text, line) = self.scope(here);
         match head {
             // The chain hangs off a call: `make_uow().users.word`.
             Some((call, value, fields)) => {
