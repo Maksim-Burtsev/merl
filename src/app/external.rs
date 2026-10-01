@@ -579,9 +579,11 @@ impl App {
         kept
     }
 
-    /// Whether the open file is C source, `.c`, which reads no C++ header.
+    /// Whether the open file is C source, `.c`, or Objective-C's `.m` (#417), which read no C++
+    /// header; `.mm` does.
     pub(super) fn c_source(&self) -> bool {
-        (self.buf.path.as_deref()).is_some_and(|p| p.extension().is_some_and(|e| e == "c"))
+        (self.buf.path.as_deref())
+            .is_some_and(|p| p.extension().is_some_and(|e| e == "c" || e == "m"))
     }
 
     /// Whether the open file is Objective-C ([`search::objc_file`]).

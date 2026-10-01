@@ -55,3 +55,12 @@
     }
 }
 @end
+
+@implementation Prober
+- (void)examine {
+    id<Base> b = nil; Base *c = self.token;
+//     ^ d: objc/Repo.h:66
+//                    ^ d: objc/Repo.h:69
+//                                   ^ d: none
+}
+@end

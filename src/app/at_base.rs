@@ -235,7 +235,7 @@ impl App {
         let Some(r) = &self.review else {
             return Vec::new();
         };
-        let mut patterns = search::def_patterns(kind, word);
+        let mut patterns = search::def_patterns_for(kind, word, self.objc_file());
         patterns.extend(search::member_patterns(kind, word).unwrap_or_default());
         let Ok(re) = Regex::new(&patterns.join("|")) else {
             return Vec::new();

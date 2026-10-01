@@ -631,7 +631,13 @@ pub fn in_copy(path: &Path, copy: &[PathBuf]) -> bool {
 /// dependency.
 pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
     let go = kind == Kind::Go;
-    let real = real_dirs(dirs);
+    // A link is spelled through the roots a C file reads, never the frameworks: `usr/include`'s
+    // `tcl.h` links into `Tcl.framework`, and stays `tcl.h` (#417).
+    let spelled: Vec<PathBuf> = (dirs.iter())
+        .filter(|d| !objc_frameworks(d))
+        .cloned()
+        .collect();
+    let real = real_dirs(&spelled);
     let mut files = Vec::new();
     for dir in dirs {
         // Homebrew's Rust ships the sysroot `library` with a copy of itself inside; every

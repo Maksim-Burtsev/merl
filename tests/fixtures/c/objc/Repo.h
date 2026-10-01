@@ -58,3 +58,13 @@ typedef NSString * Mode NS_TYPED_EXTENSIBLE_ENUM;
 @property (nonatomic, readonly, getter=isRunning) BOOL running;
 - (NSInteger)ticks;
 @end
+
+@interface Warm : NSObject
++ (void)warmUp;
+@end
+
+@protocol Base
+@end
+
+@interface Base : NSObject <Base>
+@end

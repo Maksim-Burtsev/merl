@@ -59,6 +59,16 @@ pub fn objc_for_in(inner: &str, name: &str) -> Option<usize> {
     Some(re.captures(inner)?.get(1)?.start())
 }
 
+/// [`super::def_patterns`] as a file reads them: Objective-C's declare for an Objective-C file
+/// (`objc`) alone, so a C or C++ file's are master's (#417).
+pub fn def_patterns_for(kind: super::Kind, word: &str, objc: bool) -> Vec<String> {
+    let mut p = super::def_patterns(kind, word);
+    if kind == super::Kind::C && !objc {
+        p.truncate(p.len() - objc_patterns(word).len());
+    }
+    p
+}
+
 /// Whether a line a C-kind pattern of `word` matched is Objective-C's alone: an Objective-C
 /// pattern matches it and no C or C++ one does. The regexes are built on the first line that
 /// could be one.
@@ -73,11 +83,9 @@ pub fn objc_only(word: &str) -> impl Fn(&str) -> bool {
             return false;
         }
         let (objc, c): &(Regex, Regex) = res.get_or_init(|| {
-            let all = super::def_patterns(super::Kind::C, &word);
-            let own = objc_patterns(&word);
-            let c = &all[..all.len() - own.len()];
+            let c = def_patterns_for(super::Kind::C, &word, false);
             let re = |p: &[String]| Regex::new(&p.join("|")).expect("escaped names compile");
-            (re(&own), re(c))
+            (re(&objc_patterns(&word)), re(&c))
         });
         objc.is_match(line) && !c.is_match(line)
     }
