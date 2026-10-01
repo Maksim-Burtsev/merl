@@ -30,4 +30,16 @@ class Recount extends Tally
         return parent::OPEN;
         //             ^ d: src/Audit/Tally.php:7
     }
+
+    public function again(): int
+    {
+        return static::OPEN;
+        //             ^ d: src/Audit/Tally.php:7
+    }
+
+    public function measure(Tally $t): int
+    {
+        return $t->sum();
+        //         ^ d: src/Audit/Tally.php:9
+    }
 }

@@ -63,9 +63,10 @@ pub fn php_member_patterns(word: &str, call: bool) -> Vec<String> {
     }
 }
 
-/// The line pattern of a `namespace` line whose last part is the escaped word `w`.
+const NAMESPACE_HEAD: &str = r"^\s*(?:<\?php\s+)?namespace\s+";
+
 pub(super) fn php_namespace_line(w: &str) -> String {
-    format!(r"^\s*namespace\s+(?:[\w\\]+\\)?{w}\s*[;{{]")
+    format!(r"{NAMESPACE_HEAD}(?:[\w\\]+\\)?{w}\s*[;{{]")
 }
 
 /// The 0-based line of the `class`, `trait`, `interface` or `enum` whose docblock holds the
@@ -102,17 +103,6 @@ pub fn php_tag_class<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
     CLASS.is_match(lines[class].as_ref()).then_some(class)
 }
 
-/// The `namespace` rule of `patterns`, [`def_patterns`](super::def_patterns) of PHP for the word
-/// at `range` of `line` in the file `text`, as the word asks (#344). `namespace X\Y;` is written
-/// in every file of `X\Y` and names none of the classes that share its last part, so:
-/// - a word a `\` follows is a segment of a qualified name, no class or function, and only a
-///   line declaring the namespace written up to it answers: `Illuminate\Support` for `Support` in
-///   `use Illuminate\Support\Facades\Route;`. A leading `\` is dropped, and outside a `use` or
-///   a `namespace` line a name that does not start with one is relative to the file's own
-///   namespace;
-/// - the last part of a `namespace` line keeps the rule as it is: the other files of the
-///   namespace are its namesakes;
-/// - any other word is no namespace, and the rule goes.
 pub fn php_namespace_patterns(
     patterns: &mut Vec<String>,
     text: &str,
@@ -120,7 +110,7 @@ pub fn php_namespace_patterns(
     range: Range<usize>,
 ) {
     static ON_NAMESPACE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*namespace\s+[\w\\]*$").unwrap());
+        LazyLock::new(|| Regex::new(&format!(r"{NAMESPACE_HEAD}[\w\\]*$")).unwrap());
     let generic = php_namespace_line(&regex::escape(&line[range.clone()]));
     let Some(at) = patterns.iter().position(|p| *p == generic) else {
         return;
@@ -137,13 +127,17 @@ pub fn php_namespace_patterns(
         .len();
     let spelled = &line[start..range.end];
     let head = before.trim_start();
-    let absolute =
-        spelled.starts_with('\\') || head.starts_with("use ") || head.starts_with("namespace ");
+    let absolute = spelled.starts_with('\\')
+        || head.starts_with("use ")
+        || head
+            .trim_start_matches("<?php")
+            .trim_start()
+            .starts_with("namespace ");
     let mut name = spelled.trim_start_matches('\\').to_owned();
     if !absolute && let Some(own) = php_namespace(text) {
         name = format!("{own}\\{name}");
     }
-    *patterns = vec![format!(r"^\s*namespace\s+{}\s*[;{{]", regex::escape(&name))];
+    *patterns = vec![format!(r"{NAMESPACE_HEAD}{}\s*[;{{]", regex::escape(&name))];
 }
 
 /// How a PHP member is reached, which says what can declare it (#356): a call is a method, a
@@ -245,7 +239,7 @@ pub fn php_class_traits<S: AsRef<str>>(lines: &[S], class: usize) -> Vec<String>
 }
 
 static NAMESPACE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?m)^\s*(?:<\?php\s+)?namespace\s+([\w\\]+)\s*[;{]").unwrap());
+    LazyLock::new(|| Regex::new(&format!(r"(?m){NAMESPACE_HEAD}([\w\\]+)\s*[;{{]")).unwrap());
 
 pub fn php_namespace(text: &str) -> Option<&str> {
     NAMESPACE
