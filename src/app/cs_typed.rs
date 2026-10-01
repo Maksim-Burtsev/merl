@@ -107,7 +107,7 @@ impl App {
             CsType::Project(t) => match self.cs_up(t, word, 0) {
                 // An overload that cannot take the call's arguments is none (#360), unless none can.
                 Up::Found(hits) => {
-                    let fit = self.cs_fit(word, self.cs_args(), true, hits.clone());
+                    let fit = self.cs_fit(word, self.cs_args(), Some(""), hits.clone());
                     let hits = if fit.is_empty() { hits } else { fit };
                     return Some(CsAnswer::Found(receivers(hits, label)));
                 }
@@ -451,19 +451,10 @@ impl App {
         if !members.is_empty() {
             // `global using` in any file of the `.csproj` this file is in, `<Using Include>` in
             // that `.csproj`: a solution's other projects open their own.
-            let csproj = |d: &Path| {
-                self.files
-                    .iter()
-                    .any(|f| f.parent() == Some(d) && f.extension().is_some_and(|e| e == "csproj"))
-            };
-            let project = here
-                .ancestors()
-                .skip(1)
-                .find(|d| csproj(d))
-                .unwrap_or(Path::new(""));
+            let project = search::cs_own_project(&self.files, here).unwrap_or_default();
             let global = r#"^\u{feff}?\s*global\s+using\s+[\w.]+\s*;|<Using\s+Include=""#;
             let files = |p: &Path| {
-                p.starts_with(project) && p.extension().is_some_and(|e| e == "cs" || e == "csproj")
+                p.starts_with(&project) && p.extension().is_some_and(|e| e == "cs" || e == "csproj")
             };
             for h in self.grep(global, false, false, files).unwrap_or_default() {
                 opened.extend(search::cs_usings(&h.text));
@@ -552,15 +543,18 @@ impl App {
         if around.is_empty() {
             return Err(None);
         }
-        let types = Regex::new(&search::def_patterns(Kind::CSharp, word)[..2].join("|"))
-            .expect("an escaped name keeps the pattern valid");
+        let level = Level {
+            types: types_only.then(|| {
+                Regex::new(&search::def_patterns(Kind::CSharp, word)[..2].join("|"))
+                    .expect("an escaped name keeps the pattern valid")
+            }),
+            args: self.cs_args(),
+            on: (here.to_path_buf(), self.line + 1),
+        };
         let mut walked = Vec::new();
         let mut unknown = false;
         for ty in &around {
-            let mut hits = self.cs_walk(ty, word, 0, &mut walked, &mut unknown);
-            if types_only {
-                hits.retain(|h| types.is_match(&h.text));
-            }
+            let hits = self.cs_walk(ty, word, &level, 0, &mut walked, &mut unknown);
             // On a declaration of the name, its namesakes are offered, as before.
             if hits
                 .iter()
@@ -568,7 +562,16 @@ impl App {
             {
                 return Err(None);
             }
-            let hits = self.cs_fit(word, self.cs_args(), false, hits);
+            // "Color Color": `Status.Open` in a type whose property `Status` is of the type
+            // `Status` may mean either; today's lookup offers both.
+            let color = after.starts_with('.')
+                && hits.iter().all(|h| {
+                    matches!(search::cs_declared(&h.text, word),
+                        search::CsValue::Type(t) if search::cs_type_name(&t).as_deref() == Some(word))
+                });
+            if color && !hits.is_empty() {
+                return Err(None);
+            }
             if !hits.is_empty() {
                 return Ok(hits
                     .into_iter()
@@ -588,6 +591,7 @@ impl App {
         &self,
         ty: &Typed,
         word: &str,
+        level: &Level,
         depth: usize,
         walked: &mut Vec<String>,
         unknown: &mut bool,
@@ -608,8 +612,13 @@ impl App {
             let pattern =
                 format!(r"\bpartial\s+(?:record\s+)?(?:class|struct|interface|record)\s+{n}\b");
             let cut = self.truncated.get();
+            // A part is declared in the type's own namespace: `Shop.B.Page` is another type.
+            let namespace = search::cs_namespace(&text, ty.line);
             for h in self.project_grep(Kind::CSharp, &ty.path, &pattern) {
-                if h.path != ty.path || h.line != ty.line {
+                let same = self
+                    .text_of(&h.path)
+                    .is_some_and(|t| search::cs_namespace(&t, h.line) == namespace);
+                if same && (h.path != ty.path || h.line != ty.line) {
                     parts.push(Typed {
                         name: ty.name.clone(),
                         path: h.path,
@@ -629,6 +638,20 @@ impl App {
                     search::CsPlace::Local { .. }
                 )
             });
+            if own.iter().any(|h| (h.path.clone(), h.line) == level.on) {
+                return own;
+            }
+            // A base's private member is out of reach, and so is an overload that cannot take
+            // the call's arguments: the walk goes on up to the bases then (#360).
+            own.retain(|h| {
+                let private = matches!(
+                    search::cs_place(&text, h.line, word),
+                    search::CsPlace::Member { private: true, .. }
+                );
+                !(depth > 0 && private)
+                    && level.types.as_ref().is_none_or(|re| re.is_match(&h.text))
+            });
+            let own = self.cs_fit(word, level.args, None, own);
             if !own.is_empty() {
                 return own;
             }
@@ -645,7 +668,7 @@ impl App {
             for base in search::cs_bases(&text, part.line) {
                 match self.cs_resolve(&part.path, &text, part.line, &base) {
                     Some(CsType::Project(b)) if !walked.contains(&b.name) => {
-                        let found = self.cs_walk(&b, word, depth + 1, walked, unknown);
+                        let found = self.cs_walk(&b, word, level, depth + 1, walked, unknown);
                         if !found.is_empty() {
                             return found;
                         }
@@ -661,15 +684,15 @@ impl App {
 
     /// Of `hits` for a C# `word`, those the cursor can reach. A private member from its own type
     /// alone, a part of it this file declares included, and a local from its own method alone,
-    /// never behind a dot (#355). A method whose parameters cannot take the call's `args` is no
-    /// candidate (#360), nor, for a bare word whose types around were all `walked`, a member of
-    /// any other type: C# reaches it through a qualifier or a `using static` alone.
+    /// never behind a dot, the `chain` in front of a dotted word (#355). A method whose
+    /// parameters cannot take the call's arguments is no candidate (#360), nor, for a bare word
+    /// whose types around were all `walked`, a member of any other type: C# reaches it through a
+    /// qualifier or a `using static` alone.
     pub(super) fn cs_reachable(
         &self,
         here: &Path,
         word: &str,
-        dotted: bool,
-        args: Option<usize>,
+        chain: Option<&[String]>,
         walked: Option<&[String]>,
         hits: Vec<Hit>,
     ) -> Vec<Hit> {
@@ -679,7 +702,7 @@ impl App {
             .iter()
             .filter_map(|l| search::cs_type_decl(l).map(|(_, name)| name))
             .collect();
-        let statics = r"^\u{feff}?\s*(?:global\s+)?using\s+static\b";
+        let statics = r"^\u{feff}?\s*global\s+using\s+static\b";
         let walked = walked.filter(|_| {
             let cut = self.truncated.get();
             let none = self.project_grep(Kind::CSharp, here, statics).is_empty()
@@ -703,7 +726,7 @@ impl App {
                     private: true,
                 } => mine.contains(&owner),
                 search::CsPlace::Local { from, to } => {
-                    !dotted && h.path == here && (from..=to).contains(&(self.line + 1))
+                    chain.is_none() && h.path == here && (from..=to).contains(&(self.line + 1))
                 }
                 _ => true,
             }
@@ -725,7 +748,8 @@ impl App {
                 ty.is_match(&h.text) || !ctor.is_match(&h.text) || !typed.contains(&h.path)
             });
         }
-        self.cs_fit(word, args, dotted, hits)
+        let receiver = chain.map(|c| c.last().map_or("", String::as_str));
+        self.cs_fit(word, self.cs_args(), receiver, hits)
     }
 
     /// How many arguments the call of the C# word under the cursor passes (#360); `None` off a
@@ -742,13 +766,14 @@ impl App {
     }
 
     /// Of `hits` for a C# `word`, all but the methods whose parameters cannot take `args`
-    /// arguments (#360); an extension's `this` is passed by the receiver when `dotted`. A method
+    /// arguments (#360). An extension's `this` is passed by the `receiver` of a call `x.word(…)`,
+    /// `""` for a value, unless the receiver names the extension's own static class. A method
     /// whose list is not read stays, and so does everything with no call to count.
     pub(super) fn cs_fit(
         &self,
         word: &str,
         args: Option<usize>,
-        dotted: bool,
+        receiver: Option<&str>,
         hits: Vec<Hit>,
     ) -> Vec<Hit> {
         let Some(n) = args else {
@@ -762,11 +787,23 @@ impl App {
                 let Some((min, max, this)) = search::cs_parameters(&text, h.line, word) else {
                     return true;
                 };
-                let by = usize::from(this && dotted);
+                let owner = match search::cs_place(&text, h.line, word) {
+                    search::CsPlace::Member { owner, .. } => owner,
+                    _ => String::new(),
+                };
+                let by = usize::from(this && receiver.is_some_and(|q| q.is_empty() || q != owner));
                 n + by >= min && max.is_none_or(|m| n + by <= m)
             })
             .collect()
     }
+}
+
+/// What a level of the C# class-first walk keeps (#360): only types where a type stands, only
+/// overloads that take the call's `args`, and the cursor's own line, a declaration, as is.
+struct Level {
+    types: Option<Regex>,
+    args: Option<usize>,
+    on: (PathBuf, usize),
 }
 
 /// Whether two proven types are one.

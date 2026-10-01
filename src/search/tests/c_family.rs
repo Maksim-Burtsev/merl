@@ -1177,6 +1177,41 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
             "{app}"
         );
     }
+    // An attribute before `Include` is still read; a reference the reader cannot read refuses.
+    let conditioned = [
+        (
+            "Shop.App/Shop.App.csproj",
+            r#"<ProjectReference Condition="'$(Os)' == 'mac'" Include="..\Shop.Api\Shop.Api.csproj" />"#,
+        ),
+        ("Shop.Api/Shop.Api.csproj", PLAIN),
+    ];
+    let seen = cs_projects(&files, here, read(&conditioned)).unwrap();
+    assert!(seen.sees(Path::new("Shop.Api/Address.cs")));
+    let quoted = [
+        (
+            "Shop.App/Shop.App.csproj",
+            "<ProjectReference Include='..\\Shop.Api\\Shop.Api.csproj' />",
+        ),
+        ("Shop.Api/Shop.Api.csproj", PLAIN),
+    ];
+    assert!(cs_projects(&files, here, read(&quoted)).is_none());
+    let linked = [
+        ("Shop.App/Shop.App.csproj", PLAIN),
+        (
+            "Directory.Build.props",
+            r#"<Compile Include="..\Shared\Clock.cs" />"#,
+        ),
+    ];
+    assert!(cs_projects(&files, here, read(&linked)).is_none());
+    // A project inside another's directory is a project of its own.
+    let mut nested = files.clone();
+    nested.push(PathBuf::from("Shop.App/Tests/Shop.App.Tests.csproj"));
+    let inner = [
+        ("Shop.App/Shop.App.csproj", PLAIN),
+        ("Shop.App/Tests/Shop.App.Tests.csproj", PLAIN),
+    ];
+    let seen = cs_projects(&nested, Path::new("Shop.App/Page.cs"), read(&inner)).unwrap();
+    assert!(!seen.sees(Path::new("Shop.App/Tests/PageTests.cs")));
     let mut two = files.clone();
     two.push(PathBuf::from("Shop.App/Shop.App.Tests.csproj"));
     assert!(cs_projects(&two, here, read(alone)).is_none());
@@ -1200,6 +1235,7 @@ fn csharp_type_positions_namespace_segments_and_arity() {
         ("    var a = new Address { Street = s };", "Address"),
         ("    if (x is Buyer) return;", "Buyer"),
         ("    var t = typeof(Buyer);", "Buyer"),
+        ("    var b = o as Buyer;", "Buyer"),
         ("    var b = (Buyer)o;", "Buyer"),
         ("    return (Buyer)o;", "Buyer"),
         ("public class Order : Entity, IAggregateRoot", "Entity"),
@@ -1219,6 +1255,9 @@ fn csharp_type_positions_namespace_segments_and_arity() {
         ("    if (ready) return;", "ready"),
         ("    Run(Buyer);", "Buyer"),
         ("    var n = (count) * 2;", "count"),
+        ("    var empty = (Items) is null;", "Items"),
+        ("    var b = order switch { _ => 1 };", "order"),
+        ("    var x = new Courier.Inner();", "Courier"),
         ("public class Order : Base(Total, Other)", "Other"),
     ] {
         assert!(!at(line, word), "{line} / {word}");

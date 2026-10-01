@@ -1574,8 +1574,8 @@ impl App {
         }
         // What a C# name reaches of its namesakes (#355, #360).
         if kind == Kind::CSharp {
-            let args = self.cs_args();
-            hits = self.cs_reachable(&here, &word, dotted, args, cs_walked.as_deref(), hits);
+            let chain = dotted.then_some(chain.as_slice());
+            hits = self.cs_reachable(&here, &word, chain, cs_walked.as_deref(), hits);
         }
         if kind == Kind::Lua {
             let at = |h: &Hit| h.path == here && h.line == self.line + 1;

@@ -34,13 +34,11 @@ pub fn cs_projects(
     read: impl Fn(&Path) -> Option<String>,
 ) -> Option<CsProjects> {
     static REFERENCE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"<ProjectReference\s+Include\s*=\s*"([^"]*)""#).unwrap()
+        Regex::new(r#"<ProjectReference\b[^>]*?\bInclude\s*=\s*"([^"]*)""#).unwrap()
     });
+    // A source file pulled in from outside the project's directory, or a shared project's.
     static OUTSIDE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(
-            r#"<Compile\s+Include\s*=\s*"[^"]*\.\.|<Import\s+Project\s*=\s*"[^"]*\.projitems""#,
-        )
-        .unwrap()
+        Regex::new(r#"<Compile\b[^>]*\.\.|<Import\b[^>]*\.projitems"#).unwrap()
     });
     let manifests: Vec<&PathBuf> = files
         .iter()
@@ -55,7 +53,7 @@ pub fn cs_projects(
     if here.extension().is_some_and(|e| e == "csx") {
         return None;
     }
-    let own = nearest(&all, here)?.clone();
+    let own = cs_own_project(files, here)?;
     let mut seen = vec![own];
     let mut i = 0;
     while let Some(dir) = seen.get(i).cloned() {
@@ -68,14 +66,17 @@ pub fn cs_projects(
             return None;
         };
         let text = read(manifest)?;
-        if OUTSIDE.is_match(&text) {
-            return None;
-        }
         let props = dir
             .ancestors()
             .filter_map(|d| read(&d.join("Directory.Build.props")))
             .collect::<Vec<_>>();
         for other in std::iter::once(&text).chain(&props) {
+            // Every reference is read, or none narrows: one the pattern misses would hide its
+            // project.
+            let written = other.matches("<ProjectReference").count();
+            if OUTSIDE.is_match(other) || REFERENCE.captures_iter(other).count() != written {
+                return None;
+            }
             for c in REFERENCE.captures_iter(other) {
                 let target = lexical(&dir, &c[1].replace('\\', "/"))?;
                 if !manifests.contains(&&target) {
@@ -89,6 +90,17 @@ pub fn cs_projects(
         }
     }
     Some(CsProjects { all, seen })
+}
+
+/// The directory of the project a C# file is in: the nearest above it, among `files`, holding a
+/// `.csproj`.
+pub fn cs_own_project(files: &[PathBuf], here: &Path) -> Option<PathBuf> {
+    let dirs: Vec<PathBuf> = files
+        .iter()
+        .filter(|f| f.extension().is_some_and(|e| e == "csproj"))
+        .map(|f| f.parent().unwrap_or(Path::new("")).to_path_buf())
+        .collect();
+    nearest(&dirs, here).cloned()
 }
 
 /// The deepest of `dirs` that holds `path`.

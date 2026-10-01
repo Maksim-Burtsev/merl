@@ -17,3 +17,9 @@ public class CatalogServices
     //                   ^ d: src/Shop/Pricing/Pricing.cs:1
     //                           ^ d: src/Shop/Pricing/Pricing.cs:12
 }
+public class DupBase { }
+
+public partial class Page
+{
+    public void Show() { }
+}

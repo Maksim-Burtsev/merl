@@ -828,7 +828,10 @@ pub fn cs_type_position(line: &str, start: usize, end: usize) -> bool {
             cs_generics!(),
             r#"\??(?:\[[,\s]*\])*\s*\)\s*[\w@($"]"#
         ))
-        .is_ok_and(|re| re.is_match(after));
+        .is_ok_and(|re| re.is_match(after))
+            // `(Items) is null`: a keyword after the bracket, not a value being cast.
+            && !Regex::new(r"^[^)]*\)\s*(?:is|as|switch|with|and|or|when)\b")
+                .is_ok_and(|re| re.is_match(after));
         let opens = !pre.ends_with([')', ']', '>'])
             && (!pre.ends_with(ident)
                 || ["return", "await", "throw"].iter().any(|k| keyword(pre, k)));
