@@ -134,6 +134,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   does not declare, a MAUI `Label`'s `Text` or an EF `DbContext`'s `SaveChangesAsync`, says `no
   definition` instead of offering or jumping to the project's namesakes, unless the project
   declares an extension method for it. (#352)
+- `d` in Swift offers only what the compiler sees from the cursor. A file of the library no
+  longer offers a declaration of a test target (`.testTarget(` in `Package.swift`, or `Tests/`
+  with no manifest), another file's `private` or `fileprivate`, a type declared inside another
+  function, or a nested `PathMonitor.Result` for a bare `Result` outside `PathMonitor`: `d` on
+  `Result<Int, Error>` says `no definition for Result` where it jumped to the nested one. A
+  generic parameter binds its name, so `Value` in `struct StreamPublisher<Value: Sendable>`
+  lands on that header, `Value: local`, where it jumped to a namesake inside a test. Inside a
+  function nested in another, the outer function's locals and parameters are found too. (#375,
+  #564)
 
 ### Fixed
 

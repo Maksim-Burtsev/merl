@@ -1091,3 +1091,43 @@ fn c_receiver_cuts_at_a_character() {
         Some(("bar".to_owned(), false, vec![]))
     );
 }
+
+/// #375: the test targets come from `Package.swift`, read, never run: a `path:`, else
+/// `Tests/<name>`; with no manifest, `Tests`.
+#[test]
+fn swift_test_targets_come_from_the_manifest() {
+    let dir = std::env::temp_dir().join(format!("merl-swift-tests-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    assert_eq!(swift_test_dirs(&dir), [PathBuf::from("Tests")]);
+    std::fs::write(
+        dir.join("Package.swift"),
+        r#"let package = Package(
+    name: "App",
+    targets: [
+        .target(name: "App"),
+        .testTarget(name: "AppTests", dependencies: ["App"]),
+        .testTarget(
+            name: "Checks",
+            dependencies: ["App"],
+            path: "./Checks/Unit"
+        ),
+    ]
+)
+"#,
+    )
+    .unwrap();
+    assert_eq!(
+        swift_test_dirs(&dir),
+        [
+            PathBuf::from("Tests/AppTests"),
+            PathBuf::from("Checks/Unit")
+        ]
+    );
+    std::fs::write(
+        dir.join("Package.swift"),
+        "let package = Package(name: \"App\")\n",
+    )
+    .unwrap();
+    assert!(swift_test_dirs(&dir).is_empty());
+    std::fs::remove_dir_all(&dir).unwrap();
+}

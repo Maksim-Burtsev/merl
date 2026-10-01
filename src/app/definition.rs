@@ -453,14 +453,15 @@ impl App {
         // declaration on the same line, a lambda's parameter inside that lambda, is bound there
         // too (#345), and so is a Go parameter used in a body on its function's line (#524). A
         // Rust local the cursor's own line binds is one too: a closure `|w| w`, an
-        // arm, the parameter or the `let` itself (#353).
+        // arm, the parameter or the `let` itself (#353). So is a Swift generic parameter used on
+        // its header's line, `func f<T>(_ x: T)` (#375).
         let on_itself = match kind {
             Kind::C => search::c_bindings_at(&text, self.line + 1, first)
                 .iter()
                 .all(|&(l, c)| l == self.line + 1 && c == range.start),
             _ => locals == [self.line + 1],
         };
-        let same_line = kind == Kind::Jvm
+        let same_line = (kind == Kind::Jvm || (kind == Kind::Swift && !declared))
             && locals == [self.line + 1]
             && whole_at(self.line_str(), &word, "").is_some_and(|at| at < range.start);
         let own_line = go_own
@@ -1552,6 +1553,9 @@ impl App {
                 hits = kept;
             }
         }
+        if kind == Kind::Swift && !dotted && chain.is_empty() {
+            self.swift_nested_unseen(&mut hits);
+        }
         // A Lua `local` inside a block is seen by that block alone, where the bindings above
         // found it already: anywhere else, and behind a dot, it is no candidate (#461). What is
         // left was a namesake beside it on master, and is offered, never jumped to. The cursor's
@@ -2154,73 +2158,6 @@ impl App {
             .collect();
         self.offer_only |= kept.len() == 1 && kept.len() < all && !seen_local;
         kept
-    }
-
-    /// What a bare Swift `word` names among the members of the type whose body holds the cursor
-    /// (#380): what its body and every extension of it declare, `via self: Type`; else, for a
-    /// class, what the class its header extends first declares, when the project declares that
-    /// as a class once, and so on up. `None` when none of them does, and in an extension a
-    /// `where` constrains, whose members may be another type's.
-    fn swift_self_members(
-        &self,
-        here: &Path,
-        text: &str,
-        word: &str,
-        pattern: &str,
-    ) -> Option<Vec<Candidate>> {
-        let lines: Vec<&str> = text.lines().collect();
-        let literal = search::literal_lines(Kind::Swift, text);
-        let at = search::swift_enclosing_type(&lines, &literal, self.line + 1)?;
-        let (mut keyword, own, mut base, constrained) = search::swift_type_header(lines[at - 1])?;
-        if constrained {
-            return None;
-        }
-        // A cut in a grep whose result is dropped says nothing about the list shown in the end.
-        let cut = self.truncated.get();
-        let hits = self.project_definitions(Kind::Swift, here, word, pattern);
-        let mut ty = own.clone();
-        let mut seen = HashSet::from([own.clone()]);
-        loop {
-            let full = format!("{ty}.{word}");
-            let found: Vec<Candidate> = hits
-                .iter()
-                .filter(|h| {
-                    self.text_of(&h.path)
-                        .and_then(|t| search::qualified(Kind::Swift, &t, h.line, word))
-                        .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")))
-                })
-                .map(|h| Candidate {
-                    hit: h.clone(),
-                    reason: Reason::Receiver(format!("self: {own}")),
-                })
-                .collect();
-            if !found.is_empty() {
-                return Some(found);
-            }
-            let next = match (keyword.as_str(), base) {
-                ("class", Some(next)) if seen.insert(next.clone()) => next,
-                _ => {
-                    self.truncated.set(cut);
-                    return None;
-                }
-            };
-            let classes: Vec<_> = self
-                .project_definitions(
-                    Kind::Swift,
-                    here,
-                    &next,
-                    &search::def_patterns(Kind::Swift, &next).join("|"),
-                )
-                .iter()
-                .filter_map(|h| search::swift_type_header(&h.text))
-                .filter(|(k, n, ..)| k == "class" && *n == next)
-                .collect();
-            let [(k, _, b, _)] = classes.as_slice() else {
-                self.truncated.set(cut);
-                return None;
-            };
-            (keyword, base, ty) = (k.clone(), b.clone(), next);
-        }
     }
 
     /// What a bare `word` names among the members of the Java or Kotlin classes around the
@@ -2912,6 +2849,9 @@ impl App {
                 self.note_cut(&hits);
                 hits.retain(|h| recipe(h).is_none());
             }
+        }
+        if kind == Kind::Swift {
+            self.swift_unseen(here, &mut hits);
         }
         // A Shell `local` belongs to its function: no candidate from any other (#470).
         if kind == Kind::Shell {

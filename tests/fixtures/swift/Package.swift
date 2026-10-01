@@ -6,5 +6,6 @@ let package = Package(
     targets: [
         .target(name: "Warehouse"),
         .target(name: "Shop", dependencies: ["Warehouse"]),
+        .testTarget(name: "ShopTests", dependencies: ["Shop"]),
     ]
 )

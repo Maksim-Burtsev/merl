@@ -145,7 +145,7 @@ let amount: Priced.Type? = nil
 //                 ^ d: none
 
 func cheapest<Item: Priced>(_ items: [Item]) -> Item? {
-    //                                ^ d: none; want Sources/Shop/Basket.swift:147 (#375)
+    //                                ^ d: Sources/Shop/Basket.swift:147
     items.first
 }
 
