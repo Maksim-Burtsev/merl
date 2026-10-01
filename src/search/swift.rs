@@ -72,6 +72,11 @@ fn swift_header_start<S: AsRef<str>>(lines: &[S], literal: &[bool], mut i: usize
         i = j;
     }
 }
+pub fn swift_local_decl(line: &str, name: &str) -> bool {
+    SWIFT_LOCAL_DECL
+        .captures(&uncommented(Kind::Swift, line))
+        .is_some_and(|c| &c[1] == name)
+}
 /// Where 1-based `line` of a Swift file sits, told by indentation (#371): the 1-based line of the
 /// nearest `func`, `init`, `subscript`, `deinit` or accessor around it, or of a type's header when
 /// that comes first, or 0 at the top of the file; and whether a `let` or a `var` there is a local,
@@ -289,13 +294,17 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
     // A generic parameter of a type, `func`, `init`, `subscript` or `typealias` header binds its
     // name for the declaration (#375): `func f<T>(_ x: T)` on the cursor's own line too.
     let generic = |text: &str| swift_generics(text).iter().any(|g| g == name);
-    let local_decl = |t: &str| SWIFT_LOCAL_DECL.captures(t).is_some_and(|c| &c[1] == name);
-    let below = |depth: usize| {
-        (at + 1..lines.len())
+    let decls = |open: usize, depth: usize| {
+        let lines: Vec<usize> = (open + 1..lines.len())
             .filter(|&j| swift_code(lines, &literal, j))
             .take_while(|&j| indent(lines[j]) >= depth)
-            .find(|&j| indent(lines[j]) == depth && local_decl(&code(j)))
-            .map(|j| j + 1)
+            .filter(|&j| indent(lines[j]) == depth && swift_local_decl(lines[j], name))
+            .collect();
+        let bindings = lines.iter().map(|&j| Binding {
+            line: j + 1,
+            value: Value::Unknown,
+        });
+        Some(bindings.collect::<Vec<_>>()).filter(|b| !b.is_empty() && !lines.contains(&at))
     };
     if generic(&code(at)) {
         return found(at + 1);
@@ -330,7 +339,7 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
                     written(i, end, &word),
                 )
             } else {
-                (Some(local_decl(&t)), i + 1)
+                (Some(false), 0)
             };
             match binds {
                 None => return None,
@@ -342,6 +351,7 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         let body = depth;
         depth = indent(lines[i]);
         let end = i;
+        let local = decls(end, body);
         i = swift_header_start(lines, &literal, i);
         let head = code(i);
         let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
@@ -352,8 +362,11 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             };
         }
         if SWIFT_FUNC.is_match(&head) {
-            if let Some(line) = pending.or_else(|| below(body)) {
+            if let Some(line) = pending {
                 return found(line);
+            }
+            if local.is_some() {
+                return local;
             }
             // Parameters wrapped over the lines under the header's first go on to its `{`.
             let end = (end..at).find(|&j| code(j).ends_with('{')).unwrap_or(end);
@@ -382,8 +395,11 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
                 false => (!unproven).then(Vec::new),
             };
         }
-        if let Some(line) = pending.or_else(|| below(body)) {
+        if let Some(line) = pending {
             return found(line);
+        }
+        if local.is_some() && !head.starts_with("where ") {
+            return local;
         }
         match swift_header_binds(&head, &text, &code(end), name) {
             None => return None,

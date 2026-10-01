@@ -272,8 +272,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   constant when no type of that name is in sight. It said `no definition for Max`. (#581)
 - `d` in Swift on a call of a local function or type, `vent()` under `func vent() {}` declared
   inside the method, lands on that local declaration, `(local)`, from the method's body and from
-  a function nested in it, whether it is declared above the call or below. It jumped to the
-  type's member of the same name through `self`, or offered both. (#577)
+  a function nested in it, whether it is declared above the call or below; two local overloads
+  are offered together. It jumped to the type's member of the same name through `self`, or
+  offered both. (#577)
 
 ## [0.8.0] - 2026-10-01
 

@@ -74,3 +74,91 @@ final class Damper {
         struct Plate {}
     }
 }
+
+// Local overloads are all offered, a local type of every keyword binds, and a local type in front
+// of a dot still leads to its member (#577).
+final class Lathe {
+    func shave() {}
+    struct Anvil {}
+    enum Heat { case low }
+    struct Slag {}
+
+    func turn() {
+        func shave() {}
+        func shave(_ x: Int) {}
+        shave()
+        // ^ d: picker Sources/Shop/Scopes.swift:87, Sources/Shop/Scopes.swift:88
+        //   status: local, 2 declarations
+        class Anvil {}
+        enum Heat { case high }
+        actor Ingot {}
+        typealias Slag = Int
+        _ = Anvil()
+        //  ^ d: Sources/Shop/Scopes.swift:92
+        //    status: (local)
+        _ = Heat.high
+        //  ^ d: Sources/Shop/Scopes.swift:93
+        let s: Slag = 1
+        //     ^ d: Sources/Shop/Scopes.swift:95
+        _ = (s, Ingot())
+        //      ^ d: Sources/Shop/Scopes.swift:94
+    }
+}
+
+protocol Caster {
+    static func cast() -> Self
+}
+
+final class Forge {
+    func strike() {
+        struct Bar: Caster {
+            static func cast() -> Bar { Bar() }
+        }
+        _ = Bar.cast()
+        //      ^ d: Sources/Shop/Scopes.swift:115
+        //        status: via Bar
+    }
+}
+
+// A local `func` binds in its own block only: not in a sibling method, not from an inner block,
+// and from a block below the cursor too (#577).
+final class Whetstone {
+    func cool() {}
+    func buff() {}
+
+    func quench() {
+        cool()
+        // ^ d: Sources/Shop/Scopes.swift:126
+        //   status: via self: Whetstone
+    }
+
+    func temper() {
+        func cool() {}
+        cool()
+    }
+
+    func hone(_ on: Bool) {
+        cool()
+        // ^ d: Sources/Shop/Scopes.swift:126
+        if on {
+            func cool() {}
+            buff()
+            // ^ d: Sources/Shop/Scopes.swift:147
+            func buff() {}
+        }
+    }
+}
+
+struct Bobbin<T> {
+    func wind(_ x: Int) {}
+}
+
+extension Bobbin
+where T: Equatable {
+    func wind() {}
+    func spool() {
+        wind()
+        // ^ d: picker Sources/Shop/Scopes.swift:153, Sources/Shop/Scopes.swift:158
+        //   status: by name
+    }
+}
