@@ -252,11 +252,10 @@ impl App {
     pub(super) fn c_members(&mut self, here: &Path, word: &str, called: bool) -> Vec<Candidate> {
         // `self.word` in Objective-C reads a property, or calls a getter (#417), which no C
         // line declares.
-        let mut pattern = format!(
-            "{}|{}",
-            search::c_field_pattern(word),
-            search::objc_member(word)
-        );
+        let mut pattern = search::c_field_pattern(word);
+        if self.objc_file() {
+            pattern = format!("{pattern}|{}", search::objc_member(word));
+        }
         if called {
             pattern = format!(
                 r"{pattern}|{}|{}",
@@ -303,7 +302,7 @@ impl App {
         let method = re(method_pattern(word));
         let declared = re(search::c_member_decl(Some(word)));
         let pointer = re(format!(r"\(\s*\*+\s*{w}\s*\)"));
-        let member = re(search::objc_member(word));
+        let (member, objc) = (re(search::objc_member(word)), self.objc_file());
         let mut rows = Vec::new();
         let mut files: Vec<(PathBuf, Vec<Hit>)> = Vec::new();
         for h in hits {
@@ -324,7 +323,7 @@ impl App {
                         rows.push((h, owner.clone()))
                     }
                     None if called && method.is_match(&h.text) => rows.push((h, String::new())),
-                    None if member.is_match(&h.text) => rows.push((h, String::new())),
+                    None if objc && member.is_match(&h.text) => rows.push((h, String::new())),
                     // A member declared with no body, a pure virtual among them (#373).
                     None if called
                         && declared.is_match(&h.text)
@@ -374,13 +373,17 @@ impl App {
         self.external_files(Kind::C);
         let mode = (self.c_source(), self.objc_file());
         let source = mode.0;
-        let roots = (self.external.get(&Kind::C))
+        let all = (self.external.get(&Kind::C))
             .map(|(roots, _)| roots.clone())
             .unwrap_or_default();
         // An Objective-C file's `<Foundation/NSString.h>` is a framework's
-        // `Foundation.framework/Headers/NSString.h`, as the walk spells it (#417).
-        let frameworks: Vec<&PathBuf> = (roots.iter())
-            .filter(|r| mode.1 && search::objc_frameworks(r))
+        // `Foundation.framework/Headers/NSString.h`, as the walk spells it, and its `<…>` reaches
+        // `Pods/` too; a C or C++ file's reaches neither (#417).
+        let (frameworks, roots): (Vec<PathBuf>, Vec<PathBuf>) =
+            (all.into_iter()).partition(|r| search::objc_frameworks(r));
+        let frameworks = if mode.1 { frameworks } else { Vec::new() };
+        let roots: Vec<PathBuf> = (roots.into_iter())
+            .filter(|r| mode.1 || !search::objc_root(r))
             .collect();
         let dirs: Vec<PathBuf> = match source {
             true => roots.clone(),

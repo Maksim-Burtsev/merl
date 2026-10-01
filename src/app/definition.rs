@@ -2797,22 +2797,6 @@ impl App {
         self.note_cut(&hits);
         hits
     }
-
-    /// Of `hits` of the [`search::def_patterns`] of `word`, the lines that declare it where they
-    /// sit ([`search::declares_where`]).
-    pub(super) fn declaring(&self, kind: Kind, word: &str, mut hits: Vec<Hit>) -> Vec<Hit> {
-        // One file holds thousands of GraphQL `id` fields, so each file is split once.
-        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
-        hits.retain(|h| {
-            search::declares_where(kind, &h.path, word, h.line, &h.text, || {
-                lines.entry(h.path.clone()).or_insert_with(|| {
-                    self.text_of(&h.path)
-                        .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
-                })
-            })
-        });
-        hits
-    }
 }
 
 /// The name `word` is declared by on the line `text`: itself, or for a Java Lombok accessor

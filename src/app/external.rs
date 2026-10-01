@@ -590,6 +590,25 @@ impl App {
             .is_some_and(|p| search::objc_file(p, || self.buf.lines.join("\n")))
     }
 
+    /// Of `hits` of the [`search::def_patterns`] of `word`, the lines that declare it where they
+    /// sit ([`search::declares_where`]). An Objective-C line declares for an Objective-C file
+    /// alone: a C++ `load` is no `+ (void)load;` of `objc/NSObject.h` (#417).
+    pub(super) fn declaring(&self, kind: Kind, word: &str, mut hits: Vec<Hit>) -> Vec<Hit> {
+        // One file holds thousands of GraphQL `id` fields, so each file is split once.
+        let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
+        let objc_only = (kind == Kind::C && !self.objc_file()).then(|| search::objc_only(word));
+        hits.retain(|h| {
+            objc_only.as_ref().is_none_or(|only| !only(&h.text))
+                && search::declares_where(kind, &h.path, word, h.line, &h.text, || {
+                    lines.entry(h.path.clone()).or_insert_with(|| {
+                        self.text_of(&h.path)
+                            .map_or_else(Vec::new, |t| t.lines().map(str::to_owned).collect())
+                    })
+                })
+        });
+        hits
+    }
+
     /// The text of `path` as the search read it: the open file as it is on screen.
     pub(super) fn text_of(&self, path: &Path) -> Option<String> {
         if self.rel_current().as_deref() == Some(path) {

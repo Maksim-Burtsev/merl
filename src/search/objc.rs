@@ -59,6 +59,30 @@ pub fn objc_for_in(inner: &str, name: &str) -> Option<usize> {
     Some(re.captures(inner)?.get(1)?.start())
 }
 
+/// Whether a line a C-kind pattern of `word` matched is Objective-C's alone: an Objective-C
+/// pattern matches it and no C or C++ one does. The regexes are built on the first line that
+/// could be one.
+pub fn objc_only(word: &str) -> impl Fn(&str) -> bool {
+    let word = word.to_owned();
+    let res = std::sync::OnceLock::new();
+    move |line: &str| {
+        let t = line.trim_start();
+        let typedef = t.starts_with("typedef")
+            && (t.contains('^') || ["NS_", "CF_", "API_"].iter().any(|m| t.contains(m)));
+        if !(t.starts_with(['@', '-', '+']) || typedef) {
+            return false;
+        }
+        let (objc, c): &(Regex, Regex) = res.get_or_init(|| {
+            let all = super::def_patterns(super::Kind::C, &word);
+            let own = objc_patterns(&word);
+            let c = &all[..all.len() - own.len()];
+            let re = |p: &[String]| Regex::new(&p.join("|")).expect("escaped names compile");
+            (re(&own), re(c))
+        });
+        objc.is_match(line) && !c.is_match(line)
+    }
+}
+
 /// A property named `word`: what `self.word` reads, as a C field is what `x.word` does.
 pub fn objc_property(word: &str) -> String {
     let w = regex::escape(word);
