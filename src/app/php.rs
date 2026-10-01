@@ -75,9 +75,10 @@ impl App {
     /// name resolved as PHP resolves it ([`search::php_resolve`]), and the file the map puts it
     /// in. When that file declares the class, the answer is its header, or `word` looked up in
     /// it as [`Self::php_walk`] does. A name the map does not cover is outside the project: the
-    /// class in `vendor/` is read first. `None` leaves the word to the other rules: no map, a
-    /// mapped file missing or declaring something else, a member found nowhere in the project,
-    /// a name outside that `vendor/` does not declare.
+    /// class in `vendor/`, in its own namespace, is read first. `None` leaves the word to the
+    /// other rules: no map, a name a group `use` binds, a mapped file missing or declaring
+    /// something else, a member found nowhere on the walk, a name outside whose class `vendor/`
+    /// does not declare it in.
     fn php_named(
         &mut self,
         here: &Path,
@@ -92,7 +93,7 @@ impl App {
         if map.is_empty() {
             return None;
         }
-        let (full, used) = search::php_resolve(text, &written);
+        let (full, used) = search::php_resolve(text, &written)?;
         let (ns, short) = match full.rsplit_once('\\') {
             Some((ns, short)) => (ns, short),
             None => ("", full.as_str()),
@@ -110,8 +111,16 @@ impl App {
                     true => (word, vec![short.to_owned()]),
                     false => (short.to_owned(), Vec::new()),
                 };
-                let found =
-                    self.external_definitions(Kind::Php, &word, &chain, false, &imports, true)?;
+                // Only the class itself: a hit by name, or one of another namespace, is no proof.
+                let found: Vec<Candidate> = self
+                    .external_definitions(Kind::Php, &word, &chain, false, &imports, true)?
+                    .into_iter()
+                    .filter(|c| {
+                        c.reason.proven()
+                            && std::fs::read_to_string(&c.hit.path)
+                                .is_ok_and(|t| search::php_namespace(&t).unwrap_or_default() == ns)
+                    })
+                    .collect();
                 return (!found.is_empty()).then_some(found);
             }
         };
@@ -127,7 +136,7 @@ impl App {
         }
         let reason = match used {
             true => Reason::Import(path.display().to_string()),
-            false if member => Reason::Path(short.to_owned()),
+            false if member || ns.is_empty() => Reason::Path(short.to_owned()),
             false => Reason::Path(ns.to_owned()),
         };
         let found = match member {
@@ -142,8 +151,8 @@ impl App {
                 let re = Regex::new(&search::php_access_patterns(&word, access).join("|")).ok()?;
                 match self.php_walk(&path, &t, class, &re, 0, &mut Vec::new()) {
                     Walk::Found(hits) => hits,
-                    Walk::Nowhere(true) => Vec::new(),
-                    Walk::Nowhere(false) | Walk::Unread => return None,
+                    // Nothing read says it is not there: `__callStatic`, a `vendor/` not installed.
+                    Walk::Nowhere(_) | Walk::Unread => return None,
                 }
             }
         };
@@ -270,29 +279,32 @@ impl App {
         seen: &mut Vec<(PathBuf, usize)>,
     ) -> Walk {
         let (full, mut matching) = self.php_class(from, text, name);
-        let short = full.rsplit('\\').next().unwrap_or(&full);
+        let short = full.as_deref().unwrap_or(name);
+        let short = short.rsplit('\\').next().unwrap_or(short);
         match matching.len() {
             1 => {
                 let (path, t, line) = matching.remove(0);
                 self.php_walk(&path, &t, line, re, depth, seen)
             }
-            0 => self.php_outside(&full, short, re),
+            0 => self.php_outside(full.as_deref(), short, re),
             _ => Walk::Unread,
         }
     }
 
     /// The project's declarations of the class `name` as the file `from` (its `text`) writes
-    /// it, resolved as PHP resolves it ([`search::php_resolve`], #351). Each is its file, the
-    /// file's text and its 0-based line; the full name comes first.
+    /// it, resolved as PHP resolves it ([`search::php_resolve`], #351), else, for a name a group
+    /// `use` binds, every one of that name. Each is its file, the file's text and its 0-based
+    /// line; the full name comes first, when the file resolves it.
     fn php_class(
         &mut self,
         from: &Path,
         text: &str,
         name: &str,
-    ) -> (String, Vec<(PathBuf, String, usize)>) {
+    ) -> (Option<String>, Vec<(PathBuf, String, usize)>) {
         let kind = Kind::Php;
-        let (full, _) = search::php_resolve(text, name);
-        let short = full.rsplit('\\').next().unwrap_or(&full);
+        let full = search::php_resolve(text, name).map(|(full, _)| full);
+        let short = full.as_deref().unwrap_or(name);
+        let short = short.rsplit('\\').next().unwrap_or(short);
         let pattern = format!(
             r"^\s*(?:(?:abstract|final|readonly)\s+)*(?:class|trait|interface|enum)\s+{}\b",
             regex::escape(short)
@@ -313,7 +325,7 @@ impl App {
                 let t = self.text_of(&h.path)?;
                 // A header inside a `/* */` block or a heredoc declares nothing (#361).
                 let code = search::literal_lines(kind, &t).get(h.line - 1) != Some(&true);
-                let fits = namespaced(&t) == full;
+                let fits = full.as_ref().is_none_or(|f| namespaced(&t) == *f);
                 (code && fits).then_some((h.path, t, h.line - 1))
             })
             .collect();
@@ -515,9 +527,9 @@ impl App {
     }
 
     /// The members `re` matches of the class `short` outside the project, in `vendor/`: its
-    /// `short.php`, narrowed to the one declaring the namespace of `full`. What the class
-    /// inherits there is not read.
-    fn php_outside(&mut self, full: &str, short: &str, re: &Regex) -> Walk {
+    /// `short.php`, narrowed to the one declaring the namespace of `full` when the file resolves
+    /// it. What the class inherits there is not read.
+    fn php_outside(&mut self, full: Option<&str>, short: &str, re: &Regex) -> Walk {
         let file = format!("{short}.php");
         let files: Vec<PathBuf> = self
             .external_files(Kind::Php)
@@ -535,7 +547,7 @@ impl App {
                 "" => short.to_owned(),
                 _ => format!("{ns}\\{short}"),
             };
-            if full != named {
+            if full.is_some_and(|f| f != named) {
                 continue;
             }
             let lines: Vec<&str> = t.lines().collect();

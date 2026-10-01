@@ -748,7 +748,7 @@ fn php_class_names_resolve_and_map_to_files() {
     assert_eq!(at("        Song::class;", "class"), None);
 
     let text = "<?php\nnamespace App\\Repos;\n\nuse App\\Models\\Song;\nuse App\\Models\\Album as Record;\nuse App\\Http\\{Kernel, Request};\nuse function App\\helpers\\Tag;\n";
-    let resolve = |w: &str| php_resolve(text, w);
+    let resolve = |w: &str| php_resolve(text, w).unwrap();
     assert_eq!(resolve("Song"), ("App\\Models\\Song".into(), true));
     assert_eq!(resolve("Record"), ("App\\Models\\Album".into(), true));
     assert_eq!(
@@ -756,10 +756,11 @@ fn php_class_names_resolve_and_map_to_files() {
         ("App\\Models\\Song\\Part".into(), true)
     );
     assert_eq!(resolve("\\Other\\Song"), ("Other\\Song".into(), false));
-    // A group `use` and `use function` bind no class: the namespace does.
-    assert_eq!(resolve("Kernel"), ("App\\Repos\\Kernel".into(), false));
+    // A group `use` is not read, and `use function` binds no class.
+    assert_eq!(php_resolve(text, "Kernel"), None);
+    assert_eq!(php_resolve(text, "Request\\Part"), None);
     assert_eq!(resolve("Tag"), ("App\\Repos\\Tag".into(), false));
-    assert_eq!(php_resolve("<?php\n", "Song"), ("Song".into(), false));
+    assert_eq!(php_resolve("<?php\n", "Song"), Some(("Song".into(), false)));
 
     let dir = std::env::temp_dir().join(format!("merl-psr4-{}", std::process::id()));
     std::fs::create_dir_all(dir.join("api")).unwrap();

@@ -412,16 +412,16 @@ A PHP class name, and `Class::word`, follow Composer's PSR-4 map (#351): the `au
 reads a class name (before `::`, after `new`, `extends`, `implements`, `instanceof` or `catch (`,
 a type hint, a return type, the last part of a `use` line), the name resolves as PHP resolves it:
 through the file's column-0 `use` (`use A\B\C;`, `use A\B\C as D;`), else a leading `\` spells it in
-full, else the file's `namespace` goes in front of it. A group `use A\{B, C}`, `use function` and
-`use const` bind no class, and a function or a constant keeps the search by name, since PHP falls
-back to the global namespace for those. The map names the file, `App\Models\Song` in
+full, else the file's `namespace` goes in front of it. A name a group `use A\{B, C}` binds is
+left to the search by name, `use function` and `use const` bind no class, and a function or a
+constant keeps the search by name, since PHP falls back to the global namespace for those. The map names the file, `App\Models\Song` in
 `app/Models/Song.php`; when that file declares the class, `d` lands on it, `Song: via import
 app/Models/Song.php`, or walks it for the member as `$this` is walked above: `query → Song::query
 (via import app/Models/Song.php)`, and `toArray → AlbumResource::toArray (via AlbumResource)` for
 a class of the file's own namespace, whichever other `AlbumResource` the project has. A mapped file
-that is missing or declares something else (a classmap directory) leaves the word to the search
-by name. A name the map does not cover is outside the project: its class in `vendor/` is read
-first, `get → Arr::get (via import Illuminate/Support/Arr)` behind `use Illuminate\Support\Arr;`
+that is missing or declares something else (a classmap directory), and a member the walk finds
+nowhere (Eloquent's `where`, which `__callStatic` forwards), leave the word to the search by name. A name the map does not cover is outside the project: its class in `vendor/`, in its
+own namespace, is read first, `get → Arr::get (via import Illuminate/Support/Arr)` behind `use Illuminate\Support\Arr;`
 whatever `get` the project has, and the search by name follows when `vendor/` has nothing. The
 empty prefix `""` maps any name, so it covers only a name whose file is there.
 

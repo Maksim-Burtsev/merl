@@ -320,13 +320,16 @@ pub fn php_class_at(line: &str, range: Range<usize>) -> Option<(String, bool)> {
 /// The fully qualified name, with no leading `\`, of the class `written` names in the file
 /// `text`, as PHP resolves it, and whether a `use` bound it (#351): a leading `\` spells it in
 /// full, else the file's column-0 `use` that binds its first part (`use A\B\C;`, `use A\B\C as
-/// D;`; a group `use A\{B, C}`, `use function` and `use const` bind no class), else the file's
-/// namespace in front of it.
-pub fn php_resolve(text: &str, written: &str) -> (String, bool) {
+/// D;`; `use function` and `use const` bind no class), else the file's
+/// namespace in front of it. `None` for a name a group `use` binds: one clause binds several
+/// names there, and the rules do not read it.
+pub fn php_resolve(text: &str, written: &str) -> Option<(String, bool)> {
     static USE: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"(?m)^use\s+([\w\\\s,]+?)\s*;").unwrap());
+    static GROUP: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?m)^use\s+[^;{]*\{([^}]*)\}").unwrap());
     if let Some(full) = written.strip_prefix('\\') {
-        return (full.to_owned(), false);
+        return Some((full.to_owned(), false));
     }
     let (first, rest) = match written.split_once('\\') {
         Some((first, rest)) => (first, Some(rest)),
@@ -347,14 +350,24 @@ pub fn php_resolve(text: &str, written: &str) -> (String, bool) {
             };
             (alias == first).then(|| path.trim_start_matches('\\').to_owned())
         });
+    let grouped = || {
+        GROUP.captures_iter(text).any(|c| {
+            c[1].split(',').any(|item| {
+                let item = item.trim();
+                let alias = item.split_once(" as ").map_or(item, |(_, a)| a.trim());
+                alias.rsplit('\\').next() == Some(first)
+            })
+        })
+    };
     let tail = rest.map_or(String::new(), |r| format!("\\{r}"));
-    match used {
+    Some(match used {
         Some(path) => (format!("{path}{tail}"), true),
+        None if grouped() => return None,
         None => match php_namespace(text) {
             Some(ns) => (format!("{ns}\\{written}"), false),
             None => (written.to_owned(), false),
         },
-    }
+    })
 }
 
 /// The `autoload` and `autoload-dev` PSR-4 entries of the nearest `composer.json` above the
